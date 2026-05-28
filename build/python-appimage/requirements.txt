@@ -1,0 +1,13 @@
+# Runtime deps bundled into the AppImage. Versions track DEPENDENCIES.md.
+#
+# `--find-links .` tells pip to look inside this recipe directory for
+# wheels — that's how the locally-built whipper_gui-X.Y.Z-*.whl gets
+# picked up. The `whipper-gui` line below requests our package by name,
+# which pip then resolves to that local wheel rather than going to PyPI.
+
+--find-links .
+
+PySide6>=6.7,<7
+musicbrainzngs==0.7.1
+tomli-w>=1.0,<2
+whipper-gui
