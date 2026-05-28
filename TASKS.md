@@ -59,9 +59,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: All three resolvers share `resolve(items: list[MissingItem]) -> list[InstallResult]`. AutoInstaller runs the spec's `install_command` via subprocess after a consent callback (default refuses). QueuedInstaller reuses AutoInstaller's machinery for the actual install — the dialog callback just chooses which items to install. ManualPrompt invokes a per-item callback and returns `success=False` for every item. All callbacks have logging-only defaults; T18/T19 will inject the Qt dialogs. 8 unit tests pass. Acceptance criterion corrected: dialog wiring is T18 (manual_install) and T19 (pending_installs), not T15/T16.
 
-- [ ] T09 — DependencyManager orchestrator (`deps/manager.py`)
+- [x] T09 — DependencyManager orchestrator (`deps/manager.py`)
       Acceptance: `DependencyManager.check_all()` walks the registry, classifies, dispatches to resolvers, returns a `DependencyReport`. Idempotent. Unit-tested with mocked probes in `tests/test_dependency_manager.py`.
       Phase: P0
+      Done: `DependencyManager` accepts injected resolvers and an optional spec list (defaults to `registry.SPECS`). `check_all()` is pure (no resolution); `resolve_missing(report)` dispatches by tier and cascades to `spec.fallback_tiers` on failure. `DependencyReport.all_resolved` summarizes status. 9 unit tests pass, including a no-args construction that exercises the real registry against the live system. Test file is `tests/test_deps_manager.py` (kept consistent with the test naming pattern `test_deps_*.py`).
 
 ### Adapters
 
