@@ -1,0 +1,183 @@
+"""Tests for whipper_gui.ui.disc_info_panel."""
+
+from __future__ import annotations
+
+from PySide6.QtWidgets import QApplication
+
+from whipper_gui.adapters.musicbrainz_client import ReleaseSummary
+from whipper_gui.parsers.cd_info import DiscInfo
+from whipper_gui.ui.disc_info_panel import DiscInfoPanel
+
+
+def _release(
+    mbid: str = "x",
+    title: str = "Album",
+    artist: str = "Artist",
+) -> ReleaseSummary:
+    return ReleaseSummary(mbid=mbid, title=title, artist_credit=artist)
+
+
+# --- Initial state -------------------------------------------------------
+
+
+def test_default_state_shows_placeholders(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+
+    assert panel._drive_value.text() == "(no drive)"
+    assert panel._mb_id_value.text() == "—"
+    assert panel._cddb_id_value.text() == "—"
+    assert panel._mb_match_value.text() == "—"
+    assert panel._accuraterip_value.text() == "verified during rip"
+
+
+# --- Drive selection -----------------------------------------------------
+
+
+def test_set_drive_updates_label(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_drive("/dev/sr0")
+    assert panel._drive_value.text() == "/dev/sr0"
+
+
+def test_set_drive_none_shows_placeholder(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_drive("/dev/sr0")
+    panel.set_drive(None)
+    assert panel._drive_value.text() == "(no drive)"
+
+
+def test_set_drive_clears_disc_fields(qapp: QApplication) -> None:
+    """Switching drives must wipe the previously-loaded disc's info."""
+    panel = DiscInfoPanel()
+    panel.set_disc_info(
+        DiscInfo(
+            cddb_disc_id="abc",
+            musicbrainz_disc_id="mb-id",
+            musicbrainz_submit_url="",
+        )
+    )
+    panel.set_mb_matches([_release()])
+
+    panel.set_drive("/dev/sr1")
+
+    assert panel._mb_id_value.text() == "—"
+    assert panel._cddb_id_value.text() == "—"
+    assert panel._mb_match_value.text() == "—"
+
+
+# --- Disc info -----------------------------------------------------------
+
+
+def test_set_disc_info_loading_shows_status(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_disc_info_loading()
+
+    assert panel._mb_id_value.text() == "…"
+    assert panel._cddb_id_value.text() == "…"
+    assert panel._mb_match_value.text() == "reading disc…"
+
+
+def test_set_disc_info_populates_ids(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    info = DiscInfo(
+        cddb_disc_id="940A6A0B",
+        musicbrainz_disc_id="wzr8h2ssXg4F2.x8L3KqB9PHevc-",
+        musicbrainz_submit_url="https://example",
+    )
+    panel.set_disc_info(info)
+
+    assert panel._mb_id_value.text() == "wzr8h2ssXg4F2.x8L3KqB9PHevc-"
+    assert panel._cddb_id_value.text() == "940A6A0B"
+
+
+def test_set_disc_info_empty_ids_show_placeholder(
+    qapp: QApplication,
+) -> None:
+    panel = DiscInfoPanel()
+    info = DiscInfo()
+    panel.set_disc_info(info)
+
+    assert panel._mb_id_value.text() == "—"
+    assert panel._cddb_id_value.text() == "—"
+
+
+def test_set_disc_info_error_shows_message(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_disc_info_error("disc not present")
+    assert "disc not present" in panel._mb_match_value.text()
+
+
+# --- MusicBrainz match ---------------------------------------------------
+
+
+def test_set_mb_loading_shows_status(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_mb_loading()
+    assert panel._mb_match_value.text() == "querying MusicBrainz…"
+
+
+def test_set_mb_matches_empty_shows_not_in_database(
+    qapp: QApplication,
+) -> None:
+    panel = DiscInfoPanel()
+    panel.set_mb_matches([])
+    assert panel._mb_match_value.text() == "not in MusicBrainz"
+
+
+def test_set_mb_matches_single_shows_release_name(
+    qapp: QApplication,
+) -> None:
+    panel = DiscInfoPanel()
+    panel.set_mb_matches([_release(artist="Pink Floyd", title="Dark Side")])
+
+    text = panel._mb_match_value.text()
+    assert "1 match" in text
+    assert "Pink Floyd" in text
+    assert "Dark Side" in text
+
+
+def test_set_mb_matches_multiple_shows_count_and_hint(
+    qapp: QApplication,
+) -> None:
+    panel = DiscInfoPanel()
+    panel.set_mb_matches([_release(), _release(mbid="y"), _release(mbid="z")])
+    text = panel._mb_match_value.text()
+    assert "3 matches" in text
+    assert "pick" in text.lower()
+
+
+def test_set_mb_matches_handles_missing_metadata(
+    qapp: QApplication,
+) -> None:
+    panel = DiscInfoPanel()
+    panel.set_mb_matches([_release(title="", artist="")])
+    text = panel._mb_match_value.text()
+    assert "Unknown Title" in text
+    assert "Unknown Artist" in text
+
+
+def test_set_mb_error_shows_message(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_mb_error("network down")
+    text = panel._mb_match_value.text()
+    assert "network down" in text
+
+
+# --- Lifecycle: drive change after data ----------------------------------
+
+
+def test_set_drive_called_twice_resets_in_between(
+    qapp: QApplication,
+) -> None:
+    """A user changing drives mid-flow must always see a clean panel."""
+    panel = DiscInfoPanel()
+    panel.set_drive("/dev/sr0")
+    panel.set_disc_info(
+        DiscInfo(cddb_disc_id="aaa", musicbrainz_disc_id="bbb")
+    )
+    panel.set_drive("/dev/sr1")
+    panel.set_disc_info_loading()
+
+    # The previous disc's IDs must not leak.
+    assert "aaa" not in panel._cddb_id_value.text()
+    assert "bbb" not in panel._mb_id_value.text()
