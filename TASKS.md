@@ -221,6 +221,7 @@ Each is independent; do them in any order. They should land before the AppImage'
 
 Items that need real-system output to write authoritatively. Address as T32's smoke test on a real Bazzite system surfaces the actual output. Each is small (a paragraph or two of README) but writing them now would be guesswork.
 
+- **Verify Step 5 end-to-end with a real CD.** As of 2026-05-28 the install instructions have been walked through up to step 5 on Bazzite, but no commercial audio CD was on hand to run `whipper drive analyze` or `whipper offset find`. The user took the manual path (AccurateRip drive offset lookup, hand-edit `whipper.conf`). Once a CD is available, run both auto commands and confirm: (a) the auto path produces the same offset as the manual lookup, (b) the auto path's `whipper.conf` output matches the hand-edited format, (c) the manual-path section-header spacing convention documented in the README actually matches what whipper accepts.
 - **"You should see X" success indicators for `whipper drive analyze`.** Capture the verbatim output a successful run prints; add to Step 5 so users know what success looks like and can recognize a failure.
 - **Same for `whipper offset find`.** Capture the final "Read offset of drive is N samples" (or whatever it actually prints) message; add to Step 5.
 - **Drop the "Method C is the only working path right now" blockquote** once Method A's AppImage is published as a release artifact and Method B's wheel is on PyPI. Promote Method A back to the recommended path; reorder the methods so Method A leads.
