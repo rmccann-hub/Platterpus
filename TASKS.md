@@ -127,9 +127,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: Modal `SettingsDialog(config)` is a pure view — it doesn't read or write the config file. Form rows for all eight Config attributes (paths get a Browse… button; read_offset is a bounded QSpinBox; auto-launch-Picard is a checkbox). `to_config()` builds a new `Config` reflecting widget state and preserves the incoming `schema_version` (the dialog doesn't model migration). "Check dependencies" button emits `check_dependencies_requested` signal — caller wires it to `DependencyManager.check_all()`. Dialog stays open after the signal so the user can see results in a separate report and tweak settings. 11 unit tests pass. Also consolidated worker-test fixtures onto `qapp` (from conftest.py) since a process-wide QCoreApplication blocks later UI tests from creating QApplication.
 
-- [ ] T21 — Drive picker widget (`ui/drive_picker.py`)
+- [x] T21 — Drive picker widget (`ui/drive_picker.py`)
       Acceptance: combo box populated from `WhipperBackend.list_drives()`. Emits `drive_changed(device_path)`.
       Phase: P0
+      Done: `DrivePicker(backend)` is a horizontal panel: label + QComboBox + Refresh button. Construction does NOT call list_drives — the caller decides when (avoids surprise subprocess calls during widget construction). `refresh()` rebuilds the combo, preserves the prior selection if the same device is still present, falls back to the first drive otherwise. Errors from the backend show as an "(error: …)" placeholder rather than crashing — user can fix the path in Settings and refresh again. `drive_changed` emits exactly once per real selection change (signal-blocked during repopulation). 10 unit tests pass.
 
 - [ ] T22 — Disc info panel (`ui/disc_info_panel.py`)
       Acceptance: read-only panel showing TOC, MB match status, AccurateRip availability. Updates on `drive_changed`.
