@@ -147,9 +147,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: Composite widget with three album-level QLineEdits (artist/title/year) above a QTableView. Custom `TrackTableModel(QAbstractTableModel)` exposes 4 columns (#, Title, Artist, Length); Title and Artist are editable in-place, # and Length are read-only. Track length renders as MM:SS. `set_release(detail)` populates from MusicBrainz; `album_metadata()` and `tracks()` read back user edits (TrackSummary is frozen, so edits go through `dataclasses.replace`). `validate()` returns `(ok, message)` after checking that album artist/title aren't blank, at least one track exists, and every track has a title. `AlbumMetadata` frozen dataclass exposes the album-level edits. 22 unit tests pass (model behavior, editability flags, length formatting, set/clear/edit roundtrips, all four validate failure paths).
 
-- [ ] T25 — Rip controls widget (`ui/rip_controls.py`)
+- [x] T25 — Rip controls widget (`ui/rip_controls.py`)
       Acceptance: Start / Cancel buttons. On Start, assembles rip parameters and emits `rip_requested(params)`.
       Phase: P0
+      Done: `RipControls(config)` exposes Start + Cancel buttons. Three setter slots (`set_drive`, `set_release_id`, `set_unknown_mode`) accept state pushed in from the main window; `set_rip_active(bool)` toggles button enablement during a rip. Start enables when drive + release_id are present (or just drive in unknown mode). On Start click, assembles a `RipParameters` from current state + the injected `Config` (output_dir, templates) and emits `rip_requested(params)`. On Cancel click, emits `cancel_requested()`. 10 unit tests cover initial disabled state, enablement rules (with/without release_id, unknown mode, no drive), rip-active toggling, parameter assembly, unknown-flag passthrough, cancel signal, and state-clearing.
 
 - [ ] T26 — Rip progress widget (`ui/rip_progress.py`)
       Acceptance: live whipper stdout pane + per-track AccurateRip results table populated when the rip finishes + "View log" button.
