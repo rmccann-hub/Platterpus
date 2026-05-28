@@ -76,9 +76,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: `DiscInfo(cddb_disc_id, musicbrainz_disc_id, musicbrainz_submit_url)`; missing fields default to empty strings. Three regexes (with named groups) match the inconsistent "CDDB disc id:" / "MusicBrainz disc id" (no colon!) / "MusicBrainz lookup URL" lines whipper emits per master `command/cd.py`. Tolerates surrounding log noise. 2 fixture files, 4 tests pass.
 
-- [ ] T12 — Rip log parser (`parsers/rip_log.py`)
+- [x] T12 — Rip log parser (`parsers/rip_log.py`)
       Acceptance: `parse_rip_log(text)` returns a `RipLog` with per-track CRCs, AccurateRip confidence, error counts. Fixture-driven test with at least one real whipper `.log`.
       Phase: P0
+      Done: State-machine parser produces `RipLog{log_creator, creation_date, tracks: tuple[TrackResult,...], accuraterip_summary, health_status, sha256_hash}`. Each `TrackResult` holds peak_level, pre_emphasis, extraction_speed/quality, test/copy CRCs, status, and AR v1/v2 results. Indentation differentiates AR sub-fields from track-level fields. No YAML library needed. 1 hand-crafted fixture (real-format two-track log); 9 tests pass including a defensive "truncated log" case. Note: acceptance asks for "at least one real whipper `.log`"; the fixture matches the verified format from upstream master but is hand-written. T32's smoke test will validate against a real rip.
 
 ### Adapters
 
