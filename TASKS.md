@@ -105,9 +105,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: `RipWorker` QObject + frozen `RipParameters` dataclass. Signals: `log_line(str)`, `progress(int track, float percent)`, `finished(bool success, str log_path)`, `error(str)`. `start_rip` slot drives `WhipperBackend.rip()`, iterates `RipHandle.log_lines()`, emits progress when defensive regex matches. `cancel` slot is safe to call before start (just sets the flag) and after (forwards to handle). `_find_log_path()` locates the most recent `.log` under `output_dir` for the finished signal. 12 unit tests pass with a fake backend + handle. Progress regex deliberately permissive — T32 smoke test will tell us whether it needs tightening for real whipper output.
 
-- [ ] T17 — MusicBrainz worker (`workers/mb_worker.py`)
+- [x] T17 — MusicBrainz worker (`workers/mb_worker.py`)
       Acceptance: `MusicBrainzWorker(QObject)` runs `MusicBrainzClient` calls on a background `QThread`; emits `releases_returned` or `error`.
       Phase: P0
+      Done: `MusicBrainzWorker` exposes three slots — `lookup_disc_id(str)`, `lookup_toc(TocSignature)`, `fetch_release(str mbid)` — emitting `releases_returned(list)` for multi-result queries, `release_returned(object)` for the single-release fetch (using `object` so PySide doesn't require an explicit type registration for the ReleaseDetail dataclass), and `error(str)` on any `MusicBrainzQueryError`. One worker handles all three query types; slot serialization ensures queries don't interleave. 7 unit tests pass with a fake MusicBrainzClient covering success, error, and empty-result paths for all three slots.
 
 ### UI — dialogs first, then the main window assembles them
 
