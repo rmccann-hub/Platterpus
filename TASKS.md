@@ -64,32 +64,33 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: `DependencyManager` accepts injected resolvers and an optional spec list (defaults to `registry.SPECS`). `check_all()` is pure (no resolution); `resolve_missing(report)` dispatches by tier and cascades to `spec.fallback_tiers` on failure. `DependencyReport.all_resolved` summarizes status. 9 unit tests pass, including a no-args construction that exercises the real registry against the live system. Test file is `tests/test_deps_manager.py` (kept consistent with the test naming pattern `test_deps_*.py`).
 
-### Adapters
-
-- [ ] T10 — WhipperBackend ABC + host-exported impl (`adapters/whipper_backend.py`)
-      Acceptance: `WhipperBackend` ABC with all five methods from PLANNING.md §5. `WhipperHostExportedImpl` shells out to `~/.local/bin/whipper`. Tested with fixture-driven mocks in `tests/test_whipper_backend.py`.
-      Phase: P0
-
-- [ ] T11 — MusicBrainzClient ABC + ngs impl (`adapters/musicbrainz_client.py`)
-      Acceptance: ABC per PLANNING.md §6. `MusicBrainzNgsImpl` wraps `musicbrainzngs`. `set_user_agent` invoked at construction. Exceptions reraised as `MusicBrainzQueryError`. Tested with `musicbrainzngs` mocked.
-      Phase: P0
-
-- [ ] T12 — Metaflac adapter (`adapters/metaflac.py`)
-      Acceptance: `MetaflacAdapter.write_tags(flac_path, tags)` and `.read_tags(flac_path)` work via the `metaflac` CLI. Used by the unknown-album flow.
-      Phase: P0
-
 ### Parsers
 
-- [ ] T13 — Drive list parser (`parsers/drive_list.py`)
+- [x] T10 — Drive list parser (`parsers/drive_list.py`)
       Acceptance: `parse_drive_list(stdout)` returns `list[DriveDescriptor]`. Fixture-driven test with sample `whipper drive list` output.
       Phase: P0
+      Done: `parse_drive_list()` returns `list[DriveDescriptor]` with `device`, `vendor`, `model`, `release`, `read_offset` (None if unconfigured), `cache_defeat` (None if unknown). Format verified against whipper-team/whipper master `command/drive.py`. 4 fixture files in `tests/fixtures/`; 7 tests pass. Note: T10-T15 reordered so parsers come before adapters — the adapter at T13 imports from parsers, so swapping made the dependency order match the execution order.
 
-- [ ] T14 — CD info parser (`parsers/cd_info.py`)
+- [ ] T11 — CD info parser (`parsers/cd_info.py`)
       Acceptance: `parse_cd_info(stdout)` returns `DiscInfo`. Fixture-driven test.
       Phase: P0
 
-- [ ] T15 — Rip log parser (`parsers/rip_log.py`)
+- [ ] T12 — Rip log parser (`parsers/rip_log.py`)
       Acceptance: `parse_rip_log(text)` returns a `RipLog` with per-track CRCs, AccurateRip confidence, error counts. Fixture-driven test with at least one real whipper `.log`.
+      Phase: P0
+
+### Adapters
+
+- [ ] T13 — WhipperBackend ABC + host-exported impl (`adapters/whipper_backend.py`)
+      Acceptance: `WhipperBackend` ABC with all five methods from PLANNING.md §5. `WhipperHostExportedImpl` shells out to `~/.local/bin/whipper`. Tested with fixture-driven mocks in `tests/test_whipper_backend.py`.
+      Phase: P0
+
+- [ ] T14 — MusicBrainzClient ABC + ngs impl (`adapters/musicbrainz_client.py`)
+      Acceptance: ABC per PLANNING.md §6. `MusicBrainzNgsImpl` wraps `musicbrainzngs`. `set_user_agent` invoked at construction. Exceptions reraised as `MusicBrainzQueryError`. Tested with `musicbrainzngs` mocked.
+      Phase: P0
+
+- [ ] T15 — Metaflac adapter (`adapters/metaflac.py`)
+      Acceptance: `MetaflacAdapter.write_tags(flac_path, tags)` and `.read_tags(flac_path)` work via the `metaflac` CLI. Used by the unknown-album flow.
       Phase: P0
 
 ### Workers
