@@ -245,6 +245,67 @@ The resulting `whipper-gui-x86_64.AppImage` appears at the repo root. See [`buil
 
 ---
 
+## Audio output: what you get, what you don't
+
+This GUI doesn't decide how audio is encoded — **whipper does**, and its encoder settings are hardcoded upstream. Worth knowing what those settings are.
+
+### FLAC (v1, the only supported format)
+
+Whipper invokes the `flac` binary with this exact command, once per track:
+
+```
+flac --silent --verify -o <outfile> -f <infile>
+```
+
+| Flag | What it does | Archival implication |
+|------|--------------|----------------------|
+| `--silent` | Suppress per-file progress chatter | Cosmetic |
+| `--verify` | Re-decode the FLAC and confirm it matches the input | **The archival-quality bit.** Whipper proves every track is bit-perfect reversible. |
+| `-o <outfile>` | Output path | Where the FLAC lands |
+| `-f` | Force-overwrite | Required because whipper pre-creates the output file |
+
+You'll notice no `-0` through `-8` compression flag. Whipper relies on `flac`'s default, which is **compression level 5** (balanced — slower than `-0`, smaller than `-0`, looser than `-8`).
+
+**Compression level is not configurable** from this GUI, from `whipper.conf`, or from any whipper CLI flag. It's baked into `whipper/program/flac.py` upstream. If you specifically want `-8` (best compression — ~5% smaller files, slower encode), the realistic path is post-processing:
+
+```bash
+# Re-encode in place to -8 after a rip.
+for f in *.flac; do
+    flac -8 --best --verify -f "$f"
+done
+```
+
+Why isn't this a bigger deal? **All FLAC compression levels are lossless.** `-0` and `-8` produce identical decoded audio — only file size differs. Whipper's `--verify` proves the bit-perfect property regardless of level. The choice of `-5` vs `-8` is purely a file-size tradeoff; archival fidelity is the same.
+
+If this changes in the future (whipper exposes compression as a config knob, or someone forks it), the GUI's Settings dialog can grow a "FLAC compression level" field. The architecture supports it; whipper just doesn't.
+
+The full FLAC encoder reference, including every flag whipper *isn't* using, is at [xiph.org/flac/documentation_tools_flac.html](https://xiph.org/flac/documentation_tools_flac.html).
+
+### MP3 and WAV (P1 — not in v1)
+
+The brief lists MP3 and WAV as backlog. Once v1 ships, the plan is:
+
+- **WAV:** `sox` re-encodes the FLAC files to WAV after rip. No quality loss (FLAC is lossless; WAV is uncompressed PCM).
+- **MP3:** `lame` re-encodes the FLAC files to MP3 with sensible defaults (probably VBR `-V0` for "indistinguishable from source") and optionally configurable.
+
+Both encoder backends will be detected through the same dependency self-management subsystem as everything else — no bespoke install code. See [TASKS.md](TASKS.md) P1 section.
+
+If you need MP3 *today* and don't want to wait for P1, you can transcode by hand after a rip:
+
+```bash
+# MP3 VBR V0 (transparent to source)
+for f in *.flac; do
+    lame -V 0 "$f" "${f%.flac}.mp3"
+done
+
+# WAV
+for f in *.flac; do
+    sox "$f" "${f%.flac}.wav"
+done
+```
+
+---
+
 ## First run
 
 When you launch Whipper GUI for the first time:
