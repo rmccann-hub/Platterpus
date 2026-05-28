@@ -146,6 +146,10 @@ Then open a new terminal.
 
 Every optical drive reads audio slightly off from where it "should" — by a positive or negative number of samples. For bit-perfect archival rips that match AccurateRip's database, whipper needs to know your drive's offset.
 
+The settings whipper learns about your drive live in `~/.config/whipper/whipper.conf`. **This file does not exist yet** — it's created automatically the first time whipper writes to it (i.e., when you run one of the commands below). Looking for it before that point will turn up nothing, and that's normal.
+
+> **Where `~` actually is on Bazzite/Silverblue:** `~` for your user expands to `/var/home/<username>` (not `/home/<username>`). `~/.config/whipper/whipper.conf` is the same as `/var/home/<username>/.config/whipper/whipper.conf` — just different ways of writing it. Distrobox passes your host home through to the container, so the file lives in one place visible from both sides.
+
 **The easy way** — let whipper figure it out:
 
 ```bash
@@ -153,9 +157,25 @@ whipper drive analyze
 whipper offset find
 ```
 
-Both commands probe your drive and write results into `~/.config/whipper/whipper.conf` automatically. `offset find` ejects and re-ingests the disc several times, takes a few minutes, and needs a CD in the drive that's in [AccurateRip's database](https://www.accuraterip.com) (most commercial CDs are).
+Both commands probe your drive and write results into `~/.config/whipper/whipper.conf` automatically, creating the file (and the `~/.config/whipper/` directory) on first write. `offset find` ejects and re-ingests the disc several times, takes a few minutes, and needs a CD in the drive that's in [AccurateRip's database](https://www.accuraterip.com) (most commercial CDs are).
 
-**The manual way** — look up your drive in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm), then edit `~/.config/whipper/whipper.conf` by hand:
+After they finish, confirm the file landed:
+
+```bash
+ls -la ~/.config/whipper/
+cat ~/.config/whipper/whipper.conf
+```
+
+You should see a `[drive:...]` section with `defeats_cache` and `read_offset` values.
+
+**The manual way** — look up your drive in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm), then create or edit `~/.config/whipper/whipper.conf` by hand:
+
+```bash
+mkdir -p ~/.config/whipper
+${EDITOR:-nano} ~/.config/whipper/whipper.conf
+```
+
+Add a section like:
 
 ```ini
 [drive:PIONEER :BD-RW   BDR-209D:1.51]
@@ -372,6 +392,19 @@ For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the men
 ---
 
 ## Troubleshooting
+
+### I can't find `~/.config/whipper/whipper.conf`
+
+It doesn't exist until whipper writes to it. Running `whipper --version` or `whipper drive list` doesn't create the file — only commands that change settings do (`whipper drive analyze`, `whipper offset find`). Run one of those and it'll appear.
+
+If you want to peek inside before whipper writes anything, you can pre-create an empty file:
+
+```bash
+mkdir -p ~/.config/whipper
+touch ~/.config/whipper/whipper.conf
+```
+
+On Bazzite and Fedora Silverblue, `~` expands to `/var/home/<username>` (not `/home/<username>`). The file is the same either way.
 
 ### `ModuleNotFoundError: No module named 'pkg_resources'` when running whipper
 
