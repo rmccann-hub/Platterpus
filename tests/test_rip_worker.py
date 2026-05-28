@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Iterable
 
 import pytest
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from whipper_gui.adapters.whipper_backend import (
     RipHandle,
@@ -29,14 +29,10 @@ from whipper_gui.workers.rip_worker import (
 )
 
 
-@pytest.fixture(scope="session")
-def _qcoreapp() -> QCoreApplication:
-    """One QCoreApplication for the test session — Qt needs one to
-    create QObjects, even though we don't run the event loop."""
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    return app
+# The `qapp` fixture comes from tests/conftest.py. Worker tests don't
+# strictly need a QApplication (QCoreApplication would be enough), but
+# the UI tests in the same suite do — so we standardize on the wider
+# fixture to avoid "QCoreApplication created, can't upgrade" crashes.
 
 
 # --- Fakes ----------------------------------------------------------------
@@ -148,7 +144,7 @@ class _Signals:
 
 
 def test_emits_log_lines_in_order(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     handle = _FakeHandle(lines=["one", "two", "three"], exit_code=0)
     backend = _FakeBackend(handle=handle)
@@ -164,7 +160,7 @@ def test_emits_log_lines_in_order(
 
 
 def test_finished_reports_success_on_zero_exit(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     handle = _FakeHandle(lines=[], exit_code=0)
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
@@ -177,7 +173,7 @@ def test_finished_reports_success_on_zero_exit(
 
 
 def test_finished_reports_failure_on_nonzero_exit(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     handle = _FakeHandle(lines=[], exit_code=1)
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
@@ -193,7 +189,7 @@ def test_finished_reports_failure_on_nonzero_exit(
 
 
 def test_progress_signal_fires_on_parseable_lines(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     handle = _FakeHandle(
         lines=[
@@ -229,7 +225,7 @@ def test_progress_helper_extracts_fractional_percent() -> None:
 
 
 def test_whipper_error_on_start_emits_error_and_finished_false(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     backend = _FakeBackend()
     backend.raise_on_rip(WhipperError("device busy"))
@@ -244,7 +240,7 @@ def test_whipper_error_on_start_emits_error_and_finished_false(
 
 
 def test_unexpected_exception_on_start_emits_error(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     backend = _FakeBackend()
     backend.raise_on_rip(RuntimeError("kaboom"))
@@ -263,7 +259,7 @@ def test_unexpected_exception_on_start_emits_error(
 
 
 def test_cancel_sets_flag_and_calls_handle_cancel(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     handle = _FakeHandle(lines=["one", "two"], exit_code=-15)
     backend = _FakeBackend(handle=handle)
@@ -284,7 +280,7 @@ def test_cancel_sets_flag_and_calls_handle_cancel(
 
 
 def test_cancellation_makes_finished_report_false(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     """When the cancel flag is set during iteration, success must be
     False even if the subprocess exits with 0."""
@@ -305,7 +301,7 @@ def test_cancellation_makes_finished_report_false(
 
 
 def test_finished_includes_log_path_when_log_present(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     rip_log = tmp_path / "Artist" / "Album" / "rip.log"
     rip_log.parent.mkdir(parents=True)
@@ -324,7 +320,7 @@ def test_finished_includes_log_path_when_log_present(
 
 
 def test_finished_log_path_empty_when_no_log_file(
-    _qcoreapp: QCoreApplication, tmp_path: Path
+    qapp: QApplication, tmp_path: Path
 ) -> None:
     handle = _FakeHandle(lines=[], exit_code=0)
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))

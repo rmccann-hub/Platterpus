@@ -122,9 +122,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: Modal `PendingInstallsDialog(items)` renders one row per item (checkbox + name + min-version hint + status label). Default-checked so a "one click installs everything" flow works. `install_requested` signal fires on Install Selected click (dialog stays open during install). Caller drives the install loop and updates per-row state via `mark_in_progress(dep_id)` / `mark_result(dep_id, success, message)` (failure messages truncate to 60 chars to keep the dialog compact). `set_install_phase_active(True)` locks down the picker during installs; `show_close_button()` (idempotent) swaps the bottom row to a single Close button for dismissal. 19 unit tests cover construction, selection, signal emission, status updates, long-message truncation, lockdown, and the close-button swap.
 
-- [ ] T20 — Settings dialog (`ui/settings_dialog.py`)
+- [x] T20 — Settings dialog (`ui/settings_dialog.py`)
       Acceptance: fields for output dir, working dir, track template, disc template, read offset, whipper/metaflac paths, auto-launch-Picard toggle. Writes through `config.py`. Includes a "Check dependencies" button that re-runs `DependencyManager.check_all()`.
       Phase: P0
+      Done: Modal `SettingsDialog(config)` is a pure view — it doesn't read or write the config file. Form rows for all eight Config attributes (paths get a Browse… button; read_offset is a bounded QSpinBox; auto-launch-Picard is a checkbox). `to_config()` builds a new `Config` reflecting widget state and preserves the incoming `schema_version` (the dialog doesn't model migration). "Check dependencies" button emits `check_dependencies_requested` signal — caller wires it to `DependencyManager.check_all()`. Dialog stays open after the signal so the user can see results in a separate report and tweak settings. 11 unit tests pass. Also consolidated worker-test fixtures onto `qapp` (from conftest.py) since a process-wide QCoreApplication blocks later UI tests from creating QApplication.
 
 - [ ] T21 — Drive picker widget (`ui/drive_picker.py`)
       Acceptance: combo box populated from `WhipperBackend.list_drives()`. Emits `drive_changed(device_path)`.
