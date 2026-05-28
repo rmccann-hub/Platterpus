@@ -112,9 +112,10 @@ When a task changes status, update it here in the same commit as the code change
 
 ### UI — dialogs first, then the main window assembles them
 
-- [ ] T18 — Manual install dialog (`ui/dialogs/manual_install.py`)
+- [x] T18 — Manual install dialog (`ui/dialogs/manual_install.py`)
       Acceptance: `ManualInstallDialog` shows missing item, min version, reason, and a copyable read-only QLineEdit with the search string. Copy is primary, Close is secondary.
       Phase: P0
+      Done: Modal `ManualInstallDialog(spec, probe)` with title "Install required: {name}", form rows for required version / current state / why-manual, a read-only QLineEdit carrying the search string, and a button box with Copy (AcceptRole, default) + Close (RejectRole). Copy writes to the system clipboard and briefly flips the button label to "Copied!" before resetting via QTimer. Display strings handle the "any version" floor `(0,0,0)` and the "installed but version unknown" probe state. 12 unit tests pass with the QApplication fixture from `tests/conftest.py` (added this commit, anticipates T30). Test environment runs with QT_QPA_PLATFORM=offscreen so a real display isn't required.
 
 - [ ] T19 — Pending installs dialog (`ui/dialogs/pending_installs.py`)
       Acceptance: `PendingInstallsDialog` displays a checkbox list with per-item progress; "Install selected" triggers the loop. Backed by `QueuedInstaller`.
