@@ -157,9 +157,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: Stacked vertical panel — status label + QProgressBar (0-100), streaming read-only QPlainTextEdit (capped at 10k scrollback lines so a long rip can't blow memory), AccurateRip results QTableWidget (5 cols: #, Title, Status, AR v1, AR v2), and "View log" button. Methods: `clear()`, `append_log_line(line)`, `set_progress(track, percent)`, `set_status(text)`, `set_rip_log(RipLog)`, `set_log_path(path|None)`. AR cells render as "OK (N)" / "not in DB" / "—" based on result+confidence. View Log button opens the log via `QDesktopServices.openUrl` (injectable for tests). 16 unit tests pass.
 
-- [ ] T27 — Unknown album helper (`ui/unknown_album.py`)
+- [x] T27 — Unknown album helper (`ui/unknown_album.py`)
       Acceptance: triggers `--unknown` rip, applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard`.
       Phase: P0
+      Done: Three pieces — `UnknownAlbumDialog(auto_launch_picard_default)` modal confirmation with a Picard toggle, `apply_placeholder_tags(metaflac, flac_files)` applying `Track NN` / Unknown Artist / Unknown Album / TRACKNUMBER per file (returns successes; individual failures logged but don't abort the batch), `launch_picard_for(folder)` running `flatpak run org.musicbrainz.Picard <folder>` as a detached subprocess (returns False on FileNotFoundError or OSError so the main window can surface a hint to install Picard). The actual `--unknown` rip is kicked off by the main window via `RipControls.set_unknown_mode(True)` + Start; this module is only the dialog + post-rip helpers. 11 unit tests pass.
 
 - [ ] T28 — Main window (`ui/main_window.py`)
       Acceptance: `MainWindow` lays out drive picker → disc info → track table → rip controls → progress. Menu: Settings, Check Dependencies, Quit. Wires worker signals into widget slots.
