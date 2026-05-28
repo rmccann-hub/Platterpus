@@ -152,9 +152,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: `RipControls(config)` exposes Start + Cancel buttons. Three setter slots (`set_drive`, `set_release_id`, `set_unknown_mode`) accept state pushed in from the main window; `set_rip_active(bool)` toggles button enablement during a rip. Start enables when drive + release_id are present (or just drive in unknown mode). On Start click, assembles a `RipParameters` from current state + the injected `Config` (output_dir, templates) and emits `rip_requested(params)`. On Cancel click, emits `cancel_requested()`. 10 unit tests cover initial disabled state, enablement rules (with/without release_id, unknown mode, no drive), rip-active toggling, parameter assembly, unknown-flag passthrough, cancel signal, and state-clearing.
 
-- [ ] T26 — Rip progress widget (`ui/rip_progress.py`)
+- [x] T26 — Rip progress widget (`ui/rip_progress.py`)
       Acceptance: live whipper stdout pane + per-track AccurateRip results table populated when the rip finishes + "View log" button.
       Phase: P0
+      Done: Stacked vertical panel — status label + QProgressBar (0-100), streaming read-only QPlainTextEdit (capped at 10k scrollback lines so a long rip can't blow memory), AccurateRip results QTableWidget (5 cols: #, Title, Status, AR v1, AR v2), and "View log" button. Methods: `clear()`, `append_log_line(line)`, `set_progress(track, percent)`, `set_status(text)`, `set_rip_log(RipLog)`, `set_log_path(path|None)`. AR cells render as "OK (N)" / "not in DB" / "—" based on result+confidence. View Log button opens the log via `QDesktopServices.openUrl` (injectable for tests). 16 unit tests pass.
 
 - [ ] T27 — Unknown album helper (`ui/unknown_album.py`)
       Acceptance: triggers `--unknown` rip, applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard`.
