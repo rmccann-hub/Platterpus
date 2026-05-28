@@ -100,9 +100,10 @@ When a task changes status, update it here in the same commit as the code change
 
 ### Workers
 
-- [ ] T16 — Rip worker (`workers/rip_worker.py`)
+- [x] T16 — Rip worker (`workers/rip_worker.py`)
       Acceptance: `RipWorker(QObject)` owns the rip subprocess; emits `log_line`, `progress`, `finished`, `error`. `.cancel()` terminates cleanly.
       Phase: P0
+      Done: `RipWorker` QObject + frozen `RipParameters` dataclass. Signals: `log_line(str)`, `progress(int track, float percent)`, `finished(bool success, str log_path)`, `error(str)`. `start_rip` slot drives `WhipperBackend.rip()`, iterates `RipHandle.log_lines()`, emits progress when defensive regex matches. `cancel` slot is safe to call before start (just sets the flag) and after (forwards to handle). `_find_log_path()` locates the most recent `.log` under `output_dir` for the finished signal. 12 unit tests pass with a fake backend + handle. Progress regex deliberately permissive — T32 smoke test will tell us whether it needs tightening for real whipper output.
 
 - [ ] T17 — MusicBrainz worker (`workers/mb_worker.py`)
       Acceptance: `MusicBrainzWorker(QObject)` runs `MusicBrainzClient` calls on a background `QThread`; emits `releases_returned` or `error`.
