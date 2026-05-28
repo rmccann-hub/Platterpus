@@ -93,9 +93,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: ABC + impl with 4 methods (`releases_by_disc_id`, `releases_by_toc`, `release_by_mbid`, `set_user_agent`). Data types: `TocSignature`, `ReleaseSummary`, `TrackSummary`, `ReleaseDetail` — all frozen dataclasses. `MusicBrainzQueryError` wraps `musicbrainzngs.WebServiceError`; 404 responses on disc-id/TOC queries are translated to `[]` (since "no match" isn't an error from the picker UI's perspective). MB response shape helpers isolated as private functions so a future `RequestsJsonImpl` against MB's JSON endpoint can produce the same dataclasses. 13 tests pass, including artist-credit rendering (which interleaves dicts and joining strings like " feat. ").
 
-- [ ] T15 — Metaflac adapter (`adapters/metaflac.py`)
+- [x] T15 — Metaflac adapter (`adapters/metaflac.py`)
       Acceptance: `MetaflacAdapter.write_tags(flac_path, tags)` and `.read_tags(flac_path)` work via the `metaflac` CLI. Used by the unknown-album flow.
       Phase: P0
+      Done: `MetaflacAdapter` constructor takes a `binary_name` (default "metaflac"; user can override via config). `read_tags()` uses `--export-tags-to=-` and parses `KEY=VALUE` lines (duplicate keys → last value wins, matching metaflac's own preference). `write_tags()` batches `--remove-tag=K` followed by `--set-tag=K=V` so existing values are replaced not duplicated. Empty dict is a no-op. `MetaflacError` carries the last stderr line. 9 unit tests cover all three methods plus FileNotFoundError, TimeoutExpired, and custom binary paths.
 
 ### Workers
 
