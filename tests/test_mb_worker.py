@@ -8,7 +8,7 @@ replaced with a fake; we never touch the real MB API.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from whipper_gui.adapters.musicbrainz_client import (
     MusicBrainzClient,
@@ -21,12 +21,8 @@ from whipper_gui.adapters.musicbrainz_client import (
 from whipper_gui.workers.mb_worker import MusicBrainzWorker
 
 
-@pytest.fixture(scope="session")
-def _qcoreapp() -> QCoreApplication:
-    app = QCoreApplication.instance()
-    if app is None:
-        app = QCoreApplication([])
-    return app
+# `qapp` fixture comes from tests/conftest.py — see test_rip_worker.py
+# for the reason worker tests adopt the wider QApplication fixture.
 
 
 # --- Fake client ----------------------------------------------------------
@@ -115,7 +111,7 @@ def _detail() -> ReleaseDetail:
 
 
 def test_lookup_disc_id_emits_releases(
-    _qcoreapp: QCoreApplication,
+    qapp: QApplication,
 ) -> None:
     client = _FakeClient()
     client.set_disc_id_result([_summary("a"), _summary("b")])
@@ -132,7 +128,7 @@ def test_lookup_disc_id_emits_releases(
 
 
 def test_lookup_disc_id_emits_error_on_failure(
-    _qcoreapp: QCoreApplication,
+    qapp: QApplication,
 ) -> None:
     client = _FakeClient()
     client.raise_in("disc_id", MusicBrainzQueryError("network down"))
@@ -147,7 +143,7 @@ def test_lookup_disc_id_emits_error_on_failure(
 
 
 def test_lookup_disc_id_empty_result_still_emits(
-    _qcoreapp: QCoreApplication,
+    qapp: QApplication,
 ) -> None:
     """No matches isn't an error — picker just shows empty candidates."""
     client = _FakeClient()
@@ -166,7 +162,7 @@ def test_lookup_disc_id_empty_result_still_emits(
 
 
 def test_lookup_toc_passes_signature_through(
-    _qcoreapp: QCoreApplication,
+    qapp: QApplication,
 ) -> None:
     client = _FakeClient()
     client.set_toc_result([_summary("toc-match")])
@@ -185,7 +181,7 @@ def test_lookup_toc_passes_signature_through(
 
 
 def test_lookup_toc_emits_error_on_failure(
-    _qcoreapp: QCoreApplication,
+    qapp: QApplication,
 ) -> None:
     client = _FakeClient()
     client.raise_in("toc", MusicBrainzQueryError("rate limited"))
@@ -203,7 +199,7 @@ def test_lookup_toc_emits_error_on_failure(
 
 
 def test_fetch_release_emits_release_detail(
-    _qcoreapp: QCoreApplication,
+    qapp: QApplication,
 ) -> None:
     client = _FakeClient()
     client.set_mbid_result(_detail())
@@ -219,7 +215,7 @@ def test_fetch_release_emits_release_detail(
 
 
 def test_fetch_release_emits_error_on_failure(
-    _qcoreapp: QCoreApplication,
+    qapp: QApplication,
 ) -> None:
     client = _FakeClient()
     client.raise_in("mbid", MusicBrainzQueryError("server gone"))
