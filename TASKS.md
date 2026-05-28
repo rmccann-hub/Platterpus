@@ -54,9 +54,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: 4 specs registered: whipper (manual, 0.10.0+), metaflac (manual, 1.3.0+), Picard (auto via Flatpak with queued/manual fallbacks), musicbrainzngs (manual reinstall path). `libdiscid` deferred to T32 per KDD-06; when the smoke test shows we need it, one new entry lands here and nothing else changes. `Tier` is an enum with AUTO/QUEUED/MANUAL; `DependencySpec` is frozen with an optional `fallback_tiers` tuple for cascade-on-failure.
 
-- [ ] T08 — Resolver classes (`deps/resolvers.py`)
-      Acceptance: `AutoInstaller`, `QueuedInstaller`, `ManualPrompt` exist with a common `resolve(specs)` shape. AutoInstaller runs pipx and `flatpak install --user`. QueuedInstaller and ManualPrompt drive UI dialogs (defer wiring until T15/T16 land).
+- [x] T08 — Resolver classes (`deps/resolvers.py`)
+      Acceptance: `AutoInstaller`, `QueuedInstaller`, `ManualPrompt` exist with a common `resolve(specs)` shape. AutoInstaller runs pipx and `flatpak install --user`. QueuedInstaller and ManualPrompt drive UI dialogs (defer wiring until T18/T19 land).
       Phase: P0
+      Done: All three resolvers share `resolve(items: list[MissingItem]) -> list[InstallResult]`. AutoInstaller runs the spec's `install_command` via subprocess after a consent callback (default refuses). QueuedInstaller reuses AutoInstaller's machinery for the actual install — the dialog callback just chooses which items to install. ManualPrompt invokes a per-item callback and returns `success=False` for every item. All callbacks have logging-only defaults; T18/T19 will inject the Qt dialogs. 8 unit tests pass. Acceptance criterion corrected: dialog wiring is T18 (manual_install) and T19 (pending_installs), not T15/T16.
 
 - [ ] T09 — DependencyManager orchestrator (`deps/manager.py`)
       Acceptance: `DependencyManager.check_all()` walks the registry, classifies, dispatches to resolvers, returns a `DependencyReport`. Idempotent. Unit-tested with mocked probes in `tests/test_dependency_manager.py`.
