@@ -452,3 +452,55 @@ The brief lists "AccurateRip submission" and "CTDB verification" as confirmed Li
 - **CTDB submission:** likely subject to the same trust-gate as AccurateRip submission. Stays out of scope.
 
 The practical takeaway: archival verification on Linux is already solid — AccurateRip is wired through and visible in the GUI. Adding CTDB as a second verification path is post-v1 work whose cost is manageable.
+
+### KDD-13 — EAC bit-perfect settings audit
+
+We benchmark our defaults and exposed settings against the widely-cited "Perfect CD ripping to FLAC with Exact Audio Copy" guide (flemmingss.com), which represents the community gold standard for bit-perfect archival rips on Windows.
+
+**Matches (already in scope or delivered):**
+
+| EAC setting | Our path |
+|---|---|
+| Secure mode + Accurate Stream | cdparanoia paranoia mode is whipper's default |
+| Drive caches audio data → defeat | `defeats_cache = True` in whipper.conf (set per drive) |
+| Read offset calibration | `whipper drive analyze` + `whipper offset find` (README step 5) |
+| Use AccurateRip | whipper queries AR every rip; we render results in rip-progress (KDD-12) |
+| Error recovery quality: High | cdparanoia is always at maximum |
+| No normalize | whipper does not normalize; bit-perfect intact |
+| FLAC `--verify` | whipper passes `--verify`, proves bit-perfect reversibility |
+| Status report (.log) after rip | whipper writes; our parser captures |
+| Checksum on status report | SHA-256 (caveat: weaker than EAC's signed checksum; KDD-11) |
+| Gap detection (Secure) | whipper uses cdrdao for gap detection |
+| Track/Disc filename template | configurable in Settings dialog |
+| Detect drive features auto-test | `whipper drive analyze` |
+| CUETools DB metadata plugin | We use MusicBrainz; CTDB verify is P1 (KDD-12) |
+
+**Upstream-locked (whipper hardcodes, can't expose from our GUI):**
+
+- **FLAC compression level.** EAC guide specifies `-8 --best`; whipper hardcodes `flac --silent --verify -o … -f …` with no compression flag, so flac defaults to `-5`. Compression level is purely a file-size tradeoff — archival quality is identical at any level because of `--verify`. README documents the post-rip re-encode workaround.
+
+**Linux ecosystem gaps (not actionable):**
+
+- **C2 error pointers.** Whipper does not use them; cdparanoia is the Linux secure-read primitive instead. The original brief flags this as a known Linux gap.
+- **EAC-style signed log checksum.** SHA-256 is weaker as a forensic signal; KDD-11 covers this.
+- **CUETools DB metadata plugin** (write side of CTDB). KDD-12 puts CTDB *verification* in P1; submission stays out of scope.
+- **AccurateRip submission.** Policy-blocked by AR's operators; KDD-12.
+
+**Surfacing gaps (added to P1 backlog):**
+
+EAC exposes a handful of toggles that whipper *also* supports via CLI flags but that we hadn't surfaced. The audit identified five — each is a small Config field + Settings widget + `RipParameters` plumb-through:
+
+1. Cover art mode (`-C`)
+2. Force overread (`-x`)
+3. Max retries (`-r`)
+4. Keep going on track failure (`-k`)
+5. Continue on CD-R (`--cdr`)
+
+These are listed in TASKS.md under "P1 — EAC bit-perfect parity gaps" and should land before the AppImage's first public release so users coming from EAC find the controls they expect.
+
+**Verification needed (unconfirmed at the time of writing):**
+
+- Does whipper emit a `.cue` sheet alongside the FLACs? EAC always does. If whipper does, we should expose it in the rip-progress widget the same way we expose the `.log`. If not, that's a separate feature gap to evaluate.
+- Does whipper capture per-track ISRC and disc UPC into the rip log? EAC writes both. T32's smoke test will surface the answer; if either is missing, we evaluate adding capture to our pipeline.
+
+Both questions are tractable from T32's first real-disc rip — the resulting `.log` file and output directory will tell us.
