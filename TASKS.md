@@ -202,6 +202,19 @@ These are fenced off so they don't accidentally interleave with P0 work. Each be
 - ReplayGain calculation
 - Auto-move completed rips to a library folder
 - Additional encoding outputs: **MP3** (via `lame`) and **WAV** (via `sox` or whipper-native). Both encoder backends MUST be detected and offered through the existing P0 #11 dependency-resolution flow — no bespoke install code.
+
+### P1 — EAC bit-perfect parity gaps
+
+The following whipper CLI options exist but aren't currently surfaced in our Settings dialog. Each is a small addition: a Config field, a Settings widget, a `RipParameters` field, and a flag in `WhipperHostExportedImpl.rip()`. The reference for what "should" be exposed is the EAC bit-perfect guide audit in [PLANNING.md KDD-13](PLANNING.md).
+
+- **Cover art (embed + save).** Whipper's `-C, --cover-art {none,embedded,file}` flag. Default to `embedded` for archival parity with EAC's default. Surface in Settings + `RipParameters.cover_art`.
+- **Force overread into lead-out.** Whipper's `-x, --force-overread` flag. Default off (matches EAC's recommendation). Surface as a Settings toggle.
+- **Max retries.** Whipper's `-r, --max-retries N` flag. Default 5 (whipper's own default). Surface as a Settings spinbox.
+- **Keep going on track failure.** Whipper's `-k, --keep-going` flag. Default off (safer — surfaces problems). Surface as a Settings toggle.
+- **Continue on CD-R.** Whipper's `--cdr` flag. Default off (CD-Rs are usually accidents in an archival workflow). Surface as a Settings toggle.
+
+Each is independent; do them in any order. They should land before the AppImage's first public release so the GUI matches what EAC users expect.
+
 - **CTDB verification (read-only).** The CUETools Database operates an open-source server (LGPL) with no public HTTP API documentation, but the reference server and client code is public — the protocol is derivable from it. A Python client modeled on that reference would let us add a "Verify with CTDB" button to the rip-progress widget that runs after each rip finishes. No submission — same trust-gate as AccurateRip likely applies. Moderate effort (~200-400 lines for the client + UI hookup). Adds a second archival-verification path complementing the AccurateRip data whipper already provides. See [PLANNING.md KDD-12](PLANNING.md) for the reasoning behind moving this from "out of scope" to P1.
 
 ---

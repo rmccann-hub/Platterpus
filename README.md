@@ -304,6 +304,44 @@ for f in *.flac; do
 done
 ```
 
+### Compared to EAC's bit-perfect settings
+
+The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. Here's how this GUI's pipeline maps to it. Full audit in [PLANNING.md KDD-13](PLANNING.md).
+
+**Matches the guide today:**
+
+- Secure read mode (cdparanoia, whipper's default)
+- Defeat audio cache (per-drive, set by `whipper drive analyze`)
+- Read offset calibration (per-drive, set by `whipper offset find`)
+- AccurateRip verification (whipper queries; we render the v1/v2 confidence)
+- High error-recovery quality (cdparanoia is always at maximum)
+- No normalization
+- FLAC `--verify` (proves bit-perfect reversibility)
+- `.log` file written after every rip
+- Gap detection in "Secure" mode (cdrdao)
+- Status-report checksum (SHA-256)
+
+**Not configurable from the GUI** (whipper hardcodes these upstream):
+
+- **FLAC compression level.** EAC's guide says `-8 --best`; whipper uses flac's default (`-5`). Archival quality is identical at any compression level — only file size differs. See "FLAC (v1)" above for the post-rip re-encode workaround if you specifically want `-8`.
+
+**Not possible on Linux today:**
+
+- **C2 error pointers.** Cdparanoia is the Linux secure-read primitive; it doesn't use C2.
+- **EAC-style signed log checksum.** Whipper writes SHA-256, which is weaker as a forensic signal. CTDB and audiophile forums historically recognize EAC's signed checksum specifically.
+- **AccurateRip submission** (writing new entries to the database). Blocked by AccurateRip's operators, who accept submissions only from EAC and dBpoweramp. Verification (reading) works fine — see "AccurateRip" in the audit above.
+- **CTDB metadata plugin.** CUETools' database is queryable in principle but no Linux client exists. CTDB verification is on the P1 backlog (see [TASKS.md](TASKS.md)).
+
+**Coming in P1** (toggles EAC exposes that whipper supports but we don't yet surface):
+
+- Cover art (fetch + embed in FLAC, or save next to it)
+- Force overread into lead-out
+- Max retries per track
+- Keep going on track failure
+- Continue ripping CD-Rs
+
+Each is a small Settings dialog field — you can track them in [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps".
+
 ---
 
 ## First run
