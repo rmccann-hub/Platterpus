@@ -73,10 +73,10 @@ Verify with `distrobox --version`.
 Create a Fedora-based container named `ripping`. The brief specifies Fedora 40; later Fedora versions also work — substitute `:41` or `:latest` if you prefer.
 
 ```bash
-distrobox create --name ripping --image registry.fedoraproject.org/fedora-toolbox:40
+distrobox create --name ripping --image registry.fedoraproject.org/fedora-toolbox:latest
 ```
 
-This downloads about 600 MB the first time. Once it finishes:
+Distrobox will prompt to pull the image — type **Y** and press Enter. The download is about 600 MB the first time. Once it finishes:
 
 ```bash
 distrobox enter ripping
@@ -84,15 +84,19 @@ distrobox enter ripping
 
 You're now inside the container. The prompt should change to show you're in the `ripping` environment. To leave at any time, type `exit`.
 
+> **Why `:latest` and not `:40`?** The brief specifies Fedora 40; newer Fedora releases (41, 42, 43, 44…) also work and ship newer security fixes. `:latest` resolves to whatever's current. If you specifically want to pin to Fedora 40 to match the brief exactly, swap `:latest` for `:40`.
+
 ### Step 3 — Install whipper and metaflac
 
 Inside the container (your prompt should still show you're in `ripping`):
 
 ```bash
-sudo dnf install whipper flac
+sudo dnf install whipper flac python3-setuptools
 ```
 
-Verify both are installed:
+The `python3-setuptools` package is needed because whipper imports `pkg_resources` from setuptools, and recent Fedora releases (44+) don't pull it in automatically. Without it you'll see a `ModuleNotFoundError: No module named 'pkg_resources'` traceback when you try to run whipper.
+
+Verify both tools are installed:
 
 ```bash
 whipper --version
@@ -368,6 +372,18 @@ For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the men
 ---
 
 ## Troubleshooting
+
+### `ModuleNotFoundError: No module named 'pkg_resources'` when running whipper
+
+Whipper imports `pkg_resources` from `setuptools`. On Fedora 44+ (Python 3.14), setuptools is no longer installed by default and Fedora's whipper RPM doesn't declare it as a dependency. Fix:
+
+```bash
+distrobox enter ripping
+sudo dnf install python3-setuptools
+exit
+```
+
+Then `whipper --version` should work from the host.
 
 ### `whipper: command not found`
 
