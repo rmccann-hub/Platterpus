@@ -32,9 +32,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: `configure_logging()` is idempotent (sentinel attr on root logger); file handler captures DEBUG+, console handler captures INFO+ (configurable). Rotation: 5 backups of 1 MiB. Verified: three calls produce exactly two handlers, INFO+DEBUG land in the file, only INFO on stderr.
 
-- [ ] T04 — TOML config module (`config.py`)
+- [x] T04 — TOML config module (`config.py`)
       Acceptance: `load_config()` returns the parsed TOML as a typed dataclass, creating the file with defaults if missing. `save_config(cfg)` atomically writes (temp + rename). Schema version embedded. Unit-tested in `tests/test_config.py`.
       Phase: P0
+      Done: `Config` dataclass with output dirs, rip templates, tool paths, read_offset, auto_launch_picard, and schema_version. `load()` and `save()` (renamed from `load_config`/`save_config` for brevity — caller writes `config.load()`). Atomic save via temp + os.replace. Unknown keys dropped with warning. 4 unit tests pass (defaults creation, roundtrip, atomic temp cleanup, unknown-key tolerance).
 
 ### Dependency self-management subsystem (brief P0 #11)
 
