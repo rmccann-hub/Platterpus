@@ -1,0 +1,3 @@
+drive: /dev/sr0, vendor: PIONEER, model: BD-RW  BDR-209D, release: 1.51
+no read offset found. Run 'whipper offset find'
+unknown whether audio cache can be defeated. Run 'whipper drive analyze'
