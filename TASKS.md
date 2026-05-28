@@ -71,9 +71,10 @@ When a task changes status, update it here in the same commit as the code change
       Phase: P0
       Done: `parse_drive_list()` returns `list[DriveDescriptor]` with `device`, `vendor`, `model`, `release`, `read_offset` (None if unconfigured), `cache_defeat` (None if unknown). Format verified against whipper-team/whipper master `command/drive.py`. 4 fixture files in `tests/fixtures/`; 7 tests pass. Note: T10-T15 reordered so parsers come before adapters — the adapter at T13 imports from parsers, so swapping made the dependency order match the execution order.
 
-- [ ] T11 — CD info parser (`parsers/cd_info.py`)
+- [x] T11 — CD info parser (`parsers/cd_info.py`)
       Acceptance: `parse_cd_info(stdout)` returns `DiscInfo`. Fixture-driven test.
       Phase: P0
+      Done: `DiscInfo(cddb_disc_id, musicbrainz_disc_id, musicbrainz_submit_url)`; missing fields default to empty strings. Three regexes (with named groups) match the inconsistent "CDDB disc id:" / "MusicBrainz disc id" (no colon!) / "MusicBrainz lookup URL" lines whipper emits per master `command/cd.py`. Tolerates surrounding log noise. 2 fixture files, 4 tests pass.
 
 - [ ] T12 — Rip log parser (`parsers/rip_log.py`)
       Acceptance: `parse_rip_log(text)` returns a `RipLog` with per-track CRCs, AccurateRip confidence, error counts. Fixture-driven test with at least one real whipper `.log`.

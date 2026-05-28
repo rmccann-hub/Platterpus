@@ -1,0 +1,6 @@
+INFO: querying MusicBrainz with disc id...
+INFO: 1 release found
+CDDB disc id: 12345678
+MusicBrainz disc id abc-123-def-456
+MusicBrainz lookup URL https://musicbrainz.org/cdtoc/attach?id=abc-123
+INFO: done
