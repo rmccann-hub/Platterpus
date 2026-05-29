@@ -63,6 +63,34 @@ _PROGRESS_PATTERN = re.compile(
     r"[Tt]rack\s+(?P<track>\d+).*?(?P<pct>\d+(?:\.\d+)?)\s*%"
 )
 
+# Human-readable phase descriptions for the status line. Without these
+# the GUI sat on "Starting rip…" for the whole pre-track disc scan
+# (which can run a minute or more) and looked frozen — T32 feedback.
+# Whipper's progress lines look like:
+#   "Reading TOC  50 %"
+#   "Reading table  50 %"
+#   "Reading track 3 of 16 (1 of 9) ...  42 %"
+#   "Verifying track 3 of 16 (3 of 9) ... 42 %"
+#   "Encoding track to FLAC (5 of 9) ...   0 %"
+#   "Getting length of audio track (1 of 16) ... 100 %"
+_DISC_SCAN_PATTERN = re.compile(
+    r"Reading (?P<what>TOC|table)\s+(?P<pct>\d+)\s*%"
+)
+_TRACK_PHASE_PATTERN = re.compile(
+    r"(?P<verb>Reading|Verifying) track (?P<track>\d+) of (?P<total>\d+)"
+    r".*?(?P<pct>\d+)\s*%"
+)
+_LENGTH_PHASE_PATTERN = re.compile(
+    r"Getting length of audio track \((?P<track>\d+) of (?P<total>\d+)\)"
+)
+# Per-track sub-phases that carry no track number on their own line.
+_NAMED_PHASES: dict[str, str] = {
+    "Encoding track to FLAC": "Encoding to FLAC…",
+    "Calculating peak level": "Calculating peak level…",
+    "Writing tags to FLAC": "Writing tags…",
+    "Embed picture to FLAC": "Finalizing track…",
+}
+
 
 class RipWorker(QObject):
     """QObject worker that owns a rip subprocess for its lifetime.
@@ -81,6 +109,7 @@ class RipWorker(QObject):
 
     log_line = Signal(str)
     progress = Signal(int, float)         # track_number, percent
+    status = Signal(str)                   # human-readable current phase
     finished = Signal(bool, str)           # success, log_path
     error = Signal(str)
 
@@ -94,6 +123,9 @@ class RipWorker(QObject):
         self._backend: WhipperBackend = backend
         self._params: RipParameters = params
         self._handle: RipHandle | None = None
+        # Last status text emitted, so we don't re-emit identical phases
+        # on every progress tick (whipper prints one line per percent).
+        self._last_status: str = ""
         # Flag is a plain Python bool — assignment is atomic under the
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
@@ -132,6 +164,13 @@ class RipWorker(QObject):
                 if self._cancelled:
                     break
                 self.log_line.emit(line)
+                # Status text first (covers the pre-track disc scan and
+                # the encode/tag sub-phases), then the numeric progress
+                # that drives the bar.
+                desc = _describe_activity(line)
+                if desc is not None and desc != self._last_status:
+                    self._last_status = desc
+                    self.status.emit(desc)
                 emit = _parse_progress(line)
                 if emit is not None:
                     track, pct = emit
@@ -196,3 +235,35 @@ def _parse_progress(line: str) -> tuple[int, float] | None:
     track = int(match.group("track"))
     percent = float(match.group("pct"))
     return track, percent
+
+
+def _describe_activity(line: str) -> str | None:
+    """Return a short human status for a whipper progress line, or None.
+
+    Used to keep the status label live across every phase — especially
+    the pre-track disc scan, which otherwise left the GUI on
+    "Starting rip…" for a minute-plus and looked hung.
+    """
+    match = _DISC_SCAN_PATTERN.search(line)
+    if match:
+        what = "disc TOC" if match.group("what") == "TOC" else "disc table"
+        return f"Reading {what}… {match.group('pct')}%"
+
+    match = _TRACK_PHASE_PATTERN.search(line)
+    if match:
+        return (
+            f"{match.group('verb')} track {match.group('track')} "
+            f"of {match.group('total')}… {match.group('pct')}%"
+        )
+
+    match = _LENGTH_PHASE_PATTERN.search(line)
+    if match:
+        return (
+            f"Checking track {match.group('track')} "
+            f"of {match.group('total')}…"
+        )
+
+    for phrase, friendly in _NAMED_PHASES.items():
+        if phrase in line:
+            return friendly
+    return None

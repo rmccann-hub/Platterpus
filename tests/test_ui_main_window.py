@@ -229,7 +229,7 @@ def test_no_mb_match_shows_blank_track_rows(
 
     assert len(window._track_table.tracks()) == 16
     assert window._track_table.tracks()[0].number == 1
-    assert window._track_table.tracks()[0].title == ""
+    assert window._track_table.tracks()[0].title == "Track 01"
     assert prompted == [True]  # unknown-album flow was offered
 
 

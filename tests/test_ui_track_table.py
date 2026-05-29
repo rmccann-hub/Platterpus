@@ -166,23 +166,32 @@ def test_set_release_populates_album_and_tracks(qapp: QApplication) -> None:
     assert widget.tracks()[0].title == "Speak to Me"
 
 
-def test_set_blank_tracks_creates_numbered_empty_rows(
+def test_set_placeholder_tracks_creates_numbered_rows(
     qapp: QApplication,
 ) -> None:
     widget = TrackTable()
-    widget.set_blank_tracks(16)
+    widget.set_placeholder_tracks(16)
 
     tracks = widget.tracks()
     assert len(tracks) == 16
     assert [t.number for t in tracks] == list(range(1, 17))
-    assert all(t.title == "" for t in tracks)
+    assert tracks[0].title == "Track 01"
+    assert tracks[15].title == "Track 16"
+    assert all(t.artist_credit == "Unknown Artist" for t in tracks)
+    # Album-level fields get the matching placeholders.
+    meta = widget.album_metadata()
+    assert meta.artist == "Unknown Artist"
+    assert meta.title == "Unknown Album"
 
 
-def test_set_blank_tracks_zero_or_negative_clears(qapp: QApplication) -> None:
+def test_set_placeholder_tracks_zero_clears_rows_but_sets_album(
+    qapp: QApplication,
+) -> None:
     widget = TrackTable()
     widget.set_release(_detail())
-    widget.set_blank_tracks(0)
+    widget.set_placeholder_tracks(0)
     assert widget.tracks() == []
+    assert widget.album_metadata().artist == "Unknown Artist"
 
 
 def test_clear_resets_to_empty(qapp: QApplication) -> None:

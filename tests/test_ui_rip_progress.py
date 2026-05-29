@@ -71,13 +71,15 @@ def test_append_log_line_adds_text(qapp: QApplication) -> None:
 # --- Progress updates ----------------------------------------------------
 
 
-def test_set_progress_updates_label_and_bar(qapp: QApplication) -> None:
+def test_set_progress_updates_bar_only(qapp: QApplication) -> None:
+    # set_progress drives the bar; the status label is owned by
+    # set_status (fed from the worker's phase signal).
     widget = RipProgress()
+    before = widget._status_label.text()
     widget.set_progress(3, 42.0)
 
     assert widget._progress_bar.value() == 42
-    assert "track 3" in widget._status_label.text().lower()
-    assert "42" in widget._status_label.text()
+    assert widget._status_label.text() == before  # unchanged
 
 
 def test_set_status_updates_label(qapp: QApplication) -> None:
