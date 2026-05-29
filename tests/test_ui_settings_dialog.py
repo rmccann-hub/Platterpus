@@ -29,6 +29,7 @@ def test_initial_widget_state_matches_input_config(
         metaflac_path="/x/metaflac",
         read_offset=42,
         auto_launch_picard=True,
+        continue_on_cdr=True,
     )
 
     dialog = SettingsDialog(config)
@@ -41,6 +42,7 @@ def test_initial_widget_state_matches_input_config(
     assert dialog._metaflac_path_edit.text() == "/x/metaflac"
     assert dialog._read_offset_spin.value() == 42
     assert dialog._auto_picard_check.isChecked() is True
+    assert dialog._continue_on_cdr_check.isChecked() is True
 
 
 def test_read_offset_range_bounds(qapp: QApplication) -> None:
@@ -75,6 +77,7 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     dialog._metaflac_path_edit.setText("/changed/metaflac")
     dialog._read_offset_spin.setValue(-42)
     dialog._auto_picard_check.setChecked(True)
+    dialog._continue_on_cdr_check.setChecked(True)
 
     out = dialog.to_config()
 
@@ -86,6 +89,7 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     assert out.metaflac_path == "/changed/metaflac"
     assert out.read_offset == -42
     assert out.auto_launch_picard is True
+    assert out.continue_on_cdr is True
 
 
 def test_to_config_preserves_schema_version(qapp: QApplication) -> None:

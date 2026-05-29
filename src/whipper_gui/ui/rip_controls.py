@@ -59,6 +59,16 @@ class RipControls(QWidget):
 
     # --- Setters (called by main window) ------------------------------------
 
+    def set_config(self, config: Config) -> None:
+        """Replace the Config used to assemble rip parameters.
+
+        The main window calls this after the user saves Settings so the
+        next rip reflects the edited output dir, templates, and the
+        Continue-on-CD-R toggle. Without it the widget would keep using
+        the Config it was constructed with.
+        """
+        self._config = config
+
     def set_drive(self, device: str) -> None:
         self._drive = device or ""
         self._refresh_button_state()
@@ -118,6 +128,7 @@ class RipControls(QWidget):
             track_template=self._config.track_template,
             disc_template=self._config.disc_template,
             unknown=self._unknown_mode,
+            cdr=self._config.continue_on_cdr,
         )
         self.rip_requested.emit(params)
 

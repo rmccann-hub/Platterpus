@@ -118,10 +118,13 @@ class WhipperBackend(ABC):
         track_template: str,
         disc_template: str,
         unknown: bool = False,
+        cdr: bool = False,
     ) -> RipHandle:
         """Begin a rip. `release_id` is an MBID, never an interactive prompt.
 
-        The returned handle streams whipper's stdout and supports cancel.
+        `cdr=True` passes whipper's `--cdr` flag so it will rip a burned
+        CD-R (it refuses by default). The returned handle streams
+        whipper's stdout and supports cancel.
         """
 
     @abstractmethod
@@ -201,6 +204,7 @@ class WhipperHostExportedImpl(WhipperBackend):
         track_template: str,
         disc_template: str,
         unknown: bool = False,
+        cdr: bool = False,
     ) -> RipHandle:
         # Note: whipper has no -d/--device flag for `cd rip` — it
         # auto-detects the single drive. Multi-drive selection is P1
@@ -218,6 +222,10 @@ class WhipperHostExportedImpl(WhipperBackend):
             argv.extend(["--working-directory", str(self._working_dir)])
         if unknown:
             argv.append("--unknown")
+        if cdr:
+            # Burned discs: whipper aborts with "inserted disc seems to be
+            # a CD-R, --cdr not passed" unless we explicitly allow it.
+            argv.append("--cdr")
 
         log.info("rip starting: %s", " ".join(argv))
         process = subprocess.Popen(

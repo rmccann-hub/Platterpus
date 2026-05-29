@@ -109,6 +109,19 @@ class SettingsDialog(QDialog):
         self._auto_picard_check.setChecked(config.auto_launch_picard)
         form.addRow("Picard integration:", self._auto_picard_check)
 
+        # Continue on CD-R. Whipper refuses burned discs by default; this
+        # opts into ripping them anyway (passes whipper's --cdr flag).
+        self._continue_on_cdr_check: QCheckBox = QCheckBox(
+            "Allow ripping burned CD-R discs", self
+        )
+        self._continue_on_cdr_check.setChecked(config.continue_on_cdr)
+        self._continue_on_cdr_check.setToolTip(
+            "Whipper refuses to rip a burned CD-R unless this is enabled "
+            "(it passes whipper's --cdr flag). Leave off for pressed "
+            "commercial discs; turn on to archive a home-burned disc."
+        )
+        form.addRow("CD-R discs:", self._continue_on_cdr_check)
+
         root.addLayout(form)
 
         # --- Check dependencies action ---
@@ -151,6 +164,7 @@ class SettingsDialog(QDialog):
             metaflac_path=self._metaflac_path_edit.text(),
             read_offset=self._read_offset_spin.value(),
             auto_launch_picard=self._auto_picard_check.isChecked(),
+            continue_on_cdr=self._continue_on_cdr_check.isChecked(),
             schema_version=self._config.schema_version,
         )
 

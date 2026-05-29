@@ -222,7 +222,7 @@ The following whipper CLI options exist but aren't currently surfaced in our Set
 - **Force overread into lead-out.** Whipper's `-x, --force-overread` flag. Default off (matches EAC's recommendation). Surface as a Settings toggle.
 - **Max retries.** Whipper's `-r, --max-retries N` flag. Default 5 (whipper's own default). Surface as a Settings spinbox.
 - **Keep going on track failure.** Whipper's `-k, --keep-going` flag. Default off (safer — surfaces problems). Surface as a Settings toggle.
-- **Continue on CD-R.** Whipper's `--cdr` flag. Default off (CD-Rs are usually accidents in an archival workflow). Surface as a Settings toggle.
+- **[x] Continue on CD-R.** Whipper's `--cdr` flag. Default off (CD-Rs are usually accidents in an archival workflow). Surface as a Settings toggle. **Done 2026-05-29 (pulled forward during T32):** the user's first real-hardware test disc turned out to be a burned CD-R, and whipper aborts with "inserted disc seems to be a CD-R, --cdr not passed". Added `Config.continue_on_cdr`, a "CD-R discs" toggle in the Settings dialog, `RipParameters.cdr`, and the `--cdr` flag passthrough in `WhipperHostExportedImpl.rip()`. Also added `RipControls.set_config()` so a Settings change reaches the next rip (previously the rip controls kept their construction-time Config — latent staleness that also affected output_dir/templates).
 
 Each is independent; do them in any order. They should land before the AppImage's first public release so the GUI matches what EAC users expect.
 

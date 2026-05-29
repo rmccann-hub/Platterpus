@@ -50,6 +50,7 @@ class RipParameters:
     track_template: str
     disc_template: str
     unknown: bool = False
+    cdr: bool = False
 
 
 # Defensive progress matcher. Whipper's output during a rip is line-based
@@ -111,6 +112,7 @@ class RipWorker(QObject):
                 track_template=self._params.track_template,
                 disc_template=self._params.disc_template,
                 unknown=self._params.unknown,
+                cdr=self._params.cdr,
             )
         except WhipperError as exc:
             log.exception("rip failed to start")

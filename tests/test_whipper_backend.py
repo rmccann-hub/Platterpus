@@ -282,6 +282,41 @@ def test_rip_unknown_flag_appended_when_requested(
     assert "--unknown" in _FakePopen.instances[0].argv
 
 
+def test_rip_cdr_flag_appended_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """cdr=True must add whipper's --cdr flag so burned discs rip.
+
+    Real-hardware testing (T32) hit "inserted disc seems to be a CD-R,
+    --cdr not passed" on a home-burned disc; this flag is the fix."""
+    monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    impl.rip(
+        drive="/dev/sr0",
+        release_id="x",
+        output_dir=Path("/music"),
+        track_template="t",
+        disc_template="d",
+        cdr=True,
+    )
+    assert "--cdr" in _FakePopen.instances[0].argv
+
+
+def test_rip_cdr_flag_absent_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    impl.rip(
+        drive="/dev/sr0",
+        release_id="x",
+        output_dir=Path("/music"),
+        track_template="t",
+        disc_template="d",
+    )
+    assert "--cdr" not in _FakePopen.instances[0].argv
+
+
 def test_rip_omits_working_directory_when_unset(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

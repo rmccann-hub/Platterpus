@@ -92,10 +92,11 @@ class _FakeBackend(WhipperBackend):
         track_template: str,
         disc_template: str,
         unknown: bool = False,
+        cdr: bool = False,
     ) -> RipHandle:
         self.rip_calls.append({
             "drive": drive, "release_id": release_id,
-            "output_dir": output_dir, "unknown": unknown,
+            "output_dir": output_dir, "unknown": unknown, "cdr": cdr,
         })
         if self._raise_on_rip:
             raise self._raise_on_rip
@@ -106,7 +107,9 @@ class _FakeBackend(WhipperBackend):
         return "fake 0.0.0"
 
 
-def _params(tmp_path: Path, unknown: bool = False) -> RipParameters:
+def _params(
+    tmp_path: Path, unknown: bool = False, cdr: bool = False
+) -> RipParameters:
     return RipParameters(
         drive="/dev/sr0",
         release_id="mbid-abc",
@@ -114,6 +117,7 @@ def _params(tmp_path: Path, unknown: bool = False) -> RipParameters:
         track_template="t",
         disc_template="d",
         unknown=unknown,
+        cdr=cdr,
     )
 
 
@@ -170,6 +174,19 @@ def test_finished_reports_success_on_zero_exit(
     worker.start_rip()
 
     assert sigs.finished[0][0] is True
+
+
+def test_cdr_param_forwarded_to_backend(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """RipParameters.cdr must reach WhipperBackend.rip()."""
+    handle = _FakeHandle(lines=[], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    worker = RipWorker(backend, _params(tmp_path, cdr=True))
+
+    worker.start_rip()
+
+    assert backend.rip_calls[0]["cdr"] is True
 
 
 def test_finished_reports_failure_on_nonzero_exit(
