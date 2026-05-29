@@ -160,9 +160,14 @@ class WhipperHostExportedImpl(WhipperBackend):
         return parse_drive_list(output)
 
     def disc_info(self, drive: str) -> DiscInfo:
-        # `-d <drive>` is a global whipper flag and must come BEFORE the
-        # subcommand (verified against whipper's argparse layout).
-        output = self._run_info(["-d", drive, "cd", "info"])
+        # Note: whipper has no -d/--device flag — it auto-detects the
+        # single drive on the system. The `drive` parameter is accepted
+        # for ABC compatibility and for future multi-drive support
+        # (P1 backlog); on single-drive systems (the common case) it's
+        # ignored at the subprocess layer. If a multi-drive selection
+        # mechanism is later added to whipper, plumb it here.
+        del drive  # explicit: parameter intentionally unused for v1
+        output = self._run_info(["cd", "info"])
         return parse_cd_info(output)
 
     def version(self) -> str:
@@ -179,9 +184,12 @@ class WhipperHostExportedImpl(WhipperBackend):
         disc_template: str,
         unknown: bool = False,
     ) -> RipHandle:
+        # Note: whipper has no -d/--device flag for `cd rip` — it
+        # auto-detects the single drive. Multi-drive selection is P1
+        # (see TASKS.md). `drive` is accepted for ABC compatibility.
+        del drive  # explicit: parameter intentionally unused for v1
         argv: list[str] = [
             str(self._binary),
-            "-d", drive,
             "cd", "rip",
             "--release-id", release_id,
             "--output-directory", str(output_dir),
