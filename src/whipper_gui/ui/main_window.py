@@ -219,9 +219,16 @@ class MainWindow(QMainWindow):
             # Empty disc ID means whipper couldn't retrieve metadata
             # (per WhipperHostExportedImpl.disc_info's unknown-disc
             # fallback). Surface "not in MusicBrainz" instead of leaving
-            # the panel stuck on "reading disc…" forever. The user can
-            # then proceed via File → Rip as Unknown Album.
+            # the panel stuck on "reading disc…" forever.
             self._disc_info_panel.set_mb_matches([])
+            # Auto-prompt the Unknown Album flow: the user has a disc
+            # inserted but MB doesn't recognize it, so the only path
+            # forward is to rip as unknown. Surfacing the dialog
+            # proactively beats requiring the user to discover
+            # File → Rip as Unknown Album. Guard against re-prompting
+            # if the user already accepted it in this session.
+            if not self._rip_controls.is_unknown_mode():
+                self.open_unknown_album_dialog()
 
     # --- Slots: MusicBrainz results ----------------------------------------
 
