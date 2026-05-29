@@ -111,6 +111,50 @@ def test_start_click_emits_rip_requested_with_assembled_params(
     assert params.unknown is False
 
 
+def test_start_passes_continue_on_cdr_from_config(
+    qapp: QApplication,
+) -> None:
+    """The CD-R toggle in config must reach the assembled RipParameters."""
+    config = Config(output_dir="/music", continue_on_cdr=True)
+    controls = RipControls(config)
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+
+    assert captured[0].cdr is True
+
+
+def test_cdr_defaults_false_when_config_omits_it(qapp: QApplication) -> None:
+    controls = RipControls(_cfg())
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+
+    assert captured[0].cdr is False
+
+
+def test_set_config_updates_params_for_next_rip(qapp: QApplication) -> None:
+    """A Settings change (new Config) must be reflected on the next rip."""
+    controls = RipControls(_cfg())
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+
+    controls.set_config(Config(output_dir="/elsewhere", continue_on_cdr=True))
+
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+
+    assert captured[0].output_dir == Path("/elsewhere")
+    assert captured[0].cdr is True
+
+
 def test_start_in_unknown_mode_sets_unknown_flag(
     qapp: QApplication,
 ) -> None:

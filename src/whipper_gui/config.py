@@ -68,6 +68,13 @@ class Config:
     # --- UI toggles ---
     auto_launch_picard: bool = False
 
+    # Continue ripping a CD-R (burned disc). Whipper refuses by default
+    # ("inserted disc seems to be a CD-R, --cdr not passed") because in an
+    # archival workflow a burned disc is usually an accident. Off by
+    # default to match that safety stance; the user opts in per the EAC
+    # parity audit (KDD-13). When True we pass whipper's `--cdr` flag.
+    continue_on_cdr: bool = False
+
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
 

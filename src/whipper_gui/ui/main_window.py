@@ -337,6 +337,9 @@ class MainWindow(QMainWindow):
         dialog.check_dependencies_requested.connect(self._on_check_dependencies)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._config = dialog.to_config()
+            # Push the new config into the rip controls so the next rip
+            # reflects the edits (output dir, templates, Continue-on-CD-R).
+            self._rip_controls.set_config(self._config)
             try:
                 self._save_config(self._config)
             except OSError as exc:
