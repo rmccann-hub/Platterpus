@@ -130,7 +130,14 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 
 ### Notes for future sessions
 
-- **P0 status:** 31 of 32 tasks done; only T32 (end-to-end smoke test on real hardware) is open. T32 requires the user's Bazzite system + a commercial CD.
+- **P0 status:** 31 of 32 tasks done. T32 (end-to-end smoke test) is in progress — the **rip pipeline is verified end-to-end** on real hardware (see below); only the AppImage build+launch remains before T32 closes.
+- **T32 real-hardware rip (2026-05-29):** a 16-track CD-R ripped end-to-end on Bazzite + Distrobox + Pioneer BDR-209D. All Test CRCs == Copy CRCs, FLACs play, `.log`/`.cue`/`.m3u`/`.toc` written, AccurateRip correctly "not in DB". Findings + fixes (each has a test):
+  - whipper refuses CD-Rs without `--cdr` → added `Config.continue_on_cdr` + Settings toggle + `RipParameters.cdr` + flag passthrough.
+  - whipper `os.chdir()`s into `--working-directory` without creating it → adapter now `mkdir -p`s the working + output dirs before the rip.
+  - **KDD-06 RESOLVED: libdiscid is NOT needed on the host** (whipper-in-container computes the disc ID; the GUI never calls libdiscid). The `libdiscid` registry entry stays unneeded.
+  - **KDD-13 answered:** whipper writes `.cue` + `.m3u` + `.toc` next to the FLACs and fills ISRC/UPC slots (all-zero on a CD-R).
+  - Unknown-disc UX: track table now shows `Track 01…NN` placeholder rows (`DiscInfo.num_tracks` salvaged from `cd info`'s partial output); status label stays live through the pre-track disc scan (`RipWorker.status` signal).
+  - Default path template changed to `%A/%d/%t - %n` (Artist/Album/`## - Title`); config schema v1→v2 migration upgrades untouched templates. Unknown discs still get the disc-ID hash as the album folder (friendly-rename deferred to P1).
 - **Real-user testing on Bazzite (2026-05-28/29)** surfaced and fixed a series of upstream/environment issues; each has a code comment with the diagnosis:
   - `whipper` has no `-d`/`--device` flag (assumed wrong in early adapter) — `adapters/whipper_backend.py`
   - `whipper cd info` exits -1 with "unable to retrieve disc metadata" on discs not in MB/FreeDB; `--unknown` isn't accepted by `Info` even though `_CD.do()` requires it — adapter catches and returns empty DiscInfo

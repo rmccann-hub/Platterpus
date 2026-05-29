@@ -24,20 +24,31 @@ import tomli_w
 
 from whipper_gui.paths import CONFIG_DIR, CONFIG_PATH, WHIPPER_BINARY_DEFAULT
 
-# Bump this when the schema grows new keys. Migration logic lives in
-# _migrate() below — currently a no-op because we're at v1.
-SCHEMA_VERSION: int = 1
+# Bump this when the schema grows new keys or changes defaults that we
+# want to migrate. Migration logic lives in _migrate() below.
+SCHEMA_VERSION: int = 2
 
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
 _DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
 _DEFAULT_WORKING_DIR: Path = Path.home() / ".cache" / "whipper-gui"
 
-# Whipper's own default templates (see `whipper cd rip --help`). Kept
-# inline so future-you doesn't need to grep the codebase for the format
-# specifiers.
-_DEFAULT_TRACK_TEMPLATE: str = "%A - %d/%t. %a - %n"
-_DEFAULT_DISC_TEMPLATE: str = "%A - %d/%A - %d"
+# Whipper path templates (see `whipper cd rip --help`). Format codes:
+#   %A = album artist   %d = album/disc title   %a = track artist
+#   %t = track number   %n = track title
+# Default layout (chosen during T32): Artist/Album folders, "## - Title"
+# track files, and the per-disc files (.log/.cue/.m3u/.toc) named after
+# the album in the same folder. NOTE: for a disc MusicBrainz can't
+# identify, whipper substitutes the raw disc-ID hash for %d — so the
+# album folder for an unknown disc is that hash until the "Unknown Album"
+# rename lands (P1 backlog).
+_DEFAULT_TRACK_TEMPLATE: str = "%A/%d/%t - %n"
+_DEFAULT_DISC_TEMPLATE: str = "%A/%d/%d"
+
+# The v1 defaults, kept so the v1→v2 migration can recognise an
+# untouched template and upgrade it without clobbering a custom one.
+_V1_TRACK_TEMPLATE: str = "%A - %d/%t. %a - %n"
+_V1_DISC_TEMPLATE: str = "%A - %d/%A - %d"
 
 log = logging.getLogger(__name__)
 
@@ -125,16 +136,30 @@ def save(cfg: Config) -> None:
 
 
 def _migrate(raw: dict) -> dict:
-    """Apply schema migrations in-place. Currently a no-op (v1).
+    """Apply schema migrations in-place, returning the upgraded dict.
 
-    When SCHEMA_VERSION bumps, chain per-version mutations here. Each
-    migration reads `raw["schema_version"]`, transforms `raw`, and bumps
+    Each step reads `raw["schema_version"]`, transforms `raw`, and bumps
     the version. Keep individual steps small so they're easy to review.
     """
     version = int(raw.get("schema_version", 1))
-    if version == 1:
+
+    if version < 2:
+        # v1→v2: the default path templates changed to an Artist/Album
+        # folder layout with "## - Title" filenames. Only rewrite a
+        # template the user never customized (still the v1 default) so we
+        # never clobber a hand-edited one. A template that's absent stays
+        # absent — load() will fall back to the v2 default.
+        if raw.get("track_template") == _V1_TRACK_TEMPLATE:
+            raw["track_template"] = _DEFAULT_TRACK_TEMPLATE
+        if raw.get("disc_template") == _V1_DISC_TEMPLATE:
+            raw["disc_template"] = _DEFAULT_DISC_TEMPLATE
+        raw["schema_version"] = 2
+        version = 2
+
+    if version == 2:
         return raw
-    # Future migrations slot in here. Unknown future versions get a
-    # warning and v1 treatment — better than crashing the GUI.
-    log.warning("unknown schema_version=%s; treating as v1", version)
+
+    # Unknown future versions get a warning and current-version
+    # treatment — better than crashing the GUI.
+    log.warning("unknown schema_version=%s; treating as v%s", version, SCHEMA_VERSION)
     return raw
