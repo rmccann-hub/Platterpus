@@ -169,8 +169,10 @@ def test_disc_info_passes_drive_flag_before_subcommand(
     impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
     info = impl.disc_info("/dev/sr0")
 
-    # `-d <drive>` MUST come before `cd info` (whipper argparse layout).
-    assert captured[0] == ["/x/whipper", "-d", "/dev/sr0", "cd", "info"]
+    # Whipper has no -d/--device flag for `cd info` — it auto-detects
+    # the single drive. The argv MUST NOT include -d (caused real
+    # "unrecognized arguments: -d" errors on the user's Bazzite test).
+    assert captured[0] == ["/x/whipper", "cd", "info"]
     assert info.cddb_disc_id == "12345678"
     assert info.musicbrainz_disc_id == "abc-def"
 
@@ -210,7 +212,10 @@ def test_rip_builds_expected_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(handle, RipHandle)
     argv = _FakePopen.instances[0].argv
     assert argv[0] == "/x/whipper"
-    assert "-d" in argv and "/dev/sr0" in argv
+    # Whipper has no -d/--device flag — it auto-detects the drive.
+    # Multi-drive selection is P1 (see TASKS.md). For v1, the `drive`
+    # parameter is accepted in the rip() signature but not forwarded.
+    assert "-d" not in argv
     assert "cd" in argv and "rip" in argv
     assert "--release-id" in argv and "abc-mbid" in argv
     assert "--output-directory" in argv and "/music" in argv
