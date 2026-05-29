@@ -1,6 +1,6 @@
 # PLANNING.md — Whipper GUI Architecture and Design
 
-This is the architecture document. It captures *how* the GUI is built. For *what* to build, see the brief (`docs/whipper-gui-research-brief-v2.1.md` once archived). For *which sessions are working on which slice*, see `TASKS.md`. For *which deps are pinned and why*, see `DEPENDENCIES.md`.
+This is the architecture document. It captures *how* the GUI is built. For *what* to build, see the brief at `docs/whipper-gui-research-brief-v2.1.md`. For *which sessions are working on which slice*, see `TASKS.md`. For *which deps are pinned and why*, see `DEPENDENCIES.md`. For *how to rebuild from scratch*, see `docs/README.md`.
 
 This file is **living**. When an architectural decision is made or revisited, update the relevant section here. The Key Design Decisions section at the bottom is the changelog of architectural intent — future-you reads it to understand "why is it like this?"
 
@@ -14,38 +14,73 @@ Every file the project intends to create. New files added during a task should b
 Whipper-GUI-Frontend---CD-Rip/
 ├── CLAUDE.md                            # persistent project context (locked rules)
 ├── PLANNING.md                          # this file — architecture and design
-├── TASKS.md                             # active task checklist
+├── TASKS.md                             # active task checklist (P0/P1.1/P1/P2)
 ├── DEPENDENCIES.md                      # dep table with release dates + replacement plans
-├── README.md                            # outward-facing description
-├── pyproject.toml                       # package metadata + pinned deps + entry points
+├── README.md                            # outward-facing description + install instructions
+├── pyproject.toml                       # package metadata + pinned deps + entry points + pytest config
+├── dev-setup.sh                         # one-command post-clone bootstrap (venv + pip + editable install)
+├── uninstall.sh                         # tear-down counterpart to dev-setup.sh
 ├── .gitignore
-├── .gitattributes                       # (already present)
+├── .gitattributes
 │
-├── docs/                                # archived brief + research, plus design notes
-│   ├── whipper-gui-research-brief-v2.1.md
-│   └── (compass_artifact_*.md when produced)
+├── docs/                                # archived source docs + reference material
+│   ├── README.md                        # index of docs/ contents + rebuild-from-scratch checklist
+│   ├── whipper-gui-research-brief-v2.1.md   # canonical project brief (authority on scope)
+│   ├── whipper-gui-session-start.md     # bootstrap instructions for a fresh Claude Code session
+│   ├── whipper-gui-research-rerun-prompt.md # how to refresh tool-choice research
+│   ├── log-format-comparison.md         # whipper rip log vs EAC log side-by-side (KDD-11)
+│   └── (compass_artifact_*.md if/when produced — see docs/README.md)
 │
 ├── build/                               # everything related to producing the AppImage
 │   ├── build_appimage.sh                # one-shot build script (calls python-appimage)
 │   └── python-appimage/
 │       ├── requirements.txt             # pip deps bundled into the AppImage
+│       ├── entrypoint                   # executable AppRun script
+│       ├── whipper-gui.desktop          # desktop integration
 │       └── README.md                    # build-time prerequisites and gotchas
 │
-├── tests/                               # pytest test tree
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_whipper_backend.py
-│   ├── test_musicbrainz_client.py
-│   ├── test_metaflac_adapter.py
-│   ├── test_rip_log_parser.py
-│   ├── test_drive_list_parser.py
+├── tests/                               # pytest test tree (301 tests at last count)
+│   ├── conftest.py                      # session-scoped QApplication fixture; QT_QPA_PLATFORM=offscreen
+│   ├── test_app.py                      # argparse / --version / module import smoke
+│   ├── test_build_harness.py            # AppImage recipe shape + executable bits
 │   ├── test_cd_info_parser.py
-│   ├── test_dependency_manager.py
 │   ├── test_config.py
+│   ├── test_dependency_manager.py       # NOTE: actual filename is test_deps_manager.py
+│   ├── test_deps_checks.py
+│   ├── test_deps_manager.py             # 11 tests incl. decline-no-cascade + failure-still-cascades
+│   ├── test_deps_resolvers.py
+│   ├── test_deps_version.py
+│   ├── test_drive_list_parser.py        # NOTE: actual filename is test_parsers_drive_list.py
+│   ├── test_mb_worker.py
+│   ├── test_metaflac_adapter.py
+│   ├── test_musicbrainz_client.py
+│   ├── test_parsers_cd_info.py
+│   ├── test_parsers_drive_list.py
+│   ├── test_parsers_rip_log.py
+│   ├── test_rip_worker.py
+│   ├── test_ui_disc_info_panel.py
+│   ├── test_ui_drive_picker.py
+│   ├── test_ui_main_window.py           # 13 tests incl. dep-summary failure/decline rendering
+│   ├── test_ui_manual_install_dialog.py
+│   ├── test_ui_pending_installs_dialog.py
+│   ├── test_ui_release_picker.py
+│   ├── test_ui_rip_controls.py
+│   ├── test_ui_rip_progress.py
+│   ├── test_ui_settings_dialog.py
+│   ├── test_ui_track_table.py
+│   ├── test_ui_unknown_album.py
+│   ├── test_uninstall_script.py         # smoke tests for uninstall.sh (--help, --dry-run, safety)
+│   ├── test_whipper_backend.py          # incl. unknown-disc handling, no -d flag
 │   └── fixtures/
-│       ├── sample_rip.log
-│       ├── sample_drive_list.txt
-│       └── sample_cd_info.txt
+│       ├── README.md
+│       ├── cd_info_pink_floyd.txt
+│       ├── cd_info_with_noise.txt
+│       ├── drive_list_empty.txt
+│       ├── drive_list_pioneer.txt
+│       ├── drive_list_pioneer_unconfigured.txt
+│       ├── drive_list_two_drives.txt
+│       ├── rip_log_eac_reference.log    # representative EAC log for format comparison only
+│       └── rip_log_real_whipper_0_7.log # pulled verbatim from upstream whipper test suite
 │
 └── src/
     └── whipper_gui/

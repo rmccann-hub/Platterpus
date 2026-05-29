@@ -2,7 +2,7 @@
 
 A Linux GUI front-end for the [`whipper`](https://github.com/whipper-team/whipper) audio-CD ripping CLI. Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage.
 
-> **Status: pre-alpha.** The application is implemented end-to-end and has 280+ unit tests, but it has not yet been validated against a real CD on a real Bazzite system. See [TASKS.md](TASKS.md) — T32 (end-to-end smoke test) is the only remaining P0 task.
+> **Status: pre-alpha.** The application is implemented end-to-end and has 300+ unit tests, but it has not yet been validated against a real CD on a real Bazzite system. See [TASKS.md](TASKS.md) — T32 (end-to-end smoke test) is the only remaining P0 task.
 
 ## At a glance
 
@@ -663,11 +663,27 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Documentation for contributors
 
-- [`PLANNING.md`](PLANNING.md) — architecture, module design, design decisions
-- [`TASKS.md`](TASKS.md) — active task checklist
-- [`DEPENDENCIES.md`](DEPENDENCIES.md) — dependency table, last release dates, replacement plans
-- [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing)
+Core project documents (in this directory):
+
+- [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, 13 keyed design decisions (KDD-01 through KDD-13)
+- [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, one open), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
+- [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
+
+Source documents and reference material (in `docs/`):
+
+- [`docs/README.md`](docs/README.md) — index of `docs/` contents + rebuild-from-scratch checklist
+- [`docs/whipper-gui-research-brief-v2.1.md`](docs/whipper-gui-research-brief-v2.1.md) — the canonical project brief
+- [`docs/whipper-gui-session-start.md`](docs/whipper-gui-session-start.md) — bootstrap instructions for a fresh Claude Code session
+- [`docs/whipper-gui-research-rerun-prompt.md`](docs/whipper-gui-research-rerun-prompt.md) — Research-mode prompt for refreshing tool-choice validation
 - [`docs/log-format-comparison.md`](docs/log-format-comparison.md) — whipper-log vs EAC-log field comparison
+
+Build / dev tooling:
+
+- [`dev-setup.sh`](dev-setup.sh) — one-command post-clone setup (venv + pip + editable install)
+- [`uninstall.sh`](uninstall.sh) — tear-down counterpart (use `--help` for options)
+- [`build/build_appimage.sh`](build/build_appimage.sh) — produce the AppImage
+- [`build/python-appimage/README.md`](build/python-appimage/README.md) — AppImage recipe details
 
 ---
 

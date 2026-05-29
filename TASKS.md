@@ -194,6 +194,17 @@ When a task changes status, update it here in the same commit as the code change
 
 These are fenced off so they don't accidentally interleave with P0 work. Each becomes a T## task only after P0 v1 is released.
 
+The sub-sections below are ordered by current priority for picking up work:
+
+1. **P1.1 — Install / uninstall ease** is the **highest priority subset** of P1. Items here unblock new contributors at the install step; finish before anything else P1.
+2. **P1 — Release milestones** — gating actions for v0.1.0. Merging to main, flipping the repo public, tagging the first release, publishing to PyPI. Most other P1 items remove caveats from the README once these are done.
+3. **P1 — EAC bit-perfect parity gaps** — five small Settings widgets for whipper flags we don't yet expose. Should land before the first public AppImage.
+4. **P1 — UX gaps from real-user testing** — issues surfaced on Bazzite that aren't urgent but make the GUI feel less polished.
+5. **P1 — Install automation** — pre-clone host bootstrap script. Blocked on the repo flipping public.
+6. **P1 — Documentation backlog** — items that need real-system output from T32 to write authoritatively.
+
+High-level feature backlog (not bucketed into a sub-section because each is small):
+
 - Eject button + auto-eject toggle
 - Multi-disc queue
 - Live progress bars per track
