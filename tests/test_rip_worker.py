@@ -25,6 +25,7 @@ from whipper_gui.adapters.whipper_backend import (
 from whipper_gui.workers.rip_worker import (
     RipParameters,
     RipWorker,
+    _describe_activity,
     _parse_progress,
 )
 
@@ -231,6 +232,83 @@ def test_progress_signal_fires_on_parseable_lines(
 def test_progress_helper_returns_none_for_non_matching_lines() -> None:
     assert _parse_progress("Reading TOC...") is None
     assert _parse_progress("") is None
+
+
+# --- Status / phase descriptions ------------------------------------------
+
+
+def test_describe_activity_recognizes_disc_scan() -> None:
+    assert _describe_activity("Reading TOC  50 %") == "Reading disc TOC… 50%"
+    assert (
+        _describe_activity("Reading table  12 %") == "Reading disc table… 12%"
+    )
+
+
+def test_describe_activity_recognizes_track_phases() -> None:
+    assert (
+        _describe_activity("Reading track 3 of 16 (1 of 9) ...  42 %")
+        == "Reading track 3 of 16… 42%"
+    )
+    assert (
+        _describe_activity("Verifying track 3 of 16 (3 of 9) ... 100 %")
+        == "Verifying track 3 of 16… 100%"
+    )
+
+
+def test_describe_activity_recognizes_named_subphases() -> None:
+    assert (
+        _describe_activity("Encoding track to FLAC (5 of 9) ...   0 %")
+        == "Encoding to FLAC…"
+    )
+    assert (
+        _describe_activity("Getting length of audio track (1 of 16) ... 100 %")
+        == "Checking track 1 of 16…"
+    )
+
+
+def test_describe_activity_returns_none_for_unrelated_lines() -> None:
+    assert _describe_activity("INFO:whipper.command.cd:CRCs match") is None
+    assert _describe_activity("") is None
+
+
+def test_status_signal_fires_for_disc_scan_phase(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The pre-track disc scan must drive the status so the GUI doesn't
+    look frozen on "Starting rip…" (T32 feedback)."""
+    statuses: list[str] = []
+    handle = _FakeHandle(
+        lines=[
+            "Reading TOC  50 %",
+            "Reading table  10 %",
+            "Reading track 1 of 16 (1 of 9) ...  20 %",
+        ],
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.status.connect(statuses.append)
+
+    worker.start_rip()
+
+    assert "Reading disc TOC… 50%" in statuses
+    assert "Reading disc table… 10%" in statuses
+    assert "Reading track 1 of 16… 20%" in statuses
+
+
+def test_status_signal_deduplicates_repeated_phase(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    handle = _FakeHandle(
+        lines=["Encoding track to FLAC (5 of 9) ...   0 %"] * 3,
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    statuses: list[str] = []
+    worker.status.connect(statuses.append)
+
+    worker.start_rip()
+
+    assert statuses == ["Encoding to FLAC…"]
 
 
 def test_progress_helper_extracts_fractional_percent() -> None:

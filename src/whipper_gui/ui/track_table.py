@@ -205,23 +205,34 @@ class TrackTable(QWidget):
         self._album_year_edit.setText(detail.summary.date)
         self._model.set_tracks(detail.tracks)
 
-    def set_blank_tracks(self, count: int) -> None:
-        """Show `count` numbered rows with empty title/artist.
+    def set_placeholder_tracks(self, count: int) -> None:
+        """Pre-fill placeholder metadata for a disc MusicBrainz can't ID.
 
-        Used for a disc MusicBrainz can't identify: whipper still tells
-        us how many audio tracks the disc has, so we render that many
-        rows (1..count) so the user sees the disc contents before an
-        unknown-album rip. The album-level fields are left blank.
+        Album fields become "Unknown Artist" / "Unknown Album"; each of
+        the `count` track rows gets a "Track NN" title and an "Unknown
+        Artist" credit. This mirrors the placeholder tags the
+        unknown-album rip actually writes (see
+        `ui.unknown_album.apply_placeholder_tags`), so the table shows
+        the user what will land on disk instead of empty rows.
 
-        Note: editing these rows does NOT yet feed the unknown rip —
-        whipper writes placeholder "Track NN" tags and our post-rip step
-        applies them. Wiring edited tags into the rip is tracked as P2.
+        Editing these rows doesn't feed the rip yet — that's the P2
+        follow-up tracked in TASKS.md.
         """
+        self._album_artist_edit.setText("Unknown Artist")
+        self._album_title_edit.setText("Unknown Album")
+        self._album_year_edit.clear()
         if count <= 0:
             self._model.set_tracks([])
             return
-        blanks = [TrackSummary(number=n, title="") for n in range(1, count + 1)]
-        self._model.set_tracks(blanks)
+        rows = [
+            TrackSummary(
+                number=n,
+                title=f"Track {n:02d}",
+                artist_credit="Unknown Artist",
+            )
+            for n in range(1, count + 1)
+        ]
+        self._model.set_tracks(rows)
 
     def clear(self) -> None:
         """Reset to the empty state (no album metadata, no tracks)."""

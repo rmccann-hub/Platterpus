@@ -274,7 +274,7 @@ class MainWindow(QMainWindow):
         already accepted in this session.
         """
         if self._current_num_tracks > 0:
-            self._track_table.set_blank_tracks(self._current_num_tracks)
+            self._track_table.set_placeholder_tracks(self._current_num_tracks)
         if not self._rip_controls.is_unknown_mode():
             self.open_unknown_album_dialog()
 
@@ -303,6 +303,7 @@ class MainWindow(QMainWindow):
 
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
+        self._rip_worker.status.connect(self._rip_progress.set_status)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
 

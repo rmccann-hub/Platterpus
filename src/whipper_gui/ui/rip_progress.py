@@ -130,14 +130,16 @@ class RipProgress(QWidget):
         self._log_view.appendPlainText(line)
 
     def set_progress(self, track: int, percent: float) -> None:
-        """Update the status label + progress bar."""
-        self._status_label.setText(
-            f"Ripping track {track} ({percent:.0f}%)"
-        )
+        """Update the progress bar.
+
+        The status label is driven separately via `set_status` (fed from
+        the rip worker's phase signal), so the label can stay meaningful
+        during phases that have no numeric percent.
+        """
         self._progress_bar.setValue(int(percent))
 
     def set_status(self, text: str) -> None:
-        """Generic status update (used at start/finish)."""
+        """Set the status label (start/finish + per-phase updates)."""
         self._status_label.setText(text)
 
     def set_rip_log(self, rip_log: RipLog) -> None:
