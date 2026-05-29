@@ -21,16 +21,27 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 
 | Name | Where it comes from | Version constraint | Status | Replacement plan |
 |---|---|---|---|---|
-| whipper | Distrobox container `ripping`, host-exported to `~/.local/bin/whipper` | `>=0.10.0` | Unmaintained (>12mo) | `cyanrip` via `WhipperBackend.CyanripImpl` (ABC contract documented in PLANNING.md §5) |
+| whipper | Distrobox container `ripping`, host-exported to `~/.local/bin/whipper` | `>=0.10.0` | Unmaintained (>12mo) — see retirement review log | `cyanrip` via `WhipperBackend.CyanripImpl` (ABC contract documented in PLANNING.md §5) |
 | metaflac | Distrobox container `ripping` (same export route) | (whatever ships with the container's `flac` package) | Active (FLAC project) | — |
 | libdiscid | System library; on Bazzite via `rpm-ostree install libdiscid` + reboot | `>=0.6` (if needed at all — see PLANNING.md KDD-06) | Active | — |
-| MusicBrainz Picard | Flathub: `flatpak install --user flathub org.musicbrainz.Picard` | latest | Active | — |
+| MusicBrainz Picard | Flathub via `.flatpakref` URL (see install_command in `deps/registry.py`) | latest | Active | — |
+
+## System dependencies (build/runtime requirements inside the Distrobox container)
+
+These aren't installed by our GUI but ARE required for whipper to work. They live inside the `ripping` Distrobox container alongside whipper itself. Documented here because real-user testing on Bazzite (2026-05-28) surfaced missing-dep issues that aren't obvious from the README.
+
+| Name | Why it's needed | How to install (inside the container) |
+|---|---|---|
+| `python3-setuptools` | Whipper 0.10.0 imports `pkg_resources` from setuptools. Python 3.14 (shipped in Fedora 44) doesn't include setuptools by default, and Fedora's whipper RPM doesn't declare it as a dep. Without it, `whipper --version` raises `ModuleNotFoundError: No module named 'pkg_resources'`. | `sudo dnf install python3-setuptools` |
+| `cdrdao` | Required by whipper for gap detection. Usually pulled in by `dnf install whipper` as a transitive dep, but worth noting in case of minimal container bases. | `sudo dnf install cdrdao` |
 
 ### Notes on the unmaintained items
 
-**whipper (0.10.0, 2021-05-17)** — Last release on PyPI/GitHub. Still works on Bazzite's Distrobox-hosted Fedora 40 container per the project brief's confirmed setup. Community-recognized active successor is `cyanrip`. Our `WhipperBackend` adapter (PLANNING.md §5) lets a swap happen without touching the GUI layer. Brief Critical Rule #1 codifies this.
+**whipper (0.10.0, 2021-05-17)** — Last release on PyPI/GitHub. Still works in 2026 on Fedora 44 + Python 3.14 IF `python3-setuptools` is installed alongside it (the pkg_resources import is otherwise broken). Community-recognized active successor is `cyanrip`. Our `WhipperBackend` adapter (PLANNING.md §5) lets a swap happen without touching the GUI layer. CLAUDE.md Critical Rule #1 codifies this.
 
-**musicbrainzngs (0.7.1, 2020-01-11)** — Last PyPI release. The underlying MusicBrainz `ws/2` REST API is stable. Risk is library bitrot (e.g., dropped Python compatibility on a future interpreter, not a server-side break). Our `MusicBrainzClient` adapter (PLANNING.md §6) lets us replace with raw `requests` against the JSON endpoint. Brief Critical Rule #1.
+Whipper-on-newer-Python surfaces a `pkg_resources is deprecated` UserWarning on every invocation; this is cosmetic (the version number still prints) but signals that the clock is running. setuptools 81 is slated to remove `pkg_resources` entirely, at which point whipper will stop running until either upstream is patched or we migrate to `cyanrip`.
+
+**musicbrainzngs (0.7.1, 2020-01-11)** — Last PyPI release. The underlying MusicBrainz `ws/2` REST API is stable. Risk is library bitrot (e.g., dropped Python compatibility on a future interpreter, not a server-side break). Our `MusicBrainzClient` adapter (PLANNING.md §6) lets us replace with raw `requests` against the JSON endpoint. CLAUDE.md Critical Rule #1.
 
 **appimage-builder (Snyk-flagged inactive)** — Not used. Listed here so it's tracked: CLAUDE.md Critical Rule #2 forbids reaching for it without explicit user approval. `python-appimage` (above) is the active builder.
 
@@ -52,4 +63,7 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ## Retirement review log
 
-*(empty — first review will be at v0.1.0 tag)*
+- **2026-05-28 — Real-user testing on Bazzite surfaced whipper deprecation canaries.** Whipper 0.10.0 is now 5 years old and showing real friction on current distros:
+  - **`pkg_resources` removal countdown.** Whipper imports `pkg_resources` from setuptools, which prints a deprecation warning under setuptools 80.x. Setuptools 81 (already released as of the warning's "2025-11-30" cutoff) will remove `pkg_resources` entirely. When Fedora ships setuptools 81+, whipper will stop running. Worth a `cyanrip` migration plan but not an emergency yet — Fedora 44 still has setuptools 80.x.
+  - **`whipper cd info` is broken for discs not in MB/FreeDB.** The `_CD.do()` method requires `--unknown` to be set when no metadata is found, but the `Info` subcommand doesn't accept `--unknown` (only `Rip` does). Adapter caught this with a fallback that returns an empty DiscInfo, but it's an upstream bug. Real fix would require patching whipper.
+  - **Decision:** continue with whipper for v1; flag both issues in code comments on `WhipperHostExportedImpl`. The adapter pattern (Critical Rule #1) makes the `cyanrip` migration tractable when it becomes necessary.

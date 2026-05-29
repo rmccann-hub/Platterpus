@@ -72,14 +72,19 @@ The line between these is judgment. When in doubt, the safer call is to stop and
 
 Read these alongside this file when picking up a session:
 
-- **`PLANNING.md`** — architecture, module design, key design decisions
-- **`TASKS.md`** — active task checklist; update status (`[ ]` → `[~]` → `[x]`) as work progresses
+- **`PLANNING.md`** — architecture, module design, key design decisions (KDD-01 through KDD-13)
+- **`TASKS.md`** — active task checklist; update status (`[ ]` → `[~]` → `[x]`) as work progresses. Sections: P0 (v1 release, T01-T32), P1.1 (install/uninstall ease — highest-priority P1 subset), P1 (broader backlog), P2 (future), Out of scope.
 - **`DEPENDENCIES.md`** — dep table with last release dates and replacement plans; review per the cadence stated in that file
-- **`README.md`** — outward-facing project description
-- **`whipper-gui-research-brief-v2.1.md`** (in `/docs/` once archived) — the project brief; canonical for requirements and scope
-- **`compass_artifact_*.md`** (in `/docs/` once archived) — the Research validation; canonical for tool/architecture choices
+- **`README.md`** — outward-facing project description and install instructions
+- **`docs/README.md`** — index of the docs/ directory and a rebuild-from-scratch checklist
+- **`docs/whipper-gui-research-brief-v2.1.md`** — the project brief; canonical for requirements and scope
+- **`docs/whipper-gui-session-start.md`** — bootstrap instructions a fresh Claude Code session uses to reproduce the initial planning artifacts
+- **`docs/whipper-gui-research-rerun-prompt.md`** — Research-mode prompt for refreshing tool-choice validation
+- **`docs/log-format-comparison.md`** — whipper rip log vs EAC log side-by-side (referenced by KDD-11)
 
 If `PLANNING.md` and the brief conflict, the brief wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
+
+There is no `compass_artifact_*.md` in the repo; the original v1 research validation was unavailable when the project was bootstrapped, so the project proceeded against the brief alone. To refresh tool-choice research, follow `docs/whipper-gui-research-rerun-prompt.md`.
 
 ---
 
@@ -91,20 +96,24 @@ If `PLANNING.md` and the brief conflict, the brief wins on requirements/scope an
 
 - AppImage: `bash build/build_appimage.sh` (produces `whipper-gui-x86_64.AppImage` at repo root via `python-appimage`)
 
-*(Build harness lands in T31; until then the script does not exist.)*
-
 ### Run commands
 
-- From a checkout: `pip install -e .` once, then `python -m whipper_gui` (or `whipper-gui`)
-- One-off from a checkout without install: `PYTHONPATH=src python -m whipper_gui`
-- From the AppImage: `./whipper-gui-x86_64.AppImage`
-- From a `pipx` install: `whipper-gui`
-
-*(T01 placeholder runs and exits cleanly; the real GUI lands in T29.)*
+- **Quickstart from a fresh clone:** `bash dev-setup.sh` then `source .venv/bin/activate && whipper-gui`
+- **Manual:** `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e . && whipper-gui`
+- **From the AppImage (once published):** `./whipper-gui-x86_64.AppImage`
+- **From a `pipx` install (once published):** `whipper-gui`
+- **Version check without launching the GUI:** `whipper-gui --version`
 
 ### Test commands
 
-- `pytest` from repo root (test scaffold lands in T30)
+- `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
+
+### Uninstall
+
+- `bash uninstall.sh` (interactive; removes `.venv/`, GUI config, GUI logs; prompts for Picard / Distrobox / whipper.conf / host exports)
+- `bash uninstall.sh --full --yes` (removes everything except music files and the cloned repo)
+- `bash uninstall.sh --dry-run` (shows what would be removed)
+- `bash uninstall.sh --help`
 
 ### Lint / format commands
 
@@ -121,4 +130,12 @@ If `PLANNING.md` and the brief conflict, the brief wins on requirements/scope an
 
 ### Notes for future sessions
 
-*(add session-end notes here so context isn't lost between Claude Code sessions)*
+- **P0 status:** 31 of 32 tasks done; only T32 (end-to-end smoke test on real hardware) is open. T32 requires the user's Bazzite system + a commercial CD.
+- **Real-user testing on Bazzite (2026-05-28/29)** surfaced and fixed a series of upstream/environment issues; each has a code comment with the diagnosis:
+  - `whipper` has no `-d`/`--device` flag (assumed wrong in early adapter) — `adapters/whipper_backend.py`
+  - `whipper cd info` exits -1 with "unable to retrieve disc metadata" on discs not in MB/FreeDB; `--unknown` isn't accepted by `Info` even though `_CD.do()` requires it — adapter catches and returns empty DiscInfo
+  - Whipper 0.10.0 imports `pkg_resources` which Python 3.14 dropped — `python3-setuptools` must be installed alongside whipper in the Distrobox container
+  - On Bazzite (Atomic), Flathub is a system-level remote by default; `flatpak install --user flathub <ref>` fails with "No remote refs found for 'flathub'" — registry uses the `.flatpakref` URL instead, which auto-configures the user remote
+  - `gh` isn't preinstalled on Bazzite and `sudo dnf install gh` doesn't work on immutable hosts — README recommends SSH key auth as the primary path for Bazzite/Silverblue
+  - Fresh venvs ship outdated `pip` on most distros — `dev-setup.sh` runs `pip install --upgrade pip` before installing the package
+- **Branch state:** all work is on `claude/lucid-babbage-JYI8c`. `main` only has `.gitattributes`. Merge to main is gated on T32 passing.
