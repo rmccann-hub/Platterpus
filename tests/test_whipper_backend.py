@@ -177,6 +177,48 @@ def test_disc_info_passes_drive_flag_before_subcommand(
     assert info.musicbrainz_disc_id == "abc-def"
 
 
+def test_disc_info_returns_empty_for_disc_not_in_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Whipper's `cd info` exits -1 with "unable to retrieve disc
+    metadata" when the disc isn't in MusicBrainz/FreeDB. The adapter
+    must treat this as "unknown disc" and return an empty DiscInfo, NOT
+    raise — otherwise the GUI can't render anything for unknown discs."""
+    failed_output = (
+        "CRITICAL:whipper.command.cd:unable to retrieve disc metadata, "
+        "--unknown argument not passed\n"
+    )
+    monkeypatch.setattr(
+        whipper_backend.subprocess, "run",
+        lambda *a, **kw: _fail_run(stderr=failed_output),
+    )
+
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    info = impl.disc_info("/dev/sr0")
+
+    # Empty DiscInfo — the GUI shows "not in MusicBrainz" status and
+    # the user opens File → Rip as Unknown Album.
+    assert info.cddb_disc_id == ""
+    assert info.musicbrainz_disc_id == ""
+    assert info.musicbrainz_submit_url == ""
+
+
+def test_disc_info_still_raises_on_other_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failures that aren't the "disc not in database" case must still
+    surface as WhipperError so the GUI shows a real error message."""
+    monkeypatch.setattr(
+        whipper_backend.subprocess, "run",
+        lambda *a, **kw: _fail_run(stderr="error: drive is empty\n"),
+    )
+
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    with pytest.raises(WhipperError) as info:
+        impl.disc_info("/dev/sr0")
+    assert "drive is empty" in str(info.value)
+
+
 # --- version --------------------------------------------------------------
 
 
