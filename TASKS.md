@@ -217,6 +217,23 @@ Each is independent; do them in any order. They should land before the AppImage'
 
 - **CTDB verification (read-only).** The CUETools Database operates an open-source server (LGPL) with no public HTTP API documentation, but the reference server and client code is public — the protocol is derivable from it. A Python client modeled on that reference would let us add a "Verify with CTDB" button to the rip-progress widget that runs after each rip finishes. No submission — same trust-gate as AccurateRip likely applies. Moderate effort (~200-400 lines for the client + UI hookup). Adds a second archival-verification path complementing the AccurateRip data whipper already provides. See [PLANNING.md KDD-12](PLANNING.md) for the reasoning behind moving this from "out of scope" to P1.
 
+### P1 — Release milestones
+
+These remove most of the README's "until X happens" caveats. Done in order, they collapse Method C's friction substantially.
+
+- **Merge `claude/lucid-babbage-JYI8c` into `main`.** Fresh `git clone` lands on a working state. Removes the "switch to the dev branch" step from README Method C and the same branch-check from `dev-setup.sh`. Pre-req: T32 smoke test passes so we're not merging unverified code.
+- **Flip the GitHub repo to Public.** Removes the auth blockquote from Method C entirely — plain `git clone https://...` works without `gh auth login` or SSH key setup. Pre-req: merge to main done, plus a quick LICENSE decision (KDD-10).
+- **Tag `v0.0.1` and publish the AppImage as a release asset.** Promotes Method A to "the recommended path" and removes the "AppImage not yet published" caveat. Pre-req: AppImage build verified end-to-end (the T31 build harness needs T32-style validation on real hardware).
+- **Publish the wheel to PyPI.** Promotes Method B. `pipx install whipper-gui` works for any technical user. Pre-req: tag + release artifact pipeline established.
+
+### P1 — Install automation
+
+The host-side setup (Distrobox, container, whipper, exports) currently lives only in the README's prose. A reproducible script would catch the same pitfalls we hit walking the user through (`python3-setuptools` dep, `:latest` image pull confirmation, distrobox-export needs container entry). The post-clone side is already covered by `dev-setup.sh`.
+
+- **`setup-host.sh` (pre-clone).** Distributable as a one-liner: `curl -fsSL https://raw.githubusercontent.com/.../setup-host.sh | bash`. Does: verify Distrobox installed (per distro), create the `ripping` container with `--yes` (no prompt), enter and `dnf install whipper flac python3-setuptools`, exit, run `distrobox-export` for both binaries. Pre-req: repo must be public for `raw.githubusercontent.com` to serve it.
+- **Optional: invoke `setup-host.sh` non-interactively** with flags like `--container-name`, `--fedora-version`, `--skip-picard` so power users don't get prompts they don't need.
+- **Document the curl-pipe-bash pattern** in the README as the "fast path" for technical users, with the manual Steps 1-4 kept underneath for those who want to see what each command does.
+
 ### P1 — Documentation backlog
 
 Items that need real-system output to write authoritatively. Address as T32's smoke test on a real Bazzite system surfaces the actual output. Each is small (a paragraph or two of README) but writing them now would be guesswork.

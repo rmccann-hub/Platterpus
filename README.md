@@ -265,26 +265,71 @@ Run with `whipper-gui` from any terminal.
 
 #### Method C — From source (for developers / current state)
 
-> The repository is currently private during pre-alpha development. Until it's flipped to Public on GitHub, you'll need to authenticate before cloning — GitHub stopped accepting passwords over HTTPS in 2021. The fastest path is the GitHub CLI:
+> The repository is currently private during pre-alpha development. You'll need to authenticate to clone it. **On Bazzite, Fedora Silverblue, and other immutable distros, use SSH** — `gh auth login` requires `gh` to be installed, and `sudo dnf install gh` doesn't work on the immutable host (you'd need `rpm-ostree install gh` + reboot). SSH is a one-time setup with no reboots.
+>
+> **SSH setup** (recommended on Bazzite):
 >
 > ```bash
-> sudo dnf install gh      # if not already present
-> gh auth login            # web-browser login; choose HTTPS → web browser
+> # Generate a key if you don't already have one
+> [ -f ~/.ssh/id_ed25519 ] || ssh-keygen -t ed25519 -C "$USER@$(hostname)" -f ~/.ssh/id_ed25519 -N ""
+>
+> # Print the public key — copy the entire line
+> cat ~/.ssh/id_ed25519.pub
 > ```
 >
-> After that, `git clone` over HTTPS works transparently because `gh` stores the token in your git credential helper. If you prefer SSH, set up an SSH key on your GitHub account and swap the clone URL for `git@github.com:rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git`.
+> Paste the output into <https://github.com/settings/ssh/new>, give it any title (e.g. `Bazzite`), confirm with your GitHub password. Then verify:
+>
+> ```bash
+> ssh -T git@github.com
+> # Expected: "Hi <username>! You've successfully authenticated..."
+> ```
+>
+> **gh CLI alternative** (only works easily on Fedora Workstation / Ubuntu / Arch — not Bazzite):
+>
+> ```bash
+> sudo dnf install gh          # Fedora Workstation
+> sudo apt install gh          # Ubuntu / Debian
+> sudo pacman -S github-cli    # Arch / Manjaro
+> gh auth login                # HTTPS → web browser
+> ```
+
+Once auth works, clone and install:
 
 ```bash
-git clone https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git
+# Use the SSH URL if you set up SSH; the HTTPS URL if you used gh
+git clone git@github.com:rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git
 cd Whipper-GUI-Frontend---CD-Rip
 
+# All development is on a feature branch until the merge-to-main milestone.
+# Until then, switch to the dev branch right after cloning:
+git checkout claude/lucid-babbage-JYI8c
+```
+
+From here you have two options.
+
+**Option 1 — one-shot setup script (recommended):**
+
+```bash
+bash dev-setup.sh
+source .venv/bin/activate
+whipper-gui
+```
+
+`dev-setup.sh` creates a venv, upgrades pip, and runs `pip install -e .` for you. Run it again later (after `git pull`) to refresh dependencies if anything's been added.
+
+**Option 2 — manual steps (same effect, if you want to see each one):**
+
+```bash
 # Create a virtual environment. On Bazzite, Fedora 38+, Ubuntu 24.04+,
 # and other distros with PEP 668 enforcement, this is required — a
 # plain `pip install` against the system Python will refuse with
-# "error: externally-managed-environment". The venv keeps our deps
-# (PySide6, musicbrainzngs, tomli-w) isolated from the system Python.
+# "error: externally-managed-environment".
 python3 -m venv .venv
 source .venv/bin/activate
+
+# pip in a fresh venv is usually outdated; upgrade before installing
+# anything else. Avoids "WARNING: ... newer version of pip available."
+pip install --upgrade pip
 
 # Install the package in editable mode. From now on, anything you
 # edit in src/whipper_gui/ is picked up the next time you run the GUI.
@@ -439,6 +484,24 @@ For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the men
 ---
 
 ## Troubleshooting
+
+### `pip install` fails with "does not appear to be a Python project"
+
+You're probably on the `main` branch, which only contains `.gitattributes` during pre-alpha. All active code lives on `claude/lucid-babbage-JYI8c`. Run:
+
+```bash
+git checkout claude/lucid-babbage-JYI8c
+ls pyproject.toml    # should exist now
+```
+
+Then re-run `pip install -e .` (or `bash dev-setup.sh`). After the merge-to-main milestone, this step won't be needed.
+
+### `sudo dnf install gh` fails on Bazzite
+
+Bazzite is an immutable distro — the host filesystem is read-only and `dnf` only works inside containers. Two paths:
+
+- **Use SSH instead** (recommended for one-time auth setup). See Method C in the install instructions above.
+- **Or install `gh` system-wide via rpm-ostree:** `rpm-ostree install gh && systemctl reboot`. Requires a reboot. After the reboot, `gh auth login` will work.
 
 ### `pip install` fails with "error: externally-managed-environment"
 
