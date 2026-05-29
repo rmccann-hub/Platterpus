@@ -234,6 +234,22 @@ The host-side setup (Distrobox, container, whipper, exports) currently lives onl
 - **Optional: invoke `setup-host.sh` non-interactively** with flags like `--container-name`, `--fedora-version`, `--skip-picard` so power users don't get prompts they don't need.
 - **Document the curl-pipe-bash pattern** in the README as the "fast path" for technical users, with the manual Steps 1-4 kept underneath for those who want to see what each command does.
 
+### P1.1 — Install / uninstall ease (real-user testing)
+
+Highest-priority subset of P1, focused specifically on the friction the first-time user hits between "no GUI installed" and "GUI running with a successful rip in hand." Items here unblock new contributors and reduce abandonment at the install step.
+
+- **[x] Auto-prompt the Unknown Album dialog when MB returns 0 matches.** Done 2026-05-28. Previously the user had to find File → Rip as Unknown Album in the menu after seeing "not in MusicBrainz"; now the dialog opens automatically the first time the GUI detects an unknown disc on a given drive selection. Guarded so it doesn't re-prompt if the user already accepted in this session.
+
+- **One-command uninstall script** (`uninstall.sh`). Tears down the GUI cleanly: removes `.venv/`, the cloned repo (caller decides), `~/.config/whipper-gui`, `~/.local/share/whipper-gui`. Interactive prompts for the optional broader cleanup: Picard Flatpak, the ripping Distrobox container, whipper.conf, host-exported binaries at `~/.local/bin/whipper` and `~/.local/bin/metaflac`. Pre-req: the broader uninstall path needs to be reversible for users who reinstall later.
+
+- **One-command host bootstrap script** (`setup-host.sh`). Wraps Steps 1-4 (Distrobox + container + whipper install + exports) into a single command. Distributable as `curl -fsSL https://… | bash` once the repo is public. Currently new users hit four sequential manual blocks any of which can fail subtly. Same item is also tracked under "P1 — Install automation"; this entry is the higher-priority version anchored to first-run friction.
+
+- **Surface install failures in the GUI summary popup**, not only the log file. When Picard auto-install failed for the user on Bazzite ("No remote refs found for 'flathub'"), the GUI's summary popup said "0 ok, 1 missing/needs-attention" — accurate but useless. The popup should include the install error's last line so the user can act on it without opening `~/.local/share/whipper-gui/log.txt`.
+
+- **Stop cascading the install dialogs when the user *declines*.** Currently a No on the AUTO-tier consent dialog cascades into the QUEUED dialog, then the MANUAL dialog — three "dismiss this" prompts when the user clearly signalled "no" the first time. Cascade should only fire on install *failures*, not user declines. Distinguish in the manager's `resolve_missing`: skip items where `InstallResult.user_declined=True`.
+
+- **Pin / version-stamp the Picard install reference**. The `.flatpakref` URL `https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref` always points to the latest version. For reproducibility we may want to record which Picard version was installed in the user's config or in the dep-report; currently the report says "ok" without telling the user which version they have. Probably not blocking but worth tracking.
+
 ### P1 — UX gaps from real-user testing
 
 Items that surfaced when an actual user walked through the GUI on Bazzite. Each is small but each makes the first-run experience noticeably worse.

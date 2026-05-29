@@ -86,6 +86,15 @@ class RipControls(QWidget):
         """Return whether the Start button is currently enabled."""
         return self._start_button.isEnabled()
 
+    def is_unknown_mode(self) -> bool:
+        """Whether unknown-album mode is currently set.
+
+        Used by the main window to guard against re-prompting the
+        Unknown Album dialog when the user has already accepted it
+        once in the current session.
+        """
+        return self._unknown_mode
+
     # --- Internals ----------------------------------------------------------
 
     def _refresh_button_state(self) -> None:
