@@ -124,9 +124,17 @@ SPECS: list[DependencySpec] = [
         probe=_probe_picard,
         min_version=(0, 0, 0),  # any installed version is fine
         tier=Tier.AUTO,
+        # Install via the .flatpakref URL rather than `flathub <ref>`.
+        # The .flatpakref includes the remote URL, so flatpak adds
+        # flathub at user level on first install. This is necessary
+        # because on Bazzite (and other Atomic distros) flathub is
+        # configured as a *system* remote by default — a `--user`
+        # install can't see system remotes and fails with
+        # "error: No remote refs found for 'flathub'", as verified by
+        # real-user testing on Bazzite (chat 2026-05-28).
         install_command=[
             "flatpak", "install", "--user", "-y",
-            "flathub", "org.musicbrainz.Picard",
+            "https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref",
         ],
         search_string=(
             "install MusicBrainz Picard Flathub user "
