@@ -128,8 +128,20 @@ class DependencyManager:
             report.install_results.extend(results)
 
             # Failures cascade to the next fallback tier (if any).
+            # Declines do NOT cascade — when a user explicitly says No
+            # at a given tier, surfacing the next-tier dialog for the
+            # same dep would just be the same question with different
+            # phrasing. Real install failures (network, permission,
+            # etc.) DO cascade because the user hasn't said no to the
+            # dep itself, just to the current install method.
             for item, result in zip(batch, results):
                 if result.success:
+                    continue
+                if result.user_declined:
+                    log.info(
+                        "%s declined at tier %s — not cascading",
+                        item.spec.dep_id, tier.value,
+                    )
                     continue
                 if not item.spec.fallback_tiers:
                     continue
