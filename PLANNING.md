@@ -450,6 +450,8 @@ Python 3.11+ has `tomllib` in stdlib but it's read-only. `tomli-w` is the minima
 
 If this assumption holds, the dependency subsystem can downgrade `libdiscid` from tier (c) to "not actually required." Confirm during the first end-to-end smoke test (T21). If it turns out we do need it, it stays in tier (c) — `rpm-ostree install + reboot` is genuinely user-judgment territory and that's exactly what tier (c) exists for.
 
+**RESOLVED (T32, 2026-05-29):** the assumption holds. A full real-hardware rip on Bazzite ran start-to-finish with **no libdiscid on the host** — whipper (inside the `ripping` container) computed the disc ID, the GUI read it from `whipper cd info` (and salvaged it from the partial output on unknown discs), and passed it to MusicBrainz over plain HTTP. `libdiscid` is **not** a host requirement and was never added to the registry.
+
 ### KDD-07 — AppImage carries the GUI only, not whipper
 
 AppImages are unsandboxed, so calling `~/.local/bin/whipper` from inside one works. But bundling whipper into the AppImage would (a) duplicate what's already installed via Distrobox, (b) silently sidestep the host-exported binary the user has configured, and (c) violate Critical Rule #3 ("does not try to install or update whipper itself"). The AppImage ships the GUI; the user's existing Distrobox `ripping` container ships whipper. The README spells this out as a prerequisite.
@@ -533,9 +535,7 @@ EAC exposes a handful of toggles that whipper *also* supports via CLI flags but 
 
 These are listed in TASKS.md under "P1 — EAC bit-perfect parity gaps" and should land before the AppImage's first public release so users coming from EAC find the controls they expect.
 
-**Verification needed (unconfirmed at the time of writing):**
+**Verification needed — ANSWERED by T32 (2026-05-29):**
 
-- Does whipper emit a `.cue` sheet alongside the FLACs? EAC always does. If whipper does, we should expose it in the rip-progress widget the same way we expose the `.log`. If not, that's a separate feature gap to evaluate.
-- Does whipper capture per-track ISRC and disc UPC into the rip log? EAC writes both. T32's smoke test will surface the answer; if either is missing, we evaluate adding capture to our pipeline.
-
-Both questions are tractable from T32's first real-disc rip — the resulting `.log` file and output directory will tell us.
+- **Does whipper emit a `.cue` sheet alongside the FLACs?** Yes. A real rip wrote `<disc>.cue`, `<disc>.m3u`, and `<disc>.toc` next to the FLACs (plus the `.log`). The `.cue` carries `REM DISCID`, per-track `INDEX`/`ISRC`, and the gap (`INDEX 00`) data. Surfacing the `.cue` in the rip-progress widget the way we surface the `.log` is a small P1 addition.
+- **Does whipper capture per-track ISRC and disc UPC?** The slots exist — the `.cue` has `CATALOG` (UPC) and per-track `ISRC` lines, and the `.toc` has `ISRC` per track — but on the CD-R tested they were all zeros (`CATALOG 0000000000000`, `ISRC 000000000000`) because the disc carries no subchannel ISRC/UPC. A pressed commercial disc would populate them; capturing them into our `RipLog`/UI is a P1 evaluation once a disc with real ISRCs is on hand.
