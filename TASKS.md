@@ -234,6 +234,15 @@ The host-side setup (Distrobox, container, whipper, exports) currently lives onl
 - **Optional: invoke `setup-host.sh` non-interactively** with flags like `--container-name`, `--fedora-version`, `--skip-picard` so power users don't get prompts they don't need.
 - **Document the curl-pipe-bash pattern** in the README as the "fast path" for technical users, with the manual Steps 1-4 kept underneath for those who want to see what each command does.
 
+### P1 — UX gaps from real-user testing
+
+Items that surfaced when an actual user walked through the GUI on Bazzite. Each is small but each makes the first-run experience noticeably worse.
+
+- **Read offset field in Settings is misleading.** Per the brief, `whipper.conf` is authoritative for the read offset; the value in our config is informational only and not passed to the rip subprocess. But the Settings dialog renders it as an editable QSpinBox, which suggests changing it does something. Either (a) make the field read-only with a label "managed in ~/.config/whipper/whipper.conf", and ideally parse whipper.conf to display the actual current per-drive offset, or (b) wire our value through to `whipper cd rip -o <offset>` so editing it actually overrides whipper.conf for that rip.
+- **PendingInstallsDialog visual feedback during install.** The dialog now closes when "Install Selected" is clicked (recent fix), which means the user sees no per-item progress during the install loop. The dialog was designed to stay open and update per-row status, but the AutoInstaller-reuse design closes it instead. Either redesign the dialog to drive the install loop itself (and remove the install_requested → accept connection), or add an intermediate "Installing… please wait" indicator at the application level.
+- **Declined dependencies should not cascade to the next tier.** Currently if the user clicks No on the AUTO-tier consent dialog, the system cascades to the QUEUED-tier PendingInstallsDialog, then to the MANUAL-tier dialog. Three "dismiss this" prompts when the user has clearly signalled "I don't want this" the first time. The cascade should only fire when the install *fails*, not when the user *declines*. Distinguish those in `_resolver_cascade` and skip cascade for `InstallResult.user_declined=True`.
+- **Picard auto-install failure mode.** Real-user testing on Bazzite hit a case where the AUTO-tier `flatpak install --user -y flathub org.musicbrainz.Picard` failed silently, triggering the cascade. Diagnose: capture stderr from the failed flatpak install and surface it in the summary popup or log it more prominently than the current debug-level message. Most likely culprit on Bazzite: `flathub` is a system-level remote by default and `--user` may not see it; the install command might need to either drop `--user` or add the remote at user level first.
+
 ### P1 — Documentation backlog
 
 Items that need real-system output to write authoritatively. Address as T32's smoke test on a real Bazzite system surfaces the actual output. Each is small (a paragraph or two of README) but writing them now would be guesswork.

@@ -382,6 +382,15 @@ class MainWindow(QMainWindow):
         self, items: list[MissingItem]
     ) -> list[MissingItem]:
         dialog = PendingInstallsDialog(items, self)
+        # PendingInstallsDialog emits install_requested when the user
+        # clicks Install Selected but doesn't accept itself — its
+        # original design called for the caller to drive a per-item
+        # progress loop while the dialog stayed open. We don't do that
+        # yet (the AutoInstaller runs synchronously after the callback
+        # returns). Connect install_requested → accept so exec() unblocks
+        # when the user clicks the button; otherwise the dialog sits
+        # there forever and the user has to Cancel.
+        dialog.install_requested.connect(dialog.accept)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             return dialog.selected_items()
         return []

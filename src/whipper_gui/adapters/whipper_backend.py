@@ -167,7 +167,25 @@ class WhipperHostExportedImpl(WhipperBackend):
         # ignored at the subprocess layer. If a multi-drive selection
         # mechanism is later added to whipper, plumb it here.
         del drive  # explicit: parameter intentionally unused for v1
-        output = self._run_info(["cd", "info"])
+        try:
+            output = self._run_info(["cd", "info"])
+        except WhipperError as exc:
+            # Upstream whipper bug: `whipper cd info` exits -1 with
+            # CRITICAL "unable to retrieve disc metadata, --unknown
+            # argument not passed" when the inserted disc isn't in
+            # MusicBrainz/FreeDB — but the Info subcommand doesn't
+            # accept --unknown (only Rip does), so there's no way to
+            # pass it. Treat that specific failure as "this disc isn't
+            # in any database" and return an empty DiscInfo so the GUI
+            # can render a clean "not in MusicBrainz" state and offer
+            # the File → Rip as Unknown Album flow.
+            if "unable to retrieve disc metadata" in (exc.output or ""):
+                log.info(
+                    "whipper cd info: disc not in MusicBrainz/FreeDB; "
+                    "returning empty DiscInfo for unknown-album flow"
+                )
+                return DiscInfo()
+            raise
         return parse_cd_info(output)
 
     def version(self) -> str:
