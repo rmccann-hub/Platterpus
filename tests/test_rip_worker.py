@@ -26,7 +26,6 @@ from whipper_gui.workers.rip_worker import (
     RipParameters,
     RipWorker,
     _describe_activity,
-    _parse_progress,
 )
 
 
@@ -130,14 +129,14 @@ class _Signals:
 
     def __init__(self) -> None:
         self.log_lines: list[str] = []
-        self.progress: list[tuple[int, float]] = []
+        self.progress: list[tuple[float, float]] = []  # (overall, task)
         self.errors: list[str] = []
         self.finished: list[tuple[bool, str]] = []
 
     def attach(self, worker: RipWorker) -> None:
         worker.log_line.connect(self.log_lines.append)
         worker.progress.connect(
-            lambda t, p: self.progress.append((t, p))
+            lambda overall, task: self.progress.append((overall, task))
         )
         worker.error.connect(self.errors.append)
         worker.finished.connect(
@@ -206,15 +205,20 @@ def test_finished_reports_failure_on_nonzero_exit(
 # --- Progress parsing -----------------------------------------------------
 
 
-def test_progress_signal_fires_on_parseable_lines(
+def test_progress_two_tier_overall_monotonic_and_task_resets(
     qapp: QApplication, tmp_path: Path
 ) -> None:
+    """Overall bar moves forward across the whole rip; the task bar
+    tracks the current operation and resets per phase (T32 feedback:
+    "bar goes by track; want an overall bar and a task bar")."""
     handle = _FakeHandle(
         lines=[
-            "Reading TOC...",
-            "Track 1 [###       ] 30%",
-            "Track 1 [##########] 100% copy OK",
-            "Track 2 [#         ] 5%",
+            "Reading TOC  50 %",                          # scan → 0-5% band
+            "Reading table  100 %",
+            "Reading track 1 of 2 (1 of 9) ...  50 %",    # track → 5-95% band
+            "Verifying track 1 of 2 (3 of 9) ... 100 %",
+            "Reading track 2 of 2 (1 of 9) ...  50 %",
+            "Getting length of audio track (2 of 2) ... 100 %",  # 95-100%
         ],
         exit_code=0,
     )
@@ -224,14 +228,27 @@ def test_progress_signal_fires_on_parseable_lines(
 
     worker.start_rip()
 
-    assert sigs.progress == [(1, 30.0), (1, 100.0), (2, 5.0)]
-    # log_line still emits for every line including the non-progress one.
-    assert sigs.log_lines[0] == "Reading TOC..."
+    overalls = [o for o, _ in sigs.progress]
+    tasks = [t for _, t in sigs.progress]
+    # Overall is monotonic non-decreasing and ends at 100 (success peg).
+    assert overalls == sorted(overalls)
+    assert overalls[-1] == 100.0
+    # Disc scan occupied the low band before any track work.
+    assert sigs.progress[0] == (2.5, 50.0)
+    assert sigs.progress[1] == (5.0, 100.0)
+    # The task bar reset back down when a new operation started.
+    assert 50.0 in tasks and 100.0 in tasks
 
 
-def test_progress_helper_returns_none_for_non_matching_lines() -> None:
-    assert _parse_progress("Reading TOC...") is None
-    assert _parse_progress("") is None
+def test_progress_for_ignores_lines_without_usable_percent(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle([], 0)), _params(tmp_path))
+    # Encode/tag sub-phases carry no meaningful percent → no progress emit
+    # (the status label covers them; the task bar holds its last value).
+    assert worker._progress_for("Encoding track to FLAC (5 of 9) ...   0 %") is None
+    assert worker._progress_for("INFO:whipper.command.cd:CRCs match") is None
+    assert worker._progress_for("") is None
 
 
 # --- Status / phase descriptions ------------------------------------------
@@ -309,11 +326,6 @@ def test_status_signal_deduplicates_repeated_phase(
     worker.start_rip()
 
     assert statuses == ["Encoding to FLAC…"]
-
-
-def test_progress_helper_extracts_fractional_percent() -> None:
-    out = _parse_progress("Track 5 ... 42.5%")
-    assert out == (5, 42.5)
 
 
 # --- Error paths ----------------------------------------------------------

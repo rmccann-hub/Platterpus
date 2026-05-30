@@ -68,7 +68,21 @@ class RipProgress(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
 
-        # --- Status line + progress bar ---
+        # --- Overall progress (whole rip) ---
+        # A coarse start-to-finish bar so the user can gauge how much of
+        # the entire disc is left, independent of the per-track churn.
+        overall_row = QHBoxLayout()
+        overall_row.addWidget(QLabel("Overall", self))
+        self._overall_bar: QProgressBar = QProgressBar(self)
+        self._overall_bar.setRange(0, 100)
+        self._overall_bar.setValue(0)
+        self._overall_bar.setTextVisible(True)
+        overall_row.addWidget(self._overall_bar, stretch=1)
+        root.addLayout(overall_row)
+
+        # --- Status line + current-task progress bar ---
+        # The status label names the current operation; the task bar
+        # tracks that one operation's 0-100% (it resets read→verify→encode).
         self._status_label: QLabel = QLabel("Idle.", self)
         root.addWidget(self._status_label)
 
@@ -119,6 +133,7 @@ class RipProgress(QWidget):
     def clear(self) -> None:
         """Reset to the idle state. Called when starting a new rip."""
         self._status_label.setText("Idle.")
+        self._overall_bar.setValue(0)
         self._progress_bar.setValue(0)
         self._log_view.clear()
         self._ar_table.setRowCount(0)
@@ -129,14 +144,17 @@ class RipProgress(QWidget):
         """Append one line of whipper output to the streaming log view."""
         self._log_view.appendPlainText(line)
 
-    def set_progress(self, track: int, percent: float) -> None:
-        """Update the progress bar.
+    def set_progress(self, overall: float, task: float) -> None:
+        """Update both progress bars.
 
-        The status label is driven separately via `set_status` (fed from
-        the rip worker's phase signal), so the label can stay meaningful
-        during phases that have no numeric percent.
+        `overall` is the whole-rip percentage (monotonic); `task` is the
+        current operation's own 0-100%. The status label is driven
+        separately via `set_status` (fed from the rip worker's phase
+        signal), so the label stays meaningful during phases that have no
+        numeric percent.
         """
-        self._progress_bar.setValue(int(percent))
+        self._overall_bar.setValue(int(overall))
+        self._progress_bar.setValue(int(task))
 
     def set_status(self, text: str) -> None:
         """Set the status label (start/finish + per-phase updates)."""

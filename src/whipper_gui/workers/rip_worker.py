@@ -53,16 +53,6 @@ class RipParameters:
     cdr: bool = False
 
 
-# Defensive progress matcher. Whipper's output during a rip is line-based
-# and includes progress indicators; the exact format may drift between
-# versions. We match a "Track N ... NN%" shape with named groups, and if
-# the line doesn't match we just don't emit a progress signal for it —
-# the log_line signal still carries the raw text. T32's smoke test will
-# tell us whether this pattern needs tweaking for the user's version.
-_PROGRESS_PATTERN = re.compile(
-    r"[Tt]rack\s+(?P<track>\d+).*?(?P<pct>\d+(?:\.\d+)?)\s*%"
-)
-
 # Human-readable phase descriptions for the status line. Without these
 # the GUI sat on "Starting rip…" for the whole pre-track disc scan
 # (which can run a minute or more) and looked frozen — T32 feedback.
@@ -108,7 +98,10 @@ class RipWorker(QObject):
     """
 
     log_line = Signal(str)
-    progress = Signal(int, float)         # track_number, percent
+    # Two-tier progress so the GUI can show an overall bar (whole rip) and
+    # a task bar (current operation). Overall is monotonic; task resets per
+    # operation (read → verify → encode each sweep 0-100%).
+    progress = Signal(float, float)        # overall_percent, task_percent
     status = Signal(str)                   # human-readable current phase
     finished = Signal(bool, str)           # success, log_path
     error = Signal(str)
@@ -126,6 +119,12 @@ class RipWorker(QObject):
         # Last status text emitted, so we don't re-emit identical phases
         # on every progress tick (whipper prints one line per percent).
         self._last_status: str = ""
+        # Progress state. `_overall` only ever moves forward (see
+        # _bump_overall); `_total_tracks`/`_current_track` are learned from
+        # whipper's "track N of M" lines.
+        self._overall: float = 0.0
+        self._total_tracks: int = 0
+        self._current_track: int = 0
         # Flag is a plain Python bool — assignment is atomic under the
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
@@ -171,10 +170,9 @@ class RipWorker(QObject):
                 if desc is not None and desc != self._last_status:
                     self._last_status = desc
                     self.status.emit(desc)
-                emit = _parse_progress(line)
-                if emit is not None:
-                    track, pct = emit
-                    self.progress.emit(track, pct)
+                prog = self._progress_for(line)
+                if prog is not None:
+                    self.progress.emit(prog[0], prog[1])
         except Exception as exc:  # noqa: BLE001
             log.exception("error reading whipper stdout")
             self.error.emit(f"rip stream error: {exc}")
@@ -183,6 +181,11 @@ class RipWorker(QObject):
 
         exit_code = self._handle.wait()
         success = (exit_code == 0) and not self._cancelled
+        if success:
+            # Peg both bars at 100% so a finished rip never leaves the
+            # overall bar short of full (the post-rip AccurateRip phase
+            # has no reliable percentage of its own).
+            self.progress.emit(100.0, 100.0)
         log_path = self._find_log_path()
         self.finished.emit(success, str(log_path) if log_path else "")
 
@@ -203,6 +206,50 @@ class RipWorker(QObject):
 
     # --- Internals ---
 
+    def _progress_for(self, line: str) -> tuple[float, float] | None:
+        """Map a whipper stdout line to (overall, task) percentages.
+
+        The rip is split into three overall bands so the overall bar
+        advances smoothly start-to-finish instead of resetting per track:
+          * disc scan (Reading TOC/table)        → 0–5%
+          * per-track read/verify (N of M)       → 5–95%
+          * post-rip length/AccurateRip checks   → 95–100%
+        The task percentage is the current operation's own 0–100%.
+        Returns None for lines with no usable percentage (e.g. the
+        encode/tag sub-phases) — the status label covers those, and the
+        task bar simply holds its last value.
+        """
+        match = _DISC_SCAN_PATTERN.search(line)
+        if match:
+            task = float(match.group("pct"))
+            return self._bump_overall(task * 0.05), task
+
+        match = _TRACK_PHASE_PATTERN.search(line)
+        if match:
+            self._current_track = int(match.group("track"))
+            self._total_tracks = int(match.group("total"))
+            task = float(match.group("pct"))
+            frac = (
+                ((self._current_track - 1) + task / 100.0) / self._total_tracks
+                if self._total_tracks
+                else 0.0
+            )
+            return self._bump_overall(5.0 + frac * 90.0), task
+
+        match = _LENGTH_PHASE_PATTERN.search(line)
+        if match:
+            done = int(match.group("track"))
+            total = int(match.group("total"))
+            frac = done / total if total else 1.0
+            return self._bump_overall(95.0 + frac * 5.0), 100.0
+
+        return None
+
+    def _bump_overall(self, value: float) -> float:
+        """Clamp `value` to [0, 100] and never let the overall bar regress."""
+        self._overall = max(self._overall, min(value, 100.0))
+        return self._overall
+
     def _find_log_path(self) -> Path | None:
         """Locate the .log whipper just wrote.
 
@@ -220,21 +267,6 @@ class RipWorker(QObject):
             return None
         candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
         return candidates[0]
-
-
-def _parse_progress(line: str) -> tuple[int, float] | None:
-    """Try to extract (track_number, percent) from a whipper stdout line.
-
-    Returns None when the line doesn't match — the worker just won't
-    emit a progress signal for that line. Robust to format drift per
-    CLAUDE.md "named-group regexes, not column-index splits".
-    """
-    match = _PROGRESS_PATTERN.search(line)
-    if not match:
-        return None
-    track = int(match.group("track"))
-    percent = float(match.group("pct"))
-    return track, percent
 
 
 def _describe_activity(line: str) -> str | None:
