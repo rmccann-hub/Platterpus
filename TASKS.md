@@ -213,7 +213,7 @@ The sub-sections below are ordered by current priority for picking up work:
 **Ranked execution order (set 2026-05-30, after the "EAC successor" research review):**
 1. **Release milestones** (merge → public → tag `v0.0.1` → publish AppImage) — nothing below ships value until v1 is out.
 2. **[x] Drive setup wizard** (write-enabled; PLANNING.md KDD-15) — done 2026-05-30; see P1.1.
-3. **Drive-access permission diagnostics** — cheap; stops silent "no drive" abandonment; see P1.1.
+3. **[x] Drive-access permission diagnostics** — done 2026-05-30; see P1.1.
 4. **EAC parity-gap Settings widgets** (cover art / force-overread / max-retries / keep-going) — below.
 5. **CTDB verify (read-only)** — Phase 1 of KDD-14; foundation for repair.
 6. **CTDB repair (parity, wrap `ctdb-cli`, bundled, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator.
@@ -274,7 +274,7 @@ Highest-priority subset of P1, focused specifically on the friction the first-ti
   - *First-run auto-offer* — chose a discoverable Tools/Settings entry over auto-popping a modal on first launch (the wizard needs a specific CD inserted, so auto-popping would often be premature/annoying).
   - *Live streaming output during detection* — v1 shows a busy indicator + phase status; streaming the whipper output (like the rip view) is a polish item.
 
-- **Drive-access permission diagnostics.** An AppImage inherits the running user's permissions; if the user isn't in the `cdrom` group (or `/dev/sr0` is group-locked), the drive silently never appears and the GUI just looks broken. On "no drives found," diagnose group membership / device permissions and show an actionable message with the exact fix (e.g. `sudo usermod -aG cdrom $USER`, or the Bazzite/atomic equivalent) instead of an empty list. Cheap; directly serves the brief's "easy to set up." (This is the one transferable lesson from the EAC-successor doc's Flatpak/Snap sandboxing section — which is otherwise N/A for us, since we ship AppImage + pipx specifically to reach the host-exported whipper.)
+- **[x] Drive-access permission diagnostics.** Done 2026-05-30. New pure-stdlib `drive_access.diagnose_drive_access()` (injectable probes for testing) classifies the "no drive" state on the host: `no_device` (nothing connected), `permission` (a `/dev/sr*` node exists but isn't readable — owned by a group the user isn't in → fix command `sudo usermod -aG <group> $USER`), or `ok` (node readable, so the cause is elsewhere — container/whipper). `DrivePicker` now emits `drives_unavailable` on an empty refresh; MainWindow auto-shows the diagnosis **once per session and only when it's actionable** (a permission fix) — "no device" stays quiet (nothing to do). Always available via **Tools → Diagnose drive access…**. The dialog text is selectable so the fix command can be copied. Checking the host is correct because the AppImage runs as the host user and distrobox passes `/dev` through as the same user. (This was the one transferable lesson from the EAC-successor doc's Flatpak/Snap sandboxing section — the rest is N/A since we ship AppImage + pipx to reach host whipper.) 10 new tests.
 
 - **[x] Auto-prompt the Unknown Album dialog when MB returns 0 matches.** Done 2026-05-28. Previously the user had to find File → Rip as Unknown Album in the menu after seeing "not in MusicBrainz"; now the dialog opens automatically the first time the GUI detects an unknown disc on a given drive selection. Guarded so it doesn't re-prompt if the user already accepted in this session.
 

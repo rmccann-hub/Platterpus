@@ -42,6 +42,12 @@ from whipper_gui.deps.resolvers import (
     MissingItem,
     QueuedInstaller,
 )
+from whipper_gui.drive_access import (
+    SEVERITY_NO_DEVICE,
+    SEVERITY_OK,
+    DriveAccessDiagnosis,
+    diagnose_drive_access,
+)
 from whipper_gui.parsers.cd_info import DiscInfo
 from whipper_gui.parsers.rip_log import parse_rip_log
 from whipper_gui.ui.disc_info_panel import DiscInfoPanel
@@ -115,6 +121,9 @@ class MainWindow(QMainWindow):
         self._active_rip_params: RipParameters | None = None
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
+        # Guard so the "no drive — here's the fix" nudge auto-shows at most
+        # once per session (refreshing shouldn't re-pop the dialog).
+        self._drive_access_nudged: bool = False
 
         # --- Widgets -------------------------------------------------------
         central = QWidget(self)
@@ -186,6 +195,9 @@ class MainWindow(QMainWindow):
         drive_setup_action = tools_menu.addAction("Set up &drive…")
         drive_setup_action.triggered.connect(self._on_drive_setup)
 
+        diagnose_action = tools_menu.addAction("Diagnose drive &access…")
+        diagnose_action.triggered.connect(self._show_drive_access_diagnosis)
+
         deps_action = tools_menu.addAction("&Check dependencies…")
         deps_action.triggered.connect(self._on_check_dependencies)
 
@@ -194,6 +206,8 @@ class MainWindow(QMainWindow):
     def _wire_signals(self) -> None:
         # Drive selection → disc info + MB lookup pipeline.
         self._drive_picker.drive_changed.connect(self._on_drive_changed)
+        # No drive found → offer an actionable diagnosis (once per session).
+        self._drive_picker.drives_unavailable.connect(self._on_drives_unavailable)
 
         # MB worker responses.
         self._mb_worker.releases_returned.connect(self._on_mb_releases)
@@ -413,6 +427,46 @@ class MainWindow(QMainWindow):
             return
         dialog = DriveSetupDialog(self._backend, device, self)
         dialog.exec()
+
+    # --- Slots: drive-access diagnostics -----------------------------------
+
+    def _on_drives_unavailable(self) -> None:
+        """A refresh found no drives — proactively offer a fix, once.
+
+        Only auto-interrupts when the diagnosis is *actionable* (a
+        permission fix). "No device connected" stays quiet (there's no
+        command to run); the Tools → Diagnose entry is there for that.
+        """
+        if self._drive_access_nudged:
+            return
+        diagnosis = diagnose_drive_access()
+        if diagnosis.actionable:
+            self._drive_access_nudged = True
+            self._present_drive_diagnosis(diagnosis)
+
+    def _show_drive_access_diagnosis(self) -> None:
+        """Tools → Diagnose drive access: always show, any severity."""
+        self._present_drive_diagnosis(diagnose_drive_access())
+
+    def _present_drive_diagnosis(self, diagnosis: DriveAccessDiagnosis) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle("Drive access")
+        box.setIcon(
+            QMessageBox.Icon.Information
+            if diagnosis.severity in (SEVERITY_OK, SEVERITY_NO_DEVICE)
+            else QMessageBox.Icon.Warning
+        )
+        box.setText(diagnosis.summary)
+        info = diagnosis.detail
+        if diagnosis.fix_command:
+            info += (
+                "\n\nRun this, then log out and back in:\n    "
+                f"{diagnosis.fix_command}"
+            )
+        box.setInformativeText(info)
+        # Let the user select/copy the fix command out of the dialog.
+        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        box.exec()
 
     def _on_open_settings(self) -> None:
         dialog = SettingsDialog(self._config, self)

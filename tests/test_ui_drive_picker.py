@@ -146,6 +146,36 @@ def test_refresh_with_no_drives_shows_placeholder(
     assert seen == []
 
 
+def test_refresh_with_no_drives_emits_drives_unavailable(
+    qapp: QApplication,
+) -> None:
+    backend = _FakeBackend()
+    backend.set_drives([])
+    picker = DrivePicker(backend)
+    fired: list[bool] = []
+    picker.drives_unavailable.connect(lambda: fired.append(True))
+
+    picker.refresh()
+
+    assert fired == [True]
+
+
+def test_refresh_with_drives_does_not_emit_unavailable(
+    qapp: QApplication,
+) -> None:
+    backend = _FakeBackend()
+    backend.set_drives(
+        [DriveDescriptor(device="/dev/sr0", vendor="V", model="M", release="1")]
+    )
+    picker = DrivePicker(backend)
+    fired: list[bool] = []
+    picker.drives_unavailable.connect(lambda: fired.append(True))
+
+    picker.refresh()
+
+    assert fired == []
+
+
 # --- refresh() — error case ----------------------------------------------
 
 

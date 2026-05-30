@@ -31,6 +31,7 @@ from whipper_gui.adapters.whipper_backend import (
 from whipper_gui.config import Config
 from whipper_gui.deps.manager import DependencyManager
 from whipper_gui.parsers.drive_list import DriveDescriptor
+from whipper_gui.drive_access import DriveAccessDiagnosis
 from whipper_gui.parsers.rip_log import RipLog, TrackResult
 from whipper_gui.ui.main_window import MainWindow, _fidelity_summary
 
@@ -673,3 +674,61 @@ def test_run_unknown_post_processing_applies_table_edits(
     assert first_tags["ALBUMARTIST"] == "Various Artists"
     assert first_tags["DATE"] == "2001"
     assert first_tags["TRACKNUMBER"] == "01"
+
+
+# --- Drive-access diagnostics ---------------------------------------------
+
+
+def _diag(severity: str, fix: str | None) -> DriveAccessDiagnosis:
+    return DriveAccessDiagnosis(
+        severity=severity, summary="s", detail="d", fix_command=fix
+    )
+
+
+def test_drives_unavailable_nudges_once_when_actionable(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    window = teardown_threads()
+    shown: list[DriveAccessDiagnosis] = []
+    monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window.diagnose_drive_access",
+        lambda **kw: _diag("permission", "sudo usermod -aG cdrom $USER"),
+    )
+
+    window._on_drives_unavailable()
+    window._on_drives_unavailable()  # refresh again — must NOT re-pop
+
+    assert len(shown) == 1
+
+
+def test_drives_unavailable_quiet_when_not_actionable(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    window = teardown_threads()
+    shown: list[DriveAccessDiagnosis] = []
+    monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window.diagnose_drive_access",
+        lambda **kw: _diag("no_device", None),
+    )
+
+    window._on_drives_unavailable()
+
+    assert shown == []  # nothing the user can do → don't interrupt
+
+
+def test_tools_diagnose_always_shows(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    window = teardown_threads()
+    shown: list[DriveAccessDiagnosis] = []
+    monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window.diagnose_drive_access",
+        lambda **kw: _diag("no_device", None),
+    )
+
+    window._show_drive_access_diagnosis()  # Tools → Diagnose
+
+    assert len(shown) == 1  # shows regardless of severity
