@@ -31,7 +31,8 @@ from whipper_gui.adapters.whipper_backend import (
 from whipper_gui.config import Config
 from whipper_gui.deps.manager import DependencyManager
 from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.ui.main_window import MainWindow
+from whipper_gui.parsers.rip_log import RipLog, TrackResult
+from whipper_gui.ui.main_window import MainWindow, _fidelity_summary
 
 
 # --- Fakes ---------------------------------------------------------------
@@ -248,6 +249,23 @@ def test_zero_mb_results_shows_blank_track_rows(
     window._on_drive_changed("/dev/sr0")
 
     assert len(window._track_table.tracks()) == 12
+
+
+def test_mb_lookup_error_falls_back_to_placeholder_rows(
+    teardown_threads,
+) -> None:
+    """A MusicBrainz lookup failure (e.g. the AppImage TLS bug) must not
+    leave the track table empty — show numbered placeholder rows instead."""
+    backend = _FakeBackend()
+    backend.disc_info_return = DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=10)
+    window = teardown_threads(backend=backend)
+    # Simulate disc_info having recorded the track count, then the worker
+    # erroring out (as the SSL CERTIFICATE_VERIFY_FAILED did).
+    window._current_num_tracks = 10
+    window._on_mb_error("MB disc-id lookup failed: SSL CERTIFICATE_VERIFY_FAILED")
+
+    assert len(window._track_table.tracks()) == 10
+    assert "error" in window._disc_info_panel._mb_match_value.text().lower()
 
 
 def test_drive_change_handles_whipper_error(teardown_threads) -> None:
@@ -503,3 +521,45 @@ def test_dep_summary_does_not_show_user_declines_as_failures(
 
     text = captured[0][1]
     assert "Install failures" not in text  # decline isn't a failure
+
+
+# --- Fidelity summary ------------------------------------------------------
+
+
+def _crc_track(number: int, test: str, copy: str) -> TrackResult:
+    return TrackResult(number=number, test_crc=test, copy_crc=copy, status="Copy OK")
+
+
+def test_fidelity_summary_all_verified() -> None:
+    rip_log = RipLog(
+        tracks=(
+            _crc_track(1, "AAAA", "AAAA"),
+            _crc_track(2, "BBBB", "BBBB"),
+        )
+    )
+    summary = _fidelity_summary(rip_log)
+    assert "all 2 tracks verified" in summary
+    assert "CRCs match" in summary
+
+
+def test_fidelity_summary_partial_verification() -> None:
+    rip_log = RipLog(
+        tracks=(
+            _crc_track(1, "AAAA", "AAAA"),
+            TrackResult(number=2, test_crc="BBBB", copy_crc="CCCC"),  # mismatch
+        )
+    )
+    summary = _fidelity_summary(rip_log)
+    assert "1/2 tracks CRC-verified" in summary
+
+
+def test_fidelity_summary_mentions_accuraterip_when_matched() -> None:
+    rip_log = RipLog(
+        tracks=(_crc_track(1, "AAAA", "AAAA"),),
+        accuraterip_summary="Found, exact match for all tracks",
+    )
+    assert "AccurateRip confirmed" in _fidelity_summary(rip_log)
+
+
+def test_fidelity_summary_no_tracks() -> None:
+    assert _fidelity_summary(RipLog(tracks=())) == "Done."

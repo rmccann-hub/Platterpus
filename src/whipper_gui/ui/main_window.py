@@ -263,6 +263,14 @@ class MainWindow(QMainWindow):
     def _on_mb_error(self, message: str) -> None:
         log.warning("MB worker error: %s", message)
         self._disc_info_panel.set_mb_error(message)
+        # A lookup *failure* (network down, TLS error, rate limit) must not
+        # leave the track table empty the way it did before — fall back to
+        # numbered placeholder rows so the user can still see the disc and
+        # start an unknown-album rip. We don't auto-open the unknown dialog
+        # here (unlike a definitive no-match): an error isn't proof the disc
+        # is unknown, so we let the user choose via File → Rip as Unknown.
+        if self._current_num_tracks > 0:
+            self._track_table.set_placeholder_tracks(self._current_num_tracks)
 
     def _handle_no_mb_match(self) -> None:
         """No MusicBrainz match for the inserted disc.
@@ -329,6 +337,8 @@ class MainWindow(QMainWindow):
         """The rip subprocess exited."""
         log.info("rip finished: success=%s log=%s", success, log_path)
         self._rip_controls.set_rip_active(False)
+        # Default status; replaced with a fidelity summary below if the
+        # rip succeeded and we can parse its log.
         self._rip_progress.set_status("Done." if success else "Rip failed.")
 
         if log_path:
@@ -337,7 +347,12 @@ class MainWindow(QMainWindow):
             # Parse and render AR results if the file exists.
             try:
                 text = log_file.read_text(encoding="utf-8")
-                self._rip_progress.set_rip_log(parse_rip_log(text))
+                rip_log = parse_rip_log(text)
+                self._rip_progress.set_rip_log(rip_log)
+                if success:
+                    self._rip_progress.set_status(
+                        _fidelity_summary(rip_log)
+                    )
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
 
@@ -521,3 +536,38 @@ class MainWindow(QMainWindow):
         apply_placeholder_tags(self._metaflac, flac_files)
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
+
+
+def _fidelity_summary(rip_log: "object") -> str:
+    """One-line rip-quality verdict for the status label.
+
+    whipper rips each track twice and records a Test CRC and Copy CRC; a
+    match means the two independent reads were bit-identical (a secure,
+    archival-quality rip). This surfaces that confidence directly so the
+    user doesn't have to open the log to confirm fidelity — addressing the
+    "I can't confirm fidelity" feedback. AccurateRip is reported only when
+    it actually matched, since it's "not in database" for any disc nobody
+    has submitted (e.g. CD-Rs).
+    """
+    tracks = getattr(rip_log, "tracks", ()) or ()
+    total = len(tracks)
+    if total == 0:
+        return "Done."
+    verified = sum(
+        1
+        for t in tracks
+        if getattr(t, "test_crc", "")
+        and getattr(t, "test_crc", "") == getattr(t, "copy_crc", "")
+    )
+    if verified == total:
+        summary = f"Done — all {total} tracks verified, Test/Copy CRCs match."
+    else:
+        summary = (
+            f"Done — {verified}/{total} tracks CRC-verified; "
+            f"check the log for the rest."
+        )
+    # Append AccurateRip confirmation only when at least one track matched.
+    ar = (getattr(rip_log, "accuraterip_summary", "") or "").lower()
+    if "exact match" in ar or "found" in ar:
+        summary += " AccurateRip confirmed."
+    return summary

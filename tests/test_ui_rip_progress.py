@@ -71,13 +71,14 @@ def test_append_log_line_adds_text(qapp: QApplication) -> None:
 # --- Progress updates ----------------------------------------------------
 
 
-def test_set_progress_updates_bar_only(qapp: QApplication) -> None:
-    # set_progress drives the bar; the status label is owned by
-    # set_status (fed from the worker's phase signal).
+def test_set_progress_updates_both_bars_only(qapp: QApplication) -> None:
+    # set_progress drives the overall + task bars; the status label is
+    # owned by set_status (fed from the worker's phase signal).
     widget = RipProgress()
     before = widget._status_label.text()
-    widget.set_progress(3, 42.0)
+    widget.set_progress(60.0, 42.0)
 
+    assert widget._overall_bar.value() == 60
     assert widget._progress_bar.value() == 42
     assert widget._status_label.text() == before  # unchanged
 
@@ -178,7 +179,7 @@ def test_view_log_no_op_without_path(qapp: QApplication) -> None:
 def test_clear_resets_all_state(qapp: QApplication, tmp_path: Path) -> None:
     widget = RipProgress()
     widget.append_log_line("noise")
-    widget.set_progress(5, 90.0)
+    widget.set_progress(70.0, 90.0)
     widget.set_rip_log(
         RipLog(tracks=(_track(),))
     )
@@ -187,6 +188,7 @@ def test_clear_resets_all_state(qapp: QApplication, tmp_path: Path) -> None:
     widget.clear()
 
     assert widget._status_label.text() == "Idle."
+    assert widget._overall_bar.value() == 0
     assert widget._progress_bar.value() == 0
     assert widget._log_view.toPlainText() == ""
     assert widget._ar_table.rowCount() == 0

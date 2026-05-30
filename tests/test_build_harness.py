@@ -60,6 +60,17 @@ def test_entrypoint_invokes_whipper_gui_module() -> None:
     assert "-m" in text  # invoking as a module
 
 
+def test_entrypoint_points_openssl_at_host_ca_bundle() -> None:
+    """The bundled CPython has no CA certs, so the entrypoint must set
+    SSL_CERT_FILE from the host bundle or MusicBrainz HTTPS lookups fail
+    with CERTIFICATE_VERIFY_FAILED (real bug found in the first AppImage rip)."""
+    text = ENTRYPOINT.read_text()
+    assert "SSL_CERT_FILE" in text
+    # Must reference at least the two mainstream layouts.
+    assert "/etc/pki/tls/certs/ca-bundle.crt" in text  # Fedora/Bazzite
+    assert "/etc/ssl/certs/ca-certificates.crt" in text  # Debian/Ubuntu
+
+
 def test_desktop_file_has_correct_app_id() -> None:
     """The .desktop Exec/Icon fields must match the AppImage name."""
     text = (RECIPE_DIR / "whipper-gui.desktop").read_text()
