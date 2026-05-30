@@ -1,0 +1,1 @@
+no drives found. Create /dev/cdrom if you have a CD drive, or install pycdio for better detection
