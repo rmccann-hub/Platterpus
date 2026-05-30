@@ -36,9 +36,11 @@ LOG_DIR: Path = _XDG_DATA_HOME / APP_NAME
 LOG_PATH: Path = LOG_DIR / "log.txt"
 
 # Whipper's own config file, shared with the Distrobox `ripping` container.
-# We read this to pick up the `read_offset` and `defeats_cache` settings
-# the user has already configured. Never written by the GUI — whipper.conf
-# is authoritative for those values (per the brief Constraints section).
+# It holds the per-drive `read_offset` and `defeats_cache` settings and is
+# authoritative for them. The GUI does not hand-author this file; the only
+# writer is the drive-setup wizard, which runs whipper's OWN `drive analyze`
+# / `offset find` commands (they persist here themselves) after backing the
+# file up to `whipper.conf.bak` first. See PLANNING.md KDD-15.
 WHIPPER_CONFIG_PATH: Path = _XDG_CONFIG_HOME / "whipper" / "whipper.conf"
 
 # Default location of the host-exported whipper binary. The Settings

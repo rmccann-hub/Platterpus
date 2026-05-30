@@ -45,6 +45,7 @@ from whipper_gui.deps.resolvers import (
 from whipper_gui.parsers.cd_info import DiscInfo
 from whipper_gui.parsers.rip_log import parse_rip_log
 from whipper_gui.ui.disc_info_panel import DiscInfoPanel
+from whipper_gui.ui.drive_setup_dialog import DriveSetupDialog
 from whipper_gui.ui.dialogs.manual_install import ManualInstallDialog
 from whipper_gui.ui.dialogs.pending_installs import PendingInstallsDialog
 from whipper_gui.ui.drive_picker import DrivePicker
@@ -181,6 +182,9 @@ class MainWindow(QMainWindow):
         tools_menu = menubar.addMenu("&Tools")
         settings_action = tools_menu.addAction("&Settings…")
         settings_action.triggered.connect(self._on_open_settings)
+
+        drive_setup_action = tools_menu.addAction("Set up &drive…")
+        drive_setup_action.triggered.connect(self._on_drive_setup)
 
         deps_action = tools_menu.addAction("&Check dependencies…")
         deps_action.triggered.connect(self._on_check_dependencies)
@@ -395,9 +399,26 @@ class MainWindow(QMainWindow):
 
     # --- Slots: menu actions -----------------------------------------------
 
+    def _on_drive_setup(self) -> None:
+        """Tools → Set up drive: launch the calibration wizard.
+
+        Targets the currently-selected drive (whipper auto-detects a single
+        drive anyway, but passing the device is correct for multi-drive).
+        """
+        device = self._drive_picker.current_device()
+        if not device:
+            QMessageBox.warning(
+                self, "Set up drive", "Select a drive first."
+            )
+            return
+        dialog = DriveSetupDialog(self._backend, device, self)
+        dialog.exec()
+
     def _on_open_settings(self) -> None:
         dialog = SettingsDialog(self._config, self)
         dialog.check_dependencies_requested.connect(self._on_check_dependencies)
+        # "Re-detect…" next to the read-offset field opens the same wizard.
+        dialog.detect_offset_requested.connect(self._on_drive_setup)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._config = dialog.to_config()
             # Push the new config into the rip controls so the next rip

@@ -432,3 +432,102 @@ def test_abstract_methods_block_instantiation() -> None:
     """WhipperBackend itself must not be instantiable."""
     with pytest.raises(TypeError):
         WhipperBackend()  # type: ignore[abstract]
+
+
+# --- drive calibration (setup wizard) -------------------------------------
+
+
+def _impl() -> WhipperHostExportedImpl:
+    return WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+
+
+def test_analyze_drive_returns_true_and_passes_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> Any:
+        captured.append(argv)
+        return _ok_run(stdout="cdparanoia can defeat the audio cache on this drive\n")
+
+    monkeypatch.setattr(whipper_backend.subprocess, "run", fake_run)
+
+    assert _impl().analyze_drive("/dev/sr0") is True
+    assert captured[0] == ["/x/whipper", "drive", "analyze", "-d", "/dev/sr0"]
+
+
+def test_analyze_drive_returns_false_when_cache_cannot_be_defeated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        whipper_backend.subprocess, "run",
+        lambda *a, **kw: _ok_run(
+            stdout="cdparanoia cannot defeat the audio cache on this drive\n"
+        ),
+    )
+    assert _impl().analyze_drive("/dev/sr0") is False
+
+
+def test_analyze_drive_raises_friendly_error_without_disc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        whipper_backend.subprocess, "run",
+        lambda *a, **kw: _ok_run(
+            stdout="cannot analyze the drive: is there a CD in it?\n"
+        ),
+    )
+    with pytest.raises(WhipperError) as info:
+        _impl().analyze_drive("/dev/sr0")
+    assert "Insert a CD" in str(info.value)
+
+
+def test_find_offset_parses_value_and_passes_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> Any:
+        captured.append(argv)
+        return _ok_run(stdout="\nRead offset of device is: 667.\n")
+
+    monkeypatch.setattr(whipper_backend.subprocess, "run", fake_run)
+
+    assert _impl().find_offset("/dev/sr0") == 667
+    assert captured[0] == ["/x/whipper", "offset", "find", "-d", "/dev/sr0"]
+
+
+def test_find_offset_handles_negative_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        whipper_backend.subprocess, "run",
+        lambda *a, **kw: _ok_run(stdout="Read offset of device is: -582.\n"),
+    )
+    assert _impl().find_offset("/dev/sr0") == -582
+
+
+def test_find_offset_raises_actionable_error_when_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        whipper_backend.subprocess, "run",
+        lambda *a, **kw: _fail_run(stdout="", stderr="no offset found\n"),
+    )
+    with pytest.raises(WhipperError) as info:
+        _impl().find_offset("/dev/sr0")
+    assert "AccurateRip" in str(info.value)
+
+
+def test_back_up_whipper_config_copies_when_present(tmp_path: Path) -> None:
+    conf = tmp_path / "whipper.conf"
+    conf.write_text("[main]\n", encoding="utf-8")
+
+    backup = whipper_backend.back_up_whipper_config(conf)
+
+    assert backup == tmp_path / "whipper.conf.bak"
+    assert backup.read_text(encoding="utf-8") == "[main]\n"
+
+
+def test_back_up_whipper_config_returns_none_when_absent(tmp_path: Path) -> None:
+    assert whipper_backend.back_up_whipper_config(tmp_path / "nope.conf") is None

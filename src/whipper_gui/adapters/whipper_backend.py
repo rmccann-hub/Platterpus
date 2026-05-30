@@ -13,6 +13,8 @@ output inline.
 from __future__ import annotations
 
 import logging
+import re
+import shutil
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -20,6 +22,7 @@ from typing import Iterator
 
 from whipper_gui.parsers.cd_info import DiscInfo, parse_cd_info
 from whipper_gui.parsers.drive_list import DriveDescriptor, parse_drive_list
+from whipper_gui.paths import WHIPPER_CONFIG_PATH
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +30,43 @@ log = logging.getLogger(__name__)
 # `whipper cd info` return within seconds on a healthy system; the cap
 # guards against a hung subprocess.
 _INFO_TIMEOUT_S: float = 30.0
+
+# Drive-calibration commands take much longer: `drive analyze` spins the
+# disc, and `offset find` tries many candidate offsets against AccurateRip.
+_SETUP_TIMEOUT_S: float = 300.0
+
+# whipper's success/diagnostic lines, matched defensively (named-group
+# regex per CLAUDE.md, not column splits). Sources:
+#   offset find → "Read offset of device is: %d."  (whipper/command/offset.py)
+#   drive analyze → "cdparanoia (can|cannot) defeat the audio cache …"
+#                   "cannot analyze the drive: is there a CD in it?"
+_OFFSET_RE: re.Pattern[str] = re.compile(
+    r"[Rr]ead offset of device is:\s*(?P<offset>-?\d+)"
+)
+_CACHE_CAN: str = "can defeat the audio cache"
+_CACHE_CANNOT: str = "cannot defeat the audio cache"
+_NO_DISC_MARKER: str = "is there a CD in it"
+
+
+def _last_line(text: str, rc: int) -> str:
+    """The last non-empty line of `text`, or an rc= fallback for the GUI."""
+    lines = text.strip().splitlines()
+    return lines[-1] if lines else f"rc={rc}"
+
+
+def back_up_whipper_config(conf_path: Path = WHIPPER_CONFIG_PATH) -> Path | None:
+    """Copy `whipper.conf` to `whipper.conf.bak` before the drive-setup
+    wizard lets whipper rewrite it, so the user can always revert.
+
+    Returns the backup path, or None if there was no existing config to
+    back up (a fresh system — whipper will create it on first write).
+    """
+    if not conf_path.exists():
+        return None
+    backup = conf_path.with_name(conf_path.name + ".bak")
+    shutil.copy2(conf_path, backup)
+    log.info("backed up %s -> %s", conf_path, backup)
+    return backup
 
 
 class WhipperError(Exception):
@@ -131,6 +171,31 @@ class WhipperBackend(ABC):
     def version(self) -> str:
         """Return whipper's reported version string (raw, untrimmed)."""
 
+    # --- Optional drive-calibration capability ------------------------------
+    # Deliberately NOT abstract: not every backend can auto-calibrate (a
+    # future CyanripImpl might expect whipper.conf to be pre-populated).
+    # The drive-setup wizard treats NotImplementedError as "this backend
+    # can't do it" rather than crashing.
+
+    def analyze_drive(self, device: str) -> bool | None:
+        """Profile the drive's audio cache (for the setup wizard).
+
+        Returns True/False when whipper determines the cache can / cannot
+        be defeated, or None if it ran but couldn't classify. whipper
+        persists the result to whipper.conf itself. Raises `WhipperError`
+        if no disc is present (it needs one to test).
+        """
+        raise NotImplementedError
+
+    def find_offset(self, device: str) -> int:
+        """Auto-detect the drive read offset in samples, signed.
+
+        Tests candidate offsets against AccurateRip; whipper persists the
+        winner to whipper.conf itself. Raises `WhipperError` if none was
+        found (most often: the inserted disc isn't in AccurateRip).
+        """
+        raise NotImplementedError
+
 
 # --- v1 concrete implementation --------------------------------------------
 
@@ -201,6 +266,48 @@ class WhipperHostExportedImpl(WhipperBackend):
     def version(self) -> str:
         return self._run_info(["--version"]).strip()
 
+    # --- Drive calibration (setup wizard) ---
+
+    def analyze_drive(self, device: str) -> bool | None:
+        args = ["drive", "analyze"]
+        if device:
+            # Unlike `cd rip`/`cd info`, the drive subcommands DO accept
+            # -d/--device (whipper/command/drive.py), so pass the selected
+            # drive explicitly — matters once multi-drive support lands.
+            args += ["-d", device]
+        rc, out = self._run_capture(args, _SETUP_TIMEOUT_S)
+        if _NO_DISC_MARKER in out:
+            raise WhipperError(
+                "Insert a CD so the drive can be analyzed.", output=out
+            )
+        if _CACHE_CAN in out:
+            return True
+        if _CACHE_CANNOT in out:
+            return False
+        if rc != 0:
+            raise WhipperError(
+                f"whipper drive analyze failed: {_last_line(out, rc)}",
+                output=out,
+            )
+        return None  # ran cleanly but produced no recognizable verdict
+
+    def find_offset(self, device: str) -> int:
+        args = ["offset", "find"]
+        if device:
+            args += ["-d", device]
+        _rc, out = self._run_capture(args, _SETUP_TIMEOUT_S)
+        match = _OFFSET_RE.search(out)
+        if match:
+            return int(match.group("offset"))
+        # The usual cause is a disc that isn't in AccurateRip; whipper's
+        # own detection is also documented as "primitive". Give the user
+        # an actionable message rather than the raw failure.
+        raise WhipperError(
+            "Could not detect the read offset. Insert a popular commercial "
+            "CD (one likely to be in the AccurateRip database) and try again.",
+            output=out,
+        )
+
     # --- Streaming rip ---
 
     def rip(
@@ -255,20 +362,24 @@ class WhipperHostExportedImpl(WhipperBackend):
 
     # --- Internals ---
 
-    def _run_info(self, args: list[str]) -> str:
-        """Run a one-shot whipper invocation and return combined stdout/stderr.
+    def _run_capture(
+        self, args: list[str], timeout: float = _INFO_TIMEOUT_S
+    ) -> tuple[int, str]:
+        """Run a one-shot whipper invocation; return (returncode, combined).
 
-        Raises `WhipperError` on non-zero exit, with the last error line
-        preserved on the exception for the GUI to surface.
+        Raises `WhipperError` only for binary-missing or timeout — NOT for
+        a non-zero exit, because some callers (drive analyze, offset find)
+        need to classify the output themselves before deciding it's an
+        error.
         """
         argv: list[str] = [str(self._binary), *args]
-        log.debug("whipper info: %s", " ".join(argv))
+        log.debug("whipper: %s", " ".join(argv))
         try:
             proc = subprocess.run(
                 argv,
                 capture_output=True,
                 text=True,
-                timeout=_INFO_TIMEOUT_S,
+                timeout=timeout,
             )
         except FileNotFoundError as exc:
             raise WhipperError(
@@ -276,12 +387,16 @@ class WhipperHostExportedImpl(WhipperBackend):
             ) from exc
         except subprocess.TimeoutExpired as exc:
             raise WhipperError(
-                f"whipper timed out after {_INFO_TIMEOUT_S:.0f}s"
+                f"whipper timed out after {timeout:.0f}s"
             ) from exc
+        return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
 
-        combined = (proc.stdout or "") + (proc.stderr or "")
-        if proc.returncode != 0:
-            tail = combined.strip().splitlines()
-            last = tail[-1] if tail else f"rc={proc.returncode}"
-            raise WhipperError(f"whipper failed: {last}", output=combined)
+    def _run_info(self, args: list[str]) -> str:
+        """Run a one-shot info command; return combined output, raising
+        `WhipperError` on non-zero exit (last error line preserved)."""
+        rc, combined = self._run_capture(args)
+        if rc != 0:
+            raise WhipperError(
+                f"whipper failed: {_last_line(combined, rc)}", output=combined
+            )
         return combined
