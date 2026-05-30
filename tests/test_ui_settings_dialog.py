@@ -175,3 +175,49 @@ def test_read_offset_field_is_read_only(qapp: QApplication) -> None:
     dialog = SettingsDialog(Config(read_offset=667))
     assert dialog._read_offset_spin.isReadOnly() is True
     assert dialog._read_offset_spin.value() == 667
+
+
+# --- EAC parity-gap widgets ----------------------------------------------
+
+
+def test_parity_gap_widgets_reflect_config(qapp: QApplication) -> None:
+    config = Config(
+        cover_art="complete",
+        force_overread=True,
+        max_retries=9,
+        keep_going=True,
+    )
+    dialog = SettingsDialog(config)
+    assert dialog._cover_art_combo.currentData() == "complete"
+    assert dialog._force_overread_check.isChecked() is True
+    assert dialog._max_retries_spin.value() == 9
+    assert dialog._keep_going_check.isChecked() is True
+
+
+def test_parity_gap_widgets_round_trip_through_to_config(
+    qapp: QApplication,
+) -> None:
+    dialog = SettingsDialog(Config())
+    dialog._cover_art_combo.setCurrentIndex(
+        dialog._cover_art_combo.findData("file")
+    )
+    dialog._force_overread_check.setChecked(True)
+    dialog._max_retries_spin.setValue(3)
+    dialog._keep_going_check.setChecked(True)
+
+    out = dialog.to_config()
+
+    assert out.cover_art == "file"
+    assert out.force_overread is True
+    assert out.max_retries == 3
+    assert out.keep_going is True
+
+
+def test_cover_art_blank_option_maps_to_empty_string(
+    qapp: QApplication,
+) -> None:
+    dialog = SettingsDialog(Config(cover_art="embed"))
+    dialog._cover_art_combo.setCurrentIndex(
+        dialog._cover_art_combo.findData("")
+    )
+    assert dialog.to_config().cover_art == ""

@@ -214,7 +214,7 @@ The sub-sections below are ordered by current priority for picking up work:
 1. **Release milestones** (merge → public → tag `v0.0.1` → publish AppImage) — nothing below ships value until v1 is out.
 2. **[x] Drive setup wizard** (write-enabled; PLANNING.md KDD-15) — done 2026-05-30; see P1.1.
 3. **[x] Drive-access permission diagnostics** — done 2026-05-30; see P1.1.
-4. **EAC parity-gap Settings widgets** (cover art / force-overread / max-retries / keep-going) — below.
+4. **[x] EAC parity-gap Settings widgets** (cover art / force-overread / max-retries / keep-going) — done 2026-05-30; below.
 5. **CTDB verify (read-only)** — Phase 1 of KDD-14; foundation for repair.
 6. **CTDB repair (parity, wrap `ctdb-cli`, bundled, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator.
 
@@ -235,10 +235,10 @@ High-level feature backlog (not bucketed into a sub-section because each is smal
 
 The following whipper CLI options exist but aren't currently surfaced in our Settings dialog. Each is a small addition: a Config field, a Settings widget, a `RipParameters` field, and a flag in `WhipperHostExportedImpl.rip()`. The reference for what "should" be exposed is the EAC bit-perfect guide audit in [PLANNING.md KDD-13](PLANNING.md).
 
-- **Cover art (embed + save).** Whipper's `-C, --cover-art {none,embedded,file}` flag. Default to `embedded` for archival parity with EAC's default. Surface in Settings + `RipParameters.cover_art`.
-- **Force overread into lead-out.** Whipper's `-x, --force-overread` flag. Default off (matches EAC's recommendation). Surface as a Settings toggle.
-- **Max retries.** Whipper's `-r, --max-retries N` flag. Default 5 (whipper's own default). Surface as a Settings spinbox.
-- **Keep going on track failure.** Whipper's `-k, --keep-going` flag. Default off (safer — surfaces problems). Surface as a Settings toggle.
+- **[x] Cover art (embed + save).** Done 2026-05-30. Whipper's `-C/--cover-art` — **actual choices are `file|embed|complete`** (the earlier `none/embedded/file` guess was wrong; confirmed against `whipper/command/cd.py`). Settings dropdown maps "Don't fetch"→`""` (flag omitted), "Embed in FLAC"→`embed`, "Save as file"→`file`, "Embed and save file"→`complete`. **Behavior change:** `Config.cover_art` defaults to `embed` for EAC parity, so a rip now fetches art over the network by default (best-effort; an unidentified disc just gets none). `RipParameters.cover_art`; flag passthrough.
+- **[x] Force overread into lead-out.** Done 2026-05-30. `-x/--force-overread`, default off. `Config.force_overread` + Settings toggle + `RipParameters.force_overread` + flag.
+- **[x] Max retries.** Done 2026-05-30. `-r/--max-retries N`, default 5 (whipper's own). `Config.max_retries` + Settings spinbox (0–100) + `RipParameters.max_retries`; always passed (no-op at 5).
+- **[x] Keep going on track failure.** Done 2026-05-30. `-k/--keep-going`, default off (a failure should surface, not silently skip). `Config.keep_going` + Settings toggle + `RipParameters.keep_going` + flag.
 - **[x] Continue on CD-R.** Whipper's `--cdr` flag. Default off (CD-Rs are usually accidents in an archival workflow). Surface as a Settings toggle. **Done 2026-05-29 (pulled forward during T32):** the user's first real-hardware test disc turned out to be a burned CD-R, and whipper aborts with "inserted disc seems to be a CD-R, --cdr not passed". Added `Config.continue_on_cdr`, a "CD-R discs" toggle in the Settings dialog, `RipParameters.cdr`, and the `--cdr` flag passthrough in `WhipperHostExportedImpl.rip()`. Also added `RipControls.set_config()` so a Settings change reaches the next rip (previously the rip controls kept their construction-time Config — latent staleness that also affected output_dir/templates).
 
 Each is independent; do them in any order. They should land before the AppImage's first public release so the GUI matches what EAC users expect.

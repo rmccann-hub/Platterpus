@@ -15,6 +15,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -152,6 +153,56 @@ class SettingsDialog(QDialog):
         )
         form.addRow("CD-R discs:", self._continue_on_cdr_check)
 
+        # --- EAC bit-perfect parity gaps (KDD-13) ---
+        # Cover art: maps to whipper's -C/--cover-art {file,embed,complete}.
+        # We store the raw whipper value as item data; "" = don't fetch.
+        self._cover_art_combo: QComboBox = QComboBox(self)
+        for label, value in (
+            ("Don't fetch", ""),
+            ("Embed in FLAC", "embed"),
+            ("Save as file", "file"),
+            ("Embed and save file", "complete"),
+        ):
+            self._cover_art_combo.addItem(label, value)
+        cover_index = self._cover_art_combo.findData(config.cover_art)
+        self._cover_art_combo.setCurrentIndex(cover_index if cover_index >= 0 else 0)
+        self._cover_art_combo.setToolTip(
+            "Fetch album cover art and embed it in the FLACs and/or save it "
+            "as a file (whipper's --cover-art). EAC embeds by default."
+        )
+        form.addRow("Cover art:", self._cover_art_combo)
+
+        self._force_overread_check: QCheckBox = QCheckBox(
+            "Force overread into the lead-out", self
+        )
+        self._force_overread_check.setChecked(config.force_overread)
+        self._force_overread_check.setToolTip(
+            "Read into the disc's lead-out to capture the final samples "
+            "(whipper's --force-overread). Off matches EAC's recommendation; "
+            "few drives support it and it can slow the last track."
+        )
+        form.addRow("Overread:", self._force_overread_check)
+
+        self._max_retries_spin: QSpinBox = QSpinBox(self)
+        self._max_retries_spin.setRange(0, 100)
+        self._max_retries_spin.setValue(config.max_retries)
+        self._max_retries_spin.setToolTip(
+            "How many times whipper retries a troublesome track before "
+            "giving up (whipper's --max-retries). 5 is the default."
+        )
+        form.addRow("Max retries:", self._max_retries_spin)
+
+        self._keep_going_check: QCheckBox = QCheckBox(
+            "Keep ripping if a track fails", self
+        )
+        self._keep_going_check.setChecked(config.keep_going)
+        self._keep_going_check.setToolTip(
+            "Continue with the remaining tracks instead of aborting the whole "
+            "rip when one track can't be read (whipper's --keep-going). Off "
+            "by default so a failure is surfaced, not silently skipped."
+        )
+        form.addRow("On track failure:", self._keep_going_check)
+
         root.addLayout(form)
 
         # --- Check dependencies action ---
@@ -197,6 +248,10 @@ class SettingsDialog(QDialog):
             read_offset=self._read_offset_spin.value(),
             auto_launch_picard=self._auto_picard_check.isChecked(),
             continue_on_cdr=self._continue_on_cdr_check.isChecked(),
+            cover_art=self._cover_art_combo.currentData(),
+            force_overread=self._force_overread_check.isChecked(),
+            max_retries=self._max_retries_spin.value(),
+            keep_going=self._keep_going_check.isChecked(),
             schema_version=self._config.schema_version,
         )
 

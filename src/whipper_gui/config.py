@@ -98,6 +98,26 @@ class Config:
     # parity audit (KDD-13). When True we pass whipper's `--cdr` flag.
     continue_on_cdr: bool = False
 
+    # --- EAC bit-perfect parity gaps (KDD-13) ---
+    # Each maps to a whipper `cd rip` flag we now surface in Settings.
+    #
+    # Cover art: whipper's `-C/--cover-art {file,embed,complete}`. Empty
+    # string means "don't pass the flag" (whipper's own default: no art).
+    # We default to "embed" for parity with EAC, which embeds by default —
+    # note this makes a rip fetch art over the network (best-effort; a
+    # disc MusicBrainz can't identify just gets none).
+    cover_art: str = "embed"
+    # `-x/--force-overread`: read into the lead-out to capture the last
+    # samples. Off by default (matches EAC's own recommendation).
+    force_overread: bool = False
+    # `-r/--max-retries N`: rip attempts before giving up on a track.
+    # 5 is whipper's own default.
+    max_retries: int = 5
+    # `-k/--keep-going`: rip remaining tracks instead of aborting when one
+    # track fails. Off by default — a failure should be surfaced, not
+    # silently skipped, in an archival workflow.
+    keep_going: bool = False
+
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
 
