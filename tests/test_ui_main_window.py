@@ -563,3 +563,113 @@ def test_fidelity_summary_mentions_accuraterip_when_matched() -> None:
 
 def test_fidelity_summary_no_tracks() -> None:
     assert _fidelity_summary(RipLog(tracks=())) == "Done."
+
+
+# --- Unknown-mode tag post-processing -------------------------------------
+
+
+def _params(output_dir: Path, unknown: bool):
+    from whipper_gui.workers.rip_worker import RipParameters
+
+    return RipParameters(
+        drive="/dev/sr0",
+        release_id="" if unknown else "mbid",
+        output_dir=output_dir,
+        track_template="t",
+        disc_template="d",
+        unknown=unknown,
+        cdr=False,
+    )
+
+
+def test_unknown_rip_finish_runs_tag_post_processing(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    window = teardown_threads()
+    calls: list[tuple[Path, bool]] = []
+    monkeypatch.setattr(
+        window,
+        "run_unknown_post_processing",
+        lambda out, picard: calls.append((out, picard)),
+    )
+    window._pending_picard_launch = True
+    window._active_rip_params = _params(tmp_path, unknown=True)
+    # whipper writes the .log next to the FLACs; that folder (not the
+    # configured output root) is what should be tagged.
+    album_dir = tmp_path / "Unknown Artist" / "Unknown Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Unknown Album.log"
+    log_file.write_text("", encoding="utf-8")
+
+    window._on_rip_finished(True, str(log_file))
+
+    assert calls == [(album_dir, True)]  # scoped to the just-ripped folder
+    assert window._active_rip_params is None  # cleared for the next rip
+
+
+def test_known_rip_finish_skips_tag_post_processing(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    window = teardown_threads()
+    calls: list[tuple[Path, bool]] = []
+    monkeypatch.setattr(
+        window,
+        "run_unknown_post_processing",
+        lambda out, picard: calls.append((out, picard)),
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+
+    assert calls == []  # identified discs are tagged by whipper itself
+
+
+def test_failed_unknown_rip_skips_tag_post_processing(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    window = teardown_threads()
+    calls: list[tuple[Path, bool]] = []
+    monkeypatch.setattr(
+        window,
+        "run_unknown_post_processing",
+        lambda out, picard: calls.append((out, picard)),
+    )
+    window._active_rip_params = _params(tmp_path, unknown=True)
+
+    window._on_rip_finished(False, "")  # rip failed
+
+    assert calls == []  # nothing to tag
+
+
+class _CapturingMetaflac(MetaflacAdapter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[tuple[Path, dict[str, str]]] = []
+
+    def write_tags(self, flac_path: Path, tags: dict[str, str]) -> None:
+        self.calls.append((flac_path, dict(tags)))
+
+
+def test_run_unknown_post_processing_applies_table_edits(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The album fields the user edited in the track table reach the FLAC tags."""
+    window = teardown_threads()
+    fake = _CapturingMetaflac()
+    window._metaflac = fake
+    # Show two placeholder rows, then simulate the user editing the album.
+    window._track_table.set_placeholder_tracks(2)
+    window._track_table._album_artist_edit.setText("Various Artists")
+    window._track_table._album_title_edit.setText("My Compilation")
+    window._track_table._album_year_edit.setText("2001")
+    for name in ("01 - Track 01.flac", "02 - Track 02.flac"):
+        (tmp_path / name).write_bytes(b"")
+
+    window.run_unknown_post_processing(tmp_path, launch_picard=False)
+
+    assert len(fake.calls) == 2
+    first_tags = fake.calls[0][1]
+    assert first_tags["ALBUM"] == "My Compilation"
+    assert first_tags["ALBUMARTIST"] == "Various Artists"
+    assert first_tags["DATE"] == "2001"
+    assert first_tags["TRACKNUMBER"] == "01"
