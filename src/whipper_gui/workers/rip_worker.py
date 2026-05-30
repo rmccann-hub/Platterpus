@@ -51,6 +51,12 @@ class RipParameters:
     disc_template: str
     unknown: bool = False
     cdr: bool = False
+    # EAC bit-perfect parity gaps (KDD-13). cover_art "" = don't pass the
+    # flag; otherwise one of whipper's {file, embed, complete}.
+    cover_art: str = ""
+    force_overread: bool = False
+    max_retries: int = 5
+    keep_going: bool = False
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -144,6 +150,10 @@ class RipWorker(QObject):
                 disc_template=self._params.disc_template,
                 unknown=self._params.unknown,
                 cdr=self._params.cdr,
+                cover_art=self._params.cover_art,
+                force_overread=self._params.force_overread,
+                max_retries=self._params.max_retries,
+                keep_going=self._params.keep_going,
             )
         except WhipperError as exc:
             log.exception("rip failed to start")

@@ -138,6 +138,11 @@ class RipControls(QWidget):
             disc_template=disc_template,
             unknown=self._unknown_mode,
             cdr=self._config.continue_on_cdr,
+            # EAC parity-gap flags, carried from Settings (KDD-13).
+            cover_art=self._config.cover_art,
+            force_overread=self._config.force_overread,
+            max_retries=self._config.max_retries,
+            keep_going=self._config.keep_going,
         )
         self.rip_requested.emit(params)
 

@@ -93,10 +93,16 @@ class _FakeBackend(WhipperBackend):
         disc_template: str,
         unknown: bool = False,
         cdr: bool = False,
+        cover_art: str = "",
+        force_overread: bool = False,
+        max_retries: int = 5,
+        keep_going: bool = False,
     ) -> RipHandle:
         self.rip_calls.append({
             "drive": drive, "release_id": release_id,
             "output_dir": output_dir, "unknown": unknown, "cdr": cdr,
+            "cover_art": cover_art, "force_overread": force_overread,
+            "max_retries": max_retries, "keep_going": keep_going,
         })
         if self._raise_on_rip:
             raise self._raise_on_rip

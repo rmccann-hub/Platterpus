@@ -159,12 +159,19 @@ class WhipperBackend(ABC):
         disc_template: str,
         unknown: bool = False,
         cdr: bool = False,
+        cover_art: str = "",
+        force_overread: bool = False,
+        max_retries: int = 5,
+        keep_going: bool = False,
     ) -> RipHandle:
         """Begin a rip. `release_id` is an MBID, never an interactive prompt.
 
         `cdr=True` passes whipper's `--cdr` flag so it will rip a burned
-        CD-R (it refuses by default). The returned handle streams
-        whipper's stdout and supports cancel.
+        CD-R (it refuses by default). `cover_art` (one of whipper's
+        {file, embed, complete}, or "" to skip), `force_overread`,
+        `max_retries`, and `keep_going` map to the matching `cd rip`
+        flags — the EAC bit-perfect parity gaps (KDD-13). The returned
+        handle streams whipper's stdout and supports cancel.
         """
 
     @abstractmethod
@@ -319,6 +326,10 @@ class WhipperHostExportedImpl(WhipperBackend):
         disc_template: str,
         unknown: bool = False,
         cdr: bool = False,
+        cover_art: str = "",
+        force_overread: bool = False,
+        max_retries: int = 5,
+        keep_going: bool = False,
     ) -> RipHandle:
         # Note: whipper has no -d/--device flag for `cd rip` — it
         # auto-detects the single drive. Multi-drive selection is P1
@@ -331,6 +342,9 @@ class WhipperHostExportedImpl(WhipperBackend):
             "--output-directory", str(output_dir),
             "--track-template", track_template,
             "--disc-template", disc_template,
+            # Always pass max-retries (defaults to whipper's own 5, so this
+            # is a no-op unless the user changed it in Settings).
+            "--max-retries", str(max_retries),
         ]
         if self._working_dir is not None:
             argv.extend(["--working-directory", str(self._working_dir)])
@@ -340,6 +354,14 @@ class WhipperHostExportedImpl(WhipperBackend):
             # Burned discs: whipper aborts with "inserted disc seems to be
             # a CD-R, --cdr not passed" unless we explicitly allow it.
             argv.append("--cdr")
+        # --- EAC parity-gap flags (KDD-13) ---
+        if cover_art:
+            # whipper choices: file | embed | complete. Empty = omit.
+            argv.extend(["--cover-art", cover_art])
+        if force_overread:
+            argv.append("--force-overread")
+        if keep_going:
+            argv.append("--keep-going")
 
         # Whipper chdir's into --working-directory without creating it
         # (crashes with FileNotFoundError otherwise — hit on T32 with a

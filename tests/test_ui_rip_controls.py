@@ -236,3 +236,28 @@ def test_clearing_drive_disables_start(qapp: QApplication) -> None:
     controls.set_drive("")
 
     assert controls.can_start() is False
+
+
+def test_parity_gap_config_flows_into_rip_parameters(
+    qapp: QApplication,
+) -> None:
+    config = Config(
+        output_dir="/music",
+        cover_art="embed",
+        force_overread=True,
+        max_retries=7,
+        keep_going=True,
+    )
+    controls = RipControls(config)
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+
+    p = captured[0]
+    assert p.cover_art == "embed"
+    assert p.force_overread is True
+    assert p.max_retries == 7
+    assert p.keep_going is True

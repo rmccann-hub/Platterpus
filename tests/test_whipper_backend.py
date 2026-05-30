@@ -344,6 +344,56 @@ def test_rip_cdr_flag_absent_by_default(
     assert "--cdr" not in _FakePopen.instances[0].argv
 
 
+def _rip_argv(monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> list[str]:
+    """Run rip() with the given kwargs and return the captured argv."""
+    monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    impl.rip(
+        drive="/dev/sr0",
+        release_id="x",
+        output_dir=Path("/music"),
+        track_template="t",
+        disc_template="d",
+        **kwargs,
+    )
+    return _FakePopen.instances[0].argv
+
+
+def test_rip_max_retries_always_passed_with_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    argv = _rip_argv(monkeypatch, max_retries=8)
+    assert "--max-retries" in argv
+    assert argv[argv.index("--max-retries") + 1] == "8"
+
+
+def test_rip_cover_art_passed_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    argv = _rip_argv(monkeypatch, cover_art="embed")
+    assert argv[argv.index("--cover-art") + 1] == "embed"
+
+
+def test_rip_cover_art_omitted_when_blank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert "--cover-art" not in _rip_argv(monkeypatch, cover_art="")
+
+
+def test_rip_overread_and_keep_going_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    argv = _rip_argv(monkeypatch, force_overread=True, keep_going=True)
+    assert "--force-overread" in argv
+    assert "--keep-going" in argv
+
+
+def test_rip_overread_and_keep_going_absent_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    argv = _rip_argv(monkeypatch)
+    assert "--force-overread" not in argv
+    assert "--keep-going" not in argv
+
+
 def test_rip_creates_working_and_output_dirs(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
