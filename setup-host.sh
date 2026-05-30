@@ -86,23 +86,35 @@ done
 
 # --- Helpers ---------------------------------------------------------------
 # run(): echo a command; execute it unless --dry-run.
+#
+# CRITICAL: every command runs with stdin redirected from /dev/null. When
+# this script is invoked as `curl … | bash`, the script itself IS bash's
+# stdin — and any command that reads stdin (notably `distrobox enter`)
+# would otherwise swallow the rest of the script, so execution silently
+# stops partway. None of our commands need real stdin, so </dev/null is
+# both safe and the fix. (User-facing prompts use /dev/tty via confirm().)
 run() {
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "DRY-RUN: $*"
     else
         echo "+ $*"
-        "$@"
+        "$@" </dev/null
     fi
 }
 
 # confirm(): yes/no prompt. Auto-yes with --yes; auto-yes in dry-run (we're
-# not changing anything anyway).
+# not changing anything anyway). Reads from /dev/tty, not stdin, so it works
+# under `curl … | bash` (where stdin is the script) and never consumes it.
 confirm() {
     local prompt="$1"
     if [ "$ASSUME_YES" -eq 1 ] || [ "$DRY_RUN" -eq 1 ]; then
         return 0
     fi
-    read -r -p "$prompt [y/N] " reply
+    if [ ! -r /dev/tty ]; then
+        echo "No terminal to confirm on; re-run with --yes if you meant to." >&2
+        return 1
+    fi
+    read -r -p "$prompt [y/N] " reply </dev/tty
     case "$reply" in
         [yY]|[yY][eE][sS]) return 0 ;;
         *) return 1 ;;
