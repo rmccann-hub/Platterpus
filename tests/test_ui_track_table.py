@@ -266,3 +266,29 @@ def test_validate_rejects_blank_track_title(qapp: QApplication) -> None:
     ok, message = widget.validate()
     assert ok is False
     assert "track 1" in message.lower() or "track" in message.lower()
+
+
+def test_album_artist_propagates_to_track_rows(qapp) -> None:
+    from whipper_gui.ui.track_table import TrackTable
+    table = TrackTable()
+    table.set_placeholder_tracks(3)
+    # Simulate the user typing an album artist and tabbing away.
+    table._album_artist_edit.setText("Pink Floyd")
+    table._propagate_album_artist()
+
+    artists = [t.artist_credit for t in table.tracks()]
+    assert artists == ["Pink Floyd", "Pink Floyd", "Pink Floyd"]
+
+
+def test_per_track_artist_edit_holds_after_propagation(qapp) -> None:
+    from whipper_gui.ui.track_table import TrackTable
+    from whipper_gui.ui.track_table import _COL_ARTIST
+    table = TrackTable()
+    table.set_placeholder_tracks(2)
+    table._album_artist_edit.setText("Various")
+    table._propagate_album_artist()
+    # Edit track 2's artist individually via the model.
+    idx = table._model.index(1, _COL_ARTIST)
+    table._model.setData(idx, "Soloist")
+    artists = [t.artist_credit for t in table.tracks()]
+    assert artists == ["Various", "Soloist"]

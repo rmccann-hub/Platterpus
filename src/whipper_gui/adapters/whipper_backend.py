@@ -13,8 +13,10 @@ output inline.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shutil
+import signal
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -52,6 +54,33 @@ def _last_line(text: str, rc: int) -> str:
     """The last non-empty line of `text`, or an rc= fallback for the GUI."""
     lines = text.strip().splitlines()
     return lines[-1] if lines else f"rc={rc}"
+
+
+def _kill_group(proc: "subprocess.Popen[str]", sig: int) -> None:
+    """Send `sig` to the subprocess's whole process group.
+
+    whipper spawns children (the `~/.local/bin/whipper` wrapper →
+    distrobox/podman → whipper → cdparanoia, the actual disc reader).
+    Signalling only the parent leaves cdparanoia reading the disc, so the
+    drive keeps spinning. Because we launch these processes with
+    `start_new_session=True`, the parent is a group leader and one
+    killpg() reaches the whole tree. Falls back to the single process if
+    the group can't be addressed.
+
+    NOTE: the in-*container* whipper/cdparanoia (under podman) is a
+    separate process tree; podman doesn't always forward the signal
+    instantly, so the drive can take a moment to spin down even after
+    this. It does stop — just not always immediately.
+    """
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), sig)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.send_signal(sig)
+        except (ProcessLookupError, OSError):
+            pass
 
 
 def back_up_whipper_config(conf_path: Path = WHIPPER_CONFIG_PATH) -> Path | None:
@@ -115,7 +144,7 @@ class RipHandle:
         if self._process.returncode is not None:
             return self._process.returncode
 
-        self._process.terminate()
+        _kill_group(self._process, signal.SIGTERM)
         try:
             return self._process.wait(timeout=term_timeout)
         except subprocess.TimeoutExpired:
@@ -123,7 +152,7 @@ class RipHandle:
                 "whipper did not exit %.1fs after SIGTERM — sending SIGKILL",
                 term_timeout,
             )
-            self._process.kill()
+            _kill_group(self._process, signal.SIGKILL)
             return self._process.wait()
 
     @property
@@ -343,15 +372,13 @@ class WhipperHostExportedImpl(WhipperBackend):
         proc = self._setup_proc
         if proc is None or proc.poll() is not None:
             return
-        # SIGKILL, not a terminate()+wait() escalation: the worker thread is
-        # the sole owner of this Popen (it's blocked in communicate(), which
-        # reaps it), so waiting/reaping here too would race on waitpid. KILL
-        # is guaranteed and immediate, so the worker's communicate() returns
-        # at once and its QThread can be joined — exactly what the dialog
-        # needs to close without aborting. A read-only probe has nothing to
-        # clean up, so the ungraceful kill is harmless.
-        log.info("cancelling drive-setup subprocess (SIGKILL)")
-        proc.kill()
+        # SIGKILL the whole group (so the in-tree cdparanoia stops the
+        # drive, not just the parent), and don't wait/reap here: the worker
+        # thread owns this Popen via communicate() and is the sole reaper,
+        # so waiting here too would race on waitpid. KILL is immediate, so
+        # communicate() returns at once and the dialog's QThread can join.
+        log.info("cancelling drive-setup subprocess group (SIGKILL)")
+        _kill_group(proc, signal.SIGKILL)
 
     def _run_setup_capture(self, args: list[str]) -> tuple[int, str]:
         """Run a slow, *cancellable* setup command via Popen.
@@ -370,6 +397,9 @@ class WhipperHostExportedImpl(WhipperBackend):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                # New session/group so cancel_setup() can kill the whole
+                # tree (cdparanoia included), not just this parent.
+                start_new_session=True,
             )
         except FileNotFoundError as exc:
             raise WhipperError(
@@ -457,6 +487,9 @@ class WhipperHostExportedImpl(WhipperBackend):
             stderr=subprocess.STDOUT,  # merge so a single stream is observable
             text=True,
             bufsize=1,  # line-buffered for responsive UI updates
+            # New session/group so cancel kills the whole tree (cdparanoia
+            # included) — otherwise the disc keeps spinning after Cancel.
+            start_new_session=True,
         )
         return RipHandle(process=process)
 

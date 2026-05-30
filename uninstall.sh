@@ -174,6 +174,16 @@ else
     missing "$DESKTOP_FILE"
 fi
 
+# The copy dev-setup.sh places on the user's Desktop.
+DESKTOP_USER_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+DESKTOP_ICON="$DESKTOP_USER_DIR/whipper-gui.desktop"
+if [ -f "$DESKTOP_ICON" ]; then
+    run rm -f "$DESKTOP_ICON"
+    removed "$DESKTOP_ICON"
+else
+    missing "$DESKTOP_ICON"
+fi
+
 # Build artifact left over from dev-setup or AppImage builds.
 if [ -d "$REPO_ROOT/build/python-appimage/__pycache__" ]; then
     run rm -rf "$REPO_ROOT/build/python-appimage/__pycache__"

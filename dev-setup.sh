@@ -91,6 +91,20 @@ for _kbs in kbuildsycoca6 kbuildsycoca5; do
     fi
 done
 echo "Installed desktop entry: $DESKTOP_FILE"
+
+# Also drop a copy on the user's Desktop so there's a clickable icon there,
+# not just in the app menu. KDE/GNOME require the Desktop launcher to be
+# executable; KDE may still ask once to "trust" it on first click.
+DESKTOP_USER_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+if [ -d "$DESKTOP_USER_DIR" ]; then
+    cp -f "$DESKTOP_FILE" "$DESKTOP_USER_DIR/whipper-gui.desktop"
+    chmod +x "$DESKTOP_USER_DIR/whipper-gui.desktop"
+    # GNOME's "trusted" flag (no-op elsewhere; ignore if gio is absent).
+    command -v gio >/dev/null 2>&1 \
+        && gio set "$DESKTOP_USER_DIR/whipper-gui.desktop" \
+               metadata::trusted true >/dev/null 2>&1 || true
+    echo "Installed desktop icon: $DESKTOP_USER_DIR/whipper-gui.desktop"
+fi
 echo "(If it doesn't appear in the menu immediately, log out and back in.)"
 
 # --- Done ---

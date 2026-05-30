@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QLabel,
+    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QVBoxLayout,
@@ -54,6 +55,10 @@ class DriveSetupDialog(QDialog):
         self._closing: bool = False
 
         self.setWindowTitle("Set up drive")
+        # Open at a readable size (the default was cramped — labels and the
+        # detection output were clipped and unscrollable). Resizable.
+        self.resize(560, 420)
+        self.setMinimumSize(460, 320)
 
         root = QVBoxLayout(self)
 
@@ -88,9 +93,11 @@ class DriveSetupDialog(QDialog):
         self._status_label.setWordWrap(True)
         root.addWidget(self._status_label)
 
-        self._results_label: QLabel = QLabel("", self)
-        self._results_label.setWordWrap(True)
-        root.addWidget(self._results_label)
+        # Read-only, scrollable: detection output can be several lines and
+        # the offset-find guidance is long, so a label clipped it.
+        self._results_label: QPlainTextEdit = QPlainTextEdit("", self)
+        self._results_label.setReadOnly(True)
+        root.addWidget(self._results_label, stretch=1)
 
         # Close only — there's no "apply" step because whipper writes the
         # config itself the moment detection succeeds.
@@ -133,7 +140,7 @@ class DriveSetupDialog(QDialog):
         self._status_label.setText(
             "Done." if result.ok else "Finished with issues."
         )
-        self._results_label.setText(_format_result(result))
+        self._results_label.setPlainText(_format_result(result))
         self._detect_button.setEnabled(True)
         self._detect_button.setText("Re-detect")
         self._worker = None

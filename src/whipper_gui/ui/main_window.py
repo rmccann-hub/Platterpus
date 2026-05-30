@@ -12,6 +12,7 @@ graph is documented inline.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable
 
@@ -119,6 +120,9 @@ class MainWindow(QMainWindow):
         # handler knows whether it was an unknown-mode rip (and where the
         # FLACs landed) without depending on the controls' current state.
         self._active_rip_params: RipParameters | None = None
+        # Set when the user hits Cancel, so the finish handler reports a
+        # cancellation rather than a failure.
+        self._rip_cancelled: bool = False
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
@@ -324,6 +328,20 @@ class MainWindow(QMainWindow):
             if not ok:
                 QMessageBox.warning(self, "Cannot start rip", message)
                 return
+        else:
+            # Unknown disc: name the folder from the album fields the user
+            # typed (e.g. "jimmy2/for/…") instead of the literal
+            # "Unknown Artist/Unknown Album". whipper's %A/%d would be the
+            # disc-ID hash here, so we inject the (sanitized) literals
+            # directly; blanks fall back to the Unknown placeholders.
+            album = self._track_table.album_metadata()
+            artist = _safe_path_segment(album.artist) or "Unknown Artist"
+            title = _safe_path_segment(album.title) or "Unknown Album"
+            params = replace(
+                params,
+                track_template=f"{artist}/{title}/%t - Track %t",
+                disc_template=f"{artist}/{title}/{title}",
+            )
 
         self._rip_progress.clear()
         self._rip_progress.set_status("Starting rip…")
@@ -333,6 +351,9 @@ class MainWindow(QMainWindow):
         # post-processing (tag the FLACs from the track table) against the
         # right output directory.
         self._active_rip_params = params
+        # Cleared here, set in _on_rip_cancel — so the finish handler can
+        # say "cancelled" instead of "failed".
+        self._rip_cancelled = False
 
         self._rip_worker = RipWorker(self._backend, params)
         self._rip_thread = QThread(self)
@@ -355,7 +376,11 @@ class MainWindow(QMainWindow):
     def _on_rip_cancel(self) -> None:
         if self._rip_worker is None:
             return
-        self._rip_progress.set_status("Cancelling rip…")
+        self._rip_cancelled = True
+        # The in-container reader can take a moment to stop; set expectations.
+        self._rip_progress.set_status(
+            "Cancelling rip… the drive may take a moment to spin down."
+        )
         self._rip_worker.cancel()
 
     def _on_rip_error(self, message: str) -> None:
@@ -367,8 +392,15 @@ class MainWindow(QMainWindow):
         log.info("rip finished: success=%s log=%s", success, log_path)
         self._rip_controls.set_rip_active(False)
         # Default status; replaced with a fidelity summary below if the
-        # rip succeeded and we can parse its log.
-        self._rip_progress.set_status("Done." if success else "Rip failed.")
+        # rip succeeded and we can parse its log. Distinguish a user
+        # cancellation from a genuine failure (both report success=False).
+        if success:
+            status = "Done."
+        elif self._rip_cancelled:
+            status = "Rip cancelled by user. Partial files may remain."
+        else:
+            status = "Rip failed."
+        self._rip_progress.set_status(status)
 
         if log_path:
             log_file = Path(log_path)
@@ -516,11 +548,21 @@ class MainWindow(QMainWindow):
         )
 
         report = gui_manager.check_all()
+        # Optional deps (e.g. Picard) shouldn't nag at launch or count as a
+        # problem — set them aside so only required deps drive resolution.
+        optional_missing = [
+            item for item in report.missing
+            if getattr(item.spec, "optional", False)
+        ]
+        report.missing = [
+            item for item in report.missing
+            if not getattr(item.spec, "optional", False)
+        ]
         if report.missing:
             gui_manager.resolve_missing(report)
 
         if show_summary or report.missing:
-            self._show_dep_summary(report)
+            self._show_dep_summary(report, optional_missing=optional_missing)
 
     def _gui_auto_consent(self, items: list[MissingItem]) -> bool:
         if not items:
@@ -554,11 +596,14 @@ class MainWindow(QMainWindow):
         dialog = ManualInstallDialog(item.spec, item.probe, self)
         dialog.exec()
 
-    def _show_dep_summary(self, report: object) -> None:
+    def _show_dep_summary(
+        self, report: object, optional_missing: list | None = None
+    ) -> None:
         """Post-check summary popup with install-failure detail when present.
 
         The popup format:
             "<ok_count> ok, <missing_count> missing/needs-attention."
+            "Optional (not installed): <names>"   ← only when present
             (blank line)
             "Install failures:"           ← only when failures exist
             "  - <dep>: <error message>"  ← one per failure
@@ -574,6 +619,9 @@ class MainWindow(QMainWindow):
         ]
 
         message = f"{ok_count} ok, {missing_count} missing/needs-attention."
+        if optional_missing:
+            names = ", ".join(item.spec.display_name for item in optional_missing)
+            message += f"\nOptional (not installed): {names}."
         if failures:
             failure_lines = "\n".join(
                 f"  • {r.spec.display_name}: {r.message}" for r in failures
@@ -648,6 +696,16 @@ class MainWindow(QMainWindow):
         )
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
+
+
+def _safe_path_segment(value: str) -> str:
+    """Make a user string safe to drop literally into a whipper template.
+
+    Strips whitespace, turns `/` into `-` (it'd create stray subdirs), and
+    drops `%` (whipper treats it as a format code). Returns "" for blank
+    input so callers can fall back to an "Unknown …" placeholder.
+    """
+    return (value or "").strip().replace("/", "-").replace("%", "")
 
 
 def _fidelity_summary(rip_log: "object") -> str:

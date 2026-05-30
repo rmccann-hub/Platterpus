@@ -64,6 +64,11 @@ class DependencySpec:
     # Optional list of fallback tiers in order. Manager walks this on
     # failure of the primary tier. Defaults to "no fallback".
     fallback_tiers: tuple[Tier, ...] = field(default_factory=tuple)
+    # When True, a missing/outdated probe is informational, not a problem:
+    # the launch-time check won't nag or offer to install it, and the
+    # summary lists it as "optional, not installed" rather than "missing".
+    # Picard is the case in point — handy for unknown discs, not required.
+    optional: bool = False
 
 
 # --- Bound probes -----------------------------------------------------------
@@ -145,6 +150,7 @@ SPECS: list[DependencySpec] = [
             "'Auto-launch Picard' setting is enabled."
         ),
         fallback_tiers=(Tier.QUEUED, Tier.MANUAL),
+        optional=True,  # not required — don't nag if it's absent
     ),
     DependencySpec(
         dep_id="musicbrainzngs",
