@@ -464,9 +464,13 @@ AppImages are unsandboxed, so calling `~/.local/bin/whipper` from inside one wor
 
 `tests/` at repo root, not `src/whipper_gui/tests/`. The package shipped to end-users contains no test code or fixtures. pytest discovers via `tests/` directly.
 
-### KDD-10 — License: TBD (open question)
+### KDD-10 — License: GPL-3.0-only (decided 2026-05-30)
 
-The brief does not specify a license. Until the user picks one, `pyproject.toml` will note `License :: OSI Approved :: MIT License` as a placeholder for the project metadata, but the actual `LICENSE` file is **not** committed in the bootstrap step. Flagged for explicit user decision before any public release. (PySide6 is LGPL, so MIT/Apache/BSD for our own code are all compatible; GPL would also work.)
+**Resolved.** The project is licensed **GPL-3.0-only** (canonical text in `LICENSE`).
+
+Rationale: it's the natural fit for a Linux EAC successor — it aligns with the GPL CD-ripping ecosystem we build on (whipper GPL-3, cdparanoia, CUETools) and keeps the tool and any forks free software. No dependency forced the choice (it was a values call): PySide6 is imported under its LGPL-3 option, `musicbrainzngs` is BSD-2-Clause, `tomli-w` is MIT, and whipper / the future `ctdb-cli` are invoked as **subprocesses** (no linking), so their GPL never reaches into our code. `python-appimage` is GPL-3 but is a build tool, not part of the shipped runtime.
+
+Metadata: signalled via the OSI classifier in `pyproject.toml` (the build-robust choice — PEP 639's SPDX `license` string needs setuptools ≥77 and clashes with the classifier on newer versions). setuptools auto-bundles the root `LICENSE` into the wheel.
 
 ### KDD-11 — Rip log: EAC-equivalent archival content, weaker integrity
 

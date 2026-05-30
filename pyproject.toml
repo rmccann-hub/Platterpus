@@ -10,11 +10,18 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Whipper GUI contributors" }]
 keywords = ["audio", "cd", "rip", "flac", "musicbrainz", "whipper", "qt"]
-# License is intentionally unset until KDD-10 is resolved.
+# License: GPL-3.0-only (KDD-10, decided 2026-05-30). Canonical text in
+# ./LICENSE (auto-bundled into the wheel by setuptools). Signalled here
+# via the OSI classifier only — the modern PEP 639 SPDX `license` string
+# needs setuptools>=77 and clashes with the classifier on newer versions,
+# so the classifier is the build-robust choice. Compatible with our deps:
+# PySide6 is imported under its LGPL-3 option; whipper/ctdb-cli are
+# invoked as subprocesses (no linking), so their GPL doesn't reach in.
 classifiers = [
     "Development Status :: 1 - Planning",
     "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
