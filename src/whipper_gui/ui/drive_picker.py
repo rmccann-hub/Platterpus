@@ -39,6 +39,10 @@ class DrivePicker(QWidget):
     """
 
     drive_changed = Signal(str)
+    # Emitted when a refresh finds zero drives (not on backend errors,
+    # which are a different failure already shown inline). MainWindow uses
+    # this to offer the drive-access diagnosis.
+    drives_unavailable = Signal()
 
     def __init__(
         self,
@@ -94,6 +98,9 @@ class DrivePicker(QWidget):
         if not drives:
             self._combo.addItem("(no drives found)", None)
             self._combo.blockSignals(False)
+            # Let the main window explain *why* (permissions / no device)
+            # instead of leaving a bare empty dropdown.
+            self.drives_unavailable.emit()
             return
 
         restore_index = 0
