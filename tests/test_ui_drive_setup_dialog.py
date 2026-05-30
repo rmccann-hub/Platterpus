@@ -58,6 +58,17 @@ def test_on_finished_renders_success(qapp: QApplication) -> None:
     assert dialog._detect_button.text() == "Re-detect"
 
 
+def test_on_finished_ignored_while_closing(qapp: QApplication) -> None:
+    """A late worker result must not poke widgets once the dialog is closing.
+
+    This is what prevented the crash: on close we cancel + join the thread,
+    and any queued finished signal that arrives afterward is a no-op."""
+    dialog = _dialog(qapp)
+    dialog._closing = True
+    dialog._on_finished(DriveSetupResult(offset=667, can_defeat_cache=True))
+    assert dialog._results_label.text() == ""  # untouched
+
+
 def test_format_result_offset_failure() -> None:
     text = _format_result(
         DriveSetupResult(offset=None, offset_error="not in AccurateRip")

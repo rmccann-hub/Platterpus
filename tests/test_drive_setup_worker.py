@@ -108,3 +108,29 @@ def test_worker_handles_unsupported_backend(qapp: QApplication) -> None:
     assert result.offset is None
     assert result.can_defeat_cache is None
     assert result.offset_error and result.analyze_error
+
+
+def test_cancel_sets_flag_and_calls_backend(qapp: QApplication) -> None:
+    cancels: list[bool] = []
+    backend = _FakeBackend()
+    backend.cancel_setup = lambda: cancels.append(True)  # type: ignore[method-assign]
+    worker = DriveSetupWorker(backend, "/dev/sr0")
+
+    worker.cancel()
+
+    assert worker._cancelled is True
+    assert cancels == [True]
+
+
+def test_run_short_circuits_when_cancelled_before_start(
+    qapp: QApplication,
+) -> None:
+    backend = _FakeBackend()
+    worker = DriveSetupWorker(backend, "/dev/sr0")
+    worker._cancelled = True
+
+    result = _run(worker)
+
+    # No probing happened; an empty result is emitted so the thread ends.
+    assert result.offset is None
+    assert backend.devices == []

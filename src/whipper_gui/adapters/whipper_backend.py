@@ -163,9 +163,12 @@ class WhipperBackend(ABC):
         force_overread: bool = False,
         max_retries: int = 5,
         keep_going: bool = False,
+        read_offset_override: int | None = None,
     ) -> RipHandle:
         """Begin a rip. `release_id` is an MBID, never an interactive prompt.
 
+        `read_offset_override`, when set, passes whipper's `--offset N` to
+        override whipper.conf for this rip.
         `cdr=True` passes whipper's `--cdr` flag so it will rip a burned
         CD-R (it refuses by default). `cover_art` (one of whipper's
         {file, embed, complete}, or "" to skip), `force_overread`,
@@ -203,6 +206,15 @@ class WhipperBackend(ABC):
         """
         raise NotImplementedError
 
+    def cancel_setup(self) -> None:
+        """Terminate an in-progress `analyze_drive`/`find_offset` subprocess.
+
+        Default no-op. The host-exported impl overrides it so the drive-
+        setup wizard can stop the (slow, disc-spinning) whipper process
+        when the user closes the dialog — otherwise it keeps the optical
+        drive busy long after the GUI is done with it.
+        """
+
 
 # --- v1 concrete implementation --------------------------------------------
 
@@ -227,6 +239,11 @@ class WhipperHostExportedImpl(WhipperBackend):
         """
         self._binary: Path = binary_path
         self._working_dir: Path | None = working_dir
+        # The currently-running drive-setup subprocess (analyze/offset),
+        # so cancel_setup() can terminate it from the GUI thread. Assigned
+        # from the worker thread; reads/writes of a single attribute are
+        # atomic under the GIL, which is enough here.
+        self._setup_proc: subprocess.Popen[str] | None = None
 
     # --- Info commands ---
 
@@ -282,7 +299,7 @@ class WhipperHostExportedImpl(WhipperBackend):
             # -d/--device (whipper/command/drive.py), so pass the selected
             # drive explicitly — matters once multi-drive support lands.
             args += ["-d", device]
-        rc, out = self._run_capture(args, _SETUP_TIMEOUT_S)
+        rc, out = self._run_setup_capture(args)
         if _NO_DISC_MARKER in out:
             raise WhipperError(
                 "Insert a CD so the drive can be analyzed.", output=out
@@ -302,7 +319,7 @@ class WhipperHostExportedImpl(WhipperBackend):
         args = ["offset", "find"]
         if device:
             args += ["-d", device]
-        _rc, out = self._run_capture(args, _SETUP_TIMEOUT_S)
+        _rc, out = self._run_setup_capture(args)
         match = _OFFSET_RE.search(out)
         if match:
             return int(match.group("offset"))
@@ -314,6 +331,63 @@ class WhipperHostExportedImpl(WhipperBackend):
             "CD (one likely to be in the AccurateRip database) and try again.",
             output=out,
         )
+
+    def cancel_setup(self) -> None:
+        """Terminate the running drive-setup subprocess, if any.
+
+        Called from the GUI thread when the user closes the wizard. SIGTERM
+        first, then SIGKILL — same escalation as RipHandle.cancel. Without
+        this the whipper process (and the disc it's spinning) keeps running
+        long after the dialog is gone.
+        """
+        proc = self._setup_proc
+        if proc is None or proc.poll() is not None:
+            return
+        # SIGKILL, not a terminate()+wait() escalation: the worker thread is
+        # the sole owner of this Popen (it's blocked in communicate(), which
+        # reaps it), so waiting/reaping here too would race on waitpid. KILL
+        # is guaranteed and immediate, so the worker's communicate() returns
+        # at once and its QThread can be joined — exactly what the dialog
+        # needs to close without aborting. A read-only probe has nothing to
+        # clean up, so the ungraceful kill is harmless.
+        log.info("cancelling drive-setup subprocess (SIGKILL)")
+        proc.kill()
+
+    def _run_setup_capture(self, args: list[str]) -> tuple[int, str]:
+        """Run a slow, *cancellable* setup command via Popen.
+
+        Unlike `_run_capture` (which uses subprocess.run and can't be
+        interrupted), this stores the Popen on `self._setup_proc` so
+        `cancel_setup()` can terminate it mid-flight. Returns
+        (returncode, combined-output); raises WhipperError on a missing
+        binary or timeout.
+        """
+        argv: list[str] = [str(self._binary), *args]
+        log.debug("whipper setup: %s", " ".join(argv))
+        try:
+            proc = subprocess.Popen(
+                argv,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            raise WhipperError(
+                f"whipper binary not found at {self._binary}"
+            ) from exc
+        self._setup_proc = proc
+        try:
+            out, _ = proc.communicate(timeout=_SETUP_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, _ = proc.communicate()
+            self._setup_proc = None
+            raise WhipperError(
+                f"whipper timed out after {_SETUP_TIMEOUT_S:.0f}s", output=out or ""
+            )
+        finally:
+            self._setup_proc = None
+        return proc.returncode, out or ""
 
     # --- Streaming rip ---
 
@@ -330,6 +404,7 @@ class WhipperHostExportedImpl(WhipperBackend):
         force_overread: bool = False,
         max_retries: int = 5,
         keep_going: bool = False,
+        read_offset_override: int | None = None,
     ) -> RipHandle:
         # Note: whipper has no -d/--device flag for `cd rip` — it
         # auto-detects the single drive. Multi-drive selection is P1
@@ -346,6 +421,9 @@ class WhipperHostExportedImpl(WhipperBackend):
             # is a no-op unless the user changed it in Settings).
             "--max-retries", str(max_retries),
         ]
+        if read_offset_override is not None:
+            # Manual offset from Settings — overrides whipper.conf for this rip.
+            argv.extend(["--offset", str(read_offset_override)])
         if self._working_dir is not None:
             argv.extend(["--working-directory", str(self._working_dir)])
         if unknown:

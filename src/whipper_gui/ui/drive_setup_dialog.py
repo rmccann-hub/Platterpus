@@ -49,6 +49,9 @@ class DriveSetupDialog(QDialog):
         self._device: str = device
         self._thread: QThread | None = None
         self._worker: DriveSetupWorker | None = None
+        # Set true once the dialog is closing, so a late worker result
+        # doesn't poke widgets that are being torn down.
+        self._closing: bool = False
 
         self.setWindowTitle("Set up drive")
 
@@ -121,6 +124,11 @@ class DriveSetupDialog(QDialog):
 
     def _on_finished(self, result: DriveSetupResult) -> None:
         """Render the calibration outcome. Safe to call directly in tests."""
+        # If the dialog is closing, the worker's final (likely cancelled)
+        # result is irrelevant and the widgets may be on their way out —
+        # don't touch them.
+        if self._closing:
+            return
         self._progress.setVisible(False)
         self._status_label.setText(
             "Done." if result.ok else "Finished with issues."
@@ -133,11 +141,36 @@ class DriveSetupDialog(QDialog):
 
     # --- Lifecycle ----------------------------------------------------------
 
+    def _stop_detection(self) -> None:
+        """Cancel a running detection and join its thread before teardown.
+
+        Cancelling terminates the whipper subprocess, which unblocks the
+        worker's run() so the QThread can quit and be waited on. Without
+        this, closing mid-detection destroys a still-running QThread (Qt
+        aborts the process) and leaves whipper spinning the drive.
+        """
+        thread = self._thread
+        worker = self._worker
+        if thread is None:
+            return
+        if worker is not None:
+            worker.cancel()  # kills the subprocess so run() returns promptly
+        thread.quit()
+        # Generous wait: cancel_setup does SIGTERM then SIGKILL after 5s.
+        if not thread.wait(10000):
+            log.error("drive-setup thread did not stop within 10s")
+        self._worker = None
+        self._thread = None
+
+    def reject(self) -> None:  # noqa: D102 — Qt override (Close button / Esc)
+        self._closing = True
+        self._stop_detection()
+        super().reject()
+
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt API
         """Stop the worker thread cleanly if detection is still running."""
-        if self._thread is not None and self._thread.isRunning():
-            self._thread.quit()
-            self._thread.wait(2000)
+        self._closing = True
+        self._stop_detection()
         super().closeEvent(event)  # type: ignore[arg-type]
 
 

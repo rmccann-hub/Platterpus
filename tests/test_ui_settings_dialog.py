@@ -171,10 +171,21 @@ def test_redetect_button_emits_signal(qapp: QApplication) -> None:
     assert fired == [True]
 
 
-def test_read_offset_field_is_read_only(qapp: QApplication) -> None:
-    dialog = SettingsDialog(Config(read_offset=667))
-    assert dialog._read_offset_spin.isReadOnly() is True
+def test_read_offset_editable_with_override(qapp: QApplication) -> None:
+    dialog = SettingsDialog(Config(read_offset=667, override_read_offset=True))
+    # Editable now (was read-only before the manual-offset feature).
+    assert dialog._read_offset_spin.isReadOnly() is False
     assert dialog._read_offset_spin.value() == 667
+    assert dialog._override_offset_check.isChecked() is True
+
+
+def test_override_offset_round_trips(qapp: QApplication) -> None:
+    dialog = SettingsDialog(Config())
+    dialog._read_offset_spin.setValue(-12)
+    dialog._override_offset_check.setChecked(True)
+    out = dialog.to_config()
+    assert out.read_offset == -12
+    assert out.override_read_offset is True
 
 
 # --- EAC parity-gap widgets ----------------------------------------------

@@ -89,27 +89,22 @@ class SettingsDialog(QDialog):
         form.addRow("Disc template (unknown):", self._disc_template_unknown_edit)
 
         # --- Read offset ---
-        # Per the brief: whipper.conf is authoritative for the read
-        # offset. This field is informational; setting it here does
-        # NOT (yet) override what's in whipper.conf. Surfaced clearly
-        # in the label + tooltip to avoid the "I set 667 here but my
-        # rip is still using 0" confusion real-user testing surfaced.
+        # Two ways to set the read offset:
+        #   1. The drive-setup wizard ("Re-detect…") writes it to
+        #      whipper.conf — the recommended path.
+        #   2. Type it here and tick "Override" to pass `--offset N` to the
+        #      rip, overriding whipper.conf — so you can set it from the GUI
+        #      without editing the config file (real-user request).
+        # The spinbox is now editable; whether it's USED is gated by the
+        # override checkbox so there's no "I typed 667 but it's ignored"
+        # confusion.
         self._read_offset_spin: QSpinBox = QSpinBox(self)
         self._read_offset_spin.setRange(_OFFSET_MIN, _OFFSET_MAX)
         self._read_offset_spin.setValue(config.read_offset)
-        self._read_offset_spin.setReadOnly(True)
-        # Tooltip on the spinbox + the field label so hover-help works
-        # regardless of which the user mouses over.
-        tooltip = (
-            "Informational only — whipper.conf is the authoritative "
-            "source. Edit your drive's [drive:VENDOR :MODEL:RELEASE] "
-            "section in ~/.config/whipper/whipper.conf to change."
+        self._read_offset_spin.setToolTip(
+            "Read offset in samples (signed). Tick Override to force this "
+            "value via whipper's --offset; otherwise whipper.conf wins."
         )
-        self._read_offset_spin.setToolTip(tooltip)
-        # The field stays read-only (whipper.conf owns the value), but the
-        # "Re-detect…" button launches the drive-setup wizard, which is the
-        # supported way to (re)calibrate and write that value. Emitting a
-        # signal keeps the dialog decoupled from MainWindow's wizard wiring.
         self._detect_offset_button: QPushButton = QPushButton("Re-detect…", self)
         self._detect_offset_button.setToolTip(
             "Run the drive setup wizard to auto-detect the read offset "
@@ -119,8 +114,17 @@ class SettingsDialog(QDialog):
         offset_row = QHBoxLayout()
         offset_row.addWidget(self._read_offset_spin, stretch=1)
         offset_row.addWidget(self._detect_offset_button)
-        offset_label = "Read offset (set via wizard; see whipper.conf):"
-        form.addRow(offset_label, offset_row)
+        form.addRow("Read offset (samples):", offset_row)
+
+        self._override_offset_check: QCheckBox = QCheckBox(
+            "Override whipper.conf with the offset above", self
+        )
+        self._override_offset_check.setChecked(config.override_read_offset)
+        self._override_offset_check.setToolTip(
+            "When on, each rip is run with --offset <the value above>, "
+            "overriding whatever the drive setup wizard wrote to whipper.conf."
+        )
+        form.addRow("", self._override_offset_check)
 
         # --- Tool paths ---
         self._whipper_path_edit, whipper_row = self._build_file_row(
@@ -246,6 +250,7 @@ class SettingsDialog(QDialog):
             whipper_path=self._whipper_path_edit.text(),
             metaflac_path=self._metaflac_path_edit.text(),
             read_offset=self._read_offset_spin.value(),
+            override_read_offset=self._override_offset_check.isChecked(),
             auto_launch_picard=self._auto_picard_check.isChecked(),
             continue_on_cdr=self._continue_on_cdr_check.isChecked(),
             cover_art=self._cover_art_combo.currentData(),
