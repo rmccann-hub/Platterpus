@@ -157,3 +157,21 @@ def test_cancel_rejects_dialog(qapp: QApplication) -> None:
     box = _button_box(dialog)
     box.button(QDialogButtonBox.StandardButton.Cancel).click()
     assert dialog.result() == int(dialog.DialogCode.Rejected)
+
+
+def test_redetect_button_emits_signal(qapp: QApplication) -> None:
+    """The Re-detect… button next to the read-offset field asks MainWindow
+    to open the drive-setup wizard."""
+    dialog = SettingsDialog(Config())
+    fired: list[bool] = []
+    dialog.detect_offset_requested.connect(lambda: fired.append(True))
+
+    dialog._detect_offset_button.click()
+
+    assert fired == [True]
+
+
+def test_read_offset_field_is_read_only(qapp: QApplication) -> None:
+    dialog = SettingsDialog(Config(read_offset=667))
+    assert dialog._read_offset_spin.isReadOnly() is True
+    assert dialog._read_offset_spin.value() == 667

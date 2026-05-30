@@ -41,6 +41,7 @@ class SettingsDialog(QDialog):
     """Modal Settings dialog. Wraps an incoming Config; produces a new one."""
 
     check_dependencies_requested = Signal()
+    detect_offset_requested = Signal()
 
     def __init__(self, config: Config, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -104,8 +105,21 @@ class SettingsDialog(QDialog):
             "section in ~/.config/whipper/whipper.conf to change."
         )
         self._read_offset_spin.setToolTip(tooltip)
-        offset_label = "Read offset (informational, see whipper.conf):"
-        form.addRow(offset_label, self._read_offset_spin)
+        # The field stays read-only (whipper.conf owns the value), but the
+        # "Re-detect…" button launches the drive-setup wizard, which is the
+        # supported way to (re)calibrate and write that value. Emitting a
+        # signal keeps the dialog decoupled from MainWindow's wizard wiring.
+        self._detect_offset_button: QPushButton = QPushButton("Re-detect…", self)
+        self._detect_offset_button.setToolTip(
+            "Run the drive setup wizard to auto-detect the read offset "
+            "and cache behaviour, and save them to whipper.conf."
+        )
+        self._detect_offset_button.clicked.connect(self.detect_offset_requested)
+        offset_row = QHBoxLayout()
+        offset_row.addWidget(self._read_offset_spin, stretch=1)
+        offset_row.addWidget(self._detect_offset_button)
+        offset_label = "Read offset (set via wizard; see whipper.conf):"
+        form.addRow(offset_label, offset_row)
 
         # --- Tool paths ---
         self._whipper_path_edit, whipper_row = self._build_file_row(
