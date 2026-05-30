@@ -170,7 +170,7 @@ def test_central_widget_contains_main_widgets(teardown_threads) -> None:
     assert window._rip_progress is not None
 
 
-def test_menus_have_settings_and_check_deps(teardown_threads) -> None:
+def test_menus_have_settings_but_not_duplicate_dep_check(teardown_threads) -> None:
     window = teardown_threads()
     menubar = window.menuBar()
     actions: list[str] = []
@@ -178,7 +178,9 @@ def test_menus_have_settings_and_check_deps(teardown_threads) -> None:
         for action in menu.actions():
             actions.append(action.text())
     assert any("Settings" in text for text in actions)
-    assert any("dependencies" in text.lower() for text in actions)
+    # The dependency check moved entirely to the Settings dialog button —
+    # it must NOT also appear in the menus.
+    assert not any("dependencies" in text.lower() for text in actions)
 
 
 # --- Drive change → disc_info → MB lookup pipeline -----------------------

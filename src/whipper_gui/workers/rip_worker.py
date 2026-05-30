@@ -57,6 +57,8 @@ class RipParameters:
     force_overread: bool = False
     max_retries: int = 5
     keep_going: bool = False
+    # When set, passed as whipper's `--offset N`, overriding whipper.conf.
+    read_offset_override: int | None = None
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -154,6 +156,7 @@ class RipWorker(QObject):
                 force_overread=self._params.force_overread,
                 max_retries=self._params.max_retries,
                 keep_going=self._params.keep_going,
+                read_offset_override=self._params.read_offset_override,
             )
         except WhipperError as exc:
             log.exception("rip failed to start")

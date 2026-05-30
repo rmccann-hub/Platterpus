@@ -491,17 +491,51 @@ def _impl() -> WhipperHostExportedImpl:
     return WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
 
 
+class _SetupPopen:
+    """Popen stand-in for the cancellable drive-setup runner.
+
+    analyze_drive/find_offset go through `_run_setup_capture`, which uses
+    Popen + communicate() (so the process can be SIGKILLed on cancel), not
+    subprocess.run — hence these tests mock Popen.
+    """
+
+    output: str = ""
+    rc: int = 0
+    captured: list[list[str]] = []
+
+    def __init__(self, argv: list[str], *args: Any, **kwargs: Any) -> None:
+        self.argv = argv
+        self.returncode = type(self).rc
+        self.killed = False
+        type(self).captured.append(argv)
+
+    def communicate(self, timeout: float | None = None) -> tuple[str, None]:
+        return type(self).output, None
+
+    def poll(self) -> int:
+        return self.returncode
+
+    def kill(self) -> None:
+        self.killed = True
+
+
+def _patch_setup_popen(
+    monkeypatch: pytest.MonkeyPatch, output: str, rc: int = 0
+) -> list[list[str]]:
+    """Make whipper-setup subprocesses return `output`; return captured argv."""
+    _SetupPopen.output = output
+    _SetupPopen.rc = rc
+    _SetupPopen.captured = []
+    monkeypatch.setattr(whipper_backend.subprocess, "Popen", _SetupPopen)
+    return _SetupPopen.captured
+
+
 def test_analyze_drive_returns_true_and_passes_device(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured: list[list[str]] = []
-
-    def fake_run(argv: list[str], **kwargs: Any) -> Any:
-        captured.append(argv)
-        return _ok_run(stdout="cdparanoia can defeat the audio cache on this drive\n")
-
-    monkeypatch.setattr(whipper_backend.subprocess, "run", fake_run)
-
+    captured = _patch_setup_popen(
+        monkeypatch, "cdparanoia can defeat the audio cache on this drive\n"
+    )
     assert _impl().analyze_drive("/dev/sr0") is True
     assert captured[0] == ["/x/whipper", "drive", "analyze", "-d", "/dev/sr0"]
 
@@ -509,11 +543,8 @@ def test_analyze_drive_returns_true_and_passes_device(
 def test_analyze_drive_returns_false_when_cache_cannot_be_defeated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        whipper_backend.subprocess, "run",
-        lambda *a, **kw: _ok_run(
-            stdout="cdparanoia cannot defeat the audio cache on this drive\n"
-        ),
+    _patch_setup_popen(
+        monkeypatch, "cdparanoia cannot defeat the audio cache on this drive\n"
     )
     assert _impl().analyze_drive("/dev/sr0") is False
 
@@ -521,11 +552,8 @@ def test_analyze_drive_returns_false_when_cache_cannot_be_defeated(
 def test_analyze_drive_raises_friendly_error_without_disc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        whipper_backend.subprocess, "run",
-        lambda *a, **kw: _ok_run(
-            stdout="cannot analyze the drive: is there a CD in it?\n"
-        ),
+    _patch_setup_popen(
+        monkeypatch, "cannot analyze the drive: is there a CD in it?\n"
     )
     with pytest.raises(WhipperError) as info:
         _impl().analyze_drive("/dev/sr0")
@@ -535,14 +563,7 @@ def test_analyze_drive_raises_friendly_error_without_disc(
 def test_find_offset_parses_value_and_passes_device(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured: list[list[str]] = []
-
-    def fake_run(argv: list[str], **kwargs: Any) -> Any:
-        captured.append(argv)
-        return _ok_run(stdout="\nRead offset of device is: 667.\n")
-
-    monkeypatch.setattr(whipper_backend.subprocess, "run", fake_run)
-
+    captured = _patch_setup_popen(monkeypatch, "\nRead offset of device is: 667.\n")
     assert _impl().find_offset("/dev/sr0") == 667
     assert captured[0] == ["/x/whipper", "offset", "find", "-d", "/dev/sr0"]
 
@@ -550,23 +571,29 @@ def test_find_offset_parses_value_and_passes_device(
 def test_find_offset_handles_negative_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        whipper_backend.subprocess, "run",
-        lambda *a, **kw: _ok_run(stdout="Read offset of device is: -582.\n"),
-    )
+    _patch_setup_popen(monkeypatch, "Read offset of device is: -582.\n")
     assert _impl().find_offset("/dev/sr0") == -582
 
 
 def test_find_offset_raises_actionable_error_when_not_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        whipper_backend.subprocess, "run",
-        lambda *a, **kw: _fail_run(stdout="", stderr="no offset found\n"),
-    )
+    _patch_setup_popen(monkeypatch, "no offset found\n", rc=1)
     with pytest.raises(WhipperError) as info:
         _impl().find_offset("/dev/sr0")
     assert "AccurateRip" in str(info.value)
+
+
+def test_cancel_setup_kills_running_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """cancel_setup() must SIGKILL the in-flight setup subprocess."""
+    impl = _impl()
+    proc = _SetupPopen(["/x/whipper", "offset", "find"])
+    proc.returncode = None  # type: ignore[assignment]  # still running
+    impl._setup_proc = proc  # type: ignore[assignment]
+    impl.cancel_setup()
+    assert proc.killed is True
 
 
 def test_back_up_whipper_config_copies_when_present(tmp_path: Path) -> None:
@@ -581,3 +608,16 @@ def test_back_up_whipper_config_copies_when_present(tmp_path: Path) -> None:
 
 def test_back_up_whipper_config_returns_none_when_absent(tmp_path: Path) -> None:
     assert whipper_backend.back_up_whipper_config(tmp_path / "nope.conf") is None
+
+
+def test_rip_offset_override_passed_when_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    argv = _rip_argv(monkeypatch, read_offset_override=667)
+    assert argv[argv.index("--offset") + 1] == "667"
+
+
+def test_rip_offset_override_absent_when_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert "--offset" not in _rip_argv(monkeypatch, read_offset_override=None)

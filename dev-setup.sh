@@ -55,11 +55,40 @@ else
     pip install -e .
 fi
 
+# --- Desktop entry ---
+# Install a launcher into the user's app menu so the GUI is reachable
+# without a terminal. Points Exec at the venv's whipper-gui (absolute
+# path, so it works from the menu regardless of cwd). Uses the stock
+# `media-optical` icon name — present in essentially every icon theme —
+# so we don't need to ship a bitmap. uninstall.sh removes this file.
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+DESKTOP_FILE="$DESKTOP_DIR/whipper-gui.desktop"
+mkdir -p "$DESKTOP_DIR"
+cat > "$DESKTOP_FILE" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Whipper GUI
+GenericName=CD Audio Ripper
+Comment=Rip audio CDs to FLAC with whipper
+Exec=$REPO_ROOT/.venv/bin/whipper-gui
+Icon=media-optical
+Terminal=false
+Categories=AudioVideo;Audio;DiscBurning;
+Keywords=cd;rip;flac;audio;whipper;musicbrainz;
+DESKTOP
+# Refresh the menu database if the tool is available (harmless if not).
+command -v update-desktop-database >/dev/null 2>&1 \
+    && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+echo "Installed desktop entry: $DESKTOP_FILE"
+
 # --- Done ---
 cat <<EOF
 
 ----------------------------------------
 Setup complete.
+
+A "Whipper GUI" entry has been added to your application menu.
 
 To launch the GUI:
     source .venv/bin/activate

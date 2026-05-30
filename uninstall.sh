@@ -152,6 +152,15 @@ else
     missing "$GUI_LOGS"
 fi
 
+# Desktop launcher created by dev-setup.sh.
+DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/whipper-gui.desktop"
+if [ -f "$DESKTOP_FILE" ]; then
+    run rm -f "$DESKTOP_FILE"
+    removed "$DESKTOP_FILE"
+else
+    missing "$DESKTOP_FILE"
+fi
+
 # Build artifact left over from dev-setup or AppImage builds.
 if [ -d "$REPO_ROOT/build/python-appimage/__pycache__" ]; then
     run rm -rf "$REPO_ROOT/build/python-appimage/__pycache__"

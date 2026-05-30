@@ -197,9 +197,9 @@ class MainWindow(QMainWindow):
 
         diagnose_action = tools_menu.addAction("Diagnose drive &access…")
         diagnose_action.triggered.connect(self._show_drive_access_diagnosis)
-
-        deps_action = tools_menu.addAction("&Check dependencies…")
-        deps_action.triggered.connect(self._on_check_dependencies)
+        # The dependency check lives only on the Settings dialog's
+        # "Check dependencies" button (it also runs automatically at
+        # launch) — no duplicate Tools-menu entry.
 
     # --- Signal wiring ------------------------------------------------------
 

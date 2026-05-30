@@ -87,6 +87,11 @@ class Config:
     # Surfaced here so Settings can display what the GUI thinks is in
     # effect. read_offset is in samples, signed.
     read_offset: int = 0
+    # When True, pass `--offset <read_offset>` to each rip, overriding
+    # whatever whipper.conf holds. Lets the user set the offset from the
+    # GUI without editing whipper.conf. Off by default — the drive-setup
+    # wizard (which writes whipper.conf) is the primary path.
+    override_read_offset: bool = False
 
     # --- UI toggles ---
     auto_launch_picard: bool = False

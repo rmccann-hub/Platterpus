@@ -70,10 +70,32 @@ class DriveSetupWorker(QObject):
         super().__init__(parent)
         self._backend: WhipperBackend = backend
         self._device: str = device
+        # Set from the GUI thread when the user closes the dialog. Plain
+        # bool assignment is atomic under the GIL.
+        self._cancelled: bool = False
+
+    @Slot()
+    def cancel(self) -> None:
+        """Request cancellation and terminate the running whipper process.
+
+        Thread-safe: called from the GUI thread. Terminating the subprocess
+        unblocks `run()` (which is waiting on it) so the QThread can finish
+        and be torn down cleanly — without this the dialog's QThread is
+        destroyed mid-run and Qt aborts the whole app, and the orphaned
+        whipper keeps the optical drive spinning.
+        """
+        self._cancelled = True
+        try:
+            self._backend.cancel_setup()
+        except Exception:  # noqa: BLE001 — cancel must never raise
+            log.exception("cancel_setup() raised; ignored")
 
     @Slot()
     def run(self) -> None:
         """Back up whipper.conf, then run analyze + offset find in turn."""
+        if self._cancelled:
+            self.finished.emit(DriveSetupResult())
+            return
         backup_path = back_up_whipper_config()
 
         # Cache analysis first — it's the quicker of the two and confirms a
@@ -95,6 +117,16 @@ class DriveSetupWorker(QObject):
         )
         offset: int | None = None
         offset_error: str | None = None
+        if self._cancelled:
+            # Don't kick off the long offset search if we're already closing.
+            self.finished.emit(
+                DriveSetupResult(
+                    can_defeat_cache=can_defeat,
+                    analyze_error=analyze_error,
+                    backup_path=backup_path,
+                )
+            )
+            return
         try:
             offset = self._backend.find_offset(self._device)
         except WhipperError as exc:

@@ -261,3 +261,25 @@ def test_parity_gap_config_flows_into_rip_parameters(
     assert p.force_overread is True
     assert p.max_retries == 7
     assert p.keep_going is True
+
+
+def test_offset_override_flows_when_enabled(qapp: QApplication) -> None:
+    config = Config(output_dir="/music", read_offset=667, override_read_offset=True)
+    controls = RipControls(config)
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+    assert captured[0].read_offset_override == 667
+
+
+def test_offset_override_none_when_disabled(qapp: QApplication) -> None:
+    config = Config(output_dir="/music", read_offset=667, override_read_offset=False)
+    controls = RipControls(config)
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+    assert captured[0].read_offset_override is None
