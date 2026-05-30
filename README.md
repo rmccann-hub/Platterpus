@@ -265,45 +265,16 @@ Run with `whipper-gui` from any terminal.
 
 #### Method C — From source (for developers / current state)
 
-> The repository is currently private during pre-alpha development. You'll need to authenticate to clone it. **On Bazzite, Fedora Silverblue, and other immutable distros, use SSH** — `gh auth login` requires `gh` to be installed, and `sudo dnf install gh` doesn't work on the immutable host (you'd need `rpm-ostree install gh` + reboot). SSH is a one-time setup with no reboots.
->
-> **SSH setup** (recommended on Bazzite):
->
-> ```bash
-> # Generate a key if you don't already have one
-> [ -f ~/.ssh/id_ed25519 ] || ssh-keygen -t ed25519 -C "$USER@$(hostname)" -f ~/.ssh/id_ed25519 -N ""
->
-> # Print the public key — copy the entire line
-> cat ~/.ssh/id_ed25519.pub
-> ```
->
-> Paste the output into <https://github.com/settings/ssh/new>, give it any title (e.g. `Bazzite`), confirm with your GitHub password. Then verify:
->
-> ```bash
-> ssh -T git@github.com
-> # Expected: "Hi <username>! You've successfully authenticated..."
-> ```
->
-> **gh CLI alternative** (only works easily on Fedora Workstation / Ubuntu / Arch — not Bazzite):
->
-> ```bash
-> sudo dnf install gh          # Fedora Workstation
-> sudo apt install gh          # Ubuntu / Debian
-> sudo pacman -S github-cli    # Arch / Manjaro
-> gh auth login                # HTTPS → web browser
-> ```
+> The repository is **public**, so no authentication is needed to clone over HTTPS. (If you plan to push changes, set up SSH or `gh auth login` — but for just running from source, a plain clone works.)
 
-Once auth works, clone and install:
+Clone and install:
 
 ```bash
-# Use the SSH URL if you set up SSH; the HTTPS URL if you used gh
-git clone git@github.com:rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git
+git clone https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git
 cd Whipper-GUI-Frontend---CD-Rip
-
-# All development is on a feature branch until the merge-to-main milestone.
-# Until then, switch to the dev branch right after cloning:
-git checkout claude/lucid-babbage-JYI8c
 ```
+
+The default `main` branch contains the full source — no branch switch needed.
 
 From here you have two options.
 
@@ -487,14 +458,13 @@ For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the men
 
 ### `pip install` fails with "does not appear to be a Python project"
 
-You're probably on the `main` branch, which only contains `.gitattributes` during pre-alpha. All active code lives on `claude/lucid-babbage-JYI8c`. Run:
+Make sure you're in the cloned repository directory (where `pyproject.toml` lives) and that the clone completed:
 
 ```bash
-git checkout claude/lucid-babbage-JYI8c
-ls pyproject.toml    # should exist now
+ls pyproject.toml    # should exist
 ```
 
-Then re-run `pip install -e .` (or `bash dev-setup.sh`). After the merge-to-main milestone, this step won't be needed.
+Then re-run `pip install -e .` (or `bash dev-setup.sh`).
 
 ### `sudo dnf install gh` fails on Bazzite
 
