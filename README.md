@@ -16,6 +16,24 @@ A Linux GUI front-end for the [`whipper`](https://github.com/whipper-team/whippe
 
 ## Installation
 
+### Fast path — one command (Steps 1-4 + 7)
+
+[`setup-host.sh`](setup-host.sh) automates the host setup: it installs Distrobox (if needed), creates the `ripping` container, installs whipper + flac inside it, exports the binaries to your host, then clones this repo and runs `dev-setup.sh` (venv + editable install + app-menu shortcut).
+
+```bash
+# From a fresh clone:
+bash setup-host.sh
+
+# …or straight from the web (no clone needed first):
+curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main/setup-host.sh | bash
+```
+
+Useful flags: `--dry-run` (print every command, change nothing), `--yes` (skip confirmations), `--no-gui` (host stack only). It's idempotent — safe to re-run. It does **not** calibrate your drive (do that in the GUI: **Tools → Set up drive…**) or install Picard (the GUI offers that on first run).
+
+Prefer to do it by hand, or the script hit a snag? The manual steps below are the source of truth.
+
+### Manual steps
+
 There are five things to set up. Plan on **20-40 minutes** the first time. Once it's done, you don't touch most of it again.
 
 | Step | What | Why |
@@ -650,7 +668,8 @@ Source documents and reference material (in `docs/`):
 
 Build / dev tooling:
 
-- [`dev-setup.sh`](dev-setup.sh) — one-command post-clone setup (venv + pip + editable install)
+- [`setup-host.sh`](setup-host.sh) — one-command full bootstrap (Distrobox + container + whipper + export + clone + dev-setup)
+- [`dev-setup.sh`](dev-setup.sh) — one-command post-clone setup (venv + pip + editable install + app-menu shortcut)
 - [`uninstall.sh`](uninstall.sh) — tear-down counterpart (use `--help` for options)
 - [`build/build_appimage.sh`](build/build_appimage.sh) — produce the AppImage
 - [`build/python-appimage/README.md`](build/python-appimage/README.md) — AppImage recipe details
