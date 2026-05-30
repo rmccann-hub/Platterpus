@@ -55,7 +55,7 @@ from whipper_gui.ui.settings_dialog import SettingsDialog
 from whipper_gui.ui.track_table import TrackTable
 from whipper_gui.ui.unknown_album import (
     UnknownAlbumDialog,
-    apply_placeholder_tags,
+    apply_track_tags,
     launch_picard_for,
 )
 from whipper_gui.workers.mb_worker import MusicBrainzWorker
@@ -108,6 +108,12 @@ class MainWindow(QMainWindow):
         # Active rip's worker/thread; set during a rip, cleared on finish.
         self._rip_worker: RipWorker | None = None
         self._rip_thread: QThread | None = None
+        # Params of the in-flight rip, captured at start so the finish
+        # handler knows whether it was an unknown-mode rip (and where the
+        # FLACs landed) without depending on the controls' current state.
+        self._active_rip_params: RipParameters | None = None
+        # Whether the user asked to launch Picard after an unknown rip.
+        self._pending_picard_launch: bool = False
 
         # --- Widgets -------------------------------------------------------
         central = QWidget(self)
@@ -305,6 +311,11 @@ class MainWindow(QMainWindow):
         self._rip_progress.set_status("Starting rip…")
         self._rip_controls.set_rip_active(True)
 
+        # Remember the params so the finish handler can run unknown-mode
+        # post-processing (tag the FLACs from the track table) against the
+        # right output directory.
+        self._active_rip_params = params
+
         self._rip_worker = RipWorker(self._backend, params)
         self._rip_thread = QThread(self)
         self._rip_worker.moveToThread(self._rip_thread)
@@ -356,10 +367,28 @@ class MainWindow(QMainWindow):
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
 
+        # Unknown-mode post-processing: tag the FLACs from the (possibly
+        # edited) track table and optionally launch Picard. Only on a
+        # successful rip, and only when the rip we started was unknown-mode.
+        # Scope tagging to the album folder whipper just wrote — the .log
+        # lands next to the FLACs, so its parent is that folder. Using the
+        # configured output root instead would re-tag every previously
+        # ripped album in the library with THIS disc's metadata.
+        params = self._active_rip_params
+        if success and params is not None and params.unknown:
+            rip_dir = Path(log_path).parent if log_path else params.output_dir
+            try:
+                self.run_unknown_post_processing(
+                    rip_dir, self._pending_picard_launch
+                )
+            except Exception:  # noqa: BLE001 — tagging must never crash the GUI
+                log.exception("unknown-album post-processing failed")
+
         # Clear references so a future rip starts cleanly. The thread
         # itself is auto-deleted via finished.connect(deleteLater) above.
         self._rip_worker = None
         self._rip_thread = None
+        self._active_rip_params = None
 
         # Hook for tests to know that finish-time post-processing is done.
         self.rip_post_processing_done.emit()
@@ -527,13 +556,21 @@ class MainWindow(QMainWindow):
         rip_output_dir: Path,
         launch_picard: bool,
     ) -> None:
-        """Apply placeholder tags + optionally launch Picard.
+        """Tag the FLACs from the track table + optionally launch Picard.
 
-        Called after an unknown-mode rip finishes. Public so the same
-        helper can be exercised from tests.
+        Called after an unknown-mode rip finishes. The track table holds
+        the placeholder rows the user saw before ripping — including any
+        edits they made to the titles/artist/album/year — so we write
+        those through to the FLAC tags (blank fields fall back to the
+        "Unknown" placeholders). Public so it can be exercised from tests.
         """
         flac_files = sorted(rip_output_dir.rglob("*.flac"))
-        apply_placeholder_tags(self._metaflac, flac_files)
+        apply_track_tags(
+            self._metaflac,
+            flac_files,
+            self._track_table.album_metadata(),
+            self._track_table.tracks(),
+        )
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
 

@@ -9,10 +9,13 @@ import pytest
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
 from whipper_gui.adapters.metaflac import MetaflacAdapter, MetaflacError
+from whipper_gui.adapters.musicbrainz_client import TrackSummary
 from whipper_gui.ui import unknown_album as unknown_module
+from whipper_gui.ui.track_table import AlbumMetadata
 from whipper_gui.ui.unknown_album import (
     UnknownAlbumDialog,
     apply_placeholder_tags,
+    apply_track_tags,
     launch_picard_for,
 )
 
@@ -108,6 +111,50 @@ def test_apply_placeholder_tags_handles_empty_list() -> None:
     succeeded = apply_placeholder_tags(metaflac, [])
     assert succeeded == []
     assert metaflac.calls == []
+
+
+# --- apply_track_tags (edit-aware) ---------------------------------------
+
+
+def test_apply_track_tags_writes_edited_values(tmp_path: Path) -> None:
+    metaflac = _FakeMetaflac()
+    files = [tmp_path / "01.flac", tmp_path / "02.flac"]
+    album = AlbumMetadata(artist="Pink Floyd", title="The Wall", year="1979")
+    tracks = [
+        TrackSummary(number=1, title="In the Flesh?", artist_credit="Pink Floyd"),
+        TrackSummary(number=2, title="The Thin Ice", artist_credit=""),
+    ]
+
+    apply_track_tags(metaflac, files, album, tracks)
+
+    assert metaflac.calls[0][1] == {
+        "TITLE": "In the Flesh?",
+        "ARTIST": "Pink Floyd",
+        "ALBUM": "The Wall",
+        "ALBUMARTIST": "Pink Floyd",
+        "TRACKNUMBER": "01",
+        "DATE": "1979",
+    }
+    # Track 2 left its artist blank → falls back to the album artist.
+    assert metaflac.calls[1][1]["TITLE"] == "The Thin Ice"
+    assert metaflac.calls[1][1]["ARTIST"] == "Pink Floyd"
+
+
+def test_apply_track_tags_falls_back_to_placeholders(tmp_path: Path) -> None:
+    metaflac = _FakeMetaflac()
+    files = [tmp_path / "01.flac"]
+    # Nothing edited: blank album, no track rows.
+    apply_track_tags(metaflac, files, AlbumMetadata(), [])
+
+    assert metaflac.calls[0][1] == {
+        "TITLE": "Track 01",
+        "ARTIST": "Unknown Artist",
+        "ALBUM": "Unknown Album",
+        "ALBUMARTIST": "Unknown Artist",
+        "TRACKNUMBER": "01",
+    }
+    # No year typed → no DATE tag at all (rather than an empty one).
+    assert "DATE" not in metaflac.calls[0][1]
 
 
 # --- launch_picard_for ---------------------------------------------------
