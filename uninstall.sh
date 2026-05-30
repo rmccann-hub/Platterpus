@@ -153,10 +153,17 @@ else
 fi
 
 # Desktop launcher created by dev-setup.sh.
-DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/whipper-gui.desktop"
+DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+DESKTOP_FILE="$DESKTOP_DIR/whipper-gui.desktop"
 if [ -f "$DESKTOP_FILE" ]; then
     run rm -f "$DESKTOP_FILE"
     removed "$DESKTOP_FILE"
+    # Refresh the app-menu cache so the entry disappears immediately
+    # (mirrors dev-setup.sh, which refreshes it on create). Harmless if
+    # the tool isn't installed; skipped in --dry-run via run().
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        run update-desktop-database "$DESKTOP_DIR"
+    fi
 else
     missing "$DESKTOP_FILE"
 fi
