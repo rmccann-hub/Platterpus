@@ -87,6 +87,22 @@ class TrackTableModel(QAbstractTableModel):
         """Return the current track list (with any user edits applied)."""
         return list(self._tracks)
 
+    def set_all_artists(self, artist: str) -> None:
+        """Set every track's artist to `artist` (album-artist propagation).
+
+        Overwrites per-track artists in place and refreshes the Artist
+        column. Callers invoke this when the album-artist field changes;
+        the user can then still edit individual rows afterward.
+        """
+        if not self._tracks:
+            return
+        self._tracks = [
+            replace(track, artist_credit=artist) for track in self._tracks
+        ]
+        top = self.index(0, _COL_ARTIST)
+        bottom = self.index(len(self._tracks) - 1, _COL_ARTIST)
+        self.dataChanged.emit(top, bottom, [Qt.ItemDataRole.DisplayRole])
+
     # --- QAbstractTableModel overrides ---
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
@@ -176,6 +192,15 @@ class TrackTable(QWidget):
         album_form.addRow("Year:", self._album_year_edit)
         root.addLayout(album_form)
 
+        # Typing an album artist fills the per-track Artist column with it
+        # (then individual rows can still be overridden). editingFinished —
+        # not textChanged — so it fires once on focus-out/Enter, not on
+        # every keystroke, and programmatic setText() (set_release /
+        # set_placeholder_tracks) does NOT trigger it.
+        self._album_artist_edit.editingFinished.connect(
+            self._propagate_album_artist
+        )
+
         # Track table.
         self._model: TrackTableModel = TrackTableModel(self)
         self._view: QTableView = QTableView(self)
@@ -240,6 +265,10 @@ class TrackTable(QWidget):
         self._album_title_edit.clear()
         self._album_year_edit.clear()
         self._model.set_tracks([])
+
+    def _propagate_album_artist(self) -> None:
+        """Push the album-artist field into every track row's Artist cell."""
+        self._model.set_all_artists(self._album_artist_edit.text())
 
     def album_metadata(self) -> AlbumMetadata:
         """Return the user's current album-level edits."""

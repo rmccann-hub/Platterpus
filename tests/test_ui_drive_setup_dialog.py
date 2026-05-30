@@ -38,7 +38,7 @@ def test_initial_state(qapp: QApplication) -> None:
     assert dialog._detect_button.isEnabled() is True
     assert dialog._progress.isVisible() is False
     assert "/dev/sr0" in dialog._device_label.text()
-    assert dialog._results_label.text() == ""
+    assert dialog._results_label.toPlainText() == ""
 
 
 def test_on_finished_renders_success(qapp: QApplication) -> None:
@@ -50,7 +50,7 @@ def test_on_finished_renders_success(qapp: QApplication) -> None:
             backup_path=Path("/home/u/.config/whipper/whipper.conf.bak"),
         )
     )
-    text = dialog._results_label.text()
+    text = dialog._results_label.toPlainText()
     assert "+667 samples" in text
     assert "Audio cache" in text
     assert "backed up to whipper.conf.bak" in text
@@ -66,7 +66,7 @@ def test_on_finished_ignored_while_closing(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
     dialog._closing = True
     dialog._on_finished(DriveSetupResult(offset=667, can_defeat_cache=True))
-    assert dialog._results_label.text() == ""  # untouched
+    assert dialog._results_label.toPlainText() == ""  # untouched
 
 
 def test_format_result_offset_failure() -> None:

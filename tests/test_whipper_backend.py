@@ -8,6 +8,7 @@ correctly.
 
 from __future__ import annotations
 
+import signal
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -52,22 +53,18 @@ class _FakePopen:
         self.popen_args: dict[str, Any] = kwargs
         self.stdout = iter(())  # type: ignore[assignment]
         self.returncode: int | None = None
+        self.pid: int = 424242  # cancel paths address the process GROUP
         self.terminated: bool = False
         self.killed: bool = False
         _FakePopen.instances.append(self)
+
+    def poll(self) -> int | None:
+        return self.returncode
 
     def wait(self, timeout: float | None = None) -> int:
         if self.returncode is None:
             self.returncode = 0
         return self.returncode
-
-    def terminate(self) -> None:
-        self.terminated = True
-        self.returncode = -15  # POSIX SIGTERM convention
-
-    def kill(self) -> None:
-        self.killed = True
-        self.returncode = -9  # SIGKILL convention
 
 
 @pytest.fixture(autouse=True)
@@ -448,11 +445,22 @@ def test_rip_handle_yields_log_lines() -> None:
     assert list(handle.log_lines()) == ["one", "two", "three"]
 
 
-def test_rip_handle_cancel_sends_terminate_then_kill_on_timeout() -> None:
+def test_rip_handle_cancel_signals_group_terminate_then_kill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cancel must SIGTERM then (on timeout) SIGKILL the process GROUP, so
+    cdparanoia — not just the whipper parent — dies and the drive stops."""
+    sent: list[int] = []
+    monkeypatch.setattr(whipper_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        whipper_backend.os, "killpg", lambda pgid, sig: sent.append(sig)
+    )
+
     class _SlowFakePopen(_FakePopen):
         def wait(self, timeout: float | None = None) -> int:
-            if not self.killed:
+            if signal.SIGKILL not in sent:  # SIGTERM didn't take → time out
                 raise subprocess.TimeoutExpired(cmd="whipper", timeout=5)
+            self.returncode = -9
             return -9
 
     fake = _SlowFakePopen(argv=[])
@@ -460,19 +468,24 @@ def test_rip_handle_cancel_sends_terminate_then_kill_on_timeout() -> None:
 
     code = handle.cancel(term_timeout=0.01)
 
-    assert fake.terminated is True
-    assert fake.killed is True
+    assert sent == [signal.SIGTERM, signal.SIGKILL]
     assert code == -9
 
 
-def test_rip_handle_cancel_on_already_exited_process_is_safe() -> None:
+def test_rip_handle_cancel_on_already_exited_process_is_safe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    killed: list[int] = []
+    monkeypatch.setattr(whipper_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        whipper_backend.os, "killpg", lambda pgid, sig: killed.append(sig)
+    )
     fake = _FakePopen(argv=[])
     fake.returncode = 0
     handle = RipHandle(process=fake)  # type: ignore[arg-type]
 
     assert handle.cancel() == 0
-    assert fake.terminated is False
-    assert fake.killed is False
+    assert killed == []  # nothing signalled — it had already exited
 
 
 # --- ABC discipline -------------------------------------------------------
@@ -584,16 +597,25 @@ def test_find_offset_raises_actionable_error_when_not_found(
     assert "AccurateRip" in str(info.value)
 
 
-def test_cancel_setup_kills_running_process(
+def test_cancel_setup_kills_running_process_group(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """cancel_setup() must SIGKILL the in-flight setup subprocess."""
+    """cancel_setup() must SIGKILL the whole setup process group (so the
+    in-tree cdparanoia stops the drive, not just the parent)."""
+    sent: list[tuple[int, int]] = []
+    monkeypatch.setattr(whipper_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        whipper_backend.os, "killpg", lambda pgid, sig: sent.append((pgid, sig))
+    )
     impl = _impl()
     proc = _SetupPopen(["/x/whipper", "offset", "find"])
     proc.returncode = None  # type: ignore[assignment]  # still running
+    proc.pid = 999  # type: ignore[attr-defined]
     impl._setup_proc = proc  # type: ignore[assignment]
+
     impl.cancel_setup()
-    assert proc.killed is True
+
+    assert sent == [(999, signal.SIGKILL)]
 
 
 def test_back_up_whipper_config_copies_when_present(tmp_path: Path) -> None:

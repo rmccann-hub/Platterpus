@@ -734,3 +734,69 @@ def test_tools_diagnose_always_shows(
     window._show_drive_access_diagnosis()  # Tools → Diagnose
 
     assert len(shown) == 1  # shows regardless of severity
+
+
+# --- Unknown-disc folder naming from album fields ------------------------
+
+
+def test_unknown_rip_folder_uses_album_fields(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The album artist/title the user typed should drive the unknown-disc
+    folder template (not the literal "Unknown Artist/Unknown Album")."""
+    backend = _FakeBackend()
+
+    class _StubHandle:
+        def log_lines(self): return iter(())
+        def wait(self, timeout=None): return 0
+        def cancel(self, term_timeout: float = 5.0): return -15
+
+    backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
+    window = teardown_threads(backend=backend)
+    window._track_table._album_artist_edit.setText("jimmy2")
+    window._track_table._album_title_edit.setText("for")
+
+    from whipper_gui.workers.rip_worker import RipParameters
+    window._on_rip_requested(RipParameters(
+        drive="/dev/sr0", release_id="", output_dir=Path("/tmp/x"),
+        track_template="literal-unknown", disc_template="literal-unknown",
+        unknown=True,
+    ))
+
+    assert window._active_rip_params.track_template == "jimmy2/for/%t - Track %t"
+    assert window._active_rip_params.disc_template == "jimmy2/for/for"
+    if window._rip_thread is not None and window._rip_thread.isRunning():
+        window._rip_thread.quit(); window._rip_thread.wait(2000)
+
+
+def test_unknown_rip_folder_falls_back_when_album_blank(
+    teardown_threads,
+) -> None:
+    backend = _FakeBackend()
+
+    class _StubHandle:
+        def log_lines(self): return iter(())
+        def wait(self, timeout=None): return 0
+        def cancel(self, term_timeout: float = 5.0): return -15
+
+    backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
+    window = teardown_threads(backend=backend)
+    # album fields left blank
+    from whipper_gui.workers.rip_worker import RipParameters
+    window._on_rip_requested(RipParameters(
+        drive="/dev/sr0", release_id="", output_dir=Path("/tmp/x"),
+        track_template="t", disc_template="d", unknown=True,
+    ))
+    assert window._active_rip_params.track_template.startswith(
+        "Unknown Artist/Unknown Album/"
+    )
+    if window._rip_thread is not None and window._rip_thread.isRunning():
+        window._rip_thread.quit(); window._rip_thread.wait(2000)
+
+
+def test_safe_path_segment() -> None:
+    from whipper_gui.ui.main_window import _safe_path_segment
+    assert _safe_path_segment("  jimmy2 ") == "jimmy2"
+    assert _safe_path_segment("AC/DC") == "AC-DC"          # no stray subdir
+    assert _safe_path_segment("50%off") == "50off"          # no whipper code
+    assert _safe_path_segment("") == ""                      # blank → fallback
