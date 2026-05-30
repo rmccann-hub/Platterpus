@@ -32,25 +32,6 @@ for arg in "$@"; do
     esac
 done
 
-# --- Verify branch ---
-# All development happens on claude/lucid-babbage-JYI8c during pre-alpha.
-# After the merge-to-main milestone, this check goes away.
-CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
-if [ "$CURRENT_BRANCH" = "main" ] && [ ! -f "pyproject.toml" ]; then
-    cat <<EOF >&2
-
-ERROR: You are on the 'main' branch, which is currently empty (only
-.gitattributes is present). All development is on the dev branch.
-
-Run:
-    git checkout claude/lucid-babbage-JYI8c
-    bash dev-setup.sh
-
-After the merge-to-main milestone, this step won't be necessary.
-EOF
-    exit 1
-fi
-
 # --- Create venv if missing ---
 if [ ! -d .venv ]; then
     echo "Creating virtual environment in .venv/..."

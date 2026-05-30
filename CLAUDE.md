@@ -158,4 +158,4 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
   - On Bazzite (Atomic), Flathub is a system-level remote by default; `flatpak install --user flathub <ref>` fails with "No remote refs found for 'flathub'" — registry uses the `.flatpakref` URL instead, which auto-configures the user remote
   - `gh` isn't preinstalled on Bazzite and `sudo dnf install gh` doesn't work on immutable hosts — README recommends SSH key auth as the primary path for Bazzite/Silverblue
   - Fresh venvs ship outdated `pip` on most distros — `dev-setup.sh` runs `pip install --upgrade pip` before installing the package
-- **Branch state:** all work is on `claude/lucid-babbage-JYI8c`. `main` only has `.gitattributes`. Merge to main is gated on T32 passing.
+- **Branch state (2026-05-30):** merged to **`main`** — `main` now carries the full project (default branch for fresh clones). Repo is public; license GPL-3.0-only. Ongoing work continued on `claude/lucid-babbage-JYI8c` and is merged forward to `main`. The `dev-setup.sh` branch-guard and the README dev-branch/auth steps were removed as part of the merge.

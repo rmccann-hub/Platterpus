@@ -251,7 +251,7 @@ Each is independent; do them in any order. They should land before the AppImage'
 
 These remove most of the README's "until X happens" caveats. Done in order, they collapse Method C's friction substantially.
 
-- **Merge `claude/lucid-babbage-JYI8c` into `main`.** Fresh `git clone` lands on a working state. Removes the "switch to the dev branch" step from README Method C and the same branch-check from `dev-setup.sh`. Pre-req: T32 smoke test passes so we're not merging unverified code.
+- **[x] Merge `claude/lucid-babbage-JYI8c` into `main`.** Done 2026-05-30 (`--allow-unrelated-histories`; main previously held only `.gitattributes`). Fresh `git clone` now lands on a working state. Removed the README dev-branch/authenticate steps and the `dev-setup.sh` branch-guard.
 - **[x] Flip the GitHub repo to Public.** Done 2026-05-30 by the user. Plain `git clone https://...` now works without `gh auth login` / SSH key setup. The LICENSE decision it was gated on is also resolved: **GPL-3.0-only** (KDD-10) — `LICENSE` committed, `pyproject.toml` classifier set, README updated. Follow-up: drop the README Method-C "private repo, authenticate first" blockquote (see Documentation backlog).
 - **Tag `v0.0.1` and publish the AppImage as a release asset.** Promotes Method A to "the recommended path" and removes the "AppImage not yet published" caveat. Pre-req: AppImage build verified end-to-end (the T31 build harness needs T32-style validation on real hardware).
 - **Publish the wheel to PyPI.** Promotes Method B. `pipx install whipper-gui` works for any technical user. Pre-req: tag + release artifact pipeline established.
