@@ -689,6 +689,6 @@ Build / dev tooling:
 
 ## License
 
-TBD. The project is in early bootstrap and a license has not been chosen yet. PySide6 is LGPL-3.0, which makes MIT, Apache-2.0, BSD, or GPL-3.0 all viable for the project's own code.
+[**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (whipper, cdparanoia, CUETools) and to keep the tool and any forks open. whipper and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
 
-See [PLANNING.md §8 KDD-10](PLANNING.md) for the open license question.
+See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
