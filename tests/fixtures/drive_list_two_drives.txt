@@ -1,0 +1,6 @@
+drive: /dev/sr0, vendor: PIONEER, model: BD-RW  BDR-209D, release: 1.51
+       Configured read offset: 667
+       Can defeat audio cache: True
+drive: /dev/sr1, vendor: LITE-ON, model: DVDRW SOHW-1693S, release: KS09
+       Configured read offset: 12
+       Can defeat audio cache: False
