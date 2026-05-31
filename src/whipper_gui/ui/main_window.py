@@ -410,6 +410,10 @@ class MainWindow(QMainWindow):
                 text = log_file.read_text(encoding="utf-8")
                 rip_log = parse_rip_log(text)
                 self._rip_progress.set_rip_log(rip_log)
+                # Replace the disc panel's blank AccurateRip field with the
+                # real outcome (e.g. "not in database" for a CD-R) instead of
+                # the old misleading static "verified during rip".
+                self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
                     self._rip_progress.set_status(
                         _fidelity_summary(rip_log)
