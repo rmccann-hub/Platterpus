@@ -251,7 +251,17 @@ The pattern is `drive:<vendor> :<model>:<release>` — note the space after the 
 
 ### Step 6 — Install MusicBrainz Picard *(optional)*
 
-Picard is what you'll use to manually fix tags for discs MusicBrainz doesn't recognize. The GUI offers to install it automatically when you first need it, but you can pre-install if you'd rather:
+Picard is what you'll use to manually fix tags for discs MusicBrainz doesn't recognize. The GUI installs it as a Flatpak (it auto-launches it via `flatpak run`), and offers to do so automatically when you first need it.
+
+> **Ubuntu/Debian prerequisite:** the GUI installs Picard through **Flatpak**, which isn't installed on Ubuntu by default. Install it once and the GUI's auto-install works as-is afterwards (the GUI's install command points at a `.flatpakref` that adds the Flathub remote for you, so you don't need a separate `flatpak remote-add` step):
+>
+> ```bash
+> sudo apt install flatpak
+> ```
+>
+> Bazzite, Fedora Silverblue, and most KDE/GNOME spins already ship Flatpak. Picard is optional — if you skip it, the GUI simply lists it as "Optional (not installed)" and never nags; you only need it for hand-editing tags on unrecognized discs.
+
+To pre-install Picard yourself rather than letting the GUI do it:
 
 ```bash
 flatpak install --user flathub org.musicbrainz.Picard
