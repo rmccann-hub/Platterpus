@@ -55,13 +55,29 @@ else
     pip install -e .
 fi
 
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+# --- CLI on PATH ---
+# Symlink the venv's console script into ~/.local/bin so plain
+# `whipper-gui` works from any terminal without activating the venv. The
+# launcher's shebang points at the venv's python, so the symlink runs in
+# the right environment regardless of cwd or activation. uninstall.sh
+# removes it.
+LOCAL_BIN="$HOME/.local/bin"
+mkdir -p "$LOCAL_BIN"
+ln -sf "$REPO_ROOT/.venv/bin/whipper-gui" "$LOCAL_BIN/whipper-gui"
+echo "Linked $LOCAL_BIN/whipper-gui -> the venv launcher"
+case ":$PATH:" in
+    *":$LOCAL_BIN:"*) ;;
+    *) echo "NOTE: $LOCAL_BIN is not on your PATH — add it, or use the app icon." ;;
+esac
+
 # --- Desktop entry ---
 # Install a launcher into the user's app menu so the GUI is reachable
 # without a terminal. Points Exec at the venv's whipper-gui (absolute
 # path, so it works from the menu regardless of cwd). Uses the stock
 # `media-optical` icon name — present in essentially every icon theme —
 # so we don't need to ship a bitmap. uninstall.sh removes this file.
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 DESKTOP_FILE="$DESKTOP_DIR/whipper-gui.desktop"
 mkdir -p "$DESKTOP_DIR"
