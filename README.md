@@ -729,8 +729,10 @@ Build / dev tooling:
 - [`setup-host.sh`](setup-host.sh) — one-command full bootstrap (Distrobox + container + whipper + export + clone + dev-setup)
 - [`dev-setup.sh`](dev-setup.sh) — one-command post-clone setup (venv + pip + editable install + app-menu shortcut)
 - [`uninstall.sh`](uninstall.sh) — tear-down counterpart (use `--help` for options)
-- [`build/build_appimage.sh`](build/build_appimage.sh) — produce the AppImage
+- [`build/build_appimage.sh`](build/build_appimage.sh) — produce the AppImage locally
+- [`build/make_icon.py`](build/make_icon.py) — regenerate the app icon
 - [`build/python-appimage/README.md`](build/python-appimage/README.md) — AppImage recipe details
+- **CI / releases:** `.github/workflows/ci.yml` runs the tests on every push/PR; `.github/workflows/release.yml` builds the AppImage and publishes it to a GitHub Release when a `vX.Y.Z` tag is pushed — so cutting a release is just `git tag v0.0.1 && git push origin v0.0.1` (no local build or manual upload).
 
 ---
 

@@ -95,6 +95,12 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 ### Build commands
 
 - AppImage: `bash build/build_appimage.sh` (produces `whipper-gui-x86_64.AppImage` at repo root via `python-appimage`)
+- App icon: `python3 build/make_icon.py` (regenerates the committed `build/python-appimage/whipper-gui.png`; needs Pillow)
+
+### CI / release
+
+- **CI:** `.github/workflows/ci.yml` runs `pytest` on every push to `main` and every PR.
+- **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag: `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml` then builds the AppImage (reusing `build/build_appimage.sh`) and attaches it + a `.sha256` to a GitHub Release. `v0.*` tags publish as pre-releases. Bump `version` in `pyproject.toml` and add a `CHANGELOG.md` entry before tagging.
 
 ### Run commands
 
