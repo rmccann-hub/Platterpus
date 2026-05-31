@@ -136,6 +136,17 @@ else
     missing "$REPO_ROOT/.venv"
 fi
 
+# `whipper-gui` CLI symlink dev-setup.sh puts on PATH. Only remove it if
+# it actually points into this repo's venv (don't clobber a pipx install
+# of the same name).
+CLI_LINK="$HOME/.local/bin/whipper-gui"
+if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO_ROOT/.venv/bin/whipper-gui" ]; then
+    run rm -f "$CLI_LINK"
+    removed "$CLI_LINK"
+else
+    missing "$CLI_LINK"
+fi
+
 GUI_CONFIG="$HOME/.config/whipper-gui"
 if [ -d "$GUI_CONFIG" ]; then
     run rm -rf "$GUI_CONFIG"
