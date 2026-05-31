@@ -6,7 +6,21 @@ from PySide6.QtWidgets import QApplication
 
 from whipper_gui.adapters.musicbrainz_client import ReleaseSummary
 from whipper_gui.parsers.cd_info import DiscInfo
+from whipper_gui.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from whipper_gui.ui.disc_info_panel import DiscInfoPanel
+
+
+def _track(number: int, *, matched: bool) -> TrackResult:
+    """A TrackResult whose AccurateRip v1 either matched or wasn't in the DB."""
+    result = (
+        "Found, exact match"
+        if matched
+        else "Track not present in AccurateRip database"
+    )
+    return TrackResult(
+        number=number,
+        accuraterip_v1=AccurateRipResult(version=1, result=result),
+    )
 
 
 def _release(
@@ -27,7 +41,9 @@ def test_default_state_shows_placeholders(qapp: QApplication) -> None:
     assert panel._mb_id_value.text() == "—"
     assert panel._cddb_id_value.text() == "—"
     assert panel._mb_match_value.text() == "—"
-    assert panel._accuraterip_value.text() == "verified during rip"
+    # AccurateRip is a post-rip fact — blank until a rip log lands, never a
+    # premature "verified".
+    assert panel._accuraterip_value.text() == "—"
 
 
 # --- Drive selection -----------------------------------------------------
@@ -161,6 +177,55 @@ def test_set_mb_error_shows_message(qapp: QApplication) -> None:
     panel.set_mb_error("network down")
     text = panel._mb_match_value.text()
     assert "network down" in text
+
+
+# --- AccurateRip outcome -------------------------------------------------
+
+
+def test_accuraterip_none_matched_reports_not_in_database(
+    qapp: QApplication,
+) -> None:
+    """A CD-R (nothing in the DB) must NOT read as 'verified'."""
+    panel = DiscInfoPanel()
+    rip_log = RipLog(tracks=tuple(_track(n, matched=False) for n in range(1, 17)))
+    panel.set_accuraterip_result(rip_log)
+    assert panel._accuraterip_value.text() == "not in database"
+
+
+def test_accuraterip_all_matched_reports_verified(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    rip_log = RipLog(tracks=tuple(_track(n, matched=True) for n in range(1, 4)))
+    panel.set_accuraterip_result(rip_log)
+    text = panel._accuraterip_value.text()
+    assert "verified" in text
+    assert "3" in text
+
+
+def test_accuraterip_partial_match_reports_fraction(
+    qapp: QApplication,
+) -> None:
+    panel = DiscInfoPanel()
+    rip_log = RipLog(
+        tracks=(_track(1, matched=True), _track(2, matched=False), _track(3, matched=True))
+    )
+    panel.set_accuraterip_result(rip_log)
+    assert panel._accuraterip_value.text() == "2 of 3 tracks matched"
+
+
+def test_accuraterip_no_tracks_stays_placeholder(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_accuraterip_result(RipLog(tracks=()))
+    assert panel._accuraterip_value.text() == "—"
+
+
+def test_set_drive_clears_accuraterip_result(qapp: QApplication) -> None:
+    """A new disc means the old AccurateRip verdict no longer applies."""
+    panel = DiscInfoPanel()
+    panel.set_accuraterip_result(
+        RipLog(tracks=(_track(1, matched=True),))
+    )
+    panel.set_drive("/dev/sr1")
+    assert panel._accuraterip_value.text() == "—"
 
 
 # --- Lifecycle: drive change after data ----------------------------------

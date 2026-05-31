@@ -15,8 +15,9 @@ Fields displayed:
   MusicBrainz disc ID — from `whipper cd info`
   CDDB disc ID        — same source
   MusicBrainz match   — outcome of the MB lookup (or a status message)
-  AccurateRip         — placeholder; whipper verifies AR during the rip,
-                        so we surface results in `RipProgress`, not here
+  AccurateRip         — blank until a rip finishes, then the real outcome
+                        (how many tracks the AccurateRip database confirmed).
+                        Per-track detail is in `RipProgress`.
 """
 
 from __future__ import annotations
@@ -31,6 +32,23 @@ from whipper_gui.parsers.cd_info import DiscInfo
 _PLACEHOLDER: str = "—"
 
 
+def _ar_track_matched(track: object) -> bool:
+    """True if either AccurateRip check confirmed this track (exact match).
+
+    whipper writes "Found, exact match" for a confirmed track and
+    "Track not present in AccurateRip database" otherwise; we treat only an
+    exact match as a verification. Duck-typed (no dataclass import) to match
+    the rest of this pure-view widget.
+    """
+    for result in (
+        getattr(track, "accuraterip_v1", None),
+        getattr(track, "accuraterip_v2", None),
+    ):
+        if "exact match" in (getattr(result, "result", "") or "").lower():
+            return True
+    return False
+
+
 class DiscInfoPanel(QWidget):
     """Read-only panel. Pure view; no data fetching here."""
 
@@ -43,9 +61,12 @@ class DiscInfoPanel(QWidget):
         self._mb_id_value: QLabel = self._value_label(_PLACEHOLDER)
         self._cddb_id_value: QLabel = self._value_label(_PLACEHOLDER)
         self._mb_match_value: QLabel = self._value_label(_PLACEHOLDER)
-        self._accuraterip_value: QLabel = self._value_label(
-            "verified during rip"
-        )
+        # AccurateRip status is a *post-rip* fact — we can't know it until the
+        # rip log lands. Start blank rather than claiming "verified" (the old
+        # static text), which was misleading for any disc not in the database
+        # (a CD-R, say): every track comes back "not present", which is the
+        # opposite of verified. set_accuraterip_result() fills this in.
+        self._accuraterip_value: QLabel = self._value_label(_PLACEHOLDER)
 
         form = QFormLayout(self)
         form.addRow("Drive:", self._drive_value)
@@ -70,6 +91,34 @@ class DiscInfoPanel(QWidget):
         self._mb_id_value.setText(_PLACEHOLDER)
         self._cddb_id_value.setText(_PLACEHOLDER)
         self._mb_match_value.setText(_PLACEHOLDER)
+        self._accuraterip_value.setText(_PLACEHOLDER)
+
+    # --- AccurateRip outcome (from the parsed rip log) ----------------------
+
+    def set_accuraterip_result(self, rip_log: object) -> None:
+        """Show the real AccurateRip outcome after a rip finishes.
+
+        AccurateRip can only *verify* a track when that exact pressing is in
+        the database. For a CD-R — or any disc nobody has submitted — every
+        track comes back "not present", which is NOT a verification. We report
+        what actually happened instead of a blanket "verified".
+        """
+        tracks = getattr(rip_log, "tracks", ()) or ()
+        total = len(tracks)
+        if total == 0:
+            self._accuraterip_value.setText(_PLACEHOLDER)
+            return
+        matched = sum(1 for track in tracks if _ar_track_matched(track))
+        if matched == 0:
+            self._accuraterip_value.setText("not in database")
+        elif matched == total:
+            self._accuraterip_value.setText(
+                f"verified — all {total} tracks matched"
+            )
+        else:
+            self._accuraterip_value.setText(
+                f"{matched} of {total} tracks matched"
+            )
 
     # --- Disc info (from `whipper cd info`) ---------------------------------
 
