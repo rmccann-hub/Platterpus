@@ -38,10 +38,16 @@ log = logging.getLogger(__name__)
 # The Distrobox container whipper lives in (README/setup-host default).
 DEFAULT_CONTAINER: str = "ripping"
 
-# Process names the in-container reader/ripper runs under. Matched as an
-# extended-regex alternation by `pkill -f` (searched anywhere in the command
-# line, so a full path like /usr/bin/cd-paranoia still matches).
-_KILL_PATTERN: str = "cdparanoia|cd-paranoia|whipper|cdrdao"
+# The optical reader's process names. We match against the process *name*
+# (pkill default), NOT the full command line (`-f`), for two safety reasons:
+#   * `-f` would match the GUI's own command line ("whipper-gui") and kill the
+#     app, and match the `distrobox enter … whipper …` wrapper and kill that
+#     session before reaching the reader (the bug that left the drive spinning).
+#   * the reader binaries below uniquely identify what holds the drive.
+# We deliberately do NOT include "whipper" here — killing the reader releases
+# the device (the drive spins down in seconds); the orphaned whipper then errors
+# out on its own, and matching "whipper" risks hitting "whipper-gui".
+_READER_NAMES: str = "cdparanoia|cd-paranoia|cdrdao"
 
 # A runner takes an argv list and returns something with a `.returncode`.
 Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
@@ -49,6 +55,7 @@ Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 # When the GUI is launched from a desktop icon (not a shell), PATH can be
 # minimal and miss ~/.local/bin or even /usr/bin. Resolve these tools to an
 # absolute path so the force-stop doesn't silently no-op.
+_PKILL_FALLBACKS: tuple[str, ...] = ("/usr/bin/pkill", "/bin/pkill")
 _EJECT_FALLBACKS: tuple[str, ...] = ("/usr/bin/eject", "/usr/sbin/eject", "/sbin/eject")
 _DISTROBOX_FALLBACKS: tuple[str, ...] = (
     os.path.expanduser("~/.local/bin/distrobox"),
@@ -84,51 +91,67 @@ def _default_runner(argv: list[str]) -> "subprocess.CompletedProcess[str]":
     )
 
 
+def _run_rc(argv: list[str], run: Runner) -> int | None:
+    """Run argv, returning its exit code, or None if it couldn't run."""
+    try:
+        return run(argv).returncode
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.warning("command %s failed: %s", argv[:1], exc)
+        return None
+
+
 def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
     """Eject `device` on the host. Returns True if the eject succeeded.
 
     A non-zero exit is the normal "device busy" case if the reader still holds
-    the drive — not an error worth surfacing. (Call this *after* the reader is
-    killed so the device is free.)
+    the drive — call this *after* the reader is killed so the device is free.
+    (While a rip is reading, the drive also ignores the physical eject button,
+    which is why pressing eject by hand doesn't stop the spin.)
     """
     run = runner or _default_runner
     argv = [_resolve("eject", *_EJECT_FALLBACKS), *([device] if device else [])]
-    try:
-        rc = run(argv).returncode
-    except (OSError, subprocess.SubprocessError) as exc:
-        log.warning("eject %s failed: %s", device or "(default)", exc)
-        return False
+    rc = _run_rc(argv, run)
     if rc == 0:
         log.info("ejected %s", device or "(default)")
         return True
-    log.info("eject %s returned rc=%s (likely busy)", device or "(default)", rc)
+    log.info("eject %s returned rc=%s", device or "(default)", rc)
     return False
+
+
+def kill_reader_on_host(runner: Runner | None = None) -> int | None:
+    """SIGKILL the optical reader as a host-visible process.
+
+    On rootless podman/Distrobox (the Bazzite target) the in-container
+    `cdparanoia` is a normal host process, so a host pkill reaches it — no
+    `distrobox enter` needed. Matches reader names only (see `_READER_NAMES`),
+    so it can never hit the GUI or pkill itself.
+
+    Returns pkill's exit code (0 = killed something, 1 = nothing matched), or
+    None if pkill couldn't run.
+    """
+    run = runner or _default_runner
+    argv = [_resolve("pkill", *_PKILL_FALLBACKS), "-KILL", _READER_NAMES]
+    rc = _run_rc(argv, run)
+    log.info("host pkill -KILL '%s' rc=%s", _READER_NAMES, rc)
+    return rc
 
 
 def force_stop_in_container(
     container: str = DEFAULT_CONTAINER, runner: Runner | None = None
-) -> bool:
-    """SIGKILL the in-container reader/ripper. USER-APPROVED Rule #3 exception.
+) -> int | None:
+    """SIGKILL the reader from *inside* the container. USER-APPROVED Rule #3
+    exception, used only as a fallback when the host pkill matched nothing
+    (e.g. a setup where container processes aren't host-visible).
 
-    This is the lever that actually stops a runaway rip: the host can't signal
-    the in-container `cdparanoia` (podman doesn't forward it), so we kill it
-    inside the container. SIGKILL (not TERM) because force-stop is drastic and
-    cdparanoia may otherwise sit in its read loop. Once killed, the device is
-    released and the drive spins down within a few seconds.
-
-    Returns True if pkill ran (exit 1 just means "nothing matched", which is
-    fine).
+    Matches reader names only (no `-f`), so the `distrobox enter`/`pkill`
+    command can't match and kill its own session.
     """
     run = runner or _default_runner
     argv = [_resolve("distrobox", *_DISTROBOX_FALLBACKS), "enter", container, "--",
-            "pkill", "-KILL", "-f", _KILL_PATTERN]
-    try:
-        rc = run(argv).returncode
-    except (OSError, subprocess.SubprocessError) as exc:
-        log.warning("in-container force-stop failed: %s", exc)
-        return False
-    log.info("in-container pkill -KILL '%s' rc=%s", _KILL_PATTERN, rc)
-    return rc in (0, 1)  # 0 killed something, 1 matched nothing
+            "pkill", "-KILL", _READER_NAMES]
+    rc = _run_rc(argv, run)
+    log.info("in-container pkill -KILL '%s' rc=%s", _READER_NAMES, rc)
+    return rc
 
 
 def force_stop_drive(
@@ -136,20 +159,23 @@ def force_stop_drive(
     container: str = DEFAULT_CONTAINER,
     runner: Runner | None = None,
 ) -> str:
-    """Stop a runaway drive: kill the in-container reader, then eject.
+    """Stop a runaway drive: kill the reader, then eject.
 
-    Order matters — we kill **first** so the reader lets go of the device, then
-    eject (an eject while the reader holds the device just fails "busy", which
-    is why the old eject-first order left the drive spinning). Synchronous and
-    best-effort; run it off the GUI thread.
+    Order matters — kill **first** so the reader lets go of the device (the
+    drive spins down within seconds and the eject can then take effect; an
+    eject while the reader holds the device just fails "busy"). The host pkill
+    is the primary lever; the in-container kill is a fallback only if the host
+    matched nothing. Synchronous and best-effort; run it off the GUI thread.
     """
-    killed = force_stop_in_container(container, runner=runner)
+    host_rc = kill_reader_on_host(runner=runner)
+    killed = host_rc == 0
+    if host_rc != 0:
+        # Host pkill found no reader process — try inside the container.
+        killed = force_stop_in_container(container, runner=runner) == 0
     ejected = eject_drive(device, runner=runner)
     log.info("force_stop_drive: killed=%s ejected=%s", killed, ejected)
-    if killed and ejected:
-        return "Stopped the reader and ejected — the drive is stopped."
     if killed:
-        return "Stopped the in-container reader — the drive should spin down."
+        return "Stopped the reader — the drive should spin down."
     if ejected:
         return "Ejected the disc — the drive should stop."
     return "Tried to force-stop the drive (reader kill + eject)."
