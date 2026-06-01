@@ -8,6 +8,7 @@ We DON'T drive a real Qt event loop — tests poke slots directly.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -880,6 +881,74 @@ def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> Non
 
     assert launched == []
     assert window._config.drive_setup_prompted is False  # never even offered
+
+
+def _patch_force_stop(monkeypatch) -> list[dict]:
+    """Record force-stop calls instead of touching a real drive/container.
+
+    We patch only ``drive_control.force_stop_drive`` (resolved at call time by
+    ``_do_force_stop``) and let the real daemon thread run the fast fake — we
+    deliberately do NOT replace ``threading.Thread`` globally, which could
+    interfere with other threads spawned during the test.
+    """
+    import whipper_gui.ui.main_window as mw
+
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        mw.drive_control, "force_stop_drive",
+        lambda **kw: calls.append(kw),
+    )
+    return calls
+
+
+def _join_force_stop(window) -> None:
+    if window._force_stop_thread is not None:
+        window._force_stop_thread.join(timeout=2)
+
+
+def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._on_rip_cancel()
+    try:
+        assert window._rip_cancelled is True
+        assert window._force_stop_timer.isActive()
+        assert window._force_stop_done is False
+    finally:
+        window._force_stop_timer.stop()
+
+
+def test_auto_force_stop_calls_drive_control(teardown_threads, monkeypatch) -> None:
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    window._auto_force_stop()
+    _join_force_stop(window)
+    assert len(calls) == 1
+    assert "device" in calls[0]
+    assert window._force_stop_done is True
+
+
+def test_auto_force_stop_is_noop_when_already_done(
+    teardown_threads, monkeypatch
+) -> None:
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    window._force_stop_done = True
+    window._auto_force_stop()
+    _join_force_stop(window)
+    assert calls == []
+
+
+def test_force_stop_button_stops_timer_and_fires(
+    teardown_threads, monkeypatch
+) -> None:
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    window._force_stop_timer.start(60000)
+    window._on_force_stop_button()
+    _join_force_stop(window)
+    assert window._force_stop_timer.isActive() is False
+    assert len(calls) == 1
 
 
 def test_manual_offset_saved_sets_override(teardown_threads) -> None:

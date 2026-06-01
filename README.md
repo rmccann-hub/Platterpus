@@ -294,7 +294,14 @@ chmod +x whipper-gui-x86_64.AppImage
 
 That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so there's nothing else to install on the GUI side. (You still need the host stack from Steps 1-4 for ripping to work.)
 
-To integrate it with KDE's application menu, drop it in `~/Applications/` and use [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) or KDE's "Install AppImage" right-click option.
+**Want a menu entry / desktop icon?** An AppImage doesn't add one itself. Use the `install-appimage.sh` helper (released alongside the AppImage):
+
+```bash
+bash install-appimage.sh                 # finds whipper-gui*.AppImage in . / ~/Downloads / ~/Applications
+bash install-appimage.sh --uninstall     # remove the menu entry + desktop icon
+```
+
+It parks the AppImage in `~/Applications/`, adds an app-menu entry and a Desktop icon (using the bundled icon), and refreshes the KDE/GNOME menu cache. Alternatively, install [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) once and it offers to integrate any AppImage you double-click.
 
 > **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./whipper-gui-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 
