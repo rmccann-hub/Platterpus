@@ -28,6 +28,8 @@ injectable so tests never touch a real drive or container.
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import subprocess
 from typing import Callable
 
@@ -37,11 +39,35 @@ log = logging.getLogger(__name__)
 DEFAULT_CONTAINER: str = "ripping"
 
 # Process names the in-container reader/ripper runs under. Matched as an
-# extended-regex alternation by `pkill -f`.
-_KILL_PATTERN: str = "cdparanoia|cd-paranoia|whipper"
+# extended-regex alternation by `pkill -f` (searched anywhere in the command
+# line, so a full path like /usr/bin/cd-paranoia still matches).
+_KILL_PATTERN: str = "cdparanoia|cd-paranoia|whipper|cdrdao"
 
 # A runner takes an argv list and returns something with a `.returncode`.
 Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
+
+# When the GUI is launched from a desktop icon (not a shell), PATH can be
+# minimal and miss ~/.local/bin or even /usr/bin. Resolve these tools to an
+# absolute path so the force-stop doesn't silently no-op.
+_EJECT_FALLBACKS: tuple[str, ...] = ("/usr/bin/eject", "/usr/sbin/eject", "/sbin/eject")
+_DISTROBOX_FALLBACKS: tuple[str, ...] = (
+    os.path.expanduser("~/.local/bin/distrobox"),
+    "/usr/bin/distrobox",
+    "/usr/local/bin/distrobox",
+)
+
+
+def _resolve(name: str, *fallbacks: str) -> str:
+    """Find an executable even under a minimal PATH. Falls back to common
+    absolute locations, then to the bare name (which FileNotFoundErrors if the
+    tool is genuinely absent — caught and treated as best-effort)."""
+    found = shutil.which(name)
+    if found:
+        return found
+    for candidate in fallbacks:
+        if os.path.exists(candidate):
+            return candidate
+    return name
 
 
 def _default_runner(argv: list[str]) -> "subprocess.CompletedProcess[str]":
@@ -61,12 +87,12 @@ def _default_runner(argv: list[str]) -> "subprocess.CompletedProcess[str]":
 def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
     """Eject `device` on the host. Returns True if the eject succeeded.
 
-    A non-zero exit is the normal "device busy" case during an active read —
-    not an error worth surfacing; the caller falls back to the in-container
-    kill.
+    A non-zero exit is the normal "device busy" case if the reader still holds
+    the drive — not an error worth surfacing. (Call this *after* the reader is
+    killed so the device is free.)
     """
     run = runner or _default_runner
-    argv = ["eject", *([device] if device else [])]
+    argv = [_resolve("eject", *_EJECT_FALLBACKS), *([device] if device else [])]
     try:
         rc = run(argv).returncode
     except (OSError, subprocess.SubprocessError) as exc:
@@ -75,27 +101,33 @@ def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
     if rc == 0:
         log.info("ejected %s", device or "(default)")
         return True
-    log.info("eject %s returned rc=%s (likely busy — will try the reader)", device or "(default)", rc)
+    log.info("eject %s returned rc=%s (likely busy)", device or "(default)", rc)
     return False
 
 
 def force_stop_in_container(
     container: str = DEFAULT_CONTAINER, runner: Runner | None = None
 ) -> bool:
-    """Kill the in-container reader/ripper. USER-APPROVED Rule #3 exception.
+    """SIGKILL the in-container reader/ripper. USER-APPROVED Rule #3 exception.
 
-    Returns True if pkill ran (whether or not it matched a process — exit 1
-    just means "nothing to kill", which is fine).
+    This is the lever that actually stops a runaway rip: the host can't signal
+    the in-container `cdparanoia` (podman doesn't forward it), so we kill it
+    inside the container. SIGKILL (not TERM) because force-stop is drastic and
+    cdparanoia may otherwise sit in its read loop. Once killed, the device is
+    released and the drive spins down within a few seconds.
+
+    Returns True if pkill ran (exit 1 just means "nothing matched", which is
+    fine).
     """
     run = runner or _default_runner
-    argv = ["distrobox", "enter", container, "--",
-            "pkill", "-TERM", "-f", _KILL_PATTERN]
+    argv = [_resolve("distrobox", *_DISTROBOX_FALLBACKS), "enter", container, "--",
+            "pkill", "-KILL", "-f", _KILL_PATTERN]
     try:
         rc = run(argv).returncode
     except (OSError, subprocess.SubprocessError) as exc:
         log.warning("in-container force-stop failed: %s", exc)
         return False
-    log.info("in-container pkill '%s' rc=%s", _KILL_PATTERN, rc)
+    log.info("in-container pkill -KILL '%s' rc=%s", _KILL_PATTERN, rc)
     return rc in (0, 1)  # 0 killed something, 1 matched nothing
 
 
@@ -104,16 +136,20 @@ def force_stop_drive(
     container: str = DEFAULT_CONTAINER,
     runner: Runner | None = None,
 ) -> str:
-    """Try both levers (eject, then in-container kill) and report what happened.
+    """Stop a runaway drive: kill the in-container reader, then eject.
 
-    Synchronous and best-effort — run it off the GUI thread. Both levers are
-    attempted regardless of each other's outcome, so a busy-failed eject still
-    gets the reader killed.
+    Order matters — we kill **first** so the reader lets go of the device, then
+    eject (an eject while the reader holds the device just fails "busy", which
+    is why the old eject-first order left the drive spinning). Synchronous and
+    best-effort; run it off the GUI thread.
     """
-    ejected = eject_drive(device, runner=runner)
     killed = force_stop_in_container(container, runner=runner)
-    if ejected:
-        return "Drive ejected — it should stop now."
+    ejected = eject_drive(device, runner=runner)
+    log.info("force_stop_drive: killed=%s ejected=%s", killed, ejected)
+    if killed and ejected:
+        return "Stopped the reader and ejected — the drive is stopped."
     if killed:
         return "Stopped the in-container reader — the drive should spin down."
-    return "Tried to force-stop the drive (eject + reader kill)."
+    if ejected:
+        return "Ejected the disc — the drive should stop."
+    return "Tried to force-stop the drive (reader kill + eject)."

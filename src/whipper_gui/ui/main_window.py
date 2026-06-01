@@ -77,7 +77,7 @@ log = logging.getLogger(__name__)
 # How long after Cancel to wait before auto-force-stopping the drive (the
 # in-container reader can keep it spinning). The user can hit Force stop to
 # escalate sooner.
-_FORCE_STOP_COUNTDOWN_MS: int = 8000
+_FORCE_STOP_COUNTDOWN_MS: int = 5000
 
 
 class MainWindow(QMainWindow):
