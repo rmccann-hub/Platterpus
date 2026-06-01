@@ -1,28 +1,40 @@
 """Force-stop the optical drive when a cancelled rip won't let go.
 
 Why this exists: a rip runs as `~/.local/bin/whipper` (host wrapper) → podman
-→ whipper → **cdparanoia inside the `ripping` container**. Cancelling kills
-the host-side process tree, but podman doesn't forward the signal into the
-container, so cdparanoia keeps reading and the drive spins — sometimes for
-minutes (real-user report, 2026-05-31). Two levers can stop it:
+→ **whipper inside the `ripping` container**, which itself spawns `cdrdao`
+(to read the TOC — the "Reading table" phase) and `cd-paranoia` (to rip each
+track). Cancelling kills the host-side wrapper, but podman doesn't forward the
+signal into the container, so whipper keeps orchestrating reads and the drive
+spins — sometimes for minutes (real-user reports, 2026-05/06).
 
-  1. **Eject the disc on the host** (`eject <device>`) — stays within the
-     "GUI talks to the host, never the container" architecture. Often
-     fails mid-rip with "device busy" because cdparanoia holds the device
-     open; in that case lever 2 does the work.
-  2. **Kill cdparanoia/whipper inside the container.**
+Hard-won facts (2026-06-01, real hardware):
 
-Lever 2 runs a command *inside* the `ripping` container, which CLAUDE.md
-Critical Rule #3 normally forbids ("the GUI never calls into the container
-directly"). This is a **deliberate, user-approved exception (2026-05-31)**,
-scoped strictly to *force-stopping a cancelled rip* — the only reliable way
-to stop a runaway in-container reader from the host. It is NOT a general
-licence to drive whipper inside the container; ripping itself still goes
-through `~/.local/bin/whipper`.
+  * **whipper is the orchestrator.** Killing only the reader (`cdrdao` /
+    `cd-paranoia`) doesn't help — whipper just respawns it. You must kill the
+    **whipper** process. (Confirmed: `pkill cdrdao` did nothing; `pkill -f
+    …whipper` stopped it.)
+  * On rootless podman/Distrobox (the Bazzite target) the in-container
+    processes are **host-visible**, so a host-side `pkill`/`fuser` reaches
+    them — no `distrobox enter` needed in the normal case.
+  * **Never use `pkill -f` with the bare word "whipper" or with the reader
+    names.** `-f` matches the full command line, so it also matches the GUI's
+    own "whipper-gui" command line (killing the app) and the `distrobox enter
+    … whipper …` wrapper / the pkill's own command line (self-kill). Match the
+    whipper *sub-command* (`whipper cd …`), and match readers by process
+    *name* (no `-f`).
+  * The drive ignores the physical eject button while a read holds the device,
+    which is why pressing eject by hand doesn't stop the spin — and why a
+    software `eject` only works *after* the holder is killed.
 
-Everything here is best-effort and synchronous; the caller runs it off the
-GUI thread (it can block for the subprocess timeout). The `runner` is
-injectable so tests never touch a real drive or container.
+The in-container `distrobox enter …` fallback (used only when the host can't
+see the processes) calls *into* the `ripping` container, which CLAUDE.md
+Critical Rule #3 normally forbids. This is a **deliberate, user-approved
+exception (2026-05-31)**, scoped strictly to *force-stopping a cancelled rip*.
+Ripping itself still goes through `~/.local/bin/whipper`.
+
+Everything here is best-effort and synchronous; the caller runs it off the GUI
+thread (it can block for the subprocess timeout). The `runner` is injectable so
+tests never touch a real drive or container.
 """
 
 from __future__ import annotations
@@ -38,16 +50,18 @@ log = logging.getLogger(__name__)
 # The Distrobox container whipper lives in (README/setup-host default).
 DEFAULT_CONTAINER: str = "ripping"
 
-# The optical reader's process names. We match against the process *name*
-# (pkill default), NOT the full command line (`-f`), for two safety reasons:
-#   * `-f` would match the GUI's own command line ("whipper-gui") and kill the
-#     app, and match the `distrobox enter … whipper …` wrapper and kill that
-#     session before reaching the reader (the bug that left the drive spinning).
-#   * the reader binaries below uniquely identify what holds the drive.
-# We deliberately do NOT include "whipper" here — killing the reader releases
-# the device (the drive spins down in seconds); the orphaned whipper then errors
-# out on its own, and matching "whipper" risks hitting "whipper-gui".
+# The reader subprocess names, matched against the process *name* (pkill
+# default, NOT `-f`). `-f` here would self-match the wrapper/pkill command line.
 _READER_NAMES: str = "cdparanoia|cd-paranoia|cdrdao"
+
+# The whipper CLI process — the orchestrator that must die for the rip to stop
+# (it respawns the reader otherwise). Matched on the full command line (`-f`)
+# but anchored as `whipper <subcommand>` so it can NEVER match:
+#   * the GUI — its command line is "whipper-gui" (hyphen, no space+subcommand);
+#   * this pkill or the `distrobox enter … pkill …` wrapper — their command line
+#     contains the literal pattern text "whipper (cd|…", i.e. "whipper (" not
+#     "whipper cd", so the regex doesn't match.
+_WHIPPER_CLI: str = r"whipper (cd|drive|offset|image|accurip|mblookup|rip)"
 
 # A runner takes an argv list and returns something with a `.returncode`.
 Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
@@ -56,6 +70,7 @@ Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 # minimal and miss ~/.local/bin or even /usr/bin. Resolve these tools to an
 # absolute path so the force-stop doesn't silently no-op.
 _PKILL_FALLBACKS: tuple[str, ...] = ("/usr/bin/pkill", "/bin/pkill")
+_FUSER_FALLBACKS: tuple[str, ...] = ("/usr/bin/fuser", "/bin/fuser", "/usr/sbin/fuser")
 _EJECT_FALLBACKS: tuple[str, ...] = ("/usr/bin/eject", "/usr/sbin/eject", "/sbin/eject")
 _DISTROBOX_FALLBACKS: tuple[str, ...] = (
     os.path.expanduser("~/.local/bin/distrobox"),
@@ -100,14 +115,31 @@ def _run_rc(argv: list[str], run: Runner) -> int | None:
         return None
 
 
-def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
-    """Eject `device` on the host. Returns True if the eject succeeded.
+def _pkill_arglists() -> list[list[str]]:
+    """The pkill argument lists (after the `pkill` token) that stop a rip, in
+    order: whipper FIRST (the orchestrator — kill it so it can't respawn the
+    reader), then the reader processes by name."""
+    return [
+        ["-KILL", "-f", _WHIPPER_CLI],   # whipper CLI, anchored (never the GUI)
+        ["-KILL", _READER_NAMES],        # cdrdao / cd-paranoia, by process name
+    ]
 
-    A non-zero exit is the normal "device busy" case if the reader still holds
-    the drive — call this *after* the reader is killed so the device is free.
-    (While a rip is reading, the drive also ignores the physical eject button,
-    which is why pressing eject by hand doesn't stop the spin.)
-    """
+
+def _run_pkills(prefix: list[str], run: Runner) -> bool:
+    """Run the pkill arg-lists with a prefix (`[pkill_path]` on the host, or
+    `[distrobox, enter, c, --, pkill]` for the container). True if any killed."""
+    killed = False
+    for args in _pkill_arglists():
+        rc = _run_rc(prefix + args, run)
+        log.info("pkill %s rc=%s", args, rc)
+        if rc == 0:
+            killed = True
+    return killed
+
+
+def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
+    """Eject `device` on the host (call *after* the holder is killed, so the
+    device is free). Returns True if the eject succeeded."""
     run = runner or _default_runner
     argv = [_resolve("eject", *_EJECT_FALLBACKS), *([device] if device else [])]
     rc = _run_rc(argv, run)
@@ -118,40 +150,38 @@ def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
     return False
 
 
-def kill_reader_on_host(runner: Runner | None = None) -> int | None:
-    """SIGKILL the optical reader as a host-visible process.
-
-    On rootless podman/Distrobox (the Bazzite target) the in-container
-    `cdparanoia` is a normal host process, so a host pkill reaches it — no
-    `distrobox enter` needed. Matches reader names only (see `_READER_NAMES`),
-    so it can never hit the GUI or pkill itself.
-
-    Returns pkill's exit code (0 = killed something, 1 = nothing matched), or
-    None if pkill couldn't run.
-    """
+def free_device_holders(device: str, runner: Runner | None = None) -> bool:
+    """`fuser -k <device>`: SIGKILL whatever holds the device, matched by the
+    *device* rather than a process name — so it catches the holder no matter
+    what it's called, and never the GUI (which doesn't open the device). No-op
+    without a device path. Returns True if something was using/killed."""
+    if not device:
+        return False
     run = runner or _default_runner
-    argv = [_resolve("pkill", *_PKILL_FALLBACKS), "-KILL", _READER_NAMES]
+    argv = [_resolve("fuser", *_FUSER_FALLBACKS), "-s", "-k", device]
     rc = _run_rc(argv, run)
-    log.info("host pkill -KILL '%s' rc=%s", _READER_NAMES, rc)
-    return rc
+    log.info("fuser -k %s rc=%s", device, rc)
+    return rc == 0
+
+
+def kill_reader_on_host(runner: Runner | None = None) -> bool:
+    """SIGKILL the whipper CLI and the reader as host-visible processes. On
+    rootless podman/Distrobox the in-container processes are host-visible, so
+    this is the primary lever. Returns True if something was killed."""
+    run = runner or _default_runner
+    pkill = _resolve("pkill", *_PKILL_FALLBACKS)
+    return _run_pkills([pkill], run)
 
 
 def force_stop_in_container(
     container: str = DEFAULT_CONTAINER, runner: Runner | None = None
-) -> int | None:
-    """SIGKILL the reader from *inside* the container. USER-APPROVED Rule #3
-    exception, used only as a fallback when the host pkill matched nothing
-    (e.g. a setup where container processes aren't host-visible).
-
-    Matches reader names only (no `-f`), so the `distrobox enter`/`pkill`
-    command can't match and kill its own session.
-    """
+) -> bool:
+    """SIGKILL the rip from *inside* the container (USER-APPROVED Rule #3
+    exception), used only as a fallback when the host pkill matched nothing.
+    Returns True if something was killed."""
     run = runner or _default_runner
-    argv = [_resolve("distrobox", *_DISTROBOX_FALLBACKS), "enter", container, "--",
-            "pkill", "-KILL", _READER_NAMES]
-    rc = _run_rc(argv, run)
-    log.info("in-container pkill -KILL '%s' rc=%s", _READER_NAMES, rc)
-    return rc
+    distrobox = _resolve("distrobox", *_DISTROBOX_FALLBACKS)
+    return _run_pkills([distrobox, "enter", container, "--", "pkill"], run)
 
 
 def force_stop_drive(
@@ -159,23 +189,28 @@ def force_stop_drive(
     container: str = DEFAULT_CONTAINER,
     runner: Runner | None = None,
 ) -> str:
-    """Stop a runaway drive: kill the reader, then eject.
+    """Stop a runaway drive, then eject.
 
-    Order matters — kill **first** so the reader lets go of the device (the
-    drive spins down within seconds and the eject can then take effect; an
-    eject while the reader holds the device just fails "busy"). The host pkill
-    is the primary lever; the in-container kill is a fallback only if the host
-    matched nothing. Synchronous and best-effort; run it off the GUI thread.
+    Sequence (all best-effort, host-side first):
+      1. kill the whipper CLI + reader (host pkill) — whipper first so it can't
+         respawn the reader;
+      2. `fuser -k <device>` — name-independent catch-all for whatever still
+         holds the device;
+      3. only if the host saw nothing, kill inside the container;
+      4. eject (now that the device is free).
+
+    Synchronous and best-effort; run it off the GUI thread.
     """
-    host_rc = kill_reader_on_host(runner=runner)
-    killed = host_rc == 0
-    if host_rc != 0:
-        # Host pkill found no reader process — try inside the container.
-        killed = force_stop_in_container(container, runner=runner) == 0
-    ejected = eject_drive(device, runner=runner)
+    run = runner or _default_runner
+    killed = kill_reader_on_host(runner=run)
+    if free_device_holders(device, runner=run):
+        killed = True
+    if not killed:
+        killed = force_stop_in_container(container, runner=run)
+    ejected = eject_drive(device, runner=run)
     log.info("force_stop_drive: killed=%s ejected=%s", killed, ejected)
     if killed:
-        return "Stopped the reader — the drive should spin down."
+        return "Stopped the rip — the drive should spin down."
     if ejected:
         return "Ejected the disc — the drive should stop."
-    return "Tried to force-stop the drive (reader kill + eject)."
+    return "Tried to force-stop the drive (kill + eject)."
