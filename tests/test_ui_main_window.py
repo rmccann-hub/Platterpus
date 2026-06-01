@@ -906,6 +906,18 @@ def _join_force_stop(window) -> None:
         window._force_stop_thread.join(timeout=2)
 
 
+def test_help_menu_has_about_and_user_guide(teardown_threads) -> None:
+    from PySide6.QtWidgets import QMenu
+
+    window = teardown_threads()
+    menus = window.menuBar().findChildren(QMenu)
+    help_menus = [m for m in menus if m.title() == "&Help"]
+    assert help_menus, f"no Help menu among {[m.title() for m in menus]}"
+    labels = [a.text() for a in help_menus[0].actions()]
+    assert any("About" in lbl for lbl in labels)
+    assert any("User Guide" in lbl for lbl in labels)
+
+
 def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(cancel=lambda: None)
