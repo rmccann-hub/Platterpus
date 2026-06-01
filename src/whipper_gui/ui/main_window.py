@@ -231,6 +231,13 @@ class MainWindow(QMainWindow):
         # "Check dependencies" button (it also runs automatically at
         # launch) — no duplicate Tools-menu entry.
 
+        help_menu = menubar.addMenu("&Help")
+        guide_action = help_menu.addAction("&User Guide…")
+        guide_action.triggered.connect(self._on_show_help)
+        help_menu.addSeparator()
+        about_action = help_menu.addAction("&About Whipper GUI…")
+        about_action.triggered.connect(self._on_show_about)
+
     # --- Signal wiring ------------------------------------------------------
 
     def _wire_signals(self) -> None:
@@ -517,6 +524,19 @@ class MainWindow(QMainWindow):
         self.rip_post_processing_done.emit()
 
     # --- Slots: menu actions -----------------------------------------------
+
+    def _on_show_help(self) -> None:
+        """Help → User Guide."""
+        # Imported lazily so the Help dialogs aren't a startup-import cost.
+        from whipper_gui.ui.help_dialogs import HelpDialog
+
+        HelpDialog(self).exec()
+
+    def _on_show_about(self) -> None:
+        """Help → About: version number and support-relevant info."""
+        from whipper_gui.ui.help_dialogs import AboutDialog
+
+        AboutDialog(whipper_path=self._config.whipper_path, parent=self).exec()
 
     def _on_drive_setup(self) -> None:
         """Tools → Set up drive: launch the calibration wizard.
