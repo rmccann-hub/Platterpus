@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "whipper-gui"
-version = "0.1.0"
+# Version is single-sourced from `src/whipper_gui/__init__.py:__version__`
+# (see [tool.setuptools.dynamic] below). Do NOT hard-code it here.
+dynamic = ["version"]
 description = "Linux GUI front-end for the whipper audio-CD ripping CLI"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -48,6 +50,14 @@ Repository = "https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Single source of truth for the version: the build reads __version__ from the
+# package itself, so `pyproject.toml` never duplicates it. Everything else
+# (the `--version` flag, the About dialog, the MusicBrainz user-agent) already
+# imports `whipper_gui.__version__`, and installed-package metadata
+# (`importlib.metadata.version`) is generated from this at build time.
+[tool.setuptools.dynamic]
+version = { attr = "whipper_gui.__version__" }
 
 [tool.pytest.ini_options]
 minversion = "8.0"

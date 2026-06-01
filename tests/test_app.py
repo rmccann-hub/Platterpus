@@ -35,6 +35,23 @@ def test_main_version_text_matches_package_version(
     assert __version__ in combined
 
 
+def test_installed_metadata_matches_canonical_version() -> None:
+    """The build's dynamic version must equal the single source of truth.
+
+    `__version__` in `whipper_gui/__init__.py` is canonical; `pyproject.toml`
+    reads it via `[tool.setuptools.dynamic]`. If that wiring breaks, the
+    installed package metadata would drift from `__version__` — catch it here.
+    Skips when the package isn't installed (e.g. a raw source run).
+    """
+    import importlib.metadata as metadata
+
+    try:
+        installed = metadata.version("whipper-gui")
+    except metadata.PackageNotFoundError:
+        pytest.skip("whipper-gui not installed; nothing to compare against")
+    assert installed == __version__
+
+
 def test_main_unknown_flag_exits_non_zero(
     capsys: pytest.CaptureFixture,
 ) -> None:
