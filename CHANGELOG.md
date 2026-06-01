@@ -5,15 +5,22 @@ All notable changes to Whipper GUI are recorded here. This project adheres to
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-06-01
+
 ### Added
+- **Help menu.** A new **Help → About** dialog shows the version number plus
+  support-relevant info (Python/Qt/PySide6 versions, config/log/whipper paths,
+  project & issue links), and **Help → User Guide** opens a built-in,
+  task-oriented guide (`whipper_gui/help_content.py`).
 - **Force-stop for a runaway drive.** Cancelling a rip kills the host-side
-  process, but `cdparanoia` runs inside the `ripping` container and podman
-  doesn't forward the signal, so the drive could keep spinning for minutes
-  with no way to stop it. Cancel now auto-escalates after an 8-second
-  countdown (and there's a manual **Force stop** button): it ejects the disc
-  on the host, then — as a deliberate, user-approved exception to the
-  "never call into the container" rule, scoped to this case only — kills the
-  in-container reader so the drive spins down.
+  process, but the reader runs inside the `ripping` container and podman
+  doesn't forward the signal, so the drive could keep spinning for minutes with
+  no way to stop it. Cancel now auto-escalates after a short countdown (and
+  there's a manual **Force stop** button): it kills the **whipper orchestrator**
+  (which otherwise just respawns the reader), `fuser -k`'s the device, and
+  ejects — a deliberate, user-approved exception to the "never call into the
+  container" rule, scoped to this case only. Validated on real hardware: Cancel
+  now stops the drive within a few seconds.
 - **Desktop integration for the AppImage** (`install-appimage.sh`, shipped as
   a release asset): adds an app-menu entry + Desktop icon for a downloaded
   AppImage (which otherwise installs no shortcut), with `--uninstall`.
@@ -27,6 +34,13 @@ All notable changes to Whipper GUI are recorded here. This project adheres to
   can't run, enter your drive's published offset by hand (linked to
   AccurateRip's list); it's applied via `--offset`, so `whipper.conf` is never
   hand-authored (KDD-15).
+
+### Fixed
+- **CI on `main` was red.** Since the T32 change that auto-creates the output +
+  working directories before a rip, the whipper-backend argv tests created
+  `/music`, which fails as non-root on the CI runner (it only passed in a
+  root dev container). The argv-only tests no longer touch the filesystem; the
+  one test that asserts directory creation uses a writable temp path.
 
 ## [0.0.1] — 2026-05-31
 
@@ -77,4 +91,5 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.1.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/tag/v0.1.0
 [0.0.1]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/tag/v0.0.1
