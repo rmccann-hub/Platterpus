@@ -883,19 +883,27 @@ def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> Non
     assert window._config.drive_setup_prompted is False  # never even offered
 
 
-def _sync_thread_factory():
-    """A drop-in for threading.Thread that runs the target synchronously."""
-    class _SyncThread:
-        def __init__(self, target=None, kwargs=None, daemon=None, args=()):
-            self._target = target
-            self._kwargs = kwargs or {}
-            self._args = args
+def _patch_force_stop(monkeypatch) -> list[dict]:
+    """Record force-stop calls instead of touching a real drive/container.
 
-        def start(self) -> None:
-            if self._target is not None:
-                self._target(*self._args, **self._kwargs)
+    We patch only ``drive_control.force_stop_drive`` (resolved at call time by
+    ``_do_force_stop``) and let the real daemon thread run the fast fake — we
+    deliberately do NOT replace ``threading.Thread`` globally, which could
+    interfere with other threads spawned during the test.
+    """
+    import whipper_gui.ui.main_window as mw
 
-    return _SyncThread
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        mw.drive_control, "force_stop_drive",
+        lambda **kw: calls.append(kw),
+    )
+    return calls
+
+
+def _join_force_stop(window) -> None:
+    if window._force_stop_thread is not None:
+        window._force_stop_thread.join(timeout=2)
 
 
 def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
@@ -911,15 +919,10 @@ def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
 
 
 def test_auto_force_stop_calls_drive_control(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.ui.main_window as mw
-    monkeypatch.setattr(mw.threading, "Thread", _sync_thread_factory())
-    calls: list[dict] = []
-    monkeypatch.setattr(
-        mw.drive_control, "force_stop_drive",
-        lambda **kw: calls.append(kw) or "",
-    )
+    calls = _patch_force_stop(monkeypatch)
     window = teardown_threads()
     window._auto_force_stop()
+    _join_force_stop(window)
     assert len(calls) == 1
     assert "device" in calls[0]
     assert window._force_stop_done is True
@@ -928,30 +931,22 @@ def test_auto_force_stop_calls_drive_control(teardown_threads, monkeypatch) -> N
 def test_auto_force_stop_is_noop_when_already_done(
     teardown_threads, monkeypatch
 ) -> None:
-    import whipper_gui.ui.main_window as mw
-    monkeypatch.setattr(mw.threading, "Thread", _sync_thread_factory())
-    calls: list[dict] = []
-    monkeypatch.setattr(
-        mw.drive_control, "force_stop_drive", lambda **kw: calls.append(kw)
-    )
+    calls = _patch_force_stop(monkeypatch)
     window = teardown_threads()
     window._force_stop_done = True
     window._auto_force_stop()
+    _join_force_stop(window)
     assert calls == []
 
 
 def test_force_stop_button_stops_timer_and_fires(
     teardown_threads, monkeypatch
 ) -> None:
-    import whipper_gui.ui.main_window as mw
-    monkeypatch.setattr(mw.threading, "Thread", _sync_thread_factory())
-    calls: list[dict] = []
-    monkeypatch.setattr(
-        mw.drive_control, "force_stop_drive", lambda **kw: calls.append(kw)
-    )
+    calls = _patch_force_stop(monkeypatch)
     window = teardown_threads()
     window._force_stop_timer.start(60000)
     window._on_force_stop_button()
+    _join_force_stop(window)
     assert window._force_stop_timer.isActive() is False
     assert len(calls) == 1
 

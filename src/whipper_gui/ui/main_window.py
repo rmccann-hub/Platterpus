@@ -138,6 +138,9 @@ class MainWindow(QMainWindow):
         self._force_stop_timer: QTimer = QTimer(self)
         self._force_stop_timer.setSingleShot(True)
         self._force_stop_timer.timeout.connect(self._auto_force_stop)
+        # Handle to the daemon thread that runs the (blocking) force-stop, so
+        # callers/tests can join it; None when no force-stop is in flight.
+        self._force_stop_thread: threading.Thread | None = None
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
@@ -441,11 +444,13 @@ class MainWindow(QMainWindow):
         self._rip_progress.set_status(
             "Force-stopping the drive (eject + stopping the reader)…"
         )
-        threading.Thread(
+        thread = threading.Thread(
             target=drive_control.force_stop_drive,
             kwargs={"device": device},
             daemon=True,
-        ).start()
+        )
+        self._force_stop_thread = thread
+        thread.start()
 
     def _on_rip_error(self, message: str) -> None:
         log.warning("rip error: %s", message)
