@@ -55,21 +55,22 @@ remaining edge over us is the CUETools Database (CTDB) repair path, which is an
 ## Feasible — added to TASKS.md with priority
 
 ### 1. CTDB verify (read-only) — HIGH (already P1, KDD-14 Phase 1)
-The CUETools Database server is **open source (LGPL)**; the protocol is
-derivable from it, and a Python reference client exists
-([`bmwalters/python-cuetoolsdb`](https://github.com/bmwalters/python-cuetoolsdb)).
-Phase 1 is a read-only "Verify with CTDB" verdict after a rip, behind a thin
-`CTDBClient` adapter (Critical Rule #1). **It is a pure-Python client — NOT a
-wrap of `ctdb-cli`** (see the correction below). Concrete plan in
+The CUETools Database server is **open source (LGPL)** and the protocol is
+derivable from it. Phase 1 is a read-only "Verify with CTDB" verdict after a
+rip, behind a thin `CTDBClient` adapter (Critical Rule #1) — a **pure-Python
+client, NOT a wrap of `ctdb-cli`** (see the correction below). Built
+**clean-room from the LGPL `gchudov/cuetools.net` source**, not from the GPLv2
+`python-cuetoolsdb` (license decision KDD-16, below). Concrete plan in
 [CTDB Phase-1 implementation spec](#ctdb-phase-1-implementation-spec). **This is
 the prerequisite for repair.**
 
 > **Cannot be finished in the cloud dev environment.** Verification means
 > computing a CTDB CRC over the *decoded FLAC audio* and comparing it to the DB
 > — correctness-critical code that needs a real CD whose disc is actually in
-> CTDB to validate (a T32-style hardware confirmation). And a licensing
-> question must be resolved first (see below). So this is implemented in a
-> focused, hardware-validated follow-up, not blindly here.
+> CTDB to validate (a T32-style hardware confirmation). The licensing question
+> is now **resolved** (clean-room from the LGPL reference — KDD-16); hardware
+> validation is the sole remaining blocker, so this lands as a focused,
+> hardware-validated follow-up.
 
 ### 2. CTDB parity **repair** — HIGH (already P1, KDD-14 Phase 2) — the differentiator
 CTDB stores whole-disc parity (~180 KB). On a rip that ends with uncorrectable
@@ -94,39 +95,68 @@ output) rather than reimplement the Reed-Solomon erasure coding; **explicit
 
 ### CTDB Phase-1 implementation spec
 
-What a future, hardware-validated PR needs to build. Grounded in the
-`python-cuetoolsdb` reference (modules: `network.py`, `verify.py`,
-`zlib_crc.py`, `cdda.py`, `types.py`).
+What a future, hardware-validated PR needs to build. **Provenance: clean-room
+from the LGPL reference** (`gchudov/cuetools.net`, file `CUETools.CTDB/
+CUEToolsDB.cs` and the `CUETools.AccurateRip` / `CUETools.Parity` namespaces it
+calls into) — see the license decision below. The GPL-2.0 `python-cuetoolsdb`
+client is **not** a source for this work; do not read or transcribe it.
 
+**License decision (KDD-16, resolved 2026-06-02): build clean-room, do not
+port.** We are GPL-3.0-**only** (KDD-10); `python-cuetoolsdb` ships a bare
+GPLv2 `LICENSE` and declares *no* version intent in its packaging or source
+headers, so we must treat it as GPL-2.0-only — one-way-incompatible with
+GPLv3. We therefore **reimplement the protocol from scratch** against the
+**LGPL** `cuetools.net` source (LGPL is GPLv3-compatible) plus the public DB
+behaviour. The CTDB *protocol, wire format, and CRC algorithm are facts/methods*
+(not copyrightable expression); implementing them independently creates no
+derivative work. **Rule for the implementer: learn the algorithm from the LGPL
+C# and this spec, then write original Python — never paraphrase another
+client's code.** Add an SPDX `GPL-3.0-only` header to every new file.
+
+**Protocol (confirmed from the LGPL `CUEToolsDB.cs`):**
+- **Host/endpoints:** `db.cuetools.net`; **lookup** `GET /lookup2.php`,
+  **submit** `POST /submit2.php` (submit stays shelved — KDD-14).
+- **Lookup query params:** `version=3`, `ctdb=1`, `fuzzy=0|1`,
+  `metadata=none|fast|default|extensive`, `toc=<sectors>` (the TOC is a
+  colon-separated list of track start sectors followed by the lead-out
+  length). `User-Agent`: app name + OS version (MB-client convention).
+- **Response XML:** zero or more `entry` elements, each carrying `crc`,
+  `confidence` (how many submissions agree), `npar`, `id`, `hasParity`,
+  `trackcrcs`, `syndrome`, and the matched `toc`. Phase 1 reads
+  `crc`/`confidence`/`trackcrcs`; `npar`/`syndrome`/`hasParity` are Phase-2
+  (repair) parity fields — ignore them for verify.
+
+**Local CRC (the correctness-critical part):**
+- Compute over the **decoded PCM** of the whole disc image (16-bit LE stereo,
+  tracks concatenated). FLACs are already on disk next to the rip; decode via
+  `flac -d`/`soundfile`.
+- CTDB tolerates pressing/drive **offset**: the reference verifies a CRC across
+  an offset *range* — `const int _arOffsetRange = 5 * 588 - 1;` i.e. **±2939
+  samples** — and a match at any offset counts. The verdict is
+  match-at-offset-N + confidence.
+- **Bit-exact algorithm to read at implementation time:** the CRC is
+  `AccurateRipVerify.CTDBCRC(offset)` (`CUETools.AccurateRip`), with syndrome
+  helpers in `CUETools.Parity`. **Read those for the exact polynomial, init
+  value, and sample-feed order — do not guess them.** This is the one piece
+  that *must* be validated on hardware (below).
+
+**Code shape (mirrors existing modules):**
 - **Adapter:** `adapters/ctdb_client.py` — `CTDBClient` ABC shaped like
-  `MusicBrainzClient` (PLANNING §6), plus `CtdbHttpImpl`. Mandatory adapter
-  layer per Critical Rule #1.
-- **Disc identity:** the CD **TOC** (track offsets + lead-out), same input
-  AccurateRip uses. We already have it from the rip (`.toc`/`.cue`/the parsed
-  log), so no extra optical read.
-- **Lookup:** HTTP GET to the CTDB server (the `db.cuetools.net` lookup
-  endpoint) keyed by the TOC; response lists entries with **confidence** and
-  **CRC(s)**. Set a descriptive `User-Agent` (MB-client convention).
-- **Local CRC:** compute CTDB's CRC over the ripped audio and compare to the
-  DB entry to produce the verdict + confidence. **The exact algorithm lives in
-  the reference's `zlib_crc.py`/`verify.py` — read it when implementing; do not
-  guess.** Requires decoding FLAC → PCM (via `flac -d`/`soundfile`); the FLAC
-  files are already on disk next to the rip.
-- **Worker + UI:** `workers/ctdb_worker.py` (off-thread, emits
-  `verified(result)`/`error`), and a "Verify with CTDB" affordance in
-  `ui/rip_progress.py` populated after a rip — next to the AccurateRip column.
-- **No new bundled dependency** (pure-Python; bundles trivially) — the opposite
-  of Phase 2.
-- **⚠️ License gate (resolve before writing code):** `python-cuetoolsdb` is
-  **GPL-2.0**; this project is **GPL-3.0-only** (KDD-10). If it is GPL-2.0-*only*
-  we **cannot port its code** — the two are one-way incompatible. Mitigation:
-  reimplement the protocol clean-room from the **LGPL** server reference
-  (`gchudov/cuetools.net`), using `python-cuetoolsdb` only as documentation,
-  **or** confirm the reference is GPL-2.0-*or-later* (then it's usable under
-  GPL-3.0).
-- **Validation:** a real CD that is present in CTDB → "verified, confidence N";
-  a CD not in CTDB → "not in database" (the no-match path). This is the
-  T32-equivalent acceptance test and can only be done on hardware.
+  `MusicBrainzClient` (PLANNING §6), plus a `CtdbHttpImpl`. Mandatory adapter
+  per Critical Rule #1; lookup + CRC compare live behind it.
+- **Disc identity:** reuse the CD **TOC** we already have from the rip
+  (`.toc`/`.cue`/parsed log) — no extra optical read, no Distrobox.
+- **Worker + UI:** `workers/ctdb_worker.py` (off-thread; emits
+  `verified(result)` / `error`) feeding a "CTDB" verdict next to the
+  AccurateRip result in `ui/rip_progress.py`.
+- **No new bundled dependency** — pure-Python, bundles trivially (the opposite
+  of Phase-2 repair, which drags in the .NET `ctdb-cli`).
+
+**Remaining blocker — hardware validation (cannot be done in the cloud env):**
+correctness means the locally-computed CRC matches CTDB for a disc that *is* in
+the database. Acceptance test: a real CD in CTDB → "verified, confidence N" at
+some offset in ±2939; a CD not in CTDB → "not in database". This is the
+T32-equivalent confirmation and needs a physical drive + disc.
 
 ### 3. Upstream whipper bug fixes — contribute, don't fork — LOW/MEDIUM
 Two known upstream defects we currently work around:
