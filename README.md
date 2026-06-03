@@ -28,6 +28,8 @@ Prefer to download and run it yourself? Grab `install.sh` from the [Releases pag
 
 Then, inside the GUI: **Tools → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Whipper GUI** shortcut (or see [Uninstalling](#uninstalling)).
 
+> **Already have whipper + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
+
 > Why two pieces under the hood? The GUI can't rip without the host stack — that's by design ([why](PLANNING.md)). `install.sh` just sets up both for you; you can still do each step by hand (below).
 
 #### Supported distributions
@@ -305,7 +307,7 @@ Whipper GUI will auto-launch Picard with the rip folder when you mark a disc as 
 
 ### Step 7 — Install Whipper GUI
 
-> **Recommended: Method A (AppImage).** As of v0.0.1 it's published as a downloadable release asset — this is the simplest path for most people. Method B (`pipx` from PyPI) publishes automatically on each tagged release (Trusted Publishing); if it's not on PyPI yet, install from a checkout (see Method B). Method C runs the GUI from a source clone and is aimed at developers.
+> **Recommended: Method A (AppImage).** As of v0.1.0 it's published as a downloadable release asset — this is the simplest path for most people. Method B (`pipx` from PyPI) publishes automatically on each tagged release (Trusted Publishing); if it's not on PyPI yet, install from a checkout (see Method B). Method C runs the GUI from a source clone and is aimed at developers.
 
 Pick **one** of the methods below.
 
@@ -742,7 +744,8 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 | `~/.config/whipper/whipper.conf` | Drive offsets and cache settings. Shared with the container. |
 | `~/.config/whipper-gui/config.toml` | The GUI's own settings (output dir, templates, toggles). |
 | `~/.local/share/whipper-gui/log.txt` | GUI log file. Check here when something goes sideways. |
-| `~/Music/rips/` *(default)* | Where rips land. Configurable in Settings. |
+| `~/Music/rips/` *(default)* | Where rips land, under `Artist/Album/`. Configurable in Settings. |
+| `…/Artist/Album/` | The rip itself: the FLAC tracks **plus** the `.log`, `.cue`, `.m3u`, and `.toc` whipper writes next to them (confirmed on a real 16-track rip). |
 
 ---
 
@@ -751,7 +754,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, 15 keyed design decisions (KDD-01 through KDD-15)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-16)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 
