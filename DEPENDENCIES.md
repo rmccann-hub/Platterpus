@@ -25,6 +25,7 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 |---|---|---|---|---|
 | whipper | Distrobox container `ripping`, host-exported to `~/.local/bin/whipper` | `>=0.10.0` | Unmaintained (>12mo) — see retirement review log | `cyanrip` via `WhipperBackend.CyanripImpl` (ABC contract documented in PLANNING.md §5) |
 | metaflac | Distrobox container `ripping` (same export route) | (whatever ships with the container's `flac` package) | Active (FLAC project) | — |
+| flac (decoder) | Host, **optional** — used by CTDB verify to decode FLAC→PCM if present; the feature degrades with a clear message if absent (decision 2026-06-03). No required dependency added. | any | Active (FLAC project) | — |
 | libdiscid | (not installed) | n/a | **Not needed on host** — whipper-in-container computes the disc ID; the GUI never calls libdiscid (KDD-06, confirmed T32 2026-05-29) | — |
 | MusicBrainz Picard | Flathub via `.flatpakref` URL (see install_command in `deps/registry.py`) | latest | Active | — |
 

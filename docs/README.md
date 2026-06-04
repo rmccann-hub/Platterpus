@@ -22,6 +22,7 @@ These three files together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS
 | `best-practices.md` | Engineering patterns and hard-won lessons for contributors — Python/typing, adapter design, subprocess, Qt threading, testing, packaging/AppImage, releasing, security. Complements (does not replace) CLAUDE.md's locked rules. |
 | `appimage-testing.md` | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
 | `upstream-modification-investigation.md` | EAC-parity investigation (2026-06-02): what modifying the open-source programs underneath us would buy, what's feasible (→ task items), and a "do not revisit" non-feasible list. |
+| `test-plan.md` | Step-by-step **manual / hardware** test plan for the work that can't be validated in CI — CTDB verify (wire format + CRC), CTDB repair direction, `drive analyze`/`offset find` success strings, a GUI screenshot, the Picard UX, and the PyPI go-live. Run one test at a time and record results. |
 
 ## Where the rest of the project context lives
 
