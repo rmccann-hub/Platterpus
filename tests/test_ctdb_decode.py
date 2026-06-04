@@ -67,3 +67,27 @@ def test_total_samples_missing_metaflac(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(decode, "_which", lambda name: None)
     with pytest.raises(decode.DecoderUnavailable):
         decode.total_samples(Path("a.flac"))
+
+
+def test_total_samples_nonzero_rc_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(decode, "_which", lambda name: "/usr/bin/metaflac")
+    out = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="err")
+    with pytest.raises(RuntimeError):
+        decode.total_samples(Path("a.flac"), runner=lambda argv: out)
+
+
+def test_which_falls_back_to_absolute_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    # PATH lookup fails, but the binary exists at a known absolute location.
+    monkeypatch.setattr(decode.shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        decode.Path, "exists", lambda self: str(self) == "/usr/bin/flac"
+    )
+    assert decode._which("flac") == "/usr/bin/flac"
+
+
+def test_which_returns_none_when_nothing_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(decode.shutil, "which", lambda name: None)
+    monkeypatch.setattr(decode.Path, "exists", lambda self: False)
+    assert decode._which("flac") is None
