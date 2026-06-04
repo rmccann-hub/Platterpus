@@ -76,6 +76,25 @@ def test_on_finished_renders_success(qapp: QApplication) -> None:
     assert dialog._detect_button.text() == "Re-detect"
 
 
+def test_manual_controls_locked_during_detection(qapp: QApplication) -> None:
+    """The offset spinbox + Save button lock while detection runs, and the
+    finish slot re-enables them."""
+    dialog = _dialog(qapp)
+    # Both live before detection.
+    assert dialog._offset_spin.isEnabled() is True
+    assert dialog._save_offset_button.isEnabled() is True
+
+    dialog._on_detect_clicked()
+    assert dialog._offset_spin.isEnabled() is False
+    assert dialog._save_offset_button.isEnabled() is False
+
+    # Stop the worker thread we just started, then deliver the result.
+    dialog._stop_detection()
+    dialog._on_finished(DriveSetupResult(offset=667, can_defeat_cache=True))
+    assert dialog._offset_spin.isEnabled() is True
+    assert dialog._save_offset_button.isEnabled() is True
+
+
 def test_on_finished_ignored_while_closing(qapp: QApplication) -> None:
     """A late worker result must not poke widgets once the dialog is closing.
 
