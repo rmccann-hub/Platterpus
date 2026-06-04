@@ -6,6 +6,17 @@ All notable changes to Whipper GUI are recorded here. This project adheres to
 ## [Unreleased]
 
 ### Added
+- **CTDB verify (Phase 1 — library + validation script).** Clean-room (KDD-16)
+  CUETools Database lookup client (`adapters/ctdb_client.py`) and verify logic
+  (`whipper_gui/ctdb/`), plus a standalone `scripts/ctdb_verify.py` to validate
+  on real hardware. The `toc=` wire format and the audio CRC are
+  hardware-validation-gated (both fail safe — never a false "verified"); the
+  GUI wiring is deferred until they're confirmed. See `docs/test-plan.md`
+  Test 1. PCM decode uses the host `flac` if present (optional dependency).
+- **Manual / hardware test plan** (`docs/test-plan.md`) — a step-by-step
+  checklist for everything that can't be validated in CI (CTDB verify/repair,
+  `drive analyze`/`offset find` success strings, GUI screenshot, Picard UX,
+  PyPI go-live).
 - **Automated PyPI publishing.** A new `.github/workflows/publish-pypi.yml`
   builds the wheel + sdist and publishes them to PyPI when a release is
   published (i.e. on every `v*` tag, alongside the AppImage). Uses PyPI
