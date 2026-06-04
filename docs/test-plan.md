@@ -10,11 +10,11 @@ Everything here is already *implemented* (or, for the upstream-blocked items,
 *decided*) — these tests confirm reality matches intent and capture the real
 output the docs still need.
 
-Legend: ⏳ = not yet run · ✅ = passed · ❌ = failed (see notes).
+Status marker in each test's heading (same convention as `TASKS.md`): `[ ]` = not yet run · `[x]` = passed · `[?]` = failed / needs rework (note it in the **Record** box).
 
 ---
 
-## Test 1 — CTDB verify: wire format + CRC (KDD-16) ⏳
+## Test 1 — [ ] CTDB verify: wire format + CRC (KDD-16)
 
 **Goal:** confirm (or correct) the CTDB lookup wire format and the audio-CRC
 algorithm, which were written clean-room from the spec and are unvalidated.
@@ -57,14 +57,15 @@ This unblocks wiring CTDB verify into the GUI.
   the polynomial/init/reflection and the ±2939 offset sweep, then replace
   `ctdb/crc.py:ctdb_crc_offset0` (the single seam). **Do not read
   `python-cuetoolsdb`** (GPL-2.0; KDD-16). Re-run until it matches a DB CRC.
-- **`match`** → 🎉. Implement the ±2939 offset sweep if not already, set
+- **`match`** → success. Implement the ±2939 offset sweep if not already, set
   `crc.CRC_VALIDATED = True`, add a regression test with the real CRC vector,
   and proceed to Test 1b.
 
 **If it fails:** record the URL, raw XML, and TOC; the fix lives in `ctdb/toc.py`
 (format) or `ctdb/crc.py` (CRC) — both are isolated for exactly this.
 
-### Test 1b — wire CTDB verify into the GUI ⏳
+### Test 1b — [ ] wire CTDB verify into the GUI
+
 Once Test 1 yields a trustworthy `match`:
 - Add a `workers/ctdb_worker.py` (off-thread, emits `verified(result)`/`error`)
   and a CTDB verdict next to the AccurateRip result in `ui/rip_progress.py`.
@@ -74,7 +75,7 @@ Once Test 1 yields a trustworthy `match`:
 
 ---
 
-## Test 2 — CTDB repair direction (Phase 2, KDD-14) ⏳
+## Test 2 — [ ] CTDB repair direction (Phase 2, KDD-14)
 
 **Goal:** decide and prototype parity repair. **Depends on Test 1 passing.**
 
@@ -93,7 +94,7 @@ tool (like Picard), or (c) revisit a pure-Python `CUETools.Parity` port.
 
 ---
 
-## Test 3 — `whipper drive analyze` success output ⏳
+## Test 3 — [ ] `whipper drive analyze` success output
 
 **Goal:** capture the verbatim success output so the README/wizard can show
 "you should see this."
@@ -111,7 +112,7 @@ __________
 
 ---
 
-## Test 4 — `whipper offset find` success output ⏳
+## Test 4 — [ ] `whipper offset find` success output
 
 **Goal:** capture the final offset line (e.g. `Read offset of drive is N
 samples`) and confirm the auto path matches the manual AccurateRip lookup.
@@ -127,7 +128,7 @@ samples`) and confirm the auto path matches the manual AccurateRip lookup.
 
 ---
 
-## Test 5 — GUI screenshot ⏳
+## Test 5 — [ ] GUI screenshot
 
 **Goal:** confirm the GUI looks right on Bazzite KDE Plasma 6 and add a
 screenshot to the top of the README.
@@ -142,7 +143,7 @@ screenshot to the top of the README.
 
 ---
 
-## Test 6 — Picard auto-launch UX ⏳
+## Test 6 — [ ] Picard auto-launch UX
 
 **Goal:** verify the unknown-disc → Picard flow end-to-end and document what the
 toggle actually does.
@@ -158,7 +159,7 @@ Update README Step 6 with the real behaviour.
 
 ---
 
-## Test 7 — PyPI go-live (maintainer credential) ⏳
+## Test 7 — [ ] PyPI go-live (maintainer credential)
 
 **Goal:** make `pipx install whipper-gui` work from PyPI. The
 `publish-pypi.yml` workflow is already in place (Trusted Publishing).
@@ -181,7 +182,7 @@ the "if it's not on PyPI yet" caveat from the README.
 
 ## After a test passes
 
-- Tick it here (⏳ → ✅) with the date and any notes.
+- Update the heading marker (`[ ]` → `[x]`, or `[?]` on failure) with the date and any notes.
 - Land the follow-up the test unblocks (Test 1 → GUI wiring; Tests 3/4/5/6 →
   README updates; Test 7 → README caveat removal).
 - Update `TASKS.md` and `CHANGELOG.md`.

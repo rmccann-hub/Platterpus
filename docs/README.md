@@ -8,9 +8,9 @@ These three files together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS
 
 | File | What it is | Authority on |
 |---|---|---|
-| `whipper-gui-research-brief-v2.1.md` | The original requirements brief — every P0/P1 feature, every constraint, every scope decision started here. | **Requirements and scope.** When PLANNING.md and the brief conflict, the brief wins on requirements; PLANNING wins on implementation. |
-| `whipper-gui-session-start.md` | The bootstrap instructions a fresh Claude Code session followed to produce the initial five top-level files (CLAUDE.md, PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md). | **Initial repo state and the bootstrap procedure.** Re-run this against a clean repo to re-derive the planning artifacts. |
-| `whipper-gui-research-rerun-prompt.md` | Instructions for invoking Claude Opus 4.7 Research mode against the brief to produce a fresh `compass_artifact_*.md` validation pass. | **How to refresh the tool-choice research** (framework, distribution, dependencies) when more than ~6 months have elapsed since the last validation. |
+| [`whipper-gui-research-brief-v2.1.md`](whipper-gui-research-brief-v2.1.md) | The original requirements brief — every P0/P1 feature, every constraint, every scope decision started here. | **Requirements and scope.** When PLANNING.md and the brief conflict, the brief wins on requirements; PLANNING wins on implementation. |
+| [`whipper-gui-session-start.md`](whipper-gui-session-start.md) | The bootstrap instructions a fresh Claude Code session followed to produce the initial five top-level files (CLAUDE.md, PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md). | **Initial repo state and the bootstrap procedure.** Re-run this against a clean repo to re-derive the planning artifacts. |
+| [`whipper-gui-research-rerun-prompt.md`](whipper-gui-research-rerun-prompt.md) | Instructions for invoking Claude Opus 4.7 Research mode against the brief to produce a fresh `compass_artifact_*.md` validation pass. | **How to refresh the tool-choice research** (framework, distribution, dependencies) when more than ~6 months have elapsed since the last validation. |
 
 > **About the `compass_artifact_*.md` Research validation file:** the original v1 brief produced a compass-artifact research validation in a Claude Research session; the user could not locate it when this project was bootstrapped, so the project proceeded against the brief alone (see CLAUDE.md "Companion documents"). If the rerun-prompt is ever invoked, save the resulting `compass_artifact_*.md` into this directory.
 
@@ -18,11 +18,11 @@ These three files together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS
 
 | File | What it is |
 |---|---|
-| `log-format-comparison.md` | Side-by-side comparison of whipper's rip log against EAC's, anchoring [PLANNING.md KDD-11](../PLANNING.md). The hand-authored EAC log at `tests/fixtures/rip_log_eac_reference.log` is the comparison's data. |
-| `best-practices.md` | Engineering patterns and hard-won lessons for contributors — Python/typing, adapter design, subprocess, Qt threading, testing, packaging/AppImage, releasing, security. Complements (does not replace) CLAUDE.md's locked rules. |
-| `appimage-testing.md` | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
-| `upstream-modification-investigation.md` | EAC-parity investigation (2026-06-02): what modifying the open-source programs underneath us would buy, what's feasible (→ task items), and a "do not revisit" non-feasible list. |
-| `test-plan.md` | Step-by-step **manual / hardware** test plan for the work that can't be validated in CI — CTDB verify (wire format + CRC), CTDB repair direction, `drive analyze`/`offset find` success strings, a GUI screenshot, the Picard UX, and the PyPI go-live. Run one test at a time and record results. |
+| [`log-format-comparison.md`](log-format-comparison.md) | Side-by-side comparison of whipper's rip log against EAC's, anchoring [PLANNING.md KDD-11](../PLANNING.md). The hand-authored EAC log at `tests/fixtures/rip_log_eac_reference.log` is the comparison's data. |
+| [`best-practices.md`](best-practices.md) | Engineering patterns and hard-won lessons for contributors — Python/typing, adapter design, subprocess, Qt threading, testing, packaging/AppImage, releasing, security. Complements (does not replace) CLAUDE.md's locked rules. |
+| [`appimage-testing.md`](appimage-testing.md) | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
+| [`upstream-modification-investigation.md`](upstream-modification-investigation.md) | EAC-parity investigation (2026-06-02): what modifying the open-source programs underneath us would buy, what's feasible (→ task items), and a "do not revisit" non-feasible list. |
+| [`test-plan.md`](test-plan.md) | Step-by-step **manual / hardware** test plan for the work that can't be validated in CI — CTDB verify (wire format + CRC), CTDB repair direction, `drive analyze`/`offset find` success strings, a GUI screenshot, the Picard UX, and the PyPI go-live. Run one test at a time and record results. |
 
 ## Where the rest of the project context lives
 

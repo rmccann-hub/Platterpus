@@ -215,21 +215,21 @@ The sub-sections below are ordered by current priority for picking up work:
 2. **[x] Drive setup wizard** (write-enabled; PLANNING.md KDD-15) — done 2026-05-30; see P1.1.
 3. **[x] Drive-access permission diagnostics** — done 2026-05-30; see P1.1.
 4. **[x] EAC parity-gap Settings widgets** (cover art / force-overread / max-retries / keep-going) — done 2026-05-30; below.
-5. **CTDB verify (read-only)** — Phase 1 of KDD-14. **[~] Library landed 2026-06-03; awaiting hardware validation.** Clean-room client + verify logic shipped: `adapters/ctdb_client.py` (lookup), `ctdb/{toc,decode,crc,verify}.py`, and a standalone validation script `scripts/ctdb_verify.py`. 30 unit tests cover the deterministic parts (TOC math, URL build, XML parse, decode wrappers, verdict logic). **Two pieces are hardware-validation-gated (KDD-16): the `toc=` wire format and the bit-exact CRC** — both isolated behind a single seam, both fail *safe* (never a false "verified"). PCM decode uses host `flac` if present (optional dep, your call 2026-06-03). **Next: run [docs/test-plan.md](docs/test-plan.md) Test 1 on a real disc; then wire the GUI (Test 1b).**
-6. **CTDB repair (parity, wrap `ctdb-cli`, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator. Note: `ctdb-cli` is .NET 10 (not C), so AppImage bundling is heavy — bundle-vs-optional-install is undecided.
+5. **[~] CTDB verify (read-only)** — Phase 1 of KDD-14. Library landed 2026-06-03; awaiting hardware validation. Clean-room client + verify logic shipped: `adapters/ctdb_client.py` (lookup), `ctdb/{toc,decode,crc,verify}.py`, and a standalone validation script `scripts/ctdb_verify.py`. 30 unit tests cover the deterministic parts (TOC math, URL build, XML parse, decode wrappers, verdict logic). **Two pieces are hardware-validation-gated (KDD-16): the `toc=` wire format and the bit-exact CRC** — both isolated behind a single seam, both fail *safe* (never a false "verified"). PCM decode uses host `flac` if present (optional dep, your call 2026-06-03). **Next: run [docs/test-plan.md](docs/test-plan.md) Test 1 on a real disc; then wire the GUI (Test 1b).**
+6. **[ ] CTDB repair (parity, wrap `ctdb-cli`, explicit trigger)** — Phase 2 of KDD-14; the headline EAC++ differentiator. Note: `ctdb-cli` is .NET 10 (not C), so AppImage bundling is heavy — bundle-vs-optional-install is undecided.
 
 *Downgraded:* Test & Copy dual-pass — whipper already emits a per-track Test CRC and Copy CRC, so the guarantee is already delivered (see P2).
 
 High-level feature backlog (not bucketed into a sub-section because each is small):
 
 - **[x] Eject button + auto-eject toggle. Done 2026-06-02.** Manual **Eject** button on the `DrivePicker` (emits `eject_requested(device)`; MainWindow ejects off a daemon thread via the existing `drive_control.eject_drive`, mirroring the force-stop pattern). New `Config.auto_eject_after_rip` (default off) + Settings checkbox; on a *successful* rip `_on_rip_finished` auto-ejects the just-ripped drive (skipped on failure/cancel so the disc stays in for a retry). User guide updated. Tests in `test_ui_drive_picker`, `test_ui_settings_dialog`, `test_config`, `test_ui_main_window`.
-- Multi-disc queue
-- Live progress bars per track
-- Multi-drive support
-- udev-driven auto-detect on disc insert
-- ReplayGain calculation
-- Auto-move completed rips to a library folder
-- Additional encoding outputs: **MP3** (via `lame`) and **WAV** (via `sox` or whipper-native). Both encoder backends MUST be detected and offered through the existing P0 #11 dependency-resolution flow — no bespoke install code.
+- **[ ]** Multi-disc queue
+- **[ ]** Live progress bars per track
+- **[ ]** Multi-drive support
+- **[ ]** udev-driven auto-detect on disc insert
+- **[ ]** ReplayGain calculation
+- **[ ]** Auto-move completed rips to a library folder
+- **[ ]** Additional encoding outputs: **MP3** (via `lame`) and **WAV** (via `sox` or whipper-native). Both encoder backends MUST be detected and offered through the existing P0 #11 dependency-resolution flow — no bespoke install code.
 
 ### P1 — EAC bit-perfect parity gaps
 
@@ -243,9 +243,7 @@ The following whipper CLI options exist but aren't currently surfaced in our Set
 
 Each is independent; do them in any order. They should land before the AppImage's first public release so the GUI matches what EAC users expect.
 
-- **CTDB verification (read-only).** The CUETools Database operates an open-source server (LGPL) with no public HTTP API documentation, but the reference server and client code is public — the protocol is derivable from it. A Python client modeled on that reference would let us add a "Verify with CTDB" button to the rip-progress widget that runs after each rip finishes. No submission — same trust-gate as AccurateRip likely applies. Moderate effort (~200-400 lines for the client + UI hookup). Adds a second archival-verification path complementing the AccurateRip data whipper already provides. See [PLANNING.md KDD-12](PLANNING.md) for the reasoning behind moving this from "out of scope" to P1. **This is now Phase 1 of KDD-14** — the foundation for the repair feature below; do it first.
-
-- **CTDB repair (parity) — confirmed in scope; Phase 2 of [KDD-14](PLANNING.md).** The headline EAC++ differentiator: on a rip that finishes with uncorrectable errors, reconstruct the corrupted samples from CTDB's downloaded recovery record (whole-CD parity, ~180 KB) and re-verify — turning a damaged disc into a mathematically perfect file. **Decisions (2026-05-30):** *wrap* the `ctdb-cli` C tool (Option A — do NOT reimplement the erasure coding); **bundle** it in the AppImage (repair operates on the ripped files + downloaded parity, needs no optical device, so no Distrobox/permission involvement); **explicit "Attempt CTDB repair" trigger** first (auto-on-error is a later refinement); **submission shelved**. Reached through a thin `CTDBRepair` adapter (unmaintained-dependency rule). Larger than verify and depends on it — sequence verify → repair. Build step needed in the `python-appimage` recipe to vendor `ctdb-cli`.
+> **CTDB verify + repair are tracked elsewhere, not here.** They are archival-verification *features*, not parity-gap Settings widgets, so they live in the **Ranked execution order** above (items 5–6) with full rationale and decisions in the [Upstream open-source modification](#p1p2--upstream-open-source-modification-for-eac-parity-investigation-2026-06-02) section and [docs/upstream-modification-investigation.md](docs/upstream-modification-investigation.md). See also [PLANNING.md KDD-12 / KDD-14 / KDD-16](PLANNING.md).
 
 ### P1 — Release milestones
 
@@ -312,25 +310,25 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 
 Items that need real-system output to write authoritatively. Address as T32's smoke test on a real Bazzite system surfaces the actual output. Each is small (a paragraph or two of README) but writing them now would be guesswork.
 
-- **Verify Step 5 end-to-end with a real CD.** As of 2026-05-28 the install instructions have been walked through up to step 5 on Bazzite, but no commercial audio CD was on hand to run `whipper drive analyze` or `whipper offset find`. The user took the manual path (AccurateRip drive offset lookup, hand-edit `whipper.conf`). Once a CD is available, run both auto commands and confirm: (a) the auto path produces the same offset as the manual lookup, (b) the auto path's `whipper.conf` output matches the hand-edited format, (c) the manual-path section-header spacing convention documented in the README actually matches what whipper accepts.
-- **"You should see X" success indicators for `whipper drive analyze`.** Capture the verbatim output a successful run prints; add to Step 5 so users know what success looks like and can recognize a failure.
-- **Same for `whipper offset find`.** Capture the final "Read offset of drive is N samples" (or whatever it actually prints) message; add to Step 5.
+- **[ ] Verify Step 5 end-to-end with a real CD.** As of 2026-05-28 the install instructions have been walked through up to step 5 on Bazzite, but no commercial audio CD was on hand to run `whipper drive analyze` or `whipper offset find`. The user took the manual path (AccurateRip drive offset lookup, hand-edit `whipper.conf`). Once a CD is available, run both auto commands and confirm: (a) the auto path produces the same offset as the manual lookup, (b) the auto path's `whipper.conf` output matches the hand-edited format, (c) the manual-path section-header spacing convention documented in the README actually matches what whipper accepts. *(Tracked as [docs/test-plan.md](docs/test-plan.md) Tests 3–4.)*
+- **[ ] "You should see X" success indicators for `whipper drive analyze`.** Capture the verbatim output a successful run prints; add to Step 5 so users know what success looks like and can recognize a failure. *([docs/test-plan.md](docs/test-plan.md) Test 3.)*
+- **[ ] Same for `whipper offset find`.** Capture the final "Read offset of drive is N samples" (or whatever it actually prints) message; add to Step 5. *([docs/test-plan.md](docs/test-plan.md) Test 4.)*
 - **[x] Drop the "Method C is the only working path right now" blockquote — done.** The README now leads with Method A (AppImage, a published release asset) as the recommended path; Method B (PyPI via the new publish workflow) and Method C (source) follow. No "only working path" caveat remains.
 - **[x] Remove the Method C "private repo, authenticate first" blockquote — done.** The repo is public; the README's auth section states a plain HTTPS `git clone` needs no authentication (auth only matters if you intend to *push*).
 - **[x] Add a Quick Start for users who already have whipper + Distrobox set up — done 2026-06-02.** README quickstart now has an "Already have whipper + Distrobox set up?" callout pointing at `install.sh --no-host` (GUI-only), for re-installs or a second box sharing the stack.
-- **Add a screenshot or two** of the GUI to the top of the README once T32 confirms it looks right on Bazzite KDE Plasma 6. *(Needs a real GUI screenshot — hardware/display.)*
-- **Document Picard's actual auto-launch behavior** under Step 6 once T32 verifies it. The README currently says it works "if you enable the toggle"; T32 will confirm what the toggle UX actually feels like end-to-end.
+- **[ ] Add a screenshot or two** of the GUI to the top of the README once T32 confirms it looks right on Bazzite KDE Plasma 6. *(Needs a real GUI screenshot — hardware/display; [docs/test-plan.md](docs/test-plan.md) Test 5.)*
+- **[ ] Document Picard's actual auto-launch behavior** under Step 6 once T32 verifies it. The README currently says it works "if you enable the toggle"; T32 will confirm what the toggle UX actually feels like end-to-end. *([docs/test-plan.md](docs/test-plan.md) Test 6.)*
 - **[x] Sanity-check the "Where things live" table — done 2026-06-02.** Added a row for the rip output folder (`Artist/Album/`) documenting that whipper writes the FLAC tracks **plus** `.log`/`.cue`/`.m3u`/`.toc` next to them — confirmed on the real 16-track T32 rip (KDD-13 findings). Output goes under the configured output dir (not the working dir).
 
 ### P1/P2 — Upstream open-source modification for EAC parity (investigation 2026-06-02)
 
 Previously it was out of scope to modify the programs underneath us; this is the first pass at "what would modifying open-source upstream buy us toward full EAC parity?" Full write-up, with reasoning and sources, in **[docs/upstream-modification-investigation.md](docs/upstream-modification-investigation.md)**. Headline: most of EAC's *correctness* is already delivered by whipper, so the wins are additive tools (CTDB), not whipper changes. **Guardrail:** prefer wrapping a separate maintained tool → upstream PR → (last resort) a maintained fork. Do **not** fork whipper (unmaintained; successor is `cyanrip`).
 
-**Feasible (prioritised):**
-- **[HIGH] CTDB verify (read-only).** KDD-14 Phase 1. Not a whipper change — a new pure-Python `CTDBClient` adapter built **clean-room from the LGPL `gchudov/cuetools.net` source** (NOT the GPLv2 `python-cuetoolsdb`, NOT a wrap of `ctdb-cli`). **License gate RESOLVED 2026-06-02 (KDD-16): clean-room, no port.** Concrete, LGPL-grounded protocol + CRC spec in [docs/upstream-modification-investigation.md](docs/upstream-modification-investigation.md). **One blocker remains:** the verify CRC runs over decoded FLAC audio and can only be validated against a real CD that's in CTDB — a hardware (T32-style) test, so it lands as a hardware-validated follow-up.
-- **[HIGH] CTDB parity repair.** KDD-14 Phase 2. The one genuine "beyond EAC" everyday win. Wrap `ctdb-cli verify|repair`; depends on verify. **Correction 2026-06-02: `ctdb-cli` is C#/.NET 10, not C — bundling it in the AppImage is heavy, so bundle-vs-optional-install is an open decision** (see the investigation doc).
-- **[LOW–MED] Upstream whipper bug fixes — contribute, don't fork.** `whipper cd info` non-zero exit on unknown discs (we already work around it) and HTOA accuracy edge cases (issues #75/#82). Open upstream PRs opportunistically; never maintain a fork.
-- **[LOW] EAC-style signed log checksum.** Scene-trust feature; emit an EAC-compatible logsigner checksum *from our own code* over whipper's log. No upstream change needed.
+**Feasible (prioritised — priority shown in bold, status with the usual marker):**
+- **[~] CTDB verify (read-only)** — **HIGH.** KDD-14 Phase 1; library landed 2026-06-03 (see Ranked execution order item 5). Not a whipper change — a new pure-Python `CTDBClient` adapter built **clean-room from the LGPL `gchudov/cuetools.net` source** (NOT the GPLv2 `python-cuetoolsdb`, NOT a wrap of `ctdb-cli`). **License gate RESOLVED 2026-06-02 (KDD-16): clean-room, no port.** Concrete, LGPL-grounded protocol + CRC spec in [docs/upstream-modification-investigation.md](docs/upstream-modification-investigation.md). **One blocker remains:** the verify CRC runs over decoded FLAC audio and can only be validated against a real CD that's in CTDB — a hardware (T32-style) test ([docs/test-plan.md](docs/test-plan.md) Test 1).
+- **[ ] CTDB parity repair** — **HIGH.** KDD-14 Phase 2; the one genuine "beyond EAC" everyday win. Wrap `ctdb-cli verify|repair`; depends on verify. **Correction 2026-06-02: `ctdb-cli` is C#/.NET 10, not C — bundling it in the AppImage is heavy, so bundle-vs-optional-install is an open decision** (see the investigation doc).
+- **[ ] Upstream whipper bug fixes — contribute, don't fork** — **LOW–MED.** `whipper cd info` non-zero exit on unknown discs (we already work around it) and HTOA accuracy edge cases (issues #75/#82). Open upstream PRs opportunistically; never maintain a fork.
+- **[ ] EAC-style signed log checksum** — **LOW.** Scene-trust feature; emit an EAC-compatible logsigner checksum *from our own code* over whipper's log. No upstream change needed.
 
 **Non-feasible / not worth it — do NOT revisit without a rethink** (full rationale in the doc):
 - **AccurateRip submission** — permanently blocked by operator policy (EAC/dBpoweramp only). Not a code problem. *Verification stays in scope and works.*
