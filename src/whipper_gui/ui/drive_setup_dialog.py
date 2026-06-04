@@ -153,6 +153,10 @@ class DriveSetupDialog(QDialog):
         if self._thread is not None:  # already running
             return
         self._detect_button.setEnabled(False)
+        # Lock the manual-offset controls while detection runs: editing or
+        # saving an offset mid-detection would race the value whipper is
+        # about to write. They're re-enabled in `_on_finished`.
+        self._set_manual_controls_enabled(False)
         self._results_label.clear()
         self._progress.setVisible(True)
         self._status_label.setText("Starting…")
@@ -179,8 +183,18 @@ class DriveSetupDialog(QDialog):
         self._results_label.setPlainText(_format_result(result))
         self._detect_button.setEnabled(True)
         self._detect_button.setText("Re-detect")
+        self._set_manual_controls_enabled(True)
         self._worker = None
         self._thread = None
+
+    def _set_manual_controls_enabled(self, enabled: bool) -> None:
+        """Enable/disable the manual read-offset controls as a unit.
+
+        The QSpinBox covers its own up/down arrows, so disabling it locks the
+        whole numeric entry; the Save button is locked alongside it.
+        """
+        self._offset_spin.setEnabled(enabled)
+        self._save_offset_button.setEnabled(enabled)
 
     def _on_save_offset_clicked(self) -> None:
         """Persist a hand-entered offset via the main window (--offset path)."""
