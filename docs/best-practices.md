@@ -186,6 +186,12 @@ off the GUI thread. The patterns, all enforced by examples in
 
 ## 7. Testing
 
+> **The full strategy, standards, and Definition of Done live in
+> [testing.md](testing.md).** This section is the quick reference; that doc is
+> authoritative (the trophy + hardware gate, the five-tier case taxonomy,
+> property/golden/fault-injection/mutation guidance, the institutional rules,
+> the coverage gate).
+
 The suite runs with no env vars (`pyproject.toml` sets `pythonpath = ["src"]`)
 and touches no real hardware, network, or container.
 
