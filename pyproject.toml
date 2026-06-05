@@ -40,6 +40,8 @@ dependencies = [
 dev = [
     "pytest>=8,<9",
     "ruff>=0.15,<1",
+    "pytest-cov>=5",      # coverage measurement + the CI --cov-fail-under gate
+    "hypothesis>=6",      # property-based tests (tests/test_parsers_property.py)
 ]
 
 [project.scripts]
@@ -89,4 +91,22 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 # `-q` keeps the output readable while the suite is small.
 # `--strict-markers` rejects typo'd `@pytest.mark.foo` decorators.
+# Coverage flags are NOT in addopts on purpose: a bare local `pytest` stays
+# fast and plugin-light. CI adds `--cov ... --cov-fail-under` explicitly
+# (see .github/workflows/ci.yml); the thresholds live there, not here.
 addopts = "-q --strict-markers"
+
+# Coverage config (consumed when CI runs `pytest --cov`). Branch coverage is
+# stricter than line coverage — it requires both sides of every if/try taken.
+[tool.coverage.run]
+branch = true
+source = ["whipper_gui"]
+
+[tool.coverage.report]
+# Don't count lines that are unreachable-by-design.
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",  # `...` stub bodies on Protocol/ABC methods
+]
