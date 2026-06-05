@@ -2,7 +2,7 @@
 
 A Linux GUI front-end for the [`whipper`](https://github.com/whipper-team/whipper) audio-CD ripping CLI. Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage.
 
-> **Status: v0.1.0 — public test release.** Implemented end-to-end with 525 unit tests and validated on real Bazzite hardware: a full 16-track rip *through the published AppImage*, with every track's Test CRC matching its Copy CRC. Recent additions: a **Force stop** for runaway drives on cancel, AppImage **desktop integration** (`install-appimage.sh`), and a **Help menu** (About + User Guide). This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/issues) for anything you hit.
+> **Status: v0.1.0 — public test release.** Implemented end-to-end with 591 unit tests and validated on real Bazzite hardware: a full 16-track rip *through the published AppImage*, with every track's Test CRC matching its Copy CRC. Recent additions: **no-terminal first-run setup** — the AppImage adds itself to your menu and a guided wizard installs the ripping stack — plus **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed). This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/issues) for anything you hit.
 
 ## At a glance
 
@@ -16,9 +16,33 @@ A Linux GUI front-end for the [`whipper`](https://github.com/whipper-team/whippe
 
 ## Installation
 
-### Quickstart for testers (the short version)
+### Easiest — download one file, no terminal (recommended)
 
-**One command installs everything** — the *host stack* (Distrobox + whipper, which does the actual ripping) and the *GUI* (the AppImage), plus an app-menu entry, a Desktop icon, and an **Uninstall Whipper GUI** shortcut:
+You don't need the command line. Download the GUI, double-click, and it sets
+itself up by asking a couple of questions.
+
+1. **Download** `whipper-gui-x86_64.AppImage` from the **[Releases page](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/latest)** (one file).
+2. **Allow it to run** (a one-time Linux step — a downloaded program isn't
+   runnable until you say so):
+   - **KDE (Dolphin):** right-click the file → **Properties** → **Permissions** → tick **Is executable** → OK.
+   - **GNOME (Files):** right-click → **Properties** → **Permissions** → enable **Allow executing file as program**.
+3. **Double-click it.** On first launch it will offer to:
+   - **add Whipper GUI to your applications menu** (so next time you just click it in the menu), and
+   - **set up the ripping tool** — a guided wizard installs everything ripping needs (it may ask for your password once; on Bazzite/Silverblue it's instant). No terminal.
+4. Then in the app: **Tools → Set up drive…** — your drive's read offset is
+   filled in automatically; click **Save offset**. Insert a CD and **Start**.
+
+That's the whole thing: one download, a couple of clicks, answer the prompts.
+(Updating later = download the new AppImage and replace the old one.)
+
+> **Why a wizard?** Ripping runs through `whipper` inside a small container so
+> it never touches your system ([why](PLANNING.md)). The first-run wizard sets
+> that container up for you — the same work the scripts below do by hand.
+
+### Quickstart for testers / scripted install
+
+Prefer one command? This installs the *host stack* (Distrobox + whipper) **and**
+the GUI, plus shortcuts:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main/install.sh | bash
@@ -31,6 +55,7 @@ Then, inside the GUI: **Tools → Set up drive…** to calibrate your drive's re
 > **Already have whipper + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
 
 > Why two pieces under the hood? The GUI can't rip without the host stack — that's by design ([why](PLANNING.md)). `install.sh` just sets up both for you; you can still do each step by hand (below).
+
 
 #### Supported distributions
 
@@ -320,16 +345,9 @@ chmod +x whipper-gui-x86_64.AppImage
 ./whipper-gui-x86_64.AppImage
 ```
 
-That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so there's nothing else to install on the GUI side. (You still need the host stack from Steps 1-4 for ripping to work.)
+That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so there's nothing else to install on the GUI side. (You still need the host stack for ripping to work — the first-run wizard sets it up.)
 
-**Want a menu entry / desktop icon?** An AppImage doesn't add one itself. Use the `install-appimage.sh` helper (released alongside the AppImage):
-
-```bash
-bash install-appimage.sh                 # finds whipper-gui*.AppImage in . / ~/Downloads / ~/Applications
-bash install-appimage.sh --uninstall     # remove the menu entry + desktop icon
-```
-
-It parks the AppImage in `~/Applications/`, adds an app-menu entry and a Desktop icon (using the bundled icon), and refreshes the KDE/GNOME menu cache. Alternatively, install [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) once and it offers to integrate any AppImage you double-click.
+**Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon). Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
 > **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./whipper-gui-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 

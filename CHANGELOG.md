@@ -44,6 +44,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   documented in the workflow header. It's a separate workflow from
   `release.yml`, so a PyPI misconfiguration can't block the AppImage release.
 
+### Changed
+- **README leads with a no-terminal install.** A new "Easiest — download one
+  file, no terminal" section: download the AppImage, do the one-time "allow
+  executing" step (GUI instructions for KDE/GNOME), double-click, and answer the
+  first-run prompts (menu integration + the host-setup wizard). The scripted/
+  CLI paths remain below for testers and developers; Method A notes that
+  `install-appimage.sh` is no longer required (self-integration replaces it).
+
 ### Added
 - **AppImage self-integration on first run — no terminal (KDD-17, step 2).** The
   first time the AppImage runs, it offers to add Whipper GUI to your
