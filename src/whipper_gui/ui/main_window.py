@@ -227,7 +227,7 @@ class MainWindow(QMainWindow):
         # wizard once (dismissible). Deferred to the event loop so it appears
         # after the window is shown; in tests (no exec loop) it never fires, so
         # it can't interfere — _should_offer_drive_setup() is tested directly.
-        QTimer.singleShot(0, self._maybe_offer_drive_setup)
+        QTimer.singleShot(0, self._maybe_offer_first_run_setup)
 
     # --- Top-level lifecycle ------------------------------------------------
 
@@ -261,6 +261,12 @@ class MainWindow(QMainWindow):
         tools_menu = menubar.addMenu("&Tools")
         settings_action = tools_menu.addAction("&Settings…")
         settings_action.triggered.connect(self._on_open_settings)
+
+        # Host bootstrap (installs the whipper container stack) — the no-terminal
+        # replacement for setup-host.sh. Listed first: without it there's nothing
+        # to rip with.
+        host_setup_action = tools_menu.addAction("Set up Whipper &GUI…")
+        host_setup_action.triggered.connect(self.open_host_setup_dialog)
 
         drive_setup_action = tools_menu.addAction("Set up &drive…")
         drive_setup_action.triggered.connect(self._on_drive_setup)
@@ -689,6 +695,59 @@ class MainWindow(QMainWindow):
         if self._config.drive_setup_prompted:
             return False
         return not is_offset_configured(self._config.override_read_offset)
+
+    def _maybe_offer_first_run_setup(self) -> None:
+        """First-run offers, in dependency order.
+
+        The host stack (whipper in its container) must exist before anything
+        else works, so offer that first; only once whipper is present does the
+        drive-calibration offer make sense. Deferred to the event loop, so in
+        tests (no exec loop) neither fires — both are unit-tested directly.
+        """
+        if not self._host_stack_ready():
+            self._maybe_offer_host_setup()
+            return
+        self._maybe_offer_drive_setup()
+
+    def _host_stack_ready(self) -> bool:
+        """True if the whipper binary is present (the container stack is set up)."""
+        return Path(self._config.whipper_path).exists()
+
+    def _maybe_offer_host_setup(self) -> None:
+        """One-time, dismissible offer to run the host-setup wizard."""
+        if self._config.host_setup_prompted:
+            return
+        self._config.host_setup_prompted = True
+        self._save_config(self._config)
+        choice = QMessageBox.question(
+            self,
+            "Set up Whipper GUI",
+            "Whipper GUI needs a one-time setup to install its ripping tool "
+            "(whipper) in a small container — no terminal required. Set it up "
+            "now?\n\nYou can also do this later from Tools → Set up Whipper GUI….",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if choice == QMessageBox.StandardButton.Yes:
+            self.open_host_setup_dialog()
+
+    def open_host_setup_dialog(self) -> None:
+        """Open the host-setup wizard (Tools → Set up Whipper GUI…)."""
+        from whipper_gui.ui.host_setup_dialog import HostSetupDialog
+
+        dialog = HostSetupDialog(self)
+        dialog.setup_finished.connect(self._on_host_setup_finished)
+        dialog.exec()
+
+    def _on_host_setup_finished(self, ready: bool) -> None:
+        """After the wizard runs, re-probe the world if whipper now exists."""
+        if ready:
+            log.info("host setup reported ready — refreshing drives + deps")
+            try:
+                self.refresh_drives()
+                self.run_dependency_check(show_summary=False)
+            except Exception:  # noqa: BLE001 — best-effort refresh
+                log.exception("post-host-setup refresh failed")
 
     def _maybe_offer_drive_setup(self) -> None:
         """Show the one-time, dismissible first-run calibration offer."""

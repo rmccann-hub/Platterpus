@@ -108,6 +108,12 @@ class Config:
     # bookkeeping, not a rip parameter.
     drive_setup_prompted: bool = False
 
+    # Set once we've auto-offered the host-setup wizard on first run (when the
+    # whipper binary isn't present — the container stack isn't installed yet).
+    # Same one-time, dismissible model as drive_setup_prompted; afterwards it
+    # lives on Tools → Set up Whipper GUI….
+    host_setup_prompted: bool = False
+
     # Continue ripping a CD-R (burned disc). Whipper refuses by default
     # ("inserted disc seems to be a CD-R, --cdr not passed") because in an
     # archival workflow a burned disc is usually an accident. Off by
