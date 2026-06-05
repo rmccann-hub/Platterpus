@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Institutionalized testing strategy + stronger test infrastructure.** New
+  [`docs/testing.md`](docs/testing.md) codifies the approach (testing trophy +
+  an explicit real-hardware gate, a five-tier case taxonomy, property/golden/
+  fault-injection/mutation guidance, the non-negotiable rules, and a Definition
+  of Done). Concretely: **property-based tests** (`hypothesis`) lock in the
+  "parsers never raise on arbitrary input" invariant
+  (`tests/test_parsers_property.py`); CI now runs **branch coverage with a hard
+  `--cov-fail-under=88` gate** (baseline ~91%, ratchets up) across a **Python
+  3.11–3.13 matrix**; `pytest-cov` + `hypothesis` added to the `dev` extra and
+  `mutmut` documented as a periodic audit. Suite is now 534 tests.
 - **Ruff linter + formatter.** Adopted `ruff` (config in `pyproject.toml`:
   rules `E,F,W,I,B,UP`, `E501` off; `ruff>=0.15` in the `dev` extra) with a
   parallel `lint` job in CI running `ruff check` + `ruff format --check`. Fixed
