@@ -999,6 +999,75 @@ def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> Non
     assert window._config.drive_setup_prompted is False  # never even offered
 
 
+# --- First-run host-setup offer ------------------------------------------
+
+
+def test_host_stack_ready_reflects_whipper_path(teardown_threads, tmp_path) -> None:
+    whipper = tmp_path / "whipper"
+    window = teardown_threads(config=Config(whipper_path=str(whipper)))
+    assert window._host_stack_ready() is False
+    whipper.write_text("#!/bin/sh\n")
+    assert window._host_stack_ready() is True
+
+
+def test_first_run_offers_host_setup_when_not_ready(
+    teardown_threads, monkeypatch
+) -> None:
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_host_stack_ready", lambda: False)
+    calls: list[str] = []
+    monkeypatch.setattr(window, "_maybe_offer_host_setup", lambda: calls.append("host"))
+    monkeypatch.setattr(
+        window, "_maybe_offer_drive_setup", lambda: calls.append("drive")
+    )
+    window._maybe_offer_first_run_setup()
+    assert calls == ["host"]  # host stack first; drive offer not reached
+
+
+def test_first_run_offers_drive_setup_when_host_ready(
+    teardown_threads, monkeypatch
+) -> None:
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_host_stack_ready", lambda: True)
+    calls: list[str] = []
+    monkeypatch.setattr(window, "_maybe_offer_host_setup", lambda: calls.append("host"))
+    monkeypatch.setattr(
+        window, "_maybe_offer_drive_setup", lambda: calls.append("drive")
+    )
+    window._maybe_offer_first_run_setup()
+    assert calls == ["drive"]
+
+
+def test_maybe_offer_host_setup_records_and_opens_on_yes(
+    teardown_threads, monkeypatch
+) -> None:
+    saved: list[Config] = []
+    window = teardown_threads(
+        config=Config(host_setup_prompted=False), save_cfg=saved.append
+    )
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    opened: list[bool] = []
+    monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
+
+    window._maybe_offer_host_setup()
+
+    assert window._config.host_setup_prompted is True
+    assert saved and saved[-1].host_setup_prompted is True
+    assert opened == [True]
+
+
+def test_maybe_offer_host_setup_skips_when_already_prompted(
+    teardown_threads, monkeypatch
+) -> None:
+    window = teardown_threads(config=Config(host_setup_prompted=True))
+    opened: list[bool] = []
+    monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
+    window._maybe_offer_host_setup()
+    assert opened == []
+
+
 def _patch_force_stop(monkeypatch) -> list[dict]:
     """Record force-stop calls instead of touching a real drive/container.
 

@@ -45,6 +45,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `release.yml`, so a PyPI misconfiguration can't block the AppImage release.
 
 ### Added
+- **First-run host setup from the GUI — no terminal (KDD-17, step 1).** A new
+  **Tools → Set up Whipper GUI…** wizard (also offered automatically on first
+  launch when whipper isn't installed yet) does what `setup-host.sh` did by
+  hand: installs Distrobox + a container backend, creates the `ripping`
+  container, installs whipper into it, and exports it to the host — with live
+  per-step progress and idempotent re-runs. System-package installs use a
+  graphical **polkit** prompt (`pkexec`) instead of `sudo`, so no terminal is
+  needed; on Bazzite/Silverblue the runtime is preinstalled, so those steps are
+  skipped and nothing is prompted. Engine: `deps/host_setup.py` (injectable
+  runner, dry-run, fully unit-tested); UI: `ui/host_setup_dialog.py` +
+  `workers/host_setup_worker.py`.
 - **Read offset is now looked up by drive model (full AccurateRip list, bundled).**
   whipper's `offset find` is unreliable (it failed on a Pioneer BDR-209D even with
   a disc that's in AccurateRip). The drive-setup wizard now resolves the offset the
