@@ -73,3 +73,47 @@ def test_main_module_is_importable() -> None:
     module = importlib.reload(app_module)
     assert hasattr(module, "main")
     assert callable(module.main)
+
+
+# --- Crash handler -------------------------------------------------------
+
+
+def test_show_fatal_dialog_noops_without_qapplication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The fatal-error dialog must be safe to call when no QApplication
+    exists (the GUI itself failed to come up): it should quietly no-op
+    rather than raise — and never block on a modal exec()."""
+    from PySide6.QtWidgets import QApplication
+
+    # Force the "no QApplication" branch regardless of whether another
+    # test in this process already constructed one (which would otherwise
+    # pop a blocking modal dialog).
+    monkeypatch.setattr(QApplication, "instance", staticmethod(lambda: None))
+    app_module._show_fatal_dialog("test", RuntimeError("boom"))  # must not raise
+
+
+def test_install_excepthook_sets_and_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """_install_excepthook installs a hook that routes normal exceptions to
+    the dialog and passes KeyboardInterrupt through to the default hook."""
+    import sys
+
+    shown: list[tuple[str, BaseException]] = []
+    monkeypatch.setattr(
+        app_module, "_show_fatal_dialog", lambda title, exc: shown.append((title, exc))
+    )
+
+    original = sys.excepthook
+    try:
+        app_module._install_excepthook()
+        assert sys.excepthook is not original
+
+        err = ValueError("kaboom")
+        sys.excepthook(ValueError, err, None)
+        assert shown and shown[-1][1] is err
+
+        shown.clear()
+        sys.excepthook(KeyboardInterrupt, KeyboardInterrupt(), None)
+        assert shown == []  # KeyboardInterrupt is not routed to the dialog
+    finally:
+        sys.excepthook = original

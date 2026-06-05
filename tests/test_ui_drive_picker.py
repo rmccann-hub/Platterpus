@@ -220,6 +220,27 @@ def test_refresh_handles_whipper_error_without_crashing(
     assert seen == []
 
 
+def test_refresh_handles_unexpected_exception_without_crashing(
+    qapp: QApplication,
+) -> None:
+    # A non-WhipperError (e.g. a parser choking on unexpected whipper
+    # output) must NOT propagate out of refresh() — that's what made the
+    # whole window vanish at startup. It should degrade to a placeholder.
+    backend = _FakeBackend()
+    backend.raise_on_list(ValueError("malformed drive list"))
+    picker = DrivePicker(backend)
+    seen: list[str] = []
+    picker.drive_changed.connect(seen.append)
+
+    picker.refresh()  # must not raise
+
+    label = picker._combo.itemText(0).lower()
+    assert "error" in label
+    assert "valueerror" in label  # the type is surfaced for diagnosis
+    assert picker.current_device() is None
+    assert seen == []
+
+
 # --- Selection persistence ----------------------------------------------
 
 

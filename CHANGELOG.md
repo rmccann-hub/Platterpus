@@ -35,6 +35,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `release.yml`, so a PyPI misconfiguration can't block the AppImage release.
 
 ### Fixed
+- **The app no longer vanishes silently on a startup error.** Drive listing
+  (and the rest of startup) ran after the window was shown but outside any
+  guard, so an unexpected error — e.g. the drive-list parser choking on
+  unhandled whipper output — let the window appear and then immediately
+  disappear with nothing logged on screen. Startup is now wrapped: any
+  unexpected error (including ones raised inside a Qt slot during the event
+  loop, via a `sys.excepthook`) is logged **and shown in a dialog** with the
+  log-file path, instead of aborting the process. `DrivePicker.refresh()` also
+  now degrades any non-`WhipperError` to an "(error: …)" placeholder so a
+  drive-listing hiccup leaves a usable window.
 - **Drive-setup wizard:** the manual read-offset spinbox (and its up/down
   arrows) and the **Save offset** button are now locked while detection is
   running, so a value can't be edited/saved mid-detection and race what whipper

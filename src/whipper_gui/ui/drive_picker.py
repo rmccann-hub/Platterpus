@@ -93,11 +93,14 @@ class DrivePicker(QWidget):
             drives = self._backend.list_drives()
         except WhipperError as exc:
             log.warning("list_drives failed: %s", exc)
-            # Block signals so the placeholder doesn't fire drive_changed.
-            self._combo.blockSignals(True)
-            self._combo.clear()
-            self._combo.addItem(f"(error: {exc})", None)
-            self._combo.blockSignals(False)
+            self._show_error_placeholder(str(exc))
+            return
+        except Exception as exc:  # noqa: BLE001 — never let a drive-list
+            # hiccup (e.g. the parser choking on unexpected whipper output)
+            # take down the whole window; degrade to a placeholder the user
+            # can act on, with the full traceback in the log.
+            log.exception("list_drives raised an unexpected error")
+            self._show_error_placeholder(f"{type(exc).__name__}: {exc}")
             return
 
         # Repopulate. Block signals during the clear/add cycle so we
@@ -128,6 +131,17 @@ class DrivePicker(QWidget):
         device = self._combo.currentData()
         if device is not None:
             self.drive_changed.emit(device)
+
+    def _show_error_placeholder(self, message: str) -> None:
+        """Replace the drive list with a single non-selectable error item.
+
+        Signals are blocked so the placeholder can't fire `drive_changed`
+        into the rest of the app.
+        """
+        self._combo.blockSignals(True)
+        self._combo.clear()
+        self._combo.addItem(f"(error: {message})", None)
+        self._combo.blockSignals(False)
 
     def current_device(self) -> str | None:
         """The device path of the currently selected drive, or None."""
