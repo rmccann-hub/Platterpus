@@ -41,6 +41,33 @@ def test_on_step_appends_formatted_line(qapp: QApplication) -> None:
     assert "✓" in text
 
 
+def test_on_step_running_updates_status_not_log(qapp: QApplication) -> None:
+    dialog = _dialog(qapp)
+    dialog._on_step(
+        StepResult(
+            "tools",
+            "whipper + flac (in container)",
+            StepStatus.RUNNING,
+            "working… this can take a few minutes",
+        )
+    )
+    # RUNNING shows what's happening in the status line, not the results log.
+    assert "whipper + flac" in dialog._status_label.text()
+    assert "⏳" in dialog._status_label.text()
+    assert dialog._results.toPlainText() == ""
+
+
+def test_on_finished_all_already_present(qapp: QApplication) -> None:
+    dialog = _dialog(qapp, ready=True)
+    dialog._on_finished(
+        [
+            StepResult("distrobox", "Distrobox", StepStatus.DONE, "already present"),
+            StepResult("export", "Export", StepStatus.DONE, "already present"),
+        ]
+    )
+    assert "already set up" in dialog._status_label.text().lower()
+
+
 def test_on_step_ignored_while_closing(qapp: QApplication) -> None:
     dialog = _dialog(qapp)
     dialog._closing = True

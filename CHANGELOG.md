@@ -52,6 +52,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   CLI paths remain below for testers and developers; Method A notes that
   `install-appimage.sh` is no longer required (self-integration replaces it).
 
+### Changed
+- **Host-setup wizard: live progress + honest end states (no more "frozen / done
+  too soon").** The bootstrap engine now emits a **"⏳ currently doing X…"**
+  status *before* each step runs — so during a multi-minute image pull or
+  in-container `dnf install` the wizard shows what's happening instead of a
+  static bar that looks hung. Slow steps say "this can take a few minutes". The
+  finish message now distinguishes **"Everything was already set up — you're
+  ready to rip"** (the common Bazzite case, which previously flashed by and
+  looked like nothing happened) from a setup that actually installed things, and
+  surfaces the failed step otherwise.
+
 ### Added
 - **App shortcut: Desktop icon + a re-runnable menu action.** Self-integration
   now also drops a clickable icon in your **Desktop folder** (not just the
