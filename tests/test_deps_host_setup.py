@@ -92,6 +92,36 @@ def test_host_root_installs_use_pkexec_not_sudo(tmp_path: Path) -> None:
     assert not any(c.startswith("sudo ") for c in flat)
 
 
+# --- Live progress: a RUNNING ping precedes each executing step ----------
+
+
+def test_running_ping_emitted_before_executing_step(tmp_path: Path) -> None:
+    runner = _FakeRunner()  # nothing present → every step executes
+    emitted: list = []
+    results = _setup(tmp_path, runner).run(progress=emitted.append)
+
+    # For the first executing step, the UI saw RUNNING *before* RAN.
+    distrobox = [r.status for r in emitted if r.step_id == "distrobox"]
+    assert distrobox[0] is StepStatus.RUNNING
+    assert StepStatus.RAN in distrobox
+    # RUNNING is transient — it must NOT appear in the returned results list.
+    assert all(r.status is not StepStatus.RUNNING for r in results)
+
+
+def test_no_running_ping_for_already_done_steps(tmp_path: Path) -> None:
+    runner = _FakeRunner()
+    runner.present = {"distrobox", "podman"}
+    runner.paths = {tmp_path / "whipper"}
+    runner.results[("distrobox", "list")] = (0, "ripping\n")
+    runner.results[
+        ("distrobox", "enter", "ripping", "--", "command", "-v", "whipper")
+    ] = (0, "/usr/bin/whipper")
+    emitted: list = []
+    _setup(tmp_path, runner).run(progress=emitted.append)
+    # Nothing executed, so no RUNNING pings.
+    assert all(r.status is not StepStatus.RUNNING for r in emitted)
+
+
 # --- Idempotent: everything present → nothing runs -----------------------
 
 
