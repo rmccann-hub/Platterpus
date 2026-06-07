@@ -63,6 +63,7 @@ def test_integrate_writes_desktop_entry_and_copies_icon(tmp_path: Path) -> None:
         app_dir=appdir,
         desktop_dir=desktop_dir,
         icon_dir=icon_dir,
+        desktop_folder=None,
         refresh=lambda: refreshed.append(True),
     )
 
@@ -79,6 +80,41 @@ def test_integrate_writes_desktop_entry_and_copies_icon(tmp_path: Path) -> None:
     assert refreshed == [True]
 
 
+def test_integrate_writes_desktop_folder_shortcut(tmp_path: Path) -> None:
+    appimage = _appimage(tmp_path)
+    desktop_folder = tmp_path / "Desktop"
+    desktop_folder.mkdir()
+    ai.integrate(
+        appimage,
+        app_dir=tmp_path / "none",
+        desktop_dir=tmp_path / "applications",
+        icon_dir=tmp_path / "icons",
+        desktop_folder=desktop_folder,
+        refresh=lambda: None,
+    )
+    shortcut = desktop_folder / f"{ai.DESKTOP_ID}.desktop"
+    assert shortcut.is_file()
+    assert f'Exec="{appimage}" %U' in shortcut.read_text()
+    assert os.access(shortcut, os.X_OK)  # executable so launchers accept it
+
+
+def test_integrate_skips_desktop_shortcut_when_no_desktop_folder(
+    tmp_path: Path,
+) -> None:
+    appimage = _appimage(tmp_path)
+    missing = tmp_path / "no-desktop-here"  # does not exist
+    # Must not raise, and must not create the folder.
+    ai.integrate(
+        appimage,
+        app_dir=tmp_path / "none",
+        desktop_dir=tmp_path / "applications",
+        icon_dir=tmp_path / "icons",
+        desktop_folder=missing,
+        refresh=lambda: None,
+    )
+    assert not missing.exists()
+
+
 def test_integrate_without_icon_uses_stock_name(tmp_path: Path) -> None:
     appimage = _appimage(tmp_path)
     target = ai.integrate(
@@ -86,6 +122,7 @@ def test_integrate_without_icon_uses_stock_name(tmp_path: Path) -> None:
         app_dir=tmp_path / "empty",  # no icon present
         desktop_dir=tmp_path / "apps",
         icon_dir=tmp_path / "ic",
+        desktop_folder=None,
         refresh=lambda: None,
     )
     assert "Icon=media-optical" in target.read_text()
@@ -104,6 +141,7 @@ def test_is_integrated_matches_exec_path(tmp_path: Path) -> None:
         app_dir=None,
         desktop_dir=desktop_dir,
         icon_dir=tmp_path / "icons",
+        desktop_folder=None,
         refresh=lambda: None,
     )
     assert ai.is_integrated(appimage, desktop_dir) is True

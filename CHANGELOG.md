@@ -53,6 +53,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `install-appimage.sh` is no longer required (self-integration replaces it).
 
 ### Added
+- **App shortcut: Desktop icon + a re-runnable menu action.** Self-integration
+  now also drops a clickable icon in your **Desktop folder** (not just the
+  applications menu), and there's a **Tools → Add app shortcut** action so you
+  can (re)create the menu + desktop shortcut any time — the first-run offer was
+  one-shot, so a dismissed prompt previously left no way to redo it. GNOME
+  desktop icons are marked trusted (best-effort) so they launch on double-click.
 - **AppImage self-integration on first run — no terminal (KDD-17, step 2).** The
   first time the AppImage runs, it offers to add Whipper GUI to your
   applications menu (writes a `.desktop` entry pointing at the AppImage, drops

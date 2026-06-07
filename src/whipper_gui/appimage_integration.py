@@ -38,6 +38,9 @@ _DISPLAY_NAME = "Whipper GUI"
 _DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
 DESKTOP_DIR = _DATA_HOME / "applications"
 ICON_DIR = _DATA_HOME / "icons"
+# The user's Desktop folder (for a clickable desktop icon, in addition to the
+# applications-menu entry). Plain ~/Desktop matches dev-setup.sh's behaviour.
+DESKTOP_FOLDER = Path.home() / "Desktop"
 
 
 def appimage_path() -> Path | None:
@@ -135,18 +138,20 @@ def integrate(
     app_dir: Path | None = None,
     desktop_dir: Path = DESKTOP_DIR,
     icon_dir: Path = ICON_DIR,
+    desktop_folder: Path | None = DESKTOP_FOLDER,
     refresh: Callable[[], None] | None = None,
 ) -> Path:
     """Install a menu entry + icon for `appimage`. Returns the .desktop path.
 
     Idempotent: re-running just rewrites the entry. Ensures the AppImage is
-    executable (so the menu entry can launch it), copies the bundled icon to
-    the user icon dir when found, and refreshes the menu caches.
+    executable (so launchers can run it), copies the bundled icon to the user
+    icon dir when found, drops a clickable icon in the Desktop folder (when one
+    exists), and refreshes the menu caches.
     """
     desktop_dir.mkdir(parents=True, exist_ok=True)
     icon_dir.mkdir(parents=True, exist_ok=True)
 
-    # The menu entry can only launch the AppImage if it's executable.
+    # Launchers can only run the AppImage if it's executable.
     try:
         mode = appimage.stat().st_mode
         appimage.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
@@ -164,9 +169,41 @@ def integrate(
         except OSError:
             log.warning("could not copy icon from %s", bundled, exc_info=True)
 
+    contents = _desktop_contents(appimage, icon_value)
     target = _desktop_file(desktop_dir)
-    target.write_text(_desktop_contents(appimage, icon_value), encoding="utf-8")
+    target.write_text(contents, encoding="utf-8")
     log.info("integrated AppImage: wrote %s", target)
+
+    # Also drop a clickable icon on the Desktop (only if the user has a Desktop
+    # folder — don't create one). Mark it executable; GNOME may still need a
+    # one-time right-click "Allow Launching", KDE shows it directly.
+    if desktop_folder is not None and desktop_folder.is_dir():
+        try:
+            shortcut = desktop_folder / f"{DESKTOP_ID}.desktop"
+            shortcut.write_text(contents, encoding="utf-8")
+            shortcut.chmod(0o755)
+            _mark_trusted(shortcut)
+            log.info("wrote desktop shortcut %s", shortcut)
+        except OSError:
+            log.warning("could not write desktop shortcut", exc_info=True)
 
     (refresh or _default_refresh)()
     return target
+
+
+def _mark_trusted(shortcut: Path) -> None:
+    """Best-effort: tell GNOME the .desktop is trusted so it launches on
+    double-click without the 'Untrusted application launcher' prompt. No-op
+    where `gio` is absent (e.g. KDE, which doesn't need it)."""
+    if shutil.which("gio") is None:
+        return
+    try:
+        subprocess.run(
+            ["gio", "set", str(shortcut), "metadata::trusted", "true"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        log.debug("gio trust failed", exc_info=True)
