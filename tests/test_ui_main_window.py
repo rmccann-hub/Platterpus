@@ -1122,6 +1122,38 @@ def test_integration_offer_skips_when_already_prompted(
     assert integrated == []
 
 
+def test_add_app_shortcut_integrates_when_appimage(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    import whipper_gui.appimage_integration as ai
+
+    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
+    appimage.write_bytes(b"x")
+    monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
+    integrated: list[Path] = []
+    monkeypatch.setattr(ai, "integrate", lambda p: integrated.append(p))
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    window = teardown_threads()
+
+    window._on_add_app_shortcut()
+
+    assert integrated == [appimage]
+
+
+def test_add_app_shortcut_noop_when_not_appimage(teardown_threads, monkeypatch) -> None:
+    import whipper_gui.appimage_integration as ai
+
+    monkeypatch.setattr(ai, "appimage_path", lambda: None)
+    integrated: list[bool] = []
+    monkeypatch.setattr(ai, "integrate", lambda *a, **k: integrated.append(True))
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    window = teardown_threads()
+
+    window._on_add_app_shortcut()  # explains, doesn't integrate
+
+    assert integrated == []
+
+
 def _patch_force_stop(monkeypatch) -> list[dict]:
     """Record force-stop calls instead of touching a real drive/container.
 
