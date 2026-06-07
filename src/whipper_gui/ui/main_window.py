@@ -439,6 +439,13 @@ class MainWindow(QMainWindow):
                 self._on_drive_setup()
             return
 
+        # The offset is configured now — but `params` was built by the rip
+        # controls BEFORE any auto-apply above, so it may still carry
+        # read_offset_override=None. Inject it here so whipper actually gets
+        # `--offset` (otherwise it aborts with "drive offset unconfigured").
+        if self._config.override_read_offset and params.read_offset_override is None:
+            params = replace(params, read_offset_override=self._config.read_offset)
+
         # Only validate the track table for non-unknown rips — placeholder
         # tags will be applied after the fact in unknown mode.
         if not params.unknown:
