@@ -438,6 +438,105 @@ def test_rip_requested_blocked_when_no_read_offset(
     assert opened == [True]  # answering Yes opened the wizard
 
 
+def test_auto_apply_known_offset_for_known_drive(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A drive whose offset is in the AccurateRip list is applied automatically
+    (no wizard) — the user's Pioneer resolves to +667."""
+    saved: list[Config] = []
+    window = teardown_threads(save_cfg=saved.append)
+    monkeypatch.setattr(
+        window._drive_picker,
+        "current_drive",
+        lambda: DriveDescriptor(
+            device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
+        ),
+    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+
+    assert window._auto_apply_known_offset() is True
+    assert window._config.override_read_offset is True
+    assert window._config.read_offset == 667
+    assert saved and saved[-1].read_offset == 667
+
+
+def test_auto_apply_returns_false_for_unknown_or_no_drive(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = teardown_threads()
+    # No drive selected.
+    monkeypatch.setattr(window._drive_picker, "current_drive", lambda: None)
+    assert window._auto_apply_known_offset() is False
+    # Unknown drive model.
+    monkeypatch.setattr(
+        window._drive_picker,
+        "current_drive",
+        lambda: DriveDescriptor(
+            device="/dev/sr0", vendor="ACME", model="Frobnicator 9000", release="1"
+        ),
+    )
+    assert window._auto_apply_known_offset() is False
+    assert window._config.override_read_offset is False  # nothing applied
+
+
+def test_rip_not_blocked_when_drive_offset_is_known(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Start with no saved offset but a known drive → auto-apply + rip proceeds,
+    no 'set up your drive' warning."""
+    import whipper_gui.ui.main_window as mw
+
+    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
+
+    backend = _FakeBackend()
+
+    class _StubHandle:
+        def log_lines(self):
+            return iter(())
+
+        def wait(self, timeout=None):
+            return 0
+
+        def cancel(self, term_timeout: float = 5.0):
+            return -15
+
+    backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
+    window = teardown_threads(backend=backend)
+    monkeypatch.setattr(
+        window._drive_picker,
+        "current_drive",
+        lambda: DriveDescriptor(
+            device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
+        ),
+    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    warned: list[bool] = []
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window.QMessageBox.warning",
+        lambda *a, **k: warned.append(True),
+    )
+
+    from whipper_gui.workers.rip_worker import RipParameters
+
+    window._on_rip_requested(
+        RipParameters(
+            drive="/dev/sr0",
+            release_id="",
+            output_dir=Path("/tmp/x"),
+            track_template="t",
+            disc_template="d",
+            unknown=True,
+        )
+    )
+
+    assert warned == []  # not blocked
+    assert window._config.read_offset == 667  # auto-applied
+    assert window._rip_worker is not None  # rip started
+    if window._rip_thread is not None and window._rip_thread.isRunning():
+        window._rip_thread.quit()
+        window._rip_thread.wait(2000)
+
+
 # --- closeEvent ----------------------------------------------------------
 
 
