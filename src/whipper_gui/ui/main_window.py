@@ -268,6 +268,11 @@ class MainWindow(QMainWindow):
         host_setup_action = tools_menu.addAction("Set up Whipper &GUI…")
         host_setup_action.triggered.connect(self.open_host_setup_dialog)
 
+        # Re-runnable menu/desktop integration (the first-run offer is one-shot;
+        # this lets the user (re)create the shortcut any time).
+        shortcut_action = tools_menu.addAction("Add &app shortcut")
+        shortcut_action.triggered.connect(self._on_add_app_shortcut)
+
         drive_setup_action = tools_menu.addAction("Set up &drive…")
         drive_setup_action.triggered.connect(self._on_drive_setup)
 
@@ -712,6 +717,45 @@ class MainWindow(QMainWindow):
             self._maybe_offer_host_setup()
             return
         self._maybe_offer_drive_setup()
+
+    def _on_add_app_shortcut(self) -> None:
+        """Tools → Add app shortcut: (re)create the menu entry + desktop icon.
+
+        Always available, so a user who dismissed the first-run offer (or whose
+        menu cache went stale) can redo it. Only meaningful for the AppImage —
+        source/pipx installs get their launcher from dev-setup.sh.
+        """
+        from whipper_gui import appimage_integration as ai
+
+        appimage = ai.appimage_path()
+        if appimage is None:
+            QMessageBox.information(
+                self,
+                "Add app shortcut",
+                "This adds a menu/desktop shortcut for the AppImage. You're not "
+                "running the AppImage build, so there's nothing to add — a source "
+                "or pipx install already provides a launcher.",
+            )
+            return
+        try:
+            ai.integrate(appimage)
+            self._config.appimage_integration_prompted = True
+            self._save_config(self._config)
+            QMessageBox.information(
+                self,
+                "Shortcut added",
+                "Added Whipper GUI to your applications menu and your Desktop. "
+                "If the Desktop icon shows as untrusted, right-click it and "
+                "choose “Allow Launching” (GNOME).",
+            )
+        except Exception:  # noqa: BLE001 — convenience action
+            log.exception("manual AppImage integration failed")
+            QMessageBox.warning(
+                self,
+                "Couldn't add shortcut",
+                "Adding the shortcut didn't work, but the app still runs from "
+                "the AppImage file.",
+            )
 
     def _maybe_offer_appimage_integration(self) -> None:
         """One-time offer (first AppImage run) to add a menu entry + icon."""
