@@ -489,6 +489,7 @@ def test_rip_not_blocked_when_drive_offset_is_known(
     monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
 
     backend = _FakeBackend()
+    rip_kwargs: list[dict] = []
 
     class _StubHandle:
         def log_lines(self):
@@ -500,7 +501,11 @@ def test_rip_not_blocked_when_drive_offset_is_known(
         def cancel(self, term_timeout: float = 5.0):
             return -15
 
-    backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
+    def _fake_rip(**kw):
+        rip_kwargs.append(kw)
+        return _StubHandle()
+
+    backend.rip = _fake_rip  # type: ignore[assignment]
     window = teardown_threads(backend=backend)
     monkeypatch.setattr(
         window._drive_picker,
@@ -532,9 +537,11 @@ def test_rip_not_blocked_when_drive_offset_is_known(
     assert warned == []  # not blocked
     assert window._config.read_offset == 667  # auto-applied
     assert window._rip_worker is not None  # rip started
+    # Crucially, whipper actually receives the offset (regression for the
+    # "drive offset unconfigured" bug — params were built before auto-apply).
     if window._rip_thread is not None and window._rip_thread.isRunning():
-        window._rip_thread.quit()
         window._rip_thread.wait(2000)
+    assert rip_kwargs and rip_kwargs[0].get("read_offset_override") == 667
 
 
 # --- closeEvent ----------------------------------------------------------
