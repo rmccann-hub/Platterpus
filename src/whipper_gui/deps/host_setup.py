@@ -46,6 +46,7 @@ _STEP_TIMEOUT_S: float = 1800.0
 class StepStatus(Enum):
     """Outcome of one bootstrap step."""
 
+    RUNNING = "running"  # step is executing now (transient, for live progress)
     DONE = "done"  # already satisfied — nothing to do
     RAN = "ran"  # action ran successfully
     FAILED = "failed"  # action ran and failed (stops the pipeline)
@@ -302,10 +303,15 @@ class HostSetup:
         """
         results: list[StepResult] = []
 
-        def record(r: StepResult) -> None:
-            results.append(r)
+        def notify(r: StepResult) -> None:
+            """Push a status update to the UI without recording it as a final
+            result (used for the transient RUNNING ping)."""
             if progress is not None:
                 progress(r)
+
+        def record(r: StepResult) -> None:
+            results.append(r)
+            notify(r)
 
         stop = False
         for step_id in self.STEP_IDS:
@@ -337,6 +343,14 @@ class HostSetup:
                 detail = "; ".join(" ".join(c) for c in commands)
                 record(StepResult(step_id, title, StepStatus.WOULD_RUN, detail))
                 continue
+            # Live "currently working" ping BEFORE the (often slow) command, so
+            # the UI shows what's happening instead of freezing during a multi-
+            # minute image pull or dnf install.
+            notify(
+                StepResult(
+                    step_id, title, StepStatus.RUNNING, self._running_hint(step_id)
+                )
+            )
             ok, detail = self._run_commands(commands)
             if ok:
                 record(StepResult(step_id, title, StepStatus.RAN, detail))
@@ -344,6 +358,13 @@ class HostSetup:
                 record(StepResult(step_id, title, StepStatus.FAILED, detail))
                 stop = True
         return results
+
+    @staticmethod
+    def _running_hint(step_id: str) -> str:
+        """Reassuring sub-text for a step that's actively running."""
+        if step_id in ("container", "tools"):
+            return "working… this can take a few minutes (downloading + installing)"
+        return "working…"
 
     def _run_commands(self, commands: list[list[str]]) -> tuple[bool, str]:
         """Run each argv in order; stop at the first non-zero exit."""
