@@ -53,6 +53,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `install-appimage.sh` is no longer required (self-integration replaces it).
 
 ### Changed
+- **Ripping no longer demands the wizard when the drive's offset is already
+  known.** If you hit Start without a saved offset but your drive is in the
+  bundled AccurateRip list, the GUI now **applies that offset automatically**
+  (your Pioneer → +667), tells you once where it came from, and lets the rip
+  proceed — instead of blocking and sending you to the drive-setup wizard. Only
+  a genuinely unknown drive still needs the wizard. (The manual/wizard-saved
+  offset path is unchanged: set it once, then you're good.)
 - **Host-setup wizard: live progress + honest end states (no more "frozen / done
   too soon").** The bootstrap engine now emits a **"⏳ currently doing X…"**
   status *before* each step runs — so during a multi-minute image pull or

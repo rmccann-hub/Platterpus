@@ -415,17 +415,22 @@ class MainWindow(QMainWindow):
         # than letting the rip start and fail. The wizard pre-fills the offset
         # when the drive model is known; otherwise it's found from a CD that's
         # in the AccurateRip database.
-        if not is_offset_configured(self._config.override_read_offset):
+        if (
+            not is_offset_configured(self._config.override_read_offset)
+            and not self._auto_apply_known_offset()
+        ):
+            # No offset configured AND we don't know this drive's offset →
+            # the only case that still needs the wizard. (A known drive is
+            # auto-applied above, so the user is never blocked for it.)
             answer = QMessageBox.warning(
                 self,
                 "Set up your drive first",
                 "No read offset is configured for your drive, so ripping can't "
                 "start — an accurate read offset is what makes the rip "
                 "bit-perfect.\n\n"
-                "Open Tools → Set up drive… — it fills in your drive's "
-                "offset automatically if the model is known. If it isn't, insert "
-                "a CD that's in the AccurateRip database and click Detect to find "
-                "the offset, then Save.\n\n"
+                "Open Tools → Set up drive… and either accept the offset it "
+                "fills in, or insert a CD that's in the AccurateRip database and "
+                "click Detect, then Save.\n\n"
                 "Open the drive-setup wizard now?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
@@ -856,17 +861,44 @@ class MainWindow(QMainWindow):
             self._on_drive_setup()
 
     def _on_manual_offset_saved(self, value: int) -> None:
-        """Store a hand-entered read offset as the GUI's --offset override.
+        """Store a hand-entered read offset as the GUI's --offset override."""
+        self._set_read_offset_override(value)
+        log.info("manual read offset saved: %+d", value)
 
-        This is the fallback when auto-detection can't run (no AccurateRip
-        disc). We persist it to our own config and pass it as `--offset` at
-        rip time, so whipper.conf is never hand-authored (KDD-15).
-        """
+    def _set_read_offset_override(self, value: int) -> None:
+        """Persist `value` as the GUI's `--offset` override and push it into the
+        rip controls. This is the single place that records "the offset is now
+        configured" (so whipper.conf is never hand-authored, KDD-15)."""
         self._config.read_offset = value
         self._config.override_read_offset = True
         self._rip_controls.set_config(self._config)
         self._save_config(self._config)
-        log.info("manual read offset saved: %+d", value)
+
+    def _auto_apply_known_offset(self) -> bool:
+        """If the selected drive's offset is known (AccurateRip list), apply it
+        and return True so the rip can proceed — no wizard, asked at most once.
+
+        Returns False when there's no selected drive or its offset is unknown,
+        so the caller falls back to the set-up-your-drive prompt.
+        """
+        drive = self._drive_picker.current_drive()
+        if drive is None:
+            return False
+        known = self._offset_db.lookup(drive.vendor, drive.model)
+        if known is None:
+            return False
+        label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
+        self._set_read_offset_override(known)
+        log.info("auto-applied known read offset %+d for %s", known, label)
+        # Tell the user once where the value came from (and that it's editable).
+        QMessageBox.information(
+            self,
+            "Read offset set automatically",
+            f"Using read offset {known:+d} for {label}, from the AccurateRip "
+            "drive list — no setup needed. You can change it any time in "
+            "Settings or Tools → Set up drive….",
+        )
+        return True
 
     # --- Slots: drive-access diagnostics -----------------------------------
 
