@@ -136,8 +136,17 @@ class HostSetupDialog(QDialog):
         self._thread.start()
 
     def _on_step(self, result: StepResult) -> None:
-        """Append a live line as each step completes. Safe to call in tests."""
+        """Update progress as steps run/complete. Safe to call in tests.
+
+        A RUNNING ping shows what's happening *now* in the status line (so a
+        slow step never looks frozen); terminal results append a ✓/✗ line to
+        the log so the user sees what's been done.
+        """
         if self._closing:
+            return
+        if result.status is StepStatus.RUNNING:
+            hint = f" — {result.detail}" if result.detail else ""
+            self._status_label.setText(f"⏳ {result.title}{hint}")
             return
         glyph = _STATUS_GLYPH.get(result.status, "•")
         line = f"{glyph} {result.title}"
@@ -153,7 +162,17 @@ class HostSetupDialog(QDialog):
         self._setup_button.setEnabled(True)
         self._setup_button.setText("Re-run setup")
         ready = self._host.is_ready()
-        if ready:
+        # Distinguish "nothing to do" (everything was already present — common
+        # on Bazzite, and otherwise looks like the wizard did nothing) from a
+        # setup that actually installed things.
+        all_already = bool(results) and all(
+            r.status is StepStatus.DONE for r in results
+        )
+        if ready and all_already:
+            self._status_label.setText(
+                "✓ Everything was already set up — you're ready to rip."
+            )
+        elif ready:
             self._status_label.setText(
                 "✓ Setup complete — whipper is installed. You can rip now."
             )
