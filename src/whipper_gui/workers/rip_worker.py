@@ -87,6 +87,15 @@ _NAMED_PHASES: dict[str, str] = {
     "Embed picture to FLAC": "Finalizing track…",
 }
 
+# whipper aborts with one of these when it can't fetch online metadata (e.g.
+# the container has no network) and wasn't told the disc is "unknown". We
+# detect it so the GUI can auto-retry as an unknown-album rip — which needs no
+# network — and tag locally afterward from the metadata it already has.
+_NO_METADATA_MARKERS: tuple[str, ...] = (
+    "--unknown argument not passed",
+    "unable to retrieve disc metadata",
+)
+
 
 class RipWorker(QObject):
     """QObject worker that owns a rip subprocess for its lifetime.
@@ -141,6 +150,16 @@ class RipWorker(QObject):
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
         self._cancelled: bool = False
+        # Set true if whipper aborts for lack of online metadata, so the GUI
+        # can heal by retrying as an unknown-album rip. Only meaningful when
+        # this rip wasn't already unknown.
+        self._needs_unknown_retry: bool = False
+
+    @property
+    def needs_unknown_retry(self) -> bool:
+        """True if the rip failed because whipper couldn't fetch online
+        metadata (and this wasn't already an unknown-album rip)."""
+        return self._needs_unknown_retry
 
     # --- Slots ---
 
@@ -180,6 +199,13 @@ class RipWorker(QObject):
                 if self._cancelled:
                     break
                 self.log_line.emit(line)
+                # Watch for whipper's "no online metadata" abort so the GUI
+                # can heal by re-ripping as unknown (only worth it if this
+                # rip wasn't already unknown).
+                if not self._params.unknown and any(
+                    m in line for m in _NO_METADATA_MARKERS
+                ):
+                    self._needs_unknown_retry = True
                 # Status text first (covers the pre-track disc scan and
                 # the encode/tag sub-phases), then the numeric progress
                 # that drives the bar.
