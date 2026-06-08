@@ -169,6 +169,8 @@ class MainWindow(QMainWindow):
         # Set when the user hits Cancel, so the finish handler reports a
         # cancellation rather than a failure.
         self._rip_cancelled: bool = False
+        # Guards the one-shot auto-heal (rip-as-unknown) per Start.
+        self._auto_retry_done: bool = False
         # Auto-escalation: after Cancel, if the in-container reader keeps the
         # drive spinning, force-stop it once the countdown elapses. Guard so
         # we force-stop at most once per cancel.
@@ -454,35 +456,46 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Cannot start rip", message)
                 return
         else:
-            # Unknown disc: name the folder from the album fields the user
-            # typed (e.g. "jimmy2/for/…") instead of the literal
-            # "Unknown Artist/Unknown Album". whipper's %A/%d would be the
-            # disc-ID hash here, so we inject the (sanitized) literals
-            # directly; blanks fall back to the Unknown placeholders.
-            album = self._track_table.album_metadata()
-            artist = _safe_path_segment(album.artist) or "Unknown Artist"
-            title = _safe_path_segment(album.title) or "Unknown Album"
-            params = replace(
-                params,
-                track_template=f"{artist}/{title}/%t - Track %t",
-                disc_template=f"{artist}/{title}/{title}",
-            )
+            # Unknown disc: build the output templates from the album fields
+            # (the literals, not whipper's %A/%d disc-ID hash).
+            params = self._as_unknown_params(params)
 
         self._rip_progress.clear()
         self._rip_progress.set_status("Starting rip…")
-        self._rip_controls.set_rip_active(True)
-
-        # Remember the params so the finish handler can run unknown-mode
-        # post-processing (tag the FLACs from the track table) against the
-        # right output directory.
-        self._active_rip_params = params
         # Cleared here, set in _on_rip_cancel — so the finish handler can
         # say "cancelled" instead of "failed".
         self._rip_cancelled = False
+        # Allow exactly one auto-heal retry (rip-as-unknown) per Start, so a
+        # persistent failure can't loop.
+        self._auto_retry_done = False
         # Disarm any pending auto-force-stop from a previous cancel, so its
         # countdown can't fire into this fresh rip.
         self._force_stop_timer.stop()
         self._force_stop_done = False
+
+        self._start_rip_worker(params)
+
+    def _as_unknown_params(self, params: RipParameters) -> RipParameters:
+        """Return `params` rewritten for an unknown-album rip: `--unknown`,
+        no release-id (so whipper needs no network), and output templates
+        built from the album fields the user sees (blanks → Unknown)."""
+        album = self._track_table.album_metadata()
+        artist = _safe_path_segment(album.artist) or "Unknown Artist"
+        title = _safe_path_segment(album.title) or "Unknown Album"
+        return replace(
+            params,
+            unknown=True,
+            release_id="",
+            track_template=f"{artist}/{title}/%t - Track %t",
+            disc_template=f"{artist}/{title}/{title}",
+        )
+
+    def _start_rip_worker(self, params: RipParameters) -> None:
+        """Spin up the rip worker thread for `params`. Shared by the initial
+        Start and the auto-heal retry, so both wire signals identically."""
+        self._rip_controls.set_rip_active(True)
+        # Remember the params so the finish handler knows the mode + output dir.
+        self._active_rip_params = params
 
         self._rip_worker = RipWorker(self._backend, params)
         self._rip_thread = QThread(self)
@@ -491,8 +504,7 @@ class MainWindow(QMainWindow):
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
         self._rip_worker.status.connect(self._rip_progress.set_status)
-        # Follow the rip in the track table — highlight the row whipper is
-        # currently working on so the user can see progress track by track.
+        # Follow the rip in the track table — highlight the row whipper is on.
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
@@ -587,6 +599,33 @@ class MainWindow(QMainWindow):
     def _on_rip_finished(self, success: bool, log_path: str) -> None:
         """The rip subprocess exited."""
         log.info("rip finished: success=%s log=%s", success, log_path)
+
+        # Autonomous heal: whipper aborts when it can't fetch online metadata
+        # (e.g. the container has no network). The GUI already has the metadata
+        # (its own host-side MusicBrainz lookup), so re-rip as unknown-album —
+        # which needs no network — and tag locally afterward. Once per Start.
+        needs_retry = bool(self._rip_worker and self._rip_worker.needs_unknown_retry)
+        params = self._active_rip_params
+        if (
+            not success
+            and not self._rip_cancelled
+            and needs_retry
+            and params is not None
+            and not params.unknown
+            and not self._auto_retry_done
+        ):
+            self._auto_retry_done = True
+            log.info("rip lacked online metadata — auto-retrying as unknown-album")
+            self._rip_progress.set_status(
+                "The ripper couldn't reach MusicBrainz — re-ripping without "
+                "online metadata and tagging from what's on screen…"
+            )
+            unknown_params = self._as_unknown_params(params)
+            # Defer so the just-finished thread fully unwinds before we start
+            # a new worker/thread.
+            QTimer.singleShot(0, lambda: self._start_rip_worker(unknown_params))
+            return
+
         self._rip_controls.set_rip_active(False)
         # Default status; replaced with a fidelity summary below if the
         # rip succeeded and we can parse its log. Distinguish a user
