@@ -115,6 +115,52 @@ whether cyanrip exposes everything we surface (pregap/HTOA, CD-TEXT, per-track
 test+copy CRC, the sidecars); offset handling (cyanrip also needs an offset —
 reinforcing the auto-lookup win above).
 
+## Phase 1 — IMPLEMENTED (2026-06-08): `adapters/cyanrip_backend.py`
+
+Hardware testing confirmed whipper's cd-paranoia **>587 read-offset bug** (its
+own warning) fails tracks on the BDR-209D (+667) — the concrete trigger to start
+this. Shipped a tested core behind the `WhipperBackend` ABC, selectable via
+`Config.ripper_backend` ("whipper" default | "cyanrip"); `app.py` constructs the
+chosen backend.
+
+**cyanrip CLI → our needs (from its README):**
+
+| Need | cyanrip flag |
+|---|---|
+| device | `-d <dev>` |
+| read offset (samples) | `-s <n>` — **applied by cyanrip's own paranoia, no >587 bug** |
+| output format | `-o flac` (default) |
+| retries | `-r <n>` (default 10) |
+| rip without metadata (unknown) | `-N` (disable MusicBrainz) |
+| cover art | `-C <path/url>` embed; `-G` disable embed; `-U` disable CAA |
+| info only | `-I` |
+| find offset | `-f` |
+| version | `-V` |
+| dir/file naming | `-D` / `-F` schemes (relative to CWD) |
+
+**Phase-1 scope (tested with a fake runner / injected fs):** the rip argv
+builder (`-d/-s/-o flac/-r/-N/-G`, run with `cwd=output_dir`), `version`,
+`find_offset` (`-f`), and a backend-independent drive scan (`/dev/sr*` +
+sysfs vendor/model/rev — cyanrip has no list-drives command).
+
+**Remaining (phases 2+):**
+1. **`disc_info` parsing** — parse `cyanrip -I` for the MB/CDDB IDs + track
+   count (Phase 1 returns an empty DiscInfo; the GUI's own host-side MB lookup
+   + unknown-mode already covers ripping).
+2. **Naming-template mapping** — translate our `track_template`/`disc_template`
+   (whipper `%A/%d/%t` syntax) to cyanrip's `-D/-F` scheme tokens. Phase 1 uses
+   cyanrip defaults.
+3. **Metadata model** — whipper takes `--release-id`; cyanrip does its own
+   MusicBrainz lookup (or `-N` + manual `-a`/`-t`). Decide whether to let
+   cyanrip self-lookup or feed it the GUI's metadata via `-a`/`-t`.
+4. **Settings UI toggle** for `ripper_backend` (config field exists; not yet
+   surfaced in the dialog).
+5. **Container packaging** of cyanrip (AUR has it; Fedora-toolbox via COPR or
+   build — the host-setup wizard would need a cyanrip path).
+6. **Hardware parity run** — same disc through both backends; compare CRCs, and
+   confirm cyanrip rips the BDR-209D's offset-667 tracks that whipper's >587 bug
+   fails.
+
 ---
 
 ## Sources
