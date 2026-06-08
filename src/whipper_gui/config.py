@@ -82,6 +82,12 @@ class Config:
     whipper_path: str = field(default_factory=lambda: str(WHIPPER_BINARY_DEFAULT))
     metaflac_path: str = "metaflac"  # relies on PATH by default
 
+    # Which ripping backend to drive. "whipper" (default) or "cyanrip" — the
+    # actively-maintained successor whose paranoia avoids whipper's >587
+    # read-offset bug (KDD-18). Selectable here so swapping is a config change,
+    # not a code change; the GUI exposes it once the cyanrip impl is complete.
+    ripper_backend: str = "whipper"
+
     # --- Rip parameters ---
     # Informational only; whipper.conf is authoritative per the brief.
     # Surfaced here so Settings can display what the GUI thinks is in
