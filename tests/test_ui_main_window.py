@@ -544,6 +544,69 @@ def test_rip_not_blocked_when_drive_offset_is_known(
     assert rip_kwargs and rip_kwargs[0].get("read_offset_override") == 667
 
 
+def test_auto_heal_retries_as_unknown_on_no_metadata_failure(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed known rip that flagged needs_unknown_retry triggers one
+    rip-as-unknown retry."""
+    from types import SimpleNamespace
+
+    from whipper_gui.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    # Simulate the just-finished worker reporting it needs a heal.
+    window._rip_worker = SimpleNamespace(needs_unknown_retry=True)  # type: ignore[assignment]
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    window._rip_cancelled = False
+    window._auto_retry_done = False
+
+    retried: list[RipParameters] = []
+    monkeypatch.setattr(window, "_start_rip_worker", lambda p: retried.append(p))
+    # The retry is deferred via QTimer.singleShot; call synchronously instead.
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window.QTimer.singleShot", lambda _ms, fn: fn()
+    )
+
+    window._on_rip_finished(False, "")
+
+    assert window._auto_retry_done is True
+    assert len(retried) == 1
+    assert retried[0].unknown is True  # retried as unknown-album
+    assert retried[0].release_id == ""  # no release-id → no network needed
+
+
+def test_no_auto_heal_when_not_flagged(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from whipper_gui.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(needs_unknown_retry=False)  # type: ignore[assignment]
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    window._rip_cancelled = False
+    window._auto_retry_done = False
+    retried: list = []
+    monkeypatch.setattr(window, "_start_rip_worker", lambda p: retried.append(p))
+    window._on_rip_finished(False, "")
+    assert retried == []  # ordinary failure → no heal
+
+
 # --- closeEvent ----------------------------------------------------------
 
 
