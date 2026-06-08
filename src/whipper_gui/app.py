@@ -127,12 +127,27 @@ def main(argv: list[str] | None = None) -> int:
         # tool is reached through an adapter constructed exactly once here.
         from whipper_gui.adapters.metaflac import MetaflacAdapter
         from whipper_gui.adapters.musicbrainz_client import MusicBrainzNgsImpl
-        from whipper_gui.adapters.whipper_backend import WhipperHostExportedImpl
-
-        backend = WhipperHostExportedImpl(
-            binary_path=Path(cfg.whipper_path),
-            working_dir=Path(cfg.working_dir) if cfg.working_dir else None,
+        from whipper_gui.adapters.whipper_backend import (
+            WhipperBackend,
+            WhipperHostExportedImpl,
         )
+
+        # Ripping backend is config-selectable (KDD-18): whipper (default) or
+        # cyanrip. Both implement the same ABC, so the rest of the app is
+        # backend-agnostic.
+        backend: WhipperBackend
+        if cfg.ripper_backend == "cyanrip":
+            from whipper_gui.adapters.cyanrip_backend import CyanripImpl
+
+            backend = CyanripImpl(
+                working_dir=Path(cfg.working_dir) if cfg.working_dir else None,
+            )
+            log.info("using cyanrip backend")
+        else:
+            backend = WhipperHostExportedImpl(
+                binary_path=Path(cfg.whipper_path),
+                working_dir=Path(cfg.working_dir) if cfg.working_dir else None,
+            )
         mb_client = MusicBrainzNgsImpl(
             app="whipper-gui",
             version=__version__,
