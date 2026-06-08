@@ -52,6 +52,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   CLI paths remain below for testers and developers; Method A notes that
   `install-appimage.sh` is no longer required (self-integration replaces it).
 
+### Added
+- **Autonomous heal when the ripper can't reach MusicBrainz.** whipper inside the
+  container aborts (`unable to retrieve disc metadata, --unknown argument not
+  passed`) when it has no network — even for a known disc, because it fetches the
+  release online. The GUI already has the metadata from its own host-side lookup,
+  so on that specific failure it now **automatically re-rips as an unknown-album
+  rip** (`--unknown`, no release-id → no network needed) and tags the FLACs
+  locally from the on-screen track list. One retry per Start; surfaced in the
+  status line. The `RipWorker` watches whipper's output for the marker.
+
 ### Changed
 - **Ripping no longer demands the wizard when the drive's offset is already
   known.** If you hit Start without a saved offset but your drive is in the

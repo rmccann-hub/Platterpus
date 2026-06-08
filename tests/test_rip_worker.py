@@ -208,6 +208,43 @@ def test_finished_reports_failure_on_nonzero_exit(
     assert sigs.finished[0][0] is False
 
 
+def test_needs_unknown_retry_set_on_no_metadata_abort(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A known rip that aborts for lack of online metadata flags a heal."""
+    handle = _FakeHandle(
+        lines=[
+            "Reading TOC 100 %",
+            "WARNING: network error: (NetworkError(),)",
+            "CRITICAL: unable to retrieve disc metadata, --unknown argument not passed",
+        ],
+        exit_code=1,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path, unknown=False))
+    worker.start_rip()
+    assert worker.needs_unknown_retry is True
+
+
+def test_no_unknown_retry_when_already_unknown(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """An already-unknown rip never asks to heal (nothing better to retry)."""
+    handle = _FakeHandle(
+        lines=["CRITICAL: unable to retrieve disc metadata, --unknown ..."],
+        exit_code=1,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path, unknown=True))
+    worker.start_rip()
+    assert worker.needs_unknown_retry is False
+
+
+def test_no_unknown_retry_on_clean_rip(qapp: QApplication, tmp_path: Path) -> None:
+    handle = _FakeHandle(lines=["Reading TOC 100 %"], exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    assert worker.needs_unknown_retry is False
+
+
 # --- Progress parsing -----------------------------------------------------
 
 
