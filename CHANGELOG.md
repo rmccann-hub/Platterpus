@@ -60,6 +60,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   tracks — instead of a bare "Rip failed".
 
 ### Added
+- **cyanrip backend — Phase 1 (KDD-18).** A second ripping backend
+  (`adapters/cyanrip_backend.py`, `CyanripImpl`) behind the existing
+  `WhipperBackend` ABC, selectable via `Config.ripper_backend = "cyanrip"`
+  (app.py picks the backend; default stays whipper). cyanrip is the actively
+  maintained successor and — critically — applies the read offset with its own
+  paranoia (`-s`), avoiding whipper's cd-paranoia bug at offsets > 587 that
+  fails tracks on the Pioneer BDR-209D (+667). Phase 1 ships the tested core:
+  the rip argv builder (`-d/-s/-o flac/-r/-N/-G`), `version`, `find_offset`
+  (`-f`), and a backend-independent `/dev`+sysfs drive scan; disc-info parsing
+  and naming-template mapping are tracked as the remaining phases in
+  `docs/ecosystem-audit-2026-06.md`. Not yet user-selectable in the GUI.
 - **Autonomous heal when the ripper can't reach MusicBrainz.** whipper inside the
   container aborts (`unable to retrieve disc metadata, --unknown argument not
   passed`) when it has no network — even for a known disc, because it fetches the
