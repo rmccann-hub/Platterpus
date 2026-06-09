@@ -11,6 +11,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Live progress bars during cyanrip rips (KDD-18).** The rip worker now
+  parses cyanrip's `\r`-redrawn progress lines ("Ripping track N, progress -
+  X%, ETA - …"), so the overall + task bars move, the current track row is
+  highlighted, and the status line shows percentage + ETA — same behaviour as
+  whipper rips. Per-track completion lines peg that track's slice of the
+  overall bar.
+
 ### Changed
 - **Documentation audit (2026-06-09).** PLANNING.md caught up with the code
   (directory tree + per-module list now include the host-setup wizard,

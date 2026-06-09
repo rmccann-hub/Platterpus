@@ -142,6 +142,7 @@ class _Signals:
     def __init__(self) -> None:
         self.log_lines: list[str] = []
         self.progress: list[tuple[float, float]] = []  # (overall, task)
+        self.statuses: list[str] = []
         self.current_tracks: list[int] = []
         self.errors: list[str] = []
         self.finished: list[tuple[bool, str]] = []
@@ -151,6 +152,7 @@ class _Signals:
         worker.progress.connect(
             lambda overall, task: self.progress.append((overall, task))
         )
+        worker.status.connect(self.statuses.append)
         worker.current_track.connect(self.current_tracks.append)
         worker.error.connect(self.errors.append)
         worker.finished.connect(lambda ok, path: self.finished.append((ok, path)))
@@ -195,6 +197,65 @@ def test_cdr_param_forwarded_to_backend(qapp: QApplication, tmp_path: Path) -> N
     worker.start_rip()
 
     assert backend.rip_calls[0]["cdr"] is True
+
+
+def test_cyanrip_progress_lines_drive_bars_and_track(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """cyanrip's \\r-redrawn progress lines (arriving as separate lines via
+    universal newlines) must move both bars, set the current track, and
+    produce a live status — KDD-18 progress parsing."""
+    handle = _FakeHandle(
+        lines=[
+            "Disc tracks:    16",
+            "Ripping track 1, progress - 25.00%, ETA - 3m, errors - 0",
+            "Ripping and encoding track 1, progress - 75.00%",
+            "Track 1 ripped and encoded successfully!",
+            "Ripping track 2, progress - 10.00%",
+        ],
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    # Track 1 at 25%: overall = 5 + (0 + .25)/16*90 ≈ 6.4; task = 25.
+    overall_1, task_1 = sigs.progress[0]
+    assert task_1 == 25.0
+    assert 6.0 < overall_1 < 7.0
+    # "and encoding" variant parses too.
+    assert sigs.progress[1][1] == 75.0
+    # Track-done pegs that track's slice (task 100).
+    done_overall, done_task = sigs.progress[2]
+    assert done_task == 100.0
+    assert 10.0 < done_overall < 11.0  # 5 + 1/16*90 ≈ 10.6
+    # Track follows along for the row highlight; once per track.
+    assert sigs.current_tracks == [1, 2]
+    # Status line is alive, with the ETA when cyanrip prints one.
+    assert any("Ripping track 1… 25% (ETA 3m)" == s for s in sigs.statuses)
+    assert any(s.startswith("Track 1 done") for s in sigs.statuses)
+
+
+def test_cyanrip_progress_without_disc_total_keeps_task_bar_moving(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """If the 'Disc tracks:' line was missed, the overall bar can't be
+    computed — but the task bar must still track the percentage."""
+    handle = _FakeHandle(
+        lines=["Ripping track 3, progress - 50.00%"],
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    overall, task = sigs.progress[0]
+    assert task == 50.0
+    assert overall == 5.0  # banded floor, no regression to 0
 
 
 def test_metadata_param_forwarded_to_backend(

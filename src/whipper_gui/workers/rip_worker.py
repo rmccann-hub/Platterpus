@@ -92,6 +92,26 @@ _NAMED_PHASES: dict[str, str] = {
     "Embed picture to FLAC": "Finalizing track…",
 }
 
+# --- cyanrip progress lines (KDD-18) ---------------------------------------
+# cyanrip redraws ONE progress line with `\r` (cyanrip_main.c):
+#   "Ripping track 5, progress - 42.37%, ETA - 3m, errors - 0"
+#   "Ripping and encoding track 5, progress - 42.37%"
+# Popen(text=True) reads in universal-newlines mode, which translates every
+# bare `\r` to `\n` — so each redraw reaches log_lines() as its own line and
+# these regexes see them one at a time, no extra plumbing.
+_CYANRIP_TRACK_PROGRESS = re.compile(
+    r"Ripping(?: and encoding)? track (?P<track>\d+), progress - "
+    r"(?P<pct>\d+(?:\.\d+)?)%(?:, ETA - (?P<eta>[^,]+))?"
+)
+# Per-track completion ("Track 5 ripped and encoded successfully!" / "with
+# errors.") — pegs that track's slice of the overall bar.
+_CYANRIP_TRACK_DONE = re.compile(
+    r"^Track (?P<track>\d+) ripped and encoded (?P<how>successfully|with errors)"
+)
+# The start report carries the track total ("Disc tracks:    16") — cyanrip's
+# progress lines don't repeat it, so we capture it here for the overall bar.
+_CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d+)\s*$")
+
 # whipper aborts with one of these when it can't fetch online metadata (e.g.
 # the container has no network) and wasn't told the disc is "unknown". We
 # detect it so the GUI can auto-retry as an unknown-album rip — which needs no
@@ -323,6 +343,31 @@ class RipWorker(QObject):
             frac = done / total if total else 1.0
             return self._bump_overall(95.0 + frac * 5.0), 100.0
 
+        # --- cyanrip lines (mutually exclusive with whipper's formats) ---
+
+        match = _CYANRIP_DISC_TRACKS.search(line)
+        if match:
+            # Total learned from the start report; no bar movement yet.
+            self._total_tracks = int(match.group("total"))
+            return None
+
+        match = _CYANRIP_TRACK_PROGRESS.search(line)
+        if match:
+            self._current_track = int(match.group("track"))
+            task = float(match.group("pct"))
+            frac = (
+                ((self._current_track - 1) + task / 100.0) / self._total_tracks
+                if self._total_tracks
+                else 0.0
+            )
+            return self._bump_overall(5.0 + frac * 90.0), task
+
+        match = _CYANRIP_TRACK_DONE.search(line)
+        if match:
+            done = int(match.group("track"))
+            frac = done / self._total_tracks if self._total_tracks else 0.0
+            return self._bump_overall(5.0 + frac * 90.0), 100.0
+
         return None
 
     def _bump_overall(self, value: float) -> float:
@@ -371,6 +416,18 @@ def _describe_activity(line: str) -> str | None:
     match = _LENGTH_PHASE_PATTERN.search(line)
     if match:
         return f"Checking track {match.group('track')} of {match.group('total')}…"
+
+    match = _CYANRIP_TRACK_PROGRESS.search(line)
+    if match:
+        pct = float(match.group("pct"))
+        eta = match.group("eta")
+        suffix = f" (ETA {eta.strip()})" if eta else ""
+        return f"Ripping track {match.group('track')}… {pct:.0f}%{suffix}"
+
+    match = _CYANRIP_TRACK_DONE.search(line)
+    if match:
+        outcome = "✓" if match.group("how") == "successfully" else "with errors"
+        return f"Track {match.group('track')} done {outcome}"
 
     for phrase, friendly in _NAMED_PHASES.items():
         if phrase in line:
