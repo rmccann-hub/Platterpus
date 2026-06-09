@@ -35,6 +35,7 @@ from whipper_gui.adapters.musicbrainz_client import (
     ReleaseSummary,
 )
 from whipper_gui.adapters.whipper_backend import (
+    RipMetadata,
     WhipperBackend,
     WhipperError,
 )
@@ -493,6 +494,23 @@ class MainWindow(QMainWindow):
     def _start_rip_worker(self, params: RipParameters) -> None:
         """Spin up the rip worker thread for `params`. Shared by the initial
         Start and the auto-heal retry, so both wire signals identically."""
+        # Snapshot the track table (MB lookup result + user edits) into the
+        # params. whipper ignores it (it tags from --release-id itself);
+        # cyanrip is fed these tags directly so it never needs its own
+        # MusicBrainz lookup (Critical Rule #5, KDD-18 metadata model).
+        album = self._track_table.album_metadata()
+        params = replace(
+            params,
+            metadata=RipMetadata(
+                album_artist=album.artist,
+                album_title=album.title,
+                year=album.year,
+                tracks=tuple(
+                    (t.number, t.title, t.artist_credit)
+                    for t in self._track_table.tracks()
+                ),
+            ),
+        )
         self._rip_controls.set_rip_active(True)
         # Remember the params so the finish handler knows the mode + output dir.
         self._active_rip_params = params

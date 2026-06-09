@@ -262,3 +262,58 @@ def test_cover_art_blank_option_maps_to_empty_string(
     dialog = SettingsDialog(Config(cover_art="embed"))
     dialog._cover_art_combo.setCurrentIndex(dialog._cover_art_combo.findData(""))
     assert dialog.to_config().cover_art == ""
+
+
+# --- Backend capability gating (unified UI across backends) ---------------
+
+
+def _whipper_only_widgets(dialog: SettingsDialog) -> list:
+    return [w for w, _tip, _reason in dialog._whipper_only]
+
+
+def test_whipper_only_options_disabled_under_cyanrip(qapp: QApplication) -> None:
+    """One unified Settings page: options the selected backend doesn't
+    support are read-only, with a tooltip saying why + how to re-enable."""
+    dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
+    for widget in _whipper_only_widgets(dialog):
+        assert widget.isEnabled() is False
+        assert "Read-only:" in widget.toolTip()
+        assert "whipper" in widget.toolTip()  # says what re-enables it
+
+
+def test_whipper_only_options_enabled_under_whipper(qapp: QApplication) -> None:
+    dialog = SettingsDialog(Config())  # default backend = whipper
+    for widget in _whipper_only_widgets(dialog):
+        assert widget.isEnabled() is True
+        assert "Read-only:" not in widget.toolTip()
+
+
+def test_backend_switch_updates_gating_live(qapp: QApplication) -> None:
+    """Changing the backend combo re-gates immediately (before OK)."""
+    dialog = SettingsDialog(Config())
+    combo = dialog._backend_combo
+    combo.setCurrentIndex(combo.findData("cyanrip"))
+    assert dialog._continue_on_cdr_check.isEnabled() is False
+    combo.setCurrentIndex(combo.findData("whipper"))
+    assert dialog._continue_on_cdr_check.isEnabled() is True
+    # The original tooltip is restored, not stacked.
+    assert "Read-only:" not in dialog._continue_on_cdr_check.toolTip()
+
+
+def test_disabled_options_keep_their_values_in_to_config(
+    qapp: QApplication,
+) -> None:
+    """Gated ≠ lost: switching to cyanrip must not clear whipper-only
+    settings — they ride along and come back when the user switches back."""
+    dialog = SettingsDialog(
+        Config(continue_on_cdr=True, keep_going=True, cover_art="complete")
+    )
+    combo = dialog._backend_combo
+    combo.setCurrentIndex(combo.findData("cyanrip"))
+
+    out = dialog.to_config()
+
+    assert out.ripper_backend == "cyanrip"
+    assert out.continue_on_cdr is True
+    assert out.keep_going is True
+    assert out.cover_art == "complete"

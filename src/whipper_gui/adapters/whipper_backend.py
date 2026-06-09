@@ -20,6 +20,7 @@ import signal
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 from whipper_gui.parsers.cd_info import DiscInfo, parse_cd_info
@@ -111,6 +112,25 @@ class WhipperError(Exception):
         self.output: str = output
 
 
+@dataclass(frozen=True)
+class RipMetadata:
+    """The GUI's already-fetched album/track metadata, offered to the backend.
+
+    Filled by the main window from the track table (the MusicBrainz lookup
+    result plus any user edits) right before a rip starts. Backends that
+    fetch their own metadata (whipper does, via `--release-id`) ignore it;
+    backends that can be fed tags directly (cyanrip's `-a`/`-t`) use it so
+    the rip needs no in-container network and the user's edits win.
+
+    `tracks` holds (track_number, title, artist) triples, 1-based numbers.
+    """
+
+    album_artist: str = ""
+    album_title: str = ""
+    year: str = ""
+    tracks: tuple[tuple[int, str, str], ...] = ()
+
+
 class RipHandle:
     """Handle to a running rip subprocess.
 
@@ -193,9 +213,12 @@ class WhipperBackend(ABC):
         max_retries: int = 5,
         keep_going: bool = False,
         read_offset_override: int | None = None,
+        metadata: RipMetadata | None = None,
     ) -> RipHandle:
         """Begin a rip. `release_id` is an MBID, never an interactive prompt.
 
+        `metadata` is the GUI's already-fetched album/track tags (see
+        :class:`RipMetadata`); backends that fetch their own may ignore it.
         `read_offset_override`, when set, passes whipper's `--offset N` to
         override whipper.conf for this rip.
         `cdr=True` passes whipper's `--cdr` flag so it will rip a burned
@@ -432,11 +455,16 @@ class WhipperHostExportedImpl(WhipperBackend):
         max_retries: int = 5,
         keep_going: bool = False,
         read_offset_override: int | None = None,
+        metadata: RipMetadata | None = None,
     ) -> RipHandle:
         # Note: whipper has no -d/--device flag for `cd rip` — it
         # auto-detects the single drive. Multi-drive selection is P1
         # (see TASKS.md). `drive` is accepted for ABC compatibility.
         del drive  # explicit: parameter intentionally unused for v1
+        # whipper fetches album/track tags itself from the --release-id
+        # (and unknown-mode tags are applied post-rip by the GUI), so the
+        # GUI-supplied metadata is intentionally unused here.
+        del metadata
         argv: list[str] = [
             str(self._binary),
             "cd",

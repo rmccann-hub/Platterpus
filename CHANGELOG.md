@@ -12,6 +12,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **cyanrip rips are now driven entirely by the GUI's metadata (KDD-18).**
+  The rip snapshots the track table (the MusicBrainz release you picked plus
+  any edits) and feeds it to cyanrip via `-a`/`-t`, with MusicBrainz always
+  disabled (`-N`): no wrong-release risk, no in-container network needed,
+  values with `:`/`=`/`'` safely escaped, and the release MBID recorded as a
+  tag. The folder/file naming templates now apply to cyanrip too — whipper
+  `%A/%d/%t/%n/%y/%N/%a` tokens are translated to cyanrip's `-D`/`-F`
+  `{…}` schemes, so both backends produce the same library layout.
+- **One unified Settings page across backends.** Options the selected
+  backend doesn't support (under cyanrip: CD-R switch, cover art, overread,
+  keep-going, the whipper path) grey out instead of disappearing, with a
+  tooltip explaining why and that switching the Ripping backend back to
+  whipper re-enables them. Greyed-out values are kept, never cleared.
 - **cyanrip backend now identifies discs (KDD-18).** `CyanripImpl.disc_info`
   runs `cyanrip -I -N` (info-only, offline — cyanrip computes the
   MusicBrainz DiscID and CDDB ID locally from the TOC) and the new

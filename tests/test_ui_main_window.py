@@ -62,6 +62,7 @@ class _FakeBackend(WhipperBackend):
         track_template: str,
         disc_template: str,
         unknown: bool = False,
+        **kwargs: object,
     ) -> RipHandle:
         raise NotImplementedError  # the rip tests don't reach here
 
@@ -1258,6 +1259,76 @@ def test_maybe_offer_host_setup_skips_when_already_prompted(
     monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
     window._maybe_offer_host_setup()
     assert opened == []
+
+
+def test_start_rip_worker_snapshots_track_table_metadata(
+    teardown_threads, monkeypatch
+) -> None:
+    """The rip params must carry the track table's album/track tags so a
+    metadata-fed backend (cyanrip -a/-t) tags exactly what the user sees."""
+    from whipper_gui.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._track_table.set_release(_detail())
+    seen: list[RipParameters] = []
+
+    class _NoopWorker:
+        def __init__(self, backend, params):
+            seen.append(params)
+
+        def moveToThread(self, thread):
+            pass
+
+        def start_rip(self):
+            pass
+
+        # Signal stand-ins that accept connect() without doing anything.
+        class _Sig:
+            def connect(self, *_a, **_k):
+                pass
+
+        log_line = progress = status = current_track = error = finished = _Sig()
+
+    import whipper_gui.ui.main_window as mw
+
+    monkeypatch.setattr(mw, "RipWorker", _NoopWorker)
+    monkeypatch.setattr(mw, "QThread", lambda parent=None: _FakeThread())
+
+    window._start_rip_worker(
+        RipParameters(
+            drive="/dev/sr0",
+            release_id="some-mbid",
+            output_dir=Path("/tmp/out"),
+            track_template="t",
+            disc_template="d",
+        )
+    )
+
+    meta = seen[0].metadata
+    assert meta is not None
+    assert meta.album_artist == "Artist"
+    assert meta.album_title == "Album"
+    assert meta.year == "2024"
+    assert meta.tracks == ((1, "One", ""), (2, "Two", ""))
+
+
+class _FakeThread:
+    """Minimal QThread stand-in: collects connects, never starts."""
+
+    class _Sig:
+        def connect(self, *_a, **_k):
+            pass
+
+    started = finished = _Sig()
+
+    def start(self):
+        pass
+
+    def quit(self):
+        pass
+
+    def deleteLater(self):
+        pass
 
 
 # --- cyanrip in the host-setup wizard (KDD-18) ----------------------------
