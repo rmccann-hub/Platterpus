@@ -118,13 +118,55 @@ def test_list_drives_tolerates_missing_sysfs(tmp_path: Path) -> None:
     assert drives[0].vendor == ""  # sysfs absent → blank, no crash
 
 
-# --- disc_info is a Phase-1 stub ------------------------------------------
+# --- disc_info (runs `cyanrip -I -N` and parses the report) ---------------
 
 
-def test_disc_info_returns_empty_phase1() -> None:
+def test_disc_info_runs_info_only_offline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """disc_info must use info-only mode (-I) with MusicBrainz disabled (-N)
+    — identification is local; the GUI does its own MB lookup — and pass the
+    selected device."""
+    import whipper_gui.adapters.cyanrip_backend as mod
+
+    seen: list[list[str]] = []
+
+    def fake_run(argv, **kwargs):
+        seen.append(argv)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=(
+                "Disc tracks:    16\n"
+                "DiscID:         xA2hjkk0Jl0gKKtIdYuTje4JTXY-\n"
+                "CDDB ID:        c50a780f\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    info = _impl().disc_info("/dev/sr0")
+
+    argv = seen[0]
+    assert "-I" in argv and "-N" in argv
+    assert argv[argv.index("-d") + 1] == "/dev/sr0"
+    assert info.musicbrainz_disc_id == "xA2hjkk0Jl0gKKtIdYuTje4JTXY-"
+    assert info.cddb_disc_id == "c50a780f"
+    assert info.num_tracks == 16
+
+
+def test_disc_info_error_output_degrades_to_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from whipper_gui.parsers.cd_info import DiscInfo
 
+    _patch_run(monkeypatch, stdout="Unable to read disc TOC!\n")
     assert _impl().disc_info("/dev/sr0") == DiscInfo()
+
+
+def test_disc_info_raises_when_binary_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_run(monkeypatch, raises=FileNotFoundError("cyanrip"))
+    with pytest.raises(WhipperError, match="not found"):
+        _impl().disc_info("/dev/sr0")
 
 
 # --- version / find_offset (subprocess stubbed) ---------------------------

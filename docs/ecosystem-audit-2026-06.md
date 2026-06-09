@@ -144,9 +144,11 @@ builder (`-d/-s/-o flac/-r/-N/-G`, run with `cwd=output_dir`), `version`,
 sysfs vendor/model/rev — cyanrip has no list-drives command).
 
 **Remaining (phases 2+):**
-1. **`disc_info` parsing** — parse `cyanrip -I` for the MB/CDDB IDs + track
-   count (Phase 1 returns an empty DiscInfo; the GUI's own host-side MB lookup
-   + unknown-mode already covers ripping).
+1. ~~**`disc_info` parsing**~~ — **DONE 2026-06-09.** `disc_info` runs
+   `-I -N` (offline: cyanrip computes DiscID/CDDB locally from the TOC,
+   `src/discid.c`) and `parsers/cyanrip_info.py` parses `Disc tracks:` /
+   `DiscID:` / `CDDB ID:` / the `MusicBrainz URL:` next-line URL — labels
+   verified against `cyanrip_log.c::cyanrip_log_start_report` on master.
 2. **Naming-template mapping** — translate our `track_template`/`disc_template`
    (whipper `%A/%d/%t` syntax) to cyanrip's `-D/-F` scheme tokens. Phase 1 uses
    cyanrip defaults.
