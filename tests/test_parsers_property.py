@@ -24,6 +24,7 @@ from hypothesis import strategies as st
 
 from whipper_gui.parsers.cd_info import DiscInfo, parse_cd_info
 from whipper_gui.parsers.cyanrip_info import parse_cyanrip_info
+from whipper_gui.parsers.cyanrip_log import parse_cyanrip_log
 from whipper_gui.parsers.drive_list import DriveDescriptor, parse_drive_list
 from whipper_gui.parsers.rip_log import RipLog, parse_rip_log
 
@@ -70,6 +71,15 @@ _FRAGMENTS = st.sampled_from(
         "MusicBrainz URL:",
         "https://musicbrainz.org/cdtoc/attach?id=x",
         "(null)",  # printf'd NULL after the URL label
+        # cyanrip log shapes (exercise the cyanrip_log parser).
+        "Track 5 ripped and encoded successfully!",
+        "Track 5 ripped and encoded with errors.",
+        "  EAC CRC32:     A1B2C3D4 (after 2 rips)",
+        "    Accurip v1:  12345678 (accurately ripped, confidence 3)",
+        "    Accurip v1:  12345678 (confidence lots)",  # bad int
+        "Offset:         +667 samples",
+        "Tracks ripped accurately: 1/2",
+        "Ripping errors: many",  # bad int
         ":::::",  # degenerate colons
         "",  # blank line
         "\t\t\t",  # whitespace only
@@ -114,6 +124,18 @@ def test_parse_cyanrip_info_never_raises(text: str) -> None:
     assert isinstance(result, DiscInfo)
     assert isinstance(result.num_tracks, int)
     assert result.num_tracks >= 0
+
+
+@_SETTINGS
+@given(_any_text)
+def test_parse_cyanrip_log_never_raises(text: str) -> None:
+    result = parse_cyanrip_log(text)
+    assert isinstance(result, RipLog)
+    for track in result.tracks:
+        assert isinstance(track.number, int)
+        for ar in (track.accuraterip_v1, track.accuraterip_v2):
+            if ar is not None:
+                assert ar.confidence is None or isinstance(ar.confidence, int)
 
 
 @_SETTINGS

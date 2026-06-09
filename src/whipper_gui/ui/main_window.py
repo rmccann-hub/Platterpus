@@ -55,6 +55,7 @@ from whipper_gui.drive_access import (
     diagnose_drive_access,
 )
 from whipper_gui.offset_config import is_offset_configured
+from whipper_gui.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from whipper_gui.parsers.rip_log import parse_rip_log
 from whipper_gui.ui.dialogs.manual_install import ManualInstallDialog
 from whipper_gui.ui.dialogs.pending_installs import PendingInstallsDialog
@@ -665,7 +666,13 @@ class MainWindow(QMainWindow):
             # Parse and render AR results if the file exists.
             try:
                 text = log_file.read_text(encoding="utf-8")
-                rip_log = parse_rip_log(text)
+                # Sniff the format instead of trusting the configured
+                # backend: a folder can hold logs from either ripper, and
+                # the auto-heal path can change mid-session.
+                if looks_like_cyanrip_log(text):
+                    rip_log = parse_cyanrip_log(text)
+                else:
+                    rip_log = parse_rip_log(text)
                 self._rip_progress.set_rip_log(rip_log)
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
@@ -1282,6 +1289,25 @@ def _fidelity_summary(rip_log: object) -> str:
     total = len(tracks)
     if total == 0:
         return "Done."
+    # cyanrip's verification model differs from whipper's: one EAC CRC per
+    # track plus a paranoia error count, not a test+copy dual read. Word
+    # the verdict to match what was actually checked.
+    if str(getattr(rip_log, "log_creator", "")).startswith("cyanrip"):
+        clean = sum(
+            1 for t in tracks if getattr(t, "status", "") == "ripped successfully"
+        )
+        no_errors = getattr(rip_log, "health_status", "") == "No errors occurred"
+        if clean == total and no_errors:
+            summary = f"Done — all {total} tracks ripped cleanly, no read errors."
+        else:
+            summary = (
+                f"Done — {clean}/{total} tracks ripped cleanly; "
+                f"check the log for the rest."
+            )
+        ar = getattr(rip_log, "accuraterip_summary", "") or ""
+        if ar and not ar.startswith("0/"):
+            summary += f" AccurateRip: {ar}."
+        return summary
     verified = sum(
         1
         for t in tracks
