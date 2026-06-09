@@ -839,6 +839,39 @@ def test_fidelity_summary_no_tracks() -> None:
     assert _fidelity_summary(RipLog(tracks=())) == "Done."
 
 
+def test_fidelity_summary_cyanrip_clean_rip() -> None:
+    """cyanrip has no test+copy dual read — the verdict is worded around
+    its actual checks (paranoia error count + AccurateRip)."""
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3.1",
+        tracks=(
+            TrackResult(number=1, copy_crc="AAAA", status="ripped successfully"),
+            TrackResult(number=2, copy_crc="BBBB", status="ripped successfully"),
+        ),
+        health_status="No errors occurred",
+        accuraterip_summary="2/2 tracks ripped accurately (AccurateRip)",
+    )
+    summary = _fidelity_summary(rip_log)
+    assert "all 2 tracks ripped cleanly" in summary
+    assert "AccurateRip: 2/2" in summary
+    assert "CRCs match" not in summary  # never claim a check that didn't run
+
+
+def test_fidelity_summary_cyanrip_with_errors() -> None:
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3.1",
+        tracks=(
+            TrackResult(number=1, status="ripped successfully"),
+            TrackResult(number=2, status="ripped with errors"),
+        ),
+        health_status="3 ripping errors",
+        accuraterip_summary="0/2 tracks ripped accurately (AccurateRip)",
+    )
+    summary = _fidelity_summary(rip_log)
+    assert "1/2 tracks ripped cleanly" in summary
+    assert "AccurateRip" not in summary  # 0/2 isn't a confirmation
+
+
 # --- Unknown-mode tag post-processing -------------------------------------
 
 

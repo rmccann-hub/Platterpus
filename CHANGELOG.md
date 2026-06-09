@@ -12,6 +12,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Fidelity verdict + AccurateRip table for cyanrip rips (KDD-18).** New
+  `parsers/cyanrip_log.py` parses cyanrip's rip log (EAC CRC32 per track,
+  AccurateRip v1/v2 + confidence, preemphasis, drive/offset, ripping-error
+  count) into the shared `RipLog`, with format auto-detection — a folder can
+  hold logs from either ripper. The post-rip summary is worded around what
+  cyanrip actually checks ("all N tracks ripped cleanly, no read errors" +
+  "AccurateRip: N/M") instead of claiming whipper's Test/Copy CRC pass, and
+  the per-track AccurateRip results table now fills in on both backends.
 - **Live progress bars during cyanrip rips (KDD-18).** The rip worker now
   parses cyanrip's `\r`-redrawn progress lines ("Ripping track N, progress -
   X%, ETA - …"), so the overall + task bars move, the current track row is
