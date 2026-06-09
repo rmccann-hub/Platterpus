@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **cyanrip backend now identifies discs (KDD-18).** `CyanripImpl.disc_info`
+  runs `cyanrip -I -N` (info-only, offline — cyanrip computes the
+  MusicBrainz DiscID and CDDB ID locally from the TOC) and the new
+  `parsers/cyanrip_info.py` parses the report into the backend-neutral
+  `DiscInfo` (IDs, track count, MB submission URL), so the disc panel and
+  the GUI's host-side MusicBrainz lookup work identically on both backends.
+  Includes a property-based "never raises" test per the testing rules.
 - **Host-setup wizard can install the cyanrip backend (KDD-18).** When
   Settings → Ripping backend is set to cyanrip, the setup wizard (and the
   Tools → Set up Whipper GUI… flow) gains a step that installs cyanrip into

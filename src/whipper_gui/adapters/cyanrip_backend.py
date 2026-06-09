@@ -8,14 +8,13 @@ range the tested Pioneer BDR-209D needs (+667), which fails tracks on hardware.
 CRC. We slot it behind the existing ABC so it's a config-selectable backend and
 ripping still routes through a host-exported binary (Critical Rule #3).
 
-**Phase 1 (this module): the testable core** — the rip argv builder, version,
-find-offset, and a backend-independent drive scan. The parts that need
-cyanrip-specific output parsing or a real cyanrip on hardware are stubbed with
-clear messages and tracked in the ecosystem audit:
-  * `disc_info` returns an empty DiscInfo for now (the GUI then uses its own
-    host-side MusicBrainz lookup + unknown-mode, which already works);
-  * whipper-only rip params (release_id, track/disc templates, cdr, keep_going,
-    force_overread) don't map 1:1 to cyanrip and are documented, not forced.
+**Implemented:** the rip argv builder, version, find-offset, a backend-
+independent drive scan, and `disc_info` via ``-I -N`` (parsed by
+`parsers/cyanrip_info.py` — the DiscID/CDDB ID are computed locally from the
+TOC, so identification needs no network). Still tracked in the ecosystem
+audit: whipper-only rip params (release_id, track/disc templates, cdr,
+keep_going, force_overread) don't map 1:1 to cyanrip and are documented, not
+forced.
 
 cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz,
@@ -35,6 +34,7 @@ from whipper_gui.adapters.whipper_backend import (
     WhipperError,
 )
 from whipper_gui.parsers.cd_info import DiscInfo
+from whipper_gui.parsers.cyanrip_info import parse_cyanrip_info
 from whipper_gui.parsers.drive_list import DriveDescriptor
 
 log = logging.getLogger(__name__)
@@ -81,19 +81,26 @@ class CyanripImpl(WhipperBackend):
             )
         return drives
 
-    # --- Disc info (Phase 1: not yet parsed) ---
+    # --- Disc info ---
 
     def disc_info(self, drive: str) -> DiscInfo:
-        """Return what we know about the inserted disc.
+        """Identify the inserted disc via `cyanrip -I` (info-only mode).
 
-        Phase 1: cyanrip's ``-I`` output format isn't parsed yet, so we return
-        an empty DiscInfo. The GUI already identifies the disc via its own
-        host-side MusicBrainz lookup, so this is non-fatal — it just means the
-        disc-info panel's IDs stay blank until the parser lands.
+        `-N` disables cyanrip's own MusicBrainz lookup: the DiscID and CDDB
+        ID are computed locally from the TOC (cyanrip's discid.c), so disc
+        identification needs no network — the GUI then does its own
+        host-side MusicBrainz lookup with the returned disc ID, exactly as
+        it does for whipper (Critical Rule #5).
+
+        A failed run (no disc, bad device) prints an error instead of the
+        report; the parser degrades to an empty DiscInfo, which the GUI
+        already treats as "unknown disc".
         """
-        del drive  # unused until -I parsing is implemented
-        log.info("CyanripImpl.disc_info: -I parsing not implemented yet (Phase 1)")
-        return DiscInfo()
+        args = ["-I", "-N"]
+        if drive:
+            args += ["-d", drive]
+        out = self._run(args)
+        return parse_cyanrip_info(out)
 
     # --- Rip ---
 

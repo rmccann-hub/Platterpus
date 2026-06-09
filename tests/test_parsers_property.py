@@ -23,6 +23,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from whipper_gui.parsers.cd_info import DiscInfo, parse_cd_info
+from whipper_gui.parsers.cyanrip_info import parse_cyanrip_info
 from whipper_gui.parsers.drive_list import DriveDescriptor, parse_drive_list
 from whipper_gui.parsers.rip_log import RipLog, parse_rip_log
 
@@ -61,6 +62,14 @@ _FRAGMENTS = st.sampled_from(
         "      Confidence: lots",  # bad int
         "Log created by: whipper 0.10.0",
         "SHA-256 hash: deadbeef",
+        # cyanrip -I report shapes (exercise the cyanrip_info parser).
+        "Disc tracks:    16",
+        "Disc tracks:    many",  # bad int
+        "DiscID:         xA2hjkk0Jl0gKKtIdYuTje4JTXY-",
+        "CDDB ID:        c50a780f",
+        "MusicBrainz URL:",
+        "https://musicbrainz.org/cdtoc/attach?id=x",
+        "(null)",  # printf'd NULL after the URL label
         ":::::",  # degenerate colons
         "",  # blank line
         "\t\t\t",  # whitespace only
@@ -93,6 +102,15 @@ def test_parse_drive_list_never_raises(text: str) -> None:
 @given(_any_text)
 def test_parse_cd_info_never_raises(text: str) -> None:
     result = parse_cd_info(text)
+    assert isinstance(result, DiscInfo)
+    assert isinstance(result.num_tracks, int)
+    assert result.num_tracks >= 0
+
+
+@_SETTINGS
+@given(_any_text)
+def test_parse_cyanrip_info_never_raises(text: str) -> None:
+    result = parse_cyanrip_info(text)
     assert isinstance(result, DiscInfo)
     assert isinstance(result.num_tracks, int)
     assert result.num_tracks >= 0
