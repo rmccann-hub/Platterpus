@@ -28,6 +28,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 
 from whipper_gui.adapters.whipper_backend import (
     RipHandle,
+    RipMetadata,
     WhipperBackend,
     WhipperError,
 )
@@ -59,6 +60,10 @@ class RipParameters:
     keep_going: bool = False
     # When set, passed as whipper's `--offset N`, overriding whipper.conf.
     read_offset_override: int | None = None
+    # The GUI's already-fetched album/track tags (track table content).
+    # whipper ignores this (it tags from --release-id itself); cyanrip is
+    # fed it via -a/-t so the rip needs no in-container network.
+    metadata: RipMetadata | None = None
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -194,6 +199,7 @@ class RipWorker(QObject):
                 max_retries=self._params.max_retries,
                 keep_going=self._params.keep_going,
                 read_offset_override=self._params.read_offset_override,
+                metadata=self._params.metadata,
             )
         except WhipperError as exc:
             log.exception("rip failed to start")

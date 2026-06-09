@@ -95,6 +95,7 @@ class _FakeBackend(WhipperBackend):
         max_retries: int = 5,
         keep_going: bool = False,
         read_offset_override: int | None = None,
+        metadata=None,
     ) -> RipHandle:
         self.rip_calls.append(
             {
@@ -108,6 +109,7 @@ class _FakeBackend(WhipperBackend):
                 "max_retries": max_retries,
                 "keep_going": keep_going,
                 "read_offset_override": read_offset_override,
+                "metadata": metadata,
             }
         )
         if self._raise_on_rip:
@@ -119,16 +121,16 @@ class _FakeBackend(WhipperBackend):
         return "fake 0.0.0"
 
 
-def _params(tmp_path: Path, unknown: bool = False, cdr: bool = False) -> RipParameters:
-    return RipParameters(
-        drive="/dev/sr0",
-        release_id="mbid-abc",
-        output_dir=tmp_path,
-        track_template="t",
-        disc_template="d",
-        unknown=unknown,
-        cdr=cdr,
-    )
+def _params(tmp_path: Path, **overrides: object) -> RipParameters:
+    defaults: dict = {
+        "drive": "/dev/sr0",
+        "release_id": "mbid-abc",
+        "output_dir": tmp_path,
+        "track_template": "t",
+        "disc_template": "d",
+    }
+    defaults.update(overrides)
+    return RipParameters(**defaults)
 
 
 # --- Signal-collector helper ----------------------------------------------
@@ -193,6 +195,23 @@ def test_cdr_param_forwarded_to_backend(qapp: QApplication, tmp_path: Path) -> N
     worker.start_rip()
 
     assert backend.rip_calls[0]["cdr"] is True
+
+
+def test_metadata_param_forwarded_to_backend(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """RipParameters.metadata (the GUI's tag snapshot) must reach the
+    backend so cyanrip can be fed -a/-t."""
+    from whipper_gui.adapters.whipper_backend import RipMetadata
+
+    meta = RipMetadata(album_title="X", tracks=((1, "One", "A"),))
+    handle = _FakeHandle(lines=[], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    worker = RipWorker(backend, _params(tmp_path, metadata=meta))
+
+    worker.start_rip()
+
+    assert backend.rip_calls[0]["metadata"] == meta
 
 
 def test_finished_reports_failure_on_nonzero_exit(

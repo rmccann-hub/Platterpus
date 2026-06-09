@@ -50,6 +50,7 @@ class _FakeBackend(WhipperBackend):
         track_template: str,
         disc_template: str,
         unknown: bool = False,
+        **kwargs: object,
     ) -> RipHandle:
         raise NotImplementedError
 

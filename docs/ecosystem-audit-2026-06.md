@@ -149,12 +149,25 @@ sysfs vendor/model/rev — cyanrip has no list-drives command).
    `src/discid.c`) and `parsers/cyanrip_info.py` parses `Disc tracks:` /
    `DiscID:` / `CDDB ID:` / the `MusicBrainz URL:` next-line URL — labels
    verified against `cyanrip_log.c::cyanrip_log_start_report` on master.
-2. **Naming-template mapping** — translate our `track_template`/`disc_template`
-   (whipper `%A/%d/%t` syntax) to cyanrip's `-D/-F` scheme tokens. Phase 1 uses
-   cyanrip defaults.
-3. **Metadata model** — whipper takes `--release-id`; cyanrip does its own
-   MusicBrainz lookup (or `-N` + manual `-a`/`-t`). Decide whether to let
-   cyanrip self-lookup or feed it the GUI's metadata via `-a`/`-t`.
+2. ~~**Naming-template mapping**~~ — **DONE 2026-06-09.**
+   `scheme_from_template` translates whipper `%`-tokens to cyanrip `{…}`
+   scheme tokens (`%A→{album_artist}`, `%d→{album}`, `%t→{track}`,
+   `%n→{title}`, `%y→{date}`, `%N→{disc}`, `%a→{artist}`); the
+   track_template's directory part feeds `-D`, the filename part `-F`.
+   Verified against cyanrip source: a `/` typed in the scheme nests
+   directories while `/` inside a tag value is sanitized — same layout
+   semantics as whipper.
+3. ~~**Metadata model**~~ — **DECIDED + DONE 2026-06-09: feed, don't
+   self-lookup.** cyanrip always gets `-N` plus the GUI's tags via
+   `-a`/`-t` (the rip snapshots the track table into `RipMetadata`).
+   Rationale: the GUI already let the user pick + edit the release
+   host-side (Critical Rule #5); feeding it keeps the rip deterministic
+   (no wrong-release re-lookup) and fully offline in-container (the known
+   flaky spot). Values are backslash-escaped for FFmpeg's
+   `av_dict_parse_string` (`\\ : = '`); the release MBID is recorded as a
+   `musicbrainz_albumid` tag. Trade-off documented in Settings: cyanrip's
+   own CAA cover-art fetch is unavailable in this model (cover art stays
+   whipper-only for now).
 4. ~~**Settings UI toggle**~~ — **DONE 2026-06-09** (whipper | cyanrip combo in
    Settings; `Config.ripper_backend`).
 5. ~~**Container packaging** of cyanrip~~ — **DONE 2026-06-09**, see

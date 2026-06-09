@@ -123,6 +123,7 @@ class SettingsDialog(QDialog):
 
         # --- Tool paths ---
         self._whipper_path_edit, whipper_row = self._build_file_row(config.whipper_path)
+        self._whipper_path_row: QWidget = whipper_row
         form.addRow("whipper path:", whipper_row)
 
         self._metaflac_path_edit, metaflac_row = self._build_file_row(
@@ -233,6 +234,52 @@ class SettingsDialog(QDialog):
 
         root.addLayout(form)
 
+        # --- Backend capability gating (one UI for both backends) ---
+        # The dialog shows the SAME options whichever backend is selected;
+        # options a backend doesn't support are greyed out (values kept,
+        # never cleared) with a tooltip saying why and how to re-enable.
+        # The frontend's job is to hide backend differences, not mirror them.
+        self._whipper_only: list[tuple[QWidget, str, str]] = [
+            (
+                widget,
+                widget.toolTip(),
+                reason,
+            )
+            for widget, reason in (
+                (
+                    self._continue_on_cdr_check,
+                    "cyanrip rips burned CD-Rs without needing a switch, so "
+                    "there is nothing to configure.",
+                ),
+                (
+                    self._cover_art_combo,
+                    "Cover-art fetching currently works with the whipper "
+                    "backend only. (With cyanrip, this app supplies the tags "
+                    "itself and skips cyanrip's own MusicBrainz lookup, which "
+                    "is where its cover art would come from.)",
+                ),
+                (
+                    self._force_overread_check,
+                    "Overread control isn't wired to the cyanrip backend yet.",
+                ),
+                (
+                    self._keep_going_check,
+                    "cyanrip always continues past an unreadable track, so "
+                    "this is effectively always on.",
+                ),
+                (
+                    self._whipper_path_row,
+                    "Only the whipper backend uses this path. cyanrip is "
+                    "found automatically (~/.local/bin/cyanrip, installed by "
+                    "Tools → Set up Whipper GUI…).",
+                ),
+            )
+        ]
+        self._backend_combo.currentIndexChanged.connect(
+            self._apply_backend_capabilities
+        )
+        self._apply_backend_capabilities()
+
         # --- Check dependencies action ---
         # This sits between the form and the OK/Cancel row so it's
         # visually associated with the settings (which is where the
@@ -288,6 +335,28 @@ class SettingsDialog(QDialog):
         )
 
     # --- Internals ---------------------------------------------------------
+
+    def _apply_backend_capabilities(self) -> None:
+        """Enable/disable per-backend options to match the selected backend.
+
+        Disabled widgets keep their values (to_config still reads them, so
+        switching backends never loses settings); the tooltip gains a
+        "Read-only:" paragraph explaining why and how to make it editable
+        again. Runs at construction and on every backend-combo change so
+        the dialog reacts live, before OK is even pressed.
+        """
+        on_whipper = self._backend_combo.currentData() == "whipper"
+        for widget, base_tooltip, reason in self._whipper_only:
+            widget.setEnabled(on_whipper)
+            if on_whipper:
+                widget.setToolTip(base_tooltip)
+            else:
+                prefix = f"{base_tooltip}\n\n" if base_tooltip else ""
+                widget.setToolTip(
+                    f"{prefix}Read-only: {reason}\n"
+                    "Switch “Ripping backend” to whipper to edit this. "
+                    "Your value is kept either way."
+                )
 
     def _build_dir_row(self, initial_path: str) -> tuple[QLineEdit, QWidget]:
         """Build a row: QLineEdit + 'Browse…' button (for directories)."""

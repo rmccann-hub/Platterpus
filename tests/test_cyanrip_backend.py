@@ -11,8 +11,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from whipper_gui.adapters.cyanrip_backend import CyanripImpl
-from whipper_gui.adapters.whipper_backend import WhipperError
+from whipper_gui.adapters.cyanrip_backend import (
+    CyanripImpl,
+    _escape_meta_value,
+    _metadata_args,
+    scheme_from_template,
+)
+from whipper_gui.adapters.whipper_backend import RipMetadata, WhipperError
 
 
 def _patch_run(monkeypatch, *, stdout: str = "", stderr: str = "", raises=None):
@@ -48,7 +53,9 @@ def test_rip_argv_known_disc_with_offset() -> None:
     assert "-s" in argv and argv[argv.index("-s") + 1] == "667"
     assert "-o" in argv and argv[argv.index("-o") + 1] == "flac"
     assert "-r" in argv and argv[argv.index("-r") + 1] == "5"
-    assert "-N" not in argv  # known disc → keep MusicBrainz on
+    # MusicBrainz is ALWAYS off — the GUI feeds tags via -a/-t instead
+    # (KDD-18 metadata model; keeps the rip offline + deterministic).
+    assert "-N" in argv
     assert "-G" not in argv  # cover art wanted → keep embedding on
 
 
@@ -73,6 +80,105 @@ def test_rip_argv_omits_offset_when_none() -> None:
         read_offset_override=None,
     )
     assert "-s" not in argv
+
+
+def test_rip_argv_always_disables_mb_and_feeds_gui_metadata() -> None:
+    """KDD-18 metadata model: cyanrip never does its own MB lookup — the
+    GUI's tags (release pick + user edits) are fed via -a/-t, offline."""
+    meta = RipMetadata(
+        album_artist="The Police",
+        album_title="Greatest Hits",
+        year="1992",
+        tracks=((1, "Roxanne", "The Police"), (2, "Can't Stand Losing You", "")),
+    )
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=667,
+        release_id="1e477f68-c407-4eae-ad01-518528cedc2c",
+        track_template="%A/%d/%t - %n",
+        metadata=meta,
+    )
+    assert "-N" in argv  # even for a known disc
+    album_arg = argv[argv.index("-a") + 1]
+    assert "album=Greatest Hits" in album_arg
+    assert "album_artist=The Police" in album_arg
+    assert "date=1992" in album_arg
+    assert "musicbrainz_albumid=1e477f68-c407-4eae-ad01-518528cedc2c" in album_arg
+    track_args = [argv[i + 1] for i, a in enumerate(argv) if a == "-t"]
+    assert track_args[0] == "1=title=Roxanne:artist=The Police"
+    # No artist → the artist= pair is skipped; the ' is escaped for
+    # av_get_token (which treats bare ' as a quote character).
+    assert track_args[1] == "2=title=Can\\'t Stand Losing You"
+    # Templates: dir part → -D, file part → -F, tokens translated.
+    assert argv[argv.index("-D") + 1] == "{album_artist}/{album}"
+    assert argv[argv.index("-F") + 1] == "{track} - {title}"
+
+
+def test_rip_argv_no_metadata_omits_tag_flags() -> None:
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=True,
+        cover_art="",
+        max_retries=5,
+        read_offset_override=None,
+        release_id="",
+        track_template="",
+        metadata=None,
+    )
+    assert "-N" in argv
+    assert "-a" not in argv and "-t" not in argv
+    assert "-D" not in argv and "-F" not in argv
+
+
+# --- metadata escaping (cyanrip parses -a/-t with av_dict_parse_string) ----
+
+
+def test_meta_value_escaping_makes_separators_safe() -> None:
+    assert _escape_meta_value("Live: At The Met") == "Live\\: At The Met"
+    assert _escape_meta_value("a=b") == "a\\=b"
+    assert _escape_meta_value("back\\slash") == "back\\\\slash"
+    assert _escape_meta_value("It's") == "It\\'s"
+    assert _escape_meta_value("plain") == "plain"
+
+
+def test_metadata_args_skip_empty_fields() -> None:
+    args = _metadata_args(RipMetadata(album_title="X"), release_id="")
+    assert args == ["-a", "album=X"]
+    assert _metadata_args(None, release_id="") == []
+    # A track with neither title nor artist contributes no -t at all.
+    args = _metadata_args(RipMetadata(tracks=((3, "", ""),)), release_id="")
+    assert args == []
+
+
+# --- whipper template → cyanrip scheme --------------------------------------
+
+
+def test_scheme_translates_default_known_template() -> None:
+    assert (
+        scheme_from_template("%t - %n - %d - %A - %y")
+        == "{track} - {title} - {album} - {album_artist} - {date}"
+    )
+
+
+def test_scheme_keeps_literals_and_unknown_tokens() -> None:
+    # The unknown-disc template is all literals + %t; literals pass through.
+    assert (
+        scheme_from_template("Unknown Artist/Unknown Album/%t - Track %t")
+        == "Unknown Artist/Unknown Album/{track} - Track {track}"
+    )
+    # An unmapped token stays visible rather than vanishing.
+    assert scheme_from_template("%X - %n") == "%X - {title}"
+    # A trailing lone % can't form a token; kept as-is.
+    assert scheme_from_template("100%") == "100%"
+
+
+def test_scheme_neutralizes_literal_braces() -> None:
+    # {…} is cyanrip's substitution syntax — stray braces in a user template
+    # must not be parsed as (missing) tag keys.
+    assert scheme_from_template("{weird} %n") == "(weird) {title}"
 
 
 # --- drive scan -----------------------------------------------------------
