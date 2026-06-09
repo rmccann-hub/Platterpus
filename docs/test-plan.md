@@ -210,6 +210,38 @@ the "if it's not on PyPI yet" caveat from the README.
 
 ---
 
+## Test 8 — [ ] cyanrip backend: install + parity run (KDD-18)
+
+**Goal:** prove the cyanrip backend end-to-end on real hardware — the wizard
+installs it, a rip completes with correct tags/paths, and it clears the
+track-3 failure whipper's >587-offset cd-paranoia bug causes on the BDR-209D.
+
+**Steps**
+1. Settings → Ripping backend → **cyanrip (experimental)** → Save. Accept the
+   "Install cyanrip?" offer (or Tools → Set up Whipper GUI…).
+2. Watch the wizard: the *cyanrip backend (in container)* step should enable
+   the COPR (`barsnick/non-fed`) **inside the container only** and
+   `dnf install cyanrip`; the export step should produce
+   `~/.local/bin/cyanrip`. Record any step that fails verbatim.
+3. Restart the app (backend choice is read at startup). Confirm the drive is
+   detected and the disc panel fills in (DiscID/CDDB from `cyanrip -I -N`).
+4. Rip the Police disc (the one whipper fails on track 3) as a known disc.
+   - [ ] Output lands under `Artist/Album/` per the same template as whipper.
+   - [ ] FLAC tags match the track table (album, artist, per-track titles,
+         year, `MUSICBRAINZ_ALBUMID`).
+   - [ ] **Track 3 rips and verifies** (the whole point).
+   - [ ] Known cosmetic gap: progress bars don't move during the rip —
+         confirm the rip still finishes and reports success.
+5. Parity: rip the same disc with whipper (or reuse the earlier rip) and
+   compare per-track CRCs between the two logs where both succeeded.
+6. Record cyanrip's `.log` filename + a copy of its contents — it feeds the
+   fidelity-verdict parser (TASKS current-plan item 2).
+
+**Record:** cyanrip version `____`; track 3 verified? `____`; CRCs match
+whipper's? `____`; log file name `____`.
+
+---
+
 ## After a test passes
 
 - Update the heading marker (`[ ]` → `[x]`, or `[?]` on failure) with the date and any notes.

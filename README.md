@@ -442,7 +442,18 @@ The resulting `whipper-gui-x86_64.AppImage` appears at the repo root. See [`buil
 
 ---
 
+## Ripping backends: whipper (default) and cyanrip (experimental)
+
+The GUI drives one of two ripping engines, selected in **Settings → Ripping backend**:
+
+- **whipper** (default) — the engine this project was built around; everything below assumes it unless said otherwise.
+- **cyanrip** (experimental) — an actively-maintained alternative ([cyanreg/cyanrip](https://github.com/cyanreg/cyanrip)). The practical reason it exists here: whipper's cd-paranoia has a known bug at read offsets **over 587 samples** that can fail tracks (e.g. the Pioneer BDR-209D's +667); cyanrip applies the offset with its own paranoia and doesn't have it. Switching the backend offers to install cyanrip into the same `ripping` container automatically (Fedora doesn't package it; the GUI uses a GPG-checked COPR).
+
+The UI is the same either way — same drive picker, same track table, same naming templates, same output folder. Settings that only apply to one backend grey out (with a tooltip explaining why) instead of disappearing, and the GUI always does the MusicBrainz lookup itself, whichever engine rips. Current cyanrip caveats: progress bars don't move during the rip yet (the rip itself completes and reports correctly), cover-art fetching is whipper-only, and a restart is needed after switching. Status lives in [TASKS.md](TASKS.md) item 9.
+
 ## Audio output: what you get, what you don't
+
+*(This section describes the default **whipper** backend. cyanrip encodes through FFmpeg — also FLAC by default in this GUI — but the flag-by-flag details below are whipper's.)*
 
 This GUI doesn't decide how audio is encoded — **whipper does**, and its encoder settings are hardcoded upstream. Worth knowing what those settings are.
 
