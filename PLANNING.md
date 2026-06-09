@@ -44,10 +44,14 @@ Whipper-GUI-Frontend---CD-Rip/
 │   ├── appimage-testing.md              # how the AppImage is built + tested
 │   ├── upstream-modification-investigation.md # EAC-parity investigation (CTDB, whipper)
 │   ├── test-plan.md                     # manual/hardware test checklist (CTDB, drive analyze, …)
+│   ├── testing.md                       # testing strategy & standards (trophy + hardware gate)
+│   ├── ecosystem-audit-2026-06.md       # whipper-stalled / cyanrip-successor audit (KDD-18)
+│   ├── offset-investigation-2026-06.md  # read-offset investigation → offset-by-drive-model lookup
 │   └── (compass_artifact_*.md if/when produced — see docs/README.md)
 │
 ├── scripts/                             # standalone (non-packaged) helper scripts
-│   └── ctdb_verify.py                   # CTDB verify hardware-validation runner (KDD-16)
+│   ├── ctdb_verify.py                   # CTDB verify hardware-validation runner (KDD-16)
+│   └── update_drive_offsets.py          # re-import AccurateRip DriveOffsets.bin (sentinel-guarded)
 │
 ├── build/                               # everything related to producing the AppImage
 │   ├── build_appimage.sh                # one-shot build script (calls python-appimage)
@@ -78,12 +82,16 @@ Whipper-GUI-Frontend---CD-Rip/
         ├── drive_access.py              # diagnose no-drive cause (no_device / permission / ok)
         ├── drive_control.py             # eject + force-stop a runaway drive on cancel (Critical Rule #3)
         ├── help_content.py              # in-code User Guide markdown (avoids AppImage package-data)
+        ├── appimage_integration.py      # first-run "add me to the app menu" self-integration (KDD-17a)
         │
         ├── adapters/                    # ALL calls into external tools/services go through here
         │   ├── __init__.py
-        │   ├── whipper_backend.py       # WhipperBackend ABC + WhipperHostExportedImpl
+        │   ├── whipper_backend.py       # WhipperBackend ABC (+ RipMetadata) + WhipperHostExportedImpl
+        │   ├── cyanrip_backend.py       # CyanripImpl — config-selectable successor backend (KDD-18)
         │   ├── musicbrainz_client.py    # MusicBrainzClient ABC + MusicBrainzNgsImpl
         │   ├── metaflac.py              # MetaflacAdapter (tag write-back)
+        │   ├── accuraterip_offsets.py   # read-offset lookup by drive model (AccurateRip list)
+        │   ├── accuraterip_offsets_data.py # bundled DriveOffsets.bin (~4,800 drives, gzip+base64)
         │   └── ctdb_client.py           # CTDBClient ABC + CtdbHttpImpl (CUETools DB lookup; KDD-16)
         │
         ├── ctdb/                        # CTDB verify library (clean-room; KDD-16; not yet GUI-wired)
@@ -99,13 +107,15 @@ Whipper-GUI-Frontend---CD-Rip/
         │   ├── registry.py              # declarative DependencySpec list
         │   ├── checks.py                # probe functions (present? version?)
         │   ├── resolvers.py             # AutoInstaller, QueuedInstaller, ManualPrompt
+        │   ├── host_setup.py            # bootstrap arm: Distrobox/container/whipper/cyanrip install + export (KDD-17c)
         │   └── version.py               # version-string parsing utility
         │
         ├── parsers/                     # whipper stdout/log parsing (named-group regexes)
         │   ├── __init__.py
         │   ├── rip_log.py               # parse the `.log` file whipper writes per rip
         │   ├── drive_list.py            # parse `whipper drive list`
-        │   └── cd_info.py               # parse `whipper cd info`
+        │   ├── cd_info.py               # parse `whipper cd info` (defines the shared DiscInfo)
+        │   └── cyanrip_info.py          # parse `cyanrip -I` into the same DiscInfo (KDD-18)
         │
         ├── ui/
         │   ├── __init__.py
@@ -119,6 +129,7 @@ Whipper-GUI-Frontend---CD-Rip/
         │   ├── settings_dialog.py       # settings page
         │   ├── unknown_album.py         # unknown-album helper flow
         │   ├── drive_setup_dialog.py    # drive-setup wizard (analyze + offset find; KDD-15)
+        │   ├── host_setup_dialog.py     # host-setup wizard (no-terminal setup-host.sh; KDD-17c)
         │   ├── help_dialogs.py          # Help → About + User Guide dialogs
         │   └── dialogs/
         │       ├── __init__.py
@@ -127,9 +138,10 @@ Whipper-GUI-Frontend---CD-Rip/
         │
         └── workers/                     # long-running operations off the GUI thread
             ├── __init__.py
-            ├── rip_worker.py            # drives the whipper rip subprocess
+            ├── rip_worker.py            # drives the rip subprocess (whipper or cyanrip)
             ├── mb_worker.py             # drives MusicBrainz queries
-            └── drive_setup_worker.py    # drives drive analyze / offset find off-thread
+            ├── drive_setup_worker.py    # drives drive analyze / offset find off-thread
+            └── host_setup_worker.py     # drives the host-setup bootstrap off-thread
 ```
 
 ---
@@ -150,12 +162,15 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`drive_access.py`** — pure-stdlib `diagnose_drive_access()` classifying the no-drive case as `no_device` / `permission` (gives the `usermod -aG` fix) / `ok`. Probes are injectable for testing.
 - **`drive_control.py`** — host-first best-effort `eject_drive()` and `force_stop_drive()` for a runaway drive on cancel. This is the one approved exception to Critical Rule #3 (force-stop only; see CLAUDE.md).
 - **`help_content.py`** — the User Guide Markdown kept *in code* (not packaged data, to dodge AppImage package-data pitfalls); rendered by the Help dialogs.
+- **`appimage_integration.py`** — first-AppImage-run self-integration (KDD-17a): one-time, dismissible offer to write the app's own `.desktop` + icon into the user's menu and set the AppImage executable. No-op for source/pipx installs (detected via `$APPIMAGE`).
 
 ### Adapters (`adapters/`)
 
 Every call into an external tool goes through this layer. CLAUDE.md Critical Rule #1 makes adapter layers mandatory for unmaintained deps; we apply the same pattern to `metaflac` for consistency.
 
-- **`whipper_backend.py`** — defines `WhipperBackend`, an abstract base class with the methods the GUI needs (`list_drives()`, `disc_info(drive)`, `rip(...)`, `version()`, plus the optional `analyze_drive()`/`find_offset()` used by the drive-setup wizard — these default to `NotImplementedError` so other backends and test fakes still construct). The returned `RipHandle` carries `log_lines()`, `wait()`, `cancel()`, `returncode`. The v1 concrete implementation is `WhipperHostExportedImpl`, which `subprocess`-invokes `~/.local/bin/whipper`. A future `CyanripImpl` could implement the same ABC; the choice would be a config setting.
+- **`whipper_backend.py`** — defines `WhipperBackend`, an abstract base class with the methods the GUI needs (`list_drives()`, `disc_info(drive)`, `rip(...)`, `version()`, plus the optional `analyze_drive()`/`find_offset()` used by the drive-setup wizard — these default to `NotImplementedError` so other backends and test fakes still construct). `rip()` also takes an optional `RipMetadata` (the GUI's track-table snapshot) that metadata-fed backends consume. The returned `RipHandle` carries `log_lines()`, `wait()`, `cancel()`, `returncode`. The original concrete implementation is `WhipperHostExportedImpl`, which `subprocess`-invokes `~/.local/bin/whipper` and ignores `RipMetadata` (whipper tags itself from `--release-id`).
+- **`cyanrip_backend.py`** — `CyanripImpl` (KDD-18), the config-selectable successor backend (`Config.ripper_backend`). Always runs cyanrip offline (`-N`) and feeds it the GUI's `RipMetadata` via `-a`/`-t` (values escaped for FFmpeg's `av_dict_parse_string`); translates whipper `%`-templates to cyanrip `-D`/`-F` `{…}` schemes (`scheme_from_template`); `disc_info` parses `cyanrip -I -N` via `parsers/cyanrip_info.py`. Drive listing is a backend-independent `/dev/sr*` + sysfs scan.
+- **`accuraterip_offsets.py`** (+ **`accuraterip_offsets_data.py`**) — read-offset lookup by drive vendor/model the way EAC/dBpoweramp do it, against the full bundled AccurateRip `DriveOffsets.bin` list (~4,800 drives, stored in-code as gzip+base64; regenerated by `scripts/update_drive_offsets.py`, which refuses to write unless the BDR-209D=+667 sentinel passes). Layered: user CSV > curated overrides > bundled list. Only ever *suggests* — a human confirms before anything is saved.
 - **`musicbrainz_client.py`** — defines `MusicBrainzClient` ABC with `releases_by_disc_id(disc_id)`, `releases_by_toc(toc)`, `release_by_mbid(mbid)`, `set_user_agent(...)`. v1 implementation `MusicBrainzNgsImpl` wraps `musicbrainzngs`. A `RequestsJsonImpl` is reserved for the day `musicbrainzngs` finally bitrots — it would hit `https://musicbrainz.org/ws/2/...?fmt=json` directly with `requests`.
 - **`metaflac.py`** — `MetaflacAdapter` wrapping the `metaflac` CLI. Used by the Unknown Album helper to apply `Track NN` placeholder tags after a `--unknown` rip.
 - **`ctdb_client.py`** — `CTDBClient` ABC + `CtdbHttpImpl` for CUETools-DB lookups (`db.cuetools.net/lookup2.php`). Clean-room per Critical Rule #1 and KDD-16; the injectable fetcher keeps the transport swappable and unit-testable. Backs the `ctdb/` verify library.
@@ -178,6 +193,7 @@ Implements brief P0 #11. **All** dependency checks live here. CLAUDE.md Critical
 - **`checks.py`** — probe functions. One per dependency: `check_whipper()`, `check_metaflac()`, `check_libdiscid()`, `check_picard_flatpak()`, `check_python_pkg(name)`. Each returns a `ProbeResult` (present: bool, version: str | None, location: str | None).
 - **`resolvers.py`** — three resolver classes corresponding to the three tiers. `AutoInstaller` runs silent installs after one confirmation dialog (pipx, `flatpak install --user`). `QueuedInstaller` drives `ui.dialogs.pending_installs`. `ManualPrompt` drives `ui.dialogs.manual_install`. The resolvers are dumb about which tier a dep belongs to — that's the registry's job; resolvers just execute.
 - **`version.py`** — small helper: parse a version string out of CLI output using a named-group regex, compare semver-ish strings against a minimum. Tiny, well-tested.
+- **`host_setup.py`** — the **bootstrap arm** of this subsystem (KDD-17c): an idempotent step engine (Distrobox → container backend → `ripping` container → whipper-in-container → optional cyanrip-from-COPR → host export) behind an injectable `CommandRunner`, so the orchestration is fully unit-testable and supports dry-run. Host-root installs use `pkexec` (graphical polkit — a GUI has no TTY for sudo); in-container installs stay `sudo`. Also home to `cyanrip_on_host()` so presence checks don't scatter (Critical Rule #6).
 
 ### Whipper output parsers (`parsers/`)
 
@@ -185,7 +201,8 @@ Subprocess output parsing per CLAUDE.md (named-group regexes, robust to minor-ve
 
 - **`rip_log.py`** — parses whipper's per-rip `.log` file into a structured `RipLog` dataclass: per-track CRCs, AccurateRip match status, AccurateRip confidence, read offset confirmation, total error count.
 - **`drive_list.py`** — parses stdout of `whipper drive list` into a list of `DriveDescriptor` (vendor, model, firmware, device path).
-- **`cd_info.py`** — parses stdout of `whipper cd info` into a `DiscInfo` (TOC, MusicBrainz disc ID, MB match status, AccurateRip availability).
+- **`cd_info.py`** — parses stdout of `whipper cd info` into a `DiscInfo` (TOC, MusicBrainz disc ID, MB match status, AccurateRip availability). `DiscInfo` is deliberately backend-neutral — both backends produce it.
+- **`cyanrip_info.py`** — parses the `cyanrip -I` start report into the same `DiscInfo` (Disc tracks / DiscID / CDDB ID / the MusicBrainz URL printed on the line after its label). Labels verified against cyanrip master's `cyanrip_log_start_report`.
 
 ### UI (`ui/`)
 
@@ -200,7 +217,8 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`rip_progress.py`** — three panes: live whipper stdout (read-only), per-track AccurateRip results table (populated when the rip log is parsed at the end), and a "View log" button that opens the saved `.log` file in the default text viewer.
 - **`settings_dialog.py`** — `SettingsDialog(QDialog)`. Fields for output dir, working dir, track template, disc template, read offset, whipper/metaflac paths, auto-launch-Picard toggle. Persists through `config.py`.
 - **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers a `whipper cd rip --unknown`, applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
-- **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). Runs whipper's own `drive analyze` + `offset find` off-thread via `DriveSetupWorker` (they persist to `whipper.conf`), with a manual-offset fallback that uses the GUI's `--offset` override.
+- **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). Runs whipper's own `drive analyze` + `offset find` off-thread via `DriveSetupWorker` (they persist to `whipper.conf`), with a manual-offset fallback that uses the GUI's `--offset` override and a pre-filled offset when the drive model is in the bundled AccurateRip list.
+- **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when whipper is absent and on Tools → Set up Whipper GUI…. Installs the cyanrip backend too when it's the selected backend.
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.
@@ -212,6 +230,7 @@ Long-running operations on background `QThread`s so the GUI stays responsive.
 - **`rip_worker.py`** — `RipWorker(QObject)` moved to a `QThread`. Owns the rip subprocess. Emits `log_line(str)` for each line of whipper output, `progress(...)` for parseable progress events, `finished(success, rip_log_path)` on exit, `error(message)` on failure. Supports cancel via subprocess terminate + child-process cleanup.
 - **`mb_worker.py`** — `MusicBrainzWorker(QObject)` moved to a `QThread`. Drives `MusicBrainzClient` calls (which can take a few seconds and shouldn't block input). Emits `releases_returned(list)` or `error(message)`.
 - **`drive_setup_worker.py`** — `DriveSetupWorker(QObject)` moved to a `QThread`. Runs the wizard's `drive analyze` / `offset find` via cancellable `Popen` so closing the dialog mid-detection can't orphan a running process or strand the drive.
+- **`host_setup_worker.py`** — `HostSetupWorker(QObject)` moved to a `QThread`. Runs `HostSetup.run()` (which can take minutes — image pulls, dnf installs) off the GUI thread, relaying per-step `StepResult`s as signals; supports cancel at step boundaries.
 
 ---
 
@@ -325,14 +344,16 @@ class WhipperBackend(ABC):
 - Output is fed through the `parsers/` module — never parsed inline in the adapter.
 - `rip()` returns a `RipHandle` with `.log_lines()` (iterator), `.cancel()`, `.wait() -> int`.
 
-### Future: `CyanripImpl`
+### `CyanripImpl` — implemented (KDD-18, 2026-06-08/09)
 
-Stub `cyanrip_backend.py` is **not** created at v1 to avoid dead code. Drop-in shape:
+*(Superseded: this section originally reserved the slot without building it — KDD-08.
+Built once whipper's cd-paranoia >587-offset bug failed real tracks on the BDR-209D.)*
 
-- Implements the same ABC.
-- `list_drives()` uses `cyanrip -L` (or device probing).
-- `rip()` translates `release_id` into `cyanrip -R <mbid>`.
-- Selection between implementations would be a `backend = "whipper" | "cyanrip"` key in the config file, read by `app.py` at startup.
+- Implements the same ABC; selected by `Config.ripper_backend` (`"whipper"` default | `"cyanrip"`), read by `app.py` at startup.
+- `list_drives()` scans `/dev/sr*` + sysfs (cyanrip has no list command; the scan is backend-independent).
+- `disc_info()` runs `cyanrip -I -N` (offline — DiscID/CDDB are computed locally from the TOC) parsed by `parsers/cyanrip_info.py`.
+- `rip()` does **not** use `cyanrip -R` (the originally sketched shape): cyanrip always gets `-N` and is fed the GUI's `RipMetadata` via `-a`/`-t` instead — deterministic release, no in-container network, Critical Rule #5 intact. Naming templates translate to `-D`/`-F` schemes.
+- Still open: stdout progress parsing and cyanrip-log fidelity parsing (see TASKS).
 
 ---
 
@@ -475,7 +496,7 @@ AppImages are unsandboxed, so calling `~/.local/bin/whipper` from inside one wor
 
 ### KDD-08 — Reserve, don't pre-build, the alternate adapter implementations
 
-`WhipperBackend` and `MusicBrainzClient` are ABCs, and the brief calls out future alternatives (`cyanrip`, raw `requests`). v1 does not create empty `CyanripImpl` or `RequestsJsonImpl` skeletons — they would be dead code. The ABC shapes are documented above so when retirement does happen, the new impl can be added in one focused PR. CLAUDE.md's "no half-finished implementations" rule.
+`WhipperBackend` and `MusicBrainzClient` are ABCs, and the brief calls out future alternatives (`cyanrip`, raw `requests`). v1 did not create empty `CyanripImpl` or `RequestsJsonImpl` skeletons — they would have been dead code. The ABC shapes are documented above so when retirement happens, the new impl can be added in focused PRs. CLAUDE.md's "no half-finished implementations" rule. *(This played out as designed: `CyanripImpl` was added post-v0.1.0 once a real whipper bug created the need — KDD-18 — without touching the GUI layer. `RequestsJsonImpl` remains reserved.)*
 
 ### KDD-09 — Tests live alongside the package, not inside it
 
@@ -628,4 +649,5 @@ Decided 2026-06-04 after a researched ecosystem audit ([docs/ecosystem-audit-202
 - **Decision:** keep whipper now; build **`CyanripImpl`** behind the existing `WhipperBackend` ABC as a config-selectable second backend (the ABC was designed for exactly this). **Never fork whipper** — forking inherits its maintenance burden + the `pkg_resources` cliff; if ripper-level changes are ever needed, contribute to *cyanrip* (active) instead. Writing our own ripper and upstreaming our GUI into whipper are both rejected (see the audit's options table).
 - **CTDB is backend-independent** — neither ripper does it; our clean-room `ctdb/` library (KDD-16) rides above whichever backend is selected, so this decision doesn't touch it.
 - **Backend-independent near-term win:** auto-look-up the drive's read offset from the AccurateRip offset list by drive model, so users never type an offset — this is what would have prevented the BDR-209D friction, and it's independent of the whipper-vs-cyanrip choice.
-- **Open feasibility unknown:** cyanrip's packaging for the Fedora-toolbox `ripping` container (AUR has it; Fedora is unconfirmed — COPR/build/Arch-base TBD). Resolved in the migration plan's step 1 (TASKS).
+- ~~**Open feasibility unknown:** cyanrip's packaging for the Fedora-toolbox `ripping` container.~~ **RESOLVED 2026-06-09:** Fedora and RPM Fusion do not package cyanrip; the COPR `barsnick/non-fed` does (0.9.3.1, GPG-checked, F42–44). The host-setup wizard installs + exports it when the cyanrip backend is selected; fallback is a meson source build from Fedora-proper deps. See the audit doc's "Packaging research" section.
+- **Status (2026-06-09):** phases 1–5 shipped (impl, Settings toggle, container packaging, `disc_info`, metadata model + template mapping + unified backend-aware Settings). Remaining: stdout progress parsing, cyanrip-log fidelity parsing, hardware parity run — tracked in TASKS item 9.
