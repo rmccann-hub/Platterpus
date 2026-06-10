@@ -11,6 +11,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+*(nothing yet)*
+
+## [0.2.0] — 2026-06-09
+
 ### Added
 - **`setup-host.sh --cyanrip`.** The CLI bootstrap now mirrors the GUI
   wizard's cyanrip step: enables the GPG-checked COPR inside the container
@@ -45,7 +49,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   highlighted, and the status line shows percentage + ETA — same behaviour as
   whipper rips. Per-track completion lines peg that track's slice of the
   overall bar.
-
 - **cyanrip rips are now driven entirely by the GUI's metadata (KDD-18).**
   The rip snapshots the track table (the MusicBrainz release you picked plus
   any edits) and feeds it to cyanrip via `-a`/`-t`, with MusicBrainz always
@@ -345,5 +348,6 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.2.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/tag/v0.1.0
 [0.0.1]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/tag/v0.0.1

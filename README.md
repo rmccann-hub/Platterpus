@@ -736,9 +736,9 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Uninstalling
 
-If you installed with `install.sh` (or `install-appimage.sh`), the easiest way is the **Uninstall Whipper GUI** shortcut in your application menu — it runs `uninstall.sh` in a terminal with all the options below.
+**Easiest — no terminal:** open the app and use **Tools → Uninstall Whipper GUI…**, or click the **Uninstall Whipper GUI** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the whipper/metaflac/cyanrip commands, the `ripping` container, optionally your drive calibration (`whipper.conf`) and the AppImage file itself, and the app's own settings and logs — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `whipper-gui --uninstall`.
 
-The [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first: it removes the GUI (AppImage, config, logs, and all shortcuts) by default, then prompts about the broader stack. It **never** removes your ripped music or a source checkout without an explicit flag.
+**Script alternative** (source checkouts, or if you prefer the terminal): the [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first — it also covers the dev `.venv/`, which the in-app uninstaller doesn't (a packaged app doesn't know your checkout's location). It **never** removes your ripped music or a source checkout without an explicit flag.
 
 ```bash
 # Interactive — removes the GUI's venv/config/logs by default, then prompts
@@ -755,11 +755,11 @@ bash uninstall.sh --full --yes
 bash uninstall.sh --help   # full option list
 ```
 
-If you installed via the **AppImage** with `install.sh`/`install-appimage.sh`, the **Uninstall Whipper GUI** shortcut (or running the staged `~/Applications/whipper-gui-uninstall.sh`) does all of the above — it removes the AppImage, its icon, and the shortcuts, then prompts about the host stack. To remove the host stack by hand instead:
+To remove the host stack fully by hand instead:
 
 ```bash
 distrobox rm ripping            # remove the container
-rm ~/.local/bin/whipper ~/.local/bin/metaflac   # remove the host exports
+rm ~/.local/bin/whipper ~/.local/bin/metaflac ~/.local/bin/cyanrip  # host exports
 rm -rf ~/.config/whipper ~/.config/whipper-gui ~/.local/share/whipper-gui
 ```
 
@@ -771,6 +771,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 |------|----------|
 | `~/.local/bin/whipper` | The Distrobox-exported wrapper. **Don't edit.** |
 | `~/.local/bin/metaflac` | Same. |
+| `~/.local/bin/cyanrip` | Same — present only if you've enabled the cyanrip backend. |
 | `~/.config/whipper/whipper.conf` | Drive offsets and cache settings. Shared with the container. |
 | `~/.config/whipper-gui/config.toml` | The GUI's own settings (output dir, templates, toggles). |
 | `~/.local/share/whipper-gui/log.txt` | GUI log file. Check here when something goes sideways. |

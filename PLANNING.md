@@ -108,6 +108,7 @@ Whipper-GUI-Frontend---CD-Rip/
         │   ├── checks.py                # probe functions (present? version?)
         │   ├── resolvers.py             # AutoInstaller, QueuedInstaller, ManualPrompt
         │   ├── host_setup.py            # bootstrap arm: Distrobox/container/whipper/cyanrip install + export (KDD-17c)
+        │   ├── host_teardown.py         # teardown arm: the in-app Uninstaller's engine (keeps distrobox/podman + music)
         │   └── version.py               # version-string parsing utility
         │
         ├── parsers/                     # whipper stdout/log parsing (named-group regexes)
@@ -130,6 +131,7 @@ Whipper-GUI-Frontend---CD-Rip/
         │   ├── unknown_album.py         # unknown-album helper flow
         │   ├── drive_setup_dialog.py    # drive-setup wizard (analyze + offset find; KDD-15)
         │   ├── host_setup_dialog.py     # host-setup wizard (no-terminal setup-host.sh; KDD-17c)
+        │   ├── uninstall_dialog.py      # in-app Uninstaller (no-terminal uninstall.sh)
         │   ├── help_dialogs.py          # Help → About + User Guide dialogs
         │   └── dialogs/
         │       ├── __init__.py
@@ -141,7 +143,7 @@ Whipper-GUI-Frontend---CD-Rip/
             ├── rip_worker.py            # drives the rip subprocess (whipper or cyanrip)
             ├── mb_worker.py             # drives MusicBrainz queries
             ├── drive_setup_worker.py    # drives drive analyze / offset find off-thread
-            └── host_setup_worker.py     # drives the host-setup bootstrap off-thread
+            └── host_setup_worker.py     # drives the setup AND teardown engines off-thread (StepEngine)
 ```
 
 ---
@@ -193,6 +195,7 @@ Implements brief P0 #11. **All** dependency checks live here. CLAUDE.md Critical
 - **`checks.py`** — probe functions. One per dependency: `check_whipper()`, `check_metaflac()`, `check_libdiscid()`, `check_picard_flatpak()`, `check_python_pkg(name)`. Each returns a `ProbeResult` (present: bool, version: str | None, location: str | None).
 - **`resolvers.py`** — three resolver classes corresponding to the three tiers. `AutoInstaller` runs silent installs after one confirmation dialog (pipx, `flatpak install --user`). `QueuedInstaller` drives `ui.dialogs.pending_installs`. `ManualPrompt` drives `ui.dialogs.manual_install`. The resolvers are dumb about which tier a dep belongs to — that's the registry's job; resolvers just execute.
 - **`version.py`** — small helper: parse a version string out of CLI output using a named-group regex, compare semver-ish strings against a minimum. Tiny, well-tested.
+- **`host_teardown.py`** — the **teardown arm** (the in-app Uninstaller's engine): idempotent steps removing shortcuts → host exports → the `ripping` container → optionally `whipper.conf` and the running AppImage → the GUI's own settings + logs LAST (so the log survives a failed step). Injectable runner + file/tree removers, dry-run, per-step `StepResult`s. The keep-contract is test-pinned: the only mutating command it can issue is `distrobox rm --force ripping` — Distrobox/podman and music are never targets.
 - **`host_setup.py`** — the **bootstrap arm** of this subsystem (KDD-17c): an idempotent step engine (Distrobox → container backend → `ripping` container → whipper-in-container → optional cyanrip-from-COPR → host export) behind an injectable `CommandRunner`, so the orchestration is fully unit-testable and supports dry-run. Host-root installs use `pkexec` (graphical polkit — a GUI has no TTY for sudo); in-container installs stay `sudo`. Also home to `cyanrip_on_host()` so presence checks don't scatter (Critical Rule #6).
 
 ### Whipper output parsers (`parsers/`)
@@ -219,6 +222,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers a `whipper cd rip --unknown`, applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
 - **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). Runs whipper's own `drive analyze` + `offset find` off-thread via `DriveSetupWorker` (they persist to `whipper.conf`), with a manual-offset fallback that uses the GUI's `--offset` override and a pre-filled offset when the drive model is in the bundled AccurateRip list.
 - **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when whipper is absent and on Tools → Set up Whipper GUI…. Installs the cyanrip backend too when it's the selected backend.
+- **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Whipper GUI…, also launched directly by `whipper-gui --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.
@@ -230,7 +234,7 @@ Long-running operations on background `QThread`s so the GUI stays responsive.
 - **`rip_worker.py`** — `RipWorker(QObject)` moved to a `QThread`. Owns the rip subprocess. Emits `log_line(str)` for each line of whipper output, `progress(...)` for parseable progress events, `finished(success, rip_log_path)` on exit, `error(message)` on failure. Supports cancel via subprocess terminate + child-process cleanup.
 - **`mb_worker.py`** — `MusicBrainzWorker(QObject)` moved to a `QThread`. Drives `MusicBrainzClient` calls (which can take a few seconds and shouldn't block input). Emits `releases_returned(list)` or `error(message)`.
 - **`drive_setup_worker.py`** — `DriveSetupWorker(QObject)` moved to a `QThread`. Runs the wizard's `drive analyze` / `offset find` via cancellable `Popen` so closing the dialog mid-detection can't orphan a running process or strand the drive.
-- **`host_setup_worker.py`** — `HostSetupWorker(QObject)` moved to a `QThread`. Runs `HostSetup.run()` (which can take minutes — image pulls, dnf installs) off the GUI thread, relaying per-step `StepResult`s as signals; supports cancel at step boundaries.
+- **`host_setup_worker.py`** — `HostSetupWorker(QObject)` moved to a `QThread`. Runs any `StepEngine` (a Protocol both `HostSetup` and `HostTeardown` satisfy — one worker drives setup and uninstall) off the GUI thread, relaying per-step `StepResult`s as signals; supports cancel at step boundaries.
 
 ---
 
