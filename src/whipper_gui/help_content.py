@@ -77,6 +77,14 @@ named from the album artist/title you type.
   out with a tooltip explaining why — your values are kept, and switching
   back re-enables them. The rest of the app works the same either way.
 
+## Uninstalling (Tools → Uninstall Whipper GUI)
+
+Removes everything the app installed: shortcuts, the whipper/metaflac/cyanrip
+commands, the ripping container, optionally your drive calibration
+(whipper.conf) and the AppImage file, and the app's own settings and logs.
+**Your music is never touched**, and Distrobox/podman stay installed (other
+containers keep working). You'll confirm before anything is removed.
+
 ## Drive setup (Tools → Set up drive)
 
 Runs whipper's own **drive analyze** and **offset find** and writes them to
