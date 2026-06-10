@@ -242,6 +242,34 @@ whipper's? `____`; log file name `____`.
 
 ---
 
+## Test 9 — [ ] In-app Uninstaller: real run
+
+**Goal:** prove the no-terminal uninstall on real hardware — everything the
+app installed disappears; Distrobox/podman and music survive.
+
+**Steps** (do this LAST in a hardware session, or on a sacrificial setup —
+it removes the working install):
+1. Note what exists first: `ls ~/.local/bin/{whipper,metaflac,cyanrip,whipper-gui}`,
+   `distrobox list`, the app menu entries, `~/.config/whipper{,-gui}`,
+   `~/.local/share/whipper-gui`.
+2. Launch the **Uninstall Whipper GUI** menu entry (tests `--uninstall`
+   mode), or Tools → Uninstall Whipper GUI… inside the app.
+3. Leave both checkboxes ticked → Uninstall → confirm. Watch the per-step
+   log; record any ✗ verbatim.
+4. Verify gone: all of step 1's items, the menu entries (may need a
+   re-login/menu refresh), and — if launched from the AppImage — the
+   AppImage file itself.
+5. Verify KEPT: `distrobox --version` and `podman --version` still work;
+   any other containers still listed; `~/Music/rips/` untouched.
+6. Reinstall from the Release AppImage and confirm the first-run offers
+   (menu integration, host wizard) come back fresh — proving the uninstall
+   really removed the config flags.
+
+**Record:** all removed? `____`; distrobox/podman intact? `____`;
+music intact? `____`; reinstall clean? `____`.
+
+---
+
 ## After a test passes
 
 - Update the heading marker (`[ ]` → `[x]`, or `[?]` on failure) with the date and any notes.
