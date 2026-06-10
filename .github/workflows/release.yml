@@ -35,6 +35,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install build "python-appimage>=1.4,<2"
+          # zsyncmake lets the build emit the .zsync delta-update file next
+          # to the AppImage (KDD-17b self-update).
+          sudo apt-get update -q && sudo apt-get install -y -q zsync
 
       - name: Build the AppImage
         env:
@@ -73,10 +76,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               whipper-gui-x86_64.AppImage whipper-gui-x86_64.AppImage.sha256 \
+              whipper-gui-x86_64.AppImage.zsync \
               install.sh install-appimage.sh --clobber
           else
             gh release create "$TAG" \
               whipper-gui-x86_64.AppImage whipper-gui-x86_64.AppImage.sha256 \
+              whipper-gui-x86_64.AppImage.zsync \
               install.sh install-appimage.sh \
               --title "Whipper GUI $TAG" \
               --generate-notes \

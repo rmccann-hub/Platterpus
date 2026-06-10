@@ -136,3 +136,58 @@ else
     echo "No AppImage produced at $canonical. Check python-appimage output above."
     exit 1
 fi
+
+# --- Embed AppImage update-information (KDD-17b) -----------------------------
+# python-appimage hardcodes its appimagetool invocation (no -u support), so we
+# re-pack the finished AppImage ourselves to embed the standard zsync
+# update-information. Any AppImageUpdate-compatible tool can then discover the
+# newest GitHub release and download only the changed blocks, verified.
+# Re-packing also emits whipper-gui-<arch>.AppImage.zsync (when `zsyncmake` is
+# installed — package "zsync") which release.yml uploads beside the AppImage.
+# This runs BEFORE the release workflow's checksum step, so the .sha256 always
+# covers the final, update-info-embedded file.
+UPDATE_INFO="gh-releases-zsync|rmccann-hub|Whipper-GUI-Frontend---CD-Rip|latest|whipper-gui-${arch}.AppImage.zsync"
+
+find_appimagetool() {
+    # A system appimagetool wins; otherwise reuse the copy python-appimage
+    # just cached for its own build (~/.cache/python-appimage/bin).
+    command -v appimagetool 2>/dev/null && return 0
+    local candidate
+    for candidate in "$HOME/.cache/python-appimage/bin"/*appimagetool*/AppRun \
+                     "$HOME/.cache/python-appimage/bin"/*appimagetool*; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+echo "[4/4] Embedding zsync update-information…"
+if tool="$(find_appimagetool)"; then
+    chmod +x "$canonical"
+    workdir="$(mktemp -d)"
+    (
+        cd "$workdir"
+        # Extract-and-repack keeps working on FUSE-less hosts (CI).
+        APPIMAGE_EXTRACT_AND_RUN=1 "$canonical" --appimage-extract >/dev/null
+        ARCH="$arch" APPIMAGE_EXTRACT_AND_RUN=1 "$tool" --no-appstream \
+            -u "$UPDATE_INFO" squashfs-root "$canonical"
+    )
+    # appimagetool drops the .zsync in its working directory; move it home.
+    zsync_name="whipper-gui-${arch}.AppImage.zsync"
+    if [ -f "$workdir/$zsync_name" ]; then
+        mv -f "$workdir/$zsync_name" "$REPO_ROOT/$zsync_name"
+    fi
+    rm -rf "$workdir"
+    if [ -f "$REPO_ROOT/$zsync_name" ]; then
+        echo "Wrote $zsync_name (delta updates enabled)"
+    else
+        echo "NOTE: no .zsync produced — install 'zsync' (zsyncmake) for delta"
+        echo "      update files; the update-information is embedded regardless."
+    fi
+else
+    echo "NOTE: appimagetool not found — skipped update-information embed."
+    echo "      (Run the build once so python-appimage caches it, or install"
+    echo "      appimagetool on PATH.)"
+fi

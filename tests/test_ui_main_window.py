@@ -1364,6 +1364,104 @@ class _FakeThread:
         pass
 
 
+# --- Update check (KDD-17b) -------------------------------------------------
+
+
+def test_help_menu_has_check_for_updates(teardown_threads) -> None:
+    window = teardown_threads()
+    menubar = window.menuBar()
+    actions: list[str] = []
+    for menu in menubar.findChildren(type(menubar.addMenu("tmp"))):
+        actions += [a.text() for a in menu.actions()]
+    assert any("Check for" in text and "updates" in text for text in actions)
+
+
+def test_update_result_none_reports_check_failure(
+    teardown_threads, monkeypatch
+) -> None:
+    window = teardown_threads()
+    seen: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda parent, title, text, *a, **k: seen.append(text),
+    )
+    window._on_update_result(None)
+    assert seen and "Couldn't check" in seen[0]
+
+
+def test_update_result_up_to_date(teardown_threads, monkeypatch) -> None:
+    from whipper_gui import __version__
+    from whipper_gui.update_check import ReleaseInfo
+
+    window = teardown_threads()
+    seen: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda parent, title, text, *a, **k: seen.append(text),
+    )
+    window._on_update_result(ReleaseInfo(version=__version__, url="x"))
+    assert seen and "up to date" in seen[0]
+
+
+def test_update_result_newer_without_tool_opens_release_page(
+    teardown_threads, monkeypatch
+) -> None:
+    """No AppImageUpdate tool installed → offer the download page; never
+    download anything ourselves (KDD-17)."""
+    import shutil as shutil_mod
+
+    from PySide6.QtGui import QDesktopServices
+
+    from whipper_gui.update_check import ReleaseInfo
+
+    window = teardown_threads()
+    monkeypatch.setattr(shutil_mod, "which", lambda name: None)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    opened: list[str] = []
+    monkeypatch.setattr(
+        QDesktopServices,
+        "openUrl",
+        staticmethod(lambda url: opened.append(url.toString())),
+    )
+
+    window._on_update_result(ReleaseInfo(version="99.0.0", url="https://example.com/r"))
+
+    assert opened == ["https://example.com/r"]
+
+
+def test_update_result_newer_with_tool_launches_updater(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """AppImageUpdate present + running as an AppImage → delegate to it."""
+    import shutil as shutil_mod
+    import subprocess as subprocess_mod
+
+    import whipper_gui.appimage_integration as ai
+    from whipper_gui.update_check import ReleaseInfo
+
+    window = teardown_threads()
+    monkeypatch.setattr(shutil_mod, "which", lambda name: "/usr/bin/appimageupdatetool")
+    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
+    monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    launched: list[list[str]] = []
+    monkeypatch.setattr(
+        subprocess_mod,
+        "Popen",
+        lambda argv, **kwargs: launched.append(argv),
+    )
+
+    window._on_update_result(ReleaseInfo(version="99.0.0", url="https://x"))
+
+    assert launched == [["/usr/bin/appimageupdatetool", str(appimage)]]
+
+
 # --- In-app Uninstaller wiring ---------------------------------------------
 
 

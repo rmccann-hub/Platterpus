@@ -77,6 +77,13 @@ named from the album artist/title you type.
   out with a tooltip explaining why — your values are kept, and switching
   back re-enables them. The rest of the app works the same either way.
 
+## Updates (Help → Check for updates)
+
+Asks GitHub whether a newer release exists. If one does, the app hands
+off to AppImageUpdate when it's installed (downloads only the changed
+parts and verifies them) or opens the download page — it never
+downloads updates itself. Restart the app after updating.
+
 ## Uninstalling (Tools → Uninstall Whipper GUI)
 
 Removes everything the app installed: shortcuts, the whipper/metaflac/cyanrip

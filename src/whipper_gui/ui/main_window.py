@@ -164,6 +164,10 @@ class MainWindow(QMainWindow):
         # Active rip's worker/thread; set during a rip, cleared on finish.
         self._rip_worker: RipWorker | None = None
         self._rip_thread: QThread | None = None
+        # Update-check worker/thread (Help → Check for updates…); one at a
+        # time, joined in closeEvent so a slow check can't outlive the window.
+        self._update_worker: object | None = None
+        self._update_thread: QThread | None = None
         # Params of the in-flight rip, captured at start so the finish
         # handler knows whether it was an unknown-mode rip (and where the
         # FLACs landed) without depending on the controls' current state.
@@ -246,6 +250,10 @@ class MainWindow(QMainWindow):
         if self._mb_thread.isRunning():
             self._mb_thread.quit()
             self._mb_thread.wait(2000)
+        # Join a still-running update check (short HTTP call; bounded wait).
+        if self._update_thread is not None and self._update_thread.isRunning():
+            self._update_thread.quit()
+            self._update_thread.wait(2000)
         # Cancel any in-progress rip before the window goes away.
         if self._rip_worker is not None:
             self._rip_worker.cancel()
@@ -295,6 +303,8 @@ class MainWindow(QMainWindow):
         help_menu = menubar.addMenu("&Help")
         guide_action = help_menu.addAction("&User Guide…")
         guide_action.triggered.connect(self._on_show_help)
+        update_action = help_menu.addAction("Check for &updates…")
+        update_action.triggered.connect(self._on_check_updates)
         help_menu.addSeparator()
         about_action = help_menu.addAction("&About Whipper GUI…")
         about_action.triggered.connect(self._on_show_about)
@@ -738,6 +748,95 @@ class MainWindow(QMainWindow):
         from whipper_gui.ui.help_dialogs import AboutDialog
 
         AboutDialog(whipper_path=self._config.whipper_path, parent=self).exec()
+
+    # --- Update check (KDD-17b) ----------------------------------------------
+
+    def _on_check_updates(self) -> None:
+        """Help → Check for updates: ask GitHub for the newest release.
+
+        Runs off-thread (a slow connection must not freeze the window);
+        the result lands in _on_update_result. Delivery of the update is
+        NOT ours: the AppImage embeds zsync update-information, so we
+        delegate to an AppImageUpdate tool or open the releases page.
+        """
+        if self._update_thread is not None:  # a check is already running
+            return
+        from whipper_gui.workers.update_worker import UpdateCheckWorker
+
+        self._update_worker = UpdateCheckWorker()
+        self._update_thread = QThread(self)
+        self._update_worker.moveToThread(self._update_thread)
+        self._update_worker.finished.connect(self._on_update_result)
+        self._update_worker.finished.connect(self._update_thread.quit)
+        self._update_thread.finished.connect(self._update_thread.deleteLater)
+        self._update_thread.started.connect(self._update_worker.run)
+        self._update_thread.start()
+
+    def _on_update_result(self, info: object) -> None:
+        """Show the verdict; offer the standard update path when newer."""
+        from whipper_gui import __version__, appimage_integration
+        from whipper_gui.update_check import RELEASES_PAGE_URL, is_newer
+
+        self._update_worker = None
+        self._update_thread = None
+
+        if info is None:
+            QMessageBox.information(
+                self,
+                "Check for updates",
+                "Couldn't check for updates (no connection, or GitHub is "
+                f"unreachable). You can always look yourself:\n{RELEASES_PAGE_URL}",
+            )
+            return
+        version = getattr(info, "version", "")
+        url = getattr(info, "url", RELEASES_PAGE_URL)
+        if not is_newer(version, __version__):
+            QMessageBox.information(
+                self,
+                "Check for updates",
+                f"You're up to date — v{__version__} is the newest release.",
+            )
+            return
+
+        # Newer release exists. Prefer the standard AppImage delta updater
+        # when it's installed and we're actually running as an AppImage;
+        # otherwise just open the release page (per KDD-17: never hand-roll
+        # the download).
+        import shutil as _shutil
+
+        tool = _shutil.which("appimageupdatetool") or _shutil.which("AppImageUpdate")
+        appimage = appimage_integration.appimage_path()
+        if tool and appimage is not None:
+            choice = QMessageBox.question(
+                self,
+                "Update available",
+                f"Version {version} is available (you have {__version__}).\n\n"
+                "Update now with AppImageUpdate? It downloads only the "
+                "changed parts and verifies them. Restart the app when it "
+                "finishes.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if choice == QMessageBox.StandardButton.Yes:
+                import subprocess
+
+                subprocess.Popen(  # noqa: S603 — fixed argv, detached updater
+                    [tool, str(appimage)], start_new_session=True
+                )
+            return
+        choice = QMessageBox.question(
+            self,
+            "Update available",
+            f"Version {version} is available (you have {__version__}).\n\n"
+            "Open the download page?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if choice == QMessageBox.StandardButton.Yes:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+
+            QDesktopServices.openUrl(QUrl(url))
 
     def _on_drive_setup(self) -> None:
         """Tools → Set up drive: launch the calibration wizard.

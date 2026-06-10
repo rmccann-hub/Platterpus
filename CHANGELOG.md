@@ -16,6 +16,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.2.0] — 2026-06-09
 
 ### Added
+- **AppImage self-update (the last zero-CLI slice, KDD-17b).** The AppImage
+  now embeds standard zsync update-information
+  (`gh-releases-zsync|…|whipper-gui-x86_64.AppImage.zsync`) and releases ship
+  the `.zsync` file, so any AppImageUpdate-compatible tool can fetch only the
+  changed blocks and verify them. In-app: **Help → Check for updates…** asks
+  GitHub (off-thread) whether a newer release exists; if so it hands off to
+  `appimageupdatetool`/`AppImageUpdate` when installed, or opens the release
+  page — the app never downloads update payloads itself. The `.sha256`
+  checksum is generated after the update info is embedded, so it always
+  covers the shipped file.
 - **`setup-host.sh --cyanrip`.** The CLI bootstrap now mirrors the GUI
   wizard's cyanrip step: enables the GPG-checked COPR inside the container
   only, installs cyanrip, and exports it to `~/.local/bin/cyanrip`.
