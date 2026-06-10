@@ -118,3 +118,24 @@ def test_both_install_paths_offer_a_zypper_branch() -> None:
     text = SETUP.read_text()
     assert "*suse*)" in text
     assert text.count("zypper --non-interactive install") >= 2
+
+
+def test_cyanrip_flag_installs_and_exports(tmp_path: Path) -> None:
+    """--cyanrip adds the COPR repo file, installs cyanrip, and exports it —
+    mirroring the GUI wizard's cyanrip step (keep the two in sync)."""
+    result = _run(["--dry-run", "--yes", "--no-gui", "--cyanrip"])
+    assert result.returncode == 0
+    out = result.stdout
+    assert "copr-barsnick-non-fed.repo" in out
+    assert "dnf install -y cyanrip" in out
+    assert "distrobox-export --bin /usr/bin/cyanrip" in out
+    # The stanza must stay version-generic and GPG-checked — $releasever
+    # reaches dnf literally (never shell-expanded) and gpgcheck stays on.
+    assert "fedora-$releasever-$basearch" in out
+    assert "gpgcheck=1" in out
+
+
+def test_without_cyanrip_flag_no_cyanrip_work(tmp_path: Path) -> None:
+    result = _run(["--dry-run", "--yes", "--no-gui"])
+    assert result.returncode == 0
+    assert "cyanrip" not in result.stdout
