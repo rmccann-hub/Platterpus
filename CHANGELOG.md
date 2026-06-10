@@ -46,18 +46,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   whipper rips. Per-track completion lines peg that track's slice of the
   overall bar.
 
-### Changed
-- **Documentation audit (2026-06-09).** PLANNING.md caught up with the code
-  (directory tree + per-module list now include the host-setup wizard,
-  AppImage self-integration, AccurateRip offset lookup, and the cyanrip
-  backend/parser; the pre-implementation "future CyanripImpl" sketch replaced
-  with the as-built design). TASKS.md gained a **Current plan & priorities**
-  section — the live, ordered queue with difficulty estimates — and the
-  zero-CLI checkboxes were corrected to match what shipped. README gained a
-  "Ripping backends" section; the in-app User Guide documents the backend
-  toggle; the hardware test plan gained Test 8 (cyanrip install + parity run).
-
-### Added
 - **cyanrip rips are now driven entirely by the GUI's metadata (KDD-18).**
   The rip snapshots the track table (the MusicBrainz release you picked plus
   any edits) and feeds it to cyanrip via `-a`/`-t`, with MusicBrainz always
@@ -245,6 +233,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   arrows) and the **Save offset** button are now locked while detection is
   running, so a value can't be edited/saved mid-detection and race what whipper
   writes. They re-enable when detection finishes.
+
+### Changed
+- **Documentation audit (2026-06-09).** PLANNING.md caught up with the code
+  (directory tree + per-module list now include the host-setup wizard,
+  AppImage self-integration, AccurateRip offset lookup, and the cyanrip
+  backend/parser; the pre-implementation "future CyanripImpl" sketch replaced
+  with the as-built design). TASKS.md gained a **Current plan & priorities**
+  section — the live, ordered queue with difficulty estimates — and the
+  zero-CLI checkboxes were corrected to match what shipped. README gained a
+  "Ripping backends" section; the in-app User Guide documents the backend
+  toggle; the hardware test plan gained Test 8 (cyanrip install + parity run).
 
 ## [0.1.0] — 2026-06-01
 
