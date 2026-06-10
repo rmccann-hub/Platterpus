@@ -12,6 +12,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **In-app Uninstaller (Tools → Uninstall Whipper GUI…).** Removes everything
+  the app installed — menu/desktop shortcuts, host-exported
+  whipper/metaflac/cyanrip, the `ripping` container, optionally `whipper.conf`
+  and the AppImage file itself, and finally the app's own settings + logs —
+  with live per-step progress, a confirmation gate, and per-piece checkboxes.
+  **Never touched: your music, and Distrobox/podman themselves.** Settings +
+  logs are removed last so a failed step still leaves the log to debug with;
+  on success the app offers to close itself. `uninstall.sh` now also removes
+  the host-exported cyanrip wrapper (parity).
 - **Fidelity verdict + AccurateRip table for cyanrip rips (KDD-18).** New
   `parsers/cyanrip_log.py` parses cyanrip's rip log (EAC CRC32 per track,
   AccurateRip v1/v2 + confidence, preemphasis, drive/offset, ripping-error

@@ -286,6 +286,12 @@ class MainWindow(QMainWindow):
         # "Check dependencies" button (it also runs automatically at
         # launch) — no duplicate Tools-menu entry.
 
+        # The in-app Uninstaller — separated at the bottom so it can't be
+        # mis-clicked among the everyday actions.
+        tools_menu.addSeparator()
+        uninstall_action = tools_menu.addAction("&Uninstall Whipper GUI…")
+        uninstall_action.triggered.connect(self.open_uninstall_dialog)
+
         help_menu = menubar.addMenu("&Help")
         guide_action = help_menu.addAction("&User Guide…")
         guide_action.triggered.connect(self._on_show_help)
@@ -917,6 +923,34 @@ class MainWindow(QMainWindow):
         dialog = HostSetupDialog(self, host_setup=self._build_host_setup())
         dialog.setup_finished.connect(self._on_host_setup_finished)
         dialog.exec()
+
+    def open_uninstall_dialog(self) -> None:
+        """Open the in-app Uninstaller (Tools → Uninstall Whipper GUI…)."""
+        from whipper_gui.ui.uninstall_dialog import UninstallDialog
+
+        dialog = UninstallDialog(self)
+        dialog.uninstall_finished.connect(self._on_uninstall_finished)
+        dialog.exec()
+
+    def _on_uninstall_finished(self, complete: bool) -> None:
+        """After a successful uninstall, offer to close the app right away.
+
+        The config/log dirs are gone; anything that saves config from here
+        on would recreate them, so quitting immediately is the clean path.
+        """
+        if not complete:
+            return
+        choice = QMessageBox.question(
+            self,
+            "Uninstall complete",
+            "Whipper GUI has been removed from this computer.\n\n"
+            "Close the app now? (Recommended — staying open could "
+            "recreate settings files.)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if choice == QMessageBox.StandardButton.Yes:
+            self.close()
 
     def _on_host_setup_finished(self, ready: bool) -> None:
         """After the wizard runs, re-probe the world if whipper now exists."""

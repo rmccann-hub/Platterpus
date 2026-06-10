@@ -1364,6 +1364,41 @@ class _FakeThread:
         pass
 
 
+# --- In-app Uninstaller wiring ---------------------------------------------
+
+
+def test_tools_menu_has_uninstall_action(teardown_threads) -> None:
+    window = teardown_threads()
+    menubar = window.menuBar()
+    actions: list[str] = []
+    for menu in menubar.findChildren(type(menubar.addMenu("tmp"))):
+        actions += [a.text() for a in menu.actions()]
+    assert any("Uninstall Whipper GUI" in text for text in actions)
+
+
+def test_uninstall_finished_offers_quit_on_success(
+    teardown_threads, monkeypatch
+) -> None:
+    window = teardown_threads()
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    closed: list[bool] = []
+    monkeypatch.setattr(window, "close", lambda: closed.append(True))
+
+    window._on_uninstall_finished(True)
+    assert closed == [True]
+
+    # An incomplete uninstall must NOT prompt or close.
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("prompted")),
+    )
+    window._on_uninstall_finished(False)
+    assert closed == [True]
+
+
 # --- cyanrip in the host-setup wizard (KDD-18) ----------------------------
 
 

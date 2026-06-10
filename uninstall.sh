@@ -10,7 +10,7 @@
 #   - MusicBrainz Picard Flatpak
 #   - The Distrobox 'ripping' container
 #   - whipper.conf at ~/.config/whipper/
-#   - Host-exported whipper and metaflac at ~/.local/bin/
+#   - Host-exported whipper, metaflac and cyanrip at ~/.local/bin/
 #
 # NEVER removed unless explicitly asked via --remove-rips:
 #   - Music files at ~/Music/rips/ (or wherever your Config points)
@@ -48,7 +48,7 @@ Optional removals (prompted interactively, or --full to enable all):
   - MusicBrainz Picard Flatpak
   - The Distrobox 'ripping' container
   - whipper.conf at ~/.config/whipper/
-  - Host-exported whipper and metaflac at ~/.local/bin/
+  - Host-exported whipper, metaflac and cyanrip at ~/.local/bin/
 
 NEVER removed unless explicitly asked via --remove-rips:
   - Music files at ~/Music/rips/ (or wherever your Config points)
@@ -278,8 +278,8 @@ else
 fi
 
 # Host-exported binaries from Distrobox
-if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper and metaflac wrappers at ~/.local/bin/?"; then
-    for bin in whipper metaflac; do
+if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac and cyanrip wrappers at ~/.local/bin/?"; then
+    for bin in whipper metaflac cyanrip; do
         target="$HOME/.local/bin/$bin"
         if [ -f "$target" ]; then
             run rm -f "$target"
