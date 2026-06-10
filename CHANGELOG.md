@@ -12,6 +12,9 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **`setup-host.sh --cyanrip`.** The CLI bootstrap now mirrors the GUI
+  wizard's cyanrip step: enables the GPG-checked COPR inside the container
+  only, installs cyanrip, and exports it to `~/.local/bin/cyanrip`.
 - **"Uninstall Whipper GUI" menu entry + `--uninstall` mode.** AppImage
   self-integration now also installs an uninstaller launcher in the
   application menu (under System, not next to the app in Multimedia) that
