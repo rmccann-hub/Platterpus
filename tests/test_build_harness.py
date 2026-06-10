@@ -128,3 +128,31 @@ def test_requirements_pins_match_dependencies_md() -> None:
     assert "PySide6~=6.7" in text
     assert "musicbrainzngs==0.7.1" in text
     assert "tomli-w~=1.0" in text
+
+
+# --- Self-update: zsync update-information (KDD-17b) -----------------------
+
+
+def test_build_script_embeds_zsync_update_information() -> None:
+    """The build re-packs with appimagetool -u so AppImageUpdate-compatible
+    tools can delta-update from GitHub releases. The transport string must
+    name this repo and the exact artifact the release uploads."""
+    script = (BUILD_DIR / "build_appimage.sh").read_text(encoding="utf-8")
+    assert "gh-releases-zsync|rmccann-hub|Whipper-GUI-Frontend---CD-Rip|" in script
+    assert ".AppImage.zsync" in script
+    assert '-u "$UPDATE_INFO"' in script
+    # Falls back to python-appimage's cached appimagetool (no new host dep).
+    assert ".cache/python-appimage/bin" in script
+
+
+def test_release_workflow_ships_the_zsync_file() -> None:
+    """release.yml installs zsyncmake (so the .zsync is produced) and uploads
+    it in BOTH the create and re-upload branches, and the checksum step runs
+    AFTER the build so the .sha256 covers the update-info-embedded file."""
+    workflow = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "apt-get install -y -q zsync" in workflow
+    assert workflow.count("whipper-gui-x86_64.AppImage.zsync") >= 2
+    # Build (which embeds update info) must precede the checksum generation.
+    assert workflow.index("build_appimage.sh") < workflow.index("sha256sum")

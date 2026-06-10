@@ -644,6 +644,8 @@ Decided 2026-06-04 (user-approved; this is a sanctioned evolution of the distrib
 
 **Sequencing note:** the self-integrate + self-update pieces are independent of the host wizard and can ship first; the host wizard is the larger lift and the bigger UX win.
 
+**Status: all three slices SHIPPED** — (a) self-integration 2026-06-05, (c) host wizard 2026-06-05 (+ cyanrip step 2026-06-09), (b) self-update 2026-06-09 (zsync update-information embedded by an appimagetool re-pack in `build_appimage.sh`; `.zsync` uploaded by release.yml; in-app Help → Check for updates… delegates to AppImageUpdate or the release page). Remaining proof is hardware/release-gated: a real delta update needs two consecutive releases with the embed (v0.2.0 → v0.3.0).
+
 ### KDD-18 — cyanrip is the strategic successor backend; never fork whipper
 
 Decided 2026-06-04 after a researched ecosystem audit ([docs/ecosystem-audit-2026-06.md](docs/ecosystem-audit-2026-06.md)), prompted by whipper's `offset find` failing on real hardware (Pioneer BDR-209D) and the question of long-term foundation.
