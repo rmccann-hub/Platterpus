@@ -168,6 +168,10 @@ class MainWindow(QMainWindow):
         # time, joined in closeEvent so a slow check can't outlive the window.
         self._update_worker: object | None = None
         self._update_thread: QThread | None = None
+        # In-flight update INSTALL (download+verify+swap); cancelled+joined
+        # in closeEvent so a half-downloaded update can't outlive the window.
+        self._install_worker: object | None = None
+        self._install_thread: QThread | None = None
         # Params of the in-flight rip, captured at start so the finish
         # handler knows whether it was an unknown-mode rip (and where the
         # FLACs landed) without depending on the controls' current state.
@@ -254,6 +258,13 @@ class MainWindow(QMainWindow):
         if self._update_thread is not None and self._update_thread.isRunning():
             self._update_thread.quit()
             self._update_thread.wait(2000)
+        # Cancel + join an in-flight update download (it polls the cancel
+        # flag between 1 MiB chunks, so this returns quickly).
+        if self._install_thread is not None and self._install_thread.isRunning():
+            if self._install_worker is not None:
+                self._install_worker.cancel()
+            self._install_thread.quit()
+            self._install_thread.wait(5000)
         # Cancel any in-progress rip before the window goes away.
         if self._rip_worker is not None:
             self._rip_worker.cancel()
@@ -800,31 +811,26 @@ class MainWindow(QMainWindow):
             )
             return
 
-        # Newer release exists. Prefer the standard AppImage delta updater
-        # when it's installed and we're actually running as an AppImage;
-        # otherwise just open the release page (per KDD-17: never hand-roll
-        # the download).
-        import shutil as _shutil
-
-        tool = _shutil.which("appimageupdatetool") or _shutil.which("AppImageUpdate")
+        # Newer release exists. When running as an AppImage, update fully
+        # in-app: download + verify against the published .sha256 + install
+        # to ~/Applications + offer a restart (KDD-17b amendment 2026-06-10 —
+        # the original delegate-to-AppImageUpdate plan dead-ended because
+        # that tool isn't installed on the target systems). Source/pipx
+        # installs can't be file-swapped, so they get the release page.
         appimage = appimage_integration.appimage_path()
-        if tool and appimage is not None:
+        if appimage is not None:
             choice = QMessageBox.question(
                 self,
                 "Update available",
                 f"Version {version} is available (you have {__version__}).\n\n"
-                "Update now with AppImageUpdate? It downloads only the "
-                "changed parts and verifies them. Restart the app when it "
-                "finishes.",
+                "Update now? The new version is downloaded in the background, "
+                "verified, and installed to ~/Applications — then the app "
+                "restarts itself.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
             if choice == QMessageBox.StandardButton.Yes:
-                import subprocess
-
-                subprocess.Popen(  # noqa: S603 — fixed argv, detached updater
-                    [tool, str(appimage)], start_new_session=True
-                )
+                self._begin_update_install(version)
             return
         choice = QMessageBox.question(
             self,
@@ -839,6 +845,88 @@ class MainWindow(QMainWindow):
             from PySide6.QtGui import QDesktopServices
 
             QDesktopServices.openUrl(QUrl(url))
+
+    def _begin_update_install(self, version: str) -> None:
+        """Download + verify + install `version` off-thread with progress."""
+        if self._install_thread is not None:  # an install is already running
+            return
+        from PySide6.QtWidgets import QProgressDialog
+
+        from whipper_gui.workers.update_worker import UpdateInstallWorker
+
+        self._install_worker = UpdateInstallWorker(version)
+        self._install_thread = QThread(self)
+        self._install_worker.moveToThread(self._install_thread)
+
+        dialog = QProgressDialog(
+            f"Downloading Whipper GUI {version}…", "Cancel", 0, 100, self
+        )
+        dialog.setWindowTitle("Updating")
+        dialog.setAutoClose(False)
+        dialog.setAutoReset(False)
+        dialog.setMinimumDuration(0)
+
+        def on_progress(percent: float) -> None:
+            if percent < 0:  # size unknown → busy indicator
+                dialog.setRange(0, 0)
+            else:
+                dialog.setRange(0, 100)
+                dialog.setValue(int(percent))
+
+        self._install_worker.progress.connect(on_progress)
+        self._install_worker.finished.connect(
+            lambda ok, payload: self._on_update_install_finished(ok, payload, dialog)
+        )
+        self._install_worker.finished.connect(self._install_thread.quit)
+        self._install_thread.finished.connect(self._install_thread.deleteLater)
+        self._install_thread.started.connect(self._install_worker.run)
+        # Cancel button → stop between chunks; the worker cleans up the .part.
+        dialog.canceled.connect(self._install_worker.cancel)
+        self._install_thread.start()
+        dialog.show()
+
+    def _on_update_install_finished(
+        self, ok: bool, payload: str, dialog: object
+    ) -> None:
+        """Close the progress dialog; restart into the new version on success."""
+        from whipper_gui import appimage_integration as ai
+
+        try:
+            dialog.close()  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001 — closing UI must never block the flow
+            pass
+        self._install_worker = None
+        self._install_thread = None
+        if not ok:
+            QMessageBox.warning(
+                self,
+                "Update failed",
+                f"The update wasn't installed: {payload}\n\n"
+                "Nothing was changed — you can keep using this version or "
+                "download the new one from the releases page.",
+            )
+            return
+        new_path = Path(payload)
+        # Point the menu/desktop entries at the new file (best-effort —
+        # normally a no-op since the path is the same canonical location).
+        try:
+            ai.integrate(new_path)
+        except Exception:  # noqa: BLE001 — the update itself succeeded
+            log.exception("post-update re-integration failed")
+        choice = QMessageBox.question(
+            self,
+            "Update installed",
+            "The new version is installed. Restart Whipper GUI now?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if choice == QMessageBox.StandardButton.Yes:
+            import subprocess
+
+            subprocess.Popen(  # noqa: S603 — our own verified binary
+                [str(new_path)], start_new_session=True
+            )
+            self.close()
 
     def _on_drive_setup(self) -> None:
         """Tools → Set up drive: launch the calibration wizard.
@@ -954,16 +1042,23 @@ class MainWindow(QMainWindow):
             )
 
     def _maybe_offer_appimage_integration(self) -> None:
-        """One-time offer (first AppImage run) to add a menu entry + icon."""
+        """Offer to add a menu entry + move the file to ~/Applications.
+
+        Re-offers for any AppImage that isn't integrated yet — so a freshly
+        downloaded UPDATE (a new file, or shortcuts the user deleted) gets
+        the offer again (real-user report, 2026-06-10). Declining is
+        remembered per-file, so saying No silences the nag for this file
+        only, not for every future version.
+        """
         from whipper_gui import appimage_integration as ai
 
         appimage = ai.appimage_path()
         if appimage is None:  # not running from an AppImage — nothing to do
             return
-        if self._config.appimage_integration_prompted or ai.is_integrated(appimage):
+        if ai.is_integrated(appimage):  # this exact file already has the entry
             return
-        self._config.appimage_integration_prompted = True
-        self._save_config(self._config)
+        if self._config.integration_declined_path == str(appimage):
+            return  # the user said No to this very file — don't nag
         choice = QMessageBox.question(
             self,
             "Add to your applications menu?",
@@ -975,6 +1070,9 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes,
         )
         if choice != QMessageBox.StandardButton.Yes:
+            self._config.integration_declined_path = str(appimage)
+            self._config.appimage_integration_prompted = True  # legacy flag
+            self._save_config(self._config)
             return
         try:
             # Give the file a proper home FIRST, then point the menu entry at
@@ -982,6 +1080,9 @@ class MainWindow(QMainWindow):
             # future launches (the menu entry) use the new location.
             new_path = ai.relocate_to_applications(appimage)
             ai.integrate(new_path)
+            self._config.integration_declined_path = ""
+            self._config.appimage_integration_prompted = True  # legacy flag
+            self._save_config(self._config)
             if new_path != appimage:
                 detail = (
                     f"Whipper GUI now lives at {new_path} and is in your "

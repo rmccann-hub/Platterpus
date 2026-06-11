@@ -1405,19 +1405,17 @@ def test_update_result_up_to_date(teardown_threads, monkeypatch) -> None:
     assert seen and "up to date" in seen[0]
 
 
-def test_update_result_newer_without_tool_opens_release_page(
+def test_update_result_newer_without_appimage_opens_release_page(
     teardown_threads, monkeypatch
 ) -> None:
-    """No AppImageUpdate tool installed → offer the download page; never
-    download anything ourselves (KDD-17)."""
-    import shutil as shutil_mod
-
+    """Source/pipx installs can't be file-swapped → offer the download page."""
     from PySide6.QtGui import QDesktopServices
 
+    import whipper_gui.appimage_integration as ai
     from whipper_gui.update_check import ReleaseInfo
 
     window = teardown_threads()
-    monkeypatch.setattr(shutil_mod, "which", lambda name: None)
+    monkeypatch.setattr(ai, "appimage_path", lambda: None)
     monkeypatch.setattr(
         QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
@@ -1433,33 +1431,83 @@ def test_update_result_newer_without_tool_opens_release_page(
     assert opened == ["https://example.com/r"]
 
 
-def test_update_result_newer_with_tool_launches_updater(
+def test_update_result_newer_as_appimage_starts_builtin_install(
     teardown_threads, monkeypatch, tmp_path
 ) -> None:
-    """AppImageUpdate present + running as an AppImage → delegate to it."""
-    import shutil as shutil_mod
-    import subprocess as subprocess_mod
-
+    """Running as an AppImage → the built-in download/verify/install flow
+    (KDD-17b amendment: no external tool, no manual download)."""
     import whipper_gui.appimage_integration as ai
     from whipper_gui.update_check import ReleaseInfo
 
     window = teardown_threads()
-    monkeypatch.setattr(shutil_mod, "which", lambda name: "/usr/bin/appimageupdatetool")
-    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
-    monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
+    monkeypatch.setattr(
+        ai, "appimage_path", lambda: tmp_path / "whipper-gui-x86_64.AppImage"
+    )
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    started: list[str] = []
+    monkeypatch.setattr(window, "_begin_update_install", started.append)
+
+    window._on_update_result(ReleaseInfo(version="99.0.0", url="https://x"))
+
+    assert started == ["99.0.0"]
+
+
+def test_update_install_success_offers_restart(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """A verified install ends with re-integration + a restart into the
+    new file (launch new, close old) — the 'old version stays open and the
+    menu launches the old file' report, fixed."""
+    import subprocess as subprocess_mod
+
+    import whipper_gui.appimage_integration as ai
+
+    window = teardown_threads()
+    new_path = tmp_path / "Applications" / "whipper-gui-x86_64.AppImage"
+    integrated: list[Path] = []
+    monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
     monkeypatch.setattr(
         QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
     )
     launched: list[list[str]] = []
     monkeypatch.setattr(
-        subprocess_mod,
-        "Popen",
-        lambda argv, **kwargs: launched.append(argv),
+        subprocess_mod, "Popen", lambda argv, **kw: launched.append(argv)
+    )
+    closed: list[bool] = []
+    monkeypatch.setattr(window, "close", lambda: closed.append(True))
+
+    class _FakeDialog:
+        def close(self):
+            pass
+
+    window._on_update_install_finished(True, str(new_path), _FakeDialog())
+
+    assert integrated == [new_path]  # menu entry repointed at the new file
+    assert launched == [[str(new_path)]]  # new version started
+    assert closed == [True]  # old session closed
+
+
+def test_update_install_failure_changes_nothing(teardown_threads, monkeypatch) -> None:
+    window = teardown_threads()
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        lambda parent, title, text, *a, **k: warnings.append(text),
     )
 
-    window._on_update_result(ReleaseInfo(version="99.0.0", url="https://x"))
+    class _FakeDialog:
+        def close(self):
+            pass
 
-    assert launched == [["/usr/bin/appimageupdatetool", str(appimage)]]
+    window._on_update_install_finished(
+        False, "checksum verification failed", _FakeDialog()
+    )
+
+    assert warnings and "checksum verification failed" in warnings[0]
+    assert "Nothing was changed" in warnings[0]
 
 
 # --- In-app Uninstaller wiring ---------------------------------------------
@@ -1597,7 +1645,62 @@ def test_integration_offer_runs_on_yes(teardown_threads, monkeypatch, tmp_path) 
     assert integrated == [appimage]
 
 
-def test_integration_offer_skips_when_already_prompted(
+def test_integration_offer_skips_only_the_declined_file(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Declining silences the offer for THAT file only — a different file
+    (a freshly downloaded update) gets the offer again."""
+    import whipper_gui.appimage_integration as ai
+
+    declined = tmp_path / "whipper-gui-x86_64.AppImage"
+    declined.write_bytes(b"x")
+    monkeypatch.setattr(ai, "appimage_path", lambda: declined)
+    monkeypatch.setattr(ai, "is_integrated", lambda p: False)
+    window = teardown_threads(
+        config=Config(integration_declined_path=str(declined)),
+        save_cfg=lambda c: None,
+    )
+    asked: list[bool] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *a, **k: (asked.append(True), QMessageBox.StandardButton.No)[1],
+    )
+    window._maybe_offer_appimage_integration()
+    assert asked == []  # same file declined before → no nag
+
+
+def test_integration_reoffers_for_a_new_file_despite_legacy_flag(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """REGRESSION (real-user report 2026-06-10): the legacy 'prompted once'
+    boolean suppressed the offer forever, so a downloaded UPDATE never got
+    its menu entry remade. A not-yet-integrated file must be offered even
+    when the legacy flag is set."""
+    import whipper_gui.appimage_integration as ai
+
+    new_version = tmp_path / "whipper-gui-x86_64.AppImage"
+    new_version.write_bytes(b"x")
+    monkeypatch.setattr(ai, "appimage_path", lambda: new_version)
+    monkeypatch.setattr(ai, "is_integrated", lambda p: False)
+    monkeypatch.setattr(ai, "relocate_to_applications", lambda p: p)
+    integrated: list[Path] = []
+    monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
+    window = teardown_threads(
+        config=Config(appimage_integration_prompted=True),  # legacy flag set
+        save_cfg=lambda c: None,
+    )
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+
+    window._maybe_offer_appimage_integration()
+
+    assert integrated == [new_version]
+
+
+def test_integration_decline_is_remembered_per_file(
     teardown_threads, monkeypatch, tmp_path
 ) -> None:
     import whipper_gui.appimage_integration as ai
@@ -1605,11 +1708,16 @@ def test_integration_offer_skips_when_already_prompted(
     appimage = tmp_path / "whipper-gui-x86_64.AppImage"
     appimage.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
-    window = teardown_threads(config=Config(appimage_integration_prompted=True))
-    integrated: list[bool] = []
-    monkeypatch.setattr(ai, "integrate", lambda *a, **k: integrated.append(True))
+    monkeypatch.setattr(ai, "is_integrated", lambda p: False)
+    saved: list[Config] = []
+    window = teardown_threads(config=Config(), save_cfg=saved.append)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+    )
+
     window._maybe_offer_appimage_integration()
-    assert integrated == []
+
+    assert saved and saved[-1].integration_declined_path == str(appimage)
 
 
 def test_add_app_shortcut_integrates_when_appimage(

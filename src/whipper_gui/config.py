@@ -122,7 +122,16 @@ class Config:
 
     # Set once we've offered (on first AppImage run) to add Whipper GUI to the
     # applications menu. One-time + dismissible; no-op on source/pipx installs.
+    # NOTE (2026-06-10): no longer consulted by the offer logic — it suppressed
+    # the offer FOREVER, so a freshly downloaded update never re-offered its
+    # menu entry (real-user report). Kept so old configs load cleanly.
     appimage_integration_prompted: bool = False
+
+    # The exact AppImage path the user declined to integrate ("" = never
+    # declined). Replaces the boolean above for offer decisions: declining
+    # silences the offer for THAT file only, so a new download/version offers
+    # again — exactly the update case where re-offering is wanted.
+    integration_declined_path: str = ""
 
     # Continue ripping a CD-R (burned disc). Whipper refuses by default
     # ("inserted disc seems to be a CD-R, --cdr not passed") because in an
