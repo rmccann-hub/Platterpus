@@ -924,13 +924,23 @@ class MainWindow(QMainWindow):
             )
             return
         try:
-            ai.integrate(appimage)
+            # Same flow as the first-run offer: settle the file into
+            # ~/Applications first so the shortcuts never point into
+            # Downloads, then integrate from there.
+            new_path = ai.relocate_to_applications(appimage)
+            ai.integrate(new_path)
             self._config.appimage_integration_prompted = True
             self._save_config(self._config)
+            moved = (
+                f"The app file was moved to {new_path}. "
+                if new_path != appimage
+                else ""
+            )
             QMessageBox.information(
                 self,
                 "Shortcut added",
-                "Added Whipper GUI to your applications menu and your Desktop. "
+                f"Added Whipper GUI to your applications menu and your Desktop. "
+                f"{moved}"
                 "If the Desktop icon shows as untrusted, right-click it and "
                 "choose “Allow Launching” (GNOME).",
             )
@@ -957,20 +967,29 @@ class MainWindow(QMainWindow):
         choice = QMessageBox.question(
             self,
             "Add to your applications menu?",
-            "Add Whipper GUI to your applications menu so you can launch it "
-            "like any installed app (instead of finding this file each time)?",
+            "Add Whipper GUI to your applications menu, and move this file "
+            "to ~/Applications so it lives with your other apps?\n\n"
+            "(Leaving it in Downloads is fragile — clearing that folder "
+            "would remove the app.)",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
         if choice != QMessageBox.StandardButton.Yes:
             return
         try:
-            ai.integrate(appimage)
-            QMessageBox.information(
-                self,
-                "Added to menu",
-                "Whipper GUI is now in your applications menu.",
-            )
+            # Give the file a proper home FIRST, then point the menu entry at
+            # it. The running session keeps working from the old mount; only
+            # future launches (the menu entry) use the new location.
+            new_path = ai.relocate_to_applications(appimage)
+            ai.integrate(new_path)
+            if new_path != appimage:
+                detail = (
+                    f"Whipper GUI now lives at {new_path} and is in your "
+                    "applications menu. Launch it from the menu from now on."
+                )
+            else:
+                detail = "Whipper GUI is now in your applications menu."
+            QMessageBox.information(self, "Added to menu", detail)
         except Exception:  # noqa: BLE001 — integration is a convenience
             log.exception("AppImage integration failed")
             QMessageBox.warning(

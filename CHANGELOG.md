@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The AppImage installs itself to `~/Applications` (real-user feedback,
+  2026-06-10).** Accepting "Add to your applications menu?" (or Tools → Add
+  app shortcut) now also MOVES the AppImage out of Downloads into
+  `~/Applications` — the standard home AppImageLauncher uses — and points
+  the menu/desktop entries there, so clearing your Downloads folder can no
+  longer delete the installed app. The running session keeps working after
+  the move; future launches come from the menu. If the move fails the app
+  integrates where it is (never raises, never loses the file). The
+  uninstaller now also removes the `~/Applications` copy even when launched
+  from somewhere else.
 - **"Rescan disc" button** next to Refresh/Eject (real-user request,
   2026-06-10). Re-runs the disc scan + MusicBrainz lookup for the selected
   drive — the retry for transient scan failures and for discs inserted

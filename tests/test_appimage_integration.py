@@ -178,3 +178,48 @@ def test_is_integrated_matches_exec_path(tmp_path: Path) -> None:
     other = tmp_path / "whipper-gui-OLD.AppImage"
     other.write_bytes(b"x")
     assert ai.is_integrated(other, desktop_dir) is False
+
+
+# --- Relocation to ~/Applications (real-user feedback 2026-06-10) ----------
+
+
+def test_relocate_moves_appimage_and_returns_new_path(tmp_path: Path) -> None:
+    """Integration settles the file into Applications/ so menu entries never
+    point into Downloads (where a cleanup would delete the app)."""
+    downloads = tmp_path / "Downloads"
+    downloads.mkdir()
+    appimage = downloads / "whipper-gui-x86_64.AppImage"
+    appimage.write_bytes(b"ELF")
+    applications = tmp_path / "Applications"  # doesn't exist yet — created
+
+    new_path = ai.relocate_to_applications(appimage, applications_dir=applications)
+
+    assert new_path == applications / "whipper-gui-x86_64.AppImage"
+    assert new_path.is_file()
+    assert not appimage.exists()  # moved, not copied — no stale duplicate
+
+
+def test_relocate_noop_when_already_in_applications(tmp_path: Path) -> None:
+    applications = tmp_path / "Applications"
+    applications.mkdir()
+    appimage = applications / "whipper-gui-x86_64.AppImage"
+    appimage.write_bytes(b"ELF")
+
+    assert ai.relocate_to_applications(appimage, applications_dir=applications) == (
+        appimage
+    )
+    assert appimage.is_file()
+
+
+def test_relocate_failure_keeps_original(tmp_path: Path) -> None:
+    """A failed move must never lose the file or raise — integration just
+    proceeds where the file already is."""
+    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
+    appimage.write_bytes(b"ELF")
+    blocked = tmp_path / "not-a-dir"
+    blocked.write_text("file in the way")  # mkdir(parents) will fail on this
+
+    result = ai.relocate_to_applications(appimage, applications_dir=blocked)
+
+    assert result == appimage
+    assert appimage.is_file()

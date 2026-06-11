@@ -41,6 +41,43 @@ ICON_DIR = _DATA_HOME / "icons"
 # The user's Desktop folder (for a clickable desktop icon, in addition to the
 # applications-menu entry). Plain ~/Desktop matches dev-setup.sh's behaviour.
 DESKTOP_FOLDER = Path.home() / "Desktop"
+# Where an integrated AppImage should LIVE (real-user feedback, 2026-06-10:
+# the menu entry pointing into ~/Downloads "defeats the purpose" — deleting
+# a stray download would break the installed app). ~/Applications is the
+# de-facto Linux convention (AppImageLauncher uses it too).
+APPLICATIONS_DIR = Path.home() / "Applications"
+# The artifact name every release publishes — also what the uninstaller
+# looks for in APPLICATIONS_DIR.
+CANONICAL_APPIMAGE_NAME = "whipper-gui-x86_64.AppImage"
+
+
+def relocate_to_applications(
+    appimage: Path, applications_dir: Path = APPLICATIONS_DIR
+) -> Path:
+    """Move the AppImage into `applications_dir` and return its new path.
+
+    Moving the file the app is currently running from is safe on Linux —
+    the AppImage runtime holds the mounted/extracted image open, so the
+    running session keeps working; only future launches use the new path.
+
+    Never raises: already inside the target dir → returned unchanged; a
+    failed move (permissions, exotic mounts) → logged, original returned,
+    and integration simply proceeds where the file already is.
+    """
+    try:
+        if appimage.parent.resolve() == applications_dir.resolve():
+            return appimage
+    except OSError:
+        return appimage
+    target = applications_dir / appimage.name
+    try:
+        applications_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(appimage), str(target))
+    except OSError:
+        log.warning("could not move %s to %s", appimage, target, exc_info=True)
+        return appimage
+    log.info("relocated AppImage: %s -> %s", appimage, target)
+    return target
 
 
 def appimage_path() -> Path | None:

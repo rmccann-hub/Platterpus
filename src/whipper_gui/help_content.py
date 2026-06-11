@@ -77,6 +77,12 @@ named from the album artist/title you type.
   out with a tooltip explaining why — your values are kept, and switching
   back re-enables them. The rest of the app works the same either way.
 
+## Where the app lives
+
+When you accept the "Add to your applications menu?" offer, the app
+moves itself from Downloads to `~/Applications` and the menu entry
+points there — so cleaning out Downloads never removes it.
+
 ## Updates (Help → Check for updates)
 
 Asks GitHub whether a newer release exists. If one does, the app hands

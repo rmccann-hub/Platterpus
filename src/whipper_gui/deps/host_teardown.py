@@ -96,10 +96,27 @@ class HostTeardown:
             steps.append("container")
         if self.remove_whipper_config:
             steps.append("whipper_config")
-        if self.appimage is not None:
+        # The AppImage step covers the running file ($APPIMAGE) AND the
+        # settled copy integration moves into ~/Applications — so an
+        # uninstall finds the app even when started from a different copy
+        # (or from source) after the file was relocated.
+        if self.appimage is not None or self.runner.exists(
+            self.apps_dir / appimage_integration.CANONICAL_APPIMAGE_NAME
+        ):
             steps.append("appimage")
         steps.append("app_data")  # always last — keeps the log alive longest
         self.STEP_IDS = tuple(steps)
+
+    def _appimage_targets(self) -> list[Path]:
+        """The AppImage file(s) to remove: the running one and the canonical
+        ~/Applications copy (deduplicated — usually the same file)."""
+        targets: list[Path] = []
+        if self.appimage is not None:
+            targets.append(self.appimage)
+        canonical = self.apps_dir / appimage_integration.CANONICAL_APPIMAGE_NAME
+        if canonical not in targets:
+            targets.append(canonical)
+        return targets
 
     # --- What each step targets ---------------------------------------------
 
@@ -151,7 +168,7 @@ class HostTeardown:
         if step_id == "container":
             return not self._container_exists()
         if step_id == "appimage":
-            return self.appimage is None or not self.runner.exists(self.appimage)
+            return not any(self.runner.exists(p) for p in self._appimage_targets())
         return not any(
             self.runner.exists(p) for p in self._tree_targets(step_id)
         )  # whipper_config / app_data
@@ -208,8 +225,7 @@ class HostTeardown:
                 return False, _last_meaningful_line(out) or f"exit {rc}"
             return True, f"removed container '{self.container}'"
         if step_id == "appimage":
-            assert self.appimage is not None  # step only exists when set
-            return self._remove_paths([self.appimage], [])
+            return self._remove_paths(self._appimage_targets(), [])
         return self._remove_paths([], self._tree_targets(step_id))
 
     def _dry_run_detail(self, step_id: str) -> str:
@@ -220,7 +236,7 @@ class HostTeardown:
         elif step_id == "container":
             return f"distrobox rm --force {self.container}"
         elif step_id == "appimage":
-            targets = [self.appimage] if self.appimage else []
+            targets = list(self._appimage_targets())
         else:
             targets = self._tree_targets(step_id)
         present = [str(p) for p in targets if self.runner.exists(p)]
