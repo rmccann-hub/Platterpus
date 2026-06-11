@@ -347,7 +347,7 @@ chmod +x whipper-gui-x86_64.AppImage
 
 That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so there's nothing else to install on the GUI side. (You still need the host stack for ripping to work — the first-run wizard sets it up.)
 
-**Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon). Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
+**Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
 **Updates:** the AppImage embeds standard zsync update-information, and every release ships a `.zsync` file next to the AppImage. Use **Help → Check for updates…** in the app — if a newer release exists it hands off to [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate)/`appimageupdatetool` when installed (delta download, verified), or opens the release page so you can grab the new file.
 
@@ -774,6 +774,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 | `~/.local/bin/whipper` | The Distrobox-exported wrapper. **Don't edit.** |
 | `~/.local/bin/metaflac` | Same. |
 | `~/.local/bin/cyanrip` | Same — present only if you've enabled the cyanrip backend. |
+| `~/Applications/whipper-gui-x86_64.AppImage` | The app itself, after menu integration moves it out of Downloads. |
 | `~/.config/whipper/whipper.conf` | Drive offsets and cache settings. Shared with the container. |
 | `~/.config/whipper-gui/config.toml` | The GUI's own settings (output dir, templates, toggles). |
 | `~/.local/share/whipper-gui/log.txt` | GUI log file. Check here when something goes sideways. |

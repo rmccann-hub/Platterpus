@@ -228,3 +228,21 @@ def test_cancel_before_first_step(tmp_path: Path) -> None:
     results = _teardown(tmp_path, _FakeRunner()).run(cancelled=lambda: True)
     assert all(r.status is StepStatus.CANCELLED for r in results)
     assert (tmp_path / "bin" / "whipper").exists()
+
+
+def test_canonical_applications_copy_removed_without_appimage_env(
+    tmp_path: Path,
+) -> None:
+    """Integration moves the AppImage to ~/Applications; the uninstaller must
+    find and remove that copy even when not launched from it ($APPIMAGE
+    unset — e.g. a source run, or launched from a second stray copy)."""
+    canonical = tmp_path / "Applications" / "whipper-gui-x86_64.AppImage"
+    canonical.parent.mkdir(parents=True)
+    canonical.write_bytes(b"ELF")
+    runner = _FakeRunner()
+
+    td = _teardown(tmp_path, runner)  # note: appimage=None
+    assert "appimage" in td.STEP_IDS
+    td.run()
+
+    assert not canonical.exists()

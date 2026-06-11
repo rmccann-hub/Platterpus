@@ -1584,6 +1584,10 @@ def test_integration_offer_runs_on_yes(teardown_threads, monkeypatch, tmp_path) 
     )
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     integrated: list[Path] = []
+    # Stub the relocation (identity) — its real behaviour is covered by
+    # test_integration_offer_relocates_then_integrates and the
+    # appimage_integration unit tests; here we only care about the wiring.
+    monkeypatch.setattr(ai, "relocate_to_applications", lambda p: p)
     monkeypatch.setattr(ai, "integrate", lambda p: integrated.append(p))
 
     window._maybe_offer_appimage_integration()
@@ -1617,6 +1621,7 @@ def test_add_app_shortcut_integrates_when_appimage(
     appimage.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
     integrated: list[Path] = []
+    monkeypatch.setattr(ai, "relocate_to_applications", lambda p: p)
     monkeypatch.setattr(ai, "integrate", lambda p: integrated.append(p))
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     window = teardown_threads()
@@ -1879,3 +1884,38 @@ def test_friendly_disc_scan_error_for_cdrdao_toc_flake() -> None:
     assert _friendly_disc_scan_error("whipper failed: exit 1") == (
         "whipper failed: exit 1"
     )
+
+
+def test_integration_offer_relocates_then_integrates(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Accepting the first-run offer settles the AppImage into
+    ~/Applications BEFORE integrating, so the menu entry never points into
+    Downloads (real-user feedback, 2026-06-10)."""
+    import whipper_gui.appimage_integration as ai
+
+    window = teardown_threads(
+        config=Config(appimage_integration_prompted=False), save_cfg=lambda c: None
+    )
+    downloaded = tmp_path / "Downloads" / "whipper-gui-x86_64.AppImage"
+    moved = tmp_path / "Applications" / "whipper-gui-x86_64.AppImage"
+    calls: list[tuple[str, Path]] = []
+    monkeypatch.setattr(ai, "appimage_path", lambda: downloaded)
+    monkeypatch.setattr(ai, "is_integrated", lambda p: False)
+    monkeypatch.setattr(
+        ai,
+        "relocate_to_applications",
+        lambda p: (calls.append(("relocate", p)), moved)[1],
+    )
+    monkeypatch.setattr(
+        ai, "integrate", lambda p, **k: (calls.append(("integrate", p)), None)[1]
+    )
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+
+    window._maybe_offer_appimage_integration()
+
+    # Relocate first, then integrate FROM THE NEW PATH.
+    assert calls == [("relocate", downloaded), ("integrate", moved)]
