@@ -85,10 +85,12 @@ points there — so cleaning out Downloads never removes it.
 
 ## Updates (Help → Check for updates)
 
-Asks GitHub whether a newer release exists. If one does, the app hands
-off to AppImageUpdate when it's installed (downloads only the changed
-parts and verifies them) or opens the download page — it never
-downloads updates itself. Restart the app after updating.
+Asks GitHub whether a newer release exists. If one does, the app updates
+itself: the new version downloads in the background (with a progress
+bar you can cancel), is verified against the release's published
+checksum, and installs to `~/Applications` — then the app offers to
+restart into the new version. Nothing changes if the download fails or
+you cancel.
 
 ## Uninstalling (Tools → Uninstall Whipper GUI)
 

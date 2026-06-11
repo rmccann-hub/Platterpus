@@ -644,6 +644,8 @@ Decided 2026-06-04 (user-approved; this is a sanctioned evolution of the distrib
 
 **Sequencing note:** the self-integrate + self-update pieces are independent of the host wizard and can ship first; the host wizard is the larger lift and the bigger UX win.
 
+**Amendment (2026-06-10, user-requested):** the original "never hand-roll the download — delegate to AppImageUpdate" call was reversed after real-world testing: `appimageupdatetool` isn't installed on the target systems (and is awkward to install on atomic distros), so the delegate path dead-ended in a browser download, a manual file swap, and a stale menu entry. The app now updates **in-app**: `update_install.py` downloads the release asset off-thread with progress, **verifies it against the published `.sha256`**, atomically installs it over `~/Applications/whipper-gui-x86_64.AppImage`, re-integrates the menu entries, and offers to restart into the new version (launch new + close old). The zsync update-information stays embedded, so AppImageUpdate delta updates remain possible for users who have the tool. Integration also re-offers per-file now (a declined offer silences only that exact file, so updates get their shortcuts remade).
+
 **Status: all three slices SHIPPED** — (a) self-integration 2026-06-05, (c) host wizard 2026-06-05 (+ cyanrip step 2026-06-09), (b) self-update 2026-06-09 (zsync update-information embedded by an appimagetool re-pack in `build_appimage.sh`; `.zsync` uploaded by release.yml; in-app Help → Check for updates… delegates to AppImageUpdate or the release page). Remaining proof is hardware/release-gated: a real delta update needs two consecutive releases with the embed (v0.2.0 → v0.3.0).
 
 ### KDD-18 — cyanrip is the strategic successor backend; never fork whipper

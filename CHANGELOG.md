@@ -13,6 +13,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 *(nothing yet)*
 
+## [0.2.3] — 2026-06-10
+
+### Added
+- **True in-app updates (real-user request).** "Check for updates" no longer
+  sends you to a download page: when a newer release exists, the app
+  downloads it in the background (progress bar, cancellable), **verifies it
+  against the release's published `.sha256`**, installs it atomically over
+  `~/Applications/whipper-gui-x86_64.AppImage`, repoints the menu entries,
+  and offers to **restart itself into the new version** (the old session
+  closes). A failed or cancelled download changes nothing. Source/pipx
+  installs still get the release page (their files can't be swapped).
+
+### Fixed
+- **Updates re-offer their menu shortcuts (real-user report).** The
+  "add to menu?" offer was suppressed forever after being answered once, so
+  a freshly downloaded new version never asked to remake its shortcuts and
+  the old menu entry kept launching the old file. Declining is now
+  remembered **per file**: any not-yet-integrated AppImage (an update, or
+  one whose shortcuts you deleted) gets the offer again.
+
 ## [0.2.2] — 2026-06-10
 
 ### Added
@@ -399,6 +419,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.2.3]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.1.0...v0.2.0

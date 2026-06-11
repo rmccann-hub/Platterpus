@@ -349,7 +349,7 @@ That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so th
 
 **Menu entry / desktop icon:** you don't need to do anything — on its **first run the AppImage offers to add itself to your applications menu** (and copies its icon), **moving itself to `~/Applications`** so it lives with your other apps instead of staying in Downloads. Just say yes. (The old `install-appimage.sh` helper still exists for scripted setups and offers an `--uninstall`, but it's no longer required. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) also works if you prefer.)
 
-**Updates:** the AppImage embeds standard zsync update-information, and every release ships a `.zsync` file next to the AppImage. Use **Help → Check for updates…** in the app — if a newer release exists it hands off to [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate)/`appimageupdatetool` when installed (delta download, verified), or opens the release page so you can grab the new file.
+**Updates:** use **Help → Check for updates…** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, so [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) delta updates work too, for those who use it.)
 
 > **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./whipper-gui-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 
