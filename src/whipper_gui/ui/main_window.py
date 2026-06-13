@@ -38,17 +38,15 @@ from whipper_gui.adapters.whipper_backend import (
 )
 from whipper_gui.config import Config
 from whipper_gui.deps.manager import DependencyManager
-from whipper_gui.deps.resolvers import (
-    AutoInstaller,
-    InstallResult,
-    ManualPrompt,
-    MissingItem,
-)
-from whipper_gui.deps.version import format_version
-from whipper_gui.ui.dialogs.manual_install import ManualInstallDialog
-from whipper_gui.ui.dialogs.pending_installs import PendingInstallsDialog
 from whipper_gui.ui.disc_info_panel import DiscInfoPanel
 from whipper_gui.ui.drive_picker import DrivePicker
+
+# _DialogQueuedResolver moved to main_window_deps with the dependency UI;
+# re-exported here for the test-facing API (tests import it from main_window).
+from whipper_gui.ui.main_window_deps import (  # noqa: F401
+    DependencyMixin,
+    _DialogQueuedResolver,
+)
 from whipper_gui.ui.main_window_drive import DriveMixin
 
 # fidelity_summary / safe_path_segment are re-exported for the test-facing
@@ -77,39 +75,14 @@ from whipper_gui.workers.rip_worker import RipParameters, RipWorker
 log = logging.getLogger(__name__)
 
 
-class _DialogQueuedResolver:
-    """Tier-(b) resolver for the GUI: drives `PendingInstallsDialog` with live
-    per-item progress, then returns the `InstallResult`s.
-
-    Replaces `QueuedInstaller` in the GUI path. `QueuedInstaller` installs
-    *after* its dialog callback returns — which closes the dialog — so it can't
-    show per-item progress. Here the dialog stays open and installs inline,
-    updating each row as it goes. Duck-typed to the resolver interface the
-    `DependencyManager` dispatches to (`resolve(items) -> list[InstallResult]`).
-    """
-
-    def __init__(
-        self,
-        parent: QWidget | None,
-        install_one: Callable[[MissingItem], InstallResult],
-    ) -> None:
-        self._parent = parent
-        self._install_one = install_one
-
-    def resolve(self, items: list[MissingItem]) -> list[InstallResult]:
-        if not items:
-            return []
-        dialog = PendingInstallsDialog(
-            items, install_one=self._install_one, parent=self._parent
-        )
-        # The dialog drives the install loop itself and populates results();
-        # exec() blocks until the user closes it (Close after install, or
-        # Cancel → all declined). results() always has one entry per item.
-        dialog.exec()
-        return dialog.results()
-
-
-class MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin):
+class MainWindow(
+    QMainWindow,
+    RipMixin,
+    UpdateMixin,
+    ProvisioningMixin,
+    DriveMixin,
+    DependencyMixin,
+):
     """The main window. Built by app.py with all dependencies injected.
 
     Cohesive concern-groups are factored into mixins (the ``*Mixin`` bases)
@@ -484,159 +457,3 @@ class MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMix
             except OSError as exc:
                 QMessageBox.warning(self, "Couldn't save settings", f"{exc}")
             self._maybe_offer_cyanrip_install(old_backend)
-
-    def _maybe_offer_cyanrip_install(self, old_backend: str) -> None:
-        """Offer the setup wizard when the user just switched to cyanrip
-        but cyanrip isn't installed yet — otherwise the new backend would
-        silently fail on the next launch with 'binary not found'."""
-        from whipper_gui.deps import host_setup
-
-        if self._config.ripper_backend != "cyanrip" or old_backend == "cyanrip":
-            return
-        if host_setup.cyanrip_on_host():
-            return
-        choice = QMessageBox.question(
-            self,
-            "Install cyanrip?",
-            "You selected the cyanrip backend, but cyanrip isn't installed "
-            "yet.\n\nRun setup now to install it into the ripping container "
-            "and make it available to this app? (Restart the app afterwards "
-            "for the backend change to take effect.)",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
-        )
-        if choice == QMessageBox.StandardButton.Yes:
-            self.open_host_setup_dialog()
-
-    def _on_check_dependencies(self) -> None:
-        """Run the dependency subsystem with GUI-backed resolvers.
-
-        Always shows the summary popup at the end. Use
-        `run_dependency_check(show_summary=False)` to suppress the
-        popup when nothing's missing — that's the launch-time path.
-        """
-        self.run_dependency_check(show_summary=True)
-
-    def run_dependency_check(self, show_summary: bool = True) -> None:
-        """Run check_all + resolve_missing with GUI-backed resolvers.
-
-        Public so app.py can call it at launch. `show_summary=False`
-        means the OK popup is suppressed when nothing's missing — but
-        dialogs still appear for items that need attention.
-        """
-        auto = AutoInstaller(consent=self._gui_auto_consent)
-        queued = _DialogQueuedResolver(self, self._make_install_one())
-        manual = ManualPrompt(dialog_callback=self._gui_manual_dialog)
-
-        # Reuse the registry from the injected DependencyManager so the
-        # menu-driven check sees exactly the deps the app cares about.
-        from whipper_gui.deps.manager import DependencyManager
-
-        gui_manager = DependencyManager(
-            auto=auto,
-            queued=queued,
-            manual=manual,
-            specs=self._dependency_manager._specs,  # type: ignore[attr-defined]
-        )
-
-        report = gui_manager.check_all()
-        # Optional deps (e.g. Picard) shouldn't nag at launch or count as a
-        # problem — set them aside so only required deps drive resolution.
-        optional_missing = [
-            item for item in report.missing if getattr(item.spec, "optional", False)
-        ]
-        report.missing = [
-            item for item in report.missing if not getattr(item.spec, "optional", False)
-        ]
-        if report.missing:
-            gui_manager.resolve_missing(report)
-
-        if show_summary or report.missing:
-            self._show_dep_summary(report, optional_missing=optional_missing)
-
-    def _gui_auto_consent(self, items: list[MissingItem]) -> bool:
-        if not items:
-            return True
-        names = ", ".join(item.spec.display_name for item in items)
-        choice = QMessageBox.question(
-            self,
-            "Install dependencies",
-            f"Install the following automatically?\n\n{names}",
-        )
-        return choice == QMessageBox.StandardButton.Yes
-
-    def _make_install_one(self) -> Callable[[MissingItem], InstallResult]:
-        """Build the per-item installer the PendingInstallsDialog drives.
-
-        Reuses AutoInstaller's install machinery (subprocess run + error
-        handling) with an always-yes consent — the user already consented
-        per-item via the dialog's checkboxes.
-        """
-        installer = AutoInstaller(consent=lambda _: True)
-
-        def install_one(item: MissingItem) -> InstallResult:
-            results = installer.resolve([item])
-            if results:
-                return results[0]
-            # AutoInstaller skips items with no install_command; a queued-tier
-            # item should always have one, but never return an empty list.
-            return InstallResult(
-                spec=item.spec,
-                success=False,
-                message="no install command available",
-            )
-
-        return install_one
-
-    def _gui_manual_dialog(self, item: MissingItem) -> None:
-        dialog = ManualInstallDialog(item.spec, item.probe, self)
-        dialog.exec()
-
-    def _show_dep_summary(
-        self, report: object, optional_missing: list | None = None
-    ) -> None:
-        """Post-check summary popup with install-failure detail when present.
-
-        The popup format:
-            "<ok_count> ok, <missing_count> missing/needs-attention."
-            "Installed: <name> <version>, …"      ← when any deps are OK
-            "Optional (not installed): <names>"   ← only when present
-            (blank line)
-            "Install failures:"           ← only when failures exist
-            "  - <dep>: <error message>"  ← one per failure
-        """
-        ok_specs = getattr(report, "ok", [])
-        ok_count = len(ok_specs)
-        missing_count = len(getattr(report, "missing", []))
-        ok_versions = getattr(report, "ok_versions", {}) or {}
-        # Collect real install failures (not user declines — those are
-        # surfaced via the dialog the user already saw).
-        install_results = getattr(report, "install_results", [])
-        failures = [
-            r
-            for r in install_results
-            if not r.success and not getattr(r, "user_declined", False)
-        ]
-
-        message = f"{ok_count} ok, {missing_count} missing/needs-attention."
-        # Stamp the detected version next to each OK dep so the user knows
-        # exactly what's installed (reproducibility), not just that it's there.
-        if ok_specs:
-            installed = ", ".join(
-                f"{spec.display_name} {format_version(ok_versions.get(spec.dep_id))}"
-                for spec in ok_specs
-            )
-            message += f"\nInstalled: {installed}."
-        if optional_missing:
-            names = ", ".join(item.spec.display_name for item in optional_missing)
-            message += f"\nOptional (not installed): {names}."
-        if failures:
-            failure_lines = "\n".join(
-                f"  • {r.spec.display_name}: {r.message}" for r in failures
-            )
-            message = (
-                f"{message}\n\nInstall failures:\n{failure_lines}\n\n"
-                f"Full output is in ~/.local/share/whipper-gui/log.txt."
-            )
-
-        QMessageBox.information(self, "Dependency check complete", message)
