@@ -2057,3 +2057,127 @@ def test_integration_offer_fires_when_integrated_but_unsettled(
     window._maybe_offer_appimage_integration()
 
     assert integrated == [moved]
+
+
+# --- Post-rip cover art (backend-independent, 2026-06-13) -------------------
+
+
+_JPEG_BYTES = b"\xff\xd8\xff\xe0" + b"x" * 16
+
+
+class _RecordingMetaflac:
+    """Duck-typed MetaflacAdapter stand-in that records embed calls."""
+
+    def __init__(self) -> None:
+        self.embedded: list[Path] = []
+
+    def embed_picture(self, flac_path: Path, image_path: Path) -> None:
+        self.embedded.append(flac_path)
+
+
+def _cover_album(tmp_path: Path) -> tuple[Path, Path]:
+    """An album folder with one FLAC and the rip log next to it."""
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    (album / "01 - Track.flac").write_bytes(b"flac")
+    log_file = album / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    return album, log_file
+
+
+def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """cyanrip never fetches art (the GUI bypasses its MB lookup), so the
+    GUI fetches the front cover itself and embeds + saves it."""
+    window = teardown_threads(
+        config=Config(ripper_backend="cyanrip", cover_art="complete")
+    )
+    album, log_file = _cover_album(tmp_path)
+    fake_metaflac = _RecordingMetaflac()
+    window._metaflac = fake_metaflac
+    urls: list[str] = []
+
+    def fake_fetch(url: str) -> bytes:
+        urls.append(url)
+        return _JPEG_BYTES
+
+    window._cover_art_fetcher = fake_fetch
+    window._current_release_id = "release-mbid"
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._cover_art_thread is not None
+    window._cover_art_thread.join(timeout=10)
+
+    assert urls == ["https://coverartarchive.org/release/release-mbid/front"]
+    assert (album / "cover.jpg").read_bytes() == _JPEG_BYTES
+    assert fake_metaflac.embedded == [album / "01 - Track.flac"]
+
+
+def test_whipper_known_rip_skips_gui_cover_art(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """whipper fetches art itself (--cover-art) for identified discs —
+    the GUI must stay out of the way."""
+    window = teardown_threads()  # default backend whipper, cover_art "embed"
+    window._current_release_id = "release-mbid"
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+
+    assert window._cover_art_thread is None
+
+
+def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The no-network heal re-rips as --unknown (whipper can't fetch art),
+    but the GUI still knows the release — so it supplies the art too."""
+    window = teardown_threads(config=Config(cover_art="embed"))
+    monkeypatch.setattr(window, "run_unknown_post_processing", lambda out, picard: None)
+    album, log_file = _cover_album(tmp_path)
+    fake_metaflac = _RecordingMetaflac()
+    window._metaflac = fake_metaflac
+    window._cover_art_fetcher = lambda url: _JPEG_BYTES
+    window._current_release_id = "release-mbid"
+    window._active_rip_params = _params(tmp_path, unknown=True)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._cover_art_thread is not None
+    window._cover_art_thread.join(timeout=10)
+
+    assert fake_metaflac.embedded == [album / "01 - Track.flac"]
+    # "embed" mode: the image was a temp file for metaflac, not kept.
+    assert not (album / "cover.jpg").exists()
+
+
+def test_unidentified_disc_skips_cover_art(teardown_threads, tmp_path: Path) -> None:
+    """No release ID (MusicBrainz never matched) → nothing to look up."""
+    window = teardown_threads(
+        config=Config(ripper_backend="cyanrip", cover_art="complete")
+    )
+    window._current_release_id = ""
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+
+    assert window._cover_art_thread is None
+
+
+def test_cover_art_off_skips_the_fetch(teardown_threads, tmp_path: Path) -> None:
+    window = teardown_threads(config=Config(ripper_backend="cyanrip", cover_art=""))
+    window._current_release_id = "release-mbid"
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+
+    assert window._cover_art_thread is None
+
+
+def test_cover_art_outcome_lands_in_the_log_view(teardown_threads) -> None:
+    window = teardown_threads()
+    window._on_cover_art_done("Cover art: embedded in 14 track(s).")
+    assert "Cover art: embedded in 14 track(s)." in (
+        window._rip_progress._log_view.toPlainText()
+    )

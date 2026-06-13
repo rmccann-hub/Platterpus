@@ -13,6 +13,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 *(nothing yet)*
 
+### Added
+- **Backend-independent cover art.** When the ripper can't fetch art itself —
+  cyanrip rips (the app supplies the tags and bypasses cyanrip's own
+  MusicBrainz lookup), and whipper's no-network `--unknown` re-rips — the app
+  now fetches the front cover from the Cover Art Archive after the rip and
+  embeds it in the FLACs and/or saves it as `cover.jpg`, following the
+  existing Cover art setting. The setting is no longer greyed out under
+  cyanrip. Art is best-effort: a missing cover never affects the rip.
+
 ## [0.2.4] — 2026-06-12
 
 ### Changed

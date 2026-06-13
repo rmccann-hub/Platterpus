@@ -62,7 +62,7 @@ named from the album artist/title you type.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
 - **Continue on CD-R** — needed to rip home-burned discs.
-- **Cover art** — off, embedded, or saved as a file.
+- **Cover art** — off, embedded, or saved as a file. Works with both backends: whipper fetches it itself; with cyanrip this app fetches the front cover from the Cover Art Archive after the rip.
 - **Force overread**, **max retries**, **keep going on errors** — EAC-parity
   read options.
 - **Read offset override** — set the drive read-offset by hand (the drive-setup

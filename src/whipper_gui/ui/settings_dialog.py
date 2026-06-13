@@ -197,7 +197,10 @@ class SettingsDialog(QDialog):
         self._cover_art_combo.setCurrentIndex(cover_index if cover_index >= 0 else 0)
         self._cover_art_combo.setToolTip(
             "Fetch album cover art and embed it in the FLACs and/or save it "
-            "as a file (whipper's --cover-art). EAC embeds by default."
+            "as a file. With the whipper backend whipper fetches it itself "
+            "(--cover-art); with cyanrip (and after a no-network re-rip) "
+            "this app fetches it from the Cover Art Archive once the rip "
+            "finishes. EAC embeds by default."
         )
         form.addRow("Cover art:", self._cover_art_combo)
 
@@ -251,13 +254,10 @@ class SettingsDialog(QDialog):
                     "cyanrip rips burned CD-Rs without needing a switch, so "
                     "there is nothing to configure.",
                 ),
-                (
-                    self._cover_art_combo,
-                    "Cover-art fetching currently works with the whipper "
-                    "backend only. (With cyanrip, this app supplies the tags "
-                    "itself and skips cyanrip's own MusicBrainz lookup, which "
-                    "is where its cover art would come from.)",
-                ),
+                # Cover art is deliberately NOT in this list (2026-06-13):
+                # it's backend-independent now — with cyanrip the GUI
+                # fetches the front cover from the Cover Art Archive itself
+                # after the rip, so the setting stays editable everywhere.
                 (
                     self._force_overread_check,
                     "Overread control isn't wired to the cyanrip backend yet.",
