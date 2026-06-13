@@ -101,15 +101,17 @@ focused file while methods stay reachable as `window._x` (which the test
 suite and Qt signal wiring depend on). The mixin contract: each documents
 the `self.` attributes it assumes `MainWindow.__init__` has set.
 
-| Concern | Home | Status |
-|---------|------|--------|
-| Pure helpers (string-safety, fidelity verdict) | `main_window_helpers.py` | done |
-| Self-update (check / download / install / restart) | `main_window_update.py` (`UpdateMixin`) | done |
-| Rip lifecycle, force-stop, eject, cover art | `main_window.py` (rip section) | *to extract → `RipMixin`* |
-| Host setup / AppImage integration / uninstall | `main_window.py` | *to extract → `ProvisioningMixin`* |
-| Drive setup / offset / access diagnosis | `main_window.py` | *to extract → `DriveMixin`* |
-| Dependency check / resolve / summary | `main_window.py` | *to extract → `DependencyMixin`* |
-| Construction, menus, signal wiring, MusicBrainz slots | `main_window.py` | stays (the assembler) |
+| Concern | Home |
+|---------|------|
+| Pure helpers (string-safety, fidelity verdict) | `main_window_helpers.py` |
+| Self-update (check / download / install / restart) | `main_window_update.py` (`UpdateMixin`) |
+| Rip lifecycle, force-stop, eject, cover art | `main_window_rip.py` (`RipMixin`) |
+| Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
+| Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
+| Dependency check / resolve / summary (+ `_DialogQueuedResolver`) | `main_window_deps.py` (`DependencyMixin`) |
+| Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the ~460-line assembler) |
+
+The split is complete: `MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)` — a 1707-line god-object reduced to a ~460-line assembler plus six focused modules.
 
 ## 4. Extension points — how to add things
 
