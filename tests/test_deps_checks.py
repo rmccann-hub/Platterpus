@@ -164,3 +164,78 @@ def test_probe_result_is_frozen() -> None:
     probe = ProbeResult(present=True, version=(0, 1, 0), location="/x")
     with pytest.raises(FrozenInstanceError):
         probe.present = False  # type: ignore[misc]
+
+
+# --- check_libdiscid (ctypes-driven; monkeypatch the loader) --------------
+
+
+def test_check_libdiscid_absent_when_no_variant_loads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No SONAME resolves / loads → present=False (the documented default;
+    whipper computes the disc ID in-container, so this is the common case)."""
+    import ctypes
+    import ctypes.util
+
+    monkeypatch.setattr(ctypes.util, "find_library", lambda _name: None)
+
+    def no_load(_name: str):
+        raise OSError("not found")
+
+    monkeypatch.setattr(ctypes, "CDLL", no_load)
+
+    result = checks.check_libdiscid()
+    assert result.present is False
+    assert result.version is None
+    assert result.location is None
+
+
+def test_check_libdiscid_present_with_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A SONAME that loads and answers discid_get_version_string() → present,
+    with the parsed version and the SONAME as the location."""
+    import ctypes
+    import ctypes.util
+
+    monkeypatch.setattr(ctypes.util, "find_library", lambda _name: "libdiscid.so.0")
+
+    class _FakeLib:
+        class discid_get_version_string:  # noqa: N801 — mimics a ctypes func
+            restype = None
+
+            def __call__(self) -> bytes:
+                return b"libdiscid 0.6.2"
+
+        def __init__(self) -> None:
+            # ctypes accesses lib.discid_get_version_string as an attribute
+            # and sets .restype on it, then calls it — model that.
+            self.discid_get_version_string = _FakeLib.discid_get_version_string()
+
+    monkeypatch.setattr(ctypes, "CDLL", lambda _name: _FakeLib())
+
+    result = checks.check_libdiscid()
+    assert result.present is True
+    assert result.location == "libdiscid.so.0"
+    assert result.version is not None  # parse_version extracted something
+
+
+def test_check_libdiscid_present_but_version_call_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Library loads but the version symbol is missing → still present, with
+    an empty version string (the AttributeError branch)."""
+    import ctypes
+    import ctypes.util
+
+    monkeypatch.setattr(ctypes.util, "find_library", lambda _name: None)
+
+    class _NoVersionLib:
+        def __getattr__(self, _name: str):  # any symbol access raises
+            raise AttributeError("no such symbol")
+
+    monkeypatch.setattr(ctypes, "CDLL", lambda _name: _NoVersionLib())
+
+    result = checks.check_libdiscid()
+    assert result.present is True
+    assert result.raw_output == ""
