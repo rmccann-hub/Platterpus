@@ -13,6 +13,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 *(nothing yet)*
 
+## [0.2.5] — 2026-06-13
+
 ### Added
 - **Backend-independent cover art.** When the ripper can't fetch art itself —
   cyanrip rips (the app supplies the tags and bypasses cyanrip's own
@@ -444,6 +446,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.2.5]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.1...v0.2.2
