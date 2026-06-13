@@ -254,3 +254,51 @@ def test_apply_with_no_flacs_still_reports_honestly(tmp_path: Path) -> None:
     )
 
     assert "embedding failed" in message  # 0 embedded — don't claim success
+
+
+def test_apply_reports_when_image_cannot_be_saved(tmp_path: Path) -> None:
+    """If the cover bytes can't be written to disk (e.g. the rip dir isn't a
+    directory), report it without crashing and without embedding."""
+    not_a_dir = tmp_path / "rip_dir"
+    not_a_dir.write_text("i am a file, not a directory")
+    fake = _FakeMetaflac()
+
+    message = cover_art.apply_cover_art(
+        not_a_dir,
+        "mbid",
+        embed=True,
+        save_file=True,
+        metaflac=fake,
+        fetcher=lambda url: _JPEG,
+    )
+
+    assert fake.embedded == []
+    assert "could not be saved" in message
+
+
+def test_apply_survives_temp_image_unlink_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Embed-only cleans up the temp image; if that unlink fails it's purely
+    cosmetic and must not change the (successful) outcome."""
+    album = _album(tmp_path, tracks=1)
+    fake = _FakeMetaflac()
+
+    import pathlib
+
+    def boom_unlink(self: pathlib.Path, *a: object, **k: object) -> None:
+        raise OSError("cannot remove")
+
+    monkeypatch.setattr(pathlib.Path, "unlink", boom_unlink)
+
+    message = cover_art.apply_cover_art(
+        album,
+        "mbid",
+        embed=True,
+        save_file=False,
+        metaflac=fake,
+        fetcher=lambda url: _JPEG,
+    )
+
+    assert len(fake.embedded) == 1
+    assert "embedded in 1 track(s)" in message
