@@ -323,11 +323,10 @@ def test_rip_requested_blocked_when_track_table_invalid(
     """Empty track table fails validation; a warning is shown and no
     rip worker is spun up."""
     window = teardown_threads()
-    import whipper_gui.ui.main_window as mw
 
     # Offset IS configured here so we exercise the track-table guard, not the
     # read-offset guard that now precedes it.
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: True)
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
 
     warnings: list[tuple[str, str]] = []
 
@@ -376,9 +375,8 @@ def test_rip_requested_in_unknown_mode_skips_validation(
 
     backend.rip = fake_rip  # type: ignore[assignment]
     window = teardown_threads(backend=backend)
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: True)
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
 
     from whipper_gui.workers.rip_worker import RipParameters
 
@@ -406,9 +404,8 @@ def test_rip_requested_blocked_when_no_read_offset(
     """No read offset configured → the rip is blocked with a warning that
     points at the drive-setup wizard, no worker is started, and answering
     Yes opens the wizard."""
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False)
     window = teardown_threads()
 
     warnings: list[tuple[str, str]] = []
@@ -485,9 +482,8 @@ def test_rip_not_blocked_when_drive_offset_is_known(
 ) -> None:
     """Start with no saved offset but a known drive → auto-apply + rip proceeds,
     no 'set up your drive' warning."""
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False)
 
     backend = _FakeBackend()
     rip_kwargs: list[dict] = []
@@ -1065,9 +1061,8 @@ def test_unknown_rip_folder_uses_album_fields(
 
     backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
     window = teardown_threads(backend=backend)
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: True)
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
     window._track_table._album_artist_edit.setText("jimmy2")
     window._track_table._album_title_edit.setText("for")
 
@@ -1108,9 +1103,8 @@ def test_unknown_rip_folder_falls_back_when_album_blank(
 
     backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
     window = teardown_threads(backend=backend)
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: True)
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
     # album fields left blank
     from whipper_gui.workers.rip_worker import RipParameters
 
@@ -1322,10 +1316,9 @@ def test_start_rip_worker_snapshots_track_table_metadata(
 
         log_line = progress = status = current_track = error = finished = _Sig()
 
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "RipWorker", _NoopWorker)
-    monkeypatch.setattr(mw, "QThread", lambda parent=None: _FakeThread())
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.RipWorker", _NoopWorker)
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.QThread", lambda parent=None: _FakeThread())
 
     window._start_rip_worker(
         RipParameters(
@@ -1761,11 +1754,11 @@ def _patch_force_stop(monkeypatch) -> list[dict]:
     deliberately do NOT replace ``threading.Thread`` globally, which could
     interfere with other threads spawned during the test.
     """
-    import whipper_gui.ui.main_window as mw
+    from whipper_gui import drive_control
 
     calls: list[dict] = []
     monkeypatch.setattr(
-        mw.drive_control,
+        drive_control,
         "force_stop_drive",
         lambda **kw: calls.append(kw),
     )
@@ -1827,10 +1820,10 @@ def test_auto_force_stop_is_noop_when_already_done(
 
 def _patch_eject(monkeypatch) -> list[dict]:
     """Record eject_drive calls instead of touching a real drive."""
-    import whipper_gui.ui.main_window as mw
+    from whipper_gui import drive_control
 
     calls: list[dict] = []
-    monkeypatch.setattr(mw.drive_control, "eject_drive", lambda **kw: calls.append(kw))
+    monkeypatch.setattr(drive_control, "eject_drive", lambda **kw: calls.append(kw))
     return calls
 
 
