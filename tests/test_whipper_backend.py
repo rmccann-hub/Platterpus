@@ -302,60 +302,6 @@ def test_rip_builds_expected_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "--unknown" not in argv
 
 
-def test_rip_unknown_flag_appended_when_requested(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
-    _disable_mkdir(monkeypatch)
-    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
-    impl.rip(
-        drive="/dev/sr0",
-        release_id="unused",
-        output_dir=Path("/music"),
-        track_template="t",
-        disc_template="d",
-        unknown=True,
-    )
-    assert "--unknown" in _FakePopen.instances[0].argv
-
-
-def test_rip_cdr_flag_appended_when_requested(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """cdr=True must add whipper's --cdr flag so burned discs rip.
-
-    Real-hardware testing (T32) hit "inserted disc seems to be a CD-R,
-    --cdr not passed" on a home-burned disc; this flag is the fix."""
-    monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
-    _disable_mkdir(monkeypatch)
-    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
-    impl.rip(
-        drive="/dev/sr0",
-        release_id="x",
-        output_dir=Path("/music"),
-        track_template="t",
-        disc_template="d",
-        cdr=True,
-    )
-    assert "--cdr" in _FakePopen.instances[0].argv
-
-
-def test_rip_cdr_flag_absent_by_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
-    _disable_mkdir(monkeypatch)
-    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
-    impl.rip(
-        drive="/dev/sr0",
-        release_id="x",
-        output_dir=Path("/music"),
-        track_template="t",
-        disc_template="d",
-    )
-    assert "--cdr" not in _FakePopen.instances[0].argv
-
-
 def _rip_argv(monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> list[str]:
     """Run rip() with the given kwargs and return the captured argv."""
     monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
@@ -372,39 +318,64 @@ def _rip_argv(monkeypatch: pytest.MonkeyPatch, **kwargs: Any) -> list[str]:
     return _FakePopen.instances[0].argv
 
 
-def test_rip_max_retries_always_passed_with_value(
+# rip() flag → argv mapping. Parametrized (was ~7 near-identical tests) so
+# the whole flag table reads at a glance; the ids keep failures legible.
+@pytest.mark.parametrize(
+    ("kwargs", "present", "absent"),
+    [
+        pytest.param({"unknown": True}, ["--unknown"], [], id="unknown-flag"),
+        pytest.param({}, [], ["--unknown"], id="unknown-absent-by-default"),
+        # cdr=True fixes the T32 hardware failure "inserted disc seems to be a
+        # CD-R, --cdr not passed" on home-burned discs.
+        pytest.param({"cdr": True}, ["--cdr"], [], id="cdr-flag"),
+        pytest.param({}, [], ["--cdr"], id="cdr-absent-by-default"),
+        pytest.param(
+            {"force_overread": True, "keep_going": True},
+            ["--force-overread", "--keep-going"],
+            [],
+            id="overread+keep-going",
+        ),
+        pytest.param(
+            {},
+            [],
+            ["--force-overread", "--keep-going"],
+            id="overread+keep-going-absent",
+        ),
+        pytest.param({"cover_art": ""}, [], ["--cover-art"], id="cover-art-blank"),
+    ],
+)
+def test_rip_flag_presence(
     monkeypatch: pytest.MonkeyPatch,
+    kwargs: dict[str, Any],
+    present: list[str],
+    absent: list[str],
 ) -> None:
-    argv = _rip_argv(monkeypatch, max_retries=8)
-    assert "--max-retries" in argv
-    assert argv[argv.index("--max-retries") + 1] == "8"
+    argv = _rip_argv(monkeypatch, **kwargs)
+    for flag in present:
+        assert flag in argv, f"{flag} should be present for {kwargs}"
+    for flag in absent:
+        assert flag not in argv, f"{flag} should be absent for {kwargs}"
 
 
-def test_rip_cover_art_passed_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    argv = _rip_argv(monkeypatch, cover_art="embed")
-    assert argv[argv.index("--cover-art") + 1] == "embed"
-
-
-def test_rip_cover_art_omitted_when_blank(
+# Value-bearing flags: the flag must be immediately followed by its value.
+@pytest.mark.parametrize(
+    ("kwargs", "flag", "value"),
+    [
+        pytest.param(
+            {"cover_art": "embed"}, "--cover-art", "embed", id="cover-art-embed"
+        ),
+        pytest.param({"max_retries": 8}, "--max-retries", "8", id="max-retries-value"),
+    ],
+)
+def test_rip_value_flags(
     monkeypatch: pytest.MonkeyPatch,
+    kwargs: dict[str, Any],
+    flag: str,
+    value: str,
 ) -> None:
-    assert "--cover-art" not in _rip_argv(monkeypatch, cover_art="")
-
-
-def test_rip_overread_and_keep_going_flags(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    argv = _rip_argv(monkeypatch, force_overread=True, keep_going=True)
-    assert "--force-overread" in argv
-    assert "--keep-going" in argv
-
-
-def test_rip_overread_and_keep_going_absent_by_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    argv = _rip_argv(monkeypatch)
-    assert "--force-overread" not in argv
-    assert "--keep-going" not in argv
+    argv = _rip_argv(monkeypatch, **kwargs)
+    assert flag in argv
+    assert argv[argv.index(flag) + 1] == value
 
 
 def test_rip_creates_working_and_output_dirs(

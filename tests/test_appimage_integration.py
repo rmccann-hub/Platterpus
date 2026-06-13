@@ -267,3 +267,28 @@ def test_default_refresh_is_non_blocking(monkeypatch: pytest.MonkeyPatch) -> Non
 
     # update-desktop-database + kbuildsycoca6 + kbuildsycoca5 all "found".
     assert ["kbuildsycoca6"] in launched
+
+
+def test_mark_trusted_is_non_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
+    """gio-set-trusted runs inside integrate(), which is called on the GUI
+    thread (first-run offer, post-update re-integration). A slow `gio` must
+    not freeze the window, so it launches detached (Popen) and never blocks
+    on subprocess.run — same class as the kbuildsycoca freeze (2026-06-13)."""
+    launched: list[list[str]] = []
+
+    monkeypatch.setattr(ai.shutil, "which", lambda _name: "/usr/bin/gio")
+
+    def fake_popen(argv, **kwargs):
+        launched.append(argv)
+        assert kwargs.get("start_new_session") is True
+        return object()
+
+    def forbidden_run(*_a, **_k):
+        raise AssertionError("_mark_trusted must not block on subprocess.run")
+
+    monkeypatch.setattr(ai.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(ai.subprocess, "run", forbidden_run)
+
+    ai._mark_trusted(Path("/home/u/Desktop/whipper-gui.desktop"))
+
+    assert launched and launched[0][0] == "gio"
