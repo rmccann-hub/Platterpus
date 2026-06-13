@@ -326,7 +326,9 @@ def test_rip_requested_blocked_when_track_table_invalid(
 
     # Offset IS configured here so we exercise the track-table guard, not the
     # read-offset guard that now precedes it.
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+    )
 
     warnings: list[tuple[str, str]] = []
 
@@ -376,7 +378,9 @@ def test_rip_requested_in_unknown_mode_skips_validation(
     backend.rip = fake_rip  # type: ignore[assignment]
     window = teardown_threads(backend=backend)
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+    )
 
     from whipper_gui.workers.rip_worker import RipParameters
 
@@ -405,7 +409,9 @@ def test_rip_requested_blocked_when_no_read_offset(
     points at the drive-setup wizard, no worker is started, and answering
     Yes opens the wizard."""
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False
+    )
     window = teardown_threads()
 
     warnings: list[tuple[str, str]] = []
@@ -483,7 +489,9 @@ def test_rip_not_blocked_when_drive_offset_is_known(
     """Start with no saved offset but a known drive → auto-apply + rip proceeds,
     no 'set up your drive' warning."""
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False
+    )
 
     backend = _FakeBackend()
     rip_kwargs: list[dict] = []
@@ -1062,7 +1070,9 @@ def test_unknown_rip_folder_uses_album_fields(
     backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
     window = teardown_threads(backend=backend)
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+    )
     window._track_table._album_artist_edit.setText("jimmy2")
     window._track_table._album_title_edit.setText("for")
 
@@ -1104,7 +1114,9 @@ def test_unknown_rip_folder_falls_back_when_album_blank(
     backend.rip = lambda **kw: _StubHandle()  # type: ignore[assignment]
     window = teardown_threads(backend=backend)
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+    )
     # album fields left blank
     from whipper_gui.workers.rip_worker import RipParameters
 
@@ -1142,21 +1154,27 @@ def test_should_offer_when_unconfigured_and_not_prompted(
     teardown_threads, monkeypatch
 ) -> None:
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+    )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     assert window._should_offer_drive_setup() is True
 
 
 def test_no_offer_when_already_prompted(teardown_threads, monkeypatch) -> None:
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+    )
     window = teardown_threads(config=Config(drive_setup_prompted=True))
     assert window._should_offer_drive_setup() is False
 
 
 def test_no_offer_when_offset_already_configured(teardown_threads, monkeypatch) -> None:
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True
+    )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     assert window._should_offer_drive_setup() is False
 
@@ -1165,7 +1183,9 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
     teardown_threads, monkeypatch
 ) -> None:
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+    )
     saved: list[Config] = []
     window = teardown_threads(
         config=Config(drive_setup_prompted=False), save_cfg=saved.append
@@ -1186,7 +1206,9 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
 
 def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+    )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     monkeypatch.setattr(
         QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
@@ -1202,7 +1224,9 @@ def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
 
 def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> None:
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True)
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True
+    )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     launched: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: launched.append(True))
@@ -1310,9 +1334,10 @@ def test_start_rip_worker_snapshots_track_table_metadata(
 
         log_line = progress = status = current_track = error = finished = _Sig()
 
-
     monkeypatch.setattr("whipper_gui.ui.main_window_rip.RipWorker", _NoopWorker)
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.QThread", lambda parent=None: _FakeThread())
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_rip.QThread", lambda parent=None: _FakeThread()
+    )
 
     window._start_rip_worker(
         RipParameters(
