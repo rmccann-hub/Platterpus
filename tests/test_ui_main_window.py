@@ -995,7 +995,7 @@ def test_drives_unavailable_nudges_once_when_actionable(
     shown: list[DriveAccessDiagnosis] = []
     monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window.diagnose_drive_access",
+        "whipper_gui.ui.main_window_drive.diagnose_drive_access",
         lambda **kw: _diag("permission", "sudo usermod -aG cdrom $USER"),
     )
 
@@ -1013,7 +1013,7 @@ def test_drives_unavailable_quiet_when_not_actionable(
     shown: list[DriveAccessDiagnosis] = []
     monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window.diagnose_drive_access",
+        "whipper_gui.ui.main_window_drive.diagnose_drive_access",
         lambda **kw: _diag("no_device", None),
     )
 
@@ -1030,7 +1030,7 @@ def test_tools_diagnose_always_shows(
     shown: list[DriveAccessDiagnosis] = []
     monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window.diagnose_drive_access",
+        "whipper_gui.ui.main_window_drive.diagnose_drive_access",
         lambda **kw: _diag("no_device", None),
     )
 
@@ -1141,25 +1141,22 @@ def test_safe_path_segment() -> None:
 def test_should_offer_when_unconfigured_and_not_prompted(
     teardown_threads, monkeypatch
 ) -> None:
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
+    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     assert window._should_offer_drive_setup() is True
 
 
 def test_no_offer_when_already_prompted(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
+    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
     window = teardown_threads(config=Config(drive_setup_prompted=True))
     assert window._should_offer_drive_setup() is False
 
 
 def test_no_offer_when_offset_already_configured(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: True)
+    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True)
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     assert window._should_offer_drive_setup() is False
 
@@ -1167,9 +1164,8 @@ def test_no_offer_when_offset_already_configured(teardown_threads, monkeypatch) 
 def test_maybe_offer_records_prompt_and_launches_on_yes(
     teardown_threads, monkeypatch
 ) -> None:
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
+    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
     saved: list[Config] = []
     window = teardown_threads(
         config=Config(drive_setup_prompted=False), save_cfg=saved.append
@@ -1189,9 +1185,8 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
 
 
 def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: False)
+    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False)
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     monkeypatch.setattr(
         QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
@@ -1206,9 +1201,8 @@ def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
 
 
 def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.ui.main_window as mw
 
-    monkeypatch.setattr(mw, "is_offset_configured", lambda _override: True)
+    monkeypatch.setattr("whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True)
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     launched: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: launched.append(True))
