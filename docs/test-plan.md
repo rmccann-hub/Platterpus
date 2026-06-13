@@ -240,6 +240,25 @@ track-3 failure whipper's >587-offset cd-paranoia bug causes on the BDR-209D.
 **Record:** cyanrip version `____`; track 3 verified? `____`; CRCs match
 whipper's? `____`; log file name `____`.
 
+**EAC baseline (added 2026-06-12 — `tests/fixtures/eac_baseline_police_classics.log`):**
+the same disc was ripped with EAC V1.8 per the bit-perfect guide on the same
+BDR-209D (offset +667). The per-track CRC32s below are ground truth — a
+whipper or cyanrip rip of this disc must reproduce them EXACTLY (EAC's
+"Copy CRC", whipper's Test/Copy CRC, and cyanrip's "EAC CRC32" are the same
+algorithm). Track 3 is clean in EAC (whipper's failure = its >587 bug);
+**track 5 is a known disc quirk** (AccurateRip mismatch; CTDB: differs in 3
+samples @02:24:59) — expect every ripper to flag it.
+
+| Track | EAC CRC32 | | Track | EAC CRC32 |
+|---|---|---|---|---|
+| 1 | B0D122E7 | | 8 | D723C1B0 |
+| 2 | 985AAE32 | | 9 | 6F6E4A5F |
+| 3 | 59D352DD | | 10 | 3A33519F |
+| 4 | 60D796AE | | 11 | 56BFC63D |
+| 5 | E0036697 | | 12 | D78CEAEF |
+| 6 | B32769D6 | | 13 | DA6A4DAF |
+| 7 | CCBFF669 | | 14 | 787BA2D6 |
+
 ---
 
 ## Test 9 — [ ] In-app Uninstaller: real run

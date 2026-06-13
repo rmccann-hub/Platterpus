@@ -20,3 +20,18 @@ as a reference for the format comparison in `docs/log-format-comparison.md`
 
 When T32 surfaces real-world output that differs from the fixtures,
 update the fixtures here and regenerate the affected tests.
+
+## eac_baseline_police_classics.log / .cue (added 2026-06-12)
+
+**The hardware parity baseline.** A real EAC V1.8 secure rip (Test & Copy)
+of the maintainer's *The Police — Every Breath You Take: The Classics* disc
+on the same Pioneer BDR-209D the GUI is tested with, conforming to the
+flemmingss.com bit-perfect guide (Secure mode, accurate stream, cache
+defeat, C2 off, offset +667, null samples in CRC). Converted from EAC's
+UTF-16/CRLF to UTF-8/LF for diff-friendliness; content untouched.
+
+Ground truth for comparing whipper/cyanrip rips of the same disc: the
+per-track EAC CRC32s must match exactly (same disc, same offset). Known
+disc quirk to expect everywhere: **track 5** fails AccurateRip v2 and CTDB
+says "differs in 3 samples @02:24:59" even under EAC — that's the disc,
+not the ripper. Track 3 (whipper's >587-offset failure) rips CLEAN in EAC.
