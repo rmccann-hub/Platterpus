@@ -120,6 +120,22 @@ tiers. "I added a happy-path test" is not done.
    hardware goes in [test-plan.md](test-plan.md) with a checkbox, and the code is
    structured to **fail safe** until that box is ticked (e.g. CTDB CRC returns
    NO_MATCH, never a false "verified").
+7. **Stub anything that touches the network, a real subprocess, or a real
+   thread.** An unstubbed update download, cover-art fetch, `gio`/`kbuildsycoca`
+   launch, or rip worker can hang the suite or spawn detached background
+   processes. Inject a fake (the adapters take injectable fetchers/runners) or
+   monkeypatch the call.
+8. **When you move code between modules, move its monkeypatch targets too.**
+   `monkeypatch.setattr(some_module, "free_function", fake)` only affects callers
+   that resolve the name *through that module*. After a method moves to a new
+   module (e.g. a `MainWindow` mixin extraction), patch it where it now lives —
+   or patch the function's **source module** and have callers use it
+   module-qualified (`offset_config.is_offset_configured(...)`), so one patch
+   point covers every caller. A patch that silently stops intercepting is how
+   the 2026-06-13 `RipMixin` extraction briefly let a test start a *real* rip
+   thread in headless mode (hard abort). Patching an attribute on a **shared
+   module object** (`drive_control.eject_drive`) is unaffected by caller
+   location.
 
 ## 6. Definition of Done (testing) — paste into every PR
 

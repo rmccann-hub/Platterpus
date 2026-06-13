@@ -128,9 +128,33 @@ doesn't silently break parsing. See `src/whipper_gui/deps/version.py`
 
 ## 5. Qt / PySide6 threading
 
-Any work that blocks (a rip, a MusicBrainz lookup, `whipper drive analyze`) runs
-off the GUI thread. The patterns, all enforced by examples in
-`src/whipper_gui/workers/`:
+**The cardinal rule: never block the GUI thread.** Anything that can take more
+than a few milliseconds — `subprocess.run`, network I/O, large-file
+hashing/copying, `thread.join()`, `QThread.wait()`, `kbuildsycoca6`, even a
+"best-effort" shell-out — freezes the event loop. A frozen loop means the
+window shows "Not Responding" and ignores *every* click (including Cancel and
+the X) until it returns. Two sanctioned tools:
+
+- **Need the result** → a `QObject` worker on a `QThread` (or a daemon
+  `threading.Thread` that reports back via a queued signal). See `workers/`.
+- **Don't need the result** → fire-and-forget
+  `subprocess.Popen(argv, stdout=DEVNULL, stderr=DEVNULL, start_new_session=True)`
+  and return immediately. This is how the menu-cache refresh
+  (`appimage_integration._default_refresh`) and the GNOME `gio` trust-marking
+  (`_mark_trusted`) run — we don't wait for them.
+
+> **Post-mortem (2026-06-13), worth re-reading before any UI change.** The
+> in-app updater went "Not Responding" frozen at 100% for minutes; Cancel did
+> nothing and the X took ages. Root cause: the post-download menu re-integration
+> called `kbuildsycoca6` via `subprocess.run(timeout=30)` **on the GUI thread**.
+> The same anti-pattern lurked in `_mark_trusted` (a 15 s `gio` call) and the
+> launch dependency probe (`whipper --version`, which enters the container).
+> All three were the *same class* of bug — blocking on the GUI thread. When you
+> review a diff, ask: *if this line ran on a stalled network or a cold
+> container, would the window freeze?* If yes, it belongs in a worker or a
+> fire-and-forget `Popen`.
+
+The worker patterns, all enforced by examples in `src/whipper_gui/workers/`:
 
 - **Worker-object + `moveToThread`, not `QThread` subclassing.** A `QThread`
   instance lives in the thread that *created* it, so slots on a `QThread`
