@@ -223,3 +223,15 @@ def test_relocate_failure_keeps_original(tmp_path: Path) -> None:
 
     assert result == appimage
     assert appimage.is_file()
+
+
+def test_is_settled_only_inside_applications_dir(tmp_path: Path) -> None:
+    applications = tmp_path / "Applications"
+    applications.mkdir()
+    inside = applications / "whipper-gui-x86_64.AppImage"
+    inside.write_bytes(b"x")
+    outside = tmp_path / "Downloads" / "whipper-gui-x86_64.AppImage"
+    outside.parent.mkdir()
+    outside.write_bytes(b"x")
+    assert ai.is_settled(inside, applications_dir=applications) is True
+    assert ai.is_settled(outside, applications_dir=applications) is False

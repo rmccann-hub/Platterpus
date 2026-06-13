@@ -13,6 +13,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 *(nothing yet)*
 
+## [0.2.4] — 2026-06-12
+
+### Fixed
+- **The menu offer now fires for an update saved over the old file's path
+  (real-user report).** Downloading a new version onto the exact path an
+  existing menu entry pointed at made the app think it was fully installed
+  — no prompt, no move to `~/Applications`, no desktop icon, and deleting
+  the Downloads file then broke the launcher ("Could not find the
+  program…"). Integration is now offered whenever the running file isn't
+  settled in `~/Applications`, even if a menu entry already matches it.
+
 ## [0.2.3] — 2026-06-10
 
 ### Added
@@ -419,6 +430,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.2.4]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.0...v0.2.1

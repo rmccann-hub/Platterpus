@@ -51,6 +51,20 @@ APPLICATIONS_DIR = Path.home() / "Applications"
 CANONICAL_APPIMAGE_NAME = "whipper-gui-x86_64.AppImage"
 
 
+def is_settled(appimage: Path, applications_dir: Path = APPLICATIONS_DIR) -> bool:
+    """True if the AppImage already lives in its proper home.
+
+    Real-user case this exists for: downloading an update OVER the path an
+    old menu entry pointed at makes `is_integrated()` true, but the file is
+    still sitting in Downloads — integration must still be offered so it
+    gets moved (and the desktop icon remade).
+    """
+    try:
+        return appimage.parent.resolve() == applications_dir.resolve()
+    except OSError:
+        return False
+
+
 def relocate_to_applications(
     appimage: Path, applications_dir: Path = APPLICATIONS_DIR
 ) -> Path:

@@ -1055,7 +1055,11 @@ class MainWindow(QMainWindow):
         appimage = ai.appimage_path()
         if appimage is None:  # not running from an AppImage — nothing to do
             return
-        if ai.is_integrated(appimage):  # this exact file already has the entry
+        # "Integrated" alone isn't enough: an update saved over the path an
+        # old menu entry pointed at matches the entry but still lives in
+        # Downloads — offer anyway so it gets settled into ~/Applications
+        # (real-user report, 2026-06-10).
+        if ai.is_integrated(appimage) and ai.is_settled(appimage):
             return
         if self._config.integration_declined_path == str(appimage):
             return  # the user said No to this very file — don't nag

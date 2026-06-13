@@ -2027,3 +2027,33 @@ def test_integration_offer_relocates_then_integrates(
 
     # Relocate first, then integrate FROM THE NEW PATH.
     assert calls == [("relocate", downloaded), ("integrate", moved)]
+
+
+def test_integration_offer_fires_when_integrated_but_unsettled(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """REGRESSION (real-user report 2026-06-10 #2): an update saved over the
+    path the old menu entry pointed at IS 'integrated' (the Exec matches)
+    but still lives in Downloads — the offer must fire so the file gets
+    moved to ~/Applications and the icons remade."""
+    import whipper_gui.appimage_integration as ai
+
+    in_downloads = tmp_path / "Downloads" / "whipper-gui-x86_64.AppImage"
+    in_downloads.parent.mkdir()
+    in_downloads.write_bytes(b"x")
+    monkeypatch.setattr(ai, "appimage_path", lambda: in_downloads)
+    monkeypatch.setattr(ai, "is_integrated", lambda p: True)  # entry matches…
+    # …but the file isn't settled (the real is_settled sees Downloads).
+    moved = tmp_path / "Applications" / "whipper-gui-x86_64.AppImage"
+    monkeypatch.setattr(ai, "relocate_to_applications", lambda p: moved)
+    integrated: list[Path] = []
+    monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
+    window = teardown_threads(config=Config(), save_cfg=lambda c: None)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+
+    window._maybe_offer_appimage_integration()
+
+    assert integrated == [moved]
