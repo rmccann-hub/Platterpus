@@ -45,6 +45,7 @@ the point: **we do not pretend CI proves the app rips a disc.**
 | **Static** | `ruff check` + `ruff format --check`, type hints | style, import order, likely-bug patterns (bugbear), modern-syntax. CI `lint` job. |
 | **Unit** | `pytest` | parsers (`test_parsers_*`), config schema/migration, value helpers, dependency-version logic. |
 | **Integration / contract** | `pytest` + fakes | adapters against a faked `subprocess` (argv built right, non-zero/timeout handled); Qt widgets driven through their signals with a fake backend (`test_ui_*`). |
+| **End-to-end** | `pytest` + fakes at the boundary only | the *whole* pipeline through the real assembled `MainWindow` (all mixins, real signals, a real `RipWorker` on a real `QThread`), faking only the external edge (ripper subprocess, MusicBrainz, cover-art HTTP, `metaflac`). `test_e2e_rip_pipeline.py` drives one full rip and asserts the cross-cutting outcome: tagged FLACs + embedded/saved cover art + a fidelity verdict. This is the only tier that proves the *threaded* finish path is wired across module boundaries. |
 | **Property-based** | `hypothesis` | invariants over huge input spaces — see §4. |
 | **Packaging smoke** | `appimage.yml` | the built AppImage launches headless and reaches the Qt loop (`test_build_harness.py` guards the recipe). |
 | **Manual / hardware** | [test-plan.md](test-plan.md) | a real rip, CTDB verify CRC, `drive analyze`/`offset find`, the GUI screenshot. Gated work that the cloud env can't validate. |
@@ -88,9 +89,26 @@ tiers. "I added a happy-path test" is not done.
 - **Fault injection.** Make the fake *raise* (timeout, non-zero exit, malformed
   output) and assert the app degrades loudly, not silently. Every external call
   has a failure path; test it.
-- **Qt signals & threads.** Drive widgets through their public signals. For the
-  worker threads, `pytest-qt`'s `qtbot.waitSignal` is the right tool if/when we
-  adopt it; today we test the worker logic directly and keep Qt glue thin.
+- **Qt signals & threads.** Drive widgets through their public signals; test
+  worker *logic* directly (call `run()`/`start_rip()` and assert emitted
+  signals) and keep Qt glue thin. For a genuine **end-to-end** test that runs a
+  worker on a *real* `QThread` and waits for completion, `pytest-qt`'s
+  `qtbot.waitSignal` is the standard tool — we deliberately **don't** depend on
+  it (minimal-deps ethos) and instead wait the dependency-free way. Two
+  hard-won rules for that (see `test_e2e_rip_pipeline.py`):
+  - **Don't block the GUI thread waiting for the worker.** `QThread.wait()` on
+    the GUI thread *deadlocks*: the worker's `finished → thread.quit()` is a
+    queued connection *to the GUI thread* (the `QThread` object lives there), so
+    a blocked GUI thread never delivers `quit()` and the thread never ends.
+    Instead, **poll** `qApp.processEvents()` with a wall-clock deadline until the
+    terminal signal fires. (`QEventLoop.exec()`/`QSignalSpy.wait()` are also
+    unreliable to *terminate* under the headless `offscreen` platform.)
+  - **Suppress first-run offers before pumping events.** `processEvents()` will
+    fire any pending `QTimer.singleShot` — including `_maybe_offer_first_run_setup`,
+    whose `QMessageBox.exec()` **blocks forever headless**. Construct the window
+    with the "already prompted" config flags (`host_setup_prompted=True`, …) so
+    those offers are no-ops. (This is the same `processEvents` hazard called out
+    for widget tests in `conftest`.)
 - **Mutation testing** (periodic, not in CI). Run `mutmut` occasionally on the
   parsers/adapters to measure whether tests actually *catch* bugs rather than
   just execute lines — coverage says a line ran, mutation says a test fails when
