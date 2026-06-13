@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
@@ -26,7 +25,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from whipper_gui import drive_control
 from whipper_gui.adapters import cover_art
 from whipper_gui.adapters.accuraterip_offsets import OffsetDatabase
 from whipper_gui.adapters.metaflac import MetaflacAdapter
@@ -36,7 +34,6 @@ from whipper_gui.adapters.musicbrainz_client import (
     ReleaseSummary,
 )
 from whipper_gui.adapters.whipper_backend import (
-    RipMetadata,
     WhipperBackend,
     WhipperError,
 )
@@ -56,42 +53,35 @@ from whipper_gui.drive_access import (
     diagnose_drive_access,
 )
 from whipper_gui.offset_config import is_offset_configured
-from whipper_gui.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from whipper_gui.parsers.rip_log import parse_rip_log
 from whipper_gui.ui.dialogs.manual_install import ManualInstallDialog
 from whipper_gui.ui.dialogs.pending_installs import PendingInstallsDialog
 from whipper_gui.ui.disc_info_panel import DiscInfoPanel
 from whipper_gui.ui.drive_picker import DrivePicker
 from whipper_gui.ui.drive_setup_dialog import DriveSetupDialog
-from whipper_gui.ui.main_window_helpers import (
+
+# fidelity_summary / safe_path_segment are re-exported for the test-facing
+# API (`from ...main_window import _fidelity_summary`); their internal callers
+# now live in RipMixin, so they're intentionally unused *in this module*.
+from whipper_gui.ui.main_window_helpers import (  # noqa: F401
     fidelity_summary as _fidelity_summary,
 )
 from whipper_gui.ui.main_window_helpers import (
     friendly_disc_scan_error as _friendly_disc_scan_error,
 )
-from whipper_gui.ui.main_window_helpers import (
+from whipper_gui.ui.main_window_helpers import (  # noqa: F401
     safe_path_segment as _safe_path_segment,
 )
+from whipper_gui.ui.main_window_rip import RipMixin
 from whipper_gui.ui.main_window_update import UpdateMixin
 from whipper_gui.ui.release_picker import ReleasePickerDialog
 from whipper_gui.ui.rip_controls import RipControls
 from whipper_gui.ui.rip_progress import RipProgress
 from whipper_gui.ui.settings_dialog import SettingsDialog
 from whipper_gui.ui.track_table import TrackTable
-from whipper_gui.ui.unknown_album import (
-    UnknownAlbumDialog,
-    apply_track_tags,
-    launch_picard_for,
-)
 from whipper_gui.workers.mb_worker import MusicBrainzWorker
 from whipper_gui.workers.rip_worker import RipParameters, RipWorker
 
 log = logging.getLogger(__name__)
-
-# How long after Cancel to wait before auto-force-stopping the drive (the
-# in-container reader can keep it spinning). The user can hit Force stop to
-# escalate sooner.
-_FORCE_STOP_COUNTDOWN_MS: int = 5000
 
 
 class _DialogQueuedResolver:
@@ -126,7 +116,7 @@ class _DialogQueuedResolver:
         return dialog.results()
 
 
-class MainWindow(QMainWindow, UpdateMixin):
+class MainWindow(QMainWindow, RipMixin, UpdateMixin):
     """The main window. Built by app.py with all dependencies injected.
 
     Cohesive concern-groups are factored into mixins (the ``*Mixin`` bases)
@@ -469,338 +459,6 @@ class MainWindow(QMainWindow, UpdateMixin):
 
     def _fetch_release_detail(self, mbid: str) -> None:
         self._mb_worker.fetch_release(mbid)
-
-    # --- Slots: rip flow ----------------------------------------------------
-
-    def _on_rip_requested(self, params: RipParameters) -> None:
-        """User clicked Start. Validate, then start the worker thread."""
-        # A read offset is mandatory: whipper refuses to rip without one (and
-        # fails with a cryptic error), and an accurate offset is what makes the
-        # rip bit-perfect. If neither whipper.conf nor our --offset override has
-        # one, stop here and point the user at the drive-setup wizard rather
-        # than letting the rip start and fail. The wizard pre-fills the offset
-        # when the drive model is known; otherwise it's found from a CD that's
-        # in the AccurateRip database.
-        if (
-            not is_offset_configured(self._config.override_read_offset)
-            and not self._auto_apply_known_offset()
-        ):
-            # No offset configured AND we don't know this drive's offset →
-            # the only case that still needs the wizard. (A known drive is
-            # auto-applied above, so the user is never blocked for it.)
-            answer = QMessageBox.warning(
-                self,
-                "Set up your drive first",
-                "No read offset is configured for your drive, so ripping can't "
-                "start — an accurate read offset is what makes the rip "
-                "bit-perfect.\n\n"
-                "Open Tools → Set up drive… and either accept the offset it "
-                "fills in, or insert a CD that's in the AccurateRip database and "
-                "click Detect, then Save.\n\n"
-                "Open the drive-setup wizard now?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-            if answer == QMessageBox.StandardButton.Yes:
-                self._on_drive_setup()
-            return
-
-        # The offset is configured now — but `params` was built by the rip
-        # controls BEFORE any auto-apply above, so it may still carry
-        # read_offset_override=None. Inject it here so whipper actually gets
-        # `--offset` (otherwise it aborts with "drive offset unconfigured").
-        if self._config.override_read_offset and params.read_offset_override is None:
-            params = replace(params, read_offset_override=self._config.read_offset)
-
-        # Only validate the track table for non-unknown rips — placeholder
-        # tags will be applied after the fact in unknown mode.
-        if not params.unknown:
-            ok, message = self._track_table.validate()
-            if not ok:
-                QMessageBox.warning(self, "Cannot start rip", message)
-                return
-        else:
-            # Unknown disc: build the output templates from the album fields
-            # (the literals, not whipper's %A/%d disc-ID hash).
-            params = self._as_unknown_params(params)
-
-        self._rip_progress.clear()
-        self._rip_progress.set_status("Starting rip…")
-        # Cleared here, set in _on_rip_cancel — so the finish handler can
-        # say "cancelled" instead of "failed".
-        self._rip_cancelled = False
-        # Allow exactly one auto-heal retry (rip-as-unknown) per Start, so a
-        # persistent failure can't loop.
-        self._auto_retry_done = False
-        # Disarm any pending auto-force-stop from a previous cancel, so its
-        # countdown can't fire into this fresh rip.
-        self._force_stop_timer.stop()
-        self._force_stop_done = False
-
-        self._start_rip_worker(params)
-
-    def _as_unknown_params(self, params: RipParameters) -> RipParameters:
-        """Return `params` rewritten for an unknown-album rip: `--unknown`,
-        no release-id (so whipper needs no network), and output templates
-        built from the album fields the user sees (blanks → Unknown)."""
-        album = self._track_table.album_metadata()
-        artist = _safe_path_segment(album.artist) or "Unknown Artist"
-        title = _safe_path_segment(album.title) or "Unknown Album"
-        return replace(
-            params,
-            unknown=True,
-            release_id="",
-            track_template=f"{artist}/{title}/%t - Track %t",
-            disc_template=f"{artist}/{title}/{title}",
-        )
-
-    def _start_rip_worker(self, params: RipParameters) -> None:
-        """Spin up the rip worker thread for `params`. Shared by the initial
-        Start and the auto-heal retry, so both wire signals identically."""
-        # Snapshot the track table (MB lookup result + user edits) into the
-        # params. whipper ignores it (it tags from --release-id itself);
-        # cyanrip is fed these tags directly so it never needs its own
-        # MusicBrainz lookup (Critical Rule #5, KDD-18 metadata model).
-        album = self._track_table.album_metadata()
-        params = replace(
-            params,
-            metadata=RipMetadata(
-                album_artist=album.artist,
-                album_title=album.title,
-                year=album.year,
-                tracks=tuple(
-                    (t.number, t.title, t.artist_credit)
-                    for t in self._track_table.tracks()
-                ),
-            ),
-        )
-        self._rip_controls.set_rip_active(True)
-        # Remember the params so the finish handler knows the mode + output dir.
-        self._active_rip_params = params
-
-        self._rip_worker = RipWorker(self._backend, params)
-        self._rip_thread = QThread(self)
-        self._rip_worker.moveToThread(self._rip_thread)
-
-        self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
-        self._rip_worker.progress.connect(self._rip_progress.set_progress)
-        self._rip_worker.status.connect(self._rip_progress.set_status)
-        # Follow the rip in the track table — highlight the row whipper is on.
-        self._rip_worker.current_track.connect(self._track_table.highlight_track)
-        self._rip_worker.error.connect(self._on_rip_error)
-        self._rip_worker.finished.connect(self._on_rip_finished)
-
-        # On finish, clean up the worker thread.
-        self._rip_worker.finished.connect(self._rip_thread.quit)
-        self._rip_thread.finished.connect(self._rip_thread.deleteLater)
-
-        # Start the rip when the thread fires up.
-        self._rip_thread.started.connect(self._rip_worker.start_rip)
-        self._rip_thread.start()
-
-    def _on_rip_cancel(self) -> None:
-        if self._rip_worker is None:
-            return
-        self._rip_cancelled = True
-        self._force_stop_done = False
-        # The in-container reader can take a moment to stop; set expectations,
-        # and arm the auto force-stop in case it doesn't stop on its own.
-        secs = _FORCE_STOP_COUNTDOWN_MS // 1000
-        self._rip_progress.set_status(
-            f"Cancelling rip… if the drive keeps spinning it'll be "
-            f"force-stopped in {secs}s (or hit Force stop)."
-        )
-        self._rip_worker.cancel()
-        self._force_stop_timer.start(_FORCE_STOP_COUNTDOWN_MS)
-
-    def _auto_force_stop(self) -> None:
-        """Countdown elapsed after Cancel — force-stop if we haven't already."""
-        if self._force_stop_done:
-            return
-        self._do_force_stop("auto")
-
-    def _on_force_stop_button(self) -> None:
-        """User pressed Force stop — escalate immediately."""
-        self._force_stop_timer.stop()
-        self._do_force_stop("manual")
-
-    def _do_force_stop(self, trigger: str) -> None:
-        """Eject + kill the in-container reader so the drive stops spinning.
-
-        Runs on a daemon thread because `eject` and `distrobox enter` can each
-        block for their timeout — we must not freeze the GUI. We don't touch
-        widgets from the thread; the status is set here on the GUI thread
-        first. See drive_control for the (user-approved) Rule #3 exception.
-        """
-        self._force_stop_done = True
-        device = self._drive_picker.current_device() or ""
-        log.info(
-            "force-stopping drive (%s trigger), device=%s",
-            trigger,
-            device or "(default)",
-        )
-        self._rip_progress.set_status(
-            "Force-stopping the drive (eject + stopping the reader)…"
-        )
-        thread = threading.Thread(
-            target=drive_control.force_stop_drive,
-            kwargs={"device": device},
-            daemon=True,
-        )
-        self._force_stop_thread = thread
-        thread.start()
-
-    def _on_eject_requested(self, device: str) -> None:
-        """User clicked Eject — eject the selected disc."""
-        self._eject_async(device, status="Ejecting the disc…")
-
-    def _eject_async(self, device: str, status: str) -> None:
-        """Eject `device` off a daemon thread.
-
-        `eject` can block for its subprocess timeout, so — like the
-        force-stop — we never call it on the GUI thread. Best-effort: the
-        status line is informational and we don't surface a failure modally
-        (a missing/empty tray isn't worth a dialog). The thread is stored so
-        tests can join it deterministically.
-        """
-        log.info("ejecting device=%s", device or "(default)")
-        self._rip_progress.set_status(status)
-        thread = threading.Thread(
-            target=drive_control.eject_drive,
-            kwargs={"device": device},
-            daemon=True,
-        )
-        self._eject_thread = thread
-        thread.start()
-
-    def _on_rip_error(self, message: str) -> None:
-        log.warning("rip error: %s", message)
-        self._rip_progress.set_status(f"Error: {message}")
-
-    def _on_rip_finished(self, success: bool, log_path: str) -> None:
-        """The rip subprocess exited."""
-        log.info("rip finished: success=%s log=%s", success, log_path)
-
-        # Autonomous heal: whipper aborts when it can't fetch online metadata
-        # (e.g. the container has no network). The GUI already has the metadata
-        # (its own host-side MusicBrainz lookup), so re-rip as unknown-album —
-        # which needs no network — and tag locally afterward. Once per Start.
-        needs_retry = bool(self._rip_worker and self._rip_worker.needs_unknown_retry)
-        params = self._active_rip_params
-        if (
-            not success
-            and not self._rip_cancelled
-            and needs_retry
-            and params is not None
-            and not params.unknown
-            and not self._auto_retry_done
-        ):
-            self._auto_retry_done = True
-            log.info("rip lacked online metadata — auto-retrying as unknown-album")
-            self._rip_progress.set_status(
-                "The ripper couldn't reach MusicBrainz — re-ripping without "
-                "online metadata and tagging from what's on screen…"
-            )
-            unknown_params = self._as_unknown_params(params)
-            # Defer so the just-finished thread fully unwinds before we start
-            # a new worker/thread.
-            QTimer.singleShot(0, lambda: self._start_rip_worker(unknown_params))
-            return
-
-        self._rip_controls.set_rip_active(False)
-        # Default status; replaced with a fidelity summary below if the
-        # rip succeeded and we can parse its log. Distinguish a user
-        # cancellation from a genuine failure (both report success=False).
-        if success:
-            status = "Done."
-        elif self._rip_cancelled:
-            status = "Rip cancelled by user. Partial files may remain."
-        else:
-            # Prefer an actionable hint (e.g. an unreadable track) over the
-            # bare "Rip failed", so the user knows what to do next.
-            hint = self._rip_worker.failure_hint if self._rip_worker else ""
-            status = hint or "Rip failed."
-        self._rip_progress.set_status(status)
-
-        if log_path:
-            log_file = Path(log_path)
-            self._rip_progress.set_log_path(log_file)
-            # Parse and render AR results if the file exists.
-            try:
-                text = log_file.read_text(encoding="utf-8")
-                # Sniff the format instead of trusting the configured
-                # backend: a folder can hold logs from either ripper, and
-                # the auto-heal path can change mid-session.
-                if looks_like_cyanrip_log(text):
-                    rip_log = parse_cyanrip_log(text)
-                else:
-                    rip_log = parse_rip_log(text)
-                self._rip_progress.set_rip_log(rip_log)
-                # Replace the disc panel's blank AccurateRip field with the
-                # real outcome (e.g. "not in database" for a CD-R) instead of
-                # the old misleading static "verified during rip".
-                self._disc_info_panel.set_accuraterip_result(rip_log)
-                if success:
-                    self._rip_progress.set_status(_fidelity_summary(rip_log))
-            except OSError as exc:
-                log.warning("could not read rip log %s: %s", log_file, exc)
-
-        # Unknown-mode post-processing: tag the FLACs from the (possibly
-        # edited) track table and optionally launch Picard. Only on a
-        # successful rip, and only when the rip we started was unknown-mode.
-        # Scope tagging to the album folder whipper just wrote — the .log
-        # lands next to the FLACs, so its parent is that folder. Using the
-        # configured output root instead would re-tag every previously
-        # ripped album in the library with THIS disc's metadata.
-        params = self._active_rip_params
-        if success and params is not None and params.unknown:
-            rip_dir = Path(log_path).parent if log_path else params.output_dir
-            try:
-                self.run_unknown_post_processing(rip_dir, self._pending_picard_launch)
-            except Exception:  # noqa: BLE001 — tagging must never crash the GUI
-                log.exception("unknown-album post-processing failed")
-
-        # Backend-independent cover art (2026-06-13): when the ripper itself
-        # didn't fetch art — cyanrip never does (the GUI feeds it tags and
-        # bypasses its MusicBrainz lookup), and whipper can't in --unknown
-        # mode — fetch the front cover from the Cover Art Archive using the
-        # release the user picked, and embed/save it per the cover-art
-        # setting. A disc that was never identified has no release ID, so
-        # plan_actions() turns this into a no-op there.
-        if success and params is not None:
-            ripper_fetches_art = (
-                self._config.ripper_backend != "cyanrip" and not params.unknown
-            )
-            embed, save_file = cover_art.plan_actions(
-                mode=self._config.cover_art,
-                ripper_fetches_art=ripper_fetches_art,
-                release_id=self._current_release_id,
-            )
-            if embed or save_file:
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
-                self._start_cover_art_fetch(
-                    rip_dir, self._current_release_id, embed, save_file
-                )
-
-        # Auto-eject on a clean finish if the user opted in. Only on success —
-        # a failed/cancelled rip leaves the disc in so the user can retry, and
-        # ejecting mid-failure could fight the force-stop path.
-        if success and self._config.auto_eject_after_rip:
-            device = (
-                params.drive
-                if params is not None
-                else self._drive_picker.current_device() or ""
-            )
-            self._eject_async(device, status="Rip complete — ejecting the disc…")
-
-        # Clear references so a future rip starts cleanly. The thread
-        # itself is auto-deleted via finished.connect(deleteLater) above.
-        self._rip_worker = None
-        self._rip_thread = None
-        self._active_rip_params = None
-
-        # Hook for tests to know that finish-time post-processing is done.
-        self.rip_post_processing_done.emit()
 
     # --- Slots: menu actions -----------------------------------------------
 
@@ -1348,112 +1006,3 @@ class MainWindow(QMainWindow, UpdateMixin):
             )
 
         QMessageBox.information(self, "Dependency check complete", message)
-
-    # --- Convenience for the Unknown Album flow ----------------------------
-
-    def _on_rip_as_unknown(self) -> None:
-        """File → Rip as Unknown Album… menu action.
-
-        Validates that a drive is selected, then opens the Unknown Album
-        dialog. Sets unknown mode on the rip controls so the user can
-        click Start without needing a MusicBrainz release ID.
-        """
-        if not self._drive_picker.current_device():
-            QMessageBox.warning(
-                self,
-                "Cannot rip",
-                "Select a drive first.",
-            )
-            return
-        self.open_unknown_album_dialog()
-
-    def open_unknown_album_dialog(self) -> bool:
-        """Show the Unknown Album confirmation. Returns True if accepted.
-
-        Exposed publicly so a future "Rip as unknown" button or menu
-        action can drive it. After the dialog accepts, this method sets
-        unknown mode on the rip controls and stashes the user's Picard
-        preference for use after the rip finishes.
-        """
-        dialog = UnknownAlbumDialog(
-            auto_launch_picard_default=self._config.auto_launch_picard,
-            parent=self,
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return False
-        self._rip_controls.set_unknown_mode(True)
-        # Stash the user's Picard preference until after the rip finishes.
-        self._pending_picard_launch: bool = dialog.auto_launch_picard()
-        return True
-
-    # --- Hook used by tests + the unknown flow -----------------------------
-
-    def run_unknown_post_processing(
-        self,
-        rip_output_dir: Path,
-        launch_picard: bool,
-    ) -> None:
-        """Tag the FLACs from the track table + optionally launch Picard.
-
-        Called after an unknown-mode rip finishes. The track table holds
-        the placeholder rows the user saw before ripping — including any
-        edits they made to the titles/artist/album/year — so we write
-        those through to the FLAC tags (blank fields fall back to the
-        "Unknown" placeholders). Public so it can be exercised from tests.
-        """
-        flac_files = sorted(rip_output_dir.rglob("*.flac"))
-        apply_track_tags(
-            self._metaflac,
-            flac_files,
-            self._track_table.album_metadata(),
-            self._track_table.tracks(),
-        )
-        if launch_picard and flac_files:
-            launch_picard_for(rip_output_dir)
-
-    # --- Post-rip cover art (backend-independent) ----------------------------
-
-    def _start_cover_art_fetch(
-        self,
-        rip_dir: Path,
-        release_id: str,
-        embed: bool,
-        save_file: bool,
-    ) -> None:
-        """Fetch + apply cover art on a daemon thread.
-
-        The fetch is a network call, so it must never run on the GUI
-        thread. Best-effort end to end: apply_cover_art never raises, and
-        the belt-and-braces except here guarantees a stray bug in it can't
-        take down the app either. The outcome line is emitted through
-        cover_art_done (queued back to the GUI thread); the emit is guarded
-        because the window may have been closed while the fetch ran.
-        """
-
-        def work() -> None:
-            try:
-                message = cover_art.apply_cover_art(
-                    rip_dir,
-                    release_id,
-                    embed=embed,
-                    save_file=save_file,
-                    metaflac=self._metaflac,
-                    fetcher=self._cover_art_fetcher,
-                )
-            except Exception:  # noqa: BLE001 — art must never crash the GUI
-                log.exception("cover art post-processing failed")
-                message = "Cover art: failed unexpectedly (rip unaffected)."
-            try:
-                self.cover_art_done.emit(message)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
-
-        log.info("fetching cover art for release %s into %s", release_id, rip_dir)
-        thread = threading.Thread(target=work, daemon=True)
-        self._cover_art_thread = thread
-        thread.start()
-
-    def _on_cover_art_done(self, message: str) -> None:
-        """Cover-art thread finished — record the outcome in the log view."""
-        log.info("%s", message)
-        self._rip_progress.append_log_line(message)
