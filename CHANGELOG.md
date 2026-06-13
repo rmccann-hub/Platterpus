@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **More GUI-thread freezes removed (proactive, same class as the update
+  freeze).** Marking a desktop shortcut trusted (`gio`, GNOME) and the menu
+  refresh both ran synchronously inside `integrate()` on the GUI thread; they
+  are now fire-and-forget. The launch-time dependency check (which shells out
+  to `whipper`, entering the Distrobox container — slow on a cold start) was
+  moved to *after* the window is shown, so the window appears immediately
+  instead of waiting on a subprocess.
 - **In-app update no longer freezes the window ("Not Responding") after the
   download (real-user report).** The post-download menu-cache refresh
   (`kbuildsycoca6`, which can take tens of seconds) was run synchronously on

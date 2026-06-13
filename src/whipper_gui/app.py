@@ -194,20 +194,18 @@ def main(argv: list[str] | None = None) -> int:
             dependency_manager=dependency_manager,
         )
 
-        # Launch-time dependency check. Silent unless something needs the
-        # user's attention; the menu's "Check dependencies" action always
-        # surfaces a summary.
+        window.show()
+        # Both the launch dependency check and the drive listing shell out
+        # to whipper, which enters the Distrobox container and can take a
+        # moment on a cold start. Do them AFTER show() so the user sees the
+        # window immediately rather than staring at nothing while a
+        # subprocess runs. Each is guarded so a failure still leaves a
+        # usable window. (Moving these probes fully off the GUI thread so
+        # they can't even briefly block is tracked in TASKS.)
         try:
             window.run_dependency_check(show_summary=False)
         except Exception:  # noqa: BLE001 — last-resort guard
             log.exception("initial dependency check failed; continuing anyway")
-
-        window.show()
-        # Populating the drive list shells out to whipper. Do it after
-        # show() so the user sees the window immediately, even if the
-        # subprocess takes a moment. Guarded separately so a drive-listing
-        # problem leaves a usable window (the user can fix it in Settings)
-        # rather than taking the whole app down.
         try:
             window.refresh_drives()
         except Exception:  # noqa: BLE001 — last-resort guard

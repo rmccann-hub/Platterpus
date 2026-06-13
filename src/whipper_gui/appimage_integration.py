@@ -273,16 +273,21 @@ def integrate(
 def _mark_trusted(shortcut: Path) -> None:
     """Best-effort: tell GNOME the .desktop is trusted so it launches on
     double-click without the 'Untrusted application launcher' prompt. No-op
-    where `gio` is absent (e.g. KDE, which doesn't need it)."""
+    where `gio` is absent (e.g. KDE, which doesn't need it).
+
+    Fire-and-forget (Popen, not run): `integrate()` runs on the GUI thread
+    (first-run offer, post-update re-integration), and a slow/hung `gio`
+    would freeze the window — the same blocking-on-the-GUI-thread class as
+    the kbuildsycoca freeze fixed 2026-06-13. We don't need the result.
+    """
     if shutil.which("gio") is None:
         return
     try:
-        subprocess.run(
+        subprocess.Popen(
             ["gio", "set", str(shortcut), "metadata::trusted", "true"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=15,
-            check=False,
+            start_new_session=True,
         )
     except (OSError, subprocess.SubprocessError):
-        log.debug("gio trust failed", exc_info=True)
+        log.debug("gio trust failed to launch", exc_info=True)
