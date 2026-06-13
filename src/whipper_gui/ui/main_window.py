@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from whipper_gui import drive_control
+from whipper_gui.adapters import cover_art
 from whipper_gui.adapters.accuraterip_offsets import OffsetDatabase
 from whipper_gui.adapters.metaflac import MetaflacAdapter
 from whipper_gui.adapters.musicbrainz_client import (
@@ -121,6 +122,10 @@ class MainWindow(QMainWindow):
     # Tests can connect to this to know when a slot completed (used so
     # the user-side "after a rip finishes, helpers run" flow is testable).
     rip_post_processing_done = Signal()
+    # Emitted (from the cover-art daemon thread; cross-thread emission is
+    # queued by Qt, so the slot runs on the GUI thread) with the one-line
+    # outcome of the post-rip cover-art fetch.
+    cover_art_done = Signal(str)
 
     def __init__(
         self,
@@ -193,6 +198,14 @@ class MainWindow(QMainWindow):
         self._force_stop_thread: threading.Thread | None = None
         # Holds the daemon thread for a manual/auto eject so tests can join it.
         self._eject_thread: threading.Thread | None = None
+        # Post-rip cover-art fetch (backend-independent, 2026-06-13): the
+        # URL fetcher is injectable so tests never reach the real Cover
+        # Art Archive (same hard-learned rule as _begin_update_install — an
+        # unstubbed network call can hang the suite). None = the adapter's
+        # real urllib fetcher. The daemon thread is stored so tests can
+        # join it deterministically.
+        self._cover_art_fetcher: cover_art.Fetcher | None = None
+        self._cover_art_thread: threading.Thread | None = None
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
@@ -216,6 +229,10 @@ class MainWindow(QMainWindow):
         root.addWidget(self._track_table, stretch=2)
         root.addWidget(self._rip_controls)
         root.addWidget(self._rip_progress, stretch=2)
+
+        # Cover-art outcome lands in the rip log view (not the status line —
+        # that's showing the fidelity verdict by then, which matters more).
+        self.cover_art_done.connect(self._on_cover_art_done)
 
         self.setCentralWidget(central)
 
@@ -726,6 +743,28 @@ class MainWindow(QMainWindow):
                 self.run_unknown_post_processing(rip_dir, self._pending_picard_launch)
             except Exception:  # noqa: BLE001 — tagging must never crash the GUI
                 log.exception("unknown-album post-processing failed")
+
+        # Backend-independent cover art (2026-06-13): when the ripper itself
+        # didn't fetch art — cyanrip never does (the GUI feeds it tags and
+        # bypasses its MusicBrainz lookup), and whipper can't in --unknown
+        # mode — fetch the front cover from the Cover Art Archive using the
+        # release the user picked, and embed/save it per the cover-art
+        # setting. A disc that was never identified has no release ID, so
+        # plan_actions() turns this into a no-op there.
+        if success and params is not None:
+            ripper_fetches_art = (
+                self._config.ripper_backend != "cyanrip" and not params.unknown
+            )
+            embed, save_file = cover_art.plan_actions(
+                mode=self._config.cover_art,
+                ripper_fetches_art=ripper_fetches_art,
+                release_id=self._current_release_id,
+            )
+            if embed or save_file:
+                rip_dir = Path(log_path).parent if log_path else params.output_dir
+                self._start_cover_art_fetch(
+                    rip_dir, self._current_release_id, embed, save_file
+                )
 
         # Auto-eject on a clean finish if the user opted in. Only on success —
         # a failed/cancelled rip leaves the disc in so the user can retry, and
@@ -1521,6 +1560,53 @@ class MainWindow(QMainWindow):
         )
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
+
+    # --- Post-rip cover art (backend-independent) ----------------------------
+
+    def _start_cover_art_fetch(
+        self,
+        rip_dir: Path,
+        release_id: str,
+        embed: bool,
+        save_file: bool,
+    ) -> None:
+        """Fetch + apply cover art on a daemon thread.
+
+        The fetch is a network call, so it must never run on the GUI
+        thread. Best-effort end to end: apply_cover_art never raises, and
+        the belt-and-braces except here guarantees a stray bug in it can't
+        take down the app either. The outcome line is emitted through
+        cover_art_done (queued back to the GUI thread); the emit is guarded
+        because the window may have been closed while the fetch ran.
+        """
+
+        def work() -> None:
+            try:
+                message = cover_art.apply_cover_art(
+                    rip_dir,
+                    release_id,
+                    embed=embed,
+                    save_file=save_file,
+                    metaflac=self._metaflac,
+                    fetcher=self._cover_art_fetcher,
+                )
+            except Exception:  # noqa: BLE001 — art must never crash the GUI
+                log.exception("cover art post-processing failed")
+                message = "Cover art: failed unexpectedly (rip unaffected)."
+            try:
+                self.cover_art_done.emit(message)
+            except RuntimeError:  # window already destroyed — nothing to update
+                pass
+
+        log.info("fetching cover art for release %s into %s", release_id, rip_dir)
+        thread = threading.Thread(target=work, daemon=True)
+        self._cover_art_thread = thread
+        thread.start()
+
+    def _on_cover_art_done(self, message: str) -> None:
+        """Cover-art thread finished — record the outcome in the log view."""
+        log.info("%s", message)
+        self._rip_progress.append_log_line(message)
 
 
 def _safe_path_segment(value: str) -> str:

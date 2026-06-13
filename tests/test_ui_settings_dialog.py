@@ -317,3 +317,11 @@ def test_disabled_options_keep_their_values_in_to_config(
     assert out.continue_on_cdr is True
     assert out.keep_going is True
     assert out.cover_art == "complete"
+
+
+def test_cover_art_stays_editable_under_cyanrip(qapp: QApplication) -> None:
+    """Cover art is backend-independent now (the GUI fetches it from the
+    Cover Art Archive when the ripper doesn't) — never greyed out."""
+    dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
+    assert dialog._cover_art_combo.isEnabled() is True
+    assert "Read-only:" not in dialog._cover_art_combo.toolTip()

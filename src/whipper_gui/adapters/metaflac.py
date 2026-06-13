@@ -85,6 +85,20 @@ class MetaflacAdapter:
         self._run(args)
         log.debug("wrote %d tag(s) to %s", len(tags), flac_path)
 
+    def embed_picture(self, flac_path: Path, image_path: Path) -> None:
+        """Embed `image_path` as the FLAC's front cover.
+
+        Any existing PICTURE blocks are removed first so re-running (or
+        re-ripping over old files) never stacks duplicate covers — players
+        would show whichever block they find first. A bare filename in
+        `--import-picture-from` means "all defaults": metaflac sniffs the
+        image type itself and stores it as picture type 3 (front cover).
+        Two invocations keep the remove-then-add order unambiguous;
+        metaflac is fast enough that this doesn't matter.
+        """
+        self._run(["--remove", "--block-type=PICTURE", str(flac_path)])
+        self._run([f"--import-picture-from={image_path}", str(flac_path)])
+
     # --- Internals ---
 
     def _run(self, args: list[str]) -> str:

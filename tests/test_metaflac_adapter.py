@@ -190,3 +190,37 @@ def test_custom_binary_path_is_honored(
         Path("/x/track.flac")
     )
     assert captured[0][0] == "/opt/flac/bin/metaflac"
+
+
+# --- embed_picture ----------------------------------------------------------
+
+
+def test_embed_picture_removes_old_pictures_then_imports(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Re-running must replace the cover, not stack a duplicate PICTURE
+    block (players show whichever block they find first)."""
+    captured: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kw: Any) -> Any:
+        captured.append(argv)
+        return _ok()
+
+    monkeypatch.setattr(metaflac_module.subprocess, "run", fake_run)
+
+    MetaflacAdapter().embed_picture(Path("/x/track.flac"), Path("/x/cover.jpg"))
+
+    assert captured == [
+        ["metaflac", "--remove", "--block-type=PICTURE", "/x/track.flac"],
+        ["metaflac", "--import-picture-from=/x/cover.jpg", "/x/track.flac"],
+    ]
+
+
+def test_embed_picture_raises_metaflac_error_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        metaflac_module.subprocess, "run", lambda *a, **kw: _fail("bad image\n")
+    )
+    with pytest.raises(MetaflacError):
+        MetaflacAdapter().embed_picture(Path("/x/t.flac"), Path("/x/c.jpg"))
