@@ -15,6 +15,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.2.4] — 2026-06-12
 
+### Changed
+- **Releases can be cut by dispatching the Release workflow** (Actions → 
+  Release → Run workflow → enter the tag). The workflow creates the tag
+  itself, pinned to the built commit — no local tag push needed.
+
 ### Fixed
 - **The menu offer now fires for an update saved over the old file's path
   (real-user report).** Downloading a new version onto the exact path an

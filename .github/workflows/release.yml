@@ -12,6 +12,15 @@ on:
   push:
     tags:
       - "v*"
+  # Manual trigger that CREATES the tag itself (via `gh release create
+  # --target`). Exists because tag pushes aren't possible from every
+  # environment (the cloud session's git proxy 403s tag refs) — this lets a
+  # release be cut by dispatching the workflow on main with the tag name.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. v0.2.4)"
+        required: true
 
 # Needed for the `gh release` calls to create/update the release.
 permissions:
@@ -75,7 +84,8 @@ jobs:
       - name: Publish to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          # Tag-push runs use the pushed tag; dispatch runs carry it as input.
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           # 0.x (and any tag with a pre-release suffix) ship as pre-releases.
           case "$TAG" in
@@ -96,6 +106,7 @@ jobs:
               whipper-gui-x86_64.AppImage.zsync \
               install.sh install-appimage.sh \
               --title "Whipper GUI $TAG" \
+              --target "$GITHUB_SHA" \
               --generate-notes \
               $PRERELEASE
           fi
