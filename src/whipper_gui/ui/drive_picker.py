@@ -98,33 +98,43 @@ class DrivePicker(QWidget):
     # --- Public surface -----------------------------------------------------
 
     def refresh(self) -> None:
-        """Reload drives from the backend.
+        """Reload drives from the backend **synchronously**.
 
-        Preserves the current selection if the same device path is
-        still present after the refresh. On error from the backend,
-        shows an "(error: ...)" placeholder rather than crashing — the
-        user can fix the path in Settings and refresh again.
+        Used by the Refresh button (user-initiated, so a brief block while
+        `list_drives` shells out is acceptable) and by direct callers/tests.
+        The launch path uses `MainWindow.refresh_drives`, which fetches the
+        list off the GUI thread and calls `populate()` with the result. On a
+        backend error, shows an "(error: …)" placeholder rather than crashing.
         """
-        previous_device: str | None = self.current_device()
-        self._by_device = {}
-
         try:
             drives = self._backend.list_drives()
         except WhipperError as exc:
             log.warning("list_drives failed: %s", exc)
-            self._show_error_placeholder(str(exc))
+            self.show_error(str(exc))
             return
         except Exception as exc:  # noqa: BLE001 — never let a drive-list
             # hiccup (e.g. the parser choking on unexpected whipper output)
             # take down the whole window; degrade to a placeholder the user
             # can act on, with the full traceback in the log.
             log.exception("list_drives raised an unexpected error")
-            self._show_error_placeholder(f"{type(exc).__name__}: {exc}")
+            self.show_error(f"{type(exc).__name__}: {exc}")
             return
+        self.populate(drives)
 
-        # Repopulate. Block signals during the clear/add cycle so we
-        # only emit drive_changed once at the end (or zero times if
-        # nothing's available).
+    def populate(self, drives: list[DriveDescriptor]) -> None:
+        """Fill the dropdown from an already-fetched `drives` list.
+
+        Separated from `refresh()` so the launch path can fetch the list off
+        the GUI thread and then call this on the GUI thread. Preserves the
+        current selection if its device is still present; emits
+        `drive_changed` once for the restored/initial selection, or
+        `drives_unavailable` when the list is empty.
+        """
+        previous_device: str | None = self.current_device()
+        self._by_device = {}
+
+        # Block signals during the clear/add cycle so we only emit
+        # drive_changed once at the end (or zero times if nothing's available).
         self._combo.blockSignals(True)
         self._combo.clear()
 
@@ -152,7 +162,7 @@ class DrivePicker(QWidget):
         if device is not None:
             self.drive_changed.emit(device)
 
-    def _show_error_placeholder(self, message: str) -> None:
+    def show_error(self, message: str) -> None:
         """Replace the drive list with a single non-selectable error item.
 
         Signals are blocked so the placeholder can't fire `drive_changed`
