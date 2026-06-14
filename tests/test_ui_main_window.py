@@ -27,7 +27,6 @@ from whipper_gui.adapters.whipper_backend import (
     DiscInfo,
     RipHandle,
     WhipperBackend,
-    WhipperError,
 )
 from whipper_gui.config import Config
 from whipper_gui.deps.manager import DependencyManager
@@ -158,6 +157,13 @@ def teardown_threads(qapp: QApplication):
         ):
             window._dep_check_thread.quit()
             window._dep_check_thread.wait(2000)
+        # Same for a disc-info probe thread (drive-change flow).
+        if (
+            window._disc_info_thread is not None
+            and window._disc_info_thread.isRunning()
+        ):
+            window._disc_info_thread.quit()
+            window._disc_info_thread.wait(2000)
         window.deleteLater()
 
 
@@ -197,45 +203,48 @@ def test_menus_have_settings_but_not_duplicate_dep_check(teardown_threads) -> No
 # --- Drive change → disc_info → MB lookup pipeline -----------------------
 
 
-def test_drive_change_triggers_disc_info_and_mb_lookup(
+def test_drive_change_runs_disc_info_off_thread_and_populates(
     teardown_threads,
+    qapp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """End-to-end of the threaded drive-change path: _on_drive_changed starts
+    a DiscInfoWorker, disc_info runs off the GUI thread, and the cascade
+    populates the panel + kicks off the MB lookup."""
     backend = _FakeBackend()
     backend.disc_info_return = DiscInfo(
         cddb_disc_id="abc",
         musicbrainz_disc_id="mb-id",
     )
-    mb = _FakeMb()
-    window = teardown_threads(backend=backend, mb_client=mb)
-    # The fake MB returns [] synchronously, which now routes to the
-    # no-match handler and would open a modal. Stub it so the test
-    # focuses on the disc-info + lookup wiring.
+    window = teardown_threads(backend=backend, mb_client=_FakeMb())
     monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
 
     window._on_drive_changed("/dev/sr0")
+    assert window._disc_info_thread is not None  # probe started off-thread
 
-    assert backend.disc_info_calls == ["/dev/sr0"]
+    # Pump the event loop until the worker finishes and the cascade runs
+    # (_on_disc_info_ready clears the thread ref at its start).
+    deadline = time.monotonic() + 8.0
+    while window._disc_info_thread is not None and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.005)
+
+    assert backend.disc_info_calls == ["/dev/sr0"]  # probed off-thread
     assert window._disc_info_panel._mb_id_value.text() == "mb-id"
     assert window._disc_info_panel._cddb_id_value.text() == "abc"
-    # MB lookup is queued via signal to the worker; we just confirm
-    # the panel's loading status was set (the worker's eventual call
-    # happens on its thread and isn't deterministic without an event
-    # loop drive).
     assert "MusicBrainz" in window._disc_info_panel._mb_match_value.text()
 
 
-def test_no_mb_match_shows_blank_track_rows(
+def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
     teardown_threads,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """An unknown disc (no MB ID) still shows numbered blank rows.
 
     whipper reports the track count even for a disc MusicBrainz can't
-    identify; we render that many rows so the user sees the disc."""
-    backend = _FakeBackend()
-    backend.disc_info_return = DiscInfo(num_tracks=16)  # no MB/CDDB id
-    window = teardown_threads(backend=backend)
+    identify; we render that many rows so the user sees the disc. (Drives the
+    cascade handler directly — the threaded probe is covered above.)"""
+    window = teardown_threads(backend=_FakeBackend())
     prompted: list[bool] = []
     monkeypatch.setattr(
         window,
@@ -243,7 +252,7 @@ def test_no_mb_match_shows_blank_track_rows(
         lambda: prompted.append(True) or False,
     )
 
-    window._on_drive_changed("/dev/sr0")
+    window._on_disc_info_ready("/dev/sr0", DiscInfo(num_tracks=16))
 
     assert len(window._track_table.tracks()) == 16
     assert window._track_table.tracks()[0].number == 1
@@ -251,18 +260,17 @@ def test_no_mb_match_shows_blank_track_rows(
     assert prompted == [True]  # unknown-album flow was offered
 
 
-def test_zero_mb_results_shows_blank_track_rows(
+def test_disc_info_ready_zero_mb_results_shows_blank_track_rows(
     teardown_threads,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A disc with an MB ID but no registered release also gets blank rows."""
-    backend = _FakeBackend()
-    backend.disc_info_return = DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=12)
-    mb = _FakeMb()  # returns [] for the lookup
-    window = teardown_threads(backend=backend, mb_client=mb)
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
     monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
 
-    window._on_drive_changed("/dev/sr0")
+    window._on_disc_info_ready(
+        "/dev/sr0", DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=12)
+    )
 
     assert len(window._track_table.tracks()) == 12
 
@@ -285,11 +293,12 @@ def test_mb_lookup_error_falls_back_to_placeholder_rows(
 
 
 def test_drive_change_handles_whipper_error(teardown_threads) -> None:
-    backend = _FakeBackend()
-    backend.disc_info_raises = WhipperError("no disc")
-    window = teardown_threads(backend=backend)
+    window = teardown_threads(backend=_FakeBackend())
 
-    window._on_drive_changed("/dev/sr0")
+    # The worker turns a raised WhipperError into the `failed` signal; here we
+    # drive the failure handler directly (worker→failed routing is unit-tested
+    # in test_disc_info_worker).
+    window._on_disc_info_failed("/dev/sr0", "no disc")
 
     text = window._disc_info_panel._mb_match_value.text()
     assert "error" in text.lower()
