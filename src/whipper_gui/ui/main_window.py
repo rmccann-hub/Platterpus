@@ -33,8 +33,8 @@ from whipper_gui.adapters.musicbrainz_client import (
     ReleaseSummary,
 )
 from whipper_gui.adapters.whipper_backend import (
+    DiscInfo,
     WhipperBackend,
-    WhipperError,
 )
 from whipper_gui.config import Config
 from whipper_gui.deps.manager import DependencyManager
@@ -154,6 +154,11 @@ class MainWindow(
         # closeEvent. (DependencyMixin.run_dependency_check_async)
         self._dep_check_worker: object | None = None
         self._dep_check_thread: QThread | None = None
+        # Disc probe (disc_info enters the container + reads the disc — slow);
+        # run off-thread per drive change so selecting a drive never freezes
+        # the window. Joined in closeEvent.
+        self._disc_info_worker: object | None = None
+        self._disc_info_thread: QThread | None = None
         # Params of the in-flight rip, captured at start so the finish
         # handler knows whether it was an unknown-mode rip (and where the
         # FLACs landed) without depending on the controls' current state.
@@ -264,6 +269,10 @@ class MainWindow(
         if self._dep_check_thread is not None and self._dep_check_thread.isRunning():
             self._dep_check_thread.quit()
             self._dep_check_thread.wait(2000)
+        # Join a still-running disc probe (disc_info can be mid-read; bounded).
+        if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
+            self._disc_info_thread.quit()
+            self._disc_info_thread.wait(3000)
         # Cancel any in-progress rip before the window goes away.
         if self._rip_worker is not None:
             self._rip_worker.cancel()
@@ -342,7 +351,12 @@ class MainWindow(
     # --- Slots: drive selection --------------------------------------------
 
     def _on_drive_changed(self, device: str) -> None:
-        """User picked a drive — fetch disc info, then look up MB."""
+        """User picked a drive — read the disc off-thread, then look up MB.
+
+        `disc_info()` enters the container and reads the disc (slow), so it
+        runs on a DiscInfoWorker; `_on_disc_info_ready` / `_on_disc_info_failed`
+        pick up on the GUI thread. The window stays responsive throughout.
+        """
         log.info("drive changed: %s", device)
         self._disc_info_panel.set_drive(device)
         self._track_table.clear()
@@ -352,15 +366,35 @@ class MainWindow(
         self._rip_controls.set_drive(device)
 
         self._disc_info_panel.set_disc_info_loading()
-        try:
-            info = self._backend.disc_info(device)
-        except WhipperError as exc:
-            log.warning("disc_info failed: %s", exc)
-            self._disc_info_panel.set_disc_info_error(
-                _friendly_disc_scan_error(str(exc))
-            )
-            return
+        self._start_disc_info(device)
 
+    def _start_disc_info(self, device: str) -> None:
+        """Probe the disc on a worker thread. Replaces any in-flight probe
+        (a previous drive's result would be stale)."""
+        from whipper_gui.workers.disc_info_worker import DiscInfoWorker
+
+        # Stop a still-running probe for the previous drive before starting a
+        # new one. quit() is delivered to that thread's own loop directly (not
+        # via the queued finished→quit), so it works without an event-loop spin.
+        if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
+            self._disc_info_thread.quit()
+            self._disc_info_thread.wait(2000)
+
+        self._disc_info_worker = DiscInfoWorker(self._backend, device)
+        self._disc_info_thread = QThread(self)
+        self._disc_info_worker.moveToThread(self._disc_info_thread)
+        self._disc_info_worker.finished.connect(self._on_disc_info_ready)
+        self._disc_info_worker.failed.connect(self._on_disc_info_failed)
+        self._disc_info_worker.finished.connect(self._disc_info_thread.quit)
+        self._disc_info_worker.failed.connect(self._disc_info_thread.quit)
+        self._disc_info_thread.finished.connect(self._disc_info_thread.deleteLater)
+        self._disc_info_thread.started.connect(self._disc_info_worker.run)
+        self._disc_info_thread.start()
+
+    def _on_disc_info_ready(self, device: str, info: DiscInfo) -> None:
+        """Disc probe succeeded — render it and kick off the MB lookup."""
+        self._disc_info_worker = None
+        self._disc_info_thread = None
         self._disc_info_panel.set_disc_info(info)
         # Remember the disc's track count so we can show numbered blank
         # rows if MusicBrainz turns up nothing.
@@ -377,6 +411,12 @@ class MainWindow(
             # the panel stuck on "reading disc…" forever.
             self._disc_info_panel.set_mb_matches([])
             self._handle_no_mb_match()
+
+    def _on_disc_info_failed(self, device: str, message: str) -> None:
+        """Disc probe failed — show a friendly, actionable error."""
+        self._disc_info_worker = None
+        self._disc_info_thread = None
+        self._disc_info_panel.set_disc_info_error(_friendly_disc_scan_error(message))
 
     # --- Slots: MusicBrainz results ----------------------------------------
 
