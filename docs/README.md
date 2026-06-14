@@ -15,7 +15,8 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Layered design, patterns, extension recipes | `docs/architecture.md` |
 | Engineering patterns & hard-won lessons | `docs/best-practices.md` |
 | Testing strategy, taxonomy, institutional rules | `docs/testing.md` |
-| Hardware / manual test steps | `docs/test-plan.md` |
+| Single-feature hardware/manual test cases | `docs/test-plan.md` |
+| Full release/acceptance run + tester matrices | `docs/release-testing.md` |
 | User-facing changes | `CHANGELOG.md` |
 | Active task queue | `TASKS.md` |
 | What happened each session (chronology) | `docs/session-log.md` |
@@ -45,7 +46,8 @@ These three files together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS
 | [`appimage-testing.md`](appimage-testing.md) | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
 | [`upstream-modification-investigation.md`](upstream-modification-investigation.md) | EAC-parity investigation (2026-06-02): what modifying the open-source programs underneath us would buy, what's feasible (→ task items), and a "do not revisit" non-feasible list. |
 | [`testing.md`](testing.md) | **Testing strategy & standards** — the trophy + a real-hardware gate, the five-tier case taxonomy (easy/medium/hard/edge/unexpected), when to use property-based / golden / fault-injection / mutation testing, the institutional rules (every bug gets a regression test; parsers never raise; coverage gate ratchets up), and a Definition of Done. Portable to sibling projects. |
-| [`test-plan.md`](test-plan.md) | Step-by-step **manual / hardware** test plan for the work that can't be validated in CI — CTDB verify (wire format + CRC), CTDB repair direction, `drive analyze`/`offset find` success strings, a GUI screenshot, the Picard UX, and the PyPI go-live. Run one test at a time and record results. |
+| [`test-plan.md`](test-plan.md) | Step-by-step **manual / hardware** test plan for individual gated cases that can't be validated in CI — CTDB verify (wire format + CRC), CTDB repair direction, `drive analyze`/`offset find` success strings, a GUI screenshot, the Picard UX, the PyPI go-live, and the cyanrip parity run. Run one test at a time and record results. |
+| [`release-testing.md`](release-testing.md) | **Release / acceptance testing procedure** — the end-to-end "exactly what to do" clean cycle (uninstall → fresh install → first-run → drive setup → rip → verify), the **EAC output-parity** check, and the **Linux-distro** + **problem-permutation** matrices for onboarding external testers, with a reporting template. Complements `test-plan.md` (the deep single-feature cases). |
 | [`ecosystem-audit-2026-06.md`](ecosystem-audit-2026-06.md) | Researched audit of the ripper ecosystem (whipper stalled since 2021; cyanrip the active successor) and the contribute-vs-integrate-vs-fork decision + a phased `CyanripImpl` migration plan. Backs PLANNING.md KDD-18. |
 | [`offset-investigation-2026-06.md`](offset-investigation-2026-06.md) | Investigation + refactor of the read-offset subsystem: why whipper's `offset find` is unreliable, and the AccurateRip offset-by-drive-model lookup that replaces it (`adapters/accuraterip_offsets.py`). Lists what's hardware/data-gated (full DriveOffsets.bin import). |
 | [`session-log.md`](session-log.md) | **Chronological session history** — what each Claude Code session built, decided, and learned (newest first). The project's institutional memory; durable lessons graduate from here into the docs above. |
