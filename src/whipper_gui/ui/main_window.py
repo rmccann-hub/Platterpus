@@ -159,6 +159,11 @@ class MainWindow(
         # the window. Joined in closeEvent.
         self._disc_info_worker: object | None = None
         self._disc_info_thread: QThread | None = None
+        # Launch-time drive listing (whipper `drive list` enters the container);
+        # run off-thread so it can't freeze the just-shown window. Joined in
+        # closeEvent. (The Refresh button stays synchronous — user-initiated.)
+        self._drive_list_worker: object | None = None
+        self._drive_list_thread: QThread | None = None
         # Params of the in-flight rip, captured at start so the finish
         # handler knows whether it was an unknown-mode rip (and where the
         # FLACs landed) without depending on the controls' current state.
@@ -243,8 +248,39 @@ class MainWindow(
     # --- Top-level lifecycle ------------------------------------------------
 
     def refresh_drives(self) -> None:
-        """Populate the drive picker. Called by app.py at startup."""
-        self._drive_picker.refresh()
+        """Populate the drive picker — `list_drives` runs OFF the GUI thread.
+
+        Called at launch (app.py) and after host setup. `list_drives` shells
+        to whipper (container entry, slow on a cold start), so it's probed on
+        a worker and the result is applied to the picker on the GUI thread; the
+        window stays responsive. (The picker's own Refresh button stays
+        synchronous — that's user-initiated.)
+        """
+        from whipper_gui.workers.drive_list_worker import DriveListWorker
+
+        if self._drive_list_thread is not None and self._drive_list_thread.isRunning():
+            return  # one refresh at a time
+        self._drive_list_worker = DriveListWorker(self._backend)
+        self._drive_list_thread = QThread(self)
+        self._drive_list_worker.moveToThread(self._drive_list_thread)
+        self._drive_list_worker.finished.connect(self._on_drive_list_ready)
+        self._drive_list_worker.failed.connect(self._on_drive_list_failed)
+        self._drive_list_worker.finished.connect(self._drive_list_thread.quit)
+        self._drive_list_worker.failed.connect(self._drive_list_thread.quit)
+        self._drive_list_thread.finished.connect(self._drive_list_thread.deleteLater)
+        self._drive_list_thread.started.connect(self._drive_list_worker.run)
+        self._drive_list_thread.start()
+
+    def _on_drive_list_ready(self, drives: object) -> None:
+        """Drive list fetched — populate the picker on the GUI thread."""
+        self._drive_list_worker = None
+        self._drive_list_thread = None
+        self._drive_picker.populate(drives)  # type: ignore[arg-type]
+
+    def _on_drive_list_failed(self, message: str) -> None:
+        self._drive_list_worker = None
+        self._drive_list_thread = None
+        self._drive_picker.show_error(message)
 
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt API
         """Tear down the MB worker thread cleanly on window close."""
@@ -273,6 +309,10 @@ class MainWindow(
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
             self._disc_info_thread.quit()
             self._disc_info_thread.wait(3000)
+        # Join a still-running drive-list probe.
+        if self._drive_list_thread is not None and self._drive_list_thread.isRunning():
+            self._drive_list_thread.quit()
+            self._drive_list_thread.wait(2000)
         # Cancel any in-progress rip before the window goes away.
         if self._rip_worker is not None:
             self._rip_worker.cancel()

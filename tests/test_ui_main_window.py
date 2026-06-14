@@ -164,6 +164,13 @@ def teardown_threads(qapp: QApplication):
         ):
             window._disc_info_thread.quit()
             window._disc_info_thread.wait(2000)
+        # …and a launch drive-list probe thread.
+        if (
+            window._drive_list_thread is not None
+            and window._drive_list_thread.isRunning()
+        ):
+            window._drive_list_thread.quit()
+            window._drive_list_thread.wait(2000)
         window.deleteLater()
 
 
@@ -2264,3 +2271,45 @@ def test_run_dependency_check_async_is_single_flight(
     first_thread = window._dep_check_thread
     window.run_dependency_check_async()  # must not start a second
     assert window._dep_check_thread is first_thread
+
+
+# --- Launch drive listing runs off the GUI thread (TASKS #11b) -------------
+
+
+def test_refresh_drives_lists_off_thread_and_populates(
+    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """refresh_drives() probes list_drives on a worker thread, then populates
+    the picker on the GUI thread — without freezing the window."""
+    backend = _FakeBackend()
+    backend.drives = [
+        DriveDescriptor(device="/dev/sr0", vendor="ACME", model="CD", release="1")
+    ]
+    # First-run offers off so the processEvents poll can't pop a modal.
+    window = teardown_threads(
+        backend=backend,
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True),
+    )
+    # A selected drive cascades into the (off-thread) disc probe; stub the
+    # disc backend call so this test stays focused on drive listing.
+    monkeypatch.setattr(window, "_start_disc_info", lambda device: None)
+
+    window.refresh_drives()
+    assert window._drive_list_thread is not None  # listing started off-thread
+
+    deadline = time.monotonic() + 8.0
+    while window._drive_list_thread is not None and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.005)
+
+    assert window._drive_picker.current_device() == "/dev/sr0"  # populated
+
+
+def test_refresh_drives_is_single_flight(teardown_threads) -> None:
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True)
+    )
+    window.refresh_drives()
+    first = window._drive_list_thread
+    window.refresh_drives()  # must not start a second
+    assert window._drive_list_thread is first
