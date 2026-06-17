@@ -23,8 +23,8 @@ platform — a known quirk pytest-qt papers over. So we wait the
 dependency-free way: ``QThread.wait()`` blocks the calling thread until the
 worker QThread finishes (no event loop needed), then a *bounded*
 ``processEvents()`` loop flushes the queued ``finished`` → ``_on_rip_finished``
-slot. The post-rip cover-art fetch runs on a daemon thread, which we join
-before asserting on the art.
+slot. The post-rip tagging + cover-art work runs on a single daemon thread,
+which we join before asserting on the tags and art.
 
 (``conftest`` warns against ``processEvents()`` in *widget* tests because it
 can fire stale deferred timers from earlier tests' destroyed windows. That's
@@ -216,11 +216,12 @@ def test_e2e_unknown_rip_tags_flacs_and_embeds_cover_art(
         time.sleep(0.005)
     assert finished, "the finish handler did not run within the timeout"
 
-    # Cover art runs on a daemon thread kicked off inside the finish handler;
-    # join it so its artifacts are settled before we assert.
-    if window._cover_art_thread is not None:
-        window._cover_art_thread.join(8.0)
-        assert not window._cover_art_thread.is_alive()
+    # Post-rip tagging + cover art run together on ONE daemon thread kicked
+    # off inside the finish handler (sequentially, so two metaflac runs can't
+    # race on the same FLAC); join it so all artifacts are settled.
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(8.0)
+        assert not window._post_rip_thread.is_alive()
 
     album = output_dir / "Unknown Artist" / "Unknown Album"
 
