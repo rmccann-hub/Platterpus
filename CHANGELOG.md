@@ -11,6 +11,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+*(nothing yet)*
+
+## [0.2.6] — 2026-06-14
+
 ### Added
 - **Debug logging toggle (Settings).** Off by default; when on, the log file at
   `~/.local/share/whipper-gui/log.txt` records verbose DEBUG detail (every
@@ -481,6 +485,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.2.6]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.2...v0.2.3
