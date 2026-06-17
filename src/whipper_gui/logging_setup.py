@@ -34,21 +34,31 @@ _LOG_FORMAT: str = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 # runs once, so repeated imports during tests or re-entries don't pile
 # up duplicate handlers.
 _CONFIGURED_ATTR: str = "_whipper_gui_configured"
+# Tag the file handler so `set_debug_logging()` can find it again after
+# configure_logging() returns (handlers are otherwise anonymous).
+_FILE_HANDLER_ATTR: str = "_whipper_gui_file_handler"
 
 
-def configure_logging(console_level: int = logging.INFO) -> None:
+def configure_logging(console_level: int = logging.INFO, debug: bool = False) -> None:
     """Initialize the root logger with a rotating file and a console handler.
 
-    Idempotent: a second call is a no-op. Safe to call before any other
-    module logs (it's the very first thing `app.main` does).
+    Idempotent: a second call only re-applies the requested verbosity. Safe to
+    call before any other module logs (it's the very first thing `app.main`
+    does).
 
-    `console_level` controls how chatty the terminal is; the file
-    handler is always at DEBUG so post-mortem analysis has full detail.
+    `console_level` controls how chatty the terminal is. The file handler is at
+    INFO by default; `debug=True` (the Settings "Debug logging" toggle,
+    `Config.debug_logging`) bumps it to DEBUG so a bug report captures every
+    probe/subprocess/parse step. Toggle later at runtime with
+    `set_debug_logging()`.
     """
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     root = logging.getLogger()
     if getattr(root, _CONFIGURED_ATTR, False):
+        # Already configured (e.g. a second QApplication in tests) — still
+        # honour the requested verbosity.
+        set_debug_logging(debug)
         return
 
     # Root captures everything; per-handler levels do the filtering.
@@ -62,7 +72,7 @@ def configure_logging(console_level: int = logging.INFO) -> None:
         backupCount=_LOG_BACKUP_COUNT,
         encoding="utf-8",
     )
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.DEBUG if debug else logging.INFO)
     file_handler.setFormatter(formatter)
 
     console_handler = logging.StreamHandler()
@@ -72,5 +82,24 @@ def configure_logging(console_level: int = logging.INFO) -> None:
     root.addHandler(file_handler)
     root.addHandler(console_handler)
 
+    # Remember the file handler so the runtime toggle can re-level it.
+    setattr(root, _FILE_HANDLER_ATTR, file_handler)
     # Mark configured so subsequent calls bail out early.
     setattr(root, _CONFIGURED_ATTR, True)
+
+
+def set_debug_logging(enabled: bool) -> None:
+    """Raise/lower the FILE log's verbosity at runtime (the Settings toggle).
+
+    DEBUG when enabled, INFO otherwise; the console level is left alone. A
+    no-op if logging hasn't been configured yet (configure_logging applies the
+    initial level itself).
+    """
+    root = logging.getLogger()
+    file_handler = getattr(root, _FILE_HANDLER_ATTR, None)
+    if file_handler is None:
+        return
+    file_handler.setLevel(logging.DEBUG if enabled else logging.INFO)
+    logging.getLogger(__name__).info(
+        "debug logging %s", "ENABLED" if enabled else "disabled"
+    )

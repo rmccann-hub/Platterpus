@@ -11,7 +11,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Debug logging toggle (Settings).** Off by default; when on, the log file at
+  `~/.local/share/whipper-gui/log.txt` records verbose DEBUG detail (every
+  probe, command, and parse step) — turn it on, reproduce a problem, and attach
+  the log to a bug report. Applies immediately and on next launch.
+- **Launch is fully responsive.** All three startup operations that enter the
+  Distrobox container — the dependency check, the drive listing, and reading
+  the inserted disc — now run off the GUI thread, so the window appears and
+  stays interactive immediately even while a cold container spins up (no more
+  "Not Responding" on first launch or when selecting a drive).
+
 ### Fixed
+- **Disc info from a drive you switched away from no longer overwrites the new
+  drive's display.** A late disc-probe result for a previous drive selection is
+  now ignored.
 - **More GUI-thread freezes removed (proactive, same class as the update
   freeze).** Marking a desktop shortcut trusted (`gio`, GNOME) and the menu
   refresh both ran synchronously inside `integrate()` on the GUI thread; they

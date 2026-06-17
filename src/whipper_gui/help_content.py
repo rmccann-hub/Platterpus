@@ -124,7 +124,9 @@ backed up first if it's touched). Do this once per drive.
 - **Disc not identified** → check your network; you can still rip via *Rip as
   Unknown Album* and tag later.
 - **Something else** → the log at `~/.local/share/whipper-gui/log.txt` has the
-  details; please attach it when reporting an issue.
+  details; please attach it when reporting an issue. For a *verbose* log, turn
+  on **Debug logging** in Settings, reproduce the problem, then attach that
+  file — it records every step (off by default to keep the log light).
 
 ## More
 

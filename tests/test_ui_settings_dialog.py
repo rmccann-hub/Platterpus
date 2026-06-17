@@ -325,3 +325,13 @@ def test_cover_art_stays_editable_under_cyanrip(qapp: QApplication) -> None:
     dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
     assert dialog._cover_art_combo.isEnabled() is True
     assert "Read-only:" not in dialog._cover_art_combo.toolTip()
+
+
+def test_debug_logging_reflects_config_and_round_trips(qapp: QApplication) -> None:
+    dialog = SettingsDialog(Config(debug_logging=True))
+    assert dialog._debug_logging_check.isChecked() is True
+    assert dialog.to_config().debug_logging is True
+    # Off by default.
+    default_dialog = SettingsDialog(Config())
+    assert default_dialog._debug_logging_check.isChecked() is False
+    assert default_dialog.to_config().debug_logging is False

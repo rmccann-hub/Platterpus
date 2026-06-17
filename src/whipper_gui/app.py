@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Logging is the first thing — any failure below this line shows up
     # in ~/.local/share/whipper-gui/log.txt.
-    from whipper_gui.logging_setup import configure_logging
+    from whipper_gui.logging_setup import configure_logging, set_debug_logging
 
     configure_logging()
     log.info("whipper-gui %s starting", __version__)
@@ -108,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     from whipper_gui import config as config_module
 
     cfg = config_module.load()
+    # Apply the user's debug-logging preference now that config is loaded
+    # (configure_logging ran first, before config, to catch startup failures).
+    set_debug_logging(cfg.debug_logging)
 
     # QApplication MUST exist before any QWidget. Build it as early as
     # possible so the dep-check dialogs can run.

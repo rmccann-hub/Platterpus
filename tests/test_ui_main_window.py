@@ -2313,3 +2313,23 @@ def test_refresh_drives_is_single_flight(teardown_threads) -> None:
     first = window._drive_list_thread
     window.refresh_drives()  # must not start a second
     assert window._drive_list_thread is first
+
+
+def test_disc_info_ready_ignores_stale_result_after_drive_switch(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (2026-06-14): a disc probe for a drive the user already left
+    must not clobber the new drive's state. The old worker's queued result can
+    arrive after a new drive change; _on_disc_info_ready ignores it when the
+    device no longer matches the selection."""
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    # The user is now on /dev/sr1; a late result for the old /dev/sr0 arrives.
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr1")
+
+    window._on_disc_info_ready(
+        "/dev/sr0", DiscInfo(num_tracks=9, musicbrainz_disc_id="stale")
+    )
+
+    # Stale result ignored: track count not adopted, no rows rendered.
+    assert window._current_num_tracks == 0
+    assert len(window._track_table.tracks()) == 0
