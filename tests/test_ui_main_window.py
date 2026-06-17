@@ -7,6 +7,7 @@ We DON'T drive a real Qt event loop — tests poke slots directly.
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -941,8 +942,59 @@ def test_unknown_rip_finish_runs_tag_post_processing(
 
     window._on_rip_finished(True, str(log_file))
 
+    # Tagging now runs on the post-rip daemon thread (off the GUI thread) —
+    # join it before asserting the call landed.
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+
     assert calls == [(album_dir, True)]  # scoped to the just-ripped folder
-    assert window._active_rip_params is None  # cleared for the next rip
+    assert window._active_rip_params is None  # cleared for the next rip (sync)
+
+
+def test_unknown_rip_tagging_runs_off_the_gui_thread(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Post-rip tagging must not block the GUI thread (CLAUDE.md blood rule).
+
+    With a metaflac whose write_tags blocks on an Event, _on_rip_finished
+    must return *before* tagging completes — proof the work runs on a worker
+    thread, not the GUI thread. Then release the gate, join, and confirm the
+    tagging actually happened. (The AST fitness guard can't catch this: the
+    blocking subprocess lives in the metaflac adapter, reached indirectly via
+    apply_track_tags — so this behavioural test is the regression net.)
+    """
+    window = teardown_threads()
+    gate = threading.Event()
+    reached_write = threading.Event()
+    tagged: list[Path] = []
+
+    class _BlockingMetaflac:
+        def write_tags(self, flac_path: Path, tags: dict[str, str]) -> None:
+            reached_write.set()
+            gate.wait(10)  # block the worker until the test releases it
+            tagged.append(flac_path)
+
+    window._metaflac = _BlockingMetaflac()  # type: ignore[assignment]
+    window._active_rip_params = _params(tmp_path, unknown=True)
+    album_dir = tmp_path / "Unknown Artist" / "Unknown Album"
+    album_dir.mkdir(parents=True)
+    (album_dir / "01 - Track 01.flac").write_bytes(b"")
+    log_file = album_dir / "Unknown Album.log"
+    log_file.write_text("", encoding="utf-8")
+
+    window._on_rip_finished(True, str(log_file))
+
+    # The finish handler returned while tagging is still blocked → it ran on
+    # a worker thread, not the GUI thread (had it been synchronous, this line
+    # would only be reached after gate.wait timed out and tagging completed).
+    assert window._post_rip_thread is not None
+    assert reached_write.wait(5)  # the worker reached metaflac.write_tags…
+    assert tagged == []  # …but hasn't finished — proof it's off the GUI thread
+    assert window._active_rip_params is None  # cleared synchronously at finish
+
+    gate.set()  # let the worker complete
+    window._post_rip_thread.join(timeout=10)
+    assert tagged == [album_dir / "01 - Track 01.flac"]
 
 
 def test_known_rip_finish_skips_tag_post_processing(
@@ -2146,8 +2198,8 @@ def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
     window._active_rip_params = _params(tmp_path, unknown=False)
 
     window._on_rip_finished(True, str(log_file))
-    assert window._cover_art_thread is not None
-    window._cover_art_thread.join(timeout=10)
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
 
     assert urls == ["https://coverartarchive.org/release/release-mbid/front"]
     assert (album / "cover.jpg").read_bytes() == _JPEG_BYTES
@@ -2165,7 +2217,7 @@ def test_whipper_known_rip_skips_gui_cover_art(
 
     window._on_rip_finished(True, "")
 
-    assert window._cover_art_thread is None
+    assert window._post_rip_thread is None
 
 
 def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
@@ -2183,8 +2235,8 @@ def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
     window._active_rip_params = _params(tmp_path, unknown=True)
 
     window._on_rip_finished(True, str(log_file))
-    assert window._cover_art_thread is not None
-    window._cover_art_thread.join(timeout=10)
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
 
     assert fake_metaflac.embedded == [album / "01 - Track.flac"]
     # "embed" mode: the image was a temp file for metaflac, not kept.
@@ -2201,7 +2253,7 @@ def test_unidentified_disc_skips_cover_art(teardown_threads, tmp_path: Path) -> 
 
     window._on_rip_finished(True, "")
 
-    assert window._cover_art_thread is None
+    assert window._post_rip_thread is None
 
 
 def test_cover_art_off_skips_the_fetch(teardown_threads, tmp_path: Path) -> None:
@@ -2211,7 +2263,7 @@ def test_cover_art_off_skips_the_fetch(teardown_threads, tmp_path: Path) -> None
 
     window._on_rip_finished(True, "")
 
-    assert window._cover_art_thread is None
+    assert window._post_rip_thread is None
 
 
 def test_cover_art_outcome_lands_in_the_log_view(teardown_threads) -> None:

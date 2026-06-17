@@ -16,7 +16,7 @@ Contract this mixin expects from the host window (all set in
 ``self._rip_worker``/``_rip_thread``/``_active_rip_params``/
 ``_rip_cancelled``/``_auto_retry_done``/``_force_stop_done``/
 ``_force_stop_timer``/``_force_stop_thread``/``_eject_thread``/
-``_cover_art_thread``/``_cover_art_fetcher``/``_pending_picard_launch``/
+``_post_rip_thread``/``_cover_art_fetcher``/``_pending_picard_launch``/
 ``_current_release_id``; the ``rip_post_processing_done`` and
 ``cover_art_done`` signals; and the cross-mixin methods
 ``self._auto_apply_known_offset`` / ``self._on_drive_setup`` (DriveMixin).
@@ -337,29 +337,30 @@ class RipMixin:
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
 
-        # Unknown-mode post-processing: tag the FLACs from the (possibly
-        # edited) track table and optionally launch Picard. Only on a
-        # successful rip, and only when the rip we started was unknown-mode.
-        # Scope tagging to the album folder whipper just wrote — the .log
-        # lands next to the FLACs, so its parent is that folder. Using the
-        # configured output root instead would re-tag every previously
-        # ripped album in the library with THIS disc's metadata.
-        params = self._active_rip_params
-        if success and params is not None and params.unknown:
-            rip_dir = Path(log_path).parent if log_path else params.output_dir
-            try:
-                self.run_unknown_post_processing(rip_dir, self._pending_picard_launch)
-            except Exception:  # noqa: BLE001 — tagging must never crash the GUI
-                log.exception("unknown-album post-processing failed")
-
-        # Backend-independent cover art (2026-06-13): when the ripper itself
-        # didn't fetch art — cyanrip never does (the GUI feeds it tags and
-        # bypasses its MusicBrainz lookup), and whipper can't in --unknown
-        # mode — fetch the front cover from the Cover Art Archive using the
-        # release the user picked, and embed/save it per the cover-art
-        # setting. A disc that was never identified has no release ID, so
-        # plan_actions() turns this into a no-op there.
+        # Post-rip processing: unknown-mode tagging + backend-independent
+        # cover art. Both shell out to metaflac on the SAME FLAC files, so
+        # they run SEQUENTIALLY on ONE daemon thread (tag first, then embed
+        # art) — never concurrently (two metaflac processes mutating one file
+        # race → corrupted/lost tags or artwork). The whole block is off the
+        # GUI thread because each step is a subprocess-per-file (~1-2s each):
+        # on a 16-track album it would otherwise freeze the window for 15-30s
+        # right when the rip finishes (CLAUDE.md "never block the GUI thread";
+        # docs/architecture.md §3.2). Only on a successful rip.
         if success and params is not None:
+            # Tagging — only when the rip we started was unknown-mode
+            # (identified discs are tagged by whipper itself). Scope it to the
+            # album folder whipper just wrote: the .log lands next to the
+            # FLACs, so its parent is that folder. Using the configured output
+            # root instead would re-tag every previously ripped album in the
+            # library with THIS disc's metadata.
+            tag = params.unknown
+            # Cover art (2026-06-13): when the ripper itself didn't fetch art
+            # — cyanrip never does (the GUI feeds it tags and bypasses its
+            # MusicBrainz lookup), and whipper can't in --unknown mode — fetch
+            # the front cover from the Cover Art Archive using the release the
+            # user picked, and embed/save it per the cover-art setting. A disc
+            # that was never identified has no release ID, so plan_actions()
+            # makes this a no-op.
             ripper_fetches_art = (
                 self._config.ripper_backend != "cyanrip" and not params.unknown
             )
@@ -368,10 +369,15 @@ class RipMixin:
                 ripper_fetches_art=ripper_fetches_art,
                 release_id=self._current_release_id,
             )
-            if embed or save_file:
+            if tag or embed or save_file:
                 rip_dir = Path(log_path).parent if log_path else params.output_dir
-                self._start_cover_art_fetch(
-                    rip_dir, self._current_release_id, embed, save_file
+                self._start_post_rip_processing(
+                    rip_dir,
+                    tag=tag,
+                    launch_picard=self._pending_picard_launch,
+                    release_id=self._current_release_id,
+                    embed=embed,
+                    save_file=save_file,
                 )
 
         # Auto-eject on a clean finish if the user opted in. Only on success —
@@ -456,46 +462,83 @@ class RipMixin:
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
 
-    # --- Post-rip cover art (backend-independent) ----------------------------
+    # --- Post-rip processing: tagging + cover art (one off-GUI thread) -------
 
-    def _start_cover_art_fetch(
+    def _start_post_rip_processing(
         self,
         rip_dir: Path,
+        *,
+        tag: bool,
+        launch_picard: bool,
         release_id: str,
         embed: bool,
         save_file: bool,
     ) -> None:
-        """Fetch + apply cover art on a daemon thread.
+        """Run unknown-mode tagging, then cover art, on ONE daemon thread.
 
-        The fetch is a network call, so it must never run on the GUI
-        thread. Best-effort end to end: apply_cover_art never raises, and
-        the belt-and-braces except here guarantees a stray bug in it can't
-        take down the app either. The outcome line is emitted through
-        cover_art_done (queued back to the GUI thread); the emit is guarded
-        because the window may have been closed while the fetch ran.
+        Why one thread, in this order: both steps shell out to ``metaflac`` on
+        the SAME FLAC files, so they MUST run sequentially — tag first, then
+        embed/save the front cover — never concurrently. Two ``metaflac``
+        processes mutating one file race each other and corrupt or lose the
+        tags or the artwork. Running them on one worker (rather than two) is
+        what guarantees the ordering.
+
+        Why off the GUI thread at all: each step is a subprocess per file
+        (~1-2s), so a multi-track album would freeze the event loop for tens of
+        seconds right when the rip finishes — exactly the "Not Responding"
+        class of bug CLAUDE.md forbids (docs/architecture.md §3.2). The
+        cover-art fetch is also a network call, which never belongs on the GUI
+        thread either.
+
+        Best-effort end to end: tagging and ``apply_cover_art`` each guard
+        their own failures so a stray bug here can't take down the app. The
+        cover-art outcome is reported back through ``cover_art_done`` (a queued
+        cross-thread signal, so the slot runs on the GUI thread); the emit is
+        guarded because the window may have been closed while the work ran.
+
+        Not joined in ``closeEvent``: it's a daemon thread that guards its own
+        emit (the same pattern the cover-art fetch always used). Tests join the
+        handle on ``self._post_rip_thread`` for determinism.
         """
 
         def work() -> None:
-            try:
-                message = cover_art.apply_cover_art(
-                    rip_dir,
-                    release_id,
-                    embed=embed,
-                    save_file=save_file,
-                    metaflac=self._metaflac,
-                    fetcher=self._cover_art_fetcher,
-                )
-            except Exception:  # noqa: BLE001 — art must never crash the GUI
-                log.exception("cover art post-processing failed")
-                message = "Cover art: failed unexpectedly (rip unaffected)."
-            try:
-                self.cover_art_done.emit(message)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
+            # 1) Tagging first. run_unknown_post_processing is the synchronous
+            #    worker body (tests call it directly); we just invoke it here,
+            #    off the GUI thread, instead of inline in _on_rip_finished.
+            if tag:
+                try:
+                    self.run_unknown_post_processing(rip_dir, launch_picard)
+                except Exception:  # noqa: BLE001 — tagging must never crash the GUI
+                    log.exception("unknown-album post-processing failed")
+            # 2) Cover art second, only after tagging has fully finished so the
+            #    two never touch a FLAC at the same time.
+            if embed or save_file:
+                try:
+                    message = cover_art.apply_cover_art(
+                        rip_dir,
+                        release_id,
+                        embed=embed,
+                        save_file=save_file,
+                        metaflac=self._metaflac,
+                        fetcher=self._cover_art_fetcher,
+                    )
+                except Exception:  # noqa: BLE001 — art must never crash the GUI
+                    log.exception("cover art post-processing failed")
+                    message = "Cover art: failed unexpectedly (rip unaffected)."
+                try:
+                    self.cover_art_done.emit(message)
+                except RuntimeError:  # window destroyed — nothing to update
+                    pass
 
-        log.info("fetching cover art for release %s into %s", release_id, rip_dir)
+        log.info(
+            "post-rip processing in %s (tag=%s, cover-art embed=%s save=%s)",
+            rip_dir,
+            tag,
+            embed,
+            save_file,
+        )
         thread = threading.Thread(target=work, daemon=True)
-        self._cover_art_thread = thread
+        self._post_rip_thread = thread
         thread.start()
 
     def _on_cover_art_done(self, message: str) -> None:

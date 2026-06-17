@@ -189,10 +189,14 @@ class MainWindow(
         # URL fetcher is injectable so tests never reach the real Cover
         # Art Archive (same hard-learned rule as _begin_update_install — an
         # unstubbed network call can hang the suite). None = the adapter's
-        # real urllib fetcher. The daemon thread is stored so tests can
-        # join it deterministically.
+        # real urllib fetcher.
         self._cover_art_fetcher: cover_art.Fetcher | None = None
-        self._cover_art_thread: threading.Thread | None = None
+        # Single daemon thread that runs all post-rip work (unknown-mode
+        # tagging THEN cover art, sequentially — both shell out to metaflac
+        # on the same FLACs, so they must not race). Stored so tests can
+        # join it deterministically; not joined in closeEvent (it's a daemon
+        # and guards its own signal emit).
+        self._post_rip_thread: threading.Thread | None = None
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
         # Guard so the "no drive — here's the fix" nudge auto-shows at most

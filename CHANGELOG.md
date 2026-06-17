@@ -11,6 +11,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The window no longer freezes while tagging an unknown-album rip.** Writing
+  the FLAC tags after a rip (a `metaflac` subprocess per track) used to run on
+  the GUI thread, so a multi-track album showed "Not Responding" for tens of
+  seconds right when the rip finished. Tagging now runs off the GUI thread,
+  sequentially with the post-rip cover-art embed on one background thread (so
+  the two never touch the same file at once), keeping the window responsive.
+
 ### Changed
 - **Documentation consolidation (contributor-facing only; no app behaviour
   change).** `docs/` reduced from 15 files to 9 + an `archive/`: `best-practices.md`
