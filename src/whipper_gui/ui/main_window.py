@@ -433,6 +433,8 @@ class MainWindow(
 
     def _on_disc_info_ready(self, device: str, info: DiscInfo) -> None:
         """Disc probe succeeded — render it and kick off the MB lookup."""
+        if self._is_stale_disc_result(device):
+            return
         self._disc_info_worker = None
         self._disc_info_thread = None
         self._disc_info_panel.set_disc_info(info)
@@ -454,9 +456,22 @@ class MainWindow(
 
     def _on_disc_info_failed(self, device: str, message: str) -> None:
         """Disc probe failed — show a friendly, actionable error."""
+        if self._is_stale_disc_result(device):
+            return
         self._disc_info_worker = None
         self._disc_info_thread = None
         self._disc_info_panel.set_disc_info_error(_friendly_disc_scan_error(message))
+
+    def _is_stale_disc_result(self, device: str) -> bool:
+        """True if a disc-probe result is for a drive the user already left.
+
+        The old probe's `finished`/`failed` can already be queued to the GUI
+        thread when a new drive change starts; applying it would clobber the
+        new drive's "reading…" state. Ignore it. (When no drive is selected —
+        e.g. unit tests calling the handler directly — nothing is stale.)
+        """
+        current = self._drive_picker.current_device()
+        return current is not None and current != device
 
     # --- Slots: MusicBrainz results ----------------------------------------
 
@@ -542,6 +557,11 @@ class MainWindow(
             # Push the new config into the rip controls so the next rip
             # reflects the edits (output dir, templates, Continue-on-CD-R).
             self._rip_controls.set_config(self._config)
+            # Apply the debug-logging toggle immediately so the change takes
+            # effect for this session (not just the next launch).
+            from whipper_gui.logging_setup import set_debug_logging
+
+            set_debug_logging(self._config.debug_logging)
             try:
                 self._save_config(self._config)
             except OSError as exc:

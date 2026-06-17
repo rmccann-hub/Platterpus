@@ -169,6 +169,20 @@ class SettingsDialog(QDialog):
         )
         form.addRow("After rip:", self._auto_eject_check)
 
+        # Debug logging — verbose log file for bug reports. Off by default;
+        # testers turn it on, reproduce the issue, then attach the log.
+        self._debug_logging_check: QCheckBox = QCheckBox(
+            "Debug logging (verbose log for bug reports)", self
+        )
+        self._debug_logging_check.setChecked(config.debug_logging)
+        self._debug_logging_check.setToolTip(
+            "Record verbose detail to the log file at\n"
+            "~/.local/share/whipper-gui/log.txt — every probe, command, and "
+            "parse step. Turn this on, reproduce the problem, then attach that "
+            "file to a bug report. Off keeps the log lighter."
+        )
+        form.addRow("Logging:", self._debug_logging_check)
+
         # Continue on CD-R. Whipper refuses burned discs by default; this
         # opts into ripping them anyway (passes whipper's --cdr flag).
         self._continue_on_cdr_check: QCheckBox = QCheckBox(
@@ -319,6 +333,7 @@ class SettingsDialog(QDialog):
             override_read_offset=self._override_offset_check.isChecked(),
             auto_launch_picard=self._auto_picard_check.isChecked(),
             auto_eject_after_rip=self._auto_eject_check.isChecked(),
+            debug_logging=self._debug_logging_check.isChecked(),
             continue_on_cdr=self._continue_on_cdr_check.isChecked(),
             cover_art=self._cover_art_combo.currentData(),
             force_overread=self._force_overread_check.isChecked(),

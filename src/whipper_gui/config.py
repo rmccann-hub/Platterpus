@@ -133,6 +133,13 @@ class Config:
     # again — exactly the update case where re-offering is wanted.
     integration_declined_path: str = ""
 
+    # Debug logging: when True, the log file at ~/.local/share/whipper-gui/
+    # log.txt records verbose DEBUG detail (every probe, subprocess argv,
+    # parser step) instead of the default INFO. Off by default — a tester
+    # turns it on in Settings to capture a full log for a bug report, then
+    # reproduces the issue. Applied at startup and immediately on toggle.
+    debug_logging: bool = False
+
     # Continue ripping a CD-R (burned disc). Whipper refuses by default
     # ("inserted disc seems to be a CD-R, --cdr not passed") because in an
     # archival workflow a burned disc is usually an accident. Off by
