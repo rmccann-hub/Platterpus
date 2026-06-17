@@ -10,13 +10,13 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 |---|---|
 | Locked coding conventions & critical rules | `CLAUDE.md` → *Code conventions* / *Critical rules* |
 | How the maintainer works / project values | `CLAUDE.md` → *Working with the maintainer* |
-| Architectural decisions + rationale | `PLANNING.md` (KDD-NN) |
+| CI / release & build operations | `CLAUDE.md` → *Project operations* |
+| Architectural decisions + rationale (KDD-NN) | `PLANNING.md` |
 | Module map & per-module responsibility | `PLANNING.md` |
-| Layered design, patterns, extension recipes | `docs/architecture.md` |
-| Engineering patterns & hard-won lessons | `docs/best-practices.md` |
+| Layered design, patterns, engineering lessons, extension recipes, packaging/release/security | `docs/architecture.md` |
 | Testing strategy, taxonomy, institutional rules | `docs/testing.md` |
-| Single-feature hardware/manual test cases | `docs/test-plan.md` |
-| Full release/acceptance run + tester matrices | `docs/release-testing.md` |
+| Manual & release testing (acceptance run + gated cases + tester matrices) | `docs/test-plan.md` |
+| Dependency pins, dates, licenses, retirement log | `DEPENDENCIES.md` |
 | User-facing changes | `CHANGELOG.md` |
 | Active task queue | `TASKS.md` |
 | What happened each session (chronology) | `docs/session-log.md` |
@@ -26,31 +26,26 @@ A lesson legitimately appears in **two** places: a one-line *rule* in its canoni
 
 ## Source documents (anchor for "rebuild from scratch")
 
-These three files together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.md`, `DEPENDENCIES.md`, and `README.md` are the full context needed to reproduce the project from a clean slate.
+These two files, together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.md`, `DEPENDENCIES.md`, and `README.md`, are the full context needed to reproduce the project from a clean slate.
 
 | File | What it is | Authority on |
 |---|---|---|
 | [`whipper-gui-research-brief-v2.1.md`](whipper-gui-research-brief-v2.1.md) | The original requirements brief — every P0/P1 feature, every constraint, every scope decision started here. | **Requirements and scope.** When PLANNING.md and the brief conflict, the brief wins on requirements; PLANNING wins on implementation. |
-| [`whipper-gui-session-start.md`](whipper-gui-session-start.md) | The bootstrap instructions a fresh Claude Code session followed to produce the initial five top-level files (CLAUDE.md, PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md). | **Initial repo state and the bootstrap procedure.** Re-run this against a clean repo to re-derive the planning artifacts. |
-| [`whipper-gui-research-rerun-prompt.md`](whipper-gui-research-rerun-prompt.md) | Instructions for invoking Claude Opus 4.7 Research mode against the brief to produce a fresh `compass_artifact_*.md` validation pass. | **How to refresh the tool-choice research** (framework, distribution, dependencies) when more than ~6 months have elapsed since the last validation. |
+| [`whipper-gui-session-start.md`](whipper-gui-session-start.md) | The bootstrap instructions a fresh Claude Code session followed to produce the initial five top-level files — and (Step 0, optional) the paste-verbatim Research-mode prompt for refreshing the tool-choice validation against the brief. | **Initial repo state + the bootstrap procedure, and how to refresh the tool-choice research.** Re-run it against a clean repo to re-derive the planning artifacts. |
 
-> **About the `compass_artifact_*.md` Research validation file:** the original v1 brief produced a compass-artifact research validation in a Claude Research session; the user could not locate it when this project was bootstrapped, so the project proceeded against the brief alone (see CLAUDE.md "Companion documents"). If the rerun-prompt is ever invoked, save the resulting `compass_artifact_*.md` into this directory.
+> **About the `compass_artifact_*.md` Research validation file:** the original v1 brief produced a compass-artifact research validation in a Claude Research session; the user could not locate it when this project was bootstrapped, so the project proceeded against the brief alone (see CLAUDE.md "Companion documents"). If the session-start Step 0 rerun prompt is ever invoked, save the resulting `compass_artifact_*.md` into this directory.
 
 ## Reference documents
 
 | File | What it is |
 |---|---|
-| [`log-format-comparison.md`](log-format-comparison.md) | Side-by-side comparison of whipper's rip log against EAC's, anchoring [PLANNING.md KDD-11](../PLANNING.md). The hand-authored EAC log at `tests/fixtures/rip_log_eac_reference.log` is the comparison's data. |
-| [`architecture.md`](architecture.md) | **Architecture & contributor guide** — the layered design and dependency direction, the core patterns (adapter layer, the GUI-thread threading discipline, never-raise parsers, the dependency subsystem, the MainWindow mixin decomposition), step-by-step **extension recipes** (add a backend / encoder / dependency / parser / metadata source), the testing contract, and the architectural future-directions horizon. Start here to extend the program. |
-| [`best-practices.md`](best-practices.md) | Engineering patterns and hard-won lessons for contributors — Python/typing, adapter design, subprocess, Qt threading, testing, packaging/AppImage, releasing, security. Complements (does not replace) CLAUDE.md's locked rules. |
-| [`appimage-testing.md`](appimage-testing.md) | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
-| [`upstream-modification-investigation.md`](upstream-modification-investigation.md) | EAC-parity investigation (2026-06-02): what modifying the open-source programs underneath us would buy, what's feasible (→ task items), and a "do not revisit" non-feasible list. |
+| [`architecture.md`](architecture.md) | **Architecture & contributor guide** — the layered design and dependency direction; the core patterns *with the why and the hard-won lessons* (adapter layer, the never-block-the-GUI-thread discipline + worker mechanics, subprocess rules, never-raise parsers, the dependency subsystem, the MainWindow mixin decomposition, error/logging); step-by-step **extension recipes**; the testing contract; packaging/building/releasing; security & licensing hygiene; and the architectural future-directions horizon. **Start here to extend the program.** (Absorbed the former `best-practices.md`.) |
 | [`testing.md`](testing.md) | **Testing strategy & standards** — the trophy + a real-hardware gate, the five-tier case taxonomy (easy/medium/hard/edge/unexpected), when to use property-based / golden / fault-injection / mutation testing, the institutional rules (every bug gets a regression test; parsers never raise; coverage gate ratchets up), and a Definition of Done. Portable to sibling projects. |
-| [`test-plan.md`](test-plan.md) | Step-by-step **manual / hardware** test plan for individual gated cases that can't be validated in CI — CTDB verify (wire format + CRC), CTDB repair direction, `drive analyze`/`offset find` success strings, a GUI screenshot, the Picard UX, the PyPI go-live, and the cyanrip parity run. Run one test at a time and record results. |
-| [`release-testing.md`](release-testing.md) | **Release / acceptance testing procedure** — the end-to-end "exactly what to do" clean cycle (uninstall → fresh install → first-run → drive setup → rip → verify), the **EAC output-parity** check, and the **Linux-distro** + **problem-permutation** matrices for onboarding external testers, with a reporting template. Complements `test-plan.md` (the deep single-feature cases). |
-| [`ecosystem-audit-2026-06.md`](ecosystem-audit-2026-06.md) | Researched audit of the ripper ecosystem (whipper stalled since 2021; cyanrip the active successor) and the contribute-vs-integrate-vs-fork decision + a phased `CyanripImpl` migration plan. Backs PLANNING.md KDD-18. |
-| [`offset-investigation-2026-06.md`](offset-investigation-2026-06.md) | Investigation + refactor of the read-offset subsystem: why whipper's `offset find` is unreliable, and the AccurateRip offset-by-drive-model lookup that replaces it (`adapters/accuraterip_offsets.py`). Lists what's hardware/data-gated (full DriveOffsets.bin import). |
+| [`test-plan.md`](test-plan.md) | **Manual & release testing** — the end-to-end clean-cycle acceptance run (uninstall → fresh install → drive setup → rip → verify), the **EAC output-parity** check (with the per-track CRC baseline), the **Linux-distro** + **problem-permutation** matrices for onboarding testers, *and* the deep single-feature gated cases (CTDB verify CRC, `drive analyze`/`offset find` strings, GUI screenshot, Picard UX, PyPI go-live, the cyanrip parity run). Run one at a time and record results. (Absorbed the former `release-testing.md`.) |
+| [`appimage-testing.md`](appimage-testing.md) | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
+| [`log-format-comparison.md`](log-format-comparison.md) | Side-by-side comparison of whipper's rip log against EAC's, anchoring [PLANNING.md KDD-11](../PLANNING.md). The hand-authored EAC log at `tests/fixtures/rip_log_eac_reference.log` is the comparison's data. |
 | [`session-log.md`](session-log.md) | **Chronological session history** — what each Claude Code session built, decided, and learned (newest first). The project's institutional memory; durable lessons graduate from here into the docs above. |
+| [`archive/`](archive/README.md) | Retired point-in-time investigations (ecosystem audit, read-offset, upstream-modification/CTDB spec). Their durable conclusions have graduated into KDDs / DEPENDENCIES / adapter comments — see `archive/README.md` for the map. |
 
 ## Where the rest of the project context lives
 
@@ -75,7 +70,7 @@ If you needed to start over with a fresh git repository:
 2. **Place these files in `docs/`:**
    - `whipper-gui-research-brief-v2.1.md`
    - `whipper-gui-session-start.md`
-   - `whipper-gui-research-rerun-prompt.md`
-3. **Re-run Research validation** (optional but recommended after 6+ months): follow `whipper-gui-research-rerun-prompt.md`, save the result as `docs/compass_artifact_<hash>_text_markdown.md`.
-4. **Boot a fresh Claude Code session,** attach the brief + session-start + (if present) compass artifact + CLAUDE.md, and ask it to execute `whipper-gui-session-start.md`. The session will reproduce PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md from scratch and then begin executing the task list.
+3. **(Optional but recommended after 6+ months) Re-run Research validation:** follow `whipper-gui-session-start.md` **Step 0**, save the result as `docs/compass_artifact_<hash>_text_markdown.md`.
+4. **Boot a fresh Claude Code session,** attach the brief + session-start + (if present) compass artifact + CLAUDE.md, and ask it to execute `whipper-gui-session-start.md`. The session reproduces PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md from scratch and then begins executing the task list.
 5. **Subsequent sessions** follow CLAUDE.md as the primary instruction document, using TASKS.md to track what's next.
+</content>

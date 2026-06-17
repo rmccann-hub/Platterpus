@@ -47,7 +47,7 @@ _OS_RELEASE: Path = Path("/etc/os-release")
 # for Fedora 42/43/44 + rawhide on x86_64, GPG-signed. The fallback, if that
 # COPR ever disappears, is a meson source build (all build deps ARE in
 # Fedora: ffmpeg-free-devel, libcdio-paranoia-devel, libmusicbrainz5-devel,
-# libcurl-devel) — see docs/ecosystem-audit-2026-06.md.
+# libcurl-devel) — see docs/archive/ecosystem-audit-2026-06.md.
 #
 # We write the standard COPR repo stanza ourselves instead of running
 # `dnf copr enable` because the copr plugin isn't guaranteed to be in the

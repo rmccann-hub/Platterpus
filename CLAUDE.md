@@ -91,19 +91,19 @@ Read these alongside this file when picking up a session:
 - **`TASKS.md`** — active task checklist; update status (`[ ]` → `[~]` → `[x]`) as work progresses. Sections: P0 (v1 release, T01-T32), P1.1 (install/uninstall ease — highest-priority P1 subset), P1 (broader backlog), P2 (future), Out of scope.
 - **`DEPENDENCIES.md`** — dep table with last release dates and replacement plans; review per the cadence stated in that file
 - **`README.md`** — outward-facing project description and install instructions
-- **`docs/architecture.md`** — architecture & contributor guide: the layered design, the core patterns (adapter layer, GUI-thread threading discipline, never-raise parsers, the MainWindow mixin decomposition), extension recipes, and future directions. Start here to extend the program.
-- **`docs/README.md`** — index of the docs/ directory and a rebuild-from-scratch checklist
+- **`docs/architecture.md`** — architecture & contributor guide: the layered design, the core patterns *with the why and hard-won lessons* (adapter layer, the never-block-the-GUI-thread discipline + worker mechanics, subprocess rules, never-raise parsers, the dependency subsystem, the MainWindow mixin decomposition, error/logging), extension recipes, packaging/release/security, and future directions. **Start here to extend the program.** (Absorbed the former `docs/best-practices.md`.)
+- **`docs/README.md`** — index of the docs/ directory, the single-source-of-truth map, and a rebuild-from-scratch checklist
 - **`docs/whipper-gui-research-brief-v2.1.md`** — the project brief; canonical for requirements and scope
-- **`docs/whipper-gui-session-start.md`** — bootstrap instructions a fresh Claude Code session uses to reproduce the initial planning artifacts
-- **`docs/whipper-gui-research-rerun-prompt.md`** — Research-mode prompt for refreshing tool-choice validation
+- **`docs/whipper-gui-session-start.md`** — bootstrap instructions a fresh Claude Code session uses to reproduce the initial planning artifacts; its **Step 0** holds the optional Research-mode prompt for refreshing tool-choice validation
 - **`docs/log-format-comparison.md`** — whipper rip log vs EAC log side-by-side (referenced by KDD-11)
-- **`docs/best-practices.md`** — engineering patterns and hard-won lessons (Qt threading, subprocess, adapters, testing, packaging, releasing, security); complements the locked *Code conventions* and *Critical rules* here
 - **`docs/testing.md`** — the testing strategy & standards (the trophy + hardware gate, the five-tier case taxonomy, property/golden/fault-injection guidance, the coverage gate, and the institutional rules: every bug gets a regression test; parsers never raise)
+- **`docs/test-plan.md`** — manual & release testing: the end-to-end acceptance run, the EAC output-parity check, the distro + problem-permutation matrices, and the deep single-feature gated cases (absorbed the former `docs/release-testing.md`)
 - **`docs/session-log.md`** — chronological session history (what was built/decided/learned each session, newest first). Read it for *continuity*; durable lessons graduate from it into the docs above.
+- **`docs/archive/`** — retired point-in-time investigations (ecosystem audit, read-offset, upstream-modification/CTDB spec); durable conclusions have graduated into KDDs / DEPENDENCIES / adapter comments (see `docs/archive/README.md`)
 
 If `PLANNING.md` and the brief conflict, the brief wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
 
-There is no `compass_artifact_*.md` in the repo; the original v1 research validation was unavailable when the project was bootstrapped, so the project proceeded against the brief alone. To refresh tool-choice research, follow `docs/whipper-gui-research-rerun-prompt.md`.
+There is no `compass_artifact_*.md` in the repo; the original v1 research validation was unavailable when the project was bootstrapped, so the project proceeded against the brief alone. To refresh tool-choice research, follow `docs/whipper-gui-session-start.md` Step 0.
 
 ---
 
@@ -165,4 +165,4 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 
 Chronological session notes — what was built, decided, and learned each session — live in **[`docs/session-log.md`](docs/session-log.md)** (newest first). They're kept out of this file so the always-loaded project context stays lean and scannable.
 
-**Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* / *Critical rules* above, a KDD in `PLANNING.md`, or `docs/best-practices.md` / `docs/testing.md` — not left only in the dated log. The log is append-only chronology; the rules are the distillation.
+**Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* / *Critical rules* above, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — not left only in the dated log. The log is append-only chronology; the rules are the distillation.

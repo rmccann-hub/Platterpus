@@ -794,11 +794,11 @@ Core project documents (in this directory):
 
 Source documents and reference material (in `docs/`):
 
-- [`docs/README.md`](docs/README.md) — index of `docs/` contents + rebuild-from-scratch checklist
-- [`docs/best-practices.md`](docs/best-practices.md) — engineering patterns & hard-won lessons (read before contributing code)
+- [`docs/README.md`](docs/README.md) — index of `docs/` contents, the single-source-of-truth map + rebuild-from-scratch checklist
+- [`docs/architecture.md`](docs/architecture.md) — architecture & contributor guide: layered design, patterns & lessons, extension recipes, packaging/release/security (**read before contributing code**)
+- [`docs/testing.md`](docs/testing.md) — testing strategy & standards; [`docs/test-plan.md`](docs/test-plan.md) — manual & release testing procedure
 - [`docs/whipper-gui-research-brief-v2.1.md`](docs/whipper-gui-research-brief-v2.1.md) — the canonical project brief
-- [`docs/whipper-gui-session-start.md`](docs/whipper-gui-session-start.md) — bootstrap instructions for a fresh Claude Code session
-- [`docs/whipper-gui-research-rerun-prompt.md`](docs/whipper-gui-research-rerun-prompt.md) — Research-mode prompt for refreshing tool-choice validation
+- [`docs/whipper-gui-session-start.md`](docs/whipper-gui-session-start.md) — bootstrap instructions for a fresh Claude Code session (Step 0 = optional research-rerun prompt)
 - [`docs/log-format-comparison.md`](docs/log-format-comparison.md) — whipper-log vs EAC-log field comparison
 
 Build / dev tooling:

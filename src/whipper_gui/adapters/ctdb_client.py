@@ -2,7 +2,7 @@
 """Adapter for the CUETools Database (CTDB) lookup service.
 
 Clean-room per PLANNING.md KDD-16: implemented from the LGPL `cuetools.net`
-reference and the protocol spec in `docs/upstream-modification-investigation.md`
+reference and the protocol spec in `docs/archive/upstream-modification-investigation.md`
 — never from the GPL-2.0-only `python-cuetoolsdb`. As an unmaintained/external
 service this lives behind a thin adapter (Critical Rule #1) so the transport or
 provider can be swapped without touching the verify logic.
