@@ -20,7 +20,7 @@ to dodge the AppImage package-data pitfalls that bit ``help_content``. A
 user can extend/override it by dropping a CSV at
 ``~/.config/whipper-gui/drive_offsets.csv`` (``name,offset`` rows) — that's
 the path to the full official list without a code change. See
-docs/offset-investigation-2026-06.md.
+docs/archive/offset-investigation-2026-06.md.
 
 Safety: a wrong offset silently corrupts a rip, so this adapter only ever
 *suggests* a value — the wizard prefills it and the user confirms (and can

@@ -70,7 +70,7 @@ def test_ui_module_makes_no_blocking_calls(path: Path) -> None:
         f"{path.name} makes a blocking call on the GUI thread "
         f"({'; '.join(hits)}). Move it to a QObject worker on a QThread, or "
         "fire-and-forget subprocess.Popen(..., start_new_session=True). "
-        "See CLAUDE.md 'never block the GUI thread' + docs/best-practices.md §5."
+        "See CLAUDE.md 'never block the GUI thread' + docs/architecture.md §3.2."
     )
 
 

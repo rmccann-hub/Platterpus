@@ -34,19 +34,20 @@ Whipper-GUI-Frontend---CD-Rip/
 │   ├── release.yml                      # tag-driven: build AppImage + attach to a GitHub Release
 │   └── publish-pypi.yml                 # publish wheel+sdist to PyPI via Trusted Publishing on release
 │
-├── docs/                                # archived source docs + reference material
+├── docs/                                # source docs + reference material
 │   ├── README.md                        # index of docs/ contents + rebuild-from-scratch checklist
 │   ├── whipper-gui-research-brief-v2.1.md   # canonical project brief (authority on scope)
-│   ├── whipper-gui-session-start.md     # bootstrap instructions for a fresh Claude Code session
-│   ├── whipper-gui-research-rerun-prompt.md # how to refresh tool-choice research
+│   ├── whipper-gui-session-start.md     # bootstrap instructions (incl. optional research-rerun prompt)
+│   ├── architecture.md                  # architecture & contributor guide (patterns, recipes, packaging)
 │   ├── log-format-comparison.md         # whipper rip log vs EAC log side-by-side (KDD-11)
-│   ├── best-practices.md                # engineering patterns + hard-won lessons
 │   ├── appimage-testing.md              # how the AppImage is built + tested
-│   ├── upstream-modification-investigation.md # EAC-parity investigation (CTDB, whipper)
-│   ├── test-plan.md                     # manual/hardware test checklist (CTDB, drive analyze, …)
+│   ├── test-plan.md                     # manual & release testing (acceptance run + gated cases)
 │   ├── testing.md                       # testing strategy & standards (trophy + hardware gate)
-│   ├── ecosystem-audit-2026-06.md       # whipper-stalled / cyanrip-successor audit (KDD-18)
-│   ├── offset-investigation-2026-06.md  # read-offset investigation → offset-by-drive-model lookup
+│   ├── session-log.md                   # chronological session history (newest first)
+│   ├── archive/                         # retired point-in-time investigations (see archive/README.md)
+│   │   ├── ecosystem-audit-2026-06.md   # whipper-stalled / cyanrip-successor audit (KDD-18)
+│   │   ├── offset-investigation-2026-06.md # read-offset → offset-by-drive-model lookup
+│   │   └── upstream-modification-investigation.md # EAC-parity investigation (CTDB, whipper)
 │   └── (compass_artifact_*.md if/when produced — see docs/README.md)
 │
 ├── scripts/                             # standalone (non-packaged) helper scripts
@@ -254,26 +255,16 @@ Long-running operations on background `QThread`s so the GUI stays responsive.
 
 ## 3. Pinned dependency list
 
-Full table with release dates and replacement plans lives in `DEPENDENCIES.md`. Inline-justification summary:
+**Canonical home: [`DEPENDENCIES.md`](DEPENDENCIES.md)** — the full table (pins,
+last-upstream-release dates, licenses, status, replacement plans, the
+retirement-review log, and the system tools surfaced via the dependency
+subsystem). It is the single source; this section does not reproduce it.
 
-| Package | Pin | Why |
-|---|---|---|
-| `PySide6` | `>=6.7,<7` | Qt 6 LGPL bindings; Qt 7 is not released yet but cap to avoid a breaking jump. KDE Plasma 6 ships Qt 6.x so native look comes free. |
-| `musicbrainzngs` | `==0.7.1` | Last release (2020); pin exact so the adapter knows what shape to expect. Adapter ABC isolates the GUI from this dep's eventual retirement. |
-| `tomli-w` | `>=1.0,<2` | TOML writer (stdlib `tomllib` reads only). Small, MIT, actively maintained. |
-| `python-appimage` | `>=1.4,<2` | AppImage builder (dev/build-time only — not a runtime dep). Per CLAUDE.md Critical Rule #2 the chosen tool. |
-| `pytest` | `>=8,<9` | Test runner (dev only). |
-| `ruff` | `>=0.15,<1` | Linter + formatter (dev only); CI runs `ruff check` + `ruff format --check`. Rules `E,F,W,I,B,UP`, `E501` off. |
-
-System dependencies (not Python packages, surfaced to the user via the dependency subsystem):
-
-| Tool | How obtained | Tier |
-|---|---|---|
-| `whipper` | Host-exported from Distrobox container `ripping` at `~/.local/bin/whipper` | (c) — manual; install path is the user's existing Distrobox setup |
-| `metaflac` | Same Distrobox export route as whipper | (c) — manual |
-| `libdiscid` | System library; on Bazzite via `rpm-ostree install` + reboot | (c) — manual |
-| MusicBrainz Picard | Flathub: `flatpak install --user flathub org.musicbrainz.Picard` | (a) — auto-install after one confirmation |
-| `lame`, `sox` (P1) | System or container; deferred until MP3/WAV support lands | (a) or (b) per future spec |
+The one architectural point that belongs here, not there: the unmaintained pins
+(`musicbrainzngs==0.7.1`, and `whipper` itself) are each isolated behind an
+adapter ABC (§5–§6), so an exact pin is safe — the adapter, not the GUI, owns
+the assumption about that dependency's output shape, and a future swap is a
+one-file change.
 
 ---
 
@@ -606,7 +597,7 @@ These are listed in TASKS.md under "P1 — EAC bit-perfect parity gaps" and shou
 
 The CUETools Database adds two capabilities beyond AccurateRip: a second cryptographic *verification* path, and — uniquely — *active parity repair* that reconstructs corrupted samples in a damaged rip from a downloaded whole-CD recovery record. Both are confirmed in scope (user request, 2026-05-30). Sequenced as two phases sharing one `CTDBClient` adapter:
 
-- **Phase 1 — verify (read-only).** *Library landed 2026-06-03* (`adapters/ctdb_client.py` + `whipper_gui/ctdb/`, with `scripts/ctdb_verify.py` and 35 unit tests). Pure-Python client (same shape as `MusicBrainzClient`): compute the disc CRC over the decoded audio, query CTDB by TOC, render confidence next to the AccurateRip result. No new system dependency; bundles in the AppImage trivially. Built **clean-room from the LGPL reference** (`gchudov/cuetools.net`) per KDD-16 — we deliberately did **not** read or port the GPL-2.0-only `python-cuetoolsdb`. This is the existing P1 "CTDB verification" item (KDD-12). **Concrete spec + open issues: [docs/upstream-modification-investigation.md](docs/upstream-modification-investigation.md).** Two pieces remain gated on a real CD that's in CTDB — the `toc=` wire format and the bit-exact CRC (`crc.CRC_VALIDATED=False`, fails safe) — plus the GUI wiring; see [docs/test-plan.md](docs/test-plan.md) Test 1.
+- **Phase 1 — verify (read-only).** *Library landed 2026-06-03* (`adapters/ctdb_client.py` + `whipper_gui/ctdb/`, with `scripts/ctdb_verify.py` and 35 unit tests). Pure-Python client (same shape as `MusicBrainzClient`): compute the disc CRC over the decoded audio, query CTDB by TOC, render confidence next to the AccurateRip result. No new system dependency; bundles in the AppImage trivially. Built **clean-room from the LGPL reference** (`gchudov/cuetools.net`) per KDD-16 — we deliberately did **not** read or port the GPL-2.0-only `python-cuetoolsdb`. This is the existing P1 "CTDB verification" item (KDD-12). **Concrete spec + open issues: [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md).** Two pieces remain gated on a real CD that's in CTDB — the `toc=` wire format and the bit-exact CRC (`crc.CRC_VALIDATED=False`, fails safe) — plus the GUI wiring; see [docs/test-plan.md](docs/test-plan.md) Test 1.
 
 - **Phase 2 — repair (parity).** Download the recovery record (~180 KB, parity is whole-CD, not per-track), reconstruct corrupted samples via erasure coding, then re-verify. **Decision: Option A — wrap the existing `ctdb-cli` tool** (`github.com/Masterisk-F/ctdb-cli`; builds with `./configure && make`), NOT a pure-Python port of `CUETools.Parity`. Rationale: this is the same "orchestrate a trusted tool, don't reimplement forensic math" thesis that made us delegate extraction to whipper rather than to libcdio directly. A Python Galois-field Reed-Solomon port would have to bit-match CUETools' format exactly — high risk for no architectural gain. **CORRECTION (2026-06-02): `ctdb-cli` is C#/.NET 10, NOT a C tool** (an earlier research note had this backwards). It is therefore **not cheap to vendor** — bundling it pulls in the .NET runtime. Re-decide bundling vs. optional-install when Phase 2 starts; see the investigation doc.
 
@@ -637,7 +628,7 @@ Decided 2026-06-02, ahead of implementing KDD-14 Phase 1. **The question:** can 
 
 - **Rejected alternative:** ask the upstream author to relicense as GPLv2-or-later. Slower, depends on a third party, and only buys the right to copy code we don't need — clean-room is faster and removes the dependency entirely.
 
-- **Net effect:** the license gate that blocked KDD-14 Phase 1 is **closed**. The concrete protocol/CRC spec (grounded in the LGPL `CUEToolsDB.cs` + `CUETools.AccurateRip`/`CUETools.Parity`) lives in [docs/upstream-modification-investigation.md](docs/upstream-modification-investigation.md). The only remaining blocker is **hardware validation** — the locally-computed CRC must be confirmed against a real CD that is in CTDB (a T32-style test the cloud env can't run).
+- **Net effect:** the license gate that blocked KDD-14 Phase 1 is **closed**. The concrete protocol/CRC spec (grounded in the LGPL `CUEToolsDB.cs` + `CUETools.AccurateRip`/`CUETools.Parity`) lives in [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md). The only remaining blocker is **hardware validation** — the locally-computed CRC must be confirmed against a real CD that is in CTDB (a T32-style test the cloud env can't run).
 
 ### KDD-17 — Zero-CLI distribution: self-integrating + self-updating AppImage + GUI first-run host wizard
 
@@ -664,7 +655,7 @@ Decided 2026-06-04 (user-approved; this is a sanctioned evolution of the distrib
 
 ### KDD-18 — cyanrip is the strategic successor backend; never fork whipper
 
-Decided 2026-06-04 after a researched ecosystem audit ([docs/ecosystem-audit-2026-06.md](docs/ecosystem-audit-2026-06.md)), prompted by whipper's `offset find` failing on real hardware (Pioneer BDR-209D) and the question of long-term foundation.
+Decided 2026-06-04 after a researched ecosystem audit ([docs/archive/ecosystem-audit-2026-06.md](docs/archive/ecosystem-audit-2026-06.md)), prompted by whipper's `offset find` failing on real hardware (Pioneer BDR-209D) and the question of long-term foundation.
 
 - **whipper is effectively stalled.** Last release **v0.10.0, 2021-05-17 (~5 years)**; it imports `pkg_resources`, which is gone from setuptools ≥81 and Python 3.14 — a known compatibility cliff we currently paper over by installing `python3-setuptools` in the container. It still rips correctly today (Fedora packages 0.10.0), so this is a monitored risk, not an emergency.
 - **cyanrip is the successor** (active: v0.9.3.1, 2024-06-05; C + FFmpeg; LGPL-2.1; AccurateRip v1/v2 + EAC CRC32 + MusicBrainz + ReplayGain; no Python cliff). We invoke rippers as subprocesses, so LGPL-2.1 is fine against GPL-3.0-only.

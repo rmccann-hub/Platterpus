@@ -11,7 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-*(nothing yet)*
+### Changed
+- **Documentation consolidation (contributor-facing only; no app behaviour
+  change).** `docs/` reduced from 15 files to 9 + an `archive/`: `best-practices.md`
+  merged into `architecture.md` (one canonical home per engineering pattern);
+  `release-testing.md` merged into `test-plan.md` (now "Manual & release
+  testing", with the EAC CRC baseline stated once); the research-rerun prompt
+  folded into `whipper-gui-session-start.md` (Step 0); the three dated
+  investigation write-ups moved to `docs/archive/` with their durable
+  conclusions graduated into KDDs / `DEPENDENCIES.md` / adapter comments.
+  `PLANNING.md §3` now points at `DEPENDENCIES.md` instead of duplicating it.
 
 ## [0.2.6] — 2026-06-14
 
@@ -280,7 +289,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the rip argv builder (`-d/-s/-o flac/-r/-N/-G`), `version`, `find_offset`
   (`-f`), and a backend-independent `/dev`+sysfs drive scan; disc-info parsing
   and naming-template mapping are tracked as the remaining phases in
-  `docs/ecosystem-audit-2026-06.md`. Not yet user-selectable in the GUI.
+  `docs/archive/ecosystem-audit-2026-06.md`. Not yet user-selectable in the GUI.
 - **Autonomous heal when the ripper can't reach MusicBrainz.** whipper inside the
   container aborts (`unable to retrieve disc metadata, --unknown argument not
   passed`) when it has no network — even for a known disc, because it fetches the
@@ -346,7 +355,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   (`~/.config/whipper-gui/drive_offsets.csv`) > curated overrides > bundled list.
   whipper's `offset find` is kept as optional verification. New
   `adapters/accuraterip_offsets.py` (`OffsetDatabase`). See
-  `docs/offset-investigation-2026-06.md`.
+  `docs/archive/offset-investigation-2026-06.md`.
 
 ### Fixed
 - **Saving Settings no longer resets the one-time first-run flags.** `to_config`

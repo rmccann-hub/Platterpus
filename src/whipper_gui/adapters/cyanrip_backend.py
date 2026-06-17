@@ -1,6 +1,6 @@
 """cyanrip backend — a second ripping backend behind the WhipperBackend ABC.
 
-Why (KDD-18, docs/ecosystem-audit-2026-06.md): whipper is stalled (last release
+Why (KDD-18, docs/archive/ecosystem-audit-2026-06.md): whipper is stalled (last release
 2021) and its cd-paranoia has a real bug at read offsets > 587 — exactly the
 range the tested Pioneer BDR-209D needs (+667), which fails tracks on hardware.
 **cyanrip** is actively maintained (C/FFmpeg), applies the offset itself via

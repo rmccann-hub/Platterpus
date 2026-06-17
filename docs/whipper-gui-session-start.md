@@ -19,6 +19,71 @@ If any of those files is missing, stop and ask me to attach it before continuing
 
 ---
 
+## Step 0 (optional) — refresh the tool-choice research
+
+**Skip this if you already have a `compass_artifact_*.md`** — use it directly and
+go to Step 1. Do this leg only when the original Research artifact is unavailable,
+or when more than ~6 months have elapsed and you want a fresh validation pass
+against brief v2.1 (which the original v1 research never saw).
+
+How to run it:
+
+1. Open a **fresh Claude conversation** (a new chat — NOT inside a project), set
+   to a current Claude Opus model, and **enable Research mode**.
+2. Attach **`whipper-gui-research-brief-v2.1.md`** to the first message.
+3. Paste the message body below verbatim and send (Research takes 15–45 min).
+4. Save the resulting artifact keeping the **`compass_artifact_`** filename prefix
+   (this file looks for that pattern), then continue to Step 1 with it attached.
+
+```
+The attached file (`whipper-gui-research-brief-v2.1.md`) is a research brief for a Linux GUI project. It is version 2.1 of a brief that was previously validated in v1. The original v1 research output is unavailable, so I need a fresh validation pass against the current v2.1 spec.
+
+Please read the brief in full, including:
+- The revision history at the top (v1 → v2 → v2.1)
+- The full body (sections 1–3)
+- The Required Output Format (section 4)
+- Appendix A (the proposed architecture, features, constraints, scope)
+- Appendices B and C
+
+Then produce the full A–K research output as specified in section 4 of the brief.
+
+## Where to spend extra effort
+
+These items were added or sharpened in v2 / v2.1 and have not previously been validated. Treat them as the highest-value parts of the research:
+
+1. **Dependency self-management subsystem (P0 #11).** Is the three-tier (a) auto-install / (b) queued-install / (c) copyable-search-string approach sound? Are there established patterns from other Linux GUI apps (GNOME Software, KDE Discover, Flatpak-based installers, pipx wrappers) that should inform this design? Surface any prior art and any failure modes the design should anticipate.
+
+2. **Unmaintained-dependency adapter pattern (Constraints section).** Specifically for `whipper`, `python-musicbrainzngs`, and `appimage-builder`. Confirm or refute the maintenance status of each as of the date of your research. Is the adapter wrapper the right mitigation? Are there better patterns (e.g., vendoring, forking, replacing outright)? For each, what is the strongest active alternative right now and how mature is it?
+
+3. **`python-appimage` as the preferred AppImage builder.** Confirm or refute the v2.1 framing that `python-appimage` is actively maintained with weekly automated rebuilds, and that `appimage-builder` should be fallback-only. Has anything in the AppImage tooling ecosystem changed since early 2026 that would shift this preference? Are there newer alternatives (e.g., something that's emerged in late 2025 / 2026) worth knowing about?
+
+4. **FLAC-first, MP3/WAV-as-P1 ordering (P1 backlog).** Validate that this priority is right for an EAC-equivalent archival workflow on Linux. Are there encoder backend choices for MP3/WAV that should be locked in now (e.g., `lame` versus alternatives) so the P0 dependency subsystem can be designed to accommodate them later?
+
+## Where to be efficient
+
+These items were covered in v1 research. Provide updated coverage, but you may be more concise if the landscape has not materially changed:
+
+- Framework comparison (section 3.1)
+- Distribution method comparison (section 3.2) — except for the AppImage-builder question above
+- Interactive subprocess handling (section 3.3)
+- Reference implementations (section 3.4)
+- Drive access on Bazzite / Distrobox / Flatpak (section 3.5)
+- Linux-vs-EAC quality gap (section 3.6)
+- Standard risks (section 3.7) — except for the unmaintained-deps question above
+
+For any of these, if the landscape HAS changed since mid-2025 / early-2026, flag the change explicitly and update your recommendation. If nothing material has changed, a shorter recap is fine.
+
+## Output discipline
+
+- Cite all sources. Where evidence is weak or contested, say so.
+- Where you disagree with the proposed architecture in Appendix A, push back with cited counter-evidence.
+- Keep the Executive Summary (section A of the output) to ≤ 250 words as the brief specifies.
+- Restate the final framework / distribution / prompt-handling combo in section J.
+- End with section K (Open Questions) — short and pointed.
+```
+
+---
+
 ## Steps — execute in order
 
 ### Step 1 — Read all attached files end to end
