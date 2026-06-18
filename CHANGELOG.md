@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.2.7] — 2026-06-18
+
 ### Added
 - **CTDB verification after a rip (opt-in, experimental).** A new Settings
   toggle, "Verify with CTDB after a rip", checks a finished rip against the
@@ -527,6 +529,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.2.7]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.3...v0.2.4
