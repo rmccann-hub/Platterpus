@@ -18,6 +18,7 @@ from enum import Enum
 
 from whipper_gui.deps.checks import (
     ProbeResult,
+    check_flac,
     check_metaflac,
     check_picard_flatpak,
     check_python_pkg,
@@ -94,6 +95,10 @@ def _probe_musicbrainzngs() -> ProbeResult:
     return check_python_pkg("musicbrainzngs")
 
 
+def _probe_flac() -> ProbeResult:
+    return check_flac()
+
+
 # --- The registry ----------------------------------------------------------
 
 SPECS: list[DependencySpec] = [
@@ -167,5 +172,21 @@ SPECS: list[DependencySpec] = [
             "Python MusicBrainz client. Bundled into the AppImage at "
             "build time; if missing, the AppImage build is incomplete."
         ),
+    ),
+    DependencySpec(
+        dep_id="flac",
+        display_name="flac (FLAC decoder)",
+        probe=_probe_flac,
+        min_version=(1, 3, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string="install flac decoder Bazzite Fedora host export Distrobox",
+        description=(
+            "Optional. Only needed for the 'Verify with CTDB after a rip' "
+            "setting: the CTDB audio check decodes the FLACs back to PCM on "
+            "the host. Export it from the container like whipper "
+            "(distrobox-export --bin /usr/bin/flac) or install it on the host."
+        ),
+        optional=True,  # absent only disables the optional CTDB audio check
     ),
 ]
