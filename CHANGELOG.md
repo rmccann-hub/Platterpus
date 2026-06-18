@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.2.8] — 2026-06-18
+
 ### Fixed
 - **Closing the window during a CTDB verify can no longer crash the app.** The
   opt-in post-rip CTDB verify ran on a `QThread`; if you closed the window while
@@ -546,6 +548,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.2.8]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.4...v0.2.5
