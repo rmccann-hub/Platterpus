@@ -99,6 +99,10 @@ class MainWindow(
     # queued by Qt, so the slot runs on the GUI thread) with the one-line
     # outcome of the post-rip cover-art fetch.
     cover_art_done = Signal(str)
+    # Emitted (from the post-rip CTDB-verify daemon thread; queued to the GUI
+    # thread) with the CtdbVerifyResult, so the verdict renders on the GUI
+    # thread.
+    ctdb_verify_done = Signal(object)
 
     def __init__(
         self,
@@ -207,10 +211,11 @@ class MainWindow(
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
         # Post-rip CTDB verify (KDD-14 Phase 1, opt-in). Runs the lookup +
-        # local decode on a QThread so the network/subprocess never blocks the
-        # GUI; joined in closeEvent like the other probe threads.
-        self._ctdb_worker: object | None = None
-        self._ctdb_thread: QThread | None = None
+        # local decode on a daemon thread (NOT a QThread) so the long decode
+        # can't be destroyed-while-running on window close (§3.2); the verdict
+        # comes back via the ctdb_verify_done signal. Stored so tests can join
+        # it; not joined in closeEvent (daemon + guarded emit), like cover art.
+        self._ctdb_thread: threading.Thread | None = None
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
         # once per session (refreshing shouldn't re-pop the dialog).
         self._drive_access_nudged: bool = False
@@ -236,6 +241,8 @@ class MainWindow(
         # Cover-art outcome lands in the rip log view (not the status line —
         # that's showing the fidelity verdict by then, which matters more).
         self.cover_art_done.connect(self._on_cover_art_done)
+        # CTDB verdict (opt-in) lands under the AccurateRip table.
+        self.ctdb_verify_done.connect(self._on_ctdb_verified)
 
         self.setCentralWidget(central)
 
@@ -329,11 +336,10 @@ class MainWindow(
         if self._drive_list_thread is not None and self._drive_list_thread.isRunning():
             self._drive_list_thread.quit()
             self._drive_list_thread.wait(2000)
-        # Join a still-running CTDB verify (bounded — its network call and
-        # decode have their own timeouts).
-        if self._ctdb_thread is not None and self._ctdb_thread.isRunning():
-            self._ctdb_thread.quit()
-            self._ctdb_thread.wait(3000)
+        # The post-rip CTDB verify runs on a DAEMON thread (not a QThread), so
+        # it's intentionally not joined here — it dies with the process and
+        # guards its own emit. Joining it would risk blocking close on a long
+        # decode; that's exactly why it isn't a QThread (§3.2).
         # Cancel any in-progress rip before the window goes away.
         if self._rip_worker is not None:
             self._rip_worker.cancel()

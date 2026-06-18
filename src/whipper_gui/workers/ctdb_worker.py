@@ -1,21 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""CtdbVerifyWorker — verify a finished rip against CTDB off the GUI thread.
+"""Off-thread CTDB verify for a finished rip (KDD-14 Phase 1).
 
-A CTDB verify (KDD-14 Phase 1) does two slow things that must never run on the
-Qt GUI thread: an HTTP lookup against ``db.cuetools.net`` and a decode of every
-ripped FLAC to PCM (a ``flac`` subprocess per file). This worker runs the whole
-``ctdb.verify.verify_rip`` flow on a ``QThread`` and reports the verdict back
-via a queued signal — the same minimal worker pattern as the other ``workers/``
-(``DiscInfoWorker`` / ``DriveListWorker`` / ``MusicBrainzWorker``).
+A CTDB verify does two slow things that must never run on the Qt GUI thread:
+an HTTP lookup against ``db.cuetools.net`` and a decode of every ripped FLAC to
+PCM (a ``flac`` subprocess per file). MainWindow runs ``verify_rip_dir`` on a
+**daemon thread** and reports the verdict back via a queued signal — the same
+pattern as the post-rip tagging / cover-art work, and deliberately NOT a joined
+``QThread``: the decode can take far longer than any sane ``closeEvent`` wait,
+and destroying a still-running ``QThread`` aborts the whole app
+(``docs/architecture.md`` §3.2). A daemon thread dies with the process and
+guards its own emit, so closing the window mid-verify is always safe.
 
-The verdict itself is always trustworthy-by-construction-or-labelled: until the
-audio-CRC algorithm is confirmed bit-exact on real hardware
-(``ctdb.crc.CRC_VALIDATED``), a ``MATCH`` is flagged experimental inside the
-result (``CtdbVerifyResult.trustworthy``). The worker never *fabricates* a
-verdict — every failure mode is already a verdict from ``verify_rip``.
-
-Signals:
-  finished(object) — a ``ctdb.verify.CtdbVerifyResult`` (always emitted once).
+The verdict is always trustworthy-by-construction-or-labelled: until the audio
+CRC is hardware-validated (``ctdb.crc.CRC_VALIDATED``), a ``MATCH`` is flagged
+experimental inside the result. This never *fabricates* a verdict — every
+failure mode is already a verdict from ``verify_rip``.
 """
 
 from __future__ import annotations
@@ -23,8 +22,6 @@ from __future__ import annotations
 import logging
 import threading
 from pathlib import Path
-
-from PySide6.QtCore import QObject, Signal, Slot
 
 from whipper_gui.adapters.ctdb_client import CTDBClient
 from whipper_gui.ctdb.toc import SamplesProbe
@@ -40,70 +37,46 @@ log = logging.getLogger(__name__)
 # How long to let any in-flight post-rip work (metaflac tagging / cover-art
 # embed, on a separate daemon thread) finish before we start decoding. Those
 # steps rewrite the SAME FLAC files; decoding one mid-rewrite would read a torn
-# file and report a spurious decode error. The wait is bounded so a wedged
-# post-rip thread can't hang the verify forever.
+# file and report a spurious decode error. Bounded so a wedged post-rip thread
+# can't hang the verify forever.
 _SETTLE_TIMEOUT_S: float = 60.0
 
 
-class CtdbVerifyWorker(QObject):
-    """QObject worker: verify ``rip_dir``'s FLACs against CTDB, emit the verdict.
+def verify_rip_dir(
+    client: CTDBClient,
+    rip_dir: Path,
+    *,
+    decoder: PcmDecoder | None = None,
+    samples_probe: SamplesProbe | None = None,
+    wait_for: threading.Thread | None = None,
+) -> CtdbVerifyResult:
+    """Verify the FLACs in ``rip_dir`` against CTDB. Never raises.
 
-    ``decoder``/``samples_probe`` are injected in tests (the production defaults
-    shell out to host ``flac``/``metaflac`` via ``ctdb.verify``). ``wait_for``
-    is the post-rip daemon thread, if one is running — see ``_SETTLE_TIMEOUT_S``.
+    Intended to run OFF the GUI thread (MainWindow calls it on a daemon
+    thread). ``decoder``/``samples_probe`` are injected in tests; production
+    defaults shell out to host ``flac``/``metaflac`` via ``ctdb.verify``.
+    ``wait_for`` is the post-rip metaflac thread, if running — joined first so
+    we never decode a FLAC mid-rewrite.
     """
+    # Let post-rip tagging / cover-art embedding settle first (see above).
+    if wait_for is not None and wait_for.is_alive():
+        wait_for.join(_SETTLE_TIMEOUT_S)
 
-    finished = Signal(object)  # CtdbVerifyResult
-
-    def __init__(
-        self,
-        client: CTDBClient,
-        rip_dir: Path,
-        *,
-        decoder: PcmDecoder | None = None,
-        samples_probe: SamplesProbe | None = None,
-        wait_for: threading.Thread | None = None,
-        parent: QObject | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self._client = client
-        self._rip_dir = rip_dir
-        self._decoder = decoder
-        self._samples_probe = samples_probe
-        self._wait_for = wait_for
-
-    @Slot()
-    def run(self) -> None:
-        # Let post-rip tagging / cover-art embedding settle first (see above).
-        # Joining a daemon thread here is fine — we're already off the GUI
-        # thread, and the wait is bounded.
-        if self._wait_for is not None and self._wait_for.is_alive():
-            self._wait_for.join(_SETTLE_TIMEOUT_S)
-
-        # Track order = filename order ("NN - Title.flac"), matching how the
-        # rest of the app enumerates a ripped album.
-        flac_paths = sorted(self._rip_dir.rglob("*.flac"))
-        if not flac_paths:
-            self.finished.emit(
-                CtdbVerifyResult(
-                    Verdict.LOOKUP_ERROR, message="no FLAC files found to verify"
-                )
-            )
-            return
-
-        try:
-            result = verify_rip(
-                flac_paths,
-                self._client,
-                decoder=self._decoder,
-                samples_probe=self._samples_probe,
-            )
-        except Exception as exc:  # noqa: BLE001 — a worker must always finish
-            # verify_rip is built to never raise for expected failures, but a
-            # belt-and-braces guard keeps the signal contract (always one emit)
-            # even if something unforeseen slips through.
-            log.exception("CTDB verify crashed")
-            result = CtdbVerifyResult(
-                Verdict.LOOKUP_ERROR, message=f"unexpected error: {exc}"
-            )
-        self.finished.emit(result)
+    # Track order = filename order ("NN - Title.flac"), matching how the rest
+    # of the app enumerates a ripped album.
+    flac_paths = sorted(rip_dir.rglob("*.flac"))
+    if not flac_paths:
+        return CtdbVerifyResult(
+            Verdict.LOOKUP_ERROR, message="no FLAC files found to verify"
+        )
+    try:
+        return verify_rip(
+            flac_paths, client, decoder=decoder, samples_probe=samples_probe
+        )
+    except Exception as exc:  # noqa: BLE001 — verify must always return a verdict
+        # verify_rip is built to never raise for expected failures; this
+        # belt-and-braces guard keeps the "always a verdict" contract.
+        log.exception("CTDB verify crashed")
+        return CtdbVerifyResult(
+            Verdict.LOOKUP_ERROR, message=f"unexpected error: {exc}"
+        )

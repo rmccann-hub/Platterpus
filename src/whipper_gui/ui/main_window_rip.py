@@ -17,9 +17,9 @@ Contract this mixin expects from the host window (all set in
 ``_rip_cancelled``/``_auto_retry_done``/``_force_stop_done``/
 ``_force_stop_timer``/``_force_stop_thread``/``_eject_thread``/
 ``_post_rip_thread``/``_cover_art_fetcher``/``_pending_picard_launch``/
-``_current_release_id``/``_ctdb_client``/``_ctdb_worker``/``_ctdb_thread``;
-the ``rip_post_processing_done`` and
-``cover_art_done`` signals; and the cross-mixin methods
+``_current_release_id``/``_ctdb_client``/``_ctdb_thread``;
+the ``rip_post_processing_done``, ``cover_art_done`` and
+``ctdb_verify_done`` signals; and the cross-mixin methods
 ``self._auto_apply_known_offset`` / ``self._on_drive_setup`` (DriveMixin).
 
 Future contributors: the rip itself runs in ``workers/rip_worker.py`` via a
@@ -50,7 +50,7 @@ from whipper_gui.ui.unknown_album import (
     apply_track_tags,
     launch_picard_for,
 )
-from whipper_gui.workers.ctdb_worker import CtdbVerifyWorker
+from whipper_gui.workers.ctdb_worker import verify_rip_dir
 from whipper_gui.workers.rip_worker import RipParameters, RipWorker
 
 log = logging.getLogger(__name__)
@@ -566,36 +566,39 @@ class RipMixin:
     def _start_ctdb_verify(
         self, rip_dir: Path, wait_for: threading.Thread | None
     ) -> None:
-        """Verify the just-finished rip against CTDB on a QThread.
+        """Verify the just-finished rip against CTDB on a daemon thread.
 
         The lookup (network) and the local FLAC decode (a `flac` subprocess per
-        track) must not run on the GUI thread — same worker-on-a-QThread
-        pattern as the disc-info / drive-list probes. ``wait_for`` is the
-        post-rip metaflac thread (or None): the worker joins it before decoding
-        so it never reads a FLAC while it's being re-tagged. The verdict lands
-        on the GUI thread via the queued ``finished`` signal.
+        track) must not run on the GUI thread. We use a daemon thread + a
+        queued signal — NOT a QThread — for the same reason cover art does: the
+        decode can run far longer than any reasonable closeEvent wait, and
+        destroying a running QThread aborts the app (§3.2). The daemon thread
+        dies with the process and guards its own emit, so closing the window
+        mid-verify is always safe. ``wait_for`` is the post-rip metaflac thread
+        (or None): we join it first so we never decode a FLAC mid-rewrite. The
+        verdict is reported via ``ctdb_verify_done`` (queued to the GUI thread).
         """
+
+        def work() -> None:
+            result = verify_rip_dir(self._ctdb_client, rip_dir, wait_for=wait_for)
+            try:
+                self.ctdb_verify_done.emit(result)
+            except RuntimeError:  # window already destroyed — nothing to update
+                pass
+
         log.info("starting CTDB verify for %s", rip_dir)
         self._rip_progress.set_ctdb_status("Verifying against CTDB…")
-        worker = CtdbVerifyWorker(self._ctdb_client, rip_dir, wait_for=wait_for)
-        thread = QThread(self)
-        worker.moveToThread(thread)
-        worker.finished.connect(self._on_ctdb_verified)
-        # Standard deterministic cleanup (worker.finished → thread.quit →
-        # thread.deleteLater); the worker reference is dropped in the handler.
-        worker.finished.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        thread.started.connect(worker.run)
-        self._ctdb_worker = worker
+        thread = threading.Thread(target=work, daemon=True)
         self._ctdb_thread = thread
         thread.start()
 
     def _on_ctdb_verified(self, result: object) -> None:
-        """CTDB verify finished — render the verdict under the AR table."""
-        self._ctdb_worker = None
-        self._ctdb_thread = None
-        # `result` is a ctdb.verify.CtdbVerifyResult; rip_progress renders it
-        # (and labels an unvalidated match "experimental", KDD-16).
+        """CTDB verify finished — render the verdict under the AR table.
+
+        Runs on the GUI thread (ctdb_verify_done is queued there). `result` is
+        a ctdb.verify.CtdbVerifyResult; rip_progress labels an unvalidated
+        match "experimental" (KDD-16).
+        """
         self._rip_progress.set_ctdb_result(result)  # type: ignore[arg-type]
         verdict = getattr(getattr(result, "verdict", None), "value", "?")
         log.info("CTDB verify verdict: %s", verdict)
