@@ -18,6 +18,7 @@ import pytest
 from whipper_gui.deps import checks
 from whipper_gui.deps.checks import (
     ProbeResult,
+    check_flac,
     check_metaflac,
     check_picard_flatpak,
     check_python_pkg,
@@ -100,6 +101,35 @@ def test_check_metaflac_present(monkeypatch: pytest.MonkeyPatch) -> None:
     assert probe.present is True
     assert probe.version == (1, 4, 3)
     assert probe.location == "/usr/bin/metaflac"
+
+
+# --- check_flac ---
+
+
+def test_check_flac_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(checks.shutil, "which", lambda _: None)
+
+    def not_found(*a: Any, **kw: Any) -> Any:
+        raise FileNotFoundError
+
+    monkeypatch.setattr(checks.subprocess, "run", not_found)
+
+    probe = check_flac()
+    assert probe.present is False
+
+
+def test_check_flac_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/flac")
+    monkeypatch.setattr(
+        checks.subprocess,
+        "run",
+        lambda *a, **kw: _fake_run(stdout="flac 1.4.3\n"),
+    )
+
+    probe = check_flac()
+    assert probe.present is True
+    assert probe.version == (1, 4, 3)
+    assert probe.location == "/usr/bin/flac"
 
 
 # --- check_picard_flatpak ---

@@ -57,7 +57,15 @@ def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
 
 
 def flac_available() -> bool:
-    """True if a host `flac` decoder can be found."""
+    """True if a host `flac` decoder can be found.
+
+    Note (Critical Rule #6): the *user-facing* "is flac present + install it"
+    logic lives in the dependency subsystem (`deps/registry.py` registers
+    `flac` as optional, probed by `deps/checks.check_flac`). The `_which` here
+    is the runner's path resolution — we need the actual binary path to invoke
+    it — exactly the same split as `check_metaflac` (probe) vs the metaflac
+    adapter (run). This isn't a scattered availability check.
+    """
     return _which("flac") is not None
 
 

@@ -22,6 +22,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   algorithm is confirmed bit-exact on real hardware, a match is labelled
   **EXPERIMENTAL** rather than "verified" — the check can only ever
   under-claim (report "no match"), never fabricate a verification.
+- **`flac` is now a recognised (optional) dependency.** The dependency check
+  (at launch and via Settings → Check dependencies) now lists the `flac`
+  decoder used by the CTDB audio check, with guidance to install or export it
+  — so enabling CTDB verify without `flac` points somewhere instead of being a
+  dead end. It's optional: absent only disables the CTDB audio check.
 
 ### Fixed
 - **The window no longer freezes while tagging an unknown-album rip.** Writing

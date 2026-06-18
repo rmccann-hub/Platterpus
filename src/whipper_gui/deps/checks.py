@@ -114,6 +114,27 @@ def check_metaflac(binary_name: str = "metaflac") -> ProbeResult:
     )
 
 
+def check_flac(binary_name: str = "flac") -> ProbeResult:
+    """Probe the host `flac` decoder, expected on PATH.
+
+    Used by the optional CTDB verify (KDD-14): the audio CRC is computed
+    over the ripped FLACs decoded back to PCM with host `flac`. Optional —
+    its absence just means the CTDB audio check can't run (the CTDB lookup
+    half still works). Same shape as `check_metaflac`.
+    """
+    ran, output, location = _run_version_command([binary_name, "--version"])
+    if not ran or location is None:
+        return ProbeResult(present=False, version=None, location=None)
+
+    version = parse_version(output)
+    return ProbeResult(
+        present=True,
+        version=version,
+        location=location,
+        raw_output=output.strip()[:200],
+    )
+
+
 def check_libdiscid() -> ProbeResult:
     """Probe libdiscid by attempting to load it via ctypes.
 
