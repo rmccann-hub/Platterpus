@@ -12,6 +12,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Closing the window during a CTDB verify can no longer crash the app.** The
+  opt-in post-rip CTDB verify ran on a `QThread`; if you closed the window while
+  it was still looking up / decoding (which can take far longer than the close
+  wait), the still-running thread was destroyed and the app aborted. It now runs
+  on a daemon thread that reports back via a queued signal and isn't joined on
+  close — the same safe pattern as the post-rip tagging and cover-art work.
 - **PyPI publishing now actually triggers on a release (CI; contributor-facing).**
   `release.yml` creates the GitHub Release with the default `GITHUB_TOKEN`, and
   GitHub suppresses the events such a token generates — so `publish-pypi.yml`'s

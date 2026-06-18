@@ -174,10 +174,9 @@ def teardown_threads(qapp: QApplication):
         ):
             window._drive_list_thread.quit()
             window._drive_list_thread.wait(2000)
-        # …and a post-rip CTDB verify thread.
-        if window._ctdb_thread is not None and window._ctdb_thread.isRunning():
-            window._ctdb_thread.quit()
-            window._ctdb_thread.wait(2000)
+        # The post-rip CTDB verify runs on a daemon thread (dies with the
+        # process, guards its emit) — not joined here, like the cover-art
+        # thread. Tests that start one join it themselves.
         window.deleteLater()
 
 
@@ -2284,14 +2283,22 @@ def test_cover_art_outcome_lands_in_the_log_view(teardown_threads) -> None:
 
 
 class _FakeCtdbClient(CTDBClient):
-    """Returns a canned lookup result without touching the network."""
+    """Returns a canned lookup result without touching the network.
 
-    def __init__(self, result: CtdbLookupResult) -> None:
+    Optionally blocks in lookup() on an Event, to simulate a verify still in
+    flight (used by the close-safety test)."""
+
+    def __init__(
+        self, result: CtdbLookupResult, gate: threading.Event | None = None
+    ) -> None:
         self._result = result
+        self._gate = gate
         self.calls = 0
 
     def lookup(self, toc):  # type: ignore[no-untyped-def]
         self.calls += 1
+        if self._gate is not None:
+            self._gate.wait(10)
         return self._result
 
 
@@ -2313,15 +2320,15 @@ def test_ctdb_verify_skipped_on_failed_rip(teardown_threads, tmp_path: Path) -> 
     assert window._ctdb_thread is None
 
 
-def test_ctdb_verify_runs_off_thread_and_renders_verdict(
-    teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def test_ctdb_verify_runs_off_the_gui_thread(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """With the toggle on, a successful rip kicks off a CTDB verify on a
-    worker thread; the verdict lands under the AccurateRip table on the GUI
-    thread. Fake client + stubbed sample probe → no network, no subprocess."""
+    """With the toggle on, a successful rip kicks off the CTDB verify on a
+    daemon thread (the lookup runs there, off the GUI thread). Fake client +
+    stubbed sample probe → no network, no subprocess."""
     window = teardown_threads(config=Config(ctdb_verify_after_rip=True))
-    # Not in CTDB → a deterministic verdict that needs no audio decode.
-    window._ctdb_client = _FakeCtdbClient(CtdbLookupResult())
+    client = _FakeCtdbClient(CtdbLookupResult())  # not in CTDB → no decode
+    window._ctdb_client = client
     # Stub the metaflac sample probe so building the TOC never shells out.
     monkeypatch.setattr("whipper_gui.ctdb.decode.total_samples", lambda _p: 1000)
 
@@ -2334,22 +2341,55 @@ def test_ctdb_verify_runs_off_thread_and_renders_verdict(
 
     window._on_rip_finished(True, str(log_file))
     assert window._ctdb_thread is not None  # verify started off-thread
+    window._ctdb_thread.join(timeout=10)
 
-    # Pump the GUI loop until the queued finished→handler clears the thread.
-    deadline = time.monotonic() + 8.0
-    while window._ctdb_thread is not None and time.monotonic() < deadline:
-        qapp.processEvents()
-        time.sleep(0.005)
+    # The lookup ran on the worker thread (the verdict is delivered to the GUI
+    # thread via the queued ctdb_verify_done signal; rendering is covered by
+    # test_on_ctdb_verified_renders_verdict, which drives the slot directly).
+    assert client.calls == 1
 
-    assert window._ctdb_thread is None  # finished + cleaned up
-    assert "database" in window._rip_progress._ctdb_label.text()
+
+def test_window_closes_during_ctdb_verify_without_blocking(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Closing the window mid-verify must not block or crash: the verify is a
+    daemon thread, so closeEvent neither joins it nor destroys a running
+    QThread (the §3.2 abort). Regression for the v0.2.7 close-safety bug."""
+    window = teardown_threads(config=Config(ctdb_verify_after_rip=True))
+    gate = threading.Event()
+    client = _FakeCtdbClient(
+        CtdbLookupResult(), gate=gate
+    )  # blocks in lookup() until released
+    window._ctdb_client = client
+    monkeypatch.setattr("whipper_gui.ctdb.decode.total_samples", lambda _p: 1000)
+
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    (album_dir / "01 - Track.flac").write_bytes(b"flac")
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    verify_thread = window._ctdb_thread
+    assert verify_thread is not None
+
+    # The verify is wedged in lookup(); closing must return promptly (had it
+    # joined the thread, this would hang until the 10s gate timeout).
+    from PySide6.QtGui import QCloseEvent
+
+    window.closeEvent(QCloseEvent())
+    assert verify_thread.is_alive()  # close didn't wait on the verify
+
+    gate.set()  # let the verify finish; daemon thread unwinds cleanly
+    verify_thread.join(timeout=10)
+    assert not verify_thread.is_alive()
 
 
 def test_on_ctdb_verified_renders_verdict(teardown_threads) -> None:
     window = teardown_threads()
     window._on_ctdb_verified(CtdbVerifyResult(Verdict.NO_MATCH))
     assert "no match" in window._rip_progress._ctdb_label.text()
-    assert window._ctdb_thread is None
 
 
 # --- Launch dependency check runs off the GUI thread (TASKS #11a) ----------
