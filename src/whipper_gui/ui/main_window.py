@@ -165,6 +165,11 @@ class MainWindow(
         # closeEvent. (DependencyMixin.run_dependency_check_async)
         self._dep_check_worker: object | None = None
         self._dep_check_thread: QThread | None = None
+        # The GUI-backed DependencyManager for the in-flight async check. Stashed
+        # so the finished handler can be a plain bound method (which Qt queues to
+        # the GUI thread) instead of a lambda (which Qt delivers DIRECTLY on the
+        # worker thread — building resolver dialogs there is a cross-thread bug).
+        self._dep_check_manager: object | None = None
         # Disc probe (disc_info enters the container + reads the disc — slow);
         # run off-thread per drive change so selecting a drive never freezes
         # the window. Joined in closeEvent.

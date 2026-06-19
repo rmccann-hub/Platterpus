@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Launch dependency check now applies its result on the GUI thread.** The
+  off-thread launch check connected its `finished` signal to a lambda, which Qt
+  delivers as a direct connection — so the result handler (which builds the
+  "install this dependency" resolver dialogs) ran on the *worker* thread,
+  creating widgets off the GUI thread (a real crash risk; Qt logged
+  "QObject::setParent: … in a different thread"). It now connects a bound method,
+  which Qt queues to the GUI thread. Found by a headless smoke-run of the real
+  startup path.
+
 ### Added
 - **`output_reference/` — EAC parity baselines + checker (contributor-facing).** A
   home for reference rip outputs used to prove bit-perfect parity against Exact
