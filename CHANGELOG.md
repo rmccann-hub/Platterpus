@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`output_reference/` — EAC parity baselines (contributor-facing).** A home for
+  reference rip outputs used to prove bit-perfect parity against Exact Audio
+  Copy. The EAC baseline (extraction **log + cue** for the Police test disc) is
+  committed under `EAC_flac/`; `whipper_flac/` and `cyanrip_flac/` are populated
+  **only** once a backend's per-track Copy CRCs match EAC's, as proof. Policy
+  documented in `output_reference/README.md`: comparisons are CRC/log-based, and
+  **no commercial audio is committed** (public repo + copyright + bloat) — the
+  CRCs in the logs already prove bit-perfection.
+
 ## [0.2.8] — 2026-06-18
 
 ### Fixed

@@ -109,7 +109,7 @@ land under your output folder, tagged, with embedded cover art. Open the saved
 ### A7 — [ ] EAC output-parity check  ⭐ (the headline)
 If you have an EAC log for this exact disc + drive (we have one for *The Police —
 Every Breath You Take: The Classics* on a BDR-209D at
-`tests/fixtures/eac_baseline_police_classics.log`), compare. See **Part B** for
+`output_reference/EAC_flac/eac_baseline_police_classics.log`), compare. See **Part B** for
 the full procedure, the per-track CRC baseline, and what "exact" means.
 
 ### A8 — [ ] cyanrip backend rip
@@ -145,7 +145,7 @@ deeper no-terminal uninstaller verification, see **Test 9**.)
 The product goal is a rip whose **audio is bit-identical to EAC's**, provable by
 matching CRCs. UI differences don't matter; the bytes do.
 
-**What must match the EAC baseline (`tests/fixtures/eac_baseline_police_classics.log`):**
+**What must match the EAC baseline (`output_reference/EAC_flac/eac_baseline_police_classics.log`):**
 
 | Field | EAC baseline | Where ours shows it |
 |---|---|---|
