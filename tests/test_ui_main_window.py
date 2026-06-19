@@ -2399,8 +2399,14 @@ def test_run_dependency_check_async_probes_off_thread_and_applies(
     teardown_threads, qapp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The launch-time dependency check probes on a worker thread, then
-    applies the report on the GUI thread (show_summary=False). Proves the
-    worker→GUI-thread-apply wiring + cleanup, without freezing the window."""
+    applies the report ON THE GUI THREAD (show_summary=False). Proves the
+    worker→GUI-thread-apply wiring + cleanup, without freezing the window.
+
+    The GUI-thread assertion is a regression guard: the finished signal was
+    once connected to a lambda, which Qt delivered as a DirectConnection — so
+    the report (which builds resolver dialogs) was applied on the *worker*
+    thread. Connecting a bound method instead queues it to the GUI thread.
+    """
     # First-run offers marked done so the processEvents poll below can't fire
     # a deferred _maybe_offer_* singleShot into a modal dialog (blocks headless).
     window = teardown_threads(
@@ -2411,11 +2417,15 @@ def test_run_dependency_check_async_probes_off_thread_and_applies(
         )
     )
     applied: list[bool] = []
-    monkeypatch.setattr(
-        window,
-        "_apply_dependency_report",
-        lambda _mgr, _report, show_summary: applied.append(show_summary),
-    )
+    applied_on_main_thread: list[bool] = []
+
+    def fake_apply(_mgr, _report, show_summary: bool) -> None:
+        applied.append(show_summary)
+        applied_on_main_thread.append(
+            threading.current_thread() is threading.main_thread()
+        )
+
+    monkeypatch.setattr(window, "_apply_dependency_report", fake_apply)
 
     window.run_dependency_check_async()
     assert window._dep_check_thread is not None  # a worker thread was started
@@ -2427,6 +2437,7 @@ def test_run_dependency_check_async_probes_off_thread_and_applies(
 
     assert applied, "async dependency check never applied its report"
     assert applied[0] is False  # launch path never forces the summary popup
+    assert applied_on_main_thread == [True]  # applied on the GUI thread, not worker
     assert window._dep_check_thread is None  # cleaned up after finishing
 
 

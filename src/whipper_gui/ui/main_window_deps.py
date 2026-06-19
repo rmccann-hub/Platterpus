@@ -134,21 +134,33 @@ class DependencyMixin:
         from whipper_gui.workers.dependency_worker import DependencyCheckWorker
 
         gui_manager = self._build_gui_dependency_manager()
+        # Stash the manager so `finished` can connect to a BOUND METHOD rather
+        # than a lambda. This matters for correctness, not just style: a lambda
+        # has no QObject context, so Qt connects it as a DirectConnection and
+        # runs it on the *worker* thread when `finished` is emitted there — and
+        # the handler builds resolver dialogs / touches widgets, which must
+        # happen on the GUI thread. A bound method of this window (a GUI-thread
+        # QObject) is delivered as a queued connection, on the GUI thread.
+        self._dep_check_manager = gui_manager
         self._dep_check_worker = DependencyCheckWorker(gui_manager)
         self._dep_check_thread = QThread(self)
         self._dep_check_worker.moveToThread(self._dep_check_thread)
-        self._dep_check_worker.finished.connect(
-            lambda report: self._on_dependency_check_done(gui_manager, report)
-        )
+        self._dep_check_worker.finished.connect(self._on_dependency_check_done)
         self._dep_check_worker.finished.connect(self._dep_check_thread.quit)
         self._dep_check_thread.finished.connect(self._dep_check_thread.deleteLater)
         self._dep_check_thread.started.connect(self._dep_check_worker.run)
         self._dep_check_thread.start()
 
-    def _on_dependency_check_done(self, gui_manager: object, report: object) -> None:
-        """Worker finished probing — apply the report on the GUI thread."""
+    def _on_dependency_check_done(self, report: object) -> None:
+        """Worker finished probing — apply the report on the GUI thread.
+
+        Runs on the GUI thread (queued from the worker's `finished` signal),
+        so it's safe to build resolver dialogs here.
+        """
+        gui_manager = self._dep_check_manager
         self._dep_check_worker = None
         self._dep_check_thread = None
+        self._dep_check_manager = None
         # Launch path never forces the "all good" popup (silent unless action
         # is needed); resolver dialogs still surface for genuinely-missing deps.
         self._apply_dependency_report(gui_manager, report, show_summary=False)
