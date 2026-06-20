@@ -22,6 +22,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   startup path.
 
 ### Added
+- **App startup smoke test (contributor-facing).** `tests/test_app_smoke.py`
+  runs the real `app.main()` entry point headless (offscreen Qt, hermetic — a
+  fresh empty config with the subprocess probes + drive listing stubbed) and
+  asserts the app composes and comes up (menus + widgets present, clean exit)
+  and that the launch dependency check applies its result **on the GUI thread**
+  with no cross-thread Qt warnings. This is what would have caught the
+  off-thread-apply bug above automatically; nothing previously exercised the
+  real entry point.
 - **`output_reference/` — EAC parity baselines + checker (contributor-facing).** A
   home for reference rip outputs used to prove bit-perfect parity against Exact
   Audio Copy, laid out as a backend × format matrix (EAC / whipper / cyanrip ×
