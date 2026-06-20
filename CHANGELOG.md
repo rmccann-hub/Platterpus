@@ -29,6 +29,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   startup path.
 
 ### Added
+- **Documentation-currency enforcement (contributor-facing).** `CLAUDE.md` gained
+  Critical Rule #7 ("Documentation currency is part of Done") as the always-loaded
+  anchor that daisy-chains to the rest; `docs/testing.md §6` Definition of Done
+  gained the matching CHANGELOG + session-log/graduation checklist items; and CI
+  gained a `changelog` job that fails a push/PR carrying no `CHANGELOG.md` entry
+  (opt out with `[skip changelog]` for pure historical-record commits). Keeps the
+  project's record from drifting behind the code.
 - **App startup smoke test (contributor-facing).** `tests/test_app_smoke.py`
   runs the real `app.main()` entry point headless (offscreen Qt, hermetic — a
   fresh empty config with the subprocess probes + drive listing stubbed) and

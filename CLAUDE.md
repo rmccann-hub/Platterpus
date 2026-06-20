@@ -47,6 +47,13 @@ The GUI runs on the host. It calls the existing host-exported `~/.local/bin/whip
 
 6. **Dependency self-management is one subsystem, not scattered checks.** All "is this dependency present and the right version" logic lives in a single module with the three-tier resolution strategy (auto-install → queued install → copyable search string). New dependencies route through it; no ad-hoc availability checks elsewhere in the codebase.
 
+7. **Documentation currency is part of "Done."** A change isn't finished when the tests are green — it's finished when the *record* matches the code. This rule is the always-loaded anchor; it **daisy-chains** to the rest, so the one file guaranteed to be read every session pulls the others in. Three obligations, in order:
+   - **In the same commit as the change:** add the `CHANGELOG.md` `[Unreleased]` bullet (mechanics under *Project operations → Single record of changes*; CI backstops this). Pure historical-record commits (e.g. a session-log catch-up) are exempt and mark themselves with a `[skip changelog]` line of its own in the commit message.
+   - **Before ending a session:** append a `docs/session-log.md` entry (newest-first) — what was built, decided, learned.
+   - **Graduate every durable lesson to its real home** — a Critical rule or Code convention *here*, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — so the rule lives where it's read and the log keeps only the dated entry. A lesson left *only* in the log is not graduated.
+
+   The full code-and-docs checklist is the **Definition of Done in `docs/testing.md §6`**. Same bite as the regression-test rule: institutional, non-negotiable.
+
 ## Deviation policy
 
 When in doubt during any session, stop and ask the user before doing the following:
