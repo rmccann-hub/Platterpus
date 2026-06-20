@@ -378,6 +378,12 @@ the design:
 - Follow [SemVer](https://semver.org/) and
   [Keep a Changelog](https://keepachangelog.com/) (newest first, an
   `Unreleased` section on top).
+- **Keeping the record current is enforced, not optional.** The CHANGELOG
+  bullet (same commit), the `session-log.md` entry (session end), and
+  lesson-graduation are mandated by `CLAUDE.md` Critical Rule #7, with the
+  checklist in [testing.md §6](testing.md) and a CI `changelog` job as the
+  mechanical backstop. The design + rationale is **KDD-20** in
+  [PLANNING.md](../PLANNING.md).
 
 ## 7. Security & licensing hygiene
 
