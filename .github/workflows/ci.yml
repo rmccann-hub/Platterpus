@@ -33,6 +33,58 @@ jobs:
       - name: Format check (ruff format --check)
         run: ruff format --check src tests
 
+  # Mechanical backstop for CLAUDE.md Critical Rule #7 ("Documentation currency
+  # is part of Done"): fail a push/PR that lands with no CHANGELOG.md entry. The
+  # real behaviour-changer is the always-loaded rule itself; this just catches a
+  # slip. A pure historical-record commit (e.g. a docs/session-log catch-up that
+  # legitimately has nothing user-facing to log) opts out with a "[skip changelog]"
+  # line of its own in a commit message (or the marker in the PR title). Fast and
+  # dependency-light.
+  changelog:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need the range's history to diff + read messages
+
+      - name: Require a CHANGELOG entry (or an explicit opt-out)
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            base="$PR_BASE"; head="$PR_HEAD"; title="$PR_TITLE"
+          else
+            base="$PUSH_BEFORE"; head="$GITHUB_SHA"; title=""
+          fi
+          # No real base to diff against (new ref / all-zero sha) → nothing to check.
+          if printf '%s' "$base" | grep -qE '^0+$'; then
+            echo "New ref with no base commit; skipping CHANGELOG check."
+            exit 0
+          fi
+          # Opt-out: "[skip changelog]" in the PR title or ANY commit in the range.
+          if printf '%s' "$title" | grep -qiF '[skip changelog]'; then
+            echo "Opt-out via PR title; skipping."; exit 0
+          fi
+          # Match the marker only as its own (optionally indented) line, never a
+          # prose mention — otherwise a commit that *documents* the marker opts
+          # itself out. The marker is a deliberate standalone line.
+          if git log --format='%B' "$base..$head" \
+              | grep -qiE '^[[:space:]]*\[skip changelog\][[:space:]]*$'; then
+            echo "Opt-out via commit message; skipping."; exit 0
+          fi
+          # The check: was CHANGELOG.md touched anywhere in the range?
+          if git diff --name-only "$base" "$head" | grep -qx 'CHANGELOG.md'; then
+            echo "CHANGELOG.md updated. ✅"
+          else
+            echo "::error::No CHANGELOG.md entry for this change. Add a bullet to the [Unreleased] section in the same commit (CLAUDE.md Critical Rule #7), or put a '[skip changelog]' line of its own in the commit message for a pure historical-record commit."
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-22.04
     strategy:
