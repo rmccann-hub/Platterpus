@@ -201,7 +201,8 @@ class ProvisioningMixin:
         package it) and exports it, so switching backends never needs a
         terminal.
         """
-        from whipper_gui.deps.host_setup import HostSetup, SubprocessRunner
+        from whipper_gui.deps.host_setup import HostSetup
+        from whipper_gui.deps.step_engine import SubprocessRunner
 
         return HostSetup(
             runner=SubprocessRunner(),

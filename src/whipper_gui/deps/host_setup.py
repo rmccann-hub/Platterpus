@@ -23,13 +23,15 @@ sanctions doing from the GUI.
 from __future__ import annotations
 
 import logging
-import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
-from typing import Protocol
 
+from whipper_gui.deps.step_engine import (
+    CommandRunner,
+    StepResult,
+    StepStatus,
+)
 from whipper_gui.paths import CYANRIP_BINARY_DEFAULT, WHIPPER_BINARY_DEFAULT
 
 log = logging.getLogger(__name__)
@@ -68,79 +70,9 @@ skip_if_unavailable=True
 enabled=1
 """
 
-# Generous timeout: a `dnf install` inside a fresh container or an image pull
-# can legitimately take minutes.
-_STEP_TIMEOUT_S: float = 1800.0
-
-
-class StepStatus(Enum):
-    """Outcome of one bootstrap step."""
-
-    RUNNING = "running"  # step is executing now (transient, for live progress)
-    DONE = "done"  # already satisfied — nothing to do
-    RAN = "ran"  # action ran successfully
-    FAILED = "failed"  # action ran and failed (stops the pipeline)
-    WOULD_RUN = "would_run"  # dry-run: this is what *would* happen
-    CANCELLED = "cancelled"  # user cancelled before this step
-
-
-@dataclass(frozen=True)
-class StepResult:
-    """Result of attempting one step, for progress display + the final report."""
-
-    step_id: str
-    title: str
-    status: StepStatus
-    detail: str = ""
-
-    @property
-    def ok(self) -> bool:
-        return self.status in (StepStatus.DONE, StepStatus.RAN, StepStatus.WOULD_RUN)
-
-
-class CommandRunner(Protocol):
-    """The host operations the bootstrap needs. Injected so it's testable."""
-
-    def which(self, name: str) -> bool:
-        """True if `name` is an executable on PATH."""
-        ...
-
-    def exists(self, path: Path) -> bool:
-        """True if `path` exists on the host filesystem."""
-        ...
-
-    def run(self, argv: list[str]) -> tuple[int, str]:
-        """Run `argv`; return (returncode, combined stdout+stderr)."""
-        ...
-
-
-class SubprocessRunner:
-    """Real :class:`CommandRunner` backed by subprocess (production)."""
-
-    def which(self, name: str) -> bool:
-        import shutil
-
-        return shutil.which(name) is not None
-
-    def exists(self, path: Path) -> bool:
-        return path.exists()
-
-    def run(self, argv: list[str]) -> tuple[int, str]:
-        log.info("host-setup: %s", " ".join(argv))
-        try:
-            proc = subprocess.run(
-                argv,
-                capture_output=True,
-                text=True,
-                timeout=_STEP_TIMEOUT_S,
-                stdin=subprocess.DEVNULL,  # never consume a parent stdin
-            )
-        except FileNotFoundError as exc:
-            return 127, f"command not found: {argv[0]} ({exc})"
-        except subprocess.TimeoutExpired:
-            return 124, f"timed out after {_STEP_TIMEOUT_S:.0f}s: {' '.join(argv)}"
-        return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
-
+# The step-engine vocabulary (StepStatus / StepResult / CommandRunner /
+# SubprocessRunner) lives in deps/step_engine.py, shared with host_teardown.py;
+# it is imported above for this module's own use.
 
 # --- Distro detection -------------------------------------------------------
 

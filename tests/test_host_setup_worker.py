@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.deps.host_setup import StepResult, StepStatus
+from whipper_gui.deps.step_engine import StepResult, StepStatus
 from whipper_gui.workers.host_setup_worker import HostSetupWorker
 
 

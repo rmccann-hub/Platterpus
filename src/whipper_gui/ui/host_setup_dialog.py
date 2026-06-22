@@ -27,11 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from whipper_gui.deps.host_setup import (
-    HostSetup,
-    StepResult,
-    StepStatus,
-)
+from whipper_gui.deps.host_setup import HostSetup
+from whipper_gui.deps.step_engine import StepResult, StepStatus
 from whipper_gui.workers.host_setup_worker import HostSetupWorker
 
 log = logging.getLogger(__name__)
@@ -61,7 +58,7 @@ class HostSetupDialog(QDialog):
         one (a SubprocessRunner-backed bootstrap)."""
         super().__init__(parent)
         if host_setup is None:
-            from whipper_gui.deps.host_setup import SubprocessRunner
+            from whipper_gui.deps.step_engine import SubprocessRunner
 
             host_setup = HostSetup(runner=SubprocessRunner())
         self._host: HostSetup = host_setup

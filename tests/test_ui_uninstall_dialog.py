@@ -10,7 +10,7 @@ from __future__ import annotations
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from whipper_gui.deps.host_setup import StepResult, StepStatus
+from whipper_gui.deps.step_engine import StepResult, StepStatus
 from whipper_gui.ui.uninstall_dialog import UninstallDialog
 
 

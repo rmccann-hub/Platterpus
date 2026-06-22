@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whipper_gui.deps.host_setup import StepStatus
 from whipper_gui.deps.host_teardown import HostTeardown
+from whipper_gui.deps.step_engine import StepStatus
 
 
 class _FakeRunner:

@@ -21,27 +21,12 @@ a half-done package install) is worse.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import Protocol
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from whipper_gui.deps.host_setup import StepResult
+from whipper_gui.deps.step_engine import StepEngine
 
 log = logging.getLogger(__name__)
-
-
-class StepEngine(Protocol):
-    """Anything with HostSetup's run() shape. Both the setup engine
-    (deps/host_setup.HostSetup) and the uninstaller's engine
-    (deps/host_teardown.HostTeardown) qualify, so one worker drives both."""
-
-    def run(
-        self,
-        progress: Callable[[StepResult], None] | None = None,
-        dry_run: bool = False,
-        cancelled: Callable[[], bool] | None = None,
-    ) -> list[StepResult]: ...
 
 
 class HostSetupWorker(QObject):

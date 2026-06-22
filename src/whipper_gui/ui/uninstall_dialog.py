@@ -31,8 +31,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from whipper_gui.deps.host_setup import StepResult, StepStatus
 from whipper_gui.deps.host_teardown import HostTeardown
+from whipper_gui.deps.step_engine import StepResult, StepStatus
 from whipper_gui.workers.host_setup_worker import HostSetupWorker
 
 log = logging.getLogger(__name__)
@@ -228,7 +228,7 @@ def _default_build_teardown(
 ) -> HostTeardown:
     """Production teardown: real runner + the running AppImage (if any)."""
     from whipper_gui.appimage_integration import appimage_path
-    from whipper_gui.deps.host_setup import SubprocessRunner
+    from whipper_gui.deps.step_engine import SubprocessRunner
 
     return HostTeardown(
         runner=SubprocessRunner(),
