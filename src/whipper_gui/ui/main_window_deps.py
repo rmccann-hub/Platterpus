@@ -131,6 +131,7 @@ class DependencyMixin:
         """
         if self._dep_check_thread is not None:  # a check is already running
             return
+        from whipper_gui.workers import start_worker_thread
         from whipper_gui.workers.dependency_worker import DependencyCheckWorker
 
         gui_manager = self._build_gui_dependency_manager()
@@ -144,12 +145,10 @@ class DependencyMixin:
         self._dep_check_manager = gui_manager
         self._dep_check_worker = DependencyCheckWorker(gui_manager)
         self._dep_check_thread = QThread(self)
-        self._dep_check_worker.moveToThread(self._dep_check_thread)
         self._dep_check_worker.finished.connect(self._on_dependency_check_done)
-        self._dep_check_worker.finished.connect(self._dep_check_thread.quit)
-        self._dep_check_thread.finished.connect(self._dep_check_thread.deleteLater)
-        self._dep_check_thread.started.connect(self._dep_check_worker.run)
-        self._dep_check_thread.start()
+        start_worker_thread(
+            self._dep_check_worker, self._dep_check_thread, self._dep_check_worker.run
+        )
 
     def _on_dependency_check_done(self, report: object) -> None:
         """Worker finished probing — apply the report on the GUI thread.

@@ -7,3 +7,43 @@ back to the GUI thread automatically as queued connections.
 The workers are deliberately small — they're glue, not logic. All
 parsing and subprocess handling lives in `adapters/` and `parsers/`.
 """
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
+
+from PySide6.QtCore import QObject, QThread, SignalInstance
+
+
+def start_worker_thread(
+    worker: QObject,
+    thread: QThread,
+    on_started: Callable[[], None],
+    *,
+    also_quit_on: Iterable[SignalInstance] = (),
+) -> None:
+    """Move `worker` onto `thread` and wire the standard one-shot lifecycle.
+
+    Every off-thread worker here tore down the same way by hand: the worker's
+    `finished` signal quits the thread, the thread's `finished` schedules its own
+    `deleteLater`, and the work begins via `on_started` when the thread spins up.
+    This wires exactly that and starts the thread, so the lifecycle contract
+    lives in one place instead of being copied at every call site.
+
+    Callers create `worker` and `thread` themselves — so a test that patches the
+    module's `QThread` (or the worker class) still intercepts — and connect their
+    own result/progress/status slots BEFORE calling this. Those handlers are
+    connected first, so they run before the thread quits. `also_quit_on` lists
+    any *extra* worker signals that should also stop the thread (e.g. a separate
+    `failed` signal on workers that report success and failure distinctly).
+
+    This intentionally does NOT cover the persistent MusicBrainz worker (which
+    lives for the window's lifetime and is never torn down per-call).
+    """
+    worker.moveToThread(thread)
+    worker.finished.connect(thread.quit)  # type: ignore[attr-defined]
+    for signal in also_quit_on:
+        signal.connect(thread.quit)
+    thread.finished.connect(thread.deleteLater)
+    thread.started.connect(on_started)
+    thread.start()

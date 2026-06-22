@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from whipper_gui.adapters.whipper_backend import WhipperBackend
+from whipper_gui.workers import start_worker_thread
 from whipper_gui.workers.drive_setup_worker import (
     DriveSetupResult,
     DriveSetupWorker,
@@ -193,13 +194,9 @@ class DriveSetupDialog(QDialog):
 
         self._worker = DriveSetupWorker(self._backend, self._device)
         self._thread = QThread(self)
-        self._worker.moveToThread(self._thread)
         self._worker.status.connect(self._status_label.setText)
         self._worker.finished.connect(self._on_finished)
-        self._worker.finished.connect(self._thread.quit)
-        self._thread.finished.connect(self._thread.deleteLater)
-        self._thread.started.connect(self._worker.run)
-        self._thread.start()
+        start_worker_thread(self._worker, self._thread, self._worker.run)
 
     def _on_finished(self, result: DriveSetupResult) -> None:
         """Render the calibration outcome. Safe to call directly in tests."""
