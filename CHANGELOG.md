@@ -12,6 +12,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **`--doctor` no longer crashes when the ripper backend is unreachable.** When
+  the backend probe failed (e.g. whipper not installed) and no diagnostic host
+  was injected — the normal command-line path — the failure-diagnosis code built
+  a `HostSetup()` without its required `runner`, raising an uncaught `TypeError`
+  that aborted the doctor with a traceback. Ironically this happened exactly when
+  the backend wasn't set up, which is the case the doctor exists to diagnose. It
+  now constructs `HostSetup(runner=SubprocessRunner())`, so the broken link in
+  the host→container→backend chain is named in a clean FAIL report. Regression
+  test added (the previously-untested `host=None` production path).
 - **Cancel now reliably stops a rip even in the startup window.** If you hit
   Cancel in the brief moment while the rip subprocess was still being spawned,
   the cancel only set a flag — the subprocess wasn't stopped, so the worker
