@@ -22,7 +22,6 @@ import argparse
 import logging
 import sys
 import traceback
-from pathlib import Path
 
 from whipper_gui import __version__
 
@@ -165,59 +164,26 @@ def main(argv: list[str] | None = None) -> int:
     # whole bring-up so the user gets a dialog they can screenshot instead
     # of a window that flashes and disappears with nothing to report.
     try:
-        # Adapter layer. Per CLAUDE.md Critical Rule #1, every external
-        # tool is reached through an adapter constructed exactly once here.
+        # Adapter layer. Per CLAUDE.md Critical Rule #1, every external tool is
+        # reached through an adapter constructed exactly once here. The backend
+        # choice (config-selectable per KDD-18: whipper default | cyanrip) and
+        # the MusicBrainz client are built via the shared composition root so the
+        # GUI and `--doctor` can never wire the adapters differently.
+        from whipper_gui import composition
+        from whipper_gui.adapters.ctdb_client import CtdbHttpImpl
         from whipper_gui.adapters.metaflac import MetaflacAdapter
-        from whipper_gui.adapters.musicbrainz_client import MusicBrainzNgsImpl
-        from whipper_gui.adapters.whipper_backend import (
-            WhipperBackend,
-            WhipperHostExportedImpl,
-        )
+        from whipper_gui.deps.manager import DependencyManager
+        from whipper_gui.ui.main_window import MainWindow
 
-        # Ripping backend is config-selectable (KDD-18): whipper (default) or
-        # cyanrip. Both implement the same ABC, so the rest of the app is
-        # backend-agnostic.
-        backend: WhipperBackend
-        if cfg.ripper_backend == "cyanrip":
-            from whipper_gui.adapters.cyanrip_backend import CyanripImpl
-            from whipper_gui.paths import CYANRIP_BINARY_DEFAULT
-
-            # Prefer the host-exported absolute path: a desktop-launched GUI
-            # has a minimal PATH that may not include ~/.local/bin (same
-            # lesson as drive_control's absolute-path resolution). Fall back
-            # to a PATH lookup for users with a native cyanrip install.
-            cyanrip_binary: Path | str = (
-                CYANRIP_BINARY_DEFAULT if CYANRIP_BINARY_DEFAULT.exists() else "cyanrip"
-            )
-            backend = CyanripImpl(
-                binary_path=cyanrip_binary,
-                working_dir=Path(cfg.working_dir) if cfg.working_dir else None,
-            )
-            log.info("using cyanrip backend (%s)", cyanrip_binary)
-        else:
-            backend = WhipperHostExportedImpl(
-                binary_path=Path(cfg.whipper_path),
-                working_dir=Path(cfg.working_dir) if cfg.working_dir else None,
-            )
-        mb_client = MusicBrainzNgsImpl(
-            app="whipper-gui",
-            version=__version__,
-            contact=("https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip"),
-        )
+        backend, _backend_name = composition.build_backend(cfg)
+        mb_client = composition.build_musicbrainz_client()
         metaflac = MetaflacAdapter(binary_name=cfg.metaflac_path)
 
-        # CTDB lookup transport (KDD-14 Phase 1). Constructed here in the
-        # composition root and injected; only used when the user enables
-        # "Verify with CTDB after a rip".
-        from whipper_gui.adapters.ctdb_client import CtdbHttpImpl
-
+        # CTDB lookup transport (KDD-14 Phase 1) — only used when the user
+        # enables "Verify with CTDB after a rip".
         ctdb_client = CtdbHttpImpl()
 
-        from whipper_gui.deps.manager import DependencyManager
-
         dependency_manager = DependencyManager()
-
-        from whipper_gui.ui.main_window import MainWindow
 
         window = MainWindow(
             config=cfg,

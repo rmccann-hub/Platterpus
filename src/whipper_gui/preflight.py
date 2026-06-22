@@ -37,29 +37,22 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from whipper_gui import __version__
+from whipper_gui import composition
 from whipper_gui import config as config_module
 from whipper_gui.adapters.ctdb_client import CTDBClient, CtdbHttpImpl, CtdbLookupError
 from whipper_gui.adapters.musicbrainz_client import (
     MusicBrainzClient,
-    MusicBrainzNgsImpl,
     MusicBrainzQueryError,
 )
 from whipper_gui.adapters.whipper_backend import (
     WhipperBackend,
     WhipperError,
-    WhipperHostExportedImpl,
 )
 from whipper_gui.config import Config
 from whipper_gui.ctdb.toc import DiscToc
 from whipper_gui.deps.manager import DependencyManager
 from whipper_gui.drive_access import SEVERITY_OK, diagnose_drive_access
 from whipper_gui.offset_config import WhipperConfOffset, read_drive_offsets
-from whipper_gui.paths import CYANRIP_BINARY_DEFAULT
-
-# Project URL used as the MusicBrainz user-agent contact (MB policy wants a
-# reachable human/URL) and the CTDB client's default. Matches app.py.
-_CONTACT_URL = "https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip"
 
 # A well-formed MusicBrainz disc id used only to prove the server answers. We
 # don't care whether it matches anything: a 404 ("not in DB") still means MB
@@ -138,33 +131,16 @@ class PreflightContext:
 def default_context(cfg: Config | None = None) -> PreflightContext:
     """Build the real adapters exactly as app.py does, for a live run.
 
+    Both this and app.py go through the shared composition root
+    (`whipper_gui.composition`) for the backend + MusicBrainz client, so the
+    `--doctor` diagnostic probes exactly what the GUI would construct.
     Construction does no I/O (no network, no subprocess), so this is safe to
     call before any check runs. `cfg` is injectable so tests don't touch the
     real config file.
     """
     cfg = cfg if cfg is not None else config_module.load()
-    working_dir = Path(cfg.working_dir) if cfg.working_dir else None
-
-    backend: WhipperBackend
-    if cfg.ripper_backend == "cyanrip":
-        from whipper_gui.adapters.cyanrip_backend import CyanripImpl
-
-        # Prefer the host-exported absolute path; a desktop-launched process
-        # has a minimal PATH (same lesson as app.py / drive_control).
-        cyanrip_binary: Path | str = (
-            CYANRIP_BINARY_DEFAULT if CYANRIP_BINARY_DEFAULT.exists() else "cyanrip"
-        )
-        backend = CyanripImpl(binary_path=cyanrip_binary, working_dir=working_dir)
-        backend_name = "cyanrip"
-    else:
-        backend = WhipperHostExportedImpl(
-            binary_path=Path(cfg.whipper_path), working_dir=working_dir
-        )
-        backend_name = "whipper"
-
-    mb_client = MusicBrainzNgsImpl(
-        app="whipper-gui", version=__version__, contact=_CONTACT_URL
-    )
+    backend, backend_name = composition.build_backend(cfg)
+    mb_client = composition.build_musicbrainz_client()
     ctdb_client = CtdbHttpImpl()
     dependency_manager = DependencyManager()
 
