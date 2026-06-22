@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote
@@ -27,29 +28,58 @@ from whipper_gui.paths import WHIPPER_CONFIG_PATH
 
 log = logging.getLogger(__name__)
 
-# A `read_offset = <signed int>` assignment that isn't commented out. whipper
-# writes it under a `[drive:...]` section; we only care that one exists.
-_OFFSET_LINE = re.compile(r"^\s*read_offset\s*=\s*-?\d+\s*$")
-
-# A section header `[name]` and a `read_offset = N` key=value, for the
-# per-drive parse below. whipper keys each drive section as
+# A section header `[name]` and a `read_offset = N` key=value. whipper writes
+# the offset under a `[drive:...]` section, keying each drive as
 # `[drive:<vendor%20model%20…>]` (the id is URL-quoted), so we decode it for
-# display.
+# display. One scanner (`_iter_conf_offsets`) feeds both the "is any offset
+# set?" check and the per-drive read-out below — see the note there.
 _SECTION_RE = re.compile(r"^\s*\[(?P<name>[^\]]+)\]\s*$")
 _OFFSET_KV = re.compile(r"^\s*read_offset\s*=\s*(?P<val>-?\d+)\s*$")
 _DRIVE_PREFIX = "drive:"
 
 
-def whipper_conf_has_offset(conf_path: Path = WHIPPER_CONFIG_PATH) -> bool:
-    """True if whipper.conf exists and assigns a read_offset for some drive."""
+def _read_conf_text(conf_path: Path) -> str | None:
+    """Read whipper.conf as UTF-8, or None if it's missing/unreadable.
+
+    The single read-or-give-up step both parses below share, so the
+    "missing file vs unreadable file (logged)" handling lives in one place.
+    A missing file is a normal first-run state (silent None); an unreadable
+    one is worth a log line.
+    """
     try:
-        text = conf_path.read_text(encoding="utf-8")
+        return conf_path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        return False
+        return None
     except OSError as exc:  # unreadable file — treat as "not configured"
         log.warning("could not read %s: %s", conf_path, exc)
+        return None
+
+
+def _iter_conf_offsets(text: str) -> Iterator[tuple[str | None, int]]:
+    """Yield ``(section_name, offset_value)`` for every read_offset assignment.
+
+    `section_name` is the most recent `[section]` header (None before any).
+    This is the ONE place that walks whipper.conf for offsets; the two public
+    functions differ only in how they *filter* what it yields — neither
+    re-implements the scan, so they can't drift apart.
+    """
+    current_section: str | None = None
+    for line in text.splitlines():
+        section = _SECTION_RE.match(line)
+        if section:
+            current_section = section.group("name")
+            continue
+        kv = _OFFSET_KV.match(line)
+        if kv:
+            yield current_section, int(kv.group("val"))
+
+
+def whipper_conf_has_offset(conf_path: Path = WHIPPER_CONFIG_PATH) -> bool:
+    """True if whipper.conf exists and assigns a read_offset for some drive."""
+    text = _read_conf_text(conf_path)
+    if text is None:
         return False
-    return any(_OFFSET_LINE.match(line) for line in text.splitlines())
+    return any(True for _section, _value in _iter_conf_offsets(text))
 
 
 def is_offset_configured(
@@ -88,28 +118,17 @@ def read_drive_offsets(
     from what the GUI thinks. **Never raises** — a missing/unreadable/malformed
     file just yields `[]`, like the other config probes here.
     """
-    try:
-        text = conf_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    text = _read_conf_text(conf_path)
+    if text is None:
         return []
-    except OSError as exc:
-        log.warning("could not read %s: %s", conf_path, exc)
-        return []
-
     offsets: list[WhipperConfOffset] = []
-    current_section: str | None = None
-    for line in text.splitlines():
-        section = _SECTION_RE.match(line)
-        if section:
-            current_section = section.group("name")
-            continue
-        kv = _OFFSET_KV.match(line)
-        if kv and current_section and current_section.startswith(_DRIVE_PREFIX):
-            raw_id = current_section[len(_DRIVE_PREFIX) :]
+    for section, value in _iter_conf_offsets(text):
+        if section and section.startswith(_DRIVE_PREFIX):
+            raw_id = section[len(_DRIVE_PREFIX) :]
             offsets.append(
                 WhipperConfOffset(
                     drive=unquote(raw_id).strip() or raw_id,
-                    offset=int(kv.group("val")),
+                    offset=value,
                 )
             )
     return offsets

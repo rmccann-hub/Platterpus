@@ -60,6 +60,20 @@ def test_has_offset_false_when_file_missing(tmp_path: Path) -> None:
     assert whipper_conf_has_offset(tmp_path / "nope.conf") is False
 
 
+def test_has_offset_vs_read_drive_offsets_differ_on_non_drive_section(
+    tmp_path: Path,
+) -> None:
+    # Characterization (pins a deliberate difference): both functions now share
+    # one section scanner, but they FILTER it differently. `whipper_conf_has_offset`
+    # answers "is an offset assigned anywhere?" and so reports one under a
+    # non-`[drive:...]` section; `read_drive_offsets` only collects per-drive
+    # offsets and ignores it. This test locks that distinction so the shared
+    # scanner can't quietly collapse the two semantics.
+    conf = _write(tmp_path, "[main]\nread_offset = 99\n")
+    assert whipper_conf_has_offset(conf) is True
+    assert read_drive_offsets(conf) == []
+
+
 def test_is_configured_true_when_override_on(tmp_path: Path) -> None:
     # Override short-circuits — whipper.conf is irrelevant.
     assert is_offset_configured(True, tmp_path / "missing.conf") is True
