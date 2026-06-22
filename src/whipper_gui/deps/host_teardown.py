@@ -33,10 +33,12 @@ from pathlib import Path
 from whipper_gui import appimage_integration
 from whipper_gui.deps.host_setup import (
     DEFAULT_CONTAINER,
+    _last_meaningful_line,
+)
+from whipper_gui.deps.step_engine import (
     CommandRunner,
     StepResult,
     StepStatus,
-    _last_meaningful_line,
 )
 from whipper_gui.paths import (
     CONFIG_DIR,

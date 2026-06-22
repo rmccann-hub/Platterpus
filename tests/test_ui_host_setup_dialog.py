@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.deps.host_setup import StepResult, StepStatus
+from whipper_gui.deps.step_engine import StepResult, StepStatus
 from whipper_gui.ui.host_setup_dialog import HostSetupDialog
 
 
