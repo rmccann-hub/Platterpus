@@ -112,6 +112,30 @@ class _FakeResp:
         return False
 
 
+class _FakeHost:
+    """A HostSetup stand-in for the routing drilldown; everything present by
+    default, flip a flag to simulate a broken link."""
+
+    container = "ripping"
+
+    def __init__(self, **flags):
+        self._flags = {
+            "distrobox_present": True,
+            "backend_present": True,
+            "container_exists": True,
+            "whipper_in_container": True,
+            "whipper_exported": True,
+            "cyanrip_in_container": True,
+            "cyanrip_exported": True,
+        }
+        self._flags.update(flags)
+
+    def __getattr__(self, name):
+        if name in self.__dict__.get("_flags", {}):
+            return lambda: self._flags[name]
+        raise AttributeError(name)
+
+
 # --- check_settings / check_output_dir -------------------------------------
 
 
@@ -196,17 +220,25 @@ def test_check_backend_routing_ok():
 
 def test_check_backend_routing_whippererror_fails():
     res = preflight.check_backend_routing(
-        _FakeBackend(raises=WhipperError("container down")), backend_name="whipper"
+        _FakeBackend(raises=WhipperError("container down")),
+        backend_name="whipper",
+        host=_FakeHost(container_exists=False),
     )
     assert res.status is Status.FAIL
     assert res.hint
+    # The raw backend error is preserved, and the broken link is named.
+    assert "container down" in res.detail
+    assert "container does not exist" in res.detail
 
 
 def test_check_backend_routing_unexpected_error_fails():
     res = preflight.check_backend_routing(
-        _FakeBackend(raises=OSError("no binary")), backend_name="whipper"
+        _FakeBackend(raises=OSError("no binary")),
+        backend_name="whipper",
+        host=_FakeHost(),  # all present → "installed but version failed"
     )
     assert res.status is Status.FAIL
+    assert "version command failed" in res.detail
 
 
 def test_check_backend_routing_empty_version():
@@ -215,6 +247,56 @@ def test_check_backend_routing_empty_version():
     )
     assert res.status is Status.OK
     assert "no version" in res.summary
+
+
+# --- routing_drilldown -----------------------------------------------------
+
+
+def test_routing_drilldown_no_distrobox():
+    detail, hint = preflight.routing_drilldown(
+        "whipper", _FakeHost(distrobox_present=False)
+    )
+    assert "Distrobox is not installed" in detail and hint
+
+
+def test_routing_drilldown_no_backend():
+    detail, _ = preflight.routing_drilldown("whipper", _FakeHost(backend_present=False))
+    assert "container backend" in detail
+
+
+def test_routing_drilldown_no_container():
+    detail, _ = preflight.routing_drilldown(
+        "whipper", _FakeHost(container_exists=False)
+    )
+    assert "does not exist" in detail
+
+
+def test_routing_drilldown_not_in_container_whipper():
+    detail, _ = preflight.routing_drilldown(
+        "whipper", _FakeHost(whipper_in_container=False)
+    )
+    assert "not installed inside" in detail
+
+
+def test_routing_drilldown_not_exported_cyanrip():
+    detail, _ = preflight.routing_drilldown(
+        "cyanrip", _FakeHost(cyanrip_exported=False)
+    )
+    assert "not exported" in detail and "cyanrip" in detail
+
+
+def test_routing_drilldown_present_but_broken():
+    detail, _ = preflight.routing_drilldown("whipper", _FakeHost())
+    assert "version command failed" in detail
+
+
+def test_routing_drilldown_never_raises_on_bad_host():
+    class _Boom:
+        def distrobox_present(self):
+            raise RuntimeError("boom")
+
+    detail, hint = preflight.routing_drilldown("whipper", _Boom())
+    assert "could not diagnose" in detail and hint
 
 
 # --- check_drives ----------------------------------------------------------

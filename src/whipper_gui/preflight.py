@@ -293,34 +293,107 @@ def check_dependencies(manager: DependencyManager) -> CheckResult:
     )
 
 
-def check_backend_routing(backend: WhipperBackend, *, backend_name: str) -> CheckResult:
+def check_backend_routing(
+    backend: WhipperBackend, *, backend_name: str, host: object | None = None
+) -> CheckResult:
     """THE Distrobox-routing test: can we actually reach the ripper backend?
 
     For whipper this runs ``~/.local/bin/whipper --version``, which enters the
     Distrobox container — so a pass proves the whole host→container→whipper
     chain works. (May take a few seconds on a cold container.)
+
+    On failure it drills down through the host→container→backend chain so the
+    report names *which* link is broken (no Distrobox / no container / not
+    installed / not exported / present-but-broken), which is far more
+    actionable than a bare "unreachable". `host` is injectable for tests; in
+    production it's a real `HostSetup` built lazily only on the failure path.
     """
     try:
         raw = backend.version()
     except WhipperError as exc:
+        detail, hint = _routing_failure_diagnosis(backend_name, host, exc)
         return CheckResult(
             f"{backend_name} reachable",
             Status.FAIL,
             f"could not run {backend_name}",
-            detail=str(exc),
-            hint="Run Tools → Set up Whipper GUI…, or check that the "
-            "Distrobox 'ripping' container exists and exports the binary.",
+            detail=detail,
+            hint=hint,
         )
     except Exception as exc:  # noqa: BLE001 — any failure is a routing failure
+        detail, hint = _routing_failure_diagnosis(backend_name, host, exc)
         return CheckResult(
             f"{backend_name} reachable",
             Status.FAIL,
             f"could not run {backend_name}",
-            detail=str(exc),
-            hint="Run Tools → Set up Whipper GUI… to (re)provision the backend.",
+            detail=detail,
+            hint=hint,
         )
     version = raw.strip().splitlines()[0] if raw.strip() else "(no version output)"
     return CheckResult(f"{backend_name} reachable", Status.OK, version)
+
+
+# Standard remediation for any broken link in the provisioning chain.
+_WIZARD_HINT = (
+    "Run Tools → Set up Whipper GUI… (or scripts/setup-host.sh) to provision it."
+)
+
+
+def routing_drilldown(backend_name: str, host: object) -> tuple[str, str]:
+    """Pinpoint which link in host→container→backend is broken.
+
+    Returns ``(detail, hint)``. Reuses `HostSetup`'s presence checks so the
+    diagnosis matches what the setup wizard would do. Never raises — a broken
+    diagnosis must not crash the doctor.
+    """
+    container = getattr(host, "container", "ripping")
+    try:
+        if not host.distrobox_present():
+            return ("Distrobox is not installed on the host.", _WIZARD_HINT)
+        if not host.backend_present():
+            return (
+                "No container backend (podman/docker) found on the host.",
+                _WIZARD_HINT,
+            )
+        if not host.container_exists():
+            return (
+                f"The '{container}' Distrobox container does not exist.",
+                _WIZARD_HINT,
+            )
+        if backend_name == "cyanrip":
+            in_container, exported = host.cyanrip_in_container, host.cyanrip_exported
+        else:
+            in_container, exported = host.whipper_in_container, host.whipper_exported
+        if not in_container():
+            return (
+                f"{backend_name} is not installed inside the '{container}' container.",
+                _WIZARD_HINT,
+            )
+        if not exported():
+            return (
+                f"{backend_name} is not exported to ~/.local/bin.",
+                _WIZARD_HINT,
+            )
+        return (
+            f"{backend_name} appears installed but its version command failed "
+            "— it may be misconfigured.",
+            "Check ~/.local/share/whipper-gui/log.txt, or re-run the host-setup "
+            "wizard.",
+        )
+    except Exception as exc:  # noqa: BLE001 — the drilldown itself never crashes
+        return (f"could not diagnose the backend setup: {exc}", _WIZARD_HINT)
+
+
+def _routing_failure_diagnosis(
+    backend_name: str, host: object | None, exc: Exception
+) -> tuple[str, str]:
+    """Build the (detail, hint) for a failed backend probe, preserving the raw
+    error so no information is hidden."""
+    if host is None:
+        from whipper_gui.deps.host_setup import HostSetup
+
+        host = HostSetup()
+    detail, hint = routing_drilldown(backend_name, host)
+    return (f"{detail}\n(backend error: {exc})", hint)
 
 
 def _fmt_offset(offset: int | None) -> str:

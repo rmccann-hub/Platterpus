@@ -36,7 +36,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   detected and accessible (a drive lists fine with no disc), the dependency
   tools are present, and the host can reach MusicBrainz / the Cover Art Archive
   / CTDB. Prints a clear pass / warn / blocker report and exits non-zero on a
-  hard blocker. It knocks out the boring environmental failure modes before you
+  hard blocker. When the backend is unreachable it **pinpoints which link is
+  broken** (Distrobox not installed / no container backend / the `ripping`
+  container missing / the backend not installed-in-container or not exported /
+  present-but-misconfigured) instead of a bare "unreachable", so the fix is
+  obvious. It knocks out the boring environmental failure modes before you
   insert a disc — a bit-perfect rip still needs a real disc on real hardware.
 - **Documentation-currency enforcement (contributor-facing).** `CLAUDE.md` gained
   Critical Rule #7 ("Documentation currency is part of Done") as the always-loaded
