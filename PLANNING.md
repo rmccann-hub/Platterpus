@@ -52,7 +52,12 @@ Whipper-GUI-Frontend---CD-Rip/
 │
 ├── scripts/                             # standalone (non-packaged) helper scripts
 │   ├── ctdb_verify.py                   # CTDB verify hardware-validation runner (KDD-16)
+│   ├── eac_parity.py                    # compare a rip's Copy CRCs vs an EAC baseline (uses parity.py)
+│   ├── preflight.py                     # thin CLI over src/whipper_gui/preflight.py (== `whipper-gui --doctor`)
 │   └── update_drive_offsets.py          # re-import AccurateRip DriveOffsets.bin (sentinel-guarded)
+│
+├── output_reference/                    # backend×format rip proofs: committed EAC baseline + placeholders
+│                                        #   (per-track CRCs prove bit-perfection; never commit audio — see its README)
 │
 ├── build/                               # everything related to producing the AppImage
 │   ├── build_appimage.sh                # one-shot build script (calls python-appimage)
@@ -234,6 +239,8 @@ Subprocess output parsing per CLAUDE.md (named-group regexes, robust to minor-ve
 - **`drive_list.py`** — parses stdout of `whipper drive list` into a list of `DriveDescriptor` (vendor, model, firmware, device path).
 - **`cd_info.py`** — parses stdout of `whipper cd info` into a `DiscInfo` (TOC, MusicBrainz disc ID, MB match status, AccurateRip availability). `DiscInfo` is deliberately backend-neutral — both backends produce it.
 - **`cyanrip_info.py`** — parses the `cyanrip -I` start report into the same `DiscInfo` (Disc tracks / DiscID / CDDB ID / the MusicBrainz URL printed on the line after its label). Labels verified against cyanrip master's `cyanrip_log_start_report`.
+- **`cyanrip_log.py`** — parses cyanrip's per-album `.log` into the shared `RipLog` (KDD-18), so the GUI's fidelity verdict is backend-neutral; `looks_like_cyanrip_log` lets the finish handler sniff which ripper wrote a log. Never raises.
+- **`eac_log.py`** — parses an Exact Audio Copy rip log's per-track Copy CRCs (`looks_like_eac_log` / `parse_eac_copy_crcs`), the bit-perfect baseline `parity.py` measures rips against. BOM-tolerant; never raises.
 
 ### UI (`ui/`)
 
