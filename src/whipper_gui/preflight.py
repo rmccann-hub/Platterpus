@@ -432,6 +432,23 @@ def check_drives(backend: WhipperBackend) -> CheckResult:
     )
 
 
+# whipper's cd-paranoia has a known bug at read offsets above this many samples
+# (KDD-18): it can fail to verify tracks on high-offset drives like the Pioneer
+# BDR-209D (+667). cyanrip applies the offset with its own paranoia and avoids
+# it. We only *advise* — the default backend choice is left to the user (and the
+# pending hardware parity run), not silently switched.
+_PARANOIA_OFFSET_LIMIT = 587
+
+
+def _over_limit_hint(offset: int) -> str:
+    return (
+        f"this drive's offset ({offset:+d}) is above whipper's "
+        f"{_PARANOIA_OFFSET_LIMIT}-sample limit, where its cd-paranoia has a "
+        "known bug that can fail tracks. cyanrip applies the offset without it "
+        "— consider Settings → Ripping backend → cyanrip."
+    )
+
+
 def check_read_offset(
     cfg: Config,
     *,
@@ -443,7 +460,9 @@ def check_read_offset(
     The offset is the one setting that silently corrupts a rip if it's wrong,
     and for the whipper backend without override it lives in whipper.conf — not
     the GUI's stored copy. cyanrip applies the offset directly (``-s``), so
-    whipper.conf is irrelevant there. Never raises.
+    whipper.conf is irrelevant there. For whipper, an effective offset above
+    587 also triggers a *warning* about the cd-paranoia >587 bug (advice only —
+    we never silently switch backends). Never raises.
     """
     if backend_name == "cyanrip":
         return CheckResult(
@@ -453,6 +472,14 @@ def check_read_offset(
             "whipper.conf is not consulted",
         )
     if cfg.override_read_offset:
+        if cfg.read_offset > _PARANOIA_OFFSET_LIMIT:
+            return CheckResult(
+                "Read offset",
+                Status.WARN,
+                f"override on → {cfg.read_offset:+d} (above whipper's "
+                f"{_PARANOIA_OFFSET_LIMIT}-sample limit)",
+                hint=_over_limit_hint(cfg.read_offset),
+            )
         return CheckResult(
             "Read offset",
             Status.OK,
@@ -476,6 +503,15 @@ def check_read_offset(
             "wizard (Settings → Re-detect…), or tick Override with a known value.",
         )
     detail = "; ".join(f"{o.drive} → {o.offset:+d}" for o in offsets)
+    worst = max(o.offset for o in offsets)
+    if worst > _PARANOIA_OFFSET_LIMIT:
+        return CheckResult(
+            "Read offset",
+            Status.WARN,
+            f"whipper.conf: {detail} (above whipper's "
+            f"{_PARANOIA_OFFSET_LIMIT}-sample limit)",
+            hint=_over_limit_hint(worst),
+        )
     return CheckResult("Read offset", Status.OK, f"whipper.conf: {detail}")
 
 

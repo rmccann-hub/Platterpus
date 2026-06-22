@@ -38,7 +38,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   per-drive offset beneath the field, and `--doctor` gained a "Read offset"
   check that reports it (or warns "none set — whipper will refuse to rip"),
   with cyanrip noted as applying the offset directly (`-s`). New never-raises
-  `whipper.conf` parser in `offset_config.py`.
+  `whipper.conf` parser in `offset_config.py`. `--doctor` also now **warns when
+  a whipper drive's effective offset is above 587** — the threshold of
+  whipper's cd-paranoia bug (KDD-18) — and points to cyanrip, which avoids it
+  (advice only; the backend is never silently switched).
 - **Preflight / "doctor" check — first-pass test of the rip environment, no CD
   needed.** Run `whipper-gui --doctor` (or `python scripts/preflight.py`) to
   verify everything the rip pipeline needs *except* the disc read itself: the
