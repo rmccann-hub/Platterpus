@@ -50,6 +50,7 @@ from whipper_gui.ui.unknown_album import (
     apply_track_tags,
     launch_picard_for,
 )
+from whipper_gui.workers import start_worker_thread
 from whipper_gui.workers.ctdb_worker import verify_rip_dir
 from whipper_gui.workers.rip_worker import RipParameters, RipWorker
 
@@ -174,7 +175,6 @@ class RipMixin:
 
         self._rip_worker = RipWorker(self._backend, params)
         self._rip_thread = QThread(self)
-        self._rip_worker.moveToThread(self._rip_thread)
 
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
@@ -184,13 +184,11 @@ class RipMixin:
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
 
-        # On finish, clean up the worker thread.
-        self._rip_worker.finished.connect(self._rip_thread.quit)
-        self._rip_thread.finished.connect(self._rip_thread.deleteLater)
-
-        # Start the rip when the thread fires up.
-        self._rip_thread.started.connect(self._rip_worker.start_rip)
-        self._rip_thread.start()
+        # Standard one-shot teardown + start (finished → quit → deleteLater,
+        # rip begins on start_rip when the thread spins up).
+        start_worker_thread(
+            self._rip_worker, self._rip_thread, self._rip_worker.start_rip
+        )
 
     def _on_rip_cancel(self) -> None:
         if self._rip_worker is None:

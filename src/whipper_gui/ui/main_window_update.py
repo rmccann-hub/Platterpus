@@ -48,16 +48,15 @@ class UpdateMixin:
         """
         if self._update_thread is not None:  # a check is already running
             return
+        from whipper_gui.workers import start_worker_thread
         from whipper_gui.workers.update_worker import UpdateCheckWorker
 
         self._update_worker = UpdateCheckWorker()
         self._update_thread = QThread(self)
-        self._update_worker.moveToThread(self._update_thread)
         self._update_worker.finished.connect(self._on_update_result)
-        self._update_worker.finished.connect(self._update_thread.quit)
-        self._update_thread.finished.connect(self._update_thread.deleteLater)
-        self._update_thread.started.connect(self._update_worker.run)
-        self._update_thread.start()
+        start_worker_thread(
+            self._update_worker, self._update_thread, self._update_worker.run
+        )
 
     def _on_update_result(self, info: object) -> None:
         """Show the verdict; offer the standard update path when newer."""
@@ -126,11 +125,11 @@ class UpdateMixin:
             return
         from PySide6.QtWidgets import QProgressDialog
 
+        from whipper_gui.workers import start_worker_thread
         from whipper_gui.workers.update_worker import UpdateInstallWorker
 
         self._install_worker = UpdateInstallWorker(version)
         self._install_thread = QThread(self)
-        self._install_worker.moveToThread(self._install_thread)
 
         dialog = QProgressDialog(
             f"Downloading Whipper GUI {version}…", "Cancel", 0, 100, self
@@ -163,12 +162,12 @@ class UpdateMixin:
         self._install_worker.finished.connect(
             lambda ok, payload: self._on_update_install_finished(ok, payload, dialog)
         )
-        self._install_worker.finished.connect(self._install_thread.quit)
-        self._install_thread.finished.connect(self._install_thread.deleteLater)
-        self._install_thread.started.connect(self._install_worker.run)
         # Cancel button → stop between chunks; the worker cleans up the .part.
         dialog.canceled.connect(self._install_worker.cancel)
-        self._install_thread.start()
+        # Standard teardown + start (finished → quit → deleteLater, run on spin-up).
+        start_worker_thread(
+            self._install_worker, self._install_thread, self._install_worker.run
+        )
         dialog.show()
 
     def _on_update_install_finished(

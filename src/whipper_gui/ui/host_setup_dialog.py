@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from whipper_gui.deps.host_setup import HostSetup
 from whipper_gui.deps.step_engine import StepResult, StepStatus
+from whipper_gui.workers import start_worker_thread
 from whipper_gui.workers.host_setup_worker import HostSetupWorker
 
 log = logging.getLogger(__name__)
@@ -132,13 +133,9 @@ class HostSetupDialog(QDialog):
 
         self._worker = HostSetupWorker(self._host)
         self._thread = QThread(self)
-        self._worker.moveToThread(self._thread)
         self._worker.step.connect(self._on_step)
         self._worker.finished.connect(self._on_finished)
-        self._worker.finished.connect(self._thread.quit)
-        self._thread.finished.connect(self._thread.deleteLater)
-        self._thread.started.connect(self._worker.run)
-        self._thread.start()
+        start_worker_thread(self._worker, self._thread, self._worker.run)
 
     def _on_step(self, result: StepResult) -> None:
         """Update progress as steps run/complete. Safe to call in tests.

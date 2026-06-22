@@ -284,20 +284,23 @@ class MainWindow(
         window stays responsive. (The picker's own Refresh button stays
         synchronous — that's user-initiated.)
         """
+        from whipper_gui.workers import start_worker_thread
         from whipper_gui.workers.drive_list_worker import DriveListWorker
 
         if self._drive_list_thread is not None and self._drive_list_thread.isRunning():
             return  # one refresh at a time
         self._drive_list_worker = DriveListWorker(self._backend)
         self._drive_list_thread = QThread(self)
-        self._drive_list_worker.moveToThread(self._drive_list_thread)
+        # Connect our result slots first (so they run before the thread quits);
+        # `failed` is a distinct outcome that must also stop the thread.
         self._drive_list_worker.finished.connect(self._on_drive_list_ready)
         self._drive_list_worker.failed.connect(self._on_drive_list_failed)
-        self._drive_list_worker.finished.connect(self._drive_list_thread.quit)
-        self._drive_list_worker.failed.connect(self._drive_list_thread.quit)
-        self._drive_list_thread.finished.connect(self._drive_list_thread.deleteLater)
-        self._drive_list_thread.started.connect(self._drive_list_worker.run)
-        self._drive_list_thread.start()
+        start_worker_thread(
+            self._drive_list_worker,
+            self._drive_list_thread,
+            self._drive_list_worker.run,
+            also_quit_on=(self._drive_list_worker.failed,),
+        )
 
     def _on_drive_list_ready(self, drives: object) -> None:
         """Drive list fetched — populate the picker on the GUI thread."""
@@ -443,6 +446,7 @@ class MainWindow(
     def _start_disc_info(self, device: str) -> None:
         """Probe the disc on a worker thread. Replaces any in-flight probe
         (a previous drive's result would be stale)."""
+        from whipper_gui.workers import start_worker_thread
         from whipper_gui.workers.disc_info_worker import DiscInfoWorker
 
         # Stop a still-running probe for the previous drive before starting a
@@ -454,14 +458,14 @@ class MainWindow(
 
         self._disc_info_worker = DiscInfoWorker(self._backend, device)
         self._disc_info_thread = QThread(self)
-        self._disc_info_worker.moveToThread(self._disc_info_thread)
         self._disc_info_worker.finished.connect(self._on_disc_info_ready)
         self._disc_info_worker.failed.connect(self._on_disc_info_failed)
-        self._disc_info_worker.finished.connect(self._disc_info_thread.quit)
-        self._disc_info_worker.failed.connect(self._disc_info_thread.quit)
-        self._disc_info_thread.finished.connect(self._disc_info_thread.deleteLater)
-        self._disc_info_thread.started.connect(self._disc_info_worker.run)
-        self._disc_info_thread.start()
+        start_worker_thread(
+            self._disc_info_worker,
+            self._disc_info_thread,
+            self._disc_info_worker.run,
+            also_quit_on=(self._disc_info_worker.failed,),
+        )
 
     def _on_disc_info_ready(self, device: str, info: DiscInfo) -> None:
         """Disc probe succeeded — render it and kick off the MB lookup."""
