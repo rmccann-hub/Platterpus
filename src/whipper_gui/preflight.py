@@ -367,8 +367,13 @@ def _routing_failure_diagnosis(
     error so no information is hidden."""
     if host is None:
         from whipper_gui.deps.host_setup import HostSetup
+        from whipper_gui.deps.step_engine import SubprocessRunner
 
-        host = HostSetup()
+        # HostSetup requires a runner; use the real subprocess-backed one so the
+        # drilldown can probe the host (its presence checks are fast shutil.which
+        # calls). Without this the doctor crashed here whenever the backend was
+        # unreachable — exactly the case it exists to diagnose.
+        host = HostSetup(runner=SubprocessRunner())
     detail, hint = routing_drilldown(backend_name, host)
     return (f"{detail}\n(backend error: {exc})", hint)
 

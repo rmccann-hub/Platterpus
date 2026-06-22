@@ -249,6 +249,20 @@ def test_check_backend_routing_empty_version():
     assert "no version" in res.summary
 
 
+def test_check_backend_routing_with_no_host_does_not_crash():
+    # Regression: production --doctor passes no `host`, so the failure path builds
+    # the real HostSetup itself. It must construct a *working* one (HostSetup
+    # needs a `runner`) and return a FAIL CheckResult — not raise TypeError and
+    # abort the doctor at exactly the moment the backend is unreachable, which is
+    # the case the doctor exists to diagnose. Exercises the real drilldown (only
+    # fast, safe shutil.which probes); no injected host.
+    res = preflight.check_backend_routing(
+        _FakeBackend(raises=WhipperError("backend down")), backend_name="whipper"
+    )
+    assert res.status is Status.FAIL
+    assert "backend down" in res.detail
+
+
 # --- routing_drilldown -----------------------------------------------------
 
 
