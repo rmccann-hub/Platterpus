@@ -312,12 +312,22 @@ def test_check_read_offset_cyanrip():
 
 def test_check_read_offset_override():
     res = preflight.check_read_offset(
-        Config(override_read_offset=True, read_offset=667),
+        Config(override_read_offset=True, read_offset=102),
         backend_name="whipper",
         read_offsets=lambda: [],  # ignored when override is on
     )
     assert res.status is Status.OK
-    assert "override on" in res.summary and "+667" in res.summary
+    assert "override on" in res.summary and "+102" in res.summary
+
+
+def test_check_read_offset_override_over_587_warns():
+    res = preflight.check_read_offset(
+        Config(override_read_offset=True, read_offset=667),
+        backend_name="whipper",
+        read_offsets=lambda: [],
+    )
+    assert res.status is Status.WARN
+    assert "587" in res.summary and "cyanrip" in res.hint
 
 
 def test_check_read_offset_whipper_conf_present():
@@ -326,10 +336,23 @@ def test_check_read_offset_whipper_conf_present():
     res = preflight.check_read_offset(
         Config(override_read_offset=False),
         backend_name="whipper",
-        read_offsets=lambda: [WhipperConfOffset(drive="PIONEER", offset=667)],
+        read_offsets=lambda: [WhipperConfOffset(drive="PIONEER", offset=102)],
     )
     assert res.status is Status.OK
-    assert "whipper.conf" in res.summary and "+667" in res.summary
+    assert "whipper.conf" in res.summary and "+102" in res.summary
+
+
+def test_check_read_offset_conf_over_587_warns():
+    from whipper_gui.offset_config import WhipperConfOffset
+
+    res = preflight.check_read_offset(
+        Config(override_read_offset=False),
+        backend_name="whipper",
+        read_offsets=lambda: [WhipperConfOffset(drive="PIONEER BDR-209D", offset=667)],
+    )
+    assert res.status is Status.WARN
+    assert "587" in res.summary
+    assert "cyanrip" in res.hint and "+667" in res.hint
 
 
 def test_check_read_offset_whipper_conf_missing_warns():
