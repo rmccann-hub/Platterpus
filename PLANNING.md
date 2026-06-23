@@ -605,7 +605,7 @@ We benchmark our defaults and exposed settings against the widely-cited "Perfect
 
 **Upstream-locked (whipper hardcodes, can't expose from our GUI):**
 
-- **FLAC compression level.** EAC guide specifies `-8 --best`; whipper hardcodes `flac --silent --verify -o … -f …` with no compression flag, so flac defaults to `-5`. Compression level is purely a file-size tradeoff — archival quality is identical at any level because of `--verify`. README documents the post-rip re-encode workaround.
+- **FLAC compression level.** EAC guide specifies `-8 --best`; whipper hardcodes `flac --silent --verify -o … -f …` with no compression flag, so flac defaults to `-5`. Compression level is purely a file-size tradeoff — archival quality is identical at any level because of `--verify`. README documents the post-rip re-encode workaround. **Backend-specific (verified 2026-06-23):** this is a **whipper-only** gap — **cyanrip already encodes FLAC at *maximum* compression** (its README states "always uses maximum compression", and it sets libavcodec's `compression_level` explicitly per output format rather than leaving FFmpeg's default of 5), and it exposes no level flag. So nothing is exposable/needed for cyanrip; closing the gap for whipper would mean an *optional post-rip re-encode* (re-compress + re-verify), tracked in TASKS.
 
 **Linux ecosystem gaps (not actionable):**
 
