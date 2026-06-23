@@ -139,7 +139,7 @@ tiers. "I added a happy-path test" is not done.
    (dialog / placeholder). Tests assert the surfacing, not just the absence of a
    crash.
 4. **Coverage gate.** CI runs branch coverage with `--cov-fail-under` (currently
-   **90%**, TOTAL ~92%). The gate **ratchets up, never down** — raise it when
+   **91%**, TOTAL ~92.5%). The gate **ratchets up, never down** — raise it when
    TOTAL comfortably clears it; never lower it to make a build green.
 5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.13).
    Add a version when users move to it; we've been bitten by version-specific
@@ -193,7 +193,7 @@ tiers. "I added a happy-path test" is not done.
 pytest
 
 # Exactly what CI enforces (branch coverage + gate):
-pytest --cov=whipper_gui --cov-report=term-missing --cov-fail-under=90
+pytest --cov=whipper_gui --cov-report=term-missing --cov-fail-under=91
 
 # Property tests only (more examples for a deeper sweep):
 pytest tests/test_parsers_property.py --hypothesis-seed=random
