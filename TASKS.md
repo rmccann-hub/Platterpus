@@ -260,6 +260,9 @@ High-level feature backlog (not bucketed into a sub-section because each is smal
 - **[ ]** ReplayGain calculation
 - **[ ]** Auto-move completed rips to a library folder
 - **[ ]** Additional encoding outputs: **MP3** (via `lame`) and **WAV** (via `sox` or whipper-native). Both encoder backends MUST be detected and offered through the existing P0 #11 dependency-resolution flow — no bespoke install code.
+  - **Bank these gotchas before implementing (from the archived EAC guide, [docs/archive/archival-extraction-guide-2026-06.md](docs/archive/archival-extraction-guide-2026-06.md); flagged _verify-before-relying_):**
+    - **MP3/LAME `noise_shaping_amp` bug (r6147):** with the *standalone `lame` binary*, `-q 0…3` at high quality reportedly cause metallic/glassy HF artifacts; force **`-q 4`** to disable the broken model. Use **`-V 0`** for top VBR. **Never force normal stereo** — leave joint-stereo (mid/side is reconstructed losslessly and allocates bits better). **Caveat:** these flags are for standalone `lame`; if MP3 is produced via cyanrip/FFmpeg `libmp3lame` instead, the flag mapping differs (e.g. `-q:a` for VBR) — re-derive, don't copy. **Verify the r6147 claim is still real/current** before baking it in.
+    - **WAV is a *secondary/raw* format** (no rich tags — RIFF lacks Vorbis/APEv2). The guide's 4 GB→RF64/Wave64 concern **does not apply at CD scope** (a full 80-min CD ≈ 850 MB), so skip RF64 complexity for CD rips.
 
 ### ⭐ EAC output-parity proof matrix (`output_reference/`)
 
@@ -303,6 +306,12 @@ The following whipper CLI options exist but aren't currently surfaced in our Set
 - **[ ] EAC gap-handling parity — HW-gated investigation (flagged 2026-06-14).** EAC's reference rip used **"Gap handling: Appended to previous track"**; we currently set **no gap mode**, so the rip uses whipper's / cyanrip's default. If the [docs/test-plan.md](docs/test-plan.md) Part B CRC comparison shows a *clean* track (one adjacent to a pregap) mismatching the EAC baseline while the offset is correct, gap handling is the cause — then expose/force the EAC-matching gap mode (whipper's gap option / cyanrip's pregap handling) as the fix. Most tracks (no surrounding gap) are unaffected, so this may be a no-op in practice; the hardware parity run decides. This is the concrete "make the output exact" lever beyond the read offset (already +667) and the parity flags above.
 
 Each is independent; do them in any order. They should land before the AppImage's first public release so the GUI matches what EAC users expect.
+
+**Archival-quality follow-ups (from the 2026-06-23 EAC-guide gap analysis; see [docs/session-log.md](docs/session-log.md) + [docs/archive/archival-extraction-guide-2026-06.md](docs/archive/archival-extraction-guide-2026-06.md)):**
+
+- **[ ] cyanrip metadata richness (current-scope, "good everything").** whipper tags itself richly from `--release-id`, but the cyanrip path only feeds album/artist/title/year/MBID + per-track title/artist (`RipMetadata` + `_metadata_args`). Capture and feed the fields MusicBrainz provides — at least **genre, disc number / total discs**, and **composer** where present (ISRC if available) — so cyanrip rips are tagged as well as whipper rips. Touches `RipMetadata`, the MB extraction, the track-table snapshot, and `cyanrip_backend._metadata_args` (+ tests). whipper unaffected (it tags itself).
+- **[ ] cyanrip FLAC encode-verify (archival integrity).** whipper passes `flac --verify` (proves the FLAC decodes back to exactly the read PCM). cyanrip encodes FLAC via FFmpeg with **no decode-verify pass** — it relies on AccurateRip + EAC CRC (read-side integrity), a *different* guarantee. Add an optional post-encode verify on the cyanrip path (decode-compare, or at minimum `flac -t` to confirm the stream + its embedded STREAMINFO MD5). _Investigation done 2026-06-23; implementation pending._
+- **[ ] FLAC compression level `-8` (file-size win, archival-neutral).** whipper hardcodes flac `-5` (not exposable — KDD-13); `-8` is lossless and just smaller. Options: expose a compression-level setting for the **cyanrip** path (FFmpeg `compression_level`), and/or an optional **post-rip re-encode** to `-8` (we currently only document the manual workaround). `-V` verify must accompany any re-encode.
 
 > **CTDB verify + repair are tracked elsewhere, not here.** They are archival-verification *features*, not parity-gap Settings widgets, so they live in the **Ranked execution order** above (items 5–6) with full rationale and decisions in the [Upstream open-source modification](#p1p2--upstream-open-source-modification-for-eac-parity-investigation-2026-06-02) section and [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md). See also [PLANNING.md KDD-12 / KDD-14 / KDD-16](PLANNING.md).
 
@@ -420,13 +429,20 @@ Items that are technically achievable but represent significant effort, double t
 
 - **Test & Copy dual-pass rip — DOWNGRADED (largely already delivered).** Re-evaluated 2026-05-30 during the EAC-successor research review: **whipper already performs a test read and a copy read per track and records both CRCs** (your T32 log shows `Test CRC == Copy CRC` for all 16 tracks, and `(try 2)` re-reads on mismatch). We already surface this as the fidelity summary ("all N tracks verified, Test/Copy CRCs match"). So the core guarantee EAC's Test&Copy provides is already in hand. The only delta would be EAC's literal *two separate full passes* of the whole disc — marginal extra assurance at 2× rip time. Not worth building unless a user specifically asks for the two-full-passes behavior; keep parked here.
 
+**From the 2026-06-23 EAC-guide gap analysis (P2 ideas; [docs/archive/archival-extraction-guide-2026-06.md](docs/archive/archival-extraction-guide-2026-06.md)):**
+
+- **[ ] AcoustID fingerprint fallback.** Identify discs that MusicBrainz can't match by disc ID via audio fingerprinting (needs a personal AcoustID API key + `chromaprint`/`fpcalc`). Would route through the dependency subsystem; honors Critical Rule #5 (GUI resolves, not the ripper).
+- **[ ] Lyrics fetch + embed.** The guide tags `LYRICS=` from a file; we fetch none. A lyrics source behind a small adapter → embed via metaflac. Niche.
+- **[ ] Embed the cuesheet in FLAC metadata.** whipper writes a sidecar `.cue`; FLAC can hold the cuesheet in a metadata block (`--cuesheet`). Nice-to-have for single-image rips.
+- **[ ] WavPack hybrid (.wv/.wvc) output — evaluate only.** A lossy base + exact correction file is a clever archival/portability split, but it's orthogonal to the FLAC-primary thesis and neither whipper nor cyanrip targets it as cleanly. Note as an idea; likely **don't pursue**.
+
 ---
 
 ## Out of scope (not in P0, P1, or P2)
 
 Listed here for clarity so they don't sneak in:
 
-- Replacing whipper itself
+- Replacing whipper itself with a from-scratch ripper. *(Note: forking/combining whipper + cyanrip and maintaining our own engine is **not** ruled out long-term — it's under research in [docs/ripper-engine-strategy.md](docs/ripper-engine-strategy.md), revisiting KDD-18. "Build our own from scratch" stays rejected.)*
 - **AccurateRip submission.** Policy-restricted, not technically impossible. AccurateRip's operators accept submissions only from EAC and dBpoweramp; any Linux tool implementing the upload protocol would have its submissions rejected. **AccurateRip *verification* IS in scope and already works** — whipper queries AccurateRip during every rip, the parser captures the v1/v2 confidence values, and the rip-progress widget renders them.
 - **CTDB submission.** Likely subject to the same trust-gate as AccurateRip submission.
 - Network features (NAS, Plex, Jellyfin, cloud)

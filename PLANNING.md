@@ -605,7 +605,7 @@ We benchmark our defaults and exposed settings against the widely-cited "Perfect
 
 **Linux ecosystem gaps (not actionable):**
 
-- **C2 error pointers.** Whipper does not use them; cdparanoia is the Linux secure-read primitive instead. The original brief flags this as a known Linux gap.
+- **C2 error pointers.** Whipper does not use them; cdparanoia is the Linux secure-read primitive instead. *Reframed 2026-06-23:* the brief called this a Linux "gap," but the archived EAC archival guide ([docs/archive/archival-extraction-guide-2026-06.md](docs/archive/archival-extraction-guide-2026-06.md)) recommends **disabling C2 even on drives that support it** (many falsely report success while dropping C2 errors) and relying on software re-read. So our cdparanoia-only path is *aligned with archival best practice*, not behind it — this is a non-issue, not a gap.
 - **EAC-style signed log checksum.** SHA-256 is weaker as a forensic signal; KDD-11 covers this.
 - **CUETools DB metadata plugin** (write side of CTDB). KDD-12 puts CTDB *verification* in P1; submission stays out of scope.
 - **AccurateRip submission.** Policy-blocked by AR's operators; KDD-12.
