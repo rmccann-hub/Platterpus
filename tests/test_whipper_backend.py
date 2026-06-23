@@ -258,6 +258,13 @@ def test_version_returns_trimmed_string(monkeypatch: pytest.MonkeyPatch) -> None
     assert impl.version() == "whipper 0.10.0"
 
 
+def test_self_verifies_encode_true() -> None:
+    # whipper passes `flac --verify` during the rip, so a post-rip check is
+    # redundant — the GUI skips it for this backend.
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    assert impl.self_verifies_encode() is True
+
+
 # --- rip (Popen) ----------------------------------------------------------
 
 

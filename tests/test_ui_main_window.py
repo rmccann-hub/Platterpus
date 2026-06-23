@@ -72,6 +72,14 @@ class _FakeBackend(WhipperBackend):
     def version(self) -> str:
         return "fake 0.0.0"
 
+    # Behave like whipper (self-verifying) by default so the generic rip tests
+    # don't trip the post-rip FLAC-verify path; the verify path has its own test
+    # that flips this to False.
+    self_verifies = True
+
+    def self_verifies_encode(self) -> bool:
+        return self.self_verifies
+
 
 class _FakeMb(MusicBrainzClient):
     def __init__(self) -> None:
@@ -175,9 +183,9 @@ def teardown_threads(qapp: QApplication):
         ):
             window._drive_list_thread.quit()
             window._drive_list_thread.wait(2000)
-        # The post-rip CTDB verify runs on a daemon thread (dies with the
-        # process, guards its emit) — not joined here, like the cover-art
-        # thread. Tests that start one join it themselves.
+        # The post-rip CTDB and FLAC-verify steps run on daemon threads (die
+        # with the process, guard their emits) — not joined here, like the
+        # cover-art thread. Tests that start one join it themselves.
         window.deleteLater()
 
 
@@ -2358,6 +2366,82 @@ def test_ctdb_verify_runs_off_the_gui_thread(
     # thread via the queued ctdb_verify_done signal; rendering is covered by
     # test_on_ctdb_verified_renders_verdict, which drives the slot directly).
     assert client.calls == 1
+
+
+# --- Post-rip FLAC encode-verify (opt-in, default on) ----------------------
+
+
+def test_flac_verify_skipped_when_disabled(teardown_threads, tmp_path: Path) -> None:
+    window = teardown_threads(config=Config(verify_flac_after_rip=False))
+    window._backend.self_verifies = False  # would otherwise be eligible
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+
+    assert window._flac_verify_thread is None
+
+
+def test_flac_verify_skipped_for_self_verifying_backend(
+    teardown_threads, tmp_path: Path
+) -> None:
+    # The default fake backend self-verifies (like whipper) → no redundant check
+    # even with the toggle on.
+    window = teardown_threads(config=Config(verify_flac_after_rip=True))
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+
+    assert window._flac_verify_thread is None
+
+
+def test_flac_verify_runs_for_non_self_verifying_backend(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A backend that doesn't self-verify (cyanrip) + toggle on → the post-rip
+    FLAC verify runs off the GUI thread. The verifier is stubbed (no real flac)."""
+    from whipper_gui.adapters.flac_verify import FlacVerifyResult
+
+    window = teardown_threads(config=Config(verify_flac_after_rip=True))
+    window._backend.self_verifies = False
+    calls: list[Path] = []
+
+    def fake_verify(rip_dir: Path, *, wait_for: object = None) -> FlacVerifyResult:
+        calls.append(rip_dir)
+        return FlacVerifyResult(checked=2)
+
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.verify_flac_dir", fake_verify)
+
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._flac_verify_thread is not None  # started off-thread
+    window._flac_verify_thread.join(timeout=10)
+    assert calls == [album_dir]  # verified the album folder the rip wrote
+
+
+def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
+    """The slot (GUI thread) hijacks the status line for a FAILURE but leaves it
+    alone on a clean pass (which only notes the result in the log view)."""
+    from whipper_gui.adapters.flac_verify import FlacVerifyResult
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+
+    window._on_flac_verified(
+        FlacVerifyResult(checked=2, failures=(Path("02 - Bad.flac"),))
+    )
+    assert "FAILED" in window._rip_progress._status_label.text()
+    assert any("FAILED" in line for line in lines)
+
+    window._rip_progress.set_status("Done.")
+    window._on_flac_verified(FlacVerifyResult(checked=2))
+    assert window._rip_progress._status_label.text() == "Done."  # clean pass is quiet
+    assert any("decode cleanly" in line for line in lines)
 
 
 def test_window_closes_during_ctdb_verify_without_blocking(

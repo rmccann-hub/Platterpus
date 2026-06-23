@@ -177,6 +177,15 @@ class Config:
     # never fabricate a "verified".
     ctdb_verify_after_rip: bool = False
 
+    # --- FLAC encode-verify ---
+    # After a successful rip, run `flac --test` on each output FLAC to confirm it
+    # decodes back to its stored MD5 (catches encode/disk corruption). On by
+    # default. whipper already does this during the rip (`flac --verify`), so
+    # this only actually runs for a backend that doesn't self-verify (cyanrip);
+    # the Settings widget greys it out for whipper. Best-effort, off the GUI
+    # thread, surfaces only a one-line outcome (loud on failure).
+    verify_flac_after_rip: bool = True
+
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
 

@@ -288,6 +288,21 @@ class SettingsDialog(QDialog):
         )
         form.addRow("CTDB:", self._ctdb_verify_check)
 
+        # --- FLAC encode-verify ---
+        # Post-rip `flac --test` of each output FLAC (decode + MD5 check). On by
+        # default. Greyed out for whipper, which already verifies during the rip.
+        self._verify_flac_check: QCheckBox = QCheckBox(
+            "Verify FLAC files after a rip", self
+        )
+        self._verify_flac_check.setChecked(config.verify_flac_after_rip)
+        self._verify_flac_check.setToolTip(
+            "After a successful rip, run `flac --test` on each FLAC to confirm "
+            "it decodes back to its stored checksum (catches encode or disk "
+            "corruption). Needs `flac`; runs in the background and only speaks "
+            "up if a file fails. On by default."
+        )
+        form.addRow("Verify FLACs:", self._verify_flac_check)
+
         root.addLayout(form)
 
         # --- Backend capability gating (one UI for both backends) ---
@@ -327,6 +342,16 @@ class SettingsDialog(QDialog):
                     "Tools → Set up Whipper GUI…).",
                 ),
             )
+        ]
+        # The inverse: options that only make sense for cyanrip, greyed out for
+        # whipper (kept editable, value preserved — same contract as above).
+        self._cyanrip_only: list[tuple[QWidget, str, str]] = [
+            (
+                self._verify_flac_check,
+                self._verify_flac_check.toolTip(),
+                "whipper already verifies every file during the rip "
+                "(`flac --verify`), so a separate post-rip check is redundant.",
+            ),
         ]
         self._backend_combo.currentIndexChanged.connect(
             self._apply_backend_capabilities
@@ -379,6 +404,7 @@ class SettingsDialog(QDialog):
             max_retries=self._max_retries_spin.value(),
             keep_going=self._keep_going_check.isChecked(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),
+            verify_flac_after_rip=self._verify_flac_check.isChecked(),
             ripper_backend=self._backend_combo.currentData(),
             # Preserve fields the dialog doesn't model, so saving Settings
             # never silently resets them (these one-time "already offered"
@@ -411,6 +437,19 @@ class SettingsDialog(QDialog):
                 widget.setToolTip(
                     f"{prefix}Read-only: {reason}\n"
                     "Switch “Ripping backend” to whipper to edit this. "
+                    "Your value is kept either way."
+                )
+        # cyanrip-only options: the mirror image — editable on cyanrip, greyed
+        # (value kept) on whipper.
+        for widget, base_tooltip, reason in self._cyanrip_only:
+            widget.setEnabled(not on_whipper)
+            if not on_whipper:
+                widget.setToolTip(base_tooltip)
+            else:
+                prefix = f"{base_tooltip}\n\n" if base_tooltip else ""
+                widget.setToolTip(
+                    f"{prefix}Read-only: {reason}\n"
+                    "Switch “Ripping backend” to cyanrip to edit this. "
                     "Your value is kept either way."
                 )
 
