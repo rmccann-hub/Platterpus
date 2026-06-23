@@ -239,6 +239,18 @@ def test_list_drives_tolerates_missing_sysfs(tmp_path: Path) -> None:
     assert drives[0].vendor == ""  # sysfs absent → blank, no crash
 
 
+def test_list_drives_degrades_on_oserror(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scanning /dev can raise OSError (e.g. a permission/IO error); the scan
+    must degrade to an empty list, never propagate."""
+    impl = CyanripImpl(dev_root=Path("/dev"))
+
+    def boom(self: Path, pattern: str):
+        raise OSError("I/O error")
+
+    monkeypatch.setattr(type(impl._dev_root), "glob", boom)
+    assert impl.list_drives() == []
+
+
 # --- disc_info (runs `cyanrip -I -N` and parses the report) ---------------
 
 
