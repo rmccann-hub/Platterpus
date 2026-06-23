@@ -10,9 +10,10 @@
 >   uninstall → fresh install → rip → verify cycle, the **EAC output-parity**
 >   check, and the **distribution + problem-permutation matrices** to spread
 >   across testers.
-> - **Single-feature cases (Test 1–9)** — the deep, individually-gated cases
+> - **Single-feature cases (Test 1–10)** — the deep, individually-gated cases
 >   (CTDB verify CRC, `drive analyze` / `offset find` strings, PyPI go-live, the
->   cyanrip parity run). Run one at a time and record the result.
+>   cyanrip parity run, the FLAC re-compress bit-perfect/metadata proof). Run one
+>   at a time and record the result.
 >
 > Everything here is already *implemented* (or, for upstream-blocked items,
 > *decided*) — these tests confirm reality matches intent and capture the real
@@ -268,7 +269,7 @@ Each D-row that misbehaves → file a report with the log.
 
 ---
 
-# Single-feature cases (Test 1–9)
+# Single-feature cases (Test 1–10)
 
 The individually-gated deep cases. Each is self-contained: do the steps, record
 the result, follow **If it fails**. Several are unblocked by — or feed back
@@ -517,6 +518,67 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 
 **Record:** all removed? `____`; distrobox/podman intact? `____`; music intact?
 `____`; reinstall clean? `____`.
+
+---
+
+## Test 10 — [ ] FLAC re-compress: bit-perfect + metadata survives + smaller (whipper)
+
+**Goal:** prove the opt-in "Re-compress FLACs" feature (whipper backend) on real
+files: the audio is **provably bit-identical** after the `-8 --verify` re-encode,
+every tag and the embedded cover art survive, and the files actually shrink. The
+adapter is unit-tested with a stubbed `flac`; this is the real-binary proof, and
+it doubles as a check that the shipped flag set (`-8 --verify --silent -f -o`) is
+still correct against the installed `flac` version (flags verified against the
+xiph spec 2026-06-23; this catches a future flac that changes them).
+
+**Why these checks:** FLAC stores an MD5 of the *decoded PCM* in STREAMINFO, so
+if the audio is unchanged the MD5 is unchanged — `metaflac --show-md5sum` before
+vs after is a direct bit-perfect proof (independent of `--verify`, which already
+guarantees it during the encode).
+
+**Setup**
+1. Rip a recognized CD with the **whipper** backend (A6) so you have a folder of
+   tagged FLACs with embedded cover art. Don't turn the toggle on yet.
+2. Snapshot the originals (before re-compress):
+   ```bash
+   D="$HOME/Music/rips/<Artist>/<Album>"
+   for f in "$D"/*.flac; do
+     echo "$(basename "$f")  md5=$(metaflac --show-md5sum "$f")  bytes=$(stat -c%s "$f")"
+   done
+   metaflac --list --block-type=PICTURE "$D"/01*.flac | grep -E "type:|description:|data length"
+   metaflac --export-tags-to=- "$D"/01*.flac > /tmp/tags_before.txt
+   ```
+
+**Run**
+3. Settings → tick **"Re-compress FLACs"** → Save. (Confirm it's editable on
+   whipper and **greyed out** when you switch the backend to cyanrip — the
+   tooltip should say cyanrip already maxes compression.)
+4. Rip the same disc again (or re-run the feature on the existing folder via a
+   fresh rip). Watch the rip log: it should end with
+   `FLAC re-compress: N file(s) re-compressed.`
+
+**Verify**
+5. **Bit-perfect (the priority):** the decoded-PCM MD5 must be **identical** for
+   every track, before vs after:
+   ```bash
+   for f in "$D"/*.flac; do
+     echo "$(basename "$f")  md5=$(metaflac --show-md5sum "$f")  bytes=$(stat -c%s "$f")"
+   done
+   flac --test --silent "$D"/*.flac && echo "ALL DECODE OK"
+   ```
+   Every `md5=` must match step 2's. (`flac --test` is a second, independent
+   confirmation each file decodes back to its stored checksum.)
+6. **Metadata survives:** the PICTURE block is still present (re-run the
+   `--list --block-type=PICTURE` from step 2 — same type/description/length),
+   and the tags are unchanged (`metaflac --export-tags-to=- "$D"/01*.flac |
+   diff - /tmp/tags_before.txt` → no differences).
+7. **Smaller (the bonus):** the `bytes=` in step 5 should be ≤ step 2 for each
+   track (whipper writes `-5`; `-8` is typically a few % smaller). Equal is fine
+   for already-incompressible audio; **larger is a red flag** — investigate.
+
+**Record:** all MD5s identical? `____`; `flac --test` all OK? `____`; cover art +
+tags intact? `____`; total size before/after `____` / `____`; any track that
+grew? `____`.
 
 ---
 
