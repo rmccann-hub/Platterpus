@@ -102,6 +102,7 @@ Whipper-GUI-Frontend---CD-Rip/
         │   ├── musicbrainz_client.py    # MusicBrainzClient ABC + MusicBrainzNgsImpl
         │   ├── metaflac.py              # MetaflacAdapter (tag write-back + embed_picture)
         │   ├── cover_art.py             # Cover Art Archive front-cover fetch + embed/save (backend-independent)
+        │   ├── flac_verify.py           # post-rip `flac --test` integrity check (for backends that don't self-verify)
         │   ├── accuraterip_offsets.py   # read-offset lookup by drive model (AccurateRip list)
         │   ├── accuraterip_offsets_data.py # bundled DriveOffsets.bin (~4,800 drives, gzip+base64)
         │   └── ctdb_client.py           # CTDBClient ABC + CtdbHttpImpl (CUETools DB lookup; KDD-16)
@@ -169,7 +170,8 @@ Whipper-GUI-Frontend---CD-Rip/
             ├── disc_info_worker.py      # drives disc_info() off-thread
             ├── dependency_worker.py     # drives the launch-time dependency probe off-thread
             ├── update_worker.py         # drives the release check + the download/verify/install off-thread
-            └── ctdb_worker.py           # drives CTDB verify for a finished rip off-thread (KDD-14)
+            ├── ctdb_worker.py           # drives CTDB verify for a finished rip off-thread (KDD-14)
+            └── flac_verify_worker.py    # drives the post-rip `flac --test` integrity check off-thread
 ```
 
 ---
@@ -208,6 +210,7 @@ Every call into an external tool goes through this layer. CLAUDE.md Critical Rul
 - **`metaflac.py`** — `MetaflacAdapter` wrapping the `metaflac` CLI. Used by the Unknown Album helper to apply `Track NN` placeholder tags after a `--unknown` rip; `embed_picture()` (replace-then-import, so re-rips don't stack covers) backs the cover-art feature.
 - **`cover_art.py`** — backend-independent cover art (2026-06-13). `fetch_front_cover(release_id)` GETs the Cover Art Archive `/front` image (stdlib urllib, injectable fetcher, magic-byte sniff, every failure → `None`); `plan_actions(mode, ripper_fetches_art, release_id)` is the pure gate (no-op when the ripper fetches its own art or the disc was never identified); `apply_cover_art(...)` writes `cover.<ext>` and/or embeds via `MetaflacAdapter.embed_picture`. Closes the gap where cyanrip rips and whipper `--unknown` heals had no art (they bypass the ripper's own MB/CAA lookup). Honors Critical Rule #5 — the GUI queries, never the ripper.
 - **`ctdb_client.py`** — `CTDBClient` ABC + `CtdbHttpImpl` for CUETools-DB lookups (`db.cuetools.net/lookup2.php`). Clean-room per Critical Rule #1 and KDD-16; the injectable fetcher keeps the transport swappable and unit-testable. Backs the `ctdb/` verify library.
+- **`flac_verify.py`** — post-rip FLAC integrity check: `verify_flac_files()` runs `flac --test` (decode + stored-MD5 verify) on each output FLAC, returning a `FlacVerifyResult` (never raises; distinguishes "couldn't run" from "a file failed"). Gives the cyanrip path the decode==PCM guarantee whipper gets for free from `flac --verify`; only runs when `WhipperBackend.self_verifies_encode()` is False (the GUI gates it).
 
 ### CTDB verify library (`ctdb/`)
 
@@ -284,6 +287,7 @@ module's `QThread` keep working) and connects its own result slots first.
 - **`dependency_worker.py`** — runs `DependencyManager.check_all()` (the launch-time probe) off-thread; emits `finished(report)`.
 - **`update_worker.py`** — `UpdateCheckWorker` (release lookup) + `UpdateInstallWorker` (download/verify/install with progress) off-thread.
 - **`ctdb_worker.py`** — runs CTDB verify for a finished rip off-thread on a daemon thread (KDD-14 Phase 1; it can outlive any sane `wait()`, see architecture.md §3.2).
+- **`flac_verify_worker.py`** — runs the post-rip `flac --test` integrity check off-thread (same daemon-thread + `wait_for` pattern as `ctdb_worker`, so it never tests a FLAC mid-metaflac-rewrite); reports a `FlacVerifyResult` via a queued signal.
 
 ---
 
