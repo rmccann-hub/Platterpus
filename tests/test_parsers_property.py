@@ -24,9 +24,9 @@ from hypothesis import strategies as st
 
 from whipper_gui.parsers.cd_info import DiscInfo, parse_cd_info
 from whipper_gui.parsers.cyanrip_info import parse_cyanrip_info
-from whipper_gui.parsers.cyanrip_log import parse_cyanrip_log
+from whipper_gui.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from whipper_gui.parsers.drive_list import DriveDescriptor, parse_drive_list
-from whipper_gui.parsers.eac_log import parse_eac_copy_crcs
+from whipper_gui.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
 from whipper_gui.parsers.rip_log import RipLog, parse_rip_log
 
 # `deadline=None`: the parsers are fast, but CI runners are noisy and we
@@ -174,6 +174,15 @@ def test_parse_eac_copy_crcs_never_raises(text: str) -> None:
         # Only 8-hex-digit Copy CRCs are captured, always upper-cased.
         assert isinstance(crc, str) and len(crc) == 8
         assert crc == crc.upper()
+
+
+@_SETTINGS
+@given(_any_text)
+def test_looks_like_log_sniffers_never_raise(text: str) -> None:
+    """The format sniffers (used by the finish handler to pick a log parser)
+    consume arbitrary text too, so they must classify, not crash."""
+    assert isinstance(looks_like_cyanrip_log(text), bool)
+    assert isinstance(looks_like_eac_log(text), bool)
 
 
 # --- Invariant 2: a well-formed drive block round-trips -------------------

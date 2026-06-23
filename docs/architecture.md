@@ -12,7 +12,7 @@
 >   conflicts with CLAUDE.md, **CLAUDE.md wins**; this guide explains and
 >   expands those rules, it does not override them.
 > - **[`../PLANNING.md`](../PLANNING.md)** — the module map and the keyed
->   design-decision log (KDD-01 … KDD-19): the "why is it like this?" record.
+>   design-decision log (KDD-01 … KDD-21): the "why is it like this?" record.
 > - **[`testing.md`](testing.md)** — the testing strategy, taxonomy, and
 >   Definition of Done.
 > - **[`session-log.md`](session-log.md)** — the dated chronology of how each
