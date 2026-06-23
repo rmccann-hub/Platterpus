@@ -294,6 +294,18 @@ class WhipperBackend(ABC):
     def version(self) -> str:
         """Return whipper's reported version string (raw, untrimmed)."""
 
+    # --- Optional capability flags ------------------------------------------
+
+    def self_verifies_encode(self) -> bool:
+        """True if the backend already proves each encoded file decodes back to
+        the read PCM (so a separate post-rip FLAC verify would be redundant).
+
+        Default False (the safe assumption: verify it ourselves). whipper
+        overrides to True because it passes ``flac --verify`` during the rip;
+        cyanrip (FFmpeg) does not, so it inherits False.
+        """
+        return False
+
     # --- Optional drive-calibration capability ------------------------------
     # Deliberately NOT abstract: not every backend can auto-calibrate (a
     # future CyanripImpl might expect whipper.conf to be pre-populated).
@@ -403,6 +415,11 @@ class WhipperHostExportedImpl(WhipperBackend):
 
     def version(self) -> str:
         return self._run_info(["--version"]).strip()
+
+    def self_verifies_encode(self) -> bool:
+        # whipper passes `flac --verify` during the rip, so each FLAC is already
+        # proven to decode back to the read PCM — no post-rip verify needed.
+        return True
 
     # --- Drive calibration (setup wizard) ---
 

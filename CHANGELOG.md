@@ -50,6 +50,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   PLANNING.md KDD-21.
 
 ### Added
+- **Post-rip FLAC integrity verification (new "Verify FLACs" setting, on by
+  default).** whipper proves every track decodes back to the read PCM by passing
+  `flac --verify` during the rip; cyanrip (FFmpeg) does not, so a cyanrip rip
+  lacked that guarantee. After a successful rip the GUI now runs `flac --test` on
+  each output FLAC (decode + stored-MD5 check) off the GUI thread, and surfaces a
+  loud warning if any file fails. It's skipped for whipper (already self-verified)
+  — the Settings toggle is greyed out there with an explanation — and is
+  best-effort (a missing `flac` is reported, never fatal). New
+  `Config.verify_flac_after_rip`.
 - **Richer tags on cyanrip rips (genre, disc number, per-track ISRC).** The
   cyanrip backend was fed only album/artist/title/year/MBID + per-track
   title/artist, so its rips were tagged more sparsely than whipper's. The

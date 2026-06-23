@@ -123,6 +123,29 @@ def test_ctdb_verify_reflects_config_and_round_trips(qapp: QApplication) -> None
     assert dialog2.to_config().ctdb_verify_after_rip is True
 
 
+def test_verify_flac_reflects_config_and_round_trips(qapp: QApplication) -> None:
+    # Defaults ON and reflects the incoming config…
+    dialog = SettingsDialog(Config())
+    assert dialog._verify_flac_check.isChecked() is True
+
+    # …and a user toggle-off survives to_config().
+    dialog2 = SettingsDialog(Config(verify_flac_after_rip=False))
+    assert dialog2._verify_flac_check.isChecked() is False
+    dialog2._verify_flac_check.setChecked(True)
+    assert dialog2.to_config().verify_flac_after_rip is True
+
+
+def test_verify_flac_greyed_for_whipper_editable_for_cyanrip(
+    qapp: QApplication,
+) -> None:
+    # whipper self-verifies, so the toggle is read-only (value kept)…
+    dialog = SettingsDialog(Config(ripper_backend="whipper"))
+    assert dialog._verify_flac_check.isEnabled() is False
+    # …and editable on cyanrip, which doesn't self-verify.
+    dialog2 = SettingsDialog(Config(ripper_backend="cyanrip"))
+    assert dialog2._verify_flac_check.isEnabled() is True
+
+
 def test_to_config_preserves_schema_version(qapp: QApplication) -> None:
     config = Config(schema_version=99)
     dialog = SettingsDialog(config)

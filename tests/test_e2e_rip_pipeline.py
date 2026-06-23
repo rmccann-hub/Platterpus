@@ -94,6 +94,11 @@ class _ArtifactWritingBackend(WhipperBackend):
     def version(self) -> str:
         return "fake-whipper 0.0.0"
 
+    def self_verifies_encode(self) -> bool:
+        # whipper-like: it self-verifies, so the e2e doesn't run the post-rip
+        # FLAC-verify over these (intentionally fake) FLAC artifacts.
+        return True
+
     def rip(self, *, output_dir: Path, **kwargs: Any) -> _FakeHandle:
         # Unknown-album rips land under "<Artist>/<Album>/" — match the
         # default placeholders the GUI uses so the finish handler (which

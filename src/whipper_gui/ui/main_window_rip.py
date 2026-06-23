@@ -17,9 +17,10 @@ Contract this mixin expects from the host window (all set in
 ``_rip_cancelled``/``_auto_retry_done``/``_force_stop_done``/
 ``_force_stop_timer``/``_force_stop_thread``/``_eject_thread``/
 ``_post_rip_thread``/``_cover_art_fetcher``/``_pending_picard_launch``/
-``_current_release_id``/``_current_release_detail``/``_ctdb_client``/``_ctdb_thread``;
-the ``rip_post_processing_done``, ``cover_art_done`` and
-``ctdb_verify_done`` signals; and the cross-mixin methods
+``_current_release_id``/``_current_release_detail``/``_ctdb_client``/``_ctdb_thread``/
+``_flac_verify_thread``;
+the ``rip_post_processing_done``, ``cover_art_done``,
+``ctdb_verify_done`` and ``flac_verify_done`` signals; and the cross-mixin methods
 ``self._auto_apply_known_offset`` / ``self._on_drive_setup`` (DriveMixin).
 
 Future contributors: the rip itself runs in ``workers/rip_worker.py`` via a
@@ -40,6 +41,7 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 
 from whipper_gui import drive_control
 from whipper_gui.adapters import cover_art
+from whipper_gui.adapters.flac_verify import FlacVerifyResult
 from whipper_gui.adapters.whipper_backend import RipMetadata, TrackTag
 from whipper_gui.offset_config import is_offset_configured
 from whipper_gui.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -52,6 +54,7 @@ from whipper_gui.ui.unknown_album import (
 )
 from whipper_gui.workers import start_worker_thread
 from whipper_gui.workers.ctdb_worker import verify_rip_dir
+from whipper_gui.workers.flac_verify_worker import verify_rip_dir as verify_flac_dir
 from whipper_gui.workers.rip_worker import RipParameters, RipWorker
 
 log = logging.getLogger(__name__)
@@ -413,6 +416,18 @@ class RipMixin:
                 rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_ctdb_verify(rip_dir, wait_for=post_rip_thread)
 
+            # Opt-in (default on) FLAC encode-verify — only for a backend that
+            # doesn't already self-verify. whipper passes `flac --verify` during
+            # the rip, so it's skipped there; cyanrip (FFmpeg) doesn't, so this
+            # gives its rips the same decode==PCM guarantee. Off-thread, after
+            # any metaflac rewrites settle (wait_for), like CTDB.
+            if (
+                self._config.verify_flac_after_rip
+                and not self._backend.self_verifies_encode()
+            ):
+                rip_dir = Path(log_path).parent if log_path else params.output_dir
+                self._start_flac_verify(rip_dir, wait_for=post_rip_thread)
+
         # Auto-eject on a clean finish if the user opted in. Only on success —
         # a failed/cancelled rip leaves the disc in so the user can retry, and
         # ejecting mid-failure could fight the force-stop path.
@@ -620,3 +635,53 @@ class RipMixin:
         self._rip_progress.set_ctdb_result(result)  # type: ignore[arg-type]
         verdict = getattr(getattr(result, "verdict", None), "value", "?")
         log.info("CTDB verify verdict: %s", verdict)
+
+    # --- Post-rip FLAC encode-verify (opt-in, default on) -------------------
+
+    def _start_flac_verify(
+        self, rip_dir: Path, wait_for: threading.Thread | None
+    ) -> None:
+        """Verify the just-finished rip's FLACs decode cleanly, on a daemon
+        thread (same rationale as CTDB: a per-file decode can outlast any
+        ``closeEvent`` wait, and destroying a running ``QThread`` aborts the app
+        — §3.2). Joins the post-rip metaflac thread first (``wait_for``) so it
+        never tests a file mid-rewrite. Result reported via ``flac_verify_done``
+        (queued to the GUI thread)."""
+
+        def work() -> None:
+            result = verify_flac_dir(rip_dir, wait_for=wait_for)
+            try:
+                self.flac_verify_done.emit(result)
+            except RuntimeError:  # window already destroyed — nothing to update
+                pass
+
+        log.info("starting FLAC verify for %s", rip_dir)
+        self._rip_progress.append_log_line("Verifying FLAC integrity…")
+        thread = threading.Thread(target=work, daemon=True)
+        self._flac_verify_thread = thread
+        thread.start()
+
+    def _on_flac_verified(self, result: object) -> None:
+        """FLAC verify finished — record the outcome (runs on the GUI thread).
+
+        Loud on failure (a corrupt archival file is a real problem): the message
+        also replaces the status line. A clean pass or a "couldn't run" skip is
+        noted only in the log view.
+        """
+        if not isinstance(result, FlacVerifyResult):
+            return
+        if result.error:
+            message = f"FLAC verify: skipped — {result.error}"
+        elif result.failures:
+            names = ", ".join(p.name for p in result.failures)
+            message = (
+                f"⚠ FLAC verify FAILED for {len(result.failures)} file(s): {names}"
+            )
+        else:
+            message = f"FLAC verify: all {result.checked} file(s) decode cleanly."
+        if result.failures:
+            log.warning("%s", message)
+            self._rip_progress.set_status(message)
+        else:
+            log.info("%s", message)
+        self._rip_progress.append_log_line(message)

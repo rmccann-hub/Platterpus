@@ -312,6 +312,12 @@ def test_version_returns_output(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _impl().version() == "cyanrip 0.9.3.1"
 
 
+def test_does_not_self_verify_encode() -> None:
+    # cyanrip (FFmpeg) has no decode-verify pass, so the GUI runs a post-rip
+    # check; it inherits the ABC default.
+    assert _impl().self_verifies_encode() is False
+
+
 def test_find_offset_parses_value(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_run(monkeypatch, stdout="Detected drive offset: 667\n")
     assert _impl().find_offset("/dev/sr0") == 667

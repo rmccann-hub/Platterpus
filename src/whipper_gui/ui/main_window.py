@@ -103,6 +103,10 @@ class MainWindow(
     # thread) with the CtdbVerifyResult, so the verdict renders on the GUI
     # thread.
     ctdb_verify_done = Signal(object)
+    # Emitted (from the post-rip FLAC-verify daemon thread; queued to the GUI
+    # thread) with the FlacVerifyResult, so the integrity outcome renders on the
+    # GUI thread.
+    flac_verify_done = Signal(object)
 
     def __init__(
         self,
@@ -221,6 +225,11 @@ class MainWindow(
         # comes back via the ctdb_verify_done signal. Stored so tests can join
         # it; not joined in closeEvent (daemon + guarded emit), like cover art.
         self._ctdb_thread: threading.Thread | None = None
+        # Post-rip FLAC encode-verify (opt-in, default on). Same daemon-thread +
+        # queued-signal pattern as CTDB; only runs for a backend that doesn't
+        # already self-verify (cyanrip does not; whipper does via flac --verify).
+        # Stored so tests can join it.
+        self._flac_verify_thread: threading.Thread | None = None
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
         # once per session (refreshing shouldn't re-pop the dialog).
         self._drive_access_nudged: bool = False
@@ -248,6 +257,8 @@ class MainWindow(
         self.cover_art_done.connect(self._on_cover_art_done)
         # CTDB verdict (opt-in) lands under the AccurateRip table.
         self.ctdb_verify_done.connect(self._on_ctdb_verified)
+        # FLAC encode-verify outcome (opt-in) lands in the rip log view.
+        self.flac_verify_done.connect(self._on_flac_verified)
 
         self.setCentralWidget(central)
 
