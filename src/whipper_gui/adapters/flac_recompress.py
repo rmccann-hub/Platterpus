@@ -25,7 +25,23 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 _FLAC_BINARY: str = "flac"
-_LEVEL: str = "-8"  # flac --best (lossless; only the file size changes)
+
+# `-8` is flac's maximum compression *preset* (a.k.a. `--best` /
+# `--compression-level-8`); per the xiph spec it expands to
+# `-l 12 -b 4096 -m -r 6 -A "subdivide_tukey(3)"` (flags verified current
+# against xiph.org/flac/documentation_tools_flac.html, 2026-06-23). Compression
+# level is purely a file-size knob — every level is lossless, and `--verify`
+# proves the decoded audio is bit-identical regardless of level, so the priority
+# (bit-perfect) holds no matter what and the smaller file is the bonus.
+#
+# The docs list exactly two ways to compress *further* while staying lossless —
+# `-e/--exhaustive-model-search` and `-p/--qlp-coeff-precision-search` — both
+# flagged "(expensive!)". They typically buy well under 1% for several times the
+# encode time, a bad trade for an optional background size-shrink that runs on
+# every track, so we deliberately stop at the `-8` preset. To trade time for
+# that last sliver later, append "-e"/"-p" here — the rest of the pipeline
+# (verify, atomic swap, never-raise) is unchanged.
+_LEVEL: str = "-8"
 # A full re-encode is heavier than `--test`; give each file a generous bound.
 _TIMEOUT_S: float = 300.0
 
