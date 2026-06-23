@@ -50,6 +50,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   PLANNING.md KDD-21.
 
 ### Added
+- **Optional post-rip FLAC re-compression (new "Re-compress FLACs" setting, off
+  by default).** whipper encodes FLAC at the tool default (`-5`); turning this on
+  re-encodes each output FLAC at the maximum level (`flac -8 --verify`) after the
+  rip to shrink the files. It's **lossless and verified** — the audio stays
+  bit-identical — and `flac` preserves the tags and embedded cover art when it
+  re-encodes, so nothing the rip wrote is lost. Each file is swapped in
+  atomically, so a failure (or a crash) leaves the original untouched; the step
+  is best-effort and runs off the GUI thread (folded into the existing post-rip
+  tag/cover thread, so it runs *after* tagging and art). It's skipped for cyanrip,
+  which already encodes at maximum compression — the Settings toggle is greyed out
+  there with an explanation. New `Config.recompress_flac_after_rip` and a
+  `WhipperBackend.produces_max_compression_flac()` capability flag.
 - **Post-rip FLAC integrity verification (new "Verify FLACs" setting, on by
   default).** whipper proves every track decodes back to the read PCM by passing
   `flac --verify` during the rip; cyanrip (FFmpeg) does not, so a cyanrip rip

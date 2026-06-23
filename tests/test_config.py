@@ -106,6 +106,19 @@ def test_verify_flac_defaults_on_and_round_trips(
     assert config_module.load().verify_flac_after_rip is False
 
 
+def test_recompress_flac_defaults_off_and_round_trips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _redirect_config(tmp_path, monkeypatch)
+
+    cfg = config_module.load()
+    assert cfg.recompress_flac_after_rip is False  # opt-in (costs CPU/time)
+
+    cfg.recompress_flac_after_rip = True
+    config_module.save(cfg)
+    assert config_module.load().recompress_flac_after_rip is True
+
+
 def test_save_is_atomic_no_tmp_left_behind(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -146,6 +146,30 @@ def test_verify_flac_greyed_for_whipper_editable_for_cyanrip(
     assert dialog2._verify_flac_check.isEnabled() is True
 
 
+def test_recompress_flac_reflects_config_and_round_trips(qapp: QApplication) -> None:
+    # Defaults OFF (opt-in) and reflects the incoming config…
+    dialog = SettingsDialog(Config())
+    assert dialog._recompress_flac_check.isChecked() is False
+
+    # …and a user toggle-on survives to_config().
+    dialog2 = SettingsDialog(Config(recompress_flac_after_rip=True))
+    assert dialog2._recompress_flac_check.isChecked() is True
+    dialog2._recompress_flac_check.setChecked(False)
+    assert dialog2.to_config().recompress_flac_after_rip is False
+
+
+def test_recompress_flac_greyed_for_cyanrip_editable_for_whipper(
+    qapp: QApplication,
+) -> None:
+    # cyanrip already maxes compression, so the toggle is read-only (value
+    # kept)…
+    dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
+    assert dialog._recompress_flac_check.isEnabled() is False
+    # …and editable on whipper, which encodes at the default `-5`.
+    dialog2 = SettingsDialog(Config(ripper_backend="whipper"))
+    assert dialog2._recompress_flac_check.isEnabled() is True
+
+
 def test_to_config_preserves_schema_version(qapp: QApplication) -> None:
     config = Config(schema_version=99)
     dialog = SettingsDialog(config)

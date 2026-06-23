@@ -318,6 +318,12 @@ def test_does_not_self_verify_encode() -> None:
     assert _impl().self_verifies_encode() is False
 
 
+def test_produces_max_compression_flac_true() -> None:
+    # cyanrip drives libavcodec at the maximum FLAC compression already, so a
+    # post-rip `flac -8` re-compress would gain nothing — the GUI skips it.
+    assert _impl().produces_max_compression_flac() is True
+
+
 def test_find_offset_parses_value(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_run(monkeypatch, stdout="Detected drive offset: 667\n")
     assert _impl().find_offset("/dev/sr0") == 667

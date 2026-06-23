@@ -159,10 +159,11 @@ Worker mechanics, all demonstrated in `workers/`:
   block the close or **destroy a running `QThread`, which aborts the app**. Use
   a daemon `threading.Thread` that reports back via a queued signal (e.g.
   `ctdb_verify_done`); daemon threads die with the process and are never joined
-  on close. The post-rip tagging/cover-art/CTDB chain runs this way. (When two
-  daemon-thread steps touch the *same* files — tagging and cover-art both run
-  `metaflac` — run them **sequentially on one thread**, not two, to avoid a
-  same-file race.)
+  on close. The post-rip tagging/cover-art/CTDB chain runs this way. (When
+  several steps touch the *same* files — tagging, cover-art, and the optional
+  FLAC re-compress all rewrite the rip's FLACs — run them **sequentially on one
+  thread**, in a fixed order, not in parallel, to avoid a same-file race. The
+  re-compress runs **last** so it operates on the final tagged-and-arted files.)
 - **Clean up deterministically:** connect `worker.finished → thread.quit`,
   `worker.finished → worker.deleteLater`, `thread.finished →
   thread.deleteLater`. **Join/stop threads before the window closes**
