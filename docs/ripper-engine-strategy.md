@@ -126,3 +126,83 @@ fork/combine option open.
 - [ ] Re-verify transitive-dep licenses at the exact versions we'd ship
       (FFmpeg build flags; libcdio components).
 - [ ] Re-confirm whipper's Python-3.14 / `pkg_resources` status at decision time.
+- [ ] **Run the §7 "mirror + enumerate + triage" spike** (read-only) and attach
+      the per-branch manifest below.
+
+## 7. Option 3a — vendor + branch-consolidate both upstreams into one in-house tree
+
+> Maintainer request (2026-06-23): *"branch off and make our own repo of both
+> projects; test/verify/merge all the testing branches from those projects into a
+> single merged and working branch in ours — I want the most up-to-date single
+> project here for these."* This section is the **plan**; it is **not executed**.
+> It is the heaviest variant of Options 1–3 (we become the maintainer of a merged
+> engine), so it sits behind all the §5 decision gates **plus** a maintenance
+> commitment, and adopting it amends KDD-18 via a new KDD.
+
+**Goal.** A single in-house source tree that reflects each tool's *most current
+working state* — upstream's released code **plus** the useful work stranded on
+their unreleased `develop`/feature/PR branches — merged, building, and test-green.
+"Single project here" = we host it; the GUI keeps consuming the built binaries
+through the host-setup wizard (the adapter boundary is unchanged).
+
+### 7.1 Repo shape (pick at decision time)
+- **(a) Monorepo via `git subtree`** — vendor each upstream under `vendor/whipper`
+  and `vendor/cyanrip` *with full history*; local edits live alongside; pull
+  upstream with `git subtree pull`. Best fit for "single project here." Recommended.
+- **(b) Two in-house forks** (`*-whipper`, `*-cyanrip`), each with a `consolidated`
+  branch — better if we intend to send PRs back upstream (Option 0 still in play).
+- Either way the GUI repo is unchanged; only the host-setup install source moves
+  from distro/COPR packages to our built artifacts.
+
+### 7.2 The consolidation procedure (the actual work)
+1. **Mirror** each upstream: `git clone --mirror` → all branches, tags, refs (and
+   PR refs via `refs/pull/*` where the host exposes them).
+2. **Enumerate + classify** every branch: release/stable, `develop`, feature/test,
+   PR, stale. Capture last-commit date, ahead/behind the base, and what it touches.
+3. **Triage → keep/reject.** *This is the crux:* "merge everything" can **regress**
+   quality — unreleased branches are often experimental, abandoned-for-cause, or
+   superseded. Each candidate must earn inclusion (see step 5). Record decisions.
+4. **Per-project test harness** so any branch can be verified in isolation:
+   whipper → `pytest` + a smoke rip; cyanrip → `meson build && meson test` + a smoke
+   rip. "Verify a branch" = builds **and** its tests pass **and** a smoke rip works.
+5. **Integration branch `consolidated`,** built like our own refactor (small,
+   bisectable, green-at-every-step): start from the most-advanced stable base
+   (whipper `develop`, cyanrip `master`), then **merge kept branches one at a time**,
+   running the harness after each; reject any branch that can't be made green
+   without disproportionate surgery. (Avoid octopus merges — conflicts need
+   per-branch resolution.) Document every non-trivial conflict resolution.
+6. **Validate the result:** full build + tests + a **real-hardware rip** (the
+   standing gate) + the `output_reference/` **EAC parity** matrix. A consolidated
+   tree that fails parity is not done.
+7. **Provenance manifest:** record exactly which upstream branches/commits landed,
+   why, and what was rejected — committed alongside the tree.
+
+### 7.3 Staying current
+Re-run a lightweight consolidation when upstream advances: `git subtree pull` (or
+re-mirror + re-triage), re-merge our local deltas, re-validate. Budget this as
+recurring maintenance, not one-time.
+
+### 7.4 Licensing & attribution (non-negotiable)
+The consolidated work is **GPL-3.0** (whipper GPL-3 + cyanrip LGPL-2.1 → GPL-3;
+§2). We MUST: retain **all** upstream copyright/license headers + `AUTHORS`/`NOTICE`,
+keep cyanrip's LGPL-2.1 notices intact even when combined under GPL-3, **state our
+modifications**, ship **complete corresponding source**, add **no further
+restrictions**, and never relicense proprietary. The clean-room bar (KDD-16) still
+forbids pulling in anything **GPL-2.0-only**. If we redistribute binaries (e.g.
+inside the container image or AppImage), honor the GPL source-offer.
+
+### 7.5 Risks (why this is the heavy option)
+- **We become the maintainer** of two upstream codebases (security updates for
+  FFmpeg/libcdio; the whipper `pkg_resources`/Python-3.14 cliff; build/packaging).
+- **Merging unreleased branches can lower quality** vs. a curated upstream release —
+  hence the per-branch verify-or-reject gate; expect to reject a lot.
+- **Heavy, divergent conflicts** between long-lived branches.
+- **Drift from upstream** makes future `subtree pull`s harder the more we edit.
+
+### 7.6 First step when we start (low-cost, read-only spike)
+Do **only** steps 7.2-(1→3): mirror both, enumerate, triage, and produce the
+**per-branch manifest + a feasibility report** (which branches carry real
+unreleased value, rough conflict/maintenance estimate). No merging, no commitment —
+it turns "should we consolidate?" into a decision backed by data, and feeds the §6
+checklist. Park the manifest in §6.
+
