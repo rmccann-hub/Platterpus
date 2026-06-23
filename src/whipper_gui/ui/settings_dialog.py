@@ -303,6 +303,22 @@ class SettingsDialog(QDialog):
         )
         form.addRow("Verify FLACs:", self._verify_flac_check)
 
+        # --- FLAC re-compress ---
+        # Post-rip `flac -8` re-encode of each output FLAC to shrink it. Opt-in,
+        # OFF by default. Greyed out for cyanrip, which already maxes compression.
+        self._recompress_flac_check: QCheckBox = QCheckBox(
+            "Re-compress FLAC files after a rip (smaller files)", self
+        )
+        self._recompress_flac_check.setChecked(config.recompress_flac_after_rip)
+        self._recompress_flac_check.setToolTip(
+            "After a successful rip, re-encode each FLAC at the maximum level "
+            "(`flac -8`) to shrink it. Lossless and verified — the audio stays "
+            "bit-identical and the tags and cover art are preserved. Needs "
+            "`flac`; runs in the background. Off by default (it costs some CPU "
+            "and time for a modest size saving)."
+        )
+        form.addRow("Re-compress FLACs:", self._recompress_flac_check)
+
         root.addLayout(form)
 
         # --- Backend capability gating (one UI for both backends) ---
@@ -340,6 +356,11 @@ class SettingsDialog(QDialog):
                     "Only the whipper backend uses this path. cyanrip is "
                     "found automatically (~/.local/bin/cyanrip, installed by "
                     "Tools → Set up Whipper GUI…).",
+                ),
+                (
+                    self._recompress_flac_check,
+                    "cyanrip already encodes FLAC at maximum compression, so "
+                    "there is nothing to re-compress.",
                 ),
             )
         ]
@@ -405,6 +426,7 @@ class SettingsDialog(QDialog):
             keep_going=self._keep_going_check.isChecked(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),
             verify_flac_after_rip=self._verify_flac_check.isChecked(),
+            recompress_flac_after_rip=self._recompress_flac_check.isChecked(),
             ripper_backend=self._backend_combo.currentData(),
             # Preserve fields the dialog doesn't model, so saving Settings
             # never silently resets them (these one-time "already offered"

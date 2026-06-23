@@ -186,6 +186,17 @@ class Config:
     # thread, surfaces only a one-line outcome (loud on failure).
     verify_flac_after_rip: bool = True
 
+    # --- FLAC re-compression ---
+    # After a successful rip, re-encode each output FLAC at the maximum level
+    # (`flac -8`, with `--verify`) to shrink the files. Opt-in, OFF by default:
+    # it's lossless and provably bit-identical, but it costs CPU/time and the
+    # space saved over whipper's default `-5` is modest. Only meaningful for a
+    # backend that *doesn't* already max compression — cyanrip encodes at the
+    # ceiling already, so the GUI skips it there (and Settings greys it out).
+    # Best-effort, off the GUI thread; each file is swapped in atomically so a
+    # failure leaves the original untouched.
+    recompress_flac_after_rip: bool = False
+
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
 

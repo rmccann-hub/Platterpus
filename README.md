@@ -476,18 +476,16 @@ flac --silent --verify -o <outfile> -f <infile>
 
 You'll notice no `-0` through `-8` compression flag. Whipper relies on `flac`'s default, which is **compression level 5** (balanced — slower than `-0`, smaller than `-0`, looser than `-8`).
 
-**Compression level is not configurable** from this GUI, from `whipper.conf`, or from any whipper CLI flag. It's baked into `whipper/program/flac.py` upstream. If you specifically want `-8` (best compression — ~5% smaller files, slower encode), the realistic path is post-processing:
+Whipper's compression level isn't configurable from `whipper.conf` or any whipper CLI flag — it's baked into `whipper/program/flac.py` upstream. So instead of trying to change *how whipper encodes*, the GUI offers an **optional post-rip re-encode**: turn on **Settings → "Re-compress FLACs"** (off by default) and after each whipper rip the GUI re-encodes every output FLAC at `-8 --verify`, equivalent to:
 
 ```bash
-# Re-encode in place to -8 after a rip.
-for f in *.flac; do
-    flac -8 --best --verify -f "$f"
-done
+# What the "Re-compress FLACs" toggle does, per file, after a rip.
+flac -8 --verify -f -o <tmp> <file> && mv <tmp> <file>
 ```
 
-Why isn't this a bigger deal? **All FLAC compression levels are lossless.** `-0` and `-8` produce identical decoded audio — only file size differs. Whipper's `--verify` proves the bit-perfect property regardless of level. The choice of `-5` vs `-8` is purely a file-size tradeoff; archival fidelity is the same.
+It runs in the background (never freezes the window), swaps each file in atomically (a failure leaves the original untouched), and **`flac` preserves the tags and embedded cover art** when it re-encodes, so nothing is lost. The toggle is greyed out for the cyanrip backend, which **already encodes FLAC at maximum compression** — there's nothing to re-compress there.
 
-If this changes in the future (whipper exposes compression as a config knob, or someone forks it), the GUI's Settings dialog can grow a "FLAC compression level" field. The architecture supports it; whipper just doesn't.
+Why isn't this a bigger deal? **All FLAC compression levels are lossless.** `-0` and `-8` produce identical decoded audio — only file size differs (~5% smaller at `-8`, slower to encode). Whipper's `--verify` (and the re-encode's) proves the bit-perfect property regardless of level. The choice of `-5` vs `-8` is purely a file-size tradeoff; archival fidelity is the same.
 
 The full FLAC encoder reference, including every flag whipper *isn't* using, is at [xiph.org/flac/documentation_tools_flac.html](https://xiph.org/flac/documentation_tools_flac.html).
 
@@ -533,7 +531,7 @@ The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https:
 
 **Not configurable from the GUI** (whipper hardcodes these upstream):
 
-- **FLAC compression level.** EAC's guide says `-8 --best`; whipper uses flac's default (`-5`). Archival quality is identical at any compression level — only file size differs. See "FLAC (v1)" above for the post-rip re-encode workaround if you specifically want `-8`.
+- **FLAC compression level.** EAC's guide says `-8 --best`; whipper uses flac's default (`-5`). Archival quality is identical at any compression level — only file size differs. Turn on **Settings → "Re-compress FLACs"** to get `-8` via an optional post-rip re-encode (see "FLAC (v1)" above); cyanrip already encodes at maximum compression.
 
 **Not possible on Linux today:**
 

@@ -20,7 +20,8 @@ Contract this mixin expects from the host window (all set in
 ``_current_release_id``/``_current_release_detail``/``_ctdb_client``/``_ctdb_thread``/
 ``_flac_verify_thread``;
 the ``rip_post_processing_done``, ``cover_art_done``,
-``ctdb_verify_done`` and ``flac_verify_done`` signals; and the cross-mixin methods
+``ctdb_verify_done``, ``flac_verify_done`` and ``flac_recompress_done`` signals;
+and the cross-mixin methods
 ``self._auto_apply_known_offset`` / ``self._on_drive_setup`` (DriveMixin).
 
 Future contributors: the rip itself runs in ``workers/rip_worker.py`` via a
@@ -41,6 +42,10 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 
 from whipper_gui import drive_control
 from whipper_gui.adapters import cover_art
+from whipper_gui.adapters.flac_recompress import (
+    RecompressResult,
+    recompress_flac_files,
+)
 from whipper_gui.adapters.flac_verify import FlacVerifyResult
 from whipper_gui.adapters.whipper_backend import RipMetadata, TrackTag
 from whipper_gui.offset_config import is_offset_configured
@@ -392,7 +397,17 @@ class RipMixin:
                 ripper_fetches_art=ripper_fetches_art,
                 release_id=self._current_release_id,
             )
-            if tag or embed or save_file:
+            # Opt-in (off by default) FLAC re-compress — only for a backend that
+            # doesn't already max compression. whipper encodes at flac's default
+            # (`-5`), so re-encoding at `-8` can still shrink it; cyanrip already
+            # maxes, so it's skipped there. Folded into the post-rip thread (it
+            # mutates the same FLACs as tag/cover, so it MUST run after them, not
+            # concurrently) — see _start_post_rip_processing.
+            recompress = (
+                self._config.recompress_flac_after_rip
+                and not self._backend.produces_max_compression_flac()
+            )
+            if tag or embed or save_file or recompress:
                 rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_post_rip_processing(
                     rip_dir,
@@ -401,6 +416,7 @@ class RipMixin:
                     release_id=self._current_release_id,
                     embed=embed,
                     save_file=save_file,
+                    recompress=recompress,
                 )
                 post_rip_thread = self._post_rip_thread
             else:
@@ -521,15 +537,20 @@ class RipMixin:
         release_id: str,
         embed: bool,
         save_file: bool,
+        recompress: bool = False,
     ) -> None:
-        """Run unknown-mode tagging, then cover art, on ONE daemon thread.
+        """Run unknown-mode tagging, then cover art, then FLAC re-compress, on
+        ONE daemon thread.
 
-        Why one thread, in this order: both steps shell out to ``metaflac`` on
-        the SAME FLAC files, so they MUST run sequentially — tag first, then
-        embed/save the front cover — never concurrently. Two ``metaflac``
-        processes mutating one file race each other and corrupt or lose the
-        tags or the artwork. Running them on one worker (rather than two) is
-        what guarantees the ordering.
+        Why one thread, in this order: the first two steps shell out to
+        ``metaflac`` on the SAME FLAC files, and the re-compress step *rewrites*
+        those same files — so all three MUST run sequentially: tag first, then
+        embed/save the front cover, then re-compress. Two processes mutating one
+        FLAC at the same time race each other and corrupt or lose the tags,
+        artwork, or audio. Re-compress runs LAST so it operates on the final,
+        fully-tagged-and-arted files (``flac`` preserves their tags and embedded
+        art when it re-encodes). Running them on one worker (rather than three)
+        is what guarantees the ordering.
 
         Why off the GUI thread at all: each step is a subprocess per file
         (~1-2s), so a multi-track album would freeze the event loop for tens of
@@ -538,11 +559,13 @@ class RipMixin:
         cover-art fetch is also a network call, which never belongs on the GUI
         thread either.
 
-        Best-effort end to end: tagging and ``apply_cover_art`` each guard
-        their own failures so a stray bug here can't take down the app. The
-        cover-art outcome is reported back through ``cover_art_done`` (a queued
-        cross-thread signal, so the slot runs on the GUI thread); the emit is
-        guarded because the window may have been closed while the work ran.
+        Best-effort end to end: tagging, ``apply_cover_art`` and
+        ``recompress_flac_files`` each guard their own failures so a stray bug
+        here can't take down the app. The cover-art and re-compress outcomes are
+        reported back through ``cover_art_done`` / ``flac_recompress_done``
+        (queued cross-thread signals, so the slots run on the GUI thread); each
+        emit is guarded because the window may have been closed while the work
+        ran.
 
         Not joined in ``closeEvent``: it's a daemon thread that guards its own
         emit (the same pattern the cover-art fetch always used). Tests join the
@@ -577,13 +600,29 @@ class RipMixin:
                     self.cover_art_done.emit(message)
                 except RuntimeError:  # window destroyed — nothing to update
                     pass
+            # 3) Re-compress LAST, so it rewrites the final tagged-and-arted
+            #    FLACs (flac preserves their tags + embedded art). Best-effort;
+            #    each file is swapped in atomically, so a failure or crash leaves
+            #    the original untouched. Outcome reported via flac_recompress_done.
+            if recompress:
+                try:
+                    result = recompress_flac_files(sorted(rip_dir.rglob("*.flac")))
+                except Exception:  # noqa: BLE001 — must never crash the GUI
+                    log.exception("FLAC re-compress failed unexpectedly")
+                    result = RecompressResult(error="failed unexpectedly")
+                try:
+                    self.flac_recompress_done.emit(result)
+                except RuntimeError:  # window destroyed — nothing to update
+                    pass
 
         log.info(
-            "post-rip processing in %s (tag=%s, cover-art embed=%s save=%s)",
+            "post-rip processing in %s "
+            "(tag=%s, cover-art embed=%s save=%s, recompress=%s)",
             rip_dir,
             tag,
             embed,
             save_file,
+            recompress,
         )
         thread = threading.Thread(target=work, daemon=True)
         self._post_rip_thread = thread
@@ -682,6 +721,36 @@ class RipMixin:
         if result.failures:
             log.warning("%s", message)
             self._rip_progress.set_status(message)
+        else:
+            log.info("%s", message)
+        self._rip_progress.append_log_line(message)
+
+    # --- Post-rip FLAC re-compress (opt-in, off by default) -----------------
+
+    def _on_flac_recompressed(self, result: object) -> None:
+        """FLAC re-compress finished — record the outcome (runs on the GUI
+        thread).
+
+        Re-compress is lossless and ``--verify``'d, and any failed file is left
+        untouched, so a partial failure is informational rather than alarming: a
+        per-file failure is noted in the log (the original FLAC is still a valid
+        rip), while a "couldn't run at all" (e.g. ``flac`` missing) is a skip.
+        A clean pass just notes how many files shrank.
+        """
+        if not isinstance(result, RecompressResult):
+            return
+        if result.error:
+            message = f"FLAC re-compress: skipped — {result.error}"
+        elif result.failures:
+            names = ", ".join(p.name for p in result.failures)
+            message = (
+                f"FLAC re-compress: {result.reencoded} file(s) re-compressed; "
+                f"{len(result.failures)} left as-is (re-encode failed): {names}"
+            )
+        else:
+            message = f"FLAC re-compress: {result.reencoded} file(s) re-compressed."
+        if result.failures:
+            log.warning("%s", message)
         else:
             log.info("%s", message)
         self._rip_progress.append_log_line(message)

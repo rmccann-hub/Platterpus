@@ -265,6 +265,13 @@ def test_self_verifies_encode_true() -> None:
     assert impl.self_verifies_encode() is True
 
 
+def test_produces_max_compression_flac_false() -> None:
+    # whipper encodes FLAC at the tool default (`-5`), so a post-rip `-8`
+    # re-compress can still shrink it — the GUI runs re-compress for whipper.
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    assert impl.produces_max_compression_flac() is False
+
+
 # --- rip (Popen) ----------------------------------------------------------
 
 

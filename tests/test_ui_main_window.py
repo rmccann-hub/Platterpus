@@ -80,6 +80,15 @@ class _FakeBackend(WhipperBackend):
     def self_verifies_encode(self) -> bool:
         return self.self_verifies
 
+    # Behave like whipper (encodes FLAC at the default `-5`, not maxed) by
+    # default, so a re-compress runs when the user opts in; the cyanrip-skip
+    # test flips this to True. Re-compress defaults OFF, so this doesn't affect
+    # the generic rip tests.
+    produces_max_compression = False
+
+    def produces_max_compression_flac(self) -> bool:
+        return self.produces_max_compression
+
 
 class _FakeMb(MusicBrainzClient):
     def __init__(self) -> None:
@@ -2442,6 +2451,105 @@ def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
     window._on_flac_verified(FlacVerifyResult(checked=2))
     assert window._rip_progress._status_label.text() == "Done."  # clean pass is quiet
     assert any("decode cleanly" in line for line in lines)
+
+
+# --- Post-rip FLAC re-compress (opt-in, off by default) --------------------
+
+
+def _stub_recompress(monkeypatch: pytest.MonkeyPatch, sink: list[list[Path]]):
+    """Replace the real flac re-compress with a recorder; return its result."""
+    from whipper_gui.adapters.flac_recompress import RecompressResult
+
+    def fake(paths, **_kw) -> RecompressResult:
+        sink.append(list(paths))
+        return RecompressResult(reencoded=len(list(paths)))
+
+    monkeypatch.setattr("whipper_gui.ui.main_window_rip.recompress_flac_files", fake)
+
+
+def test_recompress_skipped_when_disabled(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Toggle off (the default) → re-compress never runs even for whipper.
+    calls: list[list[Path]] = []
+    _stub_recompress(monkeypatch, calls)
+    window = teardown_threads(config=Config(recompress_flac_after_rip=False))
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    assert calls == []
+
+
+def test_recompress_skipped_for_max_compression_backend(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # cyanrip already maxes compression → skip even with the toggle on.
+    calls: list[list[Path]] = []
+    _stub_recompress(monkeypatch, calls)
+    window = teardown_threads(config=Config(recompress_flac_after_rip=True))
+    window._backend.produces_max_compression = True
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, "")
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    assert calls == []
+
+
+def test_recompress_runs_for_whipper_with_toggle_on(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """whipper (not max compression) + toggle on → re-compress runs on the
+    post-rip daemon thread, over the FLACs the rip wrote (re-compress is stubbed
+    so no real flac runs)."""
+    calls: list[list[Path]] = []
+    _stub_recompress(monkeypatch, calls)
+    window = teardown_threads(config=Config(recompress_flac_after_rip=True))
+
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    (album_dir / "02 - B.flac").write_bytes(b"")
+    (album_dir / "01 - A.flac").write_bytes(b"")
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._post_rip_thread is not None  # folded into post-rip processing
+    window._post_rip_thread.join(timeout=10)
+
+    assert len(calls) == 1
+    assert [p.name for p in calls[0]] == ["01 - A.flac", "02 - B.flac"]  # sorted
+
+
+def test_on_flac_recompressed_logs_outcome(teardown_threads) -> None:
+    """The slot (GUI thread) notes the count on success and the failed files on
+    a partial failure, but never hijacks the status line (re-compress failures
+    are non-alarming — the original FLAC is still a valid rip)."""
+    from whipper_gui.adapters.flac_recompress import RecompressResult
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+    window._rip_progress.set_status("Done.")
+
+    window._on_flac_recompressed(RecompressResult(reencoded=3))
+    assert any("3 file(s) re-compressed" in line for line in lines)
+
+    window._on_flac_recompressed(
+        RecompressResult(reencoded=1, failures=(Path("02 - Bad.flac"),))
+    )
+    assert any("left as-is" in line and "02 - Bad.flac" in line for line in lines)
+
+    window._on_flac_recompressed(RecompressResult(error="'flac' not found"))
+    assert any("skipped" in line for line in lines)
+
+    # None of these are alarming enough to replace the status line.
+    assert window._rip_progress._status_label.text() == "Done."
 
 
 def test_window_closes_during_ctdb_verify_without_blocking(

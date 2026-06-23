@@ -306,6 +306,17 @@ class WhipperBackend(ABC):
         """
         return False
 
+    def produces_max_compression_flac(self) -> bool:
+        """True if the backend already encodes FLAC at the maximum level, so a
+        post-rip re-compress (`flac -8`) would gain nothing.
+
+        Default False — whipper encodes at flac's tool default (`-5`), so a
+        re-compress can still shrink its output. cyanrip overrides to True: it
+        drives libavcodec at the maximum FLAC compression level already, so the
+        GUI skips re-compression for it (and Settings greys the toggle out).
+        """
+        return False
+
     # --- Optional drive-calibration capability ------------------------------
     # Deliberately NOT abstract: not every backend can auto-calibrate (a
     # future CyanripImpl might expect whipper.conf to be pre-populated).
