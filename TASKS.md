@@ -259,10 +259,12 @@ High-level feature backlog (not bucketed into a sub-section because each is smal
 - **[ ]** udev-driven auto-detect on disc insert
 - **[ ]** ReplayGain calculation
 - **[ ]** Auto-move completed rips to a library folder
-- **[ ]** Additional encoding outputs: **MP3** (via `lame`) and **WAV** (via `sox` or whipper-native). Both encoder backends MUST be detected and offered through the existing P0 #11 dependency-resolution flow — no bespoke install code.
-  - **Bank these gotchas before implementing (from the archived EAC guide, [docs/archive/archival-extraction-guide-2026-06.md](docs/archive/archival-extraction-guide-2026-06.md); flagged _verify-before-relying_):**
-    - **MP3/LAME `noise_shaping_amp` bug (r6147):** with the *standalone `lame` binary*, `-q 0…3` at high quality reportedly cause metallic/glassy HF artifacts; force **`-q 4`** to disable the broken model. Use **`-V 0`** for top VBR. **Never force normal stereo** — leave joint-stereo (mid/side is reconstructed losslessly and allocates bits better). **Caveat:** these flags are for standalone `lame`; if MP3 is produced via cyanrip/FFmpeg `libmp3lame` instead, the flag mapping differs (e.g. `-q:a` for VBR) — re-derive, don't copy. **Verify the r6147 claim is still real/current** before baking it in.
-    - **WAV is a *secondary/raw* format** (no rich tags — RIFF lacks Vorbis/APEv2). The guide's 4 GB→RF64/Wave64 concern **does not apply at CD scope** (a full 80-min CD ≈ 850 MB), so skip RF64 complexity for CD rips.
+- **[~]** Additional encoding outputs: **MP3** and **WAV**. **Research + design DONE (2026-06-23) → [docs/mp3-wav-support.md](docs/mp3-wav-support.md)**; build gated on maintainer sign-off of that doc's §5 (a new encoder dependency is involved). Both encoder backends MUST route through the existing P0 #11 dependency-resolution subsystem — no bespoke install code (Critical Rule #6).
+  - **Verified findings (2026-06-23, replacing the earlier "verify-before-relying" bank):**
+    - **whipper is FLAC-only** (profiles removed in v0.5.0) → MP3/WAV for the whipper path is a **post-rip re-encode**, not native. **cyanrip is natively multi-format** via `-o` (incl. `wav`, `mp3`; lossy bitrate `-b`, default 256).
+    - **MP3/LAME `noise_shaping_amp` bug (#516)** is real + still open (LAME 3.100.1 is the last release) **but CBR/ABR-only — NOT VBR.** Use **VBR `-V0`**, joint-stereo ON; the `-q 4` workaround only matters if we ever ship CBR. Via FFmpeg/libmp3lame (cyanrip + a whipper re-encode) `-q:a 0` = `-V0`; the standalone-`-q` bug is a different code path → non-issue for VBR.
+    - **WAV:** no RF64 needed at CD scope (~800 MB ≪ 4 GiB); **WAV carries no rich tags or cover art** (RIFF INFO only) → must warn the user (collides with the "good everything" north star). MP3 is *transparent*, not archival — keep FLAC the master.
+  - See the design doc for the routing (Config `output_format`, a `native_output_formats()` capability flag, a post-rip `transcode.py` adapter modelled on `flac_recompress.py`, and `ffmpeg` as the single transcode dep).
 
 ### ⭐ EAC output-parity proof matrix (`output_reference/`)
 
@@ -291,7 +293,10 @@ repo + copyright; the CRCs are the proof). Ordered by format priority:
 - **[ ]** cyanrip MP3 parity → `output_reference/cyanrip_mp3/`
 
 Done so far: **[x]** EAC baseline committed; **[x]** parity checker + tests
-(`scripts/eac_parity.py`, `parsers/eac_log.py`, `whipper_gui.parity`).
+(`scripts/eac_parity.py`, `parsers/eac_log.py`, `whipper_gui.parity`); **[x]**
+WAV/MP3 parity *semantics* pinned (WAV reuses the FLAC baseline; MP3 = extraction
+CRC only) — `tests/test_parity.py`, [docs/mp3-wav-support.md](docs/mp3-wav-support.md) §1.
+So the WAV/MP3 rows below only await a real backend rip — the checker is ready.
 
 ### P1 — EAC bit-perfect parity gaps
 

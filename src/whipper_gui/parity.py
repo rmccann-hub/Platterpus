@@ -9,6 +9,18 @@ candidate against a baseline.
 Pure and never-raises; backs ``scripts/eac_parity.py`` and the parity tests.
 It's the "proof it's working" check for ``output_reference/``: a backend's log
 is only committed there once it shows parity here.
+
+**Output format (FLAC / WAV / MP3) doesn't matter to this check.** The Copy CRC
+is computed on the *extracted PCM*, before the output encoder, so one comparison
+covers all three:
+
+* **FLAC / WAV** are lossless → identical PCM → identical Copy CRC, so a WAV rip
+  is bit-perfect against the same EAC *FLAC* baseline (no separate WAV baseline
+  needed).
+* **MP3** is lossy → the encoded audio is *not* bit-comparable, but the
+  extraction CRC still proves the read was bit-perfect. "MP3 parity" therefore
+  means this CRC matches **plus** correct encoder/tag behaviour — the latter is
+  out of scope for this module.
 """
 
 from __future__ import annotations
