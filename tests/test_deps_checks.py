@@ -18,6 +18,7 @@ import pytest
 from whipper_gui.deps import checks
 from whipper_gui.deps.checks import (
     ProbeResult,
+    check_ffmpeg,
     check_flac,
     check_metaflac,
     check_picard_flatpak,
@@ -130,6 +131,41 @@ def test_check_flac_present(monkeypatch: pytest.MonkeyPatch) -> None:
     assert probe.present is True
     assert probe.version == (1, 4, 3)
     assert probe.location == "/usr/bin/flac"
+
+
+# --- check_ffmpeg ---
+
+
+def test_check_ffmpeg_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(checks.shutil, "which", lambda _: None)
+
+    def not_found(*a: Any, **kw: Any) -> Any:
+        raise FileNotFoundError
+
+    monkeypatch.setattr(checks.subprocess, "run", not_found)
+
+    probe = check_ffmpeg()
+    assert probe.present is False
+    assert probe.version is None
+
+
+def test_check_ffmpeg_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/ffmpeg")
+    captured: dict[str, Any] = {}
+
+    def fake_run(argv: Any, *a: Any, **kw: Any) -> Any:
+        captured["argv"] = argv
+        # ffmpeg prints its banner to the version flag.
+        return _fake_run(stdout="ffmpeg version 6.1.1-3ubuntu5 Copyright (c)\n")
+
+    monkeypatch.setattr(checks.subprocess, "run", fake_run)
+
+    probe = check_ffmpeg()
+    assert probe.present is True
+    assert probe.version == (6, 1, 1)
+    assert probe.location == "/usr/bin/ffmpeg"
+    # ffmpeg uses single-dash `-version`, not GNU `--version`.
+    assert captured["argv"] == ["ffmpeg", "-version"]
 
 
 # --- check_picard_flatpak ---

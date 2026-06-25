@@ -197,6 +197,20 @@ class Config:
     # failure leaves the original untouched.
     recompress_flac_after_rip: bool = False
 
+    # --- Output format (P1 groundwork; not yet user-exposed) ---
+    # Which audio format a rip produces. "flac" (default, the v1 archival
+    # format — Critical Rule #4) for now; "wav"/"mp3" are P1 and land with the
+    # encoder feature (see docs/mp3-wav-support.md). cyanrip emits these
+    # natively (`-o`); the whipper path transcodes its FLAC afterwards via
+    # ffmpeg. Kept here so the plumbing/persistence exists before the UI does;
+    # nothing reads it for a rip yet, so the default keeps v1 FLAC-only.
+    output_format: str = "flac"
+    # MP3 VBR quality for libmp3lame when output_format == "mp3": ffmpeg
+    # `-q:a N` == lame `-V N` (0 = best/~245kbps/transparent, 9 = smallest).
+    # The LAME `-q4` noise-shaping bug is CBR/ABR-only, so VBR is unaffected
+    # (docs/mp3-wav-support.md §3). Ignored unless MP3 output is selected.
+    mp3_vbr_quality: int = 0
+
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
 

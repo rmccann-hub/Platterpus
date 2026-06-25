@@ -18,6 +18,7 @@ from enum import Enum
 
 from whipper_gui.deps.checks import (
     ProbeResult,
+    check_ffmpeg,
     check_flac,
     check_metaflac,
     check_picard_flatpak,
@@ -97,6 +98,10 @@ def _probe_musicbrainzngs() -> ProbeResult:
 
 def _probe_flac() -> ProbeResult:
     return check_flac()
+
+
+def _probe_ffmpeg() -> ProbeResult:
+    return check_ffmpeg()
 
 
 # --- The registry ----------------------------------------------------------
@@ -188,5 +193,22 @@ SPECS: list[DependencySpec] = [
             "(distrobox-export --bin /usr/bin/flac) or install it on the host."
         ),
         optional=True,  # absent only disables the optional CTDB audio check
+    ),
+    DependencySpec(
+        dep_id="ffmpeg",
+        display_name="ffmpeg (MP3/WAV transcoder)",
+        probe=_probe_ffmpeg,
+        min_version=(4, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string="install ffmpeg Bazzite Fedora host export Distrobox",
+        description=(
+            "Optional (P1). Only needed to transcode whipper's FLAC output to "
+            "MP3 or WAV — whipper is FLAC-only, so a portable copy is a post-rip "
+            "ffmpeg re-encode (libmp3lame for MP3). The cyanrip backend encodes "
+            "those formats natively and doesn't need this. Already present "
+            "wherever cyanrip is installed (cyanrip is built on FFmpeg)."
+        ),
+        optional=True,  # absent only disables the optional MP3/WAV transcode
     ),
 ]

@@ -272,6 +272,12 @@ def test_produces_max_compression_flac_false() -> None:
     assert impl.produces_max_compression_flac() is False
 
 
+def test_native_output_formats_is_flac_only() -> None:
+    # whipper is FLAC-only → MP3/WAV must be a post-rip transcode for it.
+    impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"))
+    assert impl.native_output_formats() == frozenset({"flac"})
+
+
 # --- rip (Popen) ----------------------------------------------------------
 
 

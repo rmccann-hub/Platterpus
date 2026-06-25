@@ -119,6 +119,25 @@ def test_recompress_flac_defaults_off_and_round_trips(
     assert config_module.load().recompress_flac_after_rip is True
 
 
+def test_output_format_defaults_flac_and_round_trips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _redirect_config(tmp_path, monkeypatch)
+
+    cfg = config_module.load()
+    # Default must stay FLAC — v1 is FLAC-only (Critical Rule #4); MP3/WAV are
+    # P1 groundwork not yet wired to a rip.
+    assert cfg.output_format == "flac"
+    assert cfg.mp3_vbr_quality == 0
+
+    cfg.output_format = "mp3"
+    cfg.mp3_vbr_quality = 2
+    config_module.save(cfg)
+    reloaded = config_module.load()
+    assert reloaded.output_format == "mp3"
+    assert reloaded.mp3_vbr_quality == 2
+
+
 def test_save_is_atomic_no_tmp_left_behind(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

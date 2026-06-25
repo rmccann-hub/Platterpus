@@ -171,11 +171,31 @@ gets neither** → the §3 warning; don't pretend otherwise.
 
 ---
 
-## 6. What's already done (this prep)
+## 6. What's already done
 
+**Prep (2026-06-23):**
 - Parity tooling proven format-agnostic; WAV/MP3 invariants pinned by tests
   (`tests/test_parity.py`), semantics documented in `whipper_gui.parity` and
   `output_reference/README.md`.
 - Encoder facts verified + recorded here (§3) so the build starts from facts, not
   the 2015-era rules of thumb.
 - The EAC parity matrix in `TASKS.md` already lists the WAV/MP3 proof rows.
+
+**Foundation built (2026-06-23, unreachable / default-FLAC so v1 is unchanged):**
+- **§4(a) Config** — `output_format: str = "flac"` + `mp3_vbr_quality: int = 0`
+  (`config.py`), round-trips like the rest.
+- **§4(b) Capability flag** — `WhipperBackend.native_output_formats()` (ABC
+  default `{"flac"}`; cyanrip overrides to add `wav`/`mp3`).
+- **§4(c) Transcode adapter** — `adapters/transcode.py` (`transcode_files(...) ->
+  TranscodeResult`): per-FLAC ffmpeg re-encode to a sibling MP3/WAV, atomic
+  swap-in, FLAC kept, never raises. MP3 = libmp3lame VBR `-q:a` + tags/cover; WAV
+  = `pcm_s16le`. Full test coverage (`tests/test_transcode.py`).
+- **§4(d) Dependency** — `ffmpeg` registered in the single subsystem
+  (`deps/checks.py::check_ffmpeg`, `deps/registry.py`, `DEPENDENCIES.md`),
+  optional, manual tier.
+
+**Not yet built (the §5-gated, decision-laden part):** the rip-flow integration
+(cyanrip native `-o` argv + the whipper post-rip transcode call, folded into the
+post-rip daemon thread) and the **Settings UI** format selector + the WAV
+no-tags/art warning. These wire the feature to the user, which is where Critical
+Rule #4 (FLAC-only for v1) and the §5 product decisions bite — held for sign-off.
