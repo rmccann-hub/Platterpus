@@ -163,6 +163,13 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 - **CI:** the `lint` job in `.github/workflows/ci.yml` runs both in check mode on every push/PR, in parallel with `test`.
 - `ruff` is in the `dev` extra (`pip install -e ".[dev]"`).
 
+### Enforced safety (.claude/ + git hook)
+
+Beyond the *guidance* in the Critical rules above, a few things are **enforced** (not just trusted):
+
+- **`.githooks/pre-commit`** — blocks any commit that stages an audio/copyrighted-media file (Critical rule #8), even via `git add -f`. The hard guarantee behind the rule + the `.gitignore` backstop. Activate per clone with `git config core.hooksPath .githooks` (**`dev-setup.sh` does this**); bypass for a verified CC0/self-generated sample with `git commit --no-verify`.
+- **`.claude/settings.json`** (committed, shared) — permission `deny` for destructive commands (`rm -rf`, `git push --force`/`-f`/`--force-with-lease`) and secret reads (`.env*`, `secrets/**`), plus a `PreToolUse` hook that blocks a Bash call while audio is staged (the Claude-session belt for the same rule; git hook is the canonical guard). Deliberately does **not** prompt on normal `git push`, to preserve the merge-and-keep-going workflow. Personal overrides go in `.claude/settings.local.json` (git-ignored). Run `/memory` or `/hooks` to confirm what loaded.
+
 ### Important paths
 
 - Source root: `src/whipper_gui/`

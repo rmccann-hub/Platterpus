@@ -41,6 +41,10 @@ htmlcov/
 *.swo
 .DS_Store
 
+# Claude Code: the shared, enforced .claude/settings.json IS committed (deny
+# rules + the audio-guard hook). Personal/local overrides are not.
+.claude/settings.local.json
+
 # Copyrighted media — NEVER commit (CLAUDE.md Critical rule #8). This repo is
 # public; committing a music file redistributes copyrighted material, even if
 # it's only a temporary test file. We commit rip *logs* + per-track CRCs as the

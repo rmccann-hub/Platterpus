@@ -58,6 +58,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   PLANNING.md KDD-21.
 
 ### Added
+- **Enforced safety layer (contributor-facing).** New `.githooks/pre-commit`
+  hard-blocks committing audio/copyrighted media (Critical Rule #8) — even via
+  `git add -f` — so the rule is a guarantee, not just guidance (`dev-setup.sh`
+  activates it via `core.hooksPath`; `--no-verify` bypasses for a verified
+  CC0/self-generated sample). New committed `.claude/settings.json` adds
+  permission `deny` rules for destructive commands (`rm -rf`, force-push) and
+  secret reads, plus a session-level audio-staging guard. No end-user-facing
+  change.
 - **Optional post-rip FLAC re-compression (new "Re-compress FLACs" setting, off
   by default).** whipper encodes FLAC at the tool default (`-5`); turning this on
   re-encodes each output FLAC at maximum effort (`flac -8 -e -p --verify` —
