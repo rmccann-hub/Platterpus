@@ -324,6 +324,12 @@ def test_produces_max_compression_flac_true() -> None:
     assert _impl().produces_max_compression_flac() is True
 
 
+def test_native_output_formats_includes_wav_and_mp3() -> None:
+    # cyanrip emits these natively via `-o`, so no post-rip transcode is needed.
+    fmts = _impl().native_output_formats()
+    assert {"flac", "wav", "mp3"} <= fmts
+
+
 def test_find_offset_parses_value(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_run(monkeypatch, stdout="Detected drive offset: 667\n")
     assert _impl().find_offset("/dev/sr0") == 667

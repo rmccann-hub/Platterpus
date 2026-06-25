@@ -317,6 +317,19 @@ class WhipperBackend(ABC):
         """
         return False
 
+    def native_output_formats(self) -> frozenset[str]:
+        """The output formats (among the ones the GUI offers) this backend can
+        produce *natively*, in one rip.
+
+        Default ``{"flac"}`` — whipper is FLAC-only, so MP3/WAV for the whipper
+        path is a post-rip ffmpeg transcode (P1; see ``adapters/transcode.py``
+        and ``docs/mp3-wav-support.md``). cyanrip overrides to add the formats
+        it emits directly via ``-o``. The GUI uses this to decide native-encode
+        vs. transcode for the selected format. (P1 groundwork — no rip path
+        consumes it yet; v1 stays FLAC-only per Critical Rule #4.)
+        """
+        return frozenset({"flac"})
+
     # --- Optional drive-calibration capability ------------------------------
     # Deliberately NOT abstract: not every backend can auto-calibrate (a
     # future CyanripImpl might expect whipper.conf to be pre-populated).

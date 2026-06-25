@@ -223,6 +223,13 @@ class CyanripImpl(WhipperBackend):
         # GUI to skip it (and the Settings toggle to grey out) for this backend.
         return True
 
+    def native_output_formats(self) -> frozenset[str]:
+        # cyanrip emits FLAC, WAV and MP3 (among others) natively via `-o`, so
+        # no post-rip transcode is needed for it — unlike whipper (FLAC-only).
+        # We advertise just the formats the GUI offers; cyanrip supports more
+        # (opus/alac/…), out of scope here. (P1 groundwork; not yet consumed.)
+        return frozenset({"flac", "wav", "mp3"})
+
     def find_offset(self, device: str) -> int:
         """Run cyanrip's own offset finder (``-f``) and parse the result."""
         args = ["-f"]
