@@ -127,6 +127,43 @@ def test_empty_baseline_is_never_parity() -> None:
     assert report.total == 0
 
 
+# --- Output-format semantics: WAV and MP3 share the extraction-CRC path -----
+#
+# The per-track Copy CRC is computed on the EXTRACTED PCM, before (and
+# independent of) the output encoder, so ONE parity check covers FLAC, WAV and
+# MP3:
+#   * WAV is lossless → a WAV rip's Copy CRCs equal the FLAC baseline's, so the
+#     committed EAC *FLAC* baseline IS the WAV target — no separate WAV baseline
+#     is needed (TASKS.md "WAV (lossless → same Copy CRCs as FLAC)").
+#   * MP3 is lossy → the audio is NOT bit-comparable, but the extraction CRC
+#     still proves the disc read was bit-perfect; "MP3 parity" = that CRC matches
+#     PLUS correct encoder/tag behaviour (the latter verified elsewhere, not here).
+# These two tests pin those invariants against the real committed baseline so a
+# future regression in the format-dispatch is caught.
+
+
+def test_wav_rip_parities_against_the_committed_flac_baseline() -> None:
+    base = _EAC_BASELINE.read_text(encoding="utf-8")
+    flac_crcs = track_copy_crcs(base)
+    # A WAV rip of the same disc yields the SAME per-track Copy CRCs (lossless),
+    # so a WAV-rip log compares clean against the FLAC baseline.
+    wav_rip_log = _whipper(flac_crcs)
+    report = compare_logs(base, wav_rip_log)
+    assert report.ok is True
+    assert report.matched == report.total == 14
+
+
+def test_mp3_rip_parities_on_extraction_crc() -> None:
+    base = _EAC_BASELINE.read_text(encoding="utf-8")
+    flac_crcs = track_copy_crcs(base)
+    # A cyanrip MP3 rip still logs the per-track EAC CRC32 of the *decoded PCM*;
+    # that extraction CRC matches the baseline even though the MP3 audio is lossy.
+    mp3_rip_log = _cyanrip(flac_crcs)
+    report = compare_logs(base, mp3_rip_log)
+    assert report.ok is True
+    assert report.matched == 14
+
+
 # --- CLI smoke (scripts/eac_parity.py) ------------------------------------
 
 
