@@ -18,7 +18,7 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | build | `>=1,<2` | (per PyPI at first install) | MIT | Active | — (PEP 517 build frontend; used by `build/build_appimage.sh`) |
 | pytest | `>=8,<9` | (per PyPI at first install) | MIT | Active | — |
 | ruff | `>=0.15,<1` | (per PyPI at first install) | MIT | Active | — (linter + formatter; CI runs `ruff check` + `ruff format --check`. Rules `E,F,W,I,B,UP`, `E501` off. Config in `pyproject.toml`.) |
-| pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=88`. See [docs/testing.md](docs/testing.md).) |
+| pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=91` (ratchets up). See [docs/testing.md](docs/testing.md).) |
 | hypothesis | `>=6` | (per PyPI at first install) | MPL-2.0 | Active | — (dev/test only; property-based tests in `tests/test_parsers_property.py`. MPL-2.0 is fine — test-time tool, not linked/distributed.) |
 | mutmut | not installed (`pipx run mutmut`) | — | BSD-3-Clause | Active | — (dev/test only; periodic mutation-testing **audit**, not a CI gate — see [docs/testing.md](docs/testing.md) §7. Run on demand, no pin needed.) |
 | Pillow | (unpinned; per PyPI) | Active | HPND (PIL license) | Active | — **Optional, not required for normal builds.** Only `build/make_icon.py` uses it, to regenerate the committed app icon (`build/python-appimage/whipper-gui.png`). The icon is committed, so a normal AppImage build needs no image tooling. |
