@@ -32,6 +32,15 @@ for arg in "$@"; do
     esac
 done
 
+# --- Activate the committed git hooks ---
+# Point git at the version-controlled .githooks/ dir so the pre-commit guard
+# (enforces CLAUDE.md Critical Rule #8 — never commit audio/copyrighted media)
+# runs on every commit. Best-effort: only if this is a git checkout.
+if [ -d .githooks ] && git rev-parse --git-dir >/dev/null 2>&1; then
+    git config core.hooksPath .githooks
+    echo "Enabled git hooks (.githooks/): the pre-commit audio guard is active."
+fi
+
 # --- Create venv if missing ---
 if [ ! -d .venv ]; then
     echo "Creating virtual environment in .venv/..."

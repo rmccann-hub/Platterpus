@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Pre-commit guard — enforce CLAUDE.md Critical Rule #8: never commit audio /
+# copyrighted media, not even temporarily for testing. The .gitignore is a
+# backstop (it stops `git add .`); THIS is the hard stop — it also catches
+# `git add -f` of an otherwise-ignored file, and runs on every commit path.
+#
+# Activate once per clone with:  git config core.hooksPath .githooks
+# (dev-setup.sh does this for you.)
+set -euo pipefail
+
+# Audio/media extensions that must never be committed (mirrors .gitignore + the
+# rule's list). Case-insensitive.
+pattern='\.(flac|wav|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
+
+# Files staged for addition/copy/modify/rename in this commit.
+offenders=$(git diff --cached --name-only --diff-filter=ACMR | grep -iE "$pattern" || true)
+
+if [[ -n "$offenders" ]]; then
+  echo "✖ COMMIT BLOCKED — audio/copyrighted media must never be committed (CLAUDE.md Critical Rule #8):" >&2
+  while IFS= read -r f; do
+    echo "    $f" >&2
+  done <<< "$offenders"
+  echo "" >&2
+  echo "Test with real audio OUTSIDE the repo (scratchpad / /tmp); commit only the text proof (logs + per-track CRCs)." >&2
+  echo "If this is a verified CC0/self-generated sample and you truly mean it: git commit --no-verify" >&2
+  exit 1
+fi
+
+exit 0
