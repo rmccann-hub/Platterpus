@@ -64,7 +64,7 @@ def test_dispatch_reads_cyanrip() -> None:
 
 
 def test_dispatch_on_the_committed_eac_baseline() -> None:
-    crcs = track_copy_crcs(_EAC_BASELINE.read_text(encoding="utf-8"))
+    crcs = track_copy_crcs(decode_log_bytes(_EAC_BASELINE.read_bytes()))
     assert len(crcs) == 14
     assert crcs[1] == "B0D122E7"
     assert crcs[14] == "787BA2D6"
@@ -143,7 +143,7 @@ def test_empty_baseline_is_never_parity() -> None:
 
 
 def test_wav_rip_parities_against_the_committed_flac_baseline() -> None:
-    base = _EAC_BASELINE.read_text(encoding="utf-8")
+    base = decode_log_bytes(_EAC_BASELINE.read_bytes())
     flac_crcs = track_copy_crcs(base)
     # A WAV rip of the same disc yields the SAME per-track Copy CRCs (lossless),
     # so a WAV-rip log compares clean against the FLAC baseline.
@@ -154,7 +154,7 @@ def test_wav_rip_parities_against_the_committed_flac_baseline() -> None:
 
 
 def test_mp3_rip_parities_on_extraction_crc() -> None:
-    base = _EAC_BASELINE.read_text(encoding="utf-8")
+    base = decode_log_bytes(_EAC_BASELINE.read_bytes())
     flac_crcs = track_copy_crcs(base)
     # A cyanrip MP3 rip still logs the per-track EAC CRC32 of the *decoded PCM*;
     # that extraction CRC matches the baseline even though the MP3 audio is lossy.

@@ -18,6 +18,14 @@ those two match each other the rip is internally consistent, and when a ripper's
 AccurateRip / CTDB confidence values in the log corroborate this against the
 wider community database.
 
+> **Log encoding:** EAC writes its `.log` as **UTF-16** — the logs here are stored
+> verbatim in that native encoding (the authentic artifact), and the parity
+> checker + tests decode them via `whipper_gui.parity.decode_log_bytes`.
+> `.gitattributes` marks `output_reference/**/*.log` `-text` so line-ending
+> normalization can't corrupt the UTF-16. (`.cue` sheets are ASCII text.) Don't
+> "fix" a log to UTF-8 — that silently broke the checker once; the decoder, not a
+> conversion, is the right layer.
+
 So the comparison is **log-to-log (CRCs)**, not audio-to-audio. That's why this
 directory stores **logs and cue sheets, never the decoded audio**:
 
