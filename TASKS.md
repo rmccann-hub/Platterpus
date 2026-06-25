@@ -285,6 +285,7 @@ repo + copyright; the CRCs are the proof). Ordered by format priority:
 - **[ ]** cyanrip FLAC parity → `output_reference/cyanrip_flac/`
 
 *Priority 2 — WAV (lossless → same Copy CRCs as FLAC):*
+- **[~]** EAC "WAV" reference stored → `output_reference/EAC_wav/` (2026-06-25, **13/14** vs the FLAC baseline — track 3 read error this session; best run so far). ⚠️ **It's actually WavPack** (`wavpack -h -m`), not plain PCM WAV — equivalent for extraction parity (lossless) but a different format/encoder; see its README. Re-rip with a plain-WAV encoder to replace if a true WAV reference is wanted.
 - **[ ]** whipper WAV parity → `output_reference/whipper_wav/`
 - **[ ]** cyanrip WAV parity → `output_reference/cyanrip_wav/`
 
