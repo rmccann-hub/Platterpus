@@ -27,8 +27,11 @@ update the fixtures here and regenerate the affected tests.
 of the maintainer's *The Police — Every Breath You Take: The Classics* disc
 on the same Pioneer BDR-209D the GUI is tested with, conforming to the
 flemmingss.com bit-perfect guide (Secure mode, accurate stream, cache
-defeat, C2 off, offset +667, null samples in CRC). Converted from EAC's
-UTF-16/CRLF to UTF-8/LF for diff-friendliness; content untouched.
+defeat, C2 off, offset +667, null samples in CRC). Lives in
+`output_reference/EAC_flac/`. Stored in EAC's **native UTF-16/CRLF** (the
+authentic artifact; was briefly UTF-8 — which hid a UTF-16-decoding bug in the
+parity checker, since fixed). Read it via `whipper_gui.parity.decode_log_bytes`,
+not `read_text("utf-8")`.
 
 Ground truth for comparing whipper/cyanrip rips of the same disc: the
 per-track EAC CRC32s must match exactly (same disc, same offset). Known

@@ -45,6 +45,8 @@ It documents **EAC's MP3 encoder configuration** — the real reason to keep it:
 
 MP3 is **lossy**, so the MP3 audio is never bit-comparable; only the shared
 **extraction CRCs** (identical to `../EAC_flac/`) and the tag/structure compare —
-see [`../README.md`](../README.md). EAC's native log encoding is **UTF-16**; this
-copy was converted to UTF-8 for readability (like the FLAC baseline). The parity
-checker reads either encoding (`whipper_gui.parity.decode_log_bytes`).
+see [`../README.md`](../README.md). The log is stored **verbatim in EAC's native
+UTF-16** (the authentic artifact); the parity checker and tests decode it via
+`whipper_gui.parity.decode_log_bytes`. (`.gitattributes` marks
+`output_reference/**/*.log` `-text` so UTF-16 isn't corrupted by line-ending
+normalization.)

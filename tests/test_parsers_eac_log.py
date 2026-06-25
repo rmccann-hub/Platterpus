@@ -8,12 +8,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from whipper_gui.parity import decode_log_bytes
 from whipper_gui.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _EAC_BASELINE = (
     _REPO_ROOT / "output_reference" / "EAC_flac" / "eac_baseline_police_classics.log"
 )
+
+
+def _baseline_text() -> str:
+    # The committed EAC logs are stored in their native UTF-16 (as EAC writes
+    # them); decode through the same path the parity tool/CLI uses.
+    return decode_log_bytes(_EAC_BASELINE.read_bytes())
+
 
 # Ground truth read off the committed EAC baseline — the bit-perfect reference.
 _EXPECTED_CRCS = {
@@ -35,13 +43,11 @@ _EXPECTED_CRCS = {
 
 
 def test_parses_the_committed_eac_baseline() -> None:
-    text = _EAC_BASELINE.read_text(encoding="utf-8")
-    assert parse_eac_copy_crcs(text) == _EXPECTED_CRCS
+    assert parse_eac_copy_crcs(_baseline_text()) == _EXPECTED_CRCS
 
 
 def test_looks_like_eac_log_true_for_the_baseline() -> None:
-    text = _EAC_BASELINE.read_text(encoding="utf-8")
-    assert looks_like_eac_log(text) is True
+    assert looks_like_eac_log(_baseline_text()) is True
 
 
 def test_looks_like_eac_log_false_for_other_formats() -> None:

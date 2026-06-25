@@ -1,25 +1,27 @@
-# EAC "WAV" — reference (actually WavPack; imperfect, replaceable)
+# EAC "WAV" slot — WavPack reference (imperfect, replaceable)
 
 Holds an EAC rip of the baseline disc (*The Police — Every Breath You Take: The
 Classics*, BDR-209D, offset +667). **Text only — no audio** (Critical Rule #8).
 
 - `eac_wav_police_classics.log` / `.cue` — the EAC rip (2026-06-25).
 
-## ⚠️ This rip is **WavPack**, not plain PCM WAV
+## This rip is **WavPack** (intentional — kept as-is)
 
 EAC's "User Defined Encoder" for this rip is **`wavpack.exe -h -m`** — so the
-output was **WavPack (`.wv`)**, a *lossless-compressed* format with APEv2-style
-tags (EAC wrote `-w "Artist=…"` etc.), **not** the plain uncompressed PCM WAV our
-planned WAV path produces (`ffmpeg … -c:a pcm_s16le`). Why it still belongs here:
+output is **WavPack (`.wv`)**: a *lossless-compressed* format with APEv2-style
+tags (EAC wrote `-w "Artist=…"` etc.), not plain uncompressed PCM WAV. The
+maintainer confirmed this is fine — use the WavPack rip as the WAV-slot reference
+(2026-06-25). Notes:
 
-- **For parity it's equivalent.** WavPack is lossless → decodes to identical PCM
-  → identical per-track Copy CRC, so it compares against the FLAC baseline exactly
-  like a plain-WAV rip would.
-- **As a format reference it's different.** If you want this to document *plain
-  WAV* (uncompressed, no tags — RIFF limitation), re-rip with EAC pointed at a WAV
-  output, or accept that this documents the WavPack option instead. WavPack is a
-  legitimate tagged-lossless choice (cyanrip lists `wavpack` under `-o`), but it's
-  out of our current flac/wav/mp3 scope — flag for a product decision if wanted.
+- **For parity it's equivalent to WAV.** WavPack is lossless → decodes to
+  identical PCM → identical per-track Copy CRC, so it compares against the FLAC
+  baseline exactly like a plain-WAV rip would. (Our own plain-WAV output, when
+  built, also proves parity against the **FLAC** baseline — not against this log
+  specifically — so the format difference doesn't matter to the matrix.)
+- **WavPack is a legitimate tagged-lossless format** and a candidate output of its
+  own (cyanrip lists `wavpack` under `-o`). Whether to *offer* WavPack as a GUI
+  output format is an open product question (`docs/mp3-wav-support.md` §5), out of
+  the current flac/wav/mp3 scope — not blocking anything here.
 
 ## Extraction quality: 13/14 (best of the three sessions)
 
@@ -40,14 +42,15 @@ python3 scripts/eac_parity.py \
 ```
 
 **To replace it:** clean the disc around track 3 and re-rip in Test & Copy mode
-until all 14 match (and, if you want a *plain-WAV* reference, set EAC's encoder to
-WAV rather than WavPack), then overwrite these files.
+until all 14 match, then overwrite these files. (Keeping WavPack is fine — the
+maintainer's call.)
 
 ## On format & encoding
 
 The shared **extraction CRCs** (identical to `../EAC_flac/`) are what compare;
-the container/encoder differs. EAC's native log encoding is **UTF-16**; this copy
-was converted to UTF-8 for readability (like the FLAC baseline). The parity
-checker reads either (`whipper_gui.parity.decode_log_bytes`). Cue nit: this
+the container/encoder differs. The log is stored **verbatim in EAC's native
+UTF-16**; the parity checker and tests decode it via
+`whipper_gui.parity.decode_log_bytes` (`.gitattributes` marks
+`output_reference/**/*.log` `-text` so the UTF-16 isn't corrupted). Cue nit: this
 session's cue dropped track 10's ISRC. No audio is committed — see
 [`../README.md`](../README.md).
