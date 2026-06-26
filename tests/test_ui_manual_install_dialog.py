@@ -131,6 +131,58 @@ def test_why_text_falls_back_when_description_empty(
     assert dialog._why_text() == "Requires user action."
 
 
+# --- Setup-wizard button (from_setup_wizard deps) ------------------------
+
+
+def _wizard_spec() -> DependencySpec:
+    """A dep the setup wizard provides (whipper/metaflac/flac)."""
+    return DependencySpec(
+        dep_id="whipper",
+        display_name="whipper",
+        probe=lambda: ProbeResult(present=False, version=None, location=None),
+        min_version=(0, 10, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string="install whipper Bazzite Fedora Distrobox",
+        description="installed + exported by the setup wizard",
+        from_setup_wizard=True,
+    )
+
+
+def test_setup_wizard_button_shown_and_runs_for_wizard_dep(
+    qapp: QApplication,
+) -> None:
+    """A wizard-provided dep offers the one-click wizard (the user shouldn't
+    have to copy a search string), as the DEFAULT action; clicking it runs the
+    callback and closes the dialog accepted."""
+    called: list[bool] = []
+    dialog = ManualInstallDialog(
+        _wizard_spec(), _absent_probe(), on_setup_wizard=lambda: called.append(True)
+    )
+    assert dialog._setup_button is not None
+    assert dialog._setup_button.isDefault() is True
+    assert "Set it up automatically" in dialog._intro_text()
+
+    dialog._setup_button.click()
+
+    assert called == [True]
+    assert dialog.result() == int(dialog.DialogCode.Accepted)
+
+
+def test_no_setup_wizard_button_for_plain_dep(qapp: QApplication) -> None:
+    """A non-wizard dep keeps the tier-(c) Copy-only path even if a callback is
+    passed — Copy stays the default action."""
+    dialog = ManualInstallDialog(_spec(), _absent_probe(), on_setup_wizard=lambda: None)
+    assert dialog._setup_button is None
+    assert dialog._copy_button.isDefault() is True
+
+
+def test_no_setup_wizard_button_without_callback(qapp: QApplication) -> None:
+    """Even a wizard dep shows no button if no callback was wired (defensive)."""
+    dialog = ManualInstallDialog(_wizard_spec(), _absent_probe())
+    assert dialog._setup_button is None
+
+
 # --- Reject path ---------------------------------------------------------
 
 

@@ -166,10 +166,15 @@ def test_never_removes_distrobox_or_podman(tmp_path: Path) -> None:
     assert mutating == [["distrobox", "rm", "--force", "ripping"]]
 
 
-# --- Failure: stop and report ------------------------------------------------
+# --- Failure: best-effort (continue past it) + report ------------------------
 
 
-def test_container_failure_stops_before_app_data(tmp_path: Path) -> None:
+def test_container_failure_does_not_skip_other_removals(tmp_path: Path) -> None:
+    """A failed step (e.g. a busy container) must NOT cancel the rest —
+    teardown steps are independent, so everything else is still removed; only
+    the GUI's own settings/logs are kept so the failure can be debugged. This
+    was the 'uninstall didn't do all' bug (one failure skipped everything after
+    it)."""
     _populate_everything(tmp_path)
     runner = _FakeRunner()
     runner.present = {"distrobox"}
@@ -183,9 +188,14 @@ def test_container_failure_stops_before_app_data(tmp_path: Path) -> None:
 
     status = _ids(results)
     assert status["container"] == "failed"
-    assert status["app_data"] == "cancelled"
-    # The log dir survived (debuggability) because app_data never ran.
+    # The step AFTER the failure still ran (the fix) — whipper.conf is gone.
+    assert status["whipper_config"] == "ran"
+    assert not (tmp_path / "config" / "whipper").exists()
+    # Settings/logs are deliberately KEPT (not cancelled) so the log survives.
+    assert status["app_data"] == "done"
     assert (tmp_path / "share" / "whipper-gui" / "log.txt").exists()
+    # Best-effort: nothing was CANCELLED — every step was attempted.
+    assert StepStatus.CANCELLED not in {r.status for r in results}
     failed = next(r for r in results if r.status is StepStatus.FAILED)
     assert "in use" in failed.detail
 
