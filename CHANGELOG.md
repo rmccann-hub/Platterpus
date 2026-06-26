@@ -11,6 +11,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The uninstaller no longer stops at the first problem.** Its steps are
+  independent (removing the AppImage doesn't depend on removing the container),
+  but a single failing step — most often `distrobox rm` when the container is
+  busy — used to cancel everything after it, leaving the AppImage, whipper.conf,
+  and shortcuts behind ("uninstall didn't do all"). It's now best-effort: it
+  removes everything it can and reports exactly what failed. Your settings + logs
+  are still kept if anything failed, so the log survives to debug with — re-run
+  the uninstall once the issue is resolved.
+- **Missing whipper/metaflac now offer the one-click setup, not a search string
+  to paste.** When a tool the app installs itself (whipper, metaflac, flac) is
+  missing, the dialog now has a **"Set it up automatically…"** button that opens
+  the setup wizard — no terminal, no copying. The copyable search string stays as
+  a last-resort fallback. (Previously you got a tier-(c) "copy this and search"
+  dialog for tools the app is supposed to install for you.)
+- **The setup wizard no longer looks frozen during container preparation.** After
+  creating the `ripping` container, the first container entry runs a one-time
+  initialization that can take a minute or two; the status line used to sit on the
+  previous step's text the whole time, looking stuck. It now shows "checking the
+  container — the first start after setup can take a minute…" so you can tell it's
+  working. (First-time setup also downloads a container image, so it is genuinely
+  slow once — but it's no longer silent about it.)
+
 ## [0.3.1] — 2026-06-26
 
 ### Changed

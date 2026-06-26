@@ -111,7 +111,13 @@ def test_running_ping_emitted_before_executing_step(tmp_path: Path) -> None:
     assert all(r.status is not StepStatus.RUNNING for r in results)
 
 
-def test_no_running_ping_for_already_done_steps(tmp_path: Path) -> None:
+def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> None:
+    """On an already-set-up system nothing executes, but the container-entering
+    'tools' probe (a `distrobox enter` whose first run does distrobox's slow
+    container init) is preceded by a transient 'checking…' ping — so the status
+    line reflects current activity instead of sitting on the previous step
+    (which looked like a freeze). Fast-probe steps emit no ping, and RUNNING
+    never lands in the returned results."""
     runner = _FakeRunner()
     runner.present = {"distrobox", "podman"}
     runner.paths = {tmp_path / "whipper"}
@@ -120,9 +126,17 @@ def test_no_running_ping_for_already_done_steps(tmp_path: Path) -> None:
         ("distrobox", "enter", "ripping", "--", "command", "-v", "whipper")
     ] = (0, "/usr/bin/whipper")
     emitted: list = []
-    _setup(tmp_path, runner).run(progress=emitted.append)
-    # Nothing executed, so no RUNNING pings.
-    assert all(r.status is not StepStatus.RUNNING for r in emitted)
+    results = _setup(tmp_path, runner).run(progress=emitted.append)
+
+    running = [r for r in emitted if r.status is StepStatus.RUNNING]
+    # The only pings are the pre-probe 'checking' ones for container-entering
+    # steps; the fast-probe steps (distrobox/backend/container/export) emit none.
+    assert running, "expected a 'checking' ping before the slow container probe"
+    assert all(r.step_id in {"tools", "cyanrip"} for r in running)
+    assert all("checking" in r.detail for r in running)
+    # RUNNING is transient — never recorded in the final results.
+    assert all(r.status is not StepStatus.RUNNING for r in results)
+    assert all(r.status is StepStatus.DONE for r in results)
 
 
 # --- Idempotent: everything present → nothing runs -----------------------

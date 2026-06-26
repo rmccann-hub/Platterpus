@@ -15,8 +15,12 @@ the one container command, injectable file/tree removers for everything else,
 dry-run support, and per-step :class:`StepResult` reporting — so the engine
 is fully unit-testable and the GUI shows live progress.
 
-Step order matters: the GUI's own config/logs go LAST, so if an earlier step
-fails the log file still exists to debug with.
+Steps are **independent and best-effort**: a failed step (e.g. a busy container)
+does NOT stop the rest — the engine removes everything else it can and reports
+what failed, so one failure never leaves a half-removed system. (Setup is the
+opposite — it stops on failure because its later steps depend on earlier ones.)
+The GUI's own config/logs go LAST and are *kept* if any earlier step failed, so
+the log survives to debug with; a fully clean run removes them too.
 
 Not handled here (script-only concerns): the dev `.venv/` and the cloned
 repo — `uninstall.sh` covers those; a packaged app doesn't know a repo root.
@@ -260,7 +264,8 @@ class HostTeardown:
             if progress is not None:
                 progress(result)
 
-        stop = False
+        stop = False  # set ONLY by an explicit cancel — never by a failure
+        any_failed = False  # a removal failed → keep the log to debug with
         for step_id in self.STEP_IDS:
             title = self._TITLES[step_id]
             if stop:
@@ -283,12 +288,33 @@ class HostTeardown:
                     )
                 )
                 continue
+            # The GUI's own settings + logs (app_data) go LAST. If any earlier
+            # removal FAILED, keep them — the log survives to debug the failure,
+            # and the user can re-run uninstall (idempotent) once it's resolved.
+            # A fully clean run still removes them.
+            if step_id == "app_data" and any_failed:
+                record(
+                    StepResult(
+                        step_id,
+                        title,
+                        StepStatus.DONE,
+                        "kept settings + logs so the failure(s) above can be "
+                        "debugged — re-run uninstall to remove them once fixed",
+                    )
+                )
+                continue
             if progress is not None:
                 progress(StepResult(step_id, title, StepStatus.RUNNING, "removing…"))
             ok, detail = self._do_step(step_id)
             if ok:
                 record(StepResult(step_id, title, StepStatus.RAN, detail))
             else:
+                # Teardown steps are INDEPENDENT — removing the AppImage doesn't
+                # depend on removing the container. So a failed step must NOT
+                # stop the rest (unlike setup, where later steps depend on
+                # earlier ones): keep removing everything else we can, and report
+                # what failed. Stopping here is exactly what left a half-removed
+                # system — real-user report 2026-06-26: "uninstall didn't do all".
                 record(StepResult(step_id, title, StepStatus.FAILED, detail))
-                stop = True
+                any_failed = True
         return results

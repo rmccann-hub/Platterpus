@@ -71,6 +71,14 @@ class DependencySpec:
     # summary lists it as "optional, not installed" rather than "missing".
     # Picard is the case in point — handy for unknown discs, not required.
     optional: bool = False
+    # When True, this tool is provided by the one-time host-setup WIZARD
+    # (Tools → Set up Whipper GUI…), not a package the user installs by hand —
+    # it's installed into the `ripping` container and exported to ~/.local/bin.
+    # So when it's missing, the right fix is "run the wizard" (one click, no
+    # terminal), NOT the tier-(c) "copy this search string" dialog. The manual
+    # dialog offers the wizard for these (the search string stays as a last
+    # resort). whipper/metaflac/flac set this; host packages do not.
+    from_setup_wizard: bool = False
 
 
 # --- Bound probes -----------------------------------------------------------
@@ -116,9 +124,10 @@ SPECS: list[DependencySpec] = [
         install_command=None,
         search_string="install whipper Bazzite Fedora Distrobox",
         description=(
-            "The whipper CD ripping CLI, exported from the Distrobox "
-            "container `ripping` to ~/.local/bin/whipper."
+            "The whipper CD ripping CLI, installed into the `ripping` container "
+            "and exported to ~/.local/bin/whipper by the one-time setup wizard."
         ),
+        from_setup_wizard=True,
     ),
     DependencySpec(
         dep_id="metaflac",
@@ -130,8 +139,10 @@ SPECS: list[DependencySpec] = [
         search_string="install metaflac flac Bazzite Fedora Distrobox",
         description=(
             "Part of the FLAC reference encoder package. Used to apply "
-            "tags after a rip and to add placeholders for unknown discs."
+            "tags after a rip and to add placeholders for unknown discs. "
+            "Installed + exported by the one-time setup wizard (with whipper)."
         ),
+        from_setup_wizard=True,
     ),
     DependencySpec(
         dep_id="picard",
@@ -189,10 +200,11 @@ SPECS: list[DependencySpec] = [
         description=(
             "Optional. Only needed for the 'Verify with CTDB after a rip' "
             "setting: the CTDB audio check decodes the FLACs back to PCM on "
-            "the host. Export it from the container like whipper "
-            "(distrobox-export --bin /usr/bin/flac) or install it on the host."
+            "the host. The setup wizard installs it into the container with "
+            "whipper; re-run the wizard if it's missing."
         ),
         optional=True,  # absent only disables the optional CTDB audio check
+        from_setup_wizard=True,
     ),
     DependencySpec(
         dep_id="ffmpeg",

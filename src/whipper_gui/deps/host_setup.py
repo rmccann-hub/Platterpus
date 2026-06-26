@@ -40,6 +40,15 @@ DEFAULT_CONTAINER: str = "ripping"
 DEFAULT_IMAGE: str = "registry.fedoraproject.org/fedora-toolbox:latest"
 _OS_RELEASE: Path = Path("/etc/os-release")
 
+# Steps whose "is this already done?" probe ENTERS the container
+# (`distrobox enter`). The FIRST enter after creating the container triggers
+# distrobox's multi-minute one-time container init (it installs base packages),
+# so the probe itself can be slow. We emit a "checking…" ping BEFORE these
+# probes so the status line reflects what's happening instead of sitting on the
+# previous step's text — which looked like a freeze (real-user report
+# 2026-06-26: the wizard appeared stuck at "'ripping' container — working…").
+_SLOW_PROBE_STEPS: frozenset[str] = frozenset({"tools", "cyanrip"})
+
 # --- cyanrip packaging (KDD-18) ---------------------------------------------
 # Fedora does NOT package cyanrip (verified 2026-06-09: no result in the
 # official repos or RPM Fusion; cyanrip's own README lists Debian/openSUSE/
@@ -348,6 +357,19 @@ class HostSetup:
                 record(StepResult(step_id, title, StepStatus.CANCELLED))
                 stop = True
                 continue
+            # Steps whose probe enters the container can be slow (the first
+            # `distrobox enter` runs distrobox's container init); ping BEFORE the
+            # probe so the UI shows current activity, not a stale prior step.
+            if step_id in _SLOW_PROBE_STEPS:
+                notify(
+                    StepResult(
+                        step_id,
+                        title,
+                        StepStatus.RUNNING,
+                        "checking the container — the first start after setup "
+                        "can take a minute…",
+                    )
+                )
             if self._is_done(step_id):
                 record(StepResult(step_id, title, StepStatus.DONE, "already present"))
                 continue

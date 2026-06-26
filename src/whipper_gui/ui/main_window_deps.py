@@ -234,7 +234,18 @@ class DependencyMixin:
         return install_one
 
     def _gui_manual_dialog(self, item: MissingItem) -> None:
-        dialog = ManualInstallDialog(item.spec, item.probe, self)
+        # For tools the setup wizard provides (whipper/metaflac/flac), hand the
+        # dialog a callback so it can offer the one-click wizard instead of only
+        # a copyable search string — the user shouldn't have to paste a query to
+        # install something the app installs itself (Tools → Set up Whipper GUI…).
+        on_setup_wizard = (
+            self.open_host_setup_dialog
+            if getattr(item.spec, "from_setup_wizard", False)
+            else None
+        )
+        dialog = ManualInstallDialog(
+            item.spec, item.probe, self, on_setup_wizard=on_setup_wizard
+        )
         dialog.exec()
 
     def _show_dep_summary(
