@@ -56,6 +56,13 @@ _FORMAT_EXT: dict[str, str] = {"mp3": "mp3", "wavpack": "wv", "wav": "wav"}
 # Public so the GUI can tell whether a chosen output_format needs a transcode
 # (anything here) or is the native rip format ("flac" → no-op).
 SUPPORTED_FORMATS: frozenset[str] = frozenset(_FORMAT_EXT)
+# Of the transcode targets, only MP3 carries the embedded cover through (ffmpeg
+# copies the FLAC's attached picture → ID3 APIC). WavPack's muxer can't hold a
+# second stream and WAV/RIFF can't hold art at all — so for those, the GUI must
+# keep the front cover in the album folder as cover.<ext> instead (the only way
+# those formats get a visible cover). The GUI consults this to force a folder
+# save. (FLAC, the always-kept master, embeds its own cover and isn't here.)
+EMBEDS_COVER_ART: frozenset[str] = frozenset({"mp3"})
 # Transcoding one CD track is quick (seconds), but give a generous per-file
 # bound for slow hardware / long tracks.
 _TIMEOUT_S: float = 300.0

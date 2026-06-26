@@ -49,11 +49,12 @@ from whipper_gui.adapters.flac_recompress import (
 )
 from whipper_gui.adapters.flac_verify import FlacVerifyResult
 from whipper_gui.adapters.transcode import (
-    SUPPORTED_FORMATS as TRANSCODE_FORMATS,
-)
-from whipper_gui.adapters.transcode import (
+    EMBEDS_COVER_ART,
     TranscodeResult,
     transcode_files,
+)
+from whipper_gui.adapters.transcode import (
+    SUPPORTED_FORMATS as TRANSCODE_FORMATS,
 )
 from whipper_gui.adapters.whipper_backend import RipMetadata, TrackTag
 from whipper_gui.offset_config import is_offset_configured
@@ -390,6 +391,14 @@ class RipMixin:
             # root instead would re-tag every previously ripped album in the
             # library with THIS disc's metadata.
             tag = params.unknown
+            # Output format: both backends rip to FLAC, so a non-FLAC choice
+            # means a post-rip transcode (FLAC kept as the master). "flac" (or
+            # any value we don't transcode) leaves transcode_fmt empty = no-op.
+            transcode_fmt = (
+                self._config.output_format
+                if self._config.output_format in TRANSCODE_FORMATS
+                else ""
+            )
             # Cover art (2026-06-13): when the ripper itself didn't fetch art
             # — cyanrip never does (the GUI feeds it tags and bypasses its
             # MusicBrainz lookup), and whipper can't in --unknown mode — fetch
@@ -405,6 +414,20 @@ class RipMixin:
                 ripper_fetches_art=ripper_fetches_art,
                 release_id=self._current_release_id,
             )
+            # WavPack/WAV can't carry an embedded cover (the transcode drops it —
+            # FLAC/MP3 keep theirs), so for those formats make sure the front
+            # cover still lands in the album folder as cover.<ext> — the only way
+            # they get a visible cover. Force the folder save whenever art is
+            # wanted (cover_art mode set) and the disc was identified; this also
+            # makes the whipper-known path (which normally leaves art to whipper)
+            # fetch a folder copy, since whipper only put it *inside* the FLAC.
+            if (
+                transcode_fmt
+                and transcode_fmt not in EMBEDS_COVER_ART
+                and self._config.cover_art
+                and (self._current_release_id or "").strip()
+            ):
+                save_file = True
             # Opt-in (off by default) FLAC re-compress — only for a backend that
             # doesn't already max compression. whipper encodes at flac's default
             # (`-5`), so re-encoding at `-8` can still shrink it; cyanrip already
@@ -414,14 +437,6 @@ class RipMixin:
             recompress = (
                 self._config.recompress_flac_after_rip
                 and not self._backend.produces_max_compression_flac()
-            )
-            # Output format: both backends rip to FLAC, so a non-FLAC choice
-            # means a post-rip transcode (FLAC kept as the master). "flac" (or
-            # any value we don't transcode) leaves transcode_fmt empty = no-op.
-            transcode_fmt = (
-                self._config.output_format
-                if self._config.output_format in TRANSCODE_FORMATS
-                else ""
             )
             if tag or embed or save_file or recompress or transcode_fmt:
                 rip_dir = Path(log_path).parent if log_path else params.output_dir

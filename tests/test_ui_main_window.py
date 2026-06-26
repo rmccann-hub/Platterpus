@@ -2307,6 +2307,79 @@ def test_cover_art_outcome_lands_in_the_log_view(teardown_threads) -> None:
     )
 
 
+def test_wavpack_output_keeps_folder_cover_even_in_embed_mode(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """WavPack can't carry an embedded cover, so the GUI must keep the folder
+    cover.<ext> even in 'embed' mode (which normally deletes it after embedding
+    in the FLAC). Otherwise a WavPack rip would have no visible cover anywhere."""
+    _stub_transcode(monkeypatch, [])  # don't run real ffmpeg
+    window = teardown_threads(
+        config=Config(
+            ripper_backend="cyanrip", cover_art="embed", output_format="wavpack"
+        )
+    )
+    album, log_file = _cover_album(tmp_path)
+    window._metaflac = _RecordingMetaflac()
+    window._cover_art_fetcher = lambda url: _JPEG_BYTES
+    window._current_release_id = "release-mbid"
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+
+    # Folder cover kept — it IS the WavPack rip's cover (the .wv can't embed it).
+    assert (album / "cover.jpg").read_bytes() == _JPEG_BYTES
+
+
+def test_whipper_known_wavpack_fetches_folder_cover(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """On the whipper-known path the ripper embeds art in the FLAC and the GUI
+    normally stays out — but the .wv can't carry that embedded cover, so for
+    WavPack output the GUI fetches a folder copy anyway."""
+    _stub_transcode(monkeypatch, [])
+    window = teardown_threads(
+        config=Config(cover_art="embed", output_format="wavpack")  # whipper default
+    )
+    album, log_file = _cover_album(tmp_path)
+    window._metaflac = _RecordingMetaflac()
+    fetched: list[str] = []
+    window._cover_art_fetcher = lambda url: fetched.append(url) or _JPEG_BYTES
+    window._current_release_id = "release-mbid"
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+
+    assert fetched  # the GUI fetched the cover (not left to whipper)
+    assert (album / "cover.jpg").read_bytes() == _JPEG_BYTES
+
+
+def test_mp3_output_does_not_force_folder_cover(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """MP3 carries the embedded cover through the transcode (ID3 APIC), so the
+    'embed' mode still deletes the temp folder image — no forced folder save."""
+    _stub_transcode(monkeypatch, [])
+    window = teardown_threads(
+        config=Config(ripper_backend="cyanrip", cover_art="embed", output_format="mp3")
+    )
+    album, log_file = _cover_album(tmp_path)
+    window._metaflac = _RecordingMetaflac()
+    window._cover_art_fetcher = lambda url: _JPEG_BYTES
+    window._current_release_id = "release-mbid"
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    window._post_rip_thread.join(timeout=10)
+
+    # MP3 embeds its own cover, so 'embed' mode behaves as before (no folder file).
+    assert not (album / "cover.jpg").exists()
+
+
 # --- Post-rip CTDB verify (opt-in, KDD-14 Phase 1) -------------------------
 
 
