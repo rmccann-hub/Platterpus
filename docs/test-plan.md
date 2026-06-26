@@ -530,10 +530,10 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 ## Test 10 — [ ] FLAC re-compress: bit-perfect + metadata survives + smaller (whipper)
 
 **Goal:** prove the opt-in "Re-compress FLACs" feature (whipper backend) on real
-files: the audio is **provably bit-identical** after the `-8 --verify` re-encode,
+files: the audio is **provably bit-identical** after the `-8 -e -p --verify` re-encode,
 every tag and the embedded cover art survive, and the files actually shrink. The
 adapter is unit-tested with a stubbed `flac`; this is the real-binary proof, and
-it doubles as a check that the shipped flag set (`-8 --verify --silent -f -o`) is
+it doubles as a check that the shipped flag set (`-8 -e -p --verify --silent -f -o`) is
 still correct against the installed `flac` version (flags verified against the
 xiph spec 2026-06-23; this catches a future flac that changes them).
 

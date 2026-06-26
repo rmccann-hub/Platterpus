@@ -23,7 +23,9 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | mutmut | not installed (`pipx run mutmut`) | — | BSD-3-Clause | Active | — (dev/test only; periodic mutation-testing **audit**, not a CI gate — see [docs/testing.md](docs/testing.md) §7. Run on demand, no pin needed.) |
 | Pillow | (unpinned; per PyPI) | Active | HPND (PIL license) | Active | — **Optional, not required for normal builds.** Only `build/make_icon.py` uses it, to regenerate the committed app icon (`build/python-appimage/whipper-gui.png`). The icon is committed, so a normal AppImage build needs no image tooling. |
 
-## System dependencies (user-system, surfaced via the dependency subsystem)
+## System dependencies (user-system, surfaced via the dependency subsystem or the setup wizard)
+
+> Most rows here are probed by the dependency subsystem (`deps/`). **cyanrip is the exception** — it has no probe; it is provisioned on demand by the host-setup wizard (`deps/host_setup.py`) when the user selects it as the backend, so it is "surfaced" by the wizard rather than the probe registry.
 
 | Name | Where it comes from | Version constraint | Status | Replacement plan |
 |---|---|---|---|---|

@@ -1,10 +1,19 @@
-# MP3 & WAV output — research + design (P1, pre-build)
+# Multi-format output (FLAC · WavPack · MP3 · WAV) — research + design (P1)
 
-**Status:** research + design only. **Critical Rule #4 still holds — FLAC is the
-only v1 output; MP3/WAV are P1 backlog.** This doc is the prep so the eventual
-encoder PR doesn't reship known bugs or bolt on ad-hoc install code. Nothing here
-is implemented yet; the **build is gated on maintainer sign-off** of the open
-questions in §5 (a new dependency is involved → Deviation policy "must ask").
+**Status:** research + design. The **product decisions are now locked** (maintainer
+sign-off 2026-06-26 — see §5); the **encoder facts and args are verified current**
+against the upstream docs (§3); the **foundation is built but not yet wired to a rip**
+(§6). **Critical Rule #4 (FLAC-only for v1) still gates the user-facing build** — the
+rip-flow integration + Settings selector are the one scope-changing piece that flips
+that rule, presented separately for go/no-go. Nothing here is reachable by the user yet.
+
+The maintainer's directive that shaped the locked decisions (2026-06-26):
+
+> "make sure flac and wv are lossless, use best practices for mp3, i do not expect
+> perfect losses as it is not for that use. but tags for metadata, images, etc. i
+> want for all if possible. and it should still be either ripped or transcoded
+> correctly. this is best effort for the highest quality result which can then be
+> verified by other users."
 
 Companion: `output_reference/README.md` (parity baselines), `whipper_gui/parity.py`
 (the checker), `TASKS.md` (the EAC parity matrix + the P1 encoder item).
@@ -15,40 +24,48 @@ Companion: `output_reference/README.md` (parity baselines), `whipper_gui/parity.
 
 The integrity proof is the per-track **Copy CRC**, computed on the *extracted
 PCM* — **before, and independent of, the output encoder**. So one parity check
-(`whipper_gui.parity`, `scripts/eac_parity.py`) covers all three formats:
+(`whipper_gui.parity`, `scripts/eac_parity.py`) covers every format:
 
 | Format | Lossless? | Parity target | What "parity" proves |
 |---|---|---|---|
-| **FLAC** (v1) | yes | EAC Copy CRC (the committed baseline) | byte-identical audio |
+| **FLAC** (default, master) | yes | EAC Copy CRC (the committed baseline) | byte-identical audio |
+| **WavPack** (`.wv`) | yes | **the same EAC FLAC baseline** | byte-identical audio |
 | **WAV** | yes | **the same EAC FLAC baseline** | byte-identical audio |
 | **MP3** | **no** | the same EAC **extraction** CRC | the *read* was bit-perfect; the encode is a separate concern |
 
 Consequences:
 
-- **WAV needs no separate EAC baseline.** Lossless → identical PCM → identical
-  Copy CRC, so a WAV rip is proven against the existing
-  `output_reference/EAC_flac/` baseline. (An EAC WAV log is nice confirmation, not
-  a requirement.) Pinned by `tests/test_parity.py::test_wav_rip_parities_against_the_committed_flac_baseline`.
+- **The lossless formats need no separate EAC baseline.** Lossless → identical PCM
+  → identical Copy CRC, so a WavPack/WAV rip is proven against the existing
+  `output_reference/EAC_flac/` baseline. (A native EAC WavPack/WAV log is nice
+  confirmation, not a requirement.) WAV is pinned by
+  `tests/test_parity.py::test_wav_rip_parities_against_the_committed_flac_baseline`;
+  WavPack gets the same invariant when the encode path lands.
+- **"Lossless" is provable end-to-end, not just at read time.** FLAC `--verify`
+  and WavPack `-v` re-decode during the encode and compare to the source PCM, and
+  both store a source MD5 (FLAC STREAMINFO MD5 / WavPack `-m`). So "FLAC and wv are
+  lossless" is a guarantee a third party can re-check from the file alone — exactly
+  the "verified by other users" bar the maintainer set.
 - **MP3 parity is extraction-CRC + encoder/tag behaviour**, never an audio
   bit-compare (lossy). The CRC still proves the disc read was clean; the encoder
   config (below) is what makes the MP3 itself good. Pinned by
   `tests/test_parity.py::test_mp3_rip_parities_on_extraction_crc`.
 
-The parser/checker already work for all three because they key on
+The parser/checker already work for every format because they key on
 format-independent log fields (EAC `Copy CRC`, whipper `Copy CRC:`, cyanrip
 `EAC CRC32`). **One residual check (hardware):** confirm cyanrip prints the same
-per-track success line + `EAC CRC32` when `-o wav`/`-o mp3` is selected as it does
+per-track success line + `EAC CRC32` for `-o wavpack`/`-o wav`/`-o mp3` as it does
 for `-o flac` — the cyanrip log parser's track-start regex keys on the literal
 "ripped and encoded successfully!" wording (`parsers/cyanrip_log.py`). Strongly
-expected (the CRC is computed pre-encode), but verify against a real WAV/MP3
-cyanrip log before claiming it.
+expected (the CRC is computed pre-encode), but verify against a real
+non-FLAC cyanrip log before claiming it.
 
 ---
 
 ## 2. How each backend produces formats (verified 2026-06-23)
 
 - **whipper is FLAC-only.** Configurable encode profiles were removed in v0.5.0;
-  output is hardcoded FLAC. → For the whipper backend, **MP3/WAV must be a
+  output is hardcoded FLAC. → For the whipper backend, **every other format must be a
   post-rip re-encode** from the FLAC it produces, not a native option.
   ([whipper README](https://github.com/whipper-team/whipper/blob/master/README.md),
   [issue #247](https://github.com/whipper-team/whipper/issues/247))
@@ -59,50 +76,122 @@ cyanrip log before claiming it.
   PCM. EAC CRC32 / AccurateRip are computed from the decoded PCM and logged
   regardless of `-o`.
   ([cyanrip README](https://github.com/cyanreg/cyanrip/blob/master/README.md))
-  *Caveat: the format list grew over time — confirm `wav`/`mp3` exist in the
-  cyanrip version the container actually ships.*
+  *Caveat: the format list grew over time — confirm `wavpack`/`wav`/`mp3` exist in
+  the cyanrip version the container actually ships.*
 
-So the two backends want **different shapes**: cyanrip = pick the format at rip
-time; whipper = always FLAC, then transcode.
+So the two backends want **different shapes**: cyanrip = pick the format(s) at rip
+time; whipper = always FLAC, then transcode. A subtlety that steers two of the §5
+decisions: **cyanrip's lossy MP3 is CBR/ABR (`-b`), not VBR** — so the best-practice
+VBR-`-V0` MP3 (§3) is only reachable through the transcode path or a future cyanrip
+VBR flag; and **cyanrip's WavPack uses its own (max-compression) settings**, so the
+finest control over WavPack tags/art/verify also lives on the transcode path.
 
 ---
 
-## 3. Encoder facts to bake in (verified, with caveats)
+## 3. Encoder facts + the exact args to ship (verified against upstream docs)
 
-### MP3 (LAME / libmp3lame)
-- **The `noise_shaping_amp` / `-q 4` bug is real, still open (LAME 3.100.1 is the
-  last release, 2017), but CBR/ABR-only — NOT VBR.** LAME bug
-  [#516](https://sourceforge.net/p/lame/bugs/516/): with the new VBR psymodel
-  applied to CBR/ABR, `-q 0…3` boosts bands the fixed bit-budget can't afford →
-  metallic HF. VBR just spends more bits, so it's unaffected. The community patch
-  was never released.
-- **Recommendation: VBR `-V0` (~245 kbps), joint-stereo left ON** (LAME picks
-  lossless mid/side per frame; forcing `-m s` only hurts). With `-V0` the `-q 4`
-  workaround is moot — frame it as "only if we ever ship CBR/ABR," not a default.
-  ([Hydrogenaudio LAME](https://wiki.hydrogenaudio.org/index.php/LAME),
-  [Joint stereo](https://wiki.hydrogenaudio.org/index.php?title=Joint_stereo))
-- **Empirically confirmed (2026-06-25):** the maintainer's EAC MP3 rip of the
-  baseline disc uses exactly this — `lame3.100.1` with `-V 0` and ID3 tags on
-  (EAC's command line: `-V 0 %source% %dest%`). So `-V0` is the right default,
-  and our `ffmpeg -q:a 0` transcode (== `-V0`) matches EAC's own MP3 config.
-- **FFmpeg libmp3lame mapping** (the path cyanrip uses, and the path a whipper
-  re-encode would use): `-q:a N` = VBR = lame `-V N`; `-b:a` = CBR/ABR;
+Sources used for this pass (maintainer-supplied 2026-06-25/26):
+[xiph FLAC tools manual](https://xiph.org/flac/documentation_tools_flac.html) +
+[FLAC release index](https://ftp.osuosl.org/pub/xiph/releases/flac/),
+[LAME links / HydrogenAudio Recommended LAME](https://lame.sourceforge.io/links.php),
+[WavPack documentation](https://www.wavpack.com/wavpack_doc.html).
+
+### FLAC (archival master, lossless) — `flac` / libavcodec FLAC
+
+- **Latest stable is FLAC 1.5.0 (2025-02-10).** New since 1.4.x: **`-j N` /
+  `--threads N` multithreaded encoding** — *same bitstream, faster wall-clock*.
+  It is **version-gated**: older `flac` errors on an unknown `-j`, so only pass it
+  after probing `flac --version ≥ 1.5.0` (the dependency subsystem already parses
+  the version tuple). Treat it as a pure speed win, never a quality/compatibility
+  change. Optional future enhancement to `flac_recompress.py`; not shipped yet.
+- **Shipped re-compress flag set: `-8 -e -p --verify --silent -f -o`** (see
+  `adapters/flac_recompress.py`). Decoded:
+  - `-8` is the max built-in preset = `-l 12 -b 4096 -m -r 6 -A "subdivide_tukey(3)"`.
+  - `-e` = exhaustive search of the LPC/fixed model space; `-p` = exhaustive search
+    of the `qlp_coeff_precision`. **Both cost only *encode* time** — they refine the
+    encoder's *search*, not the resulting `-l`/`-b`, so they add **zero decode-time
+    cost**. (This is the distinction the maintainer cares about — see the mobile note
+    below.) Added 2026-06-23 on the maintainer's "always fine to add encoding time."
+  - `--verify` re-decodes each frame during the encode and compares to the input —
+    the bit-perfect guarantee. `--silent`/`-f`/`-o` are plumbing (quiet, overwrite,
+    output path).
+- **Decode-cost note (the maintainer's 2015 mobile concern, kept honest):** decode
+  work scales with the **LPC order `-l`**, not with `-e`/`-p`. `-5` uses `-l 8`; `-8`
+  uses `-l 12`, so `-8` *itself* is marginally heavier to decode than `-5` — a real
+  but small cost the maintainer accepted ("yes, at least for now… this may have
+  changed a bit since 2015"). `-e`/`-p` ride for free at playback time.
+- **cyanrip path:** encodes FLAC at libavcodec maximum compression already and
+  exposes no level flag, so the re-compress step is a whipper-only no-op (gated by
+  `produces_max_compression_flac()`).
+
+### WavPack (`.wv`, lossless + tags + art) — `wavpack` / libavcodec wavpack
+
+- **Lossless is the default** — no flag needed; the lossy/hybrid mode is opt-in
+  (`-b`), which we never use. So "wv is lossless" is the out-of-the-box behaviour.
+- **Quality / compression:** `-h` (high) and `-hh` (very high) trade encode time for
+  a smaller file with **no decode penalty for the *normal* decoder**; `-x[1-6]` adds
+  "extra" encode-time processing (`-x` = level 1, up to `-x6`) for a last fraction of
+  size, again **encode-time only**. Mirrors FLAC's `-e`/`-p` philosophy.
+- **Integrity, the WavPack analogues of FLAC's guarantees:**
+  - `-m` stores an **MD5 of the source PCM** in the file (≈ FLAC's STREAMINFO MD5) —
+    lets anyone re-verify bit-perfection later.
+  - `-v` runs a **verify pass** (re-decode + compare during encode) — the direct
+    analogue of `flac --verify`.
+- **Tags + cover art:** WavPack uses **APEv2** tags. `-w "Field=Value"` writes a text
+  field; **cover art is a binary APEv2 tag** (`Cover Art (Front)`), which the
+  standalone `wavpack` tool writes (e.g. via `--import-id3` from a tagged source, or
+  an explicit binary-tag import). This is why the transcode path should prefer the
+  **standalone `wavpack` encoder over ffmpeg's wavpack muxer** for the whipper case:
+  ffmpeg's wavpack metadata/cover support is thinner than native APEv2. *(Impl detail
+  to confirm at build time — see §5 note 7.)*
+- **Reference point:** the maintainer's EAC WavPack config used `-h -m` (high + MD5,
+  no verify, no extra). Our archival default goes further — **`-hh -m -v -x`**
+  (very-high, MD5, verify pass, extra processing): maximal lossless quality + a
+  self-checkable integrity hash + a verified encode, all at encode-time cost only.
+
+### MP3 (lossy "convenience" output, best-practice VBR) — LAME / libmp3lame
+
+- **Use VBR `-V`, not CBR.** LAME 3.100 (2017) is the last release; its modern VBR
+  engine (`--vbr-new`, default since 3.98) is the recommended path on
+  [HydrogenAudio's Recommended LAME](https://wiki.hydrogenaudio.org/index.php/LAME)
+  (the canonical reference linked from LAME's own
+  [links page](https://lame.sourceforge.io/links.php)).
+- **Quality ladder:** `-V2` ≈ 190 kbps (= `--preset standard`) is HA's
+  *transparency* recommendation — the point most listeners can't ABX from source.
+  `-V0` ≈ 245 kbps (= `--preset extreme`) is the **highest** VBR setting. 320 CBR is
+  **not** demonstrated to beat top VBR audibly, and costs more bits — so it is not a
+  better archival-of-lossy choice, just a bigger one.
+- **We ship `-V0`** — a notch above HA's transparency floor — to satisfy the
+  maintainer's "highest quality result" directive, and because it **matches the
+  maintainer's own EAC MP3 rip** of the baseline disc (EAC command line:
+  `lame3.100.1 … -V 0 %source% %dest%`, ID3 on; confirmed 2026-06-25).
+- **Stereo:** leave **joint stereo ON** (LAME's default; it picks lossless mid/side
+  per frame). Forcing `-m s` only wastes bits.
+- **The LAME `-q 0…3` / `noise_shaping_amp` bug ([#516](https://sourceforge.net/p/lame/bugs/516/))
+  is CBR/ABR-only — VBR is unaffected**, so `-V0` sidesteps it entirely. Frame the
+  `-q` workaround as "only relevant if we ever ship CBR/ABR."
+- **ffmpeg mapping** (our transcode path, and cyanrip's encode path):
+  `-q:a N` = VBR = lame `-V N` (so **`-q:a 0` == `-V0`**); `-b:a` = CBR/ABR;
   `joint_stereo` defaults on. The standalone-lame *algorithm-quality* `-q` maps to
-  FFmpeg's separate `compression_level` (a different option), so the #516 bug is a
-  non-issue for `-q:a` VBR. **Re-encoding whipper FLAC → MP3:**
-  `ffmpeg -i in.flac -codec:a libmp3lame -q:a 0 out.mp3` (= `-V0`), avoid CBR.
+  ffmpeg's separate `compression_level`, so #516 stays a non-issue for `-q:a` VBR.
+  **Re-encode whipper FLAC → MP3:**
+  `ffmpeg -i in.flac -map_metadata 0 -id3v2_version 3 -c:a libmp3lame -q:a 0 out.mp3`
+  (carries tags; cover art rides as an ID3 APIC frame — empirically confirmed
+  2026-06-25 that the transcode output carries both tags and embedded front cover).
   ([FFmpeg codecs](https://ffmpeg.org/ffmpeg-codecs.html))
-- **MP3 is "transparent," not "archival."** FLAC stays the archival format; MP3 is
-  a convenience/portability output. Say so in the UI.
+- **MP3 is "transparent," not "archival."** FLAC/WavPack stay the lossless formats;
+  MP3 is the convenience/portability output ("not for that use"). Say so in the UI.
 
-### WAV
-- **No RF64/Wave64 needed at CD scope.** A full 80-min CD ≈ 800 MB, far under the
-  4 GiB RIFF ceiling; per-track files are tiny. Skip the RF64 complexity.
+### WAV (raw interchange only) — `pcm_s16le`
+
+- **No RF64/Wave64 needed at CD scope.** A full 80-min CD ≈ 800 MB, under the 4 GiB
+  RIFF ceiling; per-track files are tiny. Skip RF64.
   ([WAV](https://en.wikipedia.org/wiki/WAV), [RF64](https://en.wikipedia.org/wiki/RF64))
-- **WAV can't carry rich tags or cover art.** RIFF has only the limited `INFO`
-  chunk (no Vorbis/APEv2, no reliable embedded art). This collides with the
-  project's "good cover image, good everything" north star — **surface a warning**
-  when a user picks WAV (their tags/art won't travel with the file).
+- **WAV can't carry rich tags or cover art.** RIFF has only the limited `INFO` chunk
+  (no Vorbis/APEv2/ID3, no reliable embedded art). This collides head-on with the
+  maintainer's "tags + images for all if possible" — so **WavPack, not WAV, is the
+  recommended lossless-with-metadata format**, and WAV is kept only as a raw
+  interchange option **with a clear warning** that its tags/art won't travel.
   ([RIFF tags](https://exiftool.org/TagNames/RIFF.html))
 
 ---
@@ -112,94 +201,123 @@ time; whipper = always FLAC, then transcode.
 Two existing seams do all the work; **no bespoke per-encoder install code**
 (Critical Rule #6) and **no new GUI plumbing** beyond a format selector.
 
-**(a) Config.** Add `output_format: str = "flac"` (`"flac" | "wav" | "mp3"`), and
-for MP3 a quality knob (`mp3_vbr_quality: int = 0` → `-V0`/`-q:a 0`). Default FLAC.
+**(a) Config.** `output_format: str = "flac"` (`"flac" | "wavpack" | "wav" | "mp3"`),
+plus the MP3 quality knob (`mp3_vbr_quality: int = 0` → `-V0`/`-q:a 0`). Default FLAC.
 The dataclass+`asdict` round-trips new fields for free (as the FLAC toggles did).
+*(Built today for `flac`/`wav`/`mp3`; `wavpack` is the one value still to add.)*
 
-**(b) Backend capability flag.** Extend the `WhipperBackend` ABC with
-`native_output_formats() -> frozenset[str]` (default `{"flac"}`; cyanrip overrides
-to its `-o` set). The GUI then chooses per backend:
-- **cyanrip** (native) → pass `-o <format>` (and `-b` for MP3) at rip time. The
-  `_build_rip_argv` + `_metadata_args` already exist; add the format/bitrate args.
-- **whipper** (FLAC-only) → rip FLAC as today, then **post-rip transcode** the
-  output to the chosen format.
+**(b) Backend capability flag.** `WhipperBackend.native_output_formats() ->
+frozenset[str]` (default `{"flac"}`; cyanrip overrides to its `-o` set). The GUI then
+chooses per backend:
+- **cyanrip** (native) → pass `-o <format>` (and `-b` for MP3) at rip time. *But*
+  note §2: for VBR MP3 and for fully-controlled WavPack tags/art, prefer the
+  transcode path even on cyanrip, or accept cyanrip's CBR/max-WavPack defaults.
+- **whipper** (FLAC-only) → rip FLAC as today, then **post-rip transcode**.
 
-**(c) Post-rip transcode adapter** (whipper path), modelled on the just-shipped
-`adapters/flac_recompress.py`: a new `adapters/transcode.py` with
-`transcode_files(paths, *, fmt, ...) -> TranscodeResult` — never raises,
-best-effort, runs **off the GUI thread folded into the existing post-rip daemon
-thread** (after tag/cover, like re-compress), reports via a queued signal. Unlike
-re-compress it writes a *sibling* file (`01 - x.mp3` next to `01 - x.flac`) rather
-than swapping in place, and decides whether to keep or remove the source FLAC
-(probably keep FLAC as the archival master; MP3/WAV is the derived copy — matches
-the north star).
+**(c) Post-rip transcode adapter** (`adapters/transcode.py`), modelled on
+`adapters/flac_recompress.py`: `transcode_files(paths, *, fmt, ...) ->
+TranscodeResult` — never raises, best-effort, runs **off the GUI thread folded into
+the existing post-rip daemon thread** (after tag/cover, like re-compress), reports via
+a queued signal. Writes a *sibling* file (`01 - x.mp3`/`.wv` next to `01 - x.flac`)
+and **keeps the FLAC as the archival master** (§5 decision 2). *Today it supports
+`mp3`/`wav` via ffmpeg; `wavpack` is the remaining encoder to add (via the standalone
+`wavpack` tool for full APEv2 tag/art control — §3).*
 
-**(d) Dependency subsystem** (Critical Rule #6). The transcode needs an encoder;
-route it through the single `DependencyManager` like `flac`/`metaflac`:
-- **MP3:** `ffmpeg` (libmp3lame) is the cleanest single dep — and it's *already*
-  present wherever cyanrip is (FFmpeg-based). Register `ffmpeg` as an optional dep
-  with a `check_ffmpeg` mirroring `check_flac`. (Alternative: `lame`, but ffmpeg
-  covers both MP3 and WAV and matches cyanrip's stack — prefer one dep.)
-- **WAV:** decoding FLAC→WAV needs only `flac -d` (already a dep) or ffmpeg; no new
-  dependency strictly required for WAV.
+**(d) Dependency subsystem** (Critical Rule #6). Route every encoder through the
+single `DependencyManager`:
+- **MP3 + WAV:** `ffmpeg` (libmp3lame / pcm_s16le) — one dep, already present
+  wherever cyanrip is (FFmpeg-based). Registered as optional/manual
+  (`deps/checks.py::check_ffmpeg`, `deps/registry.py`). **Approved (§5 decision 1).**
+- **WavPack:** the standalone **`wavpack`** encoder for best APEv2 tag/cover control
+  (ffmpeg's wavpack muxer is the fallback). Register it the same way when the encode
+  path lands — *new optional dep, route through the subsystem, add a
+  `DEPENDENCIES.md` row.*
+- **FLAC→WAV** decode needs only `flac -d` (already a dep) or ffmpeg.
 
-**(e) Tags & art.** FLAC/MP3 carry full tags + embedded cover (MP3 via ID3 APIC —
-reuse the cover-art fetch, write through ffmpeg/`-metadata`/an ID3 lib). **WAV
-gets neither** → the §3 warning; don't pretend otherwise.
+**(e) Tags & art.** FLAC (Vorbis comments + PICTURE), MP3 (ID3v2 + APIC), WavPack
+(APEv2 + binary `Cover Art (Front)`) **all carry full tags + embedded cover** — reuse
+the existing cover-art fetch (`adapters/cover_art.py`). **WAV gets neither** → the §3
+warning; don't pretend otherwise. This satisfies "tags + images for all if possible":
+*possible* for three of four formats, impossible for WAV by the container's design.
 
 **(f) Parity proof.** Unchanged — rip the baseline disc to the format, run
 `scripts/eac_parity.py` against `output_reference/EAC_flac/…`, commit the passing
 **log** (never audio) under `output_reference/<backend>_<format>/` (Critical Rule
-#8). For MP3, "pass" = extraction CRCs match (§1).
+#8). For lossless formats "pass" = identical Copy CRC; for MP3 "pass" = extraction
+CRCs match (§1).
 
 ---
 
-## 5. Open questions / decision gates (need maintainer sign-off before build)
+## 5. Decisions (LOCKED 2026-06-26 — maintainer sign-off)
 
-1. **Encoder dependency:** adopt **`ffmpeg`** as the one transcode dep (covers MP3
-   + WAV, already in cyanrip's stack)? — *Deviation policy: a new dep needs your
-   OK and a `DEPENDENCIES.md` entry.*
-2. **Keep FLAC as the master** when the user picks MP3/WAV (derive the lossy/WAV
-   copy alongside), or replace it? (Recommended: keep FLAC — the north star is the
-   archival library.)
-3. **Multi-format at once?** cyanrip can `-o flac,mp3` in one pass; offer "FLAC +
-   MP3" as a combo, or one format at a time?
-4. **MP3 default:** VBR `-V0`? Expose the `-V` level in Settings or keep it fixed?
-5. **WAV UX:** given no tags/art, is WAV even worth surfacing for v-next, or is MP3
-   the only P1 lossy/portable target? (WAV is mostly useful as a raw interchange
-   format.)
-6. **Hardware confirm:** rip the baseline disc to `-o flac` *and* `-o mp3`/`-o wav`
-   with cyanrip and diff the logged EAC/AccurateRip CRCs to prove
-   format-independence directly (test-plan candidate), and confirm the cyanrip
-   success-line wording for the parser (§1).
+These were the open gates in the prior draft; the maintainer's directive (top of
+file) resolves them. Recorded here as the contract the build implements.
+
+1. **Encoder dependencies — APPROVED.** `ffmpeg` is the MP3/WAV dep (covers both,
+   already in cyanrip's stack). `wavpack` (standalone) is added for WavPack so its
+   APEv2 tags + binary cover art are fully controllable. Both route through the
+   dependency subsystem with `DEPENDENCIES.md` rows. *(ffmpeg already registered;
+   wavpack to be registered with its encode path.)*
+2. **Keep FLAC as the master — YES.** When the user picks WavPack/WAV/MP3, the FLAC
+   is kept and the chosen format is derived *alongside* it. The north star is the
+   archival library; the lossy/interchange copy is additive, never a replacement.
+3. **Formats shipped: FLAC + WavPack + MP3** as the first-class trio, **WAV** kept
+   as a raw-interchange extra (warned). Rationale: the maintainer named *flac, wv,
+   mp3*; WavPack is the lossless-**with-metadata** answer that WAV can't be.
+4. **Lossless means provably lossless.** FLAC `-8 -e -p --verify` (+ optional `-j` on
+   1.5.0); WavPack `-hh -m -v -x`. Both carry a source-MD5 and a verify pass so a
+   third party can re-confirm — the "verified by other users" requirement.
+5. **MP3 = best-practice VBR `-V0`** (= ffmpeg `-q:a 0`), joint-stereo on, tags +
+   APIC cover. Lossy is acceptable here ("not for that use"); `-V0` is the
+   highest-quality VBR and matches the maintainer's EAC rip. The `-V` level stays
+   **fixed at 0** for now (config field exists for a future Settings exposure).
+6. **Multi-format at once (cyanrip `-o flac,mp3`):** allowed by the engine, but the
+   first build ships **one format at a time** (simpler UI + uniform whipper/cyanrip
+   behaviour). A "FLAC + MP3" combo is a fast follow once the single-format path is
+   proven.
+7. **Tags + art for all where the container allows — YES.** FLAC/MP3/WavPack: full
+   tags + embedded cover. WAV: not possible (RIFF) → explicit warning, not silent
+   data loss. *(Build-time confirm: the exact `wavpack`/APEv2 invocation that embeds
+   the front cover, since this is the one path not yet empirically proven — MP3/FLAC
+   already are.)*
+8. **Hardware confirm (still gated, not blocking the build):** rip the baseline disc
+   to `-o flac` *and* `-o wavpack`/`-o mp3`/`-o wav` with cyanrip; diff the logged
+   EAC/AccurateRip CRCs to prove format-independence directly, and confirm the
+   cyanrip success-line wording for the parser (§1). Test-plan candidate.
 
 ---
 
-## 6. What's already done
+## 6. Build status
 
-**Prep (2026-06-23):**
+**Prep + facts (2026-06-23, refreshed 2026-06-26):**
 - Parity tooling proven format-agnostic; WAV/MP3 invariants pinned by tests
   (`tests/test_parity.py`), semantics documented in `whipper_gui.parity` and
   `output_reference/README.md`.
-- Encoder facts verified + recorded here (§3) so the build starts from facts, not
-  the 2015-era rules of thumb.
+- Encoder facts + exact args verified against the current upstream docs (§3) so the
+  build starts from facts, not 2015-era rules of thumb. FLAC 1.5.0 / `-j`, LAME `-V0`
+  (with the HydrogenAudio citation), and the full WavPack arg set all recorded.
 - The EAC parity matrix in `TASKS.md` already lists the WAV/MP3 proof rows.
 
 **Foundation built (2026-06-23, unreachable / default-FLAC so v1 is unchanged):**
-- **§4(a) Config** — `output_format: str = "flac"` + `mp3_vbr_quality: int = 0`
-  (`config.py`), round-trips like the rest.
-- **§4(b) Capability flag** — `WhipperBackend.native_output_formats()` (ABC
-  default `{"flac"}`; cyanrip overrides to add `wav`/`mp3`).
+- **§4(a) Config** — `output_format` + `mp3_vbr_quality` (`config.py`), round-trips
+  like the rest. *(WavPack value still to add.)*
+- **§4(b) Capability flag** — `WhipperBackend.native_output_formats()` (ABC default
+  `{"flac"}`; cyanrip overrides).
 - **§4(c) Transcode adapter** — `adapters/transcode.py` (`transcode_files(...) ->
-  TranscodeResult`): per-FLAC ffmpeg re-encode to a sibling MP3/WAV, atomic
-  swap-in, FLAC kept, never raises. MP3 = libmp3lame VBR `-q:a` + tags/cover; WAV
-  = `pcm_s16le`. Full test coverage (`tests/test_transcode.py`).
+  TranscodeResult`): per-FLAC ffmpeg re-encode to a sibling MP3/WAV, atomic swap-in,
+  FLAC kept, never raises. MP3 = libmp3lame VBR `-q:a 0` + tags/APIC cover; WAV =
+  `pcm_s16le`. Full test coverage (`tests/test_transcode.py`).
 - **§4(d) Dependency** — `ffmpeg` registered in the single subsystem
-  (`deps/checks.py::check_ffmpeg`, `deps/registry.py`, `DEPENDENCIES.md`),
-  optional, manual tier.
+  (`deps/checks.py::check_ffmpeg`, `deps/registry.py`, `DEPENDENCIES.md`), optional,
+  manual tier.
 
-**Not yet built (the §5-gated, decision-laden part):** the rip-flow integration
-(cyanrip native `-o` argv + the whipper post-rip transcode call, folded into the
-post-rip daemon thread) and the **Settings UI** format selector + the WAV
-no-tags/art warning. These wire the feature to the user, which is where Critical
-Rule #4 (FLAC-only for v1) and the §5 product decisions bite — held for sign-off.
+**Not yet built (the build that flips Critical Rule #4 — held for go/no-go):**
+- **WavPack encoder** in `transcode.py` (standalone `wavpack -hh -m -v -x` +
+  APEv2 tags/cover) and its `wavpack` dependency registration + `config.py` value.
+- **Rip-flow integration** — cyanrip native `-o` argv (+ `-b`/format) and the whipper
+  post-rip transcode call, folded into the post-rip daemon thread.
+- **Settings UI** — the format selector, the MP3-is-lossy note, and the WAV
+  no-tags/art warning.
+
+These wire the feature to the user, which is where Critical Rule #4 (FLAC-only for
+v1) and the now-locked §5 decisions bite — held for the explicit go/no-go.

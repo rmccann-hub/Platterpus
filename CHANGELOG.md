@@ -46,6 +46,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   startup path.
 
 ### Changed
+- **Packaging metadata corrected.** `pyproject.toml` now declares
+  `Development Status :: 4 - Beta` (was the stale `1 - Planning`, untouched since
+  the project was scaffolded — the app has shipped public releases since v0.1.0)
+  and adds the `Programming Language :: Python :: 3.13` classifier to match the
+  3.11–3.13 CI matrix the package is actually tested on. PyPI display only; no
+  code or dependency change.
 - **Internal refactor (no behaviour change).** A whole-codebase pass to cut
   redundancy and improve readability, with the test suite green and branch
   coverage held at every step: a shared composition root (`composition.py`) the
@@ -87,7 +93,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   effort difference, never a compatibility one). New
   `Config.recompress_flac_after_rip` and a
   `WhipperBackend.produces_max_compression_flac()` capability flag. Shipped flags
-  (`-8 --verify --silent -f -o`) verified current against the xiph spec.
+  (`-8 -e -p --verify --silent -f -o`) verified current against the xiph spec.
 - **Post-rip FLAC integrity verification (new "Verify FLACs" setting, on by
   default).** whipper proves every track decodes back to the read PCM by passing
   `flac --verify` during the rip; cyanrip (FFmpeg) does not, so a cyanrip rip
