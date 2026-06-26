@@ -137,6 +137,12 @@ def _build_argv(
         # WavPack muxer rejects more than one stream, so the embedded cover
         # can't ride along (the folder cover.<ext> covers the image). Text
         # tags carry over to APEv2 via -map_metadata.
+        #
+        # NOTE: the *muxer* is `wv` (not `wavpack` — that's the *encoder*). We
+        # write to a `.transcode.tmp` temp, so ffmpeg can't infer the container
+        # from the name and `-f` is required; it must be `wv`. (Passing
+        # `-f wavpack` makes ffmpeg abort with "Requested output format
+        # 'wavpack' is not known" and write nothing.)
         return base + [
             "-map_metadata",
             "0",
@@ -145,7 +151,7 @@ def _build_argv(
             "-c:a",
             "wavpack",
             "-f",
-            "wavpack",
+            "wv",
             str(tmp),
         ]
     # WAV: 16-bit LE PCM (CD format). `-map 0:a` = audio only — explicitly

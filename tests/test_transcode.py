@@ -110,8 +110,12 @@ def test_wavpack_writes_wv_sibling_lossless_with_tags(tmp_path: Path) -> None:
     assert not (tmp_path / "01 - A.wavpack").exists()
     assert a.read_bytes() == b"FLACdata"  # FLAC master kept
     argv = seen[0]
-    assert "wavpack" in argv  # the lossless WavPack encoder
+    assert argv[argv.index("-c:a") + 1] == "wavpack"  # the lossless encoder
     assert "libmp3lame" not in argv and "pcm_s16le" not in argv
+    # The MUXER is `wv`, not `wavpack` (that's the encoder). Passing the wrong
+    # `-f` makes the real ffmpeg abort and write nothing — a bug the stubbed
+    # runner can't catch, so pin the exact format string here.
+    assert argv[argv.index("-f") + 1] == "wv"
     # Text tags carry over (APEv2), but the cover stream is dropped: ffmpeg's
     # WavPack muxer only accepts a single stream, so we map audio only.
     assert "-map_metadata" in argv
@@ -252,3 +256,164 @@ def test_result_properties() -> None:
     assert TranscodeResult(failures=(Path("x"),)).ran  # ran, just had a failure
     assert not TranscodeResult(error="boom").ran
     assert not TranscodeResult(error="boom").ok
+
+
+# --- Real-binary integration (the stubbed runner can't catch a bad ffmpeg
+# argv — e.g. the wrong `-f` muxer name). Skipped when ffmpeg/flac are absent;
+# runs locally and on any CI image that has them. Self-generated audio only
+# (CLAUDE.md Rule #8). Regression for the `-f wavpack` (should be `-f wv`) bug.
+
+import hashlib  # noqa: E402
+import shutil  # noqa: E402
+
+_HAVE_FFMPEG = shutil.which("ffmpeg") is not None
+_HAVE_FLAC = shutil.which("flac") is not None
+_real_only = pytest.mark.skipif(
+    not (_HAVE_FFMPEG and _HAVE_FLAC), reason="needs real ffmpeg + flac"
+)
+
+
+def _pcm_md5(path: Path) -> str:
+    """MD5 of the decoded 16-bit PCM (format-independent lossless fingerprint)."""
+    out = subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            str(path),
+            "-map",
+            "0:a",
+            "-f",
+            "s16le",
+            "-c:a",
+            "pcm_s16le",
+            "-",
+        ],
+        check=True,
+        capture_output=True,
+    ).stdout
+    return hashlib.md5(out).hexdigest()
+
+
+def _make_real_flac(dir_: Path) -> Path:
+    """A real, tagged FLAC with an embedded cover, generated from a sine wave."""
+    wav = dir_ / "s.wav"
+    png = dir_ / "c.png"
+    flac = dir_ / "01 - Song.flac"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-ac",
+            "2",
+            "-ar",
+            "44100",
+            "-c:a",
+            "pcm_s16le",
+            str(wav),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=32x32:d=1",
+            "-frames:v",
+            "1",
+            str(png),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "flac",
+            "--silent",
+            "-f",
+            "-o",
+            str(flac),
+            "-T",
+            "TITLE=Song",
+            "-T",
+            "ARTIST=Artist",
+            "-T",
+            "ALBUM=Album",
+            f"--picture=3||||{png}",
+            str(wav),
+        ],
+        check=True,
+    )
+    return flac
+
+
+@_real_only
+@pytest.mark.parametrize("fmt,ext", [("wavpack", "wv"), ("wav", "wav")])
+def test_real_lossless_transcode_is_bit_identical(
+    tmp_path: Path, fmt: str, ext: str
+) -> None:
+    """The lossless targets really decode back to the FLAC's exact PCM, through
+    the SHIPPED adapter + real ffmpeg (no stub). Catches a wrong codec/muxer."""
+    flac = _make_real_flac(tmp_path)
+    src_md5 = _pcm_md5(flac)
+
+    result = transcode_files([flac], fmt=fmt)
+
+    out = tmp_path / f"01 - Song.{ext}"
+    assert result.ok, f"{fmt} transcode failed: {result}"
+    assert out.exists(), f"{fmt} wrote no output"
+    assert flac.exists()  # FLAC master kept
+    assert _pcm_md5(out) == src_md5  # provably lossless
+
+
+@_real_only
+def test_real_mp3_transcode_carries_tags_and_cover(tmp_path: Path) -> None:
+    """MP3 (lossy) really carries tags + an embedded cover, through the shipped
+    adapter + real ffmpeg."""
+    flac = _make_real_flac(tmp_path)
+
+    result = transcode_files([flac], fmt="mp3")
+
+    out = tmp_path / "01 - Song.mp3"
+    assert result.ok and out.exists()
+    tags = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format_tags=title,artist,album",
+            "-of",
+            "default=nw=1",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "Song" in tags and "Artist" in tags
+    cover = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v",
+            "-show_entries",
+            "stream=codec_type",
+            "-of",
+            "default=nw=1",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "video" in cover  # the embedded cover (APIC) is present

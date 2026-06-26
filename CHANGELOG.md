@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **WavPack output now actually works (caught pre-release).** The new WavPack
+  transcode passed the wrong ffmpeg output-format name (`-f wavpack`; the muxer
+  is `wv`), so real ffmpeg aborted and wrote no `.wv` — the unit tests stub
+  ffmpeg, so only a real-binary run exposed it. Fixed to `-f wv` and added a
+  real-ffmpeg integration test (skipped when ffmpeg/flac are absent) that proves
+  each lossless target decodes back to the FLAC's exact PCM. Same `[Unreleased]`
+  cycle as the feature, so no user ever saw it.
 - **EAC-parity checker now reads real EAC logs (UTF-16).** EAC writes its
   `.log` as UTF-16-with-BOM; `scripts/eac_parity.py` read it as UTF-8, so every
   character became a replacement char, the parser found zero Copy CRCs, and the
