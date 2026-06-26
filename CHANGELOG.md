@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-06-26
+
 ### Fixed
 - **WavPack output now actually works (caught pre-release).** The new WavPack
   transcode passed the wrong ffmpeg output-format name (`-f wavpack`; the muxer
@@ -727,6 +729,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.3.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.5...v0.2.6
