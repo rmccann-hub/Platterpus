@@ -139,7 +139,7 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 - **From the AppImage (once published):** `./whipper-gui-x86_64.AppImage`
 - **From a `pipx` install (once published):** `whipper-gui`
 - **Version check without launching the GUI:** `whipper-gui --version`
-- **Preflight / "doctor" (first-pass environment test, no CD needed):** `whipper-gui --doctor` (or `python scripts/preflight.py`; `--no-network` skips the MB/CAA/CTDB reachability checks, `--backend whipper|cyanrip` overrides). Exits non-zero on a hard blocker. Logic lives in `src/whipper_gui/preflight.py` (reuses the real adapters + the dependency subsystem); the script and `--doctor` are thin CLIs over it.
+- **Preflight / "doctor" (first-pass environment test, no CD needed):** `whipper-gui --doctor` (no extra flags — it just runs the full check and exits). For the tunable form use `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability checks) and `--backend whipper|cyanrip` (override which backend to probe). Both exit non-zero on a hard blocker. Logic lives in `src/whipper_gui/preflight.py` (reuses the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it.
 
 ### Test commands
 

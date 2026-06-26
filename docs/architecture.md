@@ -248,11 +248,13 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
 | Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
 | Dependency check / resolve / summary (+ `_DialogQueuedResolver`) | `main_window_deps.py` (`DependencyMixin`) |
-| Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the ~460-line assembler) |
+| Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the ~620-line assembler) |
 
 `MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)`
-— a 1707-line god-object reduced to a ~460-line assembler plus six focused
-modules.
+— a 1707-line god-object reduced to a ~620-line assembler plus six focused
+modules. (The split first landed it at ~460 lines; it has since grown as
+new-feature wiring accreted — split again if a *concern*, not just a line
+count, starts sharing the file.)
 
 ### 3.7 Error handling & logging
 - **Catch specific exceptions**, never bare `except:`. A last-resort
