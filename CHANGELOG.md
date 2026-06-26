@@ -81,9 +81,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   at WavPack for lossless-with-tags). The transcode runs off the GUI thread, writes
   each file atomically, and never costs you the master if it fails. Uses `ffmpeg`
   (already present wherever the cyanrip backend is), routed through the existing
-  dependency subsystem — no new install path. Note: cover art is embedded in FLAC
-  and MP3 but, for now, lands beside the `.wv` as a folder image rather than inside
-  it (a tooling limit — see docs/mp3-wav-support.md). New `Config.output_format`.
+  dependency subsystem — no new install path. Cover art is embedded in FLAC and
+  MP3; WavPack/WAV can't embed it (a tooling limit), so the front cover is always
+  saved beside the tracks as `cover.<ext>` for those — every format gets a visible
+  cover (see docs/mp3-wav-support.md). New `Config.output_format`.
 - **Enforced safety layer (contributor-facing).** New `.githooks/pre-commit`
   hard-blocks committing audio/copyrighted media (Critical Rule #8) — even via
   `git add -f` — so the rule is a guarantee, not just guidance (`dev-setup.sh`

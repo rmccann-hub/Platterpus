@@ -244,11 +244,14 @@ single `DependencyManager`:
   `DEPENDENCIES.md` row.*
 - **FLAC→WAV** decode needs only `flac -d` (already a dep) or ffmpeg.
 
-**(e) Tags & art.** FLAC (Vorbis comments + PICTURE), MP3 (ID3v2 + APIC), WavPack
-(APEv2 + binary `Cover Art (Front)`) **all carry full tags + embedded cover** — reuse
-the existing cover-art fetch (`adapters/cover_art.py`). **WAV gets neither** → the §3
-warning; don't pretend otherwise. This satisfies "tags + images for all if possible":
-*possible* for three of four formats, impossible for WAV by the container's design.
+**(e) Tags & art (as shipped).** Tags: FLAC (Vorbis comments), MP3 (ID3v2), WavPack
+(APEv2) all carry full tags; WAV carries none (RIFF). Cover art: **FLAC and MP3 embed**
+it (FLAC PICTURE; MP3 ID3 APIC copied through the transcode); **WavPack and WAV can't
+embed via ffmpeg**, so the GUI **force-saves the front cover to the album folder as
+`cover.<ext>`** for those (see §6) — guaranteeing a visible cover even in "embed" mode
+and on the whipper-known path. So "tags + images for all if possible" holds: embedded
+where the container allows, folder-level where it doesn't, nothing only for WAV's tags
+(impossible by design — the §3 warning says so; don't pretend otherwise).
 
 **(f) Parity proof.** Unchanged — rip the baseline disc to the format, run
 `scripts/eac_parity.py` against `output_reference/EAC_flac/…`, commit the passing
@@ -336,13 +339,17 @@ Rule #4):**
 - Tests across the adapter, the settings dialog, and the post-rip finish handler
   (skip-for-flac, run-for-non-flac, quality passthrough, slot rendering).
 
-**Known limitation / future enhancement (not blocking):**
-- **Embedded cover art inside `.wv`.** ffmpeg's WavPack muxer accepts only a single
-  (audio) stream, so it can't embed the front cover *in* the `.wv`. The album-folder
-  `cover.<ext>` (written by the cover-art step) is the universal image, so WavPack
-  rips still get "a good cover image" — just not embedded. Embedding it requires the
-  standalone `wavpack` tool (APEv2 binary `Cover Art (Front)` tag), a `wavpack`
-  dependency to register through the subsystem; deferred until it can be
-  hardware-validated. WAV embeds nothing by design (RIFF).
+**Cover art for WavPack/WAV — folder image is *guaranteed*, embedding is the gap.**
+ffmpeg's WavPack muxer accepts only a single (audio) stream, so it can't embed the
+front cover *in* the `.wv` (WAV/RIFF can't hold art at all). To make sure those
+formats still get "a good cover image", the GUI **forces the front cover to be saved
+to the album folder as `cover.<ext>`** whenever a non-embedding format is selected,
+art is wanted, and the disc was identified — even in the default "embed" cover-art
+mode (which normally embeds in the FLAC and deletes the folder copy), and even on the
+whipper-known path (where whipper put the art only *inside* the FLAC). So a WavPack
+rip always has a visible cover; it's just folder-level, not embedded. *Future
+enhancement (not blocking):* embedding *inside* the `.wv` needs the standalone
+`wavpack` tool (APEv2 binary `Cover Art (Front)` tag) — a `wavpack` dependency to
+register through the subsystem, deferred until it can be hardware-validated.
 - **MP3 `-V` level** stays fixed at 0 (config field exists for a future Settings
   spinbox).
