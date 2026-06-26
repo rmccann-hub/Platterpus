@@ -11,6 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-06-26
+
+### Changed
+- Maintenance release — **no functional changes since 0.3.0.** Cut so installs
+  on 0.3.0+ can exercise the now-fixed in-app updater end-to-end (the KDE
+  menu-cache freeze that affected pre-0.2.6 builds is gone — the update flow
+  stays responsive through download → verify → install → restart).
+
+### Documentation
+- Added the multi-format output (FLAC/WavPack/MP3/WAV) on-hardware validation
+  procedure to the test plan as **Test 11**.
+
 ## [0.3.0] — 2026-06-26
 
 ### Fixed
@@ -729,6 +741,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.3.1]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.6...v0.2.7
