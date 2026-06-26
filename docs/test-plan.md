@@ -10,10 +10,10 @@
 >   uninstall → fresh install → rip → verify cycle, the **EAC output-parity**
 >   check, and the **distribution + problem-permutation matrices** to spread
 >   across testers.
-> - **Single-feature cases (Test 1–10)** — the deep, individually-gated cases
+> - **Single-feature cases (Test 1–11)** — the deep, individually-gated cases
 >   (CTDB verify CRC, `drive analyze` / `offset find` strings, PyPI go-live, the
->   cyanrip parity run, the FLAC re-compress bit-perfect/metadata proof). Run one
->   at a time and record the result.
+>   cyanrip parity run, the FLAC re-compress bit-perfect/metadata proof, and the
+>   multi-format output proof). Run one at a time and record the result.
 >
 > Everything here is already *implemented* (or, for upstream-blocked items,
 > *decided*) — these tests confirm reality matches intent and capture the real
@@ -127,7 +127,9 @@ Insert a commercial CD → it's identified via MusicBrainz, the track list fills
 *Expected:* progress bars + current-track move; on finish the status reads a
 **fidelity verdict** (*"all N tracks verified, Test/Copy CRCs match"*). Files
 land under your output folder, tagged, with embedded cover art. Open the saved
-`.log` (View log) — every track **Test CRC == Copy CRC**.
+`.log` (View log) — every track **Test CRC == Copy CRC**. (This is the default
+**FLAC** output; to validate the **WavPack / MP3 / WAV** output formats, see
+**Test 11**.)
 
 ### A7 — [ ] EAC output-parity check  ⭐ (the headline)
 If you have an EAC log for this exact disc + drive (we have one for *The Police —
@@ -275,7 +277,7 @@ Each D-row that misbehaves → file a report with the log.
 
 ---
 
-# Single-feature cases (Test 1–10)
+# Single-feature cases (Test 1–11)
 
 The individually-gated deep cases. Each is self-contained: do the steps, record
 the result, follow **If it fails**. Several are unblocked by — or feed back
@@ -585,6 +587,76 @@ guarantees it during the encode).
 **Record:** all MD5s identical? `____`; `flac --test` all OK? `____`; cover art +
 tags intact? `____`; total size before/after `____` / `____`; any track that
 grew? `____`.
+
+---
+
+## Test 11 — [ ] Multi-format output: WavPack / MP3 / WAV (v0.3.0, KDD-22)
+
+**Goal:** prove the **Output format** feature on real files: selecting a non-FLAC
+format produces a correct file in that format, the **FLAC master is always kept**,
+the **lossless** formats (WavPack, WAV) are bit-identical to the FLAC, **tags +
+cover art** are present per what each container allows, and the WAV warning shows.
+The adapter is unit- and real-ffmpeg integration-tested in the dev environment;
+this is the on-hardware, real-rip proof. Needs host `ffmpeg` + `flac`/`metaflac`.
+
+**Design recap (so the checks make sense):** every rip produces FLAC first (the
+master); a non-FLAC choice is a post-rip ffmpeg transcode of that FLAC, kept
+*alongside* it. FLAC and MP3 embed the cover; WavPack and WAV can't embed via
+ffmpeg, so the front cover is force-saved to the album folder as `cover.<ext>`.
+
+**Setup**
+1. Rip a recognized CD with **Output format = FLAC** (the A6 run) so you have a
+   known-good tagged + arted FLAC master. Snapshot its decoded-PCM fingerprint —
+   this is the lossless ground truth every other format must reproduce:
+   ```bash
+   D="$HOME/Music/rips/<Artist>/<Album>"
+   pcm() { ffmpeg -v error -i "$1" -map 0:a -f s16le -c:a pcm_s16le - | md5sum | cut -d' ' -f1; }
+   for f in "$D"/*.flac; do echo "$(basename "$f")  $(pcm "$f")"; done | tee /tmp/flac_pcm.txt
+   ```
+
+**Run — once per format**
+2. Settings → **Output format → WavPack** → Save. Re-rip the same disc. Repeat for
+   **MP3** and **WAV**. (Each rip re-creates the FLAC + the chosen sibling; watch
+   the rip log for `Transcode: N file(s) written.`) When you pick **WAV**, confirm
+   the dialog shows the **⚠ "WAV can't store tags or cover art…"** warning, and
+   that it is **hidden** for FLAC/WavPack/MP3.
+
+**Verify**
+3. **FLAC master always kept:** after every non-FLAC rip, `ls "$D"` shows the
+   `.flac` files next to the `.wv`/`.mp3`/`.wav`.
+4. **Lossless (WavPack + WAV) — the priority:** each decoded-PCM MD5 must match the
+   FLAC ground truth track-for-track:
+   ```bash
+   for f in "$D"/*.wv;  do echo "$(basename "$f")  $(pcm "$f")"; done
+   for f in "$D"/*.wav; do echo "$(basename "$f")  $(pcm "$f")"; done
+   # compare the hashes to /tmp/flac_pcm.txt — they must be identical per track
+   ```
+5. **Tags + cover art, per container:**
+   - **WavPack:** APEv2 tags present and a folder cover exists —
+     `ffprobe -hide_banner "$D"/01*.wv 2>&1 | grep -iE "title|artist|album"`
+     and `ls "$D"/cover.*` (the `.wv` can't embed art, so the folder image is its
+     cover — this is the v0.3.0 cover-art fix; **a missing `cover.*` is a fail**).
+   - **MP3:** ID3 tags **and** an embedded cover —
+     `ffprobe -hide_banner "$D"/01*.mp3 2>&1 | grep -iE "title|artist|album|Video:"`
+     (a `Video:` stream == the APIC cover).
+   - **WAV:** no tags/art expected (RIFF) — confirms the warning was honest.
+6. **Best-practice MP3:** the encode is VBR `-V0` (≈245 kbps). `ffprobe` should
+   report a VBR-ish bitrate well above 128k; it's lossy by design (not bit-compared).
+
+**Parity proof (banks the artifact):** for each format, open the rip's `.log` and
+confirm the per-track Copy/EAC CRC matches the **Part B** baseline (lossless → same
+extraction CRC; MP3 → the *extraction* CRC still matches, the encode is separate).
+Commit the passing **log only** (never audio — Rule #8) under
+`output_reference/<backend>_<format>/` to close the WAV/MP3 rows in `TASKS.md`.
+
+**Record:** FLAC master kept for every format? `____`; WavPack PCM == FLAC? `____`;
+WAV PCM == FLAC? `____`; WavPack tags + folder cover present? `____`; MP3 tags +
+embedded cover? `____`; WAV warning shown? `____`; logs committed? `____`.
+
+**If it fails:** a missing/empty non-FLAC file → check host `ffmpeg` is present and
+on PATH (`whipper-gui --doctor` reports it); a PCM mismatch on WavPack/WAV → a real
+transcode bug (the adapter is `adapters/transcode.py`); a missing WavPack folder
+cover → the cover-art force-save gate in `main_window_rip._on_rip_finished`.
 
 ---
 
