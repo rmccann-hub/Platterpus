@@ -222,6 +222,13 @@ class MainWindow(
         # Handle to the daemon thread that runs the (blocking) force-stop, so
         # callers/tests can join it; None when no force-stop is in flight.
         self._force_stop_thread: threading.Thread | None = None
+        # Belt for the Plasma 6 Wayland repaint bug (the real fix is the
+        # XWayland preference in app.py): while a rip runs, force a full-window
+        # redraw periodically so a region exposed by another window can't stay
+        # black. Started/stopped with the rip; cheap (one repaint ~2×/second).
+        self._repaint_timer: QTimer = QTimer(self)
+        self._repaint_timer.setInterval(500)
+        self._repaint_timer.timeout.connect(self.update)
         # Holds the daemon thread for a manual/auto eject so tests can join it.
         self._eject_thread: threading.Thread | None = None
         # Post-rip cover-art fetch (backend-independent, 2026-06-13): the

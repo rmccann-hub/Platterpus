@@ -11,6 +11,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.3.9] — 2026-06-27
+
+### Fixed
+- **The window no longer goes black during a rip on KDE Plasma 6 (Wayland).**
+  This Qt build doesn't repaint a window region that was covered by another
+  window and then re-exposed while a rip is running — it went black until you
+  interacted with it. On a Wayland session the app now prefers **XWayland**
+  (`QT_QPA_PLATFORM=xcb;wayland`), which repaints correctly; the value is a
+  fallback list, so if XWayland can't load it drops straight back to native
+  Wayland (it can never stop the app from launching). Set
+  `QT_QPA_PLATFORM=wayland` yourself to force native Wayland. As a belt, the
+  window also forces a full redraw a couple of times a second *while a rip is
+  running*, so any stray black region self-heals. (Earlier 0.3.8 throttle helped
+  a different, flood-driven case; this is the Wayland repaint cause.)
+
 ## [0.3.8] — 2026-06-27
 
 ### Fixed
@@ -871,6 +886,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.3.9]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.8...v0.3.9
 [0.3.8]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.5...v0.3.6

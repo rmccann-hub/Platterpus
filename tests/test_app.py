@@ -14,6 +14,54 @@ from whipper_gui import __version__
 from whipper_gui import app as app_module
 
 
+def test_prefer_xwayland_sets_platform_on_wayland(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On a Wayland session, prefer XWayland (with a native-Wayland fallback) to
+    dodge the Plasma 6 black-window repaint bug."""
+    import os
+
+    monkeypatch.delenv("QT_QPA_PLATFORM", raising=False)
+    monkeypatch.setenv("XDG_SESSION_TYPE", "wayland")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    app_module._prefer_xwayland_on_wayland()
+    assert os.environ["QT_QPA_PLATFORM"] == "xcb;wayland"
+
+
+def test_prefer_xwayland_via_wayland_display(monkeypatch: pytest.MonkeyPatch) -> None:
+    """WAYLAND_DISPLAY alone (no XDG_SESSION_TYPE) still counts as Wayland."""
+    import os
+
+    monkeypatch.delenv("QT_QPA_PLATFORM", raising=False)
+    monkeypatch.delenv("XDG_SESSION_TYPE", raising=False)
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    app_module._prefer_xwayland_on_wayland()
+    assert os.environ["QT_QPA_PLATFORM"] == "xcb;wayland"
+
+
+def test_prefer_xwayland_respects_user_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An explicit QT_QPA_PLATFORM is never overridden."""
+    import os
+
+    monkeypatch.setenv("XDG_SESSION_TYPE", "wayland")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "wayland")
+    app_module._prefer_xwayland_on_wayland()
+    assert os.environ["QT_QPA_PLATFORM"] == "wayland"
+
+
+def test_prefer_xwayland_noop_off_wayland(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On X11 (or no display), the platform is left untouched."""
+    import os
+
+    monkeypatch.delenv("QT_QPA_PLATFORM", raising=False)
+    monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    app_module._prefer_xwayland_on_wayland()
+    assert "QT_QPA_PLATFORM" not in os.environ
+
+
 def test_main_version_flag_prints_and_exits(capsys: pytest.CaptureFixture) -> None:
     """--version exits via SystemExit before any heavy construction."""
     with pytest.raises(SystemExit) as excinfo:

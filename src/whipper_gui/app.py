@@ -28,6 +28,38 @@ from whipper_gui import __version__
 log = logging.getLogger(__name__)
 
 
+def _prefer_xwayland_on_wayland() -> None:
+    """On a Wayland session, ask Qt to run via XWayland (the ``xcb`` platform)
+    unless the user already chose a platform.
+
+    Why: on KDE Plasma 6 Wayland, this app's Qt build doesn't repaint a window
+    region that was covered and then re-exposed while a rip is running — the
+    window goes black until you interact with it (real-user report, 2026-06-27).
+    Running through XWayland fixes it (X11's expose/repaint works correctly).
+
+    The value is a FALLBACK LIST — ``xcb;wayland`` — so if the xcb plugin can't
+    load (e.g. missing libs) Qt falls straight back to native Wayland. That means
+    this can never stop the app from starting; the worst case is the previous
+    behaviour. Set ``QT_QPA_PLATFORM`` yourself (e.g. ``wayland``) to override and
+    keep native Wayland. Must run BEFORE QApplication is constructed — Qt reads
+    the variable then.
+    """
+    import os
+
+    if os.environ.get("QT_QPA_PLATFORM"):
+        return  # respect an explicit user choice
+    on_wayland = os.environ.get("XDG_SESSION_TYPE") == "wayland" or bool(
+        os.environ.get("WAYLAND_DISPLAY")
+    )
+    if on_wayland:
+        os.environ["QT_QPA_PLATFORM"] = "xcb;wayland"
+        log.info(
+            "Wayland session detected — preferring XWayland "
+            "(QT_QPA_PLATFORM=xcb;wayland) to avoid the Plasma 6 black-window "
+            "repaint bug; set QT_QPA_PLATFORM=wayland to force native Wayland."
+        )
+
+
 def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     """Show a last-resort error dialog so a crash is never silent.
 
@@ -138,6 +170,9 @@ def main(argv: list[str] | None = None) -> int:
     # possible so the dep-check dialogs can run.
     from PySide6.QtWidgets import QApplication
 
+    # Prefer XWayland on Wayland (fixes the Plasma 6 black-window repaint bug).
+    # Must happen before QApplication reads the platform.
+    _prefer_xwayland_on_wayland()
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("whipper-gui")
     app.setApplicationVersion(__version__)
