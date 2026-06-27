@@ -852,6 +852,70 @@ def test_dep_summary_does_not_show_user_declines_as_failures(
     assert "Install failures" not in text  # decline isn't a failure
 
 
+def _optional_missing_item(dep_id: str, **spec_kw: Any):
+    """A MissingItem for an optional dep, for the install-offer tests."""
+    from whipper_gui.deps.checks import ProbeResult
+    from whipper_gui.deps.registry import DependencySpec, Tier
+    from whipper_gui.deps.resolvers import MissingItem
+
+    base = dict(
+        dep_id=dep_id,
+        display_name=dep_id,
+        probe=lambda: ProbeResult(present=False, version=None, location=None),
+        min_version=(0, 0, 0),
+        tier=Tier.AUTO,
+        install_command=["x"],
+        search_string="x",
+        optional=True,
+    )
+    base.update(spec_kw)
+    spec = DependencySpec(**base)
+    return MissingItem(spec=spec, probe=spec.probe())
+
+
+def test_offer_optional_install_resolves_when_accepted(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Accepting the optional-install offer routes the deps through the SAME
+    resolver the required deps use (no second install path)."""
+    from PySide6.QtWidgets import QMessageBox
+
+    item = _optional_missing_item("picard")
+    resolved: list[Any] = []
+    manager = SimpleNamespace(resolve_missing=lambda report: resolved.append(report))
+
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_deps.QMessageBox.question",
+        lambda *a, **k: QMessageBox.StandardButton.Yes,
+    )
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_deps.QMessageBox.information", lambda *a, **k: None
+    )
+    window = teardown_threads()
+    window._offer_optional_install(manager, [item])
+
+    assert len(resolved) == 1
+    assert resolved[0].missing == [item]
+
+
+def test_offer_optional_install_skips_when_declined(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from PySide6.QtWidgets import QMessageBox
+
+    item = _optional_missing_item("flac")
+    resolved: list[Any] = []
+    manager = SimpleNamespace(resolve_missing=lambda report: resolved.append(report))
+    monkeypatch.setattr(
+        "whipper_gui.ui.main_window_deps.QMessageBox.question",
+        lambda *a, **k: QMessageBox.StandardButton.No,
+    )
+    window = teardown_threads()
+    window._offer_optional_install(manager, [item])
+
+    assert resolved == []  # declined → nothing resolved
+
+
 # --- Fidelity summary ------------------------------------------------------
 
 
