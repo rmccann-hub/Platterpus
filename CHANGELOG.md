@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.3.6] — 2026-06-27
+
+### Added
+- **Tools → Check dependencies can now install the *optional* components.** When
+  Picard or `flac` show as "optional, not installed," the check offers to install
+  them on the spot — Picard installs automatically (Flatpak); `flac` is set up in
+  the ripping container via the one-click wizard. Both route through the existing
+  dependency subsystem (no separate install path). Previously the check only
+  *reported* optional components with no way to act.
+
 ## [0.3.5] — 2026-06-27
 
 ### Fixed
@@ -821,6 +831,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.3.6]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.2...v0.3.3

@@ -198,6 +198,47 @@ class DependencyMixin:
 
         if show_summary or report.missing:
             self._show_dep_summary(report, optional_missing=optional_missing)
+        # The summary lists optional deps as "not installed"; on a user-initiated
+        # check (Tools → Check dependencies) offer to install them on demand —
+        # otherwise the user has no in-app way to add Picard or flac. Launch-time
+        # checks (show_summary=False) stay quiet so optional deps never nag.
+        if optional_missing and show_summary:
+            self._offer_optional_install(gui_manager, optional_missing)
+
+    def _offer_optional_install(
+        self, gui_manager: object, optional_missing: list[MissingItem]
+    ) -> None:
+        """Offer to install the optional, not-installed deps on demand.
+
+        Routes each through the SAME tier machinery the required deps use, so
+        there's no second install path (Critical Rule #6): Picard auto-installs
+        (with consent), and flac — a `from_setup_wizard` tool — opens the
+        one-click container wizard via the manual dialog. After resolving, a
+        nudge to re-check (the auto-installer / wizard give their own feedback).
+        """
+        from whipper_gui.deps.manager import DependencyReport
+
+        names = ", ".join(item.spec.display_name for item in optional_missing)
+        choice = QMessageBox.question(
+            self,
+            "Install optional components?",
+            f"These optional components aren't installed:\n\n{names}\n\n"
+            "Install them now? (Picard installs automatically; flac is set up "
+            "in the ripping container.)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if choice != QMessageBox.StandardButton.Yes:
+            return
+        opt_report = DependencyReport(missing=list(optional_missing))
+        gui_manager.resolve_missing(opt_report)
+        QMessageBox.information(
+            self,
+            "Optional components",
+            "Done. Re-run Tools → Check dependencies to confirm what's now "
+            "installed. (Picard and flac take effect immediately; if flac was "
+            "set up via the container wizard, it's ready now too.)",
+        )
 
     def _gui_auto_consent(self, items: list[MissingItem]) -> bool:
         if not items:
