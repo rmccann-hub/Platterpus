@@ -1,0 +1,840 @@
+cyanrip 0.9.3 (release)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Paranoia level: max
+Frame retries:  5
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc tracks:    14
+Tracks to rip:  all
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+CDDB ID:        E20DFE0E
+Album:          Every Breath You Take∶ The Classics
+Album artist:   The Police
+AccurateRip:    found
+Total time:     00:59:42.354
+
+Gaps:
+    None signalled
+
+Tracks:
+Track 1 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.9 LUFS
+    Threshold: -24.3 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -34.3 LUFS
+    LRA low:   -18.3 LUFS
+    LRA high:  -11.7 LUFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03:13.180
+    Samples:     8518356
+    Frames:      14487
+    Pregap LSN:  none
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14486 (with offset: 14488)
+
+  EAC CRC32:     B0D122E7
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)
+    Accurip v2:  22B9924D (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         1
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Roxanne
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201086
+    creation_time:                 2026-06-27T10:28:21
+    REPLAYGAIN_TRACK_GAIN:         -4.10 dB
+    R128_TRACK_GAIN:               229
+    REPLAYGAIN_TRACK_RANGE:        6.54 dB
+    REPLAYGAIN_TRACK_PEAK:         1.029445
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/01 - Roxanne - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 2 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.1 LUFS
+    Threshold: -23.3 LUFS
+
+  Loudness range:
+    LRA:         6.1 LU
+    Threshold: -33.3 LUFS
+    LRA low:   -17.2 LUFS
+    LRA high:  -11.1 LUFS
+
+  True peak:
+    Peak:        0.1 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03:01.180
+    Samples:     7985040
+    Frames:      13580
+    Pregap LSN:  none
+    Start LSN:   14487 (with offset: 14488)
+    End LSN:     28066 (with offset: 28068)
+
+  EAC CRC32:     985AAE32
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  A3019EB3 (accurately ripped, confidence 131)
+    Accurip v2:  31C28378 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         2
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Can’t Stand Losing You
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201089
+    creation_time:                 2026-06-27T10:31:19
+    REPLAYGAIN_TRACK_GAIN:         -4.88 dB
+    R128_TRACK_GAIN:               32
+    REPLAYGAIN_TRACK_RANGE:        6.07 dB
+    REPLAYGAIN_TRACK_PEAK:         1.008499
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/02 - Can’t Stand Losing You - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 3 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.6 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -32.6 LUFS
+    LRA low:   -16.7 LUFS
+    LRA high:  -10.2 LUFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:04:51.240
+    Samples:     12849564
+    Frames:      21853
+    Pregap LSN:  none
+    Start LSN:   28067 (with offset: 28068)
+    End LSN:     49919 (with offset: 49921)
+
+  EAC CRC32:     A8591346
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  57D4F379 (not found, either a new pressing, or bad rip)
+    Accurip v2:  B228F9F6 (not found, either a new pressing, or bad rip)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, track is partially accurately ripped)
+
+  Metadata:
+    track:                         3
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Message in a Bottle
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201170
+    creation_time:                 2026-06-27T10:33:56
+    REPLAYGAIN_TRACK_GAIN:         -5.62 dB
+    R128_TRACK_GAIN:               -159
+    REPLAYGAIN_TRACK_RANGE:        6.47 dB
+    REPLAYGAIN_TRACK_PEAK:         1.058175
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/03 - Message in a Bottle - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 4 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -16.4 LUFS
+    Threshold: -26.7 LUFS
+
+  Loudness range:
+    LRA:         5.9 LU
+    Threshold: -36.7 LUFS
+    LRA low:   -19.7 LUFS
+    LRA high:  -13.8 LUFS
+
+  True peak:
+    Peak:        0.6 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:05:02.300
+    Samples:     13318200
+    Frames:      22650
+    Pregap LSN:  none
+    Start LSN:   49920 (with offset: 49921)
+    End LSN:     72569 (with offset: 72571)
+
+  EAC CRC32:     60D796AE
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  7B43209E (accurately ripped, confidence 128)
+    Accurip v2:  BB959D84 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         4
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Walking on the Moon
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201175
+    creation_time:                 2026-06-27T10:38:05
+    REPLAYGAIN_TRACK_GAIN:         -1.60 dB
+    R128_TRACK_GAIN:               870
+    REPLAYGAIN_TRACK_RANGE:        5.89 dB
+    REPLAYGAIN_TRACK_PEAK:         1.072539
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/04 - Walking on the Moon - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 5 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.6 LUFS
+    Threshold: -25.4 LUFS
+
+  Loudness range:
+    LRA:        14.1 LU
+    Threshold: -35.4 LUFS
+    LRA low:   -27.0 LUFS
+    LRA high:  -12.9 LUFS
+
+  True peak:
+    Peak:        0.8 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:04:00.240
+    Samples:     10626336
+    Frames:      18072
+    Pregap LSN:  none
+    Start LSN:   72570 (with offset: 72571)
+    End LSN:     90641 (with offset: 90643)
+
+  EAC CRC32:     4065BECC
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  9AED9525 (not found, either a new pressing, or bad rip)
+    Accurip v2:  44962D66 (not found, either a new pressing, or bad rip)
+    Accurip 450: 4CCBCF89 (matches Accurip DB, confidence 200, track is partially accurately ripped)
+
+  Metadata:
+    track:                         5
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Don’t Stand So Close to Me
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201148
+    creation_time:                 2026-06-27T10:42:22
+    REPLAYGAIN_TRACK_GAIN:         -3.37 dB
+    R128_TRACK_GAIN:               418
+    REPLAYGAIN_TRACK_RANGE:        14.08 dB
+    REPLAYGAIN_TRACK_PEAK:         1.097202
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/05 - Don’t Stand So Close to Me - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 6 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.0 LUFS
+    Threshold: -24.1 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -34.1 LUFS
+    LRA low:   -18.5 LUFS
+    LRA high:  -11.9 LUFS
+
+  True peak:
+    Peak:        0.8 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:04:07.240
+    Samples:     10897404
+    Frames:      18533
+    Pregap LSN:  none
+    Start LSN:   90642 (with offset: 90643)
+    End LSN:     109174 (with offset: 109176)
+
+  EAC CRC32:     B32769D6
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  92B4C7B4 (accurately ripped, confidence 129)
+    Accurip v2:  34DA67DB (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         6
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         De Do Do Do, De Da Da Da
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201154
+    creation_time:                 2026-06-27T10:45:46
+    REPLAYGAIN_TRACK_GAIN:         -3.99 dB
+    R128_TRACK_GAIN:               259
+    REPLAYGAIN_TRACK_RANGE:        6.52 dB
+    REPLAYGAIN_TRACK_PEAK:         1.093319
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/06 - De Do Do Do, De Da Da Da - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 7 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.0 LUFS
+    Threshold: -24.4 LUFS
+
+  Loudness range:
+    LRA:         6.4 LU
+    Threshold: -34.4 LUFS
+    LRA low:   -18.4 LUFS
+    LRA high:  -12.0 LUFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:04:21.240
+    Samples:     11514216
+    Frames:      19582
+    Pregap LSN:  none
+    Start LSN:   109175 (with offset: 109176)
+    End LSN:     128756 (with offset: 128758)
+
+  EAC CRC32:     CCBFF669
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  DE379389 (accurately ripped, confidence 127)
+    Accurip v2:  154797B6 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         7
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Every Little Thing She Does Is Magic
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201127
+    creation_time:                 2026-06-27T10:49:13
+    REPLAYGAIN_TRACK_GAIN:         -4.02 dB
+    R128_TRACK_GAIN:               251
+    REPLAYGAIN_TRACK_RANGE:        6.44 dB
+    REPLAYGAIN_TRACK_PEAK:         1.035161
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/07 - Every Little Thing She Does Is Magic - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 8 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.7 LUFS
+    Threshold: -23.1 LUFS
+
+  Loudness range:
+    LRA:         7.7 LU
+    Threshold: -33.1 LUFS
+    LRA low:   -18.0 LUFS
+    LRA high:  -10.3 LUFS
+
+  True peak:
+    Peak:        0.4 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03:45.180
+    Samples:     9940140
+    Frames:      16905
+    Pregap LSN:  none
+    Start LSN:   128757 (with offset: 128758)
+    End LSN:     145661 (with offset: 145663)
+
+  EAC CRC32:     D723C1B0
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  8072E4A1 (accurately ripped, confidence 123)
+    Accurip v2:  1BF9F320 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         8
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Invisible Sun
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201128
+    creation_time:                 2026-06-27T10:52:51
+    REPLAYGAIN_TRACK_GAIN:         -5.34 dB
+    R128_TRACK_GAIN:               -87
+    REPLAYGAIN_TRACK_RANGE:        7.72 dB
+    REPLAYGAIN_TRACK_PEAK:         1.045356
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/08 - Invisible Sun - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 9 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.7 LUFS
+    Threshold: -24.9 LUFS
+
+  Loudness range:
+    LRA:         4.7 LU
+    Threshold: -34.9 LUFS
+    LRA low:   -17.3 LUFS
+    LRA high:  -12.6 LUFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03:01.180
+    Samples:     7982100
+    Frames:      13575
+    Pregap LSN:  none
+    Start LSN:   145662 (with offset: 145663)
+    End LSN:     159236 (with offset: 159238)
+
+  EAC CRC32:     6F6E4A5F
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  87A19F2A (accurately ripped, confidence 126)
+    Accurip v2:  2916AB38 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         9
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Spirits in the Material World
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201126
+    creation_time:                 2026-06-27T10:55:58
+    REPLAYGAIN_TRACK_GAIN:         -3.26 dB
+    R128_TRACK_GAIN:               444
+    REPLAYGAIN_TRACK_RANGE:        4.73 dB
+    REPLAYGAIN_TRACK_PEAK:         1.033111
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/09 - Spirits in the Material World - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 10 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.3 LUFS
+    Threshold: -24.6 LUFS
+
+  Loudness range:
+    LRA:         4.5 LU
+    Threshold: -34.6 LUFS
+    LRA low:   -16.2 LUFS
+    LRA high:  -11.7 LUFS
+
+  True peak:
+    Peak:        0.2 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:04:14.240
+    Samples:     11227860
+    Frames:      19095
+    Pregap LSN:  none
+    Start LSN:   159237 (with offset: 159238)
+    End LSN:     178331 (with offset: 178333)
+
+  EAC CRC32:     3A33519F
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  D569330E (accurately ripped, confidence 131)
+    Accurip v2:  0A992ABA (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         10
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Every Breath You Take
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201110
+    creation_time:                 2026-06-27T10:58:28
+    REPLAYGAIN_TRACK_GAIN:         -3.71 dB
+    R128_TRACK_GAIN:               330
+    REPLAYGAIN_TRACK_RANGE:        4.49 dB
+    REPLAYGAIN_TRACK_PEAK:         1.019781
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/10 - Every Breath You Take - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 11 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -14.7 LUFS
+    Threshold: -25.0 LUFS
+
+  Loudness range:
+    LRA:        11.2 LU
+    Threshold: -35.0 LUFS
+    LRA low:   -23.2 LUFS
+    LRA high:  -12.0 LUFS
+
+  True peak:
+    Peak:        0.5 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:05:00.300
+    Samples:     13247640
+    Frames:      22530
+    Pregap LSN:  none
+    Start LSN:   178332 (with offset: 178333)
+    End LSN:     200861 (with offset: 200863)
+
+  EAC CRC32:     56BFC63D
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  5261EA1F (accurately ripped, confidence 129)
+    Accurip v2:  CC3B6091 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         11
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         King of Pain
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201111
+    creation_time:                 2026-06-27T11:01:59
+    REPLAYGAIN_TRACK_GAIN:         -3.32 dB
+    R128_TRACK_GAIN:               429
+    REPLAYGAIN_TRACK_RANGE:        11.19 dB
+    REPLAYGAIN_TRACK_PEAK:         1.053705
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/11 - King of Pain - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 12 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -16.7 LUFS
+    Threshold: -27.2 LUFS
+
+  Loudness range:
+    LRA:         9.0 LU
+    Threshold: -37.1 LUFS
+    LRA low:   -21.8 LUFS
+    LRA high:  -12.8 LUFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:05:15.300
+    Samples:     13905024
+    Frames:      23648
+    Pregap LSN:  none
+    Start LSN:   200862 (with offset: 200863)
+    End LSN:     224509 (with offset: 224511)
+
+  EAC CRC32:     D78CEAEF
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  C09D4787 (accurately ripped, confidence 127)
+    Accurip v2:  FDA33730 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         12
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Wrapped Around Your Finger
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201112
+    creation_time:                 2026-06-27T11:06:07
+    REPLAYGAIN_TRACK_GAIN:         -1.30 dB
+    R128_TRACK_GAIN:               946
+    REPLAYGAIN_TRACK_RANGE:        9.00 dB
+    REPLAYGAIN_TRACK_PEAK:         1.030028
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/12 - Wrapped Around Your Finger - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 13 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.1 LUFS
+    Threshold: -23.3 LUFS
+
+  Loudness range:
+    LRA:         5.6 LU
+    Threshold: -33.3 LUFS
+    LRA low:   -16.2 LUFS
+    LRA high:  -10.6 LUFS
+
+  True peak:
+    Peak:        0.4 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:04:53.240
+    Samples:     12945996
+    Frames:      22017
+    Pregap LSN:  none
+    Start LSN:   224510 (with offset: 224511)
+    End LSN:     246526 (with offset: 246528)
+
+  EAC CRC32:     DA6A4DAF
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  FD6FBEB2 (accurately ripped, confidence 122)
+    Accurip v2:  4FDBEAA8 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         13
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Don’t Stand So Close to Me ’86
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201252
+    creation_time:                 2026-06-27T11:10:25
+    REPLAYGAIN_TRACK_GAIN:         -4.87 dB
+    R128_TRACK_GAIN:               33
+    REPLAYGAIN_TRACK_RANGE:        5.56 dB
+    REPLAYGAIN_TRACK_PEAK:         1.042388
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/13 - Don’t Stand So Close to Me ’86 - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Track 14 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -12.4 LUFS
+    Threshold: -22.7 LUFS
+
+  Loudness range:
+    LRA:         3.4 LU
+    Threshold: -32.7 LUFS
+    LRA low:   -14.2 LUFS
+    LRA high:  -10.8 LUFS
+
+  True peak:
+    Peak:        0.8 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:04:55.240
+    Samples:     13041840
+    Frames:      22180
+    Pregap LSN:  none
+    Start LSN:   246527 (with offset: 246528)
+    End LSN:     268706
+    Appended:    2 frames of silence
+
+  EAC CRC32:     787BA2D6
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  3B2FCF8E (accurately ripped, confidence 117)
+    Accurip v2:  A5AB0AE9 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         14
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Message in a Bottle (new classic rock mix)
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    genre:                         alternative rock
+    musicbrainz_albumid:           3d1714e9-ab29-32f8-a3ca-5d5c7cbcfdad
+    artist:                        The Police
+    isrc:                          GBAAM0201253
+    creation_time:                 2026-06-27T11:14:26
+    REPLAYGAIN_TRACK_GAIN:         -5.56 dB
+    R128_TRACK_GAIN:               -143
+    REPLAYGAIN_TRACK_RANGE:        3.42 dB
+    REPLAYGAIN_TRACK_PEAK:         1.097464
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/14 - Message in a Bottle (new classic rock mix) - Every Breath You Take∶ The Classics - The Police - 1995-09-12.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:         -13.9 LUFS
+    Threshold: -24.2 LUFS
+
+  Loudness range:
+    LRA:         8.9 LU
+    Threshold: -34.3 LUFS
+    LRA low:   -19.9 LUFS
+    LRA high:  -11.0 LUFS
+
+  True peak:
+    Peak:        0.8 dBFS
+
+Tracks ripped accurately: 12/14
+Tracks ripped partially accurately: 2/2
+
+Paranoia status counts:
+  READ:          21920
+  VERIFY:        1501
+  FIXUP_ATOM:    58
+  OVERLAP:       448
+
+Ripping errors: 0
+Ripping finished at 2026-06-27T11:18:26
+Log FUN512: U3n9OWOT9NdofoKYf_5HW8C1R6JijTEDAHqWDyFKnx2t9o46O.IE9Bf67WKE1q92lpOeigOWI0xqtX6QgfKjPA
