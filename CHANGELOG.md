@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-06-26
+
 ### Fixed
 - **The uninstaller no longer stops at the first problem.** Its steps are
   independent (removing the AppImage doesn't depend on removing the container),
@@ -30,9 +32,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   creating the `ripping` container, the first container entry runs a one-time
   initialization that can take a minute or two; the status line used to sit on the
   previous step's text the whole time, looking stuck. It now shows "checking the
-  container — the first start after setup can take a minute…" so you can tell it's
-  working. (First-time setup also downloads a container image, so it is genuinely
-  slow once — but it's no longer silent about it.)
+  container…" during that step, and the download/install steps say up front that
+  they can take **several minutes** on the first run — so you don't give up partway
+  and end up with the rip tool installed in the container but not finished exporting
+  to the host (exactly the state the report behind this fix ended in).
 
 ## [0.3.1] — 2026-06-26
 
@@ -764,6 +767,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.3.2]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.8...v0.3.0
 [0.2.8]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.7...v0.2.8
