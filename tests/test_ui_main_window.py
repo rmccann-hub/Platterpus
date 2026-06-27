@@ -1606,11 +1606,16 @@ def test_update_install_success_offers_restart(
         def close(self):
             pass
 
-    window._on_update_install_finished(True, str(new_path), _FakeDialog())
+    # The handler reads the dialog from self (stashed by _begin_update_install)
+    # so it can be a BOUND METHOD queued to the GUI thread, not a worker-thread
+    # closure (the "Not Responding" freeze fix, 2026-06-27).
+    window._install_dialog = _FakeDialog()
+    window._on_update_install_finished(True, str(new_path))
 
     assert integrated == [new_path]  # menu entry repointed at the new file
     assert launched == [[str(new_path)]]  # new version started
     assert closed == [True]  # old session closed
+    assert window._install_dialog is None  # handle cleared
 
 
 def test_update_install_failure_changes_nothing(teardown_threads, monkeypatch) -> None:
@@ -1626,12 +1631,75 @@ def test_update_install_failure_changes_nothing(teardown_threads, monkeypatch) -
         def close(self):
             pass
 
-    window._on_update_install_finished(
-        False, "checksum verification failed", _FakeDialog()
-    )
+    window._install_dialog = _FakeDialog()
+    window._on_update_install_finished(False, "checksum verification failed")
 
     assert warnings and "checksum verification failed" in warnings[0]
     assert "Nothing was changed" in warnings[0]
+
+
+def test_install_progress_and_status_handlers_drive_the_dialog(
+    teardown_threads,
+) -> None:
+    """The progress/status handlers are BOUND METHODS (so Qt queues them to the
+    GUI thread instead of running them on the worker thread and touching widgets
+    there — the freeze). They operate on self._install_dialog: determinate %
+    while downloading, a busy bar (range 0,0) once past it."""
+
+    class _FakeDialog:
+        def __init__(self) -> None:
+            self.range: tuple[int, int] | None = None
+            self.value: int | None = None
+            self.label: str = ""
+            self.cancel_retired = False
+
+        def setRange(self, lo: int, hi: int) -> None:
+            self.range = (lo, hi)
+
+        def setValue(self, v: int) -> None:
+            self.value = v
+
+        def setLabelText(self, t: str) -> None:
+            self.label = t
+
+        def setCancelButton(self, _b: object) -> None:
+            self.cancel_retired = True
+
+    window = teardown_threads()
+    dialog = _FakeDialog()
+    window._install_dialog = dialog
+    window._install_post_download = False
+
+    # Download phase: determinate percentage.
+    window._on_install_status("Downloading Whipper GUI 0.3.3…")
+    window._on_install_progress(42.0)
+    assert dialog.range == (0, 100)
+    assert dialog.value == 42
+    assert dialog.cancel_retired is False
+
+    # Past the download: cancel retired, busy bar, and late progress ignored.
+    window._on_install_status("Verifying the download…")
+    assert dialog.cancel_retired is True
+    assert dialog.range == (0, 0)  # busy indicator, not a static 100%
+    assert window._install_post_download is True
+    dialog.value = None
+    window._on_install_progress(100.0)  # a late download tick
+    assert dialog.value is None  # ignored — stays a busy bar
+
+
+def test_update_progress_phase_predicate() -> None:
+    """Download phases drive a determinate %-bar; verify/install switch it to a
+    busy bar so it never sits frozen-looking at 100% ("hanging on 100%" —
+    real-user report 2026-06-27). These strings mirror the labels
+    update_install.download_and_install emits via its status() callback."""
+    from whipper_gui.ui.main_window_update import _is_download_phase
+
+    # Still downloading → determinate percentage bar.
+    assert _is_download_phase("Checking for the update…") is True
+    assert _is_download_phase("Downloading Whipper GUI 0.3.3…") is True
+    # Past the download → busy "working" bar (no meaningful percent).
+    assert _is_download_phase("Verifying the download…") is False
+    assert _is_download_phase("Installing — almost done, please don't close…") is False
 
 
 # --- In-app Uninstaller wiring ---------------------------------------------

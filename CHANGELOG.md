@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.3.3] — 2026-06-27
+
+### Fixed
+- **The in-app updater no longer freezes the window ("Not Responding").** The
+  download worker's `progress`, `status`, and `finished` signals were connected
+  to local closures / a lambda, which Qt delivers as *direct* connections — so
+  they ran on the **worker thread** and updated the progress dialog (and popped
+  the restart prompt) from off the GUI thread. Touching widgets off the GUI
+  thread is illegal in Qt and deadlocked the window — the freeze that looked like
+  "hanging on 100%". They're now **bound methods**, which Qt queues to the GUI
+  thread (the same fix already applied to the launch dependency check). **Note:**
+  because the *running* version drives the update, this only takes effect once
+  you're on 0.3.3 — install 0.3.3 directly (download it from the releases page)
+  this one time to escape the loop; in-app updates work normally from there.
+- **Update progress bar reflects what's happening.** It shows the real download
+  percentage while downloading, then switches to a moving "busy" indicator for
+  the quick verify/install steps instead of sitting at a frozen-looking 100%.
+
 ## [0.3.2] — 2026-06-26
 
 ### Fixed
@@ -767,6 +785,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.3.3]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.2.8...v0.3.0
