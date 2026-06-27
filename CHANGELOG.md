@@ -11,6 +11,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.3.8] — 2026-06-27
+
+### Fixed
+- **Cancel now actually stops a cyanrip rip.** The force-stop only ever targeted
+  whipper and its readers (cdparanoia/cdrdao), so cancelling a *cyanrip* rip left
+  the in-container cyanrip running — the disc kept ripping after Cancel. cyanrip
+  is its own reader, so it's now killed by name too.
+- **The window no longer goes black when another window is dragged over it during
+  a rip.** cyanrip redraws its progress many times a second, and forwarding every
+  redraw to the log pane flooded the GUI's event loop so it couldn't repaint. The
+  log pane now updates at most ~10×/second (the progress bar and ETA still move
+  smoothly); errors and phase changes are never delayed.
+- **The app now relaunches reliably after an in-app update.** The new AppImage was
+  being started with the *old* AppImage's environment (`LD_LIBRARY_PATH`,
+  `PYTHONHOME`, …), which made the new instance crash silently on launch — the
+  "it closed but didn't reopen" report. It now starts with a clean environment.
+- **Installing a dependency no longer re-scans the disc.** Finishing setup only
+  re-lists drives when none is selected yet (first-time setup); a later install
+  (e.g. adding flac) leaves your disc scan alone.
+
 ## [0.3.7] — 2026-06-27
 
 ### Fixed
@@ -851,6 +871,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
+[0.3.8]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/compare/v0.3.4...v0.3.5

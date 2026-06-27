@@ -246,11 +246,22 @@ class ProvisioningMixin:
             self.close()
 
     def _on_host_setup_finished(self, ready: bool) -> None:
-        """After the wizard runs, re-probe the world if whipper now exists."""
+        """After the wizard runs, re-probe the world if whipper now exists.
+
+        Refresh the drive list ONLY when no drive is selected yet — i.e. the
+        FIRST time setup makes the stack usable. A later wizard run (e.g.
+        installing flac from the dependency check) leaves the drive already
+        selected; re-listing it there re-fires the disc scan for no reason,
+        which the user (rightly) found annoying — "after every install it asked
+        me about scanning the disk" (real-user report, 2026-06-27). The dep
+        re-check is cheap and always runs.
+        """
         if ready:
-            log.info("host setup reported ready — refreshing drives + deps")
+            log.info("host setup reported ready — refreshing deps")
             try:
-                self.refresh_drives()
+                if not self._drive_picker.current_device():
+                    log.info("no drive selected yet — refreshing drive list")
+                    self.refresh_drives()
                 self.run_dependency_check(show_summary=False)
             except Exception:  # noqa: BLE001 — best-effort refresh
                 log.exception("post-host-setup refresh failed")

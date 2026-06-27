@@ -93,9 +93,11 @@ def test_host_kill_targets_whipper_first_then_reader() -> None:
     first, second = _base(rec.calls[0]), _base(rec.calls[1])
     # whipper CLI first (anchored, with -f)...
     assert first == ["pkill", "-KILL", "-f", drive_control._WHIPPER_CLI]
-    # ...then the reader by name (NO -f).
-    assert second == ["pkill", "-KILL", "cdparanoia|cd-paranoia|cdrdao"]
+    # ...then the reader/ripper by name (NO -f). Includes cyanrip, which is its
+    # own reader (so cancelling a cyanrip rip actually stops it).
+    assert second == ["pkill", "-KILL", "cdparanoia|cd-paranoia|cdrdao|cyanrip"]
     assert "-f" not in rec.calls[1]
+    assert "cyanrip" in second[-1]
 
 
 # --- in-container fallback ----------------------------------------------

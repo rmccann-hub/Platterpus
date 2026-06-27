@@ -2151,6 +2151,66 @@ def test_scan_force_stopped_shows_clean_message(teardown_threads, monkeypatch) -
     assert "freed" in window._disc_info_panel._mb_match_value.text().lower()
 
 
+def test_relaunch_env_strips_appimage_runtime_vars(monkeypatch) -> None:
+    """The updated AppImage must be relaunched without the current AppImage's
+    injected env (LD_LIBRARY_PATH/PYTHONHOME/APPDIR…), or its bundled Python
+    loads the old mount and crashes — the silent "didn't reopen" after update."""
+    from whipper_gui.ui.main_window_update import _relaunch_env
+
+    monkeypatch.setenv("APPDIR", "/tmp/.mount_old")
+    monkeypatch.setenv("APPIMAGE", "/home/u/Applications/whipper-gui-x86_64.AppImage")
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/.mount_old/usr/lib")
+    monkeypatch.setenv("PYTHONHOME", "/tmp/.mount_old/usr")
+    monkeypatch.setenv("PYTHONPATH", "/tmp/.mount_old/usr/lib/python")
+    monkeypatch.setenv("HOME", "/home/u")  # an ordinary var must survive
+
+    env = _relaunch_env()
+
+    for stripped in (
+        "APPDIR",
+        "APPIMAGE",
+        "LD_LIBRARY_PATH",
+        "PYTHONHOME",
+        "PYTHONPATH",
+    ):
+        assert stripped not in env
+    assert env.get("HOME") == "/home/u"
+
+
+def test_host_setup_finished_skips_drive_refresh_when_drive_selected(
+    teardown_threads, monkeypatch
+) -> None:
+    """A later setup run (e.g. installing flac) must NOT re-scan the disc — that
+    annoyed the user. Refresh only when no drive is selected yet."""
+    window = teardown_threads()
+    refreshed: list[bool] = []
+    checked: list[bool] = []
+    monkeypatch.setattr(window, "refresh_drives", lambda: refreshed.append(True))
+    monkeypatch.setattr(
+        window, "run_dependency_check", lambda **k: checked.append(True)
+    )
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
+
+    window._on_host_setup_finished(True)
+
+    assert refreshed == []  # drive already selected → no re-scan
+    assert checked == [True]  # dep re-check still runs (cheap)
+
+
+def test_host_setup_finished_refreshes_drives_on_first_setup(
+    teardown_threads, monkeypatch
+) -> None:
+    window = teardown_threads()
+    refreshed: list[bool] = []
+    monkeypatch.setattr(window, "refresh_drives", lambda: refreshed.append(True))
+    monkeypatch.setattr(window, "run_dependency_check", lambda **k: None)
+    monkeypatch.setattr(window._drive_picker, "current_device", lambda: "")
+
+    window._on_host_setup_finished(True)
+
+    assert refreshed == [True]  # no drive yet → first-time setup refreshes
+
+
 def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(cancel=lambda: None)

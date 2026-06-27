@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -126,6 +127,16 @@ _NO_METADATA_MARKERS: tuple[str, ...] = (
 # this into an actionable message instead of a bare "Rip failed".
 _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 
+# Minimum wall-clock gap between forwarding consecutive *progress redraw* lines
+# to the GUI. cyanrip redraws its progress many times a second (each `\r` becomes
+# its own line — see above), and forwarding every one floods the GUI's event loop
+# with queued signals: the window can't service paint events and goes black when
+# another window is dragged over it (real-user report, 2026-06-27). Coalescing to
+# ~10 updates/second keeps the bar and ETA feeling live while leaving the event
+# loop plenty of room to repaint. Only progress lines are throttled — phase
+# changes, errors, and end-of-rip markers always go through immediately.
+_PROGRESS_MIN_INTERVAL_S: float = 0.1
+
 
 class RipWorker(QObject):
     """QObject worker that owns a rip subprocess for its lifetime.
@@ -176,6 +187,10 @@ class RipWorker(QObject):
         # Last track number we emitted `current_track` for, so we signal
         # once per track instead of on every per-percent progress line.
         self._emitted_track: int = 0
+        # Monotonic timestamp of the last progress redraw we forwarded to the
+        # GUI, for rate-limiting the flood (see _PROGRESS_MIN_INTERVAL_S). 0.0
+        # means "none yet" → the first progress line always goes through.
+        self._last_progress_emit: float = 0.0
         # Flag is a plain Python bool — assignment is atomic under the
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
@@ -251,10 +266,29 @@ class RipWorker(QObject):
             for line in self._handle.log_lines():
                 if self._cancelled:
                     break
-                self.log_line.emit(line)
+                # `_progress_for` both classifies the line (a numeric progress
+                # redraw → not None) AND updates `_current_track` as a side
+                # effect, so call it once up front.
+                prog = self._progress_for(line)
+                is_progress = prog is not None
+                # Forward the line to the GUI's log pane — but RATE-LIMIT the
+                # high-frequency progress redraws. Appending to the log widget
+                # (text layout + repaint) is the expensive per-tick work; at
+                # cyanrip's redraw rate it floods the event loop and starves
+                # repaints, so the window goes black when overlapped (real-user
+                # report, 2026-06-27). The bar/status/track signals below are
+                # cheap and stay unthrottled, so the progress bar still moves
+                # smoothly even when the log pane updates only ~10×/second.
+                now = time.monotonic()
+                if is_progress:
+                    if now - self._last_progress_emit >= _PROGRESS_MIN_INTERVAL_S:
+                        self._last_progress_emit = now
+                        self.log_line.emit(line)
+                else:
+                    self.log_line.emit(line)
                 # Watch for whipper's "no online metadata" abort so the GUI
                 # can heal by re-ripping as unknown (only worth it if this
-                # rip wasn't already unknown).
+                # rip wasn't already unknown). Detection runs on EVERY line.
                 if not self._params.unknown and any(
                     m in line for m in _NO_METADATA_MARKERS
                 ):
@@ -277,7 +311,6 @@ class RipWorker(QObject):
                 if desc is not None and desc != self._last_status:
                     self._last_status = desc
                     self.status.emit(desc)
-                prog = self._progress_for(line)
                 if prog is not None:
                     self.progress.emit(prog[0], prog[1])
                 # _progress_for updates _current_track as a side effect when
