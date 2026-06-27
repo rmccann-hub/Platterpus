@@ -408,9 +408,24 @@ class HostSetup:
 
     @staticmethod
     def _running_hint(step_id: str) -> str:
-        """Reassuring sub-text for a step that's actively running."""
-        if step_id in ("container", "tools", "cyanrip"):
-            return "working… this can take a few minutes (downloading + installing)"
+        """Reassuring sub-text for a step that's actively running.
+
+        For the download-heavy steps, set an explicit time expectation: a
+        real-user gave up ~4 minutes into the in-container `dnf install`
+        (2026-06-26), quitting before the final export step — so the rip tool
+        ended up installed in the container but not exported to the host. Saying
+        "SEVERAL MINUTES" up front (not just "a few") keeps the user waiting.
+        """
+        if step_id == "container":
+            return (
+                "downloading the container image — this can take SEVERAL MINUTES "
+                "the first time. The window stays usable; please don't close it."
+            )
+        if step_id in ("tools", "cyanrip"):
+            return (
+                "installing into the container — downloading packages, this can "
+                "take SEVERAL MINUTES the first time. Please wait; don't close it."
+            )
         return "working…"
 
     def _run_commands(self, commands: list[list[str]]) -> tuple[bool, str]:
