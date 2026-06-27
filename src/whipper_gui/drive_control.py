@@ -50,9 +50,13 @@ log = logging.getLogger(__name__)
 # The Distrobox container whipper lives in (README/setup-host default).
 DEFAULT_CONTAINER: str = "ripping"
 
-# The reader subprocess names, matched against the process *name* (pkill
-# default, NOT `-f`). `-f` here would self-match the wrapper/pkill command line.
-_READER_NAMES: str = "cdparanoia|cd-paranoia|cdrdao"
+# The in-container ripper/reader process names, matched against the process
+# *name* (pkill default, NOT `-f`; `-f` would self-match the wrapper/pkill
+# command line). whipper spawns cdparanoia/cdrdao to do the reading; **cyanrip
+# is its own reader** (libcdio, no child process), so it has to be killed by its
+# own name — otherwise cancelling a cyanrip rip killed only the host wrapper and
+# the in-container cyanrip kept ripping the disc (real-user report, 2026-06-27).
+_READER_NAMES: str = "cdparanoia|cd-paranoia|cdrdao|cyanrip"
 
 # The whipper CLI process — the orchestrator that must die for the rip to stop
 # (it respawns the reader otherwise). Matched on the full command line (`-f`)

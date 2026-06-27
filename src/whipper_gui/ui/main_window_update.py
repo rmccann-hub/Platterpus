@@ -34,6 +34,37 @@ from PySide6.QtWidgets import QMessageBox
 log = logging.getLogger(__name__)
 
 
+# Environment variables the AppImage runtime (python-appimage's AppRun) injects
+# into THIS process. They point at the *current* AppImage's mount/interpreter, so
+# handing them to the freshly-installed AppImage makes its bundled Python load the
+# OLD mount's libs/modules — which crashes the new instance on startup. That's the
+# silent "it closed but didn't reopen" after an update (real-user report,
+# 2026-06-27). Drop them so the new AppImage's own AppRun sets them fresh.
+_APPIMAGE_ENV_VARS: tuple[str, ...] = (
+    "APPDIR",
+    "APPIMAGE",
+    "ARGV0",
+    "LD_LIBRARY_PATH",
+    "PYTHONHOME",
+    "PYTHONPATH",
+    "PYTHONNOUSERSITE",
+    "PYTHONDONTWRITEBYTECODE",
+    "GIT_EXEC_PATH",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "GDK_PIXBUF_MODULE_FILE",
+    "GDK_PIXBUF_MODULEDIR",
+)
+
+
+def _relaunch_env() -> dict[str, str]:
+    """The environment to launch the updated AppImage with: the current env minus
+    the AppImage-runtime-injected vars (see :data:`_APPIMAGE_ENV_VARS`)."""
+    import os
+
+    return {k: v for k, v in os.environ.items() if k not in _APPIMAGE_ENV_VARS}
+
+
 def _is_download_phase(status_message: str) -> bool:
     """True while the update is still DOWNLOADING (a determinate %-complete bar),
     False once it's moved to verify/install (a busy "working" bar — those phases
@@ -260,7 +291,7 @@ class UpdateMixin:
             log.info("relaunching into the new version: %s", new_path)
             try:
                 subprocess.Popen(  # noqa: S603 — our own verified binary
-                    [str(new_path)], start_new_session=True
+                    [str(new_path)], start_new_session=True, env=_relaunch_env()
                 )
             except OSError as exc:
                 log.exception("relaunch failed")

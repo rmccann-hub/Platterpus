@@ -238,6 +238,51 @@ def test_cyanrip_progress_lines_drive_bars_and_track(
     assert any(s.startswith("Track 1 done") for s in sigs.statuses)
 
 
+def test_progress_redraws_are_rate_limited_in_the_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A flood of cyanrip progress redraws must NOT each hit the log pane — that
+    flood (one expensive text-append per redraw) starved repaints and blacked out
+    the window when overlapped (real-user report, 2026-06-27). Processed in a
+    tight loop (well under the 0.1s window), only the first redraw is logged;
+    the bar signal stays unthrottled so progress still moves smoothly."""
+    handle = _FakeHandle(
+        lines=[
+            "Ripping track 1, progress - 10.00%",
+            "Ripping track 1, progress - 11.00%",
+            "Ripping track 1, progress - 12.00%",
+            "Ripping track 1, progress - 13.00%",
+        ],
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    # Only the first redraw reaches the log pane (the rest are within 0.1s).
+    assert len([line for line in sigs.log_lines if "progress" in line]) == 1
+    # …but every redraw still moved the progress bar (cheap, unthrottled) —
+    # all four task percentages, plus the final 100% emitted after the loop.
+    assert [task for _, task in sigs.progress] == [10.0, 11.0, 12.0, 13.0, 100.0]
+
+
+def test_non_progress_lines_are_never_throttled(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The rate limit applies ONLY to progress redraws — ordinary log lines
+    (errors, phase markers) must always reach the pane, even back-to-back."""
+    handle = _FakeHandle(lines=["one", "two", "three", "four"], exit_code=0)
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    worker.start_rip()
+
+    assert sigs.log_lines == ["one", "two", "three", "four"]
+
+
 def test_cyanrip_progress_without_disc_total_keeps_task_bar_moving(
     qapp: QApplication, tmp_path: Path
 ) -> None:
