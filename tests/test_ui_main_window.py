@@ -2211,6 +2211,19 @@ def test_host_setup_finished_refreshes_drives_on_first_setup(
     assert refreshed == [True]  # no drive yet → first-time setup refreshes
 
 
+def test_repaint_belt_timer_idle_until_rip(teardown_threads) -> None:
+    """The Wayland repaint belt is a ~2 Hz full-window redraw that runs ONLY
+    during a rip (idle the rest of the time, so it costs nothing)."""
+    window = teardown_threads()
+    assert window._repaint_timer.isActive() is False
+    assert window._repaint_timer.interval() == 500
+    # The finish handler stops it (guard against a lingering timer after a rip).
+    window._repaint_timer.start()
+    assert window._repaint_timer.isActive() is True
+    window._repaint_timer.stop()
+    assert window._repaint_timer.isActive() is False
+
+
 def test_cancel_arms_force_stop_timer(teardown_threads) -> None:
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(cancel=lambda: None)

@@ -126,6 +126,9 @@ backed up first if it's touched). Do this once per drive.
   back in).
 - **Drive keeps spinning after Cancel (or during a stuck scan)** → click
   **Force stop**.
+- **Window goes black during a rip (KDE Plasma 6 / Wayland)** → the app now runs
+  through XWayland automatically to avoid this. If you ever want native Wayland
+  instead, launch with `QT_QPA_PLATFORM=wayland`.
 - **Disc not identified** → check your network; you can still rip via *Rip as
   Unknown Album* and tag later.
 - **Something else** → the log has the details; please attach it when reporting
