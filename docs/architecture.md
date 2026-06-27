@@ -150,7 +150,14 @@ Worker mechanics, all demonstrated in `workers/`:
   ... in a different thread"). Fix was `worker.finished.connect(self._on_…)`
   with a bound method; stash any per-call state on `self`. The app-startup
   smoke test (`tests/test_app_smoke.py`) now fails on any cross-thread Qt
-  warning so this class of bug can't come back silently.
+  warning so this class of bug can't come back silently. **It bit us a SECOND
+  time (2026-06-27): the in-app *update installer* wired `progress`/`status`/
+  `finished` to closures + a lambda, so the progress-dialog updates and the
+  restart `QMessageBox` ran on the worker thread and *deadlocked* the window
+  ("Not Responding").** Same fix (bound methods; dialog stashed on
+  `self._install_dialog`). When adding ANY worker, grep
+  `worker.*\.connect\((lambda|<a local def>)` before you ship — the rule is easy
+  to forget at a new call site.
 - **Long, non-cancellable post-rip work → daemon thread + queued signal, NOT a
   `closeEvent`-joined `QThread`.** The deterministic-cleanup rule below assumes
   you can bound-wait the thread at close. When you *can't* — CTDB verify and

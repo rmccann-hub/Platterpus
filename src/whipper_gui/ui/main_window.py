@@ -172,6 +172,12 @@ class MainWindow(
         # in closeEvent so a half-downloaded update can't outlive the window.
         self._install_worker: object | None = None
         self._install_thread: QThread | None = None
+        # The update progress dialog + a "past the download phase" flag, stashed
+        # on self so the worker→GUI signal handlers can be BOUND METHODS (queued
+        # to the GUI thread) instead of closures that would run on the worker
+        # thread and touch widgets there (the "Not Responding" freeze).
+        self._install_dialog: object | None = None
+        self._install_post_download: bool = False
         # Launch-time dependency probe, run off-thread so a cold-container
         # `whipper --version` can't freeze the just-shown window; joined in
         # closeEvent. (DependencyMixin.run_dependency_check_async)

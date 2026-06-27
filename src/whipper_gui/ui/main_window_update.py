@@ -10,6 +10,9 @@ Contract this mixin expects from the host window (all set in
 ``MainWindow.__init__``):
   * ``self._update_worker`` / ``self._update_thread`` — the check worker+thread slots
   * ``self._install_worker`` / ``self._install_thread`` — the install worker+thread slots
+  * ``self._install_dialog`` / ``self._install_post_download`` — the progress
+    dialog handle + phase flag the install signal-handlers read (so they can be
+    bound methods queued to the GUI thread, not worker-thread closures)
   * ``self`` is a ``QWidget`` (used as the parent for dialogs)
 
 Future contributors: the actual download/verify/install lives in
@@ -24,15 +27,21 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QMessageBox
 
-if TYPE_CHECKING:  # import only for type hints
-    from PySide6.QtWidgets import QProgressDialog
-
 log = logging.getLogger(__name__)
+
+
+def _is_download_phase(status_message: str) -> bool:
+    """True while the update is still DOWNLOADING (a determinate %-complete bar),
+    False once it's moved to verify/install (a busy "working" bar — those phases
+    have no meaningful percentage and are quick, so a bar pinned at 100% looked
+    frozen). Keys on the phase labels ``update_install.download_and_install``
+    emits via its ``status`` callback ("Checking…", "Downloading…", then
+    "Verifying…"/"Installing…")."""
+    return status_message.startswith(("Checking", "Downloading"))
 
 
 class UpdateMixin:
@@ -120,7 +129,19 @@ class UpdateMixin:
             QDesktopServices.openUrl(QUrl(url))
 
     def _begin_update_install(self, version: str) -> None:
-        """Download + verify + install `version` off-thread with progress."""
+        """Download + verify + install `version` off-thread with progress.
+
+        The worker's progress/status/finished signals are connected to BOUND
+        METHODS of this window — NOT local closures or a lambda. This is for
+        correctness, not style: a closure/lambda has no QObject receiver, so Qt
+        connects it as a DIRECT connection and runs it on the *worker* thread
+        when the signal fires there. These handlers touch the progress dialog (a
+        widget) and pop a QMessageBox, and doing that off the GUI thread is
+        illegal in Qt — it froze the window mid-update ("Not Responding",
+        real-user report 2026-06-27). A bound method of this (GUI-thread) window
+        is delivered as a queued connection, so it runs on the GUI thread. (Same
+        bug + fix as the launch dependency check.)
+        """
         if self._install_thread is not None:  # an install is already running
             return
         from PySide6.QtWidgets import QProgressDialog
@@ -138,30 +159,16 @@ class UpdateMixin:
         dialog.setAutoClose(False)
         dialog.setAutoReset(False)
         dialog.setMinimumDuration(0)
+        # Stashed on self so the worker→GUI handlers can be bound methods
+        # (queued to the GUI thread). `_install_post_download` flips once we
+        # leave the download phase, so a late progress(100) can't re-pin a
+        # static 100% after we've switched to the busy "working" indicator.
+        self._install_dialog = dialog
+        self._install_post_download = False
 
-        def on_progress(percent: float) -> None:
-            if percent < 0:  # size unknown → busy indicator
-                dialog.setRange(0, 0)
-            else:
-                dialog.setRange(0, 100)
-                dialog.setValue(int(percent))
-
-        def on_status(message: str) -> None:
-            # Tell the user which phase we're in — the post-download steps
-            # (verify + install) are quick but used to look like a freeze.
-            dialog.setLabelText(message)
-            # Once we leave the download phase the operation can't be safely
-            # cancelled (the file swap is atomic), so retire the Cancel button
-            # rather than leave a button that "does nothing" (real-user report
-            # 2026-06-13). The Esc/close shortcut is disabled with it.
-            if not message.startswith(("Checking", "Downloading")):
-                dialog.setCancelButton(None)
-
-        self._install_worker.progress.connect(on_progress)
-        self._install_worker.status.connect(on_status)
-        self._install_worker.finished.connect(
-            lambda ok, payload: self._on_update_install_finished(ok, payload, dialog)
-        )
+        self._install_worker.progress.connect(self._on_install_progress)
+        self._install_worker.status.connect(self._on_install_status)
+        self._install_worker.finished.connect(self._on_update_install_finished)
         # Cancel button → stop between chunks; the worker cleans up the .part.
         dialog.canceled.connect(self._install_worker.cancel)
         # Standard teardown + start (finished → quit → deleteLater, run on spin-up).
@@ -170,16 +177,52 @@ class UpdateMixin:
         )
         dialog.show()
 
-    def _on_update_install_finished(
-        self, ok: bool, payload: str, dialog: QProgressDialog
-    ) -> None:
-        """Close the progress dialog; restart into the new version on success."""
+    def _on_install_progress(self, percent: float) -> None:
+        """Update the download progress bar (GUI thread — queued from the
+        worker's ``progress`` signal)."""
+        dialog = self._install_dialog
+        if dialog is None or self._install_post_download:
+            return  # verify/install run as a busy bar, not a percentage
+        if percent < 0:  # size unknown → busy indicator
+            dialog.setRange(0, 0)
+        else:
+            dialog.setRange(0, 100)
+            dialog.setValue(int(percent))
+
+    def _on_install_status(self, message: str) -> None:
+        """Reflect the current phase (GUI thread — queued from the worker's
+        ``status`` signal)."""
+        dialog = self._install_dialog
+        if dialog is None:
+            return
+        dialog.setLabelText(message)
+        # Once past the download the operation can't be safely cancelled (the
+        # file swap is atomic), so retire the Cancel button (real-user report
+        # 2026-06-13). And verify/install have no meaningful percentage and are
+        # quick, so a bar pinned at 100% looked frozen ("hanging on 100%",
+        # 2026-06-27) — switch to a MOVING busy indicator so it reads "working".
+        if not _is_download_phase(message):
+            dialog.setCancelButton(None)
+            self._install_post_download = True
+            dialog.setRange(0, 0)
+
+    def _on_update_install_finished(self, ok: bool, payload: str) -> None:
+        """Close the progress dialog; restart into the new version on success.
+
+        Runs on the GUI thread (``finished`` is connected to this bound method,
+        so Qt queues it there), which is what makes building the QMessageBox
+        below safe — doing it on the worker thread is what froze the window.
+        """
         from whipper_gui import appimage_integration as ai
 
-        try:
-            dialog.close()
-        except Exception:  # noqa: BLE001 — closing UI must never block the flow
-            pass
+        dialog = self._install_dialog
+        self._install_dialog = None
+        self._install_post_download = False
+        if dialog is not None:
+            try:
+                dialog.close()
+            except Exception:  # noqa: BLE001 — closing UI must never block the flow
+                pass
         self._install_worker = None
         self._install_thread = None
         if not ok:
