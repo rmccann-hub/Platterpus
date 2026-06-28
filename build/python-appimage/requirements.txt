@@ -4,8 +4,8 @@
 # build directory), so a global `--find-links .` line does NOT work here —
 # it would be its own argument-less install and pip would also resolve `.`
 # against the wrong directory. Instead, build_appimage.sh exports
-# PIP_FIND_LINKS pointing at this recipe directory, so the `whipper-gui`
-# line resolves to the locally-built whipper_gui-X.Y.Z-*.whl rather than
+# PIP_FIND_LINKS pointing at this recipe directory, so the `platterpus`
+# line resolves to the locally-built platterpus-X.Y.Z-*.whl rather than
 # going to PyPI (PIP_FIND_LINKS is a pip env var, so it survives pip's
 # `-I` isolated mode, unlike PYTHON* variables).
 
@@ -18,4 +18,4 @@
 PySide6~=6.7
 musicbrainzngs==0.7.1
 tomli-w~=1.0
-whipper-gui
+platterpus

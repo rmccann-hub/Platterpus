@@ -16,7 +16,7 @@ The maintainer's directive that shaped the locked decisions (2026-06-26):
 > correctly. this is best effort for the highest quality result which can then be
 > verified by other users."
 
-Companion: `output_reference/README.md` (parity baselines), `whipper_gui/parity.py`
+Companion: `output_reference/README.md` (parity baselines), `platterpus/parity.py`
 (the checker), `TASKS.md` (the EAC parity matrix + the P1 encoder item).
 
 ---
@@ -25,7 +25,7 @@ Companion: `output_reference/README.md` (parity baselines), `whipper_gui/parity.
 
 The integrity proof is the per-track **Copy CRC**, computed on the *extracted
 PCM* — **before, and independent of, the output encoder**. So one parity check
-(`whipper_gui.parity`, `scripts/eac_parity.py`) covers every format:
+(`platterpus.parity`, `scripts/eac_parity.py`) covers every format:
 
 | Format | Lossless? | Parity target | What "parity" proves |
 |---|---|---|---|
@@ -304,7 +304,7 @@ file) resolves them. Recorded here as the contract the build implements.
 
 **Prep + facts (2026-06-23, refreshed 2026-06-26):**
 - Parity tooling proven format-agnostic; WAV/MP3 invariants pinned by tests
-  (`tests/test_parity.py`), semantics documented in `whipper_gui.parity` and
+  (`tests/test_parity.py`), semantics documented in `platterpus.parity` and
   `output_reference/README.md`.
 - Encoder facts + exact args verified against the current upstream docs (§3) so the
   build starts from facts, not 2015-era rules of thumb. FLAC 1.5.0 / `-j`, LAME `-V0`

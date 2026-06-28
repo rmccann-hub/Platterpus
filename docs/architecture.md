@@ -1,7 +1,7 @@
 # Architecture & Contributor Guide
 
 > **Who this is for.** Anyone — not just the original author — who wants to
-> understand, extend, or safely change Whipper GUI. It explains *how the
+> understand, extend, or safely change Platterpus. It explains *how the
 > pieces fit*, *the patterns to follow* (with the **why** and the hard-won
 > lessons behind them), and *where to plug new things in*.
 >
@@ -30,7 +30,7 @@ interface, not a ripper.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  Whipper GUI (this app, runs on the host as PySide6)         │
+│  Platterpus (this app, runs on the host as PySide6)         │
 │   • picks the MusicBrainz release  • builds the rip command  │
 │   • shows progress + the fidelity verdict  • tags / art      │
 └───────────────┬──────────────────────────────────────────────┘
@@ -282,7 +282,7 @@ count, starts sharing the file.)
   crash would take down the app, and it must `log.exception(...)` and degrade
   gracefully (tagging must never crash the GUI).
 - **Use the `logging` module, never `print`.** The user's log lives at
-  `~/.local/share/whipper-gui/log.txt` — the first thing to ask for in a bug
+  `~/.local/share/platterpus/log.txt` — the first thing to ask for in a bug
   report (the Settings *debug logging* toggle raises it to verbose DEBUG). Log
   at the right level: `debug` for probe detail, `info` for lifecycle,
   `warning` for recoverable failures, `exception` for unexpected ones.
@@ -349,7 +349,7 @@ through it — the colour-coded **verdict banner** above the results table
 under-counted cyanrip rips). Don't re-derive "verified" anywhere else; call the
 shared helper.
 
-**Parity vs EAC** is measured, not claimed: `whipper_gui.parity` /
+**Parity vs EAC** is measured, not claimed: `platterpus.parity` /
 `scripts/eac_parity.py` compare a rip log's per-track Copy CRC against the
 committed EAC baseline in `output_reference/` (format auto-detected, EAC's UTF-16
 handled). `tests/test_parity.py` pins the committed cyanrip-vs-EAC result (12/14;
@@ -428,7 +428,7 @@ several gotchas found the hard way:
 - The entrypoint is globbed as `entrypoint.*`, so it **must** have an
   extension (`entrypoint.sh`).
 - A space in the `.desktop` `Name=` breaks the unquoted `appimagetool` call →
-  `Name=Whipper-GUI`.
+  `Name=Platterpus`.
 - The bundled manylinux CPython has **no CA certificates**, so HTTPS
   (MusicBrainz) fails until `entrypoint.sh` points `SSL_CERT_FILE` /
   `SSL_CERT_DIR` at the host bundle.
@@ -441,7 +441,7 @@ The operational steps (bump `__version__`, roll the CHANGELOG, dispatch the
 workflow) are owned by `CLAUDE.md` *CI / release*; the contract that shapes
 the design:
 
-- **Single-source the version** from `src/whipper_gui/__init__.py:__version__`
+- **Single-source the version** from `src/platterpus/__init__.py:__version__`
   (`pyproject.toml` reads it dynamically) — never hard-code it twice.
 - `release.yml` builds the AppImage + `.sha256` (+ `.zsync`) and attaches them
   to a GitHub Release; `v0.*` tags publish as pre-releases.

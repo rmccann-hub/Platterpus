@@ -47,6 +47,6 @@ MP3 is **lossy**, so the MP3 audio is never bit-comparable; only the shared
 **extraction CRCs** (identical to `../EAC_flac/`) and the tag/structure compare —
 see [`../README.md`](../README.md). The log is stored **verbatim in EAC's native
 UTF-16** (the authentic artifact); the parity checker and tests decode it via
-`whipper_gui.parity.decode_log_bytes`. (`.gitattributes` marks
+`platterpus.parity.decode_log_bytes`. (`.gitattributes` marks
 `output_reference/**/*.log` `-text` so UTF-16 isn't corrupted by line-ending
 normalization.)

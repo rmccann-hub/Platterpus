@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Platterpus
+GenericName=CD Audio Ripper
+Comment=A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)
+Exec=platterpus
+Icon=io.github.rmccann_hub.Platterpus
+Categories=AudioVideo;Audio;
+Keywords=cd;rip;flac;wavpack;mp3;audio;musicbrainz;accuraterip;
+Terminal=false

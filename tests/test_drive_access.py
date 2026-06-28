@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.drive_access.
+"""Tests for platterpus.drive_access.
 
 The public diagnose function takes injectable probes, so we simulate
 every system state without real hardware or root.
@@ -12,8 +12,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from whipper_gui import drive_access as da
-from whipper_gui.drive_access import (
+from platterpus import drive_access as da
+from platterpus.drive_access import (
     SEVERITY_NO_DEVICE,
     SEVERITY_OK,
     SEVERITY_PERMISSION,

@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Tests for whipper_gui.ctdb.verify + crc — the verdict logic (fakes only)."""
+"""Tests for platterpus.ctdb.verify + crc — the verdict logic (fakes only)."""
 
 from __future__ import annotations
 
 import zlib
 from pathlib import Path
 
-from whipper_gui.adapters.ctdb_client import (
+from platterpus.adapters.ctdb_client import (
     CTDBClient,
     CtdbEntry,
     CtdbLookupError,
     CtdbLookupResult,
 )
-from whipper_gui.ctdb import crc as crc_mod
-from whipper_gui.ctdb.toc import SAMPLES_PER_SECTOR, DiscToc
-from whipper_gui.ctdb.verify import CtdbVerifyResult, Verdict, verify_rip
+from platterpus.ctdb import crc as crc_mod
+from platterpus.ctdb.toc import SAMPLES_PER_SECTOR, DiscToc
+from platterpus.ctdb.verify import CtdbVerifyResult, Verdict, verify_rip
 
 # --- crc -------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ def test_lookup_error_is_a_verdict_not_a_raise() -> None:
 
 
 def test_decoder_unavailable_after_db_hit() -> None:
-    from whipper_gui.ctdb.decode import DecoderUnavailable
+    from platterpus.ctdb.decode import DecoderUnavailable
 
     entry = CtdbEntry(crc=123, confidence=3)
     client = _FakeClient(CtdbLookupResult(entries=(entry,)))

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.disc_info_worker.
+"""Tests for platterpus.workers.disc_info_worker.
 
 Driven synchronously (call `run()` directly) like the other worker tests; a
 fake backend stands in for the real `disc_info()` (which would shell into the
@@ -11,14 +11,14 @@ from typing import Any
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.whipper_backend import (
+from platterpus.adapters.whipper_backend import (
     DiscInfo,
     RipHandle,
     WhipperBackend,
     WhipperError,
 )
-from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.workers.disc_info_worker import DiscInfoWorker
+from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.workers.disc_info_worker import DiscInfoWorker
 
 # `qapp` fixture comes from tests/conftest.py (the worker's signals need a
 # QApplication), as in the other worker tests.

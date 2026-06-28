@@ -50,7 +50,7 @@ maintainer's call.)
 The shared **extraction CRCs** (identical to `../EAC_flac/`) are what compare;
 the container/encoder differs. The log is stored **verbatim in EAC's native
 UTF-16**; the parity checker and tests decode it via
-`whipper_gui.parity.decode_log_bytes` (`.gitattributes` marks
+`platterpus.parity.decode_log_bytes` (`.gitattributes` marks
 `output_reference/**/*.log` `-text` so the UTF-16 isn't corrupted). Cue nit: this
 session's cue dropped track 10's ISRC. No audio is committed — see
 [`../README.md`](../README.md).

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.adapters.musicbrainz_client.
+"""Tests for platterpus.adapters.musicbrainz_client.
 
 musicbrainzngs is monkeypatched so tests run offline. The shapes of the
 fake responses match what real `musicbrainzngs.get_releases_by_discid`
@@ -14,7 +14,7 @@ from typing import Any
 import musicbrainzngs
 import pytest
 
-from whipper_gui.adapters.musicbrainz_client import (
+from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
     MusicBrainzNgsImpl,
     MusicBrainzQueryError,
@@ -135,9 +135,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> MusicBrainzNgsImpl:
         "set_useragent",
         lambda app, ver, ctx: calls.append((app, ver, ctx)),
     )
-    impl = MusicBrainzNgsImpl(
-        app="whipper-gui", version="0.0.1", contact="test@example"
-    )
+    impl = MusicBrainzNgsImpl(app="platterpus", version="0.0.1", contact="test@example")
     # Make the call list accessible to tests that care.
     impl._test_useragent_calls = calls  # type: ignore[attr-defined]
     return impl
@@ -148,15 +146,15 @@ def client(monkeypatch: pytest.MonkeyPatch) -> MusicBrainzNgsImpl:
 
 def test_construction_sets_useragent(client: MusicBrainzNgsImpl) -> None:
     calls = client._test_useragent_calls  # type: ignore[attr-defined]
-    assert calls == [("whipper-gui", "0.0.1", "test@example")]
+    assert calls == [("platterpus", "0.0.1", "test@example")]
 
 
 def test_set_useragent_method_works_after_construction(
     client: MusicBrainzNgsImpl,
 ) -> None:
-    client.set_user_agent("whipper-gui", "0.0.2", "other@example")
+    client.set_user_agent("platterpus", "0.0.2", "other@example")
     calls = client._test_useragent_calls  # type: ignore[attr-defined]
-    assert calls[-1] == ("whipper-gui", "0.0.2", "other@example")
+    assert calls[-1] == ("platterpus", "0.0.2", "other@example")
 
 
 # --- releases_by_disc_id ---------------------------------------------------

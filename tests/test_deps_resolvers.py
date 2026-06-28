@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.deps.resolvers.
+"""Tests for platterpus.deps.resolvers.
 
 Each resolver gets driven with fake callbacks and a fake subprocess.run
 so we exercise the control flow without needing flatpak or any real
@@ -12,10 +12,10 @@ from typing import Any
 
 import pytest
 
-from whipper_gui.deps import resolvers as resolvers_module
-from whipper_gui.deps.checks import ProbeResult
-from whipper_gui.deps.registry import DependencySpec, Tier
-from whipper_gui.deps.resolvers import (
+from platterpus.deps import resolvers as resolvers_module
+from platterpus.deps.checks import ProbeResult
+from platterpus.deps.registry import DependencySpec, Tier
+from platterpus.deps.resolvers import (
     AutoInstaller,
     ManualPrompt,
     MissingItem,

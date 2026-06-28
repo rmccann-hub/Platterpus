@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Post-clone setup for Whipper GUI development.
+# Post-clone setup for Platterpus development.
 #
 # Run this once after cloning the repo. It creates a Python virtual
 # environment in .venv/, upgrades pip, and installs the package in
-# editable mode so changes to src/whipper_gui/ are picked up live.
+# editable mode so changes to src/platterpus/ are picked up live.
 #
 # Usage:
 #   bash dev-setup.sh             # set up venv + install runtime deps
@@ -57,10 +57,10 @@ pip install --upgrade pip --quiet
 
 # --- Install the package ---
 if [ "$INSTALL_DEV" -eq 1 ]; then
-    echo "Installing whipper-gui in editable mode (with dev extras: pytest)..."
+    echo "Installing platterpus in editable mode (with dev extras: pytest)..."
     pip install -e ".[dev]"
 else
-    echo "Installing whipper-gui in editable mode..."
+    echo "Installing platterpus in editable mode..."
     pip install -e .
 fi
 
@@ -68,14 +68,14 @@ REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 # --- CLI on PATH ---
 # Symlink the venv's console script into ~/.local/bin so plain
-# `whipper-gui` works from any terminal without activating the venv. The
+# `platterpus` works from any terminal without activating the venv. The
 # launcher's shebang points at the venv's python, so the symlink runs in
 # the right environment regardless of cwd or activation. uninstall.sh
 # removes it.
 LOCAL_BIN="$HOME/.local/bin"
 mkdir -p "$LOCAL_BIN"
-ln -sf "$REPO_ROOT/.venv/bin/whipper-gui" "$LOCAL_BIN/whipper-gui"
-echo "Linked $LOCAL_BIN/whipper-gui -> the venv launcher"
+ln -sf "$REPO_ROOT/.venv/bin/platterpus" "$LOCAL_BIN/platterpus"
+echo "Linked $LOCAL_BIN/platterpus -> the venv launcher"
 case ":$PATH:" in
     *":$LOCAL_BIN:"*) ;;
     *) echo "NOTE: $LOCAL_BIN is not on your PATH — add it, or use the app icon." ;;
@@ -83,20 +83,20 @@ esac
 
 # --- Desktop entry ---
 # Install a launcher into the user's app menu so the GUI is reachable
-# without a terminal. Points Exec at the venv's whipper-gui (absolute
+# without a terminal. Points Exec at the venv's platterpus (absolute
 # path, so it works from the menu regardless of cwd). Uses the stock
 # `media-optical` icon name — present in essentially every icon theme —
 # so we don't need to ship a bitmap. uninstall.sh removes this file.
 DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-DESKTOP_FILE="$DESKTOP_DIR/whipper-gui.desktop"
+DESKTOP_FILE="$DESKTOP_DIR/io.github.rmccann_hub.Platterpus.desktop"
 mkdir -p "$DESKTOP_DIR"
 cat > "$DESKTOP_FILE" <<DESKTOP
 [Desktop Entry]
 Type=Application
-Name=Whipper GUI
+Name=Platterpus
 GenericName=CD Audio Ripper
-Comment=Rip audio CDs to FLAC with whipper
-Exec=$REPO_ROOT/.venv/bin/whipper-gui
+Comment=A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)
+Exec=$REPO_ROOT/.venv/bin/platterpus
 Icon=media-optical
 Terminal=false
 Categories=AudioVideo;Audio;DiscBurning;
@@ -122,13 +122,13 @@ echo "Installed desktop entry: $DESKTOP_FILE"
 # executable; KDE may still ask once to "trust" it on first click.
 DESKTOP_USER_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
 if [ -d "$DESKTOP_USER_DIR" ]; then
-    cp -f "$DESKTOP_FILE" "$DESKTOP_USER_DIR/whipper-gui.desktop"
-    chmod +x "$DESKTOP_USER_DIR/whipper-gui.desktop"
+    cp -f "$DESKTOP_FILE" "$DESKTOP_USER_DIR/io.github.rmccann_hub.Platterpus.desktop"
+    chmod +x "$DESKTOP_USER_DIR/io.github.rmccann_hub.Platterpus.desktop"
     # GNOME's "trusted" flag (no-op elsewhere; ignore if gio is absent).
     command -v gio >/dev/null 2>&1 \
-        && gio set "$DESKTOP_USER_DIR/whipper-gui.desktop" \
+        && gio set "$DESKTOP_USER_DIR/io.github.rmccann_hub.Platterpus.desktop" \
                metadata::trusted true >/dev/null 2>&1 || true
-    echo "Installed desktop icon: $DESKTOP_USER_DIR/whipper-gui.desktop"
+    echo "Installed desktop icon: $DESKTOP_USER_DIR/io.github.rmccann_hub.Platterpus.desktop"
 fi
 echo "(If it doesn't appear in the menu immediately, log out and back in.)"
 
@@ -138,14 +138,14 @@ cat <<EOF
 ----------------------------------------
 Setup complete.
 
-A "Whipper GUI" entry has been added to your application menu.
+A "Platterpus" entry has been added to your application menu.
 
 To launch the GUI:
     source .venv/bin/activate
-    whipper-gui
+    platterpus
 
 Or in one shot, no activation needed:
-    .venv/bin/whipper-gui
+    .venv/bin/platterpus
 
 EOF
 

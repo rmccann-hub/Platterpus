@@ -22,11 +22,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from whipper_gui.adapters.ctdb_client import CtdbHttpImpl
-from whipper_gui.ctdb import crc as crc_mod
-from whipper_gui.ctdb import decode
-from whipper_gui.ctdb.toc import disc_toc_from_files
-from whipper_gui.ctdb.verify import Verdict, verify_rip
+from platterpus.adapters.ctdb_client import CtdbHttpImpl
+from platterpus.ctdb import crc as crc_mod
+from platterpus.ctdb import decode
+from platterpus.ctdb.toc import disc_toc_from_files
+from platterpus.ctdb.verify import Verdict, verify_rip
 
 
 def _find_flacs(folder: Path) -> list[Path]:

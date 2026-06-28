@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from whipper_gui.update_check import (
+from platterpus.update_check import (
     RELEASES_API_URL,
     ReleaseInfo,
     is_newer,

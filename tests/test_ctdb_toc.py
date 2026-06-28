@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Tests for whipper_gui.ctdb.toc — deterministic TOC math/parsing.
+"""Tests for platterpus.ctdb.toc — deterministic TOC math/parsing.
 
 (Whether the resulting toc-string actually matches CTDB's wire format is a
 hardware-validation item, KDD-16 / docs/test-plan.md — these tests cover that
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui.ctdb.toc import (
+from platterpus.ctdb.toc import (
     LEAD_IN_SECTORS,
     SAMPLES_PER_SECTOR,
     DiscToc,

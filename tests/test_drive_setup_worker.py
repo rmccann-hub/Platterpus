@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.drive_setup_worker."""
+"""Tests for platterpus.workers.drive_setup_worker."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.whipper_backend import WhipperBackend, WhipperError
-from whipper_gui.workers import drive_setup_worker as dsw
-from whipper_gui.workers.drive_setup_worker import (
+from platterpus.adapters.whipper_backend import WhipperBackend, WhipperError
+from platterpus.workers import drive_setup_worker as dsw
+from platterpus.workers.drive_setup_worker import (
     DriveSetupResult,
     DriveSetupWorker,
 )

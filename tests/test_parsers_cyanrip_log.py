@@ -8,8 +8,8 @@ fixture when available. Cases follow docs/testing.md's taxonomy.
 
 from __future__ import annotations
 
-from whipper_gui.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from whipper_gui.parsers.rip_log import RipLog
+from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.parsers.rip_log import RipLog
 
 _FULL_LOG = """\
 cyanrip 0.9.3.1 (master)

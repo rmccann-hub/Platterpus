@@ -10,10 +10,10 @@ drive detection + access, the dependency tools, and host network to MusicBrainz
     python scripts/preflight.py                  # full run
     python scripts/preflight.py --no-network     # skip the network checks
     python scripts/preflight.py --backend cyanrip
-    whipper-gui --doctor                          # same thing, via the app
+    platterpus --doctor                          # same thing, via the app
 
 Exit code: 0 = no hard blockers (warnings may exist), 1 = a blocker was found.
-The actual logic lives in ``whipper_gui.preflight`` (unit-tested); this is just
+The actual logic lives in ``platterpus.preflight`` (unit-tested); this is just
 the CLI wrapper.
 """
 
@@ -22,14 +22,14 @@ from __future__ import annotations
 import argparse
 import sys
 
-from whipper_gui import config as config_module
-from whipper_gui import preflight
+from platterpus import config as config_module
+from platterpus import preflight
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="preflight",
-        description="First-pass test of the Whipper GUI rip environment (no CD).",
+        description="First-pass test of the Platterpus rip environment (no CD).",
     )
     parser.add_argument(
         "--no-network",
@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     ctx = preflight.default_context(cfg)
     color = sys.stdout.isatty() and not args.no_color
 
-    print(f"Whipper GUI preflight — backend: {ctx.backend_name}\n")
+    print(f"Platterpus preflight — backend: {ctx.backend_name}\n")
     results = preflight.run_preflight(
         ctx,
         network=not args.no_network,

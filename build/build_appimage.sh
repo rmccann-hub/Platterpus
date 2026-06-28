@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the Whipper GUI AppImage via python-appimage.
+# Build the Platterpus AppImage via python-appimage.
 #
 # What this script does:
 #   1. Verifies the build prerequisites (python3 ≥ 3.11, `build`,
@@ -48,18 +48,18 @@ require_python_module python_appimage 'python-appimage>=1.4,<2'
 
 # --- Build the wheel -------------------------------------------------------
 echo "[1/3] Building wheel from local source…"
-rm -f "$RECIPE_DIR"/whipper_gui-*.whl
+rm -f "$RECIPE_DIR"/platterpus-*.whl
 python3 -m build --wheel --outdir "$RECIPE_DIR"
-ls -1 "$RECIPE_DIR"/whipper_gui-*.whl
+ls -1 "$RECIPE_DIR"/platterpus-*.whl
 
 # --- Icon ------------------------------------------------------------------
 # python-appimage's "build app" recipe requires <name>.png in the recipe
-# directory. The real icon (build/python-appimage/whipper-gui.png, produced
+# directory. The real icon (build/python-appimage/io.github.rmccann_hub.Platterpus.png, produced
 # by build/make_icon.py) is committed, so this fallback normally does nothing
 # — it only fires if that file has been deleted, dropping a 16×16 grey square
 # so the build still succeeds.
-if [ ! -f "$RECIPE_DIR/whipper-gui.png" ]; then
-    echo "Note: no whipper-gui.png in recipe; generating placeholder."
+if [ ! -f "$RECIPE_DIR/io.github.rmccann_hub.Platterpus.png" ]; then
+    echo "Note: no io.github.rmccann_hub.Platterpus.png in recipe; generating placeholder."
     python3 - <<'PY'
 import struct
 import zlib
@@ -83,14 +83,14 @@ png = (
     + chunk(b"IDAT", compressed)
     + chunk(b"IEND", b"")
 )
-Path("build/python-appimage/whipper-gui.png").write_bytes(png)
+Path("build/python-appimage/io.github.rmccann_hub.Platterpus.png").write_bytes(png)
 PY
 fi
 
 # --- Build the AppImage ----------------------------------------------------
 echo "[2/3] Building AppImage via python-appimage…"
 
-# Tell pip where to find the locally-built whipper_gui wheel. python-appimage
+# Tell pip where to find the locally-built platterpus wheel. python-appimage
 # installs each requirements.txt line from a temporary directory, so a
 # relative `--find-links .` in the recipe can't work; PIP_FIND_LINKS is a pip
 # environment variable (not a PYTHON* one), so it survives pip's `-I` isolated
@@ -101,32 +101,32 @@ export PIP_FIND_LINKS="$RECIPE_DIR"
 # the GitHub API to discover and download a CPython base AppImage. On a host
 # where api.github.com is unreachable or rate-limited (HTTP 403), pre-download
 # the matching base image (from github.com/niess/python-appimage releases) and
-# point WHIPPER_GUI_BASE_IMAGE at it to skip the API entirely. The filename
+# point PLATTERPUS_BASE_IMAGE at it to skip the API entirely. The filename
 # must keep its upstream form, e.g.
 #   python3.11.14-cp311-cp311-manylinux2014_x86_64.AppImage
-if [ -n "${WHIPPER_GUI_BASE_IMAGE:-}" ]; then
-    if [ ! -f "$WHIPPER_GUI_BASE_IMAGE" ]; then
-        echo "WHIPPER_GUI_BASE_IMAGE is set but not a file: $WHIPPER_GUI_BASE_IMAGE"
+if [ -n "${PLATTERPUS_BASE_IMAGE:-}" ]; then
+    if [ ! -f "$PLATTERPUS_BASE_IMAGE" ]; then
+        echo "PLATTERPUS_BASE_IMAGE is set but not a file: $PLATTERPUS_BASE_IMAGE"
         exit 1
     fi
-    echo "Using pre-downloaded base image: $WHIPPER_GUI_BASE_IMAGE"
+    echo "Using pre-downloaded base image: $PLATTERPUS_BASE_IMAGE"
     python3 -m python_appimage build app "$RECIPE_DIR" \
-        --base-image "$WHIPPER_GUI_BASE_IMAGE"
+        --base-image "$PLATTERPUS_BASE_IMAGE"
 else
     python3 -m python_appimage build app "$RECIPE_DIR"
 fi
 
 # python-appimage emits the AppImage at the current directory, named after
-# the .desktop "Name=" field (e.g. "Whipper-GUI-x86_64.AppImage"). Note:
+# the .desktop "Name=" field (e.g. "Platterpus-x86_64.AppImage"). Note:
 # python-appimage builds the appimagetool command unquoted, so the Name must
 # not contain spaces or the output file is silently never produced. We
 # normalise the result to the canonical artifact name the rest of the project
 # (README, CLAUDE.md) refers to.
 echo "[3/3] Normalising AppImage name…"
-desktop_name="$(sed -n 's/^Name=//p' "$RECIPE_DIR/whipper-gui.desktop" | head -1)"
+desktop_name="$(sed -n 's/^Name=//p' "$RECIPE_DIR/io.github.rmccann_hub.Platterpus.desktop" | head -1)"
 arch="$(uname -m)"
 produced="$REPO_ROOT/${desktop_name}-${arch}.AppImage"
-canonical="$REPO_ROOT/whipper-gui-${arch}.AppImage"
+canonical="$REPO_ROOT/platterpus-${arch}.AppImage"
 if [ -f "$produced" ] && [ "$produced" != "$canonical" ]; then
     mv -f "$produced" "$canonical"
 fi
@@ -142,11 +142,11 @@ fi
 # re-pack the finished AppImage ourselves to embed the standard zsync
 # update-information. Any AppImageUpdate-compatible tool can then discover the
 # newest GitHub release and download only the changed blocks, verified.
-# Re-packing also emits whipper-gui-<arch>.AppImage.zsync (when `zsyncmake` is
+# Re-packing also emits platterpus-<arch>.AppImage.zsync (when `zsyncmake` is
 # installed — package "zsync") which release.yml uploads beside the AppImage.
 # This runs BEFORE the release workflow's checksum step, so the .sha256 always
 # covers the final, update-info-embedded file.
-UPDATE_INFO="gh-releases-zsync|rmccann-hub|Whipper-GUI-Frontend---CD-Rip|latest|whipper-gui-${arch}.AppImage.zsync"
+UPDATE_INFO="gh-releases-zsync|rmccann-hub|Platterpus|latest|platterpus-${arch}.AppImage.zsync"
 
 find_appimagetool() {
     # A system appimagetool wins; otherwise reuse the copy python-appimage
@@ -179,7 +179,7 @@ if tool="$(find_appimagetool)"; then
             -u "$UPDATE_INFO" squashfs-root "$canonical"
     )
     # appimagetool drops the .zsync in its working directory; move it home.
-    zsync_name="whipper-gui-${arch}.AppImage.zsync"
+    zsync_name="platterpus-${arch}.AppImage.zsync"
     if [ -f "$workdir/$zsync_name" ]; then
         mv -f "$workdir/$zsync_name" "$REPO_ROOT/$zsync_name"
     fi

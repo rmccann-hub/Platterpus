@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup-host.sh — one-command host bootstrap for Whipper GUI.
+# setup-host.sh — one-command host bootstrap for Platterpus.
 #
 # Automates README Steps 1-4 (the host stack that lives outside the GUI)
 # and then the GUI install, so a new user goes from nothing to a launchable
@@ -27,7 +27,7 @@
 #   bash setup-host.sh --help
 #
 # One-liner (the repo is public):
-#   curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main/setup-host.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/setup-host.sh | bash
 
 set -euo pipefail
 
@@ -38,13 +38,13 @@ DRY_RUN=0
 ASSUME_YES=0
 DO_GUI=1
 DO_CYANRIP=0
-REPO_URL="https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git"
+REPO_URL="https://github.com/rmccann-hub/Platterpus.git"
 # Where to clone if we're not already inside a checkout.
-CLONE_DIR="${WHIPPER_GUI_CLONE_DIR:-$HOME/Whipper-GUI-Frontend---CD-Rip}"
+CLONE_DIR="${PLATTERPUS_CLONE_DIR:-$HOME/Platterpus}"
 
 usage() {
     cat <<'HELP'
-setup-host.sh — one-command host bootstrap for Whipper GUI.
+setup-host.sh — one-command host bootstrap for Platterpus.
 
 Automates README Steps 1-4 (Distrobox, the `ripping` container, whipper +
 flac install, binary export) and then clones + installs the GUI.
@@ -301,12 +301,12 @@ install_gui() {
     fi
     run bash "$repo_dir/dev-setup.sh"
     echo
-    echo "GUI installed. Launch it from your app menu (\"Whipper GUI\") or:"
-    echo "    source \"$repo_dir/.venv/bin/activate\" && whipper-gui"
+    echo "GUI installed. Launch it from your app menu (\"Platterpus\") or:"
+    echo "    source \"$repo_dir/.venv/bin/activate\" && platterpus"
 }
 
 # --- Main ------------------------------------------------------------------
-echo "Whipper GUI host setup"
+echo "Platterpus host setup"
 [ "$DRY_RUN" -eq 1 ] && echo "(DRY RUN — no changes will be made)"
 
 have git || die "git is required (to clone the repo). Install git and re-run."
@@ -323,5 +323,5 @@ else
 fi
 
 echo
-echo "Done. Next: open Whipper GUI, then Tools -> Set up drive… to calibrate"
+echo "Done. Next: open Platterpus, then Tools -> Set up drive… to calibrate"
 echo "your drive (insert a popular CD), and rip."

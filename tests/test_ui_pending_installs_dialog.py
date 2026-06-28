@@ -1,13 +1,13 @@
-"""Tests for whipper_gui.ui.dialogs.pending_installs."""
+"""Tests for platterpus.ui.dialogs.pending_installs."""
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.deps.checks import ProbeResult
-from whipper_gui.deps.registry import DependencySpec, Tier
-from whipper_gui.deps.resolvers import InstallResult, MissingItem
-from whipper_gui.ui.dialogs.pending_installs import PendingInstallsDialog
+from platterpus.deps.checks import ProbeResult
+from platterpus.deps.registry import DependencySpec, Tier
+from platterpus.deps.resolvers import InstallResult, MissingItem
+from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
 
 # --- Spec / item factories ------------------------------------------------
 

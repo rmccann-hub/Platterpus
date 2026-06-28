@@ -34,7 +34,11 @@ ENTRYPOINT = RECIPE_DIR / "entrypoint.sh"
 
 
 def test_recipe_dir_has_required_files() -> None:
-    expected = {"requirements.txt", "entrypoint.sh", "whipper-gui.desktop"}
+    expected = {
+        "requirements.txt",
+        "entrypoint.sh",
+        "io.github.rmccann_hub.Platterpus.desktop",
+    }
     actual = {p.name for p in RECIPE_DIR.iterdir() if p.is_file()}
     missing = expected - actual
     assert not missing, f"recipe missing: {missing}"
@@ -53,10 +57,10 @@ def test_entrypoint_is_executable() -> None:
     assert os.access(ENTRYPOINT, os.X_OK)
 
 
-def test_entrypoint_invokes_whipper_gui_module() -> None:
-    """The entrypoint must run `python -m whipper_gui`."""
+def test_entrypoint_invokes_platterpus_module() -> None:
+    """The entrypoint must run `python -m platterpus`."""
     text = ENTRYPOINT.read_text()
-    assert "whipper_gui" in text
+    assert "platterpus" in text
     assert "-m" in text  # invoking as a module
 
 
@@ -73,17 +77,21 @@ def test_entrypoint_points_openssl_at_host_ca_bundle() -> None:
 
 def test_desktop_file_has_correct_app_id() -> None:
     """The .desktop Exec/Icon fields must match the AppImage name."""
-    text = (RECIPE_DIR / "whipper-gui.desktop").read_text()
+    text = (RECIPE_DIR / "io.github.rmccann_hub.Platterpus.desktop").read_text()
     assert "[Desktop Entry]" in text
-    assert "Exec=whipper-gui" in text
-    assert "Icon=whipper-gui" in text
+    assert "Exec=platterpus" in text
+    assert "Icon=io.github.rmccann_hub.Platterpus" in text
     assert "Type=Application" in text
 
 
 def test_desktop_name_has_no_space() -> None:
     """python-appimage derives the (unquoted) output filename from Name=; a
     space splits the appimagetool command and the AppImage is never built."""
-    for line in (RECIPE_DIR / "whipper-gui.desktop").read_text().splitlines():
+    for line in (
+        (RECIPE_DIR / "io.github.rmccann_hub.Platterpus.desktop")
+        .read_text()
+        .splitlines()
+    ):
         if line.startswith("Name="):
             assert " " not in line[len("Name=") :], (
                 "desktop Name must not contain spaces"
@@ -99,11 +107,11 @@ def _requirement_lines() -> list[str]:
     return [line for line in non_comment if line]
 
 
-def test_requirements_request_local_whipper_gui_package() -> None:
-    """The bare `whipper-gui` line is resolved to the local wheel via the
+def test_requirements_request_local_platterpus_package() -> None:
+    """The bare `platterpus` line is resolved to the local wheel via the
     PIP_FIND_LINKS the build script exports (a global `--find-links .` line
     cannot work: python-appimage installs each line from a temp dir)."""
-    assert "whipper-gui" in _requirement_lines()
+    assert "platterpus" in _requirement_lines()
     script = (BUILD_DIR / "build_appimage.sh").read_text()
     assert "PIP_FIND_LINKS" in script
 
@@ -138,7 +146,7 @@ def test_build_script_embeds_zsync_update_information() -> None:
     tools can delta-update from GitHub releases. The transport string must
     name this repo and the exact artifact the release uploads."""
     script = (BUILD_DIR / "build_appimage.sh").read_text(encoding="utf-8")
-    assert "gh-releases-zsync|rmccann-hub|Whipper-GUI-Frontend---CD-Rip|" in script
+    assert "gh-releases-zsync|rmccann-hub|Platterpus|" in script
     assert ".AppImage.zsync" in script
     assert '-u "$UPDATE_INFO"' in script
     # Falls back to python-appimage's cached appimagetool (no new host dep).
@@ -157,7 +165,7 @@ def test_release_workflow_ships_the_zsync_file() -> None:
         encoding="utf-8"
     )
     assert "apt-get install -y -q zsync" in workflow
-    assert workflow.count("whipper-gui-x86_64.AppImage.zsync") >= 2
+    assert workflow.count("platterpus-x86_64.AppImage.zsync") >= 2
     # REGRESSION (v0.2.0): a missing .zsync must fail at a dedicated verify
     # step with a clear message, not as a cryptic `gh release upload` error
     # after which the release ends up with no assets at all.

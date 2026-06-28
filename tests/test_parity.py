@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.parity and the scripts/eac_parity.py CLI.
+"""Tests for platterpus.parity and the scripts/eac_parity.py CLI.
 
 Covers the cross-format Copy-CRC dispatch (EAC / whipper / cyanrip), the
 baseline-vs-candidate comparison (match, mismatch, missing, extra), and a
@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-from whipper_gui.parity import compare_logs, decode_log_bytes, track_copy_crcs
+from platterpus.parity import compare_logs, decode_log_bytes, track_copy_crcs
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _EAC_BASELINE = (

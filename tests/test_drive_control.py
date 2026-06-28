@@ -1,9 +1,9 @@
-"""Tests for whipper_gui.drive_control.
+"""Tests for platterpus.drive_control.
 
 The runner is injected so we never touch a real drive or container. We assert
 the right commands are issued, the kill ordering (whipper before reader), and —
 crucially — the regex-safety properties that earlier attempts got wrong:
-the whipper pattern must match the whipper CLI but NEVER "whipper-gui", and the
+the whipper pattern must match the whipper CLI but NEVER "platterpus", and the
 reader kill must not use `-f`.
 """
 
@@ -13,7 +13,7 @@ import os
 import re
 from types import SimpleNamespace
 
-from whipper_gui import drive_control
+from platterpus import drive_control
 
 
 class _Recorder:
@@ -47,9 +47,9 @@ def test_whipper_pattern_matches_the_cli() -> None:
 def test_whipper_pattern_never_matches_the_gui() -> None:
     pat = drive_control._WHIPPER_CLI
     # The GUI must survive a force-stop.
-    assert not re.search(pat, "/usr/bin/whipper-gui")
-    assert not re.search(pat, "python3 -m whipper_gui")
-    assert not re.search(pat, "/opt/whipper-gui-x86_64.AppImage")
+    assert not re.search(pat, "/usr/bin/platterpus")
+    assert not re.search(pat, "python3 -m platterpus")
+    assert not re.search(pat, "/opt/platterpus-x86_64.AppImage")
     # ...and the pkill command line that *carries* the pattern must not match
     # itself (the "whipper (" self-match bug).
     assert not re.search(pat, "pkill -KILL -f whipper (cd|drive|offset)")

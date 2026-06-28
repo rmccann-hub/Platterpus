@@ -1,11 +1,11 @@
-"""Tests for whipper_gui.ui.release_picker."""
+"""Tests for platterpus.ui.release_picker."""
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
-from whipper_gui.adapters.musicbrainz_client import ReleaseSummary
-from whipper_gui.ui.release_picker import _COLUMNS, ReleasePickerDialog
+from platterpus.adapters.musicbrainz_client import ReleaseSummary
+from platterpus.ui.release_picker import _COLUMNS, ReleasePickerDialog
 
 
 def _release(

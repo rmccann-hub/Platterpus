@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — one-command, single-file installer for Whipper GUI (end users).
+# install.sh — one-command, single-file installer for Platterpus (end users).
 #
 # Takes a machine from nothing to a launchable app:
 #   1. Host stack: Distrobox + the `ripping` container + whipper + flac,
@@ -7,12 +7,12 @@
 #   2. The GUI: downloads the published AppImage release (or uses a local /
 #      freshly-built one) and parks it in ~/Applications.
 #   3. Desktop integration: an app-menu entry, a Desktop icon, AND an
-#      "Uninstall Whipper GUI" shortcut (delegated to install-appimage.sh).
+#      "Uninstall Platterpus" shortcut (delegated to install-appimage.sh).
 #
 # It reuses setup-host.sh and install-appimage.sh, downloading them if this
 # script is run on its own (not from a checkout), so it stays a single file
 # you can download and run — or pipe:
-#   curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/install.sh | bash
 #
 # Usage:
 #   bash install.sh                 # full install (host stack + GUI)
@@ -27,9 +27,9 @@
 set -euo pipefail
 
 # --- Config / defaults -----------------------------------------------------
-OWNER_REPO="rmccann-hub/Whipper-GUI-Frontend---CD-Rip"
+OWNER_REPO="rmccann-hub/Platterpus"
 REPO_RAW="https://raw.githubusercontent.com/$OWNER_REPO/main"
-APPIMAGE_NAME="whipper-gui-x86_64.AppImage"
+APPIMAGE_NAME="platterpus-x86_64.AppImage"
 APPS_DIR="$HOME/Applications"
 
 DRY_RUN=0
@@ -42,7 +42,7 @@ IMAGE=""
 
 usage() {
     cat <<'HELP'
-install.sh — one-command installer for Whipper GUI.
+install.sh — one-command installer for Platterpus.
 
 Installs everything an end user needs:
   1. Host stack  : Distrobox + the `ripping` container + whipper + flac,
@@ -61,7 +61,7 @@ Usage:
   bash install.sh --container NAME --image IMAGE   passed to setup-host.sh
   bash install.sh --help          this message
 
-To remove everything later: use the "Uninstall Whipper GUI" shortcut, or run
+To remove everything later: use the "Uninstall Platterpus" shortcut, or run
 uninstall.sh (interactive, with options).
 HELP
 }
@@ -183,5 +183,5 @@ ia_sh="$(fetch_script install-appimage.sh)" \
 run bash "$ia_sh" "$appimage"
 
 echo
-echo "Done. Look for \"Whipper GUI\" in your application menu."
-echo "To remove it later, use the \"Uninstall Whipper GUI\" shortcut."
+echo "Done. Look for \"Platterpus\" in your application menu."
+echo "To remove it later, use the \"Uninstall Platterpus\" shortcut."

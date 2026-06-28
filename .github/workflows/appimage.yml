@@ -46,12 +46,12 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
-          chmod +x whipper-gui-x86_64.AppImage
-          ./whipper-gui-x86_64.AppImage --version
+          chmod +x platterpus-x86_64.AppImage
+          ./platterpus-x86_64.AppImage --version
 
       - name: Upload the AppImage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: whipper-gui-x86_64.AppImage
-          path: whipper-gui-x86_64.AppImage
+          name: platterpus-x86_64.AppImage
+          path: platterpus-x86_64.AppImage
           if-no-files-found: error

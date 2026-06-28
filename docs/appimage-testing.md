@@ -16,12 +16,12 @@ in each situation, including branches that don't have a published release yet.
 
 Every push to `main` runs the **AppImage** workflow. Confirm it's green in the
 **Actions** tab. To test the actual binary, open the latest `AppImage` run and
-download the `whipper-gui-x86_64.AppImage` artifact, then:
+download the `platterpus-x86_64.AppImage` artifact, then:
 
 ```bash
-chmod +x whipper-gui-x86_64.AppImage
-./whipper-gui-x86_64.AppImage --version       # quick smoke test
-bash install-appimage.sh ./whipper-gui-x86_64.AppImage   # desktop-integrate it
+chmod +x platterpus-x86_64.AppImage
+./platterpus-x86_64.AppImage --version       # quick smoke test
+bash install-appimage.sh ./platterpus-x86_64.AppImage   # desktop-integrate it
 ```
 
 ## Testing a feature branch (no release yet)
@@ -30,26 +30,26 @@ A branch won't have a published AppImage. Two ways to get one:
 
 1. **CI artifact (recommended).** Actions tab → **AppImage** workflow → **Run
    workflow** → pick your branch. When it finishes, download the
-   `whipper-gui-x86_64.AppImage` artifact from the run and test as above.
+   `platterpus-x86_64.AppImage` artifact from the run and test as above.
 2. **Build locally** from the checkout:
    ```bash
    git checkout my-branch
-   bash build/build_appimage.sh          # → whipper-gui-x86_64.AppImage
+   bash build/build_appimage.sh          # → platterpus-x86_64.AppImage
    bash install.sh --build               # build + host stack + integrate
    # or, if the host stack is already set up:
-   bash install.sh --no-host --appimage ./whipper-gui-x86_64.AppImage
+   bash install.sh --no-host --appimage ./platterpus-x86_64.AppImage
    ```
 
 ## Testing the release flow
 
-1. Bump `__version__` in `src/whipper_gui/__init__.py` and add a `CHANGELOG.md`
+1. Bump `__version__` in `src/platterpus/__init__.py` and add a `CHANGELOG.md`
    entry.
 2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
 3. Watch the **Release** workflow; confirm the GitHub Release has the AppImage,
    its `.sha256`, and the installer scripts attached.
 4. Test the published artifact as an end user would:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/install.sh | bash
    ```
 
 ## Testing the installer / uninstaller without a real machine

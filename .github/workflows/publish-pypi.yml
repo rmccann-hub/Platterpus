@@ -22,9 +22,9 @@ name: Publish to PyPI
 #
 #   PyPI → Publishing → "Add a pending publisher" (or, once the project
 #   exists, the project's Publishing tab) with:
-#     PyPI Project Name:  whipper-gui
+#     PyPI Project Name:  platterpus
 #     Owner:              rmccann-hub
-#     Repository name:    Whipper-GUI-Frontend---CD-Rip
+#     Repository name:    Platterpus
 #     Workflow name:      publish-pypi.yml
 #     Environment name:   pypi
 #

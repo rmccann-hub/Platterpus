@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.deps.manager.
+"""Tests for platterpus.deps.manager.
 
 The manager is constructed with a custom spec list and fake resolvers
 so each test isolates one orchestration path.
@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from whipper_gui.deps.checks import ProbeResult
-from whipper_gui.deps.manager import DependencyManager, DependencyReport
-from whipper_gui.deps.registry import DependencySpec, Tier
-from whipper_gui.deps.resolvers import (
+from platterpus.deps.checks import ProbeResult
+from platterpus.deps.manager import DependencyManager, DependencyReport
+from platterpus.deps.registry import DependencySpec, Tier
+from platterpus.deps.resolvers import (
     AutoInstaller,
     InstallResult,
     ManualPrompt,

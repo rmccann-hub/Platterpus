@@ -1,10 +1,10 @@
-"""Tests for whipper_gui.parsers.cd_info."""
+"""Tests for platterpus.parsers.cd_info."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from whipper_gui.parsers.cd_info import DiscInfo, parse_cd_info
+from platterpus.parsers.cd_info import DiscInfo, parse_cd_info
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

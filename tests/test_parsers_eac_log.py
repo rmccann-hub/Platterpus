@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.parsers.eac_log.
+"""Tests for platterpus.parsers.eac_log.
 
 Golden test against the committed EAC baseline (output_reference/EAC_flac/),
 plus format-sniffing and degrade-to-empty behaviour.
@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whipper_gui.parity import decode_log_bytes
-from whipper_gui.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
+from platterpus.parity import decode_log_bytes
+from platterpus.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _EAC_BASELINE = (

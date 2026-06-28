@@ -2,7 +2,7 @@
 
 Every check is exercised with a passing and a failing input via injected fakes,
 plus the orchestration, the exit-code/summary logic, the rendering helpers, the
-real-adapter composition root, and the `whipper-gui --doctor` CLI path.
+real-adapter composition root, and the `platterpus --doctor` CLI path.
 """
 
 from __future__ import annotations
@@ -10,21 +10,21 @@ from __future__ import annotations
 import urllib.error
 from types import SimpleNamespace
 
-from whipper_gui import preflight
-from whipper_gui.adapters.ctdb_client import CtdbLookupError, CtdbLookupResult
-from whipper_gui.adapters.musicbrainz_client import MusicBrainzQueryError
-from whipper_gui.adapters.whipper_backend import WhipperError
-from whipper_gui.config import Config
-from whipper_gui.deps.checks import ProbeResult
-from whipper_gui.deps.manager import DependencyManager
-from whipper_gui.deps.registry import DependencySpec, Tier
-from whipper_gui.drive_access import (
+from platterpus import preflight
+from platterpus.adapters.ctdb_client import CtdbLookupError, CtdbLookupResult
+from platterpus.adapters.musicbrainz_client import MusicBrainzQueryError
+from platterpus.adapters.whipper_backend import WhipperError
+from platterpus.config import Config
+from platterpus.deps.checks import ProbeResult
+from platterpus.deps.manager import DependencyManager
+from platterpus.deps.registry import DependencySpec, Tier
+from platterpus.drive_access import (
     SEVERITY_OK,
     SEVERITY_PERMISSION,
     DriveAccessDiagnosis,
 )
-from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.preflight import CheckResult, Status
+from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.preflight import CheckResult, Status
 
 # --- helpers / fakes -------------------------------------------------------
 
@@ -345,7 +345,7 @@ def test_check_read_offset_override_over_587_warns():
 
 
 def test_check_read_offset_whipper_conf_present():
-    from whipper_gui.offset_config import WhipperConfOffset
+    from platterpus.offset_config import WhipperConfOffset
 
     res = preflight.check_read_offset(
         Config(override_read_offset=False),
@@ -357,7 +357,7 @@ def test_check_read_offset_whipper_conf_present():
 
 
 def test_check_read_offset_conf_over_587_warns():
-    from whipper_gui.offset_config import WhipperConfOffset
+    from platterpus.offset_config import WhipperConfOffset
 
     res = preflight.check_read_offset(
         Config(override_read_offset=False),
@@ -610,19 +610,19 @@ def test_default_context_cyanrip():
     assert ctx.backend.__class__.__name__ == "CyanripImpl"
 
 
-# --- the `whipper-gui --doctor` CLI path -----------------------------------
+# --- the `platterpus --doctor` CLI path -----------------------------------
 
 
 def test_app_doctor_path_runs_and_returns_exit_code(monkeypatch, capsys):
-    from whipper_gui import app as app_module
+    from platterpus import app as app_module
 
     monkeypatch.setattr(
-        "whipper_gui.logging_setup.configure_logging", lambda *a, **k: None
+        "platterpus.logging_setup.configure_logging", lambda *a, **k: None
     )
     monkeypatch.setattr(
-        "whipper_gui.logging_setup.set_debug_logging", lambda *a, **k: None
+        "platterpus.logging_setup.set_debug_logging", lambda *a, **k: None
     )
-    monkeypatch.setattr("whipper_gui.config.load", lambda: Config())
+    monkeypatch.setattr("platterpus.config.load", lambda: Config())
     monkeypatch.setattr(
         preflight,
         "default_context",

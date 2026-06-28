@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui.adapters import flac_recompress
-from whipper_gui.adapters.flac_recompress import (
+from platterpus.adapters import flac_recompress
+from platterpus.adapters.flac_recompress import (
     RecompressResult,
     recompress_flac_files,
 )

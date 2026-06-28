@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui.adapters import transcode
-from whipper_gui.adapters.transcode import (
+from platterpus.adapters import transcode
+from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS,
     TranscodeResult,
     transcode_files,

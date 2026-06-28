@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.ui.rip_progress."""
+"""Tests for platterpus.ui.rip_progress."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ from pathlib import Path
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.ctdb.verify import CtdbVerifyResult, Verdict
-from whipper_gui.parsers.rip_log import (
+from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
+from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RipLog,
     TrackResult,
 )
-from whipper_gui.ui.rip_progress import (
+from platterpus.ui.rip_progress import (
     RipProgress,
     _ar_cell,
     _basename,

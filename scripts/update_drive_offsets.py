@@ -3,7 +3,7 @@
 
 Downloads AccurateRip's ``DriveOffsets.bin`` (or reads a local copy),
 decodes it, and writes the compressed in-code data module
-``src/whipper_gui/adapters/accuraterip_offsets_data.py``.
+``src/platterpus/adapters/accuraterip_offsets_data.py``.
 
 We bundle the list **in code** (a gzip+base64 blob), not as packaged data,
 to dodge the AppImage package-data pitfalls that already bit ``help_content``
@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Import the canonical normalizer so generated keys match runtime lookups.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from whipper_gui.adapters.accuraterip_offsets import (  # noqa: E402
+from platterpus.adapters.accuraterip_offsets import (  # noqa: E402
     normalize_drive_name,
 )
 
@@ -43,7 +43,7 @@ RECORD = 69
 OUT_PATH = (
     Path(__file__).resolve().parent.parent
     / "src"
-    / "whipper_gui"
+    / "platterpus"
     / "adapters"
     / "accuraterip_offsets_data.py"
 )

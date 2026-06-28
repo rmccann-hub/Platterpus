@@ -7,8 +7,8 @@ are exact. Cases follow the five-tier taxonomy from docs/testing.md.
 
 from __future__ import annotations
 
-from whipper_gui.parsers.cd_info import DiscInfo
-from whipper_gui.parsers.cyanrip_info import parse_cyanrip_info
+from platterpus.parsers.cd_info import DiscInfo
+from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 
 # A realistic full `-I` report (known disc, MusicBrainz enabled).
 _FULL_REPORT = """\

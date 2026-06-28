@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.host_setup_worker.
+"""Tests for platterpus.workers.host_setup_worker.
 
 The worker drives a step engine (HostSetup or HostTeardown) off the GUI
 thread, re-emitting each StepResult and the final list. Tests use a fake
@@ -11,8 +11,8 @@ from collections.abc import Callable
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.deps.step_engine import StepResult, StepStatus
-from whipper_gui.workers.host_setup_worker import HostSetupWorker
+from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.workers.host_setup_worker import HostSetupWorker
 
 
 class _FakeEngine:

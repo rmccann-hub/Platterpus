@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui import appimage_integration as ai
+from platterpus import appimage_integration as ai
 
 
 @pytest.fixture(autouse=True)
@@ -31,9 +31,9 @@ def _no_real_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_running_as_appimage_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("APPIMAGE", raising=False)
     assert ai.running_as_appimage() is False
-    monkeypatch.setenv("APPIMAGE", "/home/u/whipper-gui-x86_64.AppImage")
+    monkeypatch.setenv("APPIMAGE", "/home/u/platterpus-x86_64.AppImage")
     assert ai.running_as_appimage() is True
-    assert ai.appimage_path() == Path("/home/u/whipper-gui-x86_64.AppImage")
+    assert ai.appimage_path() == Path("/home/u/platterpus-x86_64.AppImage")
 
 
 # --- icon discovery -------------------------------------------------------
@@ -58,7 +58,7 @@ def test_find_bundled_icon_none_when_absent(tmp_path: Path) -> None:
 
 
 def _appimage(tmp_path: Path) -> Path:
-    p = tmp_path / "whipper-gui-x86_64.AppImage"
+    p = tmp_path / "platterpus-x86_64.AppImage"
     p.write_bytes(b"\x7fELF fake")
     p.chmod(0o644)  # NOT executable yet
     return p
@@ -84,7 +84,7 @@ def test_integrate_writes_desktop_entry_and_copies_icon(tmp_path: Path) -> None:
 
     text = target.read_text()
     assert f'Exec="{appimage}" %U' in text
-    assert "Name=Whipper GUI" in text
+    assert "Name=Platterpus" in text
     # Icon was copied out of the AppDir and referenced by path.
     icon_dest = icon_dir / f"{ai.DESKTOP_ID}.png"
     assert icon_dest.is_file()
@@ -96,7 +96,7 @@ def test_integrate_writes_desktop_entry_and_copies_icon(tmp_path: Path) -> None:
 
 
 def test_integrate_writes_uninstaller_menu_entry(tmp_path: Path) -> None:
-    """Integration also installs an 'Uninstall Whipper GUI' menu entry that
+    """Integration also installs an 'Uninstall Platterpus' menu entry that
     launches the app's --uninstall mode — menu only, never on the Desktop,
     and under System rather than Multimedia."""
     appimage = _appimage(tmp_path)
@@ -113,13 +113,14 @@ def test_integrate_writes_uninstaller_menu_entry(tmp_path: Path) -> None:
         refresh=lambda: None,
     )
 
-    entry = desktop_dir / f"{ai.DESKTOP_ID}-uninstall.desktop"
+    # The uninstall helper uses the plain APP_NAME slug, not the app-id.
+    entry = desktop_dir / "platterpus-uninstall.desktop"
     text = entry.read_text()
     assert f'Exec="{appimage}" --uninstall' in text
-    assert "Name=Uninstall Whipper GUI" in text
+    assert "Name=Uninstall Platterpus" in text
     assert "Categories=System;" in text
     # The Desktop folder gets the app shortcut only — no uninstaller there.
-    assert not (desktop_folder / f"{ai.DESKTOP_ID}-uninstall.desktop").exists()
+    assert not (desktop_folder / "platterpus-uninstall.desktop").exists()
 
 
 def test_integrate_writes_desktop_folder_shortcut(tmp_path: Path) -> None:
@@ -190,7 +191,7 @@ def test_is_integrated_matches_exec_path(tmp_path: Path) -> None:
 
     # A different AppImage path is NOT considered integrated (so a moved /
     # updated AppImage re-integrates rather than launching the old one).
-    other = tmp_path / "whipper-gui-OLD.AppImage"
+    other = tmp_path / "platterpus-OLD.AppImage"
     other.write_bytes(b"x")
     assert ai.is_integrated(other, desktop_dir) is False
 
@@ -203,13 +204,13 @@ def test_relocate_moves_appimage_and_returns_new_path(tmp_path: Path) -> None:
     point into Downloads (where a cleanup would delete the app)."""
     downloads = tmp_path / "Downloads"
     downloads.mkdir()
-    appimage = downloads / "whipper-gui-x86_64.AppImage"
+    appimage = downloads / "platterpus-x86_64.AppImage"
     appimage.write_bytes(b"ELF")
     applications = tmp_path / "Applications"  # doesn't exist yet — created
 
     new_path = ai.relocate_to_applications(appimage, applications_dir=applications)
 
-    assert new_path == applications / "whipper-gui-x86_64.AppImage"
+    assert new_path == applications / "platterpus-x86_64.AppImage"
     assert new_path.is_file()
     assert not appimage.exists()  # moved, not copied — no stale duplicate
 
@@ -217,7 +218,7 @@ def test_relocate_moves_appimage_and_returns_new_path(tmp_path: Path) -> None:
 def test_relocate_noop_when_already_in_applications(tmp_path: Path) -> None:
     applications = tmp_path / "Applications"
     applications.mkdir()
-    appimage = applications / "whipper-gui-x86_64.AppImage"
+    appimage = applications / "platterpus-x86_64.AppImage"
     appimage.write_bytes(b"ELF")
 
     assert ai.relocate_to_applications(appimage, applications_dir=applications) == (
@@ -229,7 +230,7 @@ def test_relocate_noop_when_already_in_applications(tmp_path: Path) -> None:
 def test_relocate_failure_keeps_original(tmp_path: Path) -> None:
     """A failed move must never lose the file or raise — integration just
     proceeds where the file already is."""
-    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
+    appimage = tmp_path / "platterpus-x86_64.AppImage"
     appimage.write_bytes(b"ELF")
     blocked = tmp_path / "not-a-dir"
     blocked.write_text("file in the way")  # mkdir(parents) will fail on this
@@ -243,9 +244,9 @@ def test_relocate_failure_keeps_original(tmp_path: Path) -> None:
 def test_is_settled_only_inside_applications_dir(tmp_path: Path) -> None:
     applications = tmp_path / "Applications"
     applications.mkdir()
-    inside = applications / "whipper-gui-x86_64.AppImage"
+    inside = applications / "platterpus-x86_64.AppImage"
     inside.write_bytes(b"x")
-    outside = tmp_path / "Downloads" / "whipper-gui-x86_64.AppImage"
+    outside = tmp_path / "Downloads" / "platterpus-x86_64.AppImage"
     outside.parent.mkdir()
     outside.write_bytes(b"x")
     assert ai.is_settled(inside, applications_dir=applications) is True
@@ -304,6 +305,6 @@ def test_mark_trusted_is_non_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ai.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(ai.subprocess, "run", forbidden_run)
 
-    ai._mark_trusted(Path("/home/u/Desktop/whipper-gui.desktop"))
+    ai._mark_trusted(Path("/home/u/Desktop/platterpus.desktop"))
 
     assert launched and launched[0][0] == "gio"

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.rip_worker.
+"""Tests for platterpus.workers.rip_worker.
 
 We drive the worker synchronously (no QThread, no event loop) — Qt
 signals are callable regardless of whether an event loop is running.
@@ -16,12 +16,12 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.whipper_backend import (
+from platterpus.adapters.whipper_backend import (
     RipHandle,
     WhipperBackend,
     WhipperError,
 )
-from whipper_gui.workers.rip_worker import (
+from platterpus.workers.rip_worker import (
     RipParameters,
     RipWorker,
     _describe_activity,
@@ -310,7 +310,7 @@ def test_metadata_param_forwarded_to_backend(
 ) -> None:
     """RipParameters.metadata (the GUI's tag snapshot) must reach the
     backend so cyanrip can be fed -a/-t."""
-    from whipper_gui.adapters.whipper_backend import RipMetadata, TrackTag
+    from platterpus.adapters.whipper_backend import RipMetadata, TrackTag
 
     meta = RipMetadata(album_title="X", tracks=(TrackTag(1, "One", "A"),))
     handle = _FakeHandle(lines=[], exit_code=0)

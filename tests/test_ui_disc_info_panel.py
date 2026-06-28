@@ -1,13 +1,13 @@
-"""Tests for whipper_gui.ui.disc_info_panel."""
+"""Tests for platterpus.ui.disc_info_panel."""
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.musicbrainz_client import ReleaseSummary
-from whipper_gui.parsers.cd_info import DiscInfo
-from whipper_gui.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
-from whipper_gui.ui.disc_info_panel import DiscInfoPanel
+from platterpus.adapters.musicbrainz_client import ReleaseSummary
+from platterpus.parsers.cd_info import DiscInfo
+from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
+from platterpus.ui.disc_info_panel import DiscInfoPanel
 
 
 def _track(number: int, *, matched: bool) -> TrackResult:

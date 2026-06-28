@@ -1,6 +1,6 @@
 # cyanrip MP3 — EAC extraction-parity proof
 
-Real Whipper-GUI **MP3-output** rip of the baseline disc (**The Police — *Every
+Real Platterpus **MP3-output** rip of the baseline disc (**The Police — *Every
 Breath You Take: The Classics***), cyanrip backend, Pioneer BDR-209D, +667
 offset, 2026-06-27. Text proof only (log + cue); no audio committed (Rule #8).
 

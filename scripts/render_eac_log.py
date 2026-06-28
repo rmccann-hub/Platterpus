@@ -24,11 +24,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from whipper_gui.eac_log_export import render_eac_style_log
-from whipper_gui.parity import decode_log_bytes
-from whipper_gui.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from whipper_gui.parsers.eac_log import looks_like_eac_log
-from whipper_gui.parsers.rip_log import RipLog, parse_rip_log
+from platterpus.eac_log_export import render_eac_style_log
+from platterpus.parity import decode_log_bytes
+from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.parsers.eac_log import looks_like_eac_log
+from platterpus.parsers.rip_log import RipLog, parse_rip_log
 
 
 def _parse_to_rip_log(text: str) -> RipLog:

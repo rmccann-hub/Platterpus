@@ -1,8 +1,12 @@
-# Whipper GUI
+<p align="center">
+  <img src="assets/platterpus-logo.svg" alt="Platterpus" width="120">
+</p>
 
-A Linux GUI front-end for the [`whipper`](https://github.com/whipper-team/whipper) audio-CD ripping CLI. Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage.
+# Platterpus
 
-> **Status: v0.2.x — public pre-release.** Implemented end-to-end with 1,000+ tests (including a full-pipeline end-to-end test) at ~92% branch coverage, and validated on real Bazzite hardware: a full 16-track rip *through the published AppImage*, with every track's Test CRC matching its Copy CRC. Highlights since v0.1.0: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed), a selectable **cyanrip backend** alongside whipper, **true in-app updates** (download → checksum-verify → self-restart), and **backend-independent cover art** from the Cover Art Archive. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/issues) for anything you hit.
+**A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`whipper`](https://github.com/whipper-team/whipper) and [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping backends and verifies every rip against AccurateRip and CTDB.
+
+> **Status: v0.2.x — public pre-release.** Implemented end-to-end with 1,000+ tests (including a full-pipeline end-to-end test) at ~92% branch coverage, and validated on real Bazzite hardware: a full 16-track rip *through the published AppImage*, with every track's Test CRC matching its Copy CRC. Highlights since v0.1.0: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed), a selectable **cyanrip backend** alongside whipper, **true in-app updates** (download → checksum-verify → self-restart), and **backend-independent cover art** from the Cover Art Archive. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -22,13 +26,13 @@ A Linux GUI front-end for the [`whipper`](https://github.com/whipper-team/whippe
 You don't need the command line. Download the GUI, double-click, and it sets
 itself up by asking a couple of questions.
 
-1. **Download** `whipper-gui-x86_64.AppImage` from the **[Releases page](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/latest)** (one file).
+1. **Download** `platterpus-x86_64.AppImage` from the **[Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest)** (one file).
 2. **Allow it to run** (a one-time Linux step — a downloaded program isn't
    runnable until you say so):
    - **KDE (Dolphin):** right-click the file → **Properties** → **Permissions** → tick **Is executable** → OK.
    - **GNOME (Files):** right-click → **Properties** → **Permissions** → enable **Allow executing file as program**.
 3. **Double-click it.** On first launch it will offer to:
-   - **add Whipper GUI to your applications menu** (so next time you just click it in the menu), and
+   - **add Platterpus to your applications menu** (so next time you just click it in the menu), and
    - **set up the ripping tool** — a guided wizard installs everything ripping needs (it may ask for your password once; on Bazzite/Silverblue it's instant). No terminal.
 4. Then in the app: **Tools → Set up drive…** — your drive's read offset is
    filled in automatically; click **Save offset**. Insert a CD and **Start**.
@@ -46,12 +50,12 @@ Prefer one command? This installs the *host stack* (Distrobox + whipper) **and**
 the GUI, plus shortcuts:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/install.sh | bash
 ```
 
-Prefer to download and run it yourself? Grab `install.sh` from the [Releases page](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/latest), then `bash install.sh`. Useful flags: `--dry-run` (preview), `--no-host` (GUI only, host stack already set up), `--appimage PATH` (use a local AppImage). First run takes ~20–40 min because it builds the container.
+Prefer to download and run it yourself? Grab `install.sh` from the [Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest), then `bash install.sh`. Useful flags: `--dry-run` (preview), `--no-host` (GUI only, host stack already set up), `--appimage PATH` (use a local AppImage). First run takes ~20–40 min because it builds the container.
 
-Then, inside the GUI: **Tools → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Whipper GUI** shortcut (or see [Uninstalling](#uninstalling)).
+Then, inside the GUI: **Tools → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Platterpus** shortcut (or see [Uninstalling](#uninstalling)).
 
 > **Already have whipper + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
 
@@ -84,7 +88,7 @@ The rest of this section is the long form — read it if the quickstart hits a s
 bash setup-host.sh
 
 # …or straight from the web (no clone needed first):
-curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main/setup-host.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/setup-host.sh | bash
 ```
 
 Useful flags: `--dry-run` (print every command, change nothing), `--yes` (skip confirmations), `--no-gui` (host stack only). It's idempotent — safe to re-run. It does **not** calibrate your drive (do that in the GUI: **Tools → Set up drive…**) or install Picard (the GUI offers that on first run).
@@ -100,10 +104,10 @@ There are five things to set up. Plan on **20-40 minutes** the first time. Once 
 | 1 | Install Distrobox | Provides an isolated Fedora environment for whipper |
 | 2 | Create a `ripping` container | Where whipper actually lives |
 | 3 | Install whipper + flac in the container | The tools that do the ripping |
-| 4 | Export them to the host | So Whipper GUI can find them |
+| 4 | Export them to the host | So Platterpus can find them |
 | 5 | Detect your drive's read offset | One-time calibration for accurate rips |
 | 6 | Install MusicBrainz Picard *(optional)* | Manual tag editing for unknown discs |
-| 7 | Install Whipper GUI | This project |
+| 7 | Install Platterpus | This project |
 
 > **If a step doesn't behave as written:** skip to the [Troubleshooting](#troubleshooting) section near the end of this README. The common surprises — missing `pkg_resources`, missing `whipper.conf`, HTTPS clone authentication failure — all have entries there.
 
@@ -329,9 +333,9 @@ Verify:
 flatpak run org.musicbrainz.Picard --version
 ```
 
-Whipper GUI will auto-launch Picard with the rip folder when you mark a disc as Unknown Album, *if* you enable the toggle in Settings.
+Platterpus will auto-launch Picard with the rip folder when you mark a disc as Unknown Album, *if* you enable the toggle in Settings.
 
-### Step 7 — Install Whipper GUI
+### Step 7 — Install Platterpus
 
 > **Recommended: Method A (AppImage).** As of v0.1.0 it's published as a downloadable release asset — this is the simplest path for most people. Method B (`pipx` from PyPI) publishes automatically on each tagged release (Trusted Publishing); if it's not on PyPI yet, install from a checkout (see Method B). Method C runs the GUI from a source clone and is aimed at developers.
 
@@ -339,11 +343,11 @@ Pick **one** of the methods below.
 
 #### Method A — AppImage (recommended for end users)
 
-Download the latest `whipper-gui-x86_64.AppImage` from the **[Releases page](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/latest)**, then:
+Download the latest `platterpus-x86_64.AppImage` from the **[Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest)**, then:
 
 ```bash
-chmod +x whipper-gui-x86_64.AppImage
-./whipper-gui-x86_64.AppImage
+chmod +x platterpus-x86_64.AppImage
+./platterpus-x86_64.AppImage
 ```
 
 That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so there's nothing else to install on the GUI side. (You still need the host stack for ripping to work — the first-run wizard sets it up.)
@@ -352,7 +356,7 @@ That's it — the AppImage bundles Python, Qt, and the GUI's dependencies, so th
 
 **Updates:** use **Help → Check for updates…** — if a newer release exists the app downloads it in the background, verifies it against the release's published checksum, installs it to `~/Applications`, and restarts itself. (Releases also ship a `.zsync` file and the AppImage embeds standard update-information, so [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) delta updates work too, for those who use it.)
 
-> **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./whipper-gui-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
+> **On a FUSE-less host** (rare on desktop Linux, but some minimal setups): run with `APPIMAGE_EXTRACT_AND_RUN=1 ./platterpus-x86_64.AppImage`, or see [AppImage won't launch](#appimage-wont-launch) in Troubleshooting.
 
 #### Method B — pipx (recommended for technical users)
 
@@ -366,15 +370,15 @@ sudo dnf install pipx     # Fedora / Bazzite
 sudo apt install pipx     # Ubuntu / Debian
 ```
 
-Then install Whipper GUI:
+Then install Platterpus:
 
 ```bash
-pipx install whipper-gui
+pipx install platterpus
 ```
 
-> Releases publish the wheel to PyPI automatically (via Trusted Publishing on each tagged release). If `pipx install whipper-gui` can't find it yet — e.g. before the first PyPI-published release — install from a local checkout instead: `git clone …` then `pipx install .` from inside the repo.
+> Releases publish the wheel to PyPI automatically (via Trusted Publishing on each tagged release). If `pipx install platterpus` can't find it yet — e.g. before the first PyPI-published release — install from a local checkout instead: `git clone …` then `pipx install .` from inside the repo.
 
-Run with `whipper-gui` from any terminal.
+Run with `platterpus` from any terminal.
 
 #### Method C — From source (for developers)
 
@@ -383,8 +387,8 @@ Run with `whipper-gui` from any terminal.
 Clone and install:
 
 ```bash
-git clone https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git
-cd Whipper-GUI-Frontend---CD-Rip
+git clone https://github.com/rmccann-hub/Platterpus.git
+cd Platterpus
 ```
 
 The default `main` branch contains the full source — no branch switch needed.
@@ -396,7 +400,7 @@ From here you have two options.
 ```bash
 bash dev-setup.sh
 source .venv/bin/activate
-whipper-gui
+platterpus
 ```
 
 `dev-setup.sh` creates a venv, upgrades pip, and runs `pip install -e .` for you. Run it again later (after `git pull`) to refresh dependencies if anything's been added.
@@ -416,20 +420,20 @@ source .venv/bin/activate
 pip install --upgrade pip
 
 # Install the package in editable mode. From now on, anything you
-# edit in src/whipper_gui/ is picked up the next time you run the GUI.
+# edit in src/platterpus/ is picked up the next time you run the GUI.
 pip install -e .
 
 # Run the GUI. The console-script entry point lives in .venv/bin
 # (added to PATH by the `activate` line above).
-whipper-gui
+platterpus
 ```
 
 To re-enter the same environment in a future terminal session:
 
 ```bash
-cd ~/Whipper-GUI-Frontend---CD-Rip
+cd ~/Platterpus
 source .venv/bin/activate
-whipper-gui
+platterpus
 ```
 
 To leave the venv: `deactivate`.
@@ -441,7 +445,7 @@ pip install --user build "python-appimage>=1.4,<2"
 bash build/build_appimage.sh
 ```
 
-The resulting `whipper-gui-x86_64.AppImage` appears at the repo root. See [`build/python-appimage/README.md`](build/python-appimage/README.md) for details.
+The resulting `platterpus-x86_64.AppImage` appears at the repo root. See [`build/python-appimage/README.md`](build/python-appimage/README.md) for details.
 
 ---
 
@@ -583,7 +587,7 @@ See [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps" for the history.
 
 ## First run
 
-When you launch Whipper GUI for the first time:
+When you launch Platterpus for the first time:
 
 1. **Dependency check.** The GUI verifies whipper, metaflac, and Picard are reachable. If anything's missing, it pops a dialog with one of three resolutions:
    - **Auto-install** (Picard): one OK and it runs `flatpak install --user`.
@@ -630,7 +634,7 @@ Bazzite is an immutable distro — the host filesystem is read-only and `dnf` on
 Bazzite, Fedora 38+, Ubuntu 24.04+, and other distros now ship a PEP 668 marker that blocks `pip install` against the system Python. The fix is to install into a virtual environment, which Method C already does for you:
 
 ```bash
-cd Whipper-GUI-Frontend---CD-Rip
+cd Platterpus
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -640,7 +644,7 @@ If you tried `pip install -e .` without activating a venv first, no harm done �
 
 ### `git clone` fails with "Password authentication is not supported"
 
-The repository is **public**, so a plain `git clone https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip.git` needs no authentication. If you only want to *run* the GUI, you don't need to clone at all — use the AppImage from the [Releases page](https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/latest) (Method A).
+The repository is **public**, so a plain `git clone https://github.com/rmccann-hub/Platterpus.git` needs no authentication. If you only want to *run* the GUI, you don't need to clone at all — use the AppImage from the [Releases page](https://github.com/rmccann-hub/Platterpus/releases/latest) (Method A).
 
 If you plan to **push changes**, GitHub deprecated HTTPS password auth in 2021, so set up auth first — either an SSH key on your account (clone via `git@github.com:…`) or `gh auth login` (web-browser login; stores a token in your git credential helper).
 
@@ -710,13 +714,13 @@ MusicBrainz throttles unidentified queries. The GUI already sets a User-Agent at
 Most modern Linux distros have FUSE installed and AppImages just work. On Bazzite, no extra steps. If you see "AppImages require FUSE", either install FUSE or extract the AppImage:
 
 ```bash
-./whipper-gui-x86_64.AppImage --appimage-extract
+./platterpus-x86_64.AppImage --appimage-extract
 ./squashfs-root/AppRun
 ```
 
 ### The GUI launches but freezes
 
-Check the log at `~/.local/share/whipper-gui/log.txt`. The most common cause is whipper hanging on a defective disc — cancel from the GUI, eject, try a clean disc.
+Check the log at `~/.local/share/platterpus/log.txt`. The most common cause is whipper hanging on a defective disc — cancel from the GUI, eject, try a clean disc.
 
 ### `whipper offset find` says my disc isn't in AccurateRip
 
@@ -736,10 +740,10 @@ exit
 
 ## Updating
 
-### Update Whipper GUI
+### Update Platterpus
 
 - **AppImage:** download the new release, replace the old file.
-- **pipx:** `pipx upgrade whipper-gui`
+- **pipx:** `pipx upgrade platterpus`
 - **From source:** `git pull && pip install -e .`
 
 ### Update whipper or metaflac
@@ -764,7 +768,7 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Uninstalling
 
-**Easiest — no terminal:** open the app and use **Tools → Uninstall Whipper GUI…**, or click the **Uninstall Whipper GUI** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the whipper/metaflac/cyanrip commands, the `ripping` container, optionally your drive calibration (`whipper.conf`) and the AppImage file itself, and the app's own settings and logs — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `whipper-gui --uninstall`.
+**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the whipper/metaflac/cyanrip commands, the `ripping` container, optionally your drive calibration (`whipper.conf`) and the AppImage file itself, and the app's own settings and logs — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `platterpus --uninstall`.
 
 **Script alternative** (source checkouts, or if you prefer the terminal): the [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first — it also covers the dev `.venv/`, which the in-app uninstaller doesn't (a packaged app doesn't know your checkout's location). It **never** removes your ripped music or a source checkout without an explicit flag.
 
@@ -788,7 +792,7 @@ To remove the host stack fully by hand instead:
 ```bash
 distrobox rm ripping            # remove the container
 rm ~/.local/bin/whipper ~/.local/bin/metaflac ~/.local/bin/cyanrip  # host exports
-rm -rf ~/.config/whipper ~/.config/whipper-gui ~/.local/share/whipper-gui
+rm -rf ~/.config/whipper ~/.config/platterpus ~/.local/share/platterpus
 ```
 
 Your music at `~/Music/rips/` (or wherever Settings points) is never touched by any of this.
@@ -800,10 +804,10 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 | `~/.local/bin/whipper` | The Distrobox-exported wrapper. **Don't edit.** |
 | `~/.local/bin/metaflac` | Same. |
 | `~/.local/bin/cyanrip` | Same — present only if you've enabled the cyanrip backend. |
-| `~/Applications/whipper-gui-x86_64.AppImage` | The app itself, after menu integration moves it out of Downloads. |
+| `~/Applications/platterpus-x86_64.AppImage` | The app itself, after menu integration moves it out of Downloads. |
 | `~/.config/whipper/whipper.conf` | Drive offsets and cache settings. Shared with the container. |
-| `~/.config/whipper-gui/config.toml` | The GUI's own settings (output dir, templates, toggles). |
-| `~/.local/share/whipper-gui/log.txt` | GUI log file. Check here when something goes sideways. |
+| `~/.config/platterpus/config.toml` | The GUI's own settings (output dir, templates, toggles). |
+| `~/.local/share/platterpus/log.txt` | GUI log file. Check here when something goes sideways. |
 | `~/Music/rips/` *(default)* | Where rips land, under `Artist/Album/`. Configurable in Settings. |
 | `…/Artist/Album/` | The rip itself: the FLAC tracks **plus** the `.log`, `.cue`, `.m3u`, and `.toc` whipper writes next to them (confirmed on a real 16-track rip). |
 
@@ -823,8 +827,8 @@ Source documents and reference material (in `docs/`):
 - [`docs/README.md`](docs/README.md) — index of `docs/` contents, the single-source-of-truth map + rebuild-from-scratch checklist
 - [`docs/architecture.md`](docs/architecture.md) — architecture & contributor guide: layered design, patterns & lessons, extension recipes, packaging/release/security (**read before contributing code**)
 - [`docs/testing.md`](docs/testing.md) — testing strategy & standards; [`docs/test-plan.md`](docs/test-plan.md) — manual & release testing procedure
-- [`docs/whipper-gui-research-brief-v2.1.md`](docs/whipper-gui-research-brief-v2.1.md) — the canonical project brief
-- [`docs/whipper-gui-session-start.md`](docs/whipper-gui-session-start.md) — bootstrap instructions for a fresh Claude Code session (Step 0 = optional research-rerun prompt)
+- [`docs/platterpus-research-brief-v2.1.md`](docs/platterpus-research-brief-v2.1.md) — the canonical project brief
+- [`docs/platterpus-session-start.md`](docs/platterpus-session-start.md) — bootstrap instructions for a fresh Claude Code session (Step 0 = optional research-rerun prompt)
 - [`docs/log-format-comparison.md`](docs/log-format-comparison.md) — whipper-log vs EAC-log field comparison
 
 Build / dev tooling:

@@ -127,6 +127,6 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: >-
           pytest -q
-          --cov=whipper_gui
+          --cov=platterpus
           --cov-report=term-missing
           --cov-fail-under=91

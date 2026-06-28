@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.update_worker.
+"""Tests for platterpus.workers.update_worker.
 
 Both workers are QObjects driven synchronously (no real QThread/event
 loop) — same approach as test_mb_worker. The network/install layer is
@@ -12,9 +12,9 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui import update_install as install_module
-from whipper_gui.workers import update_worker
-from whipper_gui.workers.update_worker import UpdateCheckWorker, UpdateInstallWorker
+from platterpus import update_install as install_module
+from platterpus.workers import update_worker
+from platterpus.workers.update_worker import UpdateCheckWorker, UpdateInstallWorker
 
 # `qapp` fixture comes from tests/conftest.py (workers need a QApplication
 # for their signals), same as the other worker tests.
@@ -83,7 +83,7 @@ def test_install_worker_forwards_progress_status_and_success(
         kwargs["status"]("Verifying the download…")
         kwargs["progress"](100.0)
         assert kwargs["cancelled"]() is False  # not cancelled
-        return f"/home/u/Applications/whipper-gui-{version}.AppImage"
+        return f"/home/u/Applications/platterpus-{version}.AppImage"
 
     monkeypatch.setattr(install_module, "download_and_install", fake_install)
     worker = UpdateInstallWorker("0.2.6")
@@ -94,7 +94,7 @@ def test_install_worker_forwards_progress_status_and_success(
 
     assert sigs.progress == [50.0, 100.0]
     assert sigs.status == ["Verifying the download…"]
-    assert sigs.finished == [(True, "/home/u/Applications/whipper-gui-0.2.6.AppImage")]
+    assert sigs.finished == [(True, "/home/u/Applications/platterpus-0.2.6.AppImage")]
 
 
 def test_install_worker_reports_install_error_as_failure(
@@ -144,7 +144,7 @@ def test_install_worker_cancel_flag_is_observed(
 
     def fake_install(version: str, **kwargs: Any) -> str:
         observed.append(kwargs["cancelled"]())
-        return "/x/whipper-gui.AppImage"
+        return "/x/platterpus.AppImage"
 
     monkeypatch.setattr(install_module, "download_and_install", fake_install)
     worker = UpdateInstallWorker("0.2.6")

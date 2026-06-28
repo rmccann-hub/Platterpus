@@ -13,7 +13,7 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from whipper_gui.adapters.accuraterip_offsets import (
+from platterpus.adapters.accuraterip_offsets import (
     OffsetDatabase,
     _load_user_csv,
     normalize_drive_name,

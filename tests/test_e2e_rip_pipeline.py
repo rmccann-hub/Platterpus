@@ -42,18 +42,18 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.musicbrainz_client import (
+from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
     ReleaseDetail,
     ReleaseSummary,
     TocSignature,
 )
-from whipper_gui.adapters.whipper_backend import DiscInfo, WhipperBackend
-from whipper_gui.config import Config
-from whipper_gui.deps.manager import DependencyManager
-from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.ui.main_window import MainWindow
-from whipper_gui.workers.rip_worker import RipParameters
+from platterpus.adapters.whipper_backend import DiscInfo, WhipperBackend
+from platterpus.config import Config
+from platterpus.deps.manager import DependencyManager
+from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.ui.main_window import MainWindow
+from platterpus.workers.rip_worker import RipParameters
 
 # A real whipper rip log so the finish handler parses a genuine fidelity
 # verdict (not a hand-faked one).
@@ -168,7 +168,7 @@ def e2e_window(qapp: QApplication, monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     # Offset is "configured" so the rip isn't blocked (patch where the rip
     # methods resolve the name — main_window_rip — per the move-the-patch rule).
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: True
     )
     # No network: the cover-art fetcher returns bytes directly. A release id
     # is present (as if the user had picked one) so cover art has a target.

@@ -72,5 +72,5 @@ real divergence to investigate), kept per the project's "store the text, documen
 the imperfection" practice — not the originally-hoped *full* bit-perfect parity,
 but strong evidence that cyanrip ≈ EAC on this disc/drive. The album name shows
 the `∶` (U+2236) look-alike because cyanrip can't take a literal colon on its
-command line; Whipper GUI ≥ 0.3.10 restores the real `:` in the FLAC **tags**
+command line; Platterpus ≥ 0.3.10 restores the real `:` in the FLAC **tags**
 after the rip (the folder name and this log keep `∶`).
