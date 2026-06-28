@@ -17,6 +17,8 @@ from whipper_gui.ui.rip_progress import (
     RipProgress,
     _ar_cell,
     _basename,
+    accuraterip_verdict,
+    ctdb_verdict_level,
     ctdb_verdict_line,
 )
 
@@ -263,6 +265,97 @@ def test_ctdb_verdict_line_other_verdicts() -> None:
     assert "database" in ctdb_verdict_line(CtdbVerifyResult(Verdict.NOT_IN_DATABASE))
     assert "flac" in ctdb_verdict_line(CtdbVerifyResult(Verdict.DECODER_UNAVAILABLE))
     assert "unavailable" in ctdb_verdict_line(CtdbVerifyResult(Verdict.LOOKUP_ERROR))
+
+
+def test_ctdb_verdict_level_tracks_trust() -> None:
+    # A hardware-validated match is green; an experimental match is amber
+    # (never green); everything else is neutral grey.
+    assert (
+        ctdb_verdict_level(
+            CtdbVerifyResult(Verdict.MATCH, confidence=8, crc_validated=True)
+        )
+        == "ok"
+    )
+    assert ctdb_verdict_level(CtdbVerifyResult(Verdict.MATCH, confidence=8)) == "warn"
+    assert ctdb_verdict_level(CtdbVerifyResult(Verdict.NO_MATCH)) == "neutral"
+    assert ctdb_verdict_level(CtdbVerifyResult(Verdict.NOT_IN_DATABASE)) == "neutral"
+
+
+# --- AccurateRip verdict banner ------------------------------------------
+
+
+def _ar(version: int, confidence: int | None, result: str = "Found, exact match"):
+    return AccurateRipResult(version=version, result=result, confidence=confidence)
+
+
+def test_accuraterip_verdict_all_verified_is_ok() -> None:
+    log = RipLog(
+        tracks=(
+            _track(1, v1=_ar(1, 14), v2=_ar(2, 11)),
+            _track(2, v1=_ar(1, 5), v2=_ar(2, 3)),
+        )
+    )
+    message, level = accuraterip_verdict(log)
+    assert level == "ok"
+    assert "all 2 tracks" in message
+    # Lowest confidence across all verified tracks is surfaced (the floor).
+    assert "confidence 3+" in message
+
+
+def test_accuraterip_verdict_partial_is_warn() -> None:
+    log = RipLog(
+        tracks=(
+            _track(1, v1=_ar(1, 14)),
+            # Not in DB: confidence None on v1, no v2.
+            _track(2, v1=_ar(1, None, "Track not present in AccurateRip database")),
+        )
+    )
+    message, level = accuraterip_verdict(log)
+    assert level == "warn"
+    assert "1 of 2" in message
+
+
+def test_accuraterip_verdict_confidence_zero_is_not_a_match() -> None:
+    # A "not present" track sometimes logs confidence 0 — that is NOT a match,
+    # so it must never count toward "verified" (the honesty rule).
+    log = RipLog(tracks=(_track(1, v1=_ar(1, 0, "not present")),))
+    message, level = accuraterip_verdict(log)
+    assert level == "neutral"
+    assert "no tracks matched" in message
+
+
+def test_accuraterip_verdict_none_matched_is_neutral() -> None:
+    # Audio tracks present (Copy CRC) but none in the DB → neutral, not a
+    # failure — this is the normal CD-R case.
+    log = RipLog(tracks=(TrackResult(number=1, copy_crc="ABCD1234"),))
+    _, level = accuraterip_verdict(log)
+    assert level == "neutral"
+
+
+def test_accuraterip_verdict_empty_is_blank() -> None:
+    # No audio tracks parsed → show nothing (empty message).
+    message, _ = accuraterip_verdict(RipLog())
+    assert message == ""
+    # A pure data track (no CRC, no AR) doesn't count as audio either.
+    data_only = RipLog(tracks=(TrackResult(number=1, status="data track (skipped)"),))
+    assert accuraterip_verdict(data_only)[0] == ""
+
+
+def test_set_rip_log_shows_verdict_banner(qapp: QApplication) -> None:
+    # isHidden() reflects the explicit setVisible() intent without needing the
+    # parent shown (isVisible() is always False on an unshown widget tree).
+    widget = RipProgress()
+    assert widget._verdict_banner.isHidden() is True
+    widget.set_rip_log(RipLog(tracks=(_track(1, v1=_ar(1, 9)),)))
+    assert widget._verdict_banner.isHidden() is False
+    assert "Bit-perfect" in widget._verdict_banner.text()
+
+
+def test_set_rip_log_hides_banner_when_no_audio(qapp: QApplication) -> None:
+    widget = RipProgress()
+    widget.set_rip_log(RipLog(tracks=(_track(1, v1=_ar(1, 9)),)))  # show it first
+    widget.set_rip_log(RipLog())  # then a log with nothing to assert
+    assert widget._verdict_banner.isHidden() is True
 
 
 def test_set_ctdb_status_shows_label(qapp: QApplication) -> None:
