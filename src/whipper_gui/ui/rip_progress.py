@@ -4,7 +4,9 @@ Three panes stacked vertically:
 
   Status line + QProgressBar
   Live whipper stdout (read-only QPlainTextEdit)
+  Verification verdict banner (bold, colour-coded at-a-glance trust headline)
   AccurateRip results table (populated when the rip log lands)
+  CTDB verdict line (second, TOC-keyed verification path)
 
 The "View log" button opens the rip log file in the user's default
 text viewer via QDesktopServices.openUrl().
@@ -101,6 +103,19 @@ class RipProgress(QWidget):
         self._log_view.setMaximumBlockCount(10_000)
         root.addWidget(self._log_view, stretch=1)
 
+        # --- Verification verdict banner (at-a-glance trust) ---
+        # A single bold, colour-coded headline above the per-track table so the
+        # user sees "is this rip trustworthy?" without reading every row. Green
+        # = every audio track matched AccurateRip (bit-perfect, community-
+        # verifiable); amber = a partial match worth a look; grey = nothing to
+        # assert yet (e.g. a disc not in the database). Populated from the
+        # parsed log by set_rip_log; hidden until then. The wording NEVER over-
+        # claims — it mirrors what AccurateRip actually returned.
+        self._verdict_banner: QLabel = QLabel("", self)
+        self._verdict_banner.setWordWrap(True)
+        self._verdict_banner.setVisible(False)
+        root.addWidget(self._verdict_banner)
+
         # --- AccurateRip results table ---
         self._ar_table: QTableWidget = QTableWidget(0, len(_AR_COLUMNS), self)
         self._ar_table.setHorizontalHeaderLabels(_AR_COLUMNS)
@@ -143,6 +158,8 @@ class RipProgress(QWidget):
         self._overall_bar.setValue(0)
         self._progress_bar.setValue(0)
         self._log_view.clear()
+        self._verdict_banner.clear()
+        self._verdict_banner.setVisible(False)
         self._ar_table.setRowCount(0)
         self._ctdb_label.clear()
         self._ctdb_label.setVisible(False)
@@ -170,7 +187,15 @@ class RipProgress(QWidget):
         self._status_label.setText(text)
 
     def set_rip_log(self, rip_log: RipLog) -> None:
-        """Populate the AccurateRip table from a parsed rip log."""
+        """Populate the AccurateRip table + verdict banner from a parsed log."""
+        message, level = accuraterip_verdict(rip_log)
+        if message:
+            self._verdict_banner.setText(message)
+            self._verdict_banner.setStyleSheet(_banner_style(level))
+            self._verdict_banner.setVisible(True)
+        else:
+            self._verdict_banner.setVisible(False)
+
         tracks = rip_log.tracks
         self._ar_table.setRowCount(len(tracks))
         for row, track in enumerate(tracks):
@@ -198,6 +223,7 @@ class RipProgress(QWidget):
         a verification the algorithm can't yet stand behind.
         """
         self._ctdb_label.setText(ctdb_verdict_line(result))
+        self._ctdb_label.setStyleSheet(_banner_style(ctdb_verdict_level(result)))
         self._ctdb_label.setVisible(True)
 
     def set_log_path(self, path: Path | None) -> None:
@@ -245,6 +271,113 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
     if verdict is Verdict.DECODER_UNAVAILABLE:
         return "CTDB: not verified — install the `flac` decoder to enable this"
     return "CTDB: verification unavailable (lookup or decode error)"
+
+
+def ctdb_verdict_level(result: CtdbVerifyResult) -> str:
+    """Banner level ("ok" | "warn" | "neutral") for a CTDB verdict.
+
+    Pairs with :func:`ctdb_verdict_line` to colour the label. A *trustworthy*
+    match is green; an experimental (not-yet-hardware-validated) match is amber
+    — never green, mirroring the wording's refusal to over-claim. Everything
+    else (no match, not in DB, decoder missing, error) is neutral grey: those
+    are "couldn't confirm", not "failed".
+    """
+    verdict = result.verdict
+    if verdict is Verdict.MATCH:
+        return "ok" if result.trustworthy else "warn"
+    return "neutral"
+
+
+def _is_ar_match(ar: object) -> bool:
+    """True when an AccurateRipResult is a positive database match.
+
+    AccurateRip's *confidence* is how many submitted rips share this track's
+    CRC — a genuine match is always ≥ 1. A "not present"/"no match" track has
+    confidence ``None`` (or, in some logs, 0), so ``confidence >= 1`` is the
+    format-agnostic "this track is verified" signal that can only ever
+    under-claim, never fabricate a match (the honesty rule for the banner).
+    """
+    if ar is None:
+        return False
+    confidence = getattr(ar, "confidence", None)
+    return confidence is not None and confidence >= 1
+
+
+def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
+    """At-a-glance AccurateRip verdict: ``(message, level)``.
+
+    ``level`` is "ok" (all audio tracks verified — bit-perfect against the
+    shared AccurateRip database), "warn" (some but not all matched), or
+    "neutral" (none matched — typically a disc nobody has submitted, e.g. a
+    CD-R). An empty ``message`` means "show nothing" (no audio tracks parsed).
+
+    Pure and never-raises (reads via ``getattr``) so it accepts both the
+    whipper and cyanrip ``RipLog`` shapes and any partially-parsed log. The
+    wording never claims more than AccurateRip returned — this is the trust
+    headline, so it must be honest above all.
+    """
+    tracks = getattr(rip_log, "tracks", ()) or ()
+    # Audio tracks only: a data track has neither a Copy CRC nor an AR result.
+    audio = [
+        t
+        for t in tracks
+        if getattr(t, "copy_crc", "")
+        or _is_ar_match(getattr(t, "accuraterip_v1", None))
+        or _is_ar_match(getattr(t, "accuraterip_v2", None))
+        or getattr(t, "accuraterip_v1", None) is not None
+        or getattr(t, "accuraterip_v2", None) is not None
+    ]
+    total = len(audio)
+    if total == 0:
+        return "", "neutral"
+    verified = sum(
+        1
+        for t in audio
+        if _is_ar_match(getattr(t, "accuraterip_v1", None))
+        or _is_ar_match(getattr(t, "accuraterip_v2", None))
+    )
+    if verified == total:
+        confidences = [
+            conf
+            for t in audio
+            for conf in (
+                getattr(getattr(t, "accuraterip_v1", None), "confidence", None),
+                getattr(getattr(t, "accuraterip_v2", None), "confidence", None),
+            )
+            if conf is not None
+        ]
+        tail = f" (confidence {min(confidences)}+)" if confidences else ""
+        return (
+            f"✓ Bit-perfect: all {total} tracks verified against AccurateRip{tail}",
+            "ok",
+        )
+    if verified > 0:
+        return (
+            f"⚠ {verified} of {total} tracks verified against AccurateRip — "
+            "the rest aren't in the database or didn't match (see the table)",
+            "warn",
+        )
+    return (
+        "AccurateRip: no tracks matched the database — expected for a disc "
+        "nobody has submitted (e.g. a burned CD-R); the per-track Copy CRCs "
+        "below still prove a secure read",
+        "neutral",
+    )
+
+
+# Banner colours by level. Muted, theme-neutral hues that read on both light
+# and dark Qt palettes; the bold weight does the "look here" work.
+_BANNER_COLORS: dict[str, str] = {
+    "ok": "#1a7f37",  # green — trustworthy
+    "warn": "#9a6700",  # amber — needs a look
+    "neutral": "#57606a",  # grey — nothing to assert
+}
+
+
+def _banner_style(level: str) -> str:
+    """Qt stylesheet for a verdict label at the given level."""
+    color = _BANNER_COLORS.get(level, _BANNER_COLORS["neutral"])
+    return f"QLabel {{ color: {color}; font-weight: bold; padding: 2px; }}"
 
 
 def _basename(path: str) -> str:

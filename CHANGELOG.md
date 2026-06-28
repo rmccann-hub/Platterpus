@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **At-a-glance verification verdict banner above the results table.** A single
+  bold, colour-coded headline now summarises whether the rip is trustworthy
+  without reading every row: green "✓ Bit-perfect: all N tracks verified against
+  AccurateRip (confidence X+)" when every audio track matched the shared
+  database, amber when only some matched, grey for a disc nobody has submitted
+  (e.g. a CD-R — where the per-track Copy CRCs still prove a secure read). The
+  wording never over-claims — it only ever reports what AccurateRip actually
+  returned (a confidence of 0 / "not present" never counts as verified). The
+  CTDB result line below it is now colour-coded the same way (green only for a
+  hardware-validated match; an experimental match stays amber).
 - **Settings → "Re-rip until reads match" for damaged or marginal discs (cyanrip
   only).** Maps to cyanrip's `-Z N`: each track is re-ripped until that many reads
   produce the same checksum, so a shaky read converges to the bit-perfect result
