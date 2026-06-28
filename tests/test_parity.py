@@ -16,6 +16,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _EAC_BASELINE = (
     _REPO_ROOT / "output_reference" / "EAC_flac" / "eac_baseline_police_classics.log"
 )
+_CYANRIP_REFERENCE = (
+    _REPO_ROOT
+    / "output_reference"
+    / "cyanrip_flac"
+    / "cyanrip_flac_police_classics.log"
+)
 
 
 # --- Synthetic log builders (one per format) ------------------------------
@@ -72,6 +78,52 @@ def test_dispatch_on_the_committed_eac_baseline() -> None:
 
 def test_unknown_text_yields_empty() -> None:
     assert track_copy_crcs("nonsense\n:::\n") == {}
+
+
+# --- Committed reference-data regression guard ----------------------------
+#
+# "Make parity measurable and routine" (docs/eac-parity-investigation.md P1):
+# run the two committed REAL-disc logs through the real comparison so a silent
+# parser/parity regression — or an accidental re-encode/corruption of the
+# committed artifacts — fails loudly, with no hardware needed. The numbers
+# below are the documented ground truth for The Police — *Every Breath You
+# Take: The Classics* (cyanrip 0.9.3, BDR-209D, +667): the cyanrip rip is
+# byte-identical to the EAC baseline on 12 of 14 tracks; T3 is the
+# offset-450 near-miss and T5 is the disc's defective spot (EAC fails it too).
+# If this count or the offending tracks change, something moved — investigate.
+
+
+def test_committed_cyanrip_reference_matches_eac_baseline_12_of_14() -> None:
+    eac = decode_log_bytes(_EAC_BASELINE.read_bytes())
+    cyanrip = decode_log_bytes(_CYANRIP_REFERENCE.read_bytes())
+    report = compare_logs(eac, cyanrip)
+    assert report.total == 14
+    assert report.matched == 12
+    assert report.ok is False  # not 14/14 — T3 + T5 differ, as documented
+    differing = {t.number for t in report.tracks if not t.ok}
+    assert differing == {3, 5}
+
+
+def test_committed_eac_baseline_full_crc_vector() -> None:
+    """Pin all 14 Copy CRCs of the committed EAC baseline so a corrupted or
+    re-encoded artifact (e.g. a botched UTF-16 round-trip) fails loudly."""
+    crcs = track_copy_crcs(decode_log_bytes(_EAC_BASELINE.read_bytes()))
+    assert crcs == {
+        1: "B0D122E7",
+        2: "985AAE32",
+        3: "59D352DD",
+        4: "60D796AE",
+        5: "E0036697",
+        6: "B32769D6",
+        7: "CCBFF669",
+        8: "D723C1B0",
+        9: "6F6E4A5F",
+        10: "3A33519F",
+        11: "56BFC63D",
+        12: "D78CEAEF",
+        13: "DA6A4DAF",
+        14: "787BA2D6",
+    }
 
 
 # --- compare_logs ----------------------------------------------------------
