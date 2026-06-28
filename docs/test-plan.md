@@ -33,12 +33,12 @@ Desktop          : (KDE Plasma 6 / GNOME 46 / …)
 CPU arch         : x86_64   (the only supported arch today)
 Drive            : (vendor + model, e.g. PIONEER BD-RW BDR-209D)
 Install method   : AppImage  (or pipx / source)
-App version      : (Help → About, or `whipper-gui --version`)
+App version      : (Help → About, or `platterpus --version`)
 Container backend: podman ___  / docker ___  (distrobox list)
 ```
 
 A run is only meaningful with the **log** attached:
-`~/.local/share/whipper-gui/log.txt` (and the rip's `.log` next to the FLACs).
+`~/.local/share/platterpus/log.txt` (and the rip's `.log` next to the FLACs).
 For a hard-to-reproduce issue, turn on **Settings → Debug logging** first — it
 raises the log file to verbose DEBUG.
 
@@ -53,7 +53,7 @@ raises the log file to verbose DEBUG.
 Before inserting a disc, run the first-pass environment check:
 
 ```
-whipper-gui --doctor        # or: python scripts/preflight.py
+platterpus --doctor        # or: python scripts/preflight.py
 ```
 
 It verifies everything the rip pipeline needs *except* the disc read: the
@@ -74,22 +74,22 @@ box. Stop and file a report at the first hard failure.
 ### A1 — [ ] Uninstall to a clean slate
 From a checkout (`git pull` first so you have the latest `uninstall.sh`):
 ```bash
-cd ~/Whipper-GUI-Frontend---CD-Rip
+cd ~/Platterpus
 git pull
 bash uninstall.sh --full --yes
 ```
 *Expected:* removes the AppImage in `~/Applications`, menu/desktop entries, the
 `ripping` container, host-exported `whipper`/`metaflac`/`cyanrip`, `whipper.conf`,
 Picard, and the app's config + logs. **Never** your music. (No checkout? Use the
-app's **Tools → Uninstall Whipper GUI…** and tick the container + whipper.conf +
+app's **Tools → Uninstall Platterpus…** and tick the container + whipper.conf +
 AppImage boxes.)
 
 ### A2 — [ ] Confirm the slate is clean
 ```bash
-ls ~/Applications/whipper-gui* 2>/dev/null;            echo "---"
+ls ~/Applications/platterpus* 2>/dev/null;            echo "---"
 ls ~/.local/bin/whipper ~/.local/bin/cyanrip 2>/dev/null; echo "---"
 distrobox list | grep ripping;                          echo "---"
-ls ~/.config/whipper-gui ~/.config/whipper 2>/dev/null
+ls ~/.config/platterpus ~/.config/whipper 2>/dev/null
 ```
 *Expected:* only the `---` separators print (everything empty). Anything left →
 `rm -rf` it (e.g. a stray `~/.config/whipper/whipper.conf.bak`) and note it.
@@ -97,9 +97,9 @@ ls ~/.config/whipper-gui ~/.config/whipper 2>/dev/null
 ### A3 — [ ] Fresh install (AppImage — the end-user path)
 ```bash
 cd ~/Downloads
-wget https://github.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/releases/latest/download/whipper-gui-x86_64.AppImage
-chmod +x whipper-gui-x86_64.AppImage
-./whipper-gui-x86_64.AppImage
+wget https://github.com/rmccann-hub/Platterpus/releases/latest/download/platterpus-x86_64.AppImage
+chmod +x platterpus-x86_64.AppImage
+./platterpus-x86_64.AppImage
 ```
 *Expected:* the window appears **immediately** and **stays responsive** — no
 "Not Responding" even while the container is cold (the launch probes run off the
@@ -431,7 +431,7 @@ screenshot to the top of the README.
 1. Launch the published AppImage on Bazzite/KDE.
 2. Screenshot the main window (ideally mid-rip, track table populated, current
    track highlighted).
-3. Save to `docs/img/whipper-gui.png` and embed it near the top of `README.md`.
+3. Save to `docs/img/platterpus.png` and embed it near the top of `README.md`.
 
 **Record:** screenshot committed? `____`; any layout issues `__________`.
 
@@ -451,7 +451,7 @@ Update README Step 6 with the real behaviour.
 
 ## Test 7 — [ ] PyPI go-live (maintainer credential)
 
-**Goal:** make `pipx install whipper-gui` work from PyPI. The `publish-pypi.yml`
+**Goal:** make `pipx install platterpus` work from PyPI. The `publish-pypi.yml`
 workflow is already in place (Trusted Publishing) and is dispatched automatically
 by `release.yml` after each release (it keeps `publish-pypi.yml` as the OIDC
 entry workflow, so the publisher config in step 1 is exactly right). Note: the
@@ -460,13 +460,13 @@ step 1 is the missing piece.
 
 **Steps**
 1. On PyPI: **Publishing → add a pending publisher** with — project
-   `whipper-gui`, owner `rmccann-hub`, repository
-   `Whipper-GUI-Frontend---CD-Rip`, workflow `publish-pypi.yml`, environment
+   `platterpus`, owner `rmccann-hub`, repository
+   `Platterpus`, workflow `publish-pypi.yml`, environment
    `pypi`.
 2. Cut a release the usual way (bump `__version__`, roll `CHANGELOG.md`, dispatch
    the Release workflow — see `CLAUDE.md` *CI / release*).
 3. Watch the **Publish to PyPI** action; confirm the release on PyPI.
-4. On a clean machine: `pipx install whipper-gui` and launch `whipper-gui`.
+4. On a clean machine: `pipx install platterpus` and launch `platterpus`.
 
 **Record:** published version `____`; `pipx install` works? `____`. Then drop
 the "if it's not on PyPI yet" caveat from the README.
@@ -479,7 +479,7 @@ failure whipper's >587-offset cd-paranoia bug causes on the BDR-209D.
 
 **Steps**
 1. Settings → Ripping backend → **cyanrip (experimental)** → Save. Accept the
-   "Install cyanrip?" offer (or Tools → Set up Whipper GUI…).
+   "Install cyanrip?" offer (or Tools → Set up Platterpus…).
 2. Watch the wizard: the *cyanrip backend (in container)* step should enable the
    COPR (`barsnick/non-fed`) **inside the container only** and `dnf install
    cyanrip`; the export step should produce `~/.local/bin/cyanrip`. Record any
@@ -522,11 +522,11 @@ installed disappears; Distrobox/podman and music survive. (This is the deep
 version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 
 **Steps**
-1. Note what exists first: `ls ~/.local/bin/{whipper,metaflac,cyanrip,whipper-gui}`,
+1. Note what exists first: `ls ~/.local/bin/{whipper,metaflac,cyanrip,platterpus}`,
    `distrobox list`, the app menu entries, `~/.config/whipper{,-gui}`,
-   `~/.local/share/whipper-gui`.
-2. Launch the **Uninstall Whipper GUI** menu entry (tests `--uninstall` mode),
-   or Tools → Uninstall Whipper GUI… inside the app.
+   `~/.local/share/platterpus`.
+2. Launch the **Uninstall Platterpus** menu entry (tests `--uninstall` mode),
+   or Tools → Uninstall Platterpus… inside the app.
 3. Leave both checkboxes ticked → Uninstall → confirm. Watch the per-step log;
    record any ✗ verbatim.
 4. Verify gone: all of step 1's items, the menu entries (may need a
@@ -668,7 +668,7 @@ WAV PCM == FLAC? `____`; WavPack tags + folder cover present? `____`; MP3 tags +
 embedded cover? `____`; WAV warning shown? `____`; logs committed? `____`.
 
 **If it fails:** a missing/empty non-FLAC file → check host `ffmpeg` is present and
-on PATH (`whipper-gui --doctor` reports it); a PCM mismatch on WavPack/WAV → a real
+on PATH (`platterpus --doctor` reports it); a PCM mismatch on WavPack/WAV → a real
 transcode bug (the adapter is `adapters/transcode.py`); a missing WavPack folder
 cover → the cover-art force-save gate in `main_window_rip._on_rip_finished`.
 
@@ -683,7 +683,7 @@ Ran         : A1–A11 ✓/✗ per step  |  Part C row: ____  |  Part D rows: __
 EAC parity  : whipper CRCs match Part B baseline? ✓/✗   cyanrip? ✓/✗   (attach both .logs + EAC log)
 Cases       : Test N ✓/✗ + Record-box values
 Failures    : (step/case ID + what happened, verbatim)
-Logs        : ~/.local/share/whipper-gui/log.txt  +  the rip .log
+Logs        : ~/.local/share/platterpus/log.txt  +  the rip .log
 ```
 
 File issues at the repo's Issues page (Help → About has the link). Keep one

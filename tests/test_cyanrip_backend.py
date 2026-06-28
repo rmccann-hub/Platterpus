@@ -11,14 +11,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from whipper_gui.adapters.cyanrip_backend import (
+from platterpus.adapters.cyanrip_backend import (
     CyanripImpl,
     _escape_meta_value,
     _metadata_args,
     restore_substituted_colons,
     scheme_from_template,
 )
-from whipper_gui.adapters.whipper_backend import RipMetadata, TrackTag, WhipperError
+from platterpus.adapters.whipper_backend import RipMetadata, TrackTag, WhipperError
 
 
 class _FakeMetaflac:
@@ -62,7 +62,7 @@ def _patch_run(monkeypatch, *, stdout: str = "", stderr: str = "", raises=None):
     THAT module, and the patch must target it there (docs/testing.md §8: move
     the monkeypatch target to where the code now lives).
     """
-    import whipper_gui.adapters.whipper_backend as mod
+    import platterpus.adapters.whipper_backend as mod
 
     def fake_run(argv, **kwargs):
         if raises is not None:
@@ -332,7 +332,7 @@ def test_disc_info_runs_info_only_offline(monkeypatch: pytest.MonkeyPatch) -> No
     selected device."""
     # cyanrip's `_run` delegates to the shared run_capture in whipper_backend,
     # so the subprocess.run patch targets that module (see _patch_run).
-    import whipper_gui.adapters.whipper_backend as mod
+    import platterpus.adapters.whipper_backend as mod
 
     seen: list[list[str]] = []
 
@@ -362,7 +362,7 @@ def test_disc_info_runs_info_only_offline(monkeypatch: pytest.MonkeyPatch) -> No
 def test_disc_info_error_output_degrades_to_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from whipper_gui.parsers.cd_info import DiscInfo
+    from platterpus.parsers.cd_info import DiscInfo
 
     _patch_run(monkeypatch, stdout="Unable to read disc TOC!\n")
     assert _impl().disc_info("/dev/sr0") == DiscInfo()

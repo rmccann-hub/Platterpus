@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.adapters.whipper_backend.
+"""Tests for platterpus.adapters.whipper_backend.
 
 The adapter shells out to the real whipper binary in production, so
 these tests mock subprocess and verify the adapter constructs the right
@@ -16,8 +16,8 @@ from typing import Any
 
 import pytest
 
-from whipper_gui.adapters import whipper_backend
-from whipper_gui.adapters.whipper_backend import (
+from platterpus.adapters import whipper_backend
+from platterpus.adapters.whipper_backend import (
     RipHandle,
     WhipperBackend,
     WhipperError,
@@ -418,10 +418,10 @@ def test_rip_creates_working_and_output_dirs(
 
     Whipper does a bare os.chdir() into --working-directory and crashes
     with FileNotFoundError if it doesn't exist (T32 on a fresh
-    ~/.cache/whipper-gui)."""
+    ~/.cache/platterpus)."""
     monkeypatch.setattr(whipper_backend.subprocess, "Popen", _FakePopen)
     out_dir = tmp_path / "music" / "rips"
-    work_dir = tmp_path / "cache" / "whipper-gui"
+    work_dir = tmp_path / "cache" / "platterpus"
     assert not out_dir.exists() and not work_dir.exists()
 
     impl = WhipperHostExportedImpl(binary_path=Path("/x/whipper"), working_dir=work_dir)

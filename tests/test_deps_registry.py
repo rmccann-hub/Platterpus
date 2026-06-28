@@ -1,4 +1,4 @@
-"""Tests for the real dependency registry (whipper_gui.deps.registry.SPECS).
+"""Tests for the real dependency registry (platterpus.deps.registry.SPECS).
 
 The manager tests build synthetic specs; this pins properties of the actual
 shipped registry that the rest of the app relies on — notably that new deps
@@ -8,8 +8,8 @@ single subsystem (Critical Rule #6).
 
 from __future__ import annotations
 
-from whipper_gui.deps.checks import ProbeResult
-from whipper_gui.deps.registry import SPECS, Tier
+from platterpus.deps.checks import ProbeResult
+from platterpus.deps.registry import SPECS, Tier
 
 
 def _spec(dep_id: str):
@@ -42,7 +42,7 @@ def test_ffmpeg_probe_is_a_zero_arg_callable_returning_a_proberesult(
     # The manager calls every probe with no args; stub the underlying check so
     # this doesn't depend on a real ffmpeg being installed.
     monkeypatch.setattr(
-        "whipper_gui.deps.registry.check_ffmpeg",
+        "platterpus.deps.registry.check_ffmpeg",
         lambda: ProbeResult(
             present=True, version=(6, 1, 1), location="/usr/bin/ffmpeg"
         ),

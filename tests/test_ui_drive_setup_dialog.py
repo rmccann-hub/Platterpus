@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.ui.drive_setup_dialog.
+"""Tests for platterpus.ui.drive_setup_dialog.
 
 We don't drive a real worker thread — we construct the dialog and call
 its `_on_finished` slot directly to verify result rendering.
@@ -10,9 +10,9 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.whipper_backend import WhipperBackend
-from whipper_gui.ui.drive_setup_dialog import DriveSetupDialog, _format_result
-from whipper_gui.workers.drive_setup_worker import DriveSetupResult
+from platterpus.adapters.whipper_backend import WhipperBackend
+from platterpus.ui.drive_setup_dialog import DriveSetupDialog, _format_result
+from platterpus.workers.drive_setup_worker import DriveSetupResult
 
 
 class _StubBackend(WhipperBackend):

@@ -3,7 +3,7 @@
 #
 # The AppImage runtime sets $APPDIR to the mounted root of the bundled
 # filesystem. python-appimage installs CPython under $APPDIR/opt/python*/
-# and our console-script `whipper-gui` ends up on the bundled bin/ PATH.
+# and our console-script `platterpus` ends up on the bundled bin/ PATH.
 
 set -e
 
@@ -13,7 +13,7 @@ APPDIR="${APPDIR:-$(dirname "$0")}"
 PYTHON_BIN="$(ls "$APPDIR"/opt/python*/bin/python* 2>/dev/null | head -1)"
 
 if [ -z "$PYTHON_BIN" ]; then
-    echo "whipper-gui: could not find bundled Python interpreter" >&2
+    echo "platterpus: could not find bundled Python interpreter" >&2
     exit 1
 fi
 
@@ -45,4 +45,4 @@ fi
 
 # Run the package as a module so we get a stable entry point regardless
 # of whether the console script was installed under bin/.
-exec "$PYTHON_BIN" -m whipper_gui "$@"
+exec "$PYTHON_BIN" -m platterpus "$@"

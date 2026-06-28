@@ -11,8 +11,8 @@ import subprocess
 import threading
 from pathlib import Path
 
-from whipper_gui.adapters.flac_verify import FlacVerifyResult, verify_flac_files
-from whipper_gui.workers.flac_verify_worker import verify_rip_dir
+from platterpus.adapters.flac_verify import FlacVerifyResult, verify_flac_files
+from platterpus.workers.flac_verify_worker import verify_rip_dir
 
 # --- adapter: verify_flac_files -------------------------------------------
 

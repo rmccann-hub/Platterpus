@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Tests for whipper_gui.workers.ctdb_worker.verify_rip_dir.
+"""Tests for platterpus.workers.ctdb_worker.verify_rip_dir.
 
 verify_rip_dir is a plain off-thread function (MainWindow runs it on a daemon
 thread). Tests call it directly with an injected fake CTDB client + fake
@@ -12,14 +12,14 @@ import threading
 import zlib
 from pathlib import Path
 
-from whipper_gui.adapters.ctdb_client import (
+from platterpus.adapters.ctdb_client import (
     CTDBClient,
     CtdbEntry,
     CtdbLookupResult,
 )
-from whipper_gui.ctdb.toc import DiscToc
-from whipper_gui.ctdb.verify import Verdict
-from whipper_gui.workers.ctdb_worker import verify_rip_dir
+from platterpus.ctdb.toc import DiscToc
+from platterpus.ctdb.verify import Verdict
+from platterpus.workers.ctdb_worker import verify_rip_dir
 
 
 class _FakeClient(CTDBClient):

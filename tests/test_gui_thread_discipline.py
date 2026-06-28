@@ -3,7 +3,7 @@
 Codifies CLAUDE.md's **"never block the GUI thread"** rule as an executable
 guard so the freeze bug class can't creep back (the 2026-06-13 in-app-update
 freeze, plus the latent `gio`/`kbuildsycoca`/launch-probe freezes). No module
-under ``src/whipper_gui/ui/`` may make a *synchronous blocking* call —
+under ``src/platterpus/ui/`` may make a *synchronous blocking* call —
 ``subprocess.run``/``check_output``/``check_call``/``call``, any ``urlopen``,
 or ``time.sleep``. Blocking work belongs on a ``QObject`` worker on a
 ``QThread`` (need the result) or a fire-and-forget ``subprocess.Popen(...,
@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-_UI_DIR = Path(__file__).resolve().parents[1] / "src" / "whipper_gui" / "ui"
+_UI_DIR = Path(__file__).resolve().parents[1] / "src" / "platterpus" / "ui"
 
 # Module-qualified calls that block the calling thread until they return.
 _FORBIDDEN_QUALIFIED: set[tuple[str, str]] = {

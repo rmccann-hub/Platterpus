@@ -1,6 +1,6 @@
-# PLANNING.md — Whipper GUI Architecture and Design
+# PLANNING.md — Platterpus Architecture and Design
 
-This is the architecture document. It captures *how* the GUI is built. For *what* to build, see the brief at `docs/whipper-gui-research-brief-v2.1.md`. For *which sessions are working on which slice*, see `TASKS.md`. For *which deps are pinned and why*, see `DEPENDENCIES.md`. For *how to rebuild from scratch*, see `docs/README.md`.
+This is the architecture document. It captures *how* the GUI is built. For *what* to build, see the brief at `docs/platterpus-research-brief-v2.1.md`. For *which sessions are working on which slice*, see `TASKS.md`. For *which deps are pinned and why*, see `DEPENDENCIES.md`. For *how to rebuild from scratch*, see `docs/README.md`.
 
 This file is **living**. When an architectural decision is made or revisited, update the relevant section here. The Key Design Decisions section at the bottom is the changelog of architectural intent — future-you reads it to understand "why is it like this?"
 
@@ -11,7 +11,7 @@ This file is **living**. When an architectural decision is made or revisited, up
 Every file the project intends to create. New files added during a task should be reflected back here when the task completes.
 
 ```
-Whipper-GUI-Frontend---CD-Rip/
+Platterpus/
 ├── CLAUDE.md                            # persistent project context (locked rules)
 ├── PLANNING.md                          # this file — architecture and design
 ├── TASKS.md                             # active task checklist (P0/P1.1/P1/P2)
@@ -36,8 +36,8 @@ Whipper-GUI-Frontend---CD-Rip/
 │
 ├── docs/                                # source docs + reference material
 │   ├── README.md                        # index of docs/ contents + rebuild-from-scratch checklist
-│   ├── whipper-gui-research-brief-v2.1.md   # canonical project brief (authority on scope)
-│   ├── whipper-gui-session-start.md     # bootstrap instructions (incl. optional research-rerun prompt)
+│   ├── platterpus-research-brief-v2.1.md   # canonical project brief (authority on scope)
+│   ├── platterpus-session-start.md     # bootstrap instructions (incl. optional research-rerun prompt)
 │   ├── architecture.md                  # architecture & contributor guide (patterns, recipes, packaging)
 │   ├── log-format-comparison.md         # whipper rip log vs EAC log side-by-side (KDD-11)
 │   ├── appimage-testing.md              # how the AppImage is built + tested
@@ -57,7 +57,7 @@ Whipper-GUI-Frontend---CD-Rip/
 ├── scripts/                             # standalone (non-packaged) helper scripts
 │   ├── ctdb_verify.py                   # CTDB verify hardware-validation runner (KDD-16)
 │   ├── eac_parity.py                    # compare a rip's Copy CRCs vs an EAC baseline (uses parity.py)
-│   ├── preflight.py                     # thin CLI over src/whipper_gui/preflight.py (== `whipper-gui --doctor`)
+│   ├── preflight.py                     # thin CLI over src/platterpus/preflight.py (== `platterpus --doctor`)
 │   └── update_drive_offsets.py          # re-import AccurateRip DriveOffsets.bin (sentinel-guarded)
 │
 ├── output_reference/                    # backend×format rip proofs: committed EAC baseline + placeholders
@@ -69,8 +69,8 @@ Whipper-GUI-Frontend---CD-Rip/
 │   └── python-appimage/
 │       ├── requirements.txt             # pip deps bundled into the AppImage
 │       ├── entrypoint.sh                # executable AppRun script (needs .sh extension — T31)
-│       ├── whipper-gui.desktop          # desktop integration
-│       ├── whipper-gui.png              # committed app icon
+│       ├── platterpus.desktop          # desktop integration
+│       ├── platterpus.png              # committed app icon
 │       └── README.md                    # build-time prerequisites and gotchas
 │
 ├── tests/                               # pytest test tree (runs offscreen, no real hardware/network)
@@ -81,9 +81,9 @@ Whipper-GUI-Frontend---CD-Rip/
 │   └── fixtures/                        # whipper cd-info / drive-list / rip-log sample data (+ README)
 │
 └── src/
-    └── whipper_gui/
+    └── platterpus/
         ├── __init__.py                  # package version + metadata
-        ├── __main__.py                  # `python -m whipper_gui` entry point
+        ├── __main__.py                  # `python -m platterpus` entry point
         ├── app.py                       # QApplication construction + startup sequence
         ├── composition.py               # composition root: build adapters from config (shared by app + preflight)
         ├── config.py                    # TOML config load/save + defaults + schema
@@ -189,11 +189,11 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 ### Top-level
 
 - **`__init__.py`** — exposes package version (read by `pyproject.toml` and `--version` CLI). No runtime logic.
-- **`__main__.py`** — invoked by `python -m whipper_gui`. Imports and calls `app.main()`. Stays tiny so packaging tools and AppImage entry points have a stable target.
+- **`__main__.py`** — invoked by `python -m platterpus`. Imports and calls `app.main()`. Stays tiny so packaging tools and AppImage entry points have a stable target.
 - **`app.py`** — builds the `QApplication`, constructs the adapters via `composition` (the shared composition root), instantiates the `DependencyManager` and runs its initial check (which may show install dialogs before the main window appears), then constructs and shows the `MainWindow`. Wires logging early so any failure during startup is captured.
 - **`composition.py`** — the composition root: `build_backend(cfg)` (whipper/cyanrip selection + the host-exported-path fallback) and `build_musicbrainz_client()` plus the shared `CONTACT_URL`. Both `app.py` (the GUI) and `preflight.default_context()` (the `--doctor` diagnostic) build their adapters here, so the two can never wire them differently. Construction does no I/O. (KDD-21.)
-- **`config.py`** — pure-Python TOML config loader/saver. Reads `~/.config/whipper-gui/config.toml` via `tomllib` (stdlib in 3.11+), writes via `tomli-w`. Defines the default config dict and a schema version. Atomic writes (temp file + rename) so a crash mid-save doesn't corrupt the file.
-- **`logging_setup.py`** — configures Python's `logging` module once at startup. Rotating file handler at `~/.local/share/whipper-gui/log.txt`, plus a console handler at INFO. Project modules use `logging.getLogger(__name__)` everywhere; no module configures handlers itself.
+- **`config.py`** — pure-Python TOML config loader/saver. Reads `~/.config/platterpus/config.toml` via `tomllib` (stdlib in 3.11+), writes via `tomli-w`. Defines the default config dict and a schema version. Atomic writes (temp file + rename) so a crash mid-save doesn't corrupt the file.
+- **`logging_setup.py`** — configures Python's `logging` module once at startup. Rotating file handler at `~/.local/share/platterpus/log.txt`, plus a console handler at INFO. Project modules use `logging.getLogger(__name__)` everywhere; no module configures handlers itself.
 - **`paths.py`** — module-level constants for the user config dir, log dir, and any other path computed from `XDG_*` env vars or hard-coded fallbacks. Single source of truth so paths aren't recomputed at call sites.
 - **`offset_config.py`** — reads `whipper.conf` (and the GUI's `--offset` override) to tell whether a read offset is configured; backs the drive-setup wizard's first-run auto-offer. One shared section scanner (`_iter_conf_offsets`) + one file reader (`_read_conf_text`) feed both the "any offset set?" check and the per-drive read-out, so the two filters can't drift.
 - **`preflight.py`** — the `--doctor`/`scripts/preflight.py` checks: a no-disc, never-raise first-pass test of the rip environment (backend routing, drives, dependencies, network reachability). `default_context()` mirrors `app.py`'s composition via the shared `composition` root.
@@ -273,8 +273,8 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`settings_dialog.py`** — `SettingsDialog(QDialog)`. One unified page across backends: output/working dirs, track/disc templates, read-offset override, whipper/metaflac paths, ripper-backend toggle (whipper | cyanrip), cover art, force-overread, max-retries, keep-going, CD-R, auto-launch-Picard, auto-eject. `_apply_backend_capabilities` greys out options the selected backend doesn't support with a why+how-to-re-enable tooltip, and `to_config()` still reads disabled widgets so switching backends never loses a value. Persists through `config.py`.
 - **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers a `whipper cd rip --unknown`, applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
 - **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). Runs whipper's own `drive analyze` + `offset find` off-thread via `DriveSetupWorker` (they persist to `whipper.conf`), with a manual-offset fallback that uses the GUI's `--offset` override and a pre-filled offset when the drive model is in the bundled AccurateRip list.
-- **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when whipper is absent and on Tools → Set up Whipper GUI…. Installs the cyanrip backend too when it's the selected backend.
-- **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Whipper GUI…, also launched directly by `whipper-gui --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
+- **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when whipper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend too when it's the selected backend.
+- **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.
@@ -457,7 +457,7 @@ CLAUDE.md Critical Rule #2: `python-appimage` is the builder. `appimage-builder`
 
 - A CPython 3.11 interpreter (provided by `python-appimage`'s manylinux base).
 - All Python runtime deps from `build/python-appimage/requirements.txt` (PySide6, musicbrainzngs, tomli-w).
-- The `whipper_gui` package source.
+- The `platterpus` package source.
 - Desktop integration metadata (`.desktop` file, icon).
 
 #### What the AppImage does NOT contain
@@ -485,10 +485,10 @@ python3 -m pip install --user "python-appimage>=1.4,<2"
 python3 -m python_appimage build app \
     --python-version 3.11 \
     --linux-tag manylinux2014_x86_64 \
-    --name whipper-gui \
+    --name platterpus \
     build/python-appimage
 
-# Output: ./whipper-gui-x86_64.AppImage at repo root.
+# Output: ./platterpus-x86_64.AppImage at repo root.
 ```
 
 `build/python-appimage/requirements.txt` is the exact pip-resolvable list for the bundle (locked versions per `DEPENDENCIES.md`).
@@ -497,10 +497,10 @@ python3 -m python_appimage build app \
 
 ### Secondary: `pipx`-installable wheel
 
-`pyproject.toml` declares the package with a `whipper-gui = "whipper_gui.__main__:main"` console-script entry point. Users on distros where AppImage is awkward can do:
+`pyproject.toml` declares the package with a `platterpus = "platterpus.__main__:main"` console-script entry point. Users on distros where AppImage is awkward can do:
 
 ```
-pipx install whipper-gui
+pipx install platterpus
 ```
 
 (This requires building and uploading the wheel — out of scope for v1's "ship something runnable" milestone; the entry point is still present so `pipx install ./` from a local checkout works.)
@@ -555,7 +555,7 @@ AppImages are unsandboxed, so calling `~/.local/bin/whipper` from inside one wor
 
 ### KDD-09 — Tests live alongside the package, not inside it
 
-`tests/` at repo root, not `src/whipper_gui/tests/`. The package shipped to end-users contains no test code or fixtures. pytest discovers via `tests/` directly.
+`tests/` at repo root, not `src/platterpus/tests/`. The package shipped to end-users contains no test code or fixtures. pytest discovers via `tests/` directly.
 
 ### KDD-10 — License: GPL-3.0-only (decided 2026-05-30)
 
@@ -648,7 +648,7 @@ These are listed in TASKS.md under "P1 — EAC bit-perfect parity gaps" and shou
 
 The CUETools Database adds two capabilities beyond AccurateRip: a second cryptographic *verification* path, and — uniquely — *active parity repair* that reconstructs corrupted samples in a damaged rip from a downloaded whole-CD recovery record. Both are confirmed in scope (user request, 2026-05-30). Sequenced as two phases sharing one `CTDBClient` adapter:
 
-- **Phase 1 — verify (read-only).** *Library landed 2026-06-03* (`adapters/ctdb_client.py` + `whipper_gui/ctdb/`, with `scripts/ctdb_verify.py` and 35 unit tests). Pure-Python client (same shape as `MusicBrainzClient`): compute the disc CRC over the decoded audio, query CTDB by TOC, render confidence next to the AccurateRip result. No new system dependency; bundles in the AppImage trivially. Built **clean-room from the LGPL reference** (`gchudov/cuetools.net`) per KDD-16 — we deliberately did **not** read or port the GPL-2.0-only `python-cuetoolsdb`. This is the existing P1 "CTDB verification" item (KDD-12). **Concrete spec + open issues: [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md).** *GUI wiring landed 2026-06-17* (opt-in Settings toggle → off-thread `workers/ctdb_worker.py` → verdict under the AccurateRip table), kept behind the safety seam so a match reads **experimental** while unvalidated. Two pieces remain gated on a real CD that's in CTDB — the `toc=` wire format and the bit-exact CRC (`crc.CRC_VALIDATED=False`, fails safe); see [docs/test-plan.md](docs/test-plan.md) Test 1. Flipping `CRC_VALIDATED` after that is the only remaining step.
+- **Phase 1 — verify (read-only).** *Library landed 2026-06-03* (`adapters/ctdb_client.py` + `platterpus/ctdb/`, with `scripts/ctdb_verify.py` and 35 unit tests). Pure-Python client (same shape as `MusicBrainzClient`): compute the disc CRC over the decoded audio, query CTDB by TOC, render confidence next to the AccurateRip result. No new system dependency; bundles in the AppImage trivially. Built **clean-room from the LGPL reference** (`gchudov/cuetools.net`) per KDD-16 — we deliberately did **not** read or port the GPL-2.0-only `python-cuetoolsdb`. This is the existing P1 "CTDB verification" item (KDD-12). **Concrete spec + open issues: [docs/archive/upstream-modification-investigation.md](docs/archive/upstream-modification-investigation.md).** *GUI wiring landed 2026-06-17* (opt-in Settings toggle → off-thread `workers/ctdb_worker.py` → verdict under the AccurateRip table), kept behind the safety seam so a match reads **experimental** while unvalidated. Two pieces remain gated on a real CD that's in CTDB — the `toc=` wire format and the bit-exact CRC (`crc.CRC_VALIDATED=False`, fails safe); see [docs/test-plan.md](docs/test-plan.md) Test 1. Flipping `CRC_VALIDATED` after that is the only remaining step.
 
 - **Phase 2 — repair (parity).** Download the recovery record (~180 KB, parity is whole-CD, not per-track), reconstruct corrupted samples via erasure coding, then re-verify. **Decision: Option A — wrap the existing `ctdb-cli` tool** (`github.com/Masterisk-F/ctdb-cli`; builds with `./configure && make`), NOT a pure-Python port of `CUETools.Parity`. Rationale: this is the same "orchestrate a trusted tool, don't reimplement forensic math" thesis that made us delegate extraction to whipper rather than to libcdio directly. A Python Galois-field Reed-Solomon port would have to bit-match CUETools' format exactly — high risk for no architectural gain. **CORRECTION (2026-06-02): `ctdb-cli` is C#/.NET 10, NOT a C tool** (an earlier research note had this backwards). It is therefore **not cheap to vendor** — bundling it pulls in the .NET runtime. Re-decide bundling vs. optional-install when Phase 2 starts; see the investigation doc.
 
@@ -700,7 +700,7 @@ Decided 2026-06-04 (user-approved; this is a sanctioned evolution of the distrib
 
 **Sequencing note:** the self-integrate + self-update pieces are independent of the host wizard and can ship first; the host wizard is the larger lift and the bigger UX win.
 
-**Amendment (2026-06-10, user-requested):** the original "never hand-roll the download — delegate to AppImageUpdate" call was reversed after real-world testing: `appimageupdatetool` isn't installed on the target systems (and is awkward to install on atomic distros), so the delegate path dead-ended in a browser download, a manual file swap, and a stale menu entry. The app now updates **in-app**: `update_install.py` downloads the release asset off-thread with progress, **verifies it against the published `.sha256`**, atomically installs it over `~/Applications/whipper-gui-x86_64.AppImage`, re-integrates the menu entries, and offers to restart into the new version (launch new + close old). The zsync update-information stays embedded, so AppImageUpdate delta updates remain possible for users who have the tool. Integration also re-offers per-file now (a declined offer silences only that exact file, so updates get their shortcuts remade).
+**Amendment (2026-06-10, user-requested):** the original "never hand-roll the download — delegate to AppImageUpdate" call was reversed after real-world testing: `appimageupdatetool` isn't installed on the target systems (and is awkward to install on atomic distros), so the delegate path dead-ended in a browser download, a manual file swap, and a stale menu entry. The app now updates **in-app**: `update_install.py` downloads the release asset off-thread with progress, **verifies it against the published `.sha256`**, atomically installs it over `~/Applications/platterpus-x86_64.AppImage`, re-integrates the menu entries, and offers to restart into the new version (launch new + close old). The zsync update-information stays embedded, so AppImageUpdate delta updates remain possible for users who have the tool. Integration also re-offers per-file now (a declined offer silences only that exact file, so updates get their shortcuts remade).
 
 **Status: all three slices SHIPPED** — (a) self-integration 2026-06-05, (c) host wizard 2026-06-05 (+ cyanrip step 2026-06-09), (b) self-update 2026-06-09 (zsync update-information embedded by an appimagetool re-pack in `build_appimage.sh`; `.zsync` uploaded by release.yml; in-app Help → Check for updates… delegates to AppImageUpdate or the release page). Remaining proof is hardware/release-gated: a real delta update needs two consecutive releases with the embed (v0.2.0 → v0.3.0).
 
@@ -759,7 +759,7 @@ A whole-codebase, behaviour-preserving refactor (user-requested "complete refact
 - **Lessons (graduated so we don't repeat them):**
   - **A shared helper relocates where a name resolves — move the monkeypatch target with it.** Routing cyanrip's `_run` through `whipper_backend.run_capture` meant `subprocess.run` now resolves in `whipper_backend`, so the cyanrip tests' patch moved there too (the same rule as KDD-19 / architecture.md §5, now with a *non-mixin* example).
   - **For Qt-thread wiring, keep object *construction* at the call site and centralise only the wiring.** Passing the thread in (not creating it in the helper) is what preserved every `module.QThread` test patch — construct-in-helper would have silently bypassed them.
-  - **Running the real entry points during QA finds what the suite can't.** `whipper-gui --doctor`, run for real in the QA sweep, exposed a *pre-existing* crash (`HostSetup()` built without its required `runner` on the never-tested `host=None` path). Flagged and fixed separately (its own commit + regression test + CHANGELOG), never folded into a refactor commit — the "find a bug → stop and flag, don't silently fix inside a refactor" discipline.
+  - **Running the real entry points during QA finds what the suite can't.** `platterpus --doctor`, run for real in the QA sweep, exposed a *pre-existing* crash (`HostSetup()` built without its required `runner` on the never-tested `host=None` path). Flagged and fixed separately (its own commit + regression test + CHANGELOG), never folded into a refactor commit — the "find a bug → stop and flag, don't silently fix inside a refactor" discipline.
 
 ### KDD-22 — Multi-format output via a transcode-always model; FLAC is the master, not the only format (decided 2026-06-26)
 

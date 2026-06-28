@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Uninstall Whipper GUI from your system.
+# Uninstall Platterpus from your system.
 #
 # Default removals (safe — easily redoable with dev-setup.sh):
 #   - The .venv/ directory
-#   - GUI config at ~/.config/whipper-gui/
-#   - GUI logs at ~/.local/share/whipper-gui/
+#   - GUI config at ~/.config/platterpus/
+#   - GUI logs at ~/.local/share/platterpus/
 #
 # Optional removals (prompted interactively, or --full to enable all):
 #   - MusicBrainz Picard Flatpak
@@ -37,12 +37,12 @@ REMOVE_RIPS=0
 
 usage() {
     cat <<'HELP'
-Uninstall Whipper GUI from your system.
+Uninstall Platterpus from your system.
 
 Default removals (safe — easily redoable with dev-setup.sh):
   - The .venv/ directory
-  - GUI config at ~/.config/whipper-gui/
-  - GUI logs at ~/.local/share/whipper-gui/
+  - GUI config at ~/.config/platterpus/
+  - GUI logs at ~/.local/share/platterpus/
 
 Optional removals (prompted interactively, or --full to enable all):
   - MusicBrainz Picard Flatpak
@@ -118,7 +118,7 @@ missing() { echo "  - not present: $1"; }
 cd "$(dirname "$0")"
 REPO_ROOT="$(pwd)"
 
-echo "Whipper GUI uninstall"
+echo "Platterpus uninstall"
 echo "  Repo root: $REPO_ROOT"
 if [ "$DRY_RUN" -eq 1 ]; then
     echo "  Mode: DRY RUN (no files will be touched)"
@@ -136,18 +136,18 @@ else
     missing "$REPO_ROOT/.venv"
 fi
 
-# `whipper-gui` CLI symlink dev-setup.sh puts on PATH. Only remove it if
+# `platterpus` CLI symlink dev-setup.sh puts on PATH. Only remove it if
 # it actually points into this repo's venv (don't clobber a pipx install
 # of the same name).
-CLI_LINK="$HOME/.local/bin/whipper-gui"
-if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO_ROOT/.venv/bin/whipper-gui" ]; then
+CLI_LINK="$HOME/.local/bin/platterpus"
+if [ -L "$CLI_LINK" ] && [ "$(readlink "$CLI_LINK")" = "$REPO_ROOT/.venv/bin/platterpus" ]; then
     run rm -f "$CLI_LINK"
     removed "$CLI_LINK"
 else
     missing "$CLI_LINK"
 fi
 
-GUI_CONFIG="$HOME/.config/whipper-gui"
+GUI_CONFIG="$HOME/.config/platterpus"
 if [ -d "$GUI_CONFIG" ]; then
     run rm -rf "$GUI_CONFIG"
     removed "$GUI_CONFIG"
@@ -155,7 +155,7 @@ else
     missing "$GUI_CONFIG"
 fi
 
-GUI_LOGS="$HOME/.local/share/whipper-gui"
+GUI_LOGS="$HOME/.local/share/platterpus"
 if [ -d "$GUI_LOGS" ]; then
     run rm -rf "$GUI_LOGS"
     removed "$GUI_LOGS"
@@ -165,7 +165,7 @@ fi
 
 # Desktop launcher created by dev-setup.sh.
 DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-DESKTOP_FILE="$DESKTOP_DIR/whipper-gui.desktop"
+DESKTOP_FILE="$DESKTOP_DIR/platterpus.desktop"
 if [ -f "$DESKTOP_FILE" ]; then
     run rm -f "$DESKTOP_FILE"
     removed "$DESKTOP_FILE"
@@ -187,7 +187,7 @@ fi
 
 # The copy dev-setup.sh places on the user's Desktop.
 DESKTOP_USER_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
-DESKTOP_ICON="$DESKTOP_USER_DIR/whipper-gui.desktop"
+DESKTOP_ICON="$DESKTOP_USER_DIR/platterpus.desktop"
 if [ -f "$DESKTOP_ICON" ]; then
     run rm -f "$DESKTOP_ICON"
     removed "$DESKTOP_ICON"
@@ -200,19 +200,19 @@ fi
 # very script. Globs the versioned AppImage filename.
 APPS_DIR="$HOME/Applications"
 shopt -s nullglob
-for _app in "$APPS_DIR"/whipper-gui*.AppImage; do
+for _app in "$APPS_DIR"/platterpus*.AppImage; do
     run rm -f "$_app"
     removed "$_app"
 done
 shopt -u nullglob
 
-APP_ICON="${XDG_DATA_HOME:-$HOME/.local/share}/icons/whipper-gui.png"
+APP_ICON="${XDG_DATA_HOME:-$HOME/.local/share}/icons/platterpus.png"
 if [ -f "$APP_ICON" ]; then
     run rm -f "$APP_ICON"
     removed "$APP_ICON"
 fi
 
-UNINSTALL_DESKTOP="$DESKTOP_DIR/whipper-gui-uninstall.desktop"
+UNINSTALL_DESKTOP="$DESKTOP_DIR/platterpus-uninstall.desktop"
 if [ -f "$UNINSTALL_DESKTOP" ]; then
     run rm -f "$UNINSTALL_DESKTOP"
     removed "$UNINSTALL_DESKTOP"
@@ -220,7 +220,7 @@ fi
 
 # The staged copy of this uninstaller (deleting a running script is safe on
 # Linux — the kernel keeps the open inode until the process exits).
-STAGED_UNINSTALLER="$APPS_DIR/whipper-gui-uninstall.sh"
+STAGED_UNINSTALLER="$APPS_DIR/platterpus-uninstall.sh"
 if [ -f "$STAGED_UNINSTALLER" ]; then
     run rm -f "$STAGED_UNINSTALLER"
     removed "$STAGED_UNINSTALLER"

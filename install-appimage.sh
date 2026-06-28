@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-appimage.sh — desktop-integrate the Whipper GUI AppImage.
+# install-appimage.sh — desktop-integrate the Platterpus AppImage.
 #
 # An AppImage is a single portable binary: by design it does NOT add itself
 # to your application menu or drop a desktop icon (unlike the source install
@@ -10,17 +10,17 @@
 # pulls the icon out of the AppImage itself.
 #
 # Usage:
-#   bash install-appimage.sh [path/to/whipper-gui-x86_64.AppImage]
+#   bash install-appimage.sh [path/to/platterpus-x86_64.AppImage]
 #   bash install-appimage.sh --uninstall
 #   bash install-appimage.sh --help
 #
-# With no path, it looks for whipper-gui*.AppImage in the current directory,
+# With no path, it looks for platterpus*.AppImage in the current directory,
 # then ~/Downloads, then ~/Applications.
 
 set -euo pipefail
 
-APP_NAME="Whipper GUI"
-DESKTOP_ID="whipper-gui"
+APP_NAME="Platterpus"
+DESKTOP_ID="io.github.rmccann_hub.Platterpus"
 APPS_DIR="$HOME/Applications"
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
 DESKTOP_DIR="$DATA_DIR/applications"
@@ -29,13 +29,13 @@ DESKTOP_FILE="$DESKTOP_DIR/$DESKTOP_ID.desktop"
 ICON_FILE="$ICON_DIR/$DESKTOP_ID.png"
 USER_DESKTOP="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
 
-# The "Uninstall Whipper GUI" launcher, and the copy of the comprehensive
+# The "Uninstall Platterpus" launcher, and the copy of the comprehensive
 # uninstaller it runs. uninstall.sh is staged next to the AppImage so the
 # shortcut works even on an AppImage-only machine (no repo checkout).
-UNINSTALL_ID="whipper-gui-uninstall"
+UNINSTALL_ID="platterpus-uninstall"
 UNINSTALL_DESKTOP="$DESKTOP_DIR/$UNINSTALL_ID.desktop"
-UNINSTALL_SCRIPT="$APPS_DIR/whipper-gui-uninstall.sh"
-REPO_RAW="https://raw.githubusercontent.com/rmccann-hub/Whipper-GUI-Frontend---CD-Rip/main"
+UNINSTALL_SCRIPT="$APPS_DIR/platterpus-uninstall.sh"
+REPO_RAW="https://raw.githubusercontent.com/rmccann-hub/Platterpus/main"
 
 usage() {
     sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
@@ -58,14 +58,14 @@ do_uninstall() {
     rm -f "$DESKTOP_FILE" "$ICON_FILE" "$USER_DESKTOP/$DESKTOP_ID.desktop" \
           "$UNINSTALL_DESKTOP" "$UNINSTALL_SCRIPT"
     refresh_menu
-    echo "Removed Whipper GUI menu entry, desktop icon, icon file, and the"
+    echo "Removed Platterpus menu entry, desktop icon, icon file, and the"
     echo "uninstall shortcut. The AppImage binary itself was left untouched."
     echo "(To remove the AppImage, config, and the Distrobox/whipper stack too,"
     echo " run uninstall.sh — interactively, with options.)"
 }
 
 # Stage the comprehensive uninstaller next to the AppImage and add an
-# "Uninstall Whipper GUI" launcher that runs it in a terminal (so its
+# "Uninstall Platterpus" launcher that runs it in a terminal (so its
 # interactive options are usable). Best-effort: a missing uninstaller just
 # means no shortcut — the AppImage still installs fine.
 install_uninstall_shortcut() {
@@ -85,9 +85,9 @@ install_uninstall_shortcut() {
     cat > "$UNINSTALL_DESKTOP" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Uninstall Whipper GUI
-GenericName=Whipper GUI uninstaller
-Comment=Remove Whipper GUI (with options for the Distrobox/whipper stack)
+Name=Uninstall Platterpus
+GenericName=Platterpus uninstaller
+Comment=Remove Platterpus (with options for the Distrobox/whipper stack)
 Exec=bash "$UNINSTALL_SCRIPT"
 Icon=edit-delete
 Terminal=true
@@ -108,7 +108,7 @@ find_appimage() {
     local dir
     for dir in "$PWD" "$HOME/Downloads" "$APPS_DIR"; do
         local hit
-        hit="$(ls -1 "$dir"/whipper-gui*.AppImage 2>/dev/null | head -1 || true)"
+        hit="$(ls -1 "$dir"/platterpus*.AppImage 2>/dev/null | head -1 || true)"
         if [ -n "$hit" ]; then
             echo "$hit"
             return 0
@@ -126,9 +126,9 @@ extract_icon() {
     workdir="$(mktemp -d)"
     local got=""
     # .DirIcon is the AppImage-standard icon; the named PNG is our 512px one.
-    if ( cd "$workdir" && "$appimage" --appimage-extract whipper-gui.png ) \
-            >/dev/null 2>&1 && [ -f "$workdir/squashfs-root/whipper-gui.png" ]; then
-        got="$workdir/squashfs-root/whipper-gui.png"
+    if ( cd "$workdir" && "$appimage" --appimage-extract io.github.rmccann_hub.Platterpus.png ) \
+            >/dev/null 2>&1 && [ -f "$workdir/squashfs-root/io.github.rmccann_hub.Platterpus.png" ]; then
+        got="$workdir/squashfs-root/io.github.rmccann_hub.Platterpus.png"
     elif ( cd "$workdir" && "$appimage" --appimage-extract .DirIcon ) \
             >/dev/null 2>&1 && [ -f "$workdir/squashfs-root/.DirIcon" ]; then
         got="$workdir/squashfs-root/.DirIcon"
@@ -146,8 +146,8 @@ extract_icon() {
 do_install() {
     local src icon_value appimage
     src="$(find_appimage "${1:-}")" || {
-        echo "Couldn't find a whipper-gui*.AppImage." >&2
-        echo "Pass its path: bash install-appimage.sh /path/to/whipper-gui-x86_64.AppImage" >&2
+        echo "Couldn't find a platterpus*.AppImage." >&2
+        echo "Pass its path: bash install-appimage.sh /path/to/platterpus-x86_64.AppImage" >&2
         exit 1
     }
 

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.ui.unknown_album."""
+"""Tests for platterpus.ui.unknown_album."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
-from whipper_gui.adapters.metaflac import MetaflacAdapter, MetaflacError
-from whipper_gui.adapters.musicbrainz_client import TrackSummary
-from whipper_gui.ui import unknown_album as unknown_module
-from whipper_gui.ui.track_table import AlbumMetadata
-from whipper_gui.ui.unknown_album import (
+from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
+from platterpus.adapters.musicbrainz_client import TrackSummary
+from platterpus.ui import unknown_album as unknown_module
+from platterpus.ui.track_table import AlbumMetadata
+from platterpus.ui.unknown_album import (
     UnknownAlbumDialog,
     apply_placeholder_tags,
     apply_track_tags,

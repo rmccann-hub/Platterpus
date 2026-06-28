@@ -1,6 +1,6 @@
 # Testing strategy & standards
 
-The single, authoritative description of **how we test Whipper GUI** and the
+The single, authoritative description of **how we test Platterpus** and the
 rules every change is held to. It exists because this project's hardest bugs
 have all been the same shape: code that passes unit tests with fakes, then
 fails on real hardware / in the packaged build / on an unexpected input
@@ -203,13 +203,13 @@ tiers. "I added a happy-path test" is not done.
 pytest
 
 # Exactly what CI enforces (branch coverage + gate):
-pytest --cov=whipper_gui --cov-report=term-missing --cov-fail-under=91
+pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91
 
 # Property tests only (more examples for a deeper sweep):
 pytest tests/test_parsers_property.py --hypothesis-seed=random
 
 # Periodic test-quality audit (slow; not a CI gate). Run on a module:
-pipx run mutmut run --paths-to-mutate src/whipper_gui/parsers/
+pipx run mutmut run --paths-to-mutate src/platterpus/parsers/
 pipx run mutmut results
 ```
 

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.parsers.drive_list.
+"""Tests for platterpus.parsers.drive_list.
 
 Fixtures live in tests/fixtures/; each fixture is hand-written to match
 the format documented in whipper-team/whipper master (command/drive.py).
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui.parsers.drive_list import DriveDescriptor, parse_drive_list
+from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

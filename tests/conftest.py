@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for whipper-gui's test suite.
+"""Shared pytest fixtures for platterpus's test suite.
 
 Only one QApplication instance can exist per process. The `qapp`
 session-scoped fixture guarantees that — tests that need a Qt event

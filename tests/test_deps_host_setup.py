@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from whipper_gui.deps.host_setup import (
+from platterpus.deps.host_setup import (
     CYANRIP_COPR_REPO_CONTENT,
     CYANRIP_COPR_REPO_PATH,
     HostSetup,

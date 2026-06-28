@@ -67,21 +67,21 @@ jobs:
       # release ended up with no assets at all).
       - name: Verify update artifacts
         run: |
-          if [ ! -f whipper-gui-x86_64.AppImage.zsync ]; then
+          if [ ! -f platterpus-x86_64.AppImage.zsync ]; then
             echo "::error::.zsync missing — the update-information embed was skipped."
             echo "Check the build step's '[4/4] Embedding zsync update-information' output."
             exit 1
           fi
 
       - name: Generate checksum
-        run: sha256sum whipper-gui-x86_64.AppImage > whipper-gui-x86_64.AppImage.sha256
+        run: sha256sum platterpus-x86_64.AppImage > platterpus-x86_64.AppImage.sha256
 
       - name: Sanity-check the built AppImage
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
-          chmod +x whipper-gui-x86_64.AppImage
-          ./whipper-gui-x86_64.AppImage --version
+          chmod +x platterpus-x86_64.AppImage
+          ./platterpus-x86_64.AppImage --version
 
       - name: Publish to GitHub Release
         env:
@@ -99,15 +99,15 @@ jobs:
           # last tag; the canonical detailed notes live in CHANGELOG.md.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
-              whipper-gui-x86_64.AppImage whipper-gui-x86_64.AppImage.sha256 \
-              whipper-gui-x86_64.AppImage.zsync \
+              platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
+              platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh --clobber
           else
             gh release create "$TAG" \
-              whipper-gui-x86_64.AppImage whipper-gui-x86_64.AppImage.sha256 \
-              whipper-gui-x86_64.AppImage.zsync \
+              platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
+              platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh \
-              --title "Whipper GUI $TAG" \
+              --title "Platterpus $TAG" \
               --target "$GITHUB_SHA" \
               --generate-notes \
               $PRERELEASE

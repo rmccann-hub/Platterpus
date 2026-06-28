@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui import __version__, help_content
-from whipper_gui.ui.help_dialogs import AboutDialog, HelpDialog
+from platterpus import __version__, help_content
+from platterpus.ui.help_dialogs import AboutDialog, HelpDialog
 
 
 def test_user_guide_content_is_substantive() -> None:
@@ -19,7 +19,7 @@ def test_user_guide_content_is_substantive() -> None:
 
 def test_about_dialog_shows_version_and_paths(qapp: QApplication) -> None:
     dialog = AboutDialog(whipper_path="/home/me/.local/bin/whipper")
-    assert dialog.windowTitle() == "About Whipper GUI"
+    assert dialog.windowTitle() == "About Platterpus"
     md = AboutDialog._build_markdown("/home/me/.local/bin/whipper")
     assert __version__ in md
     assert "/home/me/.local/bin/whipper" in md
@@ -30,7 +30,7 @@ def test_about_dialog_shows_version_and_paths(qapp: QApplication) -> None:
 def test_about_dialog_constructs_without_whipper_path(qapp: QApplication) -> None:
     # Falls back to the default whipper path; must not raise.
     dialog = AboutDialog()
-    assert dialog.windowTitle() == "About Whipper GUI"
+    assert dialog.windowTitle() == "About Platterpus"
 
 
 def test_help_dialog_constructs(qapp: QApplication) -> None:

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.dependency_worker.
+"""Tests for platterpus.workers.dependency_worker.
 
 Driven synchronously (call `run()` directly) — same approach as the other
 worker tests. The DependencyManager is a fake; nothing shells out.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.workers.dependency_worker import DependencyCheckWorker
+from platterpus.workers.dependency_worker import DependencyCheckWorker
 
 # `qapp` fixture comes from tests/conftest.py (the worker's signals need a
 # QApplication), as in the other worker tests.

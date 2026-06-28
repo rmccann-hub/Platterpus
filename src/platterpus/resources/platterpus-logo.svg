@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Platterpus logo: a platypus whose round body is a CD">
+  <title>Platterpus</title>
+  <g transform="translate(-6,-16)">
+    <g transform="rotate(38 64 186)">
+      <ellipse cx="64" cy="186" rx="35" ry="22" fill="#8A4A30"/>
+      <ellipse cx="64" cy="186" rx="35" ry="22" fill="none" stroke="#6F3A26" stroke-width="2" opacity="0.5"/>
+      <line x1="40" y1="186" x2="88" y2="186" stroke="#6F3A26" stroke-width="1.5" opacity="0.4"/>
+    </g>
+    <path d="M87 206 C85 222 92 230 101 226 C110 230 117 222 115 206 Z" fill="#36454f"/>
+    <path d="M125 206 C123 222 130 230 139 226 C148 230 155 222 153 206 Z" fill="#36454f"/>
+    <circle cx="120" cy="140" r="72" fill="#A65D3F"/>
+    <path d="M72.5 106.7 A58 58 0 0 1 135 84" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity="0.20"/>
+    <path d="M86.3 111.7 A44 44 0 0 1 123.8 96.2" fill="none" stroke="#2E6B8A" stroke-width="4" stroke-linecap="round" opacity="0.30"/>
+    <circle cx="120" cy="140" r="30" fill="none" stroke="#2E6B8A" stroke-width="2.5" opacity="0.40"/>
+    <circle cx="120" cy="140" r="15" fill="#f5f5f5"/>
+    <circle cx="120" cy="140" r="15" fill="none" stroke="#36454f" stroke-width="3"/>
+    <circle cx="120" cy="140" r="8" fill="none" stroke="#708090" stroke-width="1.5" opacity="0.7"/>
+    <circle cx="171" cy="92" r="33" fill="#A65D3F"/>
+    <path d="M196 84 Q246 84 246 100 Q246 116 196 112 Q188 98 196 84 Z" fill="#3A4750"/>
+    <path d="M198 100 Q240 100 245 100" stroke="#22303A" stroke-width="2" fill="none" opacity="0.8"/>
+    <circle cx="236" cy="93" r="1.7" fill="#22303A"/>
+    <circle cx="241" cy="94" r="1.7" fill="#22303A"/>
+    <circle cx="170" cy="83" r="6.5" fill="#36454f"/>
+    <circle cx="172" cy="81" r="2" fill="#ffffff"/>
+  </g>
+</svg>

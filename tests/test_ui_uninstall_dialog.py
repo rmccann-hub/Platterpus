@@ -10,8 +10,8 @@ from __future__ import annotations
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from whipper_gui.deps.step_engine import StepResult, StepStatus
-from whipper_gui.ui.uninstall_dialog import UninstallDialog
+from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.ui.uninstall_dialog import UninstallDialog
 
 
 def _dialog(qapp: QApplication, build=None) -> UninstallDialog:

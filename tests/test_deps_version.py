@@ -1,10 +1,10 @@
-"""Tests for whipper_gui.deps.version."""
+"""Tests for platterpus.deps.version."""
 
 from __future__ import annotations
 
 import pytest
 
-from whipper_gui.deps.version import format_version, meets_minimum, parse_version
+from platterpus.deps.version import format_version, meets_minimum, parse_version
 
 # --- parse_version ---
 

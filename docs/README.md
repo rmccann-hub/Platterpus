@@ -30,8 +30,8 @@ These two files, together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.
 
 | File | What it is | Authority on |
 |---|---|---|
-| [`whipper-gui-research-brief-v2.1.md`](whipper-gui-research-brief-v2.1.md) | The original requirements brief — every P0/P1 feature, every constraint, every scope decision started here. | **Requirements and scope.** When PLANNING.md and the brief conflict, the brief wins on requirements; PLANNING wins on implementation. |
-| [`whipper-gui-session-start.md`](whipper-gui-session-start.md) | The bootstrap instructions a fresh Claude Code session followed to produce the initial five top-level files — and (Step 0, optional) the paste-verbatim Research-mode prompt for refreshing the tool-choice validation against the brief. | **Initial repo state + the bootstrap procedure, and how to refresh the tool-choice research.** Re-run it against a clean repo to re-derive the planning artifacts. |
+| [`platterpus-research-brief-v2.1.md`](platterpus-research-brief-v2.1.md) | The original requirements brief — every P0/P1 feature, every constraint, every scope decision started here. | **Requirements and scope.** When PLANNING.md and the brief conflict, the brief wins on requirements; PLANNING wins on implementation. |
+| [`platterpus-session-start.md`](platterpus-session-start.md) | The bootstrap instructions a fresh Claude Code session followed to produce the initial five top-level files — and (Step 0, optional) the paste-verbatim Research-mode prompt for refreshing the tool-choice validation against the brief. | **Initial repo state + the bootstrap procedure, and how to refresh the tool-choice research.** Re-run it against a clean repo to re-derive the planning artifacts. |
 
 > **About the `compass_artifact_*.md` Research validation file:** the original v1 brief produced a compass-artifact research validation in a Claude Research session; the user could not locate it when this project was bootstrapped, so the project proceeded against the brief alone (see CLAUDE.md "Companion documents"). If the session-start Step 0 rerun prompt is ever invoked, save the resulting `compass_artifact_*.md` into this directory.
 
@@ -70,11 +70,11 @@ If you needed to start over with a fresh git repository:
 
 1. **Place these files at repo root:**
    - `CLAUDE.md` (copy verbatim from the user's CLAUDE.md template — the rules section is locked)
-   - `PLANNING.md`, `TASKS.md`, `DEPENDENCIES.md`, `README.md` (produced by Claude Code Step 3 per `whipper-gui-session-start.md`)
+   - `PLANNING.md`, `TASKS.md`, `DEPENDENCIES.md`, `README.md` (produced by Claude Code Step 3 per `platterpus-session-start.md`)
 2. **Place these files in `docs/`:**
-   - `whipper-gui-research-brief-v2.1.md`
-   - `whipper-gui-session-start.md`
-3. **(Optional but recommended after 6+ months) Re-run Research validation:** follow `whipper-gui-session-start.md` **Step 0**, save the result as `docs/compass_artifact_<hash>_text_markdown.md`.
-4. **Boot a fresh Claude Code session,** attach the brief + session-start + (if present) compass artifact + CLAUDE.md, and ask it to execute `whipper-gui-session-start.md`. The session reproduces PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md from scratch and then begins executing the task list.
+   - `platterpus-research-brief-v2.1.md`
+   - `platterpus-session-start.md`
+3. **(Optional but recommended after 6+ months) Re-run Research validation:** follow `platterpus-session-start.md` **Step 0**, save the result as `docs/compass_artifact_<hash>_text_markdown.md`.
+4. **Boot a fresh Claude Code session,** attach the brief + session-start + (if present) compass artifact + CLAUDE.md, and ask it to execute `platterpus-session-start.md`. The session reproduces PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md from scratch and then begins executing the task list.
 5. **Subsequent sessions** follow CLAUDE.md as the primary instruction document, using TASKS.md to track what's next.
 </content>

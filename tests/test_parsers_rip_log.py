@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.parsers.rip_log.
+"""Tests for platterpus.parsers.rip_log.
 
 Primary fixture (`rip_log_real_whipper_0_7.log`) is whipper-team/whipper's
 own test fixture from master — i.e., a real log produced by whipper,
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui.parsers.rip_log import (
+from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RippingInfo,
     TrackResult,

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.deps.checks.
+"""Tests for platterpus.deps.checks.
 
 The probes shell out to real tools, so we test by patching `shutil.which`
 and `subprocess.run` to deterministic stubs. The shape of each
@@ -15,8 +15,8 @@ from typing import Any
 
 import pytest
 
-from whipper_gui.deps import checks
-from whipper_gui.deps.checks import (
+from platterpus.deps import checks
+from platterpus.deps.checks import (
     ProbeResult,
     check_ffmpeg,
     check_flac,

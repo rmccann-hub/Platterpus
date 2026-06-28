@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.adapters.cover_art.
+"""Tests for platterpus.adapters.cover_art.
 
 The fetcher is injectable, so nothing here touches the network; metaflac
 is replaced with a recording fake, so nothing shells out. Case taxonomy
@@ -16,8 +16,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from whipper_gui.adapters import cover_art
-from whipper_gui.adapters.metaflac import MetaflacError
+from platterpus.adapters import cover_art
+from platterpus.adapters.metaflac import MetaflacError
 
 # Minimal valid-looking magic bytes for each format CAA serves.
 _JPEG = b"\xff\xd8\xff\xe0" + b"x" * 32

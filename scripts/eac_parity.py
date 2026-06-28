@@ -26,7 +26,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from whipper_gui.parity import ParityReport, compare_logs, decode_log_bytes
+from platterpus.parity import ParityReport, compare_logs, decode_log_bytes
 
 
 def _print_report(baseline: Path, candidate: Path, report: ParityReport) -> None:

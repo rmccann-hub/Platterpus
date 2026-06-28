@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.ui.drive_picker."""
+"""Tests for platterpus.ui.drive_picker."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.whipper_backend import (
+from platterpus.adapters.whipper_backend import (
     DiscInfo,
     RipHandle,
     WhipperBackend,
     WhipperError,
 )
-from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.ui.drive_picker import DrivePicker
+from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.ui.drive_picker import DrivePicker
 
 # --- Fake backend ---------------------------------------------------------
 

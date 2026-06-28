@@ -22,12 +22,12 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from whipper_gui.parsers.cd_info import DiscInfo, parse_cd_info
-from whipper_gui.parsers.cyanrip_info import parse_cyanrip_info
-from whipper_gui.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from whipper_gui.parsers.drive_list import DriveDescriptor, parse_drive_list
-from whipper_gui.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
-from whipper_gui.parsers.rip_log import RipLog, parse_rip_log
+from platterpus.parsers.cd_info import DiscInfo, parse_cd_info
+from platterpus.parsers.cyanrip_info import parse_cyanrip_info
+from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.parsers.drive_list import DriveDescriptor, parse_drive_list
+from platterpus.parsers.eac_log import looks_like_eac_log, parse_eac_copy_crcs
+from platterpus.parsers.rip_log import RipLog, parse_rip_log
 
 # `deadline=None`: the parsers are fast, but CI runners are noisy and we
 # don't want a timing blip to fail a correctness test.

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.logging_setup.
+"""Tests for platterpus.logging_setup.
 
 configure_logging() mutates the global root logger and writes under a real
 path, so each test snapshots and restores the root logger and points the log
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui import logging_setup
+from platterpus import logging_setup
 
 
 @pytest.fixture

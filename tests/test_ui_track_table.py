@@ -1,16 +1,16 @@
-"""Tests for whipper_gui.ui.track_table."""
+"""Tests for platterpus.ui.track_table."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.musicbrainz_client import (
+from platterpus.adapters.musicbrainz_client import (
     ReleaseDetail,
     ReleaseSummary,
     TrackSummary,
 )
-from whipper_gui.ui.track_table import (
+from platterpus.ui.track_table import (
     AlbumMetadata,
     TrackTable,
     TrackTableModel,
@@ -293,7 +293,7 @@ def test_validate_rejects_blank_track_title(qapp: QApplication) -> None:
 
 
 def test_album_artist_propagates_to_track_rows(qapp) -> None:
-    from whipper_gui.ui.track_table import TrackTable
+    from platterpus.ui.track_table import TrackTable
 
     table = TrackTable()
     table.set_placeholder_tracks(3)
@@ -306,7 +306,7 @@ def test_album_artist_propagates_to_track_rows(qapp) -> None:
 
 
 def test_per_track_artist_edit_holds_after_propagation(qapp) -> None:
-    from whipper_gui.ui.track_table import _COL_ARTIST, TrackTable
+    from platterpus.ui.track_table import _COL_ARTIST, TrackTable
 
     table = TrackTable()
     table.set_placeholder_tracks(2)

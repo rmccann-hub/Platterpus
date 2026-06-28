@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui.update_install import (
+from platterpus.update_install import (
     UpdateInstallError,
     asset_url,
     download_and_install,
@@ -50,7 +50,7 @@ def _opener(payload: bytes = _PAYLOAD, sha: str | None = None):
 
     def open_url(url: str):
         if url.endswith(".sha256"):
-            return _FakeResponse(f"{digest}  whipper-gui-x86_64.AppImage\n".encode())
+            return _FakeResponse(f"{digest}  platterpus-x86_64.AppImage\n".encode())
         return _FakeResponse(payload)
 
     return open_url
@@ -58,7 +58,7 @@ def _opener(payload: bytes = _PAYLOAD, sha: str | None = None):
 
 def test_asset_url_points_at_the_release_tag() -> None:
     url = asset_url("0.2.3")
-    assert "/releases/download/v0.2.3/whipper-gui-x86_64.AppImage" in url
+    assert "/releases/download/v0.2.3/platterpus-x86_64.AppImage" in url
 
 
 def test_success_installs_atomically_and_is_executable(tmp_path: Path) -> None:
@@ -67,10 +67,10 @@ def test_success_installs_atomically_and_is_executable(tmp_path: Path) -> None:
         "0.2.3", dest_dir=tmp_path, progress=seen.append, opener=_opener()
     )
 
-    assert result == tmp_path / "whipper-gui-x86_64.AppImage"
+    assert result == tmp_path / "platterpus-x86_64.AppImage"
     assert result.read_bytes() == _PAYLOAD
     assert result.stat().st_mode & 0o111  # executable
-    assert not (tmp_path / ".whipper-gui-update.part").exists()  # no leftovers
+    assert not (tmp_path / ".platterpus-update.part").exists()  # no leftovers
     assert seen and seen[-1] == pytest.approx(100.0)  # progress reached 100%
 
 
@@ -97,7 +97,7 @@ def test_status_reports_each_phase(tmp_path: Path) -> None:
 def test_checksum_mismatch_never_installs(tmp_path: Path) -> None:
     """The integrity gate: a corrupted/tampered download is discarded and
     the existing install is untouched."""
-    existing = tmp_path / "whipper-gui-x86_64.AppImage"
+    existing = tmp_path / "platterpus-x86_64.AppImage"
     existing.write_bytes(b"the old version")
     bad = _opener(sha="0" * 64)  # plausible-looking but wrong checksum
 
@@ -105,7 +105,7 @@ def test_checksum_mismatch_never_installs(tmp_path: Path) -> None:
         download_and_install("0.2.3", dest_dir=tmp_path, opener=bad)
 
     assert existing.read_bytes() == b"the old version"  # untouched
-    assert not (tmp_path / ".whipper-gui-update.part").exists()  # cleaned up
+    assert not (tmp_path / ".platterpus-update.part").exists()  # cleaned up
 
 
 def test_malformed_published_checksum_aborts_before_download(
@@ -125,8 +125,8 @@ def test_cancel_mid_download_cleans_up(tmp_path: Path) -> None:
         download_and_install(
             "0.2.3", dest_dir=tmp_path, cancelled=lambda: True, opener=_opener()
         )
-    assert not (tmp_path / ".whipper-gui-update.part").exists()
-    assert not (tmp_path / "whipper-gui-x86_64.AppImage").exists()
+    assert not (tmp_path / ".platterpus-update.part").exists()
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
 
 def test_network_failure_raises_presentable_error(tmp_path: Path) -> None:
@@ -154,8 +154,8 @@ def test_download_stream_failure_cleans_up_and_raises(tmp_path: Path) -> None:
     with pytest.raises(UpdateInstallError, match="download failed"):
         download_and_install("0.2.3", dest_dir=tmp_path, opener=open_url)
 
-    assert not (tmp_path / ".whipper-gui-update.part").exists()
-    assert not (tmp_path / "whipper-gui-x86_64.AppImage").exists()
+    assert not (tmp_path / ".platterpus-update.part").exists()
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
 
 def test_install_swap_failure_cleans_up_and_raises(
@@ -171,8 +171,8 @@ def test_install_swap_failure_cleans_up_and_raises(
     with pytest.raises(UpdateInstallError, match="couldn't install"):
         download_and_install("0.2.3", dest_dir=tmp_path, opener=_opener())
 
-    assert not (tmp_path / ".whipper-gui-update.part").exists()
-    assert not (tmp_path / "whipper-gui-x86_64.AppImage").exists()
+    assert not (tmp_path / ".platterpus-update.part").exists()
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
 
 def test_unknown_size_reports_indeterminate_progress(tmp_path: Path) -> None:

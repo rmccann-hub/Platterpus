@@ -42,7 +42,7 @@ def test_script_exists_and_is_executable() -> None:
 def test_help_exits_zero_and_shows_usage() -> None:
     result = _run(["--help"])
     assert result.returncode == 0
-    assert "Uninstall Whipper GUI" in result.stdout
+    assert "Uninstall Platterpus" in result.stdout
     assert "--full" in result.stdout
     assert "--dry-run" in result.stdout
     assert "--remove-rips" in result.stdout

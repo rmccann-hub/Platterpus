@@ -1,10 +1,10 @@
-"""Tests for whipper_gui.offset_config."""
+"""Tests for platterpus.offset_config."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from whipper_gui.offset_config import (
+from platterpus.offset_config import (
     WhipperConfOffset,
     describe_conf_offsets,
     is_offset_configured,

@@ -1,4 +1,4 @@
-# EAC parity investigation — can Whipper GUI output be bit-identical to EAC?
+# EAC parity investigation — can Platterpus output be bit-identical to EAC?
 
 **Status:** research + plan (2026-06-27). Triggered by the maintainer's goal:
 *"this program needs to essentially output the exact same files, bit by bit, as
@@ -97,7 +97,7 @@ Stop implying byte-identical files are a goal — they're impossible across
 encoders and unnecessary. (No code.)
 
 **P1 — Make parity measurable and routine.**
-We already have `whipper_gui.parity` + `scripts/eac_parity.py` (compares per-track
+We already have `platterpus.parity` + `scripts/eac_parity.py` (compares per-track
 Copy CRC, format-agnostic). Wire a documented step / optional check that runs the
 candidate rip's log against the committed EAC baseline and reports the match
 count — so "did this rip match EAC?" is one command. (Small; mostly done.)

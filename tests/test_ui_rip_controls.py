@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.ui.rip_controls."""
+"""Tests for platterpus.ui.rip_controls."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.config import Config
-from whipper_gui.ui.rip_controls import RipControls
-from whipper_gui.workers.rip_worker import RipParameters
+from platterpus.config import Config
+from platterpus.ui.rip_controls import RipControls
+from platterpus.workers.rip_worker import RipParameters
 
 
 def _cfg() -> Config:

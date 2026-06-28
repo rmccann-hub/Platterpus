@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Tests for whipper_gui.ctdb.decode — host flac/metaflac wrappers (no real IO)."""
+"""Tests for platterpus.ctdb.decode — host flac/metaflac wrappers (no real IO)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from whipper_gui.ctdb import decode
+from platterpus.ctdb import decode
 
 
 def _completed(returncode: int, stdout: bytes = b"", stderr: bytes = b""):

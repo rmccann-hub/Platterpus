@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.ui.dialogs.manual_install.
+"""Tests for platterpus.ui.dialogs.manual_install.
 
 Construct the dialog, inspect its widget state, drive its actions
 programmatically. No real display; the conftest forces Qt's offscreen
@@ -10,9 +10,9 @@ from __future__ import annotations
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.deps.checks import ProbeResult
-from whipper_gui.deps.registry import DependencySpec, Tier
-from whipper_gui.ui.dialogs.manual_install import ManualInstallDialog
+from platterpus.deps.checks import ProbeResult
+from platterpus.deps.registry import DependencySpec, Tier
+from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 
 # --- Spec / probe factories -----------------------------------------------
 

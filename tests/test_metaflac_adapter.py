@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.adapters.metaflac.
+"""Tests for platterpus.adapters.metaflac.
 
 `metaflac` is shelled out at runtime; tests monkeypatch subprocess so
 they're hermetic and don't require a real metaflac install.
@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from whipper_gui.adapters import metaflac as metaflac_module
-from whipper_gui.adapters.metaflac import MetaflacAdapter, MetaflacError
+from platterpus.adapters import metaflac as metaflac_module
+from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
 
 
 def _ok(stdout: str = "") -> Any:

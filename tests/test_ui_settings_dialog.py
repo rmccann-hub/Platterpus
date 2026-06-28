@@ -1,11 +1,11 @@
-"""Tests for whipper_gui.ui.settings_dialog."""
+"""Tests for platterpus.ui.settings_dialog."""
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
-from whipper_gui.config import SCHEMA_VERSION, Config
-from whipper_gui.ui.settings_dialog import SettingsDialog
+from platterpus.config import SCHEMA_VERSION, Config
+from platterpus.ui.settings_dialog import SettingsDialog
 
 # --- Construction --------------------------------------------------------
 

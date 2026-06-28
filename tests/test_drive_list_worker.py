@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.drive_list_worker.
+"""Tests for platterpus.workers.drive_list_worker.
 
 Driven synchronously (call `run()` directly), with a fake backend standing in
 for the real `list_drives()` (which would shell into the container).
@@ -10,13 +10,13 @@ from typing import Any
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.whipper_backend import (
+from platterpus.adapters.whipper_backend import (
     RipHandle,
     WhipperBackend,
     WhipperError,
 )
-from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.workers.drive_list_worker import DriveListWorker
+from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.workers.drive_list_worker import DriveListWorker
 
 # `qapp` fixture from tests/conftest.py — the worker's signals need a QApplication.
 

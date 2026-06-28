@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.workers.mb_worker.
+"""Tests for platterpus.workers.mb_worker.
 
 We drive the worker synchronously without a real QThread or event loop
 — the same approach as the rip_worker tests. The MusicBrainzClient is
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.adapters.musicbrainz_client import (
+from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
     MusicBrainzQueryError,
     ReleaseDetail,
@@ -17,7 +17,7 @@ from whipper_gui.adapters.musicbrainz_client import (
     TocSignature,
     TrackSummary,
 )
-from whipper_gui.workers.mb_worker import MusicBrainzWorker
+from platterpus.workers.mb_worker import MusicBrainzWorker
 
 # `qapp` fixture comes from tests/conftest.py — see test_rip_worker.py
 # for the reason worker tests adopt the wider QApplication fixture.

@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.composition — the shared adapter composition root.
+"""Tests for platterpus.composition — the shared adapter composition root.
 
 These pin the seam that app.py and preflight.default_context() now both go
 through, so the backend selection + MB-client construction can't drift between
@@ -7,8 +7,8 @@ the GUI and the --doctor path. Construction does no I/O, so this runs offline.
 
 from __future__ import annotations
 
-from whipper_gui import composition
-from whipper_gui.config import Config
+from platterpus import composition
+from platterpus.config import Config
 
 
 def test_build_backend_defaults_to_whipper() -> None:

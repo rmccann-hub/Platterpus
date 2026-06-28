@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Tests for whipper_gui.adapters.ctdb_client — URL build + XML parse + lookup."""
+"""Tests for platterpus.adapters.ctdb_client — URL build + XML parse + lookup."""
 
 from __future__ import annotations
 
 import pytest
 
-from whipper_gui.adapters.ctdb_client import (
+from platterpus.adapters.ctdb_client import (
     CtdbHttpImpl,
     CtdbLookupError,
     CtdbLookupResult,
     parse_lookup_response,
 )
-from whipper_gui.ctdb.toc import DiscToc
+from platterpus.ctdb.toc import DiscToc
 
 _TOC = DiscToc(track_offsets=(150, 18172), leadout=295716)
 

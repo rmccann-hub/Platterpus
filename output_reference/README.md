@@ -1,6 +1,6 @@
 # `output_reference/` — rip-output baselines for EAC parity
 
-This directory holds **reference rip outputs** used to prove Whipper GUI's rips
+This directory holds **reference rip outputs** used to prove Platterpus's rips
 are correct by comparing them against a known-good baseline.
 
 **EAC is the baseline.** Exact Audio Copy is the gold standard this project is
@@ -20,7 +20,7 @@ wider community database.
 
 > **Log encoding:** EAC writes its `.log` as **UTF-16** — the logs here are stored
 > verbatim in that native encoding (the authentic artifact), and the parity
-> checker + tests decode them via `whipper_gui.parity.decode_log_bytes`.
+> checker + tests decode them via `platterpus.parity.decode_log_bytes`.
 > `.gitattributes` marks `output_reference/**/*.log` `-text` so line-ending
 > normalization can't corrupt the UTF-16. (`.cue` sheets are ASCII text.) Don't
 > "fix" a log to UTF-8 — that silently broke the checker once; the decoder, not a
@@ -79,7 +79,7 @@ therefore reuse this same extraction baseline rather than duplicating it.
    ```
    It prints a per-track PASS/FAIL table and exits 0 only on full parity. (It
    auto-detects EAC / whipper / cyanrip log formats; the comparison logic is
-   `whipper_gui.parity`.)
+   `platterpus.parity`.)
 3. When it passes, drop the backend's `.log` (and `.cue`) into the matching
    directory above, and tick the task in `TASKS.md` with the date + result
    ("14/14 Copy CRCs match EAC").

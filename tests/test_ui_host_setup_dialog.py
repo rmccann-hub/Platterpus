@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from whipper_gui.deps.step_engine import StepResult, StepStatus
-from whipper_gui.ui.host_setup_dialog import HostSetupDialog
+from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.ui.host_setup_dialog import HostSetupDialog
 
 
 class _FakeHost:

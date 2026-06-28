@@ -33,10 +33,10 @@ from PySide6.QtWidgets import QApplication, QDialog, QMenu, QMessageBox
 def test_app_main_starts_up_clean_on_the_gui_thread(
     qapp, monkeypatch: pytest.MonkeyPatch, tmp_path
 ) -> None:
-    from whipper_gui import app as app_module
-    from whipper_gui import config as config_module
-    from whipper_gui.ui.main_window import MainWindow
-    from whipper_gui.ui.main_window_deps import DependencyMixin
+    from platterpus import app as app_module
+    from platterpus import config as config_module
+    from platterpus.ui.main_window import MainWindow
+    from platterpus.ui.main_window_deps import DependencyMixin
 
     # --- Hermetic + non-polluting startup -----------------------------------
     # Fresh config in a temp dir (never touch the real ~/.config).
@@ -44,19 +44,19 @@ def test_app_main_starts_up_clean_on_the_gui_thread(
     monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "config.toml")
     # Don't reconfigure global logging (it adds persistent root handlers).
     monkeypatch.setattr(
-        "whipper_gui.logging_setup.configure_logging", lambda *a, **k: None
+        "platterpus.logging_setup.configure_logging", lambda *a, **k: None
     )
     # Stub the subprocess probe layer: every version probe "fails", so the
     # required deps (whipper, metaflac) report missing → the manual resolver
     # dialog path runs — exactly where the cross-thread bug lived — with no real
     # subprocess.
     monkeypatch.setattr(
-        "whipper_gui.deps.checks._run_version_command", lambda argv: (False, "", None)
+        "platterpus.deps.checks._run_version_command", lambda argv: (False, "", None)
     )
     # The launch drive listing must not shell out to a (possibly installed)
     # whipper that would enter the Distrobox container.
     monkeypatch.setattr(
-        "whipper_gui.adapters.whipper_backend.WhipperHostExportedImpl.list_drives",
+        "platterpus.adapters.whipper_backend.WhipperHostExportedImpl.list_drives",
         lambda self: [],
     )
     # main() installs its own excepthook; snapshot so monkeypatch restores ours.

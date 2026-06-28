@@ -1,4 +1,4 @@
-"""Tests for whipper_gui.ui.main_window.
+"""Tests for platterpus.ui.main_window.
 
 These are integration-flavored: we instantiate the real MainWindow with
 fake backends and verify the high-level signal wiring and slot behavior.
@@ -16,27 +16,27 @@ from typing import Any
 import pytest
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from whipper_gui.adapters.ctdb_client import CTDBClient, CtdbLookupResult
-from whipper_gui.adapters.metaflac import MetaflacAdapter
-from whipper_gui.adapters.musicbrainz_client import (
+from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
+from platterpus.adapters.metaflac import MetaflacAdapter
+from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
     ReleaseDetail,
     ReleaseSummary,
     TocSignature,
     TrackSummary,
 )
-from whipper_gui.adapters.whipper_backend import (
+from platterpus.adapters.whipper_backend import (
     DiscInfo,
     RipHandle,
     WhipperBackend,
 )
-from whipper_gui.config import Config
-from whipper_gui.ctdb.verify import CtdbVerifyResult, Verdict
-from whipper_gui.deps.manager import DependencyManager
-from whipper_gui.drive_access import DriveAccessDiagnosis
-from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
-from whipper_gui.ui.main_window import MainWindow, _fidelity_summary
+from platterpus.config import Config
+from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
+from platterpus.deps.manager import DependencyManager
+from platterpus.drive_access import DriveAccessDiagnosis
+from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
+from platterpus.ui.main_window import MainWindow, _fidelity_summary
 
 # --- Fakes ---------------------------------------------------------------
 
@@ -203,7 +203,7 @@ def teardown_threads(qapp: QApplication):
 
 def test_constructs_without_crashing(teardown_threads) -> None:
     window = teardown_threads()
-    assert window.windowTitle() == "Whipper GUI"
+    assert window.windowTitle() == "Platterpus"
 
 
 def test_central_widget_contains_main_widgets(teardown_threads) -> None:
@@ -378,7 +378,7 @@ def test_rip_requested_blocked_when_track_table_invalid(
     # Offset IS configured here so we exercise the track-table guard, not the
     # read-offset guard that now precedes it.
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: True
     )
 
     warnings: list[tuple[str, str]] = []
@@ -387,9 +387,9 @@ def test_rip_requested_blocked_when_track_table_invalid(
         warnings.append((title, text))
         return QMessageBox.StandardButton.Ok
 
-    monkeypatch.setattr("whipper_gui.ui.main_window.QMessageBox.warning", fake_warning)
+    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.warning", fake_warning)
 
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     params = RipParameters(
         drive="/dev/sr0",
@@ -430,10 +430,10 @@ def test_rip_requested_in_unknown_mode_skips_validation(
     window = teardown_threads(backend=backend)
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: True
     )
 
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     params = RipParameters(
         drive="/dev/sr0",
@@ -461,7 +461,7 @@ def test_rip_requested_blocked_when_no_read_offset(
     Yes opens the wizard."""
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: False
     )
     window = teardown_threads()
 
@@ -471,11 +471,11 @@ def test_rip_requested_blocked_when_no_read_offset(
         warnings.append((title, text))
         return QMessageBox.StandardButton.Yes  # "open the wizard"
 
-    monkeypatch.setattr("whipper_gui.ui.main_window.QMessageBox.warning", fake_warning)
+    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.warning", fake_warning)
     opened: list[bool] = []
     monkeypatch.setattr(window, "_on_drive_setup", lambda: opened.append(True))
 
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     window._on_rip_requested(
         RipParameters(
@@ -541,7 +541,7 @@ def test_rip_not_blocked_when_drive_offset_is_known(
     no 'set up your drive' warning."""
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: False
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: False
     )
 
     backend = _FakeBackend()
@@ -573,11 +573,11 @@ def test_rip_not_blocked_when_drive_offset_is_known(
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
     warned: list[bool] = []
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window.QMessageBox.warning",
+        "platterpus.ui.main_window.QMessageBox.warning",
         lambda *a, **k: warned.append(True),
     )
 
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     window._on_rip_requested(
         RipParameters(
@@ -607,7 +607,7 @@ def test_auto_heal_retries_as_unknown_on_no_metadata_failure(
     rip-as-unknown retry."""
     from types import SimpleNamespace
 
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     window = teardown_threads()
     # Simulate the just-finished worker reporting it needs a heal.
@@ -627,7 +627,7 @@ def test_auto_heal_retries_as_unknown_on_no_metadata_failure(
     monkeypatch.setattr(window, "_start_rip_worker", lambda p: retried.append(p))
     # The retry is deferred via QTimer.singleShot; call synchronously instead.
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window.QTimer.singleShot", lambda _ms, fn: fn()
+        "platterpus.ui.main_window.QTimer.singleShot", lambda _ms, fn: fn()
     )
 
     window._on_rip_finished(False, "")
@@ -664,7 +664,7 @@ def test_no_auto_heal_when_not_flagged(
 ) -> None:
     from types import SimpleNamespace
 
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     window = teardown_threads()
     window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
@@ -704,7 +704,7 @@ def test_dep_summary_with_no_failures_omits_failure_block(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Clean dep-check produces a minimal popup."""
-    from whipper_gui.deps.manager import DependencyReport
+    from platterpus.deps.manager import DependencyReport
 
     window = teardown_threads()
     captured: list[tuple[str, str]] = []
@@ -713,7 +713,7 @@ def test_dep_summary_with_no_failures_omits_failure_block(
         captured.append((title, text))
         return None
 
-    monkeypatch.setattr("whipper_gui.ui.main_window.QMessageBox.information", fake_info)
+    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.information", fake_info)
 
     report = DependencyReport(ok=[], missing=[], install_results=[])
     window._show_dep_summary(report)
@@ -729,10 +729,10 @@ def test_dep_summary_includes_failure_details(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Real install failures must surface in the popup, not just the log."""
-    from whipper_gui.deps.checks import ProbeResult
-    from whipper_gui.deps.manager import DependencyReport
-    from whipper_gui.deps.registry import DependencySpec, Tier
-    from whipper_gui.deps.resolvers import InstallResult
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import InstallResult
 
     spec = DependencySpec(
         dep_id="picard",
@@ -757,7 +757,7 @@ def test_dep_summary_includes_failure_details(
         captured.append((title, text))
         return None
 
-    monkeypatch.setattr("whipper_gui.ui.main_window.QMessageBox.information", fake_info)
+    monkeypatch.setattr("platterpus.ui.main_window.QMessageBox.information", fake_info)
 
     report = DependencyReport(ok=[], missing=[], install_results=[failure])
     window._show_dep_summary(report)
@@ -774,9 +774,9 @@ def test_dep_summary_stamps_installed_versions(
 ) -> None:
     """OK deps are listed with the detected version (reproducibility), and
     a probed-but-version-unknown dep renders as 'unknown'."""
-    from whipper_gui.deps.checks import ProbeResult
-    from whipper_gui.deps.manager import DependencyReport
-    from whipper_gui.deps.registry import DependencySpec, Tier
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import DependencySpec, Tier
 
     def _spec(dep_id: str, name: str) -> DependencySpec:
         return DependencySpec(
@@ -795,7 +795,7 @@ def test_dep_summary_stamps_installed_versions(
     window = teardown_threads()
     captured: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window.QMessageBox.information",
+        "platterpus.ui.main_window.QMessageBox.information",
         lambda parent, title, text: captured.append((title, text)),
     )
 
@@ -816,10 +816,10 @@ def test_dep_summary_does_not_show_user_declines_as_failures(
 ) -> None:
     """Declines are already conveyed by the dialog itself; they shouldn't
     appear in the summary as if they were errors."""
-    from whipper_gui.deps.checks import ProbeResult
-    from whipper_gui.deps.manager import DependencyReport
-    from whipper_gui.deps.registry import DependencySpec, Tier
-    from whipper_gui.deps.resolvers import InstallResult
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import InstallResult
 
     spec = DependencySpec(
         dep_id="picard",
@@ -841,7 +841,7 @@ def test_dep_summary_does_not_show_user_declines_as_failures(
     captured: list[tuple[str, str]] = []
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window.QMessageBox.information",
+        "platterpus.ui.main_window.QMessageBox.information",
         lambda parent, title, text: captured.append((title, text)) or None,
     )
 
@@ -854,9 +854,9 @@ def test_dep_summary_does_not_show_user_declines_as_failures(
 
 def _optional_missing_item(dep_id: str, **spec_kw: Any):
     """A MissingItem for an optional dep, for the install-offer tests."""
-    from whipper_gui.deps.checks import ProbeResult
-    from whipper_gui.deps.registry import DependencySpec, Tier
-    from whipper_gui.deps.resolvers import MissingItem
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import MissingItem
 
     base = dict(
         dep_id=dep_id,
@@ -885,11 +885,11 @@ def test_offer_optional_install_resolves_when_accepted(
     manager = SimpleNamespace(resolve_missing=lambda report: resolved.append(report))
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_deps.QMessageBox.question",
+        "platterpus.ui.main_window_deps.QMessageBox.question",
         lambda *a, **k: QMessageBox.StandardButton.Yes,
     )
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_deps.QMessageBox.information", lambda *a, **k: None
+        "platterpus.ui.main_window_deps.QMessageBox.information", lambda *a, **k: None
     )
     window = teardown_threads()
     window._offer_optional_install(manager, [item])
@@ -907,7 +907,7 @@ def test_offer_optional_install_skips_when_declined(
     resolved: list[Any] = []
     manager = SimpleNamespace(resolve_missing=lambda report: resolved.append(report))
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_deps.QMessageBox.question",
+        "platterpus.ui.main_window_deps.QMessageBox.question",
         lambda *a, **k: QMessageBox.StandardButton.No,
     )
     window = teardown_threads()
@@ -1024,7 +1024,7 @@ def test_fidelity_summary_cyanrip_with_errors() -> None:
 
 
 def _params(output_dir: Path, unknown: bool):
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     return RipParameters(
         drive="/dev/sr0",
@@ -1198,7 +1198,7 @@ def test_drives_unavailable_nudges_once_when_actionable(
     shown: list[DriveAccessDiagnosis] = []
     monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.diagnose_drive_access",
+        "platterpus.ui.main_window_drive.diagnose_drive_access",
         lambda **kw: _diag("permission", "sudo usermod -aG cdrom $USER"),
     )
 
@@ -1216,7 +1216,7 @@ def test_drives_unavailable_quiet_when_not_actionable(
     shown: list[DriveAccessDiagnosis] = []
     monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.diagnose_drive_access",
+        "platterpus.ui.main_window_drive.diagnose_drive_access",
         lambda **kw: _diag("no_device", None),
     )
 
@@ -1233,7 +1233,7 @@ def test_tools_diagnose_always_shows(
     shown: list[DriveAccessDiagnosis] = []
     monkeypatch.setattr(window, "_present_drive_diagnosis", shown.append)
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.diagnose_drive_access",
+        "platterpus.ui.main_window_drive.diagnose_drive_access",
         lambda **kw: _diag("no_device", None),
     )
 
@@ -1266,12 +1266,12 @@ def test_unknown_rip_folder_uses_album_fields(
     window = teardown_threads(backend=backend)
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: True
     )
     window._track_table._album_artist_edit.setText("jimmy2")
     window._track_table._album_title_edit.setText("for")
 
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     window._on_rip_requested(
         RipParameters(
@@ -1310,10 +1310,10 @@ def test_unknown_rip_folder_falls_back_when_album_blank(
     window = teardown_threads(backend=backend)
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.is_offset_configured", lambda _override: True
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _override: True
     )
     # album fields left blank
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     window._on_rip_requested(
         RipParameters(
@@ -1334,7 +1334,7 @@ def test_unknown_rip_folder_falls_back_when_album_blank(
 
 
 def test_safe_path_segment() -> None:
-    from whipper_gui.ui.main_window import _safe_path_segment
+    from platterpus.ui.main_window import _safe_path_segment
 
     assert _safe_path_segment("  jimmy2 ") == "jimmy2"
     assert _safe_path_segment("AC/DC") == "AC-DC"  # no stray subdir
@@ -1350,7 +1350,7 @@ def test_should_offer_when_unconfigured_and_not_prompted(
 ) -> None:
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+        "platterpus.ui.main_window_drive.is_offset_configured", lambda _override: False
     )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     assert window._should_offer_drive_setup() is True
@@ -1359,7 +1359,7 @@ def test_should_offer_when_unconfigured_and_not_prompted(
 def test_no_offer_when_already_prompted(teardown_threads, monkeypatch) -> None:
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+        "platterpus.ui.main_window_drive.is_offset_configured", lambda _override: False
     )
     window = teardown_threads(config=Config(drive_setup_prompted=True))
     assert window._should_offer_drive_setup() is False
@@ -1368,7 +1368,7 @@ def test_no_offer_when_already_prompted(teardown_threads, monkeypatch) -> None:
 def test_no_offer_when_offset_already_configured(teardown_threads, monkeypatch) -> None:
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True
+        "platterpus.ui.main_window_drive.is_offset_configured", lambda _override: True
     )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     assert window._should_offer_drive_setup() is False
@@ -1379,7 +1379,7 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
 ) -> None:
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+        "platterpus.ui.main_window_drive.is_offset_configured", lambda _override: False
     )
     saved: list[Config] = []
     window = teardown_threads(
@@ -1402,7 +1402,7 @@ def test_maybe_offer_records_prompt_and_launches_on_yes(
 def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: False
+        "platterpus.ui.main_window_drive.is_offset_configured", lambda _override: False
     )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     monkeypatch.setattr(
@@ -1420,7 +1420,7 @@ def test_maybe_offer_no_launch_on_no(teardown_threads, monkeypatch) -> None:
 def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> None:
 
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_drive.is_offset_configured", lambda _override: True
+        "platterpus.ui.main_window_drive.is_offset_configured", lambda _override: True
     )
     window = teardown_threads(config=Config(drive_setup_prompted=False))
     launched: list[bool] = []
@@ -1506,7 +1506,7 @@ def test_start_rip_worker_snapshots_track_table_metadata(
 ) -> None:
     """The rip params must carry the track table's album/track tags so a
     metadata-fed backend (cyanrip -a/-t) tags exactly what the user sees."""
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     window = teardown_threads()
     detail = _detail()
@@ -1533,9 +1533,9 @@ def test_start_rip_worker_snapshots_track_table_metadata(
 
         log_line = progress = status = current_track = error = finished = _Sig()
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.RipWorker", _NoopWorker)
+    monkeypatch.setattr("platterpus.ui.main_window_rip.RipWorker", _NoopWorker)
     monkeypatch.setattr(
-        "whipper_gui.ui.main_window_rip.QThread", lambda parent=None: _FakeThread()
+        "platterpus.ui.main_window_rip.QThread", lambda parent=None: _FakeThread()
     )
 
     window._start_rip_worker(
@@ -1608,8 +1608,8 @@ def test_update_result_none_reports_check_failure(
 
 
 def test_update_result_up_to_date(teardown_threads, monkeypatch) -> None:
-    from whipper_gui import __version__
-    from whipper_gui.update_check import ReleaseInfo
+    from platterpus import __version__
+    from platterpus.update_check import ReleaseInfo
 
     window = teardown_threads()
     seen: list[str] = []
@@ -1628,8 +1628,8 @@ def test_update_result_newer_without_appimage_opens_release_page(
     """Source/pipx installs can't be file-swapped → offer the download page."""
     from PySide6.QtGui import QDesktopServices
 
-    import whipper_gui.appimage_integration as ai
-    from whipper_gui.update_check import ReleaseInfo
+    import platterpus.appimage_integration as ai
+    from platterpus.update_check import ReleaseInfo
 
     window = teardown_threads()
     monkeypatch.setattr(ai, "appimage_path", lambda: None)
@@ -1653,12 +1653,12 @@ def test_update_result_newer_as_appimage_starts_builtin_install(
 ) -> None:
     """Running as an AppImage → the built-in download/verify/install flow
     (KDD-17b amendment: no external tool, no manual download)."""
-    import whipper_gui.appimage_integration as ai
-    from whipper_gui.update_check import ReleaseInfo
+    import platterpus.appimage_integration as ai
+    from platterpus.update_check import ReleaseInfo
 
     window = teardown_threads()
     monkeypatch.setattr(
-        ai, "appimage_path", lambda: tmp_path / "whipper-gui-x86_64.AppImage"
+        ai, "appimage_path", lambda: tmp_path / "platterpus-x86_64.AppImage"
     )
     monkeypatch.setattr(
         QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
@@ -1679,10 +1679,10 @@ def test_update_install_success_offers_restart(
     menu launches the old file' report, fixed."""
     import subprocess as subprocess_mod
 
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
     window = teardown_threads()
-    new_path = tmp_path / "Applications" / "whipper-gui-x86_64.AppImage"
+    new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     integrated: list[Path] = []
     monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
     monkeypatch.setattr(
@@ -1764,7 +1764,7 @@ def test_install_progress_and_status_handlers_drive_the_dialog(
     window._install_post_download = False
 
     # Download phase: determinate percentage.
-    window._on_install_status("Downloading Whipper GUI 0.3.3…")
+    window._on_install_status("Downloading Platterpus 0.3.3…")
     window._on_install_progress(42.0)
     assert dialog.range == (0, 100)
     assert dialog.value == 42
@@ -1785,11 +1785,11 @@ def test_update_progress_phase_predicate() -> None:
     busy bar so it never sits frozen-looking at 100% ("hanging on 100%" —
     real-user report 2026-06-27). These strings mirror the labels
     update_install.download_and_install emits via its status() callback."""
-    from whipper_gui.ui.main_window_update import _is_download_phase
+    from platterpus.ui.main_window_update import _is_download_phase
 
     # Still downloading → determinate percentage bar.
     assert _is_download_phase("Checking for the update…") is True
-    assert _is_download_phase("Downloading Whipper GUI 0.3.3…") is True
+    assert _is_download_phase("Downloading Platterpus 0.3.3…") is True
     # Past the download → busy "working" bar (no meaningful percent).
     assert _is_download_phase("Verifying the download…") is False
     assert _is_download_phase("Installing — almost done, please don't close…") is False
@@ -1804,7 +1804,7 @@ def test_tools_menu_has_uninstall_action(teardown_threads) -> None:
     actions: list[str] = []
     for menu in menubar.findChildren(type(menubar.addMenu("tmp"))):
         actions += [a.text() for a in menu.actions()]
-    assert any("Uninstall Whipper GUI" in text for text in actions)
+    assert any("Uninstall Platterpus" in text for text in actions)
 
 
 def test_uninstall_finished_offers_quit_on_success(
@@ -1845,7 +1845,7 @@ def test_build_host_setup_includes_cyanrip_per_config(teardown_threads) -> None:
 def test_switch_to_cyanrip_offers_install_when_missing(
     teardown_threads, monkeypatch
 ) -> None:
-    import whipper_gui.deps.host_setup as host_setup
+    import platterpus.deps.host_setup as host_setup
 
     window = teardown_threads(config=Config(ripper_backend="cyanrip"))
     monkeypatch.setattr(host_setup, "cyanrip_on_host", lambda: False)
@@ -1861,7 +1861,7 @@ def test_switch_to_cyanrip_offers_install_when_missing(
 
 
 def test_no_cyanrip_offer_when_already_installed(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.deps.host_setup as host_setup
+    import platterpus.deps.host_setup as host_setup
 
     window = teardown_threads(config=Config(ripper_backend="cyanrip"))
     monkeypatch.setattr(host_setup, "cyanrip_on_host", lambda: True)
@@ -1875,7 +1875,7 @@ def test_no_cyanrip_offer_when_already_installed(teardown_threads, monkeypatch) 
 
 def test_no_cyanrip_offer_when_backend_unchanged(teardown_threads, monkeypatch) -> None:
     """Re-saving Settings while already on cyanrip must not re-nag."""
-    import whipper_gui.deps.host_setup as host_setup
+    import platterpus.deps.host_setup as host_setup
 
     window = teardown_threads(config=Config(ripper_backend="cyanrip"))
     monkeypatch.setattr(host_setup, "cyanrip_on_host", lambda: False)
@@ -1891,7 +1891,7 @@ def test_no_cyanrip_offer_when_backend_unchanged(teardown_threads, monkeypatch) 
 
 
 def test_no_integration_offer_when_not_appimage(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
     monkeypatch.setattr(ai, "appimage_path", lambda: None)
     window = teardown_threads()
@@ -1902,9 +1902,9 @@ def test_no_integration_offer_when_not_appimage(teardown_threads, monkeypatch) -
 
 
 def test_integration_offer_runs_on_yes(teardown_threads, monkeypatch, tmp_path) -> None:
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
-    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
+    appimage = tmp_path / "platterpus-x86_64.AppImage"
     appimage.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
     monkeypatch.setattr(ai, "is_integrated", lambda *_a, **_k: False)
@@ -1935,9 +1935,9 @@ def test_integration_offer_skips_only_the_declined_file(
 ) -> None:
     """Declining silences the offer for THAT file only — a different file
     (a freshly downloaded update) gets the offer again."""
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
-    declined = tmp_path / "whipper-gui-x86_64.AppImage"
+    declined = tmp_path / "platterpus-x86_64.AppImage"
     declined.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: declined)
     monkeypatch.setattr(ai, "is_integrated", lambda p: False)
@@ -1962,9 +1962,9 @@ def test_integration_reoffers_for_a_new_file_despite_legacy_flag(
     boolean suppressed the offer forever, so a downloaded UPDATE never got
     its menu entry remade. A not-yet-integrated file must be offered even
     when the legacy flag is set."""
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
-    new_version = tmp_path / "whipper-gui-x86_64.AppImage"
+    new_version = tmp_path / "platterpus-x86_64.AppImage"
     new_version.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: new_version)
     monkeypatch.setattr(ai, "is_integrated", lambda p: False)
@@ -1988,9 +1988,9 @@ def test_integration_reoffers_for_a_new_file_despite_legacy_flag(
 def test_integration_decline_is_remembered_per_file(
     teardown_threads, monkeypatch, tmp_path
 ) -> None:
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
-    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
+    appimage = tmp_path / "platterpus-x86_64.AppImage"
     appimage.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
     monkeypatch.setattr(ai, "is_integrated", lambda p: False)
@@ -2008,9 +2008,9 @@ def test_integration_decline_is_remembered_per_file(
 def test_add_app_shortcut_integrates_when_appimage(
     teardown_threads, monkeypatch, tmp_path
 ) -> None:
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
-    appimage = tmp_path / "whipper-gui-x86_64.AppImage"
+    appimage = tmp_path / "platterpus-x86_64.AppImage"
     appimage.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: appimage)
     integrated: list[Path] = []
@@ -2025,7 +2025,7 @@ def test_add_app_shortcut_integrates_when_appimage(
 
 
 def test_add_app_shortcut_noop_when_not_appimage(teardown_threads, monkeypatch) -> None:
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
     monkeypatch.setattr(ai, "appimage_path", lambda: None)
     integrated: list[bool] = []
@@ -2046,7 +2046,7 @@ def _patch_force_stop(monkeypatch) -> list[dict]:
     deliberately do NOT replace ``threading.Thread`` globally, which could
     interfere with other threads spawned during the test.
     """
-    from whipper_gui import drive_control
+    from platterpus import drive_control
 
     calls: list[dict] = []
     monkeypatch.setattr(
@@ -2065,7 +2065,7 @@ def _join_force_stop(window) -> None:
 def _patch_free_drive(monkeypatch) -> list[dict]:
     """Record `drive_control.free_drive` calls (the scan-stall recovery that
     kills the reader without ejecting), like `_patch_force_stop` does for rips."""
-    from whipper_gui import drive_control
+    from platterpus import drive_control
 
     calls: list[dict] = []
     monkeypatch.setattr(drive_control, "free_drive", lambda **kw: calls.append(kw))
@@ -2099,7 +2099,7 @@ def test_open_logs_folder_opens_the_log_dir(teardown_threads, monkeypatch) -> No
     """Help → Open logs folder hands the LOG_DIR path to the file manager."""
     from PySide6.QtGui import QDesktopServices
 
-    from whipper_gui.paths import LOG_DIR
+    from platterpus.paths import LOG_DIR
 
     opened: list[str] = []
     monkeypatch.setattr(
@@ -2184,10 +2184,10 @@ def test_relaunch_env_strips_appimage_runtime_vars(monkeypatch) -> None:
     """The updated AppImage must be relaunched without the current AppImage's
     injected env (LD_LIBRARY_PATH/PYTHONHOME/APPDIR…), or its bundled Python
     loads the old mount and crashes — the silent "didn't reopen" after update."""
-    from whipper_gui.ui.main_window_update import _relaunch_env
+    from platterpus.ui.main_window_update import _relaunch_env
 
     monkeypatch.setenv("APPDIR", "/tmp/.mount_old")
-    monkeypatch.setenv("APPIMAGE", "/home/u/Applications/whipper-gui-x86_64.AppImage")
+    monkeypatch.setenv("APPIMAGE", "/home/u/Applications/platterpus-x86_64.AppImage")
     monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/.mount_old/usr/lib")
     monkeypatch.setenv("PYTHONHOME", "/tmp/.mount_old/usr")
     monkeypatch.setenv("PYTHONPATH", "/tmp/.mount_old/usr/lib/python")
@@ -2305,7 +2305,7 @@ def test_auto_force_stop_is_noop_when_already_done(
 
 def _patch_eject(monkeypatch) -> list[dict]:
     """Record eject_drive calls instead of touching a real drive."""
-    from whipper_gui import drive_control
+    from platterpus import drive_control
 
     calls: list[dict] = []
     monkeypatch.setattr(drive_control, "eject_drive", lambda **kw: calls.append(kw))
@@ -2318,7 +2318,7 @@ def _join_eject(window) -> None:
 
 
 def _rip_params(drive: str, unknown: bool = False):
-    from whipper_gui.workers.rip_worker import RipParameters
+    from platterpus.workers.rip_worker import RipParameters
 
     return RipParameters(
         drive=drive,
@@ -2408,11 +2408,11 @@ def test_dialog_queued_resolver_returns_install_results(
     one InstallResult per item. We replace exec() (which would block on a
     modal loop) with a stub that runs the loop and accepts, so the wiring is
     tested without a real event loop."""
-    from whipper_gui.deps.checks import ProbeResult
-    from whipper_gui.deps.registry import DependencySpec, Tier
-    from whipper_gui.deps.resolvers import InstallResult, MissingItem
-    from whipper_gui.ui.dialogs.pending_installs import PendingInstallsDialog
-    from whipper_gui.ui.main_window import _DialogQueuedResolver
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import InstallResult, MissingItem
+    from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
+    from platterpus.ui.main_window import _DialogQueuedResolver
 
     def _item(dep_id: str) -> MissingItem:
         spec = DependencySpec(
@@ -2446,7 +2446,7 @@ def test_dialog_queued_resolver_returns_install_results(
 
 
 def test_dialog_queued_resolver_empty_items_is_noop(qapp) -> None:
-    from whipper_gui.ui.main_window import _DialogQueuedResolver
+    from platterpus.ui.main_window import _DialogQueuedResolver
 
     resolver = _DialogQueuedResolver(parent=None, install_one=lambda i: None)
     assert resolver.resolve([]) == []
@@ -2455,7 +2455,7 @@ def test_dialog_queued_resolver_empty_items_is_noop(qapp) -> None:
 def test_friendly_disc_scan_error_for_cdrdao_toc_flake() -> None:
     """The cdrdao read-toc temp-file FileNotFoundError (drive not ready)
     becomes plain language pointing at the Rescan disc button."""
-    from whipper_gui.ui.main_window import _friendly_disc_scan_error
+    from platterpus.ui.main_window import _friendly_disc_scan_error
 
     raw = (
         "whipper failed: FileNotFoundError: [Errno 2] No such file or "
@@ -2476,7 +2476,7 @@ def test_friendly_disc_scan_error_for_cold_container_timeout() -> None:
     """A whipper info timeout (cold-container start on the first scan of a
     session) becomes plain language pointing at the Rescan disc button rather
     than the raw "timed out after 120s" line (real-user report, 2026-06-27)."""
-    from whipper_gui.ui.main_window import _friendly_disc_scan_error
+    from platterpus.ui.main_window import _friendly_disc_scan_error
 
     friendly = _friendly_disc_scan_error("whipper timed out after 120s")
     assert "Rescan disc" in friendly
@@ -2490,13 +2490,13 @@ def test_integration_offer_relocates_then_integrates(
     """Accepting the first-run offer settles the AppImage into
     ~/Applications BEFORE integrating, so the menu entry never points into
     Downloads (real-user feedback, 2026-06-10)."""
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
     window = teardown_threads(
         config=Config(appimage_integration_prompted=False), save_cfg=lambda c: None
     )
-    downloaded = tmp_path / "Downloads" / "whipper-gui-x86_64.AppImage"
-    moved = tmp_path / "Applications" / "whipper-gui-x86_64.AppImage"
+    downloaded = tmp_path / "Downloads" / "platterpus-x86_64.AppImage"
+    moved = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     calls: list[tuple[str, Path]] = []
     monkeypatch.setattr(ai, "appimage_path", lambda: downloaded)
     monkeypatch.setattr(ai, "is_integrated", lambda p: False)
@@ -2526,15 +2526,15 @@ def test_integration_offer_fires_when_integrated_but_unsettled(
     path the old menu entry pointed at IS 'integrated' (the Exec matches)
     but still lives in Downloads — the offer must fire so the file gets
     moved to ~/Applications and the icons remade."""
-    import whipper_gui.appimage_integration as ai
+    import platterpus.appimage_integration as ai
 
-    in_downloads = tmp_path / "Downloads" / "whipper-gui-x86_64.AppImage"
+    in_downloads = tmp_path / "Downloads" / "platterpus-x86_64.AppImage"
     in_downloads.parent.mkdir()
     in_downloads.write_bytes(b"x")
     monkeypatch.setattr(ai, "appimage_path", lambda: in_downloads)
     monkeypatch.setattr(ai, "is_integrated", lambda p: True)  # entry matches…
     # …but the file isn't settled (the real is_settled sees Downloads).
-    moved = tmp_path / "Applications" / "whipper-gui-x86_64.AppImage"
+    moved = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
     monkeypatch.setattr(ai, "relocate_to_applications", lambda p: moved)
     integrated: list[Path] = []
     monkeypatch.setattr(ai, "integrate", lambda p, **k: integrated.append(p))
@@ -2797,7 +2797,7 @@ def test_ctdb_verify_runs_off_the_gui_thread(
     client = _FakeCtdbClient(CtdbLookupResult())  # not in CTDB → no decode
     window._ctdb_client = client
     # Stub the metaflac sample probe so building the TOC never shells out.
-    monkeypatch.setattr("whipper_gui.ctdb.decode.total_samples", lambda _p: 1000)
+    monkeypatch.setattr("platterpus.ctdb.decode.total_samples", lambda _p: 1000)
 
     album_dir = tmp_path / "Artist" / "Album"
     album_dir.mkdir(parents=True)
@@ -2847,7 +2847,7 @@ def test_flac_verify_runs_for_non_self_verifying_backend(
 ) -> None:
     """A backend that doesn't self-verify (cyanrip) + toggle on → the post-rip
     FLAC verify runs off the GUI thread. The verifier is stubbed (no real flac)."""
-    from whipper_gui.adapters.flac_verify import FlacVerifyResult
+    from platterpus.adapters.flac_verify import FlacVerifyResult
 
     window = teardown_threads(config=Config(verify_flac_after_rip=True))
     window._backend.self_verifies = False
@@ -2857,7 +2857,7 @@ def test_flac_verify_runs_for_non_self_verifying_backend(
         calls.append(rip_dir)
         return FlacVerifyResult(checked=2)
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.verify_flac_dir", fake_verify)
+    monkeypatch.setattr("platterpus.ui.main_window_rip.verify_flac_dir", fake_verify)
 
     album_dir = tmp_path / "Artist" / "Album"
     album_dir.mkdir(parents=True)
@@ -2874,7 +2874,7 @@ def test_flac_verify_runs_for_non_self_verifying_backend(
 def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
     """The slot (GUI thread) hijacks the status line for a FAILURE but leaves it
     alone on a clean pass (which only notes the result in the log view)."""
-    from whipper_gui.adapters.flac_verify import FlacVerifyResult
+    from platterpus.adapters.flac_verify import FlacVerifyResult
 
     window = teardown_threads()
     lines: list[str] = []
@@ -2897,13 +2897,13 @@ def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
 
 def _stub_recompress(monkeypatch: pytest.MonkeyPatch, sink: list[list[Path]]):
     """Replace the real flac re-compress with a recorder; return its result."""
-    from whipper_gui.adapters.flac_recompress import RecompressResult
+    from platterpus.adapters.flac_recompress import RecompressResult
 
     def fake(paths, **_kw) -> RecompressResult:
         sink.append(list(paths))
         return RecompressResult(reencoded=len(list(paths)))
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.recompress_flac_files", fake)
+    monkeypatch.setattr("platterpus.ui.main_window_rip.recompress_flac_files", fake)
 
 
 def test_recompress_skipped_when_disabled(
@@ -2969,7 +2969,7 @@ def test_on_flac_recompressed_logs_outcome(teardown_threads) -> None:
     """The slot (GUI thread) notes the count on success and the failed files on
     a partial failure, but never hijacks the status line (re-compress failures
     are non-alarming — the original FLAC is still a valid rip)."""
-    from whipper_gui.adapters.flac_recompress import RecompressResult
+    from platterpus.adapters.flac_recompress import RecompressResult
 
     window = teardown_threads()
     lines: list[str] = []
@@ -2996,13 +2996,13 @@ def test_on_flac_recompressed_logs_outcome(teardown_threads) -> None:
 
 def _stub_transcode(monkeypatch: pytest.MonkeyPatch, sink: list[dict]):
     """Replace the real transcode with a recorder; return its result."""
-    from whipper_gui.adapters.transcode import TranscodeResult
+    from platterpus.adapters.transcode import TranscodeResult
 
     def fake(paths, *, fmt, mp3_vbr_quality=0, **_kw) -> TranscodeResult:
         sink.append({"paths": list(paths), "fmt": fmt, "q": mp3_vbr_quality})
         return TranscodeResult(transcoded=len(list(paths)))
 
-    monkeypatch.setattr("whipper_gui.ui.main_window_rip.transcode_files", fake)
+    monkeypatch.setattr("platterpus.ui.main_window_rip.transcode_files", fake)
 
 
 def test_transcode_skipped_for_flac_output(
@@ -3071,7 +3071,7 @@ def test_on_transcoded_logs_outcome(teardown_threads) -> None:
     """The slot (GUI thread) notes the count on success, the failed files on a
     partial failure, and a skip on a couldn't-run — none alarming (the FLAC
     master is always kept), so the status line is never hijacked."""
-    from whipper_gui.adapters.transcode import TranscodeResult
+    from platterpus.adapters.transcode import TranscodeResult
 
     window = teardown_threads()
     lines: list[str] = []
@@ -3104,7 +3104,7 @@ def test_window_closes_during_ctdb_verify_without_blocking(
         CtdbLookupResult(), gate=gate
     )  # blocks in lookup() until released
     window._ctdb_client = client
-    monkeypatch.setattr("whipper_gui.ctdb.decode.total_samples", lambda _p: 1000)
+    monkeypatch.setattr("platterpus.ctdb.decode.total_samples", lambda _p: 1000)
 
     album_dir = tmp_path / "Artist" / "Album"
     album_dir.mkdir(parents=True)
