@@ -40,9 +40,33 @@ container. You don't interact with the container directly — the GUI handles it
 3. Check or edit the album/artist/track fields — your edits are written to the
    FLAC tags.
 4. Click **Start rip**. Progress shows an overall bar plus the current task.
-5. When it finishes, the status line reports a fidelity verdict (e.g. *"all N
-   tracks verified, Test/Copy CRCs match"*). Files land under your output
+5. When it finishes, the status line reports a fidelity verdict and the results
+   pane shows a verification banner (see below). Files land under your output
    folder (see Settings).
+
+## Understanding the results — is my rip trustworthy?
+
+After a rip, a bold **verification banner** sits above the per-track table and
+tells you at a glance whether the rip can be trusted:
+
+- 🟢 **Green — "Bit-perfect: all N tracks verified against AccurateRip"** —
+  every track's audio matches the shared AccurateRip database. This is the
+  archival gold standard: other people's rips of the same disc produced the
+  exact same audio.
+- 🟡 **Amber — "M of N tracks verified"** — some tracks matched and some didn't.
+  The unmatched ones either aren't in the database or read differently this
+  time; check the per-track table and consider re-ripping (the **Re-rip until
+  reads match** setting helps marginal discs).
+- ⚪ **Grey — "no tracks matched the database"** — normal for a disc nobody has
+  submitted (a home-burned CD-R, or an obscure pressing). It does *not* mean a
+  bad rip: the per-track **Copy CRC** still proves the disc was read securely;
+  AccurateRip simply has nothing to compare against.
+
+A track counts as "verified" only when AccurateRip reports a **confidence of 1
+or more** (how many submitted rips share its checksum) — the app never calls a
+track verified on a guess. If you enabled **Verify with CTDB**, its result
+appears just below, colour-coded the same way (green only once its checksum is
+hardware-confirmed; an experimental match shows amber).
 
 ## Unknown discs
 
@@ -71,6 +95,16 @@ named from the album artist/title you type.
   front cover from the Cover Art Archive after the rip.
 - **Force overread**, **max retries**, **keep going on errors** — EAC-parity
   read options.
+- **Re-rip until reads match** — for a damaged or marginal disc, re-read each
+  track until this many passes agree on the checksum, so a shaky read converges
+  to the bit-perfect result. Leave it at *Off* for clean discs (the normal
+  secure read already handles those); try **2** if a track won't verify against
+  AccurateRip. This is a cyanrip feature — it greys out under the whipper
+  backend, which has no equivalent.
+- **Verify with CTDB after a rip** — a second, whole-disc verification against
+  the CUETools Database, alongside AccurateRip. A network check, off by default,
+  and labelled *experimental* until its checksum is confirmed on real hardware
+  (it can only ever under-claim, never falsely say "verified").
 - **Read offset override** — set the drive read-offset by hand (the drive-setup
   wizard is the recommended way to set it).
 - **Eject after a successful rip** — automatically eject the disc when a rip

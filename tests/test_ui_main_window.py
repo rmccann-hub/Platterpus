@@ -35,7 +35,7 @@ from whipper_gui.ctdb.verify import CtdbVerifyResult, Verdict
 from whipper_gui.deps.manager import DependencyManager
 from whipper_gui.drive_access import DriveAccessDiagnosis
 from whipper_gui.parsers.drive_list import DriveDescriptor
-from whipper_gui.parsers.rip_log import RipLog, TrackResult
+from whipper_gui.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from whipper_gui.ui.main_window import MainWindow, _fidelity_summary
 
 # --- Fakes ---------------------------------------------------------------
@@ -974,6 +974,35 @@ def test_fidelity_summary_cyanrip_clean_rip() -> None:
     assert "all 2 tracks ripped cleanly" in summary
     assert "AccurateRip: 2/2" in summary
     assert "CRCs match" not in summary  # never claim a check that didn't run
+
+
+def test_fidelity_summary_prefers_per_track_ar_over_summary_string() -> None:
+    """When per-track AccurateRip data is present, the status line counts it with
+    the SAME confidence>=1 rule as the verdict banner — not the summary string —
+    so the two surfaces agree. Here the summary string would over-state (it says
+    'all'), but only 1 of 2 tracks actually has a confidence>=1 match."""
+    rip_log = RipLog(
+        tracks=(
+            TrackResult(
+                number=1,
+                test_crc="AAAA",
+                copy_crc="AAAA",
+                status="Copy OK",
+                accuraterip_v1=AccurateRipResult(version=1, confidence=12),
+            ),
+            TrackResult(
+                number=2,
+                test_crc="BBBB",
+                copy_crc="BBBB",
+                status="Copy OK",
+                accuraterip_v1=AccurateRipResult(version=1, confidence=0),  # no match
+            ),
+        ),
+        accuraterip_summary="Found, exact match for all tracks",  # would over-state
+    )
+    summary = _fidelity_summary(rip_log)
+    assert "AccurateRip: 1/2 verified" in summary
+    assert "confirmed" not in summary  # the misleading string clause is not used
 
 
 def test_fidelity_summary_cyanrip_with_errors() -> None:
