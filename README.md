@@ -561,9 +561,8 @@ The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https:
 **Not possible on Linux today:**
 
 - **C2 error pointers.** Cdparanoia is the Linux secure-read primitive; it doesn't use C2.
-- **EAC-style signed log checksum.** Whipper writes SHA-256, which is weaker as a forensic signal. CTDB and audiophile forums historically recognize EAC's signed checksum specifically.
+- **A *tracker-accepted* EAC-signed log.** The EAC log checksum algorithm has been reverse-engineered, so a valid checksum is technically reproducible — but signing our log as if Exact Audio Copy produced it is **forging the rip's provenance** (a bannable "faked log" on gazelle trackers), and we won't do it. We rely on the open, tool-agnostic trust signals instead: AccurateRip + CTDB verification and an honest log. See [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md).
 - **AccurateRip submission** (writing new entries to the database). Blocked by AccurateRip's operators, who accept submissions only from EAC and dBpoweramp. Verification (reading) works fine — see "AccurateRip" in the audit above.
-- **CTDB metadata plugin.** CUETools' database is queryable in principle but no Linux client exists. CTDB verification is on the P1 backlog (see [TASKS.md](TASKS.md)).
 
 **Now in Settings** (EAC toggles whipper supports, surfaced in the Settings dialog — all shipped in the v0.1.x line):
 
@@ -571,8 +570,12 @@ The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https:
 - Force overread into lead-out
 - Max retries per track (default 5)
 - Keep going on track failure
+- **Re-rip until reads match** — for damaged/marginal discs, re-read each track until N passes agree on the checksum (cyanrip's `-Z`; off by default). cyanrip-only — greyed out under whipper, which has no equivalent.
+- Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; experimental until the CRC is hardware-validated)
 - Continue ripping CD-Rs
 - Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
+
+After a rip, the results pane shows an at-a-glance **verification verdict** (green = every track verified against AccurateRip, amber = partial, grey = not in the database) above the per-track table, plus the CTDB result.
 
 See [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps" for the history.
 
