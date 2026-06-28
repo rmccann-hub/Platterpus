@@ -247,6 +247,7 @@ def test_parity_gap_config_flows_into_rip_parameters(
         force_overread=True,
         max_retries=7,
         keep_going=True,
+        secure_rerip_matches=2,
     )
     controls = RipControls(config)
     controls.set_drive("/dev/sr0")
@@ -261,6 +262,7 @@ def test_parity_gap_config_flows_into_rip_parameters(
     assert p.force_overread is True
     assert p.max_retries == 7
     assert p.keep_going is True
+    assert p.secure_rerip_matches == 2
 
 
 def test_offset_override_flows_when_enabled(qapp: QApplication) -> None:
