@@ -23,6 +23,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   fabricate an EAC signature (see `docs/eac-log-and-repair-feasibility.md`).
 
 ### Fixed
+- **The post-rip status line now reports AccurateRip the same way the verdict
+  banner does.** When per-track AccurateRip data is available it counts verified
+  tracks with the same confidence ≥ 1 rule as the banner (e.g. "AccurateRip:
+  12/14 verified") instead of paraphrasing the log's summary line, so the
+  one-line status and the banner can't disagree. The in-app User Guide now also
+  explains the verdict banner (what green/amber/grey mean) and the new "Re-rip
+  until reads match" and "Verify with CTDB" settings.
 - **The "AccurateRip" line in the disc panel now agrees with the results-pane
   verdict — and correctly counts cyanrip verifications.** It previously decided a
   track was verified by looking for the words "exact match" in the log, with no

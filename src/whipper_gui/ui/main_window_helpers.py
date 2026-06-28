@@ -16,6 +16,8 @@ should be a method instead.
 
 from __future__ import annotations
 
+from whipper_gui.parsers.rip_log import track_accuraterip_verified
+
 
 def safe_path_segment(value: str) -> str:
     """Make a user string safe to drop literally into a whipper template.
@@ -102,10 +104,11 @@ def fidelity_summary(rip_log: object) -> str:
                 f"Done — {clean}/{total} tracks ripped cleanly; "
                 f"check the log for the rest."
             )
-        ar = getattr(rip_log, "accuraterip_summary", "") or ""
-        if ar and not ar.startswith("0/"):
-            summary += f" AccurateRip: {ar}."
-        return summary
+        clause = _accuraterip_clause(rip_log)
+        if clause is None:  # no per-track AR data → legacy summary-string fallback
+            ar = getattr(rip_log, "accuraterip_summary", "") or ""
+            clause = f" AccurateRip: {ar}." if ar and not ar.startswith("0/") else ""
+        return summary + clause
     verified = sum(
         1
         for t in tracks
@@ -119,8 +122,39 @@ def fidelity_summary(rip_log: object) -> str:
             f"Done — {verified}/{total} tracks CRC-verified; "
             f"check the log for the rest."
         )
-    # Append AccurateRip confirmation only when at least one track matched.
-    ar = (getattr(rip_log, "accuraterip_summary", "") or "").lower()
-    if "exact match" in ar or "found" in ar:
-        summary += " AccurateRip confirmed."
-    return summary
+    clause = _accuraterip_clause(rip_log)
+    if clause is None:  # no per-track AR data → legacy summary-string fallback
+        ar = (getattr(rip_log, "accuraterip_summary", "") or "").lower()
+        clause = " AccurateRip confirmed." if "exact match" in ar or "found" in ar else ""
+    return summary + clause
+
+
+def _accuraterip_clause(rip_log: object) -> str | None:
+    """The ' AccurateRip: …' suffix for the status line, from per-track data.
+
+    Counts verified tracks with the SAME rule the results-pane verdict banner
+    uses (:func:`track_accuraterip_verified`, confidence ≥ 1), so the status
+    line and the banner can never disagree about how many tracks AccurateRip
+    confirmed. Returns:
+
+    * ``None`` — no per-track AccurateRip data was parsed; the caller should
+      fall back to the legacy ``accuraterip_summary`` string heuristic.
+    * ``""`` — AR data exists but nothing matched (we never append a
+      non-confirmation).
+    * ``" AccurateRip: …"`` — the verified count, worded like the banner.
+    """
+    tracks = getattr(rip_log, "tracks", ()) or ()
+    has_ar = any(
+        getattr(t, "accuraterip_v1", None) is not None
+        or getattr(t, "accuraterip_v2", None) is not None
+        for t in tracks
+    )
+    if not has_ar:
+        return None
+    total = len(tracks)
+    verified = sum(1 for t in tracks if track_accuraterip_verified(t))
+    if verified == 0:
+        return ""
+    if verified == total:
+        return f" AccurateRip: all {total} verified."
+    return f" AccurateRip: {verified}/{total} verified."
