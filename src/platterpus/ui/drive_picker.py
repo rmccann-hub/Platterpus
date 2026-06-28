@@ -68,6 +68,9 @@ class DrivePicker(QWidget):
 
         layout.addWidget(QLabel("Drive:", self))
         self._combo: QComboBox = QComboBox(self)
+        # Accessible name so a screen reader announces the combo as the drive
+        # selector, not an anonymous dropdown (ux-design-principles.md #10).
+        self._combo.setAccessibleName("Optical drive")
         self._combo.currentIndexChanged.connect(self._on_index_changed)
         layout.addWidget(self._combo, stretch=1)
 

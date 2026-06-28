@@ -201,6 +201,7 @@ class TrackTable(QWidget):
         # Track table.
         self._model: TrackTableModel = TrackTableModel(self)
         self._view: QTableView = QTableView(self)
+        self._view.setAccessibleName("Track list")
         self._view.setModel(self._model)
         self._view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._view.verticalHeader().setVisible(False)

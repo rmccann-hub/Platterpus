@@ -150,6 +150,8 @@ def test_default_state_is_empty(qapp: QApplication) -> None:
     widget = TrackTable()
     assert widget.album_metadata() == AlbumMetadata()
     assert widget.tracks() == []
+    # The track view has an accessible name (a11y, principle #10).
+    assert widget._view.accessibleName() == "Track list"
 
 
 def test_set_release_populates_album_and_tracks(qapp: QApplication) -> None:

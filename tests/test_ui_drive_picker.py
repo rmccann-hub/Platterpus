@@ -77,6 +77,8 @@ def test_constructs_empty_until_refreshed(qapp: QApplication) -> None:
     # Constructor doesn't call refresh() — the caller decides when.
     assert backend.list_calls == 0
     assert picker.current_device() is None
+    # The drive combo carries an accessible name (a11y, principle #10).
+    assert picker._combo.accessibleName() == "Optical drive"
 
 
 # --- refresh() — happy paths ---------------------------------------------

@@ -62,6 +62,40 @@ def test_default_state(qapp: QApplication) -> None:
     assert widget._view_log_button.isEnabled() is False
 
 
+def test_status_surfaces_have_accessible_names(qapp: QApplication) -> None:
+    # Screen readers need a name on every status surface (a11y, principle #10).
+    widget = RipProgress()
+    assert widget._overall_bar.accessibleName()
+    assert widget._progress_bar.accessibleName()
+    assert widget._verdict_banner.accessibleName()
+    assert widget._ar_table.accessibleName()
+    assert widget._ctdb_label.accessibleName()
+
+
+def test_every_verdict_level_has_a_non_color_symbol() -> None:
+    # Status must be conveyed by symbol + text, never colour alone — so each
+    # level's message starts with a distinct marker (✓ / ⚠ / ⓘ).
+    from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
+
+    ok, _ = accuraterip_verdict(
+        RipLog(
+            tracks=(TrackResult(1, accuraterip_v1=AccurateRipResult(1, confidence=9)),)
+        )
+    )
+    warn, _ = accuraterip_verdict(
+        RipLog(
+            tracks=(
+                TrackResult(1, accuraterip_v1=AccurateRipResult(1, confidence=9)),
+                TrackResult(2, copy_crc="AAAA", accuraterip_v1=AccurateRipResult(1)),
+            )
+        )
+    )
+    neutral, _ = accuraterip_verdict(RipLog(tracks=(TrackResult(1, copy_crc="AAAA"),)))
+    assert ok.startswith("✓")
+    assert warn.startswith("⚠")
+    assert neutral.startswith("ⓘ")
+
+
 # --- Log streaming -------------------------------------------------------
 
 
