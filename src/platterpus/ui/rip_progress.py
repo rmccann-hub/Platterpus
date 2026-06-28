@@ -153,6 +153,20 @@ class RipProgress(QWidget):
         button_row.addWidget(self._view_log_button)
         root.addLayout(button_row)
 
+        # --- Accessibility (docs/ux-design-principles.md #10) ---
+        # Screen readers announce a widget by its accessible name; without one a
+        # bare QProgressBar/QLabel/QTableWidget reads as just its value or
+        # "label". Name every status surface so the rip is followable without
+        # sight, and so the colour-coded verdict is never the *only* signal.
+        self._overall_bar.setAccessibleName("Overall rip progress")
+        self._progress_bar.setAccessibleName("Current task progress")
+        self._status_label.setAccessibleName("Rip status")
+        self._log_view.setAccessibleName("Rip log output")
+        self._verdict_banner.setAccessibleName("AccurateRip verification verdict")
+        self._ar_table.setAccessibleName("Per-track AccurateRip results")
+        self._ctdb_label.setAccessibleName("CTDB verification result")
+        self._view_log_button.setAccessibleName("Open the rip log file")
+
     # --- Public surface -----------------------------------------------------
 
     def clear(self) -> None:
@@ -338,8 +352,11 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
             "the rest aren't in the database or didn't match (see the table)",
             "warn",
         )
+    # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +
+    # text, never colour alone — colour-blind and screen-reader users get the
+    # same signal as the green/amber/grey tint (ux-design-principles.md #10).
     return (
-        "AccurateRip: no tracks matched the database — expected for a disc "
+        "ⓘ AccurateRip: no tracks matched the database — expected for a disc "
         "nobody has submitted (e.g. a burned CD-R); the per-track Copy CRCs "
         "below still prove a secure read",
         "neutral",

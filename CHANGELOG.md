@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Accessibility pass on the rip screen.** Screen readers now announce every
+  status surface by name (the two progress bars, rip status, log output, the
+  verification verdict banner, the per-track AccurateRip table, the CTDB result,
+  the drive selector, and the track list). The verification verdict is conveyed
+  by a leading symbol **and** text (✓ verified / ⚠ partial / ⓘ not-in-database),
+  never by colour alone — so colour-blind and screen-reader users get the same
+  signal as the green/amber/grey tint.
+
 ### Changed
 - **Project renamed to Platterpus** (was "Whipper GUI" /
   `Whipper-GUI-Frontend---CD-Rip`). New tagline: *a secure, EAC-style CD ripper
