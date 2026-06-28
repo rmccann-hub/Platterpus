@@ -120,6 +120,7 @@ class CyanripImpl(WhipperBackend):
         release_id: str = "",
         track_template: str = "",
         metadata: RipMetadata | None = None,
+        secure_rerip_matches: int = 0,
     ) -> list[str]:
         """Build the cyanrip rip argv (pure — unit-tested).
 
@@ -144,6 +145,12 @@ class CyanripImpl(WhipperBackend):
         argv += ["-o", "flac"]
         if max_retries:
             argv += ["-r", str(max_retries)]
+        # `-Z N`: re-rip each track until N reads' checksums agree, for
+        # marginal/damaged discs (EAC-parity item 1; see config.py). Only
+        # passed when the user enabled it (> 0) — on a clean disc it just
+        # burns time, so the default rip omits it entirely.
+        if secure_rerip_matches > 0:
+            argv += ["-Z", str(secure_rerip_matches)]
         # Always -N: the GUI is the single metadata source (see docstring).
         # `unknown` just means the GUI has placeholder tags instead of MB
         # ones — either way cyanrip itself stays offline.
@@ -177,6 +184,7 @@ class CyanripImpl(WhipperBackend):
         force_overread: bool = False,
         max_retries: int = 5,
         keep_going: bool = False,
+        secure_rerip_matches: int = 0,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
     ) -> RipHandle:
@@ -195,6 +203,7 @@ class CyanripImpl(WhipperBackend):
             release_id=release_id,
             track_template=track_template,
             metadata=metadata,
+            secure_rerip_matches=secure_rerip_matches,
         )
         # cyanrip writes under the current directory (its -D/-F schemes are
         # relative), so run it from the output dir.

@@ -306,6 +306,24 @@ class SettingsDialog(QDialog):
         )
         form.addRow("On track failure:", self._keep_going_check)
 
+        # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
+        # Re-rip each track until N reads' checksums agree, so a damaged disc's
+        # near-miss read converges to the bit-perfect result. cyanrip-only
+        # (whipper has no equivalent) — greyed out below for whipper. 0 = off.
+        self._secure_rerip_spin: QSpinBox = QSpinBox(self)
+        self._secure_rerip_spin.setRange(0, 10)
+        self._secure_rerip_spin.setValue(config.secure_rerip_matches)
+        self._secure_rerip_spin.setSpecialValueText("Off")  # shown when value is 0
+        self._secure_rerip_spin.setToolTip(
+            "For damaged or marginal discs: re-rip each track until this many "
+            "reads produce the same checksum (cyanrip's -Z). This makes a "
+            "shaky read converge to the bit-perfect result, at the cost of "
+            "time. 0 (Off) is right for clean discs — the normal secure read "
+            "(paranoia + retries) already handles those. Try 2 if a track "
+            "won't verify against AccurateRip."
+        )
+        form.addRow("Re-rip until reads match:", self._secure_rerip_spin)
+
         # --- CTDB verification (KDD-14 Phase 1) ---
         # A second, TOC-keyed verification path alongside AccurateRip. Off by
         # default: it's a post-rip network call, and a match is currently
@@ -413,6 +431,12 @@ class SettingsDialog(QDialog):
                 "whipper already verifies every file during the rip "
                 "(`flac --verify`), so a separate post-rip check is redundant.",
             ),
+            (
+                self._secure_rerip_spin,
+                self._secure_rerip_spin.toolTip(),
+                "Re-rip-until-reads-match is a cyanrip feature (-Z); whipper "
+                "has no equivalent flag.",
+            ),
         ]
         self._backend_combo.currentIndexChanged.connect(
             self._apply_backend_capabilities
@@ -464,6 +488,7 @@ class SettingsDialog(QDialog):
             force_overread=self._force_overread_check.isChecked(),
             max_retries=self._max_retries_spin.value(),
             keep_going=self._keep_going_check.isChecked(),
+            secure_rerip_matches=self._secure_rerip_spin.value(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),
             verify_flac_after_rip=self._verify_flac_check.isChecked(),
             recompress_flac_after_rip=self._recompress_flac_check.isChecked(),

@@ -171,6 +171,7 @@ class RipControls(QWidget):
             force_overread=self._config.force_overread,
             max_retries=self._config.max_retries,
             keep_going=self._config.keep_going,
+            secure_rerip_matches=self._config.secure_rerip_matches,
             read_offset_override=(
                 self._config.read_offset if self._config.override_read_offset else None
             ),

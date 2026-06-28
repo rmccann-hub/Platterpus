@@ -122,6 +122,34 @@ def test_rip_argv_omits_offset_when_none() -> None:
     assert "-s" not in argv
 
 
+def test_rip_argv_omits_secure_rerip_when_zero() -> None:
+    # 0 = off: a clean disc gets no -Z, so the rip doesn't waste time
+    # re-reading good tracks. This is the default.
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=667,
+        secure_rerip_matches=0,
+    )
+    assert "-Z" not in argv
+
+
+def test_rip_argv_passes_secure_rerip_when_set() -> None:
+    # > 0 → cyanrip's -Z N (re-rip until N reads' checksums agree), for
+    # marginal/damaged discs (EAC-parity item 1).
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=667,
+        secure_rerip_matches=2,
+    )
+    assert "-Z" in argv and argv[argv.index("-Z") + 1] == "2"
+
+
 def test_rip_argv_always_disables_mb_and_feeds_gui_metadata() -> None:
     """KDD-18 metadata model: cyanrip never does its own MB lookup — the
     GUI's tags (release pick + user edits) are fed via -a/-t, offline."""

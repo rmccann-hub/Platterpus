@@ -281,6 +281,7 @@ class WhipperBackend(ABC):
         force_overread: bool = False,
         max_retries: int = 5,
         keep_going: bool = False,
+        secure_rerip_matches: int = 0,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
     ) -> RipHandle:
@@ -294,8 +295,11 @@ class WhipperBackend(ABC):
         CD-R (it refuses by default). `cover_art` (one of whipper's
         {file, embed, complete}, or "" to skip), `force_overread`,
         `max_retries`, and `keep_going` map to the matching `cd rip`
-        flags — the EAC bit-perfect parity gaps (KDD-13). The returned
-        handle streams whipper's stdout and supports cancel.
+        flags — the EAC bit-perfect parity gaps (KDD-13).
+        `secure_rerip_matches`, when > 0, is cyanrip's `-Z N` (re-rip a
+        track until N reads' checksums agree) for marginal discs; whipper
+        has no equivalent and ignores it. The returned handle streams the
+        backend's stdout and supports cancel.
         """
 
     @abstractmethod
@@ -567,6 +571,7 @@ class WhipperHostExportedImpl(WhipperBackend):
         force_overread: bool = False,
         max_retries: int = 5,
         keep_going: bool = False,
+        secure_rerip_matches: int = 0,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
     ) -> RipHandle:
@@ -574,6 +579,9 @@ class WhipperHostExportedImpl(WhipperBackend):
         # auto-detects the single drive. Multi-drive selection is P1
         # (see TASKS.md). `drive` is accepted for ABC compatibility.
         del drive  # explicit: parameter intentionally unused for v1
+        # whipper has no "re-rip until N reads match" flag (that's a cyanrip
+        # -Z feature); accept it for ABC compatibility and ignore it.
+        del secure_rerip_matches
         # whipper fetches album/track tags itself from the --release-id
         # (and unknown-mode tags are applied post-rip by the GUI), so the
         # GUI-supplied metadata is intentionally unused here.

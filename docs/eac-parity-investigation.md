@@ -105,7 +105,14 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
 **P2 — Close Track-3-class near-misses (the real audio gap).**
 - (a) Add cyanrip **`-Z N`** ("re-rip until checksums match N times") as a
   secure-rip option for marginal discs — strengthens reads so a near-miss track
-  converges to the consensus. Hardware-gated test required.
+  converges to the consensus. **✅ Code landed 2026-06-28** (Settings →
+  "Re-rip until reads match", `config.secure_rerip_matches` → cyanrip `-Z N`;
+  whipper has no equivalent and greys it out). **⚠ HARDWARE-GATED:** confirmed
+  to build the right argv and pass through the stack in tests, but its *effect*
+  on a marginal disc — does a `-Z 2` rip actually converge Track-3-class
+  near-misses to the AccurateRip consensus? — can only be proven on the
+  BDR-209D rig with the real disc. Re-rip the Police disc with it on and re-run
+  `scripts/eac_parity.py` against the EAC baseline to measure.
 - (b) Document the **CUETools Repair** workflow as the authoritative fix for a
   "partially accurate (450)" track, and evaluate a future in-app CTDB-repair
   step (large; CTDB verify already exists, repair does not).

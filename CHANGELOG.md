@@ -11,7 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-## [0.3.10] — 2026-06-27
+### Added
+- **Settings → "Re-rip until reads match" for damaged or marginal discs (cyanrip
+  only).** Maps to cyanrip's `-Z N`: each track is re-ripped until that many reads
+  produce the same checksum, so a shaky read converges to the bit-perfect result
+  instead of landing on a near-miss against the AccurateRip consensus (the
+  Track-3-class gap in the EAC-parity work). Off by default — a clean disc doesn't
+  need it and it costs time, so the normal secure read (paranoia + retries) still
+  handles those. Try **2** if a track won't verify against AccurateRip. The whipper
+  backend has no equivalent flag, so the control is greyed out (your value is kept)
+  when whipper is selected.
 
 ### Fixed
 - **A colon in an album/track title now ends up as a real `:` in the FLAC tags

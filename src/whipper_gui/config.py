@@ -167,6 +167,20 @@ class Config:
     # silently skipped, in an archival workflow.
     keep_going: bool = False
 
+    # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
+    # cyanrip's `-Z <int>`: "rip tracks until their checksums match <int>
+    # number of times" — for damaged/marginal discs whose first read is a
+    # near-miss against the AccurateRip consensus (the Track-3-class gap in
+    # docs/eac-parity-investigation.md). It re-rips a track until N reads
+    # agree, so transient read errors converge to the bit-perfect result.
+    # 0 = OFF (don't pass -Z); the normal secure path (paranoia + retries)
+    # is enough for a clean disc and this only costs time on a good one.
+    # 2 is the useful floor when enabled (two agreeing reads). **cyanrip
+    # ONLY** — whipper has no equivalent flag, so the backend ignores it and
+    # Settings greys the control out for whipper (same pattern as the
+    # FLAC re-compress / verify toggles).
+    secure_rerip_matches: int = 0
+
     # --- CTDB verification (KDD-14 Phase 1) ---
     # After a successful rip, verify the result against the CUETools Database
     # (a second, TOC-keyed verification path alongside AccurateRip). Off by

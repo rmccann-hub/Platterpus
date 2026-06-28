@@ -170,6 +170,30 @@ def test_recompress_flac_greyed_for_cyanrip_editable_for_whipper(
     assert dialog2._recompress_flac_check.isEnabled() is True
 
 
+def test_secure_rerip_reflects_config_and_round_trips(qapp: QApplication) -> None:
+    # Defaults OFF (0) and reflects the incoming config…
+    dialog = SettingsDialog(Config())
+    assert dialog._secure_rerip_spin.value() == 0
+
+    # …and a user value survives to_config().
+    dialog2 = SettingsDialog(Config(secure_rerip_matches=2))
+    assert dialog2._secure_rerip_spin.value() == 2
+    dialog2._secure_rerip_spin.setValue(3)
+    assert dialog2.to_config().secure_rerip_matches == 3
+
+
+def test_secure_rerip_greyed_for_whipper_editable_for_cyanrip(
+    qapp: QApplication,
+) -> None:
+    # -Z is a cyanrip-only feature; whipper has no equivalent → read-only
+    # (value kept)…
+    dialog = SettingsDialog(Config(ripper_backend="whipper"))
+    assert dialog._secure_rerip_spin.isEnabled() is False
+    # …and editable on cyanrip.
+    dialog2 = SettingsDialog(Config(ripper_backend="cyanrip"))
+    assert dialog2._secure_rerip_spin.isEnabled() is True
+
+
 def test_to_config_preserves_schema_version(qapp: QApplication) -> None:
     config = Config(schema_version=99)
     dialog = SettingsDialog(config)

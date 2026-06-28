@@ -94,6 +94,7 @@ class _FakeBackend(WhipperBackend):
         force_overread: bool = False,
         max_retries: int = 5,
         keep_going: bool = False,
+        secure_rerip_matches: int = 0,
         read_offset_override: int | None = None,
         metadata=None,
     ) -> RipHandle:
@@ -108,6 +109,7 @@ class _FakeBackend(WhipperBackend):
                 "force_overread": force_overread,
                 "max_retries": max_retries,
                 "keep_going": keep_going,
+                "secure_rerip_matches": secure_rerip_matches,
                 "read_offset_override": read_offset_override,
                 "metadata": metadata,
             }
