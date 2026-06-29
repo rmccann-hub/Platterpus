@@ -219,8 +219,17 @@ def _migrate(raw: dict) -> dict:
     A stub today (there is only v1), but the seam exists from day one — schema
     migrations are cheap to add now and impossible to retrofit. A file claiming
     a *newer* version is treated as current with a warning, never a crash.
+
+    Never raises: a corrupt/non-numeric ``schema_version`` (the field is
+    attacker/format-controlled, since this runs before any shape validation) is
+    treated as the current version rather than crashing GUI startup — the same
+    "corrupt cache must never block a rip" tolerance load() promises.
     """
-    version = int(raw.get("schema_version", SCHEMA_VERSION) or SCHEMA_VERSION)
+    try:
+        version = int(raw.get("schema_version", SCHEMA_VERSION))
+    except (TypeError, ValueError):
+        log.warning("drive_profiles.json has a non-numeric schema_version; ignoring it")
+        return raw
     if version == SCHEMA_VERSION:
         return raw
     if version > SCHEMA_VERSION:

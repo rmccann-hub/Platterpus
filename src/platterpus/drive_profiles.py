@@ -304,7 +304,12 @@ def conf_offset_for(vendor: str, model: str, conf_offsets: list[object]) -> int 
         if drive is None or offset is None:
             continue
         if normalize_combined(str(drive)) == target:
-            return int(offset)
+            # Duck-typed input (list[object]); a non-int offset must not break
+            # the never-raises contract — skip it rather than raise.
+            try:
+                return int(offset)
+            except (TypeError, ValueError):
+                continue
     return None
 
 
