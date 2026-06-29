@@ -103,6 +103,15 @@ jobs:
               platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh --clobber
           else
+            # Create as a DRAFT first. A draft is invisible to the unauthenticated
+            # releases-list API the in-app updater polls, so the release can't be
+            # seen until EVERY asset is attached — crucially the small .sha256 the
+            # updater fetches FIRST. Publishing up-front (the old behaviour) left a
+            # window while the 237 MB AppImage uploaded where the release was live
+            # but its checksum 404'd: "couldn't fetch the update checksum: HTTP
+            # Error 404" (real-user report on v0.4.0). gh uploads all assets as
+            # part of `create`, so by the time we flip the draft off they're all
+            # present.
             gh release create "$TAG" \
               platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
               platterpus-x86_64.AppImage.zsync \
@@ -110,7 +119,11 @@ jobs:
               --title "Platterpus $TAG" \
               --target "$GITHUB_SHA" \
               --generate-notes \
+              --draft \
               $PRERELEASE
+            # Every asset is attached — publish atomically (keeps the prerelease
+            # flag set at create time).
+            gh release edit "$TAG" --draft=false
           fi
 
       # Kick off the PyPI publish in its OWN run. We must DISPATCH it rather
