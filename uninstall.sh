@@ -163,12 +163,36 @@ else
     missing "$GUI_LOGS"
 fi
 
-# Desktop launcher created by dev-setup.sh.
+# Pre-rename leftovers (the app was "Whipper GUI" before Platterpus). The
+# rename copied ~/.config/whipper-gui → ~/.config/platterpus rather than moving
+# it, so the old dirs can linger — clear them for a clean slate.
+for _legacy in "$HOME/.config/whipper-gui" "$HOME/.local/share/whipper-gui"; do
+    if [ -d "$_legacy" ]; then
+        run rm -rf "$_legacy"
+        removed "$_legacy (legacy whipper-gui)"
+    fi
+done
+
+# The freedesktop app-id: the AppImage integration writes its menu entry and
+# icon under this name (paths.APP_ID), while dev-setup.sh uses the short
+# `platterpus` name. Remove BOTH so every install method is covered — and the
+# legacy pre-rename `whipper-gui` name too, for a truly clean slate.
+APP_ID="io.github.rmccann_hub.Platterpus"
+
+# Main menu launcher. Created as "$APP_ID.desktop" by the AppImage (the bug this
+# fixes: the old uninstaller only deleted "platterpus.desktop" and orphaned the
+# AppImage's real entry), or "platterpus.desktop" by dev-setup.sh.
 DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-DESKTOP_FILE="$DESKTOP_DIR/platterpus.desktop"
-if [ -f "$DESKTOP_FILE" ]; then
-    run rm -f "$DESKTOP_FILE"
-    removed "$DESKTOP_FILE"
+_desktop_removed=0
+for _name in "$APP_ID.desktop" "platterpus.desktop" "whipper-gui.desktop"; do
+    DESKTOP_FILE="$DESKTOP_DIR/$_name"
+    if [ -f "$DESKTOP_FILE" ]; then
+        run rm -f "$DESKTOP_FILE"
+        removed "$DESKTOP_FILE"
+        _desktop_removed=1
+    fi
+done
+if [ "$_desktop_removed" -eq 1 ]; then
     # Refresh the app-menu caches so the entry disappears immediately
     # (mirrors dev-setup.sh). update-desktop-database covers the MIME
     # cache; KDE Plasma's launcher needs kbuildsycoca. Best-effort.
@@ -182,35 +206,41 @@ if [ -f "$DESKTOP_FILE" ]; then
         fi
     done
 else
-    missing "$DESKTOP_FILE"
+    missing "$DESKTOP_DIR/$APP_ID.desktop"
 fi
 
-# The copy dev-setup.sh places on the user's Desktop.
+# The clickable copy placed on the user's Desktop (AppImage uses "$APP_ID",
+# dev-setup uses "platterpus").
 DESKTOP_USER_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
-DESKTOP_ICON="$DESKTOP_USER_DIR/platterpus.desktop"
-if [ -f "$DESKTOP_ICON" ]; then
-    run rm -f "$DESKTOP_ICON"
-    removed "$DESKTOP_ICON"
-else
-    missing "$DESKTOP_ICON"
-fi
+for _name in "$APP_ID.desktop" "platterpus.desktop"; do
+    DESKTOP_ICON="$DESKTOP_USER_DIR/$_name"
+    if [ -f "$DESKTOP_ICON" ]; then
+        run rm -f "$DESKTOP_ICON"
+        removed "$DESKTOP_ICON"
+    fi
+done
 
 # AppImage install (install.sh / install-appimage.sh): the parked AppImage,
 # its extracted icon, the uninstall shortcut, and the staged copy of this
 # very script. Globs the versioned AppImage filename.
 APPS_DIR="$HOME/Applications"
 shopt -s nullglob
-for _app in "$APPS_DIR"/platterpus*.AppImage; do
+for _app in "$APPS_DIR"/platterpus*.AppImage "$APPS_DIR"/[Ww]hipper-[Gg][Uu][Ii]*.AppImage; do
     run rm -f "$_app"
     removed "$_app"
 done
 shopt -u nullglob
 
-APP_ICON="${XDG_DATA_HOME:-$HOME/.local/share}/icons/platterpus.png"
-if [ -f "$APP_ICON" ]; then
-    run rm -f "$APP_ICON"
-    removed "$APP_ICON"
-fi
+# Extracted app icon. The AppImage integration copies it as "$APP_ID.png"; the
+# old uninstaller only knew "platterpus.png". Remove both.
+ICONS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons"
+for _name in "$APP_ID.png" "platterpus.png"; do
+    APP_ICON="$ICONS_DIR/$_name"
+    if [ -f "$APP_ICON" ]; then
+        run rm -f "$APP_ICON"
+        removed "$APP_ICON"
+    fi
+done
 
 UNINSTALL_DESKTOP="$DESKTOP_DIR/platterpus-uninstall.desktop"
 if [ -f "$UNINSTALL_DESKTOP" ]; then
