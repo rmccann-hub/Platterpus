@@ -221,6 +221,12 @@ def test_conf_offset_for_matches_by_canonical_name() -> None:
     assert conf_offset_for("LG", "OTHER", conf) is None
 
 
+def test_conf_offset_for_skips_non_int_offset() -> None:
+    # Duck-typed input: a non-int .offset must not raise (never-raises contract).
+    conf = [_ConfOffset("PIONEER BD-RW BDR-209D", "notanint")]  # type: ignore[arg-type]
+    assert conf_offset_for("PIONEER", "BD-RW BDR-209D", conf) is None
+
+
 # --- Store round-trip + never-raises ---------------------------------------
 
 
@@ -284,6 +290,20 @@ def test_store_future_schema_version_does_not_crash(tmp_path: Path) -> None:
     path = tmp_path / "drive_profiles.json"
     path.write_text('{"schema_version": 999, "profiles": {}}')
     assert DriveProfileStore.load(path).all() == []
+
+
+def test_store_non_numeric_schema_version_does_not_crash(tmp_path: Path) -> None:
+    # Regression: a corrupt schema_version ("abc", "v1", a list) must not raise
+    # out of _migrate and crash GUI startup — load() promises never-raises.
+    path = tmp_path / "drive_profiles.json"
+    for bad in ('"abc"', '"v1"', "[1, 2]", "true"):
+        path.write_text(
+            '{"schema_version": ' + bad + ', "profiles": {"vm:X": '
+            '{"vendor": "V", "model": "M"}}}'
+        )
+        store = DriveProfileStore.load(path)
+        # The version field is ignored; the profile still loads.
+        assert store.get("vm:X") is not None
 
 
 def test_store_unknown_enum_string_loads_as_safe_default(tmp_path: Path) -> None:
