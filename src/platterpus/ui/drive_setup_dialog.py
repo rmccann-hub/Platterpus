@@ -278,9 +278,15 @@ def _format_result(result: DriveSetupResult) -> str:
         lines.append(f"✗ Read offset: {result.offset_error or 'not detected'}")
 
     if result.can_defeat_cache is True:
-        lines.append("✓ Audio cache: will be defeated for secure rips (saved).")
+        lines.append(
+            "✓ Audio cache: this drive caches audio, so Platterpus will read "
+            "around the cache to keep rips bit-perfect (saved)."
+        )
     elif result.can_defeat_cache is False:
-        lines.append("• Audio cache: this drive doesn't need cache-defeating (saved).")
+        lines.append(
+            "• Audio cache: this drive doesn't cache audio, so its reads are "
+            "already trustworthy (saved)."
+        )
     else:
         lines.append(
             f"• Audio cache: {result.analyze_error or 'could not be determined'}"
