@@ -68,6 +68,11 @@ track verified on a guess. If you enabled **Verify with CTDB**, its result
 appears just below, colour-coded the same way (green only once its checksum is
 hardware-confirmed; an experimental match shows amber).
 
+Alongside the rip, two records are saved next to your music: the backend's
+human-readable **`.log`**, and a **`.platterpus.json`** report with the same
+results in a machine-readable form (per-track CRCs, AccurateRip/CTDB outcomes,
+the verdict) — handy for scripting, re-verifying later, or attaching to a report.
+
 ## Unknown discs
 
 If MusicBrainz has no match (or you're offline), use **File → Rip as Unknown

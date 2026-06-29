@@ -414,6 +414,13 @@ class RipMixin:
                 self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
                     self._rip_progress.set_status(fidelity_summary(rip_log))
+                # Write the machine-readable JSON rip report beside the log
+                # (the "two outputs every time" rule, docs/ux-design-principles
+                # #2). Kept for the CTDB handler to re-write with the CTDB
+                # verdict once that async check finishes.
+                self._last_rip_log = rip_log
+                self._last_rip_log_file = log_file
+                self._write_rip_report(rip_log, log_file)
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
 
@@ -821,6 +828,31 @@ class RipMixin:
         self._rip_progress.set_ctdb_result(result)  # type: ignore[arg-type]
         verdict = getattr(getattr(result, "verdict", None), "value", "?")
         log.info("CTDB verify verdict: %s", verdict)
+        # Re-write the JSON report now that CTDB has a verdict, so the
+        # machine-readable record includes both verification paths.
+        if self._last_rip_log is not None and self._last_rip_log_file is not None:
+            self._write_rip_report(
+                self._last_rip_log, self._last_rip_log_file, ctdb_result=result
+            )
+
+    def _write_rip_report(
+        self, rip_log: object, log_file: Path, *, ctdb_result: object | None = None
+    ) -> None:
+        """Write the JSON rip report beside ``log_file`` (best-effort).
+
+        A small file write — safe on the GUI thread. Never raises (write_report
+        swallows OSError); the report is a nice-to-have, not part of the rip.
+        """
+        from datetime import datetime
+
+        from platterpus import rip_report
+
+        rip_report.write_report(
+            rip_log,
+            log_file,
+            ctdb_result=ctdb_result,
+            generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+        )
 
     # --- Post-rip FLAC encode-verify (opt-in, default on) -------------------
 

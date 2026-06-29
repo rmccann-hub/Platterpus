@@ -1,0 +1,154 @@
+"""Machine-readable (JSON) rip report — the structured companion to the log.
+
+Deep-research lesson (docs/ux-design-principles.md #2, "two outputs every
+time"): a trustworthy tool should emit both a human-readable narrative *and* a
+machine-readable structure, so the result can be re-verified, fed to QA/repair
+tooling, or attached to a support thread later. Platterpus already has the human
+log (the backend's `.log`); this adds the JSON.
+
+`build_report` is pure and **never raises** (mirrors the parser/renderer
+discipline): a malformed or partial ``RipLog`` yields a best-effort report with
+a valid envelope rather than blowing up the post-rip path. The whole-disc
+verdict reuses :func:`platterpus.verdict.accuraterip_verdict` and the per-track
+flag reuses :func:`track_accuraterip_verified`, so the JSON can never disagree
+with the on-screen banner about what "verified" means.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+
+from platterpus import __version__
+from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.verdict import accuraterip_verdict
+
+log = logging.getLogger(__name__)
+
+# Bump when the JSON shape changes in a way a consumer must notice.
+REPORT_SCHEMA_VERSION: int = 1
+
+
+def build_report(
+    rip_log: object,
+    *,
+    ctdb_result: object | None = None,
+    generated_at: str = "",
+) -> dict:
+    """Return a structured, versioned summary of a rip as a plain dict.
+
+    ``generated_at`` is supplied by the caller (an ISO-8601 timestamp) so this
+    stays pure and deterministic. ``ctdb_result`` is an optional
+    :class:`~platterpus.ctdb.verify.CtdbVerifyResult`. Never raises.
+    """
+    try:
+        return _build(rip_log, ctdb_result, generated_at)
+    except Exception:  # noqa: BLE001 — a report builder must never crash a rip
+        log.exception("rip-report build failed; emitting minimal envelope")
+        return {
+            "schema_version": REPORT_SCHEMA_VERSION,
+            "generator": {"name": "platterpus", "version": __version__},
+            "error": "report could not be built",
+        }
+
+
+def _build(rip_log: object, ctdb_result: object | None, generated_at: str) -> dict:
+    message, level = accuraterip_verdict(rip_log)
+    info = getattr(rip_log, "ripping_info", None)
+    return {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "generator": {"name": "platterpus", "version": __version__},
+        "generated_at": generated_at or None,
+        "log_creator": getattr(rip_log, "log_creator", "") or None,
+        "verdict": {"level": level, "message": message or None},
+        "rip": {
+            "drive": getattr(info, "drive", "") or None,
+            "extraction_engine": getattr(info, "extraction_engine", "") or None,
+            "read_offset_correction": getattr(info, "read_offset_correction", None),
+            "defeat_audio_cache": getattr(info, "defeat_audio_cache", None),
+            "overread_lead_out": getattr(info, "overread_lead_out", None),
+            "gap_detection": getattr(info, "gap_detection", "") or None,
+            "cd_r_detected": getattr(info, "cd_r_detected", None),
+            "creation_date": getattr(rip_log, "creation_date", "") or None,
+        },
+        "accuraterip_summary": getattr(rip_log, "accuraterip_summary", "") or None,
+        "health_status": getattr(rip_log, "health_status", "") or None,
+        "sha256_hash": getattr(rip_log, "sha256_hash", "") or None,
+        "tracks": [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())],
+        "ctdb": _ctdb(ctdb_result),
+    }
+
+
+def _track(track: object) -> dict:
+    return {
+        "number": getattr(track, "number", None),
+        "filename": getattr(track, "filename", "") or None,
+        "test_crc": getattr(track, "test_crc", "") or None,
+        "copy_crc": getattr(track, "copy_crc", "") or None,
+        "status": getattr(track, "status", "") or None,
+        # The shared confidence>=1 rule — same as the banner and disc panel.
+        "accuraterip_verified": track_accuraterip_verified(track),
+        "accuraterip": {
+            "v1": _ar(getattr(track, "accuraterip_v1", None)),
+            "v2": _ar(getattr(track, "accuraterip_v2", None)),
+        },
+    }
+
+
+def _ar(ar: object) -> dict | None:
+    if ar is None:
+        return None
+    return {
+        "result": getattr(ar, "result", "") or None,
+        "confidence": getattr(ar, "confidence", None),
+        "local_crc": getattr(ar, "local_crc", None),
+        "remote_crc": getattr(ar, "remote_crc", None),
+    }
+
+
+def _ctdb(result: object | None) -> dict | None:
+    if result is None:
+        return None
+    verdict = getattr(getattr(result, "verdict", None), "value", None)
+    return {
+        "verdict": verdict,
+        "confidence": getattr(result, "confidence", None),
+        "trustworthy": getattr(result, "trustworthy", None),
+        "crc_validated": getattr(result, "crc_validated", None),
+    }
+
+
+def report_to_json(report: dict) -> str:
+    """Serialize a report dict to pretty UTF-8 JSON (trailing newline)."""
+    return json.dumps(report, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
+
+
+def report_path_for(log_file: Path) -> Path:
+    """The JSON report path that sits beside a rip log (`X.log` → `X.platterpus.json`)."""
+    return log_file.parent / f"{log_file.stem}.platterpus.json"
+
+
+def write_report(
+    rip_log: object,
+    log_file: Path,
+    *,
+    ctdb_result: object | None = None,
+    generated_at: str = "",
+) -> Path | None:
+    """Build and write the JSON report beside ``log_file``. Best-effort.
+
+    Returns the path written, or None on any failure (the report is a nice-to-
+    have; it must never break the post-rip flow). Writing a small JSON file is
+    cheap, so this is safe to call on the GUI thread.
+    """
+    target = report_path_for(log_file)
+    try:
+        report = build_report(
+            rip_log, ctdb_result=ctdb_result, generated_at=generated_at
+        )
+        target.write_text(report_to_json(report), encoding="utf-8")
+        return target
+    except OSError:
+        log.warning("could not write rip report to %s", target, exc_info=True)
+        return None
