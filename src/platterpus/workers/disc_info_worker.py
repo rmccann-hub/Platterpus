@@ -1,6 +1,6 @@
 """DiscInfoWorker — reads the inserted disc's TOC/MB-id off the GUI thread.
 
-`WhipperBackend.disc_info()` shells out (whipper `cd info` / cyanrip `-I`),
+`RipBackend.disc_info()` shells out (whipper `cd info` / cyanrip `-I`),
 which **enters the Distrobox container** and reads the disc — several seconds,
 especially on a cold container or a slow drive. Running it on the GUI thread
 (as the drive-change handler used to) froze the window on every drive
@@ -23,7 +23,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.adapters.whipper_backend import WhipperBackend, WhipperError
+from platterpus.adapters.whipper_backend import RipBackend, WhipperError
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class DiscInfoWorker(QObject):
     failed = Signal(str, str)  # (device, message)
 
     def __init__(
-        self, backend: WhipperBackend, device: str, parent: QObject | None = None
+        self, backend: RipBackend, device: str, parent: QObject | None = None
     ) -> None:
         super().__init__(parent)
         self._backend = backend

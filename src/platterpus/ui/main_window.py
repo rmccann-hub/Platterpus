@@ -36,7 +36,7 @@ from platterpus.adapters.musicbrainz_client import (
 )
 from platterpus.adapters.whipper_backend import (
     DiscInfo,
-    WhipperBackend,
+    RipBackend,
 )
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
@@ -120,7 +120,7 @@ class MainWindow(
     def __init__(
         self,
         config: Config,
-        backend: WhipperBackend,
+        backend: RipBackend,
         mb_client: MusicBrainzClient,
         metaflac: MetaflacAdapter,
         dependency_manager: DependencyManager,
@@ -134,7 +134,7 @@ class MainWindow(
 
         # --- Injected dependencies -----------------------------------------
         self._config: Config = config
-        self._backend: WhipperBackend = backend
+        self._backend: RipBackend = backend
         self._mb_client: MusicBrainzClient = mb_client
         self._metaflac: MetaflacAdapter = metaflac
         self._dependency_manager: DependencyManager = dependency_manager

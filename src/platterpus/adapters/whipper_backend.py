@@ -1,9 +1,10 @@
 """Adapter over the host-exported `whipper` CLI.
 
-`WhipperBackend` is an abstract base class with the four operations the
-GUI needs. `WhipperHostExportedImpl` is the v1 concrete implementation
-that shells out to `~/.local/bin/whipper`. A future `CyanripImpl` could
-implement the same ABC and be selected via config — see PLANNING.md §5.
+`RipBackend` (defined here) is the backend-neutral abstract base class with
+the operations the GUI needs; it is implemented by `WhipperHostExportedImpl`
+in this module and by `CyanripImpl` in `cyanrip_backend.py`, with the active
+backend selected via config — see PLANNING.md §5. `WhipperHostExportedImpl`
+is the whipper implementation that shells out to `~/.local/bin/whipper`.
 
 The adapter is deliberately thin: it builds argv, runs subprocess, and
 hands stdout to the parsers in `platterpus.parsers`. It does NOT parse
@@ -252,11 +253,13 @@ class RipHandle:
 # --- Abstract base ----------------------------------------------------------
 
 
-class WhipperBackend(ABC):
-    """Abstract base for any whipper-or-equivalent ripping backend.
+class RipBackend(ABC):
+    """Abstract base for any CD-ripping backend.
 
-    Implementations: WhipperHostExportedImpl (this module). Future:
-    CyanripImpl could be slotted in by implementing this interface.
+    Backend-neutral on purpose: the name is not tied to whipper, because
+    both implementations sit behind it — WhipperHostExportedImpl (this
+    module) and CyanripImpl (cyanrip_backend.py). A new backend is added by
+    implementing this interface and wiring it into composition.build_backend.
     """
 
     @abstractmethod
@@ -384,7 +387,7 @@ class WhipperBackend(ABC):
 # --- v1 concrete implementation --------------------------------------------
 
 
-class WhipperHostExportedImpl(WhipperBackend):
+class WhipperHostExportedImpl(RipBackend):
     """Calls the whipper binary exported by Distrobox to ~/.local/bin/whipper.
 
     Per CLAUDE.md Critical Rule #3, the GUI never enters the Distrobox

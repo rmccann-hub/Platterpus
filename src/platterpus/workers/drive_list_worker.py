@@ -21,7 +21,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.adapters.whipper_backend import WhipperBackend, WhipperError
+from platterpus.adapters.whipper_backend import RipBackend, WhipperError
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class DriveListWorker(QObject):
     finished = Signal(object)  # list[DriveDescriptor]
     failed = Signal(str)
 
-    def __init__(self, backend: WhipperBackend, parent: QObject | None = None) -> None:
+    def __init__(self, backend: RipBackend, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._backend = backend
 

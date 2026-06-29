@@ -1,7 +1,7 @@
 """Drive picker widget.
 
 A small horizontal panel: label + dropdown of detected drives + Refresh.
-Populates from `WhipperBackend.list_drives()`; emits `drive_changed`
+Populates from `RipBackend.list_drives()`; emits `drive_changed`
 when the selection changes.
 
 The actual list_drives() call shells out to whipper, which can take a
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus.adapters.whipper_backend import WhipperBackend, WhipperError
+from platterpus.adapters.whipper_backend import RipBackend, WhipperError
 from platterpus.parsers.drive_list import DriveDescriptor
 
 log = logging.getLogger(__name__)
@@ -51,11 +51,11 @@ class DrivePicker(QWidget):
 
     def __init__(
         self,
-        backend: WhipperBackend,
+        backend: RipBackend,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._backend: WhipperBackend = backend
+        self._backend: RipBackend = backend
         # Device path -> full descriptor, so callers can recover the
         # selected drive's vendor/model (e.g. for the offset lookup), not
         # just its /dev node.

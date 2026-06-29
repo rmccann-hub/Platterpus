@@ -2,7 +2,7 @@
 
 The panel is a pure view — it doesn't fetch anything itself. The main
 window observes `drive_changed` from the DrivePicker, runs
-`WhipperBackend.disc_info()` and `MusicBrainzClient.releases_by_disc_id()`
+`RipBackend.disc_info()` and `MusicBrainzClient.releases_by_disc_id()`
 on workers, and pushes results into this panel via the `set_*` methods.
 
 Why a pure view: the orchestration of "fetch disc info, then look up

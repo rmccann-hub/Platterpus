@@ -26,7 +26,7 @@ and the cross-mixin methods
 ``self._auto_apply_known_offset`` / ``self._on_drive_setup`` (DriveMixin).
 
 Future contributors: the rip itself runs in ``workers/rip_worker.py`` via a
-backend behind the ``WhipperBackend`` ABC — this file is GUI orchestration
+backend behind the ``RipBackend`` ABC — this file is GUI orchestration
 only. To support a new backend's log, extend the sniff/parse block in
 ``_on_rip_finished`` and ``fidelity_summary`` (see ``docs/architecture.md``).
 """

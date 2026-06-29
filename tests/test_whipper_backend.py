@@ -18,8 +18,8 @@ import pytest
 
 from platterpus.adapters import whipper_backend
 from platterpus.adapters.whipper_backend import (
+    RipBackend,
     RipHandle,
-    WhipperBackend,
     WhipperError,
     WhipperHostExportedImpl,
 )
@@ -511,9 +511,9 @@ def test_rip_handle_cancel_on_already_exited_process_is_safe(
 
 
 def test_abstract_methods_block_instantiation() -> None:
-    """WhipperBackend itself must not be instantiable."""
+    """RipBackend itself must not be instantiable."""
     with pytest.raises(TypeError):
-        WhipperBackend()  # type: ignore[abstract]
+        RipBackend()  # type: ignore[abstract]
 
 
 # --- drive calibration (setup wizard) -------------------------------------

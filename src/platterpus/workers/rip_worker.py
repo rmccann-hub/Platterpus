@@ -1,4 +1,4 @@
-"""RipWorker — drives a WhipperBackend rip off the GUI thread.
+"""RipWorker — drives a RipBackend rip off the GUI thread.
 
 The main thread constructs a RipWorker, moves it to a QThread, and
 connects QThread.started to RipWorker.start_rip. The worker streams
@@ -28,9 +28,9 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot
 
 from platterpus.adapters.whipper_backend import (
+    RipBackend,
     RipHandle,
     RipMetadata,
-    WhipperBackend,
     WhipperError,
 )
 
@@ -170,12 +170,12 @@ class RipWorker(QObject):
 
     def __init__(
         self,
-        backend: WhipperBackend,
+        backend: RipBackend,
         params: RipParameters,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self._backend: WhipperBackend = backend
+        self._backend: RipBackend = backend
         self._params: RipParameters = params
         self._handle: RipHandle | None = None
         # Last status text emitted, so we don't re-emit identical phases

@@ -33,7 +33,7 @@ from platterpus.adapters.musicbrainz_client import (
     MusicBrainzNgsImpl,
 )
 from platterpus.adapters.whipper_backend import (
-    WhipperBackend,
+    RipBackend,
     WhipperHostExportedImpl,
 )
 from platterpus.config import Config
@@ -46,7 +46,7 @@ log = logging.getLogger(__name__)
 CONTACT_URL = "https://github.com/rmccann-hub/Platterpus"
 
 
-def build_backend(cfg: Config) -> tuple[WhipperBackend, str]:
+def build_backend(cfg: Config) -> tuple[RipBackend, str]:
     """Construct the ripping backend that ``cfg.ripper_backend`` selects.
 
     Returns ``(backend, backend_name)``. cyanrip (KDD-18) is imported lazily so
@@ -63,7 +63,7 @@ def build_backend(cfg: Config) -> tuple[WhipperBackend, str]:
             CYANRIP_BINARY_DEFAULT if CYANRIP_BINARY_DEFAULT.exists() else "cyanrip"
         )
         log.info("using cyanrip backend (%s)", cyanrip_binary)
-        backend: WhipperBackend = CyanripImpl(
+        backend: RipBackend = CyanripImpl(
             binary_path=cyanrip_binary, working_dir=working_dir
         )
         return backend, "cyanrip"
