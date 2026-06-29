@@ -341,13 +341,23 @@ add a property test. If it feeds a verdict, extend `fidelity_summary` in
 "Is this track AccurateRip-verified?" has **one** definition for the whole app:
 `parsers/rip_log.accuraterip_is_match` / `track_accuraterip_verified`
 (**confidence ≥ 1** — a real match always has it; "not present" has `None`/`0`).
-It can only ever under-claim, never fabricate a match. Every trust surface routes
-through it — the colour-coded **verdict banner** above the results table
-(`ui/rip_progress.accuraterip_verdict`), the disc-info panel, the status-line
-`fidelity_summary`, and the EAC-style log renderer — so they can never disagree
-(a past bug had the disc panel string-match "exact match", which silently
-under-counted cyanrip rips). Don't re-derive "verified" anywhere else; call the
-shared helper.
+It can only ever under-claim, never fabricate a match. The whole-disc verdict
+(`platterpus.verdict.accuraterip_verdict` → `(message, level)`) builds on it and
+lives in its own Qt-free module so every surface shares it: the colour-coded
+**verdict banner** above the results table (`ui/rip_progress` re-exports it), the
+disc-info panel, the status-line `fidelity_summary`, the EAC-style log renderer,
+and the **JSON rip report** — so they can never disagree (a past bug had the disc
+panel string-match "exact match", which silently under-counted cyanrip rips).
+Don't re-derive "verified" anywhere else; call the shared helpers.
+
+**Two outputs every time:** beside the backend's human `.log`, Platterpus writes
+a machine-readable **`<name>.platterpus.json`** rip report
+(`platterpus.rip_report`, pure + never-raises; `scripts/rip_report.py` is the
+CLI) carrying the drive/rip settings, per-track CRCs + AccurateRip results, the
+shared verdict, and the CTDB result. `_on_rip_finished` writes it (AccurateRip);
+the CTDB-verify handler re-writes it with the CTDB verdict once that async check
+finishes. QA / re-verification / repair tooling consume the JSON; humans read the
+log.
 
 **Parity vs EAC** is measured, not claimed: `platterpus.parity` /
 `scripts/eac_parity.py` compare a rip log's per-track Copy CRC against the

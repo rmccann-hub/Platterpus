@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import QThread, QTimer, Signal
 from PySide6.QtWidgets import (
@@ -243,6 +244,11 @@ class MainWindow(
         # join it deterministically; not joined in closeEvent (it's a daemon
         # and guards its own signal emit).
         self._post_rip_thread: threading.Thread | None = None
+        # The last parsed rip log + its file path, kept so the CTDB-verify
+        # handler can re-write the JSON rip report with the CTDB verdict once
+        # that async check finishes (see main_window_rip).
+        self._last_rip_log: object | None = None
+        self._last_rip_log_file: Path | None = None
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
         # Post-rip CTDB verify (KDD-14 Phase 1, opt-in). Runs the lookup +

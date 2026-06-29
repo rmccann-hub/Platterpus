@@ -76,7 +76,7 @@ user impact ÷ effort:
 | # | Gap | Why it matters | Rough size |
 |---|---|---|---|
 | 1 | **Goal presets** ("Fast verified" / "Archival exact" / "Portable") | Anchors all config to user *intent* instead of asking novices to reason about abstract toggles first (EAC's "accuracy vs speed" was this, bluntly). | M |
-| 2 | **Machine-readable (JSON) log** beside the human one | Powers QA, re-verification, repair tooling, support; "two outputs every time." | S–M |
+| 2 | ✅ **Machine-readable (JSON) log** beside the human one (`platterpus.rip_report` → `<name>.platterpus.json`; 2026-06-28) | Powers QA, re-verification, repair tooling, support; "two outputs every time." | S–M |
 | 3 | **Timestamp-localized anomalies + one-click playback** of flagged regions | The single most "friendly to demanding users" EAC trait — review only where confidence broke, not the whole disc. | M (HW-gated) |
 | 4 | **Accessibility pass** | Accessible names, keyboard coverage, non-colour-only status, focus-safe live updates. Reports rank this the #1 modern gap. | S–M |
 | 5 | **Outcome-oriented wording** across Settings/labels | Cuts the learning cost without removing the precise term. | S |

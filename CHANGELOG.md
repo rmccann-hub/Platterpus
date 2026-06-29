@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **A machine-readable JSON rip report is now saved beside every rip log**
+  (`<name>.platterpus.json`). It captures the drive/rip settings, each track's
+  CRCs and AccurateRip result, the overall verification verdict, and (if you ran
+  it) the CTDB result — the structured companion to the human-readable log, for
+  re-verification, scripting, or attaching to a report. It's re-written to include
+  the CTDB verdict once that check finishes. `scripts/rip_report.py` regenerates
+  it from any rip log.
 - **Settings → Goal presets.** A single "Goal" choice at the top of Settings
   anchors the rest to your intent: *Fast verified* (lossless, AccurateRip-checked
   — the recommended default), *Archival exact* (also CTDB-verify + smallest

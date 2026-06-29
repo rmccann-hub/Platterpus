@@ -35,10 +35,14 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
-from platterpus.parsers.rip_log import (
-    RipLog,
-    track_accuraterip_verified,
-)
+from platterpus.parsers.rip_log import RipLog
+
+# Re-exported so existing imports (and tests) can keep doing
+# `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
+# home is the pure platterpus.verdict module.
+from platterpus.verdict import accuraterip_verdict
+
+__all__ = ["RipProgress", "accuraterip_verdict"]
 
 log = logging.getLogger(__name__)
 
@@ -303,64 +307,6 @@ def ctdb_verdict_level(result: CtdbVerifyResult) -> str:
     if verdict is Verdict.MATCH:
         return "ok" if result.trustworthy else "warn"
     return "neutral"
-
-
-def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
-    """At-a-glance AccurateRip verdict: ``(message, level)``.
-
-    ``level`` is "ok" (all audio tracks verified — bit-perfect against the
-    shared AccurateRip database), "warn" (some but not all matched), or
-    "neutral" (none matched — typically a disc nobody has submitted, e.g. a
-    CD-R). An empty ``message`` means "show nothing" (no audio tracks parsed).
-
-    Pure and never-raises (reads via ``getattr``) so it accepts both the
-    whipper and cyanrip ``RipLog`` shapes and any partially-parsed log. The
-    wording never claims more than AccurateRip returned — this is the trust
-    headline, so it must be honest above all.
-    """
-    tracks = getattr(rip_log, "tracks", ()) or ()
-    # Audio tracks only: a data track has neither a Copy CRC nor an AR result.
-    audio = [
-        t
-        for t in tracks
-        if getattr(t, "copy_crc", "")
-        or getattr(t, "accuraterip_v1", None) is not None
-        or getattr(t, "accuraterip_v2", None) is not None
-    ]
-    total = len(audio)
-    if total == 0:
-        return "", "neutral"
-    verified = sum(1 for t in audio if track_accuraterip_verified(t))
-    if verified == total:
-        confidences = [
-            conf
-            for t in audio
-            for conf in (
-                getattr(getattr(t, "accuraterip_v1", None), "confidence", None),
-                getattr(getattr(t, "accuraterip_v2", None), "confidence", None),
-            )
-            if conf is not None
-        ]
-        tail = f" (confidence {min(confidences)}+)" if confidences else ""
-        return (
-            f"✓ Bit-perfect: all {total} tracks verified against AccurateRip{tail}",
-            "ok",
-        )
-    if verified > 0:
-        return (
-            f"⚠ {verified} of {total} tracks verified against AccurateRip — "
-            "the rest aren't in the database or didn't match (see the table)",
-            "warn",
-        )
-    # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +
-    # text, never colour alone — colour-blind and screen-reader users get the
-    # same signal as the green/amber/grey tint (ux-design-principles.md #10).
-    return (
-        "ⓘ AccurateRip: no tracks matched the database — expected for a disc "
-        "nobody has submitted (e.g. a burned CD-R); the per-track Copy CRCs "
-        "below still prove a secure read",
-        "neutral",
-    )
 
 
 # Banner colours by level. Muted, theme-neutral hues that read on both light
