@@ -43,6 +43,41 @@ log = logging.getLogger(__name__)
 USER_OFFSETS_PATH: Path = CONFIG_DIR / "drive_offsets.csv"
 
 
+def canonical_token(s: str) -> str:
+    """Uppercase, collapse internal whitespace, strip — the shared core.
+
+    This is the *one* canonicalization primitive used everywhere a drive
+    identity string becomes a stable key: the AccurateRip lookup key here AND
+    the drive-profile fingerprint in ``drive_profiles.py``. Keeping it in one
+    place means those keys can never silently disagree. Changing it is
+    load-bearing — it would invalidate every stored fingerprint (which the
+    profile store treats fail-safe: an unknown fingerprint just prompts a fresh
+    confirm, never a wrong offset).
+    """
+    return re.sub(r"\s+", " ", s).strip().upper()
+
+
+def normalize_combined(combined: str) -> str:
+    """Canonicalize an already-joined ``"<vendor> <model>"`` string.
+
+    Drops a leading ``ATAPI`` tag some drives prepend, collapses AccurateRip's
+    ``" - "`` vendor/model separator (whipper reports the two as separate
+    fields with no dash) and a leading ``"- "`` (vendorless entries), then
+    applies :func:`canonical_token`. Split out from :func:`normalize_drive_name`
+    so a *combined* string from another source — e.g. whipper.conf's decoded
+    ``[drive:VENDOR%20MODEL]`` section id — can be canonicalized the same way.
+    """
+    # Some drives report "ATAPI   iHAS124   B" etc.; the ATAPI tag isn't
+    # part of AccurateRip's name.
+    combined = re.sub(r"^\s*ATAPI\b", " ", combined, flags=re.IGNORECASE)
+    # AccurateRip's "<vendor>  - <model>" separator (spaces around a hyphen).
+    # In-token hyphens like BD-RW / BDR-209D have no surrounding spaces, so
+    # they're untouched.
+    combined = re.sub(r"\s+-\s+", " ", combined)
+    combined = re.sub(r"^\s*-\s+", "", combined)  # vendorless: leading "- "
+    return canonical_token(combined)
+
+
 def normalize_drive_name(vendor: str, model: str) -> str:
     """Canonicalize a drive's vendor+model into a single lookup key.
 
@@ -50,27 +85,11 @@ def normalize_drive_name(vendor: str, model: str) -> str:
     ATA/SCSI IDENTIFY strings, so they agree once whitespace and case are
     normalized. whipper notably emits double-spaced models (Pioneer's real
     output is ``BD-RW  BDR-209D``), so collapsing whitespace is essential.
-
-    Steps: join vendor+model, drop a leading ``ATAPI`` tag some drives
-    prepend, uppercase, collapse AccurateRip's ``" - "`` vendor/model
-    separator (whipper reports the two as separate fields with no dash),
-    drop a leading ``"- "`` (vendorless entries), and collapse whitespace.
     AccurateRip stores e.g. ``"PIONEER  - BD-RW   BDR-209D"`` while whipper
     reports vendor ``"PIONEER"`` + model ``"BD-RW  BDR-209D"`` — after this
     both become ``"PIONEER BD-RW BDR-209D"``.
     """
-    combined = f"{vendor} {model}"
-    # Some drives report "ATAPI   iHAS124   B" etc.; the ATAPI tag isn't
-    # part of AccurateRip's name.
-    combined = re.sub(r"^\s*ATAPI\b", " ", combined, flags=re.IGNORECASE)
-    combined = combined.upper()
-    # AccurateRip's "<vendor>  - <model>" separator (spaces around a hyphen).
-    # In-token hyphens like BD-RW / BDR-209D have no surrounding spaces, so
-    # they're untouched.
-    combined = re.sub(r"\s+-\s+", " ", combined)
-    combined = re.sub(r"^\s*-\s+", "", combined)  # vendorless: leading "- "
-    combined = re.sub(r"\s+", " ", combined).strip()
-    return combined
+    return normalize_combined(f"{vendor} {model}")
 
 
 # --- Curated, high-confidence offsets ---------------------------------------

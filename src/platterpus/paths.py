@@ -46,6 +46,16 @@ CONFIG_PATH: Path = CONFIG_DIR / "config.toml"
 # absent, so existing users keep their settings.
 LEGACY_CONFIG_DIR: Path = _XDG_CONFIG_HOME / LEGACY_APP_NAME
 
+# Per-drive profile ledger (drive_profiles.py): a machine-managed record of the
+# stable hardware fingerprint + the provenance/confidence of each drive's
+# learned read offset and cache behaviour. Deliberately a SEPARATE file from
+# config.toml — it's a keyed collection of hardware facts with a different
+# lifecycle than the user's flat preferences, and it is never hand-edited (so
+# JSON, not the hand-editable TOML config). It is a TRUST LEDGER only: it never
+# decides which offset a rip uses — whipper.conf and the --offset override stay
+# authoritative (PLANNING.md KDD-23).
+DRIVE_PROFILES_PATH: Path = CONFIG_DIR / "drive_profiles.json"
+
 # Where our log file lives (rotated by logging_setup.py).
 LOG_DIR: Path = _XDG_DATA_HOME / APP_NAME
 LOG_PATH: Path = LOG_DIR / "log.txt"
