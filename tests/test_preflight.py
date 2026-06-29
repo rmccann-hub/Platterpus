@@ -599,13 +599,14 @@ def test_format_summary_verdicts():
 
 
 def test_default_context_whipper():
-    ctx = preflight.default_context(Config())
+    ctx = preflight.default_context(Config(ripper_backend="whipper"))
     assert ctx.backend_name == "whipper"
     assert ctx.backend.__class__.__name__ == "WhipperHostExportedImpl"
 
 
 def test_default_context_cyanrip():
-    ctx = preflight.default_context(Config(ripper_backend="cyanrip"))
+    # cyanrip is the default backend now (KDD-18).
+    ctx = preflight.default_context(Config())
     assert ctx.backend_name == "cyanrip"
     assert ctx.backend.__class__.__name__ == "CyanripImpl"
 

@@ -190,6 +190,9 @@ def test_set_install_phase_active_disables_picker(
     for cb in dialog._checkboxes.values():
         assert cb.isEnabled() is False
     assert dialog._install_button.isEnabled() is False
+    # The dismiss button is greyed out during install — the maintainer asked
+    # for close to stay disabled until the install actually completes.
+    assert dialog._cancel_button.isEnabled() is False
 
 
 def test_set_install_phase_inactive_re_enables_picker(
@@ -201,6 +204,7 @@ def test_set_install_phase_inactive_re_enables_picker(
 
     assert dialog._checkboxes["a"].isEnabled() is True
     assert dialog._install_button.isEnabled() is True
+    assert dialog._cancel_button.isEnabled() is True
 
 
 # --- Show close button ---------------------------------------------------

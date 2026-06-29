@@ -12,6 +12,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **One dependency dialog instead of several.** A fresh install used to pop a
+  separate dialog for each missing piece (whipper *and* metaflac each opened
+  their own). Now every installable missing dependency is a single checkbox row
+  (ticked by default) in one "Pending installs" dialog: tick what you want,
+  press Install, and watch each row's progress. The dismiss button stays greyed
+  out until the install actually completes. Container tools (whipper, cyanrip,
+  flac, metaflac) install via the one setup wizard — opened at most once even
+  when several are missing — and packaged deps (Picard) install in place.
+- **The setup wizard now installs both backends.** A single "Set up Platterpus"
+  run installs whipper *and* cyanrip (plus flac and metaflac) into the ripping
+  container, so switching backends in Settings never needs a re-run or a
+  terminal — every backend is present after one setup.
 - **The UI locks down during a rip.** While a rip is running, the drive
   selector (and its Refresh/Rescan/Eject), the editable track list, and the
   conflicting menu actions (Settings, Set up drive/Platterpus, Rip as Unknown,
@@ -24,6 +36,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rename. It's now "Set up Platterpus…".
 
 ### Changed
+- **cyanrip is now the default ripping backend.** It's the better tool in
+  essentially every situation: actively maintained, no read-offset bug above
+  587 samples (whipper fails tracks there — e.g. the Pioneer BDR-209D's +667),
+  maximum FLAC compression, and it's the backend behind "Re-rip until reads
+  match." whipper stays selectable for its niche EAC-parity options (cdrdao gap
+  detection, keep-going, CD-R safety). The one drive-dependent factor (the
+  offset bug) only ever favours cyanrip — there's no drive on which whipper rips
+  better, so the default is universal rather than chosen per drive.
 - **The main window's panels are now resizable.** The disc-info panel, track
   list, and the controls + progress/log block sit in a vertical splitter — drag
   the dividers to give more room to the track list or the log, in both normal

@@ -1003,12 +1003,11 @@ def test_offer_optional_install_resolves_when_accepted(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Accepting the optional-install offer routes the deps through the SAME
-    resolver the required deps use (no second install path)."""
+    unified dialog the required deps use (no second install path)."""
     from PySide6.QtWidgets import QMessageBox
 
     item = _optional_missing_item("picard")
     resolved: list[Any] = []
-    manager = SimpleNamespace(resolve_missing=lambda report: resolved.append(report))
 
     monkeypatch.setattr(
         "platterpus.ui.main_window_deps.QMessageBox.question",
@@ -1018,7 +1017,11 @@ def test_offer_optional_install_resolves_when_accepted(
         "platterpus.ui.main_window_deps.QMessageBox.information", lambda *a, **k: None
     )
     window = teardown_threads()
-    window._offer_optional_install(manager, [item])
+    # The optional deps resolve through the one unified dialog, not a second path.
+    monkeypatch.setattr(
+        window, "_resolve_missing_unified", lambda report: resolved.append(report)
+    )
+    window._offer_optional_install(SimpleNamespace(), [item])
 
     assert len(resolved) == 1
     assert resolved[0].missing == [item]
@@ -1031,13 +1034,15 @@ def test_offer_optional_install_skips_when_declined(
 
     item = _optional_missing_item("flac")
     resolved: list[Any] = []
-    manager = SimpleNamespace(resolve_missing=lambda report: resolved.append(report))
     monkeypatch.setattr(
         "platterpus.ui.main_window_deps.QMessageBox.question",
         lambda *a, **k: QMessageBox.StandardButton.No,
     )
     window = teardown_threads()
-    window._offer_optional_install(manager, [item])
+    monkeypatch.setattr(
+        window, "_resolve_missing_unified", lambda report: resolved.append(report)
+    )
+    window._offer_optional_install(SimpleNamespace(), [item])
 
     assert resolved == []  # declined → nothing resolved
 
@@ -1959,13 +1964,14 @@ def test_uninstall_finished_offers_quit_on_success(
 # --- cyanrip in the host-setup wizard (KDD-18) ----------------------------
 
 
-def test_build_host_setup_includes_cyanrip_per_config(teardown_threads) -> None:
-    """The wizard installs cyanrip only when the cyanrip backend is selected."""
+def test_build_host_setup_installs_both_backends(teardown_threads) -> None:
+    """The wizard installs both backends unconditionally (item 6) — so every
+    backend is present after one setup run, regardless of which is selected."""
     window = teardown_threads(config=Config(ripper_backend="cyanrip"))
     assert window._build_host_setup().include_cyanrip is True
 
-    window = teardown_threads()  # default config → whipper backend
-    assert window._build_host_setup().include_cyanrip is False
+    window = teardown_threads(config=Config(ripper_backend="whipper"))
+    assert window._build_host_setup().include_cyanrip is True
 
 
 def test_switch_to_cyanrip_offers_install_when_missing(
@@ -2578,6 +2584,115 @@ def test_dialog_queued_resolver_empty_items_is_noop(qapp) -> None:
     assert resolver.resolve([]) == []
 
 
+# --- Unified dependency dialog (items 2+6: one dialog, wizard once) --------
+
+
+def test_resolve_missing_unified_uses_one_dialog_and_opens_wizard_once(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """All installable missing deps resolve through ONE PendingInstallsDialog,
+    and the container setup wizard opens at most once even when several
+    `from_setup_wizard` tools are missing (it installs them all in one run)."""
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import MissingItem
+    from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
+
+    wizard_state = {"done": False}
+
+    def _wizard_item(dep_id: str) -> MissingItem:
+        # Probe reports "present" only after the wizard has run.
+        spec = DependencySpec(
+            dep_id=dep_id,
+            display_name=dep_id,
+            probe=lambda: ProbeResult(
+                present=wizard_state["done"], version=(1, 0, 0), location=None
+            ),
+            min_version=(1, 0, 0),
+            tier=Tier.MANUAL,
+            install_command=None,
+            search_string="x",
+            from_setup_wizard=True,
+        )
+        return MissingItem(
+            spec=spec, probe=ProbeResult(present=False, version=None, location=None)
+        )
+
+    # Count how many dialogs get built (must be exactly one) and drive the
+    # install loop synchronously instead of blocking on a modal exec().
+    dialogs_built: list[PendingInstallsDialog] = []
+    orig_init = PendingInstallsDialog.__init__
+
+    def counting_init(self, *a, **k):
+        orig_init(self, *a, **k)
+        dialogs_built.append(self)
+
+    monkeypatch.setattr(PendingInstallsDialog, "__init__", counting_init)
+    monkeypatch.setattr(
+        PendingInstallsDialog,
+        "exec",
+        lambda self: (self._run_install_loop(), int(self.DialogCode.Accepted))[1],
+    )
+
+    window = teardown_threads()
+    wizard_opens: list[bool] = []
+
+    def fake_wizard() -> None:
+        wizard_opens.append(True)
+        wizard_state["done"] = True
+
+    monkeypatch.setattr(window, "open_host_setup_dialog", fake_wizard)
+
+    report = DependencyReport(
+        missing=[_wizard_item("whipper"), _wizard_item("metaflac")]
+    )
+    window._resolve_missing_unified(report)
+
+    assert len(dialogs_built) == 1  # one dialog, not one-per-dep
+    assert wizard_opens == [True]  # wizard opened exactly once
+    assert {r.spec.dep_id: r.success for r in report.install_results} == {
+        "whipper": True,
+        "metaflac": True,
+    }
+
+
+def test_resolve_missing_unified_falls_back_to_manual_for_uninstallable(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dep that's neither wizard-provided nor has an install command (e.g. a
+    broken bundled package) still gets its own manual dialog."""
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import MissingItem
+
+    spec = DependencySpec(
+        dep_id="musicbrainzngs",
+        display_name="musicbrainzngs",
+        probe=lambda: ProbeResult(present=False, version=None, location=None),
+        min_version=(0, 7, 1),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string="reinstall AppImage",
+    )
+    item = MissingItem(
+        spec=spec, probe=ProbeResult(present=False, version=None, location=None)
+    )
+
+    window = teardown_threads()
+    manual_shown: list[str] = []
+    monkeypatch.setattr(
+        window, "_gui_manual_dialog", lambda it: manual_shown.append(it.spec.dep_id)
+    )
+
+    report = DependencyReport(missing=[item])
+    window._resolve_missing_unified(report)
+
+    assert manual_shown == ["musicbrainzngs"]
+    assert report.install_results[0].success is False
+
+
 def test_friendly_disc_scan_error_for_cdrdao_toc_flake() -> None:
     """The cdrdao read-toc temp-file FileNotFoundError (drive not ready)
     becomes plain language pointing at the Rescan disc button."""
@@ -2736,7 +2851,9 @@ def test_whipper_known_rip_skips_gui_cover_art(
 ) -> None:
     """whipper fetches art itself (--cover-art) for identified discs —
     the GUI must stay out of the way."""
-    window = teardown_threads()  # default backend whipper, cover_art "embed"
+    window = teardown_threads(
+        config=Config(ripper_backend="whipper", cover_art="embed")
+    )
     window._current_release_id = "release-mbid"
     window._active_rip_params = _params(tmp_path, unknown=False)
 

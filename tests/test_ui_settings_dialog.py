@@ -237,12 +237,12 @@ def test_to_config_preserves_schema_version(qapp: QApplication) -> None:
 
 
 def test_backend_combo_reflects_config_and_round_trips(qapp: QApplication) -> None:
-    # Default is whipper.
-    assert SettingsDialog(Config()).to_config().ripper_backend == "whipper"
-    # An existing cyanrip config is shown and survives to_config().
-    dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
-    assert dialog._backend_combo.currentData() == "cyanrip"
-    assert dialog.to_config().ripper_backend == "cyanrip"
+    # Default is cyanrip (the better backend — KDD-18).
+    assert SettingsDialog(Config()).to_config().ripper_backend == "cyanrip"
+    # An existing whipper config is shown and survives to_config().
+    dialog = SettingsDialog(Config(ripper_backend="whipper"))
+    assert dialog._backend_combo.currentData() == "whipper"
+    assert dialog.to_config().ripper_backend == "whipper"
 
 
 # --- Output format -------------------------------------------------------
@@ -441,7 +441,7 @@ def test_whipper_only_options_disabled_under_cyanrip(qapp: QApplication) -> None
 
 
 def test_whipper_only_options_enabled_under_whipper(qapp: QApplication) -> None:
-    dialog = SettingsDialog(Config())  # default backend = whipper
+    dialog = SettingsDialog(Config(ripper_backend="whipper"))
     for widget in _whipper_only_widgets(dialog):
         assert widget.isEnabled() is True
         assert "Read-only:" not in widget.toolTip()
