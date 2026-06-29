@@ -56,9 +56,13 @@ and important settings were scattered across many dialogs.
    renderer; ⚠️ no machine-readable (JSON) log yet (gap #2).
 7. **Per-drive profiles, keyed by stable hardware identity.** Separate
    learned-once drive facts (offset, cache, C2) from per-disc session state, with
-   *provenance + confidence* on each detection. *Platterpus:* ✅ AccurateRip
-   offset list + drive-setup wizard; ⚠️ keyed by vendor/model, no firmware/serial
-   fingerprint or stored provenance (gap #6).
+   *provenance + confidence* on each detection. *Platterpus:* ✅ a drive-profile
+   ledger (`drive_profiles.py`, 2026-06-29) keyed by a stable fingerprint
+   (WWN → serial → vendor/model) records each offset's source + confidence and
+   shows it as a trust line, and guards the identical-drive / offset-disagreement
+   cases. It is a **record/display/guard layer** — `whipper.conf` + the
+   `--offset` override stay authoritative (KDD-23); *applying* a remembered
+   offset per drive is the deferred, hardware-gated piece.
 8. **Metadata = reviewable suggestions, not truth.** Auto-fetch and prefill;
    surface confidence/disagreement; never force manual tagging nor silently
    accept a low-confidence match. *Platterpus:* ✅ MusicBrainz pick + editable
@@ -83,10 +87,14 @@ user impact ÷ effort:
 | 3 | **Timestamp-localized anomalies + one-click playback** of flagged regions | The single most "friendly to demanding users" EAC trait — review only where confidence broke, not the whole disc. | M (HW-gated) |
 | 4 | **Accessibility pass** | Accessible names, keyboard coverage, non-colour-only status, focus-safe live updates. Reports rank this the #1 modern gap. | S–M |
 | 5 | ✅ **Outcome-oriented wording** across Settings/labels (overread + drive-setup cache verdict reworded effect-first; 2026-06-29) | Cuts the learning cost without removing the precise term. | S |
-| 6 | **Drive profiles keyed by stable fingerprint** + detection provenance/confidence | Identical-drive collisions and silent wrong-offset rips are the classic *state* bugs (EAC hit exactly this in 2007). | M |
+| 6 | ✅ **Drive profiles keyed by stable fingerprint** + detection provenance/confidence (record/display/guard ledger shipped 2026-06-29; per-drive offset *application* deferred as hardware-gated — KDD-23) | Identical-drive collisions and silent wrong-offset rips are the classic *state* bugs (EAC hit exactly this in 2007). | M |
 
-**In progress this session:** #4 (accessibility) and #1 (goal presets) — the
-highest user-impact pair. The rest stay on the backlog above.
+**Status:** gaps #1, #2, #4, #5 shipped 2026-06-28; #6 shipped 2026-06-29 (the
+record/display/guard ledger; per-drive offset *application* deferred as
+hardware-gated). Only #3 (timestamp-localized anomalies + one-click playback)
+remains — it is hardware-gated (needs real anomaly-bearing rip output to write
+a position-level parser against, and a real FLAC + CC0 sample to validate
+playback).
 
 ## The bar for new features
 
