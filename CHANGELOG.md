@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.1a1] — 2026-06-29
+
 ### Fixed
 - **Release workflow no longer publishes before its assets finish uploading.**
   The release was made visible (and so seen by the in-app update checker) the
@@ -20,6 +22,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   v0.4.0). The release is now created as a **draft**, all assets attached, then
   published atomically — closing the window. (No app-code change; affects how
   future releases are cut.)
+- **CTDB verification now reaches the database.** The lookup was hardcoded to
+  `https://db.cuetools.net`, which fails with a TLS hostname mismatch (the host
+  serves no valid certificate). It now queries over `http://` like the reference
+  CUETools client — correct for a read-only public CRC lookup whose trust comes
+  from comparing the returned CRC locally. (CTDB matches still show as
+  *experimental* until the CRC algorithm is hardware-validated — KDD-16.)
+- **`uninstall.sh` now removes the menu entry and icon the AppImage actually
+  installs.** It deleted `platterpus.desktop` / `platterpus.png`, but the
+  AppImage integrates them under the freedesktop app-id
+  (`io.github.rmccann_hub.Platterpus.*`), so the menu entry and icon were left
+  behind. It now removes both names, plus any pre-rename `whipper-gui` config,
+  logs, desktop entries, and AppImage — for a genuinely clean slate.
+
+### Added
+- **`scripts/ctdb_verify.py --calibrate`** — a hardware-validation helper that,
+  for a disc that's in CTDB, sweeps candidate offset-guard trims over the
+  decoded PCM and reports which reproduces the database CRC, pinning the CTDB
+  CRC algorithm against a real disc (`platterpus.ctdb.calibrate`). Developer
+  tooling toward flipping CTDB from experimental to verified (KDD-16).
 
 ## [0.4.0] — 2026-06-29
 
@@ -1047,6 +1068,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 [0.3.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.9...v0.3.10
 [0.3.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.8...v0.3.9
+[0.4.1a1]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.0...v0.4.1a1
 [0.4.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.10...v0.4.0
 [0.3.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.9...v0.3.10
 [0.3.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.8...v0.3.9
