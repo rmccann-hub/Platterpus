@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/platterpus-logo.svg" alt="Platterpus" width="120">
+  <img src="assets/icons/io.github.rmccann_hub.Platterpus-256.png" alt="Platterpus" width="120">
 </p>
 
 # Platterpus

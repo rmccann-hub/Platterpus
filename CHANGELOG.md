@@ -53,7 +53,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   *Applying* a remembered offset per drive (true multi-drive correctness) is a
   separate, hardware-gated change and is not done here.
 
+### Removed
+- **The one-time `~/.config/whipper-gui` → `~/.config/platterpus` settings
+  migration** (the project-rename compatibility shim) is gone, along with its
+  `LEGACY_APP_NAME`/`LEGACY_CONFIG_DIR` constants and tests. The rename has
+  shipped; there's nothing left to migrate.
+
 ### Changed
+- **In-app User Guide refreshed** to match the current app: both backends
+  (whipper + cyanrip), multiple output formats, and the Output format,
+  Verify/Re-compress FLACs, and per-drive read-offset trust-line features.
+- **README** now shows the rasterized PNG logo (renders reliably on GitHub) and
+  its status reflects v0.3.x with current feature highlights.
 - **Clearer, outcome-first wording on two technical Settings/setup labels.**
   The overread toggle now reads "Read past the last track to catch any final
   samples (overread)" (under a "Disc lead-out" label) instead of leading with

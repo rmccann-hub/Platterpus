@@ -34,17 +34,9 @@ APP_NAME: str = "platterpus"
 # contain hyphens. Distinct from APP_NAME (which is the CLI/config slug).
 APP_ID: str = "io.github.rmccann_hub.Platterpus"
 
-# The project's previous APP_NAME, kept ONLY so the config-dir migration can
-# find and adopt an existing user's settings after the Platterpus rename.
-LEGACY_APP_NAME: str = "whipper-gui"
-
 # Where our own settings live.
 CONFIG_DIR: Path = _XDG_CONFIG_HOME / APP_NAME
 CONFIG_PATH: Path = CONFIG_DIR / "config.toml"
-# The pre-rename settings directory (~/.config/whipper-gui). config.load()
-# copies it to CONFIG_DIR on first run after the rename if the new dir is
-# absent, so existing users keep their settings.
-LEGACY_CONFIG_DIR: Path = _XDG_CONFIG_HOME / LEGACY_APP_NAME
 
 # Per-drive profile ledger (drive_profiles.py): a machine-managed record of the
 # stable hardware fingerprint + the provenance/confidence of each drive's

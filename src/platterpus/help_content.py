@@ -22,9 +22,11 @@ TAGLINE: str = "EAC-equivalent archival-quality audio-CD ripping for Linux."
 USER_GUIDE: str = """\
 # Platterpus — User Guide
 
-A friendly front-end for the **whipper** CD-ripping tool. It rips audio CDs to
-**FLAC** at archival quality (EAC-equivalent), naming and tagging tracks from
-**MusicBrainz**.
+A friendly front-end for the **whipper** and **cyanrip** CD-ripping tools. It
+rips audio CDs at archival quality (EAC-equivalent), naming and tagging tracks
+from **MusicBrainz** and verifying the result against AccurateRip and CTDB.
+Every rip produces a lossless **FLAC** master; you can also have **WavPack**,
+**MP3**, or **WAV** derived from it (see *Output format* in Settings).
 
 ## How it's wired
 
@@ -97,6 +99,10 @@ named from the album artist/title you type.
   checked — the recommended default), *Archival exact* (also CTDB-verify and
   smallest lossless files), or *Portable* (an MP3 copy for phones). You can still
   tweak any individual option below — that switches the Goal to *Custom*.
+- **Output format** — *FLAC* (the lossless archival master, always produced),
+  *WavPack* (also lossless, with tags), *MP3* (best-quality VBR for phones), or
+  *WAV* (raw PCM — no tags or cover art). Non-FLAC formats are derived from the
+  FLAC master, which is always kept, so you never lose the archival copy.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
 - **Continue on CD-R** — needed to rip home-burned discs.
@@ -115,6 +121,11 @@ named from the album artist/title you type.
   the CUETools Database, alongside AccurateRip. A network check, off by default,
   and labelled *experimental* until its checksum is confirmed on real hardware
   (it can only ever under-claim, never falsely say "verified").
+- **Verify FLACs after a rip** — decode each FLAC back and check it against its
+  stored checksum (on by default; greyed out for whipper, which verifies as it
+  encodes). **Re-compress FLACs** optionally re-encodes them at maximum effort
+  to shrink the files — lossless, with tags and art preserved (off by default;
+  greyed out for cyanrip, which already maxes compression).
 - **Read offset override** — set the drive read-offset by hand (the drive-setup
   wizard is the recommended way to set it).
 - **Eject after a successful rip** — automatically eject the disc when a rip
@@ -159,6 +170,13 @@ the bundled AccurateRip drive list) and pre-fills it, so it's a single
 insert a popular commercial CD and click **Detect**, or type the offset by
 hand. The value is saved as the app's offset override (and `whipper.conf` is
 backed up first if it's touched). Do this once per drive.
+
+The disc panel shows a **Read offset** line for the selected drive telling you
+*where* the offset came from and how confident we are — measured on your drive
+(high), looked up from the AccurateRip list (medium), or entered by hand. If two
+identical drives are connected, or the recorded offset disagrees with what
+whipper will apply, a warning appears there so a wrong offset can't pass
+unnoticed.
 
 ## Troubleshooting
 
