@@ -34,6 +34,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   never by colour alone — so colour-blind and screen-reader users get the same
   signal as the green/amber/grey tint.
 
+### Added
+- **Drive-profile ledger (foundation).** A new internal subsystem
+  (`drive_profiles.py` + `drive_profile_store.py`) records, per drive, a stable
+  hardware *fingerprint* (WWN → serial → vendor/model, in that order of
+  strength) and the *provenance + confidence* of its learned read offset (was
+  it measured on your drive, looked up from the AccurateRip list, or typed by
+  hand?). It also detects identical-drive collisions and offset disagreements
+  so a "silent wrong-offset rip" becomes a visible warning. This is a **trust
+  ledger only** — `whipper.conf` and the `--offset` override stay the sole
+  authorities for the offset a rip actually uses (PLANNING.md KDD-23). Stored as
+  `~/.config/platterpus/drive_profiles.json`. Surfacing in the UI follows in a
+  subsequent change.
+
 ### Changed
 - **Clearer, outcome-first wording on two technical Settings/setup labels.**
   The overread toggle now reads "Read past the last track to catch any final
