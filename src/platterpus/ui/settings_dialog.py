@@ -174,18 +174,20 @@ class SettingsDialog(QDialog):
         # Store the raw backend id as item data ("whipper" | "cyanrip").
         self._backend_combo: QComboBox = QComboBox(self)
         for label, value in (
-            ("whipper (default)", "whipper"),
-            ("cyanrip", "cyanrip"),
+            ("cyanrip (default, recommended)", "cyanrip"),
+            ("whipper", "whipper"),
         ):
             self._backend_combo.addItem(label, value)
         backend_index = self._backend_combo.findData(config.ripper_backend)
         self._backend_combo.setCurrentIndex(backend_index if backend_index >= 0 else 0)
         self._backend_combo.setToolTip(
-            "Which ripping tool to drive. cyanrip applies the read offset with "
-            "its own paranoia, avoiding whipper's known bug at offsets over 587 "
-            "(e.g. the Pioneer BDR-209D's +667), so it's the better choice on "
-            "affected drives. It must be installed in the ripping container "
-            "(Tools → Set up Platterpus…) — restart the app after switching."
+            "Which ripping tool to drive. cyanrip is the recommended default: it "
+            "applies the read offset with its own paranoia, avoiding whipper's "
+            "known bug at offsets over 587 (e.g. the Pioneer BDR-209D's +667), it "
+            "maxes FLAC compression, and it offers 'Re-rip until reads match'. "
+            "whipper is kept for its niche EAC-parity options (cdrdao gap "
+            "detection, keep-going, CD-R safety). Both are installed by the setup "
+            "wizard (Tools → Set up Platterpus…) — restart the app after switching."
         )
         form.addRow("Ripping backend:", self._backend_combo)
 

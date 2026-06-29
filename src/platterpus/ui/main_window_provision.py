@@ -194,19 +194,21 @@ class ProvisioningMixin:
             self.open_host_setup_dialog()
 
     def _build_host_setup(self) -> HostSetup:
-        """The HostSetup the wizard runs, configured from the current config.
+        """The HostSetup the wizard runs.
 
-        When the cyanrip backend is selected (KDD-18), the wizard also
-        installs cyanrip into the container (from its COPR — Fedora doesn't
-        package it) and exports it, so switching backends never needs a
-        terminal.
+        The wizard installs **both** ripping backends unconditionally —
+        whipper *and* cyanrip (the latter from its COPR, since Fedora doesn't
+        package it) — plus flac and metaflac. Rationale: cyanrip is the default
+        backend (KDD-18) and the maintainer wants every backend present after a
+        single setup run, so switching backends in Settings never needs a
+        re-run or a terminal. One setup, all tools.
         """
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.step_engine import SubprocessRunner
 
         return HostSetup(
             runner=SubprocessRunner(),
-            include_cyanrip=self._config.ripper_backend == "cyanrip",
+            include_cyanrip=True,  # always install both backends (item 6)
         )
 
     def open_host_setup_dialog(self) -> None:

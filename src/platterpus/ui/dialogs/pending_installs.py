@@ -155,12 +155,16 @@ class PendingInstallsDialog(QDialog):
     def set_install_phase_active(self, active: bool) -> None:
         """Lock down the picker during the install loop.
 
-        When `active`, checkboxes and the Install button disable so the
-        user can't double-fire installs. When inactive, they re-enable.
+        When `active`, checkboxes, the Install button **and Cancel** disable so
+        the user can't double-fire installs *and* can't dismiss the dialog
+        mid-install — the maintainer asked for the close/dismiss button to stay
+        greyed out until the install actually completes. Close only appears
+        (via `show_close_button`) once the loop has finished.
         """
         for checkbox in self._checkboxes.values():
             checkbox.setEnabled(not active)
         self._install_button.setEnabled(not active)
+        self._cancel_button.setEnabled(not active)
 
     def show_close_button(self) -> None:
         """Swap the button row to a single Close button.

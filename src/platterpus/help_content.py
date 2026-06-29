@@ -30,9 +30,10 @@ Every rip produces a lossless **FLAC** master; you can also have **WavPack**,
 
 ## How it's wired
 
-The GUI runs on your desktop and calls the host-exported `~/.local/bin/whipper`,
-which transparently does the actual ripping inside the `ripping` Distrobox
-container. You don't interact with the container directly — the GUI handles it.
+The GUI runs on your desktop and calls the host-exported ripping tool
+(`~/.local/bin/cyanrip` by default, or `~/.local/bin/whipper`), which
+transparently does the actual ripping inside the `ripping` Distrobox container.
+You don't interact with the container directly — the GUI handles it.
 
 ## Ripping a CD — the basics
 
@@ -131,12 +132,15 @@ named from the album artist/title you type.
 - **Eject after a successful rip** — automatically eject the disc when a rip
   finishes (off by default). You can always eject by hand with the **Eject**
   button next to the drive picker.
-- **Ripping backend** — *whipper* (default) or *cyanrip*. cyanrip avoids a
-  whipper bug that can fail tracks on drives with a read offset over 587
-  samples, so it's the better choice on affected drives (e.g. the Pioneer
-  BDR-209D). Picking cyanrip offers to install it for you; restart the app
-  after switching. Options one backend doesn't support grey
-  out with a tooltip explaining why — your values are kept, and switching
+- **Ripping backend** — *cyanrip* (the recommended default) or *whipper*.
+  cyanrip is the better tool in essentially every situation: it's actively
+  maintained, it avoids a whipper bug that fails tracks on drives with a read
+  offset over 587 samples (e.g. the Pioneer BDR-209D's +667), it maxes FLAC
+  compression, and it's the backend behind **Re-rip until reads match**.
+  whipper is kept as an option for its niche EAC-parity features (cdrdao gap
+  detection, keep-going, CD-R safety). Both backends are installed by the setup
+  wizard; restart the app after switching. Options one backend doesn't support
+  grey out with a tooltip explaining why — your values are kept, and switching
   back re-enables them. The rest of the app works the same either way.
 
 ## Where the app lives

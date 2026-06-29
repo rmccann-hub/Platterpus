@@ -86,11 +86,18 @@ class Config:
     whipper_path: str = field(default_factory=lambda: str(WHIPPER_BINARY_DEFAULT))
     metaflac_path: str = "metaflac"  # relies on PATH by default
 
-    # Which ripping backend to drive. "whipper" (default) or "cyanrip" — the
-    # actively-maintained successor whose paranoia avoids whipper's >587
-    # read-offset bug (KDD-18). Selectable here so swapping is a config change,
-    # not a code change; the GUI exposes it once the cyanrip impl is complete.
-    ripper_backend: str = "whipper"
+    # Which ripping backend to drive. "cyanrip" (default) or "whipper".
+    # cyanrip is the default because it's better in essentially every situation
+    # (KDD-18, docs/ripper-engine-strategy.md): actively maintained (2024 vs
+    # whipper's 2021), it applies the read offset with its own paranoia so it
+    # has *no* >587-sample read-offset bug (whipper fails tracks above that, e.g.
+    # the Pioneer BDR-209D's +667), it maxes FLAC compression, and it has the
+    # -Z "re-rip until reads match" convergence that whipper lacks. The one
+    # drive-dependent factor (the offset bug) only ever favours cyanrip — there
+    # is no drive on which whipper rips better. whipper stays selectable for its
+    # niche EAC-parity flags (cdrdao gap detection, --keep-going, CD-R safety).
+    # Swapping is a config change, not a code change (the RipBackend ABC).
+    ripper_backend: str = "cyanrip"
 
     # --- Rip parameters ---
     # Informational only; whipper.conf is authoritative per the brief.
