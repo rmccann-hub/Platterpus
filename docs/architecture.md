@@ -85,7 +85,7 @@ a codebase-wide rewrite. Currently flagged unmaintained: `whipper`,
 The pattern (designs in [`../PLANNING.md`](../PLANNING.md) §5–§6):
 
 - Define an **abstract base class** describing *what the GUI needs*, in our
-  own vocabulary (`WhipperBackend`, `MusicBrainzClient`, `CTDBClient`). The
+  own vocabulary (`RipBackend`, `MusicBrainzClient`, `CTDBClient`). The
   GUI depends only on the ABC.
 - Provide a **concrete implementation** that wraps the real tool/library
   (`adapters/whipper_backend.py`; `CyanripImpl` is a second backend).
@@ -297,7 +297,7 @@ count, starts sharing the file.)
 > code.
 
 ### Add a ripping backend (e.g. a future `XyzripImpl`)
-1. Implement the `WhipperBackend` ABC in `adapters/xyzrip_backend.py`
+1. Implement the `RipBackend` ABC in `adapters/xyzrip_backend.py`
    (`rip`, `disc_info`, `version`, optional `find_offset`/`analyze_drive`).
 2. Add a parser in `parsers/` for its log + disc-info output (named-group
    regex, never-raise, + a property test). Map it onto the shared `RipLog` /
@@ -310,7 +310,7 @@ count, starts sharing the file.)
 
 A **backend-specific rip parameter** (one backend has a flag another lacks)
 threads through one fixed path: `Config` field → `RipParameters` (frozen) →
-the `WhipperBackend.rip()` ABC signature → each adapter's argv builder. A
+the `RipBackend.rip()` ABC signature → each adapter's argv builder. A
 backend with no equivalent **accepts and ignores** it (`del param`), and its
 Settings widget is greyed out for that backend. `secure_rerip_matches` (cyanrip
 `-Z N` "re-rip until N reads match", for marginal discs; whipper has no
@@ -489,7 +489,7 @@ Concrete backlog lives in `TASKS.md`; this section is the *architectural*
 horizon — the seams that exist so future contributors can take the program
 places we haven't planned.
 
-- **Backends as plugins.** The `WhipperBackend` ABC + `Config.ripper_backend`
+- **Backends as plugins.** The `RipBackend` ABC + `Config.ripper_backend`
   selector already make backends swappable. A small entry-point/registry could
   let third parties drop in a backend without editing `app.py`.
 - **A real preferences framework.** `config.py` is a flat dataclass with

@@ -101,7 +101,7 @@ Read all three completely. Do not skim. Do not begin Step 2 until you have read 
 Give me a 5–10 bullet summary of what you understand the project to be. Cover at minimum:
 
 - The stack (language, GUI framework, distribution method)
-- The non-obvious requirements: the dependency self-management subsystem with its (a) auto-install / (b) queued-install / (c) copyable-search-string tiers; the unmaintained-dependency adapter pattern (`WhipperBackend`, `MusicBrainzClient`); the Distrobox-exported `whipper` binary at `~/.local/bin/whipper`
+- The non-obvious requirements: the dependency self-management subsystem with its (a) auto-install / (b) queued-install / (c) copyable-search-string tiers; the unmaintained-dependency adapter pattern (`RipBackend`, `MusicBrainzClient`); the Distrobox-exported `whipper` binary at `~/.local/bin/whipper`
 - Anything ambiguous or anything where the brief and the research output disagree
 
 Stop and wait for my response before Step 3.
@@ -131,10 +131,10 @@ If you find yourself wanting to modify the rules section, stop and tell me what'
 The primary planning artifact. Include:
 
 - **Directory tree** of every file you intend to create under `src/platterpus/`
-- **Per-module responsibility** — one paragraph per module, no more. Explicitly name the modules that house: the dependency self-management subsystem, the `WhipperBackend` adapter, the `MusicBrainzClient` adapter, the rip log parser, the GUI main window, and the AppImage build harness
+- **Per-module responsibility** — one paragraph per module, no more. Explicitly name the modules that house: the dependency self-management subsystem, the `RipBackend` adapter, the `MusicBrainzClient` adapter, the rip log parser, the GUI main window, and the AppImage build harness
 - **Pinned dependency list** with justifications and last upstream release date for each (this also feeds `DEPENDENCIES.md`)
 - **Dependency self-management subsystem (brief P0 #11)** — dedicated section showing how the (a) auto-install / (b) queued-install / (c) copyable-search-string tiers are implemented as a single subsystem. Diagram the decision tree
-- **`WhipperBackend` adapter design** — interface, expected methods, how `cyanrip` would slot in later as an alternative implementation
+- **`RipBackend` adapter design** — interface, expected methods, how `cyanrip` would slot in later as an alternative implementation
 - **`MusicBrainzClient` adapter design** — interface, how a fallback to direct `requests` against MB's JSON API would replace `python-musicbrainzngs`
 - **Distribution strategy** — `python-appimage` as the build path, build script outline, where the AppImage spec lives in the repo. Do not plan for `appimage-builder` (see CLAUDE.md deviation policy)
 - **Key design decisions and rationale** — anything non-obvious you chose. One paragraph each. The reader is future-you returning to the project after months away
@@ -171,7 +171,7 @@ Use this exact structure:
 
 | Name | Pinned version | Last upstream release | License | Status | Planned replacement |
 |---|---|---|---|---|---|
-| whipper | 0.10.0 | 2021-05-17 | GPL-2.0+ | Unmaintained (>12mo) | cyanrip via WhipperBackend adapter |
+| whipper | 0.10.0 | 2021-05-17 | GPL-2.0+ | Unmaintained (>12mo) | cyanrip via RipBackend adapter |
 | python-musicbrainzngs | (pin) | 2020-01-11 | BSD-2-Clause | Unmaintained (>12mo) | direct requests via MusicBrainzClient adapter |
 | PySide6 | (pin) | (lookup) | LGPL-3.0 | Active | — |
 | python-appimage | (pin) | (lookup) | MIT | Active | appimage-builder if forced (see CLAUDE.md deviation policy) |

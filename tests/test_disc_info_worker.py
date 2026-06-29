@@ -13,8 +13,8 @@ from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.whipper_backend import (
     DiscInfo,
+    RipBackend,
     RipHandle,
-    WhipperBackend,
     WhipperError,
 )
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -24,7 +24,7 @@ from platterpus.workers.disc_info_worker import DiscInfoWorker
 # QApplication), as in the other worker tests.
 
 
-class _Backend(WhipperBackend):
+class _Backend(RipBackend):
     """Minimal backend whose disc_info returns a fixed DiscInfo or raises."""
 
     def __init__(

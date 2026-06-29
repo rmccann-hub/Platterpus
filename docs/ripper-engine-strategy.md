@@ -15,7 +15,7 @@ combining whipper and cyanrip — fixing, updating, and upgrading them ourselves
 to get exactly the behaviour we need — **within what their licenses allow**.
 
 Today we invoke the rippers as **subprocess adapters** (Critical Rule #3, KDD-18),
-and the `WhipperBackend` ABC + `Config.ripper_backend` mean the engine is already
+and the `RipBackend` ABC + `Config.ripper_backend` mean the engine is already
 swappable as a near one-file change. So we can keep this option fully open at
 **zero cost** while we finish the GUI: the decision is deferred, not foreclosed.
 
@@ -98,7 +98,7 @@ sane escalation ladder: **Option 0 first** (upstream a specific need); escalate 
 
 ## 4. Why deferring is free (the architectural safety net)
 
-The `WhipperBackend` ABC + `Config.ripper_backend` already isolate the engine
+The `RipBackend` ABC + `Config.ripper_backend` already isolate the engine
 (KDD-08/18). A fork would be **a new adapter implementation + a host-setup install
 step** — not a GUI rewrite. So the maintainer's sequencing ("after we make the
 rest work") costs nothing: maintaining adapter discipline *is* what keeps the

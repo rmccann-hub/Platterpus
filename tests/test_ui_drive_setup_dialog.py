@@ -10,12 +10,12 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from platterpus.adapters.whipper_backend import WhipperBackend
+from platterpus.adapters.whipper_backend import RipBackend
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog, _format_result
 from platterpus.workers.drive_setup_worker import DriveSetupResult
 
 
-class _StubBackend(WhipperBackend):
+class _StubBackend(RipBackend):
     def list_drives(self):  # type: ignore[override]
         return []
 

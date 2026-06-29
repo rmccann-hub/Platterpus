@@ -208,7 +208,7 @@ The dataclass+`asdict` round-trips new fields for free (as the FLAC toggles did)
 *(Built today for `flac`/`wav`/`mp3`; `wavpack` is the one value still to add.)*
 
 **(b) Implementation decision — transcode-always (built 2026-06-26).** Rather than
-branch on `WhipperBackend.native_output_formats()` (which stays as a *reserved*
+branch on `RipBackend.native_output_formats()` (which stays as a *reserved*
 capability seam), the GUI uses **one uniform path for both backends**: every rip
 produces FLAC (whipper natively; cyanrip is invoked with `-o flac`), and a non-FLAC
 choice is a **post-rip transcode** of that FLAC. Why this over per-backend native
@@ -314,7 +314,7 @@ file) resolves them. Recorded here as the contract the build implements.
 **Foundation built (2026-06-23, unreachable / default-FLAC so v1 is unchanged):**
 - **§4(a) Config** — `output_format` + `mp3_vbr_quality` (`config.py`), round-trips
   like the rest. *(WavPack value still to add.)*
-- **§4(b) Capability flag** — `WhipperBackend.native_output_formats()` (ABC default
+- **§4(b) Capability flag** — `RipBackend.native_output_formats()` (ABC default
   `{"flac"}`; cyanrip overrides).
 - **§4(c) Transcode adapter** — `adapters/transcode.py` (`transcode_files(...) ->
   TranscodeResult`): per-FLAC ffmpeg re-encode to a sibling MP3/WAV, atomic swap-in,

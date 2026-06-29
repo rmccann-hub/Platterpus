@@ -1,4 +1,4 @@
-"""cyanrip backend — a second ripping backend behind the WhipperBackend ABC.
+"""cyanrip backend — a second ripping backend behind the RipBackend ABC.
 
 Why (KDD-18, docs/archive/ecosystem-audit-2026-06.md): whipper is stalled (last release
 2021) and its cd-paranoia has a real bug at read offsets > 587 — exactly the
@@ -32,9 +32,9 @@ import subprocess
 from pathlib import Path
 
 from platterpus.adapters.whipper_backend import (
+    RipBackend,
     RipHandle,
     RipMetadata,
-    WhipperBackend,
     WhipperError,
     run_capture,
 )
@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 _INFO_TIMEOUT_S: float = 120.0
 
 
-class CyanripImpl(WhipperBackend):
+class CyanripImpl(RipBackend):
     """Ripping backend that drives the `cyanrip` CLI."""
 
     def __init__(

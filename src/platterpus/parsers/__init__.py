@@ -7,5 +7,5 @@ gracefully (return what they can extract) rather than crashing on
 unexpected input.
 
 The data types returned by these parsers (DriveDescriptor, DiscInfo,
-RipLog, etc.) are imported by the WhipperBackend adapter and the UI.
+RipLog, etc.) are imported by the RipBackend adapter and the UI.
 """

@@ -45,7 +45,7 @@ from platterpus.adapters.musicbrainz_client import (
     MusicBrainzQueryError,
 )
 from platterpus.adapters.whipper_backend import (
-    WhipperBackend,
+    RipBackend,
     WhipperError,
 )
 from platterpus.config import Config
@@ -118,7 +118,7 @@ class PreflightContext:
     """
 
     cfg: Config
-    backend: WhipperBackend
+    backend: RipBackend
     backend_name: str
     mb_client: MusicBrainzClient
     ctdb_client: CTDBClient
@@ -271,7 +271,7 @@ def check_dependencies(manager: DependencyManager) -> CheckResult:
 
 
 def check_backend_routing(
-    backend: WhipperBackend, *, backend_name: str, host: object | None = None
+    backend: RipBackend, *, backend_name: str, host: object | None = None
 ) -> CheckResult:
     """THE Distrobox-routing test: can we actually reach the ripper backend?
 
@@ -381,7 +381,7 @@ def _fmt_offset(offset: int | None) -> str:
     return "?" if offset is None else f"{offset:+d}"
 
 
-def check_drives(backend: WhipperBackend) -> CheckResult:
+def check_drives(backend: RipBackend) -> CheckResult:
     """Detect optical drives (no disc required) and show their read offsets."""
     try:
         drives = backend.list_drives()

@@ -24,7 +24,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot
 
 from platterpus.adapters.whipper_backend import (
-    WhipperBackend,
+    RipBackend,
     WhipperError,
     back_up_whipper_config,
 )
@@ -63,12 +63,12 @@ class DriveSetupWorker(QObject):
 
     def __init__(
         self,
-        backend: WhipperBackend,
+        backend: RipBackend,
         device: str,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self._backend: WhipperBackend = backend
+        self._backend: RipBackend = backend
         self._device: str = device
         # Set from the GUI thread when the user closes the dialog. Plain
         # bool assignment is atomic under the GIL.

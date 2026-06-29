@@ -8,8 +8,8 @@ from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.whipper_backend import (
     DiscInfo,
+    RipBackend,
     RipHandle,
-    WhipperBackend,
     WhipperError,
 )
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -18,8 +18,8 @@ from platterpus.ui.drive_picker import DrivePicker
 # --- Fake backend ---------------------------------------------------------
 
 
-class _FakeBackend(WhipperBackend):
-    """WhipperBackend stub that returns a configurable list (or raises)."""
+class _FakeBackend(RipBackend):
+    """RipBackend stub that returns a configurable list (or raises)."""
 
     def __init__(self) -> None:
         self._drives: list[DriveDescriptor] = []

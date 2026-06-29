@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus.adapters.whipper_backend import WhipperBackend
+from platterpus.adapters.whipper_backend import RipBackend
 from platterpus.workers import start_worker_thread
 from platterpus.workers.drive_setup_worker import (
     DriveSetupResult,
@@ -50,7 +50,7 @@ class DriveSetupDialog(QDialog):
 
     def __init__(
         self,
-        backend: WhipperBackend,
+        backend: RipBackend,
         device: str,
         parent: QWidget | None = None,
         current_offset: int = 0,
@@ -64,7 +64,7 @@ class DriveSetupDialog(QDialog):
         human drive name shown in that callout.
         """
         super().__init__(parent)
-        self._backend: WhipperBackend = backend
+        self._backend: RipBackend = backend
         self._device: str = device
         self._known_offset: int | None = known_offset
         self._thread: QThread | None = None

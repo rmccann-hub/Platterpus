@@ -5,7 +5,7 @@ signals are callable regardless of whether an event loop is running.
 Connected slots receive emissions immediately because we use direct
 connections by default. This keeps the tests fast and deterministic.
 
-The WhipperBackend is replaced with a fake so we don't need a real
+The RipBackend is replaced with a fake so we don't need a real
 whipper binary.
 """
 
@@ -17,8 +17,8 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.whipper_backend import (
+    RipBackend,
     RipHandle,
-    WhipperBackend,
     WhipperError,
 )
 from platterpus.workers.rip_worker import (
@@ -59,7 +59,7 @@ class _FakeHandle:
         return -15
 
 
-class _FakeBackend(WhipperBackend):
+class _FakeBackend(RipBackend):
     """Backend whose `rip()` returns a pre-baked _FakeHandle."""
 
     def __init__(self, handle: _FakeHandle | None = None) -> None:
@@ -191,7 +191,7 @@ def test_finished_reports_success_on_zero_exit(
 
 
 def test_cdr_param_forwarded_to_backend(qapp: QApplication, tmp_path: Path) -> None:
-    """RipParameters.cdr must reach WhipperBackend.rip()."""
+    """RipParameters.cdr must reach RipBackend.rip()."""
     handle = _FakeHandle(lines=[], exit_code=0)
     backend = _FakeBackend(handle=handle)
     worker = RipWorker(backend, _params(tmp_path, cdr=True))

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from platterpus.adapters.whipper_backend import WhipperBackend, WhipperError
+from platterpus.adapters.whipper_backend import RipBackend, WhipperError
 from platterpus.workers import drive_setup_worker as dsw
 from platterpus.workers.drive_setup_worker import (
     DriveSetupResult,
@@ -15,7 +15,7 @@ from platterpus.workers.drive_setup_worker import (
 )
 
 
-class _FakeBackend(WhipperBackend):
+class _FakeBackend(RipBackend):
     """Implements just the calibration methods the worker calls."""
 
     def __init__(

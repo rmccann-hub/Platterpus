@@ -11,8 +11,8 @@ from typing import Any
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.whipper_backend import (
+    RipBackend,
     RipHandle,
-    WhipperBackend,
     WhipperError,
 )
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -21,7 +21,7 @@ from platterpus.workers.drive_list_worker import DriveListWorker
 # `qapp` fixture from tests/conftest.py — the worker's signals need a QApplication.
 
 
-class _Backend(WhipperBackend):
+class _Backend(RipBackend):
     def __init__(
         self,
         drives: list[DriveDescriptor] | None = None,

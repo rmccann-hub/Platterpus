@@ -35,6 +35,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   signal as the green/amber/grey tint.
 
 ### Changed
+- **Internal: the backend abstract base class is renamed `WhipperBackend` →
+  `RipBackend`** (contributor-facing only; no behaviour change). It is the
+  backend-neutral interface that *both* the whipper backend
+  (`WhipperHostExportedImpl`) and the cyanrip backend (`CyanripImpl`) implement,
+  so naming it after one of its two implementations was misleading legacy. The
+  whipper backend itself, `WhipperError`, the `whipper_backend.py` module, and
+  the `~/.local/bin/whipper` / `whipper.conf` routing are unchanged.
 - **Project renamed to Platterpus** (was "Whipper GUI" /
   `Whipper-GUI-Frontend---CD-Rip`). New tagline: *a secure, EAC-style CD ripper
   for Linux (FLAC, WAV, WavPack, MP3)*. The Python package is now `platterpus`,

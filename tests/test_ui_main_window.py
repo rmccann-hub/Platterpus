@@ -27,8 +27,8 @@ from platterpus.adapters.musicbrainz_client import (
 )
 from platterpus.adapters.whipper_backend import (
     DiscInfo,
+    RipBackend,
     RipHandle,
-    WhipperBackend,
 )
 from platterpus.config import Config
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
@@ -41,7 +41,7 @@ from platterpus.ui.main_window import MainWindow, _fidelity_summary
 # --- Fakes ---------------------------------------------------------------
 
 
-class _FakeBackend(WhipperBackend):
+class _FakeBackend(RipBackend):
     def __init__(self) -> None:
         self.drives: list[DriveDescriptor] = []
         self.disc_info_return: DiscInfo = DiscInfo()

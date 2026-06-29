@@ -48,7 +48,7 @@ from platterpus.adapters.musicbrainz_client import (
     ReleaseSummary,
     TocSignature,
 )
-from platterpus.adapters.whipper_backend import DiscInfo, WhipperBackend
+from platterpus.adapters.whipper_backend import DiscInfo, RipBackend
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -78,7 +78,7 @@ class _FakeHandle:
         return 0
 
 
-class _ArtifactWritingBackend(WhipperBackend):
+class _ArtifactWritingBackend(RipBackend):
     """A backend whose rip() writes the artifacts a real ripper would — a
     .log next to FLAC files — so the finish→verdict→tag→cover-art pipeline
     has real files to act on. Everything else is the minimum to construct."""
