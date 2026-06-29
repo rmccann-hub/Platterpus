@@ -293,3 +293,26 @@ def test_set_drive_called_twice_resets_in_between(
     # The previous disc's IDs must not leak.
     assert "aaa" not in panel._cddb_id_value.text()
     assert "bbb" not in panel._mb_id_value.text()
+
+
+# --- Read-offset provenance row (UX gap #6) ------------------------------
+
+
+def test_offset_provenance_row_starts_blank(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    assert panel._offset_value.text() == "—"
+
+
+def test_set_drive_offset_provenance_renders(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_drive_offset_provenance("+667 — from the AccurateRip list (medium)")
+    assert "+667" in panel._offset_value.text()
+    # Accessible name is set so screen readers announce the row (principle #10).
+    assert panel._offset_value.accessibleName() == "Read offset provenance"
+
+
+def test_set_drive_clears_offset_provenance(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_drive_offset_provenance("+667 — measured on this drive (high)")
+    panel.set_drive("/dev/sr1")  # picking a new drive clears the stale line
+    assert panel._offset_value.text() == "—"

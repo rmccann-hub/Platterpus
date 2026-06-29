@@ -21,15 +21,26 @@ import logging
 import os
 from pathlib import Path
 
+from platterpus import paths
 from platterpus.drive_profiles import (
     Confidence,
     DriveProfile,
     OffsetRecord,
     OffsetSource,
 )
-from platterpus.paths import CONFIG_DIR, DRIVE_PROFILES_PATH
 
 log = logging.getLogger(__name__)
+
+
+def _default_path() -> Path:
+    """The drive-profiles path, read live so tests can redirect it.
+
+    Resolved through the ``paths`` module (not a bound import) so an autouse
+    test fixture monkeypatching ``platterpus.paths.DRIVE_PROFILES_PATH`` keeps
+    the suite from touching the real user config dir.
+    """
+    return paths.DRIVE_PROFILES_PATH
+
 
 # Bumped when the on-disk shape changes; _migrate() upgrades older files. A
 # file from a *newer* version is treated as current (with a warning) rather
@@ -112,8 +123,15 @@ def _profile_from_dict(fingerprint: str, raw: object) -> DriveProfile | None:
 class DriveProfileStore:
     """In-memory map of fingerprint → DriveProfile, with JSON load/save."""
 
-    def __init__(self, profiles: dict[str, DriveProfile] | None = None) -> None:
+    def __init__(
+        self,
+        profiles: dict[str, DriveProfile] | None = None,
+        path: Path | None = None,
+    ) -> None:
         self._profiles: dict[str, DriveProfile] = dict(profiles or {})
+        # Remember where we were loaded from so save() round-trips to the same
+        # file without the caller having to thread the path back through.
+        self._path: Path = path if path is not None else _default_path()
 
     # --- queries / mutators (in-memory; caller decides when to save) --------
 
@@ -130,7 +148,7 @@ class DriveProfileStore:
     # --- persistence --------------------------------------------------------
 
     @classmethod
-    def load(cls, path: Path = DRIVE_PROFILES_PATH) -> DriveProfileStore:
+    def load(cls, path: Path | None = None) -> DriveProfileStore:
         """Load the store. NEVER raises.
 
         A missing file is the normal first-run state (empty store). A
@@ -138,23 +156,25 @@ class DriveProfileStore:
         disk, not clobbered, so it can be inspected. Unusable individual
         profiles are skipped with a log line rather than failing the whole load.
         """
+        if path is None:
+            path = _default_path()
         try:
             text = path.read_text(encoding="utf-8")
         except FileNotFoundError:
-            return cls()
+            return cls(path=path)
         except OSError as exc:
             log.warning("could not read %s: %s", path, exc)
-            return cls()
+            return cls(path=path)
 
         try:
             raw = json.loads(text)
         except (json.JSONDecodeError, ValueError) as exc:
             log.warning("could not parse %s (%s); starting with no profiles", path, exc)
-            return cls()
+            return cls(path=path)
 
         if not isinstance(raw, dict):
             log.warning("%s is not a JSON object; starting with no profiles", path)
-            return cls()
+            return cls(path=path)
 
         raw = _migrate(raw)
 
@@ -167,16 +187,19 @@ class DriveProfileStore:
                     profiles[profile.fingerprint] = profile
                 else:
                     log.warning("dropped unusable drive profile %r", fingerprint)
-        return cls(profiles)
+        return cls(profiles, path=path)
 
-    def save(self, path: Path = DRIVE_PROFILES_PATH) -> None:
-        """Atomically write the store to `path` (temp file + os.replace).
+    def save(self, path: Path | None = None) -> None:
+        """Atomically write the store (temp file + os.replace).
 
-        Atomicity matters: a crash between open and close would otherwise leave
-        a half-written file that the next load would (safely) discard. We accept
-        the same pattern config.save uses.
+        Writes to `path`, or the path this store was loaded from. Atomicity
+        matters: a crash between open and close would otherwise leave a
+        half-written file that the next load would (safely) discard. Same
+        pattern config.save uses.
         """
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        if path is None:
+            path = self._path
+        path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema_version": SCHEMA_VERSION,
             "profiles": {

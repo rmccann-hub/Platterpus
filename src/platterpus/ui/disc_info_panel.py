@@ -51,6 +51,14 @@ class DiscInfoPanel(QWidget):
         # (a CD-R, say): every track comes back "not present", which is the
         # opposite of verified. set_accuraterip_result() fills this in.
         self._accuraterip_value: QLabel = self._value_label(_PLACEHOLDER)
+        # Read-offset provenance: where this drive's offset came from and how
+        # much to trust it (drive_profiles ledger). It's a trust line, not a
+        # setting — the offset whipper actually uses still lives in whipper.conf
+        # / the --offset override. A guard warning (collision/disagreement)
+        # shows here in text, never colour alone (accessibility principle #10).
+        self._offset_value: QLabel = self._value_label(_PLACEHOLDER)
+        self._offset_value.setWordWrap(True)
+        self._offset_value.setAccessibleName("Read offset provenance")
 
         form = QFormLayout(self)
         form.addRow("Drive:", self._drive_value)
@@ -58,6 +66,7 @@ class DiscInfoPanel(QWidget):
         form.addRow("CDDB disc ID:", self._cddb_id_value)
         form.addRow("MusicBrainz match:", self._mb_match_value)
         form.addRow("AccurateRip:", self._accuraterip_value)
+        form.addRow("Read offset:", self._offset_value)
 
     # --- Drive selection -----------------------------------------------------
 
@@ -76,6 +85,19 @@ class DiscInfoPanel(QWidget):
         self._cddb_id_value.setText(_PLACEHOLDER)
         self._mb_match_value.setText(_PLACEHOLDER)
         self._accuraterip_value.setText(_PLACEHOLDER)
+        # The offset row is drive-derived (not disc-derived), but it's cleared
+        # here too so a stale value never lingers under a freshly-picked drive;
+        # the main window repopulates it from the drive profile right after.
+        self._offset_value.setText(_PLACEHOLDER)
+
+    def set_drive_offset_provenance(self, text: str) -> None:
+        """Show where the selected drive's read offset came from + how sure.
+
+        `text` is ready-to-display (e.g. "+667 — AccurateRip list (medium)" or
+        a "⚠ …" guard line). Pushed by the main window from the drive profile;
+        this stays a pure view.
+        """
+        self._offset_value.setText(text or _PLACEHOLDER)
 
     # --- AccurateRip outcome (from the parsed rip log) ----------------------
 

@@ -35,17 +35,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   signal as the green/amber/grey tint.
 
 ### Added
-- **Drive-profile ledger (foundation).** A new internal subsystem
-  (`drive_profiles.py` + `drive_profile_store.py`) records, per drive, a stable
-  hardware *fingerprint* (WWN → serial → vendor/model, in that order of
-  strength) and the *provenance + confidence* of its learned read offset (was
-  it measured on your drive, looked up from the AccurateRip list, or typed by
-  hand?). It also detects identical-drive collisions and offset disagreements
-  so a "silent wrong-offset rip" becomes a visible warning. This is a **trust
-  ledger only** — `whipper.conf` and the `--offset` override stay the sole
-  authorities for the offset a rip actually uses (PLANNING.md KDD-23). Stored as
-  `~/.config/platterpus/drive_profiles.json`. Surfacing in the UI follows in a
-  subsequent change.
+- **Per-drive trust line: where your read offset came from, and how sure.**
+  The disc panel now shows a "Read offset" row for the selected drive — e.g.
+  *"+667 — from the AccurateRip list (medium confidence)"* or *"measured on
+  this drive (high confidence)"* — so you can see at a glance whether the offset
+  is a measurement of your actual drive or a model-list lookup to confirm. If a
+  second identical drive is connected, or the recorded offset disagrees with
+  what whipper.conf will apply, a plain-text ⚠ warning appears there too — the
+  "silent wrong-offset rip" (the classic identical-drive bug) becomes visible
+  instead of silent. (UX gap #6.)
+
+  Under the hood this is a new drive-profile ledger (`drive_profiles.py` +
+  `drive_profile_store.py`, `~/.config/platterpus/drive_profiles.json`) keyed by
+  a stable hardware fingerprint (WWN → serial → vendor/model). It is a **trust
+  ledger only**: `whipper.conf` and the `--offset` override remain the sole
+  authorities for the offset a rip actually uses (PLANNING.md KDD-23).
+  *Applying* a remembered offset per drive (true multi-drive correctness) is a
+  separate, hardware-gated change and is not done here.
 
 ### Changed
 - **Clearer, outcome-first wording on two technical Settings/setup labels.**

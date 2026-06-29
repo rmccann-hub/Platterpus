@@ -121,6 +121,21 @@ def confidence_rank(confidence: Confidence) -> int:
     return _CONFIDENCE_ORDER.get(confidence, 0)
 
 
+# Friendly, effect-first labels for each provenance source (UI display).
+_SOURCE_LABEL: dict[OffsetSource, str] = {
+    OffsetSource.OFFSET_FIND: "measured on this drive",
+    OffsetSource.WHIPPER_CONF: "from whipper.conf",
+    OffsetSource.ACCURATERIP_LIST: "from the AccurateRip list",
+    OffsetSource.MANUAL: "entered by hand",
+    OffsetSource.UNKNOWN: "from an unknown source",
+}
+
+
+def describe_source(source: OffsetSource) -> str:
+    """A short human label for `source` (for the provenance display line)."""
+    return _SOURCE_LABEL.get(source, "from an unknown source")
+
+
 # --- The records ------------------------------------------------------------
 
 
@@ -133,6 +148,28 @@ class OffsetRecord:
     confidence: Confidence
     # ISO-8601 UTC; provenance/staleness display only, never a rip input
     detected_at: str = ""
+
+
+def should_replace_offset(
+    existing: OffsetRecord | None, candidate: OffsetRecord
+) -> bool:
+    """The upgrade rule deciding whether `candidate` replaces `existing`.
+
+    - With nothing stored yet → record it.
+    - A MANUAL entry always wins: it's a deliberate user act for this drive.
+    - The same source refreshes itself (its value/date may have changed).
+    - Otherwise an automatic source replaces only a *strictly* lower-confidence
+      record — so a model-list lookup (MEDIUM) never clobbers a measured value
+      (HIGH) or a deliberate manual one (also MEDIUM, but protected by the
+      same-source rule above). Pure; never raises.
+    """
+    if existing is None:
+        return True
+    if candidate.source is OffsetSource.MANUAL:
+        return True
+    if candidate.source == existing.source:
+        return True
+    return confidence_rank(candidate.confidence) > confidence_rank(existing.confidence)
 
 
 @dataclass(frozen=True)
@@ -252,7 +289,7 @@ class DriveWarning:
     severity: str  # SEVERITY_WARN | SEVERITY_INFO
 
 
-def _conf_offset_for(vendor: str, model: str, conf_offsets: list[object]) -> int | None:
+def conf_offset_for(vendor: str, model: str, conf_offsets: list[object]) -> int | None:
     """The live whipper.conf offset for this drive, matched by canonical name.
 
     `conf_offsets` is a list of objects with ``.drive`` (whipper's decoded
@@ -318,7 +355,7 @@ def evaluate_drive_state(
 
     # 3 & 4. Offset provenance checks (only when we have a recorded offset).
     if stored is not None and stored.offset is not None:
-        conf_value = _conf_offset_for(vendor, model, conf_offsets)
+        conf_value = conf_offset_for(vendor, model, conf_offsets)
         if conf_value is not None and conf_value != stored.offset.value:
             # The silent-wrong-offset detector made visible: name both values and
             # which one whipper will actually use.

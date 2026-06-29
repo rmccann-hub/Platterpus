@@ -48,6 +48,13 @@ class DriveSetupDialog(QDialog):
     # stays a view and never writes config itself.
     manual_offset_saved = Signal(int)
 
+    # Emitted after a successful auto-detect (whipper measured the offset on
+    # THIS drive and wrote whipper.conf). Carries the DriveSetupResult so the
+    # main window can RECORD the provenance in the drive-profile ledger (a
+    # high-confidence "measured on this drive" fact). It does NOT change which
+    # offset a rip uses — whipper.conf already holds it. The dialog stays a view.
+    detection_recorded = Signal(object)
+
     def __init__(
         self,
         backend: RipBackend,
@@ -213,6 +220,11 @@ class DriveSetupDialog(QDialog):
         self._set_manual_controls_enabled(True)
         self._worker = None
         self._thread = None
+        # Tell the main window to record this measured result in the drive
+        # profile (provenance only — whipper already wrote whipper.conf). Only
+        # when we actually got an offset; a failed detect has nothing to record.
+        if result.offset is not None:
+            self.detection_recorded.emit(result)
 
     def _set_manual_controls_enabled(self, enabled: bool) -> None:
         """Enable/disable the manual read-offset controls as a unit.

@@ -32,6 +32,7 @@ from platterpus.adapters.whipper_backend import (
 )
 from platterpus.config import Config
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
+from platterpus.drive_profiles import OffsetSource, compute_fingerprint
 from platterpus.deps.manager import DependencyManager
 from platterpus.drive_access import DriveAccessDiagnosis
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -513,6 +514,111 @@ def test_auto_apply_known_offset_for_known_drive(
     assert window._config.override_read_offset is True
     assert window._config.read_offset == 667
     assert saved and saved[-1].read_offset == 667
+
+
+# --- Drive-profile ledger wiring (UX gap #6, KDD-23) ------------------------
+
+
+_PIONEER = DriveDescriptor(
+    device="/dev/sr0", vendor="PIONEER", model="BD-RW  BDR-209D", release="1.0"
+)
+_PIONEER_FP = compute_fingerprint("PIONEER", "BD-RW  BDR-209D")
+
+
+def _pin_pioneer(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Select the Pioneer and make its fingerprint deterministic (no sysfs)."""
+    monkeypatch.setattr(window._drive_picker, "current_drive", lambda: _PIONEER)
+    monkeypatch.setattr(window._drive_picker, "all_drives", lambda: [_PIONEER])
+    # Don't let a real /sys/block/sr0 leak a serial/wwn into the fingerprint.
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_drive.read_drive_identity", lambda device: ("", "")
+    )
+
+
+def test_auto_apply_records_accuraterip_provenance(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+
+    window._auto_apply_known_offset()
+
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None
+    assert profile.offset is not None
+    assert profile.offset.value == 667
+    assert profile.offset.source is OffsetSource.ACCURATERIP_LIST
+
+
+def test_manual_save_records_manual_provenance(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+
+    window._on_manual_offset_saved(123)
+
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None
+    assert profile.offset is not None
+    assert profile.offset.value == 123
+    assert profile.offset.source is OffsetSource.MANUAL
+
+
+def test_detection_recorded_records_offset_find_and_cache(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    result = SimpleNamespace(offset=667, can_defeat_cache=True)
+
+    window._on_detection_recorded(result)
+
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None
+    assert profile.offset is not None
+    assert profile.offset.source is OffsetSource.OFFSET_FIND
+    assert profile.offset.value == 667
+    assert profile.cache_defeat is True
+
+
+def test_record_drive_fact_does_not_mutate_config(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The load-bearing guarantee: the ledger is NOT a second offset authority.
+
+    Recording a fact must never touch Config.read_offset / override (whipper.conf
+    and the --offset override stay the only authorities — KDD-23).
+    """
+    saved: list[Config] = []
+    window = teardown_threads(save_cfg=saved.append)
+    _pin_pioneer(window, monkeypatch)
+
+    window._record_drive_fact(
+        _PIONEER, offset_value=667, source=OffsetSource.ACCURATERIP_LIST
+    )
+
+    assert window._config.read_offset == 0
+    assert window._config.override_read_offset is False
+    assert saved == []  # the recorder never writes config
+
+
+def test_drive_change_populates_offset_provenance(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window = teardown_threads()
+    _pin_pioneer(window, monkeypatch)
+    # No whipper.conf offset in the sandbox, but a prior AccurateRip record:
+    window._record_drive_fact(
+        _PIONEER, offset_value=667, source=OffsetSource.ACCURATERIP_LIST
+    )
+
+    window._refresh_drive_profile_display()
+
+    shown = window._disc_info_panel._offset_value.text()
+    assert "+667" in shown
+    assert "AccurateRip" in shown
 
 
 def test_auto_apply_returns_false_for_unknown_or_no_drive(
