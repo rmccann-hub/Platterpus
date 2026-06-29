@@ -294,7 +294,7 @@ class SettingsDialog(QDialog):
         form.addRow("Cover art:", self._cover_art_combo)
 
         self._force_overread_check: QCheckBox = QCheckBox(
-            "Force overread into the lead-out", self
+            "Read past the last track to catch any final samples (overread)", self
         )
         self._force_overread_check.setChecked(config.force_overread)
         self._force_overread_check.setToolTip(
@@ -302,7 +302,7 @@ class SettingsDialog(QDialog):
             "(whipper's --force-overread). Off matches EAC's recommendation; "
             "few drives support it and it can slow the last track."
         )
-        form.addRow("Overread:", self._force_overread_check)
+        form.addRow("Disc lead-out:", self._force_overread_check)
 
         self._max_retries_spin: QSpinBox = QSpinBox(self)
         self._max_retries_spin.setRange(0, 100)

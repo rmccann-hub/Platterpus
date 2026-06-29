@@ -140,4 +140,4 @@ def test_format_result_offset_failure() -> None:
 def test_format_result_negative_offset_signed() -> None:
     text = _format_result(DriveSetupResult(offset=-582, can_defeat_cache=False))
     assert "-582 samples" in text
-    assert "doesn't need cache-defeating" in text
+    assert "doesn't cache audio" in text

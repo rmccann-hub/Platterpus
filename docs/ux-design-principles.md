@@ -43,7 +43,10 @@ and important settings were scattered across many dialogs.
    the beginner path must still produce a trustworthy result. *Platterpus:*
    ✅ first-run wizard; ⚠️ no explicit **goal presets** yet (gap #1 below).
 4. **Outcome-oriented terminology.** Lead with the *effect*, then the term:
-   "Drive caches audio — needs slower secure reads," not "Cache defeat." *Gap.*
+   "Drive caches audio — needs slower secure reads," not "Cache defeat."
+   *Platterpus:* ✅ goal presets + the format/verdict labels already lead with
+   the effect; the two remaining jargon-first surfaces (overread, the
+   drive-setup cache verdict) were reworded effect-first (gap #5, 2026-06-29).
 5. **Localize failure.** Report the exact time positions of anomalies and let the
    user play them back; for every error say *what happened / what it means for
    the output / what the software already tried / what to do next*. *Platterpus:*
@@ -79,7 +82,7 @@ user impact ÷ effort:
 | 2 | ✅ **Machine-readable (JSON) log** beside the human one (`platterpus.rip_report` → `<name>.platterpus.json`; 2026-06-28) | Powers QA, re-verification, repair tooling, support; "two outputs every time." | S–M |
 | 3 | **Timestamp-localized anomalies + one-click playback** of flagged regions | The single most "friendly to demanding users" EAC trait — review only where confidence broke, not the whole disc. | M (HW-gated) |
 | 4 | **Accessibility pass** | Accessible names, keyboard coverage, non-colour-only status, focus-safe live updates. Reports rank this the #1 modern gap. | S–M |
-| 5 | **Outcome-oriented wording** across Settings/labels | Cuts the learning cost without removing the precise term. | S |
+| 5 | ✅ **Outcome-oriented wording** across Settings/labels (overread + drive-setup cache verdict reworded effect-first; 2026-06-29) | Cuts the learning cost without removing the precise term. | S |
 | 6 | **Drive profiles keyed by stable fingerprint** + detection provenance/confidence | Identical-drive collisions and silent wrong-offset rips are the classic *state* bugs (EAC hit exactly this in 2007). | M |
 
 **In progress this session:** #4 (accessibility) and #1 (goal presets) — the

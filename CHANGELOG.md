@@ -35,6 +35,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   signal as the green/amber/grey tint.
 
 ### Changed
+- **Clearer, outcome-first wording on two technical Settings/setup labels.**
+  The overread toggle now reads "Read past the last track to catch any final
+  samples (overread)" (under a "Disc lead-out" label) instead of leading with
+  the jargon "Force overread into the lead-out". The drive-setup wizard's
+  audio-cache result now explains the *effect* first — "this drive caches
+  audio, so Platterpus will read around the cache to keep rips bit-perfect" /
+  "this drive doesn't cache audio, so its reads are already trustworthy" —
+  instead of "will be defeated for secure rips" / "doesn't need cache-defeating".
+  (UX gap #5 — lead with the effect, then the term.)
 - **Internal: the backend abstract base class is renamed `WhipperBackend` →
   `RipBackend`** (contributor-facing only; no behaviour change). It is the
   backend-neutral interface that *both* the whipper backend
