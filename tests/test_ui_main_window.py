@@ -32,9 +32,9 @@ from platterpus.adapters.whipper_backend import (
 )
 from platterpus.config import Config
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
-from platterpus.drive_profiles import OffsetSource, compute_fingerprint
 from platterpus.deps.manager import DependencyManager
 from platterpus.drive_access import DriveAccessDiagnosis
+from platterpus.drive_profiles import OffsetSource, compute_fingerprint
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
