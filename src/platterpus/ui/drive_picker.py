@@ -195,6 +195,10 @@ class DrivePicker(QWidget):
             return data
         return None
 
+    def all_drives(self) -> list[DriveDescriptor]:
+        """Every currently-enumerated drive descriptor (for collision checks)."""
+        return list(self._by_device.values())
+
     # --- Internals ---------------------------------------------------------
 
     def _on_index_changed(self, index: int) -> None:

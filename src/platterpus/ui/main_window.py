@@ -40,6 +40,7 @@ from platterpus.adapters.whipper_backend import (
 )
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
+from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
 
@@ -147,6 +148,12 @@ class MainWindow(
         # replaces relying on whipper's flaky `offset find`). Cheap to build
         # — a curated in-code table overlaid with an optional user CSV.
         self._offset_db: OffsetDatabase = OffsetDatabase.load_default()
+        # Per-drive profile ledger (KDD-23): records the provenance/confidence of
+        # each drive's learned read offset, keyed by a stable hardware
+        # fingerprint, and guards against silent wrong-offset rips. A
+        # record/display layer only — it never decides which offset a rip uses.
+        # load() never raises (a corrupt cache must not block ripping).
+        self._drive_profiles: DriveProfileStore = DriveProfileStore.load()
         # save_config is injectable so tests don't need to monkeypatch
         # platterpus.config.save. Defaults to the real save() function.
         if save_config is None:
@@ -484,6 +491,9 @@ class MainWindow(
         """
         log.info("drive changed: %s", device)
         self._disc_info_panel.set_drive(device)
+        # Refresh the read-offset trust line (provenance + any guard warnings)
+        # for the newly-selected drive from the drive-profile ledger.
+        self._refresh_drive_profile_display()
         self._track_table.clear()
         self._current_release_id = ""
         self._current_num_tracks = 0

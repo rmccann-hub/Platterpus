@@ -28,11 +28,14 @@ from platterpus.drive_profiles import (
     OffsetRecord,
     OffsetSource,
     compute_fingerprint,
+    conf_offset_for,
     confidence_for,
     confidence_rank,
+    describe_source,
     evaluate_drive_state,
     find_fingerprint_collisions,
     read_drive_identity,
+    should_replace_offset,
 )
 
 
@@ -155,6 +158,67 @@ def test_unknown_enum_strings_decode_to_safe_defaults() -> None:
     # The never-raises contract: a future/garbled stored value never blows up.
     assert OffsetSource("not-a-real-source") is OffsetSource.UNKNOWN
     assert Confidence("???") is Confidence.LOW
+
+
+def test_describe_source_labels() -> None:
+    assert describe_source(OffsetSource.OFFSET_FIND) == "measured on this drive"
+    assert describe_source(OffsetSource.ACCURATERIP_LIST) == "from the AccurateRip list"
+    assert describe_source(OffsetSource.MANUAL) == "entered by hand"
+
+
+# --- Upgrade rule -----------------------------------------------------------
+
+
+def _rec(source: OffsetSource, confidence: Confidence, value: int = 1) -> OffsetRecord:
+    return OffsetRecord(value=value, source=source, confidence=confidence)
+
+
+def test_upgrade_records_when_nothing_stored() -> None:
+    assert should_replace_offset(
+        None, _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    )
+
+
+def test_upgrade_manual_always_wins() -> None:
+    high = _rec(OffsetSource.OFFSET_FIND, Confidence.HIGH)
+    assert should_replace_offset(high, _rec(OffsetSource.MANUAL, Confidence.MEDIUM))
+
+
+def test_upgrade_same_source_refreshes() -> None:
+    existing = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=10)
+    candidate = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=20)
+    assert should_replace_offset(existing, candidate)
+
+
+def test_upgrade_auto_does_not_clobber_higher_confidence() -> None:
+    measured = _rec(OffsetSource.OFFSET_FIND, Confidence.HIGH)
+    # An AccurateRip list lookup (MEDIUM) must NOT overwrite a measured (HIGH).
+    assert not should_replace_offset(
+        measured, _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    )
+
+
+def test_upgrade_auto_does_not_clobber_equal_manual() -> None:
+    manual = _rec(OffsetSource.MANUAL, Confidence.MEDIUM)
+    # AccurateRip (MEDIUM) must not silently replace a deliberate MANUAL (MEDIUM).
+    assert not should_replace_offset(
+        manual, _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    )
+
+
+def test_upgrade_higher_confidence_auto_replaces_lower() -> None:
+    listed = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    # A measured value (HIGH) replaces a list lookup (MEDIUM).
+    assert should_replace_offset(
+        listed, _rec(OffsetSource.OFFSET_FIND, Confidence.HIGH)
+    )
+
+
+def test_conf_offset_for_matches_by_canonical_name() -> None:
+    # whipper.conf's decoded id (double-spaced) matches the descriptor's fields.
+    conf = [_ConfOffset("PIONEER BD-RW  BDR-209D", 667)]
+    assert conf_offset_for("PIONEER", "BD-RW BDR-209D", conf) == 667
+    assert conf_offset_for("LG", "OTHER", conf) is None
 
 
 # --- Store round-trip + never-raises ---------------------------------------

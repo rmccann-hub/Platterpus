@@ -33,6 +33,21 @@ def qapp() -> QApplication:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_drive_profiles(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the drive-profile ledger out of the real user config dir.
+
+    `DriveProfileStore` resolves its path live from `platterpus.paths`, so
+    redirecting that constant to a per-test temp file means any window code that
+    records a drive fact (the recorder calls `save()`) writes to the sandbox,
+    never `~/.config/platterpus/drive_profiles.json`. Mirrors how the suite
+    injects `save_config` to avoid touching the real config.toml.
+    """
+    monkeypatch.setattr(
+        "platterpus.paths.DRIVE_PROFILES_PATH", tmp_path / "drive_profiles.json"
+    )
+
+
+@pytest.fixture(autouse=True)
 def _non_blocking_message_boxes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Give `QMessageBox`'s static helpers safe, non-blocking defaults.
 
