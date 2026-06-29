@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Release workflow no longer publishes before its assets finish uploading.**
+  The release was made visible (and so seen by the in-app update checker) the
+  instant it was created, while the 237 MB AppImage was still uploading — so the
+  small `.sha256` the updater fetches first could 404 for anyone who checked in
+  that window ("couldn't fetch the update checksum: HTTP Error 404", seen on
+  v0.4.0). The release is now created as a **draft**, all assets attached, then
+  published atomically — closing the window. (No app-code change; affects how
+  future releases are cut.)
+
 ## [0.4.0] — 2026-06-29
 
 ### Added
