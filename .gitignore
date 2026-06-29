@@ -20,9 +20,9 @@ build/python-appimage/.cache/
 build/lib/
 # Locally-built wheel staged for python-appimage's PIP_FIND_LINKS
 build/python-appimage/*.whl
-# Note: build/python-appimage/platterpus.png IS committed (the real app icon,
-# produced by build/make_icon.py). The build script only generates a
-# placeholder if that committed file is ever missing.
+# Note: build/python-appimage/io.github.rmccann_hub.Platterpus.png IS committed
+# (the real app icon, produced by build/make_icon.py). The build script only
+# generates a placeholder if that committed file is ever missing.
 
 # Virtual environments
 .venv/

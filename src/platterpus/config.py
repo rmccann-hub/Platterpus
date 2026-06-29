@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import tomllib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -26,7 +25,6 @@ import tomli_w
 from platterpus.paths import (
     CONFIG_DIR,
     CONFIG_PATH,
-    LEGACY_CONFIG_DIR,
     WHIPPER_BINARY_DEFAULT,
 )
 
@@ -243,42 +241,12 @@ class Config:
     schema_version: int = SCHEMA_VERSION
 
 
-def migrate_legacy_config_dir() -> bool:
-    """Adopt a pre-rename settings dir (~/.config/whipper-gui) after the
-    rename to Platterpus, so existing users keep their settings.
-
-    One-time and conservative: only copies when the NEW dir
-    (``~/.config/platterpus``) doesn't exist yet AND the legacy one does — so it
-    never clobbers a fresh Platterpus config and never runs twice. The legacy
-    dir is *copied*, not moved, so an older build (or the user) still finds it.
-    Best-effort: any error is logged and treated as "no migration". Returns
-    True only when settings were actually carried over.
-    """
-    try:
-        if CONFIG_DIR.exists() or not LEGACY_CONFIG_DIR.is_dir():
-            return False
-        shutil.copytree(LEGACY_CONFIG_DIR, CONFIG_DIR)
-        log.info(
-            "migrated settings from %s to %s (post-rename)",
-            LEGACY_CONFIG_DIR,
-            CONFIG_DIR,
-        )
-        return True
-    except OSError:
-        log.warning("legacy config migration failed", exc_info=True)
-        return False
-
-
 def load() -> Config:
     """Return the current config, creating it with defaults if missing.
 
     On first run this writes the defaults file before returning so the
     user has something to edit in Settings.
     """
-    # Before anything reads CONFIG_PATH, adopt a pre-rename ~/.config/whipper-gui
-    # if present (no-op once ~/.config/platterpus exists).
-    migrate_legacy_config_dir()
-
     if not CONFIG_PATH.exists():
         log.info("config file missing; creating defaults at %s", CONFIG_PATH)
         cfg = Config()
