@@ -236,6 +236,40 @@ def test_cyanrip_progress_lines_drive_bars_and_track(
     assert any(s.startswith("Track 1 done") for s in sigs.statuses)
 
 
+def test_captures_first_eta_as_run_estimate(qapp: QApplication, tmp_path: Path) -> None:
+    """The worker records cyanrip's FIRST ETA as its whole-run estimate, in
+    seconds — the figure the finish handler logs next to the actual elapsed.
+    Only the first is kept (later ETAs drift as secure re-reads accumulate)."""
+    handle = _FakeHandle(
+        lines=[
+            "Disc tracks:    14",
+            "Ripping track 1, progress - 5.00%, ETA - 35m, errors - 0",
+            "Ripping track 1, progress - 50.00%, ETA - 30m, errors - 0",
+            "Ripping track 2, progress - 5.00%, ETA - 1h2m, errors - 0",
+        ],
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    # First ETA was "35m" → 2100s; the later 30m / 1h2m lines don't overwrite it.
+    assert worker.estimated_seconds == 2100
+
+
+def test_estimated_seconds_none_when_no_eta_seen(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    handle = _FakeHandle(
+        lines=[
+            "Disc tracks:    14",
+            "Ripping and encoding track 1, progress - 75.00%",
+        ],
+        exit_code=0,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+    assert worker.estimated_seconds is None
+
+
 def test_progress_redraws_are_rate_limited_in_the_log(
     qapp: QApplication, tmp_path: Path
 ) -> None:

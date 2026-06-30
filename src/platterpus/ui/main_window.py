@@ -257,6 +257,13 @@ class MainWindow(
         # that async check finishes (see main_window_rip).
         self._last_rip_log: object | None = None
         self._last_rip_log_file: Path | None = None
+        # Wall-clock timing of the in-flight rip. `_rip_started_monotonic` is the
+        # elapsed-time clock (immune to system-clock changes); `_rip_started_at`
+        # is the human start timestamp for the report. `_last_rip_timing` is the
+        # finished rip's timing dict, kept so the CTDB re-write preserves it.
+        self._rip_started_monotonic: float | None = None
+        self._rip_started_at: str = ""
+        self._last_rip_timing: dict | None = None
         # Whether the user asked to launch Picard after an unknown rip.
         self._pending_picard_launch: bool = False
         # Post-rip CTDB verify (KDD-14 Phase 1, opt-in). Runs the lookup +

@@ -33,6 +33,7 @@ from platterpus.adapters.rip_backend import (
     RipHandle,
     RipMetadata,
 )
+from platterpus.rip_timing import parse_eta_to_seconds
 
 log = logging.getLogger(__name__)
 
@@ -201,6 +202,23 @@ class RipWorker(QObject):
         # A user-facing explanation set when a known fatal pattern is seen
         # (e.g. whipper giving up on an unreadable track). "" if none.
         self._failure_hint: str = ""
+        # The ripper's OWN time estimate, captured the first time cyanrip prints
+        # an ETA (near the rip's start, so it's its estimate of the *whole* run).
+        # The finish handler logs this beside the actual wall-clock so the gap —
+        # cyanrip's ETA ignores secure re-read passes and badly under-estimates
+        # marginal discs (real disc: 2h45m actual vs "~35m" ETA) — is on record.
+        self._first_eta_seconds: int | None = None
+
+    @property
+    def estimated_seconds(self) -> int | None:
+        """cyanrip's first reported ETA, in seconds (None if none was seen).
+
+        This is the ripper's own estimate of how long the rip would take. It is
+        notoriously optimistic on marginal discs because it can't predict secure
+        re-read passes — which is exactly why we record it next to the actual
+        elapsed time, not instead of it.
+        """
+        return self._first_eta_seconds
 
     @property
     def needs_unknown_retry(self) -> bool:
@@ -397,6 +415,13 @@ class RipWorker(QObject):
         match = _CYANRIP_TRACK_PROGRESS.search(line)
         if match:
             self._current_track = int(match.group("track"))
+            # Capture the ripper's first ETA as its whole-run estimate (it's
+            # printed from the very first progress redraw, when little time has
+            # elapsed). Only the first — later ETAs drift as re-reads pile up.
+            if self._first_eta_seconds is None:
+                eta_seconds = parse_eta_to_seconds(match.group("eta"))
+                if eta_seconds is not None:
+                    self._first_eta_seconds = eta_seconds
             task = float(match.group("pct"))
             frac = (
                 ((self._current_track - 1) + task / 100.0) / self._total_tracks
