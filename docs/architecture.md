@@ -179,8 +179,31 @@ Worker mechanics, all demonstrated in `workers/`:
   process — fixed by cancelling + joining on `reject()`/`closeEvent`.)
 - **Don't call `QApplication.processEvents()` from inside a slot that runs
   during a modal `exec()`.** It re-enters the event loop and pumps unrelated
-  timers/threads — an order-dependent crash. To force an immediate repaint
-  (e.g. an "installing…" label before a blocking call), use `widget.repaint()`.
+  timers/threads — an order-dependent crash. To force an immediate repaint of a
+  status label, use `widget.repaint()`.
+- **A modal dialog must NOT do blocking work in a button slot — this is the
+  freeze trap that has bitten three times (→ CLAUDE.md never-block rule).** A
+  `QDialog.exec()` runs a *nested* event loop, which tempts you to "just install
+  here and `repaint()` between steps." But the slot itself still runs on the GUI
+  thread, so a `subprocess`/network call in it freezes the whole window until it
+  returns. The 0.4.2 bug: `PendingInstallsDialog` ran a Picard Flatpak install in
+  its Install-Selected slot → the window went black, unclickable, "installing…"
+  stuck, until the download finished. **The pattern:** the dialog runs the
+  blocking loop on a worker `QThread` (`_InstallWorker`) and updates each row via
+  **queued signals**, which the modal `exec()` loop delivers on the GUI thread —
+  so the dialog stays live. The injected work callable (`install_one`) must be
+  **thread-safe**: no Qt, and no opening sub-dialogs (that crashes off the GUI
+  thread). GUI-only sub-steps (e.g. opening the host-setup wizard, which is
+  itself internally async) are done on the GUI thread *outside* the worker loop —
+  see `main_window_deps._resolve_missing_unified`, which splits wizard installs
+  (GUI thread) from subprocess installs (off-thread). Also gate the dialog's
+  close (`reject()`, which the title-bar ✕ also calls) while the worker runs, so
+  it can't be dismissed out from under a running thread (a destroyed dialog +
+  live `QThread` = hard abort). **Test it:** assert the work ran on a different
+  `threading.get_ident()` than the GUI thread (`tests/test_ui_pending_installs_
+  dialog.py::test_install_runs_off_the_gui_thread`), and drive the loop with a
+  bounded `processEvents()` pump (see `docs/testing.md`), never `QThread.wait()`
+  on the GUI thread (it deadlocks the queued `finished` signal).
 - Use thread-safe primitives for cancellation flags — a plain `bool` set from
   the GUI thread and read by the worker is fine under the GIL; anything richer
   needs care.
