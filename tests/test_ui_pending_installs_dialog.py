@@ -347,6 +347,44 @@ def test_install_runs_off_the_gui_thread(qapp: QApplication) -> None:
     assert install_thread_ids[0] != gui_thread_id
 
 
+def test_event_loop_stays_alive_during_a_slow_install(qapp: QApplication) -> None:
+    """Heartbeat guard (complements the thread-identity check): while a slow
+    install runs, a main-thread QTimer must keep firing — proving the event loop
+    kept turning and the window didn't freeze. If the install ran on the GUI
+    thread, processEvents() would block inside it and the heartbeat would stall.
+    """
+    import threading
+
+    from PySide6.QtCore import QTimer
+
+    ticks = {"n": 0}
+    heartbeat = QTimer()
+    heartbeat.setInterval(5)
+    heartbeat.timeout.connect(lambda: ticks.__setitem__("n", ticks["n"] + 1))
+    heartbeat.start()
+
+    release = threading.Event()
+
+    def slow_install(item: MissingItem) -> InstallResult:
+        release.wait(0.3)  # ~300ms of "work" off the GUI thread
+        return _ok(item)
+
+    dialog = PendingInstallsDialog([_item("a")], install_one=slow_install)
+    dialog._install_button.click()
+    deadline = time.monotonic() + 5.0
+    while dialog._close_button is None and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.005)
+    release.set()
+    heartbeat.stop()
+
+    assert dialog._close_button is not None, "install never finished"
+    assert ticks["n"] >= 5, (
+        f"event loop was starved ({ticks['n']} ticks) — the install blocked the "
+        "GUI thread"
+    )
+
+
 def test_cannot_dismiss_while_install_in_flight(qapp: QApplication) -> None:
     """While the install is running, reject() (Cancel / the window-manager ✕)
     is a no-op — the dialog stays up so the worker can't touch a destroyed

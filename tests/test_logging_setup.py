@@ -30,10 +30,15 @@ def clean_root(
     saved_level = root.level
     saved_attr = getattr(root, logging_setup._CONFIGURED_ATTR, None)
     saved_fh = getattr(root, logging_setup._FILE_HANDLER_ATTR, None)
+    saved_bh = getattr(root, logging_setup._BUFFER_HANDLER_ATTR, None)
 
     root.handlers = []
     root.setLevel(logging.WARNING)
-    for attr in (logging_setup._CONFIGURED_ATTR, logging_setup._FILE_HANDLER_ATTR):
+    for attr in (
+        logging_setup._CONFIGURED_ATTR,
+        logging_setup._FILE_HANDLER_ATTR,
+        logging_setup._BUFFER_HANDLER_ATTR,
+    ):
         if hasattr(root, attr):
             delattr(root, attr)
     try:
@@ -47,6 +52,7 @@ def clean_root(
         for attr, value in (
             (logging_setup._CONFIGURED_ATTR, saved_attr),
             (logging_setup._FILE_HANDLER_ATTR, saved_fh),
+            (logging_setup._BUFFER_HANDLER_ATTR, saved_bh),
         ):
             if value is not None:
                 setattr(root, attr, value)
@@ -134,3 +140,37 @@ def test_reconfigure_honours_debug_when_already_configured(
     logging_setup.configure_logging()  # INFO
     logging_setup.configure_logging(debug=True)  # idempotent, but re-levels
     assert _file_handler(clean_root).level == logging.DEBUG
+
+
+def test_installs_session_log_buffer_that_captures_records(
+    clean_root: logging.Logger,
+) -> None:
+    """configure_logging installs the in-memory SessionLogBuffer and exposes it
+    via get_session_buffer; it must actually capture emitted records (this is
+    what the self-contained rip report embeds)."""
+    from platterpus.log_buffer import SessionLogBuffer, get_session_buffer
+
+    logging_setup.configure_logging()
+
+    assert "SessionLogBuffer" in _handler_names(clean_root)
+    buffer = get_session_buffer()
+    assert isinstance(buffer, SessionLogBuffer)
+
+    logging.getLogger("platterpus.test").info("hello-from-a-test")
+    assert any("hello-from-a-test" in line for line in buffer.lines_excluding([]))
+
+
+def test_session_buffer_level_follows_the_debug_toggle(
+    clean_root: logging.Logger,
+) -> None:
+    """The buffer mirrors the file handler's verbosity so the embedded log
+    matches what log.txt records (and respects the Debug-logging setting)."""
+    from platterpus.log_buffer import get_session_buffer
+
+    logging_setup.configure_logging()  # INFO
+    buffer = get_session_buffer()
+    assert buffer.level == logging.INFO
+    logging_setup.set_debug_logging(True)
+    assert buffer.level == logging.DEBUG
+    logging_setup.set_debug_logging(False)
+    assert buffer.level == logging.INFO
