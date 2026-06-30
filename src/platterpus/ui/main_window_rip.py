@@ -141,10 +141,24 @@ class RipMixin:
         # Cleared here, set in _on_rip_cancel — so the finish handler can
         # say "cancelled" instead of "failed".
         self._rip_cancelled = False
+        # Stamp the rip's start for the elapsed-time record. Set here (the
+        # user-perceived Start), NOT in _start_rip_worker, so an auto-heal retry
+        # is included in the total — the user waited for the whole thing. cyanrip
+        # logs neither its start time nor its run time, so this is the only place
+        # the actual wall-clock can be measured (real-disc lesson: 2h45m actual
+        # vs cyanrip's "~35m" ETA — see rip_timing.py).
+        import time as _time
+        from datetime import datetime as _datetime
+
+        self._rip_started_monotonic = _time.monotonic()
+        self._rip_started_at = (
+            _datetime.now().astimezone().isoformat(timespec="seconds")
+        )
         # Drop the previous rip's parsed-log/report state, so a CTDB verify that
         # finishes late can never re-write THIS rip's report against the old one.
         self._last_rip_log = None
         self._last_rip_log_file = None
+        self._last_rip_timing = None
         # Allow exactly one auto-heal retry (rip-as-unknown) per Start, so a
         # persistent failure can't loop.
         self._auto_retry_done = False
@@ -382,6 +396,12 @@ class RipMixin:
             # a new worker/thread.
             QTimer.singleShot(0, lambda: self._start_rip_worker(unknown_params))
             return
+
+        # Measure the actual wall-clock elapsed and record it against cyanrip's
+        # own estimate. This is the ONLY place the real run time exists — cyanrip
+        # logs the disc's audio length and a finish timestamp but never how long
+        # the rip took. Captured here (worker still alive) before it's cleared.
+        self._last_rip_timing = self._build_rip_timing()
 
         self._rip_controls.set_rip_active(False)
         self._set_rip_lock(False)  # rip over — re-enable the locked-down UI
@@ -835,6 +855,49 @@ class RipMixin:
                 self._last_rip_log, self._last_rip_log_file, ctdb_result=result
             )
 
+    def _build_rip_timing(self) -> dict | None:
+        """Build the timing dict for the just-finished rip and log it.
+
+        Returns None when no start was stamped (e.g. a finish with no matching
+        request, as some tests drive). Reads ``self._rip_worker.estimated_seconds``
+        so it MUST be called before the worker reference is cleared. Logs a
+        verbose actual-vs-estimate line into the app log — the headline the
+        debug record was missing (the maintainer asked for "actual time elapsed
+        vs estimated"; cyanrip's ETA proved useless on a marginal disc).
+        """
+        import time as _time
+        from datetime import datetime as _datetime
+
+        from platterpus import rip_report
+        from platterpus.rip_timing import format_duration
+
+        if self._rip_started_monotonic is None:
+            return None
+        elapsed = _time.monotonic() - self._rip_started_monotonic
+        estimated = (
+            self._rip_worker.estimated_seconds if self._rip_worker is not None else None
+        )
+        finished_at = _datetime.now().astimezone().isoformat(timespec="seconds")
+        timing = rip_report.build_timing(
+            elapsed,
+            estimated_seconds=estimated,
+            started_at=self._rip_started_at,
+            finished_at=finished_at,
+        )
+        if estimated is not None:
+            log.info(
+                "rip elapsed (actual): %s — cyanrip's ETA estimate was %s "
+                "(ETA excludes secure re-read passes, so it under-counts)",
+                format_duration(elapsed),
+                format_duration(estimated),
+            )
+        else:
+            log.info("rip elapsed (actual): %s", format_duration(elapsed))
+        # The start clock is one-shot per rip — clear it so a stray later finish
+        # can't reuse it.
+        self._rip_started_monotonic = None
+        return timing
+
     def _write_rip_report(
         self, rip_log: object, log_file: Path, *, ctdb_result: object | None = None
     ) -> None:
@@ -842,6 +905,8 @@ class RipMixin:
 
         A small file write — safe on the GUI thread. Never raises (write_report
         swallows OSError); the report is a nice-to-have, not part of the rip.
+        Carries the timing dict measured at finish (``_last_rip_timing``) so the
+        CTDB re-write preserves the elapsed-vs-estimate record.
         """
         from datetime import datetime
 
@@ -852,6 +917,7 @@ class RipMixin:
             log_file,
             ctdb_result=ctdb_result,
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            timing=self._last_rip_timing,
         )
 
     # --- Post-rip FLAC encode-verify (opt-in, default on) -------------------

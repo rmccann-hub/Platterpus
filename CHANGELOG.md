@@ -28,6 +28,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   PLANNING KDD-18, the user guide, the locked Critical Rules) were updated.
 
 ### Added
+- **The rip record now shows actual elapsed time vs the ripper's estimate.**
+  cyanrip's on-screen ETA is computed from the current read pass only, so it
+  can't see secure re-read passes (`-Z N`) and badly under-estimates marginal
+  discs (a real 14-track disc took 2h45m while the ETA sat at "~35m"). The app
+  log now records the *actual* wall-clock the rip took — the figure only the GUI
+  can measure, since cyanrip logs the disc's audio length and a finish timestamp
+  but never its own run time — alongside cyanrip's first ETA so the gap is
+  auditable. The `.platterpus.json` report gains a `timing` section
+  (`elapsed_seconds`/`elapsed_human`, `started_at`/`finished_at`, and the
+  estimate when one was seen).
 - **The Platterpus logo now appears in the About dialog** (Help → About), above
   the version and environment details.
 - **One dependency dialog instead of several.** A fresh install used to pop a

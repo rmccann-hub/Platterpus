@@ -249,3 +249,16 @@ def test_e2e_unknown_rip_tags_flacs_and_embeds_cover_art(
         "02 - Track 02.flac",
     ]
     assert (album / "cover.jpg").read_bytes() == _JPEG
+
+    # Trustworthy record: the JSON report carries the actual wall-clock the rip
+    # took — the figure only the GUI can measure (the ripper logs neither its
+    # start nor its run time). No ETA was emitted here, so the estimate keys are
+    # absent, but the elapsed time is always recorded.
+    import json
+
+    report = json.loads((album / "rip.platterpus.json").read_text(encoding="utf-8"))
+    assert report["timing"] is not None
+    assert report["timing"]["elapsed_seconds"] is not None
+    assert report["timing"]["elapsed_seconds"] >= 0
+    assert report["timing"]["started_at"]
+    assert report["timing"]["finished_at"]

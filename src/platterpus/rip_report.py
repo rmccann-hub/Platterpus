@@ -35,15 +35,17 @@ def build_report(
     *,
     ctdb_result: object | None = None,
     generated_at: str = "",
+    timing: dict | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
     ``generated_at`` is supplied by the caller (an ISO-8601 timestamp) so this
     stays pure and deterministic. ``ctdb_result`` is an optional
-    :class:`~platterpus.ctdb.verify.CtdbVerifyResult`. Never raises.
+    :class:`~platterpus.ctdb.verify.CtdbVerifyResult`. ``timing`` is an optional
+    dict of wall-clock measurements (see :func:`build_timing`). Never raises.
     """
     try:
-        return _build(rip_log, ctdb_result, generated_at)
+        return _build(rip_log, ctdb_result, generated_at, timing)
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
         return {
@@ -53,13 +55,54 @@ def build_report(
         }
 
 
-def _build(rip_log: object, ctdb_result: object | None, generated_at: str) -> dict:
+def build_timing(
+    elapsed_seconds: float | None,
+    *,
+    estimated_seconds: int | None = None,
+    started_at: str = "",
+    finished_at: str = "",
+) -> dict:
+    """Build the ``timing`` section: actual elapsed vs the ripper's estimate.
+
+    Pure and never raises. ``elapsed_seconds`` is the GUI-measured wall-clock
+    (cyanrip's log records the disc's audio length and a finish timestamp, but
+    never its own run time). ``estimated_seconds`` is cyanrip's first ETA — kept
+    alongside the actual time precisely because it is unreliable on marginal
+    discs (it ignores secure re-read passes), so the gap is auditable.
+    """
+    from platterpus.rip_timing import format_duration
+
+    timing: dict = {
+        "elapsed_seconds": (
+            round(elapsed_seconds) if isinstance(elapsed_seconds, int | float) else None
+        ),
+        "elapsed_human": format_duration(elapsed_seconds),
+        "started_at": started_at or None,
+        "finished_at": finished_at or None,
+    }
+    if estimated_seconds is not None:
+        timing["estimated_seconds"] = estimated_seconds
+        timing["estimated_human"] = format_duration(estimated_seconds)
+        timing["estimate_source"] = (
+            "cyanrip ETA — excludes secure re-read passes, so it under-estimates "
+            "marginal discs"
+        )
+    return timing
+
+
+def _build(
+    rip_log: object,
+    ctdb_result: object | None,
+    generated_at: str,
+    timing: dict | None = None,
+) -> dict:
     message, level = accuraterip_verdict(rip_log)
     info = getattr(rip_log, "ripping_info", None)
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "generator": {"name": "platterpus", "version": __version__},
         "generated_at": generated_at or None,
+        "timing": timing,
         "log_creator": getattr(rip_log, "log_creator", "") or None,
         "verdict": {"level": level, "message": message or None},
         "rip": {
@@ -156,6 +199,7 @@ def write_report(
     *,
     ctdb_result: object | None = None,
     generated_at: str = "",
+    timing: dict | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -166,7 +210,10 @@ def write_report(
     target = report_path_for(log_file)
     try:
         report = build_report(
-            rip_log, ctdb_result=ctdb_result, generated_at=generated_at
+            rip_log,
+            ctdb_result=ctdb_result,
+            generated_at=generated_at,
+            timing=timing,
         )
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is
