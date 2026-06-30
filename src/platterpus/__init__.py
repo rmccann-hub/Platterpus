@@ -1,4 +1,4 @@
-"""Platterpus — Linux GUI front-end for the whipper audio-CD ripping CLI."""
+"""Platterpus — Linux GUI front-end for the cyanrip audio-CD ripping CLI."""
 
 # ── Canonical version: the single source of truth ──────────────────────────
 # This string is THE version of Platterpus. Bump it here and nowhere else:
@@ -8,4 +8,4 @@
 #     the `--version` flag, the Help → About dialog, and the MusicBrainz
 #     user-agent.
 # To cut a release: bump this, add a CHANGELOG entry, then tag `vX.Y.Z`.
-__version__: str = "0.4.1a1"
+__version__: str = "0.4.1"

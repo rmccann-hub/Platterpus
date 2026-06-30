@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-06-30
+
 ### Removed
 - **whipper is gone — cyanrip is the sole ripping backend.** After confirming
   cyanrip needs nothing structural for EAC parity (it already hits AccurateRip
@@ -66,8 +68,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   Check for updates, Uninstall, …) grey out — so nothing can be changed
   mid-rip. Only Cancel, Force stop, and Quit stay available; **quitting during a
   rip force-stops it** (kills the reader so the drive isn't left spinning).
+- **`scripts/ctdb_verify.py --calibrate`** — a hardware-validation helper that,
+  for a disc that's in CTDB, sweeps candidate offset-guard trims over the
+  decoded PCM and reports which reproduces the database CRC, pinning the CTDB
+  CRC algorithm against a real disc (`platterpus.ctdb.calibrate`). Developer
+  tooling toward flipping CTDB from experimental to verified (KDD-16).
 
 ### Fixed
+- **CTDB verification now reaches the database.** The lookup was hardcoded to
+  `https://db.cuetools.net`, which fails with a TLS hostname mismatch (the host
+  serves no valid certificate). It now queries over `http://` like the reference
+  CUETools client — correct for a read-only public CRC lookup whose trust comes
+  from comparing the returned CRC locally. (CTDB matches still show as
+  *experimental* until the CRC algorithm is hardware-validated — KDD-16.) *This
+  fixes the `lookup_error` seen on 0.4.0.*
+- **Release workflow no longer publishes before its assets finish uploading.**
+  The release was made visible (and so seen by the in-app update checker) the
+  instant it was created, while the 237 MB AppImage was still uploading — so the
+  small `.sha256` the updater fetches first could 404 for anyone who checked in
+  that window ("couldn't fetch the update checksum: HTTP Error 404", seen on
+  v0.4.0). The release is now created as a **draft**, all assets attached, then
+  published atomically — closing the window.
+- **`uninstall.sh` now removes the menu entry and icon the AppImage actually
+  installs.** It deleted `platterpus.desktop` / `platterpus.png`, but the
+  AppImage integrates them under the freedesktop app-id
+  (`io.github.rmccann_hub.Platterpus.*`), so the menu entry and icon were left
+  behind. It now removes both names, plus any pre-rename `whipper-gui` config,
+  logs, desktop entries, and AppImage — for a genuinely clean slate.
 - **Documentation and on-screen text now match the cyanrip-only app.** A
   post-removal audit caught text that still described whipper as the live
   ripper: the README's manual-install offset steps told you to run
@@ -92,37 +119,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   help now drop the tag and keep only the real caveats (install it in the
   container; restart after switching). CTDB verification stays *experimental*
   until its CRC algorithm is hardware-validated (KDD-16) — that one is accurate.
-
-## [0.4.1a1] — 2026-06-29
-
-### Fixed
-- **Release workflow no longer publishes before its assets finish uploading.**
-  The release was made visible (and so seen by the in-app update checker) the
-  instant it was created, while the 237 MB AppImage was still uploading — so the
-  small `.sha256` the updater fetches first could 404 for anyone who checked in
-  that window ("couldn't fetch the update checksum: HTTP Error 404", seen on
-  v0.4.0). The release is now created as a **draft**, all assets attached, then
-  published atomically — closing the window. (No app-code change; affects how
-  future releases are cut.)
-- **CTDB verification now reaches the database.** The lookup was hardcoded to
-  `https://db.cuetools.net`, which fails with a TLS hostname mismatch (the host
-  serves no valid certificate). It now queries over `http://` like the reference
-  CUETools client — correct for a read-only public CRC lookup whose trust comes
-  from comparing the returned CRC locally. (CTDB matches still show as
-  *experimental* until the CRC algorithm is hardware-validated — KDD-16.)
-- **`uninstall.sh` now removes the menu entry and icon the AppImage actually
-  installs.** It deleted `platterpus.desktop` / `platterpus.png`, but the
-  AppImage integrates them under the freedesktop app-id
-  (`io.github.rmccann_hub.Platterpus.*`), so the menu entry and icon were left
-  behind. It now removes both names, plus any pre-rename `whipper-gui` config,
-  logs, desktop entries, and AppImage — for a genuinely clean slate.
-
-### Added
-- **`scripts/ctdb_verify.py --calibrate`** — a hardware-validation helper that,
-  for a disc that's in CTDB, sweeps candidate offset-guard trims over the
-  decoded PCM and reports which reproduces the database CRC, pinning the CTDB
-  CRC algorithm against a real disc (`platterpus.ctdb.calibrate`). Developer
-  tooling toward flipping CTDB from experimental to verified (KDD-16).
 
 ## [0.4.0] — 2026-06-29
 
@@ -1148,9 +1144,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[0.3.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.9...v0.3.10
-[0.3.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.8...v0.3.9
-[0.4.1a1]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.0...v0.4.1a1
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.10...v0.4.0
 [0.3.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.9...v0.3.10
 [0.3.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.3.8...v0.3.9
