@@ -1,7 +1,7 @@
 """DriveListWorker — runs `list_drives()` off the GUI thread.
 
-On the whipper backend, `list_drives()` shells out to `whipper drive list`,
-which enters the Distrobox container — a couple of seconds on a cold start.
+`list_drives()` can enter the Distrobox container (or otherwise probe the
+system) — a couple of seconds on a cold start.
 Running it on the GUI thread at launch froze the just-shown window, so the
 launch path (`MainWindow.refresh_drives`) uses this worker; the result is
 applied to the `DrivePicker` on the GUI thread via `populate()`/`show_error()`.

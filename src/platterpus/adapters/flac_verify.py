@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Post-rip FLAC integrity verification — the check whipper does for itself.
+"""Post-rip FLAC integrity verification — the encode-verify cyanrip doesn't do itself.
 
-whipper passes ``flac --verify`` while it rips, so each FLAC is proven to decode
-back to exactly the PCM that was read off the disc. cyanrip encodes via FFmpeg
-with no such self-check, so a cyanrip rip lacks that guarantee. This adapter runs
+The historical whipper backend passed ``flac --verify`` while it ripped, so each
+FLAC was proven to decode back to exactly the PCM that was read off the disc.
+cyanrip encodes via FFmpeg with no such self-check, so a cyanrip rip lacks that
+guarantee. This adapter runs
 an independent post-rip check: ``flac --test`` decodes each FLAC and verifies its
 embedded STREAMINFO MD5 against the decoded audio, catching encode-time or disk
 corruption.

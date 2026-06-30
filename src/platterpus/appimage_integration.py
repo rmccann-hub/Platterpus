@@ -161,7 +161,7 @@ def _desktop_contents(appimage: Path, icon: str) -> str:
         f"Icon={icon}\n"
         "Terminal=false\n"
         "Categories=AudioVideo;Audio;\n"
-        "Keywords=cd;rip;flac;whipper;audio;\n"
+        "Keywords=cd;rip;flac;cyanrip;audio;\n"
     )
 
 

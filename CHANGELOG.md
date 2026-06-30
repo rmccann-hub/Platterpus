@@ -53,17 +53,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 - **The Platterpus logo now appears in the About dialog** (Help → About), above
   the version and environment details.
 - **One dependency dialog instead of several.** A fresh install used to pop a
-  separate dialog for each missing piece (whipper *and* metaflac each opened
+  separate dialog for each missing piece (the ripper *and* metaflac each opened
   their own). Now every installable missing dependency is a single checkbox row
   (ticked by default) in one "Pending installs" dialog: tick what you want,
   press Install, and watch each row's progress. The dismiss button stays greyed
-  out until the install actually completes. Container tools (whipper, cyanrip,
-  flac, metaflac) install via the one setup wizard — opened at most once even
-  when several are missing — and packaged deps (Picard) install in place.
-- **The setup wizard now installs both backends.** A single "Set up Platterpus"
-  run installs whipper *and* cyanrip (plus flac and metaflac) into the ripping
-  container, so switching backends in Settings never needs a re-run or a
-  terminal — every backend is present after one setup.
+  out until the install actually completes. Container tools (cyanrip, flac,
+  metaflac) install via the one setup wizard — opened at most once even when
+  several are missing — and packaged deps (Picard) install in place.
 - **The UI locks down during a rip.** While a rip is running, the drive
   selector (and its Refresh/Rescan/Eject), the editable track list, and the
   conflicting menu actions (Settings, Set up drive/Platterpus, Rip as Unknown,
@@ -72,6 +68,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rip force-stops it** (kills the reader so the drive isn't left spinning).
 
 ### Fixed
+- **Documentation and on-screen text now match the cyanrip-only app.** A
+  post-removal audit caught text that still described whipper as the live
+  ripper: the README's manual-install offset steps told you to run
+  `whipper offset find` and hand-edit `whipper.conf` (both gone — replaced with
+  the in-app drive-setup-wizard flow and a note that cyanrip uses no config
+  file), a stale "Ripping backends: whipper (default)" section, a setup-complete
+  message that said "whipper is installed," and a drive-failure hint that cited
+  a whipper-only cd-paranoia bug and a removed "Keep going" setting. Many
+  code comments that claimed whipper's *current* behaviour were corrected to
+  describe cyanrip (with whipper kept only as accurate history).
 - **The Tools menu said "Set up Whipper GUI…"** — a leftover from before the
   rename. It's now "Set up Platterpus…".
 

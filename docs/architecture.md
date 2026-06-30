@@ -297,24 +297,42 @@ count, starts sharing the file.)
 > code.
 
 ### Add a ripping backend (e.g. a future `XyzripImpl`)
+cyanrip is currently the **sole** backend (KDD-18 — whipper was removed
+2026-06-30), but the `RipBackend` ABC seam is kept exactly so another engine
+can be slotted in without rewriting the GUI:
 1. Implement the `RipBackend` ABC in `adapters/xyzrip_backend.py`
    (`rip`, `disc_info`, `version`, optional `find_offset`/`analyze_drive`).
 2. Add a parser in `parsers/` for its log + disc-info output (named-group
    regex, never-raise, + a property test). Map it onto the shared `RipLog` /
    `DiscInfo` dataclasses so the GUI verdict code is unchanged.
-3. Add the choice to `Config.ripper_backend` and select it in `app.py`.
+3. Reintroduce a selection mechanism in the **composition root**
+   (`composition.build_backend`, the one place that constructs the backend —
+   it currently hard-returns cyanrip). A `Config` field + a Settings control
+   would feed it; both `app.py` and `preflight.py` get the new backend for free
+   because they share that root.
 4. If it needs a package, add a wizard step in `deps/host_setup.py` and CLI
    parity in `setup-host.sh` (keep the two install stanzas in sync).
-5. Gate any backend-specific Settings widgets in `settings_dialog.py`
-   (`_apply_backend_capabilities`) — grey out, explain, never lose values.
+5. Gate any backend-specific Settings widgets in `settings_dialog.py` — grey
+   out, explain, never lose values. (The whipper-era `_apply_backend_capabilities`
+   gating was removed when cyanrip became sole; reintroduce that shape if a
+   second backend returns.)
 
 A **backend-specific rip parameter** (one backend has a flag another lacks)
 threads through one fixed path: `Config` field → `RipParameters` (frozen) →
 the `RipBackend.rip()` ABC signature → each adapter's argv builder. A
 backend with no equivalent **accepts and ignores** it (`del param`), and its
 Settings widget is greyed out for that backend. `secure_rerip_matches` (cyanrip
-`-Z N` "re-rip until N reads match", for marginal discs; whipper has no
-equivalent) is the worked example — copy its shape for the next one.
+`-Z N` "re-rip until N reads match", for marginal discs) is the worked
+example — copy its shape for the next one.
+
+> **Comment hygiene after a backend swap (hard-won, 2026-06-30).** When whipper
+> was removed, dozens of docstrings/comments still said "whipper does X" as if
+> describing *current* behavior — false for the next reader. The convention:
+> comments describe what the **current** backend does; the old tool appears only
+> as accurate *history* explaining why code is shaped a certain way (e.g. "this
+> parser reads whipper-FORMAT logs, kept for old logs/fixtures"). When you swap
+> or remove a backend, grep the whole tree for its name and re-audit every hit —
+> a stale "current-behavior" claim is a bug in the docs.
 
 ### Add an output format
 WavPack, MP3, and WAV already ship (KDD-22); FLAC is the always-produced lossless

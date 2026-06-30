@@ -1,8 +1,9 @@
 """Unknown-album flow — dialog confirming the rip + helper functions.
 
 When MusicBrainz returns no matches for the inserted disc, the user
-can choose to rip anyway with placeholder tags (whipper's `--unknown`
-mode). This module provides:
+can choose to rip anyway with placeholder tags (the GUI's unknown-album
+mode — cyanrip has no `--unknown` flag, so the GUI implements this
+itself). This module provides:
 
 - `UnknownAlbumDialog` — modal confirmation. Lets the user toggle
   "auto-launch Picard" before committing.

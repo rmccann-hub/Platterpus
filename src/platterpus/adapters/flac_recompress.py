@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Optional post-rip FLAC re-compression to the maximum level.
 
-whipper encodes FLAC at the tool default (`-5`); this re-encodes each output FLAC
-at `-8 -e -p` (flac's `--best` plus exhaustive model + coefficient search) to
-shrink the files as far as flac can. It is **lossless and `--verify`'d**, so the
-audio is provably bit-identical to before, and `flac` **preserves all metadata**
-(Vorbis tags, embedded cover art, cuesheet) when it re-encodes a FLAC input — so
-the tags whipper wrote and any art the GUI embedded survive.
+This is only relevant historically: the old whipper backend encoded FLAC at the
+tool default (`-5`), and this re-encodes each output FLAC at `-8 -e -p` (flac's
+`--best` plus exhaustive model + coefficient search) to shrink the files as far as
+flac can. It is **lossless and `--verify`'d**, so the audio is provably
+bit-identical to before, and `flac` **preserves all metadata** (Vorbis tags,
+embedded cover art, cuesheet) when it re-encodes a FLAC input — so the tags the
+ripper wrote and any art the GUI embedded survive.
 
-Opt-in (default off) and pointless for backends that already max compression
-(cyanrip), which the GUI skips. Each file is re-encoded to a sibling temp file and
+Opt-in (default off) and pointless for backends that already max compression —
+which is exactly what the sole current backend (cyanrip) does, so the GUI skips
+this entirely. Each file is re-encoded to a sibling temp file and
 then **atomically swapped in**, so a failure (or a crash) leaves the original
 untouched. Best-effort; **never raises**.
 """
@@ -37,16 +39,17 @@ _FLAC_BINARY: str = "flac"
 #
 # WHY THIS IS OPT-IN / OFF BY DEFAULT (the real reason, not just "modest gain"):
 # higher compression raises the LPC prediction order — the `-l` setting, which
-# the decoder must apply per sample. whipper's default is `-5` (`-l 8`); `-8` is
-# `-l 12`. A higher order = more multiply-accumulates per sample to DECODE, so a
-# `-8` file costs a little more CPU/battery to play back. Historically (the ~2015
-# logic) this mattered on low-power portable players; on modern phones/desktops
-# it's largely negligible, but it's a real reason a library aimed at mobile
-# playback might prefer to leave files at whipper's `-5`. Both `-5` and `-8` stay
-# inside the FLAC "Subset" (max LPC order 12 at <=48kHz), so this is a decode-
-# *effort* difference, never a hardware-compatibility one. Net: the smaller file
-# trades a touch of playback cost — hence opt-in, with whipper's `-5` the safe,
-# mobile-friendly default.
+# the decoder must apply per sample. The classic encoder default is `-5` (`-l 8`)
+# — what the historical whipper backend produced; `-8` is `-l 12`. A higher
+# order = more multiply-accumulates per sample to DECODE, so a `-8` file costs a
+# little more CPU/battery to play back. Historically (the ~2015 logic) this
+# mattered on low-power portable players; on modern phones/desktops it's largely
+# negligible, but it's a real reason a library aimed at mobile playback might
+# prefer to leave files at the `-5` default. Both `-5` and `-8` stay inside the
+# FLAC "Subset" (max LPC order 12 at <=48kHz), so this is a decode-*effort*
+# difference, never a hardware-compatibility one. Net: the smaller file trades a
+# touch of playback cost — hence opt-in, with `-5` the safe, mobile-friendly
+# baseline.
 #
 # We DO add the two further-but-still-lossless options the docs list —
 # `-e/--exhaustive-model-search` and `-p/--qlp-coeff-precision-search`, both

@@ -3,13 +3,14 @@
 
 Two entry points need the *same* concrete adapters wired from ``Config``: the
 running GUI (``app.py``) and the ``--doctor`` diagnostic (``preflight.py``).
-Both pick the ripping backend from ``cfg.ripper_backend`` and build the
-MusicBrainz client with the project's user-agent. Doing that in ONE place keeps
-the two from drifting — before this existed, the backend-selection block
-(including the host-exported-path fallback) was copied in both, and a fix to one
-could silently miss the other. It also gives the architecture rule "nothing
-constructs adapters except the composition root" (docs/architecture.md §2) a
-literal home.
+Both build the cyanrip ripping backend (the sole engine since the whipper
+removal, KDD-18) and the MusicBrainz client with the project's user-agent. Doing
+that in ONE place keeps the two from drifting — before this existed, the
+backend-construction block (including the host-exported-path fallback) was
+copied in both, and a fix to one could silently miss the other. It also gives
+the architecture rule "nothing constructs adapters except the composition root"
+(docs/architecture.md §2) a literal home — and is where a second backend would
+slot in again if one were ever added behind the ``RipBackend`` ABC.
 
 Construction does **no I/O** (no network, no subprocess), so these are safe to
 call before any check or window exists. The functions are deliberately granular

@@ -40,13 +40,13 @@ itself up by asking a couple of questions.
 That's the whole thing: one download, a couple of clicks, answer the prompts.
 (Updating later = download the new AppImage and replace the old one.)
 
-> **Why a wizard?** Ripping runs through `whipper` inside a small container so
+> **Why a wizard?** Ripping runs through `cyanrip` inside a small container so
 > it never touches your system ([why](PLANNING.md)). The first-run wizard sets
 > that container up for you — the same work the scripts below do by hand.
 
 ### Quickstart for testers / scripted install
 
-Prefer one command? This installs the *host stack* (Distrobox + whipper) **and**
+Prefer one command? This installs the *host stack* (Distrobox + cyanrip) **and**
 the GUI, plus shortcuts:
 
 ```bash
@@ -57,7 +57,7 @@ Prefer to download and run it yourself? Grab `install.sh` from the [Releases pag
 
 Then, inside the GUI: **Tools → Set up drive…** to calibrate your drive's read offset (one time), insert a CD, and rip. To remove everything later, use the **Uninstall Platterpus** shortcut (or see [Uninstalling](#uninstalling)).
 
-> **Already have whipper + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
+> **Already have cyanrip + Distrobox set up** (e.g. re-installing on the same machine, or installing the GUI on a second box that shares the stack)? Skip the host build and just add the GUI: `curl -fsSL …/install.sh | bash -s -- --no-host` (or `bash install.sh --no-host`).
 
 > Why two pieces under the hood? The GUI can't rip without the host stack — that's by design ([why](PLANNING.md)). `install.sh` just sets up both for you; you can still do each step by hand (below).
 
@@ -81,7 +81,7 @@ The rest of this section is the long form — read it if the quickstart hits a s
 
 ### Fast path — one command (Steps 1-4 + 7)
 
-[`setup-host.sh`](setup-host.sh) automates the host setup: it installs Distrobox (if needed), creates the `ripping` container, installs whipper + flac inside it, exports the binaries to your host, then clones this repo and runs `dev-setup.sh` (venv + editable install + app-menu shortcut).
+[`setup-host.sh`](setup-host.sh) automates the host setup: it installs Distrobox (if needed), creates the `ripping` container, installs cyanrip + flac inside it, exports the binaries to your host, then clones this repo and runs `dev-setup.sh` (venv + editable install + app-menu shortcut).
 
 ```bash
 # From a fresh clone:
@@ -101,19 +101,19 @@ There are five things to set up. Plan on **20-40 minutes** the first time. Once 
 
 | Step | What | Why |
 |------|------|-----|
-| 1 | Install Distrobox | Provides an isolated Fedora environment for whipper |
-| 2 | Create a `ripping` container | Where whipper actually lives |
-| 3 | Install whipper + flac in the container | The tools that do the ripping |
+| 1 | Install Distrobox | Provides an isolated Fedora environment for cyanrip |
+| 2 | Create a `ripping` container | Where cyanrip actually lives |
+| 3 | Install cyanrip + flac in the container | The tools that do the ripping |
 | 4 | Export them to the host | So Platterpus can find them |
 | 5 | Detect your drive's read offset | One-time calibration for accurate rips |
 | 6 | Install MusicBrainz Picard *(optional)* | Manual tag editing for unknown discs |
 | 7 | Install Platterpus | This project |
 
-> **If a step doesn't behave as written:** skip to the [Troubleshooting](#troubleshooting) section near the end of this README. The common surprises — missing `pkg_resources`, missing `whipper.conf`, HTTPS clone authentication failure — all have entries there.
+> **If a step doesn't behave as written:** skip to the [Troubleshooting](#troubleshooting) section near the end of this README. The common surprises — "no drives found", `cyanrip: command not found`, HTTPS clone authentication failure — all have entries there.
 
 ### Step 1 — Install Distrobox
 
-Distrobox lets you run a different Linux distribution's tools alongside your host system. It's the recommended way to run whipper on immutable distros like Bazzite.
+Distrobox lets you run a different Linux distribution's tools alongside your host system. It's the recommended way to run cyanrip on immutable distros like Bazzite.
 
 > **Distrobox needs a container backend** — `podman` (recommended) or `docker`. Bazzite, Fedora Silverblue, and most atomic distros ship podman already. On **Ubuntu/Debian** it isn't guaranteed, so install it alongside Distrobox (the commands below do this). If `distrobox create` later fails with *"Cannot find a container manager"*, a missing backend is why — `sudo apt install podman` fixes it.
 
@@ -211,26 +211,18 @@ cyanrip -V
 metaflac --version
 ```
 
-`whipper` should report `0.10.0` or newer. `metaflac` is part of the `flac` package.
-
-> **You'll see a deprecation warning above the version number** that looks like this:
->
-> ```
-> UserWarning: pkg_resources is deprecated as an API.
-> ```
->
-> That's normal. Whipper itself uses an old setuptools API; the warning is informational, the version number that follows means whipper still works. The GUI suppresses this when it calls whipper as a subprocess.
+`cyanrip -V` should report a version such as `cyanrip 0.9.3` (note the capital `-V` — cyanrip has no `--version`). `metaflac` is part of the `flac` package.
 
 ### Step 4 — Export the binaries to your host
 
 Still inside the container, export both binaries:
 
 ```bash
-distrobox-export --bin /usr/bin/whipper
+distrobox-export --bin /usr/bin/cyanrip
 distrobox-export --bin /usr/bin/metaflac
 ```
 
-This creates wrapper scripts at `~/.local/bin/whipper` and `~/.local/bin/metaflac` on the **host** (not in the container). Those wrappers transparently enter the container when called, so from the host's perspective whipper looks like a regular installed program.
+This creates wrapper scripts at `~/.local/bin/cyanrip` and `~/.local/bin/metaflac` on the **host** (not in the container). Those wrappers transparently enter the container when called, so from the host's perspective cyanrip looks like a regular installed program.
 
 Now leave the container:
 
@@ -241,11 +233,11 @@ exit
 You're back on the host. Verify the wrappers work:
 
 ```bash
-which whipper
-# → /home/<you>/.local/bin/whipper
+which cyanrip
+# → /home/<you>/.local/bin/cyanrip
 
-whipper --version
-# → whipper 0.10.0
+cyanrip -V
+# → cyanrip 0.9.3
 ```
 
 If `which` returns nothing, your `~/.local/bin` isn't on `$PATH`. Most desktop Linux setups put it there automatically; if yours doesn't, add this to `~/.bashrc` or `~/.zshrc`:
@@ -256,63 +248,17 @@ export PATH="$HOME/.local/bin:$PATH"
 
 Then open a new terminal.
 
-### Step 5 — Detect your drive's read offset
+### Step 5 — Set your drive's read offset
 
-Every optical drive reads audio slightly off from where it "should" — by a positive or negative number of samples. For bit-perfect archival rips that match AccurateRip's database, whipper needs to know your drive's offset.
+Every optical drive reads audio slightly off from where it "should" — by a positive or negative number of samples. For bit-perfect archival rips that match AccurateRip's database, the offset for your drive has to be known so cyanrip can correct for it.
 
-> **Before you start:** insert a commercial audio CD into your optical drive (any common pressing — Pink Floyd, Beatles, Metallica, anything not a CD-R or burned mix). Both commands below need a real CD that's in [AccurateRip's database](https://www.accuraterip.com) — most retail discs are.
+**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered on first launch (or anytime from **Tools → Set up drive…**), which gives you three ways to get the value:
 
-> **No commercial CD handy (e.g. you only have CD-Rs)?** You can skip this terminal step and set the offset from inside the GUI instead: the drive-setup wizard (offered on first launch, or **Tools → Set up drive…**) has a manual-entry field. Look your drive's offset up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) and type it in — the GUI applies it via `whipper --offset` without touching `whipper.conf`.
+- **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list. Just click **Save offset**.
+- **Detect from a CD** — insert a commercial audio CD that's in [AccurateRip's database](https://www.accuraterip.com) (any common retail pressing — Pink Floyd, Beatles, Metallica; not a CD-R or burned mix), click **Detect**, then **Save**.
+- **Enter it by hand** — look your drive up in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm) and type the value into the wizard's manual-entry field. Handy if you only have CD-Rs.
 
-The settings whipper learns about your drive live in `~/.config/whipper/whipper.conf`. **This file does not exist yet** — it's created automatically the first time whipper writes to it (i.e., when you run one of the commands below). Looking for it before that point will turn up nothing, and that's normal.
-
-> **Where `~` actually is on Bazzite/Silverblue:** `~` for your user expands to `/var/home/<username>` (not `/home/<username>`). `~/.config/whipper/whipper.conf` is the same as `/var/home/<username>/.config/whipper/whipper.conf` — just different ways of writing it. Distrobox passes your host home through to the container, so the file lives in one place visible from both sides.
-
-**The easy way** — let whipper figure it out:
-
-```bash
-whipper drive analyze
-whipper offset find
-```
-
-Both commands probe your drive and write results into `~/.config/whipper/whipper.conf` automatically, creating the file (and the `~/.config/whipper/` directory) on first write.
-
-`offset find` is the longer-running one (a few minutes). It will **eject and re-ingest the disc several times** — that's expected, not a malfunction. Don't interrupt it, and don't close the terminal until it returns to a prompt.
-
-After they finish, confirm the file landed:
-
-```bash
-ls -la ~/.config/whipper/
-cat ~/.config/whipper/whipper.conf
-```
-
-You should see a `[drive:...]` section with `defeats_cache` and `read_offset` values.
-
-**The manual way** — look up your drive in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm), then create or edit `~/.config/whipper/whipper.conf` by hand:
-
-```bash
-mkdir -p ~/.config/whipper
-${EDITOR:-nano} ~/.config/whipper/whipper.conf
-```
-
-Add a section like:
-
-```ini
-[drive:PIONEER :BD-RW   BDR-209D:1.51]
-defeats_cache = True
-read_offset = 667
-```
-
-The section header is `[drive:<vendor> :<model>:<firmware>]`. Get the exact string (including odd spacing) from `whipper drive list`:
-
-```bash
-whipper drive list
-# → drive: /dev/sr0, vendor: PIONEER, model: BD-RW   BDR-209D, release: 1.51
-```
-
-The pattern is `drive:<vendor> :<model>:<release>` — note the space after the vendor name and before the colon.
-
-`defeats_cache = True` means your drive supports the audio-cache defeat command (essential for accurate ripping). If `whipper drive analyze` couldn't confirm this for your drive, leave the line off — whipper will warn but still rip.
+> **What about `~/.config/whipper/whipper.conf`?** If you ran an older whipper-based install, that file may still exist. It's **legacy, read-only reference only** — kept so an upgrading user can see their previous offset. cyanrip neither reads nor writes it; the live offset lives in Platterpus's own config. There's nothing to create or edit there.
 
 ### Step 6 — Install MusicBrainz Picard *(optional)*
 
@@ -454,14 +400,11 @@ The resulting `platterpus-x86_64.AppImage` appears at the repo root. See [`build
 
 ---
 
-## Ripping backends: whipper (default) and cyanrip (experimental)
+## Ripping backend: cyanrip
 
-The GUI drives one of two ripping engines, selected in **Settings → Ripping backend**:
+The GUI drives a single ripping engine: [**cyanrip**](https://github.com/cyanreg/cyanrip) — actively maintained, EAC-equivalent archival quality. There's no backend setting or toggle; cyanrip is it. (The project originally used whipper, but its cd-paranoia has a known bug at read offsets **over 587 samples** that can fail tracks — e.g. the Pioneer BDR-209D's +667; cyanrip applies the offset correctly with its own paranoia even past that threshold, which is why we switched. See [KDD-18](PLANNING.md).)
 
-- **whipper** (default) — the engine this project was built around; everything below assumes it unless said otherwise.
-- **cyanrip** (experimental) — an actively-maintained alternative ([cyanreg/cyanrip](https://github.com/cyanreg/cyanrip)). The practical reason it exists here: whipper's cd-paranoia has a known bug at read offsets **over 587 samples** that can fail tracks (e.g. the Pioneer BDR-209D's +667); cyanrip applies the offset with its own paranoia and doesn't have it. Switching the backend offers to install cyanrip into the same `ripping` container automatically (Fedora doesn't package it; the GUI uses a GPG-checked COPR).
-
-The UI is the same either way — same drive picker, same track table, same naming templates, same output folder. Settings that only apply to one backend grey out (with a tooltip explaining why) instead of disappearing, and the GUI always does the MusicBrainz lookup itself, whichever engine rips. Per-track progress and cover-art fetching now work on both backends (cover art is backend-independent — the GUI fetches it from the Cover Art Archive regardless of engine). The remaining cyanrip caveat: a restart is needed after switching backends. Status lives in [TASKS.md](TASKS.md) item 9.
+The GUI does the MusicBrainz lookup itself and then runs cyanrip **offline** — with `-N` (no network metadata lookup) and the chosen release's tags fed in via `-a`/`-t` — so cyanrip's own interactive prompt never surfaces and the rip needs no in-container network. Cover art is fetched separately by the GUI from the Cover Art Archive.
 
 ## Audio output: what you get, what you don't
 
@@ -484,41 +427,17 @@ lossless art, FLAC is the choice.
 
 The flag-by-flag detail below is about how each format is encoded.
 
-*(The encoder details for FLAC describe what the default **whipper** backend hardcodes; the cyanrip backend encodes FLAC through FFmpeg, also at maximum quality.)*
+*(cyanrip encodes FLAC through FFmpeg at maximum compression, and self-verifies the read with its own paranoia.)*
 
 ### FLAC (default — the lossless archival master)
 
-Whipper invokes the `flac` binary with this exact command, once per track:
+cyanrip encodes each track to FLAC through FFmpeg at **maximum compression**, and verifies the read itself via its own paranoia engine — so every track is provably bit-perfect (and confirmed afterwards against AccurateRip and CTDB). There's no compression-level knob to set: it's already at the top.
 
-```
-flac --silent --verify -o <outfile> -f <infile>
-```
+**Historical context — the "Re-compress FLACs" setting.** Settings still lists a **"Re-compress FLACs"** toggle, but it is **inert and disabled** with cyanrip and does nothing: cyanrip already produces maximum-compression FLAC, so there's nothing to re-compress. (The control is kept only as a seam for a hypothetical future backend that *didn't* encode at max — for example, the old whipper backend relied on flac's default level 5, where a post-rip re-encode to `-8` would have shaved ~5% off file size. That no longer applies.) Don't expect flipping it to change anything.
 
-| Flag | What it does | Archival implication |
-|------|--------------|----------------------|
-| `--silent` | Suppress per-file progress chatter | Cosmetic |
-| `--verify` | Re-decode the FLAC and confirm it matches the input | **The archival-quality bit.** Whipper proves every track is bit-perfect reversible. |
-| `-o <outfile>` | Output path | Where the FLAC lands |
-| `-f` | Force-overwrite | Required because whipper pre-creates the output file |
+For background: **all FLAC compression levels are lossless** — `-0` and `-8` decode to identical audio; only file size (and a little decode CPU) differ. cyanrip's max-compression output and its self-verification give you the smallest standard FLAC with the bit-perfect property already proven.
 
-You'll notice no `-0` through `-8` compression flag. Whipper relies on `flac`'s default, which is **compression level 5** (balanced — slower than `-0`, smaller than `-0`, looser than `-8`).
-
-Whipper's compression level isn't configurable from `whipper.conf` or any whipper CLI flag — it's baked into `whipper/program/flac.py` upstream. So instead of trying to change *how whipper encodes*, the GUI offers an **optional post-rip re-encode**: turn on **Settings → "Re-compress FLACs"** (off by default) and after each whipper rip the GUI re-encodes every output FLAC at `-8 --verify`, equivalent to:
-
-```bash
-# What the "Re-compress FLACs" toggle does, per file, after a rip.
-# -8 = max preset; -e -p = exhaustive search (a bit smaller still, much slower
-# to encode, but NO extra decode cost); --verify proves it's bit-identical.
-flac -8 -e -p --verify -f -o <tmp> <file> && mv <tmp> <file>
-```
-
-It runs in the background (never freezes the window), swaps each file in atomically (a failure leaves the original untouched), and **`flac` preserves the tags and embedded cover art** when it re-encodes, so nothing is lost. The toggle is greyed out for the cyanrip backend, which **already encodes FLAC at maximum compression** — there's nothing to re-compress there.
-
-**Why it's off by default — the playback-cost tradeoff.** Higher compression isn't free at *decode* time: `-8` uses a higher LPC prediction order (`-l 12`) than whipper's default `-5` (`-l 8`), and the decoder applies that prediction per sample — so a `-8` file costs a little more CPU/battery to *play back*. On a modern phone or PC that's negligible; on low-power portable music players it can matter (this was a real consideration in the ~2015 era and is the reason the default leaves files at whipper's `-5`). Both levels stay inside the FLAC "Subset", so it's a decode-*effort* difference, never a compatibility one. If your library lives on phones/portable players, leaving this **off** is the lighter choice; if it lives on a NAS/PC, turning it **on** trades that small playback cost for ~5% smaller files.
-
-Why isn't this a bigger deal otherwise? **All FLAC compression levels are lossless.** `-0` and `-8` produce identical decoded audio — only file size (and decode effort) differ. Whipper's `--verify` (and the re-encode's) proves the bit-perfect property regardless of level. The choice of `-5` vs `-8` is purely a size-vs-playback-cost tradeoff; archival fidelity is the same.
-
-The full FLAC encoder reference, including every flag whipper *isn't* using, is at [xiph.org/flac/documentation_tools_flac.html](https://xiph.org/flac/documentation_tools_flac.html).
+The full FLAC encoder reference is at [xiph.org/flac/documentation_tools_flac.html](https://xiph.org/flac/documentation_tools_flac.html).
 
 ### WavPack, MP3, and WAV (derived from the FLAC master)
 
@@ -552,20 +471,20 @@ The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https:
 
 **Matches the guide today:**
 
-- Secure read mode (cdparanoia, whipper's default)
-- Defeat audio cache (per-drive, set by `whipper drive analyze`)
-- Read offset calibration (per-drive, set by `whipper offset find`)
-- AccurateRip verification (whipper queries; we render the v1/v2 confidence)
-- High error-recovery quality (cdparanoia is always at maximum)
+- Secure read mode (cyanrip's own paranoia engine)
+- Defeat audio cache (per-drive)
+- Read offset calibration (per-drive, set in the GUI's drive-setup wizard and passed to cyanrip via `-s`)
+- AccurateRip verification (the GUI/cyanrip query; we render the v1/v2 confidence)
+- High error-recovery quality (cyanrip's paranoia is always at maximum)
 - No normalization
 - FLAC `--verify` (proves bit-perfect reversibility)
 - `.log` file written after every rip
 - Gap detection in "Secure" mode (cdrdao)
 - Status-report checksum (SHA-256)
 
-**Not configurable from the GUI** (whipper hardcodes these upstream):
+**Not configurable from the GUI** (cyanrip is already at the archival maximum):
 
-- **FLAC compression level.** EAC's guide says `-8 --best`; whipper uses flac's default (`-5`). Archival quality is identical at any compression level — only file size differs. Turn on **Settings → "Re-compress FLACs"** to get `-8` via an optional post-rip re-encode (see "FLAC (v1)" above); cyanrip already encodes at maximum compression.
+- **FLAC compression level.** EAC's guide says `-8 --best`; cyanrip already encodes FLAC at maximum compression, so there's nothing to turn up. Archival quality is identical at any compression level — only file size differs — and cyanrip is at the smallest standard size already. (The legacy "Re-compress FLACs" toggle is inert with cyanrip — see "FLAC" above.)
 
 **Not possible on Linux today:**
 
@@ -581,7 +500,7 @@ The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https:
 - Force overread into lead-out
 - Max retries per track (default 5)
 - Keep going on track failure
-- **Re-rip until reads match** — for damaged/marginal discs, re-read each track until N passes agree on the checksum (cyanrip's `-Z`; off by default). cyanrip-only — greyed out under whipper, which has no equivalent.
+- **Re-rip until reads match** — for damaged/marginal discs, re-read each track until N passes agree on the checksum (cyanrip's `-Z`; off by default).
 - Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; experimental until the CRC is hardware-validated)
 - Verify FLACs after a rip, and optionally re-compress them to `-8`
 - Continue ripping CD-Rs
@@ -597,16 +516,16 @@ See [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps" for the history.
 
 When you launch Platterpus for the first time:
 
-1. **Dependency check.** The GUI verifies whipper, metaflac, and Picard are reachable. If anything's missing, it pops a dialog with one of three resolutions:
+1. **Dependency check.** The GUI verifies cyanrip, metaflac, and Picard are reachable. If anything's missing, it pops a dialog with one of three resolutions:
    - **Auto-install** (Picard): one OK and it runs `flatpak install --user`.
    - **Pending installs:** a checklist for items that need batching or confirmation.
    - **Manual install:** a copyable search string for items like `libdiscid` that need root + reboot.
 
-2. **Drive offset (first launch only).** whipper can't rip until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. You can **auto-detect** it (insert a commercial CD that's in AccurateRip) or **enter it by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Set up drive…**.
+2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), **detect** it (insert a commercial CD that's in AccurateRip), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Set up drive…**.
 
-3. **Pick a drive.** The dropdown at the top of the window lists everything `whipper drive list` returns. Click Refresh if you plug in a drive after launch.
+3. **Pick a drive.** The dropdown at the top of the window lists the optical drives detected on your system. Click Refresh if you plug in a drive after launch.
 
-4. **Insert a CD.** The GUI fetches the disc's MusicBrainz ID, looks it up, and shows the match status. If multiple releases match, a picker dialog appears (this is the GUI's substitute for whipper's interactive TTY prompt — you'll never see whipper itself ask you anything).
+4. **Insert a CD.** The GUI fetches the disc's MusicBrainz ID, looks it up, and shows the match status. If multiple releases match, a picker dialog appears. (The GUI does the MusicBrainz lookup itself and runs cyanrip offline, so the ripper never prompts you for anything — this picker is where any disambiguation happens.)
 
 5. **Edit metadata.** The track table is editable. Fix any tags that look wrong before you rip.
 
@@ -656,32 +575,11 @@ The repository is **public**, so a plain `git clone https://github.com/rmccann-h
 
 If you plan to **push changes**, GitHub deprecated HTTPS password auth in 2021, so set up auth first — either an SSH key on your account (clone via `git@github.com:…`) or `gh auth login` (web-browser login; stores a token in your git credential helper).
 
-### I can't find `~/.config/whipper/whipper.conf`
+### Where is my drive's read offset stored?
 
-It doesn't exist until whipper writes to it. Running `whipper --version` or `whipper drive list` doesn't create the file — only commands that change settings do (`whipper drive analyze`, `whipper offset find`). Run one of those and it'll appear.
+cyanrip uses **no config file** of its own. Platterpus stores your drive's read offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time. Set or change it in the GUI via **Tools → Set up drive…**. (A `~/.config/whipper/whipper.conf` left over from an older whipper install is legacy reference only — cyanrip doesn't read it.)
 
-If you want to peek inside before whipper writes anything, you can pre-create an empty file:
-
-```bash
-mkdir -p ~/.config/whipper
-touch ~/.config/whipper/whipper.conf
-```
-
-On Bazzite and Fedora Silverblue, `~` expands to `/var/home/<username>` (not `/home/<username>`). The file is the same either way.
-
-### `ModuleNotFoundError: No module named 'pkg_resources'` when running whipper
-
-Whipper imports `pkg_resources` from `setuptools`. On Fedora 44+ (Python 3.14), setuptools is no longer installed by default and Fedora's whipper RPM doesn't declare it as a dependency. Fix:
-
-```bash
-distrobox enter ripping
-sudo dnf install python3-setuptools
-exit
-```
-
-Then `whipper --version` should work from the host.
-
-### `whipper: command not found`
+### `cyanrip: command not found`
 
 Your `~/.local/bin` isn't on `$PATH`. Add this to `~/.bashrc` or `~/.zshrc`:
 
@@ -689,7 +587,7 @@ Your `~/.local/bin` isn't on `$PATH`. Add this to `~/.bashrc` or `~/.zshrc`:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Open a new terminal. Verify with `which whipper`.
+Open a new terminal. Verify with `which cyanrip`.
 
 ### "no drives found" when launching the GUI
 
@@ -704,14 +602,14 @@ sudo dnf install eudev
 
 (Some minimal container bases don't include udev; this restores device-node passthrough.)
 
-You can also confirm whipper can see the drive from inside the container:
+You can also confirm the container can see the drive device node from inside it:
 
 ```bash
 distrobox enter ripping
-whipper drive list
+ls -l /dev/sr*
 ```
 
-If whipper finds it inside but not from the host, the export wrapper isn't passing through device access. Re-run `distrobox-export --bin /usr/bin/whipper` from inside the container.
+If the device shows up inside the container but the GUI still finds no drives from the host, the export wrapper isn't passing through device access. Re-run `distrobox-export --bin /usr/bin/cyanrip` from inside the container.
 
 ### "MusicBrainz error: rate limited"
 
@@ -728,15 +626,15 @@ Most modern Linux distros have FUSE installed and AppImages just work. On Bazzit
 
 ### The GUI launches but freezes
 
-Check the log at `~/.local/share/platterpus/log.txt`. The most common cause is whipper hanging on a defective disc — cancel from the GUI, eject, try a clean disc.
+Check the log at `~/.local/share/platterpus/log.txt`. The most common cause is the ripper hanging on a defective disc — cancel from the GUI, eject, try a clean disc.
 
-### `whipper offset find` says my disc isn't in AccurateRip
+### The drive-setup wizard says my disc isn't in AccurateRip
 
-Try a well-known commercial CD (Pink Floyd, Beatles, Metallica — anything in the top 1000 records). Mix CDs and very obscure pressings often aren't in AccurateRip's database.
+When detecting the offset from a CD, try a well-known commercial CD (Pink Floyd, Beatles, Metallica — anything in the top 1000 records). Mix CDs and very obscure pressings often aren't in AccurateRip's database. If you can't get a detection, look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) and enter the value by hand in the wizard's manual-entry field.
 
 ### "metaflac: command not found" only when ripping
 
-You exported whipper but not metaflac. Re-enter the container:
+You exported cyanrip but not metaflac. Re-enter the container:
 
 ```bash
 distrobox enter ripping
@@ -754,11 +652,11 @@ exit
 - **pipx:** `pipx upgrade platterpus`
 - **From source:** `git pull && pip install -e .`
 
-### Update whipper or metaflac
+### Update cyanrip or metaflac
 
 ```bash
 distrobox enter ripping
-sudo dnf upgrade whipper flac
+sudo dnf upgrade cyanrip flac
 exit
 ```
 
@@ -776,13 +674,13 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Uninstalling
 
-**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the whipper/metaflac/cyanrip commands, the `ripping` container, optionally your drive calibration (`whipper.conf`) and the AppImage file itself, and the app's own settings and logs — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `platterpus --uninstall`.
+**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac commands (and any leftover whipper export from an older install), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `platterpus --uninstall`.
 
 **Script alternative** (source checkouts, or if you prefer the terminal): the [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first — it also covers the dev `.venv/`, which the in-app uninstaller doesn't (a packaged app doesn't know your checkout's location). It **never** removes your ripped music or a source checkout without an explicit flag.
 
 ```bash
 # Interactive — removes the GUI's venv/config/logs by default, then prompts
-# you about the broader stack (Picard, the ripping container, whipper.conf,
+# you about the broader stack (Picard, the ripping container,
 # the host-exported binaries) one at a time.
 bash uninstall.sh
 
@@ -799,8 +697,10 @@ To remove the host stack fully by hand instead:
 
 ```bash
 distrobox rm ripping            # remove the container
-rm ~/.local/bin/whipper ~/.local/bin/metaflac ~/.local/bin/cyanrip  # host exports
-rm -rf ~/.config/whipper ~/.config/platterpus ~/.local/share/platterpus
+rm ~/.local/bin/cyanrip ~/.local/bin/metaflac   # host exports
+rm -f ~/.local/bin/whipper      # leftover from an older whipper install, if present
+rm -rf ~/.config/platterpus ~/.local/share/platterpus
+rm -rf ~/.config/whipper        # legacy whipper config, if present
 ```
 
 Your music at `~/Music/rips/` (or wherever Settings points) is never touched by any of this.
@@ -809,15 +709,15 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 
 | Path | Contents |
 |------|----------|
-| `~/.local/bin/whipper` | The Distrobox-exported wrapper. **Don't edit.** |
-| `~/.local/bin/metaflac` | Same. |
-| `~/.local/bin/cyanrip` | Same — present only if you've enabled the cyanrip backend. |
+| `~/.local/bin/cyanrip` | The Distrobox-exported ripper wrapper. Always present. **Don't edit.** |
+| `~/.local/bin/metaflac` | The Distrobox-exported tag-editor wrapper. **Don't edit.** |
+| `~/.local/bin/whipper` | Legacy leftover from an older whipper install, if present — no longer used; safe to remove. |
 | `~/Applications/platterpus-x86_64.AppImage` | The app itself, after menu integration moves it out of Downloads. |
-| `~/.config/whipper/whipper.conf` | Drive offsets and cache settings. Shared with the container. |
-| `~/.config/platterpus/config.toml` | The GUI's own settings (output dir, templates, toggles). |
+| `~/.config/platterpus/config.toml` | The GUI's own settings (output dir, templates, toggles) **and your drive's read offset**. The real settings file. |
+| `~/.config/whipper/whipper.conf` | Legacy offset reference only — cyanrip does not use it. Kept so an upgrading user can see their old offset. |
 | `~/.local/share/platterpus/log.txt` | GUI log file. Check here when something goes sideways. |
 | `~/Music/rips/` *(default)* | Where rips land, under `Artist/Album/`. Configurable in Settings. |
-| `…/Artist/Album/` | The rip itself: the FLAC tracks **plus** the `.log`, `.cue`, `.m3u`, and `.toc` whipper writes next to them (confirmed on a real 16-track rip). |
+| `…/Artist/Album/` | The rip itself: the FLAC tracks **plus** the `.log`, `.cue`, and other sidecar files cyanrip writes next to them. |
 
 ---
 
@@ -841,7 +741,7 @@ Source documents and reference material (in `docs/`):
 
 Build / dev tooling:
 
-- [`setup-host.sh`](setup-host.sh) — one-command full bootstrap (Distrobox + container + whipper + export + clone + dev-setup)
+- [`setup-host.sh`](setup-host.sh) — one-command full bootstrap (Distrobox + container + cyanrip + export + clone + dev-setup)
 - [`dev-setup.sh`](dev-setup.sh) — one-command post-clone setup (venv + pip + editable install + app-menu shortcut)
 - [`uninstall.sh`](uninstall.sh) — tear-down counterpart (use `--help` for options)
 - [`build/build_appimage.sh`](build/build_appimage.sh) — produce the AppImage locally

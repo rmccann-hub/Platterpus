@@ -10,8 +10,9 @@ The adapter exists for two reasons:
 1. `musicbrainzngs` hasn't released since 2020-01-11 — wrapping it
    isolates the GUI from its eventual retirement.
 2. The brief's Critical Rule #5 — every MusicBrainz lookup goes
-   through this client; the GUI never lets whipper's interactive TTY
-   prompt surface to the user.
+   through this client; the GUI does the lookup itself and feeds the
+   result to the ripper, so the ripper's own interactive prompt never
+   surfaces to the user.
 
 The user-agent is mandatory at construction. MusicBrainz throttles
 unidentified clients, and the rate-limit is applied per-client; an

@@ -44,7 +44,7 @@ _STATUS_GLYPH: dict[StepStatus, str] = {
 
 
 class HostSetupDialog(QDialog):
-    """Modal-ish wizard that bootstraps the host stack via whipper's tooling."""
+    """Modal-ish wizard that bootstraps the host stack (Distrobox + cyanrip)."""
 
     # Emitted once the run finishes; True if the stack is ready to rip. The
     # main window uses this to re-check dependencies / refresh the drive list.
@@ -168,7 +168,7 @@ class HostSetupDialog(QDialog):
             )
         elif ready:
             self._status_label.setText(
-                "✓ Setup complete — whipper is installed. You can rip now."
+                "✓ Setup complete — the ripping tools are installed. You can rip now."
             )
         else:
             failed = next((r for r in results if r.status is StepStatus.FAILED), None)

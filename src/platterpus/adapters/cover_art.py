@@ -1,12 +1,12 @@
 """Cover Art Archive adapter — backend-independent album cover fetching.
 
 Why this exists (2026-06-13, user goal: "good music, good cover image,
-good everything"): cover art used to be whipper-only. With the cyanrip
-backend the GUI feeds the tags itself and deliberately skips cyanrip's
-own MusicBrainz lookup (Critical Rule #5 / KDD-18 metadata model) — but
-that lookup was where cyanrip's cover art came from, so cyanrip rips had
-no art. Same story for whipper's `--unknown` heal path (no release ID on
-the whipper side → nothing to fetch art for).
+good everything"): in the old whipper backend, cover art came from the
+ripper itself. With the cyanrip backend the GUI feeds the tags itself and
+deliberately skips cyanrip's own MusicBrainz lookup (Critical Rule #5 /
+KDD-18 metadata model) — but that lookup was where cyanrip's cover art
+would have come from, so cyanrip rips had no art. Same story for the
+unknown-album path (no release ID → nothing to fetch art for).
 
 The fix at the right altitude: the GUI fetches the front cover *itself*
 from the Cover Art Archive (https://coverartarchive.org) using the
@@ -118,12 +118,12 @@ def plan_actions(
 ) -> tuple[bool, bool]:
     """Decide what the GUI should do about cover art: (embed, save_file).
 
-    `mode` is the Config.cover_art value — whipper's vocabulary, reused
-    backend-independently: "" (off), "embed", "file", "complete" (both).
-    `ripper_fetches_art` is True when the ripper handles art itself
-    (whipper with a release ID, via `--cover-art`) — then the GUI stays
-    out of the way. No release ID means the disc was never identified,
-    so there is nothing to look up.
+    `mode` is the Config.cover_art value — vocabulary inherited from the
+    old whipper backend, reused backend-independently: "" (off), "embed",
+    "file", "complete" (both). `ripper_fetches_art` is True when the ripper
+    handles art itself (the historical whipper-with-a-release-ID path, via
+    `--cover-art`) — then the GUI stays out of the way. No release ID means
+    the disc was never identified, so there is nothing to look up.
     """
     if ripper_fetches_art or not (release_id or "").strip():
         return (False, False)
