@@ -29,6 +29,14 @@ log = logging.getLogger(__name__)
 # Bump when the JSON shape changes in a way a consumer must notice.
 REPORT_SCHEMA_VERSION: int = 1
 
+# Cap on how many session-log lines the report embeds. A normal session is a few
+# hundred lines (negligible); but the in-memory buffer is bounded at tens of
+# thousands, and embedding all of those would make the report a multi-MB file
+# that's also re-serialized on the GUI thread on every CTDB re-write (~100ms /
+# ~5MB in the worst case — measured). We keep the most RECENT lines (closest to
+# this rip) and point at log.txt for the complete history. Plenty for a report.
+_MAX_EMBEDDED_LOG_LINES: int = 2000
+
 
 def build_report(
     rip_log: object,
@@ -99,12 +107,22 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> dict:
 
     ``lines`` is this session's log (everything since launch) with other albums'
     rips already filtered out by the caller; ``truncated`` is True if the
-    in-memory buffer dropped its oldest lines. Pure; never raises.
+    in-memory buffer already dropped its oldest lines. Embeds at most
+    ``_MAX_EMBEDDED_LOG_LINES`` (keeping the most recent — closest to this rip),
+    so the report stays small and fast to (re)serialize on the GUI thread no
+    matter how long the session ran; the full history is always in log.txt.
+    Pure; never raises.
     """
+    embedded = list(lines)
+    capped = len(embedded) > _MAX_EMBEDDED_LOG_LINES
+    if capped:
+        embedded = embedded[-_MAX_EMBEDDED_LOG_LINES:]
     return {
         "scope": "this session since launch, excluding other albums' rips",
-        "truncated": bool(truncated),
-        "lines": list(lines),
+        # True if EITHER the in-memory buffer dropped lines OR we capped here;
+        # in both cases log.txt has the complete record.
+        "truncated": bool(truncated) or capped,
+        "lines": embedded,
     }
 
 
