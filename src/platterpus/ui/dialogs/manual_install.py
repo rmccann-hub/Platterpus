@@ -25,7 +25,6 @@ from collections.abc import Callable
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QDialog,
     QDialogButtonBox,
     QFormLayout,
     QLabel,
@@ -37,9 +36,10 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps.checks import ProbeResult
 from platterpus.deps.registry import DependencySpec
+from platterpus.ui.dialogs.centering import CenteredDialog
 
 
-class ManualInstallDialog(QDialog):
+class ManualInstallDialog(CenteredDialog):
     """Tier (c) dialog. Modal; shown once per unresolvable dependency."""
 
     def __init__(

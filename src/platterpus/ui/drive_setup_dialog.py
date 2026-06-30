@@ -16,7 +16,6 @@ import logging
 
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
-    QDialog,
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
@@ -29,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.rip_backend import RipBackend
+from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.workers import start_worker_thread
 from platterpus.workers.drive_setup_worker import (
     DriveSetupResult,
@@ -38,7 +38,7 @@ from platterpus.workers.drive_setup_worker import (
 log = logging.getLogger(__name__)
 
 
-class DriveSetupDialog(QDialog):
+class DriveSetupDialog(CenteredDialog):
     """Modal-ish dialog that calibrates one drive via the backend's commands."""
 
     # Emitted when the user saves a manually-entered offset (the fallback for

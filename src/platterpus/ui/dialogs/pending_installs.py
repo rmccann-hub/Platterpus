@@ -28,7 +28,6 @@ from collections.abc import Callable, Iterable
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
@@ -38,6 +37,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.deps.resolvers import InstallResult, MissingItem
+from platterpus.ui.dialogs.centering import CenteredDialog
 
 log = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ class _InstallWorker(QObject):
         self.finished.emit(results)
 
 
-class PendingInstallsDialog(QDialog):
+class PendingInstallsDialog(CenteredDialog):
     """Modal dialog showing N missing items the user can install in one click.
 
     Signals:

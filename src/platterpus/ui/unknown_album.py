@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QDialogButtonBox,
     QLabel,
     QVBoxLayout,
@@ -40,6 +39,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
+from platterpus.ui.dialogs.centering import CenteredDialog
 
 if TYPE_CHECKING:  # avoid importing Qt-heavy track_table at runtime
     from platterpus.adapters.musicbrainz_client import TrackSummary
@@ -53,7 +53,7 @@ log = logging.getLogger(__name__)
 _PICARD_FLATPAK_ID: str = "org.musicbrainz.Picard"
 
 
-class UnknownAlbumDialog(QDialog):
+class UnknownAlbumDialog(CenteredDialog):
     """Modal confirmation before running an unknown-album rip."""
 
     def __init__(

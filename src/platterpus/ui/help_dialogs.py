@@ -15,7 +15,6 @@ import sys
 from PySide6 import __version__ as PYSIDE_VERSION
 from PySide6.QtCore import qVersion
 from PySide6.QtWidgets import (
-    QDialog,
     QDialogButtonBox,
     QTextBrowser,
     QVBoxLayout,
@@ -28,6 +27,7 @@ from platterpus.paths import (
     CYANRIP_BINARY_DEFAULT,
     LOG_PATH,
 )
+from platterpus.ui.dialogs.centering import CenteredDialog
 
 
 def _markdown_viewer(parent: QWidget | None, markdown: str) -> QTextBrowser:
@@ -38,7 +38,7 @@ def _markdown_viewer(parent: QWidget | None, markdown: str) -> QTextBrowser:
     return view
 
 
-class AboutDialog(QDialog):
+class AboutDialog(CenteredDialog):
     """Version number and other support-relevant info, on Help → About."""
 
     def __init__(
@@ -93,7 +93,7 @@ class AboutDialog(QDialog):
         )
 
 
-class HelpDialog(QDialog):
+class HelpDialog(CenteredDialog):
     """The user guide, on Help → User Guide."""
 
     def __init__(self, parent: QWidget | None = None) -> None:

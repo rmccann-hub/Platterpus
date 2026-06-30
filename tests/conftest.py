@@ -36,6 +36,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 # abort (that kills the process before sessionfinish, so this never fires —
 # which is why the per-test QThread-join backstop below is still essential).
 
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
     # Defuse the intermittent PySide interpreter-shutdown SIGABRT (a Qt-internal

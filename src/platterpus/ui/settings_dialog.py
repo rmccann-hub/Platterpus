@@ -16,7 +16,6 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDialog,
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
@@ -31,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from platterpus import goal_presets, offset_config
 from platterpus.config import Config
+from platterpus.ui.dialogs.centering import CenteredDialog
 
 # Read offset range. AccurateRip's per-drive offsets are typically in
 # the low hundreds of samples; ±5000 is well outside any realistic
@@ -39,7 +39,7 @@ _OFFSET_MIN: int = -5000
 _OFFSET_MAX: int = 5000
 
 
-class SettingsDialog(QDialog):
+class SettingsDialog(CenteredDialog):
     """Modal Settings dialog. Wraps an incoming Config; produces a new one."""
 
     check_dependencies_requested = Signal()

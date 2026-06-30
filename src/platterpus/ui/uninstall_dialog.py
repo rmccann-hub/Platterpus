@@ -20,7 +20,6 @@ import logging
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QDialogButtonBox,
     QLabel,
     QMessageBox,
@@ -33,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps.host_teardown import HostTeardown
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
 
@@ -47,7 +47,7 @@ _STATUS_GLYPH: dict[StepStatus, str] = {
 }
 
 
-class UninstallDialog(QDialog):
+class UninstallDialog(CenteredDialog):
     """Modal uninstaller with per-piece checkboxes and live progress."""
 
     # True when everything selected was removed — the main window then

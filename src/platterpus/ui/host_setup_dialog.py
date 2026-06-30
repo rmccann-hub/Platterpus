@@ -17,7 +17,6 @@ import logging
 
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
-    QDialog,
     QDialogButtonBox,
     QLabel,
     QPlainTextEdit,
@@ -29,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps.host_setup import HostSetup
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
 
@@ -43,7 +43,7 @@ _STATUS_GLYPH: dict[StepStatus, str] = {
 }
 
 
-class HostSetupDialog(QDialog):
+class HostSetupDialog(CenteredDialog):
     """Modal-ish wizard that bootstraps the host stack (Distrobox + cyanrip)."""
 
     # Emitted once the run finishes; True if the stack is ready to rip. The
