@@ -20,6 +20,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   platform-standard keyboard shortcuts. (Builds on the verdict/progress surfaces,
   which already named themselves and never signal trust by colour alone.)
 
+### Changed
+- **The "optional components" prompt no longer looks like a contradiction.**
+  After a clean dependency check the app used to show "0 missing/needs-attention"
+  and then *immediately* pop a separate "Install optional components?" question —
+  which read as "nothing's wrong… so why are you asking me to install something?"
+  (real-user report on 0.4.2). Now, when everything required is present, a single
+  outcome-first dialog leads with "✓ Everything required is installed — you're
+  ready to rip," then lists each optional extra with *what it does for you*
+  (e.g. "Picard — auto-launched on unknown discs") and offers to install it. No
+  more back-to-back popups.
+
 ### Fixed
 - **The app no longer freezes while installing a dependency.** Installing an
   optional component (e.g. the Picard Flatpak) ran the install **on the UI

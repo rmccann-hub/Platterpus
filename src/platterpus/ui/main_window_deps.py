@@ -40,6 +40,27 @@ from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
 
 
+def _optional_purpose(item: MissingItem) -> str:
+    """A short "what it does for you" for an optional dependency.
+
+    Pulled from the spec's own `description`, which starts with the literal
+    "Optional." marker — we drop that (the dialog already says it's optional)
+    and take the first sentence, so the user reads the *effect* rather than a
+    package blurb. Falls back to the display name if there's no description.
+    """
+    text = (getattr(item.spec, "description", "") or "").strip()
+    # Strip the leading "Optional." / "Optional —" marker the specs use.
+    for prefix in ("Optional.", "Optional —", "Optional -", "Optional"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+            break
+    if not text:
+        return "optional extra"
+    # First sentence only — the descriptions are written sentence-first.
+    sentence = text.split(". ", 1)[0].rstrip(".")
+    return sentence or "optional extra"
+
+
 class _DialogQueuedResolver:
     """Tier-(b) resolver for the GUI: drives `PendingInstallsDialog` with live
     per-item progress, then returns the `InstallResult`s.
@@ -170,22 +191,48 @@ class DependencyMixin:
         report.missing = [
             item for item in report.missing if not getattr(item.spec, "optional", False)
         ]
-        if report.missing:
+        # Snapshot *before* resolving: _resolve_missing_unified leaves
+        # report.missing in place and only appends results, so we'd lose the
+        # "was anything required actually wrong?" signal otherwise.
+        had_required_missing = bool(report.missing)
+        if had_required_missing:
             self._resolve_missing_unified(report)
 
-        if show_summary or report.missing:
+        # Healthy common case on a user-initiated check: everything *required*
+        # is present and only optional extras are absent. Show ONE outcome-first
+        # offer instead of an info popup ("0 missing/needs-attention") chased by
+        # a separate "install optional?" question — that back-to-back pair read
+        # as a contradiction to a real user on 0.4.2 ("it told me 0 dependencies
+        # then gave me this option"). Launch-time checks (show_summary=False)
+        # stay silent so optional deps never nag.
+        if show_summary and optional_missing and not had_required_missing:
+            self._offer_optional_install(
+                gui_manager, optional_missing, required_all_ok=True
+            )
+            return
+
+        if show_summary or had_required_missing:
             self._show_dep_summary(report, optional_missing=optional_missing)
-        # The summary lists optional deps as "not installed"; on a user-initiated
-        # check (Tools → Check dependencies) offer to install them on demand —
-        # otherwise the user has no in-app way to add Picard or flac. Launch-time
-        # checks (show_summary=False) stay quiet so optional deps never nag.
+        # When required deps also needed attention we still show the full summary
+        # first (above), then offer the optional extras so the user has an in-app
+        # way to add Picard/flac.
         if optional_missing and show_summary:
             self._offer_optional_install(gui_manager, optional_missing)
 
     def _offer_optional_install(
-        self, gui_manager: object, optional_missing: list[MissingItem]
+        self,
+        gui_manager: object,
+        optional_missing: list[MissingItem],
+        required_all_ok: bool = False,
     ) -> None:
         """Offer to install the optional, not-installed deps on demand.
+
+        `required_all_ok` leads with the reassurance that nothing is *wrong* —
+        the only thing absent is optional. That matters because this dialog can
+        be the first thing the user sees after a clean check, and "install X?"
+        with no context reads like a problem (the 0.4.2 "0 dependencies then it
+        gave me this option" confusion). Each component is listed with *what it
+        does for you*, taken from its spec, so the choice is informed.
 
         Routes each through the SAME unified dialog the required deps use, so
         there's no second install path (Critical Rule #6): Picard auto-installs,
@@ -195,13 +242,32 @@ class DependencyMixin:
         """
         from platterpus.deps.manager import DependencyReport
 
-        names = ", ".join(item.spec.display_name for item in optional_missing)
+        # One "• Name — what it's for" line per component, so the user decides
+        # on the *effect*, not the package name (ux-design-principles #4).
+        bullets = "\n".join(
+            f"• {item.spec.display_name} — {_optional_purpose(item)}"
+            for item in optional_missing
+        )
+        if len(optional_missing) > 1:
+            plural = "these optional extras aren't"
+        else:
+            plural = "this optional extra isn't"
+        if required_all_ok:
+            lead = (
+                "✓ Everything required is installed — you're ready to rip.\n\n"
+                f"Just so you know, {plural} installed. None of it is needed to "
+                f"rip:\n\n{bullets}\n\nInstall it now? (You can always do this "
+                "later from Tools → Settings → Check dependencies.)"
+            )
+        else:
+            lead = (
+                f"For reference, {plural} installed — none of it is required to "
+                f"rip:\n\n{bullets}\n\nInstall it now?"
+            )
         choice = QMessageBox.question(
             self,
-            "Install optional components?",
-            f"These optional components aren't installed:\n\n{names}\n\n"
-            "Install them now? (Picard installs automatically; flac is set up "
-            "in the ripping container.)",
+            "Optional components",
+            lead,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

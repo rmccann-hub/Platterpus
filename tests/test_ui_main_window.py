@@ -1081,6 +1081,49 @@ def test_offer_optional_install_skips_when_declined(
     assert resolved == []  # declined → nothing resolved
 
 
+def test_all_required_ok_with_optional_shows_one_offer_not_two_popups(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The healthy case — everything required present, only an optional extra
+    missing — must show ONE outcome-first offer, not an info summary ("0
+    missing") immediately followed by a surprise install question (the 0.4.2
+    double-popup that read as a contradiction)."""
+    item = _optional_missing_item("picard")
+    report = SimpleNamespace(
+        missing=[item], ok=[object()], ok_versions={}, install_results=[]
+    )
+
+    window = teardown_threads()
+    summary_calls: list[Any] = []
+    offer_calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        window, "_show_dep_summary", lambda *a, **k: summary_calls.append((a, k))
+    )
+    monkeypatch.setattr(
+        window,
+        "_offer_optional_install",
+        lambda mgr, opt, **k: offer_calls.append({"optional": opt, **k}),
+    )
+
+    window._apply_dependency_report(SimpleNamespace(), report, show_summary=True)
+
+    # No info summary popup; exactly one offer, flagged as the all-good path.
+    assert summary_calls == []
+    assert len(offer_calls) == 1
+    assert offer_calls[0]["optional"] == [item]
+    assert offer_calls[0]["required_all_ok"] is True
+
+
+def test_optional_purpose_strips_marker_and_takes_first_sentence() -> None:
+    from platterpus.ui.main_window_deps import _optional_purpose
+
+    item = _optional_missing_item(
+        "picard",
+        description="Optional. Auto-launched on unknown discs. More detail here.",
+    )
+    assert _optional_purpose(item) == "Auto-launched on unknown discs"
+
+
 # --- Fidelity summary ------------------------------------------------------
 
 
