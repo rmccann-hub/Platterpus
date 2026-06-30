@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
 from PySide6.QtWidgets import QApplication
 
-from platterpus.adapters.whipper_backend import RipBackend, WhipperError
-from platterpus.workers import drive_setup_worker as dsw
+from platterpus.adapters.rip_backend import RipBackend, RipError
 from platterpus.workers.drive_setup_worker import (
     DriveSetupResult,
     DriveSetupWorker,
@@ -57,14 +53,6 @@ class _FakeBackend(RipBackend):
         return self._offset
 
 
-@pytest.fixture(autouse=True)
-def _no_real_backup(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never touch the real ~/.config/whipper/whipper.conf in tests."""
-    monkeypatch.setattr(
-        dsw, "back_up_whipper_config", lambda *a, **kw: Path("/x/whipper.conf.bak")
-    )
-
-
 def _run(worker: DriveSetupWorker) -> DriveSetupResult:
     captured: list[DriveSetupResult] = []
     worker.finished.connect(captured.append)
@@ -82,13 +70,12 @@ def test_worker_reports_offset_and_cache(qapp: QApplication) -> None:
     assert result.offset_error is None
     assert result.ok is True
     assert backend.devices == ["/dev/sr0"]  # device forwarded
-    assert result.backup_path == Path("/x/whipper.conf.bak")
 
 
 def test_worker_records_offset_failure_but_keeps_cache(
     qapp: QApplication,
 ) -> None:
-    backend = _FakeBackend(cache=True, offset_exc=WhipperError("not in AccurateRip"))
+    backend = _FakeBackend(cache=True, offset_exc=RipError("not in AccurateRip"))
     result = _run(DriveSetupWorker(backend, "/dev/sr0"))
 
     assert result.offset is None
@@ -100,10 +87,10 @@ def test_worker_records_offset_failure_but_keeps_cache(
 def test_worker_records_analyze_failure_but_keeps_offset(
     qapp: QApplication,
 ) -> None:
-    # analyze fails with a WhipperError, offset find still succeeds — the two
+    # analyze fails with a RipError, offset find still succeeds — the two
     # steps are independent, so we keep the good half.
     backend = _FakeBackend(
-        offset=667, analyze_exc=WhipperError("no disc for cache analysis")
+        offset=667, analyze_exc=RipError("no disc for cache analysis")
     )
     result = _run(DriveSetupWorker(backend, "/dev/sr0"))
 

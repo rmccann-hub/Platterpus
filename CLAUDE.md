@@ -12,15 +12,15 @@ Linux GUI front-end for the `whipper` audio-CD ripping CLI. EAC-equivalent archi
 
 - Python 3.11+
 - PySide6 (Qt6) for the GUI
-- `subprocess` for whipper CLI invocation
-- `python-musicbrainzngs` for MusicBrainz lookups (bypasses whipper's interactive prompt)
+- `subprocess` for the ripper CLI invocation (cyanrip — the sole backend, KDD-18; whipper was removed 2026-06-30)
+- `python-musicbrainzngs` for MusicBrainz lookups (so the ripper never shows its own interactive prompt)
 - TOML config at `~/.config/platterpus/config.toml`
 - `python-appimage` for AppImage builds
 - `pipx` install as the secondary distribution channel
 
 ## Architecture (locked)
 
-The GUI runs on the host. It calls the existing host-exported `~/.local/bin/whipper`, which transparently enters the Distrobox container named `ripping` to do the actual ripping work. The GUI never tries to run whipper in its own process, install whipper itself, or assume native whipper on the host. **This routing is non-negotiable** — it's how the user's system is configured and the brief disqualifies any distribution that can't reach it.
+The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/bin/` (currently `~/.local/bin/cyanrip` — see KDD-18 / the Stack note below; the historical `~/.local/bin/whipper` worked the same way), which transparently enters the Distrobox container named `ripping` to do the actual ripping work. The GUI never tries to run the ripper in its own process, install it itself, or assume a native ripper on the host. **This routing is non-negotiable** — it's how the user's system is configured and the brief disqualifies any distribution that can't reach it.
 
 ## Code conventions
 
@@ -35,15 +35,15 @@ The GUI runs on the host. It calls the existing host-exported `~/.local/bin/whip
 
 ## Critical rules
 
-1. **Unmaintained dependencies require adapter layers.** Currently flagged as unmaintained: `whipper`, `python-musicbrainzngs`, and `appimage-builder` (if ever reached for). Every call into these MUST go through a thin adapter module so a future replacement is feasible without rewriting the GUI. Adapter modules are mandatory, not optional.
+1. **External tools and unmaintained dependencies require adapter layers.** Currently flagged: `python-musicbrainzngs` and `appimage-builder` (if ever reached for) are unmaintained; `cyanrip` is the external ripper (actively maintained, but still an external CLI). Every call into these MUST go through a thin adapter module so a future replacement is feasible without rewriting the GUI — the `RipBackend` ABC (`adapters/rip_backend.py`) is exactly this seam, which is what let whipper be swapped out for cyanrip cleanly (KDD-18). Adapter modules are mandatory, not optional.
 
 2. **`python-appimage` is the AppImage builder.** Do not use `appimage-builder` without stopping and asking first. If a build requirement cannot be expressed in `python-appimage`, describe the specific limitation in detail before reaching for any alternative. If `appimage-builder` is approved as a fallback, the recipe must stay close enough to vanilla that swapping back is cheap.
 
-3. **Distrobox routing is sacred.** The GUI calls `~/.local/bin/whipper`. It does not call into the container directly, does not assume native whipper, does not try to install or update whipper itself.
+3. **Distrobox routing is sacred.** The GUI calls the host-exported ripper in `~/.local/bin/` (currently `~/.local/bin/cyanrip`). It does not call into the container directly, does not assume a native ripper, does not try to install or update the ripper itself. (The ripper *binary* changed — whipper → cyanrip-only, 2026-06-30, KDD-18 — but the routing pattern is unchanged and remains non-negotiable.)
 
 4. **FLAC is the default and the archival master; MP3, WavPack, and WAV are derived outputs.** (Superseded the original "FLAC only for v1" — multi-format shipped 2026-06-26 with the maintainer's explicit sign-off; FLAC stays the lossless master.) Every rip produces FLAC first (lossless, provably bit-perfect); when the user selects another format in Settings the GUI **keeps that FLAC** and derives the chosen format from it via the *single* post-rip transcode adapter (`adapters/transcode.py`). FLAC and WavPack are lossless; MP3 is best-practice VBR (lossy by design — "not for that use"); WAV is raw PCM (no tags/art — the UI warns). Every encoder routes through the same dependency self-management subsystem — **no bespoke per-encoder install code**. A new format extends the one transcode adapter + the one dep subsystem; it never gets its own install path.
 
-5. **No bypass of MusicBrainz query path.** Always query MusicBrainz via the `MusicBrainzClient` adapter (currently backed by `python-musicbrainzngs`) to obtain the release ID first, then invoke whipper with `--release-id <MBID>`. Never let whipper's interactive TTY prompt surface to the user.
+5. **No bypass of MusicBrainz query path.** Always query MusicBrainz via the `MusicBrainzClient` adapter (currently backed by `python-musicbrainzngs`) to obtain the release first. The ripper's own metadata lookup is always disabled (cyanrip runs with `-N` and is fed the GUI's already-fetched, user-edited tags via `-a`/`-t`), so its interactive prompt never surfaces and the rip needs no in-container network.
 
 6. **Dependency self-management is one subsystem, not scattered checks.** All "is this dependency present and the right version" logic lives in a single module with the three-tier resolution strategy (auto-install → queued install → copyable search string). New dependencies route through it; no ad-hoc availability checks elsewhere in the codebase.
 
@@ -66,7 +66,7 @@ When in doubt during any session, stop and ask the user before doing the followi
 - Switching the GUI framework
 - Skipping, reordering, or redefining a P0 feature
 - Reaching for `appimage-builder`
-- Bypassing the host-exported `~/.local/bin/whipper` routing
+- Bypassing the host-exported `~/.local/bin/<ripper>` routing (currently cyanrip)
 - Adding scattered dependency checks outside the self-management subsystem
 
 **Just do it (no ask needed):**
@@ -175,8 +175,8 @@ Beyond the *guidance* in the Critical rules above, a few things are **enforced**
 - Source root: `src/platterpus/`
 - User config: `~/.config/platterpus/config.toml`
 - User logs: `~/.local/share/platterpus/log.txt`
-- Whipper config (shared with Distrobox container): `~/.config/whipper/whipper.conf`
-- Whipper binary (host-exported from Distrobox): `~/.local/bin/whipper`
+- Ripper binary (host-exported from Distrobox): `~/.local/bin/cyanrip`
+- Legacy `whipper.conf` (read-only, offset reference only): `~/.config/whipper/whipper.conf` — cyanrip does not use it; the read offset lives in the GUI's own config
 - MusicBrainz Picard (Flatpak, used for auto-launch on unknown discs): `flatpak run org.musicbrainz.Picard`
 
 ### Getting help (Claude Code / Anthropic)

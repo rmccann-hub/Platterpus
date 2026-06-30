@@ -48,6 +48,7 @@ from platterpus.adapters.flac_recompress import (
     recompress_flac_files,
 )
 from platterpus.adapters.flac_verify import FlacVerifyResult
+from platterpus.adapters.rip_backend import RipMetadata, TrackTag
 from platterpus.adapters.transcode import (
     EMBEDS_COVER_ART,
     TranscodeResult,
@@ -56,7 +57,6 @@ from platterpus.adapters.transcode import (
 from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS as TRANSCODE_FORMATS,
 )
-from platterpus.adapters.whipper_backend import RipMetadata, TrackTag
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import parse_rip_log
@@ -455,19 +455,15 @@ class RipMixin:
                 if self._config.output_format in TRANSCODE_FORMATS
                 else ""
             )
-            # Cover art (2026-06-13): when the ripper itself didn't fetch art
-            # — cyanrip never does (the GUI feeds it tags and bypasses its
-            # MusicBrainz lookup), and whipper can't in --unknown mode — fetch
-            # the front cover from the Cover Art Archive using the release the
-            # user picked, and embed/save it per the cover-art setting. A disc
-            # that was never identified has no release ID, so plan_actions()
-            # makes this a no-op.
-            ripper_fetches_art = (
-                self._config.ripper_backend != "cyanrip" and not params.unknown
-            )
+            # Cover art (2026-06-13): the ripper itself never fetches art —
+            # cyanrip is fed tags and bypasses its own MusicBrainz lookup — so
+            # the GUI fetches the front cover from the Cover Art Archive using
+            # the release the user picked, and embeds/saves it per the cover-art
+            # setting. A disc that was never identified has no release ID, so
+            # plan_actions() makes this a no-op.
             embed, save_file = cover_art.plan_actions(
                 mode=self._config.cover_art,
-                ripper_fetches_art=ripper_fetches_art,
+                ripper_fetches_art=False,
                 release_id=self._current_release_id,
             )
             # WavPack/WAV can't carry an embedded cover (the transcode drops it —
@@ -499,9 +495,7 @@ class RipMixin:
             # (KDD-22 colon handling). Only on the cyanrip path, and only when
             # the metadata actually contains a colon — so a colon-free album
             # (the common case) doesn't spin up the post-rip thread for nothing.
-            restore_colons = (
-                self._config.ripper_backend == "cyanrip" and self._metadata_has_colon()
-            )
+            restore_colons = self._metadata_has_colon()
             if (
                 tag
                 or embed

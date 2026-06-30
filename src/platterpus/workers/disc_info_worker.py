@@ -23,7 +23,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.adapters.whipper_backend import RipBackend, WhipperError
+from platterpus.adapters.rip_backend import RipBackend, RipError
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class DiscInfoWorker(QObject):
     def run(self) -> None:
         try:
             info = self._backend.disc_info(self._device)
-        except WhipperError as exc:
+        except RipError as exc:
             log.warning("disc_info failed: %s", exc)
             self.failed.emit(self._device, str(exc))
             return

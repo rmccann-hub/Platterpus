@@ -18,14 +18,14 @@ from enum import Enum
 
 from platterpus.deps.checks import (
     ProbeResult,
+    check_cyanrip,
     check_ffmpeg,
     check_flac,
     check_metaflac,
     check_picard_flatpak,
     check_python_pkg,
-    check_whipper,
 )
-from platterpus.paths import WHIPPER_BINARY_DEFAULT
+from platterpus.paths import CYANRIP_BINARY_DEFAULT
 
 
 class Tier(Enum):
@@ -84,12 +84,12 @@ class DependencySpec:
 # --- Bound probes -----------------------------------------------------------
 #
 # Each spec's `probe` field needs to be a zero-arg callable. For probes
-# that take parameters (`check_whipper` wants a path) we use a closure.
+# that take parameters (`check_cyanrip` wants a path) we use a closure.
 # Defining the closures here keeps SPECS readable.
 
 
-def _probe_whipper() -> ProbeResult:
-    return check_whipper(WHIPPER_BINARY_DEFAULT)
+def _probe_cyanrip() -> ProbeResult:
+    return check_cyanrip(CYANRIP_BINARY_DEFAULT)
 
 
 def _probe_metaflac() -> ProbeResult:
@@ -116,16 +116,18 @@ def _probe_ffmpeg() -> ProbeResult:
 
 SPECS: list[DependencySpec] = [
     DependencySpec(
-        dep_id="whipper",
-        display_name="whipper",
-        probe=_probe_whipper,
-        min_version=(0, 10, 0),
-        tier=Tier.MANUAL,  # Distrobox-routed; not auto-installable
+        dep_id="cyanrip",
+        display_name="cyanrip",
+        probe=_probe_cyanrip,
+        min_version=(0, 9, 0),
+        tier=Tier.MANUAL,  # Distrobox-routed; installed by the setup wizard
         install_command=None,
-        search_string="install whipper Bazzite Fedora Distrobox",
+        search_string="install cyanrip Bazzite Fedora Distrobox COPR barsnick",
         description=(
-            "The whipper CD ripping CLI, installed into the `ripping` container "
-            "and exported to ~/.local/bin/whipper by the one-time setup wizard."
+            "The cyanrip CD ripping CLI — the sole ripping backend (KDD-18). "
+            "Installed into the `ripping` container (from the barsnick COPR, "
+            "since Fedora doesn't package it) and exported to "
+            "~/.local/bin/cyanrip by the one-time setup wizard."
         ),
         from_setup_wizard=True,
     ),
@@ -140,7 +142,7 @@ SPECS: list[DependencySpec] = [
         description=(
             "Part of the FLAC reference encoder package. Used to apply "
             "tags after a rip and to add placeholders for unknown discs. "
-            "Installed + exported by the one-time setup wizard (with whipper)."
+            "Installed + exported by the one-time setup wizard."
         ),
         from_setup_wizard=True,
     ),

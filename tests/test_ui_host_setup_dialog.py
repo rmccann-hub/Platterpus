@@ -16,9 +16,8 @@ from platterpus.ui.host_setup_dialog import HostSetupDialog
 class _FakeHost:
     """Minimal stand-in for HostSetup (duck-typed)."""
 
-    def __init__(self, ready: bool, include_cyanrip: bool = False) -> None:
+    def __init__(self, ready: bool) -> None:
         self._ready = ready
-        self.include_cyanrip = include_cyanrip
 
     def is_ready(self) -> bool:
         return self._ready
@@ -27,18 +26,13 @@ class _FakeHost:
         return []
 
 
-def _dialog(
-    qapp: QApplication, ready: bool = True, include_cyanrip: bool = False
-) -> HostSetupDialog:
-    return HostSetupDialog(host_setup=_FakeHost(ready, include_cyanrip))
+def _dialog(qapp: QApplication, ready: bool = True) -> HostSetupDialog:
+    return HostSetupDialog(host_setup=_FakeHost(ready))
 
 
-def test_intro_omits_cyanrip_by_default(qapp: QApplication) -> None:
-    assert "cyanrip" not in _dialog(qapp)._intro.text()
-
-
-def test_intro_mentions_cyanrip_when_included(qapp: QApplication) -> None:
-    assert "cyanrip" in _dialog(qapp, include_cyanrip=True)._intro.text()
+def test_intro_mentions_cyanrip(qapp: QApplication) -> None:
+    # cyanrip is the sole backend the wizard installs.
+    assert "cyanrip" in _dialog(qapp)._intro.text()
 
 
 def test_on_step_appends_formatted_line(qapp: QApplication) -> None:
@@ -57,13 +51,13 @@ def test_on_step_running_updates_status_not_log(qapp: QApplication) -> None:
     dialog._on_step(
         StepResult(
             "tools",
-            "whipper + flac (in container)",
+            "flac + metaflac (in container)",
             StepStatus.RUNNING,
             "working… this can take a few minutes",
         )
     )
     # RUNNING shows what's happening in the status line, not the results log.
-    assert "whipper + flac" in dialog._status_label.text()
+    assert "flac + metaflac" in dialog._status_label.text()
     assert "⏳" in dialog._status_label.text()
     assert dialog._results.toPlainText() == ""
 

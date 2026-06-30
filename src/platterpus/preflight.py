@@ -44,9 +44,9 @@ from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
     MusicBrainzQueryError,
 )
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     RipBackend,
-    WhipperError,
+    RipError,
 )
 from platterpus.config import Config
 from platterpus.ctdb.toc import DiscToc
@@ -166,7 +166,7 @@ def check_settings(cfg: Config) -> CheckResult:
     )
     detail = "\n".join(
         [
-            f"backend:        {cfg.ripper_backend}",
+            "backend:        cyanrip",
             f"output dir:     {cfg.output_dir}",
             f"read offset:    {offset}",
             f"cover art:      {cfg.cover_art}",
@@ -176,7 +176,7 @@ def check_settings(cfg: Config) -> CheckResult:
     return CheckResult(
         "Configuration",
         Status.OK,
-        f"backend={cfg.ripper_backend}, output={cfg.output_dir}",
+        f"backend=cyanrip, output={cfg.output_dir}",
         detail=detail,
     )
 
@@ -275,9 +275,9 @@ def check_backend_routing(
 ) -> CheckResult:
     """THE Distrobox-routing test: can we actually reach the ripper backend?
 
-    For whipper this runs ``~/.local/bin/whipper --version``, which enters the
-    Distrobox container — so a pass proves the whole host→container→whipper
-    chain works. (May take a few seconds on a cold container.)
+    This runs ``~/.local/bin/cyanrip -V``, which enters the Distrobox
+    container — so a pass proves the whole host→container→cyanrip chain
+    works. (May take a few seconds on a cold container.)
 
     On failure it drills down through the host→container→backend chain so the
     report names *which* link is broken (no Distrobox / no container / not
@@ -287,7 +287,7 @@ def check_backend_routing(
     """
     try:
         raw = backend.version()
-    except WhipperError as exc:
+    except RipError as exc:
         detail, hint = _routing_failure_diagnosis(backend_name, host, exc)
         return CheckResult(
             f"{backend_name} reachable",
@@ -336,10 +336,7 @@ def routing_drilldown(backend_name: str, host: object) -> tuple[str, str]:
                 f"The '{container}' Distrobox container does not exist.",
                 _WIZARD_HINT,
             )
-        if backend_name == "cyanrip":
-            in_container, exported = host.cyanrip_in_container, host.cyanrip_exported
-        else:
-            in_container, exported = host.whipper_in_container, host.whipper_exported
+        in_container, exported = host.cyanrip_in_container, host.cyanrip_exported
         if not in_container():
             return (
                 f"{backend_name} is not installed inside the '{container}' container.",
@@ -412,87 +409,49 @@ def check_drives(backend: RipBackend) -> CheckResult:
     )
 
 
-# whipper's cd-paranoia has a known bug at read offsets above this many samples
-# (KDD-18): it can fail to verify tracks on high-offset drives like the Pioneer
-# BDR-209D (+667). cyanrip applies the offset with its own paranoia and avoids
-# it. We only *advise* — the default backend choice is left to the user (and the
-# pending hardware parity run), not silently switched.
-_PARANOIA_OFFSET_LIMIT = 587
-
-
-def _over_limit_hint(offset: int) -> str:
-    return (
-        f"this drive's offset ({offset:+d}) is above whipper's "
-        f"{_PARANOIA_OFFSET_LIMIT}-sample limit, where its cd-paranoia has a "
-        "known bug that can fail tracks. cyanrip applies the offset without it "
-        "— consider Settings → Ripping backend → cyanrip."
-    )
-
-
 def check_read_offset(
     cfg: Config,
     *,
-    backend_name: str,
+    backend_name: str = "cyanrip",
     read_offsets: Callable[[], list[WhipperConfOffset]] = read_drive_offsets,
 ) -> CheckResult:
-    """Surface the read offset whipper will ACTUALLY apply.
+    """Surface the read offset cyanrip will apply.
 
-    The offset is the one setting that silently corrupts a rip if it's wrong,
-    and for the whipper backend without override it lives in whipper.conf — not
-    the GUI's stored copy. cyanrip applies the offset directly (``-s``), so
-    whipper.conf is irrelevant there. For whipper, an effective offset above
-    587 also triggers a *warning* about the cd-paranoia >587 bug (advice only —
-    we never silently switch backends). Never raises.
+    The offset is the one setting that silently corrupts a rip if it's wrong.
+    cyanrip needs it every run (``-s``); it reads no config file of its own, so
+    the GUI's stored value (with "Apply" on) is the authority. When no offset
+    is configured we warn and point at the drive-setup wizard. A legacy
+    whipper.conf offset, if present, is surfaced as a reference. Never raises.
     """
-    if backend_name == "cyanrip":
-        return CheckResult(
-            "Read offset",
-            Status.OK,
-            f"cyanrip applies the offset directly (-s {cfg.read_offset:+d}); "
-            "whipper.conf is not consulted",
-        )
+    del backend_name  # cyanrip is the sole backend; kept for signature parity
     if cfg.override_read_offset:
-        if cfg.read_offset > _PARANOIA_OFFSET_LIMIT:
-            return CheckResult(
-                "Read offset",
-                Status.WARN,
-                f"override on → {cfg.read_offset:+d} (above whipper's "
-                f"{_PARANOIA_OFFSET_LIMIT}-sample limit)",
-                hint=_over_limit_hint(cfg.read_offset),
-            )
         return CheckResult(
             "Read offset",
             Status.OK,
-            f"override on → {cfg.read_offset:+d} samples (passed as --offset)",
+            f"{cfg.read_offset:+d} samples (applied as cyanrip's -s)",
         )
+    # No offset configured — cyanrip would rip at offset 0 (not bit-perfect).
+    # Surface any legacy whipper.conf value as a hint of what to enter.
     try:
         offsets = read_offsets()
-    except Exception as exc:  # noqa: BLE001 — never crash the diagnostic
-        return CheckResult(
-            "Read offset",
-            Status.WARN,
-            "could not read whipper.conf",
-            detail=str(exc),
-        )
-    if not offsets:
-        return CheckResult(
-            "Read offset",
-            Status.WARN,
-            "no read offset set in whipper.conf",
-            hint="whipper refuses to rip without it — run the drive-setup "
-            "wizard (Settings → Re-detect…), or tick Override with a known value.",
-        )
-    detail = "; ".join(f"{o.drive} → {o.offset:+d}" for o in offsets)
-    worst = max(o.offset for o in offsets)
-    if worst > _PARANOIA_OFFSET_LIMIT:
-        return CheckResult(
-            "Read offset",
-            Status.WARN,
-            f"whipper.conf: {detail} (above whipper's "
-            f"{_PARANOIA_OFFSET_LIMIT}-sample limit)",
-            hint=_over_limit_hint(worst),
-        )
-    return CheckResult("Read offset", Status.OK, f"whipper.conf: {detail}")
+    except Exception:  # noqa: BLE001 — never crash the diagnostic
+        offsets = []
+    legacy = (
+        f" A legacy whipper.conf has: "
+        f"{'; '.join(f'{o.drive} → {o.offset:+d}' for o in offsets)}."
+        if offsets
+        else ""
+    )
+    return CheckResult(
+        "Read offset",
+        Status.WARN,
+        "no read offset configured",
+        hint=(
+            "cyanrip needs a read offset to rip bit-perfectly — run the "
+            "drive-setup wizard (Settings → Re-detect…), or enter a known value "
+            "and tick Apply." + legacy
+        ),
+    )
 
 
 def check_drive_access(

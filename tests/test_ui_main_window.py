@@ -25,7 +25,7 @@ from platterpus.adapters.musicbrainz_client import (
     TocSignature,
     TrackSummary,
 )
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
     RipHandle,
@@ -327,7 +327,7 @@ def test_mb_lookup_error_falls_back_to_placeholder_rows(
 def test_drive_change_handles_whipper_error(teardown_threads) -> None:
     window = teardown_threads(backend=_FakeBackend())
 
-    # The worker turns a raised WhipperError into the `failed` signal; here we
+    # The worker turns a raised RipError into the `failed` signal; here we
     # drive the failure handler directly (worker→failed routing is unit-tested
     # in test_disc_info_worker).
     window._on_disc_info_failed("/dev/sr0", "no disc")
@@ -1164,7 +1164,6 @@ def _params(output_dir: Path, unknown: bool):
         track_template="t",
         disc_template="d",
         unknown=unknown,
-        cdr=False,
     )
 
 
@@ -1566,11 +1565,14 @@ def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> Non
 # --- First-run host-setup offer ------------------------------------------
 
 
-def test_host_stack_ready_reflects_whipper_path(teardown_threads, tmp_path) -> None:
-    whipper = tmp_path / "whipper"
-    window = teardown_threads(config=Config(whipper_path=str(whipper)))
+def test_host_stack_ready_reflects_cyanrip_binary(
+    teardown_threads, tmp_path, monkeypatch
+) -> None:
+    cyanrip = tmp_path / "cyanrip"
+    monkeypatch.setattr("platterpus.paths.CYANRIP_BINARY_DEFAULT", cyanrip)
+    window = teardown_threads()
     assert window._host_stack_ready() is False
-    whipper.write_text("#!/bin/sh\n")
+    cyanrip.write_text("#!/bin/sh\n")
     assert window._host_stack_ready() is True
 
 
@@ -1961,62 +1963,14 @@ def test_uninstall_finished_offers_quit_on_success(
     assert closed == [True]
 
 
-# --- cyanrip in the host-setup wizard (KDD-18) ----------------------------
+# --- The host-setup wizard installs cyanrip (KDD-18) ----------------------
 
 
-def test_build_host_setup_installs_both_backends(teardown_threads) -> None:
-    """The wizard installs both backends unconditionally (item 6) — so every
-    backend is present after one setup run, regardless of which is selected."""
-    window = teardown_threads(config=Config(ripper_backend="cyanrip"))
-    assert window._build_host_setup().include_cyanrip is True
-
-    window = teardown_threads(config=Config(ripper_backend="whipper"))
-    assert window._build_host_setup().include_cyanrip is True
-
-
-def test_switch_to_cyanrip_offers_install_when_missing(
-    teardown_threads, monkeypatch
-) -> None:
-    import platterpus.deps.host_setup as host_setup
-
-    window = teardown_threads(config=Config(ripper_backend="cyanrip"))
-    monkeypatch.setattr(host_setup, "cyanrip_on_host", lambda: False)
-    monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
-    )
-    opened: list[bool] = []
-    monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
-
-    window._maybe_offer_cyanrip_install(old_backend="whipper")
-
-    assert opened == [True]
-
-
-def test_no_cyanrip_offer_when_already_installed(teardown_threads, monkeypatch) -> None:
-    import platterpus.deps.host_setup as host_setup
-
-    window = teardown_threads(config=Config(ripper_backend="cyanrip"))
-    monkeypatch.setattr(host_setup, "cyanrip_on_host", lambda: True)
-    opened: list[bool] = []
-    monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
-
-    window._maybe_offer_cyanrip_install(old_backend="whipper")
-
-    assert opened == []
-
-
-def test_no_cyanrip_offer_when_backend_unchanged(teardown_threads, monkeypatch) -> None:
-    """Re-saving Settings while already on cyanrip must not re-nag."""
-    import platterpus.deps.host_setup as host_setup
-
-    window = teardown_threads(config=Config(ripper_backend="cyanrip"))
-    monkeypatch.setattr(host_setup, "cyanrip_on_host", lambda: False)
-    opened: list[bool] = []
-    monkeypatch.setattr(window, "open_host_setup_dialog", lambda: opened.append(True))
-
-    window._maybe_offer_cyanrip_install(old_backend="cyanrip")
-
-    assert opened == []
+def test_build_host_setup_installs_cyanrip(teardown_threads) -> None:
+    """The wizard installs cyanrip — the sole backend — into the container."""
+    window = teardown_threads()
+    setup = window._build_host_setup()
+    assert "cyanrip" in setup.STEP_IDS
 
 
 # --- First-run AppImage integration offer --------------------------------
@@ -2821,9 +2775,7 @@ def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
 ) -> None:
     """cyanrip never fetches art (the GUI bypasses its MB lookup), so the
     GUI fetches the front cover itself and embeds + saves it."""
-    window = teardown_threads(
-        config=Config(ripper_backend="cyanrip", cover_art="complete")
-    )
+    window = teardown_threads(config=Config(cover_art="complete"))
     album, log_file = _cover_album(tmp_path)
     fake_metaflac = _RecordingMetaflac()
     window._metaflac = fake_metaflac
@@ -2844,22 +2796,6 @@ def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
     assert urls == ["https://coverartarchive.org/release/release-mbid/front"]
     assert (album / "cover.jpg").read_bytes() == _JPEG_BYTES
     assert fake_metaflac.embedded == [album / "01 - Track.flac"]
-
-
-def test_whipper_known_rip_skips_gui_cover_art(
-    teardown_threads, tmp_path: Path
-) -> None:
-    """whipper fetches art itself (--cover-art) for identified discs —
-    the GUI must stay out of the way."""
-    window = teardown_threads(
-        config=Config(ripper_backend="whipper", cover_art="embed")
-    )
-    window._current_release_id = "release-mbid"
-    window._active_rip_params = _params(tmp_path, unknown=False)
-
-    window._on_rip_finished(True, "")
-
-    assert window._post_rip_thread is None
 
 
 def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
@@ -2887,9 +2823,7 @@ def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
 
 def test_unidentified_disc_skips_cover_art(teardown_threads, tmp_path: Path) -> None:
     """No release ID (MusicBrainz never matched) → nothing to look up."""
-    window = teardown_threads(
-        config=Config(ripper_backend="cyanrip", cover_art="complete")
-    )
+    window = teardown_threads(config=Config(cover_art="complete"))
     window._current_release_id = ""
     window._active_rip_params = _params(tmp_path, unknown=False)
 
@@ -2899,7 +2833,7 @@ def test_unidentified_disc_skips_cover_art(teardown_threads, tmp_path: Path) -> 
 
 
 def test_cover_art_off_skips_the_fetch(teardown_threads, tmp_path: Path) -> None:
-    window = teardown_threads(config=Config(ripper_backend="cyanrip", cover_art=""))
+    window = teardown_threads(config=Config(cover_art=""))
     window._current_release_id = "release-mbid"
     window._active_rip_params = _params(tmp_path, unknown=False)
 
@@ -2923,11 +2857,7 @@ def test_wavpack_output_keeps_folder_cover_even_in_embed_mode(
     cover.<ext> even in 'embed' mode (which normally deletes it after embedding
     in the FLAC). Otherwise a WavPack rip would have no visible cover anywhere."""
     _stub_transcode(monkeypatch, [])  # don't run real ffmpeg
-    window = teardown_threads(
-        config=Config(
-            ripper_backend="cyanrip", cover_art="embed", output_format="wavpack"
-        )
-    )
+    window = teardown_threads(config=Config(cover_art="embed", output_format="wavpack"))
     album, log_file = _cover_album(tmp_path)
     window._metaflac = _RecordingMetaflac()
     window._cover_art_fetcher = lambda url: _JPEG_BYTES
@@ -2942,40 +2872,13 @@ def test_wavpack_output_keeps_folder_cover_even_in_embed_mode(
     assert (album / "cover.jpg").read_bytes() == _JPEG_BYTES
 
 
-def test_whipper_known_wavpack_fetches_folder_cover(
-    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """On the whipper-known path the ripper embeds art in the FLAC and the GUI
-    normally stays out — but the .wv can't carry that embedded cover, so for
-    WavPack output the GUI fetches a folder copy anyway."""
-    _stub_transcode(monkeypatch, [])
-    window = teardown_threads(
-        config=Config(cover_art="embed", output_format="wavpack")  # whipper default
-    )
-    album, log_file = _cover_album(tmp_path)
-    window._metaflac = _RecordingMetaflac()
-    fetched: list[str] = []
-    window._cover_art_fetcher = lambda url: fetched.append(url) or _JPEG_BYTES
-    window._current_release_id = "release-mbid"
-    window._active_rip_params = _params(tmp_path, unknown=False)
-
-    window._on_rip_finished(True, str(log_file))
-    assert window._post_rip_thread is not None
-    window._post_rip_thread.join(timeout=10)
-
-    assert fetched  # the GUI fetched the cover (not left to whipper)
-    assert (album / "cover.jpg").read_bytes() == _JPEG_BYTES
-
-
 def test_mp3_output_does_not_force_folder_cover(
     teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """MP3 carries the embedded cover through the transcode (ID3 APIC), so the
     'embed' mode still deletes the temp folder image — no forced folder save."""
     _stub_transcode(monkeypatch, [])
-    window = teardown_threads(
-        config=Config(ripper_backend="cyanrip", cover_art="embed", output_format="mp3")
-    )
+    window = teardown_threads(config=Config(cover_art="embed", output_format="mp3"))
     album, log_file = _cover_album(tmp_path)
     window._metaflac = _RecordingMetaflac()
     window._cover_art_fetcher = lambda url: _JPEG_BYTES

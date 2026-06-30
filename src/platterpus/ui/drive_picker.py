@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus.adapters.whipper_backend import RipBackend, WhipperError
+from platterpus.adapters.rip_backend import RipBackend, RipError
 from platterpus.parsers.drive_list import DriveDescriptor
 
 log = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ class DrivePicker(QWidget):
         """
         try:
             drives = self._backend.list_drives()
-        except WhipperError as exc:
+        except RipError as exc:
             log.warning("list_drives failed: %s", exc)
             self.show_error(str(exc))
             return

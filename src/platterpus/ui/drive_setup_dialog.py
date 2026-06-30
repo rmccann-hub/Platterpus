@@ -1,11 +1,10 @@
 """Drive setup wizard — one-click calibration of the optical drive.
 
-Replaces the manual hand-edit of `whipper.conf` (the worst first-run
-step) with a guided flow: the user inserts a popular CD and clicks
-Detect; we run `whipper drive analyze` + `whipper offset find` (off the
-GUI thread, via DriveSetupWorker), which persist the cache verdict and
-read offset to `whipper.conf` themselves. We back the file up first so
-the user can always revert. See PLANNING.md KDD-15.
+Replaces the manual hand-edit of a config file (the worst first-run step)
+with a guided flow: the user inserts a popular CD and clicks Detect; we run
+cyanrip's offset finder off the GUI thread (via DriveSetupWorker), which
+*returns* the read offset. The main window then persists it as Platterpus's
+`--offset` override (the backend writes no config file of its own).
 
 The dialog owns the worker thread; `_on_finished` is a plain slot so
 tests can exercise the result rendering without a live event loop.
@@ -29,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus.adapters.whipper_backend import RipBackend
+from platterpus.adapters.rip_backend import RipBackend
 from platterpus.workers import start_worker_thread
 from platterpus.workers.drive_setup_worker import (
     DriveSetupResult,
@@ -40,7 +39,7 @@ log = logging.getLogger(__name__)
 
 
 class DriveSetupDialog(QDialog):
-    """Modal-ish dialog that calibrates one drive via whipper's commands."""
+    """Modal-ish dialog that calibrates one drive via the backend's commands."""
 
     # Emitted when the user saves a manually-entered offset (the fallback for
     # when auto-detection can't run — e.g. no AccurateRip disc to hand). The
@@ -48,11 +47,11 @@ class DriveSetupDialog(QDialog):
     # stays a view and never writes config itself.
     manual_offset_saved = Signal(int)
 
-    # Emitted after a successful auto-detect (whipper measured the offset on
-    # THIS drive and wrote whipper.conf). Carries the DriveSetupResult so the
-    # main window can RECORD the provenance in the drive-profile ledger (a
-    # high-confidence "measured on this drive" fact). It does NOT change which
-    # offset a rip uses — whipper.conf already holds it. The dialog stays a view.
+    # Emitted after a successful auto-detect. Carries the DriveSetupResult so
+    # the main window can PERSIST the detected offset (as the `--offset`
+    # override — the backend writes no config file itself) and record the
+    # provenance in the drive-profile ledger (a high-confidence "measured on
+    # this drive" fact). The dialog stays a view.
     detection_recorded = Signal(object)
 
     def __init__(
@@ -220,9 +219,9 @@ class DriveSetupDialog(QDialog):
         self._set_manual_controls_enabled(True)
         self._worker = None
         self._thread = None
-        # Tell the main window to record this measured result in the drive
-        # profile (provenance only — whipper already wrote whipper.conf). Only
-        # when we actually got an offset; a failed detect has nothing to record.
+        # Tell the main window to persist this measured offset and record it in
+        # the drive profile. Only when we actually got an offset; a failed
+        # detect has nothing to record.
         if result.offset is not None:
             self.detection_recorded.emit(result)
 
@@ -284,7 +283,7 @@ def _format_result(result: DriveSetupResult) -> str:
 
     if result.offset is not None:
         lines.append(
-            f"✓ Read offset: {result.offset:+d} samples — saved to whipper.conf."
+            f"✓ Read offset: {result.offset:+d} samples — saved to Platterpus settings."
         )
     else:
         lines.append(f"✗ Read offset: {result.offset_error or 'not detected'}")

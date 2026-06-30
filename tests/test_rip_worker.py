@@ -16,10 +16,10 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     RipBackend,
+    RipError,
     RipHandle,
-    WhipperError,
 )
 from platterpus.workers.rip_worker import (
     RipParameters,
@@ -89,11 +89,8 @@ class _FakeBackend(RipBackend):
         track_template: str,
         disc_template: str,
         unknown: bool = False,
-        cdr: bool = False,
         cover_art: str = "",
-        force_overread: bool = False,
         max_retries: int = 5,
-        keep_going: bool = False,
         secure_rerip_matches: int = 0,
         read_offset_override: int | None = None,
         metadata=None,
@@ -104,11 +101,8 @@ class _FakeBackend(RipBackend):
                 "release_id": release_id,
                 "output_dir": output_dir,
                 "unknown": unknown,
-                "cdr": cdr,
                 "cover_art": cover_art,
-                "force_overread": force_overread,
                 "max_retries": max_retries,
-                "keep_going": keep_going,
                 "secure_rerip_matches": secure_rerip_matches,
                 "read_offset_override": read_offset_override,
                 "metadata": metadata,
@@ -190,15 +184,17 @@ def test_finished_reports_success_on_zero_exit(
     assert sigs.finished[0][0] is True
 
 
-def test_cdr_param_forwarded_to_backend(qapp: QApplication, tmp_path: Path) -> None:
-    """RipParameters.cdr must reach RipBackend.rip()."""
+def test_secure_rerip_param_forwarded_to_backend(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """RipParameters.secure_rerip_matches must reach RipBackend.rip()."""
     handle = _FakeHandle(lines=[], exit_code=0)
     backend = _FakeBackend(handle=handle)
-    worker = RipWorker(backend, _params(tmp_path, cdr=True))
+    worker = RipWorker(backend, _params(tmp_path, secure_rerip_matches=2))
 
     worker.start_rip()
 
-    assert backend.rip_calls[0]["cdr"] is True
+    assert backend.rip_calls[0]["secure_rerip_matches"] == 2
 
 
 def test_cyanrip_progress_lines_drive_bars_and_track(
@@ -310,7 +306,7 @@ def test_metadata_param_forwarded_to_backend(
 ) -> None:
     """RipParameters.metadata (the GUI's tag snapshot) must reach the
     backend so cyanrip can be fed -a/-t."""
-    from platterpus.adapters.whipper_backend import RipMetadata, TrackTag
+    from platterpus.adapters.rip_backend import RipMetadata, TrackTag
 
     meta = RipMetadata(album_title="X", tracks=(TrackTag(1, "One", "A"),))
     handle = _FakeHandle(lines=[], exit_code=0)
@@ -549,7 +545,7 @@ def test_whipper_error_on_start_emits_error_and_finished_false(
     qapp: QApplication, tmp_path: Path
 ) -> None:
     backend = _FakeBackend()
-    backend.raise_on_rip(WhipperError("device busy"))
+    backend.raise_on_rip(RipError("device busy"))
     worker = RipWorker(backend, _params(tmp_path))
     sigs = _Signals()
     sigs.attach(worker)

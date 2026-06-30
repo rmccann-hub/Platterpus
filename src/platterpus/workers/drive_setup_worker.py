@@ -1,10 +1,10 @@
 """DriveSetupWorker — runs drive calibration off the GUI thread.
 
-`whipper drive analyze` (cache profile) and `whipper offset find` (read
-offset) both spin the disc and can take a minute or more, so they must
-not run on the GUI thread. This worker drives whipper's OWN commands —
-which persist their results to `whipper.conf` themselves (KDD-15) — after
-backing the config up first, then reports a single result object.
+Offset detection (cyanrip's `offset find`) spins the disc and can take a
+minute or more, so it must not run on the GUI thread. This worker drives the
+backend's calibration commands and reports a single result object; the GUI
+then persists the detected offset as Platterpus's `--offset` override (the
+backend does not write any config file itself).
 
 Signals:
   status(str)        — human-readable phase ("Analyzing drive cache…")
@@ -23,11 +23,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.adapters.whipper_backend import (
-    RipBackend,
-    WhipperError,
-    back_up_whipper_config,
-)
+from platterpus.adapters.rip_backend import RipBackend, RipError
 
 log = logging.getLogger(__name__)
 
@@ -92,11 +88,10 @@ class DriveSetupWorker(QObject):
 
     @Slot()
     def run(self) -> None:
-        """Back up whipper.conf, then run analyze + offset find in turn."""
+        """Run cache analysis + offset find in turn, then report the result."""
         if self._cancelled:
             self.finished.emit(DriveSetupResult())
             return
-        backup_path = back_up_whipper_config()
 
         # Cache analysis first — it's the quicker of the two and confirms a
         # disc is actually present before the longer offset search.
@@ -105,7 +100,7 @@ class DriveSetupWorker(QObject):
         analyze_error: str | None = None
         try:
             can_defeat = self._backend.analyze_drive(self._device)
-        except WhipperError as exc:
+        except RipError as exc:
             log.warning("drive analyze failed: %s", exc)
             analyze_error = str(exc)
         except NotImplementedError:
@@ -123,13 +118,12 @@ class DriveSetupWorker(QObject):
                 DriveSetupResult(
                     can_defeat_cache=can_defeat,
                     analyze_error=analyze_error,
-                    backup_path=backup_path,
                 )
             )
             return
         try:
             offset = self._backend.find_offset(self._device)
-        except WhipperError as exc:
+        except RipError as exc:
             log.warning("offset find failed: %s", exc)
             offset_error = str(exc)
         except NotImplementedError:
@@ -141,6 +135,5 @@ class DriveSetupWorker(QObject):
                 can_defeat_cache=can_defeat,
                 offset_error=offset_error,
                 analyze_error=analyze_error,
-                backup_path=backup_path,
             )
         )

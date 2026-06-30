@@ -54,9 +54,9 @@ def test_app_main_starts_up_clean_on_the_gui_thread(
         "platterpus.deps.checks._run_version_command", lambda argv: (False, "", None)
     )
     # The launch drive listing must not shell out to a (possibly installed)
-    # whipper that would enter the Distrobox container.
+    # cyanrip that would enter the Distrobox container.
     monkeypatch.setattr(
-        "platterpus.adapters.whipper_backend.WhipperHostExportedImpl.list_drives",
+        "platterpus.adapters.cyanrip_backend.CyanripImpl.list_drives",
         lambda self: [],
     )
     # main() installs its own excepthook; snapshot so monkeypatch restores ours.

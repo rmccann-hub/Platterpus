@@ -4,6 +4,9 @@ Driven entirely through a fake CommandRunner, so no Distrobox/podman/sudo is
 touched — the orchestration, idempotency, distro detection, dry-run, cancel,
 and failure-stop behaviour are all verified offline. (The real command
 execution is the hardware-gated part, validated on a target machine.)
+
+cyanrip is the sole ripping backend (KDD-18): the wizard installs it (from the
+barsnick COPR) plus flac/metaflac into the container and exports all three.
 """
 
 from __future__ import annotations
@@ -49,16 +52,29 @@ def _setup(tmp_path: Path, runner: _FakeRunner) -> HostSetup:
     return HostSetup(
         runner=runner,
         os_release=_fedora(tmp_path),
-        whipper_path=tmp_path / "whipper",
+        cyanrip_path=tmp_path / "cyanrip",
         flac_path=tmp_path / "flac",
     )
+
+
+def _container_ready(runner: _FakeRunner) -> None:
+    """Mark distrobox/podman/container/flac/cyanrip-in-container as present."""
+    runner.present = {"distrobox", "podman"}
+    runner.results[("distrobox", "list")] = (0, "ripping\n")
+    runner.results[("distrobox", "enter", "ripping", "--", "command", "-v", "flac")] = (
+        0,
+        "/usr/bin/flac",
+    )
+    runner.results[
+        ("distrobox", "enter", "ripping", "--", "command", "-v", "cyanrip")
+    ] = (0, "/usr/bin/cyanrip")
 
 
 def _ids(results: list) -> list[tuple[str, str]]:
     return [(r.step_id, r.status.value) for r in results]
 
 
-# --- Easy: nothing present → all five steps run --------------------------
+# --- Easy: nothing present → all six steps run ---------------------------
 
 
 def test_fresh_system_runs_all_steps(tmp_path: Path) -> None:
@@ -70,6 +86,7 @@ def test_fresh_system_runs_all_steps(tmp_path: Path) -> None:
         "backend",
         "container",
         "tools",
+        "cyanrip",
         "export",
     ]
     assert all(r.status is StepStatus.RAN for r in results)
@@ -78,8 +95,9 @@ def test_fresh_system_runs_all_steps(tmp_path: Path) -> None:
     assert any("dnf install -y distrobox" in c for c in flat)
     assert any("dnf install -y podman" in c for c in flat)
     assert any("distrobox create --yes --name ripping" in c for c in flat)
-    assert any("sudo dnf install -y whipper flac python3-setuptools" in c for c in flat)
-    assert any("distrobox-export --bin /usr/bin/whipper" in c for c in flat)
+    assert any("sudo dnf install -y flac" in c for c in flat)
+    assert any("sudo dnf install -y cyanrip" in c for c in flat)
+    assert any("distrobox-export --bin /usr/bin/cyanrip" in c for c in flat)
 
 
 def test_host_root_installs_use_pkexec_not_sudo(tmp_path: Path) -> None:
@@ -92,7 +110,7 @@ def test_host_root_installs_use_pkexec_not_sudo(tmp_path: Path) -> None:
     assert any(c.startswith("pkexec dnf install -y distrobox") for c in flat)
     assert any(c.startswith("pkexec dnf install -y podman") for c in flat)
     # The in-container tool install is still plain sudo (no host TTY needed).
-    assert any("-- sudo dnf install -y whipper" in c for c in flat)
+    assert any("-- sudo dnf install -y flac" in c for c in flat)
     assert not any(c.startswith("sudo ") for c in flat)
 
 
@@ -114,24 +132,16 @@ def test_running_ping_emitted_before_executing_step(tmp_path: Path) -> None:
 
 def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> None:
     """On an already-set-up system nothing executes, but the container-entering
-    'tools' probe (a `distrobox enter` whose first run does distrobox's slow
-    container init) is preceded by a transient 'checking…' ping — so the status
-    line reflects current activity instead of sitting on the previous step
-    (which looked like a freeze). Fast-probe steps emit no ping, and RUNNING
-    never lands in the returned results."""
+    probes (a `distrobox enter` whose first run does distrobox's slow container
+    init) are preceded by a transient 'checking…' ping. Fast-probe steps emit
+    no ping, and RUNNING never lands in the returned results."""
     runner = _FakeRunner()
-    runner.present = {"distrobox", "podman"}
-    runner.paths = {tmp_path / "whipper", tmp_path / "flac"}
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "whipper")
-    ] = (0, "/usr/bin/whipper")
+    _container_ready(runner)
+    runner.paths = {tmp_path / "cyanrip", tmp_path / "flac"}
     emitted: list = []
     results = _setup(tmp_path, runner).run(progress=emitted.append)
 
     running = [r for r in emitted if r.status is StepStatus.RUNNING]
-    # The only pings are the pre-probe 'checking' ones for container-entering
-    # steps; the fast-probe steps (distrobox/backend/container/export) emit none.
     assert running, "expected a 'checking' ping before the slow container probe"
     assert all(r.step_id in {"tools", "cyanrip"} for r in running)
     assert all("checking" in r.detail for r in running)
@@ -145,12 +155,8 @@ def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> Non
 
 def test_fully_set_up_system_is_all_done(tmp_path: Path) -> None:
     runner = _FakeRunner()
-    runner.present = {"distrobox", "podman"}
-    runner.paths = {tmp_path / "whipper", tmp_path / "flac"}
-    runner.results[("distrobox", "list")] = (0, "ID | ripping | Created\n")
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "whipper")
-    ] = (0, "/usr/bin/whipper")
+    _container_ready(runner)
+    runner.paths = {tmp_path / "cyanrip", tmp_path / "flac"}
 
     results = _setup(tmp_path, runner).run()
 
@@ -167,12 +173,8 @@ def test_only_export_runs_when_container_ready_but_not_exported(
     tmp_path: Path,
 ) -> None:
     runner = _FakeRunner()
-    runner.present = {"distrobox", "podman"}
-    # whipper NOT exported (paths empty).
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "whipper")
-    ] = (0, "/usr/bin/whipper")
+    _container_ready(runner)
+    # Nothing exported (paths empty).
 
     results = _setup(tmp_path, runner).run()
 
@@ -181,13 +183,13 @@ def test_only_export_runs_when_container_ready_but_not_exported(
     assert status["backend"] == "done"
     assert status["container"] == "done"
     assert status["tools"] == "done"
+    assert status["cyanrip"] == "done"
     assert status["export"] == "ran"
     flat = [" ".join(c) for c in runner.calls]
-    assert any("distrobox-export --bin /usr/bin/whipper" in c for c in flat)
+    assert any("distrobox-export --bin /usr/bin/cyanrip" in c for c in flat)
     assert any("distrobox-export --bin /usr/bin/metaflac" in c for c in flat)
-    # Regression (2026-06-27): the tools step installs flac (titled "whipper +
-    # flac") but the export step used to omit it, so `flac --test` verification
-    # and the CTDB audio check couldn't find it on the host. It must export now.
+    # Regression (2026-06-27): flac (the decoder) must be exported too, or
+    # `flac --test` verification and the CTDB audio check can't find it.
     assert any("distrobox-export --bin /usr/bin/flac" in c for c in flat)
 
 
@@ -214,6 +216,7 @@ def test_failure_stops_pipeline(tmp_path: Path) -> None:
     assert status["container"] == "failed"
     # Steps after the failure don't run.
     assert status["tools"] == "cancelled"
+    assert status["cyanrip"] == "cancelled"
     assert status["export"] == "cancelled"
     # The failure detail surfaces the error line.
     failed = next(r for r in results if r.status is StepStatus.FAILED)
@@ -229,7 +232,7 @@ def test_unknown_distro_backend_is_manual_failure(tmp_path: Path) -> None:
     runner = _FakeRunner()
     # distrobox has an upstream installer fallback, so it "runs"; podman
     # has no universal command → that step fails with a manual message.
-    setup = HostSetup(runner=runner, os_release=osr, whipper_path=tmp_path / "whipper")
+    setup = HostSetup(runner=runner, os_release=osr)
     results = setup.run()
     status = dict(_ids(results))
     assert status["distrobox"] == "ran"  # upstream installer fallback
@@ -264,55 +267,24 @@ def test_cancel_before_first_step(tmp_path: Path) -> None:
     assert runner.calls == []
 
 
-# --- is_ready + StepResult.ok --------------------------------------------
+# --- is_ready ------------------------------------------------------------
 
 
-def test_is_ready_reflects_exported_whipper(tmp_path: Path) -> None:
+def test_is_ready_requires_cyanrip_and_flac_exported(tmp_path: Path) -> None:
     runner = _FakeRunner()
     setup = _setup(tmp_path, runner)
     assert setup.is_ready() is False
-    runner.paths = {tmp_path / "whipper"}
-    assert setup.is_ready() is False  # whipper alone isn't enough — flac too
-    runner.paths = {tmp_path / "whipper", tmp_path / "flac"}
+    runner.paths = {tmp_path / "cyanrip"}
+    assert setup.is_ready() is False  # cyanrip alone isn't enough — flac too
+    runner.paths = {tmp_path / "cyanrip", tmp_path / "flac"}
     assert setup.is_ready() is True
 
 
-# --- cyanrip step (KDD-18: optional backend install via COPR) -------------
-
-
-def _setup_cyanrip(tmp_path: Path, runner: _FakeRunner) -> HostSetup:
-    return HostSetup(
-        runner=runner,
-        os_release=_fedora(tmp_path),
-        whipper_path=tmp_path / "whipper",
-        cyanrip_path=tmp_path / "cyanrip",
-        flac_path=tmp_path / "flac",
-        include_cyanrip=True,
-    )
-
-
-def _container_ready(runner: _FakeRunner) -> None:
-    """Mark distrobox/podman/container/whipper-in-container as present."""
-    runner.present = {"distrobox", "podman"}
-    runner.results[("distrobox", "list")] = (0, "ripping\n")
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "whipper")
-    ] = (0, "/usr/bin/whipper")
-
-
-def test_cyanrip_step_absent_by_default(tmp_path: Path) -> None:
-    """Backwards compatible: without the flag, the plan is the original five
-    steps and no cyanrip command is ever issued."""
-    runner = _FakeRunner()
-    setup = _setup(tmp_path, runner)
-    assert "cyanrip" not in setup.STEP_IDS
-    setup.run()
-    flat = [" ".join(c) for c in runner.calls]
-    assert not any("cyanrip" in c for c in flat)
+# --- The cyanrip step (KDD-18: backend install via COPR) ------------------
 
 
 def test_cyanrip_step_ordered_between_tools_and_export(tmp_path: Path) -> None:
-    setup = _setup_cyanrip(tmp_path, _FakeRunner())
+    setup = _setup(tmp_path, _FakeRunner())
     assert setup.STEP_IDS == (
         "distrobox",
         "backend",
@@ -323,14 +295,9 @@ def test_cyanrip_step_ordered_between_tools_and_export(tmp_path: Path) -> None:
     )
 
 
-def test_fresh_system_with_cyanrip_installs_and_exports(tmp_path: Path) -> None:
-    runner = _FakeRunner()
-    # The cyanrip-in-container probe must fail until installed; everything
-    # else defaults to success in the fake.
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "cyanrip")
-    ] = (1, "")
-    results = _setup_cyanrip(tmp_path, runner).run()
+def test_fresh_system_installs_and_exports_cyanrip(tmp_path: Path) -> None:
+    runner = _FakeRunner()  # nothing present → cyanrip probe fails → installs
+    results = _setup(tmp_path, runner).run()
 
     status = dict(_ids(results))
     assert status["cyanrip"] == "ran"
@@ -347,10 +314,7 @@ def test_copr_repo_content_passed_as_data_not_spliced_into_script(
     be embedded in the -c script — otherwise $releasever would be expanded
     (to nothing) and the repo would break on every Fedora version."""
     runner = _FakeRunner()
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "cyanrip")
-    ] = (1, "")
-    _setup_cyanrip(tmp_path, runner).run()
+    _setup(tmp_path, runner).run()
 
     write = next(c for c in runner.calls if CYANRIP_COPR_REPO_CONTENT in c)
     script = write[write.index("-c") + 1]
@@ -367,48 +331,20 @@ def test_copr_repo_stanza_is_generic_and_gpg_checked() -> None:
     assert "gpgkey=https://" in CYANRIP_COPR_REPO_CONTENT
 
 
-def test_cyanrip_already_installed_and_exported_is_all_done(tmp_path: Path) -> None:
-    runner = _FakeRunner()
-    _container_ready(runner)
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "cyanrip")
-    ] = (0, "/usr/bin/cyanrip")
-    runner.paths = {tmp_path / "whipper", tmp_path / "cyanrip", tmp_path / "flac"}
-
-    results = _setup_cyanrip(tmp_path, runner).run()
-
-    assert all(r.status is StepStatus.DONE for r in results)
-    flat = [" ".join(c) for c in runner.calls]
-    assert not any("install" in c or "export" in c for c in flat)
-
-
 def test_export_reruns_when_cyanrip_not_yet_exported(tmp_path: Path) -> None:
-    """whipper already exported but cyanrip not → the export step is not
-    'done' and exports cyanrip too."""
+    """flac already exported but cyanrip not → the export step is not 'done'
+    and exports cyanrip too."""
     runner = _FakeRunner()
     _container_ready(runner)
-    runner.results[
-        ("distrobox", "enter", "ripping", "--", "command", "-v", "cyanrip")
-    ] = (0, "/usr/bin/cyanrip")
-    # whipper + flac exported, cyanrip missing → export reruns solely for cyanrip.
-    runner.paths = {tmp_path / "whipper", tmp_path / "flac"}
+    runner.paths = {tmp_path / "flac"}  # cyanrip missing → export reruns
 
-    results = _setup_cyanrip(tmp_path, runner).run()
+    results = _setup(tmp_path, runner).run()
 
     status = dict(_ids(results))
     assert status["cyanrip"] == "done"
     assert status["export"] == "ran"
     flat = [" ".join(c) for c in runner.calls]
     assert any("distrobox-export --bin /usr/bin/cyanrip" in c for c in flat)
-
-
-def test_is_ready_requires_cyanrip_only_when_included(tmp_path: Path) -> None:
-    runner = _FakeRunner()
-    runner.paths = {tmp_path / "whipper", tmp_path / "flac"}
-    assert _setup(tmp_path, runner).is_ready() is True
-    assert _setup_cyanrip(tmp_path, runner).is_ready() is False
-    runner.paths.add(tmp_path / "cyanrip")
-    assert _setup_cyanrip(tmp_path, runner).is_ready() is True
 
 
 def test_cyanrip_on_host_checks_export_then_path(tmp_path: Path, monkeypatch) -> None:

@@ -3,10 +3,10 @@
 This is the **bootstrap arm of the dependency self-management subsystem**
 (Critical Rule #6 / KDD-17): it owns the multi-step, stateful host stack that
 lives *outside* the GUI — Distrobox + a container backend + the ``ripping``
-container + whipper exported to ``~/.local/bin`` — so a non-technical user
-never has to open a terminal. The GUI's runtime-tool *presence* checks
-(whipper/metaflac/Picard) stay in ``registry.py``; this module sets up the
-container those tools come from.
+container + cyanrip/flac/metaflac exported to ``~/.local/bin`` — so a
+non-technical user never has to open a terminal. The GUI's runtime-tool
+*presence* checks (cyanrip/metaflac/Picard) stay in ``registry.py``; this
+module sets up the container those tools come from.
 
 Everything runs through an injected :class:`CommandRunner`, so the
 orchestration is fully unit-testable and supports a dry-run (commands are
@@ -15,8 +15,8 @@ out; tests pass a fake. Steps are **idempotent** — each checks current state
 first and is skipped when already satisfied — mirroring ``setup-host.sh``.
 
 Note on routing: this is host *setup*, not ripping. Ripping still goes through
-the host-exported ``~/.local/bin/whipper`` (Critical Rule #3); creating the
-container and installing whipper into it is exactly the bootstrap KDD-17
+the host-exported ``~/.local/bin/cyanrip`` (Critical Rule #3); creating the
+container and installing the ripper into it is exactly the bootstrap KDD-17
 sanctions doing from the GUI.
 """
 
@@ -35,7 +35,6 @@ from platterpus.deps.step_engine import (
 from platterpus.paths import (
     CYANRIP_BINARY_DEFAULT,
     FLAC_BINARY_DEFAULT,
-    WHIPPER_BINARY_DEFAULT,
 )
 
 log = logging.getLogger(__name__)
@@ -148,7 +147,6 @@ class HostSetup:
     container: str = DEFAULT_CONTAINER
     image: str = DEFAULT_IMAGE
     os_release: Path = _OS_RELEASE
-    whipper_path: Path = WHIPPER_BINARY_DEFAULT
     cyanrip_path: Path = CYANRIP_BINARY_DEFAULT
     flac_path: Path = FLAC_BINARY_DEFAULT
     # Privilege escalation for host-root installs. "pkexec" (the default)
@@ -156,20 +154,21 @@ class HostSetup:
     # Bazzite/Silverblue distrobox+podman are preinstalled, so these steps
     # are skipped and no prompt appears at all.
     elevate: str = "pkexec"
-    # Also install + export the cyanrip backend (KDD-18). Off by default —
-    # whipper is the default backend; the main window turns this on when
-    # `Config.ripper_backend == "cyanrip"`.
-    include_cyanrip: bool = False
-    # Ordered step ids, exposed for the dialog/tests. Computed in
-    # __post_init__ because the cyanrip step is optional.
+    # Ordered step ids, exposed for the dialog/tests.
     STEP_IDS: tuple[str, ...] = field(default=(), init=False)
 
     def __post_init__(self) -> None:
-        steps = ["distrobox", "backend", "container", "tools"]
-        if self.include_cyanrip:
-            steps.append("cyanrip")
-        steps.append("export")
-        self.STEP_IDS = tuple(steps)
+        # cyanrip is the sole ripping backend (KDD-18); it's installed
+        # unconditionally along with flac/metaflac (for tagging, FLAC verify,
+        # and the CTDB audio check).
+        self.STEP_IDS = (
+            "distrobox",
+            "backend",
+            "container",
+            "tools",
+            "cyanrip",
+            "export",
+        )
 
     # --- State probes (each "is this step already done?") ---
 
@@ -188,16 +187,13 @@ class HostSetup:
         # `distrobox list` prints a table; match the name as a whole word.
         return any(self.container in line.split() for line in out.splitlines())
 
-    def whipper_in_container(self) -> bool:
+    def flac_in_container(self) -> bool:
         if not self.container_exists():
             return False
         rc, _ = self.runner.run(
-            ["distrobox", "enter", self.container, "--", "command", "-v", "whipper"]
+            ["distrobox", "enter", self.container, "--", "command", "-v", "flac"]
         )
         return rc == 0
-
-    def whipper_exported(self) -> bool:
-        return self.runner.exists(self.whipper_path)
 
     def cyanrip_in_container(self) -> bool:
         if not self.container_exists():
@@ -214,19 +210,15 @@ class HostSetup:
         return self.runner.exists(self.flac_path)
 
     def _export_done(self) -> bool:
-        """The export step is satisfied when every requested binary is on host.
+        """The export step is satisfied when every required binary is on host.
 
-        `flac` is checked alongside whipper because the tools step installs it
-        (titled "whipper + flac") and `flac --test` needs it on the host to
-        verify rips a backend didn't self-verify (cyanrip) and to decode for
-        the CTDB cross-check. It was historically installed-but-not-exported,
-        so checking it here makes a wizard re-run repair an existing setup.
+        `flac` is checked alongside cyanrip because the tools step installs it
+        (it provides flac + metaflac) and `flac --test` needs it on the host to
+        verify rips (cyanrip doesn't self-verify) and to decode for the CTDB
+        cross-check. It was historically installed-but-not-exported, so checking
+        it here makes a wizard re-run repair an existing setup.
         """
-        if not self.whipper_exported():
-            return False
-        if not self.flac_exported():
-            return False
-        return (not self.include_cyanrip) or self.cyanrip_exported()
+        return self.cyanrip_exported() and self.flac_exported()
 
     def is_ready(self) -> bool:
         """True when the whole stack is in place (ripper reachable on host)."""
@@ -263,9 +255,7 @@ class HostSetup:
                     "dnf",
                     "install",
                     "-y",
-                    "whipper",
                     "flac",
-                    "python3-setuptools",
                 ]
             ]
         if step_id == "cyanrip":
@@ -300,12 +290,11 @@ class HostSetup:
         if step_id == "export":
             # distrobox-export is idempotent (re-exporting overwrites the
             # wrapper), so re-running already-exported binaries is harmless.
-            # flac (the decoder) must be exported too — the tools step installs
-            # it but a past version forgot to export it, leaving `flac --test`
-            # verification and the CTDB audio check unable to find it.
-            binaries = ["/usr/bin/whipper", "/usr/bin/metaflac", "/usr/bin/flac"]
-            if self.include_cyanrip:
-                binaries.append("/usr/bin/cyanrip")
+            # flac (the decoder) and metaflac (the tag editor) come from the
+            # flac package installed in the tools step; both are exported so
+            # `flac --test` verification, the CTDB audio check, and post-rip
+            # tagging can find them on the host.
+            binaries = ["/usr/bin/cyanrip", "/usr/bin/metaflac", "/usr/bin/flac"]
             return [
                 [
                     "distrobox",
@@ -325,7 +314,7 @@ class HostSetup:
             "distrobox": self.distrobox_present,
             "backend": self.backend_present,
             "container": self.container_exists,
-            "tools": self.whipper_in_container,
+            "tools": self.flac_in_container,
             "cyanrip": self.cyanrip_in_container,
             "export": self._export_done,
         }[step_id]()
@@ -335,8 +324,8 @@ class HostSetup:
             "distrobox": "Distrobox",
             "backend": "Container backend (podman)",
             "container": f"'{DEFAULT_CONTAINER}' container",
-            "tools": "whipper + flac (in container)",
-            "cyanrip": "cyanrip backend (in container)",
+            "tools": "flac + metaflac (in container)",
+            "cyanrip": "cyanrip ripper (in container)",
             "export": "Export tools to ~/.local/bin",
         },
         init=False,
