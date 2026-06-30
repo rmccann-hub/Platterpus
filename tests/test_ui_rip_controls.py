@@ -58,6 +58,23 @@ def test_start_disabled_without_drive_even_in_unknown_mode(
     assert controls.can_start() is False
 
 
+# --- Start tooltip explains the disabled state ---------------------------
+
+
+def test_start_tooltip_explains_why_disabled(qapp: QApplication) -> None:
+    # A greyed-out Start with no explanation reads as broken; the tooltip must
+    # name what's missing at each step and confirm the action once ready.
+    controls = RipControls(_cfg())
+    # No drive yet.
+    assert "drive" in controls._start_button.toolTip().lower()
+    # Drive but no identified disc (known-album mode).
+    controls.set_drive("/dev/sr0")
+    assert "identify" in controls._start_button.toolTip().lower()
+    # Fully ready → the tooltip confirms what a click does.
+    controls.set_release_id("mbid")
+    assert "start ripping" in controls._start_button.toolTip().lower()
+
+
 # --- Rip-active state ----------------------------------------------------
 
 

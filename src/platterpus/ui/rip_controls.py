@@ -133,9 +133,11 @@ class RipControls(QWidget):
     # --- Internals ----------------------------------------------------------
 
     def _refresh_button_state(self) -> None:
-        self._start_button.setEnabled(
-            (not self._rip_active) and self._has_minimum_state()
-        )
+        can_start = (not self._rip_active) and self._has_minimum_state()
+        self._start_button.setEnabled(can_start)
+        # A disabled button with no explanation reads as "broken" — say *why*
+        # it's greyed out (and what to do) so the user is never left guessing.
+        self._start_button.setToolTip(self._start_tooltip())
         self._cancel_button.setEnabled(self._rip_active)
         # Force-stop is available whenever something is holding the drive — an
         # active rip, or a disc scan that may have wedged the TOC reader.
@@ -147,6 +149,24 @@ class RipControls(QWidget):
         if self._unknown_mode:
             return True
         return bool(self._release_id)
+
+    def _start_tooltip(self) -> str:
+        """Explain the Start button's current state.
+
+        When Start is greyed out we say exactly what's missing and how to fix
+        it; when it's ready we confirm what a click will do. Mirrors the
+        enable rule in `_has_minimum_state` so the two never disagree.
+        """
+        if self._rip_active:
+            return "A rip is already running — use Cancel to stop it."
+        if not self._drive:
+            return "Insert a disc and choose a drive above to start a rip."
+        if not self._unknown_mode and not self._release_id:
+            return (
+                "Identify the disc first: pick a MusicBrainz match, or use "
+                "File → Rip as Unknown Album to rip without metadata."
+            )
+        return "Start ripping the disc in the selected drive."
 
     def _on_start(self) -> None:
         # Unknown discs use the literal "Unknown Album" templates so the
