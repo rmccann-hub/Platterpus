@@ -55,10 +55,13 @@ def test_dry_run_prints_all_steps_without_executing() -> None:
     assert result.returncode == 0
     out = result.stdout
     assert "DRY RUN" in out
-    # Every mutating command must be a DRY-RUN line, never executed.
+    # Every mutating command must be a DRY-RUN line, never executed. cyanrip is
+    # the sole backend (KDD-18, whipper removed 2026-06-30); the container gets
+    # flac + cyanrip installed and exported.
     assert "DRY-RUN: distrobox create" in out
-    assert "DRY-RUN: distrobox enter ripping -- sudo dnf install -y whipper" in out
-    assert "distrobox-export --bin /usr/bin/whipper" in out
+    assert "DRY-RUN: distrobox enter ripping -- sudo dnf install -y flac" in out
+    assert "DRY-RUN: distrobox enter ripping -- sudo dnf install -y cyanrip" in out
+    assert "distrobox-export --bin /usr/bin/cyanrip" in out
     # Run from this checkout → it must NOT try to clone.
     assert "git clone" not in out
     assert "Running from a checkout" in out
@@ -120,10 +123,11 @@ def test_both_install_paths_offer_a_zypper_branch() -> None:
     assert text.count("zypper --non-interactive install") >= 2
 
 
-def test_cyanrip_flag_installs_and_exports(tmp_path: Path) -> None:
-    """--cyanrip adds the COPR repo file, installs cyanrip, and exports it —
+def test_cyanrip_installs_and_exports_by_default(tmp_path: Path) -> None:
+    """cyanrip is the sole backend (KDD-18) so it's always installed — the COPR
+    repo file is added, cyanrip is installed, and it's exported to the host —
     mirroring the GUI wizard's cyanrip step (keep the two in sync)."""
-    result = _run(["--dry-run", "--yes", "--no-gui", "--cyanrip"])
+    result = _run(["--dry-run", "--yes", "--no-gui"])
     assert result.returncode == 0
     out = result.stdout
     assert "copr-barsnick-non-fed.repo" in out
@@ -135,7 +139,12 @@ def test_cyanrip_flag_installs_and_exports(tmp_path: Path) -> None:
     assert "gpgcheck=1" in out
 
 
-def test_without_cyanrip_flag_no_cyanrip_work(tmp_path: Path) -> None:
+def test_flac_installed_and_exported_alongside_cyanrip(tmp_path: Path) -> None:
+    """flac (flac + metaflac) ships in the container too: flac powers the
+    encode-verify + CTDB decode, metaflac is the post-rip tag editor."""
     result = _run(["--dry-run", "--yes", "--no-gui"])
     assert result.returncode == 0
-    assert "cyanrip" not in result.stdout
+    out = result.stdout
+    assert "dnf install -y flac" in out
+    assert "distrobox-export --bin /usr/bin/metaflac" in out
+    assert "distrobox-export --bin /usr/bin/flac" in out
