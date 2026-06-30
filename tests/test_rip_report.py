@@ -145,6 +145,21 @@ def test_debug_section_notes_truncation() -> None:
     assert build_report(_sample_log(), debug_log=debug)["debug"]["truncated"] is True
 
 
+def test_debug_section_caps_embedded_lines_and_keeps_most_recent() -> None:
+    """A marathon session must not bloat the report (or its on-GUI-thread
+    re-serialization): the embedded log is capped to the most-recent lines and
+    marked truncated; log.txt keeps the full history."""
+    from platterpus.rip_report import _MAX_EMBEDDED_LOG_LINES
+
+    lines = [f"line {i}" for i in range(_MAX_EMBEDDED_LOG_LINES + 500)]
+    debug = build_debug_log(lines)
+    assert len(debug["lines"]) == _MAX_EMBEDDED_LOG_LINES
+    assert debug["truncated"] is True
+    # The most RECENT lines are kept (closest to the just-finished rip).
+    assert debug["lines"][-1] == lines[-1]
+    assert debug["lines"][0] == lines[500]
+
+
 def test_ctdb_section_serialized_when_present() -> None:
     result = CtdbVerifyResult(
         Verdict.MATCH,
