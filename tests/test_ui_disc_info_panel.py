@@ -49,6 +49,19 @@ def test_default_state_shows_placeholders(qapp: QApplication) -> None:
     assert panel._accuraterip_value.text() == "—"
 
 
+def test_value_labels_have_accessible_names(qapp: QApplication) -> None:
+    # Each value sits beside a cosmetic QFormLayout label that a screen reader
+    # can't tie to the value, so every value carries its own accessible name
+    # (a11y, principle #10).
+    panel = DiscInfoPanel()
+    assert panel._drive_value.accessibleName()
+    assert panel._mb_id_value.accessibleName()
+    assert panel._cddb_id_value.accessibleName()
+    assert panel._mb_match_value.accessibleName()
+    assert panel._accuraterip_value.accessibleName()
+    assert panel._offset_value.accessibleName()
+
+
 # --- Drive selection -----------------------------------------------------
 
 

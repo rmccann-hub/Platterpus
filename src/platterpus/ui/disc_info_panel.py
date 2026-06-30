@@ -41,24 +41,31 @@ class DiscInfoPanel(QWidget):
 
         # Use TextSelectableByMouse on the value labels so the user
         # can copy a disc ID into Picard or a browser.
-        self._drive_value: QLabel = self._value_label("(no drive)")
-        self._mb_id_value: QLabel = self._value_label(_PLACEHOLDER)
-        self._cddb_id_value: QLabel = self._value_label(_PLACEHOLDER)
-        self._mb_match_value: QLabel = self._value_label(_PLACEHOLDER)
+        self._drive_value: QLabel = self._value_label("(no drive)", "Selected drive")
+        self._mb_id_value: QLabel = self._value_label(
+            _PLACEHOLDER, "MusicBrainz disc ID"
+        )
+        self._cddb_id_value: QLabel = self._value_label(_PLACEHOLDER, "CDDB disc ID")
+        self._mb_match_value: QLabel = self._value_label(
+            _PLACEHOLDER, "MusicBrainz match"
+        )
         # AccurateRip status is a *post-rip* fact — we can't know it until the
         # rip log lands. Start blank rather than claiming "verified" (the old
         # static text), which was misleading for any disc not in the database
         # (a CD-R, say): every track comes back "not present", which is the
         # opposite of verified. set_accuraterip_result() fills this in.
-        self._accuraterip_value: QLabel = self._value_label(_PLACEHOLDER)
+        self._accuraterip_value: QLabel = self._value_label(
+            _PLACEHOLDER, "AccurateRip result"
+        )
         # Read-offset provenance: where this drive's offset came from and how
         # much to trust it (drive_profiles ledger). It's a trust line, not a
         # setting — the offset whipper actually uses still lives in whipper.conf
         # / the --offset override. A guard warning (collision/disagreement)
         # shows here in text, never colour alone (accessibility principle #10).
-        self._offset_value: QLabel = self._value_label(_PLACEHOLDER)
+        self._offset_value: QLabel = self._value_label(
+            _PLACEHOLDER, "Read offset provenance"
+        )
         self._offset_value.setWordWrap(True)
-        self._offset_value.setAccessibleName("Read offset provenance")
 
         form = QFormLayout(self)
         form.addRow("Drive:", self._drive_value)
@@ -171,8 +178,14 @@ class DiscInfoPanel(QWidget):
     # --- Internals ---------------------------------------------------------
 
     @staticmethod
-    def _value_label(text: str) -> QLabel:
-        """A monospaced-by-context value label that supports copy-on-select."""
+    def _value_label(text: str, accessible_name: str = "") -> QLabel:
+        """A monospaced-by-context value label that supports copy-on-select.
+
+        `accessible_name` names the value for a screen reader; the visible
+        QFormLayout label beside it is purely cosmetic and isn't a programmatic
+        buddy, so a value label without a name reads as anonymous text
+        (ux-design-principles.md #10).
+        """
         label = QLabel(text)
         # Selecting with the mouse + Ctrl+C is the easiest way to grab
         # a disc ID into something else (Picard, a web search).
@@ -180,4 +193,6 @@ class DiscInfoPanel(QWidget):
             Qt.TextInteractionFlag.TextSelectableByMouse
             | Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
+        if accessible_name:
+            label.setAccessibleName(accessible_name)
         return label

@@ -154,6 +154,16 @@ def test_default_state_is_empty(qapp: QApplication) -> None:
     assert widget._view.accessibleName() == "Track list"
 
 
+def test_album_fields_have_accessible_names(qapp: QApplication) -> None:
+    # The QFormLayout labels beside these line edits are cosmetic, not
+    # programmatic buddies, so without explicit accessible names a screen
+    # reader announces three anonymous text boxes (a11y, principle #10).
+    widget = TrackTable()
+    assert widget._album_artist_edit.accessibleName() == "Album artist"
+    assert widget._album_title_edit.accessibleName() == "Album title"
+    assert widget._album_year_edit.accessibleName() == "Album year"
+
+
 def test_set_release_populates_album_and_tracks(qapp: QApplication) -> None:
     widget = TrackTable()
     widget.set_release(_detail())
