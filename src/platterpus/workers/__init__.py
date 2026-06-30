@@ -10,9 +10,12 @@ parsing and subprocess handling lives in `adapters/` and `parsers/`.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterable
 
 from PySide6.QtCore import QObject, QThread, SignalInstance
+
+log = logging.getLogger(__name__)
 
 
 def start_worker_thread(
@@ -40,6 +43,22 @@ def start_worker_thread(
     This intentionally does NOT cover the persistent MusicBrainz worker (which
     lives for the window's lifetime and is never torn down per-call).
     """
+    # Name the worker + thread after the worker class, so log lines and any
+    # crash backtrace identify *which* background job is running (a freeze or a
+    # "QThread destroyed while running" abort is far easier to diagnose when the
+    # thread isn't anonymous). Observability-only and strictly best-effort: it
+    # must never break the lifecycle, so a minimal test fake without
+    # setObjectName (or anything else odd) is tolerated.
+    name = type(worker).__name__
+    for obj in (worker, thread):
+        setter = getattr(obj, "setObjectName", None)
+        if callable(setter):
+            try:
+                setter(name)
+            except Exception:  # noqa: BLE001 — naming is cosmetic, never fatal
+                pass
+    log.debug("starting worker thread: %s", name)
+
     worker.moveToThread(thread)
     worker.finished.connect(thread.quit)  # type: ignore[attr-defined]
     for signal in also_quit_on:

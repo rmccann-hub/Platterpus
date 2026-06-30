@@ -22,6 +22,7 @@ older callers and the unit tests.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterable
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
@@ -37,6 +38,8 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.deps.resolvers import InstallResult, MissingItem
+
+log = logging.getLogger(__name__)
 
 # Installs a single item and returns its outcome. Injected so the dialog
 # doesn't depend on a concrete installer (tests pass a fake; the GUI passes
@@ -86,15 +89,23 @@ class _InstallWorker(QObject):
                 results.append(PendingInstallsDialog._declined(item))
                 continue
             self.item_started.emit(dep_id)
+            # Log on the worker thread, so the run is followable in log.txt even
+            # while the (modal) dialog is busy — the diagnosability the 0.4.2
+            # freeze lacked.
+            log.info("installing %s (on worker thread)…", dep_id)
             try:
                 result = self._install_one(item)
             except Exception as exc:  # noqa: BLE001 — an installer bug must not
                 # kill the worker thread; record it as a failure and move on.
+                log.exception("install of %s raised", dep_id)
                 result = InstallResult(
                     spec=item.spec,
                     success=False,
                     message=f"install raised unexpectedly: {exc}",
                 )
+            log.info(
+                "install of %s %s", dep_id, "succeeded" if result.success else "failed"
+            )
             results.append(result)
             self.item_done.emit(dep_id, result)
         self.finished.emit(results)

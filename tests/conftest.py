@@ -110,7 +110,6 @@ def _join_leaked_qthreads(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(QThread, "start", tracking_start)
     yield
 
-    app = QApplication.instance()
     leaked = 0
     for thread in started:
         try:
@@ -120,11 +119,14 @@ def _join_leaked_qthreads(monkeypatch: pytest.MonkeyPatch):
             continue  # underlying C++ QThread already deleted — nothing to do
         leaked += 1
         try:
+            # quit() acts on the WORKER thread's own event loop, so it doesn't
+            # need the GUI thread to pump — and we deliberately do NOT pump
+            # processEvents() here: doing so can fire a stale QTimer.singleShot
+            # left by a half-destroyed window and segfault (the very hazard the
+            # message-box fixture guards). requestInterruption() nudges any
+            # cooperative loop; wait() is bounded.
+            thread.requestInterruption()
             thread.quit()
-            if app is not None:
-                # Let a queued `finished → quit` be delivered before we wait.
-                for _ in range(100):
-                    app.processEvents()
             thread.wait(3000)
         except RuntimeError:
             pass
