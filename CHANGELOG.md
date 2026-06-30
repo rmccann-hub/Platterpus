@@ -21,6 +21,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   which already named themselves and never signal trust by colour alone.)
 
 ### Changed
+- **The Start button now explains why it's greyed out.** A disabled button with
+  no explanation reads as broken; hovering Start now says exactly what's missing
+  and how to fix it — "Insert a disc and choose a drive," then "Identify the disc
+  first: pick a MusicBrainz match, or use File → Rip as Unknown Album," and once
+  ready, "Start ripping the disc in the selected drive." (general UX principle:
+  never leave the user guessing why a control is dead.)
 - **The "optional components" prompt no longer looks like a contradiction.**
   After a clean dependency check the app used to show "0 missing/needs-attention"
   and then *immediately* pop a separate "Install optional components?" question —
