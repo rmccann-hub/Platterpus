@@ -6,11 +6,11 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
+    RipError,
     RipHandle,
-    WhipperError,
 )
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.ui.drive_picker import DrivePicker
@@ -210,7 +210,7 @@ def test_refresh_handles_whipper_error_without_crashing(
     qapp: QApplication,
 ) -> None:
     backend = _FakeBackend()
-    backend.raise_on_list(WhipperError("whipper missing"))
+    backend.raise_on_list(RipError("whipper missing"))
     picker = DrivePicker(backend)
     seen: list[str] = []
     picker.drive_changed.connect(seen.append)
@@ -226,7 +226,7 @@ def test_refresh_handles_whipper_error_without_crashing(
 def test_refresh_handles_unexpected_exception_without_crashing(
     qapp: QApplication,
 ) -> None:
-    # A non-WhipperError (e.g. a parser choking on unexpected whipper
+    # A non-RipError (e.g. a parser choking on unexpected whipper
     # output) must NOT propagate out of refresh() — that's what made the
     # whole window vanish at startup. It should degrade to a placeholder.
     backend = _FakeBackend()
@@ -343,7 +343,7 @@ def test_current_drive_none_when_no_drives(qapp: QApplication) -> None:
 
 def test_current_drive_none_on_backend_error(qapp: QApplication) -> None:
     backend = _FakeBackend()
-    backend.raise_on_list(WhipperError("boom"))
+    backend.raise_on_list(RipError("boom"))
     picker = DrivePicker(backend)
     picker.refresh()
     assert picker.current_drive() is None

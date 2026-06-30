@@ -25,7 +25,6 @@ import tomli_w
 from platterpus.paths import (
     CONFIG_DIR,
     CONFIG_PATH,
-    WHIPPER_BINARY_DEFAULT,
 )
 
 # Bump this when the schema grows new keys or changes defaults that we
@@ -82,32 +81,18 @@ class Config:
     disc_template_unknown: str = _DEFAULT_DISC_TEMPLATE_UNKNOWN
 
     # --- Tool paths (overrides for the dependency subsystem) ---
-    # User can re-point these in Settings if the defaults are wrong.
-    whipper_path: str = field(default_factory=lambda: str(WHIPPER_BINARY_DEFAULT))
+    # User can re-point this in Settings if the default is wrong.
     metaflac_path: str = "metaflac"  # relies on PATH by default
 
-    # Which ripping backend to drive. "cyanrip" (default) or "whipper".
-    # cyanrip is the default because it's better in essentially every situation
-    # (KDD-18, docs/ripper-engine-strategy.md): actively maintained (2024 vs
-    # whipper's 2021), it applies the read offset with its own paranoia so it
-    # has *no* >587-sample read-offset bug (whipper fails tracks above that, e.g.
-    # the Pioneer BDR-209D's +667), it maxes FLAC compression, and it has the
-    # -Z "re-rip until reads match" convergence that whipper lacks. The one
-    # drive-dependent factor (the offset bug) only ever favours cyanrip — there
-    # is no drive on which whipper rips better. whipper stays selectable for its
-    # niche EAC-parity flags (cdrdao gap detection, --keep-going, CD-R safety).
-    # Swapping is a config change, not a code change (the RipBackend ABC).
-    ripper_backend: str = "cyanrip"
-
     # --- Rip parameters ---
-    # Informational only; whipper.conf is authoritative per the brief.
-    # Surfaced here so Settings can display what the GUI thinks is in
-    # effect. read_offset is in samples, signed.
+    # read_offset is in samples, signed. cyanrip (the sole backend) is fed this
+    # value as `-s` for every rip when override_read_offset is on; it does not
+    # read any external config file.
     read_offset: int = 0
-    # When True, pass `--offset <read_offset>` to each rip, overriding
-    # whatever whipper.conf holds. Lets the user set the offset from the
-    # GUI without editing whipper.conf. Off by default — the drive-setup
-    # wizard (which writes whipper.conf) is the primary path.
+    # When True, the GUI applies `read_offset` to each rip (cyanrip's `-s`).
+    # The drive-setup wizard turns this on when it detects or you enter an
+    # offset; legacy whipper.conf values are still read for the trust display
+    # (offset_config.py) but cyanrip is driven from this value.
     override_read_offset: bool = False
 
     # --- UI toggles ---
@@ -151,32 +136,15 @@ class Config:
     # reproduces the issue. Applied at startup and immediately on toggle.
     debug_logging: bool = False
 
-    # Continue ripping a CD-R (burned disc). Whipper refuses by default
-    # ("inserted disc seems to be a CD-R, --cdr not passed") because in an
-    # archival workflow a burned disc is usually an accident. Off by
-    # default to match that safety stance; the user opts in per the EAC
-    # parity audit (KDD-13). When True we pass whipper's `--cdr` flag.
-    continue_on_cdr: bool = False
-
     # --- EAC bit-perfect parity gaps (KDD-13) ---
-    # Each maps to a whipper `cd rip` flag we now surface in Settings.
     #
-    # Cover art: whipper's `-C/--cover-art {file,embed,complete}`. Empty
-    # string means "don't pass the flag" (whipper's own default: no art).
-    # We default to "embed" for parity with EAC, which embeds by default —
-    # note this makes a rip fetch art over the network (best-effort; a
-    # disc MusicBrainz can't identify just gets none).
+    # Cover art: empty string means "don't fetch art". We default to "embed"
+    # for parity with EAC, which embeds by default. With cyanrip the GUI
+    # fetches the front cover from the Cover Art Archive after the rip and
+    # embeds it (cyanrip itself is run offline).
     cover_art: str = "embed"
-    # `-x/--force-overread`: read into the lead-out to capture the last
-    # samples. Off by default (matches EAC's own recommendation).
-    force_overread: bool = False
-    # `-r/--max-retries N`: rip attempts before giving up on a track.
-    # 5 is whipper's own default.
+    # Rip attempts before giving up on a track (cyanrip's `-r`).
     max_retries: int = 5
-    # `-k/--keep-going`: rip remaining tracks instead of aborting when one
-    # track fails. Off by default — a failure should be surfaced, not
-    # silently skipped, in an archival workflow.
-    keep_going: bool = False
 
     # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
     # cyanrip's `-Z <int>`: "rip tracks until their checksums match <int>

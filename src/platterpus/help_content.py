@@ -22,17 +22,17 @@ TAGLINE: str = "EAC-equivalent archival-quality audio-CD ripping for Linux."
 USER_GUIDE: str = """\
 # Platterpus — User Guide
 
-A friendly front-end for the **whipper** and **cyanrip** CD-ripping tools. It
-rips audio CDs at archival quality (EAC-equivalent), naming and tagging tracks
-from **MusicBrainz** and verifying the result against AccurateRip and CTDB.
-Every rip produces a lossless **FLAC** master; you can also have **WavPack**,
-**MP3**, or **WAV** derived from it (see *Output format* in Settings).
+A friendly front-end for the **cyanrip** CD-ripping tool. It rips audio CDs at
+archival quality (EAC-equivalent), naming and tagging tracks from
+**MusicBrainz** and verifying the result against AccurateRip and CTDB. Every rip
+produces a lossless **FLAC** master; you can also have **WavPack**, **MP3**, or
+**WAV** derived from it (see *Output format* in Settings).
 
 ## How it's wired
 
 The GUI runs on your desktop and calls the host-exported ripping tool
-(`~/.local/bin/cyanrip` by default, or `~/.local/bin/whipper`), which
-transparently does the actual ripping inside the `ripping` Distrobox container.
+(`~/.local/bin/cyanrip`), which transparently does the actual ripping inside
+the `ripping` Distrobox container.
 You don't interact with the container directly — the GUI handles it.
 
 ## Ripping a CD — the basics
@@ -106,42 +106,28 @@ named from the album artist/title you type.
   FLAC master, which is always kept, so you never lose the archival copy.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
-- **Continue on CD-R** — needed to rip home-burned discs.
-- **Cover art** — off, embedded, or saved as a file. Works with both
-  backends: whipper fetches it itself; with cyanrip this app fetches the
-  front cover from the Cover Art Archive after the rip.
-- **Force overread**, **max retries**, **keep going on errors** — EAC-parity
-  read options.
+- **Cover art** — off, embedded, or saved as a file. The app fetches the front
+  cover from the Cover Art Archive after the rip and embeds/saves it.
+- **Max retries** — how many times the ripper retries a troublesome track
+  before giving up.
 - **Re-rip until reads match** — for a damaged or marginal disc, re-read each
   track until this many passes agree on the checksum, so a shaky read converges
   to the bit-perfect result. Leave it at *Off* for clean discs (the normal
   secure read already handles those); try **2** if a track won't verify against
-  AccurateRip. This is a cyanrip feature — it greys out under the whipper
-  backend, which has no equivalent.
+  AccurateRip.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
   the CUETools Database, alongside AccurateRip. A network check, off by default,
   and labelled *experimental* until its checksum is confirmed on real hardware
   (it can only ever under-claim, never falsely say "verified").
 - **Verify FLACs after a rip** — decode each FLAC back and check it against its
-  stored checksum (on by default; greyed out for whipper, which verifies as it
-  encodes). **Re-compress FLACs** optionally re-encodes them at maximum effort
-  to shrink the files — lossless, with tags and art preserved (off by default;
-  greyed out for cyanrip, which already maxes compression).
+  stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
+  cyanrip already encodes FLAC at maximum compression, so there's nothing to
+  gain.)
 - **Read offset override** — set the drive read-offset by hand (the drive-setup
   wizard is the recommended way to set it).
 - **Eject after a successful rip** — automatically eject the disc when a rip
   finishes (off by default). You can always eject by hand with the **Eject**
   button next to the drive picker.
-- **Ripping backend** — *cyanrip* (the recommended default) or *whipper*.
-  cyanrip is the better tool in essentially every situation: it's actively
-  maintained, it avoids a whipper bug that fails tracks on drives with a read
-  offset over 587 samples (e.g. the Pioneer BDR-209D's +667), it maxes FLAC
-  compression, and it's the backend behind **Re-rip until reads match**.
-  whipper is kept as an option for its niche EAC-parity features (cdrdao gap
-  detection, keep-going, CD-R safety). Both backends are installed by the setup
-  wizard; restart the app after switching. Options one backend doesn't support
-  grey out with a tooltip explaining why — your values are kept, and switching
-  back re-enables them. The rest of the app works the same either way.
 
 ## Where the app lives
 
@@ -160,11 +146,11 @@ you cancel.
 
 ## Uninstalling (Tools → Uninstall Platterpus)
 
-Removes everything the app installed: shortcuts, the whipper/metaflac/cyanrip
-commands, the ripping container, optionally your drive calibration
-(whipper.conf) and the AppImage file, and the app's own settings and logs.
-**Your music is never touched**, and Distrobox/podman stay installed (other
-containers keep working). You'll confirm before anything is removed.
+Removes everything the app installed: shortcuts, the cyanrip/metaflac/flac
+commands, the ripping container, optionally a legacy `whipper.conf` and the
+AppImage file, and the app's own settings and logs. **Your music is never
+touched**, and Distrobox/podman stay installed (other containers keep working).
+You'll confirm before anything is removed.
 
 ## Drive setup (Tools → Set up drive)
 
@@ -173,15 +159,15 @@ bit-perfect. For most drives the wizard already knows the right value (from
 the bundled AccurateRip drive list) and pre-fills it, so it's a single
 **Save offset** click — no disc needed. If your drive isn't in the list,
 insert a popular commercial CD and click **Detect**, or type the offset by
-hand. The value is saved as the app's offset override (and `whipper.conf` is
-backed up first if it's touched). Do this once per drive.
+hand. The value is saved to the app's own settings and applied to every rip
+(cyanrip's read-offset option). Do this once per drive.
 
 The disc panel shows a **Read offset** line for the selected drive telling you
 *where* the offset came from and how confident we are — measured on your drive
 (high), looked up from the AccurateRip list (medium), or entered by hand. If two
-identical drives are connected, or the recorded offset disagrees with what
-whipper will apply, a warning appears there so a wrong offset can't pass
-unnoticed.
+identical drives are connected, or the recorded offset disagrees with the
+offset that will be applied, a warning appears there so a wrong offset can't
+pass unnoticed.
 
 ## Troubleshooting
 
@@ -207,6 +193,6 @@ unnoticed.
 ## More
 
 - Project & issues: see **Help → About** for links.
-- Dependencies (whipper, MusicBrainz Picard, etc.) are checked automatically at
+- Dependencies (cyanrip, MusicBrainz Picard, etc.) are checked automatically at
   launch and from the Settings dialog.
 """

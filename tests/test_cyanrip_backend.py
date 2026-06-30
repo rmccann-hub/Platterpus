@@ -18,7 +18,7 @@ from platterpus.adapters.cyanrip_backend import (
     restore_substituted_colons,
     scheme_from_template,
 )
-from platterpus.adapters.whipper_backend import RipMetadata, TrackTag, WhipperError
+from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
 
 
 class _FakeMetaflac:
@@ -62,7 +62,7 @@ def _patch_run(monkeypatch, *, stdout: str = "", stderr: str = "", raises=None):
     THAT module, and the patch must target it there (docs/testing.md §8: move
     the monkeypatch target to where the code now lives).
     """
-    import platterpus.adapters.whipper_backend as mod
+    import platterpus.adapters.rip_backend as mod
 
     def fake_run(argv, **kwargs):
         if raises is not None:
@@ -332,7 +332,7 @@ def test_disc_info_runs_info_only_offline(monkeypatch: pytest.MonkeyPatch) -> No
     selected device."""
     # cyanrip's `_run` delegates to the shared run_capture in whipper_backend,
     # so the subprocess.run patch targets that module (see _patch_run).
-    import platterpus.adapters.whipper_backend as mod
+    import platterpus.adapters.rip_backend as mod
 
     seen: list[list[str]] = []
 
@@ -372,7 +372,7 @@ def test_disc_info_raises_when_binary_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_run(monkeypatch, raises=FileNotFoundError("cyanrip"))
-    with pytest.raises(WhipperError, match="not found"):
+    with pytest.raises(RipError, match="not found"):
         _impl().disc_info("/dev/sr0")
 
 
@@ -410,11 +410,11 @@ def test_find_offset_parses_value(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_find_offset_raises_when_absent(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_run(monkeypatch, stdout="no offset here")
-    with pytest.raises(WhipperError):
+    with pytest.raises(RipError):
         _impl().find_offset("/dev/sr0")
 
 
 def test_run_raises_when_binary_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_run(monkeypatch, raises=FileNotFoundError("cyanrip"))
-    with pytest.raises(WhipperError, match="not found"):
+    with pytest.raises(RipError, match="not found"):
         _impl().version()

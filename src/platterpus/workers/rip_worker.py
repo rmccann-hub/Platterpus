@@ -27,11 +27,11 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     RipBackend,
+    RipError,
     RipHandle,
     RipMetadata,
-    WhipperError,
 )
 
 log = logging.getLogger(__name__)
@@ -52,21 +52,17 @@ class RipParameters:
     track_template: str
     disc_template: str
     unknown: bool = False
-    cdr: bool = False
-    # EAC bit-perfect parity gaps (KDD-13). cover_art "" = don't pass the
-    # flag; otherwise one of whipper's {file, embed, complete}.
+    # EAC bit-perfect parity gap (KDD-13). cover_art "" = don't fetch art;
+    # otherwise the front cover is embedded after the rip.
     cover_art: str = ""
-    force_overread: bool = False
     max_retries: int = 5
-    keep_going: bool = False
     # cyanrip's `-Z N` (rip until N reads' checksums match) for marginal
-    # discs. 0 = off. whipper has no equivalent and ignores it.
+    # discs. 0 = off.
     secure_rerip_matches: int = 0
-    # When set, passed as whipper's `--offset N`, overriding whipper.conf.
+    # When set, applied as the read offset for the rip (cyanrip's `-s`).
     read_offset_override: int | None = None
-    # The GUI's already-fetched album/track tags (track table content).
-    # whipper ignores this (it tags from --release-id itself); cyanrip is
-    # fed it via -a/-t so the rip needs no in-container network.
+    # The GUI's already-fetched album/track tags (track table content),
+    # fed to cyanrip via -a/-t so the rip needs no in-container network.
     metadata: RipMetadata | None = None
 
 
@@ -231,16 +227,13 @@ class RipWorker(QObject):
                 track_template=self._params.track_template,
                 disc_template=self._params.disc_template,
                 unknown=self._params.unknown,
-                cdr=self._params.cdr,
                 cover_art=self._params.cover_art,
-                force_overread=self._params.force_overread,
                 max_retries=self._params.max_retries,
-                keep_going=self._params.keep_going,
                 secure_rerip_matches=self._params.secure_rerip_matches,
                 read_offset_override=self._params.read_offset_override,
                 metadata=self._params.metadata,
             )
-        except WhipperError as exc:
+        except RipError as exc:
             log.exception("rip failed to start")
             self.error.emit(str(exc))
             self.finished.emit(False, "")

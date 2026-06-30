@@ -75,29 +75,6 @@ class _DialogQueuedResolver:
 class DependencyMixin:
     """Run the dependency subsystem with GUI-backed resolvers + summary."""
 
-    def _maybe_offer_cyanrip_install(self, old_backend: str) -> None:
-        """Offer the setup wizard when the user just switched to cyanrip
-        but cyanrip isn't installed yet — otherwise the new backend would
-        silently fail on the next launch with 'binary not found'."""
-        from platterpus.deps import host_setup
-
-        if self._config.ripper_backend != "cyanrip" or old_backend == "cyanrip":
-            return
-        if host_setup.cyanrip_on_host():
-            return
-        choice = QMessageBox.question(
-            self,
-            "Install cyanrip?",
-            "You selected the cyanrip backend, but cyanrip isn't installed "
-            "yet.\n\nRun setup now to install it into the ripping container "
-            "and make it available to this app? (Restart the app afterwards "
-            "for the backend change to take effect.)",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
-        )
-        if choice == QMessageBox.StandardButton.Yes:
-            self.open_host_setup_dialog()
-
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
 

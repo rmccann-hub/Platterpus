@@ -105,25 +105,22 @@ class SettingsDialog(QDialog):
 
         # --- Read offset ---
         # Two ways to set the read offset:
-        #   1. The drive-setup wizard ("Re-detect…") writes it to
-        #      whipper.conf — the recommended path.
-        #   2. Type it here and tick "Override" to pass `--offset N` to the
-        #      rip, overriding whipper.conf — so you can set it from the GUI
-        #      without editing the config file (real-user request).
-        # The spinbox is now editable; whether it's USED is gated by the
-        # override checkbox so there's no "I typed 667 but it's ignored"
-        # confusion.
+        #   1. The drive-setup wizard ("Re-detect…") detects it and the GUI
+        #      saves it here — the recommended path.
+        #   2. Type it here and tick "Apply" so each rip uses it (cyanrip's
+        #      `-s`). cyanrip needs the offset every run; it has no config file
+        #      of its own, so this value is the single source.
         self._read_offset_spin: QSpinBox = QSpinBox(self)
         self._read_offset_spin.setRange(_OFFSET_MIN, _OFFSET_MAX)
         self._read_offset_spin.setValue(config.read_offset)
         self._read_offset_spin.setToolTip(
-            "Read offset in samples (signed). Tick Override to force this "
-            "value via whipper's --offset; otherwise whipper.conf wins."
+            "Read offset in samples (signed). Tick Apply to use this value for "
+            "rips (cyanrip's -s). Set it once per drive via Re-detect…."
         )
         self._detect_offset_button: QPushButton = QPushButton("Re-detect…", self)
         self._detect_offset_button.setToolTip(
-            "Run the drive setup wizard to auto-detect the read offset "
-            "and cache behaviour, and save them to whipper.conf."
+            "Run the drive setup wizard to auto-detect the read offset and "
+            "save it to Platterpus's settings."
         )
         self._detect_offset_button.clicked.connect(self.detect_offset_requested)
         offset_row = QHBoxLayout()
@@ -132,67 +129,40 @@ class SettingsDialog(QDialog):
         form.addRow("Read offset (samples):", offset_row)
 
         self._override_offset_check: QCheckBox = QCheckBox(
-            "Override whipper.conf with the offset above", self
+            "Apply this read offset to rips", self
         )
         self._override_offset_check.setChecked(config.override_read_offset)
         self._override_offset_check.setToolTip(
-            "When on, each rip is run with --offset <the value above>, "
-            "overriding whatever the drive setup wizard wrote to whipper.conf."
+            "When on, each rip uses the offset above (cyanrip's -s). Leave it on "
+            "once you've set your drive's offset — cyanrip needs it every rip to "
+            "stay bit-perfect."
         )
         form.addRow("", self._override_offset_check)
 
-        # Show the offset whipper will ACTUALLY apply, read live from
-        # whipper.conf — not the GUI's stored copy above. These can drift (the
-        # wizard or a hand-edit writes whipper.conf; the spinbox is our cache),
-        # and a wrong offset silently corrupts every rip, so surfacing the
-        # authoritative value is a real trust check. Reading this tiny file on
-        # the GUI thread is fine (it's bytes, not a subprocess/network call).
+        # Show any read offset found in a legacy whipper.conf, as a trust check
+        # against the value above. A pre-Platterpus or hand-edited whipper.conf
+        # may still hold a per-drive offset; cyanrip doesn't read it (it uses the
+        # value above), but surfacing it lets the user spot a mismatch. Reading
+        # this tiny file on the GUI thread is fine (bytes, not a subprocess).
         self._live_offset_label: QLabel = QLabel(
-            f"whipper.conf read offset: {offset_config.describe_conf_offsets()}",
+            f"Legacy whipper.conf read offset: {offset_config.describe_conf_offsets()}",
             self,
         )
         self._live_offset_label.setWordWrap(True)
         self._live_offset_label.setToolTip(
-            "What whipper will use when Override is off (it's authoritative "
-            "then). With Override on, the value above is used instead. "
-            "'none set' means whipper will refuse to rip until you run "
-            "Re-detect…."
+            "A read offset found in an old whipper.conf, shown for reference. "
+            "cyanrip uses the value above, not this file. 'none set' is normal."
         )
         form.addRow("", self._live_offset_label)
 
         # --- Tool paths ---
-        self._whipper_path_edit, whipper_row = self._build_file_row(config.whipper_path)
-        self._whipper_path_row: QWidget = whipper_row
-        form.addRow("whipper path:", whipper_row)
-
         self._metaflac_path_edit, metaflac_row = self._build_file_row(
             config.metaflac_path
         )
         form.addRow("metaflac path:", metaflac_row)
 
-        # --- Ripping backend (KDD-18) ---
-        # Store the raw backend id as item data ("whipper" | "cyanrip").
-        self._backend_combo: QComboBox = QComboBox(self)
-        for label, value in (
-            ("cyanrip (default, recommended)", "cyanrip"),
-            ("whipper", "whipper"),
-        ):
-            self._backend_combo.addItem(label, value)
-        backend_index = self._backend_combo.findData(config.ripper_backend)
-        self._backend_combo.setCurrentIndex(backend_index if backend_index >= 0 else 0)
-        self._backend_combo.setToolTip(
-            "Which ripping tool to drive. cyanrip is the recommended default: it "
-            "applies the read offset with its own paranoia, avoiding whipper's "
-            "known bug at offsets over 587 (e.g. the Pioneer BDR-209D's +667), it "
-            "maxes FLAC compression, and it offers 'Re-rip until reads match'. "
-            "whipper is kept for its niche EAC-parity options (cdrdao gap "
-            "detection, keep-going, CD-R safety). Both are installed by the setup "
-            "wizard (Tools → Set up Platterpus…) — restart the app after switching."
-        )
-        form.addRow("Ripping backend:", self._backend_combo)
-
         # --- Output format ---
-        # Both backends rip to FLAC (the lossless master); a non-FLAC choice is
+        # Every rip produces FLAC (the lossless master); a non-FLAC choice is
         # derived afterwards by a post-rip ffmpeg transcode, with the FLAC kept.
         # Item data is the raw config value.
         self._format_combo: QComboBox = QComboBox(self)
@@ -261,22 +231,9 @@ class SettingsDialog(QDialog):
         )
         form.addRow("Logging:", self._debug_logging_check)
 
-        # Continue on CD-R. Whipper refuses burned discs by default; this
-        # opts into ripping them anyway (passes whipper's --cdr flag).
-        self._continue_on_cdr_check: QCheckBox = QCheckBox(
-            "Allow ripping burned CD-R discs", self
-        )
-        self._continue_on_cdr_check.setChecked(config.continue_on_cdr)
-        self._continue_on_cdr_check.setToolTip(
-            "Whipper refuses to rip a burned CD-R unless this is enabled "
-            "(it passes whipper's --cdr flag). Leave off for pressed "
-            "commercial discs; turn on to archive a home-burned disc."
-        )
-        form.addRow("CD-R discs:", self._continue_on_cdr_check)
-
         # --- EAC bit-perfect parity gaps (KDD-13) ---
-        # Cover art: maps to whipper's -C/--cover-art {file,embed,complete}.
-        # We store the raw whipper value as item data; "" = don't fetch.
+        # Cover art: "" = don't fetch. With cyanrip the GUI fetches the front
+        # cover from the Cover Art Archive after the rip and embeds it.
         self._cover_art_combo: QComboBox = QComboBox(self)
         for label, value in (
             ("Don't fetch", ""),
@@ -289,48 +246,23 @@ class SettingsDialog(QDialog):
         self._cover_art_combo.setCurrentIndex(cover_index if cover_index >= 0 else 0)
         self._cover_art_combo.setToolTip(
             "Fetch album cover art and embed it in the FLACs and/or save it "
-            "as a file. With the whipper backend whipper fetches it itself "
-            "(--cover-art); with cyanrip (and after a no-network re-rip) "
-            "this app fetches it from the Cover Art Archive once the rip "
-            "finishes. EAC embeds by default."
+            "as a file. The app fetches the front cover from the Cover Art "
+            "Archive once the rip finishes. EAC embeds by default."
         )
         form.addRow("Cover art:", self._cover_art_combo)
-
-        self._force_overread_check: QCheckBox = QCheckBox(
-            "Read past the last track to catch any final samples (overread)", self
-        )
-        self._force_overread_check.setChecked(config.force_overread)
-        self._force_overread_check.setToolTip(
-            "Read into the disc's lead-out to capture the final samples "
-            "(whipper's --force-overread). Off matches EAC's recommendation; "
-            "few drives support it and it can slow the last track."
-        )
-        form.addRow("Disc lead-out:", self._force_overread_check)
 
         self._max_retries_spin: QSpinBox = QSpinBox(self)
         self._max_retries_spin.setRange(0, 100)
         self._max_retries_spin.setValue(config.max_retries)
         self._max_retries_spin.setToolTip(
-            "How many times whipper retries a troublesome track before "
-            "giving up (whipper's --max-retries). 5 is the default."
+            "How many times the ripper retries a troublesome track before "
+            "giving up (cyanrip's -r). 5 is the default."
         )
         form.addRow("Max retries:", self._max_retries_spin)
 
-        self._keep_going_check: QCheckBox = QCheckBox(
-            "Keep ripping if a track fails", self
-        )
-        self._keep_going_check.setChecked(config.keep_going)
-        self._keep_going_check.setToolTip(
-            "Continue with the remaining tracks instead of aborting the whole "
-            "rip when one track can't be read (whipper's --keep-going). Off "
-            "by default so a failure is surfaced, not silently skipped."
-        )
-        form.addRow("On track failure:", self._keep_going_check)
-
         # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
         # Re-rip each track until N reads' checksums agree, so a damaged disc's
-        # near-miss read converges to the bit-perfect result. cyanrip-only
-        # (whipper has no equivalent) — greyed out below for whipper. 0 = off.
+        # near-miss read converges to the bit-perfect result. 0 = off.
         self._secure_rerip_spin: QSpinBox = QSpinBox(self)
         self._secure_rerip_spin.setRange(0, 10)
         self._secure_rerip_spin.setValue(config.secure_rerip_matches)
@@ -365,7 +297,7 @@ class SettingsDialog(QDialog):
 
         # --- FLAC encode-verify ---
         # Post-rip `flac --test` of each output FLAC (decode + MD5 check). On by
-        # default. Greyed out for whipper, which already verifies during the rip.
+        # default — cyanrip (FFmpeg) doesn't self-verify, so this is a real check.
         self._verify_flac_check: QCheckBox = QCheckBox(
             "Verify FLAC files after a rip", self
         )
@@ -379,90 +311,24 @@ class SettingsDialog(QDialog):
         form.addRow("Verify FLACs:", self._verify_flac_check)
 
         # --- FLAC re-compress ---
-        # Post-rip `flac -8` re-encode of each output FLAC to shrink it. Opt-in,
-        # OFF by default. Greyed out for cyanrip, which already maxes compression.
+        # Post-rip `flac -8` re-encode to shrink the output. cyanrip (the sole
+        # backend) already encodes FLAC at maximum compression, so there's
+        # nothing to gain — the post-rip step skips it for cyanrip. The toggle
+        # is shown disabled (value kept) with a tooltip saying why, rather than
+        # hidden, so the option's existence and rationale stay discoverable.
         self._recompress_flac_check: QCheckBox = QCheckBox(
             "Re-compress FLAC files after a rip (smaller files)", self
         )
         self._recompress_flac_check.setChecked(config.recompress_flac_after_rip)
+        self._recompress_flac_check.setEnabled(False)
         self._recompress_flac_check.setToolTip(
-            "After a successful rip, re-encode each FLAC at maximum effort "
-            "(`flac -8 -e -p`) to shrink it as far as flac can. Lossless and "
-            "verified — the audio stays bit-identical and the tags and cover art "
-            "are preserved. Needs `flac`; runs in the background (the exhaustive "
-            "encode is slow, but that's encode time only). Off by default: the "
-            "smaller file uses a higher prediction order, so it costs a little "
-            "more CPU/battery to DECODE on playback — negligible on a phone or PC "
-            "today, but if you play on low-power portable players, leaving this "
-            "off (whipper's default level) is the lighter choice."
+            "Read-only: cyanrip already encodes FLAC at maximum compression, so "
+            "re-compressing would only burn CPU for no size gain. Your value is "
+            "kept either way."
         )
         form.addRow("Re-compress FLACs:", self._recompress_flac_check)
 
         root.addLayout(form)
-
-        # --- Backend capability gating (one UI for both backends) ---
-        # The dialog shows the SAME options whichever backend is selected;
-        # options a backend doesn't support are greyed out (values kept,
-        # never cleared) with a tooltip saying why and how to re-enable.
-        # The frontend's job is to hide backend differences, not mirror them.
-        self._whipper_only: list[tuple[QWidget, str, str]] = [
-            (
-                widget,
-                widget.toolTip(),
-                reason,
-            )
-            for widget, reason in (
-                (
-                    self._continue_on_cdr_check,
-                    "cyanrip rips burned CD-Rs without needing a switch, so "
-                    "there is nothing to configure.",
-                ),
-                # Cover art is deliberately NOT in this list (2026-06-13):
-                # it's backend-independent now — with cyanrip the GUI
-                # fetches the front cover from the Cover Art Archive itself
-                # after the rip, so the setting stays editable everywhere.
-                (
-                    self._force_overread_check,
-                    "Overread control isn't wired to the cyanrip backend yet.",
-                ),
-                (
-                    self._keep_going_check,
-                    "cyanrip always continues past an unreadable track, so "
-                    "this is effectively always on.",
-                ),
-                (
-                    self._whipper_path_row,
-                    "Only the whipper backend uses this path. cyanrip is "
-                    "found automatically (~/.local/bin/cyanrip, installed by "
-                    "Tools → Set up Platterpus…).",
-                ),
-                (
-                    self._recompress_flac_check,
-                    "cyanrip already encodes FLAC at maximum compression, so "
-                    "there is nothing to re-compress.",
-                ),
-            )
-        ]
-        # The inverse: options that only make sense for cyanrip, greyed out for
-        # whipper (kept editable, value preserved — same contract as above).
-        self._cyanrip_only: list[tuple[QWidget, str, str]] = [
-            (
-                self._verify_flac_check,
-                self._verify_flac_check.toolTip(),
-                "whipper already verifies every file during the rip "
-                "(`flac --verify`), so a separate post-rip check is redundant.",
-            ),
-            (
-                self._secure_rerip_spin,
-                self._secure_rerip_spin.toolTip(),
-                "Re-rip-until-reads-match is a cyanrip feature (-Z); whipper "
-                "has no equivalent flag.",
-            ),
-        ]
-        self._backend_combo.currentIndexChanged.connect(
-            self._apply_backend_capabilities
-        )
-        self._apply_backend_capabilities()
 
         # --- Goal preset wiring (after all dependent widgets exist) ---
         self._wire_goal_presets()
@@ -500,23 +366,18 @@ class SettingsDialog(QDialog):
             disc_template=self._disc_template_edit.text(),
             track_template_unknown=self._track_template_unknown_edit.text(),
             disc_template_unknown=self._disc_template_unknown_edit.text(),
-            whipper_path=self._whipper_path_edit.text(),
             metaflac_path=self._metaflac_path_edit.text(),
             read_offset=self._read_offset_spin.value(),
             override_read_offset=self._override_offset_check.isChecked(),
             auto_launch_picard=self._auto_picard_check.isChecked(),
             auto_eject_after_rip=self._auto_eject_check.isChecked(),
             debug_logging=self._debug_logging_check.isChecked(),
-            continue_on_cdr=self._continue_on_cdr_check.isChecked(),
             cover_art=self._cover_art_combo.currentData(),
-            force_overread=self._force_overread_check.isChecked(),
             max_retries=self._max_retries_spin.value(),
-            keep_going=self._keep_going_check.isChecked(),
             secure_rerip_matches=self._secure_rerip_spin.value(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),
             verify_flac_after_rip=self._verify_flac_check.isChecked(),
             recompress_flac_after_rip=self._recompress_flac_check.isChecked(),
-            ripper_backend=self._backend_combo.currentData(),
             output_format=self._format_combo.currentData(),
             rip_goal=self._goal_combo.currentData(),
             # MP3 quality isn't exposed yet (fixed at the best-practice -V0);
@@ -592,41 +453,6 @@ class SettingsDialog(QDialog):
         custom_index = self._goal_combo.findData(goal_presets.GOAL_CUSTOM)
         if custom_index >= 0 and self._goal_combo.currentIndex() != custom_index:
             self._goal_combo.setCurrentIndex(custom_index)
-
-    def _apply_backend_capabilities(self) -> None:
-        """Enable/disable per-backend options to match the selected backend.
-
-        Disabled widgets keep their values (to_config still reads them, so
-        switching backends never loses settings); the tooltip gains a
-        "Read-only:" paragraph explaining why and how to make it editable
-        again. Runs at construction and on every backend-combo change so
-        the dialog reacts live, before OK is even pressed.
-        """
-        on_whipper = self._backend_combo.currentData() == "whipper"
-        for widget, base_tooltip, reason in self._whipper_only:
-            widget.setEnabled(on_whipper)
-            if on_whipper:
-                widget.setToolTip(base_tooltip)
-            else:
-                prefix = f"{base_tooltip}\n\n" if base_tooltip else ""
-                widget.setToolTip(
-                    f"{prefix}Read-only: {reason}\n"
-                    "Switch “Ripping backend” to whipper to edit this. "
-                    "Your value is kept either way."
-                )
-        # cyanrip-only options: the mirror image — editable on cyanrip, greyed
-        # (value kept) on whipper.
-        for widget, base_tooltip, reason in self._cyanrip_only:
-            widget.setEnabled(not on_whipper)
-            if not on_whipper:
-                widget.setToolTip(base_tooltip)
-            else:
-                prefix = f"{base_tooltip}\n\n" if base_tooltip else ""
-                widget.setToolTip(
-                    f"{prefix}Read-only: {reason}\n"
-                    "Switch “Ripping backend” to cyanrip to edit this. "
-                    "Your value is kept either way."
-                )
 
     def _build_dir_row(self, initial_path: str) -> tuple[QLineEdit, QWidget]:
         """Build a row: QLineEdit + 'Browse…' button (for directories)."""

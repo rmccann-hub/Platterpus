@@ -11,18 +11,12 @@ from platterpus import composition
 from platterpus.config import Config
 
 
-def test_build_backend_defaults_to_cyanrip() -> None:
-    # cyanrip is the default backend (KDD-18 — better in essentially every
+def test_build_backend_is_cyanrip() -> None:
+    # cyanrip is the sole backend (KDD-18 — better in essentially every
     # situation: active, no >587 offset bug, max compression, -Z convergence).
     backend, name = composition.build_backend(Config())
     assert name == "cyanrip"
     assert backend.__class__.__name__ == "CyanripImpl"
-
-
-def test_build_backend_selects_whipper() -> None:
-    backend, name = composition.build_backend(Config(ripper_backend="whipper"))
-    assert name == "whipper"
-    assert backend.__class__.__name__ == "WhipperHostExportedImpl"
 
 
 def test_build_backend_passes_working_dir(tmp_path) -> None:

@@ -18,12 +18,12 @@ import pytest
 from platterpus.deps import checks
 from platterpus.deps.checks import (
     ProbeResult,
+    check_cyanrip,
     check_ffmpeg,
     check_flac,
     check_metaflac,
     check_picard_flatpak,
     check_python_pkg,
-    check_whipper,
 )
 
 
@@ -32,45 +32,45 @@ def _fake_run(stdout: str = "", stderr: str = "", returncode: int = 0) -> Any:
     return SimpleNamespace(stdout=stdout, stderr=stderr, returncode=returncode)
 
 
-# --- check_whipper ---
+# --- check_cyanrip ---
 
 
-def test_check_whipper_missing_when_binary_absent(tmp_path: Path) -> None:
-    probe = check_whipper(tmp_path / "does-not-exist")
+def test_check_cyanrip_missing_when_binary_absent(tmp_path: Path) -> None:
+    probe = check_cyanrip(tmp_path / "does-not-exist")
     assert probe.present is False
     assert probe.version is None
 
 
-def test_check_whipper_parses_version(
+def test_check_cyanrip_parses_version(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    binary = tmp_path / "whipper"
-    binary.write_text("#!/bin/sh\necho 'whipper 0.10.0'\n")
+    binary = tmp_path / "cyanrip"
+    binary.write_text("#!/bin/sh\necho 'cyanrip 0.9.3'\n")
     binary.chmod(0o755)
 
     monkeypatch.setattr(
         checks.subprocess,
         "run",
-        lambda *a, **kw: _fake_run(stdout="whipper 0.10.0\n"),
+        lambda *a, **kw: _fake_run(stdout="cyanrip 0.9.3\n"),
     )
 
-    probe = check_whipper(binary)
+    probe = check_cyanrip(binary)
     assert probe.present is True
-    assert probe.version == (0, 10, 0)
+    assert probe.version == (0, 9, 3)
     assert probe.location == str(binary)
 
 
-def test_check_whipper_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    binary = tmp_path / "whipper"
+def test_check_cyanrip_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    binary = tmp_path / "cyanrip"
     binary.write_text("#!/bin/sh\nsleep 60\n")
     binary.chmod(0o755)
 
     def boom(*a: Any, **kw: Any) -> Any:
-        raise subprocess.TimeoutExpired(cmd="whipper", timeout=10)
+        raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=10)
 
     monkeypatch.setattr(checks.subprocess, "run", boom)
 
-    probe = check_whipper(binary)
+    probe = check_cyanrip(binary)
     assert probe.present is False
     assert probe.version is None
 

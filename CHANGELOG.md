@@ -11,6 +11,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Removed
+- **whipper is gone — cyanrip is the sole ripping backend.** After confirming
+  cyanrip needs nothing structural for EAC parity (it already hits AccurateRip
+  confidence 200 / bit-perfect on real hardware) and that whipper had no
+  functional advantage — only the drive-dependent >587 read-offset *bug* that
+  always favoured cyanrip — the whipper backend, its Settings dropdown, its
+  whipper-only options (CD-R allow, force-overread, keep-going, the whipper-path
+  field), and its container install/export were all removed. The setup wizard
+  now installs cyanrip + flac + metaflac only. The drive-setup wizard saves the
+  detected read offset to Platterpus's own settings (cyanrip is fed it as `-s`;
+  it reads no config file of its own). A legacy `whipper.conf` offset is still
+  shown for reference. The backend interface (`RipBackend` ABC) stays so another
+  engine could be slotted in later.
+
 ### Added
 - **One dependency dialog instead of several.** A fresh install used to pop a
   separate dialog for each missing piece (whipper *and* metaflac each opened
@@ -36,14 +50,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rename. It's now "Set up Platterpus…".
 
 ### Changed
-- **cyanrip is now the default ripping backend.** It's the better tool in
-  essentially every situation: actively maintained, no read-offset bug above
-  587 samples (whipper fails tracks there — e.g. the Pioneer BDR-209D's +667),
-  maximum FLAC compression, and it's the backend behind "Re-rip until reads
-  match." whipper stays selectable for its niche EAC-parity options (cdrdao gap
-  detection, keep-going, CD-R safety). The one drive-dependent factor (the
-  offset bug) only ever favours cyanrip — there's no drive on which whipper rips
-  better, so the default is universal rather than chosen per drive.
 - **The main window's panels are now resizable.** The disc-info panel, track
   list, and the controls + progress/log block sit in a vertical splitter — drag
   the dividers to give more room to the track list or the log, in both normal

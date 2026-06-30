@@ -10,10 +10,10 @@ from typing import Any
 
 from PySide6.QtWidgets import QApplication
 
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     RipBackend,
+    RipError,
     RipHandle,
-    WhipperError,
 )
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.workers.drive_list_worker import DriveListWorker
@@ -61,7 +61,7 @@ def test_worker_emits_the_drive_list(qapp: QApplication) -> None:
 
 
 def test_worker_routes_whipper_error_to_failed(qapp: QApplication) -> None:
-    worker = DriveListWorker(_Backend(exc=WhipperError("no whipper")))
+    worker = DriveListWorker(_Backend(exc=RipError("no whipper")))
     failed: list[str] = []
     worker.failed.connect(failed.append)
 

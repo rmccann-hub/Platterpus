@@ -4,7 +4,7 @@ Both are thin read-only viewers built on `QTextBrowser` so links are clickable
 and the (Markdown) content renders nicely. They construct off whatever is
 available without doing any I/O that could block the UI — the About box reports
 *configured* paths and interpreter/Qt versions, and deliberately does NOT shell
-out to whipper (which would mean entering the container and could stall).
+out to the ripper (which would mean entering the container and could stall).
 """
 
 from __future__ import annotations
@@ -25,9 +25,8 @@ from PySide6.QtWidgets import (
 from platterpus import __version__, help_content
 from platterpus.paths import (
     CONFIG_PATH,
+    CYANRIP_BINARY_DEFAULT,
     LOG_PATH,
-    WHIPPER_BINARY_DEFAULT,
-    WHIPPER_CONFIG_PATH,
 )
 
 
@@ -44,7 +43,6 @@ class AboutDialog(QDialog):
 
     def __init__(
         self,
-        whipper_path: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -52,7 +50,7 @@ class AboutDialog(QDialog):
         self.resize(560, 460)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(_markdown_viewer(self, self._build_markdown(whipper_path)))
+        layout.addWidget(_markdown_viewer(self, self._build_markdown()))
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.reject)
@@ -60,8 +58,7 @@ class AboutDialog(QDialog):
         layout.addWidget(buttons)
 
     @staticmethod
-    def _build_markdown(whipper_path: str | None) -> str:
-        whipper = whipper_path or str(WHIPPER_BINARY_DEFAULT)
+    def _build_markdown() -> str:
         py = "{}.{}.{}".format(*sys.version_info[:3])
         return (
             f"# Platterpus\n\n"
@@ -75,8 +72,7 @@ class AboutDialog(QDialog):
             f"### Paths\n"
             f"- Config: `{CONFIG_PATH}`\n"
             f"- Log: `{LOG_PATH}`\n"
-            f"- whipper binary: `{whipper}`\n"
-            f"- whipper.conf: `{WHIPPER_CONFIG_PATH}`\n\n"
+            f"- cyanrip binary: `{CYANRIP_BINARY_DEFAULT}`\n\n"
             f"### Project\n"
             f"- [Source & releases]({help_content.REPO_URL})\n"
             f"- [Report an issue]({help_content.ISSUES_URL})\n"

@@ -27,11 +27,9 @@ def test_initial_widget_state_matches_input_config(
         disc_template="d/%d",
         track_template_unknown="unk-t",
         disc_template_unknown="unk-d",
-        whipper_path="/x/whipper",
         metaflac_path="/x/metaflac",
         read_offset=42,
         auto_launch_picard=True,
-        continue_on_cdr=True,
     )
 
     dialog = SettingsDialog(config)
@@ -42,11 +40,9 @@ def test_initial_widget_state_matches_input_config(
     assert dialog._disc_template_edit.text() == "d/%d"
     assert dialog._track_template_unknown_edit.text() == "unk-t"
     assert dialog._disc_template_unknown_edit.text() == "unk-d"
-    assert dialog._whipper_path_edit.text() == "/x/whipper"
     assert dialog._metaflac_path_edit.text() == "/x/metaflac"
     assert dialog._read_offset_spin.value() == 42
     assert dialog._auto_picard_check.isChecked() is True
-    assert dialog._continue_on_cdr_check.isChecked() is True
 
 
 def test_read_offset_range_bounds(qapp: QApplication) -> None:
@@ -79,11 +75,9 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     dialog._disc_template_edit.setText("changed-disc")
     dialog._track_template_unknown_edit.setText("changed-unk-track")
     dialog._disc_template_unknown_edit.setText("changed-unk-disc")
-    dialog._whipper_path_edit.setText("/changed/whipper")
     dialog._metaflac_path_edit.setText("/changed/metaflac")
     dialog._read_offset_spin.setValue(-42)
     dialog._auto_picard_check.setChecked(True)
-    dialog._continue_on_cdr_check.setChecked(True)
 
     out = dialog.to_config()
 
@@ -93,11 +87,9 @@ def test_to_config_reflects_user_edits(qapp: QApplication) -> None:
     assert out.disc_template == "changed-disc"
     assert out.track_template_unknown == "changed-unk-track"
     assert out.disc_template_unknown == "changed-unk-disc"
-    assert out.whipper_path == "/changed/whipper"
     assert out.metaflac_path == "/changed/metaflac"
     assert out.read_offset == -42
     assert out.auto_launch_picard is True
-    assert out.continue_on_cdr is True
 
 
 def test_auto_eject_reflects_config_and_round_trips(qapp: QApplication) -> None:
@@ -136,15 +128,10 @@ def test_verify_flac_reflects_config_and_round_trips(qapp: QApplication) -> None
     assert dialog2.to_config().verify_flac_after_rip is True
 
 
-def test_verify_flac_greyed_for_whipper_editable_for_cyanrip(
-    qapp: QApplication,
-) -> None:
-    # whipper self-verifies, so the toggle is read-only (value kept)…
-    dialog = SettingsDialog(Config(ripper_backend="whipper"))
-    assert dialog._verify_flac_check.isEnabled() is False
-    # …and editable on cyanrip, which doesn't self-verify.
-    dialog2 = SettingsDialog(Config(ripper_backend="cyanrip"))
-    assert dialog2._verify_flac_check.isEnabled() is True
+def test_verify_flac_editable(qapp: QApplication) -> None:
+    # cyanrip (the sole backend) doesn't self-verify, so the toggle is editable.
+    dialog = SettingsDialog(Config())
+    assert dialog._verify_flac_check.isEnabled() is True
 
 
 def test_recompress_flac_reflects_config_and_round_trips(qapp: QApplication) -> None:
@@ -159,16 +146,11 @@ def test_recompress_flac_reflects_config_and_round_trips(qapp: QApplication) -> 
     assert dialog2.to_config().recompress_flac_after_rip is False
 
 
-def test_recompress_flac_greyed_for_cyanrip_editable_for_whipper(
-    qapp: QApplication,
-) -> None:
-    # cyanrip already maxes compression, so the toggle is read-only (value
-    # kept)…
-    dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
+def test_recompress_flac_greyed_under_cyanrip(qapp: QApplication) -> None:
+    # cyanrip (the sole backend) already maxes compression, so the toggle is
+    # permanently read-only (its value is still kept).
+    dialog = SettingsDialog(Config())
     assert dialog._recompress_flac_check.isEnabled() is False
-    # …and editable on whipper, which encodes at the default `-5`.
-    dialog2 = SettingsDialog(Config(ripper_backend="whipper"))
-    assert dialog2._recompress_flac_check.isEnabled() is True
 
 
 def test_secure_rerip_reflects_config_and_round_trips(qapp: QApplication) -> None:
@@ -183,16 +165,10 @@ def test_secure_rerip_reflects_config_and_round_trips(qapp: QApplication) -> Non
     assert dialog2.to_config().secure_rerip_matches == 3
 
 
-def test_secure_rerip_greyed_for_whipper_editable_for_cyanrip(
-    qapp: QApplication,
-) -> None:
-    # -Z is a cyanrip-only feature; whipper has no equivalent → read-only
-    # (value kept)…
-    dialog = SettingsDialog(Config(ripper_backend="whipper"))
-    assert dialog._secure_rerip_spin.isEnabled() is False
-    # …and editable on cyanrip.
-    dialog2 = SettingsDialog(Config(ripper_backend="cyanrip"))
-    assert dialog2._secure_rerip_spin.isEnabled() is True
+def test_secure_rerip_editable(qapp: QApplication) -> None:
+    # -Z is cyanrip's (the sole backend) feature → editable.
+    dialog = SettingsDialog(Config())
+    assert dialog._secure_rerip_spin.isEnabled() is True
 
 
 def test_goal_combo_reflects_the_incoming_config(qapp: QApplication) -> None:
@@ -234,15 +210,6 @@ def test_to_config_preserves_schema_version(qapp: QApplication) -> None:
     config = Config(schema_version=99)
     dialog = SettingsDialog(config)
     assert dialog.to_config().schema_version == 99
-
-
-def test_backend_combo_reflects_config_and_round_trips(qapp: QApplication) -> None:
-    # Default is cyanrip (the better backend — KDD-18).
-    assert SettingsDialog(Config()).to_config().ripper_backend == "cyanrip"
-    # An existing whipper config is shown and survives to_config().
-    dialog = SettingsDialog(Config(ripper_backend="whipper"))
-    assert dialog._backend_combo.currentData() == "whipper"
-    assert dialog.to_config().ripper_backend == "whipper"
 
 
 # --- Output format -------------------------------------------------------
@@ -387,15 +354,11 @@ def test_override_offset_round_trips(qapp: QApplication) -> None:
 def test_parity_gap_widgets_reflect_config(qapp: QApplication) -> None:
     config = Config(
         cover_art="complete",
-        force_overread=True,
         max_retries=9,
-        keep_going=True,
     )
     dialog = SettingsDialog(config)
     assert dialog._cover_art_combo.currentData() == "complete"
-    assert dialog._force_overread_check.isChecked() is True
     assert dialog._max_retries_spin.value() == 9
-    assert dialog._keep_going_check.isChecked() is True
 
 
 def test_parity_gap_widgets_round_trip_through_to_config(
@@ -403,16 +366,12 @@ def test_parity_gap_widgets_round_trip_through_to_config(
 ) -> None:
     dialog = SettingsDialog(Config())
     dialog._cover_art_combo.setCurrentIndex(dialog._cover_art_combo.findData("file"))
-    dialog._force_overread_check.setChecked(True)
     dialog._max_retries_spin.setValue(3)
-    dialog._keep_going_check.setChecked(True)
 
     out = dialog.to_config()
 
     assert out.cover_art == "file"
-    assert out.force_overread is True
     assert out.max_retries == 3
-    assert out.keep_going is True
 
 
 def test_cover_art_blank_option_maps_to_empty_string(
@@ -423,65 +382,10 @@ def test_cover_art_blank_option_maps_to_empty_string(
     assert dialog.to_config().cover_art == ""
 
 
-# --- Backend capability gating (unified UI across backends) ---------------
-
-
-def _whipper_only_widgets(dialog: SettingsDialog) -> list:
-    return [w for w, _tip, _reason in dialog._whipper_only]
-
-
-def test_whipper_only_options_disabled_under_cyanrip(qapp: QApplication) -> None:
-    """One unified Settings page: options the selected backend doesn't
-    support are read-only, with a tooltip saying why + how to re-enable."""
-    dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
-    for widget in _whipper_only_widgets(dialog):
-        assert widget.isEnabled() is False
-        assert "Read-only:" in widget.toolTip()
-        assert "whipper" in widget.toolTip()  # says what re-enables it
-
-
-def test_whipper_only_options_enabled_under_whipper(qapp: QApplication) -> None:
-    dialog = SettingsDialog(Config(ripper_backend="whipper"))
-    for widget in _whipper_only_widgets(dialog):
-        assert widget.isEnabled() is True
-        assert "Read-only:" not in widget.toolTip()
-
-
-def test_backend_switch_updates_gating_live(qapp: QApplication) -> None:
-    """Changing the backend combo re-gates immediately (before OK)."""
+def test_cover_art_editable(qapp: QApplication) -> None:
+    """Cover art is backend-independent (the GUI fetches it from the Cover Art
+    Archive after the rip) — always editable."""
     dialog = SettingsDialog(Config())
-    combo = dialog._backend_combo
-    combo.setCurrentIndex(combo.findData("cyanrip"))
-    assert dialog._continue_on_cdr_check.isEnabled() is False
-    combo.setCurrentIndex(combo.findData("whipper"))
-    assert dialog._continue_on_cdr_check.isEnabled() is True
-    # The original tooltip is restored, not stacked.
-    assert "Read-only:" not in dialog._continue_on_cdr_check.toolTip()
-
-
-def test_disabled_options_keep_their_values_in_to_config(
-    qapp: QApplication,
-) -> None:
-    """Gated ≠ lost: switching to cyanrip must not clear whipper-only
-    settings — they ride along and come back when the user switches back."""
-    dialog = SettingsDialog(
-        Config(continue_on_cdr=True, keep_going=True, cover_art="complete")
-    )
-    combo = dialog._backend_combo
-    combo.setCurrentIndex(combo.findData("cyanrip"))
-
-    out = dialog.to_config()
-
-    assert out.ripper_backend == "cyanrip"
-    assert out.continue_on_cdr is True
-    assert out.keep_going is True
-    assert out.cover_art == "complete"
-
-
-def test_cover_art_stays_editable_under_cyanrip(qapp: QApplication) -> None:
-    """Cover art is backend-independent now (the GUI fetches it from the
-    Cover Art Archive when the ripper doesn't) — never greyed out."""
-    dialog = SettingsDialog(Config(ripper_backend="cyanrip"))
     assert dialog._cover_art_combo.isEnabled() is True
     assert "Read-only:" not in dialog._cover_art_combo.toolTip()
 

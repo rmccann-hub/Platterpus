@@ -1,20 +1,18 @@
-"""cyanrip backend — a second ripping backend behind the RipBackend ABC.
+"""cyanrip backend — the ripping engine behind the RipBackend ABC.
 
-Why (KDD-18, docs/archive/ecosystem-audit-2026-06.md): whipper is stalled (last release
-2021) and its cd-paranoia has a real bug at read offsets > 587 — exactly the
-range the tested Pioneer BDR-209D needs (+667), which fails tracks on hardware.
-**cyanrip** is actively maintained (C/FFmpeg), applies the offset itself via
-``-s`` with its own paranoia (no >587 bug), and does AccurateRip v1/v2 + EAC
-CRC. We slot it behind the existing ABC so it's a config-selectable backend and
-ripping still routes through a host-exported binary (Critical Rule #3).
+Why (KDD-18, docs/ripper-engine-strategy.md): cyanrip is the sole backend
+because it's better in essentially every situation. It's actively maintained
+(C/FFmpeg), applies the read offset itself via ``-s`` with its own paranoia (so
+it has *no* >587 cd-paranoia bug — exactly the range the tested Pioneer
+BDR-209D needs at +667, which the old whipper backend failed on hardware), maxes
+FLAC compression, offers ``-Z`` re-rip-until-match, and does AccurateRip v1/v2 +
+EAC CRC. It sits behind the RipBackend ABC and ripping routes through a
+host-exported binary (Critical Rule #3).
 
 **Implemented:** the rip argv builder, version, find-offset, a backend-
 independent drive scan, and `disc_info` via ``-I -N`` (parsed by
 `parsers/cyanrip_info.py` — the DiscID/CDDB ID are computed locally from the
-TOC, so identification needs no network). Still tracked in the ecosystem
-audit: whipper-only rip params (release_id, track/disc templates, cdr,
-keep_going, force_overread) don't map 1:1 to cyanrip and are documented, not
-forced.
+TOC, so identification needs no network).
 
 cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
@@ -31,11 +29,11 @@ import re
 import subprocess
 from pathlib import Path
 
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     RipBackend,
+    RipError,
     RipHandle,
     RipMetadata,
-    WhipperError,
     run_capture,
 )
 from platterpus.parsers.cd_info import DiscInfo
@@ -179,21 +177,17 @@ class CyanripImpl(RipBackend):
         track_template: str,
         disc_template: str,
         unknown: bool = False,
-        cdr: bool = False,
         cover_art: str = "",
-        force_overread: bool = False,
         max_retries: int = 5,
-        keep_going: bool = False,
         secure_rerip_matches: int = 0,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
     ) -> RipHandle:
         # disc_template is unused: cyanrip puts the log/cue in the -D folder
         # already (derived from track_template, which carries the same
-        # directory part). cdr / keep_going / force_overread are whipper-isms
-        # with no 1:1 cyanrip flag — cyanrip rips CD-Rs without a flag and
-        # continues past bad tracks by design.
-        del disc_template, cdr, force_overread, keep_going
+        # directory part). cyanrip rips CD-Rs without a flag and continues past
+        # bad tracks by design.
+        del disc_template
         argv = self._build_rip_argv(
             drive,
             unknown=unknown,
@@ -249,7 +243,7 @@ class CyanripImpl(RipBackend):
         match = re.search(r"offset[^\-0-9]*(?P<offset>-?\d+)", out, re.IGNORECASE)
         if match:
             return int(match.group("offset"))
-        raise WhipperError(
+        raise RipError(
             "cyanrip could not detect the read offset. Insert a CD that's in "
             "the AccurateRip database and try again.",
             output=out,

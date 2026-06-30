@@ -21,7 +21,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.adapters.whipper_backend import RipBackend, WhipperError
+from platterpus.adapters.rip_backend import RipBackend, RipError
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class DriveListWorker(QObject):
     def run(self) -> None:
         try:
             drives = self._backend.list_drives()
-        except WhipperError as exc:
+        except RipError as exc:
             log.warning("list_drives failed: %s", exc)
             self.failed.emit(str(exc))
             return

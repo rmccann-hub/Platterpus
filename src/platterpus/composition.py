@@ -28,14 +28,12 @@ import logging
 from pathlib import Path
 
 from platterpus import __version__
+from platterpus.adapters.cyanrip_backend import CyanripImpl
 from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
     MusicBrainzNgsImpl,
 )
-from platterpus.adapters.whipper_backend import (
-    RipBackend,
-    WhipperHostExportedImpl,
-)
+from platterpus.adapters.rip_backend import RipBackend
 from platterpus.config import Config
 from platterpus.paths import CYANRIP_BINARY_DEFAULT
 
@@ -47,32 +45,24 @@ CONTACT_URL = "https://github.com/rmccann-hub/Platterpus"
 
 
 def build_backend(cfg: Config) -> tuple[RipBackend, str]:
-    """Construct the ripping backend that ``cfg.ripper_backend`` selects.
+    """Construct the ripping backend (cyanrip — the sole engine, KDD-18).
 
-    Returns ``(backend, backend_name)``. cyanrip (KDD-18) is imported lazily so
-    a whipper-only run never pays for it. Both prefer the host-exported absolute
-    path: a desktop-launched GUI inherits a minimal PATH that may omit
+    Returns ``(backend, backend_name)``. cyanrip prefers the host-exported
+    absolute path: a desktop-launched GUI inherits a minimal PATH that may omit
     ``~/.local/bin`` (the same lesson as ``drive_control``'s absolute-path
-    resolution), falling back to a PATH lookup for a native install.
+    resolution), falling back to a PATH lookup for a native install. The tuple
+    shape + ``backend_name`` are kept so a future second backend can slot in
+    behind the RipBackend ABC without changing callers.
     """
     working_dir = Path(cfg.working_dir) if cfg.working_dir else None
-    if cfg.ripper_backend == "cyanrip":
-        from platterpus.adapters.cyanrip_backend import CyanripImpl
-
-        cyanrip_binary: Path | str = (
-            CYANRIP_BINARY_DEFAULT if CYANRIP_BINARY_DEFAULT.exists() else "cyanrip"
-        )
-        log.info("using cyanrip backend (%s)", cyanrip_binary)
-        backend: RipBackend = CyanripImpl(
-            binary_path=cyanrip_binary, working_dir=working_dir
-        )
-        return backend, "cyanrip"
-    return (
-        WhipperHostExportedImpl(
-            binary_path=Path(cfg.whipper_path), working_dir=working_dir
-        ),
-        "whipper",
+    cyanrip_binary: Path | str = (
+        CYANRIP_BINARY_DEFAULT if CYANRIP_BINARY_DEFAULT.exists() else "cyanrip"
     )
+    log.info("using cyanrip backend (%s)", cyanrip_binary)
+    backend: RipBackend = CyanripImpl(
+        binary_path=cyanrip_binary, working_dir=working_dir
+    )
+    return backend, "cyanrip"
 
 
 def build_musicbrainz_client() -> MusicBrainzClient:

@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from platterpus import preflight
 from platterpus.adapters.ctdb_client import CtdbLookupError, CtdbLookupResult
 from platterpus.adapters.musicbrainz_client import MusicBrainzQueryError
-from platterpus.adapters.whipper_backend import WhipperError
+from platterpus.adapters.rip_backend import RipError
 from platterpus.config import Config
 from platterpus.deps.checks import ProbeResult
 from platterpus.deps.manager import DependencyManager
@@ -123,8 +123,6 @@ class _FakeHost:
             "distrobox_present": True,
             "backend_present": True,
             "container_exists": True,
-            "whipper_in_container": True,
-            "whipper_exported": True,
             "cyanrip_in_container": True,
             "cyanrip_exported": True,
         }
@@ -140,7 +138,7 @@ class _FakeHost:
 
 
 def test_check_settings_reports_key_fields():
-    res = preflight.check_settings(Config(ripper_backend="cyanrip"))
+    res = preflight.check_settings(Config())
     assert res.status is Status.OK
     assert "cyanrip" in res.summary
     assert "backend:" in res.detail
@@ -220,7 +218,7 @@ def test_check_backend_routing_ok():
 
 def test_check_backend_routing_whippererror_fails():
     res = preflight.check_backend_routing(
-        _FakeBackend(raises=WhipperError("container down")),
+        _FakeBackend(raises=RipError("container down")),
         backend_name="whipper",
         host=_FakeHost(container_exists=False),
     )
@@ -257,7 +255,7 @@ def test_check_backend_routing_with_no_host_does_not_crash():
     # the case the doctor exists to diagnose. Exercises the real drilldown (only
     # fast, safe shutil.which probes); no injected host.
     res = preflight.check_backend_routing(
-        _FakeBackend(raises=WhipperError("backend down")), backend_name="whipper"
+        _FakeBackend(raises=RipError("backend down")), backend_name="whipper"
     )
     assert res.status is Status.FAIL
     assert "backend down" in res.detail
@@ -285,9 +283,9 @@ def test_routing_drilldown_no_container():
     assert "does not exist" in detail
 
 
-def test_routing_drilldown_not_in_container_whipper():
+def test_routing_drilldown_not_in_container():
     detail, _ = preflight.routing_drilldown(
-        "whipper", _FakeHost(whipper_in_container=False)
+        "cyanrip", _FakeHost(cyanrip_in_container=False)
     )
     assert "not installed inside" in detail
 
@@ -300,7 +298,7 @@ def test_routing_drilldown_not_exported_cyanrip():
 
 
 def test_routing_drilldown_present_but_broken():
-    detail, _ = preflight.routing_drilldown("whipper", _FakeHost())
+    detail, _ = preflight.routing_drilldown("cyanrip", _FakeHost())
     assert "version command failed" in detail
 
 
@@ -309,74 +307,40 @@ def test_routing_drilldown_never_raises_on_bad_host():
         def distrobox_present(self):
             raise RuntimeError("boom")
 
-    detail, hint = preflight.routing_drilldown("whipper", _Boom())
+    detail, hint = preflight.routing_drilldown("cyanrip", _Boom())
     assert "could not diagnose" in detail and hint
 
 
 # --- check_read_offset -----------------------------------------------------
 
 
-def test_check_read_offset_cyanrip():
-    res = preflight.check_read_offset(
-        Config(ripper_backend="cyanrip", read_offset=667), backend_name="cyanrip"
-    )
-    assert res.status is Status.OK
-    assert "cyanrip applies" in res.summary and "+667" in res.summary
-
-
-def test_check_read_offset_override():
-    res = preflight.check_read_offset(
-        Config(override_read_offset=True, read_offset=102),
-        backend_name="whipper",
-        read_offsets=lambda: [],  # ignored when override is on
-    )
-    assert res.status is Status.OK
-    assert "override on" in res.summary and "+102" in res.summary
-
-
-def test_check_read_offset_override_over_587_warns():
+def test_check_read_offset_applied_when_override_on():
     res = preflight.check_read_offset(
         Config(override_read_offset=True, read_offset=667),
-        backend_name="whipper",
-        read_offsets=lambda: [],
-    )
-    assert res.status is Status.WARN
-    assert "587" in res.summary and "cyanrip" in res.hint
-
-
-def test_check_read_offset_whipper_conf_present():
-    from platterpus.offset_config import WhipperConfOffset
-
-    res = preflight.check_read_offset(
-        Config(override_read_offset=False),
-        backend_name="whipper",
-        read_offsets=lambda: [WhipperConfOffset(drive="PIONEER", offset=102)],
     )
     assert res.status is Status.OK
-    assert "whipper.conf" in res.summary and "+102" in res.summary
+    assert "+667" in res.summary and "-s" in res.summary
 
 
-def test_check_read_offset_conf_over_587_warns():
+def test_check_read_offset_warns_when_no_offset_configured():
+    res = preflight.check_read_offset(
+        Config(override_read_offset=False),
+        read_offsets=lambda: [],
+    )
+    assert res.status is Status.WARN
+    assert "no read offset" in res.summary
+    assert "drive-setup" in res.hint
+
+
+def test_check_read_offset_surfaces_legacy_whipper_conf_in_hint():
     from platterpus.offset_config import WhipperConfOffset
 
     res = preflight.check_read_offset(
         Config(override_read_offset=False),
-        backend_name="whipper",
-        read_offsets=lambda: [WhipperConfOffset(drive="PIONEER BDR-209D", offset=667)],
+        read_offsets=lambda: [WhipperConfOffset(drive="PIONEER", offset=102)],
     )
     assert res.status is Status.WARN
-    assert "587" in res.summary
-    assert "cyanrip" in res.hint and "+667" in res.hint
-
-
-def test_check_read_offset_whipper_conf_missing_warns():
-    res = preflight.check_read_offset(
-        Config(override_read_offset=False),
-        backend_name="whipper",
-        read_offsets=lambda: [],
-    )
-    assert res.status is Status.WARN
-    assert res.hint
+    assert "whipper.conf" in res.hint and "+102" in res.hint
 
 
 def test_check_read_offset_reader_crash_is_caught():
@@ -384,7 +348,7 @@ def test_check_read_offset_reader_crash_is_caught():
         raise RuntimeError("x")
 
     res = preflight.check_read_offset(
-        Config(override_read_offset=False), backend_name="whipper", read_offsets=boom
+        Config(override_read_offset=False), read_offsets=boom
     )
     assert res.status is Status.WARN
 
@@ -598,14 +562,8 @@ def test_format_summary_verdicts():
 # --- default_context (real composition root) -------------------------------
 
 
-def test_default_context_whipper():
-    ctx = preflight.default_context(Config(ripper_backend="whipper"))
-    assert ctx.backend_name == "whipper"
-    assert ctx.backend.__class__.__name__ == "WhipperHostExportedImpl"
-
-
 def test_default_context_cyanrip():
-    # cyanrip is the default backend now (KDD-18).
+    # cyanrip is the sole backend now (KDD-18).
     ctx = preflight.default_context(Config())
     assert ctx.backend_name == "cyanrip"
     assert ctx.backend.__class__.__name__ == "CyanripImpl"

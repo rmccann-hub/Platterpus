@@ -11,11 +11,11 @@ from typing import Any
 
 from PySide6.QtWidgets import QApplication
 
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
+    RipError,
     RipHandle,
-    WhipperError,
 )
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.workers.disc_info_worker import DiscInfoWorker
@@ -60,7 +60,7 @@ def test_worker_emits_finished_with_disc_info(qapp: QApplication) -> None:
 
 
 def test_worker_routes_whipper_error_to_failed(qapp: QApplication) -> None:
-    worker = DiscInfoWorker(_Backend(exc=WhipperError("no disc")), "/dev/sr0")
+    worker = DiscInfoWorker(_Backend(exc=RipError("no disc")), "/dev/sr0")
     failed: list[tuple[str, str]] = []
     worker.failed.connect(lambda device, msg: failed.append((device, msg)))
 
@@ -70,7 +70,7 @@ def test_worker_routes_whipper_error_to_failed(qapp: QApplication) -> None:
 
 
 def test_worker_wraps_unexpected_error(qapp: QApplication) -> None:
-    """A non-WhipperError must still finish via `failed`, not crash the thread."""
+    """A non-RipError must still finish via `failed`, not crash the thread."""
     worker = DiscInfoWorker(_Backend(exc=ValueError("weird")), "/dev/sr0")
     failed: list[tuple[str, str]] = []
     worker.failed.connect(lambda device, msg: failed.append((device, msg)))

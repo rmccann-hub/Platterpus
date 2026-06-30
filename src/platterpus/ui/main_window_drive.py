@@ -146,17 +146,23 @@ class DriveMixin:
         self._refresh_drive_profile_display()
 
     def _on_detection_recorded(self, result: object) -> None:
-        """Record a wizard auto-detect result's provenance (measured → HIGH).
+        """Persist a wizard auto-detect result and record its provenance.
 
         `result` is a DriveSetupResult; we read its offset/cache via getattr so
-        this never depends on the dialog's concrete type. Provenance only —
-        whipper already persisted the value to whipper.conf.
+        this never depends on the dialog's concrete type. cyanrip's offset
+        finder only *returns* the value (it writes no config file of its own),
+        so the GUI persists it here as the `--offset` override — otherwise a
+        detected offset wouldn't reach the next rip. Provenance is recorded as
+        a measured value (HIGH confidence).
         """
         drive = self._drive_picker.current_drive()
         if drive is None:
             return
         offset = getattr(result, "offset", None)
         cache = getattr(result, "can_defeat_cache", None)
+        if isinstance(offset, int):
+            # Save it as the offset every rip will use (cyanrip's -s).
+            self._set_read_offset_override(offset)
         self._record_drive_fact(
             drive,
             offset_value=offset if isinstance(offset, int) else None,

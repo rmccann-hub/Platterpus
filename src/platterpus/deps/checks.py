@@ -83,17 +83,17 @@ def _run_version_command(
     return True, combined, resolved
 
 
-def check_whipper(binary_path: Path) -> ProbeResult:
-    """Probe the host-exported whipper binary.
+def check_cyanrip(binary_path: Path) -> ProbeResult:
+    """Probe the host-exported cyanrip binary.
 
-    The brief mandates calling `~/.local/bin/whipper`, so we accept the
-    path explicitly rather than relying on PATH alone — that way the
-    user's Settings override is honored.
+    Ripping routes through `~/.local/bin/cyanrip` (Critical Rule #3), so we
+    accept the path explicitly rather than relying on PATH alone. cyanrip
+    reports its version with `-V` (not `--version`).
     """
     if not binary_path.exists():
         return ProbeResult(present=False, version=None, location=str(binary_path))
 
-    ran, output, _ = _run_version_command([str(binary_path), "--version"])
+    ran, output, _ = _run_version_command([str(binary_path), "-V"])
     if not ran:
         return ProbeResult(present=False, version=None, location=str(binary_path))
 
@@ -107,8 +107,8 @@ def check_whipper(binary_path: Path) -> ProbeResult:
 
 
 def check_metaflac(binary_name: str = "metaflac") -> ProbeResult:
-    """Probe `metaflac`, expected on PATH (typically via the same
-    Distrobox export route as whipper)."""
+    """Probe `metaflac`, expected on PATH (via the same Distrobox export route
+    as the ripper)."""
     ran, output, location = _run_version_command([binary_name, "--version"])
     if not ran or location is None:
         return ProbeResult(present=False, version=None, location=None)

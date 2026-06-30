@@ -35,7 +35,7 @@ from platterpus.adapters.musicbrainz_client import (
     ReleaseDetail,
     ReleaseSummary,
 )
-from platterpus.adapters.whipper_backend import (
+from platterpus.adapters.rip_backend import (
     DiscInfo,
     RipBackend,
 )
@@ -605,10 +605,9 @@ class MainWindow(
             # routes to _handle_no_mb_match (same as an empty disc ID).
             self._mb_worker.lookup_disc_id(info.musicbrainz_disc_id)
         else:
-            # Empty disc ID means whipper couldn't retrieve metadata
-            # (per WhipperHostExportedImpl.disc_info's unknown-disc
-            # fallback). Surface "not in MusicBrainz" instead of leaving
-            # the panel stuck on "reading disc…" forever.
+            # Empty disc ID means the backend couldn't retrieve metadata
+            # (the disc isn't in MusicBrainz). Surface "not in MusicBrainz"
+            # instead of leaving the panel stuck on "reading disc…" forever.
             self._disc_info_panel.set_mb_matches([])
             self._handle_no_mb_match()
 
@@ -721,7 +720,7 @@ class MainWindow(
         """Help → About: version number and support-relevant info."""
         from platterpus.ui.help_dialogs import AboutDialog
 
-        AboutDialog(whipper_path=self._config.whipper_path, parent=self).exec()
+        AboutDialog(parent=self).exec()
 
     def _on_open_logs_folder(self) -> None:
         """Help → Open logs folder: reveal the app's log directory.
@@ -759,10 +758,9 @@ class MainWindow(
         # "Re-detect…" next to the read-offset field opens the same wizard.
         dialog.detect_offset_requested.connect(self._on_drive_setup)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            old_backend = self._config.ripper_backend
             self._config = dialog.to_config()
             # Push the new config into the rip controls so the next rip
-            # reflects the edits (output dir, templates, Continue-on-CD-R).
+            # reflects the edits (output dir, templates, cover art, …).
             self._rip_controls.set_config(self._config)
             # Apply the debug-logging toggle immediately so the change takes
             # effect for this session (not just the next launch).
@@ -773,4 +771,3 @@ class MainWindow(
                 self._save_config(self._config)
             except OSError as exc:
                 QMessageBox.warning(self, "Couldn't save settings", f"{exc}")
-            self._maybe_offer_cyanrip_install(old_backend)

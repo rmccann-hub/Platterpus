@@ -28,7 +28,6 @@ format) plugs in at ``_maybe_offer_appimage_integration`` /
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QMessageBox
@@ -172,8 +171,10 @@ class ProvisioningMixin:
             )
 
     def _host_stack_ready(self) -> bool:
-        """True if the whipper binary is present (the container stack is set up)."""
-        return Path(self._config.whipper_path).exists()
+        """True if the cyanrip binary is present (the container stack is set up)."""
+        from platterpus.paths import CYANRIP_BINARY_DEFAULT
+
+        return CYANRIP_BINARY_DEFAULT.exists()
 
     def _maybe_offer_host_setup(self) -> None:
         """One-time, dismissible offer to run the host-setup wizard."""
@@ -185,7 +186,7 @@ class ProvisioningMixin:
             self,
             "Set up Platterpus",
             "Platterpus needs a one-time setup to install its ripping tool "
-            "(whipper) in a small container — no terminal required. Set it up "
+            "(cyanrip) in a small container — no terminal required. Set it up "
             "now?\n\nYou can also do this later from Tools → Set up Platterpus….",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
@@ -196,20 +197,14 @@ class ProvisioningMixin:
     def _build_host_setup(self) -> HostSetup:
         """The HostSetup the wizard runs.
 
-        The wizard installs **both** ripping backends unconditionally —
-        whipper *and* cyanrip (the latter from its COPR, since Fedora doesn't
-        package it) — plus flac and metaflac. Rationale: cyanrip is the default
-        backend (KDD-18) and the maintainer wants every backend present after a
-        single setup run, so switching backends in Settings never needs a
-        re-run or a terminal. One setup, all tools.
+        Installs cyanrip — the sole ripping backend (KDD-18) — from its COPR
+        (Fedora doesn't package it), plus flac and metaflac, into the `ripping`
+        container and exports them to ~/.local/bin. One setup, no terminal.
         """
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.step_engine import SubprocessRunner
 
-        return HostSetup(
-            runner=SubprocessRunner(),
-            include_cyanrip=True,  # always install both backends (item 6)
-        )
+        return HostSetup(runner=SubprocessRunner())
 
     def open_host_setup_dialog(self) -> None:
         """Open the host-setup wizard (Tools → Set up Platterpus…)."""

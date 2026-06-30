@@ -48,7 +48,7 @@ from platterpus.adapters.musicbrainz_client import (
     ReleaseSummary,
     TocSignature,
 )
-from platterpus.adapters.whipper_backend import DiscInfo, RipBackend
+from platterpus.adapters.rip_backend import DiscInfo, RipBackend
 from platterpus.config import Config
 from platterpus.deps.manager import DependencyManager
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -144,7 +144,6 @@ def e2e_window(qapp: QApplication, monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     """Build the real MainWindow with boundary-only fakes; tear down threads."""
     config = Config(
         output_dir=str(tmp_path / "rips"),
-        ripper_backend="whipper",
         cover_art="complete",  # embed AND save cover.jpg
         override_read_offset=True,
         read_offset=667,

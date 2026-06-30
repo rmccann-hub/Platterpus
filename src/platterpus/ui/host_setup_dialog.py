@@ -73,21 +73,13 @@ class HostSetupDialog(QDialog):
 
         root = QVBoxLayout(self)
 
-        # Mention the optional cyanrip step only when this run includes it
-        # (getattr: test fakes are duck-typed and may not carry the flag).
-        cyanrip_line = (
-            "• installs the cyanrip backend into the container\n"
-            if getattr(host_setup, "include_cyanrip", False)
-            else ""
-        )
         self._intro: QLabel = QLabel(
-            "Platterpus rips through the <b>whipper</b> tool, which runs in a "
+            "Platterpus rips through the <b>cyanrip</b> tool, which runs in a "
             "small Linux container so it never touches your system. This sets "
             "that up for you — no terminal needed:\n\n"
             "• installs Distrobox + a container runtime (if missing)\n"
-            "• creates the 'ripping' container and installs whipper into it\n"
-            f"{cyanrip_line}"
-            "• makes whipper available to this app\n\n"
+            "• creates the 'ripping' container and installs cyanrip + flac into it\n"
+            "• makes the ripping tools available to this app\n\n"
             "Installing system packages may pop up your system password prompt "
             "once. On Bazzite/Silverblue everything's already there, so this is "
             "usually instant. It's safe to re-run.",
