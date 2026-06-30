@@ -18,7 +18,6 @@ from collections.abc import Sequence
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QDialog,
     QDialogButtonBox,
     QHeaderView,
     QLabel,
@@ -29,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
+from platterpus.ui.dialogs.centering import CenteredDialog
 
 # Column layout for the candidates table. Defined once so the test can
 # assert on positions without magic numbers.
@@ -46,7 +46,7 @@ _COLUMNS: list[tuple[str, str]] = [
 ]
 
 
-class ReleasePickerDialog(QDialog):
+class ReleasePickerDialog(CenteredDialog):
     """Modal picker shown when MusicBrainz returns >1 release candidate."""
 
     def __init__(

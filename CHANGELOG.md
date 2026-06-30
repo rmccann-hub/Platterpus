@@ -1,7 +1,7 @@
 # Changelog
 
-**This is the single, authoritative record of all notable changes to Whipper
-GUI** — add an entry to `[Unreleased]` in the *same commit* as any change.
+**This is the single, authoritative record of all notable changes to
+Platterpus** — add an entry to `[Unreleased]` in the *same commit* as any change.
 Format follows [Keep a Changelog](https://keepachangelog.com/); the project
 adheres to [Semantic Versioning](https://semver.org/); dates are ISO-8601
 (YYYY-MM-DD). The version itself is single-sourced from
@@ -22,6 +22,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   Container tools still install through the setup wizard (which has always had
   its own off-thread progress), and only that wizard — not the install loop —
   ever opens on the UI thread.
+- **Dialogs now open over the main window, not on another monitor.** On a
+  multi-monitor desktop a first-run modal could pop up on a *different* screen
+  from the main window; because it was application-modal it correctly refused
+  input on the main screen, so the app *looked* frozen even though it was just
+  waiting for an unanswered prompt the user couldn't see (real-user report on
+  0.4.2). Every dialog now centres itself on the window that opened it the first
+  time it's shown, so the prompt appears where you're already looking. (No-op
+  under native Wayland, where clients can't position themselves.)
 
 ## [0.4.2] — 2026-06-30
 
