@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Accessibility pass.** Keyboard and screen-reader coverage of the everyday
+  surfaces: the album artist/title/year fields and the disc-info values (drive,
+  disc IDs, MusicBrainz match, AccurateRip, read offset) now carry accessible
+  names — a screen reader announces each by what it holds instead of reading
+  anonymous text boxes — and Quit / Settings / User Guide gained the
+  platform-standard keyboard shortcuts. (Builds on the verdict/progress surfaces,
+  which already named themselves and never signal trust by colour alone.)
+
 ### Fixed
 - **The app no longer freezes while installing a dependency.** Installing an
   optional component (e.g. the Picard Flatpak) ran the install **on the UI

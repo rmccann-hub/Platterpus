@@ -186,6 +186,13 @@ class TrackTable(QWidget):
         self._album_artist_edit: QLineEdit = QLineEdit(self)
         self._album_title_edit: QLineEdit = QLineEdit(self)
         self._album_year_edit: QLineEdit = QLineEdit(self)
+        # Accessible names so a screen reader announces each field by what it
+        # holds — a QFormLayout label is purely visual and is NOT a programmatic
+        # buddy, so without these the fields read as anonymous text boxes
+        # (ux-design-principles.md #10).
+        self._album_artist_edit.setAccessibleName("Album artist")
+        self._album_title_edit.setAccessibleName("Album title")
+        self._album_year_edit.setAccessibleName("Album year")
         album_form.addRow("Album artist:", self._album_artist_edit)
         album_form.addRow("Album title:", self._album_title_edit)
         album_form.addRow("Year:", self._album_year_edit)

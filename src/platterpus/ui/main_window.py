@@ -451,16 +451,25 @@ class MainWindow(
     # --- Menus --------------------------------------------------------------
 
     def _build_menus(self) -> None:
+        # Standard, platform-aware keyboard shortcuts on the everyday actions
+        # so the keyboard reaches them without hunting the menus (Quit, Settings,
+        # Help). QKeySequence's StandardKey resolves to the right keys per
+        # platform (e.g. Ctrl+Q / Ctrl+, / F1 on Linux) and shows them in the
+        # menu automatically — part of the accessibility pass (gap #4).
+        from PySide6.QtGui import QKeySequence
+
         menubar = self.menuBar()
         file_menu = menubar.addMenu("&File")
         unknown_action = file_menu.addAction("Rip as &Unknown Album…")
         unknown_action.triggered.connect(self._on_rip_as_unknown)
         file_menu.addSeparator()
         quit_action = file_menu.addAction("&Quit")
+        quit_action.setShortcut(QKeySequence.StandardKey.Quit)
         quit_action.triggered.connect(self.close)
 
         tools_menu = menubar.addMenu("&Tools")
         settings_action = tools_menu.addAction("&Settings…")
+        settings_action.setShortcut(QKeySequence.StandardKey.Preferences)
         settings_action.triggered.connect(self._on_open_settings)
 
         # Host bootstrap (installs the whipper/cyanrip container stack) — the
@@ -491,6 +500,7 @@ class MainWindow(
 
         help_menu = menubar.addMenu("&Help")
         guide_action = help_menu.addAction("&User Guide…")
+        guide_action.setShortcut(QKeySequence.StandardKey.HelpContents)
         guide_action.triggered.connect(self._on_show_help)
         update_action = help_menu.addAction("Check for &updates…")
         update_action.triggered.connect(self._on_check_updates)

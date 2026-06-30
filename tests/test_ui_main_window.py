@@ -232,6 +232,30 @@ def test_menus_have_settings_but_not_duplicate_dep_check(teardown_threads) -> No
     assert not any("dependencies" in text.lower() for text in actions)
 
 
+def test_everyday_actions_have_keyboard_shortcuts(teardown_threads) -> None:
+    # Quit / Settings / User Guide carry the platform-standard shortcuts so the
+    # keyboard reaches them without hunting the menus (a11y, principle #10).
+    from PySide6.QtGui import QKeySequence
+
+    window = teardown_threads()
+    menubar = window.menuBar()
+    by_text: dict[str, object] = {}
+    for menu in menubar.findChildren(type(menubar.addMenu("tmp"))):
+        for action in menu.actions():
+            if action.text():
+                by_text[action.text()] = action
+
+    def _shortcut_for(needle: str) -> QKeySequence:
+        action = next(a for text, a in by_text.items() if needle in text)
+        return action.shortcut()
+
+    # Each resolves to a non-empty platform sequence (don't hard-code the keys;
+    # StandardKey maps them per platform).
+    assert not _shortcut_for("Quit").isEmpty()
+    assert not _shortcut_for("Settings").isEmpty()
+    assert not _shortcut_for("User Guide").isEmpty()
+
+
 # --- Drive change → disc_info → MB lookup pipeline -----------------------
 
 
