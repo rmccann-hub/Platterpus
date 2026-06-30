@@ -23,6 +23,43 @@ def _redirect_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return config_file
 
 
+def test_config_has_no_whipper_era_fields() -> None:
+    """Regression guard for the whipper removal (KDD-18): the config dataclass
+    must not carry the retired whipper-only fields. If one creeps back, some
+    dead code is reading it — fail here, loudly."""
+    import dataclasses
+
+    field_names = {f.name for f in dataclasses.fields(config_module.Config)}
+    retired = {
+        "ripper_backend",
+        "whipper_path",
+        "continue_on_cdr",
+        "force_overread",
+        "keep_going",
+    }
+    leaked = field_names & retired
+    assert not leaked, f"retired whipper-era config field(s) reappeared: {leaked}"
+
+
+def test_load_ignores_unknown_legacy_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An upgrading user's config.toml still has the old whipper keys; load()
+    must drop them silently rather than choke (mirrors the real 0.4.0→0.4.1
+    upgrade, where the log showed 'unknown config keys ignored: …')."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        'schema_version = 1\nread_offset = 667\nripper_backend = "whipper"\n'
+        'whipper_path = "/x"\nkeep_going = true\n',
+        encoding="utf-8",
+    )
+
+    cfg = config_module.load()  # must not raise
+
+    assert cfg.read_offset == 667  # the still-valid key survived
+    assert not hasattr(cfg, "ripper_backend")
+
+
 def test_first_load_creates_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

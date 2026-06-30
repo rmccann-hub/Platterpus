@@ -161,6 +161,25 @@ def test_partial_accurate_summary_and_paranoia_counts() -> None:
     }
 
 
+def test_paranoia_block_tolerates_a_malformed_line() -> None:
+    """A non-integer count in the Paranoia block must degrade gracefully — the
+    parser captures the well-formed counts and never raises (parser discipline).
+    """
+    text = (
+        "cyanrip 0.9.3 (release)\n"
+        "Paranoia status counts:\n"
+        "  READ:          100\n"
+        "  VERIFY:        not-a-number\n"
+        "  OVERLAP:       7\n"
+        "Ripping errors: 0\n"
+    )
+    log = parse_cyanrip_log(text)  # must not raise
+    # The malformed VERIFY line closes the block; READ (before it) is captured.
+    assert log.paranoia_counts.get("READ") == 100
+    assert "VERIFY" not in log.paranoia_counts
+    assert log.health_status == "No errors occurred"
+
+
 def test_paranoia_block_ends_cleanly_before_finish_lines() -> None:
     # The block must not swallow the "Ripping errors:" / "finished at" lines
     # that follow it (they don't match the indented KEY: N shape, so the block
