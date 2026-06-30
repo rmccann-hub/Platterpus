@@ -164,7 +164,7 @@ def diagnose_drive_access(
     else:
         detail = (
             f"The drive node {node} is owned by group '{group}', and your "
-            "user isn't a member — so whipper can't open the drive. Add "
+            "user isn't a member — so the ripper can't open the drive. Add "
             "yourself to the group with the command below, then log out and "
             "back in (or reboot) for it to take effect."
         )

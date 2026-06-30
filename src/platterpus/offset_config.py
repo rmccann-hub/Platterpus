@@ -1,17 +1,19 @@
 """Detect whether a usable optical-drive read offset is configured.
 
-whipper refuses to rip until a read offset is known (it errors with
-"drive offset unconfigured"). An offset can come from one of two places:
+A bit-perfect rip needs the drive's read offset. cyanrip (the sole backend)
+reads no config file of its own — the GUI passes the offset as `-s N` at rip
+time. The offset can come from one of two places:
 
-  * whipper's own `whipper.conf`, written by the drive-setup wizard's
-    `whipper offset find` (whipper is authoritative for it), or
-  * the GUI's `--offset` override (Config.override_read_offset), which lets
-    a user set the value by hand when they can't run auto-detection (no
-    AccurateRip disc) — we pass it as `--offset N` at rip time.
+  * the GUI's own override (Config.override_read_offset / read_offset), set by
+    the drive-setup wizard (auto-detected from AccurateRip, or entered by
+    hand) — this is the authoritative source today, and
+  * a legacy `whipper.conf` left over from a prior whipper install — read
+    **only** as a reference so an upgrading user's old value still shows up.
+    cyanrip does not use or write this file.
 
 This module answers "is either present?" so the GUI can offer first-run
-calibration only when it's actually needed. Pure stdlib + injectable path
-so it's trivially testable; no whipper.conf authoring happens here (per
+calibration only when it's actually needed. Pure stdlib + injectable path so
+it's trivially testable; no whipper.conf authoring happens here (per
 PLANNING.md KDD-15, the GUI never hand-writes that file).
 """
 

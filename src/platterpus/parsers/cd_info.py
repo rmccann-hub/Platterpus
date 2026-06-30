@@ -1,7 +1,10 @@
-"""Parse `whipper cd info` output into a DiscInfo record.
+"""Parse whipper's cd-info FORMAT into a DiscInfo record.
 
-Whipper emits three lines for the `Info` command (verified against
-whipper-team/whipper master, command/cd.py):
+This parses the legacy `whipper cd info` output format; the current
+cyanrip backend gathers disc info via `-I -N` instead, so this parser is
+kept for old paths and test fixtures. Whipper emitted three lines for the
+`Info` command (verified against whipper-team/whipper master,
+command/cd.py):
 
     CDDB disc id: 940A6A0B
     MusicBrainz disc id wzr8h2ssXg4...
@@ -14,7 +17,7 @@ regex alternation.
 
 Missing fields are returned as empty strings rather than None — a CDDB
 disc id is always derivable from a TOC, so a missing one would only
-happen if whipper changed its output, which we'd notice immediately.
+happen if this log format changed, which we'd notice immediately.
 """
 
 from __future__ import annotations

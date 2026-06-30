@@ -1,7 +1,10 @@
-"""Parse `whipper drive list` output into DriveDescriptor records.
+"""Parse whipper's drive-list FORMAT into DriveDescriptor records.
 
-Whipper emits one drive per call to the `List` command, with this shape
-(verified against whipper-team/whipper master, command/drive.py):
+This parses the legacy `whipper drive list` output format; the current
+cyanrip backend enumerates `/dev/sr*` itself instead, so this parser is
+kept for old paths and test fixtures. Whipper emitted one drive per call
+to the `List` command, with this shape (verified against
+whipper-team/whipper master, command/drive.py):
 
     drive: /dev/sr0, vendor: PIONEER, model: BD-RW  BDR-209D, release: 1.51
            Configured read offset: 667
@@ -35,7 +38,7 @@ _CACHE_DEFEAT = re.compile(
 
 @dataclass(frozen=True)
 class DriveDescriptor:
-    """One drive detected by whipper.
+    """One drive detected by the backend.
 
     - `device`: kernel device node, e.g. "/dev/sr0".
     - `vendor` / `model` / `release`: as whipper reports them. Whipper

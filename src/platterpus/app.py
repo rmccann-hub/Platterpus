@@ -203,14 +203,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # Bringing up the adapters + window can fail (bad config path, an
-    # unexpected whipper output that trips a parser, a Qt error). Guard the
+    # unexpected ripper output that trips a parser, a Qt error). Guard the
     # whole bring-up so the user gets a dialog they can screenshot instead
     # of a window that flashes and disappears with nothing to report.
     try:
         # Adapter layer. Per CLAUDE.md Critical Rule #1, every external tool is
-        # reached through an adapter constructed exactly once here. The backend
-        # choice (config-selectable per KDD-18: whipper default | cyanrip) and
-        # the MusicBrainz client are built via the shared composition root so the
+        # reached through an adapter constructed exactly once here. The cyanrip
+        # backend (the sole engine since the whipper removal, KDD-18) and the
+        # MusicBrainz client are built via the shared composition root so the
         # GUI and `--doctor` can never wire the adapters differently.
         from platterpus import composition
         from platterpus.adapters.ctdb_client import CtdbHttpImpl

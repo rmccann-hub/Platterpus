@@ -411,7 +411,9 @@ def test_failure_hint_set_on_track_giveup(qapp: QApplication, tmp_path: Path) ->
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
     worker.start_rip()
     assert "Track 3" in worker.failure_hint
-    assert "Keep going" in worker.failure_hint
+    # Actionable, backend-neutral advice (no stale "Keep going" setting, which
+    # was removed with whipper, and no false >587 cd-paranoia claim).
+    assert "scratched or dirty" in worker.failure_hint
 
 
 def test_no_failure_hint_on_clean_rip(qapp: QApplication, tmp_path: Path) -> None:

@@ -1,8 +1,8 @@
-"""Release picker dialog — substitutes for whipper's interactive TTY prompt.
+"""Release picker dialog — substitutes for the ripper's interactive TTY prompt.
 
 Critical Rule #5: when MusicBrainz returns multiple matches for the
 inserted disc, the GUI presents them in this dialog and obtains the
-chosen MBID — whipper is then invoked with `--release-id <MBID>` and
+chosen MBID — the backend is then invoked with the chosen release id and
 never opens a prompt.
 
 The dialog is a pure picker: it doesn't do MB lookups itself. The

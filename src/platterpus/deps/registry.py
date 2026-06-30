@@ -202,8 +202,8 @@ SPECS: list[DependencySpec] = [
         description=(
             "Optional. Only needed for the 'Verify with CTDB after a rip' "
             "setting: the CTDB audio check decodes the FLACs back to PCM on "
-            "the host. The setup wizard installs it into the container with "
-            "whipper; re-run the wizard if it's missing."
+            "the host. The setup wizard installs it into the container "
+            "alongside cyanrip and metaflac; re-run the wizard if it's missing."
         ),
         optional=True,  # absent only disables the optional CTDB audio check
         from_setup_wizard=True,

@@ -52,7 +52,7 @@ class DriveSetupResult:
 
 
 class DriveSetupWorker(QObject):
-    """QObject worker that calibrates one drive via whipper's commands."""
+    """QObject worker that calibrates one drive via the backend's commands."""
 
     status = Signal(str)
     finished = Signal(object)  # DriveSetupResult
@@ -72,13 +72,13 @@ class DriveSetupWorker(QObject):
 
     @Slot()
     def cancel(self) -> None:
-        """Request cancellation and terminate the running whipper process.
+        """Request cancellation and terminate the running ripper process.
 
         Thread-safe: called from the GUI thread. Terminating the subprocess
         unblocks `run()` (which is waiting on it) so the QThread can finish
         and be torn down cleanly — without this the dialog's QThread is
         destroyed mid-run and Qt aborts the whole app, and the orphaned
-        whipper keeps the optical drive spinning.
+        ripper keeps the optical drive spinning.
         """
         self._cancelled = True
         try:

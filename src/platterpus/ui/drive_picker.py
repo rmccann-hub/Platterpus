@@ -4,8 +4,8 @@ A small horizontal panel: label + dropdown of detected drives + Refresh.
 Populates from `RipBackend.list_drives()`; emits `drive_changed`
 when the selection changes.
 
-The actual list_drives() call shells out to whipper, which can take a
-second or two. For v1 we make the call synchronously from the GUI
+The backend's list_drives() call shells out to the ripper, which can take
+a second or two. For v1 we make the call synchronously from the GUI
 thread — the user interaction model here is "click refresh, briefly
 wait, see the list". P1 could push it into a worker if the latency
 becomes annoying in practice.

@@ -149,7 +149,8 @@ class DriveSetupDialog(QDialog):
             "No AccurateRip disc handy? Look up your drive's offset at "
             '<a href="https://www.accuraterip.com/driveoffsets.htm">'
             "accuraterip.com/driveoffsets.htm</a> and enter it here. It's "
-            "applied via whipper's --offset, so whipper.conf isn't touched.",
+            "saved in Platterpus's own settings and passed to cyanrip at rip "
+            "time (cyanrip uses no config file of its own).",
             self,
         )
         manual_intro.setWordWrap(True)
@@ -174,8 +175,9 @@ class DriveSetupDialog(QDialog):
         manual_row.addStretch(1)
         root.addLayout(manual_row)
 
-        # Close only — there's no "apply" step because whipper writes the
-        # config itself the moment detection succeeds.
+        # Close only — there's no "apply" step because the offset is saved to
+        # Platterpus's own config the moment detection (or a manual save)
+        # succeeds, and cyanrip is fed it via -s at rip time.
         self._button_box: QDialogButtonBox = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Close, self
         )

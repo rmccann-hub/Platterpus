@@ -1,11 +1,12 @@
 """RipWorker — drives a RipBackend rip off the GUI thread.
 
 The main thread constructs a RipWorker, moves it to a QThread, and
-connects QThread.started to RipWorker.start_rip. The worker streams
-whipper's stdout via Qt signals so the GUI can update without blocking.
+connects QThread.started to RipWorker.start_rip. The worker streams the
+backend's stdout (cyanrip — the sole backend, KDD-18) via Qt signals so
+the GUI can update without blocking.
 
 Signals:
-  log_line(str)               — one line of whipper output
+  log_line(str)               — one line of rip output
   progress(int, float)        — (track_number, percent_complete) when
                                 parseable from the output stream
   finished(bool, str)         — (success, log_file_path); log path is
@@ -113,18 +114,23 @@ _CYANRIP_TRACK_DONE = re.compile(
 # progress lines don't repeat it, so we capture it here for the overall bar.
 _CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d+)\s*$")
 
-# whipper aborts with one of these when it can't fetch online metadata (e.g.
-# the container has no network) and wasn't told the disc is "unknown". We
-# detect it so the GUI can auto-retry as an unknown-album rip — which needs no
-# network — and tag locally afterward from the metadata it already has.
+# A ripper can abort when it can't fetch online metadata (e.g. the container
+# has no network) and wasn't told the disc is "unknown". We detect that so the
+# GUI can auto-retry as an unknown-album rip — which needs no network — and tag
+# locally afterward from the metadata it already has. These are whipper's abort
+# strings; cyanrip is always run with `-N` and fed the GUI's tags (Critical
+# Rule #5), so it never does an online lookup and never hits this — the heal
+# path is currently inert, kept as the seam for any future networked backend.
 _NO_METADATA_MARKERS: tuple[str, ...] = (
     "--unknown argument not passed",
     "unable to retrieve disc metadata",
 )
 
-# whipper exhausts its retries on a track it can't read consistently (a
-# scratched/dirty disc, or the cd-paranoia >587-offset upstream bug). We turn
-# this into an actionable message instead of a bare "Rip failed".
+# A ripper can exhaust its retries on a track it can't read consistently (a
+# scratched/dirty disc). We turn that into an actionable message instead of a
+# bare "Rip failed". This matches whipper's "giving up on track N" wording;
+# cyanrip instead rips the track "with errors" and keeps going, so it doesn't
+# trip this — the hint stays for the whipper-format seam and is harmless inert.
 _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 
 # Minimum wall-clock gap between forwarding consecutive *progress redraw* lines
@@ -314,10 +320,7 @@ class RipWorker(QObject):
                     self._failure_hint = (
                         f"Track {track} couldn't be read after repeated tries. "
                         "The disc may be scratched or dirty — clean it and try "
-                        "again. (Your drive's read offset of 667 is above the "
-                        "value where whipper's cd-paranoia has a known bug, "
-                        "which can cause this too.) To rip the readable tracks "
-                        "anyway, turn on “Keep going” in Settings."
+                        "again."
                     )
                 # Status text first (covers the pre-track disc scan and
                 # the encode/tag sub-phases), then the numeric progress

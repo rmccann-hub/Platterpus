@@ -1,7 +1,10 @@
-"""Parse whipper's rip `.log` file into a RipLog dataclass.
+"""Parse a whipper-FORMAT rip `.log` file into a RipLog dataclass.
 
-Format verified against a real whipper 0.7.4+ log from whipper-team's
-own test fixtures (tests/fixtures/rip_log_real_whipper_0_7.log).
+This is the legacy whipper log format, kept for old logs and test
+fixtures; the current cyanrip backend has its own parser that reuses the
+dataclasses defined here. Format verified against a real whipper 0.7.4+
+log from whipper-team's own test fixtures
+(tests/fixtures/rip_log_real_whipper_0_7.log).
 
 Structure (YAML-style indented mapping):
 

@@ -3,7 +3,7 @@
 Three panes stacked vertically:
 
   Status line + QProgressBar
-  Live whipper stdout (read-only QPlainTextEdit)
+  Live rip-tool stdout (read-only QPlainTextEdit)
   Verification verdict banner (bold, colour-coded at-a-glance trust headline)
   AccurateRip results table (populated when the rip log lands)
   CTDB verdict line (second, TOC-keyed verification path)

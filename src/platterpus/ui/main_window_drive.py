@@ -121,8 +121,8 @@ class DriveMixin:
         choice = QMessageBox.question(
             self,
             "Set up your drive",
-            "Your drive's read offset isn't configured yet — whipper needs it "
-            "to rip. Set it up now?\n\n"
+            "Your drive's read offset isn't configured yet — it's needed for "
+            "a bit-perfect rip. Set it up now?\n\n"
             "You can auto-detect it (insert a popular commercial CD) or enter "
             "it by hand. You can also do this later from Tools → Set up drive….",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
