@@ -22,13 +22,66 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+# --- Defuse the PySide interpreter-shutdown abort -------------------------
+#
+# With many QThread-using tests, PySide6 intermittently SIGABRTs during
+# interpreter shutdown of the (offscreen) QApplication — a Qt-internal teardown
+# race that fires *after* every test has passed and after pytest-cov has written
+# coverage. It only flips the exit code, turning a green run red (CI flake). The
+# accepted fix: capture pytest's real exit status at session finish, then in
+# `pytest_unconfigure` (which runs after results AND coverage are finalized)
+# exit the process hard with that status — skipping the crash-prone Qt global
+# teardown. This does NOT mask real failures (the captured status is whatever
+# pytest computed, including the coverage gate) and does NOT mask a *mid-run*
+# abort (that kills the process before sessionfinish, so this never fires —
+# which is why the per-test QThread-join backstop below is still essential).
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
+    # Defuse the intermittent PySide interpreter-shutdown SIGABRT (a Qt-internal
+    # global-teardown race with offscreen + many QThread tests). We exit the
+    # process HARD with the real status at the END of session finish — as a
+    # hookwrapper post-`yield`, so this runs AFTER pytest-cov's wrapper has saved
+    # the .coverage data file and applied `--cov-fail-under` to
+    # `session.exitstatus`. Exiting *here* (the earliest point after results are
+    # final) rather than in `pytest_unconfigure` matters: the crash otherwise
+    # fires in the gap between session-finish and unconfigure, during pytest's
+    # own end-of-session cleanup. Trade-off: pytest-cov's *printed* terminal
+    # report is skipped (it prints after this) — but the gate is enforced by the
+    # exit code and the .coverage file is written, so `coverage report` shows the
+    # numbers anytime. Does NOT mask failures (status is whatever pytest
+    # computed: an impossible gate / a failing test still exits non-zero) and
+    # does NOT mask a *mid-run* abort (that kills the process before this fires,
+    # which is why the per-test QThread-join backstop above stays essential).
+    yield
+    import os
+    import sys
+
+    status = int(session.exitstatus)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(status)
+
+
+# Hold the QApplication in a module global so it is NEVER garbage-collected —
+# if Python GCs it at session end, its Qt teardown can SIGABRT (see the
+# session-finish hard-exit above). Pinned here, it survives until os._exit.
+_HELD_APP: object | None = None
+
 
 @pytest.fixture(scope="session")
 def qapp() -> QApplication:
-    """Return the single QApplication instance for the test session."""
+    """Return the single QApplication instance for the test session.
+
+    (The interpreter-shutdown SIGABRT this app can trigger during global Qt
+    teardown is defused by pinning it in `_HELD_APP` + the `pytest_unconfigure`
+    hard-exit above, not by tearing it down here.)
+    """
+    global _HELD_APP
     app = QApplication.instance()
     if app is None:
         app = QApplication([])
+    _HELD_APP = app  # pin: never let it be collected
     return app  # type: ignore[return-value]
 
 

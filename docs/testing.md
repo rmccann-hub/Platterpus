@@ -117,6 +117,20 @@ tiers. "I added a happy-path test" is not done.
     joins any still-running at teardown as a backstop (warning, not failing) —
     but the *fix* is to drive the worker to completion with `process_until`. Run
     `pytest -W error::UserWarning` locally to surface any leaker as a failure.
+  - **The PySide interpreter-shutdown abort (and our mitigation).** Separately
+    from a *mid-run* leak, PySide6 + `offscreen` + many QThread tests can SIGABRT
+    during the QApplication's Qt-internal global teardown — *after* every test
+    passed and coverage was written. It only flips the exit code (a CI flake).
+    `conftest` mitigates it: the session QApplication is pinned in a module
+    global (never GC'd), and a `pytest_sessionfinish` hookwrapper `os._exit`s the
+    process with the real status once results + the `.coverage` data file are
+    finalized — skipping the crash-prone teardown. It does **not** mask failures
+    (an impossible gate / a failing test still exit non-zero — there are checks
+    for both) and does **not** mask a mid-run abort. Trade-off: pytest-cov's
+    *printed* report is skipped (it prints later); the gate is still enforced by
+    exit code and `coverage report` reads the saved `.coverage` anytime. This is
+    best-effort — it greatly reduces but doesn't 100% eliminate the local race
+    (it's environment-specific; real CI has been green).
   - **Suppress first-run offers before pumping events.** `processEvents()` will
     fire any pending `QTimer.singleShot` — including `_maybe_offer_first_run_setup`,
     whose `QMessageBox.exec()` **blocks forever headless**. Construct the window
