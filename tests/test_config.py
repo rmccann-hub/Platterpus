@@ -324,3 +324,30 @@ def test_v4_config_upgrades_to_v5_with_read_speed_defaults(
     assert cfg.schema_version == SCHEMA_VERSION
     assert cfg.read_speed_mode == "auto_ladder"
     assert cfg.read_speed == 0
+
+
+def test_secure_rerip_dynamic_defaults_off_and_round_trips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _redirect_config(tmp_path, monkeypatch)
+
+    cfg = config_module.load()
+    assert cfg.secure_rerip_dynamic is False  # opt-in; unchanged behaviour default
+
+    cfg.secure_rerip_dynamic = True
+    config_module.save(cfg)
+    assert config_module.load().secure_rerip_dynamic is True
+
+
+def test_v5_config_upgrades_to_v6_with_dynamic_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A v5 config (no secure_rerip_dynamic) loads at the current schema with the
+    opt-in default (False) filled in — no value transform needed."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text("schema_version = 5\n")
+
+    cfg = config_module.load()
+
+    assert cfg.schema_version == SCHEMA_VERSION
+    assert cfg.secure_rerip_dynamic is False

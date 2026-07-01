@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **"Only when needed" dynamic secure re-rip (opt-in).** A new checkbox next to
+  the "Re-rip until reads match" setting. When on, Platterpus rips the disc once
+  at **full speed** (no `-Z`), then secure-re-rips **only the tracks that didn't
+  match AccurateRip** — a track that matched the database on its first read is
+  already proven bit-perfect, so re-reading it is wasted time. On a clean disc
+  that's a single fast pass (roughly real-time, no ballooning ETA) instead of
+  reading every track twice; marginal or not-in-database tracks still get the full
+  secure treatment (reusing the per-track re-rip). Off by default — today's
+  "`-Z` on every track" behaviour is unchanged unless you tick it. The re-rip
+  reason (`instability` vs `accuraterip`) is recorded per track in the report's
+  `read_speed.retried_tracks`.
+
 ### Fixed
 - **Dialogs open on the right screen, on top, and fully visible.** Every dialog is
   centred on the main window (a `CenteredDialog` base + an app-wide filter that

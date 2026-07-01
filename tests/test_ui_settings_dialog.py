@@ -241,6 +241,31 @@ def test_secure_rerip_editable(qapp: QApplication) -> None:
     assert dialog._secure_rerip_spin.isEnabled() is True
 
 
+def test_secure_rerip_dynamic_reflects_config_and_round_trips(
+    qapp: QApplication,
+) -> None:
+    # Opt-in: default OFF, reflects the incoming config, survives to_config().
+    assert SettingsDialog(Config())._secure_rerip_dynamic_check.isChecked() is False
+
+    dialog = SettingsDialog(Config(secure_rerip_matches=2, secure_rerip_dynamic=True))
+    assert dialog._secure_rerip_dynamic_check.isChecked() is True
+    dialog._secure_rerip_dynamic_check.setChecked(False)
+    assert dialog.to_config().secure_rerip_dynamic is False
+
+
+def test_secure_rerip_dynamic_enabled_only_when_rerip_on(qapp: QApplication) -> None:
+    # The dynamic option means nothing with -Z off, so it's greyed out at 0…
+    dialog = SettingsDialog(Config(secure_rerip_matches=0))
+    assert dialog._secure_rerip_dynamic_check.isEnabled() is False
+    # …and enables as soon as a -Z level is set.
+    dialog._secure_rerip_spin.setValue(2)
+    assert dialog._secure_rerip_dynamic_check.isEnabled() is True
+
+
+def test_secure_rerip_dynamic_has_accessible_name(qapp: QApplication) -> None:
+    assert SettingsDialog(Config())._secure_rerip_dynamic_check.accessibleName()
+
+
 def test_goal_combo_reflects_the_incoming_config(qapp: QApplication) -> None:
     # Default config == Fast-verified preset.
     assert SettingsDialog(Config())._goal_combo.currentData() == GOAL_FAST

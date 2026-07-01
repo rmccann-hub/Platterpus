@@ -308,6 +308,32 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Re-rip until reads match:", self._secure_rerip_spin)
 
+        # Dynamic secure-rerip (0.4.9): apply the -Z re-rip ONLY to tracks that
+        # don't match AccurateRip, instead of to every track. Off by default
+        # (today's behaviour). Only meaningful when the -Z level above is > 0.
+        self._secure_rerip_dynamic_check: QCheckBox = QCheckBox(
+            "Only when needed — secure just the tracks that don't match AccurateRip",
+            self,
+        )
+        self._secure_rerip_dynamic_check.setChecked(config.secure_rerip_dynamic)
+        self._secure_rerip_dynamic_check.setAccessibleName(
+            "Dynamic secure re-rip (only unverified tracks)"
+        )
+        self._secure_rerip_dynamic_check.setToolTip(
+            "Rip the disc once at full speed, then secure-re-rip ONLY the tracks "
+            "that didn't match the AccurateRip database — a track that matched on "
+            "its first read is already proven bit-perfect, so re-reading it is "
+            "wasted time. Much faster on a clean disc; marginal tracks still get "
+            "the full secure treatment. Applies only when 'Re-rip until reads "
+            "match' above is on."
+        )
+        form.addRow("", self._secure_rerip_dynamic_check)
+        # The dynamic option only means anything when -Z is on; grey it out at 0.
+        self._secure_rerip_spin.valueChanged.connect(
+            self._update_secure_rerip_dynamic_enabled
+        )
+        self._update_secure_rerip_dynamic_enabled()
+
         # --- Adaptive read-speed ladder (headline, 0.4.6) ---
         # "Adaptive ladder" (default): rip fast, and only if a disc reads with
         # errors, re-rip it slower (and, at the floor, harder). "Fixed speed"
@@ -447,6 +473,7 @@ class SettingsDialog(CenteredDialog):
             cover_art=self._cover_art_combo.currentData(),
             max_retries=self._max_retries_spin.value(),
             secure_rerip_matches=self._secure_rerip_spin.value(),
+            secure_rerip_dynamic=self._secure_rerip_dynamic_check.isChecked(),
             read_speed_mode=self._read_speed_mode_combo.currentData(),
             read_speed=self._read_speed_spin.value(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),
@@ -479,6 +506,11 @@ class SettingsDialog(CenteredDialog):
         self._read_speed_spin.setEnabled(
             self._read_speed_mode_combo.currentData() == "fixed"
         )
+
+    def _update_secure_rerip_dynamic_enabled(self) -> None:
+        """The 'only when needed' (dynamic) option is meaningful only when secure
+        re-rip is on (-Z > 0); grey it out when re-rip is Off."""
+        self._secure_rerip_dynamic_check.setEnabled(self._secure_rerip_spin.value() > 0)
 
     # --- Naming presets ----------------------------------------------------
 

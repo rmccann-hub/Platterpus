@@ -14,6 +14,7 @@ from platterpus.read_speed_ladder import (
     attempts_to_report,
     next_step,
     read_errors_present,
+    tracks_failing_accuraterip,
     unstable_tracks,
 )
 
@@ -83,11 +84,20 @@ def test_next_step_speed_locked_never_sends_a_slower_speed() -> None:
 
 class _Track:
     def __init__(
-        self, status: str = "", number: int = 0, secure_rerip_converged=None
+        self,
+        status: str = "",
+        number: int = 0,
+        secure_rerip_converged=None,
+        accuraterip_v1=None,
+        accuraterip_v2=None,
+        accuraterip_offset=None,
     ) -> None:
         self.status = status
         self.number = number
         self.secure_rerip_converged = secure_rerip_converged
+        self.accuraterip_v1 = accuraterip_v1
+        self.accuraterip_v2 = accuraterip_v2
+        self.accuraterip_offset = accuraterip_offset
 
 
 class _Log:
@@ -171,6 +181,30 @@ def test_unstable_tracks_never_raises_on_junk() -> None:
         tracks = 5  # non-iterable truthy → loop raises → swallowed
 
     assert unstable_tracks(_Bad()) == []
+
+
+# --- tracks_failing_accuraterip (the dynamic-mode secure-rerip trigger) --------
+
+
+def test_tracks_failing_accuraterip_flags_only_unproven() -> None:
+    from platterpus.parsers.rip_log import AccurateRipResult
+
+    matched = AccurateRipResult(version=1, confidence=200)
+    offset = AccurateRipResult(version=450, confidence=200)
+    log = _Log(
+        tracks=(
+            _Track(number=1, accuraterip_v1=matched),  # DB match → proven
+            _Track(number=2),  # no match at all → needs a secure re-rip
+            _Track(number=3, accuraterip_offset=offset),  # offset pressing → proven
+            _Track(number=4, status="data track (skipped)"),  # data → skip
+        )
+    )
+    assert tracks_failing_accuraterip(log) == [2]
+
+
+def test_tracks_failing_accuraterip_never_raises_on_junk() -> None:
+    assert tracks_failing_accuraterip(object()) == []
+    assert tracks_failing_accuraterip(None) == []
 
 
 # --- attempts_to_report -------------------------------------------------------

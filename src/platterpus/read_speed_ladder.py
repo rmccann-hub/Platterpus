@@ -42,6 +42,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from platterpus.parsers.rip_log import (
+    accuraterip_is_match,
+    track_accuraterip_verified,
+)
+
 log = logging.getLogger(__name__)
 
 # The read-speed rungs, fastest → slowest. 0 means "let the drive pick" (its
@@ -211,6 +216,35 @@ def unstable_tracks(rip_log: object) -> list[int]:
         return sorted(set(numbers))
     except Exception:  # noqa: BLE001 — a report helper must never crash a rip
         log.exception("unstable_tracks failed; assuming none")
+        return []
+
+
+def tracks_failing_accuraterip(rip_log: object) -> list[int]:
+    """Track numbers NOT proven by AccurateRip after a pass.
+
+    A track is "proven" if either AccurateRip v1/v2 matched, OR the offset-variant
+    matched (a stable read of a differently-offset pressing — still bit-perfect for
+    that pressing). Everything else — a track that didn't match the DB at all — is
+    returned. In *dynamic* secure-rerip mode these are exactly the tracks worth a
+    targeted `-Z` re-rip: a track that matched the database on the fast first read
+    is already proven, so re-reading it is wasted time. Data tracks are skipped.
+    Pure, sorted, deduped, never raises.
+    """
+    try:
+        numbers: list[int] = []
+        for track in getattr(rip_log, "tracks", ()) or ():
+            if track_accuraterip_verified(track):
+                continue
+            if accuraterip_is_match(getattr(track, "accuraterip_offset", None)):
+                continue
+            if "data track" in (getattr(track, "status", "") or "").lower():
+                continue
+            number = getattr(track, "number", None)
+            if isinstance(number, int):
+                numbers.append(number)
+        return sorted(set(numbers))
+    except Exception:  # noqa: BLE001 — a report/predicate helper must not crash
+        log.exception("tracks_failing_accuraterip failed; assuming none")
         return []
 
 
