@@ -131,6 +131,17 @@ class TrackResult:
     # suffix). 1 = clean single pass; higher means secure re-reads (-Z N) were
     # needed — the clearest per-track signal of a marginal read region.
     rip_count: int | None = None
+    # cyanrip's secure re-read (-Z N) verdict for this track: True when N reads'
+    # checksums agreed ("Done; (N out of N matches)"); False when it hit the
+    # repeat limit WITHOUT any two reads agreeing ("no matches found, but hit
+    # repeat limit of N"). This is the RELIABLE per-track read-instability signal
+    # — cyanrip's whole-disc "Ripping errors" count stays 0 even when a track
+    # never converges (real-hardware finding, 2026-07-01). None when -Z was off
+    # or the log predates this field. NOTE it is orthogonal to
+    # `accuraterip_offset`: a fully-converged (stable) read can still match only
+    # the offset-variant pressing — that's a pressing difference, NOT instability
+    # — so the two are recorded separately and never conflated.
+    secure_rerip_converged: bool | None = None
     # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
     # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
     # JSON report is the only machine-readable record of what was tagged without

@@ -60,6 +60,15 @@ _TRACK_START = re.compile(
     r"^Track (?P<number>\d+) "
     r"(?P<what>ripped and encoded successfully!|ripped and encoded with errors\.|is data:)"
 )
+# cyanrip's secure re-read (-Z N) verdict for a track, printed on the line JUST
+# BEFORE that track's "Track N ripped…" line. Either the reads converged —
+#   "Done; (2 out of 2 matches for current checksum ABCD1234)"
+# — or it gave up without any two reads agreeing —
+#   "Done; (no matches found, but hit repeat limit of 5)".
+# The latter is the reliable per-track read-instability signal (see
+# TrackResult.secure_rerip_converged). Absent entirely when -Z is off.
+_SECURE_DONE_MATCH = re.compile(r"^Done;\s+\(\d+\s+out of\s+\d+\s+matches\b")
+_SECURE_DONE_FAIL = re.compile(r"^Done;\s+\(no matches found\b")
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
 _TOTAL_TIME = re.compile(r"^Total time:\s+(?P<time>\d{1,2}:\d{2}:\d{2}(?:\.\d+)?)")
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
@@ -145,6 +154,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
     expect_filename = False
     log_checksum = ""
     tracks: list[TrackResult] = []
+    # cyanrip prints a track's secure re-read verdict ("Done; (…)") on the line
+    # just BEFORE that track's "Track N ripped…" opener, so we buffer it here and
+    # attach it when the track block opens. None = no verdict seen (no -Z).
+    pending_converged: bool | None = None
 
     # Mutable fields of the track block currently being read; flushed into
     # `tracks` when the next block (or the end of input) is reached.
@@ -165,6 +178,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 accuraterip_v2=current["v2"],
                 accuraterip_offset=current["offset"],
                 rip_count=current["rip_count"],
+                secure_rerip_converged=current["secure_rerip_converged"],
                 replaygain=dict(current["replaygain"]),
             )
         )
@@ -237,6 +251,14 @@ def parse_cyanrip_log(text: str) -> RipLog:
             log_checksum = match.group("sig")
             continue
 
+        # Secure re-read verdict for the NEXT track — buffer it (see above).
+        if _SECURE_DONE_MATCH.match(line):
+            pending_converged = True
+            continue
+        if _SECURE_DONE_FAIL.match(line):
+            pending_converged = False
+            continue
+
         match = _TRACK_START.match(line)
         if match:
             flush()
@@ -257,8 +279,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 "v2": None,
                 "offset": None,
                 "rip_count": None,
+                # The verdict buffered from this track's "Done; (…)" line above;
+                # consume it so the next track starts fresh (None if -Z was off).
+                "secure_rerip_converged": pending_converged,
                 "replaygain": {},
             }
+            pending_converged = None
             expect_filename = False
             continue
 

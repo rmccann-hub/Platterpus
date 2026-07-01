@@ -39,6 +39,7 @@ from platterpus.read_speed_ladder import (
     SpeedAttempt,
     next_step,
     read_errors_present,
+    unstable_tracks,
 )
 
 log = logging.getLogger(__name__)
@@ -289,6 +290,11 @@ class RipWorker(QObject):
         # folds it into the report, so a disc that needed a slow re-read — or that
         # never read clean even at the floor — is recorded honestly, not hidden.
         self._speed_attempts: list[SpeedAttempt] = []
+        # Track numbers whose secure re-read (-Z) never converged on the FINAL
+        # pass — read instability we FLAG but (per policy) do not auto-re-rip. The
+        # GUI reads this at finish for the report + results-pane caveat. Empty on
+        # a clean disc.
+        self._last_unstable_tracks: list[int] = []
 
     def _album_eta_text(self, overall_pct: float) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
@@ -395,6 +401,13 @@ class RipWorker(QObject):
         return list(self._speed_attempts)
 
     @property
+    def unstable_tracks(self) -> list[int]:
+        """Track numbers whose secure re-read never converged on the final pass
+        (read instability). Flagged in the report + results pane, not re-ripped.
+        The GUI reads this at finish. Empty on a clean disc."""
+        return list(self._last_unstable_tracks)
+
+    @property
     def eta_trace(self) -> list[dict]:
         """The "for posterity" ETA trace: throttled samples pairing the PC clock
         time with cyanrip's ETA and our smoothed album ETA. The GUI reads this at
@@ -442,20 +455,32 @@ class RipWorker(QObject):
             success, log_path_str = outcome
             if self._cancelled:
                 break
-            # Whether this pass's log shows unrecoverable read errors.
-            had_read_errors = read_errors_present(self._parse_log(log_path_str))
-            # "Clean" means the pass BOTH completed (exit 0) AND read without
-            # errors. A hard failure (non-zero exit) is NOT clean even if its
-            # log shows no read-error line — otherwise a failed rip would be
-            # recorded clean and the report's `unresolved` flag would wrongly
-            # read False (review-confirmed bug).
-            clean = success and not had_read_errors
+            parsed_log = self._parse_log(log_path_str)
+            # Whether this pass's log shows unrecoverable read errors — the ONLY
+            # signal that triggers a step-down (below).
+            had_read_errors = read_errors_present(parsed_log)
+            # Read instability: tracks whose secure re-read (-Z) never converged.
+            # We FLAG these (they mark the pass not-clean, so the report's
+            # `unresolved`/`unstable_tracks` are honest) but do NOT escalate on
+            # them — a whole-disc re-rip to retry one track can cost hours with no
+            # guarantee (maintainer's "flag it, don't auto re-rip" call, and
+            # cyanrip's whole-disc error count stays 0 here so it isn't a hard
+            # error). Escalation below keys ONLY on `had_read_errors`.
+            unstable = unstable_tracks(parsed_log)
+            self._last_unstable_tracks = unstable
+            # "Clean" means the pass completed (exit 0), read without unrecoverable
+            # errors, AND every secure re-read converged. A hard failure (non-zero
+            # exit) is NOT clean even if its log shows no read-error line —
+            # otherwise a failed rip would be recorded clean and `unresolved` would
+            # wrongly read False (review-confirmed bug).
+            clean = success and not had_read_errors and not unstable
             self._speed_attempts.append(
                 SpeedAttempt(attempt, speed, secure_rerip, clean=clean)
             )
             # Escalate only in auto_ladder mode, only on a pass that COMPLETED
-            # with read errors (not a hard crash — re-ripping a broken drive/disc
-            # just burns time), and only while the ladder + hard cap allow.
+            # with unrecoverable read errors (not a hard crash — re-ripping a
+            # broken drive/disc just burns time; not mere instability — see
+            # above), and only while the ladder + hard cap allow.
             if (
                 not (auto_ladder and success and had_read_errors)
                 or attempt >= MAX_ATTEMPTS

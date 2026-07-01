@@ -238,6 +238,98 @@ def test_paranoia_block_ends_cleanly_before_finish_lines() -> None:
     assert log.creation_date == "2026-06-29T21:36:39"
 
 
+# --- Secure re-read (-Z) convergence: the per-track read-instability signal ---
+
+# cyanrip prints each track's -Z verdict on the line JUST BEFORE that track's
+# "Track N ripped…" opener. Four shapes, mirroring the real Police "Classics"
+# rip (2026-07-01) where cyanrip reported 0 whole-disc errors yet one track never
+# read the same twice:
+#   1 — converged (2 of 2 reads agreed), AccurateRip-verified   → stable
+#   2 — hit the repeat limit with NO two reads agreeing, offset → UNSTABLE
+#   3 — converged (2 of 2), but only an offset-variant match    → stable pressing
+#   4 — no verdict line at all (e.g. -Z off / a later track)    → unknown (None)
+# The 2-vs-3 contrast is the whole point: an offset-variant match is a PRESSING
+# difference, not instability, so a *converged* one (track 3) must NOT be flagged.
+_SECURE_REREP_LOG = """\
+cyanrip 0.9.3 (release)
+Offset:         +667 samples
+Disc tracks:    4
+
+Repeating ripping (0 out of 2 matches for current checksum 4F2EDD18)
+Repeating ripping (1 out of 2 matches for current checksum 4F2EDD18)
+Done; (2 out of 2 matches for current checksum 4F2EDD18)
+Track 1 ripped and encoded successfully!
+  EAC CRC32:     B0D122E7 (after 3 rips)
+    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)
+  File(s):
+    Album/01 - Stable.flac
+
+Repeating ripping (0 out of 2 matches for current checksum 24B44721)
+Repeating ripping (0 out of 2 matches for current checksum 6A0DC832)
+Repeating ripping (0 out of 2 matches for current checksum 962AD3C6)
+Repeating ripping (0 out of 2 matches for current checksum ECA31204)
+Done; (no matches found, but hit repeat limit of 5)
+Track 2 ripped and encoded successfully!
+  EAC CRC32:     329DC760 (after 5 rips)
+    Accurip 450: BF62B1DA (matches Accurip DB, confidence 200, track is partially accurately ripped)
+  File(s):
+    Album/02 - Unstable.flac
+
+Repeating ripping (0 out of 2 matches for current checksum 1FFC9968)
+Repeating ripping (1 out of 2 matches for current checksum 1FFC9968)
+Done; (2 out of 2 matches for current checksum 1FFC9968)
+Track 3 ripped and encoded successfully!
+  EAC CRC32:     E0036697 (after 5 rips)
+    Accurip 450: 4CCBCF89 (matches Accurip DB, confidence 200, track is partially accurately ripped)
+  File(s):
+    Album/03 - StableOffsetVariant.flac
+
+Track 4 ripped and encoded successfully!
+  EAC CRC32:     ABCDEF01
+  File(s):
+    Album/04 - NoSecureRerip.flac
+
+Tracks ripped accurately: 2/4
+Tracks ripped partially accurately: 2/2
+Ripping errors: 0
+Ripping finished at 2026-07-01T03:10:58
+"""
+
+
+def test_secure_rerip_convergence_recorded_per_track() -> None:
+    log = parse_cyanrip_log(_SECURE_REREP_LOG)
+    numbers = [t.number for t in log.tracks]
+    assert numbers == [1, 2, 3, 4]
+    by_number = {t.number: t for t in log.tracks}
+    # 1: converged.  2: hit the repeat limit → did NOT converge (unstable).
+    assert by_number[1].secure_rerip_converged is True
+    assert by_number[2].secure_rerip_converged is False
+    # 3: converged (stable read) even though it matched only the offset variant —
+    #    a pressing difference, NOT instability.
+    assert by_number[3].secure_rerip_converged is True
+    # 4: no verdict line preceded it → unknown; and crucially it did NOT inherit
+    #    track 3's verdict (the buffer must reset after each track opens).
+    assert by_number[4].secure_rerip_converged is None
+
+
+def test_secure_rerip_verdict_never_raises_when_dangling() -> None:
+    # A "Done; …" line with no following track (a crash right after) must not
+    # raise and must simply be dropped (parser discipline).
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\nDone; (no matches found, but hit repeat limit of 5)\n"
+    )
+    assert log.tracks == ()
+
+
+def test_unstable_tracks_picks_only_the_non_converged_track() -> None:
+    # The read-speed ladder's unstable_tracks() must flag track 2 only — not the
+    # offset-variant-but-converged track 3 (the real-disc track-3-vs-5 lesson).
+    from platterpus.read_speed_ladder import unstable_tracks
+
+    log = parse_cyanrip_log(_SECURE_REREP_LOG)
+    assert unstable_tracks(log) == [2]
+
+
 # --- Medium: negative offset, zero errors normalize like whipper ------------
 
 

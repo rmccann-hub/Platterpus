@@ -239,6 +239,23 @@ def test_read_speed_block_absent_on_single_pass() -> None:
     assert build_report(_sample_log())["read_speed"] is None
 
 
+def test_read_speed_block_carries_flagged_unstable_tracks() -> None:
+    # The "flag it, don't auto re-rip" case: one pass, no escalation, but a track
+    # left unstable must reach the JSON as unresolved + a listed unstable track.
+    from platterpus.read_speed_ladder import SpeedAttempt, attempts_to_report
+
+    report = build_report(
+        _sample_log(),
+        read_speed=attempts_to_report(
+            [SpeedAttempt(1, 0, 2, clean=False)], unstable=[3]
+        ),
+    )
+    rs = report["read_speed"]
+    assert rs["escalated"] is False  # we did NOT re-rip
+    assert rs["unresolved"] is True  # …but it's flagged
+    assert rs["unstable_tracks"] == [3]
+
+
 def test_eta_trace_block_serialized_and_labeled() -> None:
     samples = [
         {
@@ -280,9 +297,9 @@ def test_checksums_embedded_in_report() -> None:
     assert report["checksums"] == sums
 
 
-def test_schema_version_is_v3() -> None:
-    assert REPORT_SCHEMA_VERSION == 3
-    assert build_report(_sample_log())["schema_version"] == 3
+def test_schema_version_is_v4() -> None:
+    assert REPORT_SCHEMA_VERSION == 4
+    assert build_report(_sample_log())["schema_version"] == 4
 
 
 def test_report_includes_loudness_checksum_and_replaygain() -> None:

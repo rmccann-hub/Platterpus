@@ -12,13 +12,27 @@ The rip worker calls :func:`next_step` after each pass to decide the next attemp
 and :func:`attempts_to_report` to record what each pass needed (honest reporting:
 a disc that still can't read clean at the floor is FLAGGED, never papered over).
 
+**Two signals, deliberately kept apart (real-hardware finding, 2026-07-01):**
+  * *Unrecoverable read errors* — cyanrip's finish-report ripping-error count /
+    a per-track "with errors" status. This is what TRIGGERS the step-down
+    (:func:`read_errors_present`); it means the drive gave up on a read.
+  * *Read instability* — cyanrip's secure re-read (``-Z N``) hit its repeat limit
+    without any two reads agreeing (:func:`unstable_tracks`). A real disc proved
+    the error COUNT stays 0 even then, so this is the reliable per-track quality
+    tell — but per the maintainer's call it is **flagged, not auto-re-ripped**
+    (a whole-disc re-rip to retry one track can cost hours with no guarantee).
+  A converged read that merely matches an offset-variant pressing is NEITHER — a
+  pressing difference, not a fault — and is never treated as either signal.
+
 **Hardware-gated (see docs/ripper-engine-strategy.md §8 — flagged for the
 Bazzite + Pioneer BDR-209D validation before this is treated as authoritative):**
-  (a) whether cyanrip exposes a reliable per-track "unrecoverable read" signal we
-      can trigger the step-down on (today we trigger on the log's ripping-error
-      count — a whole-disc signal);
+  (a) ~~whether cyanrip exposes a reliable per-track read-quality signal~~ —
+      ANSWERED 2026-07-01: the whole-disc ripping-error count is NOT sufficient
+      (a disc with an unstable track reported 0 errors), so we now also read the
+      per-track ``-Z`` convergence (:func:`unstable_tracks`) and flag it;
   (b) whether cyanrip can re-rip a *subset* of tracks at a new speed, or the whole
-      disc must re-run (today we re-run the whole disc — safe, if slower);
+      disc must re-run (today we re-run the whole disc — safe, if slower — which
+      is exactly why (a)'s instability is flagged rather than auto-re-ripped);
   (c) whether the BDR-209D honours ``-S`` through the Linux/libcdio-paranoia
       stack at all (if not, the ladder degrades to plain re-reads — no regression).
 """
@@ -62,9 +76,12 @@ class LadderStep:
 class SpeedAttempt:
     """A record of one completed rip pass — what it used and how it went.
 
-    ``clean`` is True when the pass read without unrecoverable errors (the rip
-    can stop). The escalation history is a list of these, so the report can show
-    exactly which speed / ``-Z`` a disc needed — or that it never read clean.
+    ``clean`` is True when the pass completed, read without unrecoverable errors,
+    AND every secure re-read converged (no unstable track). The escalation history
+    is a list of these, so the report can show exactly which speed / ``-Z`` a disc
+    needed — or that it never read clean. NOTE only unrecoverable errors trigger a
+    step-down; instability marks a pass not-clean (honest reporting) but is
+    flagged, not re-ripped (maintainer's policy).
     """
 
     attempt: int  # 1-based
@@ -156,18 +173,52 @@ def read_errors_present(rip_log: object) -> bool:
         return False
 
 
-def attempts_to_report(attempts: list[SpeedAttempt]) -> dict | None:
+def unstable_tracks(rip_log: object) -> list[int]:
+    """Track numbers whose cyanrip secure re-read (``-Z``) never converged.
+
+    cyanrip re-reads a track until N reads' checksums agree; when it instead hits
+    the repeat limit with no two reads agreeing, that track's data is UNSTABLE (a
+    scratch/dirt region) and may not be bit-perfect. This is the reliable
+    per-track read-quality signal — distinct from cyanrip's whole-disc
+    ripping-error count (which stays 0 even then; see :func:`read_errors_present`)
+    and from an offset-variant AccurateRip match (a stable read of a different
+    pressing — NOT instability). Per the maintainer's "flag it, don't auto
+    re-rip" policy (2026-07-01) these are surfaced honestly but do NOT trigger a
+    re-rip. Pure, sorted, deduped, and — like every helper here — never raises.
+    """
+    try:
+        numbers: list[int] = []
+        for track in getattr(rip_log, "tracks", ()) or ():
+            if getattr(track, "secure_rerip_converged", None) is False:
+                number = getattr(track, "number", None)
+                if isinstance(number, int):
+                    numbers.append(number)
+        return sorted(set(numbers))
+    except Exception:  # noqa: BLE001 — a report helper must never crash a rip
+        log.exception("unstable_tracks failed; assuming none")
+        return []
+
+
+def attempts_to_report(
+    attempts: list[SpeedAttempt], unstable: list[int] | None = None
+) -> dict | None:
     """Summarize the escalation history for the JSON report. None if no attempts.
 
     Records every pass (speed + ``-Z`` + whether it read clean), the final
-    settings, whether the ladder had to escalate at all, and — the honest bit —
-    whether the disc was left ``unresolved`` (never read clean even at the floor).
-    Never raises.
+    settings, whether the ladder had to escalate at all, and — the honest bits —
+    whether the disc was left ``unresolved`` and which tracks read ``unstable``.
+
+    ``unstable`` is the list of track numbers whose secure re-read never converged
+    (from :func:`unstable_tracks`). They were left as cyanrip's best read and NOT
+    auto-re-ripped (maintainer's policy), so they must still be FLAGGED:
+    ``unresolved`` is True whenever the last pass wasn't clean OR any track is
+    unstable, and ``unstable_tracks`` lists the specifics. Never raises.
     """
     try:
         if not attempts:
             return None
         last = attempts[-1]
+        unstable_list = sorted(set(unstable or []))
         return {
             "attempts": [
                 {
@@ -184,8 +235,12 @@ def attempts_to_report(attempts: list[SpeedAttempt]) -> dict | None:
             "final_secure_rerip_matches": last.secure_rerip_matches,
             # Did we ever have to step down / re-read harder than the first pass?
             "escalated": len(attempts) > 1,
-            # The honest flag: the disc never read clean, even at the floor.
-            "unresolved": not last.clean,
+            # The honest flag: the disc never read clean at the floor, OR a track
+            # was left unstable (flagged, not re-ripped — see below).
+            "unresolved": (not last.clean) or bool(unstable_list),
+            # Tracks whose secure re-read never converged (read instability). Left
+            # as cyanrip's best read; a re-rip was NOT auto-triggered (policy).
+            "unstable_tracks": unstable_list,
         }
     except Exception:  # noqa: BLE001 — report helpers never crash a rip
         log.exception("read-speed ladder attempts_to_report failed")
