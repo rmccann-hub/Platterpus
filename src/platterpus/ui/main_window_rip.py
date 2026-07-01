@@ -980,6 +980,7 @@ class RipMixin:
 
         from platterpus import rip_report
 
+        debug_log = self._build_rip_debug_log()
         rip_report.write_report(
             rip_log,
             log_file,
@@ -989,8 +990,12 @@ class RipMixin:
             checksums=getattr(self, "_last_checksums", None),
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
-            debug_log=self._build_rip_debug_log(),
+            debug_log=debug_log,
         )
+        # Also drop the human-readable, session-scoped debug log beside the rip
+        # (X.platterpus.log) so it lives WITH the album, not only in the global
+        # log.txt — same "other albums excluded" scoping as the JSON's copy.
+        rip_report.write_debug_log(log_file, debug_log)
 
     # --- Per-file SHA256 digests (embedded in the report) -------------------
 

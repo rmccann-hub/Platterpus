@@ -59,11 +59,22 @@ class DiscToc:
         return len(self.track_offsets)
 
     def toc_string(self) -> str:
-        """The `toc=` value for `lookup2.php`: offsets then lead-out, ':'-joined.
+        """The `toc=` value for `lookup2.php`: track starts then lead-out, ':'-joined.
 
-        Example: ``150:18172:...:295716``. ⚠️ Format reconstructed from the
-        spec — confirm on hardware (KDD-16)."""
-        return ":".join(str(n) for n in (*self.track_offsets, self.leadout))
+        CTDB's ``lookup2.php`` wants offsets **relative to the first track's
+        start** — i.e. the 150-sector lead-in removed, so the list starts at 0
+        (per the protocol spec's examples: ``0:16032:32072:…``). We store
+        absolute (lead-in-included) offsets internally (the AccurateRip
+        convention), so subtract ``LEAD_IN_SECTORS`` here for the wire.
+
+        This was verified against the live server (2026-07-01): the old
+        lead-in-included form (``150:…``) returned HTTP 404 for every disc — which
+        is why CTDB "never worked" / timed out — while the ``0:…`` form returns a
+        real match. Fixes the KDD-16 "confirm on hardware" caveat.
+        """
+        return ":".join(
+            str(n - LEAD_IN_SECTORS) for n in (*self.track_offsets, self.leadout)
+        )
 
 
 # --- MSF / sector helpers --------------------------------------------------

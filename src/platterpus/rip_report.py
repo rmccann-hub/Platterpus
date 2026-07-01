@@ -181,8 +181,15 @@ def _build(
         ),
         "disc_duration": getattr(rip_log, "disc_duration", "") or None,
         "paranoia_counts": dict(getattr(rip_log, "paranoia_counts", {}) or {}) or None,
+        # Whole-disc loudness (integrated LUFS / LRA / true peak) from cyanrip's
+        # "Album Loudness Summary"; per-track loudness lives in each track's
+        # `replaygain`. None when absent (e.g. whipper logs).
+        "album_loudness": dict(getattr(rip_log, "album_loudness", {}) or {}) or None,
         "health_status": getattr(rip_log, "health_status", "") or None,
         "sha256_hash": getattr(rip_log, "sha256_hash", "") or None,
+        # cyanrip's own log signature ("Log FUN512:") — its analogue to EAC's
+        # signed log checksum, the one archival-forensic field we were dropping.
+        "log_checksum": getattr(rip_log, "log_checksum", "") or None,
         "tracks": [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())],
         "ctdb": _ctdb(ctdb_result),
         # The full post-rip verification suite in one place: AccurateRip lives in
@@ -212,6 +219,9 @@ def _track(track: object) -> dict:
         # How many read passes cyanrip needed (its "(after N rips)"); None for
         # whipper logs / a clean single-pass cyanrip track.
         "rip_count": getattr(track, "rip_count", None),
+        # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
+        # the machine-readable record of what was tagged. None when absent.
+        "replaygain": (dict(getattr(track, "replaygain", {})) or None),
         # The shared confidence>=1 rule — same as the banner and disc panel.
         "accuraterip_verified": track_accuraterip_verified(track),
         "accuraterip": {
@@ -311,6 +321,45 @@ def report_to_json(report: dict) -> str:
 def report_path_for(log_file: Path) -> Path:
     """The JSON report path that sits beside a rip log (`X.log` → `X.platterpus.json`)."""
     return log_file.parent / f"{log_file.stem}.platterpus.json"
+
+
+def debug_log_path_for(log_file: Path) -> Path:
+    """The human-readable debug-log path beside a rip (`X.log` → `X.platterpus.log`).
+
+    Distinct from the EAC-parity `X.log` and the machine-readable
+    `X.platterpus.json`. This is the per-rip, session-scoped app log the
+    maintainer asked to live *with the rip* (rather than only in the global
+    `~/.local/share/platterpus/log.txt`).
+    """
+    return log_file.parent / f"{log_file.stem}.platterpus.log"
+
+
+def write_debug_log(log_file: Path, debug_log: dict | None) -> Path | None:
+    """Write the session-scoped debug log as plain text beside `log_file`.
+
+    `debug_log` is the ``{scope, truncated, lines}`` dict from
+    :func:`build_debug_log` — already scoped to this rip's session (other
+    albums' rips filtered out), so it obeys the same "keep out unneeded rips"
+    rule as the JSON's embedded copy. Best-effort: returns the path written or
+    None on any failure (a debug artefact must never break the post-rip flow).
+    """
+    if not debug_log:
+        return None
+    target = debug_log_path_for(log_file)
+    lines = debug_log.get("lines") or []
+    header = [
+        f"# Platterpus debug log — {debug_log.get('scope', 'this rip')}",
+        "# The full cross-session log is ~/.local/share/platterpus/log.txt;",
+        "# the machine-readable report is the .platterpus.json beside this file.",
+    ]
+    if debug_log.get("truncated"):
+        header.append("# (older lines were dropped — see log.txt for the full history)")
+    try:
+        target.write_text("\n".join([*header, "", *lines]) + "\n", encoding="utf-8")
+    except OSError:
+        log.exception("failed to write the per-rip debug log")
+        return None
+    return target
 
 
 def write_report(

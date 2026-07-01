@@ -131,6 +131,11 @@ class TrackResult:
     # suffix). 1 = clean single pass; higher means secure re-reads (-Z N) were
     # needed — the clearest per-track signal of a marginal read region.
     rip_count: int | None = None
+    # ReplayGain / loudness tags cyanrip computed and wrote into the FLAC (a
+    # dict of the raw "REPLAYGAIN_*"/"R128_TRACK_GAIN" values, as strings). The
+    # JSON report is the only machine-readable record of what was tagged without
+    # re-reading every file. Empty for whipper logs / when not present.
+    replaygain: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -154,6 +159,13 @@ class RipLog:
     # cyanrip's "Paranoia status counts" block (READ/VERIFY/FIXUP_ATOM/OVERLAP/…)
     # — error-correction activity. High counts explain a slow, re-read-heavy rip.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
+    # cyanrip's "Album Loudness Summary" block (integrated LUFS, LRA, true peak)
+    # — the whole-disc loudness, as a dict of strings. Empty when absent.
+    album_loudness: dict[str, str] = field(default_factory=dict)
+    # cyanrip's own log signature ("Log FUN512: <base64>") — its analogue to
+    # EAC's signed log checksum. A different algorithm from `sha256_hash`, so
+    # kept as its own field. Empty for whipper logs.
+    log_checksum: str = ""
 
 
 # --- AccurateRip "is this track verified?" — the ONE shared definition -------

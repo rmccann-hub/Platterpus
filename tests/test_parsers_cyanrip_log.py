@@ -63,6 +63,43 @@ def test_parses_device_model_as_drive() -> None:
     assert log.ripping_info.read_offset_correction == 667
 
 
+def test_parses_replaygain_filename_loudness_and_checksum() -> None:
+    # From the real rip: per-track ReplayGain + filename, album loudness, and
+    # cyanrip's own "Log FUN512" signature must all reach the RipLog.
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "Summary:\n"
+        "  EAC CRC32:     B0D122E7 (after 3 rips)\n"
+        "  Metadata:\n"
+        "    REPLAYGAIN_TRACK_GAIN:         -4.10 dB\n"
+        "    R128_TRACK_GAIN:               229\n"
+        "    REPLAYGAIN_TRACK_PEAK:         1.029445\n"
+        "  File(s):\n"
+        "    The Police/Album/01 - Roxanne.flac\n"
+        "\n"
+        "Album Loudness Summary:\n"
+        "  Integrated loudness:\n"
+        "    I:         -13.9 LUFS\n"
+        "  Loudness range:\n"
+        "    LRA:         8.9 LU\n"
+        "  True peak:\n"
+        "    Peak:        0.8 dBFS\n"
+        "Log FUN512: SMUmY2sgZFoiL_8iSXnp\n"
+    )
+    (track,) = log.tracks
+    assert track.filename == "The Police/Album/01 - Roxanne.flac"
+    assert track.replaygain["REPLAYGAIN_TRACK_GAIN"] == "-4.10 dB"
+    assert track.replaygain["R128_TRACK_GAIN"] == "229"
+    assert track.replaygain["REPLAYGAIN_TRACK_PEAK"] == "1.029445"
+    assert log.album_loudness == {
+        "integrated_lufs": "-13.9",
+        "lra_lu": "8.9",
+        "true_peak_dbfs": "0.8",
+    }
+    assert log.log_checksum == "SMUmY2sgZFoiL_8iSXnp"
+
+
 def test_full_log_parses_header_and_finish() -> None:
     log = parse_cyanrip_log(_FULL_LOG)
     assert log.log_creator == "cyanrip 0.9.3.1"
