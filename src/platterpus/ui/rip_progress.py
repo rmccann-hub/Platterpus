@@ -42,7 +42,7 @@ from platterpus.parsers.rip_log import RipLog
 # home is the pure platterpus.verdict module.
 from platterpus.verdict import accuraterip_verdict
 
-__all__ = ["RipProgress", "accuraterip_verdict"]
+__all__ = ["RipProgress", "accuraterip_verdict", "loudness_summary_line"]
 
 log = logging.getLogger(__name__)
 
@@ -162,6 +162,19 @@ class RipProgress(QWidget):
         self._ctdb_label.setVisible(False)
         root.addWidget(self._ctdb_label)
 
+        # --- Album loudness + partial-accurate footnote ---
+        # A neutral one-liner surfacing two facts cyanrip already computed and
+        # that we were only writing to the JSON: the album loudness (integrated
+        # LUFS / range / true peak) and how many tracks were offset-variant
+        # ("partially accurate") matches. Populated from the parsed log by
+        # set_rip_log; hidden when there's nothing to show (e.g. a whipper log
+        # carries no loudness and the disc had no partial matches).
+        self._loudness_label: QLabel = QLabel("", self)
+        self._loudness_label.setWordWrap(True)
+        self._loudness_label.setVisible(False)
+        self._loudness_label.setStyleSheet("QLabel { color: palette(mid); }")
+        root.addWidget(self._loudness_label)
+
         # --- Post-rip output buttons ---
         # Three complementary outputs land beside the FLACs every rip (the
         # "two outputs every time" principle, docs/ux-design-principles #2):
@@ -197,6 +210,9 @@ class RipProgress(QWidget):
         self._verdict_banner.setAccessibleName("AccurateRip verification verdict")
         self._ar_table.setAccessibleName("Per-track AccurateRip results")
         self._ctdb_label.setAccessibleName("CTDB verification result")
+        self._loudness_label.setAccessibleName(
+            "Album loudness and partial-match summary"
+        )
         self._view_log_button.setAccessibleName("Open the rip log file")
         self._view_report_button.setAccessibleName(
             "Open the machine-readable rip report (JSON)"
@@ -216,6 +232,8 @@ class RipProgress(QWidget):
         self._ar_table.setRowCount(0)
         self._ctdb_label.clear()
         self._ctdb_label.setVisible(False)
+        self._loudness_label.clear()
+        self._loudness_label.setVisible(False)
         self._view_log_button.setEnabled(False)
         self._view_report_button.setEnabled(False)
         self._open_folder_button.setEnabled(False)
@@ -266,6 +284,12 @@ class RipProgress(QWidget):
             self._ar_table.setItem(row, _AR_COL_STATUS, status_item)
             self._ar_table.setItem(row, _AR_COL_V1, v1_item)
             self._ar_table.setItem(row, _AR_COL_V2, v2_item)
+
+        # Album loudness + partial-accurate footnote (data cyanrip already
+        # logged; previously only in the JSON). Hidden when there's nothing.
+        summary = loudness_summary_line(rip_log)
+        self._loudness_label.setText(summary)
+        self._loudness_label.setVisible(bool(summary))
 
     def set_ctdb_status(self, text: str) -> None:
         """Show an in-progress CTDB line (e.g. 'Verifying against CTDB…')."""
@@ -368,6 +392,43 @@ def ctdb_verdict_level(result: CtdbVerifyResult) -> str:
     if verdict is Verdict.MATCH:
         return "ok" if result.trustworthy else "warn"
     return "neutral"
+
+
+def loudness_summary_line(rip_log: object) -> str:
+    """One-line album-loudness + partial-accurate footnote, or "" when there's
+    nothing to show.
+
+    Pure and **never raises** (it backs a results-pane label populated from a
+    best-effort parse): it defends against a missing/oddly-typed
+    ``album_loudness`` dict or ``partially_accurate_summary`` and just omits any
+    part it can't render. cyanrip logs carry integrated loudness (LUFS), loudness
+    range (LU) and true peak (dBFS); whipper logs don't, so this returns "" for
+    them (the label then stays hidden). The two facts are joined with " · " so a
+    disc that has one but not the other still reads cleanly.
+    """
+    parts: list[str] = []
+    try:
+        loudness = getattr(rip_log, "album_loudness", None) or {}
+        if isinstance(loudness, dict):
+            bits: list[str] = []
+            integrated = loudness.get("integrated_lufs")
+            lra = loudness.get("lra_lu")
+            peak = loudness.get("true_peak_dbfs")
+            if integrated:
+                bits.append(f"{integrated} LUFS integrated")
+            if lra:
+                bits.append(f"range {lra} LU")
+            if peak:
+                bits.append(f"true peak {peak} dBFS")
+            if bits:
+                parts.append("Album loudness: " + ", ".join(bits))
+        partial = getattr(rip_log, "partially_accurate_summary", "") or ""
+        if isinstance(partial, str) and partial.strip():
+            parts.append(partial.strip())
+    except Exception:  # noqa: BLE001 — a results-pane footnote must never crash
+        log.exception("loudness summary line failed; omitting")
+        return ""
+    return " · ".join(parts)
 
 
 # Banner colours by level. Muted, theme-neutral hues that read on both light
