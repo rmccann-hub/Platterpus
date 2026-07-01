@@ -401,6 +401,41 @@ def test_write_report_writes_beside_the_log(tmp_path: Path) -> None:
     assert json.loads(out.read_text())["generator"]["name"] == "platterpus"
 
 
+def test_write_report_is_atomic_no_temp_left_behind(tmp_path: Path) -> None:
+    # Crash-safety (it.12): the atomic temp+rename must not leave a .tmp sibling
+    # behind, and the written JSON must be complete (parseable).
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("(human log)")
+    out = write_report(_sample_log(), log_file)
+    assert out is not None
+    assert not out.with_name(out.name + ".tmp").exists()
+    json.loads(out.read_text())  # complete, parseable — never a torn write
+
+
+def test_write_report_overwrite_stays_atomic(tmp_path: Path) -> None:
+    # The report is re-written as each async check finishes; each overwrite is
+    # atomic and leaves no temp.
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("(human log)")
+    write_report(_sample_log(), log_file)
+    out = write_report(
+        _sample_log(), log_file, ctdb_result=CtdbVerifyResult(Verdict.NO_MATCH)
+    )
+    assert out is not None and out.is_file()
+    assert not out.with_name(out.name + ".tmp").exists()
+
+
+def test_write_debug_log_is_atomic_no_temp_left_behind(tmp_path: Path) -> None:
+    from platterpus.rip_report import debug_log_path_for, write_debug_log
+
+    log_file = tmp_path / "Album.log"
+    debug = build_debug_log(["line one", "line two"])
+    out = write_debug_log(log_file, debug)
+    assert out == debug_log_path_for(log_file)
+    assert out.is_file() and "line one" in out.read_text()
+    assert not out.with_name(out.name + ".tmp").exists()
+
+
 # --- CLI: scripts/rip_report.py -------------------------------------------
 
 
