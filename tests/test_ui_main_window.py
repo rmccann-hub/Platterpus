@@ -1575,6 +1575,27 @@ def test_safe_path_segment() -> None:
     assert _safe_path_segment("") == ""  # blank → fallback
 
 
+def test_safe_path_segment_i18n_and_robustness() -> None:
+    from platterpus.ui.main_window import _safe_path_segment
+
+    # Non-Latin titles pass through untouched (only the illegal chars change).
+    assert _safe_path_segment("東京事変") == "東京事変"
+    assert _safe_path_segment("Björk — Homogenic") == "Björk — Homogenic"
+    # NUL / control chars are stripped (corrupt or adversarial tag).
+    assert _safe_path_segment("a\x00b\tc\x1f") == "abc"
+    # "." / ".." can't become a directory name → fall back to Unknown.
+    assert _safe_path_segment(".") == ""
+    assert _safe_path_segment("..") == ""
+    assert _safe_path_segment(" .. ") == ""
+    # A very long CJK title (3 bytes/char) is capped to ≤255 BYTES on a codepoint
+    # boundary, so directory creation can't fail on NAME_MAX — and never splits a
+    # multibyte char.
+    long_cjk = "あ" * 200  # 600 UTF-8 bytes
+    out = _safe_path_segment(long_cjk)
+    assert len(out.encode("utf-8")) <= 255
+    assert out and all(ch == "あ" for ch in out)  # no mojibake from a split char
+
+
 # --- First-run drive-setup offer + manual offset -------------------------
 
 

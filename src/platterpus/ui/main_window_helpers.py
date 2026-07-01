@@ -19,14 +19,46 @@ from __future__ import annotations
 from platterpus.parsers.rip_log import track_accuraterip_verified
 
 
-def safe_path_segment(value: str) -> str:
-    """Make a user string safe to drop literally into a whipper template.
+# A single path component may be at most NAME_MAX bytes on every mainstream
+# Linux filesystem (ext4/btrfs/xfs) — 255 *bytes*, not characters. A long CJK or
+# accented title is multi-byte in UTF-8 (≈3 bytes/CJK char), so ~85 characters
+# already blows the limit and directory creation would fail. We cap here.
+_NAME_MAX_BYTES: int = 255
 
-    Strips whitespace, turns ``/`` into ``-`` (it'd create stray subdirs),
-    and drops ``%`` (whipper treats it as a format code). Returns ``""`` for
-    blank input so callers can fall back to an "Unknown …" placeholder.
+
+def safe_path_segment(value: str) -> str:
+    """Make a user string safe to drop literally into a rip-naming template.
+
+    Used per path component for the unknown-album path (built from what the user
+    typed), so it must be robust across locales and to odd/corrupt tag values:
+
+    * strips whitespace, turns ``/`` into ``-`` (it'd create stray subdirs), and
+      drops ``%`` (the ripper treats it as a format code);
+    * strips NUL and C0 control characters (never valid in a path — a corrupt or
+      adversarial tag could carry them);
+    * refuses ``.``/``..`` (the filesystem's current/parent-dir names) by
+      returning ``""`` — so a disc literally titled ``..`` can't create a no-op
+      or traversing directory;
+    * caps the result at 255 UTF-8 **bytes** (the filesystem NAME_MAX), truncating
+      on a codepoint boundary so a very long international title still yields a
+      creatable folder rather than an mkdir failure.
+
+    Returns ``""`` for blank/degenerate input so callers fall back to an
+    "Unknown …" placeholder.
     """
-    return (value or "").strip().replace("/", "-").replace("%", "")
+    cleaned = (value or "").strip().replace("/", "-").replace("%", "")
+    # Drop NUL + C0 controls (< space) and DEL; re-strip in case that exposed
+    # edge whitespace.
+    cleaned = "".join(ch for ch in cleaned if ch >= " " and ch != "\x7f").strip()
+    # "." and ".." are filesystem-special — never let a title become one.
+    if cleaned in (".", ".."):
+        return ""
+    # Cap at NAME_MAX bytes on a codepoint boundary (errors="ignore" drops a
+    # partial trailing multi-byte char left by the byte-slice).
+    encoded = cleaned.encode("utf-8")
+    if len(encoded) > _NAME_MAX_BYTES:
+        cleaned = encoded[:_NAME_MAX_BYTES].decode("utf-8", "ignore").strip()
+    return cleaned
 
 
 def friendly_disc_scan_error(error_text: str) -> str:
