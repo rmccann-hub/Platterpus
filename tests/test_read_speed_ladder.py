@@ -60,6 +60,24 @@ def test_next_step_preserves_z_while_stepping_speed() -> None:
     assert step.speed == 8 and step.secure_rerip_matches == 2
 
 
+def test_next_step_speed_locked_never_sends_a_slower_speed() -> None:
+    # On a drive that can't change speed, cyanrip aborts on -S — so the ladder
+    # must skip the speed rungs entirely and escalate ONLY -Z, staying at max (0).
+    step = next_step(current_speed=0, current_secure_rerip=0, speed_locked=True)
+    assert step is not None
+    assert step.speed == 0  # NOT 8× — never leave max speed
+    assert step.secure_rerip_matches == 2  # straight to -Z escalation
+    step2 = next_step(current_speed=0, current_secure_rerip=2, speed_locked=True)
+    assert step2.speed == 0 and step2.secure_rerip_matches == 3
+    # Exhausted once -Z hits the ceiling — still no speed step.
+    assert (
+        next_step(
+            current_speed=0, current_secure_rerip=MAX_SECURE_REREP, speed_locked=True
+        )
+        is None
+    )
+
+
 # --- read_errors_present (the escalation trigger) -----------------------------
 
 

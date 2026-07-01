@@ -55,6 +55,11 @@ _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)")
 _DRIVE = re.compile(r"^(?:Drive used|Device model):\s+(?P<drive>.+?)\s*$")
 # "Offset:         +667 samples" (sign printed explicitly by cyanrip).
 _OFFSET = re.compile(r"^Offset:\s+(?P<sign>[+-])(?P<value>\d+)\s+samples")
+# "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
+# cyanrip's drive banner reports whether the drive can change read speed. When
+# it can't, cyanrip ABORTS on `-S` — so the read-speed ladder must read this and
+# skip the speed rungs (see RippingInfo.speed_changeable).
+_SPEED_CAP = re.compile(r"^Speed:\s+(?P<text>.+?)\s*$")
 # A track block opens with its outcome line.
 _TRACK_START = re.compile(
     r"^Track (?P<number>\d+) "
@@ -143,6 +148,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
     creation_date = ""
     drive = ""
     read_offset: int | None = None
+    speed_changeable: bool | None = None
     accuraterip_summary = ""
     partially_accurate_summary = ""
     disc_duration = ""
@@ -199,6 +205,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if match:
             value = int(match.group("value"))
             read_offset = -value if match.group("sign") == "-" else value
+            continue
+
+        match = _SPEED_CAP.match(line)
+        if match:
+            text = match.group("text").lower()
+            # "unchangeable" contains "changeable", so test the negative first.
+            if "unchangeable" in text:
+                speed_changeable = False
+            elif "changeable" in text or (text and text[0].isdigit()):
+                speed_changeable = True
             continue
 
         match = _TOTAL_TIME.match(line)
@@ -385,6 +401,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             drive=drive,
             extraction_engine=log_creator,
             read_offset_correction=read_offset,
+            speed_changeable=speed_changeable,
         ),
         tracks=tuple(tracks),
         accuraterip_summary=accuraterip_summary,

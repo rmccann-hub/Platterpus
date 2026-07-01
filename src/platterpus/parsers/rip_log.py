@@ -93,6 +93,12 @@ class RippingInfo:
     overread_lead_out: bool | None = None
     gap_detection: str = ""
     cd_r_detected: bool | None = None
+    # Whether the drive can change its read speed (cyanrip's "Speed:" banner
+    # line). False = the drive reported speed as "unchangeable", so cyanrip
+    # ABORTS the rip if handed `-S` — the read-speed ladder must not send it
+    # (real-hardware finding, 2026-07-01: the BDR-209D reports unchangeable).
+    # True = a speed was set or reported "changeable"; None = unknown/whipper log.
+    speed_changeable: bool | None = None
 
 
 @dataclass(frozen=True)

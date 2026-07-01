@@ -333,6 +333,26 @@ def test_unstable_tracks_picks_only_the_non_converged_track() -> None:
 # --- Medium: negative offset, zero errors normalize like whipper ------------
 
 
+def test_speed_changeable_parsed_from_banner() -> None:
+    # "unchangeable" contains "changeable" — the parser must not misread it.
+    unchangeable = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\nSpeed:          default (unchangeable)\n"
+    )
+    assert unchangeable.ripping_info.speed_changeable is False
+
+    changeable = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\nSpeed:          default (changeable)\n"
+    )
+    assert changeable.ripping_info.speed_changeable is True
+
+    a_set_speed = parse_cyanrip_log("cyanrip 0.9.3 (release)\nSpeed:          8x\n")
+    assert a_set_speed.ripping_info.speed_changeable is True
+
+    # Absent Speed line (or a whipper log) → unknown, not a false negative.
+    absent = parse_cyanrip_log("cyanrip 0.9.3 (release)\nOffset:  +667 samples\n")
+    assert absent.ripping_info.speed_changeable is None
+
+
 def test_negative_offset_and_clean_finish() -> None:
     log = parse_cyanrip_log(
         "cyanrip 0.9.3.1 (master)\nOffset:         -12 samples\nRipping errors: 0\n"
