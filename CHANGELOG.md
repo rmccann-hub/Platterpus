@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Dialogs can no longer open off-screen.** Every dialog is centred on the main
+  window (a `CenteredDialog` base + an app-wide filter that also catches
+  `QMessageBox`/`QFileDialog`), but the centring computed a position on the parent
+  and never clamped it to the visible screen — so a dialog centred on a window
+  near a screen edge, or at a global coordinate XWayland reports oddly on a
+  multi-monitor / fractionally-scaled desktop, could land partly or fully
+  off-screen (real-user report). Centring now clamps the dialog fully onto
+  whichever screen the centred position lands on (and pulls it back onto the
+  anchor's/primary screen if that point is off *all* screens). No resize, just a
+  slide; a dialog larger than the screen pins its top-left so the title bar and
+  buttons stay reachable.
+
 ## [0.4.8] — 2026-07-01
 
 ### Added
