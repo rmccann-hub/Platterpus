@@ -29,7 +29,7 @@ from platterpus.paths import (
 
 # Bump this when the schema grows new keys or changes defaults that we
 # want to migrate. Migration logic lives in _migrate() below.
-SCHEMA_VERSION: int = 5
+SCHEMA_VERSION: int = 6
 
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
@@ -181,6 +181,14 @@ class Config:
     # Settings greys the control out for whipper (same pattern as the
     # FLAC re-compress / verify toggles).
     secure_rerip_matches: int = 0
+
+    # When True (and secure_rerip_matches > 0), apply `-Z` *dynamically* instead
+    # of to every track: rip the disc once fast (no `-Z`), then secure-re-rip ONLY
+    # the tracks that don't match AccurateRip (a track that matched the DB on the
+    # first read is already proven bit-perfect, so re-reading it is wasted time).
+    # False (default) = today's behaviour: `-Z secure_rerip_matches` on every
+    # track. The re-rip of an unproven track reuses the per-track auto-fix (`-l`).
+    secure_rerip_dynamic: bool = False
 
     # --- Adaptive read-speed ladder (headline, 0.4.6) ---
     # How the read speed is chosen for a rip:
@@ -366,6 +374,14 @@ def _migrate(raw: dict) -> dict:
         # version so the record is explicit and the chain stays honest.
         raw["schema_version"] = 5
         version = 5
+
+    if version < 6:
+        # v5→v6: added `secure_rerip_dynamic` (opt-in — secure-re-rip only the
+        # tracks that don't match AccurateRip, instead of every track). Absent →
+        # the dataclass default (False = today's behaviour) fills on load; no value
+        # transform needed. Bump the version so the record stays explicit.
+        raw["schema_version"] = 6
+        version = 6
 
     if version == SCHEMA_VERSION:
         return raw

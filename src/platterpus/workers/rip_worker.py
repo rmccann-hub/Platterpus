@@ -40,6 +40,7 @@ from platterpus.read_speed_ladder import (
     SpeedAttempt,
     next_step,
     read_errors_present,
+    tracks_failing_accuraterip,
     unstable_tracks,
 )
 
@@ -68,6 +69,12 @@ class RipParameters:
     # cyanrip's `-Z N` (rip until N reads' checksums match) for marginal
     # discs. 0 = off.
     secure_rerip_matches: int = 0
+    # Dynamic secure-rerip (0.4.9): when True (and secure_rerip_matches > 0),
+    # DON'T apply `-Z` to every track. Rip once fast (no `-Z`), then secure-re-rip
+    # only the tracks that didn't match AccurateRip (a DB match on the first read
+    # is already proof of bit-perfection). False = today's behaviour (`-Z` on
+    # every track). Default False here so a bare worker keeps the simple path.
+    secure_rerip_dynamic: bool = False
     # Adaptive read-speed ladder (0.4.6). `read_speed_mode` is "auto_ladder"
     # (start fast, re-rip slower on read errors) or "fixed"; `read_speed` is the
     # fixed/starting `-S` value (0 = drive max). Defaults are conservative here
@@ -459,13 +466,23 @@ class RipWorker(QObject):
         self._started_monotonic = time.monotonic()
 
         auto_ladder = self._params.read_speed_mode == "auto_ladder"
+        # Dynamic secure-rerip: rip the FIRST pass fast (no `-Z`) and secure only
+        # the tracks that don't match AccurateRip afterwards (below). Only active
+        # when the user both enabled it AND set a `-Z` level to use for the
+        # targeted re-rip.
+        dynamic_secure = (
+            self._params.secure_rerip_dynamic and self._params.secure_rerip_matches > 0
+        )
         # Starting rung: the ladder starts at the drive's max (0); a fixed mode
         # uses the configured speed for its single pass.
         speed = 0 if auto_ladder else self._params.read_speed
-        secure_rerip = self._params.secure_rerip_matches
+        # Pass 1's `-Z`: none in dynamic mode (fast single read — securing is done
+        # selectively afterwards); otherwise the configured value on every track.
+        secure_rerip = 0 if dynamic_secure else self._params.secure_rerip_matches
 
         success = False
         log_path_str = ""
+        parsed_log: object | None = None
         attempt = 0
         while True:
             attempt += 1
@@ -538,19 +555,30 @@ class RipWorker(QObject):
             self.status.emit(f"Read errors — {step.reason}…")
             self.log_line.emit(f"[read-speed ladder] {step.reason}")
 
-        # Auto-fix: if the disc read clean overall but left an unstable track
-        # (its -Z re-read never converged), re-rip JUST that track alone with a
-        # harder -Z and keep the result only if it now converges — cheap (via
-        # cyanrip's -l), needs no speed change, and can't make a track worse. The
-        # album's whole-disc log/cue are left intact (the re-rip runs in a temp
-        # dir); only the improved FLAC is copied in. Skipped in fixed mode.
-        if (
-            success
-            and not self._cancelled
-            and auto_ladder
-            and self._last_unstable_tracks
-        ):
-            self._auto_fix_unstable_tracks()
+        # Post-rip targeted secure re-rip: re-rip just the track(s) that need it
+        # (via cyanrip's -l, into a temp dir — the album's whole-disc log/cue stay
+        # intact, only an improved FLAC is copied in), keeping a re-read only if it
+        # now converges. Two triggers, decided by mode (they never overlap):
+        #   • dynamic mode → the fast first pass had no -Z, so secure the tracks
+        #     that didn't match AccurateRip, at the CONFIGURED -Z level;
+        #   • else auto_ladder → a -Z pass left an unstable track (never converged),
+        #     so re-read it HARDER (escalate to the -Z ceiling).
+        # Neither can make a track worse; skipped entirely in plain fixed mode.
+        if success and not self._cancelled:
+            if dynamic_secure:
+                to_fix = tracks_failing_accuraterip(parsed_log)
+                rerip_z = max(self._params.secure_rerip_matches, 2)
+                trigger = "accuraterip"
+            elif auto_ladder:
+                to_fix = list(self._last_unstable_tracks)
+                rerip_z = max(self._params.secure_rerip_matches, MAX_SECURE_REREP)
+                trigger = "instability"
+            else:
+                to_fix = []
+                rerip_z = 0
+                trigger = ""
+            if to_fix:
+                self._auto_fix_tracks(to_fix, rerip_z, trigger)
 
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
@@ -701,16 +729,21 @@ class RipWorker(QObject):
         self._last_status = ""
         self._last_progress_emit = 0.0
 
-    def _auto_fix_unstable_tracks(self) -> None:
-        """Re-rip each unstable track ALONE with a harder ``-Z``, keeping the
-        result only if it now reads consistently (converges).
+    def _auto_fix_tracks(self, tracks: list[int], rerip_z: int, trigger: str) -> None:
+        """Re-rip the given track(s) ALONE with ``-Z rerip_z``, keeping a re-read
+        only if it now reads consistently (converges).
 
-        Cheap (cyanrip's ``-l`` rips just the listed tracks), needs no speed
-        change (so it works on a speed-locked drive), and **can never make a track
-        worse** — a non-converged original is only ever replaced by a *converged*
-        re-read; on any failure or uncertainty the original is left untouched. The
-        re-rip runs in a throwaway temp dir so the album's whole-disc ``.log`` /
-        ``.cue`` stay intact; only the improved FLAC is copied into the album.
+        ``trigger`` records WHY each track was re-ripped, for the report:
+        ``"instability"`` (a -Z pass never converged) or ``"accuraterip"`` (dynamic
+        mode — the fast first pass didn't match the AccurateRip database).
+
+        Cheap (cyanrip's ``-l`` rips just the listed tracks), needs no speed change
+        (so it works on a speed-locked drive), and **can never make a track worse**
+        — a track is only ever replaced by a *converged* re-read; on any failure or
+        uncertainty the original is left untouched. The re-rip runs in a throwaway
+        temp dir so the album's whole-disc ``.log`` / ``.cue`` stay intact; only an
+        improved FLAC is copied into the album. Whatever couldn't be made to
+        converge is left as ``unstable_tracks`` (flagged, never papered over).
 
         **HARDWARE-GATED:** the re-rip-and-swap path has not been exercised on a
         real drive yet. It's safe by construction (no swap unless the re-read
@@ -720,18 +753,20 @@ class RipWorker(QObject):
         import shutil
         import tempfile
 
-        tracks = list(self._last_unstable_tracks)
-        if not tracks:
+        tracks = list(tracks)
+        if not tracks or rerip_z <= 0:
             return
-        # One harder secure-rerip level than the initial pass used, capped at the
-        # ladder ceiling. (Auto-fix only triggers when -Z was on, so this is ≥ 2.)
-        rerip_z = max(self._params.secure_rerip_matches, MAX_SECURE_REREP)
         listed = ", ".join(str(n) for n in tracks)
+        why = (
+            "didn't match AccurateRip"
+            if trigger == "accuraterip"
+            else "didn't read consistently"
+        )
         self._reset_pass_progress()
-        self.status.emit(f"Re-ripping unstable track(s) {listed} to fix them…")
+        self.status.emit(f"Re-ripping track(s) {listed} ({why}) to secure them…")
         self.log_line.emit(
-            f"[auto-fix] re-ripping track(s) {listed} at -Z {rerip_z} for a "
-            "consistent read (the rest of the album is kept as-is)"
+            f"[auto-fix] re-ripping track(s) {listed} at -Z {rerip_z} — they "
+            f"{why} (the rest of the album is kept as-is)"
         )
         tmp_root: Path | None = None
         try:
@@ -765,12 +800,17 @@ class RipWorker(QObject):
                 self._retried_tracks.append(
                     {
                         "track": number,
+                        "trigger": trigger,
                         "reripped_z": rerip_z,
                         "converged": converged,
                         "replaced": replaced,
                     }
                 )
-            # The still-unstable set is whatever we couldn't fix.
+            # Whatever we couldn't get to converge stays flagged as unstable
+            # (a genuinely unreadable-consistently track — dynamic mode adds these,
+            # the -Z path narrows its set). A converged read — even one that still
+            # doesn't match the DB (a rare pressing) — is the best possible and is
+            # NOT called unstable.
             self._last_unstable_tracks = [t for t in tracks if t not in fixed]
             if fixed:
                 names = ", ".join(str(n) for n in fixed)
@@ -778,9 +818,9 @@ class RipWorker(QObject):
                     f"[auto-fix] track(s) {names} now read consistently — kept the "
                     "re-rip."
                 )
-                self.status.emit(f"Auto-fixed unstable track(s) {names}.")
+                self.status.emit(f"Auto-fixed track(s) {names}.")
         except Exception:  # noqa: BLE001 — auto-fix must never crash the rip
-            log.exception("auto-fix of unstable tracks failed; originals kept")
+            log.exception("auto-fix re-rip failed; originals kept")
         finally:
             if tmp_root is not None:
                 shutil.rmtree(tmp_root, ignore_errors=True)

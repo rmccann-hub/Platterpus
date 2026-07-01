@@ -441,7 +441,13 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     # Track 3 was fixed → no longer unstable, recorded as replaced.
     assert worker.unstable_tracks == []
     assert worker.retried_tracks == [
-        {"track": 3, "reripped_z": 3, "converged": True, "replaced": True}
+        {
+            "track": 3,
+            "trigger": "instability",
+            "reripped_z": 3,
+            "converged": True,
+            "replaced": True,
+        }
     ]
     # The improved FLAC was copied into the album folder.
     swapped = tmp_path / "Artist" / "Album" / "03 - C.flac"
@@ -476,10 +482,91 @@ def test_auto_fix_keeps_original_when_rerip_still_unstable(
     assert len(backend.rip_calls) == 2  # it did try the re-rip
     assert worker.unstable_tracks == [3]  # …but track 3 is still flagged
     assert worker.retried_tracks == [
-        {"track": 3, "reripped_z": 3, "converged": False, "replaced": False}
+        {
+            "track": 3,
+            "trigger": "instability",
+            "reripped_z": 3,
+            "converged": False,
+            "replaced": False,
+        }
     ]
     # The original was NOT overwritten by the (non-converged) re-rip.
     assert not (tmp_path / "Artist" / "Album" / "03 - C.flac").exists()
+
+
+def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Dynamic secure-rerip (the user's ask): pass 1 runs FAST (no -Z); then only
+    the track that didn't match AccurateRip is secure-re-ripped, and kept when it
+    now converges. The track that matched the DB on the first read is left alone."""
+    pass1 = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    2\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     11111111\n"
+        "    Accurip v1:  5D3C90CB (accurately ripped, confidence 200)\n"  # proven
+        "  File(s):\n"
+        "    Artist/Album/01 - A.flac\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     22222222\n"
+        "    Accurip v1:  DEADBEEF (not found, either a new pressing, or bad rip)\n"
+        "  File(s):\n"
+        "    Artist/Album/02 - B.flac\n"
+        "Ripping errors: 0\n"
+    )
+    rerip = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    2\n"
+        "Done; (2 out of 2 matches for current checksum ABCD1234)\n"  # now converges
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     99999999\n"
+        "  File(s):\n"
+        "    Artist/Album/02 - B.flac\n"
+        "Ripping errors: 0\n"
+    )
+
+    def side_effect(call: dict) -> None:
+        rel = call["output_dir"] / "Artist" / "Album"
+        rel.mkdir(parents=True, exist_ok=True)
+        if call["only_tracks"]:
+            (rel / "rerip.log").write_text(rerip, encoding="utf-8")
+            (rel / "02 - B.flac").write_bytes(b"SECURED-B")
+        else:
+            (rel / "rip.log").write_text(pass1, encoding="utf-8")
+
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = side_effect
+    worker = RipWorker(
+        backend,
+        _params(
+            tmp_path,
+            read_speed_mode="auto_ladder",
+            secure_rerip_matches=2,
+            secure_rerip_dynamic=True,
+        ),
+    )
+
+    worker.start_rip()
+
+    # Pass 1 was FAST — no -Z, whole disc.
+    assert backend.rip_calls[0]["secure_rerip_matches"] == 0
+    assert backend.rip_calls[0]["only_tracks"] == ()
+    # Then ONLY the unverified track 2 was secured, at the configured -Z 2.
+    assert len(backend.rip_calls) == 2
+    assert backend.rip_calls[1]["only_tracks"] == (2,)
+    assert backend.rip_calls[1]["secure_rerip_matches"] == 2
+    assert worker.retried_tracks == [
+        {
+            "track": 2,
+            "trigger": "accuraterip",
+            "reripped_z": 2,
+            "converged": True,
+            "replaced": True,
+        }
+    ]
+    assert worker.unstable_tracks == []
+    assert (tmp_path / "Artist" / "Album" / "02 - B.flac").read_bytes() == b"SECURED-B"
 
 
 def test_fixed_mode_never_auto_fixes(qapp: QApplication, tmp_path: Path) -> None:

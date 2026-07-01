@@ -280,6 +280,16 @@ careful EAC user with zero terminal. **Quality can only go up.**
   speed change), so it works on a speed-locked drive, and it can never make a
   track worse. This **superseded 0.4.7's "flag, don't re-rip"** for instability
   once `-l` was confirmed (gate 3 below) — the whole-disc-cost objection was gone.
+- **Dynamic secure re-rip (0.4.9, opt-in — Settings "Only when needed").** When a
+  user has `-Z` on, `-Z` is normally applied to *every* track, so every track is
+  read at least twice (the dominant cost on a clean disc; a real-user "20 min on
+  track 1, an hour on track 2" ETA came straight from this). Dynamic mode instead
+  rips pass 1 **fast** (`-Z 0`) and then secure-re-rips (same `-l` per-track path)
+  **only the tracks that didn't match AccurateRip** — a DB match on the first read
+  is already proof of bit-perfection, so re-reading it is wasted time. A clean disc
+  becomes a single fast pass; marginal / not-in-DB tracks still get the full secure
+  treatment. Off by default (unchanged behaviour); the trigger is recorded per
+  track (`retried_tracks[].trigger` = `accuraterip` vs `instability`).
 - **Manual override:** Settings → "Fixed speed (advanced)" disables the ladder
   and rips at one chosen `-S` value (0 = drive max).
 - **Honest reporting:** each pass's speed + `-Z` + clean/not lands in
