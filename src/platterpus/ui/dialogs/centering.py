@@ -47,8 +47,12 @@ def _clamp_to(frame: QRect, avail: QRect) -> QRect:
 
 
 def center_on_anchor(widget: QWidget) -> None:
-    """Move `widget` over its parent window (or the active window / screen),
-    clamped so it is never left off-screen.
+    """Place `widget` over its parent window, clamped on-screen, and raise it.
+
+    Moves the dialog to the centre of its parent window (or the active window /
+    screen), clamps it fully onto the visible screen, then raises it to the front
+    and gives it focus — so it opens where the user is looking, fully visible, and
+    not buried behind other windows.
 
     Best-effort and never raises: a no-op under native Wayland (clients can't
     position themselves — the app prefers XWayland, where ``move()`` works) and
@@ -80,6 +84,14 @@ def center_on_anchor(widget: QWidget) -> None:
         if screen is not None:
             frame = _clamp_to(frame, screen.availableGeometry())
         widget.move(frame.topLeft())
+        # Surface it to the FRONT and give it focus. Centring alone isn't enough:
+        # a real-user report had the (correctly parented) prompt open on the main
+        # window's monitor but BEHIND other windows, so it looked like nothing
+        # happened until they clicked the main window to raise its child. raise_()
+        # fixes the stacking; activateWindow() gives it keyboard focus. Best-effort
+        # — the compositor may override under focus-stealing prevention.
+        widget.raise_()
+        widget.activateWindow()
     except Exception:  # noqa: BLE001 — placement is cosmetic, never fatal
         pass
 

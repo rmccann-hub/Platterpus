@@ -12,17 +12,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
-- **Dialogs can no longer open off-screen.** Every dialog is centred on the main
-  window (a `CenteredDialog` base + an app-wide filter that also catches
-  `QMessageBox`/`QFileDialog`), but the centring computed a position on the parent
-  and never clamped it to the visible screen — so a dialog centred on a window
-  near a screen edge, or at a global coordinate XWayland reports oddly on a
-  multi-monitor / fractionally-scaled desktop, could land partly or fully
-  off-screen (real-user report). Centring now clamps the dialog fully onto
-  whichever screen the centred position lands on (and pulls it back onto the
-  anchor's/primary screen if that point is off *all* screens). No resize, just a
-  slide; a dialog larger than the screen pins its top-left so the title bar and
-  buttons stay reachable.
+- **Dialogs open on the right screen, on top, and fully visible.** Every dialog is
+  centred on the main window (a `CenteredDialog` base + an app-wide filter that
+  also catches `QMessageBox`/`QFileDialog`), but two gaps remained on a
+  multi-monitor desktop (real-user report — the "move to ~/Applications" prompt
+  opened on the *other* monitor and *behind* other windows): (1) the centring
+  never clamped to the visible screen, so a dialog centred on a window near an
+  edge — or at a global coordinate XWayland reports oddly when monitors are
+  fractionally scaled — could land partly or fully off-screen; and (2) it never
+  raised the dialog, so a correctly-parented prompt could sit behind other windows
+  until the user clicked the main window. Centring now **clamps** the dialog fully
+  onto whichever screen the centred position lands on (pulling it back if that
+  point is off *all* screens) and **raises + focuses** it so it comes to the
+  front. No resize — just a slide; an oversized dialog pins its top-left so the
+  title bar and buttons stay reachable.
+
+### Changed
+- **ETA trace now records the *event* behind each jump, and the actual outcome.**
+  The `.platterpus.json` `eta_trace` samples already paired the PC clock with our
+  smoothed estimate and cyanrip's; each sample now also carries the `track` and
+  `activity` (e.g. "Reading track 2… 40%") in effect — so a jump in the estimate
+  can be tied to its cause (finishing a fast track and hitting a slow, re-read-
+  heavy one) — and at report time each sample is backfilled with
+  `actual_remaining_seconds` (the real finish minus that sample's timestamp), so
+  the estimate can be read directly against the truth.
 
 ## [0.4.8] — 2026-07-01
 
