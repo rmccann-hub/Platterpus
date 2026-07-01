@@ -15,12 +15,40 @@ and a no-op in headless tests that construct a dialog but never show it.
 
 from __future__ import annotations
 
+from PySide6.QtCore import QRect
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 
+def _clamp_to(frame: QRect, avail: QRect) -> QRect:
+    """Slide `frame` (never resize it) so it lies fully within `avail`.
+
+    Pure and side-effect-free so it's unit-testable without a display. If the
+    dialog fits, its edge is pushed just inside the nearest boundary it overran;
+    if it's somehow larger than the available area, its top-left is pinned to the
+    top-left so at least the title bar and buttons stay reachable. This is the
+    guard that keeps a dialog centred on a window near a screen edge — or at a
+    global coordinate XWayland reports oddly on a multi-monitor/scaled desktop —
+    from landing partly or fully off-screen (real-user "dialog off screen").
+    """
+    r = QRect(frame)
+    # QRect.right() == left + width - 1, so the largest left that still fits is
+    # avail.right() - width + 1.
+    if r.width() <= avail.width():
+        left = min(max(r.left(), avail.left()), avail.right() - r.width() + 1)
+    else:
+        left = avail.left()
+    if r.height() <= avail.height():
+        top = min(max(r.top(), avail.top()), avail.bottom() - r.height() + 1)
+    else:
+        top = avail.top()
+    r.moveTo(left, top)
+    return r
+
+
 def center_on_anchor(widget: QWidget) -> None:
-    """Move `widget` over its parent window (or the active window / screen).
+    """Move `widget` over its parent window (or the active window / screen),
+    clamped so it is never left off-screen.
 
     Best-effort and never raises: a no-op under native Wayland (clients can't
     position themselves — the app prefers XWayland, where ``move()`` works) and
@@ -39,6 +67,18 @@ def center_on_anchor(widget: QWidget) -> None:
             if screen is None:
                 return
             frame.moveCenter(screen.availableGeometry().center())
+        # Clamp to whichever screen the centred position lands on (screenAt
+        # returns None when the point is off ALL screens — exactly the bug — so
+        # fall back to the anchor's/widget's screen and pull the dialog back on).
+        center = frame.center()
+        screen = (
+            QApplication.screenAt(center)
+            or (anchor.screen() if anchor is not None else None)
+            or widget.screen()
+            or QApplication.primaryScreen()
+        )
+        if screen is not None:
+            frame = _clamp_to(frame, screen.availableGeometry())
         widget.move(frame.topLeft())
     except Exception:  # noqa: BLE001 — placement is cosmetic, never fatal
         pass
