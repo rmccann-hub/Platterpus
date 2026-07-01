@@ -152,7 +152,11 @@ def test_debug_section_notes_truncation() -> None:
 
 def test_verification_block_present_but_empty_by_default() -> None:
     report = build_report(_sample_log())
-    assert report["verification"] == {"flac_integrity": None, "transcode": None}
+    assert report["verification"] == {
+        "flac_integrity": None,
+        "transcode": None,
+        "derived": None,
+    }
     assert report["checksums"] is None
 
 
@@ -187,15 +191,59 @@ def test_transcode_result_serialized() -> None:
     assert tc["ran"] is True and tc["ok"] is True and tc["transcoded"] == 14
 
 
+def test_derived_verify_lossless_result_serialized() -> None:
+    from platterpus.adapters.derived_verify import DerivedVerifyResult
+
+    report = build_report(
+        _sample_log(),
+        derived_verify_result=DerivedVerifyResult(
+            fmt="wavpack", lossless=True, checked=14, expected=14
+        ),
+    )
+    dv = report["verification"]["derived"]
+    assert dv["format"] == "wavpack"
+    assert dv["lossless"] is True
+    assert dv["ok"] is True and dv["complete"] is True and dv["checked"] == 14
+    assert dv["proof"] == "bit-identical PCM vs FLAC master"
+    assert dv["mismatches"] == [] and dv["error"] is None
+
+
+def test_derived_verify_lossy_mp3_states_it_is_not_bit_identity() -> None:
+    from platterpus.adapters.derived_verify import DerivedVerifyResult
+
+    dv = build_report(
+        _sample_log(),
+        derived_verify_result=DerivedVerifyResult(
+            fmt="mp3", lossless=False, checked=14, expected=14
+        ),
+    )["verification"]["derived"]
+    assert dv["lossless"] is False
+    # The report must NOT claim MP3 bit-identity.
+    assert "NOT bit-identical" in dv["proof"]
+    assert dv["ok"] is True  # ok here means decode-clean + complete
+
+
+def test_derived_verify_mismatch_serialized() -> None:
+    from platterpus.adapters.derived_verify import DerivedVerifyResult
+
+    result = DerivedVerifyResult(
+        fmt="wav", lossless=True, checked=14, expected=14, mismatches=(Path("bad.wav"),)
+    )
+    dv = build_report(_sample_log(), derived_verify_result=result)["verification"][
+        "derived"
+    ]
+    assert dv["ok"] is False and dv["mismatches"] == ["bad.wav"]
+
+
 def test_checksums_embedded_in_report() -> None:
     sums = {"01 - A.flac": "abc123", "01 - A.mp3": "def456"}
     report = build_report(_sample_log(), checksums=sums)
     assert report["checksums"] == sums
 
 
-def test_schema_version_is_v2() -> None:
-    assert REPORT_SCHEMA_VERSION == 2
-    assert build_report(_sample_log())["schema_version"] == 2
+def test_schema_version_is_v3() -> None:
+    assert REPORT_SCHEMA_VERSION == 3
+    assert build_report(_sample_log())["schema_version"] == 3
 
 
 def test_report_includes_loudness_checksum_and_replaygain() -> None:

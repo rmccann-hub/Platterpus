@@ -30,7 +30,10 @@ log = logging.getLogger(__name__)
 # v2 (0.4.5): added the `verification` block (FLAC-integrity + transcode outcomes
 # beside CTDB) and per-file `checksums` — the maintainer's "one debug file" rule
 # means everything extra lives here, not in extra sidecars.
-REPORT_SCHEMA_VERSION: int = 2
+# v3 (0.4.6): added `verification.derived` — the per-format proof of the derived
+# MP3/WavPack/WAV files (bit-identity for lossless, decode-clean+complete for
+# lossy MP3) alongside the FLAC-master checks.
+REPORT_SCHEMA_VERSION: int = 3
 
 # Cap on how many session-log lines the report embeds. A normal session is a few
 # hundred lines (negligible); but the in-memory buffer is bounded at tens of
@@ -47,6 +50,7 @@ def build_report(
     ctdb_result: object | None = None,
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
+    derived_verify_result: object | None = None,
     checksums: dict | None = None,
     generated_at: str = "",
     timing: dict | None = None,
@@ -75,6 +79,7 @@ def build_report(
             flac_verify_result,
             transcode_result,
             checksums,
+            derived_verify_result,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -155,6 +160,7 @@ def _build(
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
     checksums: dict | None = None,
+    derived_verify_result: object | None = None,
 ) -> dict:
     message, level = accuraterip_verdict(rip_log)
     info = getattr(rip_log, "ripping_info", None)
@@ -199,6 +205,7 @@ def _build(
         "verification": {
             "flac_integrity": _flac_verify(flac_verify_result),
             "transcode": _transcode(transcode_result),
+            "derived": _derived_verify(derived_verify_result),
         },
         # Per-file SHA256 for long-term integrity checking (bit-rot). Embedded
         # here rather than a separate checksums.sha256 sidecar — one debug file.
@@ -288,6 +295,40 @@ def _transcode(result: object | None) -> dict | None:
     }
 
 
+def _derived_verify(result: object | None) -> dict | None:
+    """Serialize a DerivedVerifyResult (proof of the MP3/WavPack/WAV outputs).
+
+    ``lossless`` records which proof was applied so a reader is never misled:
+    for WAV/WavPack ``ok`` means bit-identical to the FLAC master; for MP3 it
+    means every file decoded cleanly and the set is complete — explicitly NOT
+    bit-identity (a lossy file can't match). ``mismatches`` (lossless only) are
+    derived files whose PCM differs from the master — a real defect. None when
+    the rip was FLAC-only (nothing derived)."""
+    if result is None:
+        return None
+    failures = getattr(result, "failures", ()) or ()
+    mismatches = getattr(result, "mismatches", ()) or ()
+    lossless = bool(getattr(result, "lossless", False))
+    return {
+        "format": getattr(result, "fmt", "") or None,
+        "lossless": lossless,
+        # What "ok" attests, spelled out so the JSON is self-describing.
+        "proof": (
+            "bit-identical PCM vs FLAC master"
+            if lossless
+            else "decodes cleanly + complete (lossy; NOT bit-identical)"
+        ),
+        "ran": bool(getattr(result, "ran", False)),
+        "ok": bool(getattr(result, "ok", False)),
+        "complete": bool(getattr(result, "complete", False)),
+        "checked": getattr(result, "checked", 0),
+        "expected": getattr(result, "expected", 0),
+        "failures": [str(p) for p in failures],
+        "mismatches": [str(p) for p in mismatches],
+        "error": getattr(result, "error", "") or None,
+    }
+
+
 def _ctdb(result: object | None) -> dict | None:
     if result is None:
         return None
@@ -369,6 +410,7 @@ def write_report(
     ctdb_result: object | None = None,
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
+    derived_verify_result: object | None = None,
     checksums: dict | None = None,
     generated_at: str = "",
     timing: dict | None = None,
@@ -388,6 +430,7 @@ def write_report(
             ctdb_result=ctdb_result,
             flac_verify_result=flac_verify_result,
             transcode_result=transcode_result,
+            derived_verify_result=derived_verify_result,
             checksums=checksums,
             generated_at=generated_at,
             timing=timing,

@@ -219,9 +219,11 @@ SPECS: list[DependencySpec] = [
         description=(
             "Optional. The encoder for the Output-format feature (KDD-22): "
             "transcodes the FLAC master to WavPack, MP3, or WAV when a non-FLAC "
-            "output is selected. Absent only disables non-FLAC output (FLAC "
-            "ripping is unaffected, and the FLAC master is always kept). Already "
-            "present wherever cyanrip is installed (cyanrip is built on FFmpeg)."
+            "output is selected, AND verifies those derived files afterward "
+            "(decode-to-PCM bit-compare for lossless, decode-clean for MP3). "
+            "Absent only disables non-FLAC output (FLAC ripping is unaffected, "
+            "and the FLAC master is always kept). Already present wherever "
+            "cyanrip is installed (cyanrip is built on FFmpeg)."
         ),
         optional=True,  # absent only disables non-FLAC output (FLAC unaffected)
     ),

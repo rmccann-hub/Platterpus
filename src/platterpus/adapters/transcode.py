@@ -56,6 +56,18 @@ _FORMAT_EXT: dict[str, str] = {"mp3": "mp3", "wavpack": "wv", "wav": "wav"}
 # Public so the GUI can tell whether a chosen output_format needs a transcode
 # (anything here) or is the native rip format ("flac" → no-op).
 SUPPORTED_FORMATS: frozenset[str] = frozenset(_FORMAT_EXT)
+
+
+def extension_for(fmt: str) -> str | None:
+    """The file extension a transcode target lands as (``"mp3"`` → ``"mp3"``,
+    ``"wavpack"`` → ``"wv"``), or None for a format this adapter doesn't produce.
+
+    The single source of truth for the derived-file suffix, so the derived-file
+    verifier finds exactly what the transcoder wrote (WavPack's ``.wv`` ≠ its
+    format name, so the suffix can't be derived from the name alone)."""
+    return _FORMAT_EXT.get(fmt)
+
+
 # Of the transcode targets, only MP3 carries the embedded cover through (ffmpeg
 # copies the FLAC's attached picture → ID3 APIC). WavPack's muxer can't hold a
 # second stream and WAV/RIFF can't hold art at all — so for those, the GUI must
