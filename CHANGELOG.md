@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Unknown-album folder names are hardened across locales (it.11 — i18n).**
+  The per-component sanitizer now strips NUL/control characters, refuses the
+  filesystem-special `.`/`..` names (so a disc titled `..` can't create a
+  traversing/no-op folder), and caps each component at the 255-**byte** filesystem
+  limit on a codepoint boundary — so a long CJK or accented title yields a
+  creatable folder instead of an mkdir failure. Non-Latin titles otherwise pass
+  through untouched.
 - **Rip-report writes are debounced.** The post-rip checks (CTDB, FLAC-verify,
   checksums, transcode) each finish independently and each wanted the
   `.platterpus.json` re-serialized with its result — up to ~5 full writes per
