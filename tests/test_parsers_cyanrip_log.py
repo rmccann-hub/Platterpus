@@ -51,6 +51,18 @@ Ripping finished at 2026-06-09 12:34:56
 # --- Easy: full log ---------------------------------------------------------
 
 
+def test_parses_device_model_as_drive() -> None:
+    # cyanrip 0.9.3 prints "Device model:", not "Drive used:" — a real rip's
+    # drive came out null because the regex only matched the latter (0.4.5 bug).
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n"
+        "Offset:         +667 samples\n"
+    )
+    assert log.ripping_info.drive == "PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM"
+    assert log.ripping_info.read_offset_correction == 667
+
+
 def test_full_log_parses_header_and_finish() -> None:
     log = parse_cyanrip_log(_FULL_LOG)
     assert log.log_creator == "cyanrip 0.9.3.1"

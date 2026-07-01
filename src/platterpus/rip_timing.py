@@ -1,14 +1,17 @@
 """Wall-clock timing helpers for a rip — *actual* elapsed vs the ripper's ETA.
 
-Why this exists (real-disc lesson, 2026-06-30): a 14-track disc with two
-marginal tracks took **2h45m** of wall-clock to rip, while cyanrip's on-screen
-ETA sat at "33-45m" the whole time. cyanrip's ETA is computed from the *current*
-read pass only — it has no way to know how many secure re-read passes (`-Z N`)
-a marginal track will need, so it systematically under-estimates and is, in the
-maintainer's words, "useless." The debug record therefore must capture the
-**actual** elapsed time (which only the GUI knows — cyanrip's log records the
-disc's *audio* duration and a finish timestamp, but never its own run time) and,
-for honesty, the ripper's estimate alongside it so the gap is visible.
+Why this exists (real-disc lesson, 2026-06-30 → refined 0.4.5): a 14-track disc
+with two marginal tracks took **2h38m** of wall-clock while cyanrip's on-screen
+ETA yo-yoed and, at the very first 0.01% tick, extrapolated to an absurd
+**822h** — which we (wrongly) captured as "the estimate." cyanrip's ETA is
+computed from the *current* read pass only, with no idea how many secure
+re-read passes (`-Z N`) a marginal track needs, so it is, in the maintainer's
+words, "useless." So we no longer record cyanrip's ETA at all. Instead the live
+ETA is computed from *actual* elapsed ÷ album-fraction (stable, self-correcting;
+see `workers/rip_worker._album_eta_text`), and the report records the actual
+elapsed plus a **realtime multiplier** (elapsed ÷ the disc's audio length) — a
+meaningful, honest archival metric. The disc's audio length comes from cyanrip's
+`Total time:` line, parsed by :func:`parse_hms_to_seconds`.
 
 Everything here is pure and **never raises** (mirrors the parser discipline):
 these feed the post-rip log line and the JSON report, neither of which may ever
@@ -47,6 +50,29 @@ def parse_eta_to_seconds(text: str | None) -> int | None:
                 int(piece.group("value")) * _UNIT_SECONDS[piece.group("unit").lower()]
             )
         return total if matched else None
+    except (ValueError, KeyError):  # defensive — the regex already constrains input
+        return None
+
+
+_HMS = re.compile(r"^\s*(?P<h>\d{1,2}):(?P<m>\d{2}):(?P<s>\d{2}(?:\.\d+)?)\s*$")
+
+
+def parse_hms_to_seconds(text: str | None) -> float | None:
+    """Parse a ``HH:MM:SS(.mmm)`` duration (cyanrip's ``Total time:``) to seconds.
+
+    Returns None for empty/unparseable input. Never raises.
+    """
+    if not text:
+        return None
+    try:
+        match = _HMS.match(text)
+        if not match:
+            return None
+        return (
+            int(match.group("h")) * 3600
+            + int(match.group("m")) * 60
+            + float(match.group("s"))
+        )
     except (ValueError, KeyError):  # defensive — the regex already constrains input
         return None
 

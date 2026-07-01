@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The time estimate is no longer nonsense.** The rip report recorded an
+  "estimate" of **822 hours** for a 2h38m rip — it captured cyanrip's *first*
+  progress tick (at 0.01%, where the extrapolation is meaningless). We no longer
+  use cyanrip's ETA at all: the live "about N left" is now computed from actual
+  elapsed ÷ album-fraction (stable and self-correcting), and the report records
+  the real elapsed plus a **realtime multiplier** (e.g. "2.6× the disc length").
+- **The progress line no longer looks like it's going backwards.** cyanrip rips
+  each track in a read pass then a "ripping and encoding" pass, each sweeping
+  0–100%; the status now says **"Reading track N…"** vs **"Encoding track N…"**
+  so the restart reads as expected, and it never echoes cyanrip's jumpy per-pass
+  ETA.
+- **The verdict now credits offset-variant (partial) matches.** A disc whose
+  tracks match an offset-variant pressing (AccurateRip's "+450", confidence-N)
+  used to be reported as "aren't in the database or didn't match"; it now says
+  e.g. "12 of 14 verified exactly; the other 2 matched an offset-variant pressing
+  (partially accurate)" — honest, without claiming bit-perfection.
+- **The drive model is captured again.** cyanrip 0.9.3 prints `Device model:`,
+  but the parser only matched the older `Drive used:` — so the archival "which
+  drive" field came out empty. Both are accepted now.
+
 ### Added
 - **The `.platterpus.json` is now the single debug record for a rip** — the only
   files a rip leaves are the EAC-compliant `.log`, the `.cue`, and this one JSON.

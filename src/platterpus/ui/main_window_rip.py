@@ -464,6 +464,10 @@ class RipMixin:
                 # verdict once that async check finishes.
                 self._last_rip_log = rip_log
                 self._last_rip_log_file = log_file
+                # Now that the log is parsed, enrich the timing with the realtime
+                # multiplier (elapsed ÷ the disc's audio length) — a meaningful
+                # metric that replaces cyanrip's bogus ETA. Best-effort.
+                self._enrich_timing_with_disc_duration(rip_log)
                 self._write_rip_report(rip_log, log_file)
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
@@ -883,11 +887,10 @@ class RipMixin:
         """Build the timing dict for the just-finished rip and log it.
 
         Returns None when no start was stamped (e.g. a finish with no matching
-        request, as some tests drive). Reads ``self._rip_worker.estimated_seconds``
-        so it MUST be called before the worker reference is cleared. Logs a
-        verbose actual-vs-estimate line into the app log — the headline the
-        debug record was missing (the maintainer asked for "actual time elapsed
-        vs estimated"; cyanrip's ETA proved useless on a marginal disc).
+        request, as some tests drive). The realtime multiplier (elapsed ÷ disc
+        length) is added later, once the log is parsed for the disc duration
+        (see the enrichment in ``_on_rip_finished``); cyanrip's own ETA is no
+        longer recorded — it was wildly wrong (it logged "822h" on a real disc).
         """
         import time as _time
         from datetime import datetime as _datetime
@@ -898,25 +901,13 @@ class RipMixin:
         if self._rip_started_monotonic is None:
             return None
         elapsed = _time.monotonic() - self._rip_started_monotonic
-        estimated = (
-            self._rip_worker.estimated_seconds if self._rip_worker is not None else None
-        )
         finished_at = _datetime.now().astimezone().isoformat(timespec="seconds")
         timing = rip_report.build_timing(
             elapsed,
-            estimated_seconds=estimated,
             started_at=self._rip_started_at,
             finished_at=finished_at,
         )
-        if estimated is not None:
-            log.info(
-                "rip elapsed (actual): %s — cyanrip's ETA estimate was %s "
-                "(ETA excludes secure re-read passes, so it under-counts)",
-                format_duration(elapsed),
-                format_duration(estimated),
-            )
-        else:
-            log.info("rip elapsed (actual): %s", format_duration(elapsed))
+        log.info("rip elapsed (actual): %s", format_duration(elapsed))
         # Record this rip's epoch window for the debug-log filtering. It's kept
         # in `_rip_windows` (so a LATER album's report excludes these lines) AND
         # remembered as the current window (so THIS report never excludes its
@@ -932,6 +923,25 @@ class RipMixin:
         # can't reuse it.
         self._rip_started_monotonic = None
         return timing
+
+    def _enrich_timing_with_disc_duration(self, rip_log: object) -> None:
+        """Add ``disc_seconds`` + ``realtime_multiplier`` to the stored timing.
+
+        Called once the log is parsed (the disc's audio length lives in cyanrip's
+        ``Total time:`` line → ``rip_log.disc_duration``). Best-effort: a missing
+        or unparseable duration just leaves the multiplier off. The report is
+        (re)written after this, so the enriched timing lands in the JSON.
+        """
+        from platterpus.rip_timing import parse_hms_to_seconds
+
+        timing = self._last_rip_timing
+        if not isinstance(timing, dict):
+            return
+        elapsed = timing.get("elapsed_seconds")
+        disc_seconds = parse_hms_to_seconds(getattr(rip_log, "disc_duration", ""))
+        if isinstance(elapsed, int | float) and disc_seconds and disc_seconds > 0:
+            timing["disc_seconds"] = round(disc_seconds)
+            timing["realtime_multiplier"] = round(elapsed / disc_seconds, 2)
 
     def _build_rip_debug_log(self) -> dict | None:
         """Capture this session's log for the report, minus other albums' rips.

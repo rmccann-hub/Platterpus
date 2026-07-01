@@ -133,6 +133,35 @@ def test_verdict_confidence_floor_ignores_non_matching_zero() -> None:
     assert "confidence 0+" not in message
 
 
+def test_verdict_surfaces_offset_variant_partial_matches() -> None:
+    # Real disc (tracks 3 & 5): v1/v2 "not found" but the +450 offset-variant
+    # pressing matched at confidence 200 ("partially accurate"). The banner must
+    # say so — not bury it in "aren't in the database or didn't match" — while
+    # staying amber (partial ≠ proven bit-perfect).
+    offset = AccurateRipResult(version=450, result="partial", confidence=200)
+    # Mirror the real log: the partial track still has v1/v2 lines, but they're
+    # "not found" (confidence None), and only the offset variant matched.
+    not_found = AccurateRipResult(version=1, result="not found", confidence=None)
+    log = RipLog(
+        tracks=(
+            TrackResult(1, accuraterip_v2=AccurateRipResult(2, confidence=200)),
+            TrackResult(2, accuraterip_v2=AccurateRipResult(2, confidence=200)),
+            TrackResult(
+                3,
+                accuraterip_v1=not_found,
+                accuraterip_v2=not_found,
+                accuraterip_offset=offset,
+            ),
+        )
+    )
+    message, level = accuraterip_verdict(log)
+    assert level == "warn"
+    assert "2 of 3" in message
+    assert "offset-variant" in message and "partially accurate" in message
+    # Never claims the partial track is bit-perfect / exactly verified.
+    assert "3 of 3" not in message
+
+
 # --- Log streaming -------------------------------------------------------
 
 

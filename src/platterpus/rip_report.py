@@ -88,17 +88,19 @@ def build_report(
 def build_timing(
     elapsed_seconds: float | None,
     *,
-    estimated_seconds: int | None = None,
+    disc_seconds: float | None = None,
     started_at: str = "",
     finished_at: str = "",
 ) -> dict:
-    """Build the ``timing`` section: actual elapsed vs the ripper's estimate.
+    """Build the ``timing`` section: actual elapsed + how it compares to the disc.
 
     Pure and never raises. ``elapsed_seconds`` is the GUI-measured wall-clock
-    (cyanrip's log records the disc's audio length and a finish timestamp, but
-    never its own run time). ``estimated_seconds`` is cyanrip's first ETA — kept
-    alongside the actual time precisely because it is unreliable on marginal
-    discs (it ignores secure re-read passes), so the gap is auditable.
+    (cyanrip logs the disc's audio length and a finish timestamp, but never its
+    own run time). ``disc_seconds`` is the disc's audio duration; when given, we
+    record a **realtime multiplier** (elapsed ÷ audio length) — a meaningful,
+    honest archival metric ("this rip took 2.6× the disc's runtime") that
+    replaces cyanrip's first-tick ETA, which was wildly wrong (it logged "822h"
+    at 0.01% on a real disc — see rip_worker).
     """
     from platterpus.rip_timing import format_duration
 
@@ -110,13 +112,13 @@ def build_timing(
         "started_at": started_at or None,
         "finished_at": finished_at or None,
     }
-    if estimated_seconds is not None:
-        timing["estimated_seconds"] = estimated_seconds
-        timing["estimated_human"] = format_duration(estimated_seconds)
-        timing["estimate_source"] = (
-            "cyanrip ETA — excludes secure re-read passes, so it under-estimates "
-            "marginal discs"
-        )
+    if (
+        isinstance(elapsed_seconds, int | float)
+        and isinstance(disc_seconds, int | float)
+        and disc_seconds > 0
+    ):
+        timing["disc_seconds"] = round(disc_seconds)
+        timing["realtime_multiplier"] = round(elapsed_seconds / disc_seconds, 2)
     return timing
 
 

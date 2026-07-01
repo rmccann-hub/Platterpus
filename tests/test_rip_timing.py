@@ -10,7 +10,11 @@ from __future__ import annotations
 from hypothesis import given
 from hypothesis import strategies as st
 
-from platterpus.rip_timing import format_duration, parse_eta_to_seconds
+from platterpus.rip_timing import (
+    format_duration,
+    parse_eta_to_seconds,
+    parse_hms_to_seconds,
+)
 
 
 class TestParseEtaToSeconds:
@@ -65,6 +69,26 @@ class TestFormatDuration:
     def test_none_and_negative_are_unknown(self) -> None:
         assert format_duration(None) == "unknown"
         assert format_duration(-5) == "unknown"
+
+
+class TestParseHmsToSeconds:
+    def test_cyanrip_total_time(self) -> None:
+        # cyanrip's "Total time: 00:59:42.354" → 3582.354s.
+        assert parse_hms_to_seconds("00:59:42.354") == 3582.354
+
+    def test_whole_seconds(self) -> None:
+        assert parse_hms_to_seconds("01:00:00") == 3600
+
+    def test_empty_and_garbage_are_none(self) -> None:
+        assert parse_hms_to_seconds("") is None
+        assert parse_hms_to_seconds(None) is None
+        assert parse_hms_to_seconds("not a time") is None
+        assert parse_hms_to_seconds("3m") is None  # ETA format, not HH:MM:SS
+
+
+@given(st.text())
+def test_parse_hms_never_raises(text: str) -> None:
+    parse_hms_to_seconds(text)
 
 
 @given(st.text())

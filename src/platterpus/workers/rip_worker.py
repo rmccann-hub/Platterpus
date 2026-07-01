@@ -34,7 +34,6 @@ from platterpus.adapters.rip_backend import (
     RipHandle,
     RipMetadata,
 )
-from platterpus.rip_timing import parse_eta_to_seconds
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +101,7 @@ _NAMED_PHASES: dict[str, str] = {
 # bare `\r` to `\n` — so each redraw reaches log_lines() as its own line and
 # these regexes see them one at a time, no extra plumbing.
 _CYANRIP_TRACK_PROGRESS = re.compile(
-    r"Ripping(?: and encoding)? track (?P<track>\d+), progress - "
+    r"Ripping(?P<encoding> and encoding)? track (?P<track>\d+), progress - "
     r"(?P<pct>\d+(?:\.\d+)?)%(?:, ETA - (?P<eta>[^,]+))?"
 )
 # Per-track completion ("Track 5 ripped and encoded successfully!" / "with
@@ -142,6 +141,10 @@ _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 # loop plenty of room to repaint. Only progress lines are throttled — phase
 # changes, errors, and end-of-rip markers always go through immediately.
 _PROGRESS_MIN_INTERVAL_S: float = 0.1
+
+# Don't show an album ETA until at least this much wall-clock has elapsed —
+# before that, elapsed÷fraction projects wild/"0s" values off almost no data.
+_MIN_ELAPSED_FOR_ETA_S: float = 8.0
 
 
 class RipWorker(QObject):
@@ -208,23 +211,38 @@ class RipWorker(QObject):
         # A user-facing explanation set when a known fatal pattern is seen
         # (e.g. whipper giving up on an unreadable track). "" if none.
         self._failure_hint: str = ""
-        # The ripper's OWN time estimate, captured the first time cyanrip prints
-        # an ETA (near the rip's start, so it's its estimate of the *whole* run).
-        # The finish handler logs this beside the actual wall-clock so the gap —
-        # cyanrip's ETA ignores secure re-read passes and badly under-estimates
-        # marginal discs (real disc: 2h45m actual vs "~35m" ETA) — is on record.
-        self._first_eta_seconds: int | None = None
+        # Wall-clock start of the rip, stamped when the stream loop begins. Used
+        # to compute our OWN album-level ETA (elapsed × (1-frac)/frac) — stable
+        # and self-correcting, unlike cyanrip's per-operation ETA which resets
+        # every phase and is wildly wrong early (it printed "822h" at 0.01% on a
+        # real disc). None until the loop starts.
+        self._started_monotonic: float | None = None
 
-    @property
-    def estimated_seconds(self) -> int | None:
-        """cyanrip's first reported ETA, in seconds (None if none was seen).
+    def _album_eta_text(self, overall_pct: float) -> str:
+        """A smoothed, self-correcting album ETA suffix (" · about 25m left").
 
-        This is the ripper's own estimate of how long the rip would take. It is
-        notoriously optimistic on marginal discs because it can't predict secure
-        re-read passes — which is exactly why we record it next to the actual
-        elapsed time, not instead of it.
+        Computed from actual elapsed and the album fraction done — so it absorbs
+        secure re-read slowdowns instead of jumping like cyanrip's per-operation
+        ETA. Returns "" until we're actually ripping tracks (past the ≤5% disc
+        scan), until a few seconds have elapsed (before which any projection is
+        noise — no "about 0s left"), and once effectively done. Never raises.
         """
-        return self._first_eta_seconds
+        from platterpus.rip_timing import format_duration
+
+        started = self._started_monotonic
+        if started is None:
+            return ""
+        frac = overall_pct / 100.0
+        # Skip the disc-scan band (0-5%) and the very end; both give noise.
+        if frac <= 0.05 or frac >= 0.999:
+            return ""
+        elapsed = time.monotonic() - started
+        if elapsed < _MIN_ELAPSED_FOR_ETA_S:
+            return ""
+        remaining = elapsed * (1.0 - frac) / frac
+        if not remaining >= 1:  # guards NaN/inf and sub-second "0s left"
+            return ""
+        return f" · about {format_duration(round(remaining))} left"
 
     @property
     def needs_unknown_retry(self) -> bool:
@@ -281,6 +299,10 @@ class RipWorker(QObject):
             except Exception:  # noqa: BLE001 — cancel is best-effort
                 log.exception("startup-window cancel() raised; ignored")
 
+        # Stamp the wall-clock start now (subprocess is spawned, reads about to
+        # begin) so the album-ETA computation has a baseline.
+        self._started_monotonic = time.monotonic()
+
         # Stream output. Iteration ends when whipper closes its stdout
         # (i.e. exits) or when cancel() flips the flag.
         try:
@@ -326,6 +348,10 @@ class RipWorker(QObject):
                 # the encode/tag sub-phases), then the numeric progress
                 # that drives the bar.
                 desc = _describe_activity(line)
+                # Append our own smoothed album ETA to a progress phase (never
+                # cyanrip's per-op ETA — see _album_eta_text / _describe_activity).
+                if desc is not None and prog is not None:
+                    desc += self._album_eta_text(prog[0])
                 if desc is not None and desc != self._last_status:
                     self._last_status = desc
                     self.status.emit(desc)
@@ -418,13 +444,6 @@ class RipWorker(QObject):
         match = _CYANRIP_TRACK_PROGRESS.search(line)
         if match:
             self._current_track = int(match.group("track"))
-            # Capture the ripper's first ETA as its whole-run estimate (it's
-            # printed from the very first progress redraw, when little time has
-            # elapsed). Only the first — later ETAs drift as re-reads pile up.
-            if self._first_eta_seconds is None:
-                eta_seconds = parse_eta_to_seconds(match.group("eta"))
-                if eta_seconds is not None:
-                    self._first_eta_seconds = eta_seconds
             task = float(match.group("pct"))
             frac = (
                 ((self._current_track - 1) + task / 100.0) / self._total_tracks
@@ -491,9 +510,13 @@ def _describe_activity(line: str) -> str | None:
     match = _CYANRIP_TRACK_PROGRESS.search(line)
     if match:
         pct = float(match.group("pct"))
-        eta = match.group("eta")
-        suffix = f" (ETA {eta.strip()})" if eta else ""
-        return f"Ripping track {match.group('track')}… {pct:.0f}%{suffix}"
+        # Name the phase so the per-track bar visibly restarting for the encode
+        # pass reads as expected, not a regression. cyanrip's own per-op ETA is
+        # deliberately dropped here — it resets every phase and is wildly wrong
+        # early (it once printed "822h"); the run loop appends our own smoothed
+        # album ETA instead.
+        phase = "Encoding" if match.group("encoding") else "Reading"
+        return f"{phase} track {match.group('track')}… {pct:.0f}%"
 
     match = _CYANRIP_TRACK_DONE.search(line)
     if match:

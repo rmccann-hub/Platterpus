@@ -38,11 +38,25 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
         if getattr(t, "copy_crc", "")
         or getattr(t, "accuraterip_v1", None) is not None
         or getattr(t, "accuraterip_v2", None) is not None
+        # An offset-variant (Accurip 450) match with no v1/v2 is still an audio
+        # track that AccurateRip has something to say about — count it.
+        or getattr(t, "accuraterip_offset", None) is not None
     ]
     total = len(audio)
     if total == 0:
         return "", "neutral"
     verified = sum(1 for t in audio if track_accuraterip_verified(t))
+    # Tracks that didn't verify EXACTLY but matched an offset-variant pressing
+    # (cyanrip's "Accurip 450", confidence-N). Honest middle ground: the disc IS
+    # in AccurateRip, but this pressing's canonical CRC didn't match, so it's
+    # "partially accurate" — never counted as bit-perfect, but not silently
+    # lumped into "not in the database" either (real-disc report: tracks 3 & 5).
+    partial = sum(
+        1
+        for t in audio
+        if not track_accuraterip_verified(t)
+        and getattr(t, "accuraterip_offset", None) is not None
+    )
     if verified == total:
         # Only count confidences of ACTUAL matches (>= 1, same as
         # accuraterip_is_match). A track can be verified on its v2 while its v1
@@ -63,9 +77,32 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
             "ok",
         )
     if verified > 0:
+        if partial and verified + partial == total:
+            # Every track is accounted for in AccurateRip: some exact, the rest
+            # offset-variant. Say so instead of implying the partials "didn't
+            # match" — but stay amber, since partial ≠ proven bit-perfect.
+            return (
+                f"⚠ {verified} of {total} tracks verified exactly against "
+                f"AccurateRip; the other {partial} matched an offset-variant "
+                "pressing (partially accurate — see the table)",
+                "warn",
+            )
+        tail = (
+            f"; {partial} matched an offset-variant pressing (partially accurate)"
+            if partial
+            else ""
+        )
         return (
             f"⚠ {verified} of {total} tracks verified against AccurateRip — "
-            "the rest aren't in the database or didn't match (see the table)",
+            f"the rest aren't in the database or didn't match{tail} (see the table)",
+            "warn",
+        )
+    # None verified exactly, but some matched an offset-variant pressing — still
+    # better news than "nobody submitted this disc," so say it (amber, not grey).
+    if partial:
+        return (
+            f"⚠ {partial} of {total} tracks matched an offset-variant pressing "
+            "(partially accurate); none verified exactly — see the table",
             "warn",
         )
     # The leading "ⓘ" (like ✓/⚠ above) means the status is conveyed by symbol +
