@@ -3555,6 +3555,48 @@ def test_on_derived_verified_lossless_mismatch_is_loud(teardown_threads) -> None
     assert "NOT bit-identical" in window._rip_progress._status_label.text()
 
 
+def test_read_speed_summary_notes_escalation_in_results(teardown_threads) -> None:
+    from platterpus.read_speed_ladder import SpeedAttempt
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+    # Disc needed a slower re-read, then read clean.
+    window._last_speed_attempts = [
+        SpeedAttempt(1, 0, 0, clean=False),
+        SpeedAttempt(2, 8, 0, clean=True),
+    ]
+    window._append_read_speed_summary()
+    assert any("needed a slower re-read" in line and "8×" in line for line in lines)
+
+
+def test_read_speed_summary_loud_when_unresolved(teardown_threads) -> None:
+    from platterpus.read_speed_ladder import SpeedAttempt
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+    window._last_speed_attempts = [
+        SpeedAttempt(1, 0, 0, clean=False),
+        SpeedAttempt(2, 2, 3, clean=False),
+    ]
+    window._append_read_speed_summary()
+    assert any("still had read errors" in line for line in lines)
+    assert "still had read errors" in window._rip_progress._status_label.text()
+
+
+def test_read_speed_summary_silent_on_clean_single_pass(teardown_threads) -> None:
+    from platterpus.read_speed_ladder import SpeedAttempt
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+    # A clean single-pass rip says nothing (no clutter).
+    window._last_speed_attempts = [SpeedAttempt(1, 0, 0, clean=True)]
+    window._append_read_speed_summary()
+    assert lines == []
+
+
 def test_on_derived_verified_mp3_states_decode_clean_not_bit_identity(
     teardown_threads,
 ) -> None:

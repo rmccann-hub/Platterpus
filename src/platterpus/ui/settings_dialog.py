@@ -318,6 +318,7 @@ class SettingsDialog(CenteredDialog):
             "Adaptive ladder — fast, slower only if a disc needs it", "auto_ladder"
         )
         self._read_speed_mode_combo.addItem("Fixed speed (advanced)", "fixed")
+        self._read_speed_mode_combo.setAccessibleName("Read speed mode")
         mode_index = self._read_speed_mode_combo.findData(config.read_speed_mode)
         self._read_speed_mode_combo.setCurrentIndex(
             mode_index if mode_index >= 0 else 0
@@ -334,6 +335,7 @@ class SettingsDialog(CenteredDialog):
         self._read_speed_spin: QSpinBox = QSpinBox(self)
         self._read_speed_spin.setRange(0, 72)  # 0 = drive max; CD ×-speeds
         self._read_speed_spin.setValue(config.read_speed)
+        self._read_speed_spin.setAccessibleName("Fixed read speed (drive multiplier)")
         self._read_speed_spin.setSpecialValueText("Max")  # shown when value is 0
         self._read_speed_spin.setToolTip(
             "The fixed drive read speed (cyanrip's -S), used only in Fixed-speed "

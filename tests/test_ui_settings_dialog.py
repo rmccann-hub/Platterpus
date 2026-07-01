@@ -73,6 +73,13 @@ def test_fixed_speed_flips_goal_to_custom(qapp: QApplication) -> None:
     assert dialog._goal_combo.currentData() == GOAL_CUSTOM
 
 
+def test_read_speed_widgets_have_accessible_names(qapp: QApplication) -> None:
+    # Screen readers need a name on every control (a11y, principle #10).
+    dialog = SettingsDialog(Config())
+    assert dialog._read_speed_mode_combo.accessibleName()
+    assert dialog._read_speed_spin.accessibleName()
+
+
 def test_window_title_and_modality(qapp: QApplication) -> None:
     dialog = SettingsDialog(Config())
     assert dialog.windowTitle() == "Settings"
