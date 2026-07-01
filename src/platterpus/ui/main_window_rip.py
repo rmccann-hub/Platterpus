@@ -1002,12 +1002,18 @@ class RipMixin:
         JSON write — safe on the GUI thread (computing the checksums, which is
         NOT, happens off-thread and is passed in via ``self._last_checksums``).
         Never raises (write_report swallows OSError).
+
+        The report is the SINGLE self-contained per-album debug artifact (the
+        maintainer's call, 2026-07-01): it EMBEDS this rip's session log under
+        ``debug.lines`` (scoped to this album, other rips filtered out), so there
+        is no separate ``.platterpus.log`` sidecar. Humans read cyanrip's own
+        ``.log``/``.cue``; the global ``~/.local/share/platterpus/log.txt`` stays
+        the cross-session catch-all for program-level failures.
         """
         from datetime import datetime
 
         from platterpus import read_speed_ladder, rip_report
 
-        debug_log = self._build_rip_debug_log()
         rip_report.write_report(
             rip_log,
             log_file,
@@ -1021,12 +1027,8 @@ class RipMixin:
             checksums=getattr(self, "_last_checksums", None),
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
-            debug_log=debug_log,
+            debug_log=self._build_rip_debug_log(),
         )
-        # Also drop the human-readable, session-scoped debug log beside the rip
-        # (X.platterpus.log) so it lives WITH the album, not only in the global
-        # log.txt — same "other albums excluded" scoping as the JSON's copy.
-        rip_report.write_debug_log(log_file, debug_log)
 
     def _append_read_speed_summary(self) -> None:
         """Note the read-speed ladder's outcome in the results log, if it acted.

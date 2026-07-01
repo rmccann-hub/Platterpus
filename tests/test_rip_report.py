@@ -285,26 +285,17 @@ def test_report_loudness_and_checksum_absent_when_empty() -> None:
     assert report["log_checksum"] is None
 
 
-def test_write_debug_log_beside_rip(tmp_path: Path) -> None:
-    from platterpus.rip_report import (
-        build_debug_log,
-        debug_log_path_for,
-        write_debug_log,
-    )
-
+def test_session_log_is_embedded_in_the_json_not_a_sidecar(tmp_path: Path) -> None:
+    # The per-album session log lives INSIDE the JSON (debug.lines), and there is
+    # NO standalone .platterpus.log sidecar (maintainer's call, 2026-07-01).
     log_file = tmp_path / "Album.log"
+    log_file.write_text("(human log)")
     debug = build_debug_log(["line one", "line two"], truncated=False)
-    written = write_debug_log(log_file, debug)
-    assert written == debug_log_path_for(log_file) == tmp_path / "Album.platterpus.log"
-    text = written.read_text()
-    assert "line one" in text and "line two" in text
-    assert "log.txt" in text  # header points at the global full log
-
-
-def test_write_debug_log_noop_without_debug(tmp_path: Path) -> None:
-    from platterpus.rip_report import write_debug_log
-
-    assert write_debug_log(tmp_path / "Album.log", None) is None
+    out = write_report(_sample_log(), log_file, debug_log=debug)
+    report = json.loads(out.read_text())
+    assert report["debug"]["lines"] == ["line one", "line two"]
+    # No sidecar written.
+    assert not (tmp_path / "Album.platterpus.log").exists()
 
 
 def test_debug_section_caps_embedded_lines_and_keeps_most_recent() -> None:
@@ -422,17 +413,6 @@ def test_write_report_overwrite_stays_atomic(tmp_path: Path) -> None:
         _sample_log(), log_file, ctdb_result=CtdbVerifyResult(Verdict.NO_MATCH)
     )
     assert out is not None and out.is_file()
-    assert not out.with_name(out.name + ".tmp").exists()
-
-
-def test_write_debug_log_is_atomic_no_temp_left_behind(tmp_path: Path) -> None:
-    from platterpus.rip_report import debug_log_path_for, write_debug_log
-
-    log_file = tmp_path / "Album.log"
-    debug = build_debug_log(["line one", "line two"])
-    out = write_debug_log(log_file, debug)
-    assert out == debug_log_path_for(log_file)
-    assert out.is_file() and "line one" in out.read_text()
     assert not out.with_name(out.name + ".tmp").exists()
 
 

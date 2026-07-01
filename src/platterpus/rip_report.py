@@ -32,9 +32,9 @@ def _atomic_write_text(target: Path, text: str) -> None:
     """Write ``text`` to ``target`` atomically (temp sibling + ``os.replace``).
 
     Crash-safety (it.12): a SIGKILL or power loss part-way through a plain
-    ``write_text`` would leave a truncated ``.platterpus.json`` / ``.platterpus.log``
-    — and the report is re-written repeatedly as post-rip checks finish, widening
-    that window. ``os.replace`` is atomic on POSIX, so a reader ever sees either
+    ``write_text`` would leave a truncated ``.platterpus.json`` — and the report
+    is re-written repeatedly as post-rip checks finish, widening that window.
+    ``os.replace`` is atomic on POSIX, so a reader ever sees either
     the old complete file or the new complete file, never a torn one (the same
     guarantee ``config.save`` already gives). Raises ``OSError`` on failure; the
     callers below keep the best-effort/never-raise contract by catching it.
@@ -61,13 +61,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # lossy MP3) alongside the FLAC-master checks.
 REPORT_SCHEMA_VERSION: int = 3
 
-# Cap on how many session-log lines the report embeds. A normal session is a few
-# hundred lines (negligible); but the in-memory buffer is bounded at tens of
-# thousands, and embedding all of those would make the report a multi-MB file
-# that's also re-serialized on the GUI thread on every CTDB re-write (~100ms /
-# ~5MB in the worst case — measured). We keep the most RECENT lines (closest to
-# this rip) and point at log.txt for the complete history. Plenty for a report.
-_MAX_EMBEDDED_LOG_LINES: int = 2000
+# Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
+# per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
+# *everything* for this album's rip — verbose enough to debug from alone. A
+# single album's log is a few hundred lines at INFO, low thousands at DEBUG, so
+# 10k comfortably captures a whole verbose rip while still bounding a pathological
+# case (the write is atomic + debounced, off the critical path). Lines are scoped
+# to THIS rip already; if the in-memory buffer's own bound ever truncated older
+# lines, `truncated` is set and the full history is still in log.txt.
+_MAX_EMBEDDED_LOG_LINES: int = 10000
 
 
 def build_report(
@@ -398,43 +400,12 @@ def report_path_for(log_file: Path) -> Path:
     return log_file.parent / f"{log_file.stem}.platterpus.json"
 
 
-def debug_log_path_for(log_file: Path) -> Path:
-    """The human-readable debug-log path beside a rip (`X.log` → `X.platterpus.log`).
-
-    Distinct from the EAC-parity `X.log` and the machine-readable
-    `X.platterpus.json`. This is the per-rip, session-scoped app log the
-    maintainer asked to live *with the rip* (rather than only in the global
-    `~/.local/share/platterpus/log.txt`).
-    """
-    return log_file.parent / f"{log_file.stem}.platterpus.log"
-
-
-def write_debug_log(log_file: Path, debug_log: dict | None) -> Path | None:
-    """Write the session-scoped debug log as plain text beside `log_file`.
-
-    `debug_log` is the ``{scope, truncated, lines}`` dict from
-    :func:`build_debug_log` — already scoped to this rip's session (other
-    albums' rips filtered out), so it obeys the same "keep out unneeded rips"
-    rule as the JSON's embedded copy. Best-effort: returns the path written or
-    None on any failure (a debug artefact must never break the post-rip flow).
-    """
-    if not debug_log:
-        return None
-    target = debug_log_path_for(log_file)
-    lines = debug_log.get("lines") or []
-    header = [
-        f"# Platterpus debug log — {debug_log.get('scope', 'this rip')}",
-        "# The full cross-session log is ~/.local/share/platterpus/log.txt;",
-        "# the machine-readable report is the .platterpus.json beside this file.",
-    ]
-    if debug_log.get("truncated"):
-        header.append("# (older lines were dropped — see log.txt for the full history)")
-    try:
-        _atomic_write_text(target, "\n".join([*header, "", *lines]) + "\n")
-    except OSError:
-        log.exception("failed to write the per-rip debug log")
-        return None
-    return target
+# NOTE: there is deliberately NO separate ``.platterpus.log`` sidecar. The
+# session log for a rip is EMBEDDED in the JSON report under ``debug.lines``
+# (see build_debug_log), making the ``.platterpus.json`` the single, complete,
+# self-contained per-album debug artifact (maintainer's call, 2026-07-01). Humans
+# read cyanrip's own ``.log``/``.cue``; the global ``~/.local/share/platterpus/
+# log.txt`` remains the cross-session catch-all for program-level failures.
 
 
 def write_report(

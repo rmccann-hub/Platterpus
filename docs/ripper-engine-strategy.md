@@ -275,7 +275,7 @@ careful EAC user with zero terminal. **Quality can only go up.**
 - **Manual override:** Settings → "Fixed speed (advanced)" disables the ladder
   and rips at one chosen `-S` value (0 = drive max).
 - **Honest reporting:** each pass's speed + `-Z` + clean/not lands in
-  `.platterpus.json` under `read_speed` (and the album `.platterpus.log`).
+  `.platterpus.json` under `read_speed` (the single per-album debug artifact).
 - **Where:** the pure decision logic is `src/platterpus/read_speed_ladder.py`
   (never raises, fully unit-tested); the loop lives in `workers/rip_worker.py`;
   `-S` plumbing is in `adapters/cyanrip_backend.py`.
