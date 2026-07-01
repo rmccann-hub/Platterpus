@@ -428,6 +428,9 @@ class RipMixin:
         # is still alive (it's cleared below), so the report can record which
         # speed / -Z the disc needed — or that it never read clean at the floor.
         self._last_speed_attempts = getattr(self._rip_worker, "speed_attempts", [])
+        # Tracks whose secure re-read never converged (read instability) — flagged
+        # in the report + results pane, per the "flag it, don't auto re-rip" policy.
+        self._last_unstable_tracks = getattr(self._rip_worker, "unstable_tracks", [])
         # The "for posterity" ETA trace (PC clock + cyanrip's ETA + our ETA),
         # captured while the worker is alive; folded into the report below.
         self._last_eta_trace = getattr(self._rip_worker, "eta_trace", [])
@@ -1025,7 +1028,8 @@ class RipMixin:
             transcode_result=getattr(self, "_last_transcode_result", None),
             derived_verify_result=getattr(self, "_last_derived_verify_result", None),
             read_speed=read_speed_ladder.attempts_to_report(
-                getattr(self, "_last_speed_attempts", []) or []
+                getattr(self, "_last_speed_attempts", []) or [],
+                getattr(self, "_last_unstable_tracks", []) or [],
             ),
             eta_trace=getattr(self, "_last_eta_trace", None) or None,
             checksums=getattr(self, "_last_checksums", None),
@@ -1038,30 +1042,58 @@ class RipMixin:
         """Note the read-speed ladder's outcome in the results log, if it acted.
 
         A silent single-pass rip (the common, clean case) says nothing — no
-        clutter. Only an escalation (a disc that needed a slow re-read) or an
-        unresolved disc (still had read errors at the floor speed) gets a line;
-        the unresolved case is loud (it's a real quality caveat). Best-effort.
+        clutter. Three things get a line: an escalation (a disc that needed a slow
+        re-read), an unresolved disc (still had read errors at the floor speed),
+        and — the case that matters most under the "flag it, don't auto re-rip"
+        policy — any track whose secure re-read never converged (read instability).
+        The last two are loud (real quality caveats). Best-effort.
         """
         from platterpus.read_speed_ladder import attempts_to_report
 
-        summary = attempts_to_report(getattr(self, "_last_speed_attempts", []) or [])
-        if not summary or not summary.get("escalated"):
+        summary = attempts_to_report(
+            getattr(self, "_last_speed_attempts", []) or [],
+            getattr(self, "_last_unstable_tracks", []) or [],
+        )
+        if not summary:
             return
-        final = summary.get("final_speed_label", "?")
-        if summary.get("unresolved"):
+        unstable = summary.get("unstable_tracks") or []
+        escalated = summary.get("escalated")
+        if not escalated and not unstable:
+            return  # clean single-pass rip — no clutter
+        if escalated:
+            final = summary.get("final_speed_label", "?")
+            if summary.get("unresolved"):
+                message = (
+                    "⚠ Read-speed ladder: the disc still had read errors after "
+                    f"slowing to {final} — some tracks may not be bit-perfect "
+                    "(see the report)."
+                )
+                log.warning("%s", message)
+                self._rip_progress.set_status(message)
+            else:
+                message = (
+                    "Read-speed ladder: the disc needed a slower re-read (down to "
+                    f"{final}); it then read clean."
+                )
+                log.info("%s", message)
+            self._rip_progress.append_log_line(message)
+        if unstable:
+            # cyanrip couldn't read these tracks identically across its secure
+            # re-reads — the reliable read-instability signal. We kept its best
+            # read (not auto-re-ripped, per policy) but say so loudly, since it's
+            # a genuine "may not be bit-perfect" caveat the user should see even
+            # if they weren't watching the live log.
+            plural = "s" if len(unstable) > 1 else ""
+            listed = ", ".join(str(n) for n in unstable)
             message = (
-                "⚠ Read-speed ladder: the disc still had read errors after slowing "
-                f"to {final} — some tracks may not be bit-perfect (see the report)."
+                f"⚠ Read stability: track{plural} {listed} didn't read identically "
+                "across cyanrip's secure re-reads — kept the best read, which may "
+                "not be bit-perfect. Clean the disc and re-rip for a verified copy. "
+                "See the report."
             )
             log.warning("%s", message)
             self._rip_progress.set_status(message)
-        else:
-            message = (
-                f"Read-speed ladder: the disc needed a slower re-read (down to "
-                f"{final}); it then read clean."
-            )
-            log.info("%s", message)
-        self._rip_progress.append_log_line(message)
+            self._rip_progress.append_log_line(message)
 
     def _schedule_rip_report_write(self) -> None:
         """Coalesce a rip-report re-write onto the debounce timer.

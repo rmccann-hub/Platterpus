@@ -14,6 +14,7 @@ from platterpus.read_speed_ladder import (
     attempts_to_report,
     next_step,
     read_errors_present,
+    unstable_tracks,
 )
 
 # --- next_step: step DOWN the speed ladder, then escalate -Z at the floor -----
@@ -63,8 +64,12 @@ def test_next_step_preserves_z_while_stepping_speed() -> None:
 
 
 class _Track:
-    def __init__(self, status: str = "") -> None:
+    def __init__(
+        self, status: str = "", number: int = 0, secure_rerip_converged=None
+    ) -> None:
         self.status = status
+        self.number = number
+        self.secure_rerip_converged = secure_rerip_converged
 
 
 class _Log:
@@ -107,6 +112,49 @@ def test_read_errors_present_swallows_internal_failure() -> None:
     assert read_errors_present(_Bad()) is False
 
 
+# --- unstable_tracks (the flagged-not-re-ripped read-instability signal) ------
+
+
+def test_unstable_tracks_flags_only_non_converged() -> None:
+    log = _Log(
+        tracks=(
+            _Track(number=1, secure_rerip_converged=True),  # stable
+            _Track(number=2, secure_rerip_converged=False),  # unstable
+            _Track(number=3, secure_rerip_converged=True),  # stable (offset var.)
+            _Track(number=4, secure_rerip_converged=None),  # no -Z / unknown
+        )
+    )
+    # Only the track that never converged is flagged — a converged read (even an
+    # offset-variant one) is not instability.
+    assert unstable_tracks(log) == [2]
+
+
+def test_unstable_tracks_none_when_all_converged() -> None:
+    log = _Log(tracks=(_Track(number=1, secure_rerip_converged=True),))
+    assert unstable_tracks(log) == []
+
+
+def test_unstable_tracks_sorted_and_deduped() -> None:
+    log = _Log(
+        tracks=(
+            _Track(number=5, secure_rerip_converged=False),
+            _Track(number=2, secure_rerip_converged=False),
+            _Track(number=5, secure_rerip_converged=False),
+        )
+    )
+    assert unstable_tracks(log) == [2, 5]
+
+
+def test_unstable_tracks_never_raises_on_junk() -> None:
+    assert unstable_tracks(object()) == []
+    assert unstable_tracks(None) == []
+
+    class _Bad:
+        tracks = 5  # non-iterable truthy → loop raises → swallowed
+
+    assert unstable_tracks(_Bad()) == []
+
+
 # --- attempts_to_report -------------------------------------------------------
 
 
@@ -137,6 +185,23 @@ def test_attempts_to_report_flags_unresolved_disc() -> None:
 def test_attempts_to_report_single_clean_pass_not_escalated() -> None:
     report = attempts_to_report([SpeedAttempt(1, 0, 0, clean=True)])
     assert report["escalated"] is False and report["unresolved"] is False
+    assert report["unstable_tracks"] == []
+
+
+def test_attempts_to_report_flags_unstable_without_escalating() -> None:
+    # The "flag it, don't auto re-rip" case: a single pass (no escalation) that
+    # left a track unstable must still read as unresolved and name the track.
+    report = attempts_to_report([SpeedAttempt(1, 0, 2, clean=False)], unstable=[3])
+    assert report["escalated"] is False  # we did NOT re-rip
+    assert report["unresolved"] is True  # …but it's honestly flagged
+    assert report["unstable_tracks"] == [3]
+
+
+def test_attempts_to_report_unstable_list_sorted_deduped() -> None:
+    report = attempts_to_report(
+        [SpeedAttempt(1, 0, 0, clean=False)], unstable=[5, 2, 5]
+    )
+    assert report["unstable_tracks"] == [2, 5]
 
 
 def test_attempts_to_report_empty_is_none() -> None:

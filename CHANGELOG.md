@@ -11,7 +11,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.7] — 2026-07-01
+
 ### Fixed
+- **Read-stability was mis-reported as "clean" (real-hardware finding).** On a
+  real disc, cyanrip's whole-disc "Ripping errors" count stayed `0` even though
+  one track's secure re-read (`-Z`) never converged (5 reads, no two agreed) —
+  genuine read instability. The report's `read_speed` block therefore claimed the
+  rip was clean (`unresolved: false`). Platterpus now reads cyanrip's **per-track**
+  convergence verdict, so an unstable track marks the pass not-clean and is
+  flagged as `unresolved` with the specific track listed in `unstable_tracks`.
+  Crucially, a *converged* read that merely matches an offset-variant pressing (a
+  pressing difference, not a fault) is **not** flagged. Per the maintainer's call,
+  an unstable track is **flagged, not auto-re-ripped** — a whole-disc re-rip to
+  retry one track can cost hours with no guarantee; only genuine unrecoverable
+  read errors still trigger the read-speed step-down. The results pane surfaces
+  the caveat too, naming the affected track(s).
 - **Update relaunch: "it closed but didn't reopen."** The post-update relaunch
   scrubbed only a fixed *list* of AppImage-runtime vars from the environment, so
   ones it didn't name — notably `QT_PLUGIN_PATH` (and `QML2_IMPORT_PATH` /
@@ -38,6 +53,9 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   smoothed album ETA, and cyanrip's own per-op ETA — so both estimates can be
   compared against the real finish (in `timing`) and mined to build a better ETA
   model later. It's kept out of the live UI (analysis data, not display).
+- **Report schema → v4.** `.platterpus.json` gains `eta_trace` and
+  `read_speed.unstable_tracks` (both described above); `schema_version` bumps to
+  `4` so a consumer can tell the new shape apart from 0.4.6's.
 
 ## [0.4.6] — 2026-07-01
 
@@ -1440,7 +1458,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.2...v0.4.4

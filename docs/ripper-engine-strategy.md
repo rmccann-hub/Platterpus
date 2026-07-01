@@ -275,24 +275,42 @@ careful EAC user with zero terminal. **Quality can only go up.**
 - **Manual override:** Settings → "Fixed speed (advanced)" disables the ladder
   and rips at one chosen `-S` value (0 = drive max).
 - **Honest reporting:** each pass's speed + `-Z` + clean/not lands in
-  `.platterpus.json` under `read_speed` (the single per-album debug artifact).
+  `.platterpus.json` under `read_speed` (the single per-album debug artifact),
+  along with `unstable_tracks` — tracks whose secure re-read never converged
+  (read instability), flagged but not auto-re-ripped (see the finding below).
 - **Where:** the pure decision logic is `src/platterpus/read_speed_ladder.py`
   (never raises, fully unit-tested); the loop lives in `workers/rip_worker.py`;
   `-S` plumbing is in `adapters/cyanrip_backend.py`.
 
-**Three checks are HARDWARE-GATED — validate on the Bazzite + Pioneer BDR-209D
-rig before treating the ladder as authoritative (it's "best effort" until then;
-none of these can cause a regression — a clean disc is always a single fast pass):**
+**Two signals, deliberately separate (real-hardware finding, 2026-07-01):**
+The escalation *trigger* is an **unrecoverable read error** (cyanrip's
+`Ripping errors: N > 0` / a track "with errors"). Distinct from that is **read
+instability** — cyanrip's `-Z` secure re-read hit its repeat limit with no two
+reads agreeing (`Done; (no matches found, but hit repeat limit of N)`). The first
+real disc proved these come apart: it reported `Ripping errors: 0` (whole-disc)
+while one track never converged. So instability is now read per-track and
+**flagged, not auto-re-ripped** — a whole-disc re-rip to retry one track costs
+hours with no guarantee (see check 3). A *converged* read that only matches an
+offset-variant pressing is a pressing difference, not instability, and is never
+flagged.
+
+**Three checks were HARDWARE-GATED — status on the Bazzite + Pioneer BDR-209D rig
+(none can cause a regression — a clean disc is always a single fast pass):**
 1. **Does the BDR-209D honour `-S`** through the Linux/libcdio-paranoia stack? If
    it silently ignores it, the "slower rungs" re-read at the same speed — the
    ladder then degrades to plain re-reads + `-Z` (still safe, just less effective).
-2. **Is cyanrip's per-track "unrecoverable read" signal reliable?** Today we
-   trigger on the whole-disc `Ripping errors:` count — confirm it fires exactly
-   when a track genuinely couldn't be read clean (and not on benign conditions).
+   *Not yet exercised* — the first real disc rip completed at max speed (no
+   escalation), so `-S` handling on this drive is still unvalidated.
+2. **Is cyanrip's per-track read-quality signal reliable? — ANSWERED (0.4.7).**
+   The whole-disc `Ripping errors:` count is NOT sufficient: a real disc reported
+   `0` while a track's `-Z` re-read never converged. We now also read the
+   per-track convergence verdict and flag it (`unstable_tracks`).
 3. **Can cyanrip re-rip a SUBSET of tracks** at a new speed, or must the whole
    disc re-run? We currently re-run the whole disc (safe, but slower on a big disc
-   with one bad track). If cyanrip has reliable track selection, re-ripping only
-   the failed tracks is the obvious follow-up optimisation.
+   with one bad track). This is exactly why instability (check 2) is *flagged, not
+   auto-re-ripped* for now — a whole-disc re-rip to retry one track is expensive.
+   If cyanrip has reliable track selection, re-ripping only the failed tracks is
+   the obvious follow-up that would make auto-re-rip cheap enough to reconsider.
 
 [eac]: https://www.exactaudiocopy.de/extraction-technology/
 [cmp]: https://wiki.hydrogenaudio.org/index.php?title=Comparison_of_CD_rippers

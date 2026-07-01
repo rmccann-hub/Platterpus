@@ -295,6 +295,41 @@ def test_auto_ladder_flags_unresolved_after_exhausting_the_ladder(
     assert report["unresolved"] is True and report["escalated"] is True
 
 
+def test_auto_ladder_flags_unstable_track_without_re_ripping(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Real-hardware case (Police 'Classics', 2026-07-01): a track whose secure
+    re-read never converged, while cyanrip reports 0 whole-disc errors. Per the
+    "flag it, don't auto re-rip" policy the ladder must NOT escalate (one pass) —
+    but the track is recorded as unstable so the report/pane can flag it, and the
+    pass is honestly marked not-clean."""
+    from platterpus.read_speed_ladder import attempts_to_report
+
+    rip_log = tmp_path / "Album" / "rip.log"
+    rip_log.parent.mkdir(parents=True)
+    rip_log.write_text(
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    1\n"
+        "Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     329DC760 (after 5 rips)\n"
+        "Ripping errors: 0\n",  # cyanrip's whole-disc count stays 0 — the trap
+        encoding="utf-8",
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1  # FLAGGED, not re-ripped (the policy)
+    assert worker.unstable_tracks == [1]
+    assert worker.speed_attempts[-1].clean is False  # honest: not clean
+    report = attempts_to_report(worker.speed_attempts, worker.unstable_tracks)
+    assert report["escalated"] is False
+    assert report["unresolved"] is True
+    assert report["unstable_tracks"] == [1]
+
+
 def test_cyanrip_progress_lines_drive_bars_and_track(
     qapp: QApplication, tmp_path: Path
 ) -> None:
