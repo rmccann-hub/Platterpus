@@ -12,6 +12,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **The results pane reports the read-speed ladder's outcome (it.1 — usability).**
+  When a disc needed a slower re-read (or still had read errors at the floor
+  speed), the results pane now says so — a clean single-pass rip stays silent, so
+  there's no clutter; an unresolved disc is called out loudly. Screen-reader
+  accessible names were also added to the new read-speed Settings controls
+  (a11y).
 - **The rip report is now written crash-safely (it.12 — resilience).** The
   `.platterpus.json` and `.platterpus.log` are written via an atomic temp+rename
   (`os.replace`), the same guarantee `config.save` already gives. Since the report

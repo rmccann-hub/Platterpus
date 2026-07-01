@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from platterpus.parsers.rip_log import track_accuraterip_verified
 
-
 # A single path component may be at most NAME_MAX bytes on every mainstream
 # Linux filesystem (ext4/btrfs/xfs) — 255 *bytes*, not characters. A long CJK or
 # accented title is multi-byte in UTF-8 (≈3 bytes/CJK char), so ~85 characters
