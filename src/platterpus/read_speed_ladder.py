@@ -215,19 +215,23 @@ def unstable_tracks(rip_log: object) -> list[int]:
 
 
 def attempts_to_report(
-    attempts: list[SpeedAttempt], unstable: list[int] | None = None
+    attempts: list[SpeedAttempt],
+    unstable: list[int] | None = None,
+    retried: list[dict] | None = None,
 ) -> dict | None:
     """Summarize the escalation history for the JSON report. None if no attempts.
 
     Records every pass (speed + ``-Z`` + whether it read clean), the final
     settings, whether the ladder had to escalate at all, and — the honest bits —
-    whether the disc was left ``unresolved`` and which tracks read ``unstable``.
+    whether the disc was left ``unresolved``, which tracks are still ``unstable``,
+    and what the per-track auto-fix ``retried``.
 
-    ``unstable`` is the list of track numbers whose secure re-read never converged
-    (from :func:`unstable_tracks`). They were left as cyanrip's best read and NOT
-    auto-re-ripped (maintainer's policy), so they must still be FLAGGED:
-    ``unresolved`` is True whenever the last pass wasn't clean OR any track is
-    unstable, and ``unstable_tracks`` lists the specifics. Never raises.
+    ``unstable`` is the track numbers whose secure re-read never converged AND
+    that a per-track auto-fix couldn't rescue (from :func:`unstable_tracks` after
+    the fix). ``retried`` is the auto-fix history (one dict per re-ripped track:
+    ``{track, reripped_z, converged, replaced}``). ``unresolved`` is True whenever
+    the last pass wasn't clean OR any track is still unstable — surfaced, never
+    papered over. Never raises.
     """
     try:
         if not attempts:
@@ -251,11 +255,15 @@ def attempts_to_report(
             # Did we ever have to step down / re-read harder than the first pass?
             "escalated": len(attempts) > 1,
             # The honest flag: the disc never read clean at the floor, OR a track
-            # was left unstable (flagged, not re-ripped — see below).
+            # is still unstable after the auto-fix (see below).
             "unresolved": (not last.clean) or bool(unstable_list),
-            # Tracks whose secure re-read never converged (read instability). Left
-            # as cyanrip's best read; a re-rip was NOT auto-triggered (policy).
+            # Tracks whose secure re-read never converged and that the per-track
+            # auto-fix could NOT rescue — still a "may not be bit-perfect" caveat.
             "unstable_tracks": unstable_list,
+            # Per-track auto-fix history: each unstable track re-ripped alone with
+            # a harder -Z, whether it then converged, and whether the improved FLAC
+            # replaced the original. Empty when nothing was re-ripped.
+            "retried_tracks": [dict(r) for r in (retried or [])],
         }
     except Exception:  # noqa: BLE001 — report helpers never crash a rip
         log.exception("read-speed ladder attempts_to_report failed")

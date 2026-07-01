@@ -428,9 +428,12 @@ class RipMixin:
         # is still alive (it's cleared below), so the report can record which
         # speed / -Z the disc needed — or that it never read clean at the floor.
         self._last_speed_attempts = getattr(self._rip_worker, "speed_attempts", [])
-        # Tracks whose secure re-read never converged (read instability) — flagged
-        # in the report + results pane, per the "flag it, don't auto re-rip" policy.
+        # Tracks still unstable after the per-track auto-fix (couldn't be rescued)
+        # — flagged in the report + results pane.
         self._last_unstable_tracks = getattr(self._rip_worker, "unstable_tracks", [])
+        # The per-track auto-fix history (which unstable tracks were re-ripped and
+        # whether the re-read converged / replaced the original).
+        self._last_retried_tracks = getattr(self._rip_worker, "retried_tracks", [])
         # The "for posterity" ETA trace (PC clock + cyanrip's ETA + our ETA),
         # captured while the worker is alive; folded into the report below.
         self._last_eta_trace = getattr(self._rip_worker, "eta_trace", [])
@@ -1030,6 +1033,7 @@ class RipMixin:
             read_speed=read_speed_ladder.attempts_to_report(
                 getattr(self, "_last_speed_attempts", []) or [],
                 getattr(self, "_last_unstable_tracks", []) or [],
+                getattr(self, "_last_retried_tracks", []) or [],
             ),
             eta_trace=getattr(self, "_last_eta_trace", None) or None,
             checksums=getattr(self, "_last_checksums", None),
@@ -1042,23 +1046,28 @@ class RipMixin:
         """Note the read-speed ladder's outcome in the results log, if it acted.
 
         A silent single-pass rip (the common, clean case) says nothing — no
-        clutter. Three things get a line: an escalation (a disc that needed a slow
-        re-read), an unresolved disc (still had read errors at the floor speed),
-        and — the case that matters most under the "flag it, don't auto re-rip"
-        policy — any track whose secure re-read never converged (read instability).
-        The last two are loud (real quality caveats). Best-effort.
+        clutter. Otherwise it reports what happened: a slow re-read escalation, an
+        auto-fixed unstable track (re-ripped alone and now reading consistently —
+        a WIN, said plainly), and — loudly — any track still unstable after the
+        auto-fix (a real "may not be bit-perfect" caveat). Best-effort.
         """
         from platterpus.read_speed_ladder import attempts_to_report
 
         summary = attempts_to_report(
             getattr(self, "_last_speed_attempts", []) or [],
             getattr(self, "_last_unstable_tracks", []) or [],
+            getattr(self, "_last_retried_tracks", []) or [],
         )
         if not summary:
             return
         unstable = summary.get("unstable_tracks") or []
         escalated = summary.get("escalated")
-        if not escalated and not unstable:
+        fixed = [
+            r.get("track")
+            for r in (summary.get("retried_tracks") or [])
+            if r.get("replaced")
+        ]
+        if not escalated and not unstable and not fixed:
             return  # clean single-pass rip — no clutter
         if escalated:
             final = summary.get("final_speed_label", "?")
@@ -1077,19 +1086,28 @@ class RipMixin:
                 )
                 log.info("%s", message)
             self._rip_progress.append_log_line(message)
+        if fixed:
+            # An unstable track was re-ripped ALONE with a harder -Z and now reads
+            # consistently — the audio was auto-improved. Say so plainly (a win).
+            plural = "s" if len(fixed) > 1 else ""
+            listed = ", ".join(str(n) for n in fixed)
+            message = (
+                f"✓ Auto-fix: track{plural} {listed} read inconsistently, so it was "
+                "re-ripped on its own — it now reads consistently and the better "
+                "copy was kept."
+            )
+            log.info("%s", message)
+            self._rip_progress.append_log_line(message)
         if unstable:
-            # cyanrip couldn't read these tracks identically across its secure
-            # re-reads — the reliable read-instability signal. We kept its best
-            # read (not auto-re-ripped, per policy) but say so loudly, since it's
-            # a genuine "may not be bit-perfect" caveat the user should see even
-            # if they weren't watching the live log.
+            # Still couldn't get a consistent read even after re-ripping the track
+            # alone — a genuine "may not be bit-perfect" caveat, said loudly.
             plural = "s" if len(unstable) > 1 else ""
             listed = ", ".join(str(n) for n in unstable)
             message = (
-                f"⚠ Read stability: track{plural} {listed} didn't read identically "
-                "across cyanrip's secure re-reads — kept the best read, which may "
-                "not be bit-perfect. Clean the disc and re-rip for a verified copy. "
-                "See the report."
+                f"⚠ Read stability: track{plural} {listed} still didn't read "
+                "identically even after an automatic re-rip — kept the best read, "
+                "which may not be bit-perfect. Clean the disc and try again for a "
+                "verified copy. See the report."
             )
             log.warning("%s", message)
             self._rip_progress.set_status(message)

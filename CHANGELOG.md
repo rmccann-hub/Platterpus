@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.8] — 2026-07-01
+
+### Added
+- **Auto-fix: an unstable track is now re-ripped on its own, and the better read
+  is kept.** When a track's secure re-read didn't converge (read instability),
+  Platterpus re-rips **just that track** (cyanrip's `-l`) with a harder `-Z`, into
+  a throwaway temp dir so the album's whole-disc `.log`/`.cue` stay intact. If the
+  re-read now converges, the improved FLAC replaces the original; if it still
+  doesn't, the original is kept and the track stays flagged. **It can never make a
+  track worse** — a non-converged read is only ever replaced by a converged one —
+  and it needs no speed change (so it works on a speed-locked drive). This
+  supersedes 0.4.7's "flag, don't re-rip" for instability, now that a per-track
+  re-rip is cheap (seconds, not a whole-disc pass). The results pane reports each
+  auto-fixed track (a win) or any that still couldn't be read consistently (a
+  caveat). **Hardware-gated:** the re-rip-and-swap path is safe by construction
+  but hasn't been exercised on a real drive yet — validate on the BDR-209D rig.
+- **Report schema → v5.** `.platterpus.json`'s `read_speed` block gains
+  `retried_tracks` (the per-track auto-fix history: each track re-ripped, whether
+  it then converged, whether the improved FLAC replaced the original);
+  `unstable_tracks` now lists only tracks the auto-fix could not rescue.
+
 ### Fixed
 - **Read-speed ladder no longer risks aborting the rip on a speed-locked drive.**
   Source review of cyanrip revealed that `-S` (set read speed) is not a graceful
@@ -26,6 +47,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   always runs at max with no `-S`, so an unchangeable drive is detected before any
   `-S` could be sent — the abort can't occur. Speed-changeable drives are
   unaffected.
+
+## [0.4.7] — 2026-07-01
 
 ### Fixed
 - **Read-stability was mis-reported as "clean" (real-hardware finding).** On a
@@ -1472,7 +1495,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...HEAD
+[0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.4...v0.4.5

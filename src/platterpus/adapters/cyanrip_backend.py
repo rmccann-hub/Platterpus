@@ -120,6 +120,7 @@ class CyanripImpl(RipBackend):
         metadata: RipMetadata | None = None,
         secure_rerip_matches: int = 0,
         read_speed: int = 0,
+        only_tracks: tuple[int, ...] = (),
     ) -> list[str]:
         """Build the cyanrip rip argv (pure — unit-tested).
 
@@ -159,6 +160,13 @@ class CyanripImpl(RipBackend):
         # here), the pass simply reads at the drive's speed — no regression.
         if read_speed > 0:
             argv += ["-S", str(read_speed)]
+        # `-l <comma-list>`: rip ONLY these (1-based) track numbers. Used by the
+        # per-track auto-fix re-rip, which re-reads just the unstable track(s) with
+        # a harder `-Z` instead of re-ripping the whole disc (cheap, and needs no
+        # speed change — the lever that works on a speed-locked drive). Empty =
+        # rip the whole disc, so a normal rip omits `-l` entirely.
+        if only_tracks:
+            argv += ["-l", ",".join(str(n) for n in only_tracks)]
         # Always -N: the GUI is the single metadata source (see docstring).
         # `unknown` just means the GUI has placeholder tags instead of MB
         # ones — either way cyanrip itself stays offline.
@@ -199,6 +207,7 @@ class CyanripImpl(RipBackend):
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
         read_speed: int = 0,
+        only_tracks: tuple[int, ...] = (),
     ) -> RipHandle:
         # disc_template is unused: cyanrip puts the log/cue in the -D folder
         # already (derived from track_template, which carries the same
@@ -216,6 +225,7 @@ class CyanripImpl(RipBackend):
             metadata=metadata,
             secure_rerip_matches=secure_rerip_matches,
             read_speed=read_speed,
+            only_tracks=only_tracks,
         )
         # cyanrip writes under the current directory (its -D/-F schemes are
         # relative), so run it from the output dir.

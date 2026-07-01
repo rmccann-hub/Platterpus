@@ -232,6 +232,7 @@ class RipBackend(ABC):
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
         read_speed: int = 0,
+        only_tracks: tuple[int, ...] = (),
     ) -> RipHandle:
         """Begin a rip. `release_id` is an MBID, never an interactive prompt.
 
@@ -244,8 +245,10 @@ class RipBackend(ABC):
         until N reads' checksums agree) for marginal discs. `read_speed`, when
         > 0, caps the drive read speed for this pass (cyanrip's `-S N`); 0 lets
         the drive pick its maximum. The adaptive ladder feeds slower values here
-        on a re-rip (see :mod:`platterpus.read_speed_ladder`). The returned handle
-        streams the backend's stdout and supports cancel.
+        on a re-rip (see :mod:`platterpus.read_speed_ladder`). `only_tracks`, when
+        non-empty, rips ONLY those (1-based) track numbers (cyanrip's `-l`) — used
+        by the per-track auto-fix re-rip; empty rips the whole disc. The returned
+        handle streams the backend's stdout and supports cancel.
         """
 
     @abstractmethod

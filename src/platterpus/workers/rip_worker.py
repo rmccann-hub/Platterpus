@@ -36,6 +36,7 @@ from platterpus.adapters.rip_backend import (
 )
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
+    MAX_SECURE_REREP,
     SpeedAttempt,
     next_step,
     read_errors_present,
@@ -299,6 +300,11 @@ class RipWorker(QObject):
         # (cyanrip aborts on `-S` for such a drive). Once locked, the ladder
         # escalates via `-Z` only and never sends `-S` again this rip.
         self._speed_locked: bool = False
+        # Per-track auto-fix history: one dict per unstable track we re-ripped
+        # alone with a harder -Z ({track, reripped_z, converged, replaced}). The
+        # GUI folds this into the report and results pane. Empty when nothing was
+        # re-ripped.
+        self._retried_tracks: list[dict] = []
 
     def _album_eta_text(self, overall_pct: float) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
@@ -406,10 +412,19 @@ class RipWorker(QObject):
 
     @property
     def unstable_tracks(self) -> list[int]:
-        """Track numbers whose secure re-read never converged on the final pass
-        (read instability). Flagged in the report + results pane, not re-ripped.
-        The GUI reads this at finish. Empty on a clean disc."""
+        """Track numbers still unstable after any auto-fix (their secure re-read
+        never converged, and a per-track re-rip didn't fix them either). Flagged
+        in the report + results pane. The GUI reads this at finish. Empty when the
+        disc read clean or every unstable track was auto-fixed."""
         return list(self._last_unstable_tracks)
+
+    @property
+    def retried_tracks(self) -> list[dict]:
+        """Per-track auto-fix history: which unstable tracks were re-ripped alone
+        with a harder -Z, whether they then converged, and whether the improved
+        FLAC replaced the original. The GUI folds this into the report + results
+        pane. Empty when no track was re-ripped."""
+        return list(self._retried_tracks)
 
     @property
     def eta_trace(self) -> list[dict]:
@@ -464,14 +479,13 @@ class RipWorker(QObject):
             # signal that triggers a step-down (below).
             had_read_errors = read_errors_present(parsed_log)
             # Read instability: tracks whose secure re-read (-Z) never converged.
-            # We FLAG these (they mark the pass not-clean, so the report's
-            # `unresolved`/`unstable_tracks` are honest) but do NOT escalate on
-            # them — a whole-disc re-rip to retry one track can cost hours with no
-            # guarantee (maintainer's "flag it, don't auto re-rip" call, and
-            # cyanrip's whole-disc error count stays 0 here so it isn't a hard
-            # error). Escalation below keys ONLY on `had_read_errors`.
-            unstable = unstable_tracks(parsed_log)
-            self._last_unstable_tracks = unstable
+            # These do NOT trigger the whole-disc step-down (escalation below keys
+            # ONLY on `had_read_errors` — cyanrip's whole-disc error count stays 0
+            # here). Instead they're handled AFTER the loop by the per-track
+            # auto-fix (re-rip the track alone with a harder -Z; see
+            # `_auto_fix_unstable_tracks`), and whatever it can't rescue is flagged
+            # via the report's `unstable_tracks`.
+            self._last_unstable_tracks = unstable_tracks(parsed_log)
             # Learn from this pass's log whether the drive can change read speed.
             # If it CAN'T, cyanrip aborts the whole rip when handed `-S`, so the
             # ladder must never send it — we lock the speed and escalate via `-Z`
@@ -481,12 +495,15 @@ class RipWorker(QObject):
             info = getattr(parsed_log, "ripping_info", None)
             if getattr(info, "speed_changeable", None) is False:
                 self._speed_locked = True
-            # "Clean" means the pass completed (exit 0), read without unrecoverable
-            # errors, AND every secure re-read converged. A hard failure (non-zero
-            # exit) is NOT clean even if its log shows no read-error line —
-            # otherwise a failed rip would be recorded clean and `unresolved` would
-            # wrongly read False (review-confirmed bug).
-            clean = success and not had_read_errors and not unstable
+            # "Clean" means the pass completed (exit 0) and read without
+            # unrecoverable errors. It deliberately does NOT fold in read
+            # instability: an unstable track is handled separately (auto-fix, then
+            # flagged via the report's `unstable_tracks`), so `unresolved` is
+            # computed from the POST-auto-fix unstable set — otherwise a track the
+            # auto-fix rescued would still read as unresolved. A hard failure
+            # (non-zero exit) is NOT clean even if its log shows no read-error line
+            # (review-confirmed bug).
+            clean = success and not had_read_errors
             self._speed_attempts.append(
                 SpeedAttempt(attempt, speed, secure_rerip, clean=clean)
             )
@@ -513,6 +530,20 @@ class RipWorker(QObject):
             self.status.emit(f"Read errors — {step.reason}…")
             self.log_line.emit(f"[read-speed ladder] {step.reason}")
 
+        # Auto-fix: if the disc read clean overall but left an unstable track
+        # (its -Z re-read never converged), re-rip JUST that track alone with a
+        # harder -Z and keep the result only if it now converges — cheap (via
+        # cyanrip's -l), needs no speed change, and can't make a track worse. The
+        # album's whole-disc log/cue are left intact (the re-rip runs in a temp
+        # dir); only the improved FLAC is copied in. Skipped in fixed mode.
+        if (
+            success
+            and not self._cancelled
+            and auto_ladder
+            and self._last_unstable_tracks
+        ):
+            self._auto_fix_unstable_tracks()
+
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
             # overall bar short of full (the post-rip AccurateRip phase
@@ -521,7 +552,12 @@ class RipWorker(QObject):
         self.finished.emit(success, log_path_str)
 
     def _rip_once(
-        self, *, read_speed: int, secure_rerip_matches: int
+        self,
+        *,
+        read_speed: int,
+        secure_rerip_matches: int,
+        output_dir: Path | None = None,
+        only_tracks: tuple[int, ...] = (),
     ) -> tuple[bool, str] | None:
         """Run ONE rip pass at the given speed/``-Z``; stream its output.
 
@@ -529,12 +565,18 @@ class RipWorker(QObject):
         hard start/stream error (having already emitted ``error``) so the caller
         stops the whole rip. Emits log/progress/status/current_track exactly as
         the single-pass rip always did.
+
+        ``output_dir`` overrides where the rip writes (defaults to the params'
+        dir); ``only_tracks`` re-rips just those tracks (cyanrip ``-l``). Both are
+        used by the per-track auto-fix, which re-rips an unstable track into a
+        temp dir so the album's whole-disc log/cue are left intact.
         """
+        out_dir = output_dir or self._params.output_dir
         try:
             self._handle = self._backend.rip(
                 drive=self._params.drive,
                 release_id=self._params.release_id,
-                output_dir=self._params.output_dir,
+                output_dir=out_dir,
                 track_template=self._params.track_template,
                 disc_template=self._params.disc_template,
                 unknown=self._params.unknown,
@@ -544,6 +586,7 @@ class RipWorker(QObject):
                 read_offset_override=self._params.read_offset_override,
                 metadata=self._params.metadata,
                 read_speed=read_speed,
+                only_tracks=only_tracks,
             )
         except RipError as exc:
             log.exception("rip failed to start")
@@ -638,7 +681,7 @@ class RipWorker(QObject):
 
         exit_code = self._handle.wait()
         success = (exit_code == 0) and not self._cancelled
-        log_path = self._find_log_path()
+        log_path = self._find_log_path(out_dir)
         return success, str(log_path) if log_path else ""
 
     def _reset_pass_progress(self) -> None:
@@ -649,6 +692,115 @@ class RipWorker(QObject):
         self._emitted_track = 0
         self._last_status = ""
         self._last_progress_emit = 0.0
+
+    def _auto_fix_unstable_tracks(self) -> None:
+        """Re-rip each unstable track ALONE with a harder ``-Z``, keeping the
+        result only if it now reads consistently (converges).
+
+        Cheap (cyanrip's ``-l`` rips just the listed tracks), needs no speed
+        change (so it works on a speed-locked drive), and **can never make a track
+        worse** — a non-converged original is only ever replaced by a *converged*
+        re-read; on any failure or uncertainty the original is left untouched. The
+        re-rip runs in a throwaway temp dir so the album's whole-disc ``.log`` /
+        ``.cue`` stay intact; only the improved FLAC is copied into the album.
+
+        **HARDWARE-GATED:** the re-rip-and-swap path has not been exercised on a
+        real drive yet. It's safe by construction (no swap unless the re-read
+        converges and the file copies cleanly), but flag it for validation on the
+        Bazzite + BDR-209D rig. Best-effort: never raises (would abort the rip).
+        """
+        import shutil
+        import tempfile
+
+        tracks = list(self._last_unstable_tracks)
+        if not tracks:
+            return
+        # One harder secure-rerip level than the initial pass used, capped at the
+        # ladder ceiling. (Auto-fix only triggers when -Z was on, so this is ≥ 2.)
+        rerip_z = max(self._params.secure_rerip_matches, MAX_SECURE_REREP)
+        listed = ", ".join(str(n) for n in tracks)
+        self._reset_pass_progress()
+        self.status.emit(f"Re-ripping unstable track(s) {listed} to fix them…")
+        self.log_line.emit(
+            f"[auto-fix] re-ripping track(s) {listed} at -Z {rerip_z} for a "
+            "consistent read (the rest of the album is kept as-is)"
+        )
+        tmp_root: Path | None = None
+        try:
+            tmp_root = Path(tempfile.mkdtemp(prefix="platterpus-refix-"))
+            # Never send -S: the speed lever is unreliable / aborts on some drives,
+            # and -Z at max speed is the mechanism that actually helps here.
+            self._current_read_speed = 0
+            outcome = self._rip_once(
+                read_speed=0,
+                secure_rerip_matches=rerip_z,
+                output_dir=tmp_root,
+                only_tracks=tuple(tracks),
+            )
+            if outcome is None:
+                return  # re-rip failed to start/stream — originals untouched
+            success, rerip_log_path = outcome
+            if not success or not rerip_log_path:
+                return
+            rerip_log = self._parse_log(rerip_log_path)
+            fixed: list[int] = []
+            for track in getattr(rerip_log, "tracks", ()) or ():
+                number = getattr(track, "number", None)
+                if number not in tracks:
+                    continue
+                converged = getattr(track, "secure_rerip_converged", None) is True
+                replaced = False
+                if converged:
+                    replaced = self._swap_in_reripped_track(track, tmp_root)
+                    if replaced:
+                        fixed.append(number)
+                self._retried_tracks.append(
+                    {
+                        "track": number,
+                        "reripped_z": rerip_z,
+                        "converged": converged,
+                        "replaced": replaced,
+                    }
+                )
+            # The still-unstable set is whatever we couldn't fix.
+            self._last_unstable_tracks = [t for t in tracks if t not in fixed]
+            if fixed:
+                names = ", ".join(str(n) for n in fixed)
+                self.log_line.emit(
+                    f"[auto-fix] track(s) {names} now read consistently — kept the "
+                    "re-rip."
+                )
+                self.status.emit(f"Auto-fixed unstable track(s) {names}.")
+        except Exception:  # noqa: BLE001 — auto-fix must never crash the rip
+            log.exception("auto-fix of unstable tracks failed; originals kept")
+        finally:
+            if tmp_root is not None:
+                shutil.rmtree(tmp_root, ignore_errors=True)
+
+    def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:
+        """Copy a converged re-ripped track's FLAC over the album's original.
+
+        The re-rip used the SAME naming templates + metadata, so its per-track
+        filename (relative, from the re-rip log) maps to the same relative path
+        under the album's output dir. Returns True on a successful copy; False (no
+        change) if the source is missing or the copy fails — never raises.
+        """
+        import shutil
+
+        filename = getattr(track, "filename", "") or ""
+        if not filename:
+            return False
+        src = tmp_root / filename
+        dst = self._params.output_dir / filename
+        if not src.exists():
+            return False
+        try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            return True
+        except OSError:
+            log.exception("auto-fix: could not swap in re-ripped %s", filename)
+            return False
 
     def _parse_log(self, log_path_str: str) -> object | None:
         """Parse a rip log for the escalation decision. Never raises (parsers
@@ -758,15 +910,15 @@ class RipWorker(QObject):
         self._overall = max(self._overall, min(value, 100.0))
         return self._overall
 
-    def _find_log_path(self) -> Path | None:
-        """Locate the .log whipper just wrote.
+    def _find_log_path(self, output_dir: Path | None = None) -> Path | None:
+        """Locate the .log the ripper just wrote under `output_dir`.
 
-        Whipper drops the rip log next to the FLACs. The output_dir from
-        params is the root; we search recursively for the most recent
-        .log file. Returns None if nothing was written (e.g. rip failed
-        before any output).
+        The ripper drops the rip log next to the FLACs. We search the given root
+        (defaults to the params' output dir; the auto-fix re-rip passes its temp
+        dir) recursively for the most recent .log. Returns None if nothing was
+        written (e.g. rip failed before any output).
         """
-        output_dir = self._params.output_dir
+        output_dir = output_dir or self._params.output_dir
         if not output_dir.exists():
             return None
 
