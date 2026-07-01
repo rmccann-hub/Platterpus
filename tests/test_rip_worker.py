@@ -257,6 +257,24 @@ def test_auto_ladder_re_rips_slower_on_read_errors_then_stops_clean(
     assert sigs.finished == [(True, "")]
 
 
+def test_auto_ladder_hard_failure_is_not_marked_clean(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression: a pass that HARD-FAILS (non-zero exit) must be recorded as NOT
+    clean, so the report's `unresolved` flag is right — even if its log shows no
+    read-error line. Earlier code marked a failed rip clean (success short-circuit)."""
+    from platterpus.read_speed_ladder import attempts_to_report
+
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=1))  # hard fail
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1  # a hard failure is NOT re-ripped
+    assert worker.speed_attempts[-1].clean is False
+    assert attempts_to_report(worker.speed_attempts)["unresolved"] is True
+
+
 def test_auto_ladder_flags_unresolved_after_exhausting_the_ladder(
     qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

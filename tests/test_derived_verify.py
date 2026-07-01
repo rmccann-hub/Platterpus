@@ -177,9 +177,12 @@ def test_default_hasher_nonzero_exit_returns_none(tmp_path: Path) -> None:
     assert _default_hasher(tmp_path / "in.wav", binary=str(fake)) is None
 
 
-def test_default_hasher_timeout_returns_none(tmp_path: Path, monkeypatch) -> None:
+def test_default_hasher_timeout_returns_none_and_reaps(
+    tmp_path: Path, monkeypatch
+) -> None:
     # A decode that never finishes must not hang the verify thread — a bounded
-    # wait times out and we report "couldn't check" (None), not a crash.
+    # wait times out and we report "couldn't check" (None). And the killed child
+    # must be REAPED (kill + a follow-up wait), not left a zombie.
     import io
 
     from platterpus.adapters import derived_verify as dv
@@ -187,18 +190,28 @@ def test_default_hasher_timeout_returns_none(tmp_path: Path, monkeypatch) -> Non
     class _FakeProc:
         def __init__(self) -> None:
             self.stdout = io.BytesIO(b"")  # EOF immediately, then wait() times out
+            self.killed = False
+            self.wait_calls = 0
 
         def wait(self, timeout=None):
+            self.wait_calls += 1
+            # First (bounded) wait times out; the reaping wait after kill also
+            # "times out" in this fake — the code must swallow that.
             raise __import__("subprocess").TimeoutExpired(cmd="ffmpeg", timeout=timeout)
 
         def kill(self) -> None:
-            pass
+            self.killed = True
 
-    monkeypatch.setattr(dv.subprocess, "Popen", lambda *a, **k: _FakeProc())
+    proc = _FakeProc()
+    monkeypatch.setattr(dv.subprocess, "Popen", lambda *a, **k: proc)
     assert dv._default_hasher(tmp_path / "x.wav") is None
+    assert proc.killed is True  # signalled
+    assert proc.wait_calls >= 2  # bounded wait + the reaping wait after kill
 
 
-def test_default_hasher_read_error_returns_none(tmp_path: Path, monkeypatch) -> None:
+def test_default_hasher_read_error_returns_none_and_reaps(
+    tmp_path: Path, monkeypatch
+) -> None:
     from platterpus.adapters import derived_verify as dv
 
     class _FakeStdout:
@@ -209,16 +222,22 @@ def test_default_hasher_read_error_returns_none(tmp_path: Path, monkeypatch) -> 
             pass
 
     class _FakeProc:
-        stdout = _FakeStdout()
+        def __init__(self) -> None:
+            self.stdout = _FakeStdout()
+            self.killed = False
+            self.reaped = False
 
         def wait(self, timeout=None):
+            self.reaped = True
             return 0
 
         def kill(self) -> None:
-            pass
+            self.killed = True
 
-    monkeypatch.setattr(dv.subprocess, "Popen", lambda *a, **k: _FakeProc())
+    proc = _FakeProc()
+    monkeypatch.setattr(dv.subprocess, "Popen", lambda *a, **k: proc)
     assert dv._default_hasher(tmp_path / "x.wav") is None
+    assert proc.killed is True and proc.reaped is True  # killed AND reaped
 
 
 @given(
