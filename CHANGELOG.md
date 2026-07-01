@@ -22,6 +22,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `Album (1995)`. A config still on the old `%y` year presets is auto-upgraded
   (schema v3→v4); hand-edited templates are left untouched.
 
+### Documentation
+- Refreshed `docs/log-format-comparison.md` from whipper→EAC to **cyanrip→EAC**
+  (cyanrip is the sole backend since KDD-18): field-by-field for cyanrip's
+  header, per-track CRC/AccurateRip/offset-variant, paranoia counts, per-track +
+  album loudness, and `Log FUN512:` log signature, plus the `.platterpus.json` /
+  `.platterpus.log` companions.
+- Documented the **dual-logging model** in `docs/architecture.md §3.7`: the
+  always-on global `~/.local/share/platterpus/log.txt` (the only record when a
+  rip never starts) and the per-album `<Album>.platterpus.log` (this rip's lines,
+  living with the album) are kept as complementary, non-redundant records.
+
 ## [0.4.5] — 2026-07-01
 
 ### Fixed
