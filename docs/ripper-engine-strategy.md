@@ -272,15 +272,23 @@ careful EAC user with zero terminal. **Quality can only go up.**
   `-Z 2` then `-Z 3`. Stop when a pass reads clean or the ladder is exhausted
   (then the disc is **FLAGGED** as unresolved in the report — never silently
   interpolated or papered over). Bounded by a hard `MAX_ATTEMPTS`.
+- **Per-track auto-fix (0.4.8):** if a pass reads clean overall but a track's
+  secure re-read never *converged* (read instability — distinct from a hard read
+  error), re-rip **just that track** (cyanrip's `-l`) with a harder `-Z`, into a
+  temp dir. If the re-read now converges, the improved FLAC replaces the original;
+  if not, the original is kept and the track is FLAGGED. Cheap (one track, no
+  speed change), so it works on a speed-locked drive, and it can never make a
+  track worse. This **superseded 0.4.7's "flag, don't re-rip"** for instability
+  once `-l` was confirmed (gate 3 below) — the whole-disc-cost objection was gone.
 - **Manual override:** Settings → "Fixed speed (advanced)" disables the ladder
   and rips at one chosen `-S` value (0 = drive max).
 - **Honest reporting:** each pass's speed + `-Z` + clean/not lands in
   `.platterpus.json` under `read_speed` (the single per-album debug artifact),
-  along with `unstable_tracks` — tracks whose secure re-read never converged
-  (read instability), flagged but not auto-re-ripped (see the finding below).
+  along with `retried_tracks` (the per-track auto-fix history) and
+  `unstable_tracks` (tracks the auto-fix could not rescue — still flagged).
 - **Where:** the pure decision logic is `src/platterpus/read_speed_ladder.py`
-  (never raises, fully unit-tested); the loop lives in `workers/rip_worker.py`;
-  `-S` plumbing is in `adapters/cyanrip_backend.py`.
+  (never raises, fully unit-tested); the loop + per-track auto-fix live in
+  `workers/rip_worker.py`; `-S`/`-l` plumbing is in `adapters/cyanrip_backend.py`.
 
 **Two signals, deliberately separate (real-hardware finding, 2026-07-01):**
 The escalation *trigger* is an **unrecoverable read error** (cyanrip's
@@ -314,14 +322,15 @@ flagged.
    The whole-disc `Ripping errors:` count is NOT sufficient: a real disc reported
    `0` while a track's `-Z` re-read never converged. We now also read the
    per-track convergence verdict and flag it (`unstable_tracks`).
-3. **Can cyanrip re-rip a SUBSET of tracks? — ANSWERED (source-verified,
-   2026-07-01): YES, via `-l <comma-list>`** (e.g. `-l 3,5` rips only tracks 3 and
-   5; confirmed in `cyanrip_main.c` — `rip_indices[]` gates which tracks call
-   `cyanrip_rip_track()`, distinct from `-t` tag metadata). This makes per-track
-   re-rip cheap (seconds, not a whole-disc pass) and needs no speed change — so it
-   is the natural escalation lever on a speed-locked drive, and it reopens the
-   "flag vs auto-re-rip" instability decision (a per-track re-rip is cheap enough
-   that auto-fixing a flagged track becomes viable). Not yet wired into the ladder.
+3. **Can cyanrip re-rip a SUBSET of tracks? — ANSWERED + WIRED IN (0.4.8): YES,
+   via `-l <comma-list>`** (e.g. `-l 3,5` rips only tracks 3 and 5; confirmed in
+   `cyanrip_main.c` — `rip_indices[]` gates which tracks call `cyanrip_rip_track()`,
+   distinct from `-t` tag metadata). This made per-track re-rip cheap (seconds, not
+   a whole-disc pass) and needs no speed change, so it's the natural escalation
+   lever on a speed-locked drive — now the per-track **auto-fix** above. **The one
+   remaining hardware gate:** the re-rip-and-swap path (temp-dir re-rip → copy the
+   improved FLAC into the album) is safe by construction but not yet exercised on a
+   real drive; validate on the BDR-209D rig.
 
 [eac]: https://www.exactaudiocopy.de/extraction-technology/
 [cmp]: https://wiki.hydrogenaudio.org/index.php?title=Comparison_of_CD_rippers

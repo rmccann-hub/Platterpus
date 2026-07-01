@@ -256,6 +256,32 @@ def test_read_speed_block_carries_flagged_unstable_tracks() -> None:
     assert rs["unstable_tracks"] == [3]
 
 
+def test_read_speed_block_records_auto_fix_retries() -> None:
+    # The auto-fix re-ripped an unstable track; when it converged and replaced the
+    # original, the track drops off unstable_tracks and is recorded in retried.
+    from platterpus.read_speed_ladder import SpeedAttempt, attempts_to_report
+
+    report = build_report(
+        _sample_log(),
+        read_speed=attempts_to_report(
+            # No hard errors on the pass → clean; the instability was handled by
+            # the auto-fix, so nothing is left unstable.
+            [SpeedAttempt(1, 0, 2, clean=True)],
+            unstable=[],  # nothing left unstable after the fix
+            retried=[
+                {"track": 3, "reripped_z": 3, "converged": True, "replaced": True}
+            ],
+        ),
+    )
+    rs = report["read_speed"]
+    assert rs["unstable_tracks"] == []  # rescued
+    assert rs["retried_tracks"] == [
+        {"track": 3, "reripped_z": 3, "converged": True, "replaced": True}
+    ]
+    # An auto-fixed-and-clean rip is not "unresolved".
+    assert rs["unresolved"] is False
+
+
 def test_eta_trace_block_serialized_and_labeled() -> None:
     samples = [
         {
@@ -297,9 +323,9 @@ def test_checksums_embedded_in_report() -> None:
     assert report["checksums"] == sums
 
 
-def test_schema_version_is_v4() -> None:
-    assert REPORT_SCHEMA_VERSION == 4
-    assert build_report(_sample_log())["schema_version"] == 4
+def test_schema_version_is_v5() -> None:
+    assert REPORT_SCHEMA_VERSION == 5
+    assert build_report(_sample_log())["schema_version"] == 5
 
 
 def test_report_includes_loudness_checksum_and_replaygain() -> None:

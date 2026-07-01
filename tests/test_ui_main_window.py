@@ -3204,7 +3204,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 4
+    assert report["schema_version"] == 5
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True
@@ -3625,22 +3625,42 @@ def test_read_speed_summary_silent_on_clean_single_pass(teardown_threads) -> Non
     assert lines == []
 
 
-def test_read_speed_summary_flags_unstable_track_without_escalation(
+def test_read_speed_summary_flags_track_still_unstable_after_autofix(
     teardown_threads,
 ) -> None:
-    """The 'flag it, don't auto re-rip' case (real Police disc): a single pass
-    that left a track unstable must still surface a loud caveat naming the track,
-    even though the ladder never stepped down."""
+    """A track the auto-fix couldn't rescue (re-ripped, still didn't converge)
+    must surface a loud caveat naming the track."""
     from platterpus.read_speed_ladder import SpeedAttempt
 
     window = teardown_threads()
     lines: list[str] = []
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
-    window._last_speed_attempts = [SpeedAttempt(1, 0, 2, clean=False)]
+    window._last_speed_attempts = [SpeedAttempt(1, 0, 2, clean=True)]
     window._last_unstable_tracks = [3]
+    window._last_retried_tracks = [
+        {"track": 3, "reripped_z": 3, "converged": False, "replaced": False}
+    ]
     window._append_read_speed_summary()
     assert any("Read stability" in line and "track 3" in line for line in lines)
     assert "Read stability" in window._rip_progress._status_label.text()
+
+
+def test_read_speed_summary_reports_auto_fixed_track(teardown_threads) -> None:
+    """An unstable track the auto-fix rescued is reported plainly as a win — and
+    it's NOT also flagged as a caveat (it's off the unstable list)."""
+    from platterpus.read_speed_ladder import SpeedAttempt
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+    window._last_speed_attempts = [SpeedAttempt(1, 0, 2, clean=True)]
+    window._last_unstable_tracks = []  # rescued → nothing left unstable
+    window._last_retried_tracks = [
+        {"track": 3, "reripped_z": 3, "converged": True, "replaced": True}
+    ]
+    window._append_read_speed_summary()
+    assert any("Auto-fix" in line and "track 3" in line for line in lines)
+    assert not any("Read stability" in line for line in lines)  # no caveat
 
 
 def test_on_derived_verified_mp3_states_decode_clean_not_bit_identity(

@@ -63,7 +63,11 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # v4 (0.4.7): added `eta_trace` (PC-clock-stamped samples of our ETA + cyanrip's,
 # for future ETA modelling) and `read_speed.unstable_tracks` — the tracks whose
 # secure re-read never converged (read instability, flagged not auto-re-ripped).
-REPORT_SCHEMA_VERSION: int = 4
+# v5 (0.4.8): added `read_speed.retried_tracks` — the per-track auto-fix history
+# (each unstable track re-ripped alone with a harder -Z; whether it then converged
+# and whether the improved FLAC replaced the original). `unstable_tracks` now
+# lists only tracks the auto-fix could NOT rescue.
+REPORT_SCHEMA_VERSION: int = 5
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -227,11 +231,12 @@ def _build(
         "paranoia_counts": dict(getattr(rip_log, "paranoia_counts", {}) or {}) or None,
         # Adaptive read-speed ladder history: the speed / -Z each pass used and
         # whether it read clean (see read_speed_ladder.attempts_to_report). None
-        # on a normal single-pass rip. `unresolved: true` FLAGS a disc that never
-        # read clean even at the floor speed OR has an `unstable_tracks` entry —
-        # tracks whose secure re-read never converged (read instability), left as
-        # cyanrip's best read and NOT auto-re-ripped (policy). Surfaced, never
-        # papered over.
+        # on a normal single-pass rip. `retried_tracks` records the per-track
+        # auto-fix (each unstable track re-ripped alone with a harder -Z; whether
+        # it converged and whether the better FLAC replaced the original).
+        # `unstable_tracks` lists tracks the auto-fix could NOT rescue, and
+        # `unresolved: true` FLAGS the disc when any remain (or a pass never read
+        # clean) — surfaced, never papered over.
         "read_speed": (dict(read_speed) if read_speed else None),
         # ETA trace kept "for posterity": a throttled series of samples, each
         # with the PC wall-clock time, elapsed, progress, the read speed in

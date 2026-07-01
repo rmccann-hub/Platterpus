@@ -68,6 +68,10 @@ class _FakeBackend(RipBackend):
         self._handle: _FakeHandle | None = handle
         self._raise_on_rip: Exception | None = None
         self.rip_calls: list[dict[str, object]] = []
+        # Optional: called with each recorded rip-call dict, so a test can write
+        # the log/FLAC files a real rip would produce (used by the auto-fix
+        # tests). Default None → no files written (the other tests don't need it).
+        self.rip_side_effect = None
 
     def set_handle(self, handle: _FakeHandle) -> None:
         self._handle = handle
@@ -97,6 +101,7 @@ class _FakeBackend(RipBackend):
         read_offset_override: int | None = None,
         metadata=None,
         read_speed: int = 0,
+        only_tracks: tuple[int, ...] = (),
     ) -> RipHandle:
         self.rip_calls.append(
             {
@@ -110,10 +115,13 @@ class _FakeBackend(RipBackend):
                 "read_offset_override": read_offset_override,
                 "metadata": metadata,
                 "read_speed": read_speed,
+                "only_tracks": tuple(only_tracks),
             }
         )
         if self._raise_on_rip:
             raise self._raise_on_rip
+        if self.rip_side_effect is not None:
+            self.rip_side_effect(self.rip_calls[-1])
         assert self._handle is not None
         return self._handle  # type: ignore[return-value]
 
@@ -295,14 +303,12 @@ def test_auto_ladder_flags_unresolved_after_exhausting_the_ladder(
     assert report["unresolved"] is True and report["escalated"] is True
 
 
-def test_auto_ladder_flags_unstable_track_without_re_ripping(
+def test_auto_fix_keeps_flag_when_rerip_yields_no_usable_log(
     qapp: QApplication, tmp_path: Path
 ) -> None:
-    """Real-hardware case (Police 'Classics', 2026-07-01): a track whose secure
-    re-read never converged, while cyanrip reports 0 whole-disc errors. Per the
-    "flag it, don't auto re-rip" policy the ladder must NOT escalate (one pass) —
-    but the track is recorded as unstable so the report/pane can flag it, and the
-    pass is honestly marked not-clean."""
+    """Safety path: an unstable track triggers an auto-fix re-rip, but if that
+    re-rip produces no usable log (nothing to trust), the original is kept and the
+    track stays honestly FLAGGED — no regression, no bogus swap."""
     from platterpus.read_speed_ladder import attempts_to_report
 
     rip_log = tmp_path / "Album" / "rip.log"
@@ -316,17 +322,20 @@ def test_auto_ladder_flags_unstable_track_without_re_ripping(
         "Ripping errors: 0\n",  # cyanrip's whole-disc count stays 0 — the trap
         encoding="utf-8",
     )
+    # No rip_side_effect → the re-rip writes no temp log, so auto-fix bails safely.
     backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
     worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
 
     worker.start_rip()
 
-    assert len(backend.rip_calls) == 1  # FLAGGED, not re-ripped (the policy)
-    assert worker.unstable_tracks == [1]
-    assert worker.speed_attempts[-1].clean is False  # honest: not clean
+    assert len(backend.rip_calls) == 2  # it TRIED the auto-fix re-rip…
+    assert worker.retried_tracks == []  # …but nothing usable came back
+    assert worker.unstable_tracks == [1]  # so track 1 stays flagged (no regression)
+    # The pass had no HARD errors, so it's "clean" in the attempt sense; the
+    # instability is carried by unstable_tracks, which drives `unresolved`.
+    assert worker.speed_attempts[-1].clean is True
     report = attempts_to_report(worker.speed_attempts, worker.unstable_tracks)
-    assert report["escalated"] is False
-    assert report["unresolved"] is True
+    assert report["unresolved"] is True  # still flagged via the unstable track
     assert report["unstable_tracks"] == [1]
 
 
@@ -360,6 +369,132 @@ def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
     # …and the escalation happened via -Z climbing instead (2, then 3).
     zs = [call["secure_rerip_matches"] for call in backend.rip_calls]
     assert zs == [0, 2, 3]
+
+
+# --- Per-track auto-fix (re-rip the unstable track alone, keep it if it converges)
+
+_PASS1_UNSTABLE = (
+    "cyanrip 0.9.3 (release)\n"
+    "Disc tracks:    3\n"
+    "Done; (2 out of 2 matches for current checksum AAAA1111)\n"
+    "Track 1 ripped and encoded successfully!\n"
+    "  EAC CRC32:     11111111\n"
+    "  File(s):\n"
+    "    Artist/Album/01 - A.flac\n"
+    "Done; (no matches found, but hit repeat limit of 5)\n"  # track 3 unstable
+    "Track 3 ripped and encoded successfully!\n"
+    "  EAC CRC32:     33333333 (after 5 rips)\n"
+    "  File(s):\n"
+    "    Artist/Album/03 - C.flac\n"
+    "Ripping errors: 0\n"  # whole-disc count stays 0 — instability, not errors
+)
+
+
+def _fake_rip_writer(pass1_log: str, rerip_log: str, rerip_makes_flac: bool):
+    """Return a rip_side_effect that writes a whole-disc log on the full rip and a
+    (temp) re-rip log — plus, optionally, track 3's re-ripped FLAC — on the -l pass."""
+
+    def _write(call: dict) -> None:
+        out = call["output_dir"]
+        rel = out / "Artist" / "Album"
+        rel.mkdir(parents=True, exist_ok=True)
+        if call["only_tracks"]:
+            (rel / "rerip.log").write_text(rerip_log, encoding="utf-8")
+            if rerip_makes_flac:
+                (rel / "03 - C.flac").write_bytes(b"FIXED-FLAC-BYTES")
+        else:
+            (rel / "rip.log").write_text(pass1_log, encoding="utf-8")
+
+    return _write
+
+
+def test_auto_fix_swaps_in_reripped_track_when_it_converges(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The auto-fix (user's call): an unstable track is re-ripped ALONE with a
+    harder -Z; when the re-read now converges, its FLAC replaces the original and
+    the track drops off the unstable list."""
+    rerip_ok = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    3\n"
+        "Done; (2 out of 2 matches for current checksum BBBB2222)\n"  # now converges
+        "Track 3 ripped and encoded successfully!\n"
+        "  EAC CRC32:     99999999\n"
+        "  File(s):\n"
+        "    Artist/Album/03 - C.flac\n"
+        "Ripping errors: 0\n"
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = _fake_rip_writer(_PASS1_UNSTABLE, rerip_ok, True)
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    worker.start_rip()
+
+    # Two rips: the whole disc, then a -l re-rip of only the unstable track 3.
+    assert len(backend.rip_calls) == 2
+    assert backend.rip_calls[1]["only_tracks"] == (3,)
+    assert backend.rip_calls[1]["read_speed"] == 0  # never -S
+    assert backend.rip_calls[1]["secure_rerip_matches"] == 3  # a harder -Z
+    # Track 3 was fixed → no longer unstable, recorded as replaced.
+    assert worker.unstable_tracks == []
+    assert worker.retried_tracks == [
+        {"track": 3, "reripped_z": 3, "converged": True, "replaced": True}
+    ]
+    # The improved FLAC was copied into the album folder.
+    swapped = tmp_path / "Artist" / "Album" / "03 - C.flac"
+    assert swapped.read_bytes() == b"FIXED-FLAC-BYTES"
+
+
+def test_auto_fix_keeps_original_when_rerip_still_unstable(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """If the re-rip STILL doesn't converge, the original is kept untouched (no
+    regression) and the track stays flagged unstable."""
+    rerip_still_bad = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    3\n"
+        "Done; (no matches found, but hit repeat limit of 5)\n"  # still no converge
+        "Track 3 ripped and encoded successfully!\n"
+        "  EAC CRC32:     44444444 (after 5 rips)\n"
+        "  File(s):\n"
+        "    Artist/Album/03 - C.flac\n"
+        "Ripping errors: 0\n"
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    # rerip_makes_flac=True to prove we DON'T swap even when a temp file exists.
+    backend.rip_side_effect = _fake_rip_writer(_PASS1_UNSTABLE, rerip_still_bad, True)
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 2  # it did try the re-rip
+    assert worker.unstable_tracks == [3]  # …but track 3 is still flagged
+    assert worker.retried_tracks == [
+        {"track": 3, "reripped_z": 3, "converged": False, "replaced": False}
+    ]
+    # The original was NOT overwritten by the (non-converged) re-rip.
+    assert not (tmp_path / "Artist" / "Album" / "03 - C.flac").exists()
+
+
+def test_fixed_mode_never_auto_fixes(qapp: QApplication, tmp_path: Path) -> None:
+    """Fixed-speed mode is a single pass with no auto-fix, even if a track was
+    unstable — the ladder (and its auto-fix) only run in auto_ladder mode."""
+    rel = tmp_path / "Artist" / "Album"
+    rel.mkdir(parents=True)
+    (rel / "rip.log").write_text(_PASS1_UNSTABLE, encoding="utf-8")
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="fixed"))
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1  # no re-rip
+    assert worker.retried_tracks == []
 
 
 def test_cyanrip_progress_lines_drive_bars_and_track(

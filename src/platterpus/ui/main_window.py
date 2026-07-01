@@ -290,8 +290,12 @@ class MainWindow(
         # the report so a slow re-read — or a still-unresolved disc — is recorded.
         self._last_speed_attempts: list = []
         # Tracks whose secure re-read never converged on the just-finished rip
-        # (read instability) — flagged in the report + results pane, not re-ripped.
+        # and that the per-track auto-fix couldn't rescue — flagged in the report
+        # + results pane.
         self._last_unstable_tracks: list = []
+        # Per-track auto-fix history for the just-finished rip (which unstable
+        # tracks were re-ripped alone, whether they converged, whether swapped in).
+        self._last_retried_tracks: list = []
         # The just-finished rip's ETA trace (PC clock + cyanrip's ETA + our ETA +
         # read speed) — recorded in the report "for posterity" / future modelling.
         self._last_eta_trace: list = []

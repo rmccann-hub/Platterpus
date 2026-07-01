@@ -176,6 +176,31 @@ def test_rip_argv_passes_read_speed_when_set() -> None:
     assert "-S" in argv and argv[argv.index("-S") + 1] == "8"
 
 
+def test_rip_argv_omits_track_selection_by_default() -> None:
+    # A whole-disc rip passes no -l; cyanrip rips everything.
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=667,
+    )
+    assert "-l" not in argv
+
+
+def test_rip_argv_passes_track_subset_for_auto_fix() -> None:
+    # The per-track auto-fix re-rip selects only the unstable tracks via -l.
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=667,
+        only_tracks=(3, 5),
+    )
+    assert "-l" in argv and argv[argv.index("-l") + 1] == "3,5"
+
+
 def test_rip_argv_always_disables_mb_and_feeds_gui_metadata() -> None:
     """KDD-18 metadata model: cyanrip never does its own MB lookup — the
     GUI's tags (release pick + user edits) are fed via -a/-t, offline."""
