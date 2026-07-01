@@ -49,7 +49,10 @@ from platterpus.parsers.rip_log import (
 
 # First meaningful line of any cyanrip log/output: "cyanrip 0.9.3.1 (tag)".
 _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)")
-_DRIVE = re.compile(r"^Drive used:\s+(?P<drive>.+?)\s*$")
+# cyanrip 0.9.3 prints "Device model:   PIONEER …"; older/whipper-style logs use
+# "Drive used:". Accept both so the archival "which drive" field is never lost
+# (real-log bug: 0.9.3's "Device model:" didn't match, so `drive` came out null).
+_DRIVE = re.compile(r"^(?:Drive used|Device model):\s+(?P<drive>.+?)\s*$")
 # "Offset:         +667 samples" (sign printed explicitly by cyanrip).
 _OFFSET = re.compile(r"^Offset:\s+(?P<sign>[+-])(?P<value>\d+)\s+samples")
 # A track block opens with its outcome line.

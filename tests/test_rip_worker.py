@@ -11,6 +11,7 @@ whipper binary.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -231,43 +232,35 @@ def test_cyanrip_progress_lines_drive_bars_and_track(
     assert 10.0 < done_overall < 11.0  # 5 + 1/16*90 ≈ 10.6
     # Track follows along for the row highlight; once per track.
     assert sigs.current_tracks == [1, 2]
-    # Status line is alive, with the ETA when cyanrip prints one.
-    assert any("Ripping track 1… 25% (ETA 3m)" == s for s in sigs.statuses)
+    # Status names the phase (read) — cyanrip's own per-op ETA is NOT echoed
+    # (it resets every phase and is wildly wrong early). No ETA suffix here
+    # because the test rip elapses <8s (the minimum before we project one).
+    assert any(s.startswith("Reading track 1… 25%") for s in sigs.statuses)
+    # The "and encoding" pass is labelled "Encoding" so its 0→100% restart reads
+    # as expected, not a regression.
+    assert any(s.startswith("Encoding track 1… 75%") for s in sigs.statuses)
     assert any(s.startswith("Track 1 done") for s in sigs.statuses)
+    # cyanrip's raw "(ETA 3m)" is never surfaced verbatim.
+    assert not any("(ETA" in s for s in sigs.statuses)
 
 
-def test_captures_first_eta_as_run_estimate(qapp: QApplication, tmp_path: Path) -> None:
-    """The worker records cyanrip's FIRST ETA as its whole-run estimate, in
-    seconds — the figure the finish handler logs next to the actual elapsed.
-    Only the first is kept (later ETAs drift as secure re-reads accumulate)."""
-    handle = _FakeHandle(
-        lines=[
-            "Disc tracks:    14",
-            "Ripping track 1, progress - 5.00%, ETA - 35m, errors - 0",
-            "Ripping track 1, progress - 50.00%, ETA - 30m, errors - 0",
-            "Ripping track 2, progress - 5.00%, ETA - 1h2m, errors - 0",
-        ],
-        exit_code=0,
-    )
-    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
-    worker.start_rip()
-    # First ETA was "35m" → 2100s; the later 30m / 1h2m lines don't overwrite it.
-    assert worker.estimated_seconds == 2100
-
-
-def test_estimated_seconds_none_when_no_eta_seen(
+def test_album_eta_is_self_computed_from_elapsed(
     qapp: QApplication, tmp_path: Path
 ) -> None:
-    handle = _FakeHandle(
-        lines=[
-            "Disc tracks:    14",
-            "Ripping and encoding track 1, progress - 75.00%",
-        ],
-        exit_code=0,
-    )
-    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
-    worker.start_rip()
-    assert worker.estimated_seconds is None
+    """We compute our OWN album ETA from elapsed ÷ fraction — stable and
+    self-correcting — instead of capturing cyanrip's per-op ETA (which once
+    logged '822h' at 0.01%)."""
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    # Not started yet → no estimate.
+    assert worker._album_eta_text(50.0) == ""
+    # Pretend the rip started 100s ago and is 50% done → ~100s remain.
+    worker._started_monotonic = time.monotonic() - 100.0
+    text = worker._album_eta_text(50.0)
+    assert "left" in text and ("1m" in text or "2m" in text)
+    # Too early (disc-scan band ≤5%) → suppressed.
+    assert worker._album_eta_text(3.0) == ""
+    # cyanrip's obsolete first-ETA capture is gone.
+    assert not hasattr(worker, "estimated_seconds")
 
 
 def test_progress_redraws_are_rate_limited_in_the_log(

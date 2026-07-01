@@ -92,32 +92,34 @@ def test_timing_section_absent_by_default() -> None:
     assert report["timing"] is None
 
 
-def test_timing_section_records_actual_and_estimate() -> None:
+def test_timing_records_actual_and_realtime_multiplier() -> None:
     timing = build_timing(
-        9896,  # the real 2h44m56s rip
-        estimated_seconds=2100,  # cyanrip's "~35m" ETA
-        started_at="2026-06-29T18:51:44",
-        finished_at="2026-06-29T21:36:40",
+        9493,  # the real 2h38m13s rip
+        disc_seconds=3582,  # the disc's 59m42s audio length
+        started_at="2026-06-30T17:52:14",
+        finished_at="2026-06-30T20:30:27",
     )
     report = build_report(_sample_log(), timing=timing)
     t = report["timing"]
-    assert t["elapsed_seconds"] == 9896
-    assert t["elapsed_human"] == "2h 44m 56s"
-    assert t["estimated_seconds"] == 2100
-    assert t["estimated_human"] == "35m 0s"
-    assert t["started_at"] == "2026-06-29T18:51:44"
-    assert t["finished_at"] == "2026-06-29T21:36:40"
-    assert "re-read" in t["estimate_source"]
+    assert t["elapsed_seconds"] == 9493
+    assert t["elapsed_human"] == "2h 38m 13s"
+    # elapsed ÷ disc length — the honest metric that replaces cyanrip's ETA.
+    assert t["disc_seconds"] == 3582
+    assert t["realtime_multiplier"] == round(9493 / 3582, 2)
+    assert t["started_at"] == "2026-06-30T17:52:14"
+    # cyanrip's bogus ETA is gone.
+    assert "estimated_seconds" not in t
+    assert "estimate_source" not in t
 
 
-def test_timing_omits_estimate_when_unknown() -> None:
-    # A rip with no ETA seen (e.g. cancelled early) still records the actual
-    # elapsed, but carries no estimate keys.
-    timing = build_timing(120, estimated_seconds=None)
+def test_timing_omits_multiplier_when_disc_unknown() -> None:
+    # A rip with no disc duration (e.g. cancelled early) still records the
+    # actual elapsed, but carries no multiplier keys.
+    timing = build_timing(120, disc_seconds=None)
     assert timing["elapsed_seconds"] == 120
     assert timing["elapsed_human"] == "2m 0s"
-    assert "estimated_seconds" not in timing
-    assert "estimate_source" not in timing
+    assert "realtime_multiplier" not in timing
+    assert "disc_seconds" not in timing
 
 
 def test_timing_handles_missing_elapsed() -> None:
