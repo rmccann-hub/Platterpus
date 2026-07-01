@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **One per-album debug file: the JSON. No more `.platterpus.log` sidecar.**
+  The album folder now holds only the audio, the front cover, cyanrip's EAC-style
+  `<Album>.log`/`<Album>.cue` (for humans), and `<Album>.platterpus.json` — the
+  single machine-readable / LLM-oriented artifact. **All** app-generated log info
+  for a rip now lives inside that JSON (its `debug.lines` embeds this album's full
+  session log, cap raised so a verbose rip is captured whole); the standalone
+  plain-text per-album log is no longer written (it only duplicated cyanrip's
+  human `.log` and the JSON's embedded log). The always-on global
+  `~/.local/share/platterpus/log.txt` is unchanged — it stays *outside* the album
+  folder as the cross-session catch-all for program-level failures.
 - **The results pane reports the read-speed ladder's outcome (it.1 — usability).**
   When a disc needed a slower re-read (or still had read errors at the floor
   speed), the results pane now says so — a clean single-pass rip stays silent, so
@@ -19,7 +29,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   accessible names were also added to the new read-speed Settings controls
   (a11y).
 - **The rip report is now written crash-safely (it.12 — resilience).** The
-  `.platterpus.json` and `.platterpus.log` are written via an atomic temp+rename
+  `.platterpus.json` is written via an atomic temp+rename
   (`os.replace`), the same guarantee `config.save` already gives. Since the report
   is re-written each time a post-rip check finishes, a crash or power loss
   mid-write previously risked a truncated JSON; now a reader always sees a
@@ -89,12 +99,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 - Refreshed `docs/log-format-comparison.md` from whipper→EAC to **cyanrip→EAC**
   (cyanrip is the sole backend since KDD-18): field-by-field for cyanrip's
   header, per-track CRC/AccurateRip/offset-variant, paranoia counts, per-track +
-  album loudness, and `Log FUN512:` log signature, plus the `.platterpus.json` /
-  `.platterpus.log` companions.
-- Documented the **dual-logging model** in `docs/architecture.md §3.7`: the
-  always-on global `~/.local/share/platterpus/log.txt` (the only record when a
-  rip never starts) and the per-album `<Album>.platterpus.log` (this rip's lines,
-  living with the album) are kept as complementary, non-redundant records.
+  album loudness, and `Log FUN512:` log signature, plus the single
+  `<Album>.platterpus.json` companion (which embeds this rip's session log).
+- Documented the **logging model** in `docs/architecture.md §3.7`: the album
+  folder holds cyanrip's human `.log`/`.cue` + the machine/LLM `.platterpus.json`
+  (which embeds the per-album session log); the always-on global
+  `~/.local/share/platterpus/log.txt` lives outside it as the cross-session
+  catch-all for program-level failures.
 
 ## [0.4.5] — 2026-07-01
 

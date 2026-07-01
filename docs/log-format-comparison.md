@@ -54,10 +54,11 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 
 ## What Platterpus adds beside the log
 
-Platterpus never *rewrites* cyanrip's `.log` — that stays the EAC-parity archival record. It writes two companions next to it (the "two outputs every time" rule, `docs/ux-design-principles.md §2`):
+Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes exactly **one** companion next to them:
 
-1. **`<Album>.platterpus.json`** — the machine-readable rip report: the parsed verdict, per-track AccurateRip, the full post-rip verification suite (AccurateRip + CTDB + FLAC-integrity, plus derived-file verification for MP3/WavPack/WAV), per-file SHA256 digests, timing + realtime multiplier, album loudness, and the embedded session log. One debug file, re-verifiable later.
-2. **`<Album>.platterpus.log`** — the human-readable, session-scoped app log for *this rip* (see the dual-logging note in `docs/architecture.md`). The always-on global log stays at `~/.local/share/platterpus/log.txt`; the per-album copy lives *with* the album.
+- **`<Album>.platterpus.json`** — the single machine-readable / LLM-oriented rip report: the parsed verdict, per-track AccurateRip, the full post-rip verification suite (AccurateRip + CTDB + FLAC-integrity, plus derived-file verification for MP3/WavPack/WAV), per-file SHA256 digests, timing + realtime multiplier, album loudness, the read-speed-ladder history, **and this rip's embedded session log** (`debug.lines`, scoped to this album). It is the self-contained debug artifact — everything the application generated for this album's rip, in one file, re-verifiable later.
+
+The album folder therefore holds only: the audio, the front cover, cyanrip's EAC-style `<Album>.log`/`<Album>.cue` (for humans), and the `<Album>.platterpus.json` (for machines/LLMs/debugging). There is **no** separate plain-text `.platterpus.log` sidecar — it would only duplicate cyanrip's human `.log` and the JSON's embedded `debug` block. The always-on global `~/.local/share/platterpus/log.txt` lives *outside* the album folder and is the cross-session catch-all for **program-level failures** (see `docs/architecture.md §3.7`).
 
 ## Verdict on EAC-equivalence
 

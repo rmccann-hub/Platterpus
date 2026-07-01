@@ -312,24 +312,28 @@ count, starts sharing the file.)
 - **Surface the actionable line to the user; keep the full detail in the log**
   (e.g. the dependency-summary "Install failures" block shows the last error
   line and points at the log).
-- **Two logs, on purpose — keep BOTH.** Platterpus writes its app log to two
-  places, and they are *not* redundant:
+- **Two audiences, two artifacts (maintainer's call, 2026-07-01).** Platterpus's
+  app log lands in exactly two places — *not* redundant — and there is **no**
+  standalone `.platterpus.log` sidecar:
   1. **Global** `~/.local/share/platterpus/log.txt` — a `RotatingFileHandler`
      installed once at startup by `logging_setup.configure_logging`, capturing
      every line since launch across *all* rips and *before any rip starts*. It's
-     the **only** record when a rip never begins (a drive/permission/dependency
-     problem, a crash during disc scan) — so it can never be dropped in favour of
-     the per-album log.
-  2. **Per-album** `<Album>.platterpus.log` — the same session's lines, *scoped
-     to this one rip* (other albums' rips filtered out via the rip-epoch windows
-     in `main_window_rip`), written beside the FLACs by `rip_report.write_debug_log`.
-     It lives *with* the album so a single folder is a self-contained record (the
-     maintainer's "the log should travel with the rip" ask), alongside the
-     machine-readable `<Album>.platterpus.json`.
-  A live in-memory `SessionLogBuffer` (installed as a third root-logger handler)
-  is what feeds the per-album copy and the JSON's embedded `debug` block. The
-  global log is the catch-all; the per-album log is the shareable per-rip record.
-  Removing either loses a case the other can't cover.
+     the cross-session catch-all for **program-level failures** — the only record
+     when a rip never begins (a drive/permission/dependency problem, a crash
+     during disc scan).
+  2. **Per-album, embedded in the JSON** — this rip's session log lives *inside*
+     `<Album>.platterpus.json` under `debug.lines` (scoped to this one album —
+     other rips filtered out via the rip-epoch windows in `main_window_rip`, fed
+     by the in-memory `SessionLogBuffer`). The JSON is the single, complete,
+     self-contained **debug/LLM artifact** for that album's rip: verdict + every
+     verification result + checksums + timing + loudness + read-speed history +
+     the embedded log. **Humans read cyanrip's own `.log`/`.cue`** that sit beside
+     it; the JSON is for machine/LLM consumption and deep debugging.
+  We deliberately do NOT also write a plain-text `.platterpus.log` sidecar — it
+  duplicated cyanrip's human `.log` (for people) and the JSON's `debug` block (for
+  machines), so it earned its place in neither. The global log is the program-
+  failure catch-all; the JSON is the per-album debug record. Removing either loses
+  a case the other can't cover.
 
 ## 4. Extension points — how to add things
 

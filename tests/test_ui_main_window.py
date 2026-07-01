@@ -3201,7 +3201,6 @@ def test_async_rip_report_rewrites_are_debounced_into_one_write(
 
     writes: list[int] = []
     monkeypatch.setattr(rr, "write_report", lambda *a, **k: writes.append(1))
-    monkeypatch.setattr(rr, "write_debug_log", lambda *a, **k: None)
 
     window._on_checksums_done({"01 - A.flac": "deadbeef"})
     window._on_flac_verified(FlacVerifyResult(checked=1))
