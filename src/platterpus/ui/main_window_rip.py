@@ -18,10 +18,10 @@ Contract this mixin expects from the host window (all set in
 ``_force_stop_timer``/``_force_stop_thread``/``_eject_thread``/
 ``_post_rip_thread``/``_cover_art_fetcher``/``_pending_picard_launch``/
 ``_current_release_id``/``_current_release_detail``/``_ctdb_client``/``_ctdb_thread``/
-``_flac_verify_thread``;
+``_flac_verify_thread``/``_derived_verify_thread``;
 the ``rip_post_processing_done``, ``cover_art_done``,
-``ctdb_verify_done``, ``flac_verify_done``, ``flac_recompress_done`` and
-``transcode_done`` signals;
+``ctdb_verify_done``, ``flac_verify_done``, ``flac_recompress_done``,
+``transcode_done`` and ``derived_verify_done`` signals;
 and the cross-mixin methods
 ``self._auto_apply_known_offset`` / ``self._on_drive_setup`` (DriveMixin).
 
@@ -43,6 +43,7 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 
 from platterpus import drive_control
 from platterpus.adapters import cover_art
+from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.flac_recompress import (
     RecompressResult,
     recompress_flac_files,
@@ -68,6 +69,9 @@ from platterpus.ui.unknown_album import (
 )
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_worker import verify_rip_dir
+from platterpus.workers.derived_verify_worker import (
+    verify_rip_dir as verify_derived_dir,
+)
 from platterpus.workers.flac_verify_worker import verify_rip_dir as verify_flac_dir
 from platterpus.workers.rip_worker import RipParameters, RipWorker
 
@@ -585,6 +589,17 @@ class RipMixin:
                 rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_flac_verify(rip_dir, wait_for=post_rip_thread)
 
+            # Derived-file verify: when a non-FLAC output was produced, prove the
+            # derived MP3/WavPack/WAV are good too — bit-identical to the FLAC
+            # master for the lossless formats, decode-clean + complete for lossy
+            # MP3 (honest per Critical Rule #4). Runs off-thread AFTER the
+            # transcode (post_rip_thread) so it never reads a file mid-write.
+            if transcode_fmt:
+                rip_dir = Path(log_path).parent if log_path else params.output_dir
+                self._start_derived_verify(
+                    rip_dir, transcode_fmt, wait_for=post_rip_thread
+                )
+
             # Per-file SHA256 digests for the report's integrity section. Always
             # on a successful rip (every format), after the post-rip thread so it
             # hashes the final masters + any derived files. Off-thread; folded
@@ -990,6 +1005,7 @@ class RipMixin:
             ctdb_result=getattr(self, "_last_ctdb_result", None),
             flac_verify_result=getattr(self, "_last_flac_verify_result", None),
             transcode_result=getattr(self, "_last_transcode_result", None),
+            derived_verify_result=getattr(self, "_last_derived_verify_result", None),
             checksums=getattr(self, "_last_checksums", None),
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
@@ -1178,6 +1194,82 @@ class RipMixin:
             message = f"Transcode: {result.transcoded} file(s) written."
         if result.failures or result.error:
             log.warning("%s", message)
+        else:
+            log.info("%s", message)
+        self._rip_progress.append_log_line(message)
+
+    # --- Post-transcode derived-file verify (MP3/WavPack/WAV) ----------------
+
+    def _start_derived_verify(
+        self, rip_dir: Path, fmt: str, wait_for: threading.Thread | None
+    ) -> None:
+        """Verify the derived ``fmt`` files on a daemon thread (same rationale as
+        CTDB/FLAC-verify: a full-album decode can outlast any ``closeEvent`` wait,
+        and destroying a running ``QThread`` aborts the app — §3.2). Joins the
+        post-rip transcode thread first (``wait_for``) so it never reads a derived
+        file mid-write. Result reported via ``derived_verify_done`` (queued to the
+        GUI thread)."""
+
+        def work() -> None:
+            result = verify_derived_dir(rip_dir, fmt, wait_for=wait_for)
+            try:
+                self.derived_verify_done.emit(result)
+            except RuntimeError:  # window already destroyed — nothing to update
+                pass
+
+        log.info("starting derived-file verify (%s) for %s", fmt, rip_dir)
+        self._rip_progress.append_log_line(f"Verifying derived {fmt.upper()} files…")
+        thread = threading.Thread(target=work, daemon=True)
+        self._derived_verify_thread = thread
+        thread.start()
+
+    def _on_derived_verified(self, result: object) -> None:
+        """Derived-file verify finished — record + surface the outcome.
+
+        Runs on the GUI thread (``derived_verify_done`` is queued there). The
+        FLAC master is always the archival copy, so a derived-file problem is
+        never catastrophic — but a LOSSLESS mismatch (a WavPack/WAV that isn't
+        bit-identical to the master) is a real defect, so it's surfaced loudly;
+        a lossy-MP3 pass is stated honestly as "decode-clean", never as
+        bit-perfect. A "couldn't run" is a neutral skip.
+        """
+        if not isinstance(result, DerivedVerifyResult):
+            return
+        self._last_derived_verify_result = result
+        self._schedule_rip_report_write()
+        fmt = (result.fmt or "").upper()
+        if result.error:
+            message = f"{fmt} verify: skipped — {result.error} (FLAC master kept)"
+        elif result.mismatches:
+            names = ", ".join(p.name for p in result.mismatches)
+            message = (
+                f"⚠ {fmt} verify FAILED — {len(result.mismatches)} file(s) are NOT "
+                f"bit-identical to the FLAC master: {names}"
+            )
+        elif result.failures:
+            names = ", ".join(p.name for p in result.failures)
+            message = (
+                f"⚠ {fmt} verify: {len(result.failures)} file(s) could not be "
+                f"decoded/verified: {names}"
+            )
+        elif not result.complete:
+            message = (
+                f"{fmt} verify: only {result.checked}/{result.expected} file(s) "
+                "were derived (transcode incomplete; FLAC master kept)"
+            )
+        elif result.lossless:
+            message = (
+                f"{fmt} verify: all {result.checked} file(s) are bit-identical to "
+                "the FLAC master."
+            )
+        else:
+            message = (
+                f"{fmt} verify: all {result.checked} file(s) decode cleanly "
+                "(lossy — decodability + completeness, not bit-identity)."
+            )
+        if result.mismatches or result.failures:
+            log.warning("%s", message)
+            self._rip_progress.set_status(message)
         else:
             log.info("%s", message)
         self._rip_progress.append_log_line(message)

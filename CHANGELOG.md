@@ -21,6 +21,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   window close so nothing queued is ever lost.
 
 ### Added
+- **Derived files (MP3/WavPack/WAV) are now verified too (Task #19).** The FLAC
+  master was already fully verified (AccurateRip + CTDB + `flac --test`); now the
+  files we derive from it are proven as well — honestly per format. WavPack and
+  WAV are lossless, so we prove **bit-identity**: the derived file and the FLAC
+  master are each decoded to PCM and compared, and a difference is flagged as a
+  real defect (never papered over). MP3 is lossy, so bit-identity is impossible
+  and comparing it would be dishonest — instead we prove it **decodes cleanly
+  end-to-end and is complete** (one MP3 per track), and the report says exactly
+  that ("decodability + completeness, NOT bit-identity"). Runs off the GUI thread
+  after the transcode; the outcome folds into the `.platterpus.json`
+  (`verification.derived`, report schema v3) and the results pane. It reuses the
+  ffmpeg that already did the transcode — no new dependency (Critical Rule #6).
 - **The results pane now shows album loudness + partial-match count.** cyanrip
   already computes the album's integrated loudness (LUFS), loudness range (LU)
   and true peak (dBFS), and how many tracks were offset-variant ("partially

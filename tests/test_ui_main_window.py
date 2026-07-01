@@ -3154,7 +3154,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 2
+    assert report["schema_version"] == 3
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True
@@ -3442,6 +3442,116 @@ def test_on_transcoded_logs_outcome(teardown_threads) -> None:
     window._on_transcoded(TranscodeResult(error="'ffmpeg' not found"))
     assert any("skipped" in line and "FLAC master kept" in line for line in lines)
 
+    assert window._rip_progress._status_label.text() == "Done."
+
+
+def test_nonflac_rip_starts_derived_verify(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A non-FLAC output → after the transcode, the derived files are verified
+    on their own daemon thread (waiting on the transcode thread first)."""
+    started: list[tuple] = []
+    window = teardown_threads(config=Config(output_format="mp3"))
+    monkeypatch.setattr(
+        window,
+        "_start_derived_verify",
+        lambda rip_dir, fmt, wait_for: started.append((rip_dir, fmt)),
+    )
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    (album_dir / "01 - A.flac").write_bytes(b"")
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    window._active_rip_params = _params(tmp_path, unknown=False)
+
+    window._on_rip_finished(True, str(log_file))
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+
+    assert started == [(album_dir, "mp3")]
+
+
+def test_flac_only_rip_does_not_start_derived_verify(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # FLAC output → nothing is derived, so there's nothing to verify.
+    started: list = []
+    window = teardown_threads(config=Config(output_format="flac"))
+    monkeypatch.setattr(
+        window, "_start_derived_verify", lambda *a, **k: started.append(a)
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    window._on_rip_finished(True, "")
+    if window._post_rip_thread is not None:
+        window._post_rip_thread.join(timeout=10)
+    assert started == []
+
+
+def test_on_derived_verified_records_and_reports(
+    teardown_threads, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from platterpus.adapters.derived_verify import DerivedVerifyResult
+
+    window = teardown_threads()
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("log", encoding="utf-8")
+    window._last_rip_log = RipLog(tracks=())
+    window._last_rip_log_file = log_file
+    window._last_rip_timing = None
+    monkeypatch.setattr(window, "_build_rip_debug_log", lambda: None)
+
+    window._on_derived_verified(
+        DerivedVerifyResult(fmt="wavpack", lossless=True, checked=2, expected=2)
+    )
+    window._flush_rip_report()
+
+    import json as _json
+
+    report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
+    dv = report["verification"]["derived"]
+    assert dv["format"] == "wavpack" and dv["ok"] is True and dv["lossless"] is True
+
+
+def test_on_derived_verified_lossless_mismatch_is_loud(teardown_threads) -> None:
+    """A lossless (WavPack/WAV) file that isn't bit-identical to the master is a
+    real defect → the status line is hijacked to say so."""
+    from platterpus.adapters.derived_verify import DerivedVerifyResult
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+
+    window._on_derived_verified(
+        DerivedVerifyResult(
+            fmt="wav",
+            lossless=True,
+            checked=2,
+            expected=2,
+            mismatches=(Path("02 - B.wav"),),
+        )
+    )
+    assert any("NOT bit-identical" in line and "02 - B.wav" in line for line in lines)
+    assert "NOT bit-identical" in window._rip_progress._status_label.text()
+
+
+def test_on_derived_verified_mp3_states_decode_clean_not_bit_identity(
+    teardown_threads,
+) -> None:
+    from platterpus.adapters.derived_verify import DerivedVerifyResult
+
+    window = teardown_threads()
+    lines: list[str] = []
+    window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
+    window._rip_progress.set_status("Done.")
+
+    window._on_derived_verified(
+        DerivedVerifyResult(fmt="mp3", lossless=False, checked=3, expected=3)
+    )
+    # Honest wording: decode-clean, explicitly NOT bit-identity; not alarming so
+    # the status line is untouched.
+    assert any(
+        "decode cleanly" in line and "not bit-identity" in line for line in lines
+    )
     assert window._rip_progress._status_label.text() == "Done."
 
 

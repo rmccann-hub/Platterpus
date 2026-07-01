@@ -118,6 +118,10 @@ class MainWindow(
     # thread) with the TranscodeResult, so the FLAC→MP3/WavPack/WAV transcode
     # outcome renders on the GUI thread.
     transcode_done = Signal(object)
+    # Emitted (from the post-transcode derived-verify daemon thread; queued to
+    # the GUI thread) with the DerivedVerifyResult, so the per-format proof of
+    # the derived MP3/WavPack/WAV files renders on the GUI thread.
+    derived_verify_done = Signal(object)
     # Emitted (from a daemon thread; queued to the GUI thread) with the
     # {relpath: sha256} digest map, once every audio file (masters + any
     # derived) has been hashed, so the report's checksums land on the GUI thread.
@@ -302,6 +306,11 @@ class MainWindow(
         # already self-verify (cyanrip does not; whipper does via flac --verify).
         # Stored so tests can join it.
         self._flac_verify_thread: threading.Thread | None = None
+        # Post-transcode derived-file verify (MP3/WavPack/WAV). Same daemon-thread
+        # + queued-signal pattern; only runs when a non-FLAC output was produced.
+        # Stored so tests can join it. The last result is folded into the report.
+        self._derived_verify_thread: threading.Thread | None = None
+        self._last_derived_verify_result: object | None = None
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
         # once per session (refreshing shouldn't re-pop the dialog).
         self._drive_access_nudged: bool = False
@@ -358,6 +367,8 @@ class MainWindow(
         # Transcode outcome (when a non-FLAC output format is selected) lands in
         # the rip log view.
         self.transcode_done.connect(self._on_transcoded)
+        # Derived-file verify outcome (MP3/WavPack/WAV) lands in the rip log view.
+        self.derived_verify_done.connect(self._on_derived_verified)
         self.checksums_done.connect(self._on_checksums_done)
 
         self.setCentralWidget(central)
