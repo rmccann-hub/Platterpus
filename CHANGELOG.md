@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **The rip report is now written crash-safely (it.12 — resilience).** The
+  `.platterpus.json` and `.platterpus.log` are written via an atomic temp+rename
+  (`os.replace`), the same guarantee `config.save` already gives. Since the report
+  is re-written each time a post-rip check finishes, a crash or power loss
+  mid-write previously risked a truncated JSON; now a reader always sees a
+  complete file (old or new), never a torn one — and a failed write never leaves a
+  stray `.tmp`.
 - **Unknown-album folder names are hardened across locales (it.11 — i18n).**
   The per-component sanitizer now strips NUL/control characters, refuses the
   filesystem-special `.`/`..` names (so a disc titled `..` can't create a

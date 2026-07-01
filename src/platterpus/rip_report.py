@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from platterpus import __version__
@@ -25,6 +26,31 @@ from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.verdict import accuraterip_verdict
 
 log = logging.getLogger(__name__)
+
+
+def _atomic_write_text(target: Path, text: str) -> None:
+    """Write ``text`` to ``target`` atomically (temp sibling + ``os.replace``).
+
+    Crash-safety (it.12): a SIGKILL or power loss part-way through a plain
+    ``write_text`` would leave a truncated ``.platterpus.json`` / ``.platterpus.log``
+    — and the report is re-written repeatedly as post-rip checks finish, widening
+    that window. ``os.replace`` is atomic on POSIX, so a reader ever sees either
+    the old complete file or the new complete file, never a torn one (the same
+    guarantee ``config.save`` already gives). Raises ``OSError`` on failure; the
+    callers below keep the best-effort/never-raise contract by catching it.
+    """
+    tmp = target.with_name(target.name + ".tmp")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, target)
+    except OSError:
+        # Don't leave a stray temp behind on a failed write.
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
 
 # Bump when the JSON shape changes in a way a consumer must notice.
 # v2 (0.4.5): added the `verification` block (FLAC-integrity + transcode outcomes
@@ -404,7 +430,7 @@ def write_debug_log(log_file: Path, debug_log: dict | None) -> Path | None:
     if debug_log.get("truncated"):
         header.append("# (older lines were dropped — see log.txt for the full history)")
     try:
-        target.write_text("\n".join([*header, "", *lines]) + "\n", encoding="utf-8")
+        _atomic_write_text(target, "\n".join([*header, "", *lines]) + "\n")
     except OSError:
         log.exception("failed to write the per-rip debug log")
         return None
@@ -449,8 +475,10 @@ def write_report(
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is
         # best-effort and must never break the post-rip flow. report_to_json
-        # also uses default=str as a second line of defence.
-        target.write_text(report_to_json(report), encoding="utf-8")
+        # also uses default=str as a second line of defence. The write is atomic
+        # (temp + os.replace) so a crash mid-write can't leave a torn JSON — it's
+        # re-written repeatedly as post-rip checks finish, so that window matters.
+        _atomic_write_text(target, report_to_json(report))
         return target
     except (OSError, TypeError, ValueError):
         log.warning("could not write rip report to %s", target, exc_info=True)
