@@ -21,6 +21,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   window close so nothing queued is ever lost.
 
 ### Added
+- **The results pane now shows album loudness + partial-match count.** cyanrip
+  already computes the album's integrated loudness (LUFS), loudness range (LU)
+  and true peak (dBFS), and how many tracks were offset-variant ("partially
+  accurate") matches — but these only landed in the JSON report. A neutral
+  one-line footnote under the CTDB verdict now surfaces them (hidden when a log
+  carries neither, e.g. a whipper-era log).
 - **Year-only naming token `%Y`.** cyanrip's `%y` expands to the *full* release
   date (e.g. `1995-09-12`) and cyanrip has no year-only token, so the two
   "year in the folder" presets used to name a folder `Album (1995-09-12)`.

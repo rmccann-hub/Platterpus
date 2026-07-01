@@ -20,6 +20,7 @@ from platterpus.ui.rip_progress import (
     accuraterip_verdict,
     ctdb_verdict_level,
     ctdb_verdict_line,
+    loudness_summary_line,
 )
 
 # --- Helpers --------------------------------------------------------------
@@ -83,6 +84,7 @@ def test_status_surfaces_have_accessible_names(qapp: QApplication) -> None:
     assert widget._verdict_banner.accessibleName()
     assert widget._ar_table.accessibleName()
     assert widget._ctdb_label.accessibleName()
+    assert widget._loudness_label.accessibleName()
 
 
 def test_every_verdict_level_has_a_non_color_symbol() -> None:
@@ -244,6 +246,72 @@ def test_set_rip_log_empty_tracks_clears_table(qapp: QApplication) -> None:
     widget._ar_table.setRowCount(3)  # pretend we had results
     widget.set_rip_log(RipLog())
     assert widget._ar_table.rowCount() == 0
+
+
+# --- Album loudness + partial-accurate footnote --------------------------
+
+
+def test_loudness_summary_line_formats_both_facts() -> None:
+    log = RipLog(
+        tracks=(),
+        album_loudness={
+            "integrated_lufs": "-9.3",
+            "lra_lu": "7.1",
+            "true_peak_dbfs": "-1.0",
+        },
+        partially_accurate_summary="2/2 tracks ripped partially accurately "
+        "(offset-variant match)",
+    )
+    line = loudness_summary_line(log)
+    assert "-9.3 LUFS integrated" in line
+    assert "range 7.1 LU" in line
+    assert "true peak -1.0 dBFS" in line
+    assert "2/2 tracks ripped partially accurately" in line
+    assert " · " in line  # the two facts are joined
+
+
+def test_loudness_summary_line_empty_when_no_data() -> None:
+    # A whipper-style log has no loudness and no partial matches → nothing to
+    # show (the label stays hidden).
+    assert loudness_summary_line(RipLog(tracks=())) == ""
+
+
+def test_loudness_summary_line_partial_only() -> None:
+    log = RipLog(tracks=(), partially_accurate_summary="1/3 tracks partial")
+    assert loudness_summary_line(log) == "1/3 tracks partial"
+
+
+def test_loudness_summary_line_never_raises_on_junk() -> None:
+    # It backs a results-pane label from a best-effort parse — defend against a
+    # wrongly-typed field rather than crashing the finish handler.
+    from types import SimpleNamespace
+
+    junk = SimpleNamespace(album_loudness="not-a-dict", partially_accurate_summary=None)
+    assert loudness_summary_line(junk) == ""
+
+
+def test_set_rip_log_shows_loudness_footnote(qapp: QApplication) -> None:
+    widget = RipProgress()
+    log = RipLog(
+        tracks=(_track(),),
+        album_loudness={"integrated_lufs": "-9.3"},
+        partially_accurate_summary="1/1 tracks ripped partially accurately",
+    )
+    widget.set_rip_log(log)
+    # isHidden() reflects the explicit setVisible() intent without the parent
+    # being shown (isVisible() is always False on an unshown widget tree).
+    assert widget._loudness_label.isHidden() is False
+    assert "-9.3 LUFS" in widget._loudness_label.text()
+    assert "1/1 tracks" in widget._loudness_label.text()
+
+
+def test_set_rip_log_hides_loudness_footnote_when_empty(qapp: QApplication) -> None:
+    widget = RipProgress()
+    widget._loudness_label.setText("stale")  # pretend a prior rip left text
+    widget._loudness_label.setVisible(True)
+    widget.set_rip_log(RipLog(tracks=(_track(),)))
+    assert widget._loudness_label.isHidden() is True
+    assert widget._loudness_label.text() == ""
 
 
 # --- View log button -----------------------------------------------------
