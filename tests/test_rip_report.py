@@ -305,6 +305,44 @@ def test_eta_trace_absent_when_not_recorded() -> None:
     assert build_report(_sample_log())["eta_trace"] is None
 
 
+def test_eta_trace_backfills_actual_remaining_and_event_context() -> None:
+    # Each sample gains actual_remaining_seconds (finish − at), so the estimate
+    # can be read directly against the truth; the event context is preserved.
+    samples = [
+        {
+            "at": "2026-07-01T04:00:00-05:00",
+            "our_eta_seconds": 1200,
+            "track": 1,
+            "activity": "Reading track 1… 50%",
+        },
+        {
+            "at": "2026-07-01T04:30:00-05:00",
+            "our_eta_seconds": 3600,
+            "track": 2,
+            "activity": "Reading track 2… 10%",
+        },
+    ]
+    report = build_report(
+        _sample_log(),
+        eta_trace=samples,
+        timing={"finished_at": "2026-07-01T05:00:00-05:00"},
+    )
+    got = report["eta_trace"]["samples"]
+    # 60 min remained at the first sample, 30 min at the second.
+    assert got[0]["actual_remaining_seconds"] == 3600
+    assert got[1]["actual_remaining_seconds"] == 1800
+    # Event context (why a jump happened) is carried through.
+    assert got[1]["track"] == 2 and "track 2" in got[1]["activity"]
+    assert "actual_remaining_seconds" in report["eta_trace"]["note"]
+
+
+def test_eta_trace_without_finish_omits_actual_remaining() -> None:
+    # No finish time (e.g. a rip that never completed) → no actual field, no crash.
+    samples = [{"at": "2026-07-01T04:00:00-05:00", "our_eta_seconds": 1200}]
+    report = build_report(_sample_log(), eta_trace=samples)  # no timing
+    assert "actual_remaining_seconds" not in report["eta_trace"]["samples"][0]
+
+
 def test_derived_verify_mismatch_serialized() -> None:
     from platterpus.adapters.derived_verify import DerivedVerifyResult
 

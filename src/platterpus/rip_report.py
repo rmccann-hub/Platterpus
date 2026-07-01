@@ -191,6 +191,53 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> dict:
     }
 
 
+def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None:
+    """Assemble the report's ``eta_trace`` block from the recorded samples.
+
+    Backfills each sample with ``actual_remaining_seconds`` — the time that
+    ACTUALLY remained at that moment, computed from the rip's real finish
+    (``timing.finished_at``) minus the sample's ``at``. That turns the trace into
+    a direct predicted-vs-actual record (our ``our_eta_seconds`` vs the truth) the
+    maintainer can eyeball or mine for a better model later. Pure; never raises —
+    a sample with an unparseable/absent timestamp simply omits the actual field.
+    """
+    if not eta_trace:
+        return None
+    from datetime import datetime
+
+    finish_dt = None
+    finished_at = (timing or {}).get("finished_at")
+    if isinstance(finished_at, str) and finished_at:
+        try:
+            finish_dt = datetime.fromisoformat(finished_at)
+        except ValueError:
+            finish_dt = None
+
+    samples: list[dict] = []
+    for raw in eta_trace:
+        sample = dict(raw)
+        at = sample.get("at")
+        if finish_dt is not None and isinstance(at, str) and at:
+            try:
+                remaining = (finish_dt - datetime.fromisoformat(at)).total_seconds()
+                sample["actual_remaining_seconds"] = max(0, round(remaining))
+            except (ValueError, TypeError):
+                pass
+        samples.append(sample)
+    return {
+        "note": (
+            "Per-sample ETA record for analysis, not display. "
+            "'our_eta_seconds' is Platterpus's smoothed album estimate; "
+            "'actual_remaining_seconds' is what really remained (finish − 'at') "
+            "so estimate-vs-actual is directly visible; 'cyanrip_eta' is cyanrip's "
+            "own per-op estimate (untrusted); 'read_speed' is the -S value in "
+            "effect (0 = drive max); 'track'/'activity' are the event context for "
+            "a jump; 'at' is the PC wall-clock time. Compare against 'timing'."
+        ),
+        "samples": samples,
+    }
+
+
 def _build(
     rip_log: object,
     ctdb_result: object | None,
@@ -238,26 +285,13 @@ def _build(
         # `unresolved: true` FLAGS the disc when any remain (or a pass never read
         # clean) — surfaced, never papered over.
         "read_speed": (dict(read_speed) if read_speed else None),
-        # ETA trace kept "for posterity": a throttled series of samples, each
-        # with the PC wall-clock time, elapsed, progress, the read speed in
-        # effect, OUR smoothed album ETA, and cyanrip's own per-op ETA — recorded
-        # so both estimates can be compared against the real finish (in `timing`)
-        # and mined to build a better ETA model later. None on a rip too short to
+        # ETA trace kept "for posterity": a throttled series of samples pairing
+        # the PC wall-clock time with our smoothed estimate, cyanrip's own ETA, the
+        # read speed, and the event context (track + phase). Each sample is
+        # backfilled with the ACTUAL time that remained (from the real finish) so
+        # predicted-vs-actual is directly visible. None on a rip too short to
         # sample. NOT the estimate shown live.
-        "eta_trace": (
-            {
-                "note": (
-                    "Per-sample ETA record for analysis, not display. "
-                    "'our_eta_seconds' is Platterpus's smoothed album estimate; "
-                    "'cyanrip_eta' is cyanrip's own per-op estimate (untrusted); "
-                    "'read_speed' is the -S value in effect (0 = drive max); "
-                    "'at' is the PC wall-clock time. Compare against 'timing'."
-                ),
-                "samples": [dict(s) for s in eta_trace],
-            }
-            if eta_trace
-            else None
-        ),
+        "eta_trace": _eta_trace_block(eta_trace, timing),
         # Whole-disc loudness (integrated LUFS / LRA / true peak) from cyanrip's
         # "Album Loudness Summary"; per-track loudness lives in each track's
         # `replaygain`. None when absent (e.g. whipper logs).

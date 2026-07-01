@@ -78,3 +78,28 @@ def test_clamp_pins_an_oversized_rect_to_the_top_left() -> None:
     # Bigger than the screen → pin top-left so the title bar/buttons stay reachable.
     clamped = _clamp_to(QRect(-50, -50, 3000, 2000), _AVAIL)
     assert clamped.topLeft().x() == 0 and clamped.topLeft().y() == 0
+
+
+def test_center_on_anchor_raises_and_activates(qapp: QApplication) -> None:
+    """Centring must also bring the dialog to the FRONT and focus it — the fix for
+    a (correctly parented) prompt opening behind other windows on a 2-monitor
+    desktop. We spy on raise_()/activateWindow() to confirm both are called."""
+    from platterpus.ui.dialogs.centering import center_on_anchor
+
+    class _SpyDialog(QDialog):
+        def __init__(self) -> None:
+            super().__init__()
+            self.raised = False
+            self.activated = False
+
+        def raise_(self) -> None:  # noqa: N802 — Qt override
+            self.raised = True
+            super().raise_()
+
+        def activateWindow(self) -> None:  # noqa: N802 — Qt override
+            self.activated = True
+            super().activateWindow()
+
+    dlg = _SpyDialog()
+    center_on_anchor(dlg)
+    assert dlg.raised and dlg.activated

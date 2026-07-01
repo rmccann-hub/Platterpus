@@ -387,6 +387,14 @@ class RipWorker(QObject):
                     # cyanrip's own per-op ETA at this moment (its raw string), or
                     # None if it hasn't printed one yet.
                     "cyanrip_eta": self._last_cyanrip_eta,
+                    # The EVENT context, so a jump in the estimate can be tied to
+                    # its cause (maintainer's ask): the track being worked on and
+                    # the current phase text (e.g. "Reading track 2… 40%" vs
+                    # "Encoding track 1…" vs a re-rip). This is why the estimate
+                    # rose — e.g. finishing a fast track 1 and hitting a slow,
+                    # re-read-heavy track 2.
+                    "track": self._current_track or None,
+                    "activity": self._last_status or None,
                 }
             )
         except Exception:  # noqa: BLE001 — a diagnostic trace must never crash a rip
