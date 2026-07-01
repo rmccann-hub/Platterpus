@@ -94,6 +94,13 @@ def configure_logging(console_level: int = logging.INFO, debug: bool = False) ->
     root.addHandler(console_handler)
     root.addHandler(buffer_handler)
 
+    # Quiet third-party libraries that log chatter at INFO/DEBUG. musicbrainzngs
+    # emits ~40 "in <ws2:artist>, uncaught attribute type-id" lines per release
+    # lookup (harmless XML-schema notes) — they flooded both log.txt and the
+    # rip report's embedded debug log (real rip: 40+ noise lines). Pin it to
+    # WARNING so our own DEBUG stays readable; a real MB error still shows.
+    logging.getLogger("musicbrainzngs").setLevel(logging.WARNING)
+
     # Remember the file + buffer handlers so the runtime toggle can re-level
     # both, and expose the buffer to the report builder.
     setattr(root, _FILE_HANDLER_ATTR, file_handler)

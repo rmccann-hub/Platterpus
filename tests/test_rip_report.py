@@ -198,6 +198,51 @@ def test_schema_version_is_v2() -> None:
     assert build_report(_sample_log())["schema_version"] == 2
 
 
+def test_report_includes_loudness_checksum_and_replaygain() -> None:
+    from platterpus.parsers.rip_log import RipLog, TrackResult
+
+    log = RipLog(
+        tracks=(TrackResult(1, replaygain={"REPLAYGAIN_TRACK_GAIN": "-4.10 dB"}),),
+        album_loudness={"integrated_lufs": "-13.9", "true_peak_dbfs": "0.8"},
+        log_checksum="SMUmY2sg",
+    )
+    report = build_report(log)
+    assert report["album_loudness"] == {
+        "integrated_lufs": "-13.9",
+        "true_peak_dbfs": "0.8",
+    }
+    assert report["log_checksum"] == "SMUmY2sg"
+    assert report["tracks"][0]["replaygain"] == {"REPLAYGAIN_TRACK_GAIN": "-4.10 dB"}
+
+
+def test_report_loudness_and_checksum_absent_when_empty() -> None:
+    report = build_report(_sample_log())
+    assert report["album_loudness"] is None
+    assert report["log_checksum"] is None
+
+
+def test_write_debug_log_beside_rip(tmp_path: Path) -> None:
+    from platterpus.rip_report import (
+        build_debug_log,
+        debug_log_path_for,
+        write_debug_log,
+    )
+
+    log_file = tmp_path / "Album.log"
+    debug = build_debug_log(["line one", "line two"], truncated=False)
+    written = write_debug_log(log_file, debug)
+    assert written == debug_log_path_for(log_file) == tmp_path / "Album.platterpus.log"
+    text = written.read_text()
+    assert "line one" in text and "line two" in text
+    assert "log.txt" in text  # header points at the global full log
+
+
+def test_write_debug_log_noop_without_debug(tmp_path: Path) -> None:
+    from platterpus.rip_report import write_debug_log
+
+    assert write_debug_log(tmp_path / "Album.log", None) is None
+
+
 def test_debug_section_caps_embedded_lines_and_keeps_most_recent() -> None:
     """A marathon session must not bloat the report (or its on-GUI-thread
     re-serialization): the embedded log is capped to the most-recent lines and

@@ -95,6 +95,21 @@ _FINISHED_AT = re.compile(r"^Ripping finished at\s+(?P<when>.+?)\s*$")
 # The "Paranoia status counts:" block header, then indented "KEY:  N" lines.
 _PARANOIA_HEADER = re.compile(r"^Paranoia status counts:\s*$")
 _PARANOIA_LINE = re.compile(r"^\s+(?P<key>[A-Z][A-Z_]*):\s+(?P<count>\d+)\s*$")
+# Per-track "File(s):" header; the filename is the next indented line.
+_FILES_HEADER = re.compile(r"^\s+File\(s\):\s*$")
+# ReplayGain / R128 tags cyanrip writes into the FLAC (in the Metadata block):
+#   "    REPLAYGAIN_TRACK_GAIN:         -4.10 dB" / "    R128_TRACK_GAIN:  229"
+_REPLAYGAIN = re.compile(
+    r"^\s+(?P<key>REPLAYGAIN_[A-Z_]+|R128_TRACK_GAIN):\s+(?P<val>.+?)\s*$"
+)
+# "Album Loudness Summary:" block header (comes after the last track), then
+# indented loudness lines shared with the per-track summaries.
+_ALBUM_LOUDNESS_HEADER = re.compile(r"^Album Loudness Summary:\s*$")
+_LOUDNESS_I = re.compile(r"^\s+I:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LUFS")
+_LOUDNESS_LRA = re.compile(r"^\s+LRA:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LU")
+_LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d+(?:\.\d+)?)\s+dBFS")
+# cyanrip's own log signature, the last line: "Log FUN512: <base64>".
+_LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 
 
 def looks_like_cyanrip_log(text: str) -> bool:
@@ -125,6 +140,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
     health_status = ""
     paranoia_counts: dict[str, int] = {}
     in_paranoia = False
+    album_loudness: dict[str, str] = {}
+    in_album_loudness = False
+    expect_filename = False
+    log_checksum = ""
     tracks: list[TrackResult] = []
 
     # Mutable fields of the track block currently being read; flushed into
@@ -138,6 +157,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         tracks.append(
             TrackResult(
                 number=current["number"],
+                filename=current["filename"],
                 pre_emphasis=current["pre_emphasis"],
                 copy_crc=current["copy_crc"],
                 status=current["status"],
@@ -145,6 +165,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 accuraterip_v2=current["v2"],
                 accuraterip_offset=current["offset"],
                 rip_count=current["rip_count"],
+                replaygain=dict(current["replaygain"]),
             )
         )
         current = None
@@ -184,6 +205,38 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 continue
             in_paranoia = False  # block ended; fall through to other handlers
 
+        # The album-loudness summary comes after the last track. Flush it so its
+        # I:/LRA:/Peak: lines are captured album-wide, not misattributed to the
+        # final track (whose own summary looks identical).
+        if _ALBUM_LOUDNESS_HEADER.match(line):
+            flush()
+            in_album_loudness = True
+            continue
+        if in_album_loudness:
+            # The block has sub-headers ("Integrated loudness:", "Loudness
+            # range:", "True peak:") and blank lines between the value lines, so
+            # we DON'T end the block on a non-match — we just capture the I:/LRA:/
+            # Peak: values wherever they appear. Nothing after this block carries
+            # those lines, so leaving the flag on is safe; the finish handlers
+            # below (Tracks ripped…, Paranoia, Log FUN512) still run normally.
+            m_i = _LOUDNESS_I.match(line)
+            if m_i:
+                album_loudness["integrated_lufs"] = m_i.group("v")
+                continue
+            m_lra = _LOUDNESS_LRA.match(line)
+            if m_lra:
+                album_loudness["lra_lu"] = m_lra.group("v")
+                continue
+            m_pk = _LOUDNESS_PEAK.match(line)
+            if m_pk:
+                album_loudness["true_peak_dbfs"] = m_pk.group("v")
+                continue
+
+        match = _LOG_CHECKSUM.match(line)
+        if match:
+            log_checksum = match.group("sig")
+            continue
+
         match = _TRACK_START.match(line)
         if match:
             flush()
@@ -196,6 +249,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 status = "ripped with errors"
             current = {
                 "number": int(match.group("number")),
+                "filename": "",
                 "pre_emphasis": None,
                 "copy_crc": "",
                 "status": status,
@@ -203,10 +257,28 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 "v2": None,
                 "offset": None,
                 "rip_count": None,
+                "replaygain": {},
             }
+            expect_filename = False
             continue
 
         if current is not None:
+            # The filename follows the "File(s):" header on the next indented
+            # line — capture it so the per-track `filename` isn't null.
+            if expect_filename:
+                if line.strip():
+                    current["filename"] = line.strip()
+                    expect_filename = False
+                continue
+            if _FILES_HEADER.match(line):
+                expect_filename = True
+                continue
+
+            match = _REPLAYGAIN.match(line)
+            if match:
+                current["replaygain"][match.group("key")] = match.group("val")
+                continue
+
             match = _PREEMPHASIS.match(line)
             if match:
                 current["pre_emphasis"] = not match.group("text").startswith("none")
@@ -294,4 +366,6 @@ def parse_cyanrip_log(text: str) -> RipLog:
         partially_accurate_summary=partially_accurate_summary,
         disc_duration=disc_duration,
         paranoia_counts=paranoia_counts,
+        album_loudness=album_loudness,
+        log_checksum=log_checksum,
     )

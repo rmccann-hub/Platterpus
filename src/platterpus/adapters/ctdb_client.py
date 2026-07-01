@@ -18,6 +18,9 @@ The XML parsing is unit-tested against fixtures for *what we expect*.
 from __future__ import annotations
 
 import logging
+import socket
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -43,7 +46,13 @@ LOOKUP_PATH: str = "/lookup2.php"
 USER_AGENT: str = (
     f"platterpus/{__version__} (https://github.com/rmccann-hub/Platterpus)"
 )
-_HTTP_TIMEOUT_S: float = 20.0
+# Per-ATTEMPT socket timeout (a healthy lookup is ~0.1-0.4s; db.cuetools.net is
+# a hobby server that occasionally stalls). We retry rather than wait out one
+# long hang — three quick failures beat a single 20s freeze.
+_HTTP_TIMEOUT_S: float = 15.0
+# Transient failures (timeout / connection / 5xx) are retried with backoff;
+# a clean 404 or a parsed empty response is deterministic and NOT retried.
+_RETRY_BACKOFFS_S: tuple[float, ...] = (0.0, 1.5, 3.0)  # len = number of attempts
 
 
 @dataclass(frozen=True)
@@ -123,11 +132,52 @@ class CtdbHttpImpl(CTDBClient):
     def lookup(self, toc: DiscToc) -> CtdbLookupResult:
         url = self.build_url(toc)
         log.info("CTDB lookup: %s", url)
-        try:
-            raw = self._fetch(url)
-        except Exception as exc:  # noqa: BLE001 — any transport error → our error
-            raise CtdbLookupError(f"CTDB lookup failed: {exc}") from exc
-        return parse_lookup_response(raw)
+        last_error: Exception | None = None
+        for attempt, backoff in enumerate(_RETRY_BACKOFFS_S):
+            if backoff:
+                time.sleep(backoff)  # off the GUI thread (CTDB worker); safe
+            try:
+                raw = self._fetch(url)
+            except urllib.error.HTTPError as exc:
+                # 4xx is a deterministic server answer (bad request / not found)
+                # — don't retry; 5xx is transient — do.
+                if exc.code < 500:
+                    raise CtdbLookupError(
+                        f"CTDB rejected the request (HTTP {exc.code})"
+                    ) from exc
+                last_error = exc
+                log.warning("CTDB attempt %d: HTTP %d", attempt + 1, exc.code)
+                continue
+            except OSError as exc:
+                # URLError / DNS (gaierror) / connection / timeout are all
+                # OSError subclasses — transient; retry.
+                last_error = exc
+                log.warning("CTDB attempt %d failed: %s", attempt + 1, exc)
+                continue
+            return parse_lookup_response(raw)
+        # All attempts exhausted — craft a message that tells the user WHICH
+        # failure it was (so "no network" reads differently from "server slow").
+        raise CtdbLookupError(_describe_lookup_failure(last_error))
+
+
+def _describe_lookup_failure(exc: Exception | None) -> str:
+    """A user-facing reason for an exhausted CTDB lookup, by failure kind.
+
+    Distinguishes "no network / can't resolve" from "server slow" from "server
+    error" so the verdict note tells the user what actually broke — CTDB failing
+    is never fatal (AccurateRip is the primary proof), but a clear reason helps.
+    """
+    attempts = len(_RETRY_BACKOFFS_S)
+    if isinstance(exc, urllib.error.HTTPError):
+        return f"CTDB server error (HTTP {exc.code}) after {attempts} tries"
+    reason = getattr(exc, "reason", None)
+    if isinstance(exc, socket.gaierror) or isinstance(reason, socket.gaierror):
+        return "couldn't resolve db.cuetools.net — check your internet connection"
+    if isinstance(exc, (TimeoutError, socket.timeout)) or isinstance(
+        reason, (TimeoutError, socket.timeout)
+    ):
+        return f"CTDB server too slow to respond (timed out after {attempts} tries)"
+    return f"couldn't reach the CTDB server ({exc})"
 
 
 # --- Response parsing (pure; unit-tested against fixtures) ------------------
@@ -145,25 +195,48 @@ def _to_int(value: str | None, *, base: int = 10) -> int | None:
 def parse_lookup_response(raw: bytes) -> CtdbLookupResult:
     """Parse a CTDB `lookup2.php` XML body into a `CtdbLookupResult`.
 
-    Reads ``<entry>`` elements with ``crc``/``confidence``/``npar``/``id``/
-    ``hasParity``/``trackcrcs`` (confirmed present in the LGPL `CUEToolsDB.cs`).
-    Robust to missing/extra attributes — unknown shapes yield no entries
-    rather than raising. CRCs are hex unless they parse as decimal.
+    The live server returns a namespaced document
+    (``<ctdb xmlns="http://db.cuetools.net/ns/mmd-1.0#"><entry …/></ctdb>``)
+    whose entries carry ``crc32`` (hex), ``confidence``, ``npar``, ``id``,
+    ``hasparity`` (a URL when present), and ``trackcrcs`` — confirmed against
+    the real wire (2026-07-01). We match the ``entry`` tag ignoring its XML
+    namespace and read those attribute names, with the older ``crc``/
+    ``hasParity`` spellings as fallbacks. Robust to missing/extra attributes —
+    unknown shapes yield no entries rather than raising.
     """
     try:
         root = ET.fromstring(raw)
     except ET.ParseError as exc:
         raise CtdbLookupError(f"unparseable CTDB response: {exc}") from exc
 
+    def _attr(el: ET.Element, *names: str) -> str | None:
+        """First present, non-empty attribute among `names` (order matters)."""
+        for name in names:
+            value = el.get(name)
+            if value:
+                return value
+        return None
+
     entries: list[CtdbEntry] = []
-    # Accept <entry> at any depth (the wrapper element name is unconfirmed).
-    for el in root.iter("entry"):
-        crc = _to_int(el.get("crc"), base=16)
+    # Match <entry> at any depth AND regardless of XML namespace: ET tags come
+    # through as "{namespace}entry", so compare the local name. (The old
+    # root.iter("entry") silently matched nothing on the namespaced real doc.)
+    for el in root.iter():
+        if el.tag.rsplit("}", 1)[-1] != "entry":
+            continue
+        crc = _to_int(_attr(el, "crc32", "crc"), base=16)
         if crc is None:
-            crc = _to_int(el.get("crc"))
+            crc = _to_int(_attr(el, "crc32", "crc"))
         confidence = _to_int(el.get("confidence")) or 0
         npar = _to_int(el.get("npar")) or 0
-        has_parity = (el.get("hasParity") or "").strip().lower() in {"1", "true", "yes"}
+        # `hasparity` is a URL (to the parity blob) when present — treat any
+        # non-empty value as True; also accept the old boolean spelling.
+        has_parity_raw = _attr(el, "hasparity", "hasParity") or ""
+        has_parity = bool(has_parity_raw) and has_parity_raw.strip().lower() not in {
+            "0",
+            "false",
+            "no",
+        }
         track_crcs = tuple(
             v
             for v in (

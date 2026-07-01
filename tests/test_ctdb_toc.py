@@ -35,9 +35,13 @@ def test_samples_to_sectors_rounds_up() -> None:
     assert samples_to_sectors(0) == 0
 
 
-def test_disctoc_toc_string() -> None:
+def test_disctoc_toc_string_is_lead_in_relative() -> None:
+    # lookup2.php wants offsets relative to the first track (lead-in removed) —
+    # the list must start at 0, so every value is 150 less than the absolute
+    # (AccurateRip-convention) offsets we store. Verified against the live
+    # server: the old "150:…" form 404'd; "0:…" returns a real match.
     toc = DiscToc(track_offsets=(150, 18172), leadout=295716)
-    assert toc.toc_string() == "150:18172:295716"
+    assert toc.toc_string() == "0:18022:295566"
     assert toc.num_tracks == 2
 
 

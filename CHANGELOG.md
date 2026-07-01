@@ -12,6 +12,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **CTDB verification actually works now — it never did.** We were sending the
+  `toc=` lookup parameter with the 150-sector lead-in included (`150:…`), but
+  CTDB's `lookup2.php` wants offsets starting at **0** (lead-in removed) — so
+  *every* lookup got an HTTP 404, which on some networks surfaced as the "CTDB
+  timed out" you saw. Verified against the live server: the corrected `0:…` form
+  returns a real match. Also fixed the response parser (the real server returns a
+  namespaced document with `crc32`/`hasparity` attributes; we were reading
+  `crc`/`hasParity` on a non-namespaced tag and matching nothing), and made the
+  lookup **retry transient failures** (timeout/connection/5xx) with backoff while
+  never retrying a deterministic 404 — with error messages that distinguish "no
+  internet" from "server slow" from "server error." CTDB still fails safe (it can
+  never block or invalidate a rip; AccurateRip is the primary proof).
 - **The time estimate is no longer nonsense.** The rip report recorded an
   "estimate" of **822 hours** for a 2h38m rip — it captured cyanrip's *first*
   progress tick (at 0.01%, where the extrapolation is meaningless). We no longer
@@ -33,6 +45,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   drive" field came out empty. Both are accepted now.
 
 ### Added
+- **The rip report now captures the loudness, ReplayGain, drive, and log
+  signature it was throwing away.** From your real rip: per-track **ReplayGain/
+  R128** tags and filename, the whole-disc **loudness summary** (integrated LUFS /
+  LRA / true peak), the **drive model** (cyanrip prints `Device model:`, which the
+  parser had been missing), and cyanrip's own **`Log FUN512`** signature (its
+  analogue to EAC's signed-log checksum — the one archival-forensic field we'd
+  been dropping) all now land in the `.platterpus.json`.
+- **A readable per-rip debug log now lives with the album** (`<Album>.platterpus.log`),
+  scoped to that rip's session with other albums' rips filtered out — the same
+  rule as the JSON's embedded copy — so you don't have to dig through the global
+  `log.txt`. (The global log.txt stays as the cross-session / no-rip catch-all.)
+- The debug log no longer drowns in noise: `musicbrainzngs`' ~40
+  "uncaught attribute" lines per lookup are silenced (pinned to WARNING).
 - **The `.platterpus.json` is now the single debug record for a rip** — the only
   files a rip leaves are the EAC-compliant `.log`, the `.cue`, and this one JSON.
   It now folds in **all** post-rip verification: the CTDB verdict (as before) plus
