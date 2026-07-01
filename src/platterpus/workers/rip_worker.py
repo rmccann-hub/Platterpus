@@ -295,6 +295,10 @@ class RipWorker(QObject):
         # GUI reads this at finish for the report + results-pane caveat. Empty on
         # a clean disc.
         self._last_unstable_tracks: list[int] = []
+        # Set true once a pass's log reveals the drive can't change read speed
+        # (cyanrip aborts on `-S` for such a drive). Once locked, the ladder
+        # escalates via `-Z` only and never sends `-S` again this rip.
+        self._speed_locked: bool = False
 
     def _album_eta_text(self, overall_pct: float) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
@@ -468,6 +472,15 @@ class RipWorker(QObject):
             # error). Escalation below keys ONLY on `had_read_errors`.
             unstable = unstable_tracks(parsed_log)
             self._last_unstable_tracks = unstable
+            # Learn from this pass's log whether the drive can change read speed.
+            # If it CAN'T, cyanrip aborts the whole rip when handed `-S`, so the
+            # ladder must never send it — we lock the speed and escalate via `-Z`
+            # only (real-hardware finding, 2026-07-01). Pass 1 always runs at max
+            # (no `-S`), so an unchangeable drive is detected before any `-S` is
+            # ever sent — the abort can't happen.
+            info = getattr(parsed_log, "ripping_info", None)
+            if getattr(info, "speed_changeable", None) is False:
+                self._speed_locked = True
             # "Clean" means the pass completed (exit 0), read without unrecoverable
             # errors, AND every secure re-read converged. A hard failure (non-zero
             # exit) is NOT clean even if its log shows no read-error line —
@@ -486,7 +499,11 @@ class RipWorker(QObject):
                 or attempt >= MAX_ATTEMPTS
             ):
                 break
-            step = next_step(current_speed=speed, current_secure_rerip=secure_rerip)
+            step = next_step(
+                current_speed=speed,
+                current_secure_rerip=secure_rerip,
+                speed_locked=self._speed_locked,
+            )
             if step is None:
                 # Floor + -Z exhausted — stop and leave the disc FLAGGED
                 # (unresolved in the report). Quality never went DOWN.

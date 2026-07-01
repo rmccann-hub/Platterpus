@@ -294,23 +294,34 @@ hours with no guarantee (see check 3). A *converged* read that only matches an
 offset-variant pressing is a pressing difference, not instability, and is never
 flagged.
 
-**Three checks were HARDWARE-GATED — status on the Bazzite + Pioneer BDR-209D rig
+**The three HARDWARE-GATED checks — status after the source review of 2026-07-01
 (none can cause a regression — a clean disc is always a single fast pass):**
-1. **Does the BDR-209D honour `-S`** through the Linux/libcdio-paranoia stack? If
-   it silently ignores it, the "slower rungs" re-read at the same speed — the
-   ladder then degrades to plain re-reads + `-Z` (still safe, just less effective).
-   *Not yet exercised* — the first real disc rip completed at max speed (no
-   escalation), so `-S` handling on this drive is still unvalidated.
+1. **Does the BDR-209D honour `-S`? — the assumption was WRONG; corrected.** We
+   assumed a drive that can't change speed would *silently ignore* `-S` (degrade
+   to plain re-reads). Source review of cyanrip disproved that: if the drive lacks
+   the `CDIO_DRIVE_CAP_MISC_SELECT_SPEED` capability, cyanrip prints "Device does
+   not support changing speeds!" and **aborts the rip** (`cyanrip_main.c`); it also
+   aborts if the underlying `cdio_cddap_speed_set` call errors. The BDR-209D's log
+   banner says `Speed: default (unchangeable)` — i.e. it lacks that capability — so
+   an `-S` escalation would have crashed the re-rip. **Fix:** the log parser reads
+   the `Speed:` banner (`RippingInfo.speed_changeable`); a speed-locked drive makes
+   the ladder skip the speed rungs and escalate via `-Z` only, so `-S` is never
+   sent (pass 1 always runs at max, so the lock is known before any `-S` could go
+   out). **Still genuinely open:** whether a drive that *does* advertise the
+   capability actually reads slower — untestable on the BDR-209D, which can't.
+   To exercise it, use Settings → Fixed speed on a drive that reports `changeable`.
 2. **Is cyanrip's per-track read-quality signal reliable? — ANSWERED (0.4.7).**
    The whole-disc `Ripping errors:` count is NOT sufficient: a real disc reported
    `0` while a track's `-Z` re-read never converged. We now also read the
    per-track convergence verdict and flag it (`unstable_tracks`).
-3. **Can cyanrip re-rip a SUBSET of tracks** at a new speed, or must the whole
-   disc re-run? We currently re-run the whole disc (safe, but slower on a big disc
-   with one bad track). This is exactly why instability (check 2) is *flagged, not
-   auto-re-ripped* for now — a whole-disc re-rip to retry one track is expensive.
-   If cyanrip has reliable track selection, re-ripping only the failed tracks is
-   the obvious follow-up that would make auto-re-rip cheap enough to reconsider.
+3. **Can cyanrip re-rip a SUBSET of tracks? — ANSWERED (source-verified,
+   2026-07-01): YES, via `-l <comma-list>`** (e.g. `-l 3,5` rips only tracks 3 and
+   5; confirmed in `cyanrip_main.c` — `rip_indices[]` gates which tracks call
+   `cyanrip_rip_track()`, distinct from `-t` tag metadata). This makes per-track
+   re-rip cheap (seconds, not a whole-disc pass) and needs no speed change — so it
+   is the natural escalation lever on a speed-locked drive, and it reopens the
+   "flag vs auto-re-rip" instability decision (a per-track re-rip is cheap enough
+   that auto-fixing a flagged track becomes viable). Not yet wired into the ladder.
 
 [eac]: https://www.exactaudiocopy.de/extraction-technology/
 [cmp]: https://wiki.hydrogenaudio.org/index.php?title=Comparison_of_CD_rippers

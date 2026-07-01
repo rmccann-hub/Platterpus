@@ -11,7 +11,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-## [0.4.7] — 2026-07-01
+### Fixed
+- **Read-speed ladder no longer risks aborting the rip on a speed-locked drive.**
+  Source review of cyanrip revealed that `-S` (set read speed) is not a graceful
+  no-op on a drive that can't change speed — cyanrip prints "Device does not
+  support changing speeds!" and **aborts the whole rip**. The maintainer's Pioneer
+  BDR-209D reports its speed as `unchangeable`, so an error-triggered escalation
+  would have sent `-S 8` and crashed the re-rip (latent since the ladder shipped;
+  never hit yet because no disc on that rig has triggered *error*-based
+  escalation). The rip log parser now reads cyanrip's `Speed:` banner
+  (`RippingInfo.speed_changeable`); when a pass shows the drive can't change
+  speed, the ladder **skips the speed rungs entirely and escalates via `-Z` only**
+  (the sole lever that works on such a drive), so `-S` is never sent. Pass 1
+  always runs at max with no `-S`, so an unchangeable drive is detected before any
+  `-S` could be sent — the abort can't occur. Speed-changeable drives are
+  unaffected.
 
 ### Fixed
 - **Read-stability was mis-reported as "clean" (real-hardware finding).** On a

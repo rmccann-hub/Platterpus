@@ -330,6 +330,38 @@ def test_auto_ladder_flags_unstable_track_without_re_ripping(
     assert report["unstable_tracks"] == [1]
 
 
+def test_auto_ladder_speed_locked_drive_escalates_z_never_sends_S(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Real-hardware safety fix: cyanrip ABORTS the rip if handed `-S` on a drive
+    that reports its speed as "unchangeable" (the BDR-209D does). When a pass's
+    log reveals that, the ladder must escalate via `-Z` ONLY and never send `-S`
+    — otherwise a disc with read errors would turn every escalation into a crash.
+    """
+    rip_log = tmp_path / "Album" / "rip.log"
+    rip_log.parent.mkdir(parents=True)
+    rip_log.write_text(
+        "cyanrip 0.9.3 (release)\n"
+        "Speed:          default (unchangeable)\n"  # the drive can't slow down
+        "Disc tracks:    1\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     329DC760\n"
+        "Ripping errors: 3\n",  # real unrecoverable errors → the ladder escalates
+        encoding="utf-8",
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    worker = RipWorker(backend, _params(tmp_path, read_speed_mode="auto_ladder"))
+
+    worker.start_rip()
+
+    # It escalated (more than one pass) but NEVER handed cyanrip a slower speed.
+    assert len(backend.rip_calls) >= 2
+    assert all(call["read_speed"] == 0 for call in backend.rip_calls)
+    # …and the escalation happened via -Z climbing instead (2, then 3).
+    zs = [call["secure_rerip_matches"] for call in backend.rip_calls]
+    assert zs == [0, 2, 3]
+
+
 def test_cyanrip_progress_lines_drive_bars_and_track(
     qapp: QApplication, tmp_path: Path
 ) -> None:

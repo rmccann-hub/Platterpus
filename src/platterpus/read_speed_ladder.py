@@ -96,6 +96,7 @@ def next_step(
     current_secure_rerip: int,
     ladder: tuple[int, ...] = DEFAULT_LADDER,
     max_secure_rerip: int = MAX_SECURE_REREP,
+    speed_locked: bool = False,
 ) -> LadderStep | None:
     """Given the pass that just failed, return the next attempt — or None to stop.
 
@@ -104,13 +105,20 @@ def next_step(
     until N passes agree). Returns None when both are exhausted — the caller then
     stops and FLAGS the disc as still-failing. Never raises: an unknown current
     speed is treated as the top rung so escalation still makes progress.
+
+    ``speed_locked`` (real-hardware finding, 2026-07-01): when the drive can't
+    change read speed, cyanrip **aborts** the rip if handed ``-S`` — so the speed
+    rungs are not just ineffective, they're dangerous. When set, we skip the speed
+    ladder entirely and escalate ONLY ``-Z`` at the current (max) speed, so ``-S``
+    is never sent. This keeps the sole working lever on such a drive.
     """
     try:
         if not ladder:
             return None
         floor = ladder[-1]
-        # Still room to slow down? Step to the next-slower rung, keeping -Z.
-        if current_speed != floor:
+        # Still room to slow down? Step to the next-slower rung, keeping -Z —
+        # UNLESS the drive can't change speed (then -S would abort the rip).
+        if not speed_locked and current_speed != floor:
             try:
                 idx = ladder.index(current_speed)
             except ValueError:
@@ -127,16 +135,23 @@ def next_step(
                         "(slower reads are often more accurate)"
                     ),
                 )
-        # At the floor speed: escalate -Z instead of going slower.
+        # At the floor speed (or a speed-locked drive): escalate -Z instead of
+        # going slower. Stay at the current speed — for a locked drive that's max
+        # (0), since we must never emit an -S value cyanrip would reject.
+        step_speed = current_speed if speed_locked else floor
         next_z = max(current_secure_rerip + 1, _Z_FLOOR)
         if next_z <= max_secure_rerip:
+            reason = (
+                "drive can't change speed — re-reading until "
+                f"{next_z} passes agree (-Z {next_z})"
+                if speed_locked
+                else f"still failing at {_speed_label(floor)} — re-reading until "
+                f"{next_z} passes agree (-Z {next_z})"
+            )
             return LadderStep(
-                speed=floor,
+                speed=step_speed,
                 secure_rerip_matches=next_z,
-                reason=(
-                    f"still failing at {_speed_label(floor)} — re-reading until "
-                    f"{next_z} passes agree (-Z {next_z})"
-                ),
+                reason=reason,
             )
         return None
     except Exception:  # noqa: BLE001 — a policy helper must never crash the rip
