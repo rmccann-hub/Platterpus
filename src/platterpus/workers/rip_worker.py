@@ -320,14 +320,24 @@ class RipWorker(QObject):
             success, log_path_str = outcome
             if self._cancelled:
                 break
-            # Did this pass read clean? (No unrecoverable errors in its log.)
-            errors = success and read_errors_present(self._parse_log(log_path_str))
+            # Whether this pass's log shows unrecoverable read errors.
+            had_read_errors = read_errors_present(self._parse_log(log_path_str))
+            # "Clean" means the pass BOTH completed (exit 0) AND read without
+            # errors. A hard failure (non-zero exit) is NOT clean even if its
+            # log shows no read-error line — otherwise a failed rip would be
+            # recorded clean and the report's `unresolved` flag would wrongly
+            # read False (review-confirmed bug).
+            clean = success and not had_read_errors
             self._speed_attempts.append(
-                SpeedAttempt(attempt, speed, secure_rerip, clean=not errors)
+                SpeedAttempt(attempt, speed, secure_rerip, clean=clean)
             )
-            # Escalate only in auto_ladder mode, only on a completed-with-errors
-            # pass, and only while the ladder + hard cap allow.
-            if not (auto_ladder and errors) or attempt >= MAX_ATTEMPTS:
+            # Escalate only in auto_ladder mode, only on a pass that COMPLETED
+            # with read errors (not a hard crash — re-ripping a broken drive/disc
+            # just burns time), and only while the ladder + hard cap allow.
+            if (
+                not (auto_ladder and success and had_read_errors)
+                or attempt >= MAX_ATTEMPTS
+            ):
                 break
             step = next_step(current_speed=speed, current_secure_rerip=secure_rerip)
             if step is None:

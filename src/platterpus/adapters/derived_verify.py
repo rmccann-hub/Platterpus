@@ -102,6 +102,24 @@ class DerivedVerifyResult:
         return self.ran and not self.failures and not self.mismatches and self.complete
 
 
+def _kill_and_reap(proc: subprocess.Popen) -> None:
+    """Kill a decode subprocess AND wait for it, so we never leave a zombie.
+
+    ``kill()`` alone only sends the signal; without a ``wait()`` the child stays
+    a zombie (defunct) until GC eventually reaps it — and across an album's worth
+    of timeouts those would accumulate (review-confirmed leak). Bounded + guarded
+    so reaping can't itself hang or raise.
+    """
+    try:
+        proc.kill()
+    except OSError:
+        pass
+    try:
+        proc.wait(timeout=5.0)
+    except Exception:  # noqa: BLE001 — reaping is best-effort; never raise
+        pass
+
+
 def _default_hasher(path: Path, *, binary: str = _FFMPEG_BINARY) -> str | None:
     """Decode ``path`` to canonical 16-bit LE PCM via ffmpeg and SHA-256 it.
 
@@ -143,11 +161,11 @@ def _default_hasher(path: Path, *, binary: str = _FFMPEG_BINARY) -> str | None:
         rc = proc.wait(timeout=_DECODE_TIMEOUT_S)
     except subprocess.TimeoutExpired:
         log.warning("derived-verify: decode timed out on %s", path)
-        proc.kill()
+        _kill_and_reap(proc)
         return None
     except OSError as exc:
         log.warning("derived-verify: decode read failed on %s: %s", path, exc)
-        proc.kill()
+        _kill_and_reap(proc)
         return None
     finally:
         proc.stdout.close()
