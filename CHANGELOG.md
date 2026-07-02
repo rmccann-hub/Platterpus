@@ -115,6 +115,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **Unknown-distro setup no longer silently fails on privilege escalation.** On
+  a distro without a known package manager, the setup wizard fell back to the
+  upstream Distrobox installer piped to a hardcoded `sudo sh` — but the GUI has no
+  terminal for `sudo` to prompt on, so it failed silently. It now uses the same
+  graphical elevation (`pkexec`) the wizard uses everywhere else.
 - **A native cyanrip install no longer triggers the setup nag.** The first-run
   "set up Platterpus" check only looked for the container-exported cyanrip
   wrapper, so a user who installed cyanrip natively (on `PATH`) was still prompted
