@@ -44,13 +44,7 @@ from platterpus.deps.manager import DependencyManager
 from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
-
-# _DialogQueuedResolver moved to main_window_deps with the dependency UI;
-# re-exported here for the test-facing API (tests import it from main_window).
-from platterpus.ui.main_window_deps import (  # noqa: F401
-    DependencyMixin,
-    _DialogQueuedResolver,
-)
+from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_drive import DriveMixin
 
 # fidelity_summary / safe_path_segment are re-exported for the test-facing

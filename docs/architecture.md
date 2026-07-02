@@ -270,10 +270,21 @@ returns a best-effort dataclass instead of raising:
 
 ### 3.5 One dependency subsystem (Critical Rule #6)
 All "is this tool present and the right version?" logic lives in `deps/`
-(probe → three-tier resolve: auto-install → queued install → copyable search
-string). Do **not** add ad-hoc `shutil.which` checks elsewhere. New deps are
-registered in `deps/registry.py` (mark `optional=True` if absence shouldn't
-nag).
+(`DependencyManager.check_all` probes; `deps/resolvers.py` holds the three tier
+building blocks: auto-install → queued install → copyable search string). Do
+**not** add ad-hoc `shutil.which` checks elsewhere. New deps are registered in
+`deps/registry.py` (mark `optional=True` if absence shouldn't nag).
+
+**Resolution routing (installing what's missing) lives in the GUI**, not the
+manager: `main_window_deps._resolve_missing_unified` splits missing deps by
+*where the install runs* (setup wizard for container tools, an off-thread
+live-progress `PendingInstallsDialog` for packaged installs, a manual-search
+dialog otherwise). It's UI-coupled by nature — each tier opens a different
+dialog and the install must stay off the GUI thread — so it can't live in the
+Qt-free `deps/`. The manager once carried a parallel `resolve_missing` tier
+cascade; it was unused (the GUI always routed itself) and was removed so there
+is a **single** resolution path (audit #33). The presence/version half — the
+part Critical Rule #6 requires be centralized — stays in `deps/`.
 
 ### 3.6 MainWindow is composed from mixins
 `MainWindow` was a 1707-line god-object; it's decomposed (2026-06-13) into
@@ -290,7 +301,7 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Rip lifecycle, force-stop, eject, cover art | `main_window_rip.py` (`RipMixin`) |
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
 | Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
-| Dependency check / resolve / summary (+ `_DialogQueuedResolver`) | `main_window_deps.py` (`DependencyMixin`) |
+| Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
 | Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the assembler) |
 
 `MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)`
