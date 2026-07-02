@@ -11,9 +11,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-<!-- These entries are the next release (intended 0.4.9); the version bump in
-     src/platterpus/__init__.py and the dated heading move happen at release time,
-     per the release process in CLAUDE.md. Merged to main but NOT yet released. -->
+## [0.4.9] — 2026-07-02
 
 ### Added
 - **Dynamic secure re-rip is now how ripping works — no checkbox.** Platterpus
@@ -1788,7 +1786,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...HEAD
+[0.4.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.5...v0.4.6
