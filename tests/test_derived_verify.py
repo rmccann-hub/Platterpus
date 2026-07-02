@@ -240,6 +240,50 @@ def test_default_hasher_read_error_returns_none_and_reaps(
     assert proc.killed is True and proc.reaped is True  # killed AND reaped
 
 
+def test_default_hasher_deadline_kills_a_stalled_decode(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Regression (#27): if ffmpeg stalls mid-decode holding the pipe open (no
+    EOF), the read() loop would block forever and proc.wait(timeout) would never
+    be reached. A watchdog kills the process on the deadline; that closes the
+    pipe (read → EOF) and the decode is reported as failed (None), not hung."""
+    import threading
+
+    from platterpus.adapters import derived_verify as dv
+
+    monkeypatch.setattr(dv, "_DECODE_TIMEOUT_S", 0.1)
+
+    class _StallingStdout:
+        def __init__(self) -> None:
+            self._closed = threading.Event()
+
+        def read(self, n: int) -> bytes:
+            # Block (like a stalled pipe) until kill() closes it, then EOF.
+            self._closed.wait(timeout=5.0)
+            return b""
+
+        def close(self) -> None:
+            pass
+
+    class _FakeProc:
+        def __init__(self) -> None:
+            self.stdout = _StallingStdout()
+            self.killed = False
+
+        def kill(self) -> None:
+            self.killed = True
+            self.stdout._closed.set()  # closing the pipe unblocks the read → EOF
+
+        def wait(self, timeout=None):
+            return -9  # killed by signal
+
+    proc = _FakeProc()
+    monkeypatch.setattr(dv.subprocess, "Popen", lambda *a, **k: proc)
+
+    assert dv._default_hasher(tmp_path / "x.wav") is None
+    assert proc.killed is True  # the watchdog fired and killed the stalled decode
+
+
 @given(
     st.lists(
         st.tuples(
