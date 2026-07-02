@@ -56,13 +56,23 @@ class FlacVerifyResult:
 
 
 def _default_runner(argv: list[str]) -> int:
+    # Capture stderr and log its tail on failure (never swallow a dependency's
+    # error — CLAUDE.md "validate every input and every dependency output"), so a
+    # `flac --test` that reports corruption is diagnosable from the log file.
     proc = subprocess.run(
         argv,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
         timeout=_TEST_TIMEOUT_S,
+        text=True,
     )
+    if proc.returncode != 0 and proc.stderr:
+        log.warning(
+            "flac --test failed (rc=%s): %s",
+            proc.returncode,
+            proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else "",
+        )
     return proc.returncode
 
 

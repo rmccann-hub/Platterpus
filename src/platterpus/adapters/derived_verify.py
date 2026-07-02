@@ -170,6 +170,11 @@ def _default_hasher(path: Path, *, binary: str = _FFMPEG_BINARY) -> str | None:
     finally:
         proc.stdout.close()
     if rc != 0:
+        # Don't swallow the failure silently. (stderr is left at DEVNULL rather
+        # than PIPE: this streams a whole album's PCM on stdout, and draining a
+        # second full pipe here could deadlock — so we log the exit code + file,
+        # which is enough to diagnose a bad decode from the log.)
+        log.warning("derived-verify: ffmpeg decode failed (rc=%s) on %s", rc, path)
         return None
     return digest.hexdigest()
 
