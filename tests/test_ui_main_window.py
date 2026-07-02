@@ -272,23 +272,66 @@ def test_drive_change_runs_disc_info_off_thread_and_populates(
         cddb_disc_id="abc",
         musicbrainz_disc_id="mb-id",
     )
-    window = teardown_threads(backend=backend, mb_client=_FakeMb())
+    mb = _FakeMb()
+    window = teardown_threads(backend=backend, mb_client=mb)
     monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
 
     window._on_drive_changed("/dev/sr0")
     assert window._disc_info_thread is not None  # probe started off-thread
 
-    # Pump the event loop until the worker finishes and the cascade runs
-    # (_on_disc_info_ready clears the thread ref at its start).
+    # Pump the event loop until the disc probe finishes AND the MB query has
+    # run on the MB worker thread (disc_id_calls records it) AND the result has
+    # round-tripped back to the panel. The MB lookup is now genuinely async —
+    # _on_disc_info_ready clears the disc thread ref then *emits* to the MB
+    # worker — so waiting on the disc thread alone is not enough.
     deadline = time.monotonic() + 8.0
-    while window._disc_info_thread is not None and time.monotonic() < deadline:
+    while (
+        window._disc_info_thread is not None or mb.disc_id_calls == []
+    ) and time.monotonic() < deadline:
         qapp.processEvents()
         time.sleep(0.005)
+    # Flush the queued releases_returned → _on_mb_releases round-trip.
+    for _ in range(50):
+        qapp.processEvents()
+        time.sleep(0.002)
 
     assert backend.disc_info_calls == ["/dev/sr0"]  # probed off-thread
+    assert mb.disc_id_calls == ["mb-id"]  # MB query ran off-thread, not on GUI
     assert window._disc_info_panel._mb_id_value.text() == "mb-id"
     assert window._disc_info_panel._cddb_id_value.text() == "abc"
     assert "MusicBrainz" in window._disc_info_panel._mb_match_value.text()
+
+
+def test_mb_lookup_runs_off_the_gui_thread(
+    teardown_threads,
+    qapp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: a MusicBrainz lookup must run on the MB worker thread, not
+    the GUI thread (a direct slot call on a moved-to-thread worker would run on
+    the caller's thread and freeze the window on a slow lookup)."""
+    import threading
+
+    gui_ident = threading.get_ident()
+    call_idents: list[int] = []
+
+    class _IdentMb(_FakeMb):
+        def releases_by_disc_id(self, disc_id: str) -> list[ReleaseSummary]:
+            call_idents.append(threading.get_ident())
+            return super().releases_by_disc_id(disc_id)
+
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_IdentMb())
+    monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
+
+    window._on_disc_info_ready("/dev/sr0", DiscInfo(musicbrainz_disc_id="mb-id"))
+
+    deadline = time.monotonic() + 8.0
+    while call_idents == [] and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.005)
+
+    assert call_idents, "MB lookup never ran"
+    assert call_idents[0] != gui_ident  # ran on the worker thread, not the GUI
 
 
 def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
@@ -318,15 +361,25 @@ def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
 
 def test_disc_info_ready_zero_mb_results_shows_blank_track_rows(
     teardown_threads,
+    qapp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A disc with an MB ID but no registered release also gets blank rows."""
+    """A disc with an MB ID but no registered release also gets blank rows.
+
+    The MB lookup runs on the worker thread, so the no-match cascade
+    (_on_mb_releases([]) → _handle_no_mb_match → placeholder rows) lands after
+    the query round-trips — pump the event loop until it does."""
     window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
     monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
 
     window._on_disc_info_ready(
         "/dev/sr0", DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=12)
     )
+
+    deadline = time.monotonic() + 8.0
+    while len(window._track_table.tracks()) != 12 and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.005)
 
     assert len(window._track_table.tracks()) == 12
 

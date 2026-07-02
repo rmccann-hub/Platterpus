@@ -63,6 +63,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   transcode failure left no diagnosis in the log. Its error output is now captured
   and the tail logged on any non-zero exit (the master FLAC is still never at
   risk — a per-file failure leaves the source untouched).
+- **The window no longer freezes while identifying a disc.** MusicBrainz lookups
+  were running on the GUI thread — the worker was moved to its own thread, but its
+  slots were being *called* directly, which runs them on the caller's thread
+  regardless. A slow or unreachable MusicBrainz would hang the whole window on the
+  most common action (inserting an identified disc). Queries now genuinely run on
+  the worker thread, and the MusicBrainz adapter bounds every request with a
+  timeout so a stalled server can't hang the lookup at all.
+- **Cancel no longer freezes the window.** Pressing Cancel during a rip forwarded
+  to a blocking SIGTERM-then-wait on the GUI thread — a drive stuck in a kernel
+  read could freeze the window for seconds. Cancel now sends a non-blocking stop
+  signal and returns immediately; the reap and the force-stop escalation happen off
+  the GUI thread as before.
+- **The update dialog's Cancel button works again.** It was wired to the download
+  worker's slot as a queued call, but the worker was busy downloading and never
+  processed it, so Cancel did nothing and the update installed anyway. Cancel now
+  flips the worker's flag directly from the GUI thread, and the download stops
+  between chunks.
 - **Dialogs open on the right screen, on top, and fully visible.** Every dialog is
   centred on the main window (a `CenteredDialog` base + an app-wide filter that
   also catches `QMessageBox`/`QFileDialog`), but two gaps remained on a

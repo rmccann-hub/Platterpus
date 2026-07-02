@@ -2,8 +2,11 @@
 
 MusicBrainz HTTP requests can take several seconds (especially on a
 cold cache) and MUST NOT block input. The main thread constructs a
-MusicBrainzWorker, moves it to a QThread, and invokes its slots either
-directly (queued connection) or via signal emission.
+MusicBrainzWorker, moves it to a QThread, and drives its slots by
+**emitting a signal connected to them** — a queued, cross-thread call
+that runs on the worker's thread. (Calling a slot as a plain method
+would run it on the *caller's* thread regardless of moveToThread, which
+is exactly the freeze this worker exists to avoid.)
 
 Signals:
   releases_returned(list)   — list[ReleaseSummary] from disc-id / TOC

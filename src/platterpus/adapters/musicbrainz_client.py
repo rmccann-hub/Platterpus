@@ -21,13 +21,40 @@ unset agent makes us indistinguishable from other anonymous traffic.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import socket
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import musicbrainzngs
 
 log = logging.getLogger(__name__)
+
+# Bound every MusicBrainz HTTP call so a stalled server/connection can't hang the
+# lookup worker forever. musicbrainzngs (0.7.1, unmaintained) builds its own
+# urllib opener with NO timeout argument, so the process-wide default socket
+# timeout is the only injection point the library leaves us. We set it *around*
+# each call and restore it after (below), rather than globally at import, so the
+# adapter has no surprising process-wide side effect.
+_MB_TIMEOUT_S: float = 30.0
+
+
+@contextlib.contextmanager
+def _socket_timeout(seconds: float) -> Iterator[None]:
+    """Temporarily bound the default socket timeout for a MusicBrainz call.
+
+    The MB worker serializes its queries on one thread, and every other network
+    caller in the app (cover art, CTDB, self-update) passes an explicit per-call
+    timeout to ``urlopen`` — so save/restore here can't strand another request.
+    """
+    previous = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(seconds)
+    try:
+        yield
+    finally:
+        socket.setdefaulttimeout(previous)
 
 
 class MusicBrainzQueryError(Exception):
@@ -151,11 +178,12 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
 
     def releases_by_disc_id(self, disc_id: str) -> list[ReleaseSummary]:
         try:
-            response = musicbrainzngs.get_releases_by_discid(
-                disc_id,
-                includes=["artists", "labels"],
-                cdstubs=False,
-            )
+            with _socket_timeout(_MB_TIMEOUT_S):
+                response = musicbrainzngs.get_releases_by_discid(
+                    disc_id,
+                    includes=["artists", "labels"],
+                    cdstubs=False,
+                )
         except musicbrainzngs.ResponseError as exc:
             # MB returns 404 for "no match" — translate that to an empty list
             # rather than an exception, since the picker UI treats it as
@@ -170,13 +198,14 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
 
     def releases_by_toc(self, toc: TocSignature) -> list[ReleaseSummary]:
         try:
-            response = musicbrainzngs.get_releases_by_discid(
-                "-",  # MB requires a disc-id; "-" is the documented
-                # placeholder when only `toc=` is meaningful
-                toc=toc.to_query(),
-                includes=["artists", "labels"],
-                cdstubs=False,
-            )
+            with _socket_timeout(_MB_TIMEOUT_S):
+                response = musicbrainzngs.get_releases_by_discid(
+                    "-",  # MB requires a disc-id; "-" is the documented
+                    # placeholder when only `toc=` is meaningful
+                    toc=toc.to_query(),
+                    includes=["artists", "labels"],
+                    cdstubs=False,
+                )
         except musicbrainzngs.ResponseError as exc:
             if _is_not_found(exc):
                 return []
@@ -188,12 +217,21 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
 
     def release_by_mbid(self, mbid: str) -> ReleaseDetail:
         try:
-            response = musicbrainzngs.get_release_by_id(
-                mbid,
-                # "tags" → a genre (top folksonomy tag; MB has no plain "genres"
-                # include in musicbrainzngs 0.7.1); "isrcs" → per-recording ISRCs.
-                includes=["artists", "recordings", "labels", "media", "tags", "isrcs"],
-            )
+            with _socket_timeout(_MB_TIMEOUT_S):
+                response = musicbrainzngs.get_release_by_id(
+                    mbid,
+                    # "tags" → a genre (top folksonomy tag; MB has no plain
+                    # "genres" include in musicbrainzngs 0.7.1); "isrcs" →
+                    # per-recording ISRCs.
+                    includes=[
+                        "artists",
+                        "recordings",
+                        "labels",
+                        "media",
+                        "tags",
+                        "isrcs",
+                    ],
+                )
         except musicbrainzngs.WebServiceError as exc:
             raise MusicBrainzQueryError(f"MB release fetch failed: {exc}") from exc
 

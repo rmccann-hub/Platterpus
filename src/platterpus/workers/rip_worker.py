@@ -658,9 +658,9 @@ class RipWorker(QObject):
         # nothing" until the 5s force-stop backstop fired).
         if self._cancelled:
             try:
-                self._handle.cancel()
+                self._handle.terminate()
             except Exception:  # noqa: BLE001 — cancel is best-effort
-                log.exception("startup-window cancel() raised; ignored")
+                log.exception("startup-window terminate() raised; ignored")
 
         # Stream output. Iteration ends when whipper closes its stdout
         # (i.e. exits) or when cancel() flips the flag.
@@ -889,18 +889,22 @@ class RipWorker(QObject):
 
     @Slot()
     def cancel(self) -> None:
-        """Cancel an in-progress rip.
+        """Cancel an in-progress rip — NON-BLOCKING (safe from the GUI thread).
 
-        Thread-safe: sets a flag (read by the worker's iteration loop),
-        then forwards to the handle's cancel() which is itself thread-safe
-        because subprocess methods are.
+        Sets the cancel flag (read by the worker's iteration loop) and sends a
+        non-blocking SIGTERM via ``terminate()`` — it never waits, so a wedged
+        drive can't freeze the caller. The worker's own ``wait()`` (on the worker
+        thread) reaps the terminated process; if the ripper ignores SIGTERM, the
+        GUI's force-stop timer escalates to a SIGKILL off the GUI thread. Both the
+        flag write and ``terminate()`` are thread-safe (atomic bool; subprocess
+        signalling is), so this is safe to call from the GUI thread.
         """
         self._cancelled = True
         if self._handle is not None:
             try:
-                self._handle.cancel()
+                self._handle.terminate()
             except Exception:  # noqa: BLE001
-                log.exception("cancel() raised; ignored")
+                log.exception("terminate() raised; ignored")
 
     # --- Internals ---
 

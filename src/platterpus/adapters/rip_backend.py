@@ -175,10 +175,26 @@ class RipHandle:
         """Block until the ripper exits; return its exit code."""
         return self._process.wait(timeout=timeout)
 
+    def terminate(self) -> None:
+        """Request cancellation WITHOUT blocking — SIGTERM the group and return.
+
+        This is what a GUI-thread cancel calls: it must never wait (a wedged
+        drive ioctl leaves the ripper in an uninterruptible sleep, and blocking
+        on it would freeze the window — CLAUDE.md never-block rule). The caller's
+        own off-GUI-thread ``wait()`` reaps the terminated process; if it ignores
+        SIGTERM, the GUI's force-stop escalation (``drive_control``) SIGKILLs the
+        group. Safe to call multiple times / after exit.
+        """
+        if self._process.returncode is not None:
+            return
+        _kill_group(self._process, signal.SIGTERM)
+
     def cancel(self, term_timeout: float = 5.0) -> int:
         """Cancel the rip. SIGTERM first, then SIGKILL after the timeout.
 
-        Returns the eventual exit code. Safe to call multiple times.
+        Blocks for up to ``term_timeout`` — so it MUST NOT be called on the GUI
+        thread (use :meth:`terminate` there). Returns the eventual exit code.
+        Safe to call multiple times.
         """
         if self._process.returncode is not None:
             return self._process.returncode

@@ -49,12 +49,18 @@ class _FakeHandle:
         self._lines: list[str] = list(lines)
         self._exit_code: int = exit_code
         self.cancel_calls: int = 0
+        self.terminate_calls: int = 0
 
     def log_lines(self) -> Iterable[str]:
         yield from self._lines
 
     def wait(self, timeout: float | None = None) -> int:
         return self._exit_code
+
+    def terminate(self) -> None:
+        # Non-blocking cancel path used from the GUI thread — the worker forwards
+        # here so a wedged drive can't freeze the window.
+        self.terminate_calls += 1
 
     def cancel(self, term_timeout: float = 5.0) -> int:
         self.cancel_calls += 1
@@ -1075,11 +1081,14 @@ def test_cancel_before_start_stops_the_subprocess_once_it_exists(
 
     # Cancel before start: the handle isn't set yet, so only the flag is set.
     worker.cancel()
-    assert handle.cancel_calls == 0
+    assert handle.terminate_calls == 0
 
     worker.start_rip()  # gets the handle, sees the flag, and stops the rip
 
-    assert handle.cancel_calls == 1  # the subprocess was actually cancelled
+    # The subprocess was terminated (non-blocking SIGTERM), not the blocking
+    # cancel() — a GUI-thread cancel must never wait.
+    assert handle.terminate_calls == 1
+    assert handle.cancel_calls == 0
 
 
 def test_cancel_after_start_forwards_to_handle(
@@ -1091,10 +1100,11 @@ def test_cancel_after_start_forwards_to_handle(
     worker = RipWorker(backend, _params(tmp_path))
 
     worker.start_rip()  # no cancel → completes; the startup re-check is a no-op
-    assert handle.cancel_calls == 0
+    assert handle.terminate_calls == 0
 
-    worker.cancel()  # handle exists now → forwarded
-    assert handle.cancel_calls == 1
+    worker.cancel()  # handle exists now → forwarded (non-blocking terminate)
+    assert handle.terminate_calls == 1
+    assert handle.cancel_calls == 0
 
 
 def test_cancellation_makes_finished_report_false(
