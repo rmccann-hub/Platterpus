@@ -343,9 +343,7 @@ def _sanitized(cfg: Config) -> Config:
             return cfg
         defaults = Config()
         resets = {issue.field: getattr(defaults, issue.field) for issue in errors}
-        log.warning(
-            "resetting invalid config field(s) to defaults: %s", sorted(resets)
-        )
+        log.warning("resetting invalid config field(s) to defaults: %s", sorted(resets))
         return replace(cfg, **resets)
     except Exception:  # noqa: BLE001 — sanitisation must never crash startup
         log.exception("config sanitisation failed; using the loaded values as-is")
