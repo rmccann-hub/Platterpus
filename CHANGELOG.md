@@ -87,6 +87,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   post-rip step (no report, no tags, no cover art, no eject) and left the app
   thinking a rip was still running. The log is now read leniently and any
   rendering error is contained, so the rip always finishes cleanly.
+- **The album log stays honest after an auto-fix swap.** When a re-ripped track
+  replaced the original, the whole-disc `.log` still recorded the *discarded*
+  bytes' CRC — so the committed durable-proof text no longer matched the audio on
+  disk. A clearly-delimited addendum is now appended to that log naming each
+  swapped track and the shipped file's CRC (the original content is preserved
+  verbatim; the `.platterpus.json` report already tracked the swap structurally).
+- **A failed rip can't adopt a previous album's log.** The rip log is located by
+  searching the output folder — which is the shared music root — for the most
+  recent `.log`. A rip that failed before writing its own log would pick up a
+  *previous* album's log from a sibling folder and parse it as this rip's. Log
+  discovery is now scoped to logs written at or after this rip started, so an
+  older album's log is ignored.
 - **The auto-fix track swap can't corrupt a master.** When a re-ripped track
   replaced the original, it was copied straight over the file; a crash or full
   disk mid-copy could truncate a good archival FLAC. The swap is now atomic

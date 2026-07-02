@@ -461,6 +461,43 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     assert swapped.read_bytes() == b"FIXED-FLAC-BYTES"
 
 
+def test_auto_fix_appends_swap_addendum_to_album_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression (#19): after a re-ripped track is swapped in, the first-pass
+    album .log's CRC for that track describes the DISCARDED bytes. An addendum
+    must be appended naming the swapped track and the SHIPPED file's CRC, so the
+    committed durable-proof text matches the audio on disk. The original log
+    content is preserved verbatim (append-only)."""
+    rerip_ok = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    3\n"
+        "Done; (2 out of 2 matches for current checksum BBBB2222)\n"
+        "Track 3 ripped and encoded successfully!\n"
+        "  EAC CRC32:     99999999\n"  # the shipped file's CRC
+        "  File(s):\n"
+        "    Artist/Album/03 - C.flac\n"
+        "Ripping errors: 0\n"
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = _fake_rip_writer(_PASS1_UNSTABLE, rerip_ok, True)
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    worker.start_rip()
+
+    album_log = (tmp_path / "Artist" / "Album" / "rip.log").read_text(encoding="utf-8")
+    # Original first-pass content is intact…
+    assert "Track 1 ripped and encoded successfully!" in album_log
+    assert "EAC CRC32:     11111111" in album_log
+    # …and a clearly-delimited addendum names the swapped track + its new CRC.
+    assert "[Platterpus auto-fix addendum]" in album_log
+    assert "Track 3" in album_log
+    assert "99999999" in album_log
+
+
 def test_auto_fix_keeps_original_when_rerip_still_unstable(
     qapp: QApplication, tmp_path: Path
 ) -> None:
@@ -661,6 +698,38 @@ def test_swap_in_reripped_track_never_corrupts_the_master(
     assert dst.read_bytes() == b"ORIGINAL-GOOD-MASTER"  # master untouched
     # No partial temp left in the album dir.
     assert not list((tmp_path / "Artist" / "Album").glob("*.tmp"))
+
+
+def test_find_log_path_ignores_a_previous_albums_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression (#20): the output dir is the shared music root. A rip that
+    fails before writing its own log must NOT adopt a previous album's log from
+    a sibling folder (which rglob-most-recent would otherwise return) and parse
+    it as this rip's. Logs older than the rip's start are scoped out."""
+    import os
+
+    # A prior album's log, aged an hour into the past.
+    stale_dir = tmp_path / "Old Artist" / "Old Album"
+    stale_dir.mkdir(parents=True)
+    stale = stale_dir / "rip.log"
+    stale.write_text("cyanrip 0.9.3\nRipping errors: 0\n", encoding="utf-8")
+    old = stale.stat().st_mtime - 3600
+    os.utime(stale, (old, old))
+
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    worker._rip_started_at = stale.stat().st_mtime + 1800  # this rip started later
+
+    # Only the stale log exists → scoped out → nothing found for this rip.
+    assert worker._find_log_path(tmp_path, since=worker._rip_started_at) is None
+
+    # A log this rip actually wrote (newer than the rip start) IS found.
+    fresh_dir = tmp_path / "New Artist" / "New Album"
+    fresh_dir.mkdir(parents=True)
+    fresh = fresh_dir / "rip.log"
+    fresh.write_text("cyanrip 0.9.3\nRipping errors: 0\n", encoding="utf-8")
+    found = worker._find_log_path(tmp_path, since=worker._rip_started_at)
+    assert found == fresh
 
 
 def test_fixed_mode_never_auto_fixes(qapp: QApplication, tmp_path: Path) -> None:
