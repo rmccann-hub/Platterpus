@@ -75,6 +75,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   read could freeze the window for seconds. Cancel now sends a non-blocking stop
   signal and returns immediately; the reap and the force-stop escalation happen off
   the GUI thread as before.
+- **Checking dependencies and refreshing drives no longer freeze the window.**
+  Tools → Check dependencies, the Settings “Check dependencies” button, and the
+  drive-picker Refresh button all probed the system synchronously on the GUI
+  thread — each shells into the Distrobox container, which is slow on a cold
+  start and could hang the window for tens of seconds. They now run the probe on
+  a worker thread (the same off-thread path the launch check already used) and
+  apply the result on the GUI thread.
 - **The update dialog's Cancel button works again.** It was wired to the download
   worker's slot as a queued call, but the worker was busy downloading and never
   processed it, so Cancel did nothing and the update installed anyway. Cancel now

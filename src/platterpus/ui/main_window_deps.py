@@ -99,39 +99,44 @@ class DependencyMixin:
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
 
-        Always shows the summary popup at the end. Use
-        `run_dependency_check(show_summary=False)` to suppress the
-        popup when nothing's missing — that's the launch-time path.
+        Runs the probe OFF the GUI thread (Tools → Check dependencies and the
+        Settings button both land here): ``check_all()`` shells out per
+        dependency and enters the Distrobox container, which is slow on a cold
+        start and would otherwise freeze the window. The summary popup shows when
+        the probe finishes.
         """
-        self.run_dependency_check(show_summary=True)
+        self.run_dependency_check_async(show_summary=True)
 
     def run_dependency_check(self, show_summary: bool = True) -> None:
         """Run check_all + resolve_missing with GUI-backed resolvers, **synchronously**.
 
-        Used by the Tools → Check dependencies menu action (the user clicked,
-        so a brief block while probing is acceptable) and by tests. The
-        launch-time path uses `run_dependency_check_async` instead so a
-        cold-container probe can't freeze the just-shown window.
+        Retained for tests (which drive it directly and assert on the result).
+        Every in-app entry point uses `run_dependency_check_async` instead so a
+        cold-container probe can't freeze the window — `check_all()` shells out
+        per dependency and enters the Distrobox container.
         """
         gui_manager = self._build_gui_dependency_manager()
         self._apply_dependency_report(
             gui_manager, gui_manager.check_all(), show_summary=show_summary
         )
 
-    def run_dependency_check_async(self) -> None:
-        """Launch-time dependency check that probes **off the GUI thread**.
+    def run_dependency_check_async(self, show_summary: bool = False) -> None:
+        """Dependency check that probes **off the GUI thread**.
 
-        `check_all()` shells out per dependency, and the whipper probe enters
+        `check_all()` shells out per dependency, and the cyanrip probe enters
         the Distrobox container — slow on a cold start. Running it on the GUI
-        thread at launch froze the just-shown window; here the probing runs on
-        a worker and only the *result* is applied on the GUI thread (where the
-        resolver dialogs must live). One check at a time.
+        thread froze the window; here the probing runs on a worker and only the
+        *result* is applied on the GUI thread (where the resolver dialogs must
+        live). `show_summary` controls the end-of-check popup (True for the
+        user-clicked Tools/Settings paths; False for the silent launch check).
+        One check at a time.
         """
         if self._dep_check_thread is not None:  # a check is already running
             return
         from platterpus.workers import start_worker_thread
         from platterpus.workers.dependency_worker import DependencyCheckWorker
 
+        self._dep_check_show_summary = show_summary
         gui_manager = self._build_gui_dependency_manager()
         # Stash the manager so `finished` can connect to a BOUND METHOD rather
         # than a lambda. This matters for correctness, not just style: a lambda
@@ -155,12 +160,15 @@ class DependencyMixin:
         so it's safe to build resolver dialogs here.
         """
         gui_manager = self._dep_check_manager
+        show_summary = self._dep_check_show_summary
         self._dep_check_worker = None
         self._dep_check_thread = None
         self._dep_check_manager = None
-        # Launch path never forces the "all good" popup (silent unless action
-        # is needed); resolver dialogs still surface for genuinely-missing deps.
-        self._apply_dependency_report(gui_manager, report, show_summary=False)
+        self._dep_check_show_summary = False
+        # `show_summary` is True for the user-clicked Tools/Settings check and
+        # False for the silent launch check; resolver dialogs surface for
+        # genuinely-missing deps regardless.
+        self._apply_dependency_report(gui_manager, report, show_summary=show_summary)
 
     def _build_gui_dependency_manager(self) -> object:
         """A DependencyManager wired with GUI-backed resolvers (consent dialog,

@@ -259,6 +259,7 @@ class ProvisioningMixin:
                 if not self._drive_picker.current_device():
                     log.info("no drive selected yet — refreshing drive list")
                     self.refresh_drives()
-                self.run_dependency_check(show_summary=False)
+                # Off the GUI thread: the re-probe shells into the container.
+                self.run_dependency_check_async(show_summary=False)
             except Exception:  # noqa: BLE001 — best-effort refresh
                 log.exception("post-host-setup refresh failed")

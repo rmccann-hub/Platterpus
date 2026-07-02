@@ -212,6 +212,9 @@ class MainWindow(
         # the GUI thread) instead of a lambda (which Qt delivers DIRECTLY on the
         # worker thread — building resolver dialogs there is a cross-thread bug).
         self._dep_check_manager: object | None = None
+        # Whether the in-flight async dep check should show its end-of-check
+        # summary popup (True for the user-clicked Tools/Settings paths).
+        self._dep_check_show_summary: bool = False
         # Disc probe (disc_info enters the container + reads the disc — slow);
         # run off-thread per drive change so selecting a drive never freezes
         # the window. Joined in closeEvent.
@@ -608,6 +611,12 @@ class MainWindow(
     def _wire_signals(self) -> None:
         # Drive selection → disc info + MB lookup pipeline.
         self._drive_picker.drive_changed.connect(self._on_drive_changed)
+        # Route the Refresh button through the off-GUI-thread drive-list fetch
+        # so clicking it on a cold container can't freeze the window. Wrapped in
+        # a closure (resolved at click time) rather than a captured bound method
+        # — a plain stored callback invoked on the GUI thread, not a cross-thread
+        # signal connection, so the no-lambda-connection rule doesn't apply.
+        self._drive_picker.set_async_refresh(lambda: self.refresh_drives())
         # No drive found → offer an actionable diagnosis (once per session).
         self._drive_picker.drives_unavailable.connect(self._on_drives_unavailable)
         # Manual Eject button.
