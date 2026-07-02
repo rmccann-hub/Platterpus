@@ -48,8 +48,8 @@ Installs everything an end user needs:
   1. Host stack  : Distrobox + the `ripping` container + cyanrip + flac,
                    exported to ~/.local/bin (via setup-host.sh --no-gui).
   2. GUI         : downloads the published AppImage into ~/Applications.
-  3. Shortcuts   : app-menu entry, Desktop icon, and an "Uninstall Whipper
-                   GUI" shortcut (via install-appimage.sh).
+  3. Shortcuts   : app-menu entry, Desktop icon, and an "Uninstall Platterpus"
+                   shortcut (via install-appimage.sh).
 
 Usage:
   bash install.sh                 full install (host stack + GUI)
