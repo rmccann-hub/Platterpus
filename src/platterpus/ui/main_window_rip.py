@@ -88,6 +88,39 @@ _FORCE_STOP_COUNTDOWN_MS: int = 5000
 _CHECKSUM_SETTLE_TIMEOUT_S: float = 120.0
 
 
+def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> bool:
+    """Whether any tag value handed to cyanrip carries a literal ``:``.
+
+    Drives the post-rip colon-restore (KDD-22): cyanrip can't take a ``:`` in a
+    tag arg, so each such value is fed as the U+2236 lookalike and must be
+    restored in the written tags afterward. This must cover EVERY field the
+    backend's ``_escape_meta_value`` touches — album artist/title, year, genre,
+    the ``musicbrainz_albumid`` (``release_id``), and each track's title, artist,
+    and ISRC. It previously checked only album/track title+artist, so a colon in
+    year/genre/isrc/albumid kept its U+2236 in the tag forever (#29). Pure and
+    testable; reads the assembled ``RipMetadata`` so it can't drift from what was
+    actually sent.
+    """
+    if ":" in (release_id or ""):
+        return True
+    if metadata is None:
+        return False
+    for value in (
+        metadata.album_artist,
+        metadata.album_title,
+        metadata.year,
+        metadata.genre,
+    ):
+        if ":" in (value or ""):
+            return True
+    return any(
+        ":" in (track.title or "")
+        or ":" in (track.artist or "")
+        or ":" in (track.isrc or "")
+        for track in metadata.tracks
+    )
+
+
 class RipMixin:
     """Start/cancel/finish a rip, plus eject, unknown-album, and cover art."""
 
@@ -771,19 +804,23 @@ class RipMixin:
             launch_picard_for(rip_output_dir)
 
     def _metadata_has_colon(self) -> bool:
-        """True if the album or any track's name contains a ``:``.
+        """True if any metadata value fed to cyanrip contains a ``:``.
 
         Drives the cyanrip colon-restore (KDD-22): only worth a post-rip metaflac
-        pass when a colon was actually substituted. Reads the current track table
-        (the names the user saw/edited), so it's accurate for known discs.
+        pass when a colon was actually substituted with the U+2236 lookalike. We
+        check the assembled ``RipMetadata`` that was actually sent (album fields,
+        year, genre, the release id, and every track's title/artist/isrc) rather
+        than re-deriving from the track table — the table exposes only
+        title/artist, so a colon in year/genre/isrc/albumid used to be missed and
+        left un-restored (#29). Falls back to the current release id if no rip
+        params are recorded (e.g. exercised directly in a test).
         """
-        album = self._track_table.album_metadata()
-        if ":" in (album.title or "") or ":" in (album.artist or ""):
-            return True
-        return any(
-            ":" in (track.title or "") or ":" in (track.artist_credit or "")
-            for track in self._track_table.tracks()
+        params = self._active_rip_params
+        metadata = params.metadata if params is not None else None
+        release_id = (
+            params.release_id if params is not None else self._current_release_id
         )
+        return _metadata_contains_colon(metadata, release_id)
 
     # --- Post-rip processing: tagging + cover art (one off-GUI thread) -------
 
