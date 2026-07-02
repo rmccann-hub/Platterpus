@@ -115,6 +115,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **Force-stopping one drive no longer risks killing a rip on another.**
+  Force-stop began with a name-matched `pkill cyanrip` (and cdparanoia/cdrdao),
+  which would SIGKILL *any* such process on the system — including one ripping a
+  different disc on a second drive. It now tries the device-scoped `fuser -k
+  <device>` first (which targets only the process holding *that* drive) and falls
+  back to the broad by-name kill only when there's no device to scope to or
+  nothing held it.
 - **Post-rip verification only looks at this album's files.** The CTDB, FLAC-
   integrity, and derived-file checks enumerated FLACs *recursively* under the
   album folder, so a FLAC in a nested subfolder (a bonus disc, a leftover — or
