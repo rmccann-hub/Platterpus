@@ -18,11 +18,39 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parents[1] / "src" / "platterpus"
+_ROOT = Path(__file__).resolve().parents[1]
+# Scan the shipped package AND the developer/CLI entry points that also shell
+# out — the injection surface isn't only in src/. `scripts/` holds standalone
+# CLIs (preflight, ctdb_verify, …) and `build/` the packaging helpers, both of
+# which invoke external tools. (This is how #8's blocking-behind-indirection and
+# the "no-shell guard was src/-only" gap were closed — audit #16.)
+_BUILD_LIB = _ROOT / "build" / "lib"  # generated copy of src/ — skip it
+_SCAN_ROOTS = (_ROOT / "src" / "platterpus", _ROOT / "scripts", _ROOT / "build")
 
 
 def _python_files() -> list[Path]:
-    return sorted(_SRC.rglob("*.py"))
+    files: list[Path] = []
+    for root in _SCAN_ROOTS:
+        if not root.exists():
+            continue
+        for path in root.rglob("*.py"):
+            # Skip the setuptools-generated duplicate under build/lib/ (double
+            # scanning src/) and any bytecode cache dir.
+            if _BUILD_LIB in path.parents or "__pycache__" in path.parts:
+                continue
+            files.append(path)
+    return sorted(files)
+
+
+def _shell_scripts() -> list[Path]:
+    """Every shipped *.sh, minus generated/vendored trees we don't own."""
+    skip = {".git", "venv", ".venv", "node_modules", "__pycache__"}
+    scripts: list[Path] = []
+    for path in _ROOT.rglob("*.sh"):
+        if _BUILD_LIB in path.parents or skip.intersection(path.parts):
+            continue
+        scripts.append(path)
+    return sorted(scripts)
 
 
 def test_no_shell_true_anywhere_in_source() -> None:
@@ -58,3 +86,19 @@ def test_source_has_no_os_system_or_popen_shell_string() -> None:
                 ):
                     offenders.append(f"{path}:{node.lineno} (os.{node.func.attr})")
     assert not offenders, f"os.system/os.popen found — injection risk: {offenders}"
+
+
+def test_shell_scripts_enable_errexit() -> None:
+    """Every shipped shell script must enable errexit (``set -e`` / ``-euo
+    pipefail``) so a failed step aborts instead of silently continuing — the
+    shell-side analogue of the no-shell guard. A structural minimum enforced in
+    CI (not a full shellcheck), and a regression lock on the "all scripts use
+    set -euo pipefail" property (audit §B verified-clean)."""
+    scripts = _shell_scripts()
+    assert scripts, "no shell scripts found — scan roots are wrong"
+    offenders = [
+        str(path)
+        for path in scripts
+        if "set -e" not in path.read_text(encoding="utf-8")
+    ]
+    assert not offenders, f"shell scripts missing `set -e` (errexit): {offenders}"
