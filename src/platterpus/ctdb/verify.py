@@ -104,22 +104,28 @@ def verify_rip(
             Verdict.NOT_IN_DATABASE, message="this disc is not in CTDB"
         )
 
-    # 3) decode + CRC compare.
+    # 3) decode + CRC compare. Stream each track's PCM through the running CRC
+    #    (one track resident at a time) rather than buffering the whole disc plus
+    #    a b"".join copy — that spiked ~1.5 GB on the verify daemon thread (#39).
     try:
-        pcm = _decode_all(flac_paths, decoder)
+        our_crc = _crc_all(flac_paths, decoder)
     except decode.DecoderUnavailable as exc:
         return _db_only_result(result, Verdict.DECODER_UNAVAILABLE, str(exc))
     except (OSError, RuntimeError) as exc:
         return _db_only_result(result, Verdict.LOOKUP_ERROR, f"decode error: {exc}")
 
-    our_crc = crc_mod.ctdb_crc_offset0(pcm)
     return _match_verdict(result, our_crc)
 
 
-def _decode_all(flac_paths: Sequence[Path], decoder: PcmDecoder) -> bytes:
-    """Decode every track and concatenate (whole-disc PCM, in track order)."""
-    chunks = [decoder(Path(p)) for p in flac_paths]
-    return b"".join(chunks)
+def _crc_all(flac_paths: Sequence[Path], decoder: PcmDecoder) -> int:
+    """Whole-disc CRC over every track (in track order), streamed.
+
+    Each track is decoded, folded into the running CRC, then released — so peak
+    memory is a single track's PCM, not the whole album twice (#39). A decoder
+    error propagates (caught by the caller). The result is identical to CRC'ing
+    the concatenated whole-disc PCM (zlib CRC-32 is linear).
+    """
+    return crc_mod.ctdb_crc_offset0_streaming(decoder(Path(p)) for p in flac_paths)
 
 
 def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
