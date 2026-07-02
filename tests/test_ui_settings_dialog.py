@@ -224,13 +224,14 @@ def test_recompress_flac_greyed_under_cyanrip(qapp: QApplication) -> None:
 
 
 def test_secure_rerip_reflects_config_and_round_trips(qapp: QApplication) -> None:
-    # Defaults OFF (0) and reflects the incoming config…
+    # Defaults to 2 (the shipped default — dynamic secure re-rip is active out of
+    # the box) and reflects the incoming config…
     dialog = SettingsDialog(Config())
-    assert dialog._secure_rerip_spin.value() == 0
+    assert dialog._secure_rerip_spin.value() == 2
 
     # …and a user value survives to_config().
-    dialog2 = SettingsDialog(Config(secure_rerip_matches=2))
-    assert dialog2._secure_rerip_spin.value() == 2
+    dialog2 = SettingsDialog(Config(secure_rerip_matches=5))
+    assert dialog2._secure_rerip_spin.value() == 5
     dialog2._secure_rerip_spin.setValue(3)
     assert dialog2.to_config().secure_rerip_matches == 3
 

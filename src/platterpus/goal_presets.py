@@ -59,7 +59,7 @@ PRESETS: dict[str, GoalPreset] = {
         ctdb_verify_after_rip=True,
         verify_flac_after_rip=True,
         recompress_flac_after_rip=False,
-        secure_rerip_matches=0,
+        secure_rerip_matches=2,
         read_speed_mode="auto_ladder",
     ),
     GOAL_ARCHIVAL: GoalPreset(
@@ -67,7 +67,7 @@ PRESETS: dict[str, GoalPreset] = {
         ctdb_verify_after_rip=True,
         verify_flac_after_rip=True,
         recompress_flac_after_rip=True,
-        secure_rerip_matches=0,
+        secure_rerip_matches=2,
         read_speed_mode="auto_ladder",
     ),
     GOAL_PORTABLE: GoalPreset(
@@ -75,7 +75,7 @@ PRESETS: dict[str, GoalPreset] = {
         ctdb_verify_after_rip=True,
         verify_flac_after_rip=True,
         recompress_flac_after_rip=False,
-        secure_rerip_matches=0,
+        secure_rerip_matches=2,
         read_speed_mode="auto_ladder",
     ),
 }

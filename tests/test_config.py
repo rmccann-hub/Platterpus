@@ -355,3 +355,12 @@ def test_v5_config_upgrades_to_v6_with_dynamic_default(
     assert cfg.schema_version == SCHEMA_VERSION
     assert cfg.secure_rerip_dynamic is True
     assert cfg.secure_rerip_matches == 0  # saved value preserved
+
+
+def test_fresh_config_defaults_enable_dynamic_secure_rerip() -> None:
+    """The shipped default must make the dynamic secure re-rip actually run —
+    the worker gates it on secure_rerip_matches > 0 AND secure_rerip_dynamic, so
+    a fresh install with -Z at 0 would leave the headline feature inert."""
+    cfg = config_module.Config()
+    assert cfg.secure_rerip_dynamic is True
+    assert cfg.secure_rerip_matches == 2  # > 0 → dynamic path is active

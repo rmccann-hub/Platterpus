@@ -173,9 +173,13 @@ class Config:
     # track whose read doesn't match the AccurateRip consensus. It's the CEILING
     # of effort spent on such a track (the user's number IS the max; the only hard
     # cap is the Settings spinner's range). 0 = OFF (accept the fast read even if
-    # it doesn't verify); 2 is the useful floor when enabled. The default is 0 and
-    # is set per goal preset. **cyanrip ONLY** — whipper has no equivalent.
-    secure_rerip_matches: int = 0
+    # it doesn't verify); 2 is the useful floor. The default is **2** — combined
+    # with `secure_rerip_dynamic` (below, default True), a fresh install rips fast
+    # and then secures ONLY the AccurateRip-failing tracks up to 2 agreeing reads,
+    # so "verification is paramount" holds out of the box (the dynamic path is
+    # inert at 0). An existing config keeps whatever value it saved. **cyanrip
+    # ONLY** — whipper had no equivalent.
+    secure_rerip_matches: int = 2
 
     # Dynamic secure re-rip (default True — the behaviour, not a toggle): rip the
     # disc once FAST (no `-Z`), then secure-re-rip ONLY the tracks that don't match
@@ -372,11 +376,12 @@ def _migrate(raw: dict) -> dict:
 
     if version < 6:
         # v5→v6: dynamic secure re-rip is now how ripping works (secure only the
-        # tracks that don't match AccurateRip, not every track), and `-Z`'s default
-        # became 2. An upgrading config KEEPS its saved `secure_rerip_matches` (so
-        # a user who had it off stays off); the new `secure_rerip_dynamic` field
-        # fills its default (True) on load. No value transform needed; bump the
-        # version so the record stays explicit.
+        # tracks that don't match AccurateRip, not every track). A fresh install's
+        # `-Z` default is 2 (see the dataclass), so the dynamic path is active out
+        # of the box. An upgrading config KEEPS its saved `secure_rerip_matches`
+        # (a user who deliberately set a value — including 0/off — stays there);
+        # the new `secure_rerip_dynamic` field fills its default (True) on load.
+        # No value transform needed; bump the version so the record stays explicit.
         raw["schema_version"] = 6
         version = 6
 

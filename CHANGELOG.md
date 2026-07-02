@@ -22,10 +22,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   first read is already proven bit-perfect, so re-reading it is wasted time). This
   used to be an opt-in checkbox; it's now the default behaviour with no toggle —
   the dialog clutter is gone (a power user can still force `-Z` on every track by
-  hand-editing `secure_rerip_dynamic = false` in `config.toml`). On a clean disc
-  that's a single fast pass (roughly real-time, no ballooning ETA); marginal or
-  not-in-database tracks still get the full secure treatment. The re-rip reason
-  (`instability` vs `accuraterip`) is recorded per track in the report's
+  hand-editing `secure_rerip_dynamic = false` in `config.toml`). It's **on by
+  default** — a fresh install ships with the re-read ceiling (`-Z`) at 2, so the
+  secure re-rip actually runs (at 0 the whole feature would be inert). On a clean
+  disc that's a single fast pass (roughly real-time, no ballooning ETA); a disc
+  in AccurateRip whose few tracks didn't match gets those secured, while a disc
+  that isn't in AccurateRip at all keeps its fast read (there's no database
+  consensus to verify against, so a re-rip couldn't prove anything). The re-rip
+  reason (`instability` vs `accuraterip`) is recorded per track in the report's
   `read_speed.retried_tracks`.
 - **The number you set is a *ceiling*, not a tax.** The "Max reads to confirm a
   shaky track" setting (cyanrip's `-Z`) is now the *most* effort spent on an
