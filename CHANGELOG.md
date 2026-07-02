@@ -103,6 +103,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **A slow MusicBrainz lookup can't tag the *next* disc with the previous
+  disc's album.** MusicBrainz lookups run in the background; if you swapped discs
+  before a lookup finished, the late result (release candidates or the fetched
+  release detail) could repopulate the new disc's tracks and release-id — tagging
+  the new disc with the *previous* disc's metadata. Every lookup now carries the
+  disc-id it was fired for, and a result whose disc-id no longer matches the disc
+  on screen is dropped (the same staleness guard the disc probe already had).
 - **A previous album's verification can't land in the next album's report.** The
   post-rip checks (CTDB, FLAC-integrity, transcode, per-file checksums, derived-
   file verify) run in the background and can outlast the rip; if you started a

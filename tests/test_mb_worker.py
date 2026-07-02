@@ -83,15 +83,23 @@ class _FakeClient(MusicBrainzClient):
 
 
 class _Signals:
+    """Collects worker signals. Each now leads with a `context` string (the
+    disc-id echo, the wrong-album staleness guard); we store it alongside the
+    payload so tests can assert the echo."""
+
     def __init__(self) -> None:
-        self.releases_returned: list[list[ReleaseSummary]] = []
-        self.release_returned: list[ReleaseDetail] = []
-        self.errors: list[str] = []
+        self.releases_returned: list[tuple[str, list[ReleaseSummary]]] = []
+        self.release_returned: list[tuple[str, ReleaseDetail]] = []
+        self.errors: list[tuple[str, str]] = []
 
     def attach(self, worker: MusicBrainzWorker) -> None:
-        worker.releases_returned.connect(self.releases_returned.append)
-        worker.release_returned.connect(self.release_returned.append)
-        worker.error.connect(self.errors.append)
+        worker.releases_returned.connect(
+            lambda ctx, rel: self.releases_returned.append((ctx, rel))
+        )
+        worker.release_returned.connect(
+            lambda ctx, det: self.release_returned.append((ctx, det))
+        )
+        worker.error.connect(lambda ctx, msg: self.errors.append((ctx, msg)))
 
 
 def _summary(mbid: str = "x") -> ReleaseSummary:
@@ -121,7 +129,9 @@ def test_lookup_disc_id_emits_releases(
 
     assert client.disc_id_calls == ["any-disc"]
     assert len(sigs.releases_returned) == 1
-    assert [r.mbid for r in sigs.releases_returned[0]] == ["a", "b"]
+    context, releases = sigs.releases_returned[0]
+    assert context == "any-disc"  # the disc-id is echoed as the result context
+    assert [r.mbid for r in releases] == ["a", "b"]
     assert sigs.errors == []
 
 
@@ -137,7 +147,7 @@ def test_lookup_disc_id_emits_error_on_failure(
     worker.lookup_disc_id("any-disc")
 
     assert sigs.releases_returned == []
-    assert sigs.errors == ["network down"]
+    assert sigs.errors == [("any-disc", "network down")]  # context echoed
 
 
 def test_lookup_disc_id_empty_result_still_emits(
@@ -152,7 +162,7 @@ def test_lookup_disc_id_empty_result_still_emits(
 
     worker.lookup_disc_id("nothing")
 
-    assert sigs.releases_returned == [[]]
+    assert sigs.releases_returned == [("nothing", [])]
     assert sigs.errors == []
 
 
@@ -174,10 +184,12 @@ def test_lookup_toc_passes_signature_through(
         lead_out_sector=12345,
         track_offsets=(150, 4567),
     )
-    worker.lookup_toc(toc)
+    worker.lookup_toc(toc, "disc-ctx")
 
     assert client.toc_calls == [toc]
-    assert [r.mbid for r in sigs.releases_returned[0]] == ["toc-match"]
+    context, releases = sigs.releases_returned[0]
+    assert context == "disc-ctx"  # the passed context is echoed back
+    assert [r.mbid for r in releases] == ["toc-match"]
 
 
 def test_lookup_toc_emits_error_on_failure(
@@ -189,9 +201,9 @@ def test_lookup_toc_emits_error_on_failure(
     sigs = _Signals()
     sigs.attach(worker)
 
-    worker.lookup_toc(TocSignature(1, 1, 100, (150,)))
+    worker.lookup_toc(TocSignature(1, 1, 100, (150,)), "disc-ctx")
 
-    assert sigs.errors == ["rate limited"]
+    assert sigs.errors == [("disc-ctx", "rate limited")]
     assert sigs.releases_returned == []
 
 
@@ -207,11 +219,13 @@ def test_fetch_release_emits_release_detail(
     sigs = _Signals()
     sigs.attach(worker)
 
-    worker.fetch_release("some-mbid")
+    worker.fetch_release("some-mbid", "disc-ctx")
 
     assert client.mbid_calls == ["some-mbid"]
     assert len(sigs.release_returned) == 1
-    assert sigs.release_returned[0].tracks[0].title == "Track 1"
+    context, detail = sigs.release_returned[0]
+    assert context == "disc-ctx"  # the passed context is echoed back
+    assert detail.tracks[0].title == "Track 1"
 
 
 def test_fetch_release_emits_error_on_failure(
@@ -223,7 +237,7 @@ def test_fetch_release_emits_error_on_failure(
     sigs = _Signals()
     sigs.attach(worker)
 
-    worker.fetch_release("any-mbid")
+    worker.fetch_release("any-mbid", "disc-ctx")
 
-    assert sigs.errors == ["server gone"]
+    assert sigs.errors == [("disc-ctx", "server gone")]
     assert sigs.release_returned == []

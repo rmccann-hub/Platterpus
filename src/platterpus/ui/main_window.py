@@ -132,7 +132,9 @@ class MainWindow(
     # thread regardless of moveToThread — freezing the window on a slow lookup.
     # Connected to the worker's slots in __init__ (queued, cross-thread).
     _mb_lookup_disc_id_requested = Signal(str)
-    _mb_fetch_release_requested = Signal(str)
+    # (mbid, context) — context is the disc-id the fetch belongs to, echoed back
+    # so a late fetch for an already-ejected disc is dropped (wrong-album guard).
+    _mb_fetch_release_requested = Signal(str, str)
 
     def __init__(
         self,
@@ -182,6 +184,13 @@ class MainWindow(
         self._current_release_id: str = ""
         self._current_release_detail: ReleaseDetail | None = None
         self._last_mb_releases: list[ReleaseSummary] = []
+        # The disc-id of the disc currently on screen. MB lookups echo the
+        # disc-id they were fired for; a returned result whose context doesn't
+        # match this is stale (from a disc the user already swapped away from)
+        # and is dropped, so a slow lookup can't tag the *next* disc with the
+        # *previous* disc's release. Set when a probe identifies a disc, cleared
+        # at the start of every new scan.
+        self._current_disc_id: str = ""
         # Track count for the current disc (from whipper cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
@@ -661,6 +670,11 @@ class MainWindow(
         # unknown, so resetting here (before the lookup) is safe.
         self._rip_controls.set_unknown_mode(False)
 
+        # Clear the current disc-id so any MB lookup still in flight for the
+        # *previous* disc is dropped when it lands (its echoed context won't
+        # match ""). The new disc's probe sets this again once it identifies it.
+        self._current_disc_id = ""
+
         # Supersede any in-flight probe. DISCONNECT its result signals first so a
         # late finish (even for the SAME device — the device-only stale check
         # can't tell two probes of one drive apart) can't clobber the new probe's
@@ -704,6 +718,10 @@ class MainWindow(
         # rows if MusicBrainz turns up nothing.
         self._current_num_tracks = info.num_tracks
         if info.musicbrainz_disc_id:
+            # Remember which disc the upcoming lookup belongs to; its result
+            # (and any follow-on release fetch) echoes this back, and a
+            # mismatch on return means the user moved on — drop it.
+            self._current_disc_id = info.musicbrainz_disc_id
             self._disc_info_panel.set_mb_loading()
             # Run the MB query on the worker thread (emit, don't call — a direct
             # call would run on this GUI thread). A 0-result response routes to
@@ -756,34 +774,56 @@ class MainWindow(
 
     # --- Slots: MusicBrainz results ----------------------------------------
 
-    def _on_mb_releases(self, releases: list[ReleaseSummary]) -> None:
+    def _is_stale_mb_result(self, context: str) -> bool:
+        """True if an MB result is for a disc the user already left.
+
+        MB queries are async: a lookup fired for disc A can return *after* the
+        user swapped to disc B. Each result echoes the disc-id it was fired for
+        (`context`); if that no longer matches the disc on screen, applying it
+        would tag the current disc with the previous disc's release — the
+        wrong-album bug. Mirror of `_is_stale_disc_result`, for the MB path.
+        """
+        return context != self._current_disc_id
+
+    def _on_mb_releases(self, context: str, releases: list[ReleaseSummary]) -> None:
         """MB lookup returned candidates."""
+        if self._is_stale_mb_result(context):
+            log.debug("dropping stale MB releases for disc %r", context)
+            return
         self._last_mb_releases = list(releases)
         self._disc_info_panel.set_mb_matches(releases)
 
         if len(releases) == 1:
-            self._fetch_release_detail(releases[0].mbid)
+            self._fetch_release_detail(releases[0].mbid, context)
         elif len(releases) > 1:
             # Defer to user. The picker is modal; we block here briefly
-            # to keep the flow linear.
+            # to keep the flow linear. Capture `context` locally and thread it
+            # into the fetch — the modal runs a nested event loop, so the disc
+            # could change mid-dialog; the fetch must stay tagged to *this* disc.
             dialog = ReleasePickerDialog(releases, self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 mbid = dialog.selected_mbid()
                 if mbid:
-                    self._fetch_release_detail(mbid)
+                    self._fetch_release_detail(mbid, context)
         else:
             # 0 matches: the disc had a MusicBrainz disc ID but no release
             # is registered for it. Same outcome as a disc with no ID —
             # show blank track rows and offer the unknown-album rip.
             self._handle_no_mb_match()
 
-    def _on_mb_release_detail(self, detail: ReleaseDetail) -> None:
+    def _on_mb_release_detail(self, context: str, detail: ReleaseDetail) -> None:
+        if self._is_stale_mb_result(context):
+            log.debug("dropping stale MB release detail for disc %r", context)
+            return
         self._current_release_detail = detail
         self._current_release_id = detail.summary.mbid
         self._track_table.set_release(detail)
         self._rip_controls.set_release_id(detail.summary.mbid)
 
-    def _on_mb_error(self, message: str) -> None:
+    def _on_mb_error(self, context: str, message: str) -> None:
+        if self._is_stale_mb_result(context):
+            log.debug("dropping stale MB error for disc %r: %s", context, message)
+            return
         log.warning("MB worker error: %s", message)
         self._disc_info_panel.set_mb_error(message)
         # A lookup *failure* (network down, TLS error, rate limit) must not
@@ -809,9 +849,11 @@ class MainWindow(
         if not self._rip_controls.is_unknown_mode():
             self.open_unknown_album_dialog()
 
-    def _fetch_release_detail(self, mbid: str) -> None:
-        # Emit (don't call) so the fetch runs on the MB worker thread.
-        self._mb_fetch_release_requested.emit(mbid)
+    def _fetch_release_detail(self, mbid: str, context: str) -> None:
+        # Emit (don't call) so the fetch runs on the MB worker thread. `context`
+        # (the disc-id) rides along and is echoed back, so a fetch that finishes
+        # after the user swapped discs is dropped rather than tagging the new one.
+        self._mb_fetch_release_requested.emit(mbid, context)
 
     # --- Slots: menu actions -----------------------------------------------
 
