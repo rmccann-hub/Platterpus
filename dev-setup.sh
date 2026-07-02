@@ -100,7 +100,7 @@ Exec=$REPO_ROOT/.venv/bin/platterpus
 Icon=media-optical
 Terminal=false
 Categories=AudioVideo;Audio;DiscBurning;
-Keywords=cd;rip;flac;audio;whipper;musicbrainz;
+Keywords=cd;rip;flac;audio;cyanrip;musicbrainz;
 DESKTOP
 # Refresh the desktop caches so the entry shows up without a re-login.
 # update-desktop-database handles the freedesktop MIME cache, but KDE
