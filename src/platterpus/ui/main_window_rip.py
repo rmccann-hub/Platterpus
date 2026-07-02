@@ -180,7 +180,13 @@ class RipMixin:
         self._last_ctdb_result = None
         self._last_flac_verify_result = None
         self._last_transcode_result = None
+        self._last_derived_verify_result = None
         self._last_checksums = None
+        # Rip generation, bumped every Start. Each post-rip verify daemon captures
+        # the generation it launched under and drops its result if a NEWER rip has
+        # started since — so a slow verify from album A (FLAC-verify waits up to
+        # 120s) can't write its verdict into album B's report/UI after B begins.
+        self._rip_generation += 1
         # Allow exactly one auto-heal retry (rip-as-unknown) per Start, so a
         # persistent failure can't loop.
         self._auto_retry_done = False
@@ -831,6 +837,7 @@ class RipMixin:
         emit (the same pattern the cover-art fetch always used). Tests join the
         handle on ``self._post_rip_thread`` for determinism.
         """
+        gen = self._rip_generation  # drop the transcode result if a newer rip starts
 
         def work() -> None:
             # 0) Restore the real ':' in cyanrip's tags (it was fed the ∶
@@ -902,6 +909,8 @@ class RipMixin:
                 except Exception:  # noqa: BLE001 — must never crash the GUI
                     log.exception("transcode failed unexpectedly")
                     tresult = TranscodeResult(error="failed unexpectedly")
+                if self._rip_generation != gen:
+                    return  # a newer rip started — this result is for the old album
                 try:
                     self.transcode_done.emit(tresult)
                 except RuntimeError:  # window destroyed — nothing to update
@@ -944,8 +953,12 @@ class RipMixin:
         verdict is reported via ``ctdb_verify_done`` (queued to the GUI thread).
         """
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             result = verify_rip_dir(self._ctdb_client, rip_dir, wait_for=wait_for)
+            if self._rip_generation != gen:
+                return  # a newer rip started — this verdict is for the old album
             try:
                 self.ctdb_verify_done.emit(result)
             except RuntimeError:  # window already destroyed — nothing to update
@@ -1213,10 +1226,14 @@ class RipMixin:
         """
         from platterpus import checksums
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             if wait_for is not None:
                 wait_for.join(timeout=_CHECKSUM_SETTLE_TIMEOUT_S)
             digests = checksums.compute_digests(rip_dir)
+            if self._rip_generation != gen:
+                return  # a newer rip started — these digests are for the old album
             try:
                 self.checksums_done.emit(digests)
             except RuntimeError:  # window already destroyed — nothing to update
@@ -1247,8 +1264,12 @@ class RipMixin:
         never tests a file mid-rewrite. Result reported via ``flac_verify_done``
         (queued to the GUI thread)."""
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             result = verify_flac_dir(rip_dir, wait_for=wait_for)
+            if self._rip_generation != gen:
+                return  # a newer rip started — this result is for the old album
             try:
                 self.flac_verify_done.emit(result)
             except RuntimeError:  # window already destroyed — nothing to update
@@ -1364,8 +1385,12 @@ class RipMixin:
         file mid-write. Result reported via ``derived_verify_done`` (queued to the
         GUI thread)."""
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             result = verify_derived_dir(rip_dir, fmt, wait_for=wait_for)
+            if self._rip_generation != gen:
+                return  # a newer rip started — this result is for the old album
             try:
                 self.derived_verify_done.emit(result)
             except RuntimeError:  # window already destroyed — nothing to update

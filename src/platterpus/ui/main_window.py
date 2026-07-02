@@ -335,6 +335,10 @@ class MainWindow(
         # Stored so tests can join it. The last result is folded into the report.
         self._derived_verify_thread: threading.Thread | None = None
         self._last_derived_verify_result: object | None = None
+        # Rip generation, bumped on each Start (see main_window_rip). Post-rip
+        # verify daemons capture it and drop their result if a newer rip has begun
+        # since, so a previous album's late verify can't contaminate this one.
+        self._rip_generation: int = 0
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
         # once per session (refreshing shouldn't re-pop the dialog).
         self._drive_access_nudged: bool = False
