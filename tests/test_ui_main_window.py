@@ -1353,6 +1353,33 @@ def test_unknown_rip_finish_runs_tag_post_processing(
     assert window._active_rip_params is None  # cleared for the next rip (sync)
 
 
+def test_finish_handler_survives_non_utf8_log(teardown_threads, tmp_path: Path) -> None:
+    """Regression: a rip log with a stray non-UTF-8 byte must not crash the
+    finish handler. It runs on the GUI thread; a UnicodeDecodeError used to
+    escape the `except OSError`, abort the whole post-rip chain, and leave the
+    rip state uncleared (so shutdown thought a rip was still live)."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    # Invalid UTF-8 (a lone 0xFF/0x80) amid otherwise plausible cyanrip text.
+    log_file.write_bytes(b"cyanrip log\nEAC CRC32: \xff\x80 DEADBEEF\n")
+
+    # Must not raise, and must complete the handler (state cleared).
+    window._on_rip_finished(True, str(log_file))
+
+    assert window._active_rip_params is None  # chain completed, state cleared
+    assert window._rip_thread is None
+
+
 def test_unknown_rip_tagging_runs_off_the_gui_thread(
     teardown_threads, tmp_path: Path
 ) -> None:

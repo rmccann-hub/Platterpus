@@ -504,7 +504,14 @@ class RipMixin:
             self._rip_progress.set_log_path(log_file)
             # Parse and render AR results if the file exists.
             try:
-                text = log_file.read_text(encoding="utf-8")
+                # errors="replace" (matching the worker's own _parse_log): a rip
+                # log with a stray non-UTF-8 byte must NOT raise here — this runs
+                # on the GUI thread, and a UnicodeDecodeError (a ValueError, which
+                # the old `except OSError` didn't catch) would crash the finish
+                # handler and abort the entire post-rip chain (no report, no
+                # tagging, no cover art, no eject, and the rip state left uncleared
+                # so shutdown thinks a rip is still live).
+                text = log_file.read_text(encoding="utf-8", errors="replace")
                 # Sniff the format instead of trusting the configured
                 # backend: a folder can hold logs from either ripper, and
                 # the auto-heal path can change mid-session.
@@ -537,6 +544,12 @@ class RipMixin:
                 self._append_read_speed_summary()
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
+            except Exception:  # noqa: BLE001 — GUI-thread finish handler: a
+                # malformed log or a parser/report edge must never crash the
+                # finish handler (which would abort the whole post-rip chain and
+                # leave the rip state uncleared). Log and continue; the rest of
+                # the chain (tagging, cover art, verify, eject, state clear) runs.
+                log.exception("rendering rip results failed for %s", log_file)
 
         # Post-rip processing: unknown-mode tagging + backend-independent
         # cover art. Both shell out to metaflac on the SAME FLAC files, so
