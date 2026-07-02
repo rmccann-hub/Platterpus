@@ -144,7 +144,9 @@ def test_force_stop_does_not_broadly_pkill_when_device_scoped_kill_works() -> No
     assert cmds[0] == "fuser"  # the precise, device-scoped kill went first
 
 
-def test_force_stop_falls_back_to_broad_pkill_then_container_when_fuser_misses() -> None:
+def test_force_stop_falls_back_to_broad_pkill_then_container_when_fuser_misses() -> (
+    None
+):
     # rc 1 everywhere → fuser catches nothing → broad host pkills → distrobox.
     rec = _Recorder(returncode=1)
     drive_control.force_stop_drive("/dev/sr0", runner=rec)

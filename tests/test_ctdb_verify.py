@@ -34,7 +34,9 @@ def test_streaming_crc_equals_whole_buffer_crc() -> None:
         b"".join(chunks)
     )
     # An empty disc folds to the empty-input CRC (0), and a generator works too.
-    assert crc_mod.ctdb_crc_offset0_streaming(iter(())) == (zlib.crc32(b"") & 0xFFFFFFFF)
+    assert crc_mod.ctdb_crc_offset0_streaming(iter(())) == (
+        zlib.crc32(b"") & 0xFFFFFFFF
+    )
     assert crc_mod.ctdb_crc_offset0_streaming(iter([b"abc"])) == (
         zlib.crc32(b"abc") & 0xFFFFFFFF
     )

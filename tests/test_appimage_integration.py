@@ -223,7 +223,7 @@ def test_desktop_exec_escapes_reserved_characters(tmp_path: Path) -> None:
     )
     # Each reserved char is backslash-escaped inside the quotes; the raw
     # unescaped forms ($HOME as a bare $, a bare backtick) do not appear.
-    assert '\\$' in exec_line and '\\`' in exec_line and '\\"' in exec_line
+    assert "\\$" in exec_line and "\\`" in exec_line and '\\"' in exec_line
     assert "\\\\" in exec_line  # the backslash in the path is escaped too
     # And the entry is still recognized as integrating THIS appimage.
     assert ai.is_integrated(appimage, desktop_dir) is True
