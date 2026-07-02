@@ -109,13 +109,28 @@ class TranscodeResult:
 
 
 def _default_runner(argv: list[str]) -> int:
+    """Run ffmpeg, capturing its stderr so a failure's *reason* reaches the log.
+
+    CLAUDE.md (validate every dependency output): when a dependency fails, capture
+    its error output — never swallow it. ffmpeg is chatty on stdout (progress), so
+    that's still discarded; only stderr (where it prints the actual error) is kept,
+    and only the tail is logged on a non-zero exit so a broken transcode is
+    diagnosable from the log file.
+    """
     proc = subprocess.run(
         argv,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
         timeout=_TIMEOUT_S,
+        text=True,
     )
+    if proc.returncode != 0:
+        stderr_lines = (proc.stderr or "").strip().splitlines()
+        tail = (
+            " / ".join(stderr_lines[-3:]) if stderr_lines else f"rc={proc.returncode}"
+        )
+        log.warning("ffmpeg failed (rc=%s): %s", proc.returncode, tail)
     return proc.returncode
 
 

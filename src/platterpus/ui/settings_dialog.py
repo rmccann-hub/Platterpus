@@ -28,15 +28,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus import goal_presets, naming, offset_config
+from platterpus import goal_presets, naming, offset_config, settings_validation
 from platterpus.config import Config
+from platterpus.settings_validation import ValidationIssue
 from platterpus.ui.dialogs.centering import CenteredDialog
-
-# Read offset range. AccurateRip's per-drive offsets are typically in
-# the low hundreds of samples; ±5000 is well outside any realistic
-# value and prevents typos like "60000".
-_OFFSET_MIN: int = -5000
-_OFFSET_MAX: int = 5000
 
 
 class SettingsDialog(CenteredDialog):
@@ -142,7 +137,12 @@ class SettingsDialog(CenteredDialog):
         #      `-s`). cyanrip needs the offset every run; it has no config file
         #      of its own, so this value is the single source.
         self._read_offset_spin: QSpinBox = QSpinBox(self)
-        self._read_offset_spin.setRange(_OFFSET_MIN, _OFFSET_MAX)
+        # Range comes from settings_validation (the single source of truth) so the
+        # widget bound and the validator can never drift. AccurateRip offsets are
+        # in the low hundreds of samples; ±5000 blocks typos like "60000".
+        self._read_offset_spin.setRange(
+            settings_validation.OFFSET_MIN, settings_validation.OFFSET_MAX
+        )
         self._read_offset_spin.setValue(config.read_offset)
         self._read_offset_spin.setToolTip(
             "Read offset in samples (signed). Tick Apply to use this value for "
@@ -283,7 +283,9 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Cover art:", self._cover_art_combo)
 
         self._max_retries_spin: QSpinBox = QSpinBox(self)
-        self._max_retries_spin.setRange(0, 100)
+        self._max_retries_spin.setRange(
+            settings_validation.MAX_RETRIES_MIN, settings_validation.MAX_RETRIES_MAX
+        )
         self._max_retries_spin.setValue(config.max_retries)
         self._max_retries_spin.setToolTip(
             "How many times the ripper retries a troublesome track before "
@@ -292,47 +294,26 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Max retries:", self._max_retries_spin)
 
         # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
-        # Re-rip each track until N reads' checksums agree, so a damaged disc's
-        # near-miss read converges to the bit-perfect result. 0 = off.
+        # Secure re-rip effort: the MAX number of reads to spend confirming a
+        # track that doesn't match AccurateRip. Ripping is always "dynamic" now —
+        # a track that matches the database on its first read is kept as-is; only
+        # an unproven track is re-read (up to this many agreeing reads). So this is
+        # a ceiling, not a per-track tax, and there's no separate on/off toggle.
         self._secure_rerip_spin: QSpinBox = QSpinBox(self)
-        self._secure_rerip_spin.setRange(0, 10)
+        self._secure_rerip_spin.setRange(
+            settings_validation.SECURE_REREP_MIN, settings_validation.SECURE_REREP_MAX
+        )
         self._secure_rerip_spin.setValue(config.secure_rerip_matches)
         self._secure_rerip_spin.setSpecialValueText("Off")  # shown when value is 0
         self._secure_rerip_spin.setToolTip(
-            "For damaged or marginal discs: re-rip each track until this many "
-            "reads produce the same checksum (cyanrip's -Z). This makes a "
-            "shaky read converge to the bit-perfect result, at the cost of "
-            "time. 0 (Off) is right for clean discs — the normal secure read "
-            "(paranoia + retries) already handles those. Try 2 if a track "
-            "won't verify against AccurateRip."
+            "The MOST reads to spend confirming a track that doesn't match the "
+            "AccurateRip database (cyanrip's -Z). Platterpus rips the disc once at "
+            "full speed and only re-reads a track that didn't verify, until this "
+            "many reads agree — the number you pick is the ceiling. 2 is a good "
+            "value; 0 (Off) accepts the fast read even when it can't be verified. "
+            "Clean, in-database discs finish in one fast pass either way."
         )
-        form.addRow("Re-rip until reads match:", self._secure_rerip_spin)
-
-        # Dynamic secure-rerip (0.4.9): apply the -Z re-rip ONLY to tracks that
-        # don't match AccurateRip, instead of to every track. Off by default
-        # (today's behaviour). Only meaningful when the -Z level above is > 0.
-        self._secure_rerip_dynamic_check: QCheckBox = QCheckBox(
-            "Only when needed — secure just the tracks that don't match AccurateRip",
-            self,
-        )
-        self._secure_rerip_dynamic_check.setChecked(config.secure_rerip_dynamic)
-        self._secure_rerip_dynamic_check.setAccessibleName(
-            "Dynamic secure re-rip (only unverified tracks)"
-        )
-        self._secure_rerip_dynamic_check.setToolTip(
-            "Rip the disc once at full speed, then secure-re-rip ONLY the tracks "
-            "that didn't match the AccurateRip database — a track that matched on "
-            "its first read is already proven bit-perfect, so re-reading it is "
-            "wasted time. Much faster on a clean disc; marginal tracks still get "
-            "the full secure treatment. Applies only when 'Re-rip until reads "
-            "match' above is on."
-        )
-        form.addRow("", self._secure_rerip_dynamic_check)
-        # The dynamic option only means anything when -Z is on; grey it out at 0.
-        self._secure_rerip_spin.valueChanged.connect(
-            self._update_secure_rerip_dynamic_enabled
-        )
-        self._update_secure_rerip_dynamic_enabled()
+        form.addRow("Max reads to confirm a shaky track:", self._secure_rerip_spin)
 
         # --- Adaptive read-speed ladder (headline, 0.4.6) ---
         # "Adaptive ladder" (default): rip fast, and only if a disc reads with
@@ -359,7 +340,9 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Read speed:", self._read_speed_mode_combo)
 
         self._read_speed_spin: QSpinBox = QSpinBox(self)
-        self._read_speed_spin.setRange(0, 72)  # 0 = drive max; CD ×-speeds
+        self._read_speed_spin.setRange(  # 0 = drive max; CD ×-speeds
+            settings_validation.READ_SPEED_MIN, settings_validation.READ_SPEED_MAX
+        )
         self._read_speed_spin.setValue(config.read_speed)
         self._read_speed_spin.setAccessibleName("Fixed read speed (drive multiplier)")
         self._read_speed_spin.setSpecialValueText("Max")  # shown when value is 0
@@ -428,6 +411,42 @@ class SettingsDialog(CenteredDialog):
 
         root.addLayout(form)
 
+        # --- Live input validation (visible errors during the change) ---
+        # A banner that lists what's wrong with the current inputs and marks the
+        # offending fields — required by CLAUDE.md's "validate every input" rule
+        # (visible error at the point of entry + logged on save). The heavy
+        # lifting is a pure, tested validator (settings_validation); this label is
+        # just its view. Starts hidden and only appears when something's off.
+        self._validation_label: QLabel = QLabel("", self)
+        self._validation_label.setWordWrap(True)
+        self._validation_label.setAccessibleName("Settings validation messages")
+        self._validation_label.setVisible(False)
+        root.addWidget(self._validation_label)
+
+        # Map each validated free-text field to its widget, so an issue can mark
+        # the exact row the user needs to fix. (Spinboxes/combos can't produce an
+        # invalid value through the UI, so only the free-text edits are marked.)
+        self._validated_widgets: dict[str, QWidget] = {
+            "output_dir": self._output_dir_edit,
+            "working_dir": self._working_dir_edit,
+            "track_template": self._track_template_edit,
+            "disc_template": self._disc_template_edit,
+            "track_template_unknown": self._track_template_unknown_edit,
+            "disc_template_unknown": self._disc_template_unknown_edit,
+            "metaflac_path": self._metaflac_path_edit,
+        }
+        # Re-validate as the user edits any free-text field, so the error shows
+        # up *during* the change (the two known-disc templates already have a
+        # textChanged slot — _on_template_text_changed calls _revalidate too).
+        for edit in (
+            self._output_dir_edit,
+            self._working_dir_edit,
+            self._track_template_unknown_edit,
+            self._disc_template_unknown_edit,
+            self._metaflac_path_edit,
+        ):
+            edit.textChanged.connect(self._revalidate)
+
         # --- Goal preset wiring (after all dependent widgets exist) ---
         self._wire_goal_presets()
 
@@ -447,6 +466,10 @@ class SettingsDialog(CenteredDialog):
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         root.addWidget(button_box)
+
+        # Validate the incoming config once so a hand-edited/invalid config.toml
+        # surfaces its errors the moment Settings opens, not only on save.
+        self._revalidate()
 
     # --- Public surface -----------------------------------------------------
 
@@ -473,7 +496,9 @@ class SettingsDialog(CenteredDialog):
             cover_art=self._cover_art_combo.currentData(),
             max_retries=self._max_retries_spin.value(),
             secure_rerip_matches=self._secure_rerip_spin.value(),
-            secure_rerip_dynamic=self._secure_rerip_dynamic_check.isChecked(),
+            # Dynamic secure re-rip is the behaviour now, not a UI toggle — carry
+            # the stored value through unchanged (a power user can flip it in TOML).
+            secure_rerip_dynamic=self._config.secure_rerip_dynamic,
             read_speed_mode=self._read_speed_mode_combo.currentData(),
             read_speed=self._read_speed_spin.value(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),
@@ -507,11 +532,6 @@ class SettingsDialog(CenteredDialog):
             self._read_speed_mode_combo.currentData() == "fixed"
         )
 
-    def _update_secure_rerip_dynamic_enabled(self) -> None:
-        """The 'only when needed' (dynamic) option is meaningful only when secure
-        re-rip is on (-Z > 0); grey it out when re-rip is Off."""
-        self._secure_rerip_dynamic_check.setEnabled(self._secure_rerip_spin.value() > 0)
-
     # --- Naming presets ----------------------------------------------------
 
     def _on_naming_preset_chosen(self) -> None:
@@ -536,9 +556,58 @@ class SettingsDialog(CenteredDialog):
         self._refresh_naming_preview()
 
     def _on_template_text_changed(self) -> None:
-        """A hand-edit of either template re-syncs the combo and the preview."""
+        """A hand-edit of either template re-syncs the combo, preview, and the
+        live validation (so a bad token shows an error as it's typed)."""
         self._sync_naming_combo_to_templates()
         self._refresh_naming_preview()
+        self._revalidate()
+
+    # --- Input validation (visible errors + block-on-save + logging) --------
+
+    def accept(self) -> None:  # noqa: D102 — Qt override
+        """OK pressed. Refuse to save while any input is a hard error — show the
+        errors, mark the fields, and log them (so a bug report carries them).
+        Warnings don't block. A clean/valid dialog accepts exactly as before."""
+        issues = settings_validation.validate_config(self.to_config())
+        if settings_validation.errors_only(issues):
+            settings_validation.log_issues(issues)
+            self._render_validation(issues)
+            return  # keep the dialog open until the errors are fixed
+        super().accept()
+
+    def _revalidate(self) -> None:
+        """Validate the current widget state and show any issues inline. Cheap
+        enough to run on every keystroke (a pure function + a couple of stat
+        calls), which is what makes the error visible *during* the change."""
+        self._render_validation(settings_validation.validate_config(self.to_config()))
+
+    def _render_validation(self, issues: list[ValidationIssue]) -> None:
+        """Paint the validation state: mark offending fields and fill the banner.
+
+        Errors are red, warnings amber; errors are listed first. With no issues
+        the banner hides and every field's mark is cleared."""
+        # Clear all field marks first so a fixed field loses its red border.
+        for widget in self._validated_widgets.values():
+            widget.setStyleSheet("")
+        if not issues:
+            self._validation_label.clear()
+            self._validation_label.setVisible(False)
+            return
+        errors = [i for i in issues if i.is_error()]
+        warnings = [i for i in issues if not i.is_error()]
+        for issue in issues:
+            widget = self._validated_widgets.get(issue.field)
+            if widget is not None:
+                colour = "#c0392b" if issue.is_error() else "#b9770e"
+                widget.setStyleSheet(f"border: 1px solid {colour};")
+        lines = [f"✖ {i.message}" for i in errors] + [
+            f"⚠ {i.message}" for i in warnings
+        ]
+        self._validation_label.setText("\n".join(lines))
+        self._validation_label.setStyleSheet(
+            "color: #c0392b;" if errors else "color: #b9770e;"
+        )
+        self._validation_label.setVisible(True)
 
     def _sync_naming_combo_to_templates(self) -> None:
         """Point the combo at the matching preset, or "Custom" if hand-edited.

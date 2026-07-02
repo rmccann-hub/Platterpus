@@ -484,11 +484,14 @@ class MainWindow(
         # it's intentionally not joined here — it dies with the process and
         # guards its own emit. Joining it would risk blocking close on a long
         # decode; that's exactly why it isn't a QThread (§3.2).
-        # Quitting during a rip force-stops it: cancel() kills the reader
-        # process group (cdparanoia/cyanrip), so the drive isn't left spinning
-        # after the window is gone. This is the "exit = force stop" contract.
-        if self._rip_worker is not None:
-            self._rip_worker.cancel()
+        # Quitting during a rip force-stops it. cancel() alone only kills the
+        # HOST-side wrapper group — podman doesn't forward that into the
+        # container, so the in-container cyanrip kept ripping the next track
+        # until the disc was ejected by hand (real-user report, 2026-07-01).
+        # _stop_rip_on_shutdown() stops the in-container reader SYNCHRONOUSLY
+        # (the app is exiting, so a daemon thread would be killed mid-kill — see
+        # its docstring). This is the "exit = force stop" contract, done right.
+        self._stop_rip_on_shutdown()
         # Flush any debounced rip-report write so closing mid-verify never loses
         # the last result that had been queued for serialization.
         self._flush_rip_report()

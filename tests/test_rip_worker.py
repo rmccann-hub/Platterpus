@@ -437,14 +437,15 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     assert len(backend.rip_calls) == 2
     assert backend.rip_calls[1]["only_tracks"] == (3,)
     assert backend.rip_calls[1]["read_speed"] == 0  # never -S
-    assert backend.rip_calls[1]["secure_rerip_matches"] == 3  # a harder -Z
+    # The re-rip uses the user's configured -Z (their number is the ceiling).
+    assert backend.rip_calls[1]["secure_rerip_matches"] == 2
     # Track 3 was fixed → no longer unstable, recorded as replaced.
     assert worker.unstable_tracks == []
     assert worker.retried_tracks == [
         {
             "track": 3,
             "trigger": "instability",
-            "reripped_z": 3,
+            "reripped_z": 2,
             "converged": True,
             "replaced": True,
         }
@@ -485,7 +486,7 @@ def test_auto_fix_keeps_original_when_rerip_still_unstable(
         {
             "track": 3,
             "trigger": "instability",
-            "reripped_z": 3,
+            "reripped_z": 2,
             "converged": False,
             "replaced": False,
         }

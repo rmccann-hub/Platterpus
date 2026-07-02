@@ -545,6 +545,13 @@ class RipWorker(QObject):
                 current_speed=speed,
                 current_secure_rerip=secure_rerip,
                 speed_locked=self._speed_locked,
+                # The user's -Z is the ceiling when they set one — the ladder never
+                # escalates beyond the number they picked. When they left it at the
+                # default 0 (no secure re-rip requested), the read-error recovery
+                # still needs SOME -Z to try, so fall back to the small internal
+                # recovery bound (MAX_SECURE_REREP — the "like 10" cap the user
+                # explicitly allowed). `0 or MAX_SECURE_REREP` == MAX_SECURE_REREP.
+                max_secure_rerip=self._params.secure_rerip_matches or MAX_SECURE_REREP,
             )
             if step is None:
                 # Floor + -Z exhausted — stop and leave the disc FLAGGED
@@ -566,17 +573,26 @@ class RipWorker(QObject):
         # Neither can make a track worse; skipped entirely in plain fixed mode.
         if success and not self._cancelled:
             if dynamic_secure:
+                # Dynamic mode: secure the AccurateRip-failing tracks at the user's
+                # configured -Z. The `dynamic_secure` gate already guarantees
+                # secure_rerip_matches > 0, so this is always a real -Z. Their
+                # number is the max — we never invent a harder value.
                 to_fix = tracks_failing_accuraterip(parsed_log)
-                rerip_z = max(self._params.secure_rerip_matches, 2)
                 trigger = "accuraterip"
+                rerip_z = self._params.secure_rerip_matches
             elif auto_ladder:
+                # Recovery: an unstable track (a -Z pass that never converged) is
+                # re-read alone HARDER. It NEEDS a -Z to converge, so use the user's
+                # configured ceiling when they set one, else the internal recovery
+                # bound (they may have left -Z at 0 while still wanting a shaky
+                # track rescued — that's what auto_ladder mode is for).
                 to_fix = list(self._last_unstable_tracks)
-                rerip_z = max(self._params.secure_rerip_matches, MAX_SECURE_REREP)
                 trigger = "instability"
+                rerip_z = self._params.secure_rerip_matches or MAX_SECURE_REREP
             else:
                 to_fix = []
-                rerip_z = 0
                 trigger = ""
+                rerip_z = 0
             if to_fix:
                 self._auto_fix_tracks(to_fix, rerip_z, trigger)
 

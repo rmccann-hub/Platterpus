@@ -2528,6 +2528,55 @@ def test_auto_force_stop_calls_drive_control(teardown_threads, monkeypatch) -> N
     assert window._force_stop_done is True
 
 
+def test_shutdown_stops_in_container_reader_during_rip(
+    teardown_threads, monkeypatch
+) -> None:
+    """Closing the app mid-rip must stop the IN-CONTAINER reader, not just the
+    host wrapper. Regression for the real-user report (2026-07-01): the drive
+    kept ripping the next track after the window closed, because cancel() only
+    kills the host-side process group and podman doesn't forward that into the
+    container. `_stop_rip_on_shutdown` must ALSO run the synchronous free_drive
+    (which kills the in-container reader) — no eject, just stop the reader."""
+    free_calls = _patch_free_drive(monkeypatch)
+    window = teardown_threads()
+    cancelled: list[bool] = []
+    window._rip_worker = SimpleNamespace(cancel=lambda: cancelled.append(True))
+    window._rip_thread = SimpleNamespace()  # a rip is in flight
+
+    window._stop_rip_on_shutdown()
+
+    assert cancelled == [True]  # host-side wrapper group killed
+    assert len(free_calls) == 1  # …AND the in-container reader stopped
+    assert "device" in free_calls[0]
+
+
+def test_shutdown_without_rip_leaves_drive_alone(teardown_threads, monkeypatch) -> None:
+    """A normal close (no rip in flight) never touches the drive — no gratuitous
+    pkill/fuser on every window close."""
+    free_calls = _patch_free_drive(monkeypatch)
+    window = teardown_threads()
+    window._rip_thread = None
+
+    window._stop_rip_on_shutdown()
+
+    assert free_calls == []
+
+
+def test_close_event_stops_in_flight_rip_in_container(
+    teardown_threads, monkeypatch
+) -> None:
+    """closeEvent is wired to the synchronous in-container stop — so quitting the
+    app while a rip runs stops the drive (the 'exit = force stop' contract)."""
+    free_calls = _patch_free_drive(monkeypatch)
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._rip_thread = SimpleNamespace()  # a rip is in flight
+
+    window.close()
+
+    assert len(free_calls) == 1
+
+
 def test_auto_force_stop_is_noop_when_already_done(
     teardown_threads, monkeypatch
 ) -> None:
@@ -3204,7 +3253,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 5
+    assert report["schema_version"] == 6
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True

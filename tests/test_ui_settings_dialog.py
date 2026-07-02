@@ -241,29 +241,15 @@ def test_secure_rerip_editable(qapp: QApplication) -> None:
     assert dialog._secure_rerip_spin.isEnabled() is True
 
 
-def test_secure_rerip_dynamic_reflects_config_and_round_trips(
+def test_secure_rerip_dynamic_has_no_checkbox_but_round_trips(
     qapp: QApplication,
 ) -> None:
-    # Opt-in: default OFF, reflects the incoming config, survives to_config().
-    assert SettingsDialog(Config())._secure_rerip_dynamic_check.isChecked() is False
-
-    dialog = SettingsDialog(Config(secure_rerip_matches=2, secure_rerip_dynamic=True))
-    assert dialog._secure_rerip_dynamic_check.isChecked() is True
-    dialog._secure_rerip_dynamic_check.setChecked(False)
+    # Dynamic is the behaviour now, not a UI toggle — there's no checkbox…
+    dialog = SettingsDialog(Config(secure_rerip_dynamic=False))
+    assert not hasattr(dialog, "_secure_rerip_dynamic_check")
+    # …and the stored value is carried through to_config() unchanged.
     assert dialog.to_config().secure_rerip_dynamic is False
-
-
-def test_secure_rerip_dynamic_enabled_only_when_rerip_on(qapp: QApplication) -> None:
-    # The dynamic option means nothing with -Z off, so it's greyed out at 0…
-    dialog = SettingsDialog(Config(secure_rerip_matches=0))
-    assert dialog._secure_rerip_dynamic_check.isEnabled() is False
-    # …and enables as soon as a -Z level is set.
-    dialog._secure_rerip_spin.setValue(2)
-    assert dialog._secure_rerip_dynamic_check.isEnabled() is True
-
-
-def test_secure_rerip_dynamic_has_accessible_name(qapp: QApplication) -> None:
-    assert SettingsDialog(Config())._secure_rerip_dynamic_check.accessibleName()
+    assert SettingsDialog(Config()).to_config().secure_rerip_dynamic is True
 
 
 def test_goal_combo_reflects_the_incoming_config(qapp: QApplication) -> None:
@@ -493,3 +479,68 @@ def test_debug_logging_reflects_config_and_round_trips(qapp: QApplication) -> No
     default_dialog = SettingsDialog(Config())
     assert default_dialog._debug_logging_check.isChecked() is False
     assert default_dialog.to_config().debug_logging is False
+
+
+# --- Input validation (visible errors + block-on-save) -------------------
+
+
+# NOTE: a QWidget's isVisible() is False until its top-level window is shown, so
+# these tests assert on isHidden() (which reflects our explicit setVisible calls
+# regardless of whether the dialog was exec()'d) and on the banner text.
+
+
+def test_valid_settings_show_no_validation_banner(qapp: QApplication) -> None:
+    """A clean default config leaves the validation banner hidden and accepts."""
+    from PySide6.QtWidgets import QDialog
+
+    dialog = SettingsDialog(Config())
+    assert dialog._validation_label.isHidden() is True
+    assert dialog._validation_label.text() == ""
+    dialog.accept()
+    assert dialog.result() == QDialog.DialogCode.Accepted
+
+
+def test_invalid_output_dir_shows_visible_error_during_edit(
+    qapp: QApplication,
+) -> None:
+    """Typing a bad path surfaces the error banner as it changes (the
+    'visible error during the settings change' requirement)."""
+    dialog = SettingsDialog(Config())
+    dialog._output_dir_edit.setText("relative/not/absolute")
+    assert dialog._validation_label.isHidden() is False
+    assert "absolute" in dialog._validation_label.text().lower()
+    # The offending field is marked (non-empty stylesheet).
+    assert dialog._output_dir_edit.styleSheet() != ""
+
+
+def test_accept_blocked_while_an_input_is_invalid(qapp: QApplication) -> None:
+    """OK must not save while a hard error stands — the dialog stays open."""
+    from PySide6.QtWidgets import QDialog
+
+    dialog = SettingsDialog(Config())
+    dialog._track_template_edit.setText("")  # empty template is an error
+    dialog.accept()
+    assert dialog.result() != QDialog.DialogCode.Accepted
+    assert dialog._validation_label.isHidden() is False
+
+
+def test_fixing_the_error_clears_the_banner(qapp: QApplication) -> None:
+    dialog = SettingsDialog(Config())
+    dialog._output_dir_edit.setText("nope")  # error
+    assert dialog._validation_label.isHidden() is False
+    from pathlib import Path
+
+    dialog._output_dir_edit.setText(str(Path.home()))  # valid absolute path
+    assert dialog._validation_label.isHidden() is True
+    assert dialog._output_dir_edit.styleSheet() == ""
+
+
+def test_accept_logs_validation_errors(qapp: QApplication, caplog) -> None:
+    """A blocked save logs the errors to the log file (for bug reports)."""
+    import logging
+
+    dialog = SettingsDialog(Config())
+    dialog._track_template_edit.setText("")
+    with caplog.at_level(logging.WARNING):
+        dialog.accept()
+    assert "track_template" in caplog.text
