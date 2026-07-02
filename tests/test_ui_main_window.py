@@ -408,7 +408,8 @@ def test_mb_lookup_error_falls_back_to_placeholder_rows(
     # Simulate disc_info having recorded the track count, then the worker
     # erroring out (as the SSL CERTIFICATE_VERIFY_FAILED did).
     window._current_num_tracks = 10
-    window._on_mb_error("MB disc-id lookup failed: SSL CERTIFICATE_VERIFY_FAILED")
+    window._current_disc_id = "mb-id"  # the disc the (failed) lookup was for
+    window._on_mb_error("mb-id", "MB disc-id lookup failed: SSL CERTIFICATE_VERIFY_FAILED")
 
     assert len(window._track_table.tracks()) == 10
     assert "error" in window._disc_info_panel._mb_match_value.text().lower()
@@ -435,9 +436,11 @@ def test_mb_releases_single_match_fetches_detail(teardown_threads) -> None:
     window = teardown_threads(mb_client=mb)
 
     # Single-match path goes through fetch_release on the MB worker;
-    # We exercise it via the slot directly to avoid thread timing.
+    # We exercise it via the slot directly to avoid thread timing. The context
+    # (disc-id) must match the current disc or the result is dropped as stale.
+    window._current_disc_id = "mb-id"
     summary = ReleaseSummary(mbid="some-mbid", title="Album", artist_credit="Artist")
-    window._on_mb_releases([summary])
+    window._on_mb_releases("mb-id", [summary])
 
     # The fetch is queued via signal; we can't deterministically observe
     # mbid_result without driving the event loop. Instead, assert that
@@ -449,10 +452,39 @@ def test_mb_releases_single_match_fetches_detail(teardown_threads) -> None:
 def test_mb_release_detail_populates_track_table(teardown_threads) -> None:
     window = teardown_threads()
 
-    window._on_mb_release_detail(_detail())
+    window._current_disc_id = "mb-id"  # match the fetch context
+    window._on_mb_release_detail("mb-id", _detail())
 
     assert window._track_table.album_metadata().artist == "Artist"
     assert len(window._track_table.tracks()) == 2
+    assert window._current_release_id == "some-mbid"
+
+
+def test_stale_mb_result_dropped_after_disc_change(teardown_threads) -> None:
+    """Regression (#6): a MusicBrainz lookup fired for disc A can return *after*
+    the user swapped to disc B. Each result echoes the disc-id it was fired for;
+    if that no longer matches the disc on screen it must be dropped — otherwise
+    disc A's release would repopulate disc B's tracks/release-id, tagging the
+    new disc with the previous disc's metadata (the wrong-album bug)."""
+    window = teardown_threads()
+    window._current_disc_id = "disc-B"  # disc B is now on screen
+
+    # A late candidate list for the *previous* disc A must be ignored.
+    stale = ReleaseSummary(mbid="a-mbid", title="Album A", artist_credit="Artist A")
+    window._on_mb_releases("disc-A", [stale])
+    assert window._last_mb_releases == []  # not stored
+
+    # A late release-detail for disc A must be ignored too — no wrong-album tag.
+    window._on_mb_release_detail("disc-A", _detail())
+    assert window._current_release_id == ""
+    assert len(window._track_table.tracks()) == 0
+
+    # A late error for disc A must not overwrite disc B's panel.
+    window._on_mb_error("disc-A", "network down")
+    assert "error" not in window._disc_info_panel._mb_match_value.text().lower()
+
+    # The matching disc-B result IS applied.
+    window._on_mb_release_detail("disc-B", _detail())
     assert window._current_release_id == "some-mbid"
 
 
