@@ -742,7 +742,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-21)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-23)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 
@@ -753,7 +753,7 @@ Source documents and reference material (in `docs/`):
 - [`docs/testing.md`](docs/testing.md) — testing strategy & standards; [`docs/test-plan.md`](docs/test-plan.md) — manual & release testing procedure
 - [`docs/platterpus-research-brief-v2.1.md`](docs/platterpus-research-brief-v2.1.md) — the canonical project brief
 - [`docs/platterpus-session-start.md`](docs/platterpus-session-start.md) — bootstrap instructions for a fresh Claude Code session (Step 0 = optional research-rerun prompt)
-- [`docs/log-format-comparison.md`](docs/log-format-comparison.md) — whipper-log vs EAC-log field comparison
+- [`docs/log-format-comparison.md`](docs/log-format-comparison.md) — cyanrip-log vs EAC-log field comparison
 
 Build / dev tooling:
 

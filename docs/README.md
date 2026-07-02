@@ -43,7 +43,7 @@ These two files, together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.
 | [`testing.md`](testing.md) | **Testing strategy & standards** — the trophy + a real-hardware gate, the five-tier case taxonomy (easy/medium/hard/edge/unexpected), when to use property-based / golden / fault-injection / mutation testing, the institutional rules (every bug gets a regression test; parsers never raise; coverage gate ratchets up), and a Definition of Done. Portable to sibling projects. |
 | [`test-plan.md`](test-plan.md) | **Manual & release testing** — the end-to-end clean-cycle acceptance run (uninstall → fresh install → drive setup → rip → verify), the **EAC output-parity** check (with the per-track CRC baseline), the **Linux-distro** + **problem-permutation** matrices for onboarding testers, *and* the deep single-feature gated cases (CTDB verify CRC, `drive analyze`/`offset find` strings, GUI screenshot, Picard UX, PyPI go-live, the cyanrip parity run). Run one at a time and record results. (Absorbed the former `release-testing.md`.) |
 | [`appimage-testing.md`](appimage-testing.md) | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
-| [`log-format-comparison.md`](log-format-comparison.md) | Side-by-side comparison of whipper's rip log against EAC's, anchoring [PLANNING.md KDD-11](../PLANNING.md). The hand-authored EAC log at `tests/fixtures/rip_log_eac_reference.log` is the comparison's data. |
+| [`log-format-comparison.md`](log-format-comparison.md) | Side-by-side comparison of cyanrip's rip log against EAC's, anchoring [PLANNING.md KDD-11](../PLANNING.md). The hand-authored EAC log at `tests/fixtures/rip_log_eac_reference.log` is the comparison's data. |
 | [`dependency-contracts.md`](dependency-contracts.md) | **Dependency contracts** — the single reference for the exact arguments/flags/syntax Platterpus passes each external tool (cyanrip, flac, metaflac, ffmpeg, musicbrainzngs, CAA, CTDB, drive/reader control) and the output shape it parses back. The code-side counterpart to the "validate every input and every dependency output" rule; keep it in step with the adapters. |
 | [`session-log.md`](session-log.md) | **Chronological session history** — what each Claude Code session built, decided, and learned (newest first). The project's institutional memory; durable lessons graduate from here into the docs above. |
 | [`ripper-engine-strategy.md`](ripper-engine-strategy.md) | **Research / options (living, long-horizon):** the feasibility of forking and/or combining whipper + cyanrip and maintaining our own engine — licensing analysis, the option menu, and decision gates. Revisits KDD-18's "never fork" stance; a commitment requires a new KDD. |
@@ -60,7 +60,7 @@ Outside this directory:
 | File | What it covers |
 |---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | Persistent rules and conventions; locked rules section; project operations |
-| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-21) |
+| [`../PLANNING.md`](../PLANNING.md) | Architecture, directory tree, per-module responsibilities, adapter designs, dependency-manager design, keyed design decisions (KDD-01 … KDD-23) |
 | [`../TASKS.md`](../TASKS.md) | Active task checklist — P0 (T01-T32), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope |
 | [`../DEPENDENCIES.md`](../DEPENDENCIES.md) | Pinned versions, last upstream release dates, retirement-review log |
 | [`../README.md`](../README.md) | User-facing install instructions, troubleshooting, EAC comparison |
@@ -79,4 +79,3 @@ If you needed to start over with a fresh git repository:
 3. **(Optional but recommended after 6+ months) Re-run Research validation:** follow `platterpus-session-start.md` **Step 0**, save the result as `docs/compass_artifact_<hash>_text_markdown.md`.
 4. **Boot a fresh Claude Code session,** attach the brief + session-start + (if present) compass artifact + CLAUDE.md, and ask it to execute `platterpus-session-start.md`. The session reproduces PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md from scratch and then begins executing the task list.
 5. **Subsequent sessions** follow CLAUDE.md as the primary instruction document, using TASKS.md to track what's next.
-</content>

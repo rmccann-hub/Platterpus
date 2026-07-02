@@ -37,23 +37,25 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | flac (decoder) | Host, **optional** — used by CTDB verify to decode FLAC→PCM if present; the feature degrades with a clear message if absent (decision 2026-06-03). No required dependency added. | any | Active (FLAC project) | — |
 | ffmpeg | Host/container, **optional** — the single encoder for the **Output format** feature (KDD-22): transcodes the FLAC master to WavPack/MP3/WAV when the user picks a non-FLAC format. Registered in `deps/registry.py`; absent only disables non-FLAC output (FLAC rips are unaffected, and the FLAC master is always kept, so a missing ffmpeg never costs audio). Already present wherever cyanrip is (cyanrip is built on FFmpeg). Shipped 2026-06-26. | `>=4.0` | Active (FFmpeg project) | — (LGPL/GPL build; invoked as a subprocess, never linked) |
 | wavpack (standalone) | **Not a dependency yet — future enhancement.** ffmpeg already produces lossless `.wv` with text tags; the standalone `wavpack` tool would only be needed to embed cover art *inside* the `.wv` (APEv2 binary tag), which ffmpeg's WavPack muxer can't do. If/when that lands it routes through the dependency subsystem like the others. The album-folder `cover.<ext>` is the cover image for WavPack today. | n/a | Active (WavPack project) | — |
-| libdiscid | (not installed) | n/a | **Not needed on host** — whipper-in-container computes the disc ID; the GUI never calls libdiscid (KDD-06, confirmed T32 2026-05-29) | — |
+| libdiscid | (not installed) | n/a | **Not needed on host** — cyanrip computes the disc ID; the GUI never calls libdiscid (KDD-06, confirmed T32 2026-05-29) | — |
 | MusicBrainz Picard | Flathub via `.flatpakref` URL (see install_command in `deps/registry.py`) | latest | Active | — |
 
-## System dependencies (build/runtime requirements inside the Distrobox container)
+## System dependencies (build/runtime requirements inside the Distrobox container) — HISTORICAL (whipper-era)
 
-These aren't installed by our GUI but ARE required for whipper to work. They live inside the `ripping` Distrobox container alongside whipper itself. Documented here because real-user testing on Bazzite (2026-05-28) surfaced missing-dep issues that aren't obvious from the README.
+> **HISTORICAL — whipper was removed on 2026-06-30 (KDD-18 amendment); the rows below were whipper-specific and are no longer current requirements.** cyanrip (the sole backend now) is installed from the COPR by the host-setup wizard and pulls its own runtime deps; it needs neither `python3-setuptools` nor `cdrdao`. Kept as the record of what the whipper-in-container era required.
+
+These weren't installed by our GUI but WERE required for whipper to work, inside the `ripping` Distrobox container alongside whipper itself. Documented here because real-user testing on Bazzite (2026-05-28) surfaced missing-dep issues that weren't obvious from the README.
 
 | Name | Why it's needed | How to install (inside the container) |
 |---|---|---|
-| `python3-setuptools` | Whipper 0.10.0 imports `pkg_resources` from setuptools. Python 3.14 (shipped in Fedora 44) doesn't include setuptools by default, and Fedora's whipper RPM doesn't declare it as a dep. Without it, `whipper --version` raises `ModuleNotFoundError: No module named 'pkg_resources'`. | `sudo dnf install python3-setuptools` |
-| `cdrdao` | Required by whipper for gap detection. Usually pulled in by `dnf install whipper` as a transitive dep, but worth noting in case of minimal container bases. | `sudo dnf install cdrdao` |
+| `python3-setuptools` | *(whipper-era — not needed by cyanrip.)* Whipper 0.10.0 imports `pkg_resources` from setuptools. Python 3.14 (shipped in Fedora 44) doesn't include setuptools by default, and Fedora's whipper RPM doesn't declare it as a dep. Without it, `whipper --version` raises `ModuleNotFoundError: No module named 'pkg_resources'`. | `sudo dnf install python3-setuptools` |
+| `cdrdao` | *(whipper-era — not needed by cyanrip.)* Required by whipper for gap detection. Usually pulled in by `dnf install whipper` as a transitive dep, but worth noting in case of minimal container bases. | `sudo dnf install cdrdao` |
 
 ### Notes on the unmaintained items
 
-**whipper (0.10.0, 2021-05-17)** — Last release on PyPI/GitHub. Still works in 2026 on Fedora 44 + Python 3.14 IF `python3-setuptools` is installed alongside it (the pkg_resources import is otherwise broken). Community-recognized active successor is `cyanrip`. Our `RipBackend` adapter (PLANNING.md §5) lets a swap happen without touching the GUI layer. CLAUDE.md Critical Rule #1 codifies this.
+**whipper (0.10.0, 2021-05-17)** — Last release on PyPI/GitHub. **Removed as a backend on 2026-06-30 (KDD-18 amendment); cyanrip is now the sole ripper.** While it was in use it ran on Fedora 44 + Python 3.14 only if `python3-setuptools` was installed alongside it (the `pkg_resources` import was otherwise broken). Our `RipBackend` adapter (PLANNING.md §5) is what let the swap to cyanrip happen without touching the GUI layer. CLAUDE.md Critical Rule #1 codifies this.
 
-Whipper-on-newer-Python surfaces a `pkg_resources is deprecated` UserWarning on every invocation; this is cosmetic (the version number still prints) but signals that the clock is running. setuptools 81 is slated to remove `pkg_resources` entirely, at which point whipper will stop running until either upstream is patched or we migrate to `cyanrip`.
+Whipper-on-newer-Python surfaced a `pkg_resources is deprecated` UserWarning on every invocation, and setuptools 81 was slated to remove `pkg_resources` entirely — the compatibility cliff that, together with the >587 read-offset bug, drove the migration to `cyanrip` (completed 2026-06-30).
 
 **musicbrainzngs (0.7.1, 2020-01-11)** — Last PyPI release. The underlying MusicBrainz `ws/2` REST API is stable. Risk is library bitrot (e.g., dropped Python compatibility on a future interpreter, not a server-side break). Our `MusicBrainzClient` adapter (PLANNING.md §6) lets us replace with raw `requests` against the JSON endpoint. CLAUDE.md Critical Rule #1.
 
