@@ -17,6 +17,63 @@ from PySide6.QtCore import QObject, QThread, SignalInstance
 
 log = logging.getLogger(__name__)
 
+# Threads we detached because they wouldn't stop promptly on close. Held so the
+# garbage collector can't destroy a still-running QThread (a hard SIGABRT) — each
+# reaps itself via its own finished→quit→deleteLater once its blocked step
+# finally returns. (Module-scoped on purpose: it must outlive the widget.)
+_abandoned_threads: list[QThread] = []
+
+
+def stop_thread(
+    thread: QThread | None,
+    worker: object | None = None,
+    *,
+    wait_ms: int = 2000,
+) -> None:
+    """Stop a one-shot worker thread on close WITHOUT a GUI-thread freeze or a
+    destroyed-while-running abort.
+
+    The trap this avoids: a widget's ``closeEvent``/``reject`` used to call
+    ``thread.wait(N)`` on the GUI thread with N up to 120s. ``quit()`` cannot
+    interrupt a ``run()`` blocked inside a subprocess/HTTP call, so that wait
+    froze the window for the whole step; and if it timed out, destroying the
+    (widget-parented) QThread while it was still running aborted the app.
+
+    So: cancel the worker (if it exposes ``cancel()``), ask the thread to quit,
+    and wait only briefly. If it's still running after ``wait_ms`` (a step is in
+    flight), DETACH it — reparent to ``None`` and keep a reference in
+    ``_abandoned_threads`` — rather than block longer or let the caller's
+    destruction take it down. The detached thread finishes its current step and
+    reaps itself. Best-effort; never raises. Safe when ``thread`` is ``None`` or
+    already stopped.
+    """
+    if thread is None:
+        return
+    if worker is not None:
+        cancel = getattr(worker, "cancel", None)
+        if callable(cancel):
+            try:
+                cancel()
+            except Exception:  # noqa: BLE001 — cancel is best-effort
+                log.exception("worker cancel() during stop_thread raised; ignored")
+    try:
+        if not thread.isRunning():
+            return
+        thread.quit()
+        if thread.wait(wait_ms):
+            return
+        # Still running — a step can't be interrupted by quit(). Abandon it so we
+        # neither block the GUI thread longer nor destroy a live QThread.
+        log.warning(
+            "worker thread %s did not stop within %dms — detaching it",
+            thread.objectName() or type(thread).__name__,
+            wait_ms,
+        )
+        thread.setParent(None)
+        _abandoned_threads.append(thread)
+    except Exception:  # noqa: BLE001 — teardown must never crash close
+        log.exception("stop_thread failed; ignored")
+
 
 def start_worker_thread(
     worker: QObject,

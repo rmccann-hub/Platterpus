@@ -465,36 +465,24 @@ class MainWindow(
         self._drive_picker.show_error(message)
 
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt API
-        """Tear down the MB worker thread cleanly on window close."""
+        """Tear down worker threads cleanly on window close.
+
+        Every worker thread is stopped via ``stop_thread``, which cancels + waits
+        briefly + DETACHES a still-running thread instead of blocking the GUI
+        thread on a wedged subprocess or destroying a live QThread (a hard abort
+        that could happen when a bounded wait timed out against a much longer
+        subprocess timeout — disc probe up to 120s vs the old 3s wait)."""
+        from platterpus.workers import stop_thread
+
         # Disarm the auto-force-stop so it can't fire into a torn-down window.
         self._force_stop_timer.stop()
-        if self._mb_thread.isRunning():
-            self._mb_thread.quit()
-            self._mb_thread.wait(2000)
-        # Join a still-running update check (short HTTP call; bounded wait).
-        if self._update_thread is not None and self._update_thread.isRunning():
-            self._update_thread.quit()
-            self._update_thread.wait(2000)
-        # Cancel + join an in-flight update download (it polls the cancel
-        # flag between 1 MiB chunks, so this returns quickly).
-        if self._install_thread is not None and self._install_thread.isRunning():
-            if self._install_worker is not None:
-                self._install_worker.cancel()
-            self._install_thread.quit()
-            self._install_thread.wait(5000)
-        # Join a still-running launch dependency probe (bounded subprocess
-        # probes; short wait).
-        if self._dep_check_thread is not None and self._dep_check_thread.isRunning():
-            self._dep_check_thread.quit()
-            self._dep_check_thread.wait(2000)
-        # Join a still-running disc probe (disc_info can be mid-read; bounded).
-        if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
-            self._disc_info_thread.quit()
-            self._disc_info_thread.wait(3000)
-        # Join a still-running drive-list probe.
-        if self._drive_list_thread is not None and self._drive_list_thread.isRunning():
-            self._drive_list_thread.quit()
-            self._drive_list_thread.wait(2000)
+        stop_thread(self._mb_thread)  # persistent worker; idle loop quits fast
+        stop_thread(self._update_thread)  # short HTTP release check
+        # In-flight update download: cancel polls between 1 MiB chunks.
+        stop_thread(self._install_thread, self._install_worker, wait_ms=5000)
+        stop_thread(self._dep_check_thread)  # bounded container probe
+        stop_thread(self._disc_info_thread)  # can be mid-read
+        stop_thread(self._drive_list_thread)
         # The post-rip CTDB verify runs on a DAEMON thread (not a QThread), so
         # it's intentionally not joined here — it dies with the process and
         # guards its own emit. Joining it would risk blocking close on a long

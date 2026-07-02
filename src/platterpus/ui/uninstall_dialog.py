@@ -197,15 +197,13 @@ class UninstallDialog(CenteredDialog):
     # --- Lifecycle --------------------------------------------------------
 
     def _stop(self) -> None:
-        thread = self._thread
-        worker = self._worker
-        if thread is None:
-            return
-        if worker is not None:
-            worker.cancel()
-        thread.quit()
-        if not thread.wait(60_000):
-            log.error("uninstall thread did not stop within 60s")
+        # Don't block the GUI thread joining a step in flight (podman/container
+        # teardown can't be interrupted by quit()); stop_thread cancels, waits
+        # briefly, and detaches a still-running thread rather than freezing the
+        # window or destroying a live QThread.
+        from platterpus.workers import stop_thread
+
+        stop_thread(self._thread, self._worker)
         self._worker = None
         self._thread = None
 
