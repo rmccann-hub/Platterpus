@@ -115,6 +115,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **A native cyanrip install no longer triggers the setup nag.** The first-run
+  "set up Platterpus" check only looked for the container-exported cyanrip
+  wrapper, so a user who installed cyanrip natively (on `PATH`) was still prompted
+  to run host setup. The check now uses the dependency subsystem's host-presence
+  test, which also counts a PATH-native cyanrip.
 - **Uninstall now removes the exported `flac` wrapper too.** Setup exports
   cyanrip, metaflac *and* flac to `~/.local/bin/`, but both the in-app uninstaller
   and `uninstall.sh` removed only whipper/metaflac/cyanrip — leaving

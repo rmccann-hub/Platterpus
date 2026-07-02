@@ -1922,14 +1922,17 @@ def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> Non
 # --- First-run host-setup offer ------------------------------------------
 
 
-def test_host_stack_ready_reflects_cyanrip_binary(
-    teardown_threads, tmp_path, monkeypatch
+def test_host_stack_ready_delegates_to_cyanrip_on_host(
+    teardown_threads, monkeypatch
 ) -> None:
-    cyanrip = tmp_path / "cyanrip"
-    monkeypatch.setattr("platterpus.paths.CYANRIP_BINARY_DEFAULT", cyanrip)
+    """Regression (#36): _host_stack_ready must delegate to the dependency
+    subsystem's cyanrip_on_host (Critical Rule #6) — which counts a PATH-native
+    cyanrip, not just the exported wrapper — so a user who installed cyanrip
+    natively isn't wrongly nagged to run host setup."""
     window = teardown_threads()
+    monkeypatch.setattr("platterpus.deps.host_setup.cyanrip_on_host", lambda: False)
     assert window._host_stack_ready() is False
-    cyanrip.write_text("#!/bin/sh\n")
+    monkeypatch.setattr("platterpus.deps.host_setup.cyanrip_on_host", lambda: True)
     assert window._host_stack_ready() is True
 
 

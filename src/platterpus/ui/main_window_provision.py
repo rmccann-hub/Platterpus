@@ -171,10 +171,17 @@ class ProvisioningMixin:
             )
 
     def _host_stack_ready(self) -> bool:
-        """True if the cyanrip binary is present (the container stack is set up)."""
-        from platterpus.paths import CYANRIP_BINARY_DEFAULT
+        """True if cyanrip is reachable from the host (setup done, or native).
 
-        return CYANRIP_BINARY_DEFAULT.exists()
+        Delegates to the dependency subsystem's ``cyanrip_on_host`` rather than
+        re-checking inline: that keeps dependency-presence logic in one place
+        (Critical Rule #6) AND it also counts a PATH-native cyanrip — the inline
+        ``CYANRIP_BINARY_DEFAULT.exists()`` missed that, so a user who installed
+        cyanrip natively (no exported wrapper) was still nagged to run host setup
+        (#36)."""
+        from platterpus.deps.host_setup import cyanrip_on_host
+
+        return cyanrip_on_host()
 
     def _maybe_offer_host_setup(self) -> None:
         """One-time, dismissible offer to run the host-setup wizard."""
