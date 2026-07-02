@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from platterpus.adapters import ctdb_client as cc
 from platterpus.adapters.ctdb_client import (
     CtdbHttpImpl,
     CtdbLookupError,
@@ -14,6 +15,27 @@ from platterpus.adapters.ctdb_client import (
 from platterpus.ctdb.toc import DiscToc
 
 _TOC = DiscToc(track_offsets=(150, 18172), leadout=295716)
+
+
+def test_default_fetcher_rejects_an_oversized_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: the plain-HTTP CTDB fetch bounds the response so a hostile or
+    misbehaving server can't exhaust memory before the XML parse."""
+
+    class _Resp:
+        def read(self, n: int) -> bytes:
+            return b"x" * n  # always returns the full requested size → over cap
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a: object) -> None:
+            return None
+
+    monkeypatch.setattr(cc.urllib.request, "urlopen", lambda *a, **k: _Resp())
+    with pytest.raises(CtdbLookupError, match="exceeded"):
+        cc._default_fetcher("http://db.cuetools.net/lookup2.php?x=1")
 
 
 def test_build_url_has_expected_params() -> None:

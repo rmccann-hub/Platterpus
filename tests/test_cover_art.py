@@ -24,6 +24,10 @@ _JPEG = b"\xff\xd8\xff\xe0" + b"x" * 32
 _PNG = b"\x89PNG\r\n\x1a\n" + b"x" * 32
 _GIF = b"GIF89a" + b"x" * 32
 
+# A MusicBrainz release id (UUID). It's URL-encoded into the CAA request path;
+# a UUID (only unreserved chars) encodes to itself, so the built URL is unchanged.
+_MBID = "12345678-90ab-cdef-1234-567890abcdef"
+
 
 class _FakeMetaflac:
     """Records embed calls; optionally fails for specific paths."""
@@ -69,10 +73,27 @@ def test_fetch_returns_image_bytes_and_builds_the_caa_url() -> None:
         seen.append(url)
         return _JPEG
 
-    data = cover_art.fetch_front_cover("some-mbid", fetcher=fetcher)
+    data = cover_art.fetch_front_cover(_MBID, fetcher=fetcher)
 
     assert data == _JPEG
-    assert seen == ["https://coverartarchive.org/release/some-mbid/front"]
+    assert seen == [f"https://coverartarchive.org/release/{_MBID}/front"]
+
+
+def test_fetch_url_encodes_the_release_id() -> None:
+    """Regression: the release id is percent-encoded into the request path, so a
+    tampered id containing "/" or "?" can't rewrite which resource is fetched
+    (it can only address a non-existent release → 404)."""
+    seen: list[str] = []
+
+    def fetcher(url: str) -> bytes:
+        seen.append(url)
+        return b""  # 404-ish; we only care about the URL that was built
+
+    cover_art.fetch_front_cover("abc/../release-group/x?q=1", fetcher=fetcher)
+
+    assert seen == [
+        "https://coverartarchive.org/release/abc%2F..%2Frelease-group%2Fx%3Fq%3D1/front"
+    ]
 
 
 def test_fetch_blank_release_id_skips_the_network() -> None:
@@ -89,20 +110,20 @@ def test_fetch_failure_returns_none() -> None:
     def fetcher(url: str) -> bytes:
         raise OSError("HTTP Error 404: Not Found")
 
-    assert cover_art.fetch_front_cover("mbid", fetcher=fetcher) is None
+    assert cover_art.fetch_front_cover(_MBID, fetcher=fetcher) is None
 
 
 def test_fetch_non_image_response_returns_none() -> None:
     fetched = cover_art.fetch_front_cover(
-        "mbid", fetcher=lambda url: b"<html>rate limited</html>"
+        _MBID, fetcher=lambda url: b"<html>rate limited</html>"
     )
     assert fetched is None
 
 
 def test_fetch_empty_or_oversized_returns_none() -> None:
-    assert cover_art.fetch_front_cover("mbid", fetcher=lambda url: b"") is None
+    assert cover_art.fetch_front_cover(_MBID, fetcher=lambda url: b"") is None
     huge = _JPEG + b"\0" * (30 * 1024 * 1024)
-    assert cover_art.fetch_front_cover("mbid", fetcher=lambda url: huge) is None
+    assert cover_art.fetch_front_cover(_MBID, fetcher=lambda url: huge) is None
 
 
 # --- plan_actions -----------------------------------------------------------
@@ -151,7 +172,7 @@ def test_apply_embeds_and_saves_when_both_requested(tmp_path: Path) -> None:
 
     message = cover_art.apply_cover_art(
         album,
-        "mbid",
+        _MBID,
         embed=True,
         save_file=True,
         metaflac=fake,
@@ -173,7 +194,7 @@ def test_apply_embed_only_removes_the_temp_image(tmp_path: Path) -> None:
 
     message = cover_art.apply_cover_art(
         album,
-        "mbid",
+        _MBID,
         embed=True,
         save_file=False,
         metaflac=fake,
@@ -192,7 +213,7 @@ def test_apply_file_only_never_touches_metaflac(tmp_path: Path) -> None:
 
     message = cover_art.apply_cover_art(
         album,
-        "mbid",
+        _MBID,
         embed=False,
         save_file=True,
         metaflac=fake,
@@ -228,7 +249,7 @@ def test_apply_survives_per_file_embed_failures(tmp_path: Path) -> None:
 
     message = cover_art.apply_cover_art(
         album,
-        "mbid",
+        _MBID,
         embed=True,
         save_file=False,
         metaflac=fake,
@@ -246,7 +267,7 @@ def test_apply_with_no_flacs_still_reports_honestly(tmp_path: Path) -> None:
 
     message = cover_art.apply_cover_art(
         album,
-        "mbid",
+        _MBID,
         embed=True,
         save_file=False,
         metaflac=fake,
@@ -265,7 +286,7 @@ def test_apply_reports_when_image_cannot_be_saved(tmp_path: Path) -> None:
 
     message = cover_art.apply_cover_art(
         not_a_dir,
-        "mbid",
+        _MBID,
         embed=True,
         save_file=True,
         metaflac=fake,
@@ -293,7 +314,7 @@ def test_apply_survives_temp_image_unlink_failure(
 
     message = cover_art.apply_cover_art(
         album,
-        "mbid",
+        _MBID,
         embed=True,
         save_file=False,
         metaflac=fake,
