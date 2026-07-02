@@ -271,6 +271,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   draft forever.
 
 ### Changed
+- **Python 3.14 is now a supported/tested version.** Added to the packaging
+  classifiers and the CI test matrix (3.11–3.14); nothing the project uses was
+  removed in 3.14 and PySide6 6.11 supports it. The dev `pytest` pin widened to
+  `>=8,<10` so the suite runs under pytest 9 as well.
 - **License metadata migrated to the modern PEP 639 form.** `pyproject.toml`
   now declares `license = "GPL-3.0-only"` (SPDX) + `license-files = ["LICENSE"]`
   with `setuptools>=77`, and the deprecated `License :: OSI Approved …`
