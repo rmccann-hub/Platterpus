@@ -88,9 +88,13 @@ def _render(rip_log: RipLog) -> str:
     if info.drive:
         lines.append(f"Used drive  : {info.drive}")
         lines.append("")
-    lines.append("Read mode               : Secure")
+    # NB: "Read mode" and "Make use of C2 pointers" are deliberately NOT
+    # emitted. EAC prints them, but our RippingInfo has no field behind them —
+    # cyanrip doesn't report either — so hardcoding "Secure" / "No" would be
+    # inventing rip facts (the same "never invent a log line" rule the banner
+    # states). We render only fields we actually parsed; "Defeat audio cache"
+    # renders "(unknown)" when unreported rather than a fabricated value (#32).
     lines.append(f"Defeat audio cache      : {_yes_no(info.defeat_audio_cache)}")
-    lines.append("Make use of C2 pointers : No")
     lines.append("")
     if info.read_offset_correction is not None:
         lines.append(
