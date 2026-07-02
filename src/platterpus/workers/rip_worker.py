@@ -166,6 +166,12 @@ _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 # changes, errors, and end-of-rip markers always go through immediately.
 _PROGRESS_MIN_INTERVAL_S: float = 0.1
 
+# Slack subtracted from a pass's start time when deciding whether a .log is
+# "this pass's" (see _find_log_path). Absorbs coarse filesystem mtime resolution
+# and minor clock jitter; a real just-written log is many seconds newer than the
+# pass start, so this only ever needs to be generous, never precise.
+_LOG_MTIME_SLACK_S: float = 2.0
+
 # Don't show an album ETA until at least this much wall-clock has elapsed —
 # before that, elapsed÷fraction projects wild/"0s" values off almost no data.
 _MIN_ELAPSED_FOR_ETA_S: float = 8.0
@@ -275,6 +281,9 @@ class RipWorker(QObject):
         # every phase and is wildly wrong early (it printed "822h" at 0.01% on a
         # real disc). None until the loop starts.
         self._started_monotonic: float | None = None
+        # Epoch wall-clock start of this rip (0.0 = unset → log discovery is
+        # unfiltered). Set in start_rip; used to ignore a previous album's log.
+        self._rip_started_at: float = 0.0
         # Smoothed album-ETA state (an exponential moving average of the raw
         # elapsed÷fraction projection). The raw projection sawtooths — it creeps
         # UP during a track's encode pass (overall bar frozen while time passes)
@@ -465,6 +474,11 @@ class RipWorker(QObject):
         """
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()
+        # Real (epoch) start, used to scope log discovery to THIS rip: the output
+        # dir is the shared music root, so a rip that fails before writing its own
+        # log must not adopt a *previous album's* log sitting in a sibling folder
+        # (#20). Every log this rip writes is newer than this instant.
+        self._rip_started_at = time.time()
 
         auto_ladder = self._params.read_speed_mode == "auto_ladder"
         # Dynamic secure-rerip: rip the FIRST pass fast (no `-Z`) and secure only
@@ -614,7 +628,9 @@ class RipWorker(QObject):
                 trigger = ""
                 rerip_z = 0
             if to_fix:
-                self._auto_fix_tracks(to_fix, rerip_z, trigger)
+                self._auto_fix_tracks(
+                    to_fix, rerip_z, trigger, album_log_path=log_path_str
+                )
 
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
@@ -760,7 +776,7 @@ class RipWorker(QObject):
 
         exit_code = self._handle.wait()
         success = (exit_code == 0) and not self._cancelled
-        log_path = self._find_log_path(out_dir)
+        log_path = self._find_log_path(out_dir, since=self._rip_started_at)
         return success, str(log_path) if log_path else ""
 
     def _reset_pass_progress(self) -> None:
@@ -772,13 +788,26 @@ class RipWorker(QObject):
         self._last_status = ""
         self._last_progress_emit = 0.0
 
-    def _auto_fix_tracks(self, tracks: list[int], rerip_z: int, trigger: str) -> None:
+    def _auto_fix_tracks(
+        self,
+        tracks: list[int],
+        rerip_z: int,
+        trigger: str,
+        album_log_path: str = "",
+    ) -> None:
         """Re-rip the given track(s) ALONE with ``-Z rerip_z``, keeping a re-read
         only if it now reads consistently (converges).
 
         ``trigger`` records WHY each track was re-ripped, for the report:
         ``"instability"`` (a -Z pass never converged) or ``"accuraterip"`` (dynamic
         mode — the fast first pass didn't match the AccurateRip database).
+
+        ``album_log_path`` is the whole-disc log from the first pass. When a
+        re-rip is swapped in, that log's recorded CRC for the track is now the
+        *old* bytes' — so we append a truthful swap addendum with the shipped
+        file's CRC, keeping the committed "durable proof" text consistent with
+        the audio actually on disk (#19). The original log content is preserved
+        verbatim; we only append.
 
         Cheap (cyanrip's ``-l`` rips just the listed tracks), needs no speed change
         (so it works on a speed-locked drive), and **can never make a track worse**
@@ -830,6 +859,9 @@ class RipWorker(QObject):
                 return
             rerip_log = self._parse_log(rerip_log_path)
             fixed: list[int] = []
+            # (track number, filename, new CRC) for each track actually swapped —
+            # used to append the log addendum so the album .log's CRCs stay honest.
+            swapped: list[tuple[int, str, str]] = []
             for track in getattr(rerip_log, "tracks", ()) or ():
                 number = getattr(track, "number", None)
                 if number not in tracks:
@@ -840,6 +872,12 @@ class RipWorker(QObject):
                     replaced = self._swap_in_reripped_track(track, tmp_root)
                     if replaced:
                         fixed.append(number)
+                        new_crc = getattr(track, "copy_crc", "") or getattr(
+                            track, "test_crc", ""
+                        )
+                        swapped.append(
+                            (number, getattr(track, "filename", "") or "", new_crc)
+                        )
                 self._retried_tracks.append(
                     {
                         "track": number,
@@ -862,11 +900,58 @@ class RipWorker(QObject):
                     "re-rip."
                 )
                 self.status.emit(f"Auto-fixed track(s) {names}.")
+                # Keep the durable-proof log honest: the swapped-in files no longer
+                # match the CRCs the first-pass log recorded for them.
+                self._append_swap_addendum(album_log_path, trigger, swapped)
         except Exception:  # noqa: BLE001 — auto-fix must never crash the rip
             log.exception("auto-fix re-rip failed; originals kept")
         finally:
             if tmp_root is not None:
                 shutil.rmtree(tmp_root, ignore_errors=True)
+
+    def _append_swap_addendum(
+        self,
+        album_log_path: str,
+        trigger: str,
+        swapped: list[tuple[int, str, str]],
+    ) -> None:
+        """Append a truthful swap addendum to the whole-disc album ``.log``.
+
+        After the auto-fix replaces a track's FLAC with a converged re-read, the
+        first-pass log's CRC for that track describes the *discarded* bytes, not
+        the file now on disk — so the committed proof text would misrepresent the
+        shipped audio (#19). We append a clearly-delimited block that names each
+        swapped track and the shipped file's CRC, superseding the value above.
+        The original log is preserved verbatim (append-only). Best-effort: a
+        write failure is logged and swallowed — it must never abort the rip, and
+        the ``.platterpus.json`` report's ``retried_tracks`` is the structured
+        record regardless.
+        """
+        if not album_log_path or not swapped:
+            return
+        why = (
+            "didn't match AccurateRip on the first pass"
+            if trigger == "accuraterip"
+            else "didn't read consistently on the first pass"
+        )
+        lines = [
+            "",
+            "=" * 72,
+            "[Platterpus auto-fix addendum]",
+            "The whole-disc log above records the FIRST read pass. The track(s)",
+            f"below {why} and were re-ripped to secure them; the improved read was",
+            "swapped in. Each CRC below is the SHIPPED file's and supersedes the",
+            "value recorded for that track above.",
+        ]
+        for number, filename, crc in swapped:
+            shown = filename or f"track {number}"
+            lines.append(f"  Track {number} ({shown}): CRC {crc or 'n/a'}")
+        lines.append("=" * 72)
+        try:
+            with Path(album_log_path).open("a", encoding="utf-8") as handle:
+                handle.write("\n".join(lines) + "\n")
+        except OSError:
+            log.exception("could not append auto-fix addendum to %s", album_log_path)
 
     def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:
         """Atomically replace the album's original FLAC with a converged re-rip.
@@ -1017,19 +1102,40 @@ class RipWorker(QObject):
         self._overall = max(self._overall, min(value, 100.0))
         return self._overall
 
-    def _find_log_path(self, output_dir: Path | None = None) -> Path | None:
+    def _find_log_path(
+        self, output_dir: Path | None = None, since: float | None = None
+    ) -> Path | None:
         """Locate the .log the ripper just wrote under `output_dir`.
 
         The ripper drops the rip log next to the FLACs. We search the given root
         (defaults to the params' output dir; the auto-fix re-rip passes its temp
         dir) recursively for the most recent .log. Returns None if nothing was
         written (e.g. rip failed before any output).
+
+        `since` (a wall-clock time from just before the pass started) scopes the
+        search to logs this pass could have written: the params' output dir is
+        the *shared* music root, so a rip that fails before writing its own log
+        would otherwise pick up a **previous album's** log sitting in a sibling
+        folder and parse it as this rip's (#20). We keep only logs modified at or
+        after `since` (minus a small slack for coarse mtime resolution); a
+        genuine just-written log is always many seconds newer, an older album's
+        log is filtered out. Without `since`, behaviour is unchanged.
         """
         output_dir = output_dir or self._params.output_dir
         if not output_dir.exists():
             return None
 
         candidates = list(output_dir.rglob("*.log"))
+        if since is not None:
+            cutoff = since - _LOG_MTIME_SLACK_S
+            fresh: list[Path] = []
+            for path in candidates:
+                try:
+                    if path.stat().st_mtime >= cutoff:
+                        fresh.append(path)
+                except OSError:
+                    continue  # vanished mid-scan — skip it
+            candidates = fresh
         if not candidates:
             return None
         candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
