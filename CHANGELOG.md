@@ -115,6 +115,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **Uninstall now removes the exported `flac` wrapper too.** Setup exports
+  cyanrip, metaflac *and* flac to `~/.local/bin/`, but both the in-app uninstaller
+  and `uninstall.sh` removed only whipper/metaflac/cyanrip — leaving
+  `~/.local/bin/flac` orphaned. It's now removed alongside the others.
 - **CTDB verification uses far less memory.** It decoded every track and
   concatenated the whole disc's PCM (~750 MB) plus a join copy (~1.5 GB peak) on
   the verify thread before computing the CRC. It now folds each track into the

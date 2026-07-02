@@ -60,6 +60,7 @@ def _populate_everything(tmp_path: Path) -> None:
         tmp_path / "bin" / "whipper",
         tmp_path / "bin" / "metaflac",
         tmp_path / "bin" / "cyanrip",
+        tmp_path / "bin" / "flac",
         tmp_path / "config" / "whipper" / "whipper.conf",
         tmp_path / "config" / "platterpus" / "config.toml",
         tmp_path / "share" / "platterpus" / "log.txt",
@@ -92,6 +93,9 @@ def test_full_uninstall_removes_everything(tmp_path: Path) -> None:
     ).exists()
     assert not (tmp_path / "bin" / "whipper").exists()
     assert not (tmp_path / "bin" / "cyanrip").exists()
+    # Regression (#34): setup exports flac too, so uninstall must remove its
+    # wrapper — it was previously omitted and orphaned in ~/.local/bin.
+    assert not (tmp_path / "bin" / "flac").exists()
     assert not (tmp_path / "config" / "whipper").exists()
     assert not (tmp_path / "config" / "platterpus").exists()
     assert not (tmp_path / "share" / "platterpus").exists()
