@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import os
 import tomllib
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import tomli_w
@@ -280,20 +280,76 @@ def load() -> Config:
         save(cfg)
         return cfg
 
-    with CONFIG_PATH.open("rb") as f:
-        raw = tomllib.load(f)
+    # NEVER raise: load() runs at startup BEFORE the QApplication, the fatal-error
+    # excepthook, and the guarded startup dialog exist, so a corrupt or
+    # hand-broken config.toml (bad TOML, a non-numeric schema_version, a wrong
+    # value type) must not crash the app and lock the user out. On any parse
+    # failure, back the bad file up and start from defaults (mirroring
+    # drive_profile_store's never-raise load).
+    try:
+        with CONFIG_PATH.open("rb") as f:
+            raw = tomllib.load(f)
+        raw = _migrate(raw)
+        # Drop unknown keys so an older binary reading a newer file doesn't
+        # crash. Log so we know it happened — silent drops would be worse.
+        known = {f.name for f in Config.__dataclass_fields__.values()}
+        unknown = set(raw) - known
+        if unknown:
+            log.warning("unknown config keys ignored: %s", sorted(unknown))
+        filtered = {k: v for k, v in raw.items() if k in known}
+        cfg = Config(**filtered)
+    except (tomllib.TOMLDecodeError, ValueError, TypeError, OSError) as exc:
+        log.error(
+            "config at %s is unreadable (%s); backing it up and using defaults",
+            CONFIG_PATH,
+            exc,
+        )
+        _backup_bad_config()
+        return Config()
 
-    raw = _migrate(raw)
+    return _sanitized(cfg)
 
-    # Drop unknown keys so an older binary reading a newer file doesn't
-    # crash. Log so we know it happened — silent drops would be worse.
-    known = {f.name for f in Config.__dataclass_fields__.values()}
-    unknown = set(raw) - known
-    if unknown:
-        log.warning("unknown config keys ignored: %s", sorted(unknown))
-    filtered = {k: v for k, v in raw.items() if k in known}
 
-    return Config(**filtered)
+def _backup_bad_config() -> None:
+    """Rename an unreadable config aside so the user can inspect it — best-effort."""
+    try:
+        backup = CONFIG_PATH.with_suffix(".bad")
+        os.replace(CONFIG_PATH, backup)
+        log.warning("saved the unreadable config as %s", backup)
+    except OSError:
+        log.exception("could not back up the unreadable config; leaving it in place")
+
+
+def _sanitized(cfg: Config) -> Config:
+    """Reset any field with an ERROR-level validation issue to its default.
+
+    A hand-edited ``config.toml`` bypasses the Settings dialog's validators, so a
+    loaded value could be out of range or exploit-shaped (a ``..`` traversal
+    template, an absolute template, a control char) and would otherwise flow
+    straight into a rip. Validate here — the same boundary the dialog uses — log
+    every issue, and drop any *error*-level field back to its default so an
+    invalid value can never reach the ripper. Warnings are logged only (the value
+    is legal, just probably unintended). Never raises.
+    """
+    try:
+        from platterpus import settings_validation
+
+        issues = settings_validation.validate_config(cfg)
+        if not issues:
+            return cfg
+        settings_validation.log_issues(issues)
+        errors = settings_validation.errors_only(issues)
+        if not errors:
+            return cfg
+        defaults = Config()
+        resets = {issue.field: getattr(defaults, issue.field) for issue in errors}
+        log.warning(
+            "resetting invalid config field(s) to defaults: %s", sorted(resets)
+        )
+        return replace(cfg, **resets)
+    except Exception:  # noqa: BLE001 — sanitisation must never crash startup
+        log.exception("config sanitisation failed; using the loaded values as-is")
+        return cfg
 
 
 def save(cfg: Config) -> None:
