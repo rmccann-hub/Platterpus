@@ -392,8 +392,7 @@ def test_load_resets_a_traversal_template_from_a_hand_edited_config(
     template must be reset to the default before it can reach the ripper."""
     config_file = _redirect_config(tmp_path, monkeypatch)
     config_file.write_text(
-        f"schema_version = {SCHEMA_VERSION}\n"
-        'track_template = "../../../etc/%t"\n'
+        f'schema_version = {SCHEMA_VERSION}\ntrack_template = "../../../etc/%t"\n'
     )
 
     cfg = config_module.load()
