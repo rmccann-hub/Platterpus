@@ -154,6 +154,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `flac --test` (corruption) or ffmpeg decode left no reason in the log. Their
   stderr tail (or exit code) is now captured on failure, matching the transcode
   step — so a bug report's log actually explains what went wrong.
+- **The menu-entry launcher escapes special characters in its path.** The
+  `.desktop` `Exec=` line dropped the AppImage path raw between quotes, so an
+  AppImage under a folder containing `"`, `` ` ``, `$`, or `\` (e.g. a path with a
+  dollar sign) could break the entry — or, in a launcher that hands the line to a
+  shell, allow command substitution. The path is now escaped per the freedesktop
+  spec for both the main and the uninstaller entries.
+- **A stalled derived-file verify can't hang forever.** The post-transcode
+  decode-verify bounded only the *wait after* ffmpeg finished; if ffmpeg stalled
+  mid-decode holding the output pipe open, the read loop could block indefinitely.
+  A watchdog now kills a decode that exceeds the deadline (which unblocks the read
+  and reports the file as unverifiable) so the verify thread always makes progress.
 - **Hardening for the network lookups.** The CUETools-DB (CTDB) verification
   reads over plain HTTP, so its response is now size-capped — a misbehaving or
   hostile server can't return a giant body and exhaust memory. And the cover-art

@@ -196,6 +196,39 @@ def test_is_integrated_matches_exec_path(tmp_path: Path) -> None:
     assert ai.is_integrated(other, desktop_dir) is False
 
 
+def test_desktop_exec_escapes_reserved_characters(tmp_path: Path) -> None:
+    """Regression (#26): the .desktop Exec= must escape the freedesktop reserved
+    characters (" ` $ \\). An AppImage under a path containing them was dropped
+    raw between quotes — breaking the quoting or (in a launcher that shells the
+    line out) allowing command substitution. is_integrated must match the same
+    escaped form so a correctly-escaped entry still counts as integrated."""
+    # A directory whose name contains every reserved character.
+    nasty_dir = tmp_path / 'weird $HOME `whoami` "quote" \\slash'
+    nasty_dir.mkdir()
+    appimage = nasty_dir / "platterpus-x86_64.AppImage"
+    appimage.write_bytes(b"\x7fELF fake")
+    desktop_dir = tmp_path / "applications"
+
+    target = ai.integrate(
+        appimage,
+        app_dir=None,
+        desktop_dir=desktop_dir,
+        icon_dir=tmp_path / "icons",
+        desktop_folder=None,
+        refresh=lambda: None,
+    )
+
+    exec_line = next(
+        line for line in target.read_text().splitlines() if line.startswith("Exec=")
+    )
+    # Each reserved char is backslash-escaped inside the quotes; the raw
+    # unescaped forms ($HOME as a bare $, a bare backtick) do not appear.
+    assert '\\$' in exec_line and '\\`' in exec_line and '\\"' in exec_line
+    assert "\\\\" in exec_line  # the backslash in the path is escaped too
+    # And the entry is still recognized as integrating THIS appimage.
+    assert ai.is_integrated(appimage, desktop_dir) is True
+
+
 # --- Relocation to ~/Applications (real-user feedback 2026-06-10) ----------
 
 
