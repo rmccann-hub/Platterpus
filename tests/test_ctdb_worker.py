@@ -67,6 +67,34 @@ def test_matching_crc_returns_match(tmp_path: Path) -> None:
     assert result.our_crc == whole_disc_crc
 
 
+def test_nested_flacs_are_not_pulled_into_the_toc(tmp_path: Path) -> None:
+    """Regression (#40): the TOC is exactly this disc's tracks, which sit
+    directly in the album folder. A FLAC in a nested subfolder (a bonus disc, a
+    leftover, or — if rip_dir ever fell back to the music root — a whole other
+    album) must NOT be decoded into the TOC, which would corrupt the CRC and
+    yield a spurious not-in-database. Only the direct children are verified."""
+    _make_flacs(tmp_path, 2)  # 01, 02 directly in the album folder
+    nested = tmp_path / "bonus"
+    nested.mkdir()
+    (nested / "03 - Extra.flac").write_bytes(b"")  # must be ignored
+
+    probed: list[Path] = []
+
+    def recording_probe(path: Path) -> int:
+        # samples_probe runs per FLAC to build the TOC — a faithful count of
+        # which files entered the TOC.
+        probed.append(path)
+        return 1000
+
+    client = _FakeClient(CtdbLookupResult())
+    verify_rip_dir(
+        client, tmp_path, samples_probe=recording_probe, decoder=lambda _p: b"x"
+    )
+
+    # Only the two top-level tracks entered the TOC — not the nested one.
+    assert sorted(p.name for p in probed) == ["01 - Track.flac", "02 - Track.flac"]
+
+
 def test_no_flac_files_returns_lookup_error(tmp_path: Path) -> None:
     client = _FakeClient(CtdbLookupResult())
     result = verify_rip_dir(client, tmp_path)  # empty dir
