@@ -29,6 +29,7 @@ from __future__ import annotations
 import http.client
 import logging
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
@@ -93,7 +94,12 @@ def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes 
     mbid = (release_id or "").strip()
     if not mbid:
         return None
-    url = COVER_URL_TEMPLATE.format(mbid=mbid)
+    # URL-encode the id before interpolating it into the request path. It comes
+    # from a MusicBrainz response, so a value containing "/", "?" or "#" (a
+    # non-UUID or a tampered response) could otherwise rewrite which resource we
+    # fetch; quoting with safe="" turns those into %2F/%3F/%23 so the id can only
+    # ever address a (possibly non-existent → 404) release, never escape the path.
+    url = COVER_URL_TEMPLATE.format(mbid=urllib.parse.quote(mbid, safe=""))
     fetch = fetcher or _default_fetcher
     try:
         data = fetch(url)

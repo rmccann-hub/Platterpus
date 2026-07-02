@@ -123,6 +123,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `flac --test` (corruption) or ffmpeg decode left no reason in the log. Their
   stderr tail (or exit code) is now captured on failure, matching the transcode
   step — so a bug report's log actually explains what went wrong.
+- **Hardening for the network lookups.** The CUETools-DB (CTDB) verification
+  reads over plain HTTP, so its response is now size-capped — a misbehaving or
+  hostile server can't return a giant body and exhaust memory. And the cover-art
+  release id is URL-encoded into the request, so a tampered id can't rewrite
+  which resource is fetched.
 - **The window no longer freezes while identifying a disc.** MusicBrainz lookups
   were running on the GUI thread — the worker was moved to its own thread, but its
   slots were being *called* directly, which runs them on the caller's thread
