@@ -1,18 +1,21 @@
-"""The DependencyManager — single orchestrator for brief P0 #11.
+"""The DependencyManager — single presence/version probe for brief P0 #11.
 
-Walks the registry, runs each spec's probe, classifies missing items
-into tiers, and dispatches to the appropriate resolver. Returns a
-`DependencyReport` for UI display.
+Walks the registry, runs each spec's probe, and classifies each dependency as
+present-and-current or missing. Returns a `DependencyReport` for UI display.
 
-The manager itself is GUI-unaware: every callback that needs the GUI
-(consent dialogs, install dialogs, manual prompts) is injected via the
-three resolver instances passed to `__init__`. That keeps the
-subsystem unit-testable without Qt and lets the app.py wiring be the
-only place that knows about both halves.
+`check_all()` is idempotent: calling it twice with no system changes produces
+an identical report; calling it after a successful install reflects the new
+state of the world immediately.
 
-`check_all()` is idempotent: calling it twice with no system changes
-produces an identical report. Calling it after a successful resolution
-reflects the new state of the world immediately.
+**Resolution (installing what's missing) is NOT here.** It's inherently GUI-
+coupled — each tier opens a different dialog (consent, live-progress install,
+manual search string) and the install must run off the GUI thread — so it lives
+in `ui/main_window_deps._resolve_missing_unified`, reusing the tier resolver
+classes in `deps/resolvers.py` (`AutoInstaller` + the install dialogs). The
+manager once carried a parallel `resolve_missing` tier-cascade; it was unused in
+production (the GUI always routed itself) and removed so there is a single
+resolution path (Critical Rule #6). The presence/version logic — the part the
+rule requires be centralized — stays here.
 """
 
 from __future__ import annotations
@@ -20,14 +23,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
-from platterpus.deps.registry import SPECS, DependencySpec, Tier
-from platterpus.deps.resolvers import (
-    AutoInstaller,
-    InstallResult,
-    ManualPrompt,
-    MissingItem,
-    QueuedInstaller,
-)
+from platterpus.deps.registry import SPECS, DependencySpec
+from platterpus.deps.resolvers import InstallResult, MissingItem
 from platterpus.deps.version import meets_minimum
 
 log = logging.getLogger(__name__)
@@ -65,23 +62,13 @@ class DependencyReport:
 class DependencyManager:
     """Single entry point for "are all my dependencies good?"."""
 
-    def __init__(
-        self,
-        auto: AutoInstaller | None = None,
-        queued: QueuedInstaller | None = None,
-        manual: ManualPrompt | None = None,
-        specs: list[DependencySpec] | None = None,
-    ) -> None:
-        """Construct with optional injected resolvers and a custom spec list.
+    def __init__(self, specs: list[DependencySpec] | None = None) -> None:
+        """Construct with an optional custom spec list.
 
-        Tests pass their own resolvers (with fake callbacks) and their
-        own spec list (so they don't depend on the real registry). In
-        production, `app.py` constructs the manager with the real
-        resolver instances; `specs=None` then picks up `registry.SPECS`.
+        Tests pass their own spec list (so they don't depend on the real
+        registry); `specs=None` picks up `registry.SPECS`, which is what
+        `app.py` and the GUI's `_build_gui_dependency_manager` use.
         """
-        self._auto = auto or AutoInstaller()
-        self._queued = queued or QueuedInstaller()
-        self._manual = manual or ManualPrompt()
         self._specs = specs if specs is not None else SPECS
 
     def check_all(self) -> DependencyReport:
@@ -101,95 +88,3 @@ class DependencyManager:
             else:
                 report.missing.append(MissingItem(spec=spec, probe=probe))
         return report
-
-    def resolve_missing(self, report: DependencyReport) -> DependencyReport:
-        """Dispatch each missing item to the resolver for its preferred tier.
-
-        Items whose primary tier resolver fails cascade through
-        `spec.fallback_tiers` in order. Final outcomes — success or not
-        — land in `report.install_results`.
-        """
-        # Group missing items by their CURRENT (first-attempt) tier.
-        by_tier: dict[Tier, list[MissingItem]] = {t: [] for t in Tier}
-        for item in report.missing:
-            by_tier[item.spec.tier].append(item)
-
-        # Run each tier's batch through its resolver. Failed items
-        # cascade into the next fallback tier for their spec.
-        cascade: list[MissingItem] = []
-
-        for tier in (Tier.AUTO, Tier.QUEUED, Tier.MANUAL):
-            batch = by_tier[tier] + [
-                item for item in cascade if self._next_tier(item) == tier
-            ]
-            # Remove cascaded items we just queued.
-            cascade = [item for item in cascade if self._next_tier(item) != tier]
-            if not batch:
-                continue
-
-            results = self._dispatch(tier, batch)
-            report.install_results.extend(results)
-
-            # Failures cascade to the next fallback tier (if any).
-            # Declines do NOT cascade — when a user explicitly says No
-            # at a given tier, surfacing the next-tier dialog for the
-            # same dep would just be the same question with different
-            # phrasing. Real install failures (network, permission,
-            # etc.) DO cascade because the user hasn't said no to the
-            # dep itself, just to the current install method.
-            # strict=: results come 1:1 from running batch, so a length
-            # mismatch is a bug we want surfaced, not silently truncated.
-            for item, result in zip(batch, results, strict=True):
-                if result.success:
-                    continue
-                if result.user_declined:
-                    log.info(
-                        "%s declined at tier %s — not cascading",
-                        item.spec.dep_id,
-                        tier.value,
-                    )
-                    continue
-                if not item.spec.fallback_tiers:
-                    continue
-                # Already-tried tiers are the ones at or above `tier` in
-                # this loop's order. The next fallback is the first one
-                # in spec.fallback_tiers we haven't visited yet.
-                remaining = [
-                    t for t in item.spec.fallback_tiers if t.value != tier.value
-                ]
-                if remaining:
-                    # Re-attach with updated effective tier so cascade
-                    # routing in subsequent loop iterations works.
-                    cascade.append(
-                        MissingItem(
-                            spec=_clone_with_tier(item.spec, remaining[0]),
-                            probe=item.probe,
-                        )
-                    )
-
-        return report
-
-    def _dispatch(self, tier: Tier, items: list[MissingItem]) -> list[InstallResult]:
-        if tier == Tier.AUTO:
-            return self._auto.resolve(items)
-        if tier == Tier.QUEUED:
-            return self._queued.resolve(items)
-        return self._manual.resolve(items)
-
-    @staticmethod
-    def _next_tier(item: MissingItem) -> Tier:
-        """Effective current tier — the spec's `tier`, possibly cloned-
-        over during cascade."""
-        return item.spec.tier
-
-
-def _clone_with_tier(spec: DependencySpec, tier: Tier) -> DependencySpec:
-    """Return a copy of `spec` with `tier` overridden.
-
-    DependencySpec is frozen, so we can't just assign. dataclasses
-    provides `replace()` for exactly this. Kept private to the manager
-    because cascade is an internal concern.
-    """
-    from dataclasses import replace
-
-    return replace(spec, tier=tier)
