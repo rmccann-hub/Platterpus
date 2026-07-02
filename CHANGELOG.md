@@ -118,6 +118,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   validated the same way — any field with an error (e.g. a `..` path-traversal
   template) is reset to its default before it can reach the ripper, with the
   problem written to the log.
+- **Failures in the FLAC verify / re-compress / derived-file checks are now
+  logged.** These steps discarded the tool's error output, so a failed
+  `flac --test` (corruption) or ffmpeg decode left no reason in the log. Their
+  stderr tail (or exit code) is now captured on failure, matching the transcode
+  step — so a bug report's log actually explains what went wrong.
 - **The window no longer freezes while identifying a disc.** MusicBrainz lookups
   were running on the GUI thread — the worker was moved to its own thread, but its
   slots were being *called* directly, which runs them on the caller's thread
