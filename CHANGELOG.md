@@ -115,6 +115,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **Checksums are never taken of a still-being-written file.** The per-file
+  SHA256 step waits for post-rip tagging/transcoding to settle, then hashes — but
+  if that work didn't finish within the settle window it hashed anyway, recording
+  a digest of a mid-rewrite file as "integrity truth". It now checks whether the
+  work actually settled and, if not, records no checksums (an honest omission)
+  rather than a wrong one; the fidelity verdict is unaffected.
+- **Start is locked while a disc is being scanned.** The disc probe holds the
+  drive, but Start could still be pressed during a scan (in unknown-album mode a
+  drive alone enables it) — starting a rip then contended with the probe for the
+  device and let the scan's completion pop a dialog over an already-rip-locked
+  window. Start is now disabled for the duration of a scan (with a tooltip saying
+  why) and re-enables when it finishes.
 - **A slow MusicBrainz lookup can't tag the *next* disc with the previous
   disc's album.** MusicBrainz lookups run in the background; if you swapped discs
   before a lookup finished, the late result (release candidates or the fetched

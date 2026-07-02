@@ -1231,6 +1231,20 @@ class RipMixin:
         def work() -> None:
             if wait_for is not None:
                 wait_for.join(timeout=_CHECKSUM_SETTLE_TIMEOUT_S)
+                # `join(timeout)` returns whether or not the thread finished. If
+                # the post-rip tagging/transcode is STILL running, the FLAC/derived
+                # files are mid-rewrite — hashing them now would record a SHA256
+                # that doesn't match the final file, i.e. a false "integrity truth".
+                # Better to record no checksums than wrong ones: skip this run
+                # (the report simply omits checksums; the fidelity verdict, which
+                # comes from AccurateRip/the rip log, is unaffected).
+                if wait_for.is_alive():
+                    log.warning(
+                        "post-rip work did not settle within %.0fs — skipping "
+                        "checksums so a mid-rewrite file isn't hashed as final",
+                        _CHECKSUM_SETTLE_TIMEOUT_S,
+                    )
+                    return
             digests = checksums.compute_digests(rip_dir)
             if self._rip_generation != gen:
                 return  # a newer rip started — these digests are for the old album
