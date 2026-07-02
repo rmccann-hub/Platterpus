@@ -334,6 +334,19 @@ def test_mb_lookup_runs_off_the_gui_thread(
     assert call_idents[0] != gui_ident  # ran on the worker thread, not the GUI
 
 
+def test_new_disc_scan_resets_unknown_mode(teardown_threads) -> None:
+    """Regression: unknown-album mode latches True when a disc can't be
+    identified; a new disc scan must clear it, or a later identified disc would
+    rip through the unknown path (MBID dropped, generic filenames)."""
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    window._rip_controls.set_unknown_mode(True)  # a prior unknown rip latched it
+    assert window._rip_controls.is_unknown_mode() is True
+
+    window._start_disc_info("/dev/sr0")  # a fresh scan begins
+
+    assert window._rip_controls.is_unknown_mode() is False
+
+
 def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
     teardown_threads,
     monkeypatch: pytest.MonkeyPatch,
