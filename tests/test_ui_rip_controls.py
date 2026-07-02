@@ -295,6 +295,24 @@ def test_force_stop_button_enabled_during_scan(qapp: QApplication) -> None:
     assert controls._force_stop_button.isEnabled() is False
 
 
+def test_start_locked_during_a_disc_scan(qapp: QApplication) -> None:
+    """Regression (#37): Start must be disabled while a disc scan is in flight —
+    the scan holds the drive, so starting a rip would contend for the device and
+    the scan/MB completion would pop a modal over an already-rip-locked UI. Even
+    in unknown mode (where a drive alone is enough to start), a scan locks Start."""
+    controls = RipControls(Config(output_dir="/music"))
+    controls.set_drive("/dev/sr0")
+    controls.set_unknown_mode(True)  # drive alone would normally enable Start
+    assert controls.can_start() is True
+
+    controls.set_scan_active(True)
+    assert controls.can_start() is False  # locked while the scan holds the drive
+    assert "scan" in controls._start_button.toolTip().lower()
+
+    controls.set_scan_active(False)
+    assert controls.can_start() is True  # released once the scan finishes
+
+
 def test_force_stop_button_emits_signal(qapp: QApplication) -> None:
     controls = RipControls(Config(output_dir="/music"))
     controls.set_rip_active(True)

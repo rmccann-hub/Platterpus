@@ -409,7 +409,9 @@ def test_mb_lookup_error_falls_back_to_placeholder_rows(
     # erroring out (as the SSL CERTIFICATE_VERIFY_FAILED did).
     window._current_num_tracks = 10
     window._current_disc_id = "mb-id"  # the disc the (failed) lookup was for
-    window._on_mb_error("mb-id", "MB disc-id lookup failed: SSL CERTIFICATE_VERIFY_FAILED")
+    window._on_mb_error(
+        "mb-id", "MB disc-id lookup failed: SSL CERTIFICATE_VERIFY_FAILED"
+    )
 
     assert len(window._track_table.tracks()) == 10
     assert "error" in window._disc_info_panel._mb_match_value.text().lower()
@@ -1456,6 +1458,46 @@ def test_stale_verify_result_dropped_when_a_newer_rip_starts(
     # The generation advanced during hashing, so the result was dropped — it did
     # NOT land in the (now newer) rip's state.
     assert window._last_checksums is None
+
+
+def test_checksums_skipped_when_post_rip_work_never_settles(
+    teardown_threads, tmp_path: Path, qapp
+) -> None:
+    """Regression (#30): the checksum step joins the post-rip tagging/transcode
+    thread with a timeout, then hashes. If that thread is STILL running when the
+    timeout expires, the FLAC/derived files are mid-rewrite — hashing them would
+    record a SHA256 that doesn't match the final file (a false integrity truth).
+    The step must skip (record nothing) rather than hash unsettled files."""
+    import threading
+
+    from platterpus import checksums as _cs
+    from platterpus.ui import main_window_rip as mwr
+
+    window = teardown_threads()
+    window._last_checksums = None
+
+    # A post-rip thread that stays alive well past the (shortened) settle bound.
+    release = threading.Event()
+    never_settles = threading.Thread(target=release.wait, daemon=True)
+    never_settles.start()
+
+    computed: list[Path] = []
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(mwr, "_CHECKSUM_SETTLE_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(
+        _cs, "compute_digests", lambda d: computed.append(d) or {"x": "y"}
+    )
+    try:
+        window._start_checksums(tmp_path, wait_for=never_settles)
+        if window._checksums_thread is not None:
+            window._checksums_thread.join(timeout=5)
+        qapp.processEvents()
+    finally:
+        release.set()  # let the stand-in post-rip thread finish
+        monkeypatch.undo()
+
+    assert computed == []  # never hashed the unsettled (mid-rewrite) files
+    assert window._last_checksums is None  # and recorded nothing
 
 
 def test_unknown_rip_tagging_runs_off_the_gui_thread(
