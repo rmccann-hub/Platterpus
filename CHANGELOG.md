@@ -63,6 +63,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   transcode failure left no diagnosis in the log. Its error output is now captured
   and the tail logged on any non-zero exit (the master FLAC is still never at
   risk — a per-file failure leaves the source untouched).
+- **Closing a setup/uninstall dialog (or the app) during a long step no longer
+  freezes or crashes.** The wizard, uninstaller, and drive-setup dialogs joined
+  their worker thread on the GUI thread with waits up to two minutes — closing
+  mid-`dnf`/mid-teardown hung the window (real-user report), and if the wait
+  timed out the still-running thread was destroyed, aborting the app. All
+  worker-thread teardown (those dialogs and the main window's close) now goes
+  through one helper that cancels, waits briefly, and *detaches* a thread still
+  stuck in an uninterruptible step (it finishes and cleans itself up) instead of
+  blocking or destroying it.
 - **The window no longer freezes while identifying a disc.** MusicBrainz lookups
   were running on the GUI thread — the worker was moved to its own thread, but its
   slots were being *called* directly, which runs them on the caller's thread
