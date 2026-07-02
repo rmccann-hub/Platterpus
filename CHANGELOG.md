@@ -166,6 +166,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   point is off *all* screens) and **raises + focuses** it so it comes to the
   front. No resize — just a slide; an oversized dialog pins its top-left so the
   title bar and buttons stay reachable.
+- **The release workflow can't ship a mislabeled or invisible release.** Two
+  release-side gaps are closed: (1) the built AppImage's `--version` is now
+  asserted to match the release tag, so a forgotten `__version__` bump fails the
+  build loudly instead of shipping a binary whose version disagrees with its tag
+  (which would break the in-app updater's version compare); and (2) if a release
+  re-run takes the "release already exists" branch, it now flips the draft flag
+  off — previously a first run that created the draft but died before publishing
+  left every retry re-uploading assets to a release that stayed an invisible
+  draft forever.
 
 ### Changed
 - **License metadata migrated to the modern PEP 639 form.** `pyproject.toml`
