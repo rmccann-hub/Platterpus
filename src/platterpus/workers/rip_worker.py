@@ -290,6 +290,13 @@ class RipWorker(QObject):
         # then drops when the next read advances the bar — so we damp it here and
         # round coarsely for display, per real-user feedback ("smooth it out").
         self._smoothed_remaining_s: float | None = None
+        # ETA baseline for the CURRENT pass. The album-ETA divides elapsed by the
+        # `overall` fraction — but `overall` resets to 0 at the start of every
+        # pass, so using the whole-rip start as the baseline on pass 2+ divided a
+        # large elapsed by a tiny fresh fraction and projected a wildly inflated
+        # remaining time (#21). Reset per pass (in _reset_pass_progress) so each
+        # pass estimates its own remaining time; falls back to the rip start.
+        self._eta_pass_started: float | None = None
         # ETA trace kept "for posterity" (maintainer's ask): a throttled series of
         # samples, each pairing the PC wall-clock time with BOTH estimates —
         # cyanrip's own per-op ETA and our smoothed album ETA — so the report can
@@ -339,7 +346,10 @@ class RipWorker(QObject):
         """
         from platterpus.rip_timing import format_duration
 
-        started = self._started_monotonic
+        # Use the CURRENT pass's baseline (see _reset_pass_progress / #21): the
+        # `overall` fraction resets each pass, so elapsed must be measured from
+        # this pass's start, not the whole rip's. Fall back to the rip start.
+        started = self._eta_pass_started or self._started_monotonic
         if started is None:
             return ""
         frac = overall_pct / 100.0
@@ -787,6 +797,11 @@ class RipWorker(QObject):
         self._emitted_track = 0
         self._last_status = ""
         self._last_progress_emit = 0.0
+        # Re-baseline the ETA to THIS pass and drop the previous pass's smoothed
+        # value: `overall` just reset to 0, so an ETA built from the whole-rip
+        # elapsed would project a wildly inflated remaining time on pass 2+ (#21).
+        self._eta_pass_started = time.monotonic()
+        self._smoothed_remaining_s = None
 
     def _auto_fix_tracks(
         self,

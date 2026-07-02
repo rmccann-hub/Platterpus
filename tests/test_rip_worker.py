@@ -835,6 +835,33 @@ def test_album_eta_is_smoothed(qapp: QApplication, tmp_path: Path) -> None:
     assert worker._smoothed_remaining_s < 0.5 * (seeded + 900)
 
 
+def test_eta_rebaselines_per_pass_not_whole_rip(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression (#21): the overall-progress fraction resets to 0 at the start
+    of every pass, so the album ETA must measure elapsed from THIS pass's start.
+    Measuring from the whole-rip start on pass 2+ divided a large elapsed by a
+    tiny fresh fraction and projected a wildly inflated 'time left'."""
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    now = time.monotonic()
+    worker._started_monotonic = now - 1000.0  # pass 1 ran ~1000s
+
+    # A new pass begins: the reset drops the stale smoothing and re-baselines.
+    worker._smoothed_remaining_s = 9999.0
+    worker._reset_pass_progress()
+    assert worker._smoothed_remaining_s is None
+
+    # 20s into pass 2, at 10% of THIS pass's bar.
+    worker._eta_pass_started = now - 20.0
+    text = worker._album_eta_text(10.0)
+
+    # Per-pass: raw = 20 * 0.9/0.1 = 180s (~3 min). The whole-rip baseline would
+    # have given 1000 * 0.9/0.1 = 9000s (2.5h) — the inflation this fixes.
+    assert "left" in text
+    assert worker._smoothed_remaining_s is not None
+    assert worker._smoothed_remaining_s < 600  # minutes, not the ~9000s inflation
+
+
 def test_eta_trace_records_both_estimates_speed_and_clock(
     qapp: QApplication, tmp_path: Path
 ) -> None:
