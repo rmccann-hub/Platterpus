@@ -1393,6 +1393,39 @@ def test_finish_handler_survives_non_utf8_log(teardown_threads, tmp_path: Path) 
     assert window._rip_thread is None
 
 
+def test_stale_verify_result_dropped_when_a_newer_rip_starts(
+    teardown_threads, tmp_path: Path, qapp
+) -> None:
+    """Regression: a post-rip verify daemon from album A must not write its
+    result into album B's state if B started while A's verify was still running
+    (A's report would otherwise get B's verdicts, or vice-versa). Each daemon
+    captures the rip generation it launched under and drops a stale result."""
+    from platterpus import checksums as _cs
+
+    window = teardown_threads()
+    window._rip_generation = 5
+    window._last_checksums = None
+
+    def fake_compute(rip_dir: Path) -> dict[str, str]:
+        # Simulate a NEWER rip starting while this album's hashing runs.
+        window._rip_generation += 1
+        return {"01 - A.flac": "deadbeef"}
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(_cs, "compute_digests", fake_compute)
+    try:
+        window._start_checksums(tmp_path, wait_for=None)
+        if window._checksums_thread is not None:
+            window._checksums_thread.join(timeout=5)
+        qapp.processEvents()  # deliver any (should-be-suppressed) queued signal
+    finally:
+        monkeypatch.undo()
+
+    # The generation advanced during hashing, so the result was dropped — it did
+    # NOT land in the (now newer) rip's state.
+    assert window._last_checksums is None
+
+
 def test_unknown_rip_tagging_runs_off_the_gui_thread(
     teardown_threads, tmp_path: Path
 ) -> None:

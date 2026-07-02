@@ -103,6 +103,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **A previous album's verification can't land in the next album's report.** The
+  post-rip checks (CTDB, FLAC-integrity, transcode, per-file checksums, derived-
+  file verify) run in the background and can outlast the rip; if you started a
+  second rip before the first's checks finished, a late result could be written
+  into the wrong album's report (and one result — the derived-file verify — was
+  never even reset between rips). Each check now records which rip it belongs to
+  and is discarded if a newer rip has started.
 - **The window no longer freezes while identifying a disc.** MusicBrainz lookups
   were running on the GUI thread — the worker was moved to its own thread, but its
   slots were being *called* directly, which runs them on the caller's thread
