@@ -87,6 +87,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   post-rip step (no report, no tags, no cover art, no eject) and left the app
   thinking a rip was still running. The log is now read leniently and any
   rendering error is contained, so the rip always finishes cleanly.
+- **The time-remaining estimate no longer balloons on a second pass.** The
+  progress bar resets to 0% at the start of each rip pass (a read-speed retry or
+  a secure re-rip), but the ETA still divided the *whole rip's* elapsed time by
+  that fresh 0-based fraction — projecting a wildly inflated "time left" (e.g.
+  hours) the moment a second pass began. The ETA now measures from each pass's
+  own start, so it stays sensible across passes.
 - **The album log stays honest after an auto-fix swap.** When a re-ripped track
   replaced the original, the whole-disc `.log` still recorded the *discarded*
   bytes' CRC — so the committed durable-proof text no longer matched the audio on
