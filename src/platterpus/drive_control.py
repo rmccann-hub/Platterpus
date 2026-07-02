@@ -195,20 +195,27 @@ def force_stop_drive(
 ) -> str:
     """Stop a runaway drive, then eject.
 
-    Sequence (all best-effort, host-side first):
-      1. kill the whipper CLI + reader (host pkill) — whipper first so it can't
-         respawn the reader;
-      2. `fuser -k <device>` — name-independent catch-all for whatever still
-         holds the device;
-      3. only if the host saw nothing, kill inside the container;
+    Sequence (all best-effort, most-precise first):
+      1. `fuser -k <device>` — device-scoped: kills exactly what holds THIS
+         drive, so it can never hit an unrelated rip on another drive (#23);
+      2. only if that caught nothing (no device given, or nothing held it), the
+         broad name-matched host pkill (whipper CLI first, then reader names);
+      3. only if the host saw nothing at all, kill inside the container;
       4. eject (now that the device is free).
+
+    Device-scoped first (rather than the old name-matched pkill first) means a
+    force-stop of one drive won't SIGKILL a cyanrip/cdparanoia ripping a
+    *different* disc elsewhere. cyanrip is its own reader (it holds the device
+    directly), so `fuser -k` stops it outright — nothing to respawn. The broad
+    pkill is kept only as the deviceless/last-resort fallback (the historical
+    whipper-orchestrator path).
 
     Synchronous and best-effort; run it off the GUI thread.
     """
     run = runner or _default_runner
-    killed = kill_reader_on_host(runner=run)
-    if free_device_holders(device, runner=run):
-        killed = True
+    killed = free_device_holders(device, runner=run)
+    if not killed:
+        killed = kill_reader_on_host(runner=run)
     if not killed:
         killed = force_stop_in_container(container, runner=run)
     ejected = eject_drive(device, runner=run)
@@ -227,21 +234,21 @@ def free_drive(
 ) -> str:
     """Free a drive wedged by a runaway reader, WITHOUT ejecting the disc.
 
-    Same kill sequence as :func:`force_stop_drive` (host pkill → fuser → the
-    in-container fallback) but it deliberately does NOT eject. Used when a
-    *disc scan* gets stuck: `whipper cd info` enters the container and runs
-    cdrdao to read the TOC, and on some drives cdrdao stalls and keeps the
-    device open — even after the host-side subprocess times out, because podman
-    doesn't forward the kill signal into the container. Killing the reader
-    releases the device; leaving the disc in place lets the user immediately
-    Rescan (or switch backends) without re-inserting it.
+    Same kill sequence as :func:`force_stop_drive` (device-scoped `fuser -k`
+    first, then the broad host pkill, then the in-container fallback) but it
+    deliberately does NOT eject. Used when a *disc scan* gets stuck: the reader
+    stalls holding the device open — even after the host-side subprocess times
+    out, because podman doesn't forward the kill signal into the container.
+    Device-scoped first so freeing one wedged drive can't kill a rip on another
+    (#23). Killing the reader releases the device; leaving the disc in place lets
+    the user immediately Rescan (or switch backends) without re-inserting it.
 
     Synchronous and best-effort; run it off the GUI thread.
     """
     run = runner or _default_runner
-    killed = kill_reader_on_host(runner=run)
-    if free_device_holders(device, runner=run):
-        killed = True
+    killed = free_device_holders(device, runner=run)
+    if not killed:
+        killed = kill_reader_on_host(runner=run)
     if not killed:
         killed = force_stop_in_container(container, runner=run)
     log.info("free_drive: killed=%s", killed)
