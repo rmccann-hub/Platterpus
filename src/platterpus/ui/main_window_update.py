@@ -243,12 +243,29 @@ class UpdateMixin:
         self._install_worker.status.connect(self._on_install_status)
         self._install_worker.finished.connect(self._on_update_install_finished)
         # Cancel button → stop between chunks; the worker cleans up the .part.
-        dialog.canceled.connect(self._install_worker.cancel)
+        # Route through a GUI-thread bound method (NOT worker.cancel directly):
+        # the worker is blocked inside run() on its own thread, so a queued call
+        # to its slot would never be delivered until the download already
+        # finished. Setting the flag from the GUI thread (the receiver lives
+        # here) runs immediately; the worker's chunk loop reads it. (Atomic bool.)
+        dialog.canceled.connect(self._on_install_cancel_requested)
         # Standard teardown + start (finished → quit → deleteLater, run on spin-up).
         start_worker_thread(
             self._install_worker, self._install_thread, self._install_worker.run
         )
         dialog.show()
+
+    def _on_install_cancel_requested(self) -> None:
+        """Cancel button clicked (GUI thread) — set the worker's flag directly.
+
+        Runs on the GUI thread (the dialog is a GUI-thread object), so this is a
+        direct call that flips the worker's atomic ``_cancelled`` bool right away;
+        the worker's download loop checks it between chunks. Connecting the
+        button to ``worker.cancel`` instead would *queue* the call to the worker's
+        blocked event loop, so it would never fire until the download finished.
+        """
+        if self._install_worker is not None:
+            self._install_worker.cancel()
 
     def _on_install_progress(self, percent: float) -> None:
         """Update the download progress bar (GUI thread — queued from the

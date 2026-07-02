@@ -126,6 +126,13 @@ class MainWindow(
     # {relpath: sha256} digest map, once every audio file (masters + any
     # derived) has been hashed, so the report's checksums land on the GUI thread.
     checksums_done = Signal(object)
+    # Requests to the persistent MusicBrainz worker. Emitting these (instead of
+    # calling the worker's slots directly) is what actually runs the query on
+    # the worker's thread: a direct method call would run on the *caller's* (GUI)
+    # thread regardless of moveToThread — freezing the window on a slow lookup.
+    # Connected to the worker's slots in __init__ (queued, cross-thread).
+    _mb_lookup_disc_id_requested = Signal(str)
+    _mb_fetch_release_requested = Signal(str)
 
     def __init__(
         self,
@@ -393,6 +400,11 @@ class MainWindow(
         self._mb_worker: MusicBrainzWorker = MusicBrainzWorker(mb_client)
         self._mb_thread: QThread = QThread(self)
         self._mb_worker.moveToThread(self._mb_thread)
+        # Dispatch queries by *emitting* to the worker's slots. The worker lives
+        # on _mb_thread, so these AutoConnections resolve to QueuedConnection and
+        # the HTTP call runs off the GUI thread (see the signal declarations).
+        self._mb_lookup_disc_id_requested.connect(self._mb_worker.lookup_disc_id)
+        self._mb_fetch_release_requested.connect(self._mb_worker.fetch_release)
         self._mb_thread.start()
         # Stop the thread cleanly when the window closes.
         self.destroyed.connect(self._mb_thread.quit)
@@ -675,9 +687,10 @@ class MainWindow(
         self._current_num_tracks = info.num_tracks
         if info.musicbrainz_disc_id:
             self._disc_info_panel.set_mb_loading()
-            # Run the MB query on the worker thread. A 0-result response
-            # routes to _handle_no_mb_match (same as an empty disc ID).
-            self._mb_worker.lookup_disc_id(info.musicbrainz_disc_id)
+            # Run the MB query on the worker thread (emit, don't call — a direct
+            # call would run on this GUI thread). A 0-result response routes to
+            # _handle_no_mb_match (same as an empty disc ID).
+            self._mb_lookup_disc_id_requested.emit(info.musicbrainz_disc_id)
         else:
             # Empty disc ID means the backend couldn't retrieve metadata
             # (the disc isn't in MusicBrainz). Surface "not in MusicBrainz"
@@ -779,7 +792,8 @@ class MainWindow(
             self.open_unknown_album_dialog()
 
     def _fetch_release_detail(self, mbid: str) -> None:
-        self._mb_worker.fetch_release(mbid)
+        # Emit (don't call) so the fetch runs on the MB worker thread.
+        self._mb_fetch_release_requested.emit(mbid)
 
     # --- Slots: menu actions -----------------------------------------------
 
