@@ -2508,14 +2508,14 @@ def test_host_setup_finished_skips_drive_refresh_when_drive_selected(
     checked: list[bool] = []
     monkeypatch.setattr(window, "refresh_drives", lambda: refreshed.append(True))
     monkeypatch.setattr(
-        window, "run_dependency_check", lambda **k: checked.append(True)
+        window, "run_dependency_check_async", lambda **k: checked.append(True)
     )
     monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
 
     window._on_host_setup_finished(True)
 
     assert refreshed == []  # drive already selected → no re-scan
-    assert checked == [True]  # dep re-check still runs (cheap)
+    assert checked == [True]  # dep re-check still runs (off-thread now)
 
 
 def test_host_setup_finished_refreshes_drives_on_first_setup(
@@ -2524,7 +2524,7 @@ def test_host_setup_finished_refreshes_drives_on_first_setup(
     window = teardown_threads()
     refreshed: list[bool] = []
     monkeypatch.setattr(window, "refresh_drives", lambda: refreshed.append(True))
-    monkeypatch.setattr(window, "run_dependency_check", lambda **k: None)
+    monkeypatch.setattr(window, "run_dependency_check_async", lambda **k: None)
     monkeypatch.setattr(window._drive_picker, "current_device", lambda: "")
 
     window._on_host_setup_finished(True)
@@ -3889,6 +3889,29 @@ def test_run_dependency_check_async_is_single_flight(
     first_thread = window._dep_check_thread
     window.run_dependency_check_async()  # must not start a second
     assert window._dep_check_thread is first_thread
+
+
+def test_refresh_button_uses_off_thread_drive_listing(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the drive-picker Refresh button must route through the
+    off-GUI-thread refresh_drives (list_drives enters the container), not the
+    synchronous picker.refresh()."""
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True)
+    )
+    called: list[bool] = []
+    monkeypatch.setattr(window, "refresh_drives", lambda: called.append(True))
+    # Synchronous refresh must NOT run when the async route is wired.
+    monkeypatch.setattr(
+        window._drive_picker,
+        "refresh",
+        lambda: called.append("sync"),  # pragma: no cover - must not be hit
+    )
+
+    window._drive_picker._refresh_button.click()
+
+    assert called == [True]  # off-thread path, never the sync refresh()
 
 
 # --- Launch drive listing runs off the GUI thread (TASKS #11b) -------------
