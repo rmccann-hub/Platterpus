@@ -143,6 +143,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   title bar and buttons stay reachable.
 
 ### Changed
+- **License metadata migrated to the modern PEP 639 form.** `pyproject.toml`
+  now declares `license = "GPL-3.0-only"` (SPDX) + `license-files = ["LICENSE"]`
+  with `setuptools>=77`, and the deprecated `License :: OSI Approved …`
+  classifier was removed. The license itself is unchanged (GPL-3.0-only); this
+  just tracks the packaging standard (setuptools now warns on the old
+  classifier). Wheel metadata is now Metadata-Version 2.4.
 - **Institutional: "validate every input and every dependency output" is now a
   written rule** (CLAUDE.md Code conventions), with the *why it was missing*
   recorded — it had never been documented, which is why Settings inputs had only

@@ -565,7 +565,7 @@ AppImages are unsandboxed, so calling `~/.local/bin/whipper` from inside one wor
 
 Rationale: it's the natural fit for a Linux EAC successor — it aligns with the GPL CD-ripping ecosystem we build on (whipper GPL-3, cdparanoia, CUETools) and keeps the tool and any forks free software. No dependency forced the choice (it was a values call): PySide6 is imported under its LGPL-3 option, `musicbrainzngs` is BSD-2-Clause, `tomli-w` is MIT, and whipper / the future `ctdb-cli` are invoked as **subprocesses** (no linking), so their GPL never reaches into our code. `python-appimage` is GPL-3 but is a build tool, not part of the shipped runtime.
 
-Metadata: signalled via the OSI classifier in `pyproject.toml` (the build-robust choice — PEP 639's SPDX `license` string needs setuptools ≥77 and clashes with the classifier on newer versions). setuptools auto-bundles the root `LICENSE` into the wheel.
+Metadata: declared as a **PEP 639 SPDX expression** — `license = "GPL-3.0-only"` + `license-files = ["LICENSE"]` in `pyproject.toml`, with `setuptools>=77` in the build requires (Metadata-Version 2.4). *(Amended 2026-07-02: this replaced the old `License :: OSI Approved …` **classifier**. The classifier approach was chosen in 2026-05 for build-robustness while PEP 639 was new, but setuptools now warns on the classifier and the SPDX form is the standard — so the migration was made and the classifier dropped.)* setuptools bundles the root `LICENSE` into the wheel via `license-files`.
 
 ### KDD-11 — Rip log: EAC-equivalent archival content, weaker integrity
 
