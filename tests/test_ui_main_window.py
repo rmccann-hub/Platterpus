@@ -1500,6 +1500,39 @@ def test_checksums_skipped_when_post_rip_work_never_settles(
     assert window._last_checksums is None  # and recorded nothing
 
 
+def test_metadata_contains_colon_checks_every_cyanrip_field() -> None:
+    """Regression (#29): colon-restore must fire for a ':' in ANY value fed to
+    cyanrip — not just album/track title+artist. A ':' in year, genre, ISRC, or
+    the release id (musicbrainz_albumid) has to trigger it too, or the U+2236
+    lookalike stays in the written tag forever."""
+    from dataclasses import replace
+
+    from platterpus.adapters.rip_backend import RipMetadata, TrackTag
+    from platterpus.ui.main_window_rip import _metadata_contains_colon
+
+    clean = RipMetadata(
+        album_artist="A",
+        album_title="B",
+        year="1999",
+        genre="Rock",
+        tracks=(TrackTag(number=1, title="T", artist="A", isrc="X"),),
+    )
+    assert _metadata_contains_colon(clean, "mbid-no-colon") is False
+
+    # Each previously-unchecked field, in isolation, now triggers restore.
+    assert _metadata_contains_colon(replace(clean, year="1999: Remaster"), "m") is True
+    assert _metadata_contains_colon(replace(clean, genre="Jazz: Fusion"), "m") is True
+    assert (
+        _metadata_contains_colon(
+            replace(clean, tracks=(TrackTag(number=1, title="T", isrc="US:12"),)), "m"
+        )
+        is True
+    )
+    assert _metadata_contains_colon(clean, "urn:mbid") is True  # release id
+    # …and the fields that were already covered still trigger it.
+    assert _metadata_contains_colon(replace(clean, album_title="X: Y"), "m") is True
+
+
 def test_unknown_rip_tagging_runs_off_the_gui_thread(
     teardown_threads, tmp_path: Path
 ) -> None:

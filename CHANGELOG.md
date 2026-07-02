@@ -154,6 +154,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `flac --test` (corruption) or ffmpeg decode left no reason in the log. Their
   stderr tail (or exit code) is now captured on failure, matching the transcode
   step — so a bug report's log actually explains what went wrong.
+- **A colon in the year, genre, ISRC, or release id is now restored in tags.**
+  cyanrip can't take a literal `:` in a tag argument, so Platterpus feeds it a
+  visually-identical lookalike and restores the real colon afterward. The check
+  that decided whether to run that restore only looked at album/track title and
+  artist, so a `:` in the year, genre, an ISRC, or the MusicBrainz release id was
+  left as the lookalike in the written tag. It now checks every field fed to
+  cyanrip.
 - **The menu-entry launcher escapes special characters in its path.** The
   `.desktop` `Exec=` line dropped the AppImage path raw between quotes, so an
   AppImage under a folder containing `"`, `` ` ``, `$`, or `\` (e.g. a path with a
