@@ -24,6 +24,22 @@ def test_ctdb_crc_offset0_is_zlib_crc32() -> None:
     assert crc_mod.ctdb_crc_offset0(pcm) == (zlib.crc32(pcm) & 0xFFFFFFFF)
 
 
+def test_streaming_crc_equals_whole_buffer_crc() -> None:
+    """Regression (#39): the whole-disc CRC is now folded track-by-track to avoid
+    buffering the entire album (+ its b''.join copy) — ~1.5 GB — in memory. The
+    streamed result must be byte-for-byte identical to CRC'ing the concatenation
+    (zlib CRC-32 is linear), so it's purely a memory optimization."""
+    chunks = [b"\x01\x02", b"\x03\x04\x05", b"", b"\xff" * 257, b"\x00"]
+    assert crc_mod.ctdb_crc_offset0_streaming(chunks) == crc_mod.ctdb_crc_offset0(
+        b"".join(chunks)
+    )
+    # An empty disc folds to the empty-input CRC (0), and a generator works too.
+    assert crc_mod.ctdb_crc_offset0_streaming(iter(())) == (zlib.crc32(b"") & 0xFFFFFFFF)
+    assert crc_mod.ctdb_crc_offset0_streaming(iter([b"abc"])) == (
+        zlib.crc32(b"abc") & 0xFFFFFFFF
+    )
+
+
 def test_offset_range_constant() -> None:
     assert crc_mod.CTDB_OFFSET_RANGE == 2939
 

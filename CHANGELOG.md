@@ -115,6 +115,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **CTDB verification uses far less memory.** It decoded every track and
+  concatenated the whole disc's PCM (~750 MB) plus a join copy (~1.5 GB peak) on
+  the verify thread before computing the CRC. It now folds each track into the
+  running CRC one at a time, so peak memory is a single track — no behaviour
+  change (the CRC is identical), just a large memory saving on modest machines.
 - **The EAC-style exported log no longer invents a read mode.** The optional
   EAC-layout log hardcoded `Read mode: Secure` and `Make use of C2 pointers: No`
   regardless of the actual rip — but nothing in the parsed data backs those, so
