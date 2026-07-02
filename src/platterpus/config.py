@@ -169,26 +169,21 @@ class Config:
     max_retries: int = 5
 
     # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
-    # cyanrip's `-Z <int>`: "rip tracks until their checksums match <int>
-    # number of times" — for damaged/marginal discs whose first read is a
-    # near-miss against the AccurateRip consensus (the Track-3-class gap in
-    # docs/eac-parity-investigation.md). It re-rips a track until N reads
-    # agree, so transient read errors converge to the bit-perfect result.
-    # 0 = OFF (don't pass -Z); the normal secure path (paranoia + retries)
-    # is enough for a clean disc and this only costs time on a good one.
-    # 2 is the useful floor when enabled (two agreeing reads). **cyanrip
-    # ONLY** — whipper has no equivalent flag, so the backend ignores it and
-    # Settings greys the control out for whipper (same pattern as the
-    # FLAC re-compress / verify toggles).
+    # cyanrip's `-Z <int>`: "rip a track until N reads' checksums agree" — for a
+    # track whose read doesn't match the AccurateRip consensus. It's the CEILING
+    # of effort spent on such a track (the user's number IS the max; the only hard
+    # cap is the Settings spinner's range). 0 = OFF (accept the fast read even if
+    # it doesn't verify); 2 is the useful floor when enabled. The default is 0 and
+    # is set per goal preset. **cyanrip ONLY** — whipper has no equivalent.
     secure_rerip_matches: int = 0
 
-    # When True (and secure_rerip_matches > 0), apply `-Z` *dynamically* instead
-    # of to every track: rip the disc once fast (no `-Z`), then secure-re-rip ONLY
-    # the tracks that don't match AccurateRip (a track that matched the DB on the
-    # first read is already proven bit-perfect, so re-reading it is wasted time).
-    # False (default) = today's behaviour: `-Z secure_rerip_matches` on every
-    # track. The re-rip of an unproven track reuses the per-track auto-fix (`-l`).
-    secure_rerip_dynamic: bool = False
+    # Dynamic secure re-rip (default True — the behaviour, not a toggle): rip the
+    # disc once FAST (no `-Z`), then secure-re-rip ONLY the tracks that don't match
+    # AccurateRip, up to `secure_rerip_matches` reads. A track that matched the DB
+    # on its first read is already proven bit-perfect, so re-reading it is wasted
+    # time. There's no Settings checkbox for this — it's just how ripping works;
+    # a power user can force `-Z` on *every* track by hand-editing this to false.
+    secure_rerip_dynamic: bool = True
 
     # --- Adaptive read-speed ladder (headline, 0.4.6) ---
     # How the read speed is chosen for a rip:
@@ -376,10 +371,12 @@ def _migrate(raw: dict) -> dict:
         version = 5
 
     if version < 6:
-        # v5→v6: added `secure_rerip_dynamic` (opt-in — secure-re-rip only the
-        # tracks that don't match AccurateRip, instead of every track). Absent →
-        # the dataclass default (False = today's behaviour) fills on load; no value
-        # transform needed. Bump the version so the record stays explicit.
+        # v5→v6: dynamic secure re-rip is now how ripping works (secure only the
+        # tracks that don't match AccurateRip, not every track), and `-Z`'s default
+        # became 2. An upgrading config KEEPS its saved `secure_rerip_matches` (so
+        # a user who had it off stays off); the new `secure_rerip_dynamic` field
+        # fills its default (True) on load. No value transform needed; bump the
+        # version so the record stays explicit.
         raw["schema_version"] = 6
         version = 6
 

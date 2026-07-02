@@ -11,20 +11,58 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+<!-- These entries are the next release (intended 0.4.9); the version bump in
+     src/platterpus/__init__.py and the dated heading move happen at release time,
+     per the release process in CLAUDE.md. Merged to main but NOT yet released. -->
+
 ### Added
-- **"Only when needed" dynamic secure re-rip (opt-in).** A new checkbox next to
-  the "Re-rip until reads match" setting. When on, Platterpus rips the disc once
-  at **full speed** (no `-Z`), then secure-re-rips **only the tracks that didn't
-  match AccurateRip** — a track that matched the database on its first read is
-  already proven bit-perfect, so re-reading it is wasted time. On a clean disc
-  that's a single fast pass (roughly real-time, no ballooning ETA) instead of
-  reading every track twice; marginal or not-in-database tracks still get the full
-  secure treatment (reusing the per-track re-rip). Off by default — today's
-  "`-Z` on every track" behaviour is unchanged unless you tick it. The re-rip
-  reason (`instability` vs `accuraterip`) is recorded per track in the report's
+- **Dynamic secure re-rip is now how ripping works — no checkbox.** Platterpus
+  rips the disc once at **full speed** (no `-Z`), then secure-re-rips **only the
+  tracks that didn't match AccurateRip** (a track that matched the database on its
+  first read is already proven bit-perfect, so re-reading it is wasted time). This
+  used to be an opt-in checkbox; it's now the default behaviour with no toggle —
+  the dialog clutter is gone (a power user can still force `-Z` on every track by
+  hand-editing `secure_rerip_dynamic = false` in `config.toml`). On a clean disc
+  that's a single fast pass (roughly real-time, no ballooning ETA); marginal or
+  not-in-database tracks still get the full secure treatment. The re-rip reason
+  (`instability` vs `accuraterip`) is recorded per track in the report's
   `read_speed.retried_tracks`.
+- **The number you set is a *ceiling*, not a tax.** The "Max reads to confirm a
+  shaky track" setting (cyanrip's `-Z`) is now the *most* effort spent on an
+  unverified track, not a fixed cost applied to every track — relabelled to say
+  so. There's no hardcoded ceiling beyond the settings spinner's own range (0–10),
+  so your number is the max.
+- **Input validation on every setting, with a visible error as you type.** A new
+  pure `settings_validation` module checks every Settings value for type, range,
+  character set, and format — output/working directories (absolute, writable-or-
+  creatable), naming templates (relative, known `%`-tokens, renders to a real
+  name), the metaflac path, and every number/choice/toggle. A red banner names
+  what's wrong and marks the offending field *as you edit*, **OK is blocked** until
+  errors are fixed, and every rejection is written to the log file. Exploit-shaped
+  inputs are rejected outright — path traversal (`..`), control characters/NUL,
+  and absolute templates that would escape the output folder.
+- **Richer diagnostics in the `.platterpus.json` report (schema v6).** The `rip`
+  block now records `speed_changeable` (whether the drive can change read speed —
+  the field behind the `-S`-abort fix), and each track carries the extraction
+  metrics cyanrip logs (`extraction_speed`, `extraction_quality`, `pre_emphasis`,
+  `peak_level`) — so a re-rip's report reflects everything the log reveals.
+- **New `docs/dependency-contracts.md`** — the single reference for the exact
+  arguments, syntax, and expected output for every external tool Platterpus drives
+  (cyanrip, flac, metaflac, ffmpeg, musicbrainzngs, Cover Art Archive, CTDB, and
+  drive/reader control), so output-side validation has a documented contract.
 
 ### Fixed
+- **Closing the app during a rip now stops the drive.** Quitting (or closing the
+  window) while a rip ran left the optical drive spinning — the next track kept
+  ripping until the disc was ejected by hand (real-user report). `cancel()` only
+  killed the *host-side* wrapper; on rootless podman the in-container reader
+  (cyanrip) is a separate process tree that podman doesn't forward the signal
+  into. Closing now stops that in-container reader **synchronously** on the way
+  out (the "exit = force stop" contract, done right) — no eject, just stop.
+- **A failed transcode now logs *why*.** ffmpeg's stderr was being discarded, so a
+  transcode failure left no diagnosis in the log. Its error output is now captured
+  and the tail logged on any non-zero exit (the master FLAC is still never at
+  risk — a per-file failure leaves the source untouched).
 - **Dialogs open on the right screen, on top, and fully visible.** Every dialog is
   centred on the main window (a `CenteredDialog` base + an app-wide filter that
   also catches `QMessageBox`/`QFileDialog`), but two gaps remained on a
@@ -41,6 +79,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   title bar and buttons stay reachable.
 
 ### Changed
+- **Institutional: "validate every input and every dependency output" is now a
+  written rule** (CLAUDE.md Code conventions), with the *why it was missing*
+  recorded — it had never been documented, which is why Settings inputs had only
+  ad-hoc per-widget limits. It's enforced in CI, not left to discipline: a
+  **completeness meta-test** fails if any `Config` field lacks a validation rule,
+  a **reacts-to-a-bad-value** test corrupts each field to prove it's checked, and
+  a **no-shell** guard statically forbids `shell=True`/`os.system`/`os.popen`
+  across the tree (so no crafted input can ever reach a shell). See
+  `docs/testing.md §5` rule 11 and the Definition of Done.
 - **ETA trace now records the *event* behind each jump, and the actual outcome.**
   The `.platterpus.json` `eta_trace` samples already paired the PC clock with our
   smoothed estimate and cyanrip's; each sample now also carries the `track` and

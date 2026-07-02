@@ -225,6 +225,27 @@ tiers. "I added a happy-path test" is not done.
     heartbeat) — see §4 "Runtime guards" and
     `test_install_runs_off_the_gui_thread`. This is the regression guard that
     keeps the 0.4.2 install freeze from silently returning.
+11. **Validate every input and every dependency output — and enforce it in CI.**
+    (CLAUDE.md Code conventions; added 2026-07-01 after a session found it was
+    *nowhere* a written requirement.) The rules aren't left to discipline — they
+    are self-enforcing:
+    - **Inputs:** all validation lives in the pure `settings_validation` module
+      (never inline in widget slots). A **completeness meta-test**
+      (`test_validated_field_names_matches_config_exactly`) asserts *every*
+      `Config` field has a rule, and a **reacts-to-a-bad-value** meta-test
+      corrupts each field in turn and asserts an issue is raised — so a new
+      setting **cannot ship unvalidated** (the test goes red). The dialog shows a
+      visible error and blocks OK on any error, and `log_issues` records it.
+    - **Security:** exploit-shaped inputs are rejected — path traversal (`..`),
+      control chars/NUL, absolute templates. And there is **no shell**:
+      `test_security_no_shell` statically forbids `shell=True` / `os.system` /
+      `os.popen` across the whole tree, so a crafted album title or path can never
+      reach a shell (every subprocess is an argv list).
+    - **Outputs:** a failing dependency's stderr is captured to the log (never
+      swallowed); parsers of that output still never raise (rule 2). The exact
+      args/syntax we pass each tool are recorded in
+      [dependency-contracts.md](dependency-contracts.md) — keep it in step with
+      the adapter in the same change.
 
 ## 6. Definition of Done (testing) — paste into every PR
 
@@ -234,6 +255,12 @@ tiers. "I added a happy-path test" is not done.
 - [ ] New **parser of external output** has a property-based never-raises test.
 - [ ] New **external call** has a fault-injection test (timeout / non-zero /
       malformed) asserting a loud, graceful failure.
+- [ ] New **user/config input** is validated in `settings_validation` (type +
+      range + chars + format), the **completeness meta-test** still passes, and a
+      new `Config` field has both a `validated_field_names()` entry and a
+      `_BAD_VALUES` entry. New **dependency call** or flag is recorded in
+      [dependency-contracts.md](dependency-contracts.md) and captures the tool's
+      stderr to the log on failure. — *CLAUDE.md: validate every input & output*
 - [ ] `ruff check` + `ruff format --check` clean.
 - [ ] Coverage gate passes; gate not lowered.
 - [ ] If the change touches hardware-only behaviour, [test-plan.md](test-plan.md)

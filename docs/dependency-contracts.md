@@ -1,0 +1,158 @@
+# Dependency contracts — allowable arguments, syntax & expected output
+
+**What this is:** the single reference for *how Platterpus talks to each external
+dependency* — the exact arguments/flags we pass, the syntax those tools expect,
+and the output shape we rely on. It's the counterpart to the *"validate every
+input and every dependency output"* rule in `CLAUDE.md` (Code conventions): input
+validation checks what the **user** typed; this doc is the contract the **code**
+must satisfy when it hands work to a dependency, and what it must be ready to
+parse (and log) back.
+
+**Why it exists:** external CLIs change their flags and output between versions.
+When they do, this is the place to confirm what we assumed and what changed —
+paired with the never-raises parsers (`docs/testing.md`) that absorb *minor*
+drift and the `RipBackend`/adapter seams (Critical rule #1) that isolate a
+*major* change. If you're adding a dependency call or a new flag, record it here
+in the same change (Critical rule #7 — documentation currency).
+
+**Ground truth:** every entry below is what the code in `src/platterpus/` actually
+invokes today (file references given), not a copy of the upstream man page. When
+in doubt, the adapter is authoritative; this doc must be kept in step with it.
+
+**Scope note:** parsers of dependency output **never raise** — they return a
+best-effort dataclass (`docs/testing.md`). So "expected output" here is the
+*happy-path shape we parse*, not a guarantee; a mismatch degrades gracefully and,
+for a hard failure, the dependency's stderr is captured to the log.
+
+---
+
+## cyanrip — the ripping backend (sole backend, KDD-18)
+
+Invoked as the host-exported `~/.local/bin/cyanrip` (Distrobox routing, Critical
+rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
+
+**Flags we pass (rip):**
+
+| Flag | Meaning | When Platterpus passes it |
+|------|---------|---------------------------|
+| `-d <dev>` | drive device | always, when a device is known |
+| `-s <int>` | read offset (samples, signed) | when `override_read_offset` is on (cyanrip has no config file — it needs the offset every run) |
+| `-o flac` | output codec | always (FLAC is the archival master, Critical rule #4) |
+| `-r <int>` | max retries per track | when `max_retries > 0` |
+| `-Z <int>` | re-rip a track until N reads' checksums agree | only when `secure_rerip_matches > 0`; the user's number is the ceiling (dynamic mode applies it only to AccurateRip-failing tracks) |
+| `-S <int>` | cap read speed (× multiplier) | only when a positive fixed speed is requested. **⚠ ABORTS the rip (`EINVAL`) on a drive that reports speed as "unchangeable"** (the Pioneer BDR-209D does) — so the ladder parses `speed_changeable` and never sends `-S` to a speed-locked drive (real-hardware finding, 2026-07-01) |
+| `-l <n,n,…>` | rip only these 1-based track numbers | the per-track auto-fix re-rip (cheap targeted re-read); empty = whole disc |
+| `-N` | disable cyanrip's own MusicBrainz lookup | **always** (Critical rule #5 — the GUI feeds tags via `-a`/`-t`, so cyanrip stays offline and never shows its interactive prompt) |
+| `-a <k=v:k=v…>` | album-level tags | from the GUI's fetched+edited metadata |
+| `-t <n=k=v:…>` | per-track tags (1-based) | from the GUI's metadata |
+| `-D <scheme>` / `-F <scheme>` | directory / filename naming scheme | translated from the whipper-style template (`scheme_from_template`) |
+| `-G` | disable cover-art embedding | when cover art is not being embedded |
+
+**Tag string syntax (`-a`/`-t`) — a real trap:** the value list is
+`key=value:key=value`, parsed by FFmpeg's `av_dict_parse_string`, **but** cyanrip
+first runs it through `append_missing_keys()` which splits on `:` *naïvely*
+(ignoring backslash/quote escapes). So a literal `:` in a value cannot be escaped
+— we substitute the look-alike `∶` (U+2236) and restore the real colon in the
+FLAC tags post-rip via metaflac (`_escape_meta_value` / `restore_substituted_colons`).
+Other tokenizer-special chars (`\ = '`) are backslash-escaped.
+
+**Info / probe flags:** `-I -N` (info-only, computes DiscID/CDDB locally, no
+network — `disc_info`); `-f` (find read offset — `find_offset`); `-V` (version).
+
+**Expected output we parse** (`parsers/cyanrip_log.py`, `parsers/cyanrip_info.py`):
+the finish log's banner (`Drive:`, `Disc tracks: N`, `Speed: default
+(unchangeable)` → `speed_changeable`, offset, cache), per-track blocks (`Track N
+ripped and encoded …`, `EAC CRC32:`, `Accurip v1/v2: … (accurately ripped,
+confidence N)`, `(after N rips)` → `rip_count`, extraction speed/quality,
+`Done; (M out of N matches …)` / `(no matches found, but hit repeat limit of N)`
+→ `secure_rerip_converged`), the AccurateRip summary, album loudness, and the
+`Log FUN512:` signature. cyanrip writes its own `.log` + `.cue` at the end; a
+**cancelled** rip writes neither.
+
+**Non-zero exit / errors:** streamed stdout+stderr is captured line-by-line
+(`RipHandle.log_lines`); a start failure raises `RipError` carrying the output.
+
+## flac — FLAC integrity verify (`adapters/flac_verify.py`)
+
+- **`flac --test --silent <file>`** per output FLAC — decodes and checks the
+  stored MD5. Exit 0 = clean. A missing `flac` binary → result with `ran=False`
+  (reported, never raised). Bounded by a timeout.
+
+## flac — re-compression (`adapters/flac_recompress.py`, opt-in, off for cyanrip)
+
+- **`flac -8 -e -p --verify [-o tmp] <file>`** — maximum-effort lossless
+  re-encode. `-e` (exhaustive model search) + `-p` (qlp-coeff precision search)
+  keep LPC order at 12, so they add encode time but **no decode cost**; `--verify`
+  re-decodes to confirm bit-identity. cyanrip already maxes compression, so this
+  is skipped for it. To revert to a plain `-8`, set `_EXTRA_FLAGS = ()`.
+
+## metaflac — tag / picture editing (`adapters/metaflac.py`)
+
+- Read tags: **`metaflac --export-tags-to=- <file>`** (stdout `KEY=value` lines).
+- Write tags: **`metaflac --remove-tag=KEY --set-tag=KEY=value … <file>`**.
+- Cover art: **`metaflac --remove --block-type=PICTURE <file>`** then
+  **`metaflac --import-picture-from=<image> <file>`**.
+- Non-zero exit → `MetaflacError` carrying the last stderr line + full output.
+  Binary is `config.metaflac_path` (default bare `metaflac`, resolved on PATH).
+
+## ffmpeg — transcode FLAC → MP3/WavPack/WAV (`adapters/transcode.py`)
+
+Base: **`ffmpeg -nostdin -y -i <src.flac> … -f <fmt> <tmp>`** (writes to a
+`.transcode.tmp`, then atomic `os.replace`). Per format:
+
+- **MP3:** `-map_metadata 0 -id3v2_version 3 -c:v copy -c:a libmp3lame -q:a <N> -f mp3`
+  (`-q:a 0` == LAME `-V0`, best VBR; `-c:v copy` carries the embedded cover → APIC).
+- **WavPack:** `-map_metadata 0 -map 0:a -c:a wavpack -f wv` — the **muxer is `wv`**,
+  not `wavpack` (passing `-f wavpack` aborts ffmpeg); audio-only (its muxer rejects
+  a second stream, so no embedded cover).
+- **WAV:** `-map 0:a -c:a pcm_s16le -f wav` — 16-bit LE PCM, audio-only (RIFF
+  carries neither cover nor tags).
+
+**Output validation:** the runner captures ffmpeg's **stderr** and logs its tail
+on any non-zero exit (so a failed transcode is diagnosable from the log file); a
+per-file failure leaves the source FLAC untouched (the master is never at risk).
+
+## musicbrainzngs — release lookup (`adapters/musicbrainz_client.py`)
+
+- `set_useragent(app, version, contact)` once (MB requires a UA).
+- `get_releases_by_discid(discid, includes=[…])` — TOC → candidate releases.
+- `get_release_by_id(mbid, includes=[…])` — full release detail (tracks, ISRCs).
+- All wrapped so `musicbrainzngs.WebServiceError`/`ResponseError` surface as our
+  own error type; the adapter is the seam for this unmaintained dependency
+  (Critical rule #1).
+
+## Cover Art Archive (`adapters/cover_art.py`)
+
+- HTTPS GET **`https://coverartarchive.org/release/{mbid}/front`** — the front
+  cover image. Best-effort (a missing cover is not an error).
+
+## CTDB — CUETools Database (`adapters/ctdb_client.py`)
+
+- HTTPS GET to the CTDB lookup endpoint with params `version=3, ctdb=1, fuzzy=0,
+  metadata=none, toc=<toc>`; response is MMD XML
+  (`<ctdb xmlns="…mmd-1.0#"><entry …/></ctdb>`). A match is labelled
+  **experimental** until the audio-CRC is hardware-validated (KDD-16) — it can
+  only ever under-claim, never fabricate a "verified".
+
+## System drive/reader control (`drive_control.py`) — force-stop / free
+
+Kill an orphaned rip that podman won't forward a signal into (see the module's
+hard-won notes). Tools resolved to absolute paths (minimal PATH under a desktop
+launcher):
+
+- **`pkill -KILL -f 'whipper (cd|drive|offset|image|accurip|mblookup|rip)'`** —
+  the whipper CLI, anchored so it can never match the GUI or the pkill wrapper.
+- **`pkill -KILL 'cdparanoia|cd-paranoia|cdrdao|cyanrip'`** — the readers, by
+  process **name** (never `-f` — that would self-match). **cyanrip is its own
+  reader** (libcdio, no child), so it must be killed by its own name.
+- **`fuser -s -k <device>`** — name-independent catch-all for whatever holds the
+  drive node (never the GUI, which doesn't open the device).
+- **`eject [<device>]`** — only *after* the holder is killed (a busy device
+  ignores eject).
+- **In-container fallback** (only if the host pkill matched nothing):
+  **`distrobox enter ripping -- pkill …`** — the one user-approved exception to
+  Critical rule #3, scoped strictly to force-stopping a cancelled rip.
+
+**Shutdown contract (0.4.9):** closing the app during a rip runs `free_drive`
+(kill the reader, no eject) **synchronously** so the in-container reader can't
+outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.

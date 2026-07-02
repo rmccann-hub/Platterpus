@@ -67,7 +67,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # (each unstable track re-ripped alone with a harder -Z; whether it then converged
 # and whether the improved FLAC replaced the original). `unstable_tracks` now
 # lists only tracks the auto-fix could NOT rescue.
-REPORT_SCHEMA_VERSION: int = 5
+# v6 (0.4.9): richer diagnostics for the maintainer's hardware analysis — `rip`
+# now carries `speed_changeable` (whether the drive can change read speed; the
+# field behind the `-S`-abort fix), and each track carries the extraction metrics
+# cyanrip logs: `extraction_speed` (×), `extraction_quality` (%), `pre_emphasis`,
+# and `peak_level`. All were already parsed; v6 just surfaces them so a re-rip's
+# JSON reports back everything the log reveals.
+REPORT_SCHEMA_VERSION: int = 6
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -268,6 +274,11 @@ def _build(
             "overread_lead_out": getattr(info, "overread_lead_out", None),
             "gap_detection": getattr(info, "gap_detection", "") or None,
             "cd_r_detected": getattr(info, "cd_r_detected", None),
+            # Whether the drive reports it can change read speed. False means
+            # cyanrip's `-S` aborts the rip, so the ladder escalates via `-Z`
+            # only (the BDR-209D is speed-locked — real-hardware finding). None
+            # when the log didn't say (older cyanrip / whipper).
+            "speed_changeable": getattr(info, "speed_changeable", None),
             "creation_date": getattr(rip_log, "creation_date", "") or None,
         },
         "accuraterip_summary": getattr(rip_log, "accuraterip_summary", "") or None,
@@ -331,6 +342,14 @@ def _track(track: object) -> dict:
         # How many read passes cyanrip needed (its "(after N rips)"); None for
         # whipper logs / a clean single-pass cyanrip track.
         "rip_count": getattr(track, "rip_count", None),
+        # Per-track extraction diagnostics cyanrip logs (all None on whipper):
+        # the drive speed this track read at (×), the extraction quality (%),
+        # whether pre-emphasis was flagged, and the sample peak level. Surfaced
+        # so a marginal track's read conditions are visible in the report.
+        "extraction_speed": getattr(track, "extraction_speed", None),
+        "extraction_quality": getattr(track, "extraction_quality", None),
+        "pre_emphasis": getattr(track, "pre_emphasis", None),
+        "peak_level": getattr(track, "peak_level", None),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),

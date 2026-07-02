@@ -361,9 +361,43 @@ def test_checksums_embedded_in_report() -> None:
     assert report["checksums"] == sums
 
 
-def test_schema_version_is_v5() -> None:
-    assert REPORT_SCHEMA_VERSION == 5
-    assert build_report(_sample_log())["schema_version"] == 5
+def test_schema_version_is_v6() -> None:
+    assert REPORT_SCHEMA_VERSION == 6
+    assert build_report(_sample_log())["schema_version"] == 6
+
+
+def test_report_surfaces_v6_drive_and_track_diagnostics() -> None:
+    """v6: speed_changeable (rip block) + per-track extraction metrics."""
+    rip_log = RipLog(
+        ripping_info=RippingInfo(
+            drive="PIONEER BD-RW BDR-209D", speed_changeable=False
+        ),
+        tracks=(
+            TrackResult(
+                number=1,
+                filename="01 - Roxanne.flac",
+                extraction_speed=8.0,
+                extraction_quality=99.9,
+                pre_emphasis=False,
+                peak_level=0.87,
+            ),
+        ),
+    )
+    report = build_report(rip_log)
+    assert report["rip"]["speed_changeable"] is False
+    track = report["tracks"][0]
+    assert track["extraction_speed"] == 8.0
+    assert track["extraction_quality"] == 99.9
+    assert track["pre_emphasis"] is False
+    assert track["peak_level"] == 0.87
+
+
+def test_v6_diagnostics_absent_are_none() -> None:
+    """A log without the diagnostics (e.g. whipper) leaves the fields None,
+    never crashes."""
+    report = build_report(_sample_log())
+    assert report["rip"]["speed_changeable"] is None
+    assert report["tracks"][0]["extraction_speed"] is None
 
 
 def test_report_includes_loudness_checksum_and_replaygain() -> None:

@@ -326,28 +326,32 @@ def test_v4_config_upgrades_to_v5_with_read_speed_defaults(
     assert cfg.read_speed == 0
 
 
-def test_secure_rerip_dynamic_defaults_off_and_round_trips(
+def test_secure_rerip_dynamic_defaults_on_and_round_trips(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _redirect_config(tmp_path, monkeypatch)
 
     cfg = config_module.load()
-    assert cfg.secure_rerip_dynamic is False  # opt-in; unchanged behaviour default
+    # Dynamic is the behaviour now, not an opt-in → default True.
+    assert cfg.secure_rerip_dynamic is True
 
-    cfg.secure_rerip_dynamic = True
+    # A power user can force always-secure by flipping it in TOML; it round-trips.
+    cfg.secure_rerip_dynamic = False
     config_module.save(cfg)
-    assert config_module.load().secure_rerip_dynamic is True
+    assert config_module.load().secure_rerip_dynamic is False
 
 
 def test_v5_config_upgrades_to_v6_with_dynamic_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A v5 config (no secure_rerip_dynamic) loads at the current schema with the
-    opt-in default (False) filled in — no value transform needed."""
+    default (True = dynamic is how ripping works) filled in — no value transform.
+    A saved secure_rerip_matches is kept, so a user who had it off stays off."""
     config_file = _redirect_config(tmp_path, monkeypatch)
-    config_file.write_text("schema_version = 5\n")
+    config_file.write_text("schema_version = 5\nsecure_rerip_matches = 0\n")
 
     cfg = config_module.load()
 
     assert cfg.schema_version == SCHEMA_VERSION
-    assert cfg.secure_rerip_dynamic is False
+    assert cfg.secure_rerip_dynamic is True
+    assert cfg.secure_rerip_matches == 0  # saved value preserved

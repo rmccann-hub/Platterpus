@@ -362,6 +362,50 @@ class RipMixin:
         self._force_stop_thread = thread
         thread.start()
 
+    def _stop_rip_on_shutdown(self) -> None:
+        """Stop an in-flight rip when the window is closing — SYNCHRONOUSLY.
+
+        This is the belt for a real-user bug (2026-07-01): closing the app while
+        a rip ran left the drive spinning and the *next* track kept ripping until
+        the disc was ejected by hand. ``closeEvent`` did call
+        ``self._rip_worker.cancel()``, but that only kills the HOST-side wrapper's
+        process group — on rootless podman/Distrobox the in-container reader
+        (cyanrip) is a separate process tree that podman does **not** forward the
+        signal into, so it keeps holding the drive (same fact the Force-stop path
+        was built around — see ``drive_control``).
+
+        The normal in-app Cancel copes by arming ``_force_stop_timer`` and
+        escalating to ``force_stop_drive`` after a countdown. On window close that
+        safety net is gone: the app tears down before any QTimer fires, and we
+        can't offload the kill to a daemon thread either — the interpreter exits
+        and kills that thread mid-``pkill``, so the reader is never stopped. So we
+        must stop the in-container reader **synchronously, right here**, before
+        ``closeEvent`` returns. This is the one deliberate exception to the
+        never-block-the-GUI-thread rule: the window is already going away, and a
+        bounded blocking kill is the whole point. It's fast in the common case
+        (host ``pkill``/``fuser`` are instant because rootless in-container procs
+        are host-visible); the slow ``distrobox enter`` fallback only runs if the
+        host saw nothing, and is itself bounded by a subprocess timeout.
+
+        Best-effort and gated on a rip actually being in flight (``_rip_thread``
+        set) so a normal close never touches the drive. Does NOT eject — closing
+        the app shouldn't pop the tray; it just has to stop the reader.
+        """
+        if self._rip_thread is None:
+            return
+        log.info("window closing during a rip — stopping the in-container reader")
+        if self._rip_worker is not None:
+            # Host-side: set the cancel flag + killpg the wrapper group.
+            self._rip_worker.cancel()
+        device = self._drive_picker.current_device() or ""
+        try:
+            # free_drive kills the in-container reader (host pkill → fuser →
+            # distrobox-enter fallback) WITHOUT ejecting. Synchronous by design
+            # (see docstring); best-effort and never raises on its own.
+            drive_control.free_drive(device=device)
+        except Exception:  # noqa: BLE001 — shutdown cleanup must never crash close
+            log.exception("shutdown drive-free failed; ignored")
+
     def _on_eject_requested(self, device: str) -> None:
         """User clicked Eject — eject the selected disc."""
         self._eject_async(device, status="Ejecting the disc…")
