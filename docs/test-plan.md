@@ -695,4 +695,3 @@ issue per distinct failure.
 - Land the follow-up the test unblocks (Test 1 → GUI wiring; Tests 3/4/5/6 →
   README updates; Test 7 → README caveat removal).
 - Update `TASKS.md` and `CHANGELOG.md`.
-</content>
