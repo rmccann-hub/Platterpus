@@ -94,6 +94,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 - **A rip-stream error no longer leaves the ripper running.** If reading the
   ripper's output failed mid-rip, the subprocess kept running and holding the
   drive; it's now stopped before the error is reported.
+- **A later identified disc no longer rips as "Unknown".** Once a disc that
+  couldn't be identified put the app in unknown-album mode, that mode stuck for
+  the session — so the *next* disc, even a fully-identified one, could rip with
+  the MusicBrainz release dropped and generic "Track N" filenames. Starting a
+  new disc scan now clears it.
+- **Rescanning a disc no longer stutters or risks a crash.** Starting a new scan
+  while one was still running blocked the window for up to two seconds and could
+  let a stale result from the old scan overwrite the new one. The old scan is now
+  detached cleanly and its late result ignored.
 - **The window no longer freezes while identifying a disc.** MusicBrainz lookups
   were running on the GUI thread — the worker was moved to its own thread, but its
   slots were being *called* directly, which runs them on the caller's thread

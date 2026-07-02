@@ -645,16 +645,33 @@ class MainWindow(
 
     def _start_disc_info(self, device: str) -> None:
         """Probe the disc on a worker thread. Replaces any in-flight probe
-        (a previous drive's result would be stale)."""
-        from platterpus.workers import start_worker_thread
+        (a previous probe's result would be stale)."""
+        from platterpus.workers import start_worker_thread, stop_thread
         from platterpus.workers.disc_info_worker import DiscInfoWorker
 
-        # Stop a still-running probe for the previous drive before starting a
-        # new one. quit() is delivered to that thread's own loop directly (not
-        # via the queued finished→quit), so it works without an event-loop spin.
+        # A new disc scan resets unknown-album mode: it latches True when a disc
+        # can't be identified (the auto-offer / File → Rip as Unknown), and if it
+        # were never cleared a *later* identified disc would rip through the
+        # unknown path — MBID dropped, validation skipped, generic "Track N"
+        # filenames. _handle_no_mb_match re-sets it for this disc if it too is
+        # unknown, so resetting here (before the lookup) is safe.
+        self._rip_controls.set_unknown_mode(False)
+
+        # Supersede any in-flight probe. DISCONNECT its result signals first so a
+        # late finish (even for the SAME device — the device-only stale check
+        # can't tell two probes of one drive apart) can't clobber the new probe's
+        # state, then stop it WITHOUT blocking the GUI thread: quit() can't
+        # interrupt a mid-read subprocess, so the old 2s wait was a dead stutter
+        # on every rescan and risked destroying a running thread. stop_thread
+        # detaches it instead; its disconnected result is simply ignored.
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
-            self._disc_info_thread.quit()
-            self._disc_info_thread.wait(2000)
+            if self._disc_info_worker is not None:
+                try:
+                    self._disc_info_worker.finished.disconnect(self._on_disc_info_ready)
+                    self._disc_info_worker.failed.disconnect(self._on_disc_info_failed)
+                except (RuntimeError, TypeError):
+                    pass  # already disconnected / never connected
+            stop_thread(self._disc_info_thread, wait_ms=0)
 
         # A scan can wedge the drive (a stuck in-container TOC reader), so make
         # Force-stop available for the duration and clear any prior stop flag.
