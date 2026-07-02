@@ -115,6 +115,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **The EAC-style exported log no longer invents a read mode.** The optional
+  EAC-layout log hardcoded `Read mode: Secure` and `Make use of C2 pointers: No`
+  regardless of the actual rip — but nothing in the parsed data backs those, so
+  they were fabricated. Those two lines are now omitted (only fields actually
+  parsed are rendered), keeping the export honest per its own "not a genuine EAC
+  log" banner.
 - **Force-stopping one drive no longer risks killing a rip on another.**
   Force-stop began with a name-matched `pkill cyanrip` (and cdparanoia/cdrdao),
   which would SIGKILL *any* such process on the system — including one ripping a
