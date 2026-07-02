@@ -576,6 +576,93 @@ def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
     assert (tmp_path / "Artist" / "Album" / "02 - B.flac").read_bytes() == b"SECURED-B"
 
 
+def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression: a disc that isn't in AccurateRip at all (a CD-R / obscure
+    pressing — every track "fails" AR because there's nothing to match) must NOT
+    trigger a whole-disc secure re-rip. There's no DB consensus to converge
+    toward, so a re-rip can't verify anything and would just re-read + swap every
+    track (the "20min → 1h" slowdown dynamic mode exists to avoid). The fast pass
+    stands, no track re-ripped."""
+    pass1 = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    2\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     11111111\n"
+        "    Accurip v1:  AAAAAAAA (not found, either a new pressing, or bad rip)\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - A.flac\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     22222222\n"
+        "    Accurip v1:  BBBBBBBB (not found, either a new pressing, or bad rip)\n"
+        "  File(s):\n"
+        "    Artist/Album/02 - B.flac\n"
+        "Ripping errors: 0\n"
+    )
+
+    def side_effect(call: dict) -> None:
+        rel = call["output_dir"] / "Artist" / "Album"
+        rel.mkdir(parents=True, exist_ok=True)
+        # A re-rip would be a bug here — write only the whole-disc pass log.
+        if not call["only_tracks"]:
+            (rel / "rip.log").write_text(pass1, encoding="utf-8")
+
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = side_effect
+    worker = RipWorker(
+        backend,
+        _params(
+            tmp_path,
+            read_speed_mode="auto_ladder",
+            secure_rerip_matches=2,
+            secure_rerip_dynamic=True,
+        ),
+    )
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1  # ONE fast pass, no targeted re-rip
+    assert backend.rip_calls[0]["only_tracks"] == ()
+    assert worker.retried_tracks == []
+
+
+def test_swap_in_reripped_track_never_corrupts_the_master(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the auto-fix FLAC swap is atomic (temp + os.replace), so a
+    failure mid-swap leaves the original archival master intact and no temp
+    behind — never a truncated/corrupt FLAC where a good one was."""
+    from types import SimpleNamespace
+
+    rel = "Artist/Album/02 - B.flac"
+    (tmp_path / "Artist" / "Album").mkdir(parents=True)
+    dst = tmp_path / rel
+    dst.write_bytes(b"ORIGINAL-GOOD-MASTER")
+    tmp_root = tmp_path / "refix"
+    (tmp_root / "Artist" / "Album").mkdir(parents=True)
+    (tmp_root / rel).write_bytes(b"NEW-REREAD")
+
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+
+    # Force the atomic replace to fail (disk full / crash surrogate).
+    import os
+
+    def boom(_src: object, _dst: object) -> None:
+        raise OSError("simulated failure during swap")
+
+    monkeypatch.setattr(os, "replace", boom)
+
+    ok = worker._swap_in_reripped_track(
+        SimpleNamespace(filename=rel, number=2), tmp_root
+    )
+
+    assert ok is False
+    assert dst.read_bytes() == b"ORIGINAL-GOOD-MASTER"  # master untouched
+    # No partial temp left in the album dir.
+    assert not list((tmp_path / "Artist" / "Album").glob("*.tmp"))
+
+
 def test_fixed_mode_never_auto_fixes(qapp: QApplication, tmp_path: Path) -> None:
     """Fixed-speed mode is a single pass with no auto-fix, even if a track was
     unstable — the ladder (and its auto-fix) only run in auto_ladder mode."""

@@ -38,6 +38,7 @@ from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
     MAX_SECURE_REREP,
     SpeedAttempt,
+    disc_in_accuraterip,
     next_step,
     read_errors_present,
     tracks_failing_accuraterip,
@@ -577,7 +578,26 @@ class RipWorker(QObject):
                 # configured -Z. The `dynamic_secure` gate already guarantees
                 # secure_rerip_matches > 0, so this is always a real -Z. Their
                 # number is the max — we never invent a harder value.
-                to_fix = tracks_failing_accuraterip(parsed_log)
+                #
+                # BUT only when the disc is actually in the AccurateRip DB: for a
+                # disc that's NOT in the DB (a CD-R, an obscure pressing — every
+                # track "fails" AR because there's nothing to match), there's no
+                # consensus to converge toward, so a targeted re-rip can't produce
+                # a match — it would just re-rip and swap EVERY track, a full
+                # wasted second pass (the "20min → 1h" slowdown dynamic mode
+                # exists to avoid). Skip it; the fast first pass stands, flagged
+                # as not-verified. (An in-DB disc where a *few* tracks failed is
+                # the real dynamic case and still re-rips just those.)
+                if disc_in_accuraterip(parsed_log):
+                    to_fix = tracks_failing_accuraterip(parsed_log)
+                else:
+                    to_fix = []
+                    self.log_line.emit(
+                        "[secure re-rip] disc is not in AccurateRip — keeping the "
+                        "fast read (a re-rip can't verify against a DB that has no "
+                        "entry for this disc)."
+                    )
+                    log.info("dynamic secure re-rip skipped: disc not in AccurateRip")
                 trigger = "accuraterip"
                 rerip_z = self._params.secure_rerip_matches
             elif auto_ladder:
@@ -727,7 +747,14 @@ class RipWorker(QObject):
                     self._emitted_track = self._current_track
                     self.current_track.emit(self._current_track)
         except Exception as exc:  # noqa: BLE001
-            log.exception("error reading whipper stdout")
+            log.exception("error reading ripper stdout")
+            # The subprocess is still running (we broke out of the read loop
+            # abnormally, before wait()). Stop it so it doesn't keep holding the
+            # drive and contend with a retry — best-effort, non-blocking.
+            try:
+                self._handle.terminate()
+            except Exception:  # noqa: BLE001 — cleanup is best-effort
+                log.exception("terminate() after stream error raised; ignored")
             self.error.emit(f"rip stream error: {exc}")
             return None
 
@@ -842,13 +869,17 @@ class RipWorker(QObject):
                 shutil.rmtree(tmp_root, ignore_errors=True)
 
     def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:
-        """Copy a converged re-ripped track's FLAC over the album's original.
+        """Atomically replace the album's original FLAC with a converged re-rip.
 
         The re-rip used the SAME naming templates + metadata, so its per-track
         filename (relative, from the re-rip log) maps to the same relative path
-        under the album's output dir. Returns True on a successful copy; False (no
-        change) if the source is missing or the copy fails — never raises.
+        under the album's output dir. The copy goes to a sibling temp file which
+        is then ``os.replace``d into place — an ATOMIC swap, so a crash or
+        disk-full mid-copy can never leave a truncated (corrupt) archival master
+        where a good one was. Returns True on success; False (no change, temp
+        cleaned up) if the source is missing or the copy fails — never raises.
         """
+        import os
         import shutil
 
         filename = getattr(track, "filename", "") or ""
@@ -858,12 +889,20 @@ class RipWorker(QObject):
         dst = self._params.output_dir / filename
         if not src.exists():
             return False
+        tmp = dst.with_name(dst.name + ".platterpus-refix.tmp")
         try:
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+            shutil.copy2(src, tmp)
+            os.replace(tmp, dst)  # atomic: dst is never a partial file
             return True
         except OSError:
             log.exception("auto-fix: could not swap in re-ripped %s", filename)
+            # Best-effort cleanup of a partial temp so a failed swap leaves
+            # nothing behind (the original master is untouched either way).
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
             return False
 
     def _parse_log(self, log_path_str: str) -> object | None:

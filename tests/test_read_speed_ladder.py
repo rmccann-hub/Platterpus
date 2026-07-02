@@ -207,6 +207,36 @@ def test_tracks_failing_accuraterip_never_raises_on_junk() -> None:
     assert tracks_failing_accuraterip(None) == []
 
 
+def test_disc_in_accuraterip_true_when_any_track_matched() -> None:
+    from platterpus.parsers.rip_log import AccurateRipResult
+    from platterpus.read_speed_ladder import disc_in_accuraterip
+
+    matched = AccurateRipResult(version=1, confidence=200)
+    offset = AccurateRipResult(version=450, confidence=200)
+    # A v1/v2 match anywhere → in the DB.
+    assert disc_in_accuraterip(
+        _Log(tracks=(_Track(number=1), _Track(number=2, accuraterip_v1=matched)))
+    )
+    # An offset-variant match also counts as "in the DB".
+    assert disc_in_accuraterip(
+        _Log(tracks=(_Track(number=1, accuraterip_offset=offset),))
+    )
+
+
+def test_disc_in_accuraterip_false_when_no_track_matched() -> None:
+    """A CD-R / obscure pressing: no track has any AR match → not in the DB."""
+    from platterpus.read_speed_ladder import disc_in_accuraterip
+
+    assert not disc_in_accuraterip(_Log(tracks=(_Track(number=1), _Track(number=2))))
+
+
+def test_disc_in_accuraterip_never_raises_on_junk() -> None:
+    from platterpus.read_speed_ladder import disc_in_accuraterip
+
+    assert disc_in_accuraterip(object()) is False
+    assert disc_in_accuraterip(None) is False
+
+
 # --- attempts_to_report -------------------------------------------------------
 
 

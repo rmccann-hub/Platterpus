@@ -72,6 +72,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   through one helper that cancels, waits briefly, and *detaches* a thread still
   stuck in an uninterruptible step (it finishes and cleans itself up) instead of
   blocking or destroying it.
+- **A rip that isn't in the AccurateRip database no longer triggers a needless
+  full second pass.** Dynamic secure re-rip is meant to re-read only the few
+  tracks that didn't match AccurateRip — but a disc with no database entry at all
+  (a CD-R, an obscure pressing) made *every* track "fail", so it re-ripped and
+  replaced the whole disc for no benefit (there's no database consensus to match
+  against). Such a disc now keeps its fast first read, flagged as not-verified.
+- **A bad byte in a rip log can't derail the finish.** If a rip log contained a
+  stray non-UTF-8 byte, reading it raised an error that aborted the entire
+  post-rip step (no report, no tags, no cover art, no eject) and left the app
+  thinking a rip was still running. The log is now read leniently and any
+  rendering error is contained, so the rip always finishes cleanly.
+- **The auto-fix track swap can't corrupt a master.** When a re-ripped track
+  replaced the original, it was copied straight over the file; a crash or full
+  disk mid-copy could truncate a good archival FLAC. The swap is now atomic
+  (write a temp, then rename), so the original is only ever replaced whole.
+- **A rip-stream error no longer leaves the ripper running.** If reading the
+  ripper's output failed mid-rip, the subprocess kept running and holding the
+  drive; it's now stopped before the error is reported.
 - **The window no longer freezes while identifying a disc.** MusicBrainz lookups
   were running on the GUI thread — the worker was moved to its own thread, but its
   slots were being *called* directly, which runs them on the caller's thread
