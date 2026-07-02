@@ -110,6 +110,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   into the wrong album's report (and one result — the derived-file verify — was
   never even reset between rips). Each check now records which rip it belongs to
   and is discarded if a newer rip has started.
+- **A hand-edited or corrupt config can't crash startup or slip a bad value into
+  a rip.** A broken `config.toml` (invalid TOML, a non-numeric schema version)
+  used to crash the app before it could even show an error; it's now backed up
+  to `config.toml.bad` and the app starts from defaults. And because editing the
+  file by hand bypasses the Settings dialog's checks, every loaded value is now
+  validated the same way — any field with an error (e.g. a `..` path-traversal
+  template) is reset to its default before it can reach the ripper, with the
+  problem written to the log.
 - **The window no longer freezes while identifying a disc.** MusicBrainz lookups
   were running on the GUI thread — the worker was moved to its own thread, but its
   slots were being *called* directly, which runs them on the caller's thread
