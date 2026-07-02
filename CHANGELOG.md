@@ -115,6 +115,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   while one was still running blocked the window for up to two seconds and could
   let a stale result from the old scan overwrite the new one. The old scan is now
   detached cleanly and its late result ignored.
+- **Post-rip verification only looks at this album's files.** The CTDB, FLAC-
+  integrity, and derived-file checks enumerated FLACs *recursively* under the
+  album folder, so a FLAC in a nested subfolder (a bonus disc, a leftover — or
+  the entire music library if the folder ever fell back to the output root) got
+  pulled into the CTDB TOC (corrupting the CRC → a spurious "not in database") or
+  inflated the transcode-completeness count. They now enumerate only the album
+  folder's direct files, matching how the rip is actually laid out.
 - **Checksums are never taken of a still-being-written file.** The per-file
   SHA256 step waits for post-rip tagging/transcoding to settle, then hashes — but
   if that work didn't finish within the settle window it hashed anyway, recording
