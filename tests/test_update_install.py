@@ -129,6 +129,46 @@ def test_cancel_mid_download_cleans_up(tmp_path: Path) -> None:
     assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
 
+def test_download_rejects_oversized_content_length(tmp_path: Path) -> None:
+    """Regression: a Content-Length larger than the max expected AppImage size
+    is refused up front — a hostile/misbehaving server can't stream an endless
+    body onto the disk before the post-download checksum gate can reject it."""
+    payload = b"x" * 100
+    digest = hashlib.sha256(payload).hexdigest()
+
+    def open_url(url: str):
+        if url.endswith(".sha256"):
+            return _FakeResponse(f"{digest}  x\n".encode())
+        resp = _FakeResponse(payload)
+        resp.headers["Content-Length"] = str(2 * 1024**3)  # 2 GiB, over the cap
+        return resp
+
+    with pytest.raises(UpdateInstallError, match="larger than expected"):
+        download_and_install("0.2.3", dest_dir=tmp_path, opener=open_url)
+    assert not (tmp_path / ".platterpus-update.part").exists()
+
+
+def test_download_aborts_when_stream_exceeds_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: even with no (or a lying) Content-Length, the running byte
+    count is bounded so a server can't stream forever and fill the disk."""
+    import platterpus.update_install as ui
+
+    monkeypatch.setattr(ui, "_MAX_DOWNLOAD_BYTES", 50)
+    payload = b"x" * 500  # exceeds the (patched) 50-byte cap
+    digest = hashlib.sha256(payload).hexdigest()
+
+    def open_url(url: str):
+        if url.endswith(".sha256"):
+            return _FakeResponse(f"{digest}  x\n".encode())
+        return _FakeResponse(payload, content_length=False)  # no header to trust
+
+    with pytest.raises(UpdateInstallError, match="maximum expected size"):
+        download_and_install("0.2.3", dest_dir=tmp_path, opener=open_url)
+    assert not (tmp_path / ".platterpus-update.part").exists()
+
+
 def test_network_failure_raises_presentable_error(tmp_path: Path) -> None:
     def open_url(url: str):
         raise OSError("connection reset")

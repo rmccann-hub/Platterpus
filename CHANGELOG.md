@@ -217,6 +217,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   mid-decode holding the output pipe open, the read loop could block indefinitely.
   A watchdog now kills a decode that exceeds the deadline (which unblocks the read
   and reports the file as unverifiable) so the verify thread always makes progress.
+- **The in-app updater caps the download size.** The AppImage download is now
+  bounded (rejected up front if the server declares an oversized `Content-Length`,
+  and aborted if the running byte count exceeds the cap) so a misbehaving or
+  hostile server can't stream an endless body onto the disk before the existing
+  post-download SHA-256 gate rejects it.
 - **Hardening for the network lookups.** The CUETools-DB (CTDB) verification
   reads over plain HTTP, so its response is now size-capped — a misbehaving or
   hostile server can't return a giant body and exhaust memory. And the cover-art
