@@ -2712,17 +2712,36 @@ def test_host_setup_finished_refreshes_drives_on_first_setup(
     assert refreshed == [True]  # no drive yet → first-time setup refreshes
 
 
+def _colon_params(**meta_fields: object):
+    """A RipParameters carrying a RipMetadata built from `meta_fields` — the
+    source _metadata_has_colon now reads (the tags actually fed to cyanrip)."""
+    from platterpus.adapters.rip_backend import RipMetadata
+    from platterpus.workers.rip_worker import RipParameters
+
+    return RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        metadata=RipMetadata(**meta_fields),  # type: ignore[arg-type]
+    )
+
+
 def test_metadata_has_colon_detects_album_colon(teardown_threads) -> None:
-    """The cyanrip colon-restore only fires when a name actually has a ':'."""
+    """The cyanrip colon-restore only fires when a value fed to cyanrip has ':'."""
     window = teardown_threads()
-    window._track_table._album_title_edit.setText("Every Breath You Take: The Classics")
+    window._active_rip_params = _colon_params(
+        album_title="Every Breath You Take: The Classics"
+    )
     assert window._metadata_has_colon() is True
 
 
 def test_metadata_has_colon_false_for_clean_names(teardown_threads) -> None:
     window = teardown_threads()
-    window._track_table._album_title_edit.setText("Synchronicity")
-    window._track_table._album_artist_edit.setText("The Police")
+    window._active_rip_params = _colon_params(
+        album_title="Synchronicity", album_artist="The Police"
+    )
     assert window._metadata_has_colon() is False
 
 
