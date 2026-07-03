@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **After an in-app update, the "Restart now?" prompt now warns that the new
+  version can take 20–30 seconds to reappear** (a new AppImage unpacks itself on
+  its first launch). The app *does* relaunch itself, but that cold-extract gap
+  read as "it updated but didn't restart" (real-user report, 2026-07-02) and led
+  to reopening it by hand. Setting the expectation up front fixes the confusion
+  without changing the (correct) relaunch behaviour. Regression-tested so the
+  heads-up can't be silently dropped.
+
 ## [0.4.9] — 2026-07-02
 
 ### Added

@@ -2347,6 +2347,47 @@ def test_update_relaunch_passes_scrubbed_env_and_new_session(
     assert "LD_LIBRARY_PATH" not in env
 
 
+def test_update_restart_prompt_warns_about_cold_extract_delay(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Regression (the 'updated but did not restart' report, 2026-07-02): the app
+    DID relaunch, but the new AppImage cold-extracts for 20–30s before its window
+    appears, so it read as 'nothing happened' and the user reopened it by hand.
+    We can't shrink the extract, but we CAN set the expectation — the restart
+    prompt must tell the user the window can take a moment. Lock that text so a
+    future edit can't silently drop the heads-up and reopen this battle."""
+    import subprocess as subprocess_mod
+
+    import platterpus.appimage_integration as ai
+
+    window = teardown_threads()
+    new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
+    monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
+    prompts: list[str] = []
+
+    def capture_question(parent, title, text, *a, **k):
+        prompts.append(text)
+        return QMessageBox.StandardButton.No  # decline → no spawn/close needed
+
+    monkeypatch.setattr(QMessageBox, "question", capture_question)
+    monkeypatch.setattr(subprocess_mod, "Popen", lambda *a, **k: None)
+    monkeypatch.setattr(window, "close", lambda: None)
+
+    class _FakeDialog:
+        def close(self):
+            pass
+
+    window._install_dialog = _FakeDialog()
+    window._on_update_install_finished(True, str(new_path))
+
+    assert prompts, "the restart confirmation must be shown"
+    text = prompts[0].lower()
+    # It sets the wait expectation (the fix) — some phrasing of "takes a moment"
+    # and a concrete duration, so the user waits instead of thinking it failed.
+    assert "20" in text or "30" in text or "second" in text
+    assert "unpack" in text or "moment" in text or "reappear" in text
+
+
 def test_install_progress_and_status_handlers_drive_the_dialog(
     teardown_threads,
 ) -> None:
