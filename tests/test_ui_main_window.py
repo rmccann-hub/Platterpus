@@ -2224,6 +2224,129 @@ def test_update_install_failure_changes_nothing(teardown_threads, monkeypatch) -
     assert "Nothing was changed" in warnings[0]
 
 
+def test_update_relaunch_failure_keeps_the_window_open(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Regression (the recurring 'updated but didn't restart / closed into
+    nothing' battle): if spawning the new AppImage raises, we must tell the user
+    and LEAVE THIS WINDOW OPEN — never close into nothing, leaving them with no
+    app at all. The install still succeeded; only the auto-relaunch failed."""
+    import subprocess as subprocess_mod
+
+    import platterpus.appimage_integration as ai
+
+    window = teardown_threads()
+    new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
+    monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+
+    def boom(*a, **k):
+        raise OSError("Exec format error")
+
+    monkeypatch.setattr(subprocess_mod, "Popen", boom)
+    infos: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda parent, title, text, *a, **k: infos.append(text),
+    )
+    closed: list[bool] = []
+    monkeypatch.setattr(window, "close", lambda: closed.append(True))
+
+    class _FakeDialog:
+        def close(self):
+            pass
+
+    window._install_dialog = _FakeDialog()
+    window._on_update_install_finished(True, str(new_path))
+
+    # The relaunch failed → the user is told, and the window is NOT closed
+    # (so they still have a working app, on the just-installed version).
+    assert infos and "couldn't relaunch" in infos[0].lower()
+    assert closed == []  # never closed into nothing
+
+
+def test_update_decline_restart_neither_relaunches_nor_closes(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Regression: if the user answers No to 'Restart now?', we must not spawn a
+    new process and must not close — the update is installed and takes effect
+    the next time they open the app themselves."""
+    import subprocess as subprocess_mod
+
+    import platterpus.appimage_integration as ai
+
+    window = teardown_threads()
+    new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
+    monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+    )
+    launched: list[object] = []
+    monkeypatch.setattr(subprocess_mod, "Popen", lambda *a, **k: launched.append(a))
+    closed: list[bool] = []
+    monkeypatch.setattr(window, "close", lambda: closed.append(True))
+
+    class _FakeDialog:
+        def close(self):
+            pass
+
+    window._install_dialog = _FakeDialog()
+    window._on_update_install_finished(True, str(new_path))
+
+    assert launched == []  # declined → no relaunch
+    assert closed == []  # …and the current session stays open
+
+
+def test_update_relaunch_passes_scrubbed_env_and_new_session(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Regression (the '_relaunch_env' whack-a-mole, fought 3+ times): the spawn
+    MUST pass the scrubbed environment and start_new_session=True. If a refactor
+    ever drops `env=_relaunch_env()`, the new AppImage inherits the old mount's
+    LD_LIBRARY_PATH/QT_PLUGIN_PATH/… and aborts on startup — the silent 'closed
+    but didn't reopen'. Lock the *call*, not just _relaunch_env in isolation."""
+    import subprocess as subprocess_mod
+
+    import platterpus.appimage_integration as ai
+
+    # An AppImage-mount var that _relaunch_env must scrub out of the child env.
+    monkeypatch.setenv("APPDIR", "/tmp/.mount_old")
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/.mount_old/usr/lib")
+
+    window = teardown_threads()
+    new_path = tmp_path / "Applications" / "platterpus-x86_64.AppImage"
+    monkeypatch.setattr(ai, "integrate", lambda p, **k: None)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    monkeypatch.setattr(window, "close", lambda: None)
+    calls: list[dict] = []
+
+    def record(argv, **kw):
+        calls.append({"argv": argv, "kw": kw})
+
+    monkeypatch.setattr(subprocess_mod, "Popen", record)
+
+    class _FakeDialog:
+        def close(self):
+            pass
+
+    window._install_dialog = _FakeDialog()
+    window._on_update_install_finished(True, str(new_path))
+
+    assert len(calls) == 1
+    kw = calls[0]["kw"]
+    assert kw.get("start_new_session") is True  # detach from the dying process
+    env = kw.get("env")
+    assert env is not None, "the child MUST get an explicit (scrubbed) env"
+    # The old-mount vars are gone — else the new instance loads the dead mount.
+    assert "APPDIR" not in env
+    assert "LD_LIBRARY_PATH" not in env
+
+
 def test_install_progress_and_status_handlers_drive_the_dialog(
     teardown_threads,
 ) -> None:
