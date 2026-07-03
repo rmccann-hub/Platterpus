@@ -63,8 +63,13 @@ def verify_rip_dir(
         wait_for.join(_SETTLE_TIMEOUT_S)
 
     # Track order = filename order ("NN - Title.flac"), matching how the rest
-    # of the app enumerates a ripped album.
-    flac_paths = sorted(rip_dir.rglob("*.flac"))
+    # of the app enumerates a ripped album. NON-recursive on purpose: the CTDB
+    # TOC is exactly this disc's tracks, which sit directly in the album folder
+    # (the ripper writes the log beside them). A recursive glob would pull FLACs
+    # from a nested folder — a bonus disc, a leftover, or the whole music library
+    # if rip_dir ever fell back to the output root — into the TOC and produce a
+    # spurious "not in database" (#40).
+    flac_paths = sorted(rip_dir.glob("*.flac"))
     if not flac_paths:
         return CtdbVerifyResult(
             Verdict.LOOKUP_ERROR, message="no FLAC files found to verify"

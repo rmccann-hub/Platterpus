@@ -44,7 +44,10 @@ def verify_rip_dir(
     if wait_for is not None and wait_for.is_alive():
         wait_for.join(_SETTLE_TIMEOUT_S)
 
-    flac_paths = sorted(rip_dir.rglob("*.flac"))
+    # Non-recursive: verify exactly this album's masters (direct children of the
+    # album folder), not FLACs in nested/sibling folders that aren't this rip's
+    # (#40) — matches the CTDB/derived-verify enumeration.
+    flac_paths = sorted(rip_dir.glob("*.flac"))
     if not flac_paths:
         return FlacVerifyResult(error="no FLAC files found to verify")
     verify = verifier or verify_flac_files

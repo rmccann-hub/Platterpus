@@ -355,3 +355,57 @@ def test_v5_config_upgrades_to_v6_with_dynamic_default(
     assert cfg.schema_version == SCHEMA_VERSION
     assert cfg.secure_rerip_dynamic is True
     assert cfg.secure_rerip_matches == 0  # saved value preserved
+
+
+def test_load_never_raises_on_corrupt_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A corrupt config.toml must not crash startup — load() runs before the
+    QApplication/excepthook exist. It backs the bad file up and returns defaults."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text("this is not = valid toml [[[\n")
+
+    cfg = config_module.load()  # must not raise
+
+    assert cfg == config_module.Config()  # defaults
+    assert config_file.with_suffix(".bad").exists()  # bad file preserved for the user
+
+
+def test_load_never_raises_on_non_numeric_schema_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hand-broken schema_version (non-numeric) is tolerated, not a crash."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text('schema_version = "garbage"\n')
+
+    cfg = config_module.load()  # must not raise (int("garbage") would)
+
+    assert cfg == config_module.Config()
+    assert config_file.with_suffix(".bad").exists()
+
+
+def test_load_resets_a_traversal_template_from_a_hand_edited_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: a hand-edited config bypasses the Settings dialog's validators,
+    so load() must itself reject an exploit-shaped value. A `..` traversal track
+    template must be reset to the default before it can reach the ripper."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        f'schema_version = {SCHEMA_VERSION}\ntrack_template = "../../../etc/%t"\n'
+    )
+
+    cfg = config_module.load()
+
+    # The traversal template was reset to the safe default; other fields intact.
+    assert cfg.track_template == config_module.Config().track_template
+    assert ".." not in cfg.track_template
+
+
+def test_fresh_config_defaults_enable_dynamic_secure_rerip() -> None:
+    """The shipped default must make the dynamic secure re-rip actually run —
+    the worker gates it on secure_rerip_matches > 0 AND secure_rerip_dynamic, so
+    a fresh install with -Z at 0 would leave the headline feature inert."""
+    cfg = config_module.Config()
+    assert cfg.secure_rerip_dynamic is True
+    assert cfg.secure_rerip_matches == 2  # > 0 → dynamic path is active

@@ -128,7 +128,8 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
 
 ## CTDB — CUETools Database (`adapters/ctdb_client.py`)
 
-- HTTPS GET to the CTDB lookup endpoint with params `version=3, ctdb=1, fuzzy=0,
+- HTTP GET to the CTDB lookup endpoint (plain HTTP — the server serves no valid
+  TLS cert; KDD-16) with params `version=3, ctdb=1, fuzzy=0,
   metadata=none, toc=<toc>`; response is MMD XML
   (`<ctdb xmlns="…mmd-1.0#"><entry …/></ctdb>`). A match is labelled
   **experimental** until the audio-CRC is hardware-validated (KDD-16) — it can

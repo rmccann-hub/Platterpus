@@ -117,6 +117,17 @@ def test_renders_read_settings_block() -> None:
     assert "PIONEER BD-RW BDR-209D" in text
 
 
+def test_does_not_fabricate_read_mode_or_c2_pointers() -> None:
+    """Regression (#32): RippingInfo has no field for EAC's "Read mode" or "Make
+    use of C2 pointers", and cyanrip doesn't report them — so the export must not
+    hardcode "Secure"/"No". Inventing rip facts would violate the same
+    never-invent-a-log-line rule the banner states."""
+    text = render_eac_style_log(_sample_log())
+    assert "Read mode" not in text
+    assert "C2 pointers" not in text
+    assert "Secure" not in text
+
+
 def test_never_raises_on_empty_or_partial_log() -> None:
     # An empty RipLog still yields a valid, attributed, unsigned log.
     text = render_eac_style_log(RipLog())

@@ -40,6 +40,12 @@ log = logging.getLogger(__name__)
 _REPO_SLUG: str = "rmccann-hub/Platterpus"
 _CHUNK_BYTES: int = 1024 * 1024  # 1 MiB per read → progress/cancel granularity
 _TIMEOUT_S: float = 30.0  # per network operation (connect/read stall)
+# Hard ceiling on the downloaded AppImage. The real artifact is ~240 MB; 1 GiB is
+# generous headroom while still stopping a misbehaving/hostile server from
+# filling the disk with an endless stream before the post-download checksum gate
+# can reject it. Enforced against both the Content-Length header and the running
+# byte count (a lying/absent header can't get past the streaming check).
+_MAX_DOWNLOAD_BYTES: int = 1024 * 1024 * 1024
 
 
 class UpdateInstallError(Exception):
@@ -105,6 +111,11 @@ def download_and_install(
         dest_dir.mkdir(parents=True, exist_ok=True)
         with open_url(url) as response, open(part, "wb") as out:
             total = int(getattr(response, "headers", {}).get("Content-Length") or 0)
+            # Reject an oversized download up front when the server declares one.
+            if total > _MAX_DOWNLOAD_BYTES:
+                raise UpdateInstallError(
+                    f"the update is larger than expected ({total} bytes) — refusing it"
+                )
             done = 0
             while True:
                 if cancelled is not None and cancelled():
@@ -115,6 +126,12 @@ def download_and_install(
                 out.write(chunk)
                 digest.update(chunk)
                 done += len(chunk)
+                # Also bound the running total: a missing/lying Content-Length
+                # can't make us stream forever and fill the disk.
+                if done > _MAX_DOWNLOAD_BYTES:
+                    raise UpdateInstallError(
+                        "the update exceeded the maximum expected size — aborting"
+                    )
                 if progress is not None:
                     progress(done * 100.0 / total if total else -1.0)
     except UpdateInstallError:

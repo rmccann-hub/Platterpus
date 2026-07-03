@@ -6,7 +6,7 @@ This file is loaded by Claude Code on every session in this project. It captures
 
 ## Project
 
-Linux GUI front-end for the `whipper` audio-CD ripping CLI. EAC-equivalent archival quality, single-file AppImage distribution. Primary target: Bazzite Linux with KDE Plasma 6. Secondary: Fedora, Arch, Ubuntu, and other modern desktop Linux.
+Linux GUI front-end for the `cyanrip` audio-CD ripping CLI. EAC-equivalent archival quality, single-file AppImage distribution. Primary target: Bazzite Linux with KDE Plasma 6. Secondary: Fedora, Arch, Ubuntu, and other modern desktop Linux.
 
 ## Stack (locked)
 
@@ -24,7 +24,7 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
 
 ## Code conventions
 
-- **Comments:** heavy. The maintainer has limited programming experience — comment intent, not mechanics. A reader who can read Python but doesn't deeply know Qt or whipper should understand the file.
+- **Comments:** heavy. The maintainer has limited programming experience — comment intent, not mechanics. A reader who can read Python but doesn't deeply know Qt or cyanrip should understand the file.
 - **Type hints:** mandatory on all function signatures, class attributes, and module-level constants.
 - **Modules:** small and focused. Split when a file exceeds ~300 lines. One responsibility per module. The line count is a *heuristic for cohesion*, not a hard cap — don't split a cohesive 350-line file to hit a number, and *do* split a 200-line file that's secretly doing three jobs. A heavily-tested Qt "god-object" (e.g. `MainWindow`) is split via **mixins** the concrete class inherits, so methods stay reachable as `window._x` (which tests and Qt signal wiring depend on) while each concern lives in its own focused file — see `docs/architecture.md`.
 - **No clever metaprogramming.** Avoid decorators that mutate behavior unobviously, dynamic class creation, monkey-patching, or "magic" imports.
@@ -33,7 +33,7 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
 - **Validate every input and every dependency output — visibly, and to the log.** (Added 2026-07-01 after a real-hardware session found this was *nowhere* a written requirement — which is exactly why Settings inputs had only ad-hoc, per-widget range limits and no systematic checking. Institutional now.) Two obligations:
   - **Inputs:** every value that enters the program from outside the code — user-entered Settings (paths, templates, tool paths, numbers), config-file values, CLI args — is validated for *type, range, character set, and format* at its boundary before it's used or persisted. Invalid input gets a **visible, specific error at the point of entry** (the user must see *what* is wrong *as they change it* — not a silent reset, not a crash later), and the failure is **logged to the log file** (`logging.warning`/`error`) so a bug report carries it. Validation logic lives in a **pure, testable function** (e.g. `settings_validation.py`), never scattered inline in widget slots — same shape as the dependency subsystem (Critical rule #6). A GUI widget's own constraint (a `QSpinBox` range) is a *convenience*, not the validation — the pure validator is the source of truth and is what tests assert against.
   - **Outputs to dependencies:** before invoking an external tool, validate that the arguments we hand it satisfy that tool's documented contract (see `docs/dependency-contracts.md` — the single reference for allowable args/syntax/output per dependency). When a dependency fails or emits an error, **capture its stderr/stdout and log it** (never swallow it) so the failure is diagnosable. Parsers of that output still **never raise** (below) — validation and best-effort parsing are complementary, not alternatives.
-- **Subprocess output parsing:** robust to whipper minor-version output changes. Use named-group regexes, not column-index splits. Parsers of external output **never raise** — they return a best-effort dataclass and get a `hypothesis` "never raises" property test.
+- **Subprocess output parsing:** robust to cyanrip minor-version output changes. Use named-group regexes, not column-index splits. Parsers of external output **never raise** — they return a best-effort dataclass and get a `hypothesis` "never raises" property test.
 - **Naming:** snake_case for functions, variables, modules; PascalCase for classes; SCREAMING_SNAKE_CASE for module-level constants.
 
 ## Critical rules
@@ -99,7 +99,7 @@ This project is as much about building durable standards as shipping the app —
 
 Read these alongside this file when picking up a session:
 
-- **`PLANNING.md`** — architecture, module design, key design decisions (KDD-01 through KDD-21)
+- **`PLANNING.md`** — architecture, module design, key design decisions (KDD-01 through KDD-23)
 - **`TASKS.md`** — active task checklist; update status (`[ ]` → `[~]` → `[x]`) as work progresses. Sections: P0 (v1 release, T01-T32), P1.1 (install/uninstall ease — highest-priority P1 subset), P1 (broader backlog), P2 (future), Out of scope.
 - **`DEPENDENCIES.md`** — dep table with last release dates and replacement plans; review per the cadence stated in that file
 - **`README.md`** — outward-facing project description and install instructions
@@ -107,7 +107,7 @@ Read these alongside this file when picking up a session:
 - **`docs/README.md`** — index of the docs/ directory, the single-source-of-truth map, and a rebuild-from-scratch checklist
 - **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements and scope
 - **`docs/platterpus-session-start.md`** — bootstrap instructions a fresh Claude Code session uses to reproduce the initial planning artifacts; its **Step 0** holds the optional Research-mode prompt for refreshing tool-choice validation
-- **`docs/log-format-comparison.md`** — whipper rip log vs EAC log side-by-side (referenced by KDD-11)
+- **`docs/log-format-comparison.md`** — cyanrip rip log vs EAC log side-by-side (referenced by KDD-11)
 - **`docs/dependency-contracts.md`** — the single reference for the exact args/flags/syntax we pass each external dependency (cyanrip, flac, metaflac, ffmpeg, musicbrainzngs, CAA, CTDB, drive/reader control) and the output shape we parse; the code-side half of the *validate every input and every dependency output* convention
 - **`docs/testing.md`** — the testing strategy & standards (the trophy + hardware gate, the five-tier case taxonomy, property/golden/fault-injection guidance, the coverage gate, and the institutional rules: every bug gets a regression test; parsers never raise)
 - **`docs/test-plan.md`** — manual & release testing: the end-to-end acceptance run, the EAC output-parity check, the distro + problem-permutation matrices, and the deep single-feature gated cases (absorbed the former `docs/release-testing.md`)

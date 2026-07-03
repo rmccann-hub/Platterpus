@@ -12,7 +12,7 @@
 >   conflicts with CLAUDE.md, **CLAUDE.md wins**; this guide explains and
 >   expands those rules, it does not override them.
 > - **[`../PLANNING.md`](../PLANNING.md)** — the module map and the keyed
->   design-decision log (KDD-01 … KDD-21): the "why is it like this?" record.
+>   design-decision log (KDD-01 … KDD-23): the "why is it like this?" record.
 > - **[`testing.md`](testing.md)** — the testing strategy, taxonomy, and
 >   Definition of Done.
 > - **[`session-log.md`](session-log.md)** — the dated chronology of how each
@@ -20,11 +20,11 @@
 
 ## 1. What this program is
 
-A Linux desktop GUI (PySide6 / Qt6) that drives the `whipper` (and, newer,
-`cyanrip`) audio-CD ripping CLIs to produce EAC-equivalent, archival-quality
-FLAC rips. The GUI itself never rips: it shells out to a host-exported
-`~/.local/bin/whipper`, which transparently enters a Distrobox container
-named `ripping` to do the work. **This routing is non-negotiable** (see
+A Linux desktop GUI (PySide6 / Qt6) that drives the `cyanrip` audio-CD ripping
+CLI to produce EAC-equivalent, archival-quality FLAC rips. The GUI itself never
+rips: it shells out to a host-exported `~/.local/bin/cyanrip`, which
+transparently enters a Distrobox container named `ripping` to do the work.
+**This routing is non-negotiable** (see
 `CLAUDE.md` Critical Rule #3) — the GUI is an orchestrator and a user
 interface, not a ripper.
 
@@ -34,12 +34,12 @@ interface, not a ripper.
 │   • picks the MusicBrainz release  • builds the rip command  │
 │   • shows progress + the fidelity verdict  • tags / art      │
 └───────────────┬──────────────────────────────────────────────┘
-                │ subprocess → ~/.local/bin/whipper (host export)
+                │ subprocess → ~/.local/bin/cyanrip (host export)
                 ▼
         ┌───────────────────────┐     MusicBrainz / Cover Art Archive /
         │ Distrobox "ripping"   │     CTDB / AccurateRip  ◄─ queried by the
-        │ container: whipper /  │        GUI on the host (never the ripper)
-        │ cyanrip + flac        │
+        │ container: cyanrip +  │        GUI on the host (never the ripper)
+        │ flac                  │
         └───────────────────────┘
 ```
 
@@ -53,7 +53,7 @@ pieces independently testable and replaceable.
 |-------|---------|----------------|------------|
 | **UI** | `ui/` | Qt widgets, dialogs, the main window. *No business logic, no blocking I/O.* | workers, adapters, parsers, deps, config |
 | **Workers** | `workers/` | `QObject`s that run slow work (network, subprocess) off the GUI thread and emit results as signals. | adapters, parsers |
-| **Adapters** | `adapters/` | The *only* code that talks to an external tool/service (whipper, cyanrip, metaflac, MusicBrainz, Cover Art Archive, CTDB, AccurateRip). Thin, swappable. | parsers, stdlib |
+| **Adapters** | `adapters/` | The *only* code that talks to an external tool/service (cyanrip, metaflac, MusicBrainz, Cover Art Archive, CTDB, AccurateRip). Thin, swappable. | parsers, stdlib |
 | **Parsers** | `parsers/` | Turn external tool output (rip logs, disc info) into typed dataclasses. Pure, never raise. | stdlib only |
 | **Deps** | `deps/` | The single dependency self-management subsystem (detect → install → guide) and the host bootstrap/teardown engines. | adapters, stdlib |
 | **Domain** | `ctdb/` | Backend-independent CTDB verify (TOC math, PCM decode, CRC). | adapters, stdlib |
@@ -79,7 +79,7 @@ docs (and KDDs) link here rather than restating.
 ### 3.1 Adapter layer for every external tool (Critical Rule #1)
 Every call into an unmaintained or external dependency goes through a thin
 adapter behind an interface, so a future replacement is a one-file swap, not
-a codebase-wide rewrite. Currently flagged unmaintained: `whipper`,
+a codebase-wide rewrite. Currently flagged unmaintained:
 `python-musicbrainzngs`, `python-appimage`.
 
 The pattern (designs in [`../PLANNING.md`](../PLANNING.md) §5–§6):
@@ -270,10 +270,21 @@ returns a best-effort dataclass instead of raising:
 
 ### 3.5 One dependency subsystem (Critical Rule #6)
 All "is this tool present and the right version?" logic lives in `deps/`
-(probe → three-tier resolve: auto-install → queued install → copyable search
-string). Do **not** add ad-hoc `shutil.which` checks elsewhere. New deps are
-registered in `deps/registry.py` (mark `optional=True` if absence shouldn't
-nag).
+(`DependencyManager.check_all` probes; `deps/resolvers.py` holds the three tier
+building blocks: auto-install → queued install → copyable search string). Do
+**not** add ad-hoc `shutil.which` checks elsewhere. New deps are registered in
+`deps/registry.py` (mark `optional=True` if absence shouldn't nag).
+
+**Resolution routing (installing what's missing) lives in the GUI**, not the
+manager: `main_window_deps._resolve_missing_unified` splits missing deps by
+*where the install runs* (setup wizard for container tools, an off-thread
+live-progress `PendingInstallsDialog` for packaged installs, a manual-search
+dialog otherwise). It's UI-coupled by nature — each tier opens a different
+dialog and the install must stay off the GUI thread — so it can't live in the
+Qt-free `deps/`. The manager once carried a parallel `resolve_missing` tier
+cascade; it was unused (the GUI always routed itself) and was removed so there
+is a **single** resolution path (audit #33). The presence/version half — the
+part Critical Rule #6 requires be centralized — stays in `deps/`.
 
 ### 3.6 MainWindow is composed from mixins
 `MainWindow` was a 1707-line god-object; it's decomposed (2026-06-13) into
@@ -290,11 +301,11 @@ canonical ownership map** — KDD-19 records the *decision* and links here.
 | Rip lifecycle, force-stop, eject, cover art | `main_window_rip.py` (`RipMixin`) |
 | Host setup / AppImage integration / uninstall | `main_window_provision.py` (`ProvisioningMixin`) |
 | Drive setup / offset / access diagnosis | `main_window_drive.py` (`DriveMixin`) |
-| Dependency check / resolve / summary (+ `_DialogQueuedResolver`) | `main_window_deps.py` (`DependencyMixin`) |
-| Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the ~620-line assembler) |
+| Dependency check / resolve routing / summary | `main_window_deps.py` (`DependencyMixin`) |
+| Construction, menus, signal wiring, MusicBrainz slots, settings | `main_window.py` (the assembler) |
 
 `MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)`
-— a 1707-line god-object reduced to a ~620-line assembler plus six focused
+— a 1707-line god-object reduced to an assembler plus six focused
 modules. (The split first landed it at ~460 lines; it has since grown as
 new-feature wiring accreted — split again if a *concern*, not just a line
 count, starts sharing the file.)
@@ -538,7 +549,7 @@ the design:
 - **Never write secrets to the log** or to committed files. The release
   pipeline uses OIDC Trusted Publishing so there's no token to leak.
 - **Respect the Distrobox routing boundary** (Critical Rule #3): the GUI calls
-  the host-exported `~/.local/bin/whipper`; it does not enter the container,
+  the host-exported `~/.local/bin/cyanrip`; it does not enter the container,
   except the one scoped, user-approved force-stop exception.
 - **Licensing:** we are GPL-3.0-only. Before reusing third-party code, check
   compatibility — e.g. CTDB verify is built **clean-room** from the LGPL
@@ -607,5 +618,3 @@ External sources for the practices above:
   [OWASP — OS command injection](https://owasp.org/www-community/attacks/Command_Injection) ·
   [SPDX licenses](https://spdx.org/licenses/) ·
   [GNU license compatibility](https://www.gnu.org/licenses/gpl-faq.html)
-</content>
-</invoke>

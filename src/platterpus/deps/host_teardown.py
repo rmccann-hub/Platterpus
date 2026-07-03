@@ -48,6 +48,7 @@ from platterpus.paths import (
     APP_NAME,
     CONFIG_DIR,
     CYANRIP_BINARY_DEFAULT,
+    FLAC_BINARY_DEFAULT,
     LOG_DIR,
     WHIPPER_BINARY_DEFAULT,
     WHIPPER_CONFIG_PATH,
@@ -146,11 +147,18 @@ class HostTeardown:
         ]
 
     def _export_files(self) -> list[Path]:
-        """The host-exported wrappers distrobox-export wrote."""
+        """The host-exported wrappers distrobox-export wrote.
+
+        Must mirror the setup export step exactly (host_setup exports cyanrip,
+        metaflac AND flac): a missing entry here leaves a wrapper behind after
+        uninstall. `flac` was omitted, so `~/.local/bin/flac` was orphaned (#34).
+        `whipper` stays for the legacy path (a pre-KDD-18 install may still have
+        it exported)."""
         return [
             self.bin_dir / WHIPPER_BINARY_DEFAULT.name,
             self.bin_dir / "metaflac",
             self.bin_dir / CYANRIP_BINARY_DEFAULT.name,
+            self.bin_dir / FLAC_BINARY_DEFAULT.name,
         ]
 
     def _tree_targets(self, step_id: str) -> list[Path]:

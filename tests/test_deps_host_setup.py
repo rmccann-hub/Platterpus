@@ -114,6 +114,25 @@ def test_host_root_installs_use_pkexec_not_sudo(tmp_path: Path) -> None:
     assert not any(c.startswith("sudo ") for c in flat)
 
 
+def test_unknown_distro_distrobox_install_uses_injected_elevate(tmp_path: Path) -> None:
+    """Regression (#35): the unknown-distro Distrobox fallback piped the upstream
+    installer to a hardcoded `sudo sh`, ignoring the injected elevate. From the
+    GUI (elevate=pkexec) `sudo` has no TTY and silently fails, so the one path
+    meant to work terminal-free didn't. It must use the injected elevate."""
+    os_release = tmp_path / "os-release"
+    os_release.write_text('ID=voidlinux\nID_LIKE=""\n', encoding="utf-8")
+
+    # GUI path: pkexec, not sudo.
+    gui = install_argv("distrobox", os_release, "pkexec")
+    assert gui[:2] == ["sh", "-c"]
+    assert "| pkexec sh" in gui[2]
+    assert "sudo" not in gui[2]
+
+    # Terminal path (default) still uses sudo, unchanged.
+    term = install_argv("distrobox", os_release, "sudo")
+    assert "| sudo sh" in term[2]
+
+
 # --- Live progress: a RUNNING ping precedes each executing step ----------
 
 

@@ -60,7 +60,7 @@ do_uninstall() {
     refresh_menu
     echo "Removed Platterpus menu entry, desktop icon, icon file, and the"
     echo "uninstall shortcut. The AppImage binary itself was left untouched."
-    echo "(To remove the AppImage, config, and the Distrobox/whipper stack too,"
+    echo "(To remove the AppImage, config, and the Distrobox/cyanrip stack too,"
     echo " run uninstall.sh — interactively, with options.)"
 }
 
@@ -87,12 +87,12 @@ install_uninstall_shortcut() {
 Type=Application
 Name=Uninstall Platterpus
 GenericName=Platterpus uninstaller
-Comment=Remove Platterpus (with options for the Distrobox/whipper stack)
+Comment=Remove Platterpus (with options for the Distrobox/cyanrip stack)
 Exec=bash "$UNINSTALL_SCRIPT"
 Icon=edit-delete
 Terminal=true
 Categories=AudioVideo;Audio;
-Keywords=uninstall;remove;whipper;
+Keywords=uninstall;remove;cyanrip;
 EOF
     echo "Installed uninstall shortcut: $UNINSTALL_DESKTOP"
 }
@@ -168,12 +168,12 @@ do_install() {
 Type=Application
 Name=$APP_NAME
 GenericName=CD Audio Ripper
-Comment=Rip audio CDs to FLAC with whipper
+Comment=Rip audio CDs to FLAC with cyanrip
 Exec=$appimage
 Icon=$icon_value
 Terminal=false
 Categories=AudioVideo;Audio;DiscBurning;
-Keywords=cd;rip;flac;audio;whipper;musicbrainz;
+Keywords=cd;rip;flac;audio;cyanrip;musicbrainz;
 EOF
     echo "Installed menu entry: $DESKTOP_FILE"
 
