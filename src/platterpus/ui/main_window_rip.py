@@ -128,10 +128,10 @@ class RipMixin:
 
     def _on_rip_requested(self, params: RipParameters) -> None:
         """User clicked Start. Validate, then start the worker thread."""
-        # A read offset is mandatory: whipper refuses to rip without one (and
-        # fails with a cryptic error), and an accurate offset is what makes the
-        # rip bit-perfect. If neither whipper.conf nor our --offset override has
-        # one, stop here and point the user at the drive-setup wizard rather
+        # A read offset is mandatory: an accurate offset is what makes the rip
+        # bit-perfect. If neither the legacy whipper.conf (still read for the
+        # trust display) nor our own --offset override has one, stop here and
+        # point the user at the drive-setup wizard rather
         # than letting the rip start and fail. The wizard pre-fills the offset
         # when the drive model is known; otherwise it's found from a CD that's
         # in the AccurateRip database.
@@ -161,8 +161,8 @@ class RipMixin:
 
         # The offset is configured now — but `params` was built by the rip
         # controls BEFORE any auto-apply above, so it may still carry
-        # read_offset_override=None. Inject it here so whipper actually gets
-        # `--offset` (otherwise it aborts with "drive offset unconfigured").
+        # read_offset_override=None. Inject it here so cyanrip actually gets its
+        # `-s` sample offset (otherwise the rip isn't offset-corrected).
         if self._config.override_read_offset and params.read_offset_override is None:
             params = replace(params, read_offset_override=self._config.read_offset)
 
@@ -175,7 +175,7 @@ class RipMixin:
                 return
         else:
             # Unknown disc: build the output templates from the album fields
-            # (the literals, not whipper's %A/%d disc-ID hash).
+            # (literal folder names, not a disc-ID hash).
             params = self._as_unknown_params(params)
 
         self._rip_progress.clear()
@@ -244,7 +244,7 @@ class RipMixin:
 
     def _as_unknown_params(self, params: RipParameters) -> RipParameters:
         """Return `params` rewritten for an unknown-album rip: `--unknown`,
-        no release-id (so whipper needs no network), and output templates
+        no release-id (so the ripper needs no network), and output templates
         built from the album fields the user sees (blanks → Unknown)."""
         album = self._track_table.album_metadata()
         artist = safe_path_segment(album.artist) or "Unknown Artist"
@@ -311,7 +311,7 @@ class RipMixin:
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
         self._rip_worker.status.connect(self._rip_progress.set_status)
-        # Follow the rip in the track table — highlight the row whipper is on.
+        # Follow the rip in the track table — highlight the row the ripper is on.
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
@@ -491,9 +491,10 @@ class RipMixin:
         """The rip subprocess exited."""
         log.info("rip finished: success=%s log=%s", success, log_path)
 
-        # Autonomous heal: whipper aborts when it can't fetch online metadata
-        # (e.g. the container has no network). The GUI already has the metadata
-        # (its own host-side MusicBrainz lookup), so re-rip as unknown-album —
+        # Autonomous heal (inert whipper-era seam): a ripper that does its own
+        # online lookup can abort when it can't fetch metadata. cyanrip runs -N
+        # and never does, so this never fires today, but the GUI already has the
+        # metadata (its own host-side MusicBrainz lookup), so re-rip as unknown —
         # which needs no network — and tag locally afterward. Once per Start.
         needs_retry = bool(self._rip_worker and self._rip_worker.needs_unknown_retry)
         params = self._active_rip_params
@@ -689,12 +690,12 @@ class RipMixin:
         # right when the rip finishes (CLAUDE.md "never block the GUI thread";
         # docs/architecture.md §3.2). Only on a successful rip.
         if success and params is not None:
-            # Tagging — only when the rip we started was unknown-mode
-            # (identified discs are tagged by whipper itself). Scope it to the
-            # album folder whipper just wrote: the .log lands next to the
-            # FLACs, so its parent is that folder. Using the configured output
-            # root instead would re-tag every previously ripped album in the
-            # library with THIS disc's metadata.
+            # Tagging — only when the rip we started was unknown-mode (an
+            # identified disc is tagged by cyanrip itself, fed the GUI's -a/-t
+            # tags). Scope it to the album folder the ripper just wrote: the .log
+            # lands next to the FLACs, so its parent is that folder. Using the
+            # configured output root instead would re-tag every previously ripped
+            # album in the library with THIS disc's metadata.
             tag = params.unknown
             # BUG-1: snapshot the track table HERE (on the GUI thread) — the
             # post-rip daemon must NOT read QWidgets. album_metadata()/tracks()
@@ -726,9 +727,8 @@ class RipMixin:
             # FLAC/MP3 keep theirs), so for those formats make sure the front
             # cover still lands in the album folder as cover.<ext> — the only way
             # they get a visible cover. Force the folder save whenever art is
-            # wanted (cover_art mode set) and the disc was identified; this also
-            # makes the whipper-known path (which normally leaves art to whipper)
-            # fetch a folder copy, since whipper only put it *inside* the FLAC.
+            # wanted (cover_art mode set) and the disc was identified, so a
+            # folder copy always exists alongside any embedded one.
             if (
                 transcode_fmt
                 and transcode_fmt not in EMBEDS_COVER_ART

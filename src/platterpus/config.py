@@ -36,7 +36,9 @@ SCHEMA_VERSION: int = 7
 _DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
 _DEFAULT_WORKING_DIR: Path = Path.home() / ".cache" / "platterpus"
 
-# Whipper path templates (see `whipper cd rip --help`). Format codes:
+# Path templates — whipper-style %-tokens (the syntax the GUI exposes),
+# translated to cyanrip's own naming scheme at rip time (see cyanrip_backend).
+# Format codes:
 #   %A = release artist   %d = release title (album)   %a = track artist
 #   %t = track number      %n = track title             %y = release year
 #   %N = disc number        %M = total discs
@@ -94,7 +96,7 @@ class Config:
     output_dir: str = field(default_factory=lambda: str(_DEFAULT_OUTPUT_DIR))
     working_dir: str = field(default_factory=lambda: str(_DEFAULT_WORKING_DIR))
 
-    # --- Whipper rip templates ---
+    # --- Rip path templates ---
     # Used for discs MusicBrainz identifies (rich, tag-driven names).
     track_template: str = _DEFAULT_TRACK_TEMPLATE
     disc_template: str = _DEFAULT_DISC_TEMPLATE
@@ -133,7 +135,7 @@ class Config:
     drive_setup_prompted: bool = False
 
     # Set once we've auto-offered the host-setup wizard on first run (when the
-    # whipper binary isn't present — the container stack isn't installed yet).
+    # ripper binary isn't present — the container stack isn't installed yet).
     # Same one-time, dismissible model as drive_setup_prompted; afterwards it
     # lives on Tools → Set up Platterpus….
     host_setup_prompted: bool = False

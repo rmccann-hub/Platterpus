@@ -4,7 +4,7 @@
 Everything the rip pipeline needs is exercised here EXCEPT the disc read
 itself, so the whole thing runs with **no CD in the drive**:
 
-  * the Distrobox -> ``~/.local/bin/whipper`` routing actually reaches whipper
+  * the Distrobox -> ``~/.local/bin/cyanrip`` routing actually reaches cyanrip
     (the single most failure-prone link — Critical Rule #3);
   * the optical drive is detected and accessible (a drive lists fine empty);
   * the dependency tools are present at a usable version (reusing the ONE

@@ -94,7 +94,10 @@ class RipParameters:
 # Human-readable phase descriptions for the status line. Without these
 # the GUI sat on "Starting rip…" for the whole pre-track disc scan
 # (which can run a minute or more) and looked frozen — T32 feedback.
-# Whipper's progress lines look like:
+# The current backend is cyanrip (KDD-18) — its progress lines are matched by
+# the _CYANRIP_* patterns further down. The patterns just below match the
+# WHIPPER log format and are kept only as an inert whipper-format seam (harmless
+# if a whipper-era log is ever re-fed); whipper's progress lines looked like:
 #   "Reading TOC  50 %"
 #   "Reading table  50 %"
 #   "Reading track 3 of 16 (1 of 9) ...  42 %"
@@ -241,7 +244,7 @@ class RipWorker(QObject):
     # operation (read → verify → encode each sweep 0-100%).
     progress = Signal(float, float)  # overall_percent, task_percent
     status = Signal(str)  # human-readable current phase
-    # Emitted with the 1-based track number whenever whipper starts working
+    # Emitted with the 1-based track number whenever the ripper starts working
     # on a new track, so the GUI can follow along by highlighting that row.
     current_track = Signal(int)
     finished = Signal(bool, str)  # success, log_path
@@ -258,11 +261,12 @@ class RipWorker(QObject):
         self._params: RipParameters = params
         self._handle: RipHandle | None = None
         # Last status text emitted, so we don't re-emit identical phases
-        # on every progress tick (whipper prints one line per percent).
+        # on every progress tick (cyanrip redraws its progress many times a sec).
         self._last_status: str = ""
         # Progress state. `_overall` only ever moves forward (see
         # _bump_overall); `_total_tracks`/`_current_track` are learned from
-        # whipper's "track N of M" lines.
+        # the ripper's per-track progress lines (cyanrip's "Ripping track N";
+        # the whipper "track N of M" form is still matched as an inert seam).
         self._overall: float = 0.0
         self._total_tracks: int = 0
         self._current_track: int = 0
@@ -277,12 +281,13 @@ class RipWorker(QObject):
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
         self._cancelled: bool = False
-        # Set true if whipper aborts for lack of online metadata, so the GUI
-        # can heal by retrying as an unknown-album rip. Only meaningful when
-        # this rip wasn't already unknown.
+        # Set true if the ripper aborts for lack of online metadata, so the GUI
+        # can heal by retrying as an unknown-album rip. An inert whipper-era seam:
+        # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
+        # Only meaningful when this rip wasn't already unknown.
         self._needs_unknown_retry: bool = False
         # A user-facing explanation set when a known fatal pattern is seen
-        # (e.g. whipper giving up on an unreadable track). "" if none.
+        # (e.g. the ripper giving up on an unreadable track). "" if none.
         self._failure_hint: str = ""
         # Wall-clock start of the rip, stamped when the stream loop begins. Used
         # to compute our OWN album-level ETA (elapsed × (1-frac)/frac) — stable
@@ -474,14 +479,15 @@ class RipWorker(QObject):
 
     @property
     def needs_unknown_retry(self) -> bool:
-        """True if the rip failed because whipper couldn't fetch online
-        metadata (and this wasn't already an unknown-album rip)."""
+        """True if the rip failed because the ripper couldn't fetch online
+        metadata (and this wasn't already an unknown-album rip). Inert with
+        cyanrip, which never does its own lookup — kept for a networked backend."""
         return self._needs_unknown_retry
 
     @property
     def failure_hint(self) -> str:
         """An actionable failure explanation, or "" if the failure was generic.
-        Set when whipper gives up on an unreadable track."""
+        Set when the ripper gives up on an unreadable track."""
         return self._failure_hint
 
     @property
@@ -804,7 +810,7 @@ class RipWorker(QObject):
             except Exception:  # noqa: BLE001 — cancel is best-effort
                 log.exception("startup-window terminate() raised; ignored")
 
-        # Stream output. Iteration ends when whipper closes its stdout
+        # Stream output. Iteration ends when the ripper closes its stdout
         # (i.e. exits) or when cancel() flips the flag.
         try:
             for line in self._handle.log_lines():
@@ -834,9 +840,10 @@ class RipWorker(QObject):
                         self.log_line.emit(_CYANRIP_ETA_CLAUSE.sub("", line))
                 else:
                     self.log_line.emit(line)
-                # Watch for whipper's "no online metadata" abort so the GUI
-                # can heal by re-ripping as unknown (only worth it if this
-                # rip wasn't already unknown). Detection runs on EVERY line.
+                # Watch for the "no online metadata" abort so the GUI can heal
+                # by re-ripping as unknown (only worth it if this rip wasn't
+                # already unknown). Inert whipper-era seam — cyanrip runs -N and
+                # never emits these markers. Detection runs on EVERY line.
                 if not self._params.unknown and any(
                     m in line for m in _NO_METADATA_MARKERS
                 ):
@@ -863,8 +870,8 @@ class RipWorker(QObject):
                 if prog is not None:
                     self.progress.emit(prog[0], prog[1])
                 # _progress_for updates _current_track as a side effect when
-                # it sees a "track N of M" line. Emit once per new track so
-                # the GUI can highlight the row whipper is on.
+                # it sees a per-track progress line. Emit once per new track so
+                # the GUI can highlight the row the ripper is on.
                 if self._current_track and self._current_track != self._emitted_track:
                     self._emitted_track = self._current_track
                     self.current_track.emit(self._current_track)
@@ -1145,7 +1152,10 @@ class RipWorker(QObject):
     # --- Internals ---
 
     def _progress_for(self, line: str) -> tuple[float, float] | None:
-        """Map a whipper stdout line to (overall, task) percentages.
+        """Map a ripper stdout line to (overall, task) percentages.
+
+        Handles cyanrip's progress lines (the live backend) and, as an inert
+        seam, the whipper log format.
 
         The rip is split into three overall bands so the overall bar
         advances smoothly start-to-finish instead of resetting per track:
@@ -1260,11 +1270,12 @@ class RipWorker(QObject):
 
 
 def _describe_activity(line: str) -> str | None:
-    """Return a short human status for a whipper progress line, or None.
+    """Return a short human status for a ripper progress line, or None.
 
-    Used to keep the status label live across every phase — especially
-    the pre-track disc scan, which otherwise left the GUI on
-    "Starting rip…" for a minute-plus and looked hung.
+    Matches cyanrip's progress lines (and the inert whipper-format seam). Used
+    to keep the status label live across every phase — especially the pre-track
+    disc scan, which otherwise left the GUI on "Starting rip…" for a minute-plus
+    and looked hung.
     """
     match = _DISC_SCAN_PATTERN.search(line)
     if match:

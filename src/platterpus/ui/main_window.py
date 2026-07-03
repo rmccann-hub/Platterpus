@@ -158,7 +158,7 @@ class MainWindow(
         # call), so the default real client never touches the net in tests.
         self._ctdb_client: CTDBClient = ctdb_client or CtdbHttpImpl()
         # Read-offset lookup by drive model (the disc-free primary path that
-        # replaces relying on whipper's flaky `offset find`). Cheap to build
+        # replaces relying on the ripper's flaky offset detection). Cheap to build
         # — a curated in-code table overlaid with an optional user CSV.
         self._offset_db: OffsetDatabase = OffsetDatabase.load_default()
         # Per-drive profile ledger (KDD-23): records the provenance/confidence of
@@ -186,7 +186,7 @@ class MainWindow(
         # *previous* disc's release. Set when a probe identifies a disc, cleared
         # at the start of every new scan.
         self._current_disc_id: str = ""
-        # Track count for the current disc (from whipper cd info). Used to
+        # Track count for the current disc (from cyanrip cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
         # Active rip's worker/thread; set during a rip, cleared on finish.
@@ -207,7 +207,7 @@ class MainWindow(
         self._install_dialog: object | None = None
         self._install_post_download: bool = False
         # Launch-time dependency probe, run off-thread so a cold-container
-        # `whipper --version` can't freeze the just-shown window; joined in
+        # `cyanrip --version` can't freeze the just-shown window; joined in
         # closeEvent. (DependencyMixin.run_dependency_check_async)
         self._dep_check_worker: object | None = None
         self._dep_check_thread: QThread | None = None
@@ -229,7 +229,7 @@ class MainWindow(
         # reads this to show a clean "drive freed" message instead of the raw
         # error, and to avoid auto-freeing again.
         self._scan_force_stopped: bool = False
-        # Launch-time drive listing (whipper `drive list` enters the container);
+        # Launch-time drive listing (the scan enters the container);
         # run off-thread so it can't freeze the just-shown window. Joined in
         # closeEvent. (The Refresh button stays synchronous — user-initiated.)
         self._drive_list_worker: object | None = None
@@ -438,7 +438,7 @@ class MainWindow(
         """Populate the drive picker — `list_drives` runs OFF the GUI thread.
 
         Called at launch (app.py) and after host setup. `list_drives` shells
-        to whipper (container entry, slow on a cold start), so it's probed on
+        into the container (slow on a cold start), so it's probed on
         a worker and the result is applied to the picker on the GUI thread; the
         window stays responsive. (The picker's own Refresh button stays
         synchronous — that's user-initiated.)
@@ -532,7 +532,7 @@ class MainWindow(
         settings_action.setShortcut(QKeySequence.StandardKey.Preferences)
         settings_action.triggered.connect(self._on_open_settings)
 
-        # Host bootstrap (installs the whipper/cyanrip container stack) — the
+        # Host bootstrap (installs the cyanrip container stack) — the
         # no-terminal replacement for setup-host.sh. Listed first: without it
         # there's nothing to rip with.
         host_setup_action = tools_menu.addAction("Set up &Platterpus…")

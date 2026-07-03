@@ -63,7 +63,7 @@ class DriveMixin:
     def _on_drive_setup(self) -> None:
         """Tools → Set up drive: launch the calibration wizard.
 
-        Targets the currently-selected drive (whipper auto-detects a single
+        Targets the currently-selected drive (the ripper auto-detects a single
         drive anyway, but passing the device is correct for multi-drive).
         """
         device = self._drive_picker.current_device()
@@ -72,7 +72,7 @@ class DriveMixin:
             return
         # Primary path: resolve the offset by drive model from the AccurateRip
         # list, so the wizard can pre-fill the right value with no disc and no
-        # dependence on whipper's unreliable `offset find`.
+        # dependence on the ripper's disc-based offset detection.
         drive = self._drive_picker.current_drive()
         known_offset: int | None = None
         drive_label = ""
@@ -95,7 +95,8 @@ class DriveMixin:
         )
         dialog.manual_offset_saved.connect(self._on_manual_offset_saved)
         # Record a successful auto-detect's provenance (measured on this drive →
-        # high confidence). Provenance only — whipper already wrote whipper.conf.
+        # high confidence). Provenance only — the offset itself is saved to
+        # Platterpus config by the manual-save path, not to whipper.conf.
         dialog.detection_recorded.connect(self._on_detection_recorded)
         dialog.exec()
 
@@ -103,8 +104,8 @@ class DriveMixin:
         """True when we should auto-offer calibration on first run.
 
         Only when (a) we haven't offered before and (b) no read offset is
-        configured (neither whipper.conf nor our --offset override). whipper
-        can't rip without one, so a fresh user is otherwise stuck.
+        configured (neither the legacy whipper.conf nor our --offset override).
+        A bit-perfect rip needs one, so a fresh user is otherwise stuck.
         """
         if self._config.drive_setup_prompted:
             return False
