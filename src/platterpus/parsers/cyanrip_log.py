@@ -209,11 +209,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _SPEED_CAP.match(line)
         if match:
-            text = match.group("text").lower()
+            # BUG-8: use a distinct local — this used to reassign the `text`
+            # parameter (the whole log) inside the loop, a latent trap.
+            speed_text = match.group("text").lower()
             # "unchangeable" contains "changeable", so test the negative first.
-            if "unchangeable" in text:
+            if "unchangeable" in speed_text:
                 speed_changeable = False
-            elif "changeable" in text or (text and text[0].isdigit()):
+            elif "changeable" in speed_text or (speed_text and speed_text[0].isdigit()):
                 speed_changeable = True
             continue
 

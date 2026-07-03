@@ -179,9 +179,9 @@ class RipControls(QWidget):
         return "Start ripping the disc in the selected drive."
 
     def _on_start(self) -> None:
-        # Unknown discs use the literal "Unknown Album" templates so the
-        # disc-ID hash whipper puts in %d never reaches the path; known
-        # discs use the rich tag-driven templates.
+        # Unknown discs use the literal "Unknown Album" templates so a raw
+        # disc-ID hash never reaches the path; known discs use the rich
+        # tag-driven templates.
         if self._unknown_mode:
             track_template = self._config.track_template_unknown
             disc_template = self._config.disc_template_unknown

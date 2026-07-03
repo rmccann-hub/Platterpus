@@ -11,7 +11,63 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.10] — 2026-07-03
+
 ### Fixed
+- **The setup wizard no longer freezes the window while it checks what got
+  installed.** After the host-setup wizard ran, Platterpus re-probed each
+  container tool (cyanrip/flac/metaflac) on the GUI thread — and each probe
+  shells into the Distrobox container, which can take up to minutes on a cold
+  container, so the window locked up. The re-probe now runs on a worker thread
+  while a nested event loop keeps the window responsive.
+- **A batch of small robustness + hardening fixes.** The in-app updater now caps
+  the `.sha256` read (a hostile mirror could otherwise stream a huge body into
+  memory before the length check); the CTDB verify now classifies a wedged
+  `flac`/`metaflac` (`TimeoutExpired`) as a lookup/decode error instead of
+  letting it escape the never-raise path; the metaflac tool-path Settings field
+  now rejects control characters (the other path fields already did); Picard is
+  launched detached (`start_new_session`) so quitting Platterpus can't take it
+  down; the dialog-centering filter tracks dialogs by weak reference instead of
+  `id()` (a reused id could leave a later dialog un-centred); and the AppImage
+  `.desktop` `Exec=` writer neutralises newline/tab/CR so a control character in
+  the path can't inject a second key. Each carries a regression test.
+- **A rip that finishes could no longer leave the app wedged.** Three latent
+  failures in the finish path are closed: (1) the post-rip tagging step read the
+  track-table widgets from its background thread — a data race on every
+  unknown-album rip; the table is now snapshotted on the GUI thread and the plain
+  data handed in. (2) A `.log` vanishing mid-scan while discovering the rip log
+  raised an error that escaped the worker, so `finished` never fired and the rip
+  lock stuck on (drive spinning, UI dead until restart); log discovery now stats
+  each candidate once, guarded, and `start_rip` always emits `finished` even on
+  an unexpected error. (3) If anything in the finish handler raised, the rip-state
+  clear was skipped, so shutdown thought a finished rip was still live; the reset
+  now runs in a `finally`. Each has a regression test.
+- **The album ETA is no longer wildly optimistic early in a rip.** It projected
+  the remaining time from the average rate *since the pass began*, but the disc
+  scan (first ~5%) and the disc's inner tracks read far faster than the bulk — so
+  early on the estimate was dominated by that fast start and read absurdly low
+  (real hardware: at 5% done it showed "~4m left" with 58m to go, then climbed).
+  It now projects from the read rate over a trailing 90-second window, so it
+  tracks the actual current speed and stays honest throughout instead of starting
+  low and ramping up.
+- **Upgraders no longer inherit the dynamic secure re-rip switched *off*.** The
+  0.4.9 headline (secure only the AccurateRip-failing tracks) needs the "Max reads
+  to confirm a shaky track" ceiling (`-Z`) above 0, and a fresh install defaults
+  to 2 — but anyone upgrading from 0.4.8 (whose default was 0) kept the old 0, so
+  the feature silently never ran (confirmed on real hardware: a rip with
+  `secure_rerip_matches: 0` and no `-Z`). A one-time config migration (v6→v7) now
+  bumps an inherited `0` to `2` so the feature actually engages. It runs once, so
+  anyone who genuinely wants re-rip off can set `0` again afterward and it sticks.
+- **A literal `%%` in a naming template now produces one `%` in the filename, not
+  two — and matches the live preview.** The template-to-cyanrip translator didn't
+  recognise `%%` (whipper's escape for a literal percent): it passed `%%` through
+  unchanged, so the real filename had two percent signs while the Settings preview
+  showed one, and every rip using such a template logged a bogus "no cyanrip
+  mapping for token '%%'" warning. Now `%%` collapses to a single `%` (as the
+  preview always did), so preview and result agree and the spurious warning is
+  gone. (Found while re-checking a deferred audit note that turned out to be a
+  real preview-vs-result mismatch, not the "intentional" behaviour it was filed
+  as.)
 - **Settings validation now rejects a control character at the *start or end* of
   an output/working directory, not only in the middle.** The check ran on the
   whitespace-stripped value, and Python treats the C0 "information separators"
@@ -22,7 +78,61 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   (NUL was always caught; this closes the gap for its whitespace-classified
   siblings). Found by a new position-fuzzing property test.
 
+### Changed
+- **In-app help and the README now describe how ripping actually works.** The
+  re-rip control is named "Max reads to confirm a shaky track" (not the old
+  "Re-rip until reads match"), and the help/README explain the dynamic model —
+  rip once fast, then secure-re-rip only the tracks AccurateRip couldn't confirm
+  — which is **on by default** (they used to say "leave it Off for clean discs").
+  A "How ripping works" section was added to the README.
+- **Documentation currency (KDD-18 follow-through):** swept remaining
+  whipper-as-the-current-backend claims out of the docs, the drive-setup wizard
+  wording ("saves to whipper.conf" was false — the offset lives in Platterpus's
+  own config, applied to cyanrip), and code comments, while keeping the
+  legitimate references (the whipper-format log parser, the legacy `whipper.conf`
+  offset reader, and clearly-labelled inert seams). Removed the dead
+  `scripts/preflight.py --backend whipper|cyanrip` flag (it set a `Config`
+  attribute that no longer exists), the dead `DriveSetupResult.backup_path`
+  field, and corrected the Python matrix (3.11–3.14) and a few table/reference
+  nits.
+
 ### Added
+- **"View log" and "View report" now open in an in-app read-only viewer.** A
+  `.log` / `.platterpus.json` has no default application on a fresh KDE, so the
+  old behaviour popped the OS "Open With" app-chooser (a jarring, un-asked-for
+  prompt against the zero-terminal bar — real-user report). The files now show in
+  a self-contained, read-only, monospace pane; an "Open externally…" button still
+  hands off to your own editor when you want it. ("Open rip folder" still uses
+  the file manager, which does have a default handler.)
+- **The rip report (`.platterpus.json`) now explains a whole rip on its own
+  (schema v7).** New, additive sections so one file answers the questions a
+  support thread always asks: `outcome` (did the *run* succeed / cancel / fail,
+  with a failure hint and whether the "re-rip as unknown" self-heal fired —
+  distinct from the AccurateRip `verdict`); `settings` (what the GUI *asked the
+  ripper for*, including the read offset as `{configured, applied, effective}` so
+  a genuine 0 is told apart from a configured-but-not-applied one — which the log
+  can't show); `disc` (unknown-mode + the MusicBrainz release id); `environment`
+  (Python / OS / PySide6 / install channel, plus per-dependency versions **and
+  paths** from the launch-time probe — cyanrip/flac/metaflac/ffmpeg/…); a
+  `generator.build_fingerprint` (the build's git short-SHA, or `"source"` on a
+  checkout — debug only, never part of any bit-perfection claim); `cover_art`
+  (the structured front-cover result — found / why-not, e.g. `404` vs `network`,
+  and how many files it was embedded in); `read_speed.secure_rerip` (why the
+  dynamic secure re-rip did or didn't run — e.g. skipped because the disc isn't
+  in AccurateRip, so "why wasn't my shaky track re-ripped?" is answerable);
+  `verification.gates` (turns an ambiguous `null` check into an explicit "ran" /
+  "disabled" / "backend self-verifies" / "flac-only"); `verification.recompress`
+  (the opt-in `flac -8` result, which mutates the masters); `log_parse` (flags a
+  degraded read of the human log); and a consolidated, severity-tagged `issues`
+  list a triager opens first (empty on a clean rip). A hard failure that produced
+  **no** log now also leaves a minimal report
+  (`platterpus-rip-failure.platterpus.json`) so the most-broken rips are no
+  longer the least diagnosable.
+- **A report-completeness test now fails CI if a report section goes missing or
+  a new one is added without being declared** (`test_rip_report_completeness.py`)
+  — the JSON's whole value is that a consumer can rely on every section being
+  present-or-explicitly-null, so a check can't be added to the rip and silently
+  left out of the report.
 - **Property-based (fuzzed) tests for two never-raise/security surfaces:** the
   naming live-preview renderer (`render_preview` must never raise on any typed
   template) and the Settings path validators (a `..` traversal segment, and a
@@ -1818,7 +1928,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...HEAD
+[0.4.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7

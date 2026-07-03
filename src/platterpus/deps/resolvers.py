@@ -4,16 +4,19 @@ Each resolver has the same `resolve(items)` shape so the manager can
 dispatch uniformly:
 
 - `AutoInstaller` runs the install commands itself (after one consent
-  callback) — tier (a).
+  callback) — tier (a). This is the one the production GUI uses (via
+  `main_window_deps._make_install_one`).
 - `QueuedInstaller` defers to a UI dialog the user drives one click
   at a time — tier (b).
 - `ManualPrompt` shows a copyable search string and gives up on
   installing — tier (c).
 
-The UI dialogs (T18, T19) don't exist yet, so QueuedInstaller and
-ManualPrompt accept callbacks. The default callbacks log only — they
-do nothing visible. When the dialog tasks land, the callers wire real
-QDialog show functions in their place.
+NOTE (TD-4): the real dialogs now exist — the GUI drives resolution directly
+through `ui/main_window_deps._resolve_missing_unified` (the setup wizard, the
+off-thread `PendingInstallsDialog`, and a manual-search dialog). `QueuedInstaller`
+and `ManualPrompt` are no longer used in production; they remain as callback-based
+resolution primitives with their own unit tests, pending removal or a decision to
+re-wire them.
 """
 
 from __future__ import annotations

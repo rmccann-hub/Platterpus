@@ -6,7 +6,7 @@ version tuple from arbitrary CLI output. We don't pull in
 a regex and tuple comparison handle cleanly.
 
 The named-group regex pattern matches CLAUDE.md's "Subprocess output
-parsing must be robust to whipper minor-version changes. Use named-group
+parsing must be robust to cyanrip minor-version changes. Use named-group
 regexes, not column-index splits" rule.
 """
 
@@ -30,7 +30,7 @@ def parse_version(
 
     Returns None if no match. `pattern` must have named groups `major`,
     `minor`, and optionally `patch`. Defaults to `DEFAULT_VERSION_PATTERN`
-    which covers the formats whipper, metaflac, flatpak, and most other
+    which covers the formats cyanrip, metaflac, flatpak, and most other
     CLI tools print.
     """
     if pattern is None:

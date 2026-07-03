@@ -167,6 +167,24 @@ def test_metaflac_bare_name_defers_to_dependency_subsystem() -> None:
     assert not any(i.field == "metaflac_path" for i in issues)
 
 
+def test_metaflac_path_with_control_char_is_error() -> None:
+    """BUG-6: a tool path is a charset-validated boundary too, but this validator
+    used to skip the control-char check the directory validators apply. A NUL —
+    and a whitespace-classed C0 separator that str.strip() would eat — must be
+    rejected wherever it appears (checked on the RAW value)."""
+    issues = sv.validate_config(Config(metaflac_path="meta\x00flac"))
+    assert any(
+        i.field == "metaflac_path" and "control character" in i.message for i in issues
+    )
+
+
+def test_metaflac_path_with_trailing_c0_separator_is_error() -> None:
+    # \x1f is whitespace to str.strip(), so a check on the stripped text would
+    # miss a trailing one — the raw-value check catches it.
+    issues = sv.validate_config(Config(metaflac_path="metaflac\x1f"))
+    assert any(i.field == "metaflac_path" and i.is_error() for i in issues)
+
+
 # --- Numeric range rules (a hand-edited config can exceed the spinner) ------
 
 

@@ -52,12 +52,13 @@ DRIVE_PROFILES_PATH: Path = CONFIG_DIR / "drive_profiles.json"
 LOG_DIR: Path = _XDG_DATA_HOME / APP_NAME
 LOG_PATH: Path = LOG_DIR / "log.txt"
 
-# Whipper's own config file, shared with the Distrobox `ripping` container.
-# It holds the per-drive `read_offset` and `defeats_cache` settings and is
-# authoritative for them. The GUI does not hand-author this file; the only
-# writer is the drive-setup wizard, which runs whipper's OWN `drive analyze`
-# / `offset find` commands (they persist here themselves) after backing the
-# file up to `whipper.conf.bak` first. See PLANNING.md KDD-15.
+# The legacy whipper.conf in the Distrobox `ripping` container's shared config.
+# It historically held per-drive `read_offset` / `defeats_cache`. Platterpus
+# still READS it as a reference for the offset trust display (offset_config.py),
+# but nothing writes it any more: the drive-setup wizard saves the detected
+# offset to Platterpus's OWN config, applied to cyanrip as `-s` (cyanrip does
+# not read whipper.conf). Kept read-only for users upgrading from the whipper
+# era. See PLANNING.md KDD-15/18.
 WHIPPER_CONFIG_PATH: Path = _XDG_CONFIG_HOME / "whipper" / "whipper.conf"
 
 # Default location of the host-exported whipper binary. The Settings

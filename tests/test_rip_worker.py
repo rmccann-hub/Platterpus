@@ -611,6 +611,14 @@ def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
     ]
     assert worker.unstable_tracks == []
     assert (tmp_path / "Artist" / "Album" / "02 - B.flac").read_bytes() == b"SECURED-B"
+    # The report can explain WHY the re-rip ran: dynamic mode, disc in the DB,
+    # a track needed securing → engaged.
+    assert worker.secure_rerip_report == {
+        "mode": "dynamic",
+        "engaged": True,
+        "disc_in_accuraterip": True,
+        "skipped_reason": None,
+    }
 
 
 def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
@@ -662,6 +670,40 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
     assert len(backend.rip_calls) == 1  # ONE fast pass, no targeted re-rip
     assert backend.rip_calls[0]["only_tracks"] == ()
     assert worker.retried_tracks == []
+    # The report explains WHY the shaky-looking tracks weren't re-ripped: the
+    # disc isn't in AccurateRip, so a targeted re-rip couldn't verify anything.
+    assert worker.secure_rerip_report == {
+        "mode": "dynamic",
+        "engaged": False,
+        "disc_in_accuraterip": False,
+        "skipped_reason": "disc_not_in_accuraterip",
+    }
+
+
+def test_secure_rerip_report_uniform_and_off_modes(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The report's secure_rerip block reflects the non-dynamic modes too:
+    uniform (-Z on every track) is 'engaged' from the start; plain off (no -Z)
+    has no block to show."""
+    # Uniform: a -Z is set but dynamic is off → -Z applies to every track.
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, secure_rerip_matches=2, secure_rerip_dynamic=False),
+    )
+    worker.start_rip()
+    report = worker.secure_rerip_report
+    assert report is not None
+    assert report["mode"] == "uniform" and report["engaged"] is True
+
+    # Off: no -Z at all → nothing to explain, so no block.
+    worker_off = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0)),
+        _params(tmp_path, secure_rerip_matches=0),
+    )
+    worker_off.start_rip()
+    assert worker_off.secure_rerip_report is None
 
 
 def test_swap_in_reripped_track_never_corrupts_the_master(
@@ -860,6 +902,43 @@ def test_eta_rebaselines_per_pass_not_whole_rip(
     assert "left" in text
     assert worker._smoothed_remaining_s is not None
     assert worker._smoothed_remaining_s < 600  # minutes, not the ~9000s inflation
+
+
+def test_album_eta_uses_recent_rate_not_scan_biased_average(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (real hardware, 2026-07-02): the disc-scan phase (first ~5%) and
+    the disc's inner tracks read ~10-15x faster than the bulk, so averaging the
+    rate from zero made the EARLY ETA absurdly low — at 5% done / 14s in it said
+    "~4m left" with 58m to go. The ETA now projects from a trailing-window rate,
+    so it tracks reality once real ripping is under way instead of being dominated
+    by the fast start."""
+    import platterpus.workers.rip_worker as rw
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rw.time, "monotonic", lambda: clock["t"])
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    worker._started_monotonic = 0.0
+    worker._eta_pass_started = 0.0
+
+    # A fast scan (0→5% in 10s) then a steady 1%-per-40s audio read.
+    def frac_at(elapsed: float) -> float:
+        if elapsed <= 10.0:
+            return 0.05 * (elapsed / 10.0)
+        return 0.05 + (elapsed - 10.0) * 0.00025
+
+    for elapsed in range(10, 220, 10):
+        clock["t"] = float(elapsed)
+        worker._album_eta_text(frac_at(float(elapsed)) * 100.0)
+
+    smoothed = worker._smoothed_remaining_s
+    assert smoothed is not None
+    # At elapsed=210s / 10% done, the read rate is 0.00025 frac/s, so ~3600s truly
+    # remain (total ≈ 10s scan + 0.95/0.00025 = 3810s). The OLD from-zero average
+    # would have projected 210*(0.9/0.1) = 1890s — roughly half of reality, the
+    # scan-biased error this fixes. The windowed estimate must track the truth.
+    assert 2800 < smoothed < 4400, smoothed
+    assert smoothed > 2500  # decisively above the ~1890s scan-biased cumulative
 
 
 def test_eta_trace_records_both_estimates_speed_and_clock(
@@ -1342,3 +1421,44 @@ def test_finished_log_path_empty_when_no_log_file(
 
     _, path = sigs.finished[0]
     assert path == ""
+
+
+def test_find_log_path_skips_a_candidate_that_vanishes_mid_scan(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-2: a `.log` that disappears between the rglob and its stat is skipped,
+    not a fatal FileNotFoundError escaping into start_rip (which would leave
+    `finished` un-emitted and the GUI's rip lock stuck)."""
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    good = tmp_path / "good.log"
+    good.write_text("x", encoding="utf-8")
+    (tmp_path / "bad.log").write_text("x", encoding="utf-8")
+    real_stat = Path.stat
+
+    def flaky_stat(self: Path, *a: object, **k: object):  # noqa: ANN202
+        if self.name == "bad.log":
+            raise FileNotFoundError("vanished mid-scan")
+        return real_stat(self, *a, **k)
+
+    monkeypatch.setattr(Path, "stat", flaky_stat)
+    # No raise, and the surviving candidate is returned.
+    assert worker._find_log_path(tmp_path) == good
+
+
+def test_start_rip_belt_emits_finished_on_unexpected_error(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-2: any unexpected error in the rip body still emits finished(False,
+    "") — a rip that never emits finished leaves the GUI rip lock on forever."""
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0)), _params(tmp_path)
+    )
+    finished: list[tuple[bool, str]] = []
+    worker.finished.connect(lambda ok, path: finished.append((ok, path)))
+
+    def boom() -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(worker, "_run_rip", boom)
+    worker.start_rip()
+    assert finished == [(False, "")]

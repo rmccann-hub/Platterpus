@@ -108,6 +108,31 @@ def test_checksum_mismatch_never_installs(tmp_path: Path) -> None:
     assert not (tmp_path / ".platterpus-update.part").exists()  # cleaned up
 
 
+def test_sha256_sidecar_read_is_bounded(tmp_path: Path) -> None:
+    """BUG-3: the .sha256 read is capped (_MAX_SHA256_BYTES), so a hostile mirror
+    can't stream a multi-GB body into memory before the length check. We assert
+    the read was called WITH the cap, not the unbounded read() it used to be."""
+    import platterpus.update_install as ui
+
+    reads: list[int] = []
+
+    class _Recording(_FakeResponse):
+        def read(self, n: int = -1) -> bytes:
+            reads.append(n)
+            return super().read(n)
+
+    def open_url(url: str):
+        if url.endswith(".sha256"):
+            # A valid-length digest so we get past the len==64 gate; it won't
+            # match the payload, but the (bounded) sidecar read happens first.
+            return _Recording(f"{'a' * 64}  x\n".encode())
+        return _FakeResponse(_PAYLOAD)
+
+    with pytest.raises(UpdateInstallError):
+        download_and_install("0.2.3", dest_dir=tmp_path, opener=open_url)
+    assert reads and reads[0] == ui._MAX_SHA256_BYTES
+
+
 def test_malformed_published_checksum_aborts_before_download(
     tmp_path: Path,
 ) -> None:

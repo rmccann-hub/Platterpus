@@ -94,7 +94,10 @@ class RipParameters:
 # Human-readable phase descriptions for the status line. Without these
 # the GUI sat on "Starting rip…" for the whole pre-track disc scan
 # (which can run a minute or more) and looked frozen — T32 feedback.
-# Whipper's progress lines look like:
+# The current backend is cyanrip (KDD-18) — its progress lines are matched by
+# the _CYANRIP_* patterns further down. The patterns just below match the
+# WHIPPER log format and are kept only as an inert whipper-format seam (harmless
+# if a whipper-era log is ever re-fed); whipper's progress lines looked like:
 #   "Reading TOC  50 %"
 #   "Reading table  50 %"
 #   "Reading track 3 of 16 (1 of 9) ...  42 %"
@@ -181,6 +184,15 @@ _MIN_ELAPSED_FOR_ETA_S: float = 8.0
 # slowdowns within a few seconds.
 _ETA_SMOOTHING_ALPHA: float = 0.15
 
+# Trailing window (seconds) for the ETA's *rate* estimate. The remaining time is
+# projected from the read rate over the last this-many seconds, NOT from the
+# cumulative average since the pass began. Why: the disc-scan phase (the first
+# ~5%) and the disc's inner tracks read far faster than the bulk, so averaging
+# from zero let that fast start dominate and the early ETA came out absurdly low
+# (real hardware: at 5% done / 14s in it said "~4m left" with 58m to go). A
+# trailing window tracks the CURRENT rate and self-corrects as the rip proceeds.
+_ETA_RATE_WINDOW_S: float = 90.0
+
 # The "for posterity" ETA trace: sample at most this often (seconds) and cap the
 # number of samples, so a long rip yields a compact comparable curve, not a
 # per-tick flood. ~10s over even a 5-hour rip stays well under the cap.
@@ -232,7 +244,7 @@ class RipWorker(QObject):
     # operation (read → verify → encode each sweep 0-100%).
     progress = Signal(float, float)  # overall_percent, task_percent
     status = Signal(str)  # human-readable current phase
-    # Emitted with the 1-based track number whenever whipper starts working
+    # Emitted with the 1-based track number whenever the ripper starts working
     # on a new track, so the GUI can follow along by highlighting that row.
     current_track = Signal(int)
     finished = Signal(bool, str)  # success, log_path
@@ -249,11 +261,12 @@ class RipWorker(QObject):
         self._params: RipParameters = params
         self._handle: RipHandle | None = None
         # Last status text emitted, so we don't re-emit identical phases
-        # on every progress tick (whipper prints one line per percent).
+        # on every progress tick (cyanrip redraws its progress many times a sec).
         self._last_status: str = ""
         # Progress state. `_overall` only ever moves forward (see
         # _bump_overall); `_total_tracks`/`_current_track` are learned from
-        # whipper's "track N of M" lines.
+        # the ripper's per-track progress lines (cyanrip's "Ripping track N";
+        # the whipper "track N of M" form is still matched as an inert seam).
         self._overall: float = 0.0
         self._total_tracks: int = 0
         self._current_track: int = 0
@@ -268,12 +281,13 @@ class RipWorker(QObject):
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
         self._cancelled: bool = False
-        # Set true if whipper aborts for lack of online metadata, so the GUI
-        # can heal by retrying as an unknown-album rip. Only meaningful when
-        # this rip wasn't already unknown.
+        # Set true if the ripper aborts for lack of online metadata, so the GUI
+        # can heal by retrying as an unknown-album rip. An inert whipper-era seam:
+        # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
+        # Only meaningful when this rip wasn't already unknown.
         self._needs_unknown_retry: bool = False
         # A user-facing explanation set when a known fatal pattern is seen
-        # (e.g. whipper giving up on an unreadable track). "" if none.
+        # (e.g. the ripper giving up on an unreadable track). "" if none.
         self._failure_hint: str = ""
         # Wall-clock start of the rip, stamped when the stream loop begins. Used
         # to compute our OWN album-level ETA (elapsed × (1-frac)/frac) — stable
@@ -297,6 +311,10 @@ class RipWorker(QObject):
         # remaining time (#21). Reset per pass (in _reset_pass_progress) so each
         # pass estimates its own remaining time; falls back to the rip start.
         self._eta_pass_started: float | None = None
+        # Trailing (elapsed_s, fraction) samples for the windowed rate estimate
+        # (see _album_eta_text / _ETA_RATE_WINDOW_S). Pruned to the window and
+        # cleared per pass so each pass's rate is measured on its own progress.
+        self._eta_rate_window: list[tuple[float, float]] = []
         # ETA trace kept "for posterity" (maintainer's ask): a throttled series of
         # samples, each pairing the PC wall-clock time with BOTH estimates —
         # cyanrip's own per-op ETA and our smoothed album ETA — so the report can
@@ -329,6 +347,18 @@ class RipWorker(QObject):
         # GUI folds this into the report and results pane. Empty when nothing was
         # re-ripped.
         self._retried_tracks: list[dict] = []
+        # Why the dynamic secure re-rip did or didn't run (report's
+        # read_speed.secure_rerip), so "why wasn't my shaky track re-ripped?" is
+        # answerable from the JSON. `mode` is dynamic / uniform / off; `engaged`
+        # is whether a secure re-rip actually happened (dynamic: a targeted
+        # re-rip ran; uniform: -Z was applied to every track); `disc_in_ar` is
+        # whether the disc was in AccurateRip (dynamic only); `skipped_reason`
+        # explains a dynamic skip (e.g. the disc isn't in AccurateRip so a
+        # targeted re-rip can't converge on a consensus). Set in start_rip.
+        self._secure_rerip_mode: str = "off"
+        self._secure_rerip_engaged: bool = False
+        self._disc_in_accuraterip: bool | None = None
+        self._secure_rerip_skipped_reason: str | None = None
 
     def _album_eta_text(self, overall_pct: float) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
@@ -359,7 +389,27 @@ class RipWorker(QObject):
         elapsed = time.monotonic() - started
         if elapsed < _MIN_ELAPSED_FOR_ETA_S:
             return ""
-        raw_remaining = elapsed * (1.0 - frac) / frac
+        # Project the remaining time from the RECENT read rate (a trailing
+        # window), not the cumulative average since the pass began. The fast
+        # disc-scan phase and the disc's inner tracks read much faster than the
+        # bulk, so a from-zero average let that fast start dominate and the early
+        # ETA came out absurdly low. Collect (elapsed, frac) points — only past
+        # the scan band, so the scan never enters the window — prune to the
+        # window, and measure the rate over it.
+        self._eta_rate_window.append((elapsed, frac))
+        cutoff = elapsed - _ETA_RATE_WINDOW_S
+        self._eta_rate_window = [p for p in self._eta_rate_window if p[0] >= cutoff]
+        base_elapsed, base_frac = self._eta_rate_window[0]
+        window_dt = elapsed - base_elapsed
+        window_dfrac = frac - base_frac
+        if window_dt > 0 and window_dfrac > 0:
+            # remaining = remaining_fraction ÷ recent_rate (frac per second).
+            raw_remaining = (1.0 - frac) * window_dt / window_dfrac
+        else:
+            # Only one distinct point so far (first post-scan tick) or a paused
+            # bar (encode phase, no forward progress): fall back to the
+            # cumulative projection until the window has real movement.
+            raw_remaining = elapsed * (1.0 - frac) / frac
         if not raw_remaining >= 1:  # guards NaN/inf and sub-second "0s left"
             return ""
         # EMA-smooth so a per-tick swing doesn't yank the number around.
@@ -429,14 +479,15 @@ class RipWorker(QObject):
 
     @property
     def needs_unknown_retry(self) -> bool:
-        """True if the rip failed because whipper couldn't fetch online
-        metadata (and this wasn't already an unknown-album rip)."""
+        """True if the rip failed because the ripper couldn't fetch online
+        metadata (and this wasn't already an unknown-album rip). Inert with
+        cyanrip, which never does its own lookup — kept for a networked backend."""
         return self._needs_unknown_retry
 
     @property
     def failure_hint(self) -> str:
         """An actionable failure explanation, or "" if the failure was generic.
-        Set when whipper gives up on an unreadable track."""
+        Set when the ripper gives up on an unreadable track."""
         return self._failure_hint
 
     @property
@@ -468,19 +519,54 @@ class RipWorker(QObject):
         finish for the report. NOT the estimate shown live (that's the status)."""
         return list(self._eta_trace)
 
+    @property
+    def secure_rerip_report(self) -> dict | None:
+        """Why the dynamic secure re-rip did/didn't run — the report's
+        ``read_speed.secure_rerip``. None in plain ``off`` mode (nothing to
+        explain); otherwise ``{mode, engaged, disc_in_accuraterip,
+        skipped_reason}``. The GUI reads this at finish."""
+        if self._secure_rerip_mode == "off":
+            return None
+        return {
+            "mode": self._secure_rerip_mode,
+            "engaged": self._secure_rerip_engaged,
+            "disc_in_accuraterip": self._disc_in_accuraterip,
+            "skipped_reason": self._secure_rerip_skipped_reason,
+        }
+
     # --- Slots ---
 
     @Slot()
     def start_rip(self) -> None:
-        """Begin the rip. Invoked via QThread.started.
+        """Begin the rip (QThread.started slot).
 
-        Runs the adaptive read-speed ladder: rip once, and — in ``auto_ladder``
-        mode — if the pass completed with unrecoverable read errors, re-rip the
-        disc a rung slower (and, at the floor, with a higher ``-Z``), until it
-        reads clean or the ladder is exhausted (then the disc is FLAGGED via the
-        recorded attempts). A clean disc, or ``fixed`` mode, is a single pass
-        exactly as before — no regression. Each pass's speed/``-Z``/outcome is
-        recorded in ``_speed_attempts`` for honest reporting.
+        BUG-2 belt: delegates to ``_run_rip`` inside a last-resort try/except so
+        ANY unexpected error still emits ``finished(False, "")``. ``_run_rip``
+        already emits ``finished`` on all of its own paths; this only fires if an
+        exception escapes it (e.g. a filesystem race in log discovery). Without
+        it, an un-emitted ``finished`` leaves the GUI's rip lock on forever —
+        the drive keeps spinning and the UI is dead until an app restart.
+        """
+        try:
+            self._run_rip()
+        except Exception as exc:  # noqa: BLE001 — never leave the rip hung
+            log.exception("rip aborted by an unexpected error")
+            try:
+                self.error.emit(f"rip aborted unexpectedly: {exc}")
+            except Exception:  # noqa: BLE001 — even the error signal is best-effort
+                log.exception("error signal emit failed during abort")
+            self.finished.emit(False, "")
+
+    def _run_rip(self) -> None:
+        """The rip's main body: run the adaptive read-speed ladder — rip once,
+        and — in ``auto_ladder`` mode — if the pass completed with unrecoverable
+        read errors, re-rip the disc a rung slower (and, at the floor, with a
+        higher ``-Z``), until it reads clean or the ladder is exhausted (then the
+        disc is FLAGGED via the recorded attempts). A clean disc, or ``fixed``
+        mode, is a single pass exactly as before — no regression. Each pass's
+        speed/``-Z``/outcome is recorded in ``_speed_attempts`` for honest
+        reporting. Emits ``finished`` on every normal path; ``start_rip`` wraps
+        this so an unexpected escape still emits it (BUG-2).
         """
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()
@@ -498,6 +584,17 @@ class RipWorker(QObject):
         dynamic_secure = (
             self._params.secure_rerip_dynamic and self._params.secure_rerip_matches > 0
         )
+        # Record the secure-re-rip mode up front for the report (see
+        # secure_rerip_report). Uniform mode applies `-Z` to every track on every
+        # pass, so it's "engaged" the moment it starts; dynamic mode's engagement
+        # is decided later (only if some track needs the targeted re-rip).
+        if dynamic_secure:
+            self._secure_rerip_mode = "dynamic"
+        elif self._params.secure_rerip_matches > 0:
+            self._secure_rerip_mode = "uniform"
+            self._secure_rerip_engaged = True
+        else:
+            self._secure_rerip_mode = "off"
         # Starting rung: the ladder starts at the drive's max (0); a fixed mode
         # uses the configured speed for its single pass.
         speed = 0 if auto_ladder else self._params.read_speed
@@ -612,16 +709,21 @@ class RipWorker(QObject):
                 # exists to avoid). Skip it; the fast first pass stands, flagged
                 # as not-verified. (An in-DB disc where a *few* tracks failed is
                 # the real dynamic case and still re-rips just those.)
-                if disc_in_accuraterip(parsed_log):
+                self._disc_in_accuraterip = disc_in_accuraterip(parsed_log)
+                if self._disc_in_accuraterip:
                     to_fix = tracks_failing_accuraterip(parsed_log)
                 else:
                     to_fix = []
+                    self._secure_rerip_skipped_reason = "disc_not_in_accuraterip"
                     self.log_line.emit(
                         "[secure re-rip] disc is not in AccurateRip — keeping the "
                         "fast read (a re-rip can't verify against a DB that has no "
                         "entry for this disc)."
                     )
                     log.info("dynamic secure re-rip skipped: disc not in AccurateRip")
+                # Engaged only when there's actually a track to secure (every
+                # track matching AccurateRip on the fast read is already proven).
+                self._secure_rerip_engaged = bool(to_fix)
                 trigger = "accuraterip"
                 rerip_z = self._params.secure_rerip_matches
             elif auto_ladder:
@@ -708,7 +810,7 @@ class RipWorker(QObject):
             except Exception:  # noqa: BLE001 — cancel is best-effort
                 log.exception("startup-window terminate() raised; ignored")
 
-        # Stream output. Iteration ends when whipper closes its stdout
+        # Stream output. Iteration ends when the ripper closes its stdout
         # (i.e. exits) or when cancel() flips the flag.
         try:
             for line in self._handle.log_lines():
@@ -738,9 +840,10 @@ class RipWorker(QObject):
                         self.log_line.emit(_CYANRIP_ETA_CLAUSE.sub("", line))
                 else:
                     self.log_line.emit(line)
-                # Watch for whipper's "no online metadata" abort so the GUI
-                # can heal by re-ripping as unknown (only worth it if this
-                # rip wasn't already unknown). Detection runs on EVERY line.
+                # Watch for the "no online metadata" abort so the GUI can heal
+                # by re-ripping as unknown (only worth it if this rip wasn't
+                # already unknown). Inert whipper-era seam — cyanrip runs -N and
+                # never emits these markers. Detection runs on EVERY line.
                 if not self._params.unknown and any(
                     m in line for m in _NO_METADATA_MARKERS
                 ):
@@ -767,8 +870,8 @@ class RipWorker(QObject):
                 if prog is not None:
                     self.progress.emit(prog[0], prog[1])
                 # _progress_for updates _current_track as a side effect when
-                # it sees a "track N of M" line. Emit once per new track so
-                # the GUI can highlight the row whipper is on.
+                # it sees a per-track progress line. Emit once per new track so
+                # the GUI can highlight the row the ripper is on.
                 if self._current_track and self._current_track != self._emitted_track:
                     self._emitted_track = self._current_track
                     self.current_track.emit(self._current_track)
@@ -802,6 +905,7 @@ class RipWorker(QObject):
         # elapsed would project a wildly inflated remaining time on pass 2+ (#21).
         self._eta_pass_started = time.monotonic()
         self._smoothed_remaining_s = None
+        self._eta_rate_window = []
 
     def _auto_fix_tracks(
         self,
@@ -1048,7 +1152,10 @@ class RipWorker(QObject):
     # --- Internals ---
 
     def _progress_for(self, line: str) -> tuple[float, float] | None:
-        """Map a whipper stdout line to (overall, task) percentages.
+        """Map a ripper stdout line to (overall, task) percentages.
+
+        Handles cyanrip's progress lines (the live backend) and, as an inert
+        seam, the whipper log format.
 
         The rip is split into three overall bands so the overall bar
         advances smoothly start-to-finish instead of resetting per track:
@@ -1140,29 +1247,35 @@ class RipWorker(QObject):
         if not output_dir.exists():
             return None
 
-        candidates = list(output_dir.rglob("*.log"))
-        if since is not None:
-            cutoff = since - _LOG_MTIME_SLACK_S
-            fresh: list[Path] = []
-            for path in candidates:
-                try:
-                    if path.stat().st_mtime >= cutoff:
-                        fresh.append(path)
-                except OSError:
-                    continue  # vanished mid-scan — skip it
-            candidates = fresh
-        if not candidates:
+        # BUG-2: stat EACH candidate exactly once, guarded — a `.log` can vanish
+        # between the rglob and the read (a concurrent cleanup, a temp-dir sweep).
+        # Both the `since` filter AND the recency sort need the mtime; doing the
+        # stat once in a guarded pass means a file that disappears mid-scan is
+        # simply skipped, never a `FileNotFoundError` escaping into start_rip's
+        # loop (which would leave `finished` un-emitted and the rip lock stuck).
+        cutoff = None if since is None else since - _LOG_MTIME_SLACK_S
+        scored: list[tuple[float, Path]] = []
+        for path in output_dir.rglob("*.log"):
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue  # vanished / unreadable mid-scan — skip it
+            if cutoff is not None and mtime < cutoff:
+                continue
+            scored.append((mtime, path))
+        if not scored:
             return None
-        candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-        return candidates[0]
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return scored[0][1]
 
 
 def _describe_activity(line: str) -> str | None:
-    """Return a short human status for a whipper progress line, or None.
+    """Return a short human status for a ripper progress line, or None.
 
-    Used to keep the status label live across every phase — especially
-    the pre-track disc scan, which otherwise left the GUI on
-    "Starting rip…" for a minute-plus and looked hung.
+    Matches cyanrip's progress lines (and the inert whipper-format seam). Used
+    to keep the status label live across every phase — especially the pre-track
+    disc scan, which otherwise left the GUI on "Starting rip…" for a minute-plus
+    and looked hung.
     """
     match = _DISC_SCAN_PATTERN.search(line)
     if match:

@@ -149,6 +149,13 @@ def _quote_exec_path(appimage: Path) -> str:
     escaped = str(appimage)
     for char in ("\\", '"', "`", "$"):
         escaped = escaped.replace(char, "\\" + char)
+    # BUG-11: also neutralise newline/tab/CR. A raw newline in the path would end
+    # the ``Exec=`` line, letting the remainder inject a second .desktop key;
+    # tab/CR can corrupt the value too. Map them to the freedesktop value-escape
+    # sequences so a control character can never break the single-line value. A
+    # normal path has none of these, so this is a no-op in practice.
+    for raw, esc in (("\n", "\\n"), ("\r", "\\r"), ("\t", "\\t")):
+        escaped = escaped.replace(raw, esc)
     return f'"{escaped}"'
 
 

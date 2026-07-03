@@ -341,12 +341,13 @@ def test_secure_rerip_dynamic_defaults_on_and_round_trips(
     assert config_module.load().secure_rerip_dynamic is False
 
 
-def test_v5_config_upgrades_to_v6_with_dynamic_default(
+def test_v5_config_upgrades_with_dynamic_default_and_bumps_inherited_zero(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A v5 config (no secure_rerip_dynamic) loads at the current schema with the
-    default (True = dynamic is how ripping works) filled in — no value transform.
-    A saved secure_rerip_matches is kept, so a user who had it off stays off."""
+    dynamic default (True) filled in. An inherited secure_rerip_matches of 0 — the
+    0.4.8 default that left the 0.4.9 dynamic re-rip silently OFF for upgraders —
+    is bumped ONCE to 2 by the v6→v7 step so the feature actually engages."""
     config_file = _redirect_config(tmp_path, monkeypatch)
     config_file.write_text("schema_version = 5\nsecure_rerip_matches = 0\n")
 
@@ -354,7 +355,37 @@ def test_v5_config_upgrades_to_v6_with_dynamic_default(
 
     assert cfg.schema_version == SCHEMA_VERSION
     assert cfg.secure_rerip_dynamic is True
-    assert cfg.secure_rerip_matches == 0  # saved value preserved
+    assert cfg.secure_rerip_matches == 2  # inherited 0 → bumped to the new default
+
+
+def test_v6_zero_bumps_to_two_but_nonzero_is_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The v6→v7 bump only rescues an inherited 0. A user who deliberately set a
+    non-zero ceiling keeps exactly that — the migration never lowers or clobbers a
+    real choice."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text("schema_version = 6\nsecure_rerip_matches = 5\n")
+
+    cfg = config_module.load()
+
+    assert cfg.schema_version == SCHEMA_VERSION
+    assert cfg.secure_rerip_matches == 5  # deliberate value untouched
+
+
+def test_v7_zero_is_left_alone_the_bump_is_one_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bump is a one-time correction, not a permanent floor: once a config is
+    at v7, a saved 0 means the user chose it after the migration ran, so it stays
+    0 (dynamic re-rip off). Otherwise the setting could never be turned off."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text("schema_version = 7\nsecure_rerip_matches = 0\n")
+
+    cfg = config_module.load()
+
+    assert cfg.schema_version == SCHEMA_VERSION
+    assert cfg.secure_rerip_matches == 0  # already-v7 → deliberate 0 respected
 
 
 def test_load_never_raises_on_corrupt_toml(

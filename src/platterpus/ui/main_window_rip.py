@@ -128,10 +128,10 @@ class RipMixin:
 
     def _on_rip_requested(self, params: RipParameters) -> None:
         """User clicked Start. Validate, then start the worker thread."""
-        # A read offset is mandatory: whipper refuses to rip without one (and
-        # fails with a cryptic error), and an accurate offset is what makes the
-        # rip bit-perfect. If neither whipper.conf nor our --offset override has
-        # one, stop here and point the user at the drive-setup wizard rather
+        # A read offset is mandatory: an accurate offset is what makes the rip
+        # bit-perfect. If neither the legacy whipper.conf (still read for the
+        # trust display) nor our own --offset override has one, stop here and
+        # point the user at the drive-setup wizard rather
         # than letting the rip start and fail. The wizard pre-fills the offset
         # when the drive model is known; otherwise it's found from a CD that's
         # in the AccurateRip database.
@@ -161,8 +161,8 @@ class RipMixin:
 
         # The offset is configured now — but `params` was built by the rip
         # controls BEFORE any auto-apply above, so it may still carry
-        # read_offset_override=None. Inject it here so whipper actually gets
-        # `--offset` (otherwise it aborts with "drive offset unconfigured").
+        # read_offset_override=None. Inject it here so cyanrip actually gets its
+        # `-s` sample offset (otherwise the rip isn't offset-corrected).
         if self._config.override_read_offset and params.read_offset_override is None:
             params = replace(params, read_offset_override=self._config.read_offset)
 
@@ -175,7 +175,7 @@ class RipMixin:
                 return
         else:
             # Unknown disc: build the output templates from the album fields
-            # (the literals, not whipper's %A/%d disc-ID hash).
+            # (literal folder names, not a disc-ID hash).
             params = self._as_unknown_params(params)
 
         self._rip_progress.clear()
@@ -215,6 +215,18 @@ class RipMixin:
         self._last_transcode_result = None
         self._last_derived_verify_result = None
         self._last_checksums = None
+        # v7 report snapshots (0.4.10): the PROCESS outcome, disc provenance, the
+        # effective read offset, and the cover-art / re-compress / secure-re-rip
+        # results. Reset per rip so a debounced re-write for a NEW rip can never
+        # carry the previous rip's values (the report is re-written after each
+        # async check finishes; see _schedule_rip_report_write / #20-style guard).
+        self._last_outcome = None
+        self._last_disc = None
+        self._last_read_offset_effective = None
+        self._last_secure_rerip = None
+        self._last_cover_art_result = None
+        self._last_recompress_result = None
+        self._last_rip_error = None
         # Rip generation, bumped every Start. Each post-rip verify daemon captures
         # the generation it launched under and drops its result if a NEWER rip has
         # started since — so a slow verify from album A (FLAC-verify waits up to
@@ -232,7 +244,7 @@ class RipMixin:
 
     def _as_unknown_params(self, params: RipParameters) -> RipParameters:
         """Return `params` rewritten for an unknown-album rip: `--unknown`,
-        no release-id (so whipper needs no network), and output templates
+        no release-id (so the ripper needs no network), and output templates
         built from the album fields the user sees (blanks → Unknown)."""
         album = self._track_table.album_metadata()
         artist = safe_path_segment(album.artist) or "Unknown Artist"
@@ -299,7 +311,7 @@ class RipMixin:
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
         self._rip_worker.status.connect(self._rip_progress.set_status)
-        # Follow the rip in the track table — highlight the row whipper is on.
+        # Follow the rip in the track table — highlight the row the ripper is on.
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
@@ -470,15 +482,19 @@ class RipMixin:
 
     def _on_rip_error(self, message: str) -> None:
         log.warning("rip error: %s", message)
+        # Remember the last hard error so a no-log failure's minimal report can
+        # carry it as the outcome's failure hint (see _write_minimal_failure_report).
+        self._last_rip_error = message
         self._rip_progress.set_status(f"Error: {message}")
 
     def _on_rip_finished(self, success: bool, log_path: str) -> None:
         """The rip subprocess exited."""
         log.info("rip finished: success=%s log=%s", success, log_path)
 
-        # Autonomous heal: whipper aborts when it can't fetch online metadata
-        # (e.g. the container has no network). The GUI already has the metadata
-        # (its own host-side MusicBrainz lookup), so re-rip as unknown-album —
+        # Autonomous heal (inert whipper-era seam): a ripper that does its own
+        # online lookup can abort when it can't fetch metadata. cyanrip runs -N
+        # and never does, so this never fires today, but the GUI already has the
+        # metadata (its own host-side MusicBrainz lookup), so re-rip as unknown —
         # which needs no network — and tag locally afterward. Once per Start.
         needs_retry = bool(self._rip_worker and self._rip_worker.needs_unknown_retry)
         params = self._active_rip_params
@@ -502,6 +518,35 @@ class RipMixin:
             QTimer.singleShot(0, lambda: self._start_rip_worker(unknown_params))
             return
 
+        try:
+            self._finish_rip(success, log_path)
+        except Exception:  # noqa: BLE001 — a finish-handler slot must never crash
+            log.exception("finish handler failed; rip state cleared in finally")
+        finally:
+            # BUG-5: ALWAYS release the rip lock + clear the rip-state references,
+            # even if _finish_rip raised partway. These used to be linear at the
+            # end of the handler, so an exception anywhere above left _rip_thread
+            # set — and shutdown then treats a finished rip as still live (the
+            # drive is left spinning, the UI stays disabled until an app restart).
+            self._rip_controls.set_rip_active(False)
+            self._set_rip_lock(False)  # rip over — re-enable the locked-down UI
+            self._repaint_timer.stop()  # rip over — stop the Wayland repaint belt
+            self._rip_worker = None
+            self._rip_thread = None
+            self._active_rip_params = None
+            # Hook for tests to know that finish-time post-processing is done.
+            self.rip_post_processing_done.emit()
+
+    def _finish_rip(self, success: bool, log_path: str) -> None:
+        """Body of the finish handler, after the auto-heal decision.
+
+        Snapshots the worker's results, renders + reports the log, and spawns the
+        off-thread post-rip work. ``_on_rip_finished`` wraps this in try/finally
+        so the rip lock and rip-state references are ALWAYS cleared even if
+        something here raises (BUG-5) — otherwise a finished rip looks live to
+        shutdown and the drive is left spinning.
+        """
+        params = self._active_rip_params
         # Measure the actual wall-clock elapsed and record it against cyanrip's
         # own estimate. This is the ONLY place the real run time exists — cyanrip
         # logs the disc's audio length and a finish timestamp but never how long
@@ -520,10 +565,48 @@ class RipMixin:
         # The "for posterity" ETA trace (PC clock + cyanrip's ETA + our ETA),
         # captured while the worker is alive; folded into the report below.
         self._last_eta_trace = getattr(self._rip_worker, "eta_trace", [])
+        # v7 report (0.4.10): snapshot the PROCESS outcome + disc provenance +
+        # the effective read offset NOW, while the worker and `params` are still
+        # alive — both are cleared at the end of this handler, and the report is
+        # re-written (debounced) afterwards, so these must be captured here and
+        # read from self._last_* by _write_rip_report (never off the worker/params).
+        from platterpus import rip_report as _rip_report
 
-        self._rip_controls.set_rip_active(False)
-        self._set_rip_lock(False)  # rip over — re-enable the locked-down UI
-        self._repaint_timer.stop()  # rip over — stop the Wayland repaint belt
+        if success:
+            _status = "success"
+        elif self._rip_cancelled:
+            _status = "cancelled"
+        else:
+            _status = "failed"
+        self._last_outcome = _rip_report.build_outcome(
+            status=_status,
+            failure_hint=(
+                (self._rip_worker.failure_hint if self._rip_worker else "")
+                or getattr(self, "_last_rip_error", None)
+                or None
+            ),
+            # `_auto_retry_done` is set True when the "re-rip as unknown" self-heal
+            # fired earlier this Start; the healed rip's report should say so.
+            auto_unknown_retry_fired=self._auto_retry_done,
+            auto_unknown_retry_reason=(
+                "ripper could not reach MusicBrainz" if self._auto_retry_done else None
+            ),
+        )
+        self._last_disc = {
+            "unknown": bool(params.unknown) if params is not None else None,
+            "musicbrainz_release_id": (self._current_release_id or None),
+        }
+        # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
+        # report's settings.read_offset.effective is the truth, not just config.
+        self._last_read_offset_effective = (
+            params.read_offset_override if params is not None else None
+        )
+        # Why the dynamic secure re-rip did/didn't run (mode/engaged/skip reason).
+        # getattr so this is None until the worker grows the property (wired next).
+        self._last_secure_rerip = getattr(self._rip_worker, "secure_rerip_report", None)
+
+        # (The rip lock + repaint belt are released in _on_rip_finished's finally,
+        # so they're reset even if anything below raises — BUG-5.)
         # Default status; replaced with a fidelity summary below if the
         # rip succeeded and we can parse its log. Distinguish a user
         # cancellation from a genuine failure (both report success=False).
@@ -589,6 +672,13 @@ class RipMixin:
                 # leave the rip state uncleared). Log and continue; the rest of
                 # the chain (tagging, cover art, verify, eject, state clear) runs.
                 log.exception("rendering rip results failed for %s", log_file)
+        elif not success and not self._rip_cancelled:
+            # No .log at all + a genuine failure (the backend never started, or
+            # the stream died before any file was written) → today this wrote NO
+            # report, so a hard failure was completely silent. Leave a minimal
+            # one (outcome + settings + environment) beside the intended output
+            # dir so the failure is still diagnosable. Best-effort; never raises.
+            self._write_minimal_failure_report(params)
 
         # Post-rip processing: unknown-mode tagging + backend-independent
         # cover art. Both shell out to metaflac on the SAME FLAC files, so
@@ -600,13 +690,24 @@ class RipMixin:
         # right when the rip finishes (CLAUDE.md "never block the GUI thread";
         # docs/architecture.md §3.2). Only on a successful rip.
         if success and params is not None:
-            # Tagging — only when the rip we started was unknown-mode
-            # (identified discs are tagged by whipper itself). Scope it to the
-            # album folder whipper just wrote: the .log lands next to the
-            # FLACs, so its parent is that folder. Using the configured output
-            # root instead would re-tag every previously ripped album in the
+            # The album folder the ripper just wrote: the .log lands next to the
+            # FLACs, so its parent is that folder (fall back to the output root
+            # if somehow no log). Computed once here — every post-rip step below
+            # scopes to it (TD-5: this used to be recomputed 5×).
+            rip_dir = Path(log_path).parent if log_path else params.output_dir
+            # Tagging — only when the rip we started was unknown-mode (an
+            # identified disc is tagged by cyanrip itself, fed the GUI's -a/-t
+            # tags). Scoping to `rip_dir` (not the configured output root) is what
+            # keeps this from re-tagging every previously ripped album in the
             # library with THIS disc's metadata.
             tag = params.unknown
+            # BUG-1: snapshot the track table HERE (on the GUI thread) — the
+            # post-rip daemon must NOT read QWidgets. album_metadata()/tracks()
+            # call into Qt models/QLineEdits, which aren't thread-safe; reading
+            # them from the daemon was an undefined-behaviour data race on every
+            # unknown-album rip. We pass the plain dataclasses into the thread.
+            album_snapshot = self._track_table.album_metadata() if tag else None
+            tracks_snapshot = list(self._track_table.tracks()) if tag else None
             # Output format: both backends rip to FLAC, so a non-FLAC choice
             # means a post-rip transcode (FLAC kept as the master). "flac" (or
             # any value we don't transcode) leaves transcode_fmt empty = no-op.
@@ -630,9 +731,8 @@ class RipMixin:
             # FLAC/MP3 keep theirs), so for those formats make sure the front
             # cover still lands in the album folder as cover.<ext> — the only way
             # they get a visible cover. Force the folder save whenever art is
-            # wanted (cover_art mode set) and the disc was identified; this also
-            # makes the whipper-known path (which normally leaves art to whipper)
-            # fetch a folder copy, since whipper only put it *inside* the FLAC.
+            # wanted (cover_art mode set) and the disc was identified, so a
+            # folder copy always exists alongside any embedded one.
             if (
                 transcode_fmt
                 and transcode_fmt not in EMBEDS_COVER_ART
@@ -664,7 +764,6 @@ class RipMixin:
                 or transcode_fmt
                 or restore_colons
             ):
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_post_rip_processing(
                     rip_dir,
                     tag=tag,
@@ -676,6 +775,8 @@ class RipMixin:
                     transcode_fmt=transcode_fmt,
                     mp3_vbr_quality=self._config.mp3_vbr_quality,
                     restore_colons=restore_colons,
+                    album_metadata=album_snapshot,
+                    track_rows=tracks_snapshot,
                 )
                 post_rip_thread = self._post_rip_thread
             else:
@@ -688,7 +789,6 @@ class RipMixin:
             # mid-rewrite. Works for known and unknown discs (CTDB is keyed by
             # TOC, not MBID).
             if self._config.ctdb_verify_after_rip:
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_ctdb_verify(rip_dir, wait_for=post_rip_thread)
 
             # Opt-in (default on) FLAC encode-verify — only for a backend that
@@ -700,7 +800,6 @@ class RipMixin:
                 self._config.verify_flac_after_rip
                 and not self._backend.self_verifies_encode()
             ):
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_flac_verify(rip_dir, wait_for=post_rip_thread)
 
             # Derived-file verify: when a non-FLAC output was produced, prove the
@@ -709,7 +808,6 @@ class RipMixin:
             # MP3 (honest per Critical Rule #4). Runs off-thread AFTER the
             # transcode (post_rip_thread) so it never reads a file mid-write.
             if transcode_fmt:
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_derived_verify(
                     rip_dir, transcode_fmt, wait_for=post_rip_thread
                 )
@@ -718,7 +816,6 @@ class RipMixin:
             # on a successful rip (every format), after the post-rip thread so it
             # hashes the final masters + any derived files. Off-thread; folded
             # into the one debug report via checksums_done.
-            rip_dir = Path(log_path).parent if log_path else params.output_dir
             self._start_checksums(rip_dir, wait_for=post_rip_thread)
 
         # Auto-eject on a clean finish if the user opted in. Only on success —
@@ -731,15 +828,6 @@ class RipMixin:
                 else self._drive_picker.current_device() or ""
             )
             self._eject_async(device, status="Rip complete — ejecting the disc…")
-
-        # Clear references so a future rip starts cleanly. The thread
-        # itself is auto-deleted via finished.connect(deleteLater) above.
-        self._rip_worker = None
-        self._rip_thread = None
-        self._active_rip_params = None
-
-        # Hook for tests to know that finish-time post-processing is done.
-        self.rip_post_processing_done.emit()
 
     # --- Convenience for the Unknown Album flow ----------------------------
 
@@ -784,22 +872,35 @@ class RipMixin:
         self,
         rip_output_dir: Path,
         launch_picard: bool,
+        album: object | None = None,
+        tracks: object | None = None,
     ) -> None:
         """Tag the FLACs from the track table + optionally launch Picard.
 
-        Called after an unknown-mode rip finishes. The track table holds
-        the placeholder rows the user saw before ripping — including any
-        edits they made to the titles/artist/album/year — so we write
-        those through to the FLAC tags (blank fields fall back to the
-        "Unknown" placeholders). Public so it can be exercised from tests.
+        Called after an unknown-mode rip finishes. The track table holds the
+        placeholder rows the user saw before ripping — including any edits they
+        made to the titles/artist/album/year — so we write those through to the
+        FLAC tags (blank fields fall back to the "Unknown" placeholders).
+
+        ``album`` / ``tracks`` are the track-table snapshot taken on the GUI
+        thread by the caller (BUG-1): this method runs on the post-rip DAEMON
+        thread, where reading the Qt widgets directly is a data race. When they
+        are omitted (a direct test/manual call), we read the table here — which
+        is only safe on the GUI thread, so we assert that. Public so it can be
+        exercised from tests.
         """
+        if album is None or tracks is None:
+            # Only reachable on a direct (test/GUI-thread) call — reading the
+            # widgets off the GUI thread is the exact bug this signature exists
+            # to prevent, so make the misuse loud rather than silently racy.
+            assert threading.current_thread() is threading.main_thread(), (
+                "run_unknown_post_processing read the track table off the GUI "
+                "thread — snapshot it on the GUI thread and pass album/tracks in"
+            )
+            album = self._track_table.album_metadata()
+            tracks = self._track_table.tracks()
         flac_files = sorted(rip_output_dir.rglob("*.flac"))
-        apply_track_tags(
-            self._metaflac,
-            flac_files,
-            self._track_table.album_metadata(),
-            self._track_table.tracks(),
-        )
+        apply_track_tags(self._metaflac, flac_files, album, tracks)
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
 
@@ -837,9 +938,15 @@ class RipMixin:
         transcode_fmt: str = "",
         mp3_vbr_quality: int = 0,
         restore_colons: bool = False,
+        album_metadata: object | None = None,
+        track_rows: object | None = None,
     ) -> None:
         """Run unknown-mode tagging, then cover art, then FLAC re-compress, then
         an optional transcode, on ONE daemon thread.
+
+        ``album_metadata`` / ``track_rows`` are the track-table snapshot taken on
+        the GUI thread (BUG-1) and handed to the daemon's tagging step — the
+        daemon must never read the Qt widgets itself.
 
         Why one thread, in this order: the first two steps shell out to
         ``metaflac`` on the SAME FLAC files, and the re-compress step *rewrites*
@@ -896,26 +1003,42 @@ class RipMixin:
             #    off the GUI thread, instead of inline in _on_rip_finished.
             if tag:
                 try:
-                    self.run_unknown_post_processing(rip_dir, launch_picard)
+                    # Pass the GUI-thread snapshot in — the daemon must not read
+                    # the track-table widgets itself (BUG-1).
+                    self.run_unknown_post_processing(
+                        rip_dir,
+                        launch_picard,
+                        album=album_metadata,
+                        tracks=track_rows,
+                    )
                 except Exception:  # noqa: BLE001 — tagging must never crash the GUI
                     log.exception("unknown-album post-processing failed")
             # 2) Cover art second, only after tagging has fully finished so the
             #    two never touch a FLAC at the same time.
             if embed or save_file:
                 try:
-                    message = cover_art.apply_cover_art(
+                    art_result = cover_art.apply_cover_art(
                         rip_dir,
                         release_id,
                         embed=embed,
                         save_file=save_file,
                         metaflac=self._metaflac,
                         fetcher=self._cover_art_fetcher,
+                        # The config mode is recorded in the report so it knows
+                        # art was *requested* (a plain attribute read — no Qt).
+                        mode=self._config.cover_art,
                     )
                 except Exception:  # noqa: BLE001 — art must never crash the GUI
                     log.exception("cover art post-processing failed")
-                    message = "Cover art: failed unexpectedly (rip unaffected)."
+                    art_result = cover_art.CoverArtResult(
+                        mode=self._config.cover_art,
+                        found=False,
+                        reason="error",
+                        error="failed unexpectedly",
+                        message="Cover art: failed unexpectedly (rip unaffected).",
+                    )
                 try:
-                    self.cover_art_done.emit(message)
+                    self.cover_art_done.emit(art_result)
                 except RuntimeError:  # window destroyed — nothing to update
                     pass
             # 3) Re-compress LAST, so it rewrites the final tagged-and-arted
@@ -967,10 +1090,70 @@ class RipMixin:
         self._post_rip_thread = thread
         thread.start()
 
-    def _on_cover_art_done(self, message: str) -> None:
-        """Cover-art thread finished — record the outcome in the log view."""
+    def _on_cover_art_done(self, result: object) -> None:
+        """Cover-art thread finished — record the outcome (runs on the GUI thread).
+
+        Carries a :class:`~platterpus.adapters.cover_art.CoverArtResult` (folded
+        into the report's ``cover_art`` block); a bare string is still accepted
+        for back-compat (older callers / tests). The human line goes to the log
+        view either way.
+        """
+        if isinstance(result, cover_art.CoverArtResult):
+            self._last_cover_art_result = result
+            self._schedule_rip_report_write()
+            message = result.message or "Cover art applied."
+        elif isinstance(result, str):
+            message = result
+        else:
+            return
         log.info("%s", message)
         self._rip_progress.append_log_line(message)
+
+    # --- Shared post-rip daemon launcher -----------------------------------
+
+    def _launch_post_rip_daemon(
+        self,
+        compute: object,
+        signal: object,
+        thread_attr: str,
+    ) -> threading.Thread:
+        """Run a post-rip check on a daemon thread, guarded by the rip generation.
+
+        ``compute`` is a no-arg callable that does the off-thread work (a network
+        lookup + FLAC decode, a hash sweep, …) and returns its result — or
+        ``None`` to signal "skip, don't emit" (e.g. the checksum step when the
+        post-rip work didn't settle in time). If a NEWER rip has started since
+        this was launched, the result is dropped; otherwise it's delivered via
+        ``signal`` (a queued Qt signal), guarded against a destroyed window. The
+        thread is stored on ``self.<thread_attr>`` so tests can join it.
+
+        TD-2: this is the ONE place the rip-generation staleness guard lives —
+        the correctness property that stops a slow verify from album A writing
+        its verdict into album B's report/UI. Extracting it means a new post-rip
+        check can't accidentally omit the guard by copy-pasting a launcher.
+
+        Daemon + guarded emit (not a QThread) is deliberate: a full-album decode
+        can outlast any reasonable ``closeEvent`` wait, and destroying a running
+        QThread aborts the app (docs/architecture.md §3.2). The daemon dies with
+        the process and never touches a widget except through the queued signal.
+        """
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
+        def runner() -> None:
+            result = compute()
+            if result is None:
+                return  # the work opted out (e.g. didn't settle) — nothing to emit
+            if self._rip_generation != gen:
+                return  # a newer rip started — this result is for the old album
+            try:
+                signal.emit(result)  # type: ignore[attr-defined]
+            except RuntimeError:  # window already destroyed — nothing to update
+                pass
+
+        thread = threading.Thread(target=runner, daemon=True)
+        setattr(self, thread_attr, thread)
+        thread.start()
+        return thread
 
     # --- Post-rip CTDB verify (opt-in, KDD-14 Phase 1) ----------------------
 
@@ -980,32 +1163,21 @@ class RipMixin:
         """Verify the just-finished rip against CTDB on a daemon thread.
 
         The lookup (network) and the local FLAC decode (a `flac` subprocess per
-        track) must not run on the GUI thread. We use a daemon thread + a
-        queued signal — NOT a QThread — for the same reason cover art does: the
-        decode can run far longer than any reasonable closeEvent wait, and
-        destroying a running QThread aborts the app (§3.2). The daemon thread
-        dies with the process and guards its own emit, so closing the window
-        mid-verify is always safe. ``wait_for`` is the post-rip metaflac thread
-        (or None): we join it first so we never decode a FLAC mid-rewrite. The
-        verdict is reported via ``ctdb_verify_done`` (queued to the GUI thread).
+        track) must not run on the GUI thread. ``wait_for`` is the post-rip
+        metaflac thread (or None): we join it first so we never decode a FLAC
+        mid-rewrite. The verdict is reported via ``ctdb_verify_done`` (queued to
+        the GUI thread). Threading/generation guard: see
+        :meth:`_launch_post_rip_daemon`.
         """
-
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
-            result = verify_rip_dir(self._ctdb_client, rip_dir, wait_for=wait_for)
-            if self._rip_generation != gen:
-                return  # a newer rip started — this verdict is for the old album
-            try:
-                self.ctdb_verify_done.emit(result)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
-
         log.info("starting CTDB verify for %s", rip_dir)
         self._rip_progress.set_ctdb_status("Verifying against CTDB…")
-        thread = threading.Thread(target=work, daemon=True)
-        self._ctdb_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=lambda: verify_rip_dir(
+                self._ctdb_client, rip_dir, wait_for=wait_for
+            ),
+            signal=self.ctdb_verify_done,
+            thread_attr="_ctdb_thread",
+        )
 
     def _on_ctdb_verified(self, result: object) -> None:
         """CTDB verify finished — render the verdict under the AR table.
@@ -1128,7 +1300,19 @@ class RipMixin:
         """
         from datetime import datetime
 
-        from platterpus import read_speed_ladder, rip_report
+        from platterpus import build_info, read_speed_ladder, rip_report
+
+        # environment: the live Python/OS/PySide6/channel probe, plus the
+        # per-dependency versions + locations from the LAUNCH-TIME dependency
+        # check (never a fresh probe here — that enters the container and would
+        # freeze the GUI). None dependencies until the launch check has landed.
+        environment = build_info.environment_report()
+        dep_report = getattr(self, "_last_dependency_report", None)
+        environment["dependencies"] = (
+            build_info.dependency_summary(dep_report)
+            if dep_report is not None
+            else None
+        )
 
         rip_report.write_report(
             rip_log,
@@ -1137,17 +1321,85 @@ class RipMixin:
             flac_verify_result=getattr(self, "_last_flac_verify_result", None),
             transcode_result=getattr(self, "_last_transcode_result", None),
             derived_verify_result=getattr(self, "_last_derived_verify_result", None),
+            recompress_result=getattr(self, "_last_recompress_result", None),
+            cover_art_result=getattr(self, "_last_cover_art_result", None),
             read_speed=read_speed_ladder.attempts_to_report(
                 getattr(self, "_last_speed_attempts", []) or [],
                 getattr(self, "_last_unstable_tracks", []) or [],
                 getattr(self, "_last_retried_tracks", []) or [],
             ),
+            secure_rerip=getattr(self, "_last_secure_rerip", None),
             eta_trace=getattr(self, "_last_eta_trace", None) or None,
             checksums=getattr(self, "_last_checksums", None),
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
             debug_log=self._build_rip_debug_log(),
+            # v7 process/settings/provenance blocks. `outcome`/`disc` are
+            # snapshotted at finish (worker/params are cleared before the debounced
+            # re-writes); `settings`/`gates` come from the persistent config +
+            # backend, so they're rebuilt here each write (pure + cheap).
+            outcome=getattr(self, "_last_outcome", None),
+            settings=rip_report.build_settings(
+                self._config,
+                read_offset_effective=getattr(
+                    self, "_last_read_offset_effective", None
+                ),
+            ),
+            disc=getattr(self, "_last_disc", None),
+            environment=environment,
+            gates=rip_report.build_gates(
+                ctdb_enabled=self._config.ctdb_verify_after_rip,
+                flac_verify_enabled=self._config.verify_flac_after_rip,
+                backend_self_verifies=self._backend.self_verifies_encode(),
+                recompress_enabled=self._config.recompress_flac_after_rip,
+                backend_maxes_compression=(
+                    self._backend.produces_max_compression_flac()
+                ),
+                transcode_requested=self._config.output_format in TRANSCODE_FORMATS,
+            ),
         )
+
+    def _write_minimal_failure_report(self, params: RipParameters | None) -> None:
+        """Write a minimal report for a rip that produced NO log at all.
+
+        A hard failure before any output (the backend never started, or the
+        stream died before a file was written) used to write nothing — so the
+        most-broken rips were the *least* diagnosable. This drops a small
+        ``platterpus-rip-failure.platterpus.json`` beside the intended output dir
+        carrying the process ``outcome`` (with the failure hint), the effective
+        ``settings``, and the ``environment`` — enough to triage from. Best-effort
+        and never raises (a failing rip must not be made worse by a report write).
+        """
+        if params is None:
+            return
+        from datetime import datetime
+
+        from platterpus import rip_report
+        from platterpus.parsers.rip_log import RipLog
+
+        try:
+            out_dir = Path(params.output_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            # write_report derives the JSON path from a .log path but never reads
+            # it, so a synthetic name is fine — no real log exists for this rip.
+            synthetic_log = out_dir / "platterpus-rip-failure.log"
+            written = rip_report.write_report(
+                RipLog(),
+                synthetic_log,
+                outcome=getattr(self, "_last_outcome", None),
+                settings=rip_report.build_settings(
+                    self._config,
+                    read_offset_effective=getattr(
+                        self, "_last_read_offset_effective", None
+                    ),
+                ),
+                disc=getattr(self, "_last_disc", None),
+                generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+            if written is not None:
+                log.info("wrote minimal failure report to %s", written)
+        except Exception:  # noqa: BLE001 — a failure report must never crash close
+            log.exception("could not write the minimal failure report")
 
     def _append_read_speed_summary(self) -> None:
         """Note the read-speed ladder's outcome in the results log, if it acted.
@@ -1263,9 +1515,7 @@ class RipMixin:
         """
         from platterpus import checksums
 
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
+        def compute() -> object | None:
             if wait_for is not None:
                 wait_for.join(timeout=_CHECKSUM_SETTLE_TIMEOUT_S)
                 # `join(timeout)` returns whether or not the thread finished. If
@@ -1273,27 +1523,23 @@ class RipMixin:
                 # files are mid-rewrite — hashing them now would record a SHA256
                 # that doesn't match the final file, i.e. a false "integrity truth".
                 # Better to record no checksums than wrong ones: skip this run
-                # (the report simply omits checksums; the fidelity verdict, which
-                # comes from AccurateRip/the rip log, is unaffected).
+                # (returning None → the shared launcher emits nothing; the report
+                # simply omits checksums; the fidelity verdict is unaffected).
                 if wait_for.is_alive():
                     log.warning(
                         "post-rip work did not settle within %.0fs — skipping "
                         "checksums so a mid-rewrite file isn't hashed as final",
                         _CHECKSUM_SETTLE_TIMEOUT_S,
                     )
-                    return
-            digests = checksums.compute_digests(rip_dir)
-            if self._rip_generation != gen:
-                return  # a newer rip started — these digests are for the old album
-            try:
-                self.checksums_done.emit(digests)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
+                    return None
+            return checksums.compute_digests(rip_dir)
 
         log.info("computing SHA256 digests for %s", rip_dir)
-        thread = threading.Thread(target=work, daemon=True)
-        self._checksums_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=compute,
+            signal=self.checksums_done,
+            thread_attr="_checksums_thread",
+        )
 
     def _on_checksums_done(self, digests: object) -> None:
         """Digests computed — record + re-write the report (on the GUI thread)."""
@@ -1313,24 +1559,15 @@ class RipMixin:
         ``closeEvent`` wait, and destroying a running ``QThread`` aborts the app
         — §3.2). Joins the post-rip metaflac thread first (``wait_for``) so it
         never tests a file mid-rewrite. Result reported via ``flac_verify_done``
-        (queued to the GUI thread)."""
-
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
-            result = verify_flac_dir(rip_dir, wait_for=wait_for)
-            if self._rip_generation != gen:
-                return  # a newer rip started — this result is for the old album
-            try:
-                self.flac_verify_done.emit(result)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
-
+        (queued to the GUI thread). Threading/generation guard: see
+        :meth:`_launch_post_rip_daemon`."""
         log.info("starting FLAC verify for %s", rip_dir)
         self._rip_progress.append_log_line("Verifying FLAC integrity…")
-        thread = threading.Thread(target=work, daemon=True)
-        self._flac_verify_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=lambda: verify_flac_dir(rip_dir, wait_for=wait_for),
+            signal=self.flac_verify_done,
+            thread_attr="_flac_verify_thread",
+        )
 
     def _on_flac_verified(self, result: object) -> None:
         """FLAC verify finished — record the outcome (runs on the GUI thread).
@@ -1375,6 +1612,11 @@ class RipMixin:
         """
         if not isinstance(result, RecompressResult):
             return
+        # Record + schedule a (debounced) re-write so the re-compress outcome
+        # lands in the report's verification block (it mutates the masters, so
+        # its result belongs in the one debug file alongside the other checks).
+        self._last_recompress_result = result
+        self._schedule_rip_report_write()
         if result.error:
             message = f"FLAC re-compress: skipped — {result.error}"
         elif result.failures:
@@ -1434,24 +1676,15 @@ class RipMixin:
         and destroying a running ``QThread`` aborts the app — §3.2). Joins the
         post-rip transcode thread first (``wait_for``) so it never reads a derived
         file mid-write. Result reported via ``derived_verify_done`` (queued to the
-        GUI thread)."""
-
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
-            result = verify_derived_dir(rip_dir, fmt, wait_for=wait_for)
-            if self._rip_generation != gen:
-                return  # a newer rip started — this result is for the old album
-            try:
-                self.derived_verify_done.emit(result)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
-
+        GUI thread). Threading/generation guard: see
+        :meth:`_launch_post_rip_daemon`."""
         log.info("starting derived-file verify (%s) for %s", fmt, rip_dir)
         self._rip_progress.append_log_line(f"Verifying derived {fmt.upper()} files…")
-        thread = threading.Thread(target=work, daemon=True)
-        self._derived_verify_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=lambda: verify_derived_dir(rip_dir, fmt, wait_for=wait_for),
+            signal=self.derived_verify_done,
+            thread_attr="_derived_verify_thread",
+        )
 
     def _on_derived_verified(self, result: object) -> None:
         """Derived-file verify finished — record + surface the outcome.

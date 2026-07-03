@@ -170,7 +170,7 @@ def test_apply_embeds_and_saves_when_both_requested(tmp_path: Path) -> None:
     album = _album(tmp_path)
     fake = _FakeMetaflac()
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         album,
         _MBID,
         embed=True,
@@ -184,15 +184,15 @@ def test_apply_embeds_and_saves_when_both_requested(tmp_path: Path) -> None:
         "01 - Track.flac",
         "02 - Track.flac",
     ]
-    assert "embedded in 2 track(s)" in message
-    assert "cover.jpg" in message
+    assert "embedded in 2 track(s)" in result.message
+    assert "cover.jpg" in result.message
 
 
 def test_apply_embed_only_removes_the_temp_image(tmp_path: Path) -> None:
     album = _album(tmp_path)
     fake = _FakeMetaflac()
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         album,
         _MBID,
         embed=True,
@@ -204,14 +204,14 @@ def test_apply_embed_only_removes_the_temp_image(tmp_path: Path) -> None:
     # The PNG was written for metaflac to import, then cleaned up.
     assert not (album / "cover.png").exists()
     assert len(fake.embedded) == 2
-    assert "embedded in 2 track(s)" in message
+    assert "embedded in 2 track(s)" in result.message
 
 
 def test_apply_file_only_never_touches_metaflac(tmp_path: Path) -> None:
     album = _album(tmp_path)
     fake = _FakeMetaflac()
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         album,
         _MBID,
         embed=False,
@@ -222,7 +222,7 @@ def test_apply_file_only_never_touches_metaflac(tmp_path: Path) -> None:
 
     assert (album / "cover.jpg").exists()
     assert fake.embedded == []
-    assert "saved as cover.jpg" in message
+    assert "saved as cover.jpg" in result.message
 
 
 def test_apply_reports_when_no_art_exists(tmp_path: Path) -> None:
@@ -232,14 +232,14 @@ def test_apply_reports_when_no_art_exists(tmp_path: Path) -> None:
     def fetcher(url: str) -> bytes:
         raise OSError("404")
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         album, "mbid", embed=True, save_file=True, metaflac=fake, fetcher=fetcher
     )
 
     assert fake.embedded == []
     assert not (album / "cover.jpg").exists()
-    assert "none found" in message
-    assert "rip unaffected" in message
+    assert "none found" in result.message
+    assert "rip unaffected" in result.message
 
 
 def test_apply_survives_per_file_embed_failures(tmp_path: Path) -> None:
@@ -247,7 +247,7 @@ def test_apply_survives_per_file_embed_failures(tmp_path: Path) -> None:
     album = _album(tmp_path, tracks=3)
     fake = _FakeMetaflac(fail_for={"02 - Track.flac"})
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         album,
         _MBID,
         embed=True,
@@ -257,7 +257,7 @@ def test_apply_survives_per_file_embed_failures(tmp_path: Path) -> None:
     )
 
     assert len(fake.embedded) == 2
-    assert "embedded in 2 track(s)" in message
+    assert "embedded in 2 track(s)" in result.message
 
 
 def test_apply_with_no_flacs_still_reports_honestly(tmp_path: Path) -> None:
@@ -265,7 +265,7 @@ def test_apply_with_no_flacs_still_reports_honestly(tmp_path: Path) -> None:
     album.mkdir()
     fake = _FakeMetaflac()
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         album,
         _MBID,
         embed=True,
@@ -274,7 +274,7 @@ def test_apply_with_no_flacs_still_reports_honestly(tmp_path: Path) -> None:
         fetcher=lambda url: _JPEG,
     )
 
-    assert "embedding failed" in message  # 0 embedded — don't claim success
+    assert "embedding failed" in result.message  # 0 embedded — don't claim success
 
 
 def test_apply_reports_when_image_cannot_be_saved(tmp_path: Path) -> None:
@@ -284,7 +284,7 @@ def test_apply_reports_when_image_cannot_be_saved(tmp_path: Path) -> None:
     not_a_dir.write_text("i am a file, not a directory")
     fake = _FakeMetaflac()
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         not_a_dir,
         _MBID,
         embed=True,
@@ -294,7 +294,7 @@ def test_apply_reports_when_image_cannot_be_saved(tmp_path: Path) -> None:
     )
 
     assert fake.embedded == []
-    assert "could not be saved" in message
+    assert "could not be saved" in result.message
 
 
 def test_apply_survives_temp_image_unlink_failure(
@@ -312,7 +312,7 @@ def test_apply_survives_temp_image_unlink_failure(
 
     monkeypatch.setattr(pathlib.Path, "unlink", boom_unlink)
 
-    message = cover_art.apply_cover_art(
+    result = cover_art.apply_cover_art(
         album,
         _MBID,
         embed=True,
@@ -322,4 +322,57 @@ def test_apply_survives_temp_image_unlink_failure(
     )
 
     assert len(fake.embedded) == 1
-    assert "embedded in 1 track(s)" in message
+    assert "embedded in 1 track(s)" in result.message
+
+
+# --- CoverArtResult (structured outcome for the rip report, 0.4.10) ---------
+
+
+def test_apply_returns_structured_result(tmp_path: Path) -> None:
+    album = _album(tmp_path)
+    result = cover_art.apply_cover_art(
+        album,
+        _MBID,
+        embed=True,
+        save_file=True,
+        metaflac=_FakeMetaflac(),
+        fetcher=lambda url: _JPEG,
+        mode="complete",
+    )
+    assert result.mode == "complete"
+    assert result.found is True and result.reason == "ok"
+    assert result.embedded_count == 2
+    assert result.saved_as == "cover.jpg"
+    assert result.format == "jpg"
+    assert result.bytes == len(_JPEG)
+    assert result.release_id == _MBID
+
+
+def test_apply_result_distinguishes_404_from_network(tmp_path: Path) -> None:
+    import urllib.error
+
+    def not_found(url: str) -> bytes:
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+    r = cover_art.apply_cover_art(
+        tmp_path,
+        _MBID,
+        embed=True,
+        save_file=False,
+        metaflac=_FakeMetaflac(),
+        fetcher=not_found,
+    )
+    assert r.found is False and r.reason == "404"
+
+    def down(url: str) -> bytes:
+        raise OSError("connection refused")
+
+    r2 = cover_art.apply_cover_art(
+        tmp_path,
+        _MBID,
+        embed=True,
+        save_file=False,
+        metaflac=_FakeMetaflac(),
+        fetcher=down,
+    )
+    assert r2.found is False and r2.reason == "network"
