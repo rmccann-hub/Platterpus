@@ -58,8 +58,8 @@ tells you at a glance whether the rip can be trusted:
   exact same audio.
 - 🟡 **Amber — "M of N tracks verified"** — some tracks matched and some didn't.
   The unmatched ones either aren't in the database or read differently this
-  time; check the per-track table and consider re-ripping (the **Re-rip until
-  reads match** setting helps marginal discs).
+  time; check the per-track table and consider re-ripping (the **Max reads to
+  confirm a shaky track** setting helps marginal discs).
 - ⚪ **Grey — "no tracks matched the database"** — normal for a disc nobody has
   submitted (a home-burned CD-R, or an obscure pressing). It does *not* mean a
   bad rip: the per-track **Copy CRC** still proves the disc was read securely;
@@ -110,11 +110,12 @@ named from the album artist/title you type.
   cover from the Cover Art Archive after the rip and embeds/saves it.
 - **Max retries** — how many times the ripper retries a troublesome track
   before giving up.
-- **Re-rip until reads match** — for a damaged or marginal disc, re-read each
-  track until this many passes agree on the checksum, so a shaky read converges
-  to the bit-perfect result. Leave it at *Off* for clean discs (the normal
-  secure read already handles those); try **2** if a track won't verify against
-  AccurateRip.
+- **Max reads to confirm a shaky track** — Platterpus rips the disc once at full
+  speed, then re-reads *only* the tracks that didn't match AccurateRip until this
+  many reads agree, so a shaky track converges on the bit-perfect result while a
+  clean disc stays a single fast pass. It's **on by default** (2) — raise it for
+  a badly scratched disc, or set it to *Off* to accept the first read even when a
+  track can't be verified.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
   the CUETools Database, alongside AccurateRip. A network check, off by default,
   and labelled *experimental* until its checksum is confirmed on real hardware

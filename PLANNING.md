@@ -21,7 +21,7 @@ Platterpus/
 ├── LICENSE                              # GPL-3.0-only
 ├── pyproject.toml                       # package metadata + pinned deps + entry points + pytest/ruff config
 ├── dev-setup.sh                         # one-command post-clone bootstrap (venv + pip + editable install)
-├── setup-host.sh                        # host bootstrap (Distrobox + ripping container + whipper + exports)
+├── setup-host.sh                        # host bootstrap (Distrobox + ripping container + cyanrip + exports)
 ├── install.sh                           # end-user installer (host stack + download AppImage + desktop integration)
 ├── install-appimage.sh                  # desktop integration for a downloaded AppImage (+ uninstall launcher)
 ├── uninstall.sh                         # comprehensive tear-down for both install paths
@@ -140,14 +140,14 @@ Platterpus/
         │   ├── registry.py              # declarative DependencySpec list
         │   ├── checks.py                # probe functions (present? version?)
         │   ├── resolvers.py             # AutoInstaller, QueuedInstaller, ManualPrompt
-        │   ├── host_setup.py            # bootstrap arm: Distrobox/container/whipper/cyanrip install + export (KDD-17c)
+        │   ├── host_setup.py            # bootstrap arm: Distrobox/container/cyanrip install + export (KDD-17c)
         │   ├── host_teardown.py         # teardown arm: the in-app Uninstaller's engine (keeps distrobox/podman + music)
         │   ├── step_engine.py           # shared step-engine vocabulary (StepStatus/StepResult/CommandRunner/SubprocessRunner/StepEngine)
         │   └── version.py               # version-string parsing utility
         │
         ├── parsers/                     # whipper/cyanrip/EAC stdout+log parsing (named-group regexes)
         │   ├── __init__.py
-        │   ├── rip_log.py               # parse the `.log` file whipper writes per rip
+        │   ├── rip_log.py               # parse a whipper-format `.log` (legacy seam; cyanrip logs → cyanrip_log.py)
         │   ├── drive_list.py            # parse `whipper drive list`
         │   ├── cd_info.py               # parse `whipper cd info` (defines the shared DiscInfo)
         │   ├── cyanrip_info.py          # parse `cyanrip -I` into the same DiscInfo (KDD-18)
@@ -302,11 +302,11 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`release_picker.py`** — `ReleasePickerDialog(QDialog)`. Shown only when `MusicBrainzClient` returns >1 candidate for the inserted disc. List of releases with year, label, country, track count. Returns the chosen MBID. **This is the v1 substitute for whipper's TTY prompt** — Critical Rule #5.
 - **`track_table.py`** — `TrackTable(QTableView)` with a custom `QAbstractTableModel`. Editable per-track tags + album-level fields above the table. Validates before allowing the rip to start.
 - **`rip_controls.py`** — Start / Cancel buttons. On Start, assembles rip parameters (drive, MBID, output dir from config, template, edited tags) and emits `rip_requested(params)`.
-- **`rip_progress.py`** — three panes: live whipper stdout (read-only), per-track AccurateRip results table (populated when the rip log is parsed at the end), and a "View log" button that opens the saved `.log` file in the default text viewer.
-- **`settings_dialog.py`** — `SettingsDialog(QDialog)`. One unified page across backends: output/working dirs, track/disc templates, read-offset override, whipper/metaflac paths, ripper-backend toggle (whipper | cyanrip), cover art, force-overread, max-retries, keep-going, CD-R, auto-launch-Picard, auto-eject. `_apply_backend_capabilities` greys out options the selected backend doesn't support with a why+how-to-re-enable tooltip, and `to_config()` still reads disabled widgets so switching backends never loses a value. Persists through `config.py`.
-- **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers a `whipper cd rip --unknown`, applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
-- **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). Runs whipper's own `drive analyze` + `offset find` off-thread via `DriveSetupWorker` (they persist to `whipper.conf`), with a manual-offset fallback that uses the GUI's `--offset` override and a pre-filled offset when the drive model is in the bundled AccurateRip list.
-- **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when whipper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend too when it's the selected backend.
+- **`rip_progress.py`** — three panes: live cyanrip stdout (read-only), per-track AccurateRip results table (populated when the rip log is parsed at the end), and a "View log" button that opens the saved `.log` file in the default text viewer.
+- **`settings_dialog.py`** — `SettingsDialog(QDialog)`. One unified page: output/working dirs, track/disc templates, read-offset override, the metaflac path, output format, cover art, force-overread, max-retries, keep-going, secure re-rip, CD-R, auto-launch-Picard, auto-eject. Options the sole backend doesn't need are greyed out with a why+how-to tooltip (e.g. FLAC re-compress — cyanrip already maxes compression), and `to_config()` still reads disabled widgets so a value is never lost. Persists through `config.py`. (The old whipper|cyanrip backend toggle and `_apply_backend_capabilities` were removed when cyanrip became the sole backend — KDD-18/21.)
+- **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers an unknown-album rip (cyanrip, no MBID), applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
+- **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). Runs cyanrip's `drive analyze` + `offset find` off-thread via `DriveSetupWorker`; the detected offset persists to Platterpus's own config (applied to cyanrip as `-s`), with a manual-offset fallback and a pre-filled offset when the drive model is in the bundled AccurateRip list.
+- **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend into the container.
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
 - **`dialogs/centering.py`** — `CenteredDialog`, a `QDialog` base that centres itself over the parent window on first show (fixes a multi-monitor "modal on another screen looks frozen" report); best-effort, a no-op under native Wayland.
@@ -322,7 +322,7 @@ the one-shot lifecycle wiring (moveToThread → `finished`→`quit` → `thread.
 → start) every call site shares; the caller still creates the thread (so test patches of a
 module's `QThread` keep working) and connects its own result slots first.
 
-- **`rip_worker.py`** — `RipWorker(QObject)` moved to a `QThread`. Owns the rip subprocess. Emits `log_line(str)` for each line of whipper output, `progress(...)` for parseable progress events, `finished(success, rip_log_path)` on exit, `error(message)` on failure. Supports cancel via subprocess terminate + child-process cleanup.
+- **`rip_worker.py`** — `RipWorker(QObject)` moved to a `QThread`. Owns the rip subprocess. Emits `log_line(str)` for each line of cyanrip output, `progress(...)` for parseable progress events, `finished(success, rip_log_path)` on exit, `error(message)` on failure. Supports cancel via subprocess terminate + child-process cleanup.
 - **`mb_worker.py`** — `MusicBrainzWorker(QObject)` moved to a `QThread`. Drives `MusicBrainzClient` calls (which can take a few seconds and shouldn't block input). Emits `releases_returned(list)` or `error(message)`. The one *persistent* worker (window lifetime), so it's wired by hand rather than via `start_worker_thread`.
 - **`drive_setup_worker.py`** — `DriveSetupWorker(QObject)` moved to a `QThread`. Runs the wizard's `drive analyze` / `offset find` via cancellable `Popen` so closing the dialog mid-detection can't orphan a running process or strand the drive.
 - **`host_setup_worker.py`** — `HostSetupWorker(QObject)` moved to a `QThread`. Runs any `StepEngine` (a Protocol in `deps/step_engine.py` that both `HostSetup` and `HostTeardown` satisfy — one worker drives setup and uninstall) off the GUI thread, relaying per-step `StepResult`s as signals; supports cancel at step boundaries.
@@ -711,7 +711,7 @@ Side effect: this resolves the "misleading read-offset field" UX bug (TASKS.md, 
 
 Decided 2026-06-02, ahead of implementing KDD-14 Phase 1. **The question:** can we reuse the existing Python CTDB client, `bmwalters/python-cuetoolsdb`, to build verify? **The answer: no — implement clean-room instead.**
 
-- **License facts (verified, not assumed).** We are **GPL-3.0-only** (KDD-10: `pyproject.toml` classifier + GPLv3 `LICENSE`). `python-cuetoolsdb` ships a bare **GPLv2** `LICENSE` file but declares **no version intent** anywhere the author controls — `setup.py` has no `license=` field and no Trove classifiers, and the source files carry no header/SPDX line. (A web check that reported "or later" was reading the boilerplate *"How to Apply These Terms"* appendix inside the GPLv2 text, not an author election.) With no "or later" grant we must treat it as **GPL-2.0-only**, which is **one-way incompatible** with GPL-3.0-only — we cannot copy or line-by-line port its code into our work.
+- **License facts (verified, not assumed).** We are **GPL-3.0-only** (KDD-10: `pyproject.toml` SPDX `license` expression, PEP 639 + GPLv3 `LICENSE`). `python-cuetoolsdb` ships a bare **GPLv2** `LICENSE` file but declares **no version intent** anywhere the author controls — `setup.py` has no `license=` field and no Trove classifiers, and the source files carry no header/SPDX line. (A web check that reported "or later" was reading the boilerplate *"How to Apply These Terms"* appendix inside the GPLv2 text, not an author election.) With no "or later" grant we must treat it as **GPL-2.0-only**, which is **one-way incompatible** with GPL-3.0-only — we cannot copy or line-by-line port its code into our work.
 
 - **Why clean-room is clean.** Copyright protects *code expression*, not the **protocol, wire format, or CRC algorithm** — those are facts/methods. Reimplementing them independently is not a derivative work. So we build our own `CTDBClient` from (a) the **LGPL** `gchudov/cuetools.net` source (LGPL is GPLv3-compatible) and (b) the public DB behaviour, ship it under our GPL-3.0-only, and **never read or paraphrase `python-cuetoolsdb`**. The implementer learns the algorithm from the LGPL C# + the spec, then writes original Python. SPDX `GPL-3.0-only` header on every new file.
 

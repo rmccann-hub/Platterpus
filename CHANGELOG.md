@@ -76,6 +76,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   (NUL was always caught; this closes the gap for its whitespace-classified
   siblings). Found by a new position-fuzzing property test.
 
+### Changed
+- **In-app help and the README now describe how ripping actually works.** The
+  re-rip control is named "Max reads to confirm a shaky track" (not the old
+  "Re-rip until reads match"), and the help/README explain the dynamic model —
+  rip once fast, then secure-re-rip only the tracks AccurateRip couldn't confirm
+  — which is **on by default** (they used to say "leave it Off for clean discs").
+  A "How ripping works" section was added to the README.
+- **Documentation currency (KDD-18 follow-through):** swept remaining
+  whipper-as-the-current-backend claims out of the docs, the drive-setup wizard
+  wording ("saves to whipper.conf" was false — the offset lives in Platterpus's
+  own config, applied to cyanrip), and code comments, while keeping the
+  legitimate references (the whipper-format log parser, the legacy `whipper.conf`
+  offset reader, and clearly-labelled inert seams). Removed the dead
+  `scripts/preflight.py --backend whipper|cyanrip` flag (it set a `Config`
+  attribute that no longer exists), the dead `DriveSetupResult.backup_path`
+  field, and corrected the Python matrix (3.11–3.14) and a few table/reference
+  nits.
+
 ### Added
 - **The rip report (`.platterpus.json`) now explains a whole rip on its own
   (schema v7).** New, additive sections so one file answers the questions a

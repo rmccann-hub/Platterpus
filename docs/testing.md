@@ -218,7 +218,7 @@ tiers. "I added a happy-path test" is not done.
 4. **Coverage gate.** CI runs branch coverage with `--cov-fail-under` (currently
    **91%**, TOTAL ~93%). The gate **ratchets up, never down** — raise it when
    TOTAL comfortably clears it; never lower it to make a build green.
-5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.13).
+5. **Version matrix.** CI runs the suite on every supported Python (3.11–3.14).
    Add a version when users move to it; we've been bitten by version-specific
    breakage before.
 6. **The hardware gate is explicit.** Anything that can only be proven on real

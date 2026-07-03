@@ -16,12 +16,12 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 |---|---|---|---|---|---|
 | python-appimage | `>=1.4,<2` (current: 1.4.5) | 2025-07-02 | GPL-3.0 (package itself); MIT for files under `python_appimage/data` | Active | `appimage-builder` only if `python-appimage` cannot express a required build step (CLAUDE.md Critical Rule #2). The recipe must avoid `appimage-builder`-specific features so swapping back is cheap. |
 | build | `>=1,<2` | (per PyPI at first install) | MIT | Active | — (PEP 517 build frontend; used by `build/build_appimage.sh`) |
-| pytest | `>=8,<9` | (per PyPI at first install) | MIT | Active | — |
+| pytest | `>=8,<10` | (per PyPI at first install) | MIT | Active | — |
 | ruff | `>=0.15,<1` | (per PyPI at first install) | MIT | Active | — (linter + formatter; CI runs `ruff check` + `ruff format --check`. Rules `E,F,W,I,B,UP`, `E501` off. Config in `pyproject.toml`.) |
 | pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=91` (ratchets up). See [docs/testing.md](docs/testing.md).) |
 | hypothesis | `>=6` | (per PyPI at first install) | MPL-2.0 | Active | — (dev/test only; property-based tests in `tests/test_parsers_property.py`. MPL-2.0 is fine — test-time tool, not linked/distributed.) |
 | mutmut | not installed (`pipx run mutmut`) | — | BSD-3-Clause | Active | — (dev/test only; periodic mutation-testing **audit**, not a CI gate — see [docs/testing.md](docs/testing.md) §7. Run on demand, no pin needed.) |
-| Pillow | (no longer used) | Active | HPND (PIL license) | Active | — **No longer a dependency.** `build/make_icon.py` was rewritten to rasterize the SVG logo via an external tool (`rsvg-convert` / Inkscape / ImageMagick / the `cairosvg` module) instead of Pillow, and nothing else imports it; it is not declared in `pyproject.toml`. The committed icon means a normal AppImage build needs no image tooling at all. Row kept for the record; remove at the next dependency-table review if still unused. |
+| Pillow | (no longer used) | — | HPND (PIL license) | Removed (unused) | — **No longer a dependency.** `build/make_icon.py` was rewritten to rasterize the SVG logo via an external tool (`rsvg-convert` / Inkscape / ImageMagick / the `cairosvg` module) instead of Pillow, and nothing else imports it; it is not declared in `pyproject.toml`. The committed icon means a normal AppImage build needs no image tooling at all. Row kept for the record; remove at the next dependency-table review if still unused. |
 
 ## System dependencies (user-system, surfaced via the dependency subsystem or the setup wizard)
 

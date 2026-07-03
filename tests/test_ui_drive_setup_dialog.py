@@ -6,8 +6,6 @@ its `_on_finished` slot directly to verify result rendering.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.rip_backend import RipBackend
@@ -89,13 +87,11 @@ def test_on_finished_renders_success(qapp: QApplication) -> None:
         DriveSetupResult(
             offset=667,
             can_defeat_cache=True,
-            backup_path=Path("/home/u/.config/whipper/whipper.conf.bak"),
         )
     )
     text = dialog._results_label.toPlainText()
     assert "+667 samples" in text
     assert "Audio cache" in text
-    assert "backed up to whipper.conf.bak" in text
     assert dialog._progress.isVisible() is False
     assert dialog._detect_button.text() == "Re-detect"
 

@@ -243,7 +243,12 @@ def free_drive(
     (#23). Killing the reader releases the device; leaving the disc in place lets
     the user immediately Rescan (or switch backends) without re-inserting it.
 
-    Synchronous and best-effort; run it off the GUI thread.
+    Synchronous and best-effort; normally run OFF the GUI thread. The one
+    sanctioned exception is the shutdown path (`_stop_rip_on_shutdown` in
+    `closeEvent`), which calls it *on* the GUI thread by design — the window is
+    already going away, a daemon thread would be killed mid-`pkill`, and every
+    subprocess here is bounded by a timeout so the close can't hang unbounded
+    (Rule #3 exception; see that method's docstring).
     """
     run = runner or _default_runner
     killed = free_device_holders(device, runner=run)
