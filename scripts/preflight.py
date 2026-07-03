@@ -3,13 +3,12 @@
 """Standalone preflight ("doctor") — first-pass rip-environment test, no CD.
 
 Runs every check the rip pipeline needs except the disc read itself, so you can
-sanity-check a machine *before* inserting a disc: the Distrobox→whipper routing,
+sanity-check a machine *before* inserting a disc: the Distrobox→cyanrip routing,
 drive detection + access, the dependency tools, and host network to MusicBrainz
 / Cover Art Archive / CTDB.
 
     python scripts/preflight.py                  # full run
     python scripts/preflight.py --no-network     # skip the network checks
-    python scripts/preflight.py --backend cyanrip
     platterpus --doctor                          # same thing, via the app
 
 Exit code: 0 = no hard blockers (warnings may exist), 1 = a blocker was found.
@@ -37,19 +36,14 @@ def main(argv: list[str] | None = None) -> int:
         help="skip the MusicBrainz / Cover Art Archive / CTDB reachability checks",
     )
     parser.add_argument(
-        "--backend",
-        choices=["whipper", "cyanrip"],
-        help="override the configured ripping backend for this run",
-    )
-    parser.add_argument(
         "--no-color", action="store_true", help="disable ANSI colour output"
     )
     args = parser.parse_args(argv)
 
+    # cyanrip is the sole backend (KDD-18), so there's nothing to override — the
+    # old `--backend whipper|cyanrip` flag set a Config attribute that no longer
+    # exists and was never read; it was removed.
     cfg = config_module.load()
-    if args.backend:
-        cfg.ripper_backend = args.backend
-
     ctx = preflight.default_context(cfg)
     color = sys.stdout.isatty() and not args.no_color
 

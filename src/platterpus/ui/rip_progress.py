@@ -8,8 +8,10 @@ Three panes stacked vertically:
   AccurateRip results table (populated when the rip log lands)
   CTDB verdict line (second, TOC-keyed verification path)
 
-The "View log" button opens the rip log file in the user's default
-text viewer via QDesktopServices.openUrl().
+The "View log" / "View report" buttons open the file in an in-app read-only
+viewer (avoiding the "Open With" chooser a .log/.platterpus.json triggers on a
+fresh KDE); "Open rip folder" defers to the file manager via
+QDesktopServices.openUrl().
 """
 
 from __future__ import annotations
@@ -59,6 +61,8 @@ _AR_COL_V2: int = 4
 # Hook so tests can intercept the "open file" action without launching
 # a real text editor.
 _OpenUrlFn = Callable[[QUrl], bool]
+# Hook so tests can intercept the in-app file view without spinning a dialog.
+_ViewFileFn = Callable[[Path, str], None]
 
 
 class RipProgress(QWidget):
@@ -68,11 +72,16 @@ class RipProgress(QWidget):
         self,
         parent: QWidget | None = None,
         open_url: _OpenUrlFn | None = None,
+        view_file: _ViewFileFn | None = None,
     ) -> None:
         super().__init__(parent)
         # Inject the openUrl function so tests can verify the action
         # without launching a real viewer.
         self._open_url: _OpenUrlFn = open_url or QDesktopServices.openUrl
+        # The log / JSON report open in an in-app read-only viewer (IMP-1) — a
+        # .log/.platterpus.json has no default handler on a fresh KDE, so
+        # openUrl would pop the "Open With" chooser. Injected for tests.
+        self._view_file: _ViewFileFn = view_file or self._default_view_file
         self._log_path: Path | None = None
         # The JSON report and the album folder, derived from the log path when a
         # rip finishes (set in set_log_path) — back the "View report" / "Open
@@ -336,19 +345,34 @@ class RipProgress(QWidget):
 
     # --- Internals ----------------------------------------------------------
 
+    def _default_view_file(self, path: Path, title: str) -> None:
+        """Open ``path`` in the in-app read-only viewer (IMP-1), passing along the
+        same injected ``open_url`` so the viewer's "Open externally…" button still
+        defers to the OS. Import is local so the dialog module isn't pulled in
+        until the first view."""
+        from platterpus.ui.dialogs.file_viewer import FileViewerDialog
+
+        dialog = FileViewerDialog(
+            path, title=title, parent=self, open_url=self._open_url
+        )
+        dialog.exec()
+
     def _on_view_log_clicked(self) -> None:
         if self._log_path is None:
             return
-        self._open_url(QUrl.fromLocalFile(str(self._log_path)))
+        # In-app viewer, not openUrl: a .log has no default app on a fresh KDE.
+        self._view_file(self._log_path, f"Rip log — {self._log_path.name}")
 
     def _on_view_report_clicked(self) -> None:
         if self._report_path is None:
             return
-        self._open_url(QUrl.fromLocalFile(str(self._report_path)))
+        self._view_file(self._report_path, f"Rip report — {self._report_path.name}")
 
     def _on_open_folder_clicked(self) -> None:
         if self._rip_dir is None:
             return
+        # A folder DOES have a default handler (the file manager), so openUrl is
+        # the right call here — and revealing the folder is the whole point.
         self._open_url(QUrl.fromLocalFile(str(self._rip_dir)))
 
 

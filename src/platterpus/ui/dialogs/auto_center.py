@@ -17,6 +17,8 @@ centre themselves, so we don't fight them.
 
 from __future__ import annotations
 
+import weakref
+
 from PySide6.QtCore import QEvent, QObject
 from PySide6.QtWidgets import QDialog
 
@@ -28,16 +30,27 @@ class DialogCenterFilter(QObject):
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        # Track which dialogs we've already placed (by id) so we only move a
-        # dialog on its FIRST show — re-showing it shouldn't yank it back.
-        self._seen: set[int] = set()
+        # Track which dialogs we've already placed so we only move a dialog on
+        # its FIRST show — re-showing it shouldn't yank it back. BUG-10: a plain
+        # ``set`` of ``id(obj)`` was wrong — transient QMessageBox/QDialog objects
+        # are destroyed and CPython reuses their id(), so a LATER dialog could
+        # match a stale id and be wrongly treated as "already centred" (the exact
+        # bug this filter exists to fix, reappearing intermittently). A WeakSet of
+        # the objects themselves has no id-reuse hazard: an entry drops the moment
+        # its dialog is garbage-collected.
+        self._seen: weakref.WeakSet = weakref.WeakSet()
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802 — Qt API
         # Cheapest check first: only Show events are interesting.
         if event.type() == QEvent.Type.Show and isinstance(obj, QDialog):
             # CenteredDialog already self-centres; don't double-handle it.
-            if not isinstance(obj, CenteredDialog) and id(obj) not in self._seen:
-                self._seen.add(id(obj))
+            if not isinstance(obj, CenteredDialog) and obj not in self._seen:
+                try:
+                    self._seen.add(obj)
+                except TypeError:
+                    # A non-weakreferenceable dialog (very unusual) — centre it
+                    # anyway; the only cost is re-centring on a later re-show.
+                    pass
                 center_on_anchor(obj)
         # Never consume the event — we only observe it.
         return False

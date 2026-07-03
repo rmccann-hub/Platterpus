@@ -32,11 +32,39 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class CoverArtResult:
+    """Structured outcome of the front-cover fetch/embed (for the rip report).
+
+    Mirrors :class:`~platterpus.adapters.flac_verify.FlacVerifyResult` /
+    ``TranscodeResult`` so the report has a real object to serialize instead of
+    only a prose line — the biggest previously-unstructured field, and the one
+    that answers the "good cover image?" half of the north star. ``found`` is
+    True/False once art was attempted; ``reason`` is a short machine code
+    (``"ok"``/``"404"``/``"network"``/``"oversize"``/``"not-image"``/
+    ``"empty"``/``"write-failed"``/``"no-release"``). ``message`` is the human
+    one-liner the log view shows. Best-effort throughout: no field is required.
+    """
+
+    mode: str = ""
+    found: bool | None = None
+    reason: str | None = None
+    embedded_count: int = 0
+    saved_as: str = ""
+    release_id: str = ""
+    bytes: int = 0
+    format: str = ""
+    error: str = ""
+    message: str = ""
+
 
 # `/front` redirects to the original full-resolution "front" image the
 # community uploaded for this release — same image Picard shows. (The
@@ -83,17 +111,19 @@ def image_extension(data: bytes) -> str:
     return ""
 
 
-def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes | None:
-    """Return the front-cover image bytes for `release_id`, or None.
+def _fetch_front_cover_detailed(
+    release_id: str, fetcher: Fetcher | None = None
+) -> tuple[bytes | None, str]:
+    """Fetch the front cover, returning ``(data_or_None, reason)``.
 
-    None means "no art" for ANY reason — release not in the archive
-    (HTTP 404 is common and normal), network down, oversized or
-    unrecognizable response. Callers treat art as a bonus, never a
-    requirement, so there is no error to propagate.
+    Same behaviour as :func:`fetch_front_cover` but also reports WHY it came back
+    empty, so the report can distinguish a genuine "not in the archive" (``404``)
+    from a network problem, an oversized body, or a non-image response. ``reason``
+    is ``"ok"`` on success. Never raises.
     """
     mbid = (release_id or "").strip()
     if not mbid:
-        return None
+        return None, "no-release"
     # URL-encode the id before interpolating it into the request path. It comes
     # from a MusicBrainz response, so a value containing "/", "?" or "#" (a
     # non-UUID or a tampered response) could otherwise rewrite which resource we
@@ -103,17 +133,40 @@ def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes 
     fetch = fetcher or _default_fetcher
     try:
         data = fetch(url)
+    except urllib.error.HTTPError as exc:
+        # A 404 (release simply has no cover) is the common, expected case —
+        # distinguish it from any other HTTP status so the report can say which.
+        reason = "404" if exc.code == 404 else "network"
+        log.info("cover art fetch for %s returned HTTP %s", mbid, exc.code)
+        return None, reason
     except (OSError, http.client.HTTPException, ValueError) as exc:
-        # urllib.error.URLError/HTTPError are OSError subclasses; timeouts
-        # are too. ValueError covers a malformed URL from a weird MBID.
+        # urllib.error.URLError is an OSError subclass; timeouts are too.
+        # ValueError covers a malformed URL from a weird MBID.
         log.info("cover art fetch failed for %s: %s", mbid, exc)
-        return None
-    if not data or len(data) > _MAX_BYTES:
-        log.info("cover art for %s empty or oversized — ignoring", mbid)
-        return None
+        return None, "network"
+    if not data:
+        log.info("cover art for %s was empty — ignoring", mbid)
+        return None, "empty"
+    if len(data) > _MAX_BYTES:
+        log.info("cover art for %s oversized — ignoring", mbid)
+        return None, "oversize"
     if not image_extension(data):
         log.info("cover art response for %s is not a known image — ignoring", mbid)
-        return None
+        return None, "not-image"
+    return data, "ok"
+
+
+def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes | None:
+    """Return the front-cover image bytes for `release_id`, or None.
+
+    None means "no art" for ANY reason — release not in the archive
+    (HTTP 404 is common and normal), network down, oversized or
+    unrecognizable response. Callers treat art as a bonus, never a
+    requirement, so there is no error to propagate. (See
+    :func:`_fetch_front_cover_detailed` for the reason-aware variant the report
+    uses.)
+    """
+    data, _reason = _fetch_front_cover_detailed(release_id, fetcher=fetcher)
     return data
 
 
@@ -145,28 +198,42 @@ def apply_cover_art(
     save_file: bool,
     metaflac: MetaflacAdapter,
     fetcher: Fetcher | None = None,
-) -> str:
+    mode: str = "",
+) -> CoverArtResult:
     """Fetch the front cover and embed/save it in `rip_dir`'s FLACs.
 
-    Returns a one-line human-readable outcome for the rip log view (this
-    runs after the rip finished, so the status line already shows the
-    fidelity verdict — the outcome goes to the log instead). Never raises:
-    per-file embed failures are logged and counted, everything else
-    degrades to an explanatory message.
+    Returns a :class:`CoverArtResult` — a structured outcome the rip report
+    serializes, whose ``message`` is the one-line human summary for the log view
+    (this runs after the rip, so the status line already shows the fidelity
+    verdict — this goes to the log instead). ``mode`` is the Config.cover_art
+    value, recorded so the report knows art was *requested*. Never raises:
+    per-file embed failures are logged and counted, everything else degrades to
+    a populated result.
     """
-    data = fetch_front_cover(release_id, fetcher=fetcher)
+    result = CoverArtResult(mode=mode, release_id=(release_id or "").strip())
+    data, reason = _fetch_front_cover_detailed(release_id, fetcher=fetcher)
     if data is None:
-        return "Cover art: none found for this release (rip unaffected)."
+        result.found = False
+        result.reason = reason
+        result.message = "Cover art: none found for this release (rip unaffected)."
+        return result
 
+    result.found = True
+    result.reason = "ok"
+    result.bytes = len(data)
     # metaflac imports from a file, so the image always lands on disk
     # first; when only embedding was requested it's removed afterwards.
     extension = image_extension(data) or ".jpg"
+    result.format = extension.lstrip(".")
     image_path = rip_dir / f"cover{extension}"
     try:
         image_path.write_bytes(data)
     except OSError as exc:
         log.warning("could not write cover image %s: %s", image_path, exc)
-        return "Cover art: found, but could not be saved (rip unaffected)."
+        result.reason = "write-failed"
+        result.error = str(exc)
+        result.message = "Cover art: found, but could not be saved (rip unaffected)."
+        return result
 
     embedded = 0
     flac_files = sorted(rip_dir.rglob("*.flac"))
@@ -177,12 +244,15 @@ def apply_cover_art(
                 embedded += 1
             except MetaflacError as exc:
                 log.warning("cover embed failed for %s: %s", flac_path, exc)
+    result.embedded_count = embedded
 
     if not save_file:
         try:
             image_path.unlink(missing_ok=True)
         except OSError as exc:  # purely cosmetic leftover; log and move on
             log.warning("could not remove temporary cover %s: %s", image_path, exc)
+    else:
+        result.saved_as = image_path.name
 
     # Build the outcome line from what actually happened.
     parts: list[str] = []
@@ -193,4 +263,7 @@ def apply_cover_art(
             parts.append("found, but embedding failed (see the app log)")
     if save_file:
         parts.append(f"saved as {image_path.name}")
-    return "Cover art: " + " and ".join(parts) + "."
+    result.message = (
+        "Cover art: " + " and ".join(parts) + "." if parts else "Cover art: fetched."
+    )
+    return result

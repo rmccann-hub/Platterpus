@@ -29,14 +29,16 @@ from platterpus.paths import (
 
 # Bump this when the schema grows new keys or changes defaults that we
 # want to migrate. Migration logic lives in _migrate() below.
-SCHEMA_VERSION: int = 6
+SCHEMA_VERSION: int = 7
 
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
 _DEFAULT_OUTPUT_DIR: Path = Path.home() / "Music" / "rips"
 _DEFAULT_WORKING_DIR: Path = Path.home() / ".cache" / "platterpus"
 
-# Whipper path templates (see `whipper cd rip --help`). Format codes:
+# Path templates — whipper-style %-tokens (the syntax the GUI exposes),
+# translated to cyanrip's own naming scheme at rip time (see cyanrip_backend).
+# Format codes:
 #   %A = release artist   %d = release title (album)   %a = track artist
 #   %t = track number      %n = track title             %y = release year
 #   %N = disc number        %M = total discs
@@ -94,7 +96,7 @@ class Config:
     output_dir: str = field(default_factory=lambda: str(_DEFAULT_OUTPUT_DIR))
     working_dir: str = field(default_factory=lambda: str(_DEFAULT_WORKING_DIR))
 
-    # --- Whipper rip templates ---
+    # --- Rip path templates ---
     # Used for discs MusicBrainz identifies (rich, tag-driven names).
     track_template: str = _DEFAULT_TRACK_TEMPLATE
     disc_template: str = _DEFAULT_DISC_TEMPLATE
@@ -133,7 +135,7 @@ class Config:
     drive_setup_prompted: bool = False
 
     # Set once we've auto-offered the host-setup wizard on first run (when the
-    # whipper binary isn't present — the container stack isn't installed yet).
+    # ripper binary isn't present — the container stack isn't installed yet).
     # Same one-time, dismissible model as drive_setup_prompted; afterwards it
     # lives on Tools → Set up Platterpus….
     host_setup_prompted: bool = False
@@ -438,6 +440,22 @@ def _migrate(raw: dict) -> dict:
         # No value transform needed; bump the version so the record stays explicit.
         raw["schema_version"] = 6
         version = 6
+
+    if version < 7:
+        # v6→v7: one-time correction for upgraders whose dynamic secure re-rip
+        # was silently OFF. v6 preserved a saved `secure_rerip_matches` of 0 — but
+        # 0 was 0.4.8's *default*, so anyone who upgraded without touching the
+        # setting inherited `-Z 0` and the 0.4.9 headline feature never ran (real
+        # hardware confirmed it: a rip with `secure_rerip_matches: 0` and no `-Z`).
+        # A fresh install defaults to 2, so upgraders were the only ones left
+        # inert. Bump a saved 0 to 2 ONCE here so the feature they read about
+        # actually engages. This runs a single time (the version then becomes 7),
+        # so a user who genuinely wants it off can set 0 again afterward and it
+        # sticks — this corrects the inherited default, it is not a permanent floor.
+        if raw.get("secure_rerip_matches") == 0:
+            raw["secure_rerip_matches"] = 2
+        raw["schema_version"] = 7
+        version = 7
 
     if version == SCHEMA_VERSION:
         return raw

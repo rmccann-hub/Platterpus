@@ -1,27 +1,28 @@
 """Force-stop the optical drive when a cancelled rip won't let go.
 
-Why this exists: a rip runs as `~/.local/bin/whipper` (host wrapper) → podman
-→ **whipper inside the `ripping` container**, which itself spawns `cdrdao`
-(to read the TOC — the "Reading table" phase) and `cd-paranoia` (to rip each
-track). Cancelling kills the host-side wrapper, but podman doesn't forward the
-signal into the container, so whipper keeps orchestrating reads and the drive
-spins — sometimes for minutes (real-user reports, 2026-05/06).
+Why this exists: a rip runs as `~/.local/bin/cyanrip` (host wrapper) → podman
+→ **cyanrip inside the `ripping` container**, which reads the disc directly.
+Cancelling kills the host-side wrapper, but podman doesn't forward the signal
+into the container, so the in-container reader keeps the drive spinning —
+sometimes for minutes (real-user reports, 2026-05/06).
 
-Hard-won facts (2026-06-01, real hardware):
+Hard-won facts (2026-06-01, real hardware; some date from the whipper era but
+the mechanics still apply):
 
-  * **whipper is the orchestrator.** Killing only the reader (`cdrdao` /
-    `cd-paranoia`) doesn't help — whipper just respawns it. You must kill the
-    **whipper** process. (Confirmed: `pkill cdrdao` did nothing; `pkill -f
-    …whipper` stopped it.)
+  * **Kill the process that actually holds the drive.** cyanrip reads the disc
+    itself (libcdio, no child process), so killing `cyanrip` by name stops it
+    (real-user report, 2026-06-27). whipper, by contrast, was an *orchestrator*
+    that respawned a separate `cdrdao` / `cd-paranoia` reader, so you had to
+    kill the whipper CLI — that kill path is KEPT below as an inert whipper-era
+    seam (harmless if a whipper wrapper is ever present).
   * On rootless podman/Distrobox (the Bazzite target) the in-container
     processes are **host-visible**, so a host-side `pkill`/`fuser` reaches
     them — no `distrobox enter` needed in the normal case.
-  * **Never use `pkill -f` with the bare word "whipper" or with the reader
-    names.** `-f` matches the full command line, so it also matches the GUI's
-    own "platterpus" command line (killing the app) and the `distrobox enter
-    … whipper …` wrapper / the pkill's own command line (self-kill). Match the
-    whipper *sub-command* (`whipper cd …`), and match readers by process
-    *name* (no `-f`).
+  * **Never use `pkill -f` with a bare tool name or with the reader names.**
+    `-f` matches the full command line, so it also matches the GUI's own
+    "platterpus" command line (killing the app) and the `distrobox enter …`
+    wrapper / the pkill's own command line (self-kill). Match a *sub-command*
+    (e.g. `whipper cd …`), and match readers by process *name* (no `-f`).
   * The drive ignores the physical eject button while a read holds the device,
     which is why pressing eject by hand doesn't stop the spin — and why a
     software `eject` only works *after* the holder is killed.
@@ -30,7 +31,7 @@ The in-container `distrobox enter …` fallback (used only when the host can't
 see the processes) calls *into* the `ripping` container, which CLAUDE.md
 Critical Rule #3 normally forbids. This is a **deliberate, user-approved
 exception (2026-05-31)**, scoped strictly to *force-stopping a cancelled rip*.
-Ripping itself still goes through `~/.local/bin/whipper`.
+Ripping itself still goes through `~/.local/bin/cyanrip`.
 
 Everything here is best-effort and synchronous; the caller runs it off the GUI
 thread (it can block for the subprocess timeout). The `runner` is injectable so
@@ -47,7 +48,7 @@ from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 
-# The Distrobox container whipper lives in (README/setup-host default).
+# The Distrobox container the ripper lives in (README/setup-host default).
 DEFAULT_CONTAINER: str = "ripping"
 
 # The in-container ripper/reader process names, matched against the process
@@ -58,9 +59,11 @@ DEFAULT_CONTAINER: str = "ripping"
 # the in-container cyanrip kept ripping the disc (real-user report, 2026-06-27).
 _READER_NAMES: str = "cdparanoia|cd-paranoia|cdrdao|cyanrip"
 
-# The whipper CLI process — the orchestrator that must die for the rip to stop
-# (it respawns the reader otherwise). Matched on the full command line (`-f`)
-# but anchored as `whipper <subcommand>` so it can NEVER match:
+# INERT whipper-era seam: the whipper CLI orchestrator that had to die for a
+# rip to stop (it respawned the reader otherwise). cyanrip is its own reader
+# (killed via _READER_NAMES above), so this never matches a live cyanrip rip —
+# kept as a harmless seam. Matched on the full command line (`-f`) but anchored
+# as `whipper <subcommand>` so it can NEVER match:
 #   * the GUI — its command line is "platterpus" (hyphen, no space+subcommand);
 #   * this pkill or the `distrobox enter … pkill …` wrapper — their command line
 #     contains the literal pattern text "whipper (cd|…", i.e. "whipper (" not
@@ -121,11 +124,16 @@ def _run_rc(argv: list[str], run: Runner) -> int | None:
 
 def _pkill_arglists() -> list[list[str]]:
     """The pkill argument lists (after the `pkill` token) that stop a rip, in
-    order: whipper FIRST (the orchestrator — kill it so it can't respawn the
-    reader), then the reader processes by name."""
+    order: the inert whipper-CLI seam first (a whipper orchestrator would respawn
+    its reader otherwise), then the reader processes by name — which is what
+    actually stops a cyanrip rip (`cyanrip` is in `_READER_NAMES`)."""
     return [
-        ["-KILL", "-f", _WHIPPER_CLI],  # whipper CLI, anchored (never the GUI)
-        ["-KILL", _READER_NAMES],  # cdrdao / cd-paranoia, by process name
+        [
+            "-KILL",
+            "-f",
+            _WHIPPER_CLI,
+        ],  # inert whipper-CLI seam, anchored (never the GUI)
+        ["-KILL", _READER_NAMES],  # cyanrip / cdrdao / cd-paranoia, by process name
     ]
 
 
@@ -169,7 +177,8 @@ def free_device_holders(device: str, runner: Runner | None = None) -> bool:
 
 
 def kill_reader_on_host(runner: Runner | None = None) -> bool:
-    """SIGKILL the whipper CLI and the reader as host-visible processes. On
+    """SIGKILL the reader (cyanrip, plus the inert whipper-CLI seam) as
+    host-visible processes. On
     rootless podman/Distrobox the in-container processes are host-visible, so
     this is the primary lever. Returns True if something was killed."""
     run = runner or _default_runner
@@ -199,7 +208,7 @@ def force_stop_drive(
       1. `fuser -k <device>` — device-scoped: kills exactly what holds THIS
          drive, so it can never hit an unrelated rip on another drive (#23);
       2. only if that caught nothing (no device given, or nothing held it), the
-         broad name-matched host pkill (whipper CLI first, then reader names);
+         broad name-matched host pkill (inert whipper-CLI seam, then reader names);
       3. only if the host saw nothing at all, kill inside the container;
       4. eject (now that the device is free).
 
@@ -243,7 +252,12 @@ def free_drive(
     (#23). Killing the reader releases the device; leaving the disc in place lets
     the user immediately Rescan (or switch backends) without re-inserting it.
 
-    Synchronous and best-effort; run it off the GUI thread.
+    Synchronous and best-effort; normally run OFF the GUI thread. The one
+    sanctioned exception is the shutdown path (`_stop_rip_on_shutdown` in
+    `closeEvent`), which calls it *on* the GUI thread by design — the window is
+    already going away, a daemon thread would be killed mid-`pkill`, and every
+    subprocess here is bounded by a timeout so the close can't hang unbounded
+    (Rule #3 exception; see that method's docstring).
     """
     run = runner or _default_runner
     killed = free_device_holders(device, runner=run)

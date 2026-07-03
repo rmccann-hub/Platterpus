@@ -106,6 +106,7 @@ Read these alongside this file when picking up a session:
 - **`docs/architecture.md`** — architecture & contributor guide: the layered design, the core patterns *with the why and hard-won lessons* (adapter layer, the never-block-the-GUI-thread discipline + worker mechanics, subprocess rules, never-raise parsers, the dependency subsystem, the MainWindow mixin decomposition, error/logging), extension recipes, packaging/release/security, and future directions. **Start here to extend the program.** (Absorbed the former `docs/best-practices.md`.)
 - **`docs/README.md`** — index of the docs/ directory, the single-source-of-truth map, and a rebuild-from-scratch checklist
 - **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements and scope
+- **`docs/ux-design-principles.md`** — the trust-first UX principles the GUI is built to (e.g. "two outputs every time", "one definition of verified", status by symbol+text not colour alone); referenced throughout the results/verdict code
 - **`docs/platterpus-session-start.md`** — bootstrap instructions a fresh Claude Code session uses to reproduce the initial planning artifacts; its **Step 0** holds the optional Research-mode prompt for refreshing tool-choice validation
 - **`docs/log-format-comparison.md`** — cyanrip rip log vs EAC log side-by-side (referenced by KDD-11)
 - **`docs/dependency-contracts.md`** — the single reference for the exact args/flags/syntax we pass each external dependency (cyanrip, flac, metaflac, ffmpeg, musicbrainzngs, CAA, CTDB, drive/reader control) and the output shape we parse; the code-side half of the *validate every input and every dependency output* convention
@@ -128,7 +129,7 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 ### Build commands
 
 - AppImage: `bash build/build_appimage.sh` (produces `platterpus-x86_64.AppImage` at repo root via `python-appimage`)
-- App icon: `python3 build/make_icon.py` (regenerates the committed `build/python-appimage/platterpus.png`; needs Pillow)
+- App icon: `python3 build/make_icon.py` (regenerates the committed `build/python-appimage/io.github.rmccann_hub.Platterpus.png` from `assets/platterpus-logo.svg`; needs an SVG rasterizer on PATH — `rsvg-convert`, Inkscape, ImageMagick, or the `cairosvg` module — **not** Pillow)
 
 ### CI / release
 
@@ -143,12 +144,12 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 - **From the AppImage (once published):** `./platterpus-x86_64.AppImage`
 - **From a `pipx` install (once published):** `platterpus`
 - **Version check without launching the GUI:** `platterpus --version`
-- **Preflight / "doctor" (first-pass environment test, no CD needed):** `platterpus --doctor` (no extra flags — it just runs the full check and exits). For the tunable form use `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability checks) and `--backend whipper|cyanrip` (override which backend to probe). Both exit non-zero on a hard blocker. Logic lives in `src/platterpus/preflight.py` (reuses the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it.
+- **Preflight / "doctor" (first-pass environment test, no CD needed):** `platterpus --doctor` (no extra flags — it just runs the full check and exits). For the tunable form use `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability checks). It exits non-zero on a hard blocker. Logic lives in `src/platterpus/preflight.py` (reuses the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it. (cyanrip is the sole backend — KDD-18 — so there is no backend-override flag.)
 
 ### Test commands
 
 - `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
-- **What CI enforces:** branch coverage + a hard floor — `pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91` on a **Python 3.11–3.13 matrix**. The gate **ratchets up, never down**.
+- **What CI enforces:** branch coverage + a hard floor — `pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91` on a **Python 3.11–3.14 matrix**. The gate **ratchets up, never down**.
 - Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py` (needs `hypothesis`, in the `dev` extra).
 - Periodic test-quality audit (slow, not a CI gate): `pipx run mutmut run --paths-to-mutate src/platterpus/parsers/`.
 - **Testing strategy + the rules every change is held to live in [`docs/testing.md`](docs/testing.md)** (the trophy + hardware gate, the five-tier case taxonomy, and the Definition of Done). **Institutional rule: every shipped bug gets a regression test in the same PR as the fix; every new parser of external output gets a property-based "never raises" test.**

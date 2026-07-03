@@ -1375,11 +1375,13 @@ def test_unknown_rip_finish_runs_tag_post_processing(
 ) -> None:
     window = teardown_threads()
     calls: list[tuple[Path, bool]] = []
-    monkeypatch.setattr(
-        window,
-        "run_unknown_post_processing",
-        lambda out, picard: calls.append((out, picard)),
-    )
+    snaps: list[tuple[object, object]] = []
+
+    def _record(out, picard, album=None, tracks=None):
+        calls.append((out, picard))
+        snaps.append((album, tracks))
+
+    monkeypatch.setattr(window, "run_unknown_post_processing", _record)
     window._pending_picard_launch = True
     window._active_rip_params = _params(tmp_path, unknown=True)
     # whipper writes the .log next to the FLACs; that folder (not the
@@ -1397,6 +1399,9 @@ def test_unknown_rip_finish_runs_tag_post_processing(
     window._post_rip_thread.join(timeout=10)
 
     assert calls == [(album_dir, True)]  # scoped to the just-ripped folder
+    # BUG-1: the track table was snapshotted on the GUI thread and handed in —
+    # the daemon never read the widgets itself.
+    assert snaps and snaps[0][0] is not None and snaps[0][1] is not None
     assert window._active_rip_params is None  # cleared for the next rip (sync)
 
 
@@ -1587,7 +1592,7 @@ def test_known_rip_finish_skips_tag_post_processing(
     monkeypatch.setattr(
         window,
         "run_unknown_post_processing",
-        lambda out, picard: calls.append((out, picard)),
+        lambda out, picard, album=None, tracks=None: calls.append((out, picard)),
     )
     window._active_rip_params = _params(tmp_path, unknown=False)
 
@@ -1604,7 +1609,7 @@ def test_failed_unknown_rip_skips_tag_post_processing(
     monkeypatch.setattr(
         window,
         "run_unknown_post_processing",
-        lambda out, picard: calls.append((out, picard)),
+        lambda out, picard, album=None, tracks=None: calls.append((out, picard)),
     )
     window._active_rip_params = _params(tmp_path, unknown=True)
 
@@ -1645,6 +1650,78 @@ def test_run_unknown_post_processing_applies_table_edits(
     assert first_tags["ALBUMARTIST"] == "Various Artists"
     assert first_tags["DATE"] == "2001"
     assert first_tags["TRACKNUMBER"] == "01"
+
+
+def test_run_unknown_post_processing_uses_snapshot_not_widgets(
+    teardown_threads, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-1: given a GUI-thread snapshot, tagging uses it and must NOT read the
+    track-table widgets (they aren't thread-safe on the post-rip daemon)."""
+    window = teardown_threads()
+    captured: dict = {}
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.apply_track_tags",
+        lambda mf, files, album, tracks: captured.update(album=album, tracks=tracks),
+    )
+
+    def boom() -> None:
+        raise AssertionError("the track table was read on the snapshot path")
+
+    monkeypatch.setattr(window._track_table, "album_metadata", boom)
+    monkeypatch.setattr(window._track_table, "tracks", boom)
+    (tmp_path / "01 - A.flac").write_bytes(b"x")
+
+    window.run_unknown_post_processing(tmp_path, False, album="ALBUM", tracks=["T"])
+
+    assert captured == {"album": "ALBUM", "tracks": ["T"]}
+
+
+def test_run_unknown_post_processing_rejects_off_gui_thread_read(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """BUG-1: called WITHOUT a snapshot from a non-GUI thread, it must refuse
+    (assert) rather than silently race the Qt widgets."""
+    import threading
+
+    window = teardown_threads()
+    errors: list[str] = []
+
+    def run() -> None:
+        try:
+            window.run_unknown_post_processing(tmp_path, False)
+        except AssertionError as exc:
+            errors.append(str(exc))
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join()
+    assert errors and "GUI thread" in errors[0]
+
+
+def test_finish_handler_clears_state_even_if_body_raises(
+    teardown_threads, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-5: if the finish body raises, the rip lock + state are STILL cleared.
+    A linear clear used to be skipped on an exception, leaving _rip_thread set —
+    and shutdown then treats a finished rip as live (drive left spinning)."""
+    from types import SimpleNamespace
+
+    window = teardown_threads()
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    window._rip_thread = SimpleNamespace()  # sentinel "a rip is live"
+    window._rip_worker = SimpleNamespace(needs_unknown_retry=False)
+
+    def boom(*_a: object) -> None:
+        raise RuntimeError("boom mid-finish")
+
+    monkeypatch.setattr(window, "_finish_rip", boom)
+
+    # Must NOT raise (the slot swallows + logs) and must clear all rip state.
+    window._on_rip_finished(True, "")
+
+    assert window._rip_thread is None
+    assert window._rip_worker is None
+    assert window._active_rip_params is None
 
 
 # --- Drive-access diagnostics ---------------------------------------------
@@ -3173,6 +3250,50 @@ def test_resolve_missing_unified_opens_wizard_once_for_container_tools(
     }
 
 
+def test_wizard_reprobe_runs_off_the_gui_thread(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-9: re-probing the container tools after the setup wizard must run OFF
+    the GUI thread — probe() shells into the Distrobox container (a subprocess
+    that can take minutes on a cold container), so on the GUI thread it froze
+    the window right after the wizard closed."""
+    import threading as _t
+
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import MissingItem
+
+    probe_threads: list[_t.Thread] = []
+
+    def probe() -> ProbeResult:
+        probe_threads.append(_t.current_thread())
+        return ProbeResult(present=True, version=(1, 0, 0), location=None)
+
+    spec = DependencySpec(
+        dep_id="cyanrip",
+        display_name="cyanrip",
+        probe=probe,
+        min_version=(1, 0, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string="x",
+        from_setup_wizard=True,
+    )
+    item = MissingItem(
+        spec=spec, probe=ProbeResult(present=False, version=None, location=None)
+    )
+    window = teardown_threads()
+    monkeypatch.setattr(window, "open_host_setup_dialog", lambda: None)
+
+    report = DependencyReport(missing=[item])
+    window._resolve_missing_unified(report)
+
+    assert probe_threads, "the tool was never re-probed"
+    assert all(t is not _t.main_thread() for t in probe_threads)
+    assert report.install_results[0].success is True
+
+
 def test_resolve_missing_unified_falls_back_to_manual_for_uninstallable(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3366,7 +3487,11 @@ def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
     """The no-network heal re-rips as --unknown (whipper can't fetch art),
     but the GUI still knows the release — so it supplies the art too."""
     window = teardown_threads(config=Config(cover_art="embed"))
-    monkeypatch.setattr(window, "run_unknown_post_processing", lambda out, picard: None)
+    monkeypatch.setattr(
+        window,
+        "run_unknown_post_processing",
+        lambda out, picard, album=None, tracks=None: None,
+    )
     album, log_file = _cover_album(tmp_path)
     fake_metaflac = _RecordingMetaflac()
     window._metaflac = fake_metaflac
@@ -3608,7 +3733,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 6
+    assert report["schema_version"] == 7
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True
@@ -3696,6 +3821,137 @@ def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
     window._on_flac_verified(FlacVerifyResult(checked=2))
     assert window._rip_progress._status_label.text() == "Done."  # clean pass is quiet
     assert any("decode cleanly" in line for line in lines)
+
+
+def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> None:
+    """v7 (0.4.10): the report records the PROCESS outcome, the asked-for
+    settings (incl. the effective read offset), disc provenance, the runtime
+    environment, and a build fingerprint — all snapshotted at finish, so a
+    debounced re-write can't lose them."""
+    import json as _json
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+            cover_art="",  # no post-rip cover-art thread — keep the test hermetic
+            override_read_offset=True,
+            read_offset=667,
+        )
+    )
+    window._current_release_id = "release-xyz"
+    # A launch-time dependency probe is stashed by _on_dependency_check_done; the
+    # report's environment.dependencies reads it (it never re-probes on the GUI
+    # thread — that enters the container and would freeze the window).
+    from types import SimpleNamespace as _NS
+
+    from platterpus.deps.manager import DependencyReport
+
+    window._last_dependency_report = DependencyReport(
+        ok=[_NS(dep_id="cyanrip")],
+        ok_versions={"cyanrip": (0, 9, 3)},
+        ok_probes={"cyanrip": _NS(location="/home/u/.local/bin/cyanrip")},
+    )
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+        read_offset_override=667,
+    )
+
+    window._on_rip_finished(True, str(log_file))
+
+    report = _json.loads((album_dir / "Album.platterpus.json").read_text())
+    assert report["schema_version"] == 7
+    assert report["outcome"]["status"] == "success"
+    assert report["settings"]["read_offset"] == {
+        "configured": 667,
+        "applied": True,
+        "effective": 667,
+    }
+    assert report["disc"] == {
+        "unknown": False,
+        "musicbrainz_release_id": "release-xyz",
+    }
+    assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
+    assert report["environment"]["dependencies"]["cyanrip"] == {
+        "present": True,
+        "version": "0.9.3",
+        "location": "/home/u/.local/bin/cyanrip",
+        "min_version_met": True,
+    }
+    assert report["generator"]["build_fingerprint"] == "source"
+    # A disabled check is explicitly labelled, not an ambiguous null.
+    assert report["verification"]["gates"]["ctdb"] == "disabled"
+
+
+def test_failed_rip_with_no_log_writes_minimal_failure_report(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Regression (0.4.10): a hard failure that produced NO log used to write no
+    report at all — the most-broken rips were the least diagnosable. Now a
+    minimal report lands beside the intended output dir with the failure."""
+    import json as _json
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True)
+    )
+    out_dir = tmp_path / "music"
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=out_dir,
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    window._last_rip_error = "cyanrip: could not open device /dev/sr0"
+
+    window._on_rip_finished(False, "")  # hard failure, no log written
+
+    report_path = out_dir / "platterpus-rip-failure.platterpus.json"
+    assert report_path.is_file()
+    report = _json.loads(report_path.read_text())
+    assert report["outcome"]["status"] == "failed"
+    assert "could not open device" in report["outcome"]["failure_hint"]
+    assert any(i["code"] == "rip_failed" for i in report["issues"])
+
+
+def test_no_failure_report_when_rip_cancelled(teardown_threads, tmp_path: Path) -> None:
+    """A user cancellation with no log is NOT a failure — don't litter the music
+    root with a failure report (the minimal report is for genuine failures)."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True)
+    )
+    out_dir = tmp_path / "music"
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=out_dir,
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    window._rip_cancelled = True
+
+    window._on_rip_finished(False, "")
+
+    assert not (out_dir / "platterpus-rip-failure.platterpus.json").exists()
 
 
 # --- Post-rip FLAC re-compress (opt-in, off by default) --------------------

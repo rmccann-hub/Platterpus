@@ -24,11 +24,11 @@ from platterpus.deps.version import parse_version
 log = logging.getLogger(__name__)
 
 # Probes that shell out should never hang the GUI (they run off-thread, but a
-# tight cap also forces a wrong answer). `whipper --version` / `cyanrip --version`
-# return in milliseconds once warm — but the FIRST one of a session must start
+# tight cap also forces a wrong answer). `cyanrip --version` returns in
+# milliseconds once warm — but the FIRST probe of a session must start
 # the Distrobox `ripping` container (podman cold-start), which routinely takes
 # tens of seconds on first use after a boot. A 10s cap made a cold container
-# look like a MISSING whipper at launch, AND left it cold for the disc scan that
+# look like a MISSING ripper at launch, AND left it cold for the disc scan that
 # followed (real-user report, Bazzite + BDR-209D, 2026-06-27). Budget for the
 # cold start: now the launch probe actually waits for the container to come up,
 # which WARMS it as a side effect — so the disc scan that follows runs warm and
@@ -174,7 +174,7 @@ def check_libdiscid() -> ProbeResult:
     Returns `present=False` if no variant loads.
 
     Note (PLANNING.md KDD-06): libdiscid may not actually be required on
-    the host because whipper computes the disc ID inside its Distrobox
+    the host because cyanrip computes the disc ID inside its Distrobox
     container. The probe exists so the dependency subsystem has the
     capability when the answer turns out to be "yes, we need it."
     """

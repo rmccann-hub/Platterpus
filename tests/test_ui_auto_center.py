@@ -11,11 +11,12 @@ from platterpus.ui.dialogs.centering import CenteredDialog, _clamp_to
 
 def test_filter_marks_plain_dialog_seen_on_show(qapp: QApplication) -> None:
     # A plain QDialog (e.g. QMessageBox is one) gets centred — and recorded — on
-    # its first Show, and only once.
+    # its first Show, and only once. BUG-10: _seen now tracks the objects (a
+    # WeakSet), not id() ints, so a reused id can't cause a false "already seen".
     f = DialogCenterFilter()
     box = QMessageBox()
     f.eventFilter(box, QEvent(QEvent.Type.Show))
-    assert id(box) in f._seen
+    assert box in f._seen
     # A second show is a no-op (already seen) — must not raise.
     f.eventFilter(box, QEvent(QEvent.Type.Show))
 
@@ -25,14 +26,30 @@ def test_filter_skips_centered_dialog(qapp: QApplication) -> None:
     f = DialogCenterFilter()
     dlg = CenteredDialog()
     f.eventFilter(dlg, QEvent(QEvent.Type.Show))
-    assert id(dlg) not in f._seen
+    assert dlg not in f._seen
 
 
 def test_filter_ignores_non_show_events(qapp: QApplication) -> None:
     f = DialogCenterFilter()
     box = QMessageBox()
     f.eventFilter(box, QEvent(QEvent.Type.Hide))
-    assert id(box) not in f._seen
+    assert box not in f._seen
+
+
+def test_filter_forgets_a_destroyed_dialog(qapp: QApplication) -> None:
+    """BUG-10: the WeakSet drops an entry once the dialog is gone, so a later
+    dialog that happens to reuse the freed id() is NOT wrongly skipped (the old
+    id()-in-a-plain-set could match a stale id and leave a dialog un-centred)."""
+    import gc
+
+    f = DialogCenterFilter()
+    box = QMessageBox()
+    f.eventFilter(box, QEvent(QEvent.Type.Show))
+    assert len(f._seen) == 1
+    del box
+    gc.collect()
+    # The weakref entry is gone, so nothing stale lingers to shadow a new dialog.
+    assert len(f._seen) == 0
 
 
 def test_filter_never_consumes_event(qapp: QApplication) -> None:

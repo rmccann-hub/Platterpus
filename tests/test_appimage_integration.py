@@ -341,3 +341,16 @@ def test_mark_trusted_is_non_blocking(monkeypatch: pytest.MonkeyPatch) -> None:
     ai._mark_trusted(Path("/home/u/Desktop/platterpus.desktop"))
 
     assert launched and launched[0][0] == "gio"
+
+
+def test_quote_exec_path_neutralises_control_chars() -> None:
+    """BUG-11: a newline/tab/CR in the AppImage path must not survive raw into
+    the single-line Exec= value — a raw newline would end the line and let the
+    remainder inject a second .desktop key."""
+    quoted = ai._quote_exec_path(Path("/home/u/App\nEvil=Value.AppImage"))
+    assert "\n" not in quoted and "\\n" in quoted
+    quoted_tab = ai._quote_exec_path(Path("/home/u/a\tb.AppImage"))
+    assert "\t" not in quoted_tab and "\\t" in quoted_tab
+    # A normal path is unaffected (still just double-quoted).
+    normal = ai._quote_exec_path(Path("/home/u/platterpus-x86_64.AppImage"))
+    assert normal == '"/home/u/platterpus-x86_64.AppImage"'

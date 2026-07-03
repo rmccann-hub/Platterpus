@@ -2,7 +2,7 @@
 
 The user's requirement (2026-06-08): remove everything *this app* put on the
 machine — menu/desktop shortcuts, host-exported binaries, the `ripping`
-container (with whipper/cyanrip inside it), optionally `whipper.conf` and the
+container (with cyanrip inside it), optionally the legacy `whipper.conf` and the
 AppImage file itself, and finally the GUI's own config + logs — while
 **keeping Distrobox/podman and all music untouched**. Distrobox/podman are
 general-purpose tools the user may rely on for other containers, and music is
@@ -198,9 +198,9 @@ class HostTeardown:
     _TITLES: dict[str, str] = field(
         default_factory=lambda: {
             "shortcuts": "Menu + desktop shortcuts",
-            "exports": "whipper/metaflac/cyanrip in ~/.local/bin",
-            "container": f"'{DEFAULT_CONTAINER}' container (whipper inside it)",
-            "whipper_config": "whipper.conf (drive calibration)",
+            "exports": "cyanrip/metaflac (+ any legacy whipper) in ~/.local/bin",
+            "container": f"'{DEFAULT_CONTAINER}' container (ripping tools inside it)",
+            "whipper_config": "legacy whipper.conf (drive calibration)",
             "appimage": "The AppImage file itself",
             "app_data": "Platterpus settings + logs",
         },

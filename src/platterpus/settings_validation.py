@@ -400,6 +400,15 @@ def _validate_tool_path(field: str, value: str, tool: str) -> list[ValidationIss
                 field, f"{tool} path cannot be empty (use the bare name “{tool}”)."
             )
         ]
+    # BUG-6: a tool path is a charset-validated boundary too (CLAUDE.md), but this
+    # validator alone omitted the control-char check. Check the RAW value — Python's
+    # str.strip() eats the C0 "information separators" (\x1c–\x1f), so a leading/
+    # trailing one would slip past a check on the stripped text yet reach the
+    # subprocess argv (same trap the directory validators already close).
+    if _has_control_char(value or ""):
+        return [
+            ValidationIssue(field, f"{tool} path may not contain control characters.")
+        ]
     if "/" in text:
         p = Path(text).expanduser()
         if not p.exists():

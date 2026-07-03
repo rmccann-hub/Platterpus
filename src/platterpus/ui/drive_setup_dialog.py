@@ -66,7 +66,7 @@ class DriveSetupDialog(CenteredDialog):
         """`known_offset`, when provided, is the AccurateRip read offset
         looked up by drive model (the primary, disc-free path). We prefill
         the manual field with it and call it out so the user can save it in
-        one click — no disc or whipper probe required. `drive_label` is the
+        one click — no disc or ripper probe required. `drive_label` is the
         human drive name shown in that callout.
         """
         super().__init__(parent)
@@ -89,8 +89,9 @@ class DriveSetupDialog(CenteredDialog):
 
         intro = QLabel(
             "This calibrates your drive for bit-perfect rips. It detects the "
-            "drive's read offset and audio-cache behaviour and saves them to "
-            "whipper.conf (your existing config is backed up first).\n\n"
+            "drive's read offset and audio-cache behaviour and saves the offset "
+            "to Platterpus's own settings, which are applied to cyanrip on every "
+            "rip.\n\n"
             "Insert a popular commercial CD — one likely to be in the "
             "AccurateRip database — then click Detect. This can take a minute.",
             self,
@@ -106,7 +107,7 @@ class DriveSetupDialog(CenteredDialog):
         # Primary path: if we already know this drive's offset from the
         # AccurateRip drive list (looked up by model), say so prominently —
         # the user can save it in one click below without inserting a disc.
-        # This sidesteps whipper's unreliable `offset find` entirely.
+        # This sidesteps cyanrip's disc-based offset detection entirely.
         if known_offset is not None:
             name = drive_label or "this drive"
             suggestion = QLabel(
@@ -124,7 +125,7 @@ class DriveSetupDialog(CenteredDialog):
         root.addWidget(self._detect_button)
 
         # Indeterminate (busy) bar — min==max==0 animates with no percentage,
-        # which is honest here since neither whipper command reports progress.
+        # which is honest here since neither cyanrip command reports progress.
         self._progress: QProgressBar = QProgressBar(self)
         self._progress.setRange(0, 0)
         self._progress.setVisible(False)
@@ -193,8 +194,8 @@ class DriveSetupDialog(CenteredDialog):
             return
         self._detect_button.setEnabled(False)
         # Lock the manual-offset controls while detection runs: editing or
-        # saving an offset mid-detection would race the value whipper is
-        # about to write. They're re-enabled in `_on_finished`.
+        # saving an offset mid-detection would race the value the ripper is
+        # about to report. They're re-enabled in `_on_finished`.
         self._set_manual_controls_enabled(False)
         self._results_label.clear()
         self._progress.setVisible(True)
@@ -249,10 +250,10 @@ class DriveSetupDialog(CenteredDialog):
     def _stop_detection(self) -> None:
         """Cancel a running detection and join its thread before teardown.
 
-        Cancelling terminates the whipper subprocess, which unblocks the
+        Cancelling terminates the ripper subprocess, which unblocks the
         worker's run() so the QThread can quit and be waited on. Without
         this, closing mid-detection destroys a still-running QThread (Qt
-        aborts the process) and leaves whipper spinning the drive.
+        aborts the process) and leaves the ripper spinning the drive.
         """
         # cancel_setup SIGTERM/SIGKILLs the subprocess so run() returns promptly;
         # stop_thread waits briefly for that and detaches if the kill is slow,
@@ -301,8 +302,5 @@ def _format_result(result: DriveSetupResult) -> str:
         lines.append(
             f"• Audio cache: {result.analyze_error or 'could not be determined'}"
         )
-
-    if result.backup_path is not None:
-        lines.append(f"Previous whipper.conf backed up to {result.backup_path.name}.")
 
     return "\n".join(lines)

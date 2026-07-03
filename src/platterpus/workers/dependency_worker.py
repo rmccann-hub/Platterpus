@@ -1,7 +1,7 @@
 """DependencyCheckWorker — runs the launch-time dependency probe off-thread.
 
 `DependencyManager.check_all()` shells out to each dependency's probe — and
-the whipper probe runs `~/.local/bin/whipper --version`, which *enters the
+the cyanrip probe runs `~/.local/bin/cyanrip --version`, which *enters the
 Distrobox container*. On a cold container that can take several seconds, so
 running it on the GUI thread at launch would freeze the just-shown window
 ("never block the GUI thread"). This worker runs the pure *probe* phase off

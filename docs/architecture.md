@@ -88,7 +88,8 @@ The pattern (designs in [`../PLANNING.md`](../PLANNING.md) §5–§6):
   own vocabulary (`RipBackend`, `MusicBrainzClient`, `CTDBClient`). The
   GUI depends only on the ABC.
 - Provide a **concrete implementation** that wraps the real tool/library
-  (`adapters/whipper_backend.py`; `CyanripImpl` is a second backend).
+  (`adapters/cyanrip_backend.py` — the sole backend today, KDD-18; a second
+  could slot in behind the same ABC, which is exactly how whipper was replaced).
 - **Inject the adapter** at construction so tests pass a fake — no real
   binary, network, or drive in the suite.
 - Keep the ABC surface *minimal and capability-shaped*. Optional capabilities
@@ -428,10 +429,13 @@ Don't re-derive "verified" anywhere else; call the shared helpers.
 a machine-readable **`<name>.platterpus.json`** rip report
 (`platterpus.rip_report`, pure + never-raises; `scripts/rip_report.py` is the
 CLI) carrying the drive/rip settings, per-track CRCs + AccurateRip results, the
-shared verdict, and the CTDB result. `_on_rip_finished` writes it (AccurateRip);
-the CTDB-verify handler re-writes it with the CTDB verdict once that async check
-finishes. QA / re-verification / repair tooling consume the JSON; humans read the
-log.
+shared verdict, and the CTDB result. `_on_rip_finished` writes it first
+(AccurateRip); then each async post-rip check (CTDB, FLAC-verify, transcode,
+derived-verify, re-compress, checksums) re-writes it with its result as it
+finishes — the re-writes coalesce onto a debounce timer
+(`_schedule_rip_report_write`), and each write passes *all* accumulated results
+so a coalesced write is never lossy. QA / re-verification / repair tooling
+consume the JSON; humans read the log.
 
 **Parity vs EAC** is measured, not claimed: `platterpus.parity` /
 `scripts/eac_parity.py` compare a rip log's per-track Copy CRC against the
@@ -455,7 +459,7 @@ release, never the ripper's interactive prompt).
 - `pytest` from the repo root (no env vars — `pyproject.toml` sets
   `pythonpath = ["src"]`); the suite touches no real hardware, network, or
   container. CI enforces **branch coverage with a hard floor**
-  (`--cov-fail-under`, 91, ratchets up) on Python 3.11–3.13, plus `ruff`
+  (`--cov-fail-under`, 91, ratchets up) on Python 3.11–3.14, plus `ruff`
   lint + format.
 - **Institutional rules:** every shipped bug gets a regression test in the
   same change; every new external-output parser gets a never-raises property
@@ -563,9 +567,11 @@ Concrete backlog lives in `TASKS.md`; this section is the *architectural*
 horizon — the seams that exist so future contributors can take the program
 places we haven't planned.
 
-- **Backends as plugins.** The `RipBackend` ABC + `Config.ripper_backend`
-  selector already make backends swappable. A small entry-point/registry could
-  let third parties drop in a backend without editing `app.py`.
+- **Backends as plugins.** The `RipBackend` ABC already makes backends
+  swappable — it's how whipper was replaced by cyanrip (KDD-18). A small
+  entry-point/registry could let third parties drop in a backend without
+  editing `app.py` (a `Config`-level backend selector was removed when cyanrip
+  became the sole backend; reintroduce one here if a second returns).
 - **A real preferences framework.** `config.py` is a flat dataclass with
   manual schema migration; as options grow, a typed settings registry with
   per-key metadata (label, help, backend-applicability) would let the Settings

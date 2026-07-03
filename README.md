@@ -516,13 +516,17 @@ The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https:
 - Force overread into lead-out
 - Max retries per track (default 5)
 - Keep going on track failure
-- **Re-rip until reads match** — for damaged/marginal discs, re-read each track until N passes agree on the checksum (cyanrip's `-Z`; off by default).
+- **Max reads to confirm a shaky track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until N reads agree on the checksum (cyanrip's `-Z`; **on by default**, 2). See "How ripping works" below.
 - Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; experimental until the CRC is hardware-validated)
-- Verify FLACs after a rip, and optionally re-compress them to `-8`
+- Verify FLACs after a rip (decode-test each output against its stored MD5)
 - Continue ripping CD-Rs
 - Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
 
 After a rip, the results pane shows an at-a-glance **verification verdict** (green = every track verified against AccurateRip, amber = partial, grey = not in the database) above the per-track table, plus the CTDB result.
+
+### How ripping works
+
+Platterpus rips the disc **once at full speed** and checks every track against AccurateRip. A track that matches the database on that first read is already proven bit-perfect, so it's left alone. Only the tracks that *didn't* match are then **secure-re-ripped** — re-read until "Max reads to confirm a shaky track" reads agree on the checksum (cyanrip's `-Z`, on by default) — and the better read is kept. So a clean disc is a single fast pass (roughly real-time), and the careful, slow work happens only where it's actually needed. If read errors appear, an adaptive read-speed ladder also re-reads the disc more slowly. The FLAC master is always kept and, unless disabled, decode-verified against its stored MD5; any non-FLAC output is derived from that verified master.
 
 See [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps" for the history.
 

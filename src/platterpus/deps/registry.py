@@ -6,8 +6,13 @@ to resolve. Per CLAUDE.md Critical Rule #6, this is the only place
 dependencies are enumerated — adding a new dep (an MP3 encoder in P1,
 say) is one entry here, no other code changes.
 
-Tier preference per spec is a single choice today; the manager itself
-handles cascade-on-failure (tier (a) failures spill to (b), etc.).
+Each spec still carries a `tier`/`fallback_tiers` label, but resolution no
+longer cascades on them: the GUI routes a missing dep by `from_setup_wizard`
+(container tools → the setup wizard) and `install_command` (packaged deps →
+the off-thread PendingInstallsDialog), else the manual-search dialog — see
+`ui/main_window_deps._resolve_missing_unified`. The tier fields are kept as a
+descriptive label for now; the once-planned manager-driven cascade was removed
+(TD-3).
 """
 
 from __future__ import annotations
@@ -46,10 +51,11 @@ class DependencySpec:
       arguments at spec-construction time (`functools.partial`) so the
       manager can call every probe uniformly.
     - `min_version`: tuple version floor. `(0, 0, 0)` means "any version".
-    - `tier`: preferred resolution tier. The manager handles fallback
-      to the next tier if a higher one fails.
-    - `install_command`: argv for the install command (used by AutoInstaller
-      and QueuedInstaller). None for manual-only deps.
+    - `tier`: a descriptive resolution-tier label. NOTE: routing no longer keys
+      on this (it keys on `from_setup_wizard` / `install_command`); kept as a
+      label pending removal (TD-3).
+    - `install_command`: argv for the install command (used by AutoInstaller and
+      the off-thread install dialog). None for manual-only deps.
     - `search_string`: copyable text for the tier (c) dialog. Phrased
       as a Google-search-friendly query.
     - `description`: one-line explanation shown in the dialog body.
@@ -63,8 +69,10 @@ class DependencySpec:
     install_command: list[str] | None
     search_string: str
     description: str = ""
-    # Optional list of fallback tiers in order. Manager walks this on
-    # failure of the primary tier. Defaults to "no fallback".
+    # Historical: an ordered fallback-tier list a manager cascade once walked.
+    # That cascade was removed (routing keys on from_setup_wizard/install_command
+    # now), so this is vestigial — kept only so existing SPECS/tests still
+    # construct (TD-3).
     fallback_tiers: tuple[Tier, ...] = field(default_factory=tuple)
     # When True, a missing/outdated probe is informational, not a problem:
     # the launch-time check won't nag or offer to install it, and the

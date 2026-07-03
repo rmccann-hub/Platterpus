@@ -452,6 +452,19 @@ def scheme_from_template(template: str, *, year: str = "") -> str:
         ch = template[i]
         if ch == "%" and i + 1 < len(template):
             token = template[i : i + 2]
+            if token == "%%":
+                # Escaped literal percent: "%%" → a single "%". This matches the
+                # live preview (naming.render_preview collapses "%%"→"%") and the
+                # whipper template semantics the templates come from. cyanrip
+                # treats "%" as an ordinary character (its substitution syntax is
+                # "{tag}"), so one "%" here yields exactly one "%" in the
+                # filename. Without this branch "%%" fell through to the
+                # unknown-token path: kept as "%%" (so the real filename had TWO
+                # percents while the preview showed one) AND it logged a bogus
+                # "no cyanrip mapping" warning for a perfectly valid escape.
+                out.append("%")
+                i += 2
+                continue
             if token == "%Y":
                 # Literal year (e.g. "1995"); "" on a dateless disc → drops out.
                 out.append(year)

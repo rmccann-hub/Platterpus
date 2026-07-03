@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -43,7 +42,6 @@ class DriveSetupResult:
     can_defeat_cache: bool | None = None
     offset_error: str | None = None
     analyze_error: str | None = None
-    backup_path: Path | None = None
 
     @property
     def ok(self) -> bool:

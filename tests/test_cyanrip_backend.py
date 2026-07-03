@@ -325,9 +325,24 @@ def test_scheme_expands_year_only_token_to_literal() -> None:
     assert scheme_from_template("%d (%Y)", year="1995") == "{album} (1995)"
     # Empty year → the token drops out (dateless disc).
     assert scheme_from_template("%d (%Y)", year="") == "{album} ()"
-    # A %%Y escape stays a literal percent + "Y" — the year is NOT spliced in
-    # mid-escape (why we scan rather than str.replace).
-    assert scheme_from_template("%%Y", year="1995") == "%%Y"
+    # A %%Y escape is a literal percent + "Y": "%%" collapses to a single "%"
+    # (matching naming.render_preview and whipper semantics) and the year is NOT
+    # spliced in mid-escape (why we scan rather than str.replace). Previously this
+    # returned "%%Y" — two percents — so the real filename disagreed with the
+    # preview, which shows "%Y".
+    assert scheme_from_template("%%Y", year="1995") == "%Y"
+
+
+def test_scheme_collapses_escaped_percent() -> None:
+    # "%%" is whipper's escape for a literal percent; it must become a single "%"
+    # (cyanrip treats "%" as an ordinary character), so the filename matches what
+    # naming.render_preview shows the user. A "%%" before a token letter is a
+    # literal percent + that letter, NOT the token: "%%A" is "%A", not the album
+    # artist.
+    assert scheme_from_template("%%") == "%"
+    assert scheme_from_template("100%%") == "100%"
+    assert scheme_from_template("%%A") == "%A"
+    assert scheme_from_template("%%n - %n") == "%n - {title}"
 
 
 def test_rip_argv_preexpands_year_only_token_from_release_date() -> None:

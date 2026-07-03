@@ -15,8 +15,8 @@
     <p>
       Platterpus is a Linux GUI for ripping audio CDs to a verifiable,
       archival-quality master, aiming for the same bit-perfect standard as
-      Exact Audio Copy (EAC) on Windows. It drives the whipper and cyanrip
-      ripping backends, identifies discs through MusicBrainz, embeds cover art
+      Exact Audio Copy (EAC) on Windows. It drives the cyanrip
+      ripping backend, identifies discs through MusicBrainz, embeds cover art
       from the Cover Art Archive, and proves every rip with AccurateRip and
       CUETools Database (CTDB) verification.
     </p>

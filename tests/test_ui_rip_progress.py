@@ -343,15 +343,19 @@ def test_set_log_path_none_disables_all_three(qapp: QApplication) -> None:
 def test_view_report_opens_the_json_beside_the_log(
     qapp: QApplication, tmp_path: Path
 ) -> None:
+    # IMP-1: the report opens in the in-app viewer, not via openUrl (a
+    # .platterpus.json has no default app on a fresh KDE → "Open With" chooser).
+    views: list[tuple[Path, str]] = []
     spy = _OpenUrlSpy()
-    widget = RipProgress(open_url=spy)
+    widget = RipProgress(open_url=spy, view_file=lambda p, t: views.append((p, t)))
     log_file = tmp_path / "Album.log"
     widget.set_log_path(log_file)
 
     widget._view_report_button.click()
 
-    assert len(spy.calls) == 1
-    assert spy.calls[0].toLocalFile() == str(tmp_path / "Album.platterpus.json")
+    assert spy.calls == []  # NOT openUrl
+    assert len(views) == 1
+    assert views[0][0] == tmp_path / "Album.platterpus.json"
 
 
 def test_open_folder_opens_the_album_directory(
@@ -368,26 +372,26 @@ def test_open_folder_opens_the_album_directory(
     assert spy.calls[0].toLocalFile() == str(tmp_path)
 
 
-def test_view_log_click_opens_url(qapp: QApplication, tmp_path: Path) -> None:
+def test_view_log_opens_in_app_viewer(qapp: QApplication, tmp_path: Path) -> None:
+    # IMP-1: the log opens in the in-app read-only viewer, not the OS chooser.
+    views: list[tuple[Path, str]] = []
     spy = _OpenUrlSpy()
-    widget = RipProgress(open_url=spy)
+    widget = RipProgress(open_url=spy, view_file=lambda p, t: views.append((p, t)))
     log_file = tmp_path / "rip.log"
     log_file.write_text("dummy")
     widget.set_log_path(log_file)
 
     widget._view_log_button.click()
 
-    assert len(spy.calls) == 1
-    url = spy.calls[0]
-    assert url.isLocalFile()
-    assert url.toLocalFile() == str(log_file)
+    assert spy.calls == []  # NOT openUrl → no "Open With" chooser
+    assert views == [(log_file, f"Rip log — {log_file.name}")]
 
 
 def test_view_log_no_op_without_path(qapp: QApplication) -> None:
-    spy = _OpenUrlSpy()
-    widget = RipProgress(open_url=spy)
+    views: list[tuple[Path, str]] = []
+    widget = RipProgress(view_file=lambda p, t: views.append((p, t)))
     widget._on_view_log_clicked()  # call directly; button is disabled
-    assert spy.calls == []
+    assert views == []
 
 
 # --- clear() -------------------------------------------------------------

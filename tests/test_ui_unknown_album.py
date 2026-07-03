@@ -203,3 +203,21 @@ def test_launch_picard_returns_false_on_other_oserror(
     monkeypatch.setattr(unknown_module.subprocess, "Popen", boom)
 
     assert launch_picard_for(tmp_path) is False
+
+
+def test_launch_picard_detaches_into_a_new_session(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """BUG-7: Picard is launched detached (start_new_session=True) — consistent
+    with the other fire-and-forget launch — so quitting Platterpus doesn't kill
+    it and a signal aimed at our process group can't catch it."""
+    captured: dict[str, Any] = {}
+
+    class _FakePopen:
+        def __init__(self, argv: list[str], **kwargs: Any) -> None:
+            captured["argv"] = argv
+            captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(unknown_module.subprocess, "Popen", _FakePopen)
+    assert launch_picard_for(tmp_path) is True
+    assert captured["kwargs"].get("start_new_session") is True

@@ -39,6 +39,9 @@ class DependencyReport:
     - `ok_versions`: dep_id → detected version (or None) for the `ok`
       specs, so the report can tell the user *which* version they have,
       not just that the dep is present.
+    - `ok_probes`: dep_id → the full ProbeResult for the `ok` specs, so a
+      consumer (the rip report's `environment.dependencies`) can record
+      *where* each tool was found (`probe.location`), not only its version.
     - `install_results`: outcomes from any resolution attempts during
       this run (empty after a pure check that didn't try to resolve).
     """
@@ -46,6 +49,7 @@ class DependencyReport:
     ok: list[DependencySpec] = field(default_factory=list)
     missing: list[MissingItem] = field(default_factory=list)
     ok_versions: dict[str, tuple[int, ...] | None] = field(default_factory=dict)
+    ok_probes: dict[str, object] = field(default_factory=dict)
     install_results: list[InstallResult] = field(default_factory=list)
 
     @property
@@ -85,6 +89,9 @@ class DependencyManager:
             if probe.present and meets_minimum(probe.version, spec.min_version):
                 report.ok.append(spec)
                 report.ok_versions[spec.dep_id] = probe.version
+                # Keep the whole probe (adds `location`) for the rip report's
+                # environment.dependencies — ok_versions alone loses where it was.
+                report.ok_probes[spec.dep_id] = probe
             else:
                 report.missing.append(MissingItem(spec=spec, probe=probe))
         return report
