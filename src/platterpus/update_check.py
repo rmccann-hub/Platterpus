@@ -31,6 +31,13 @@ _REPO_SLUG: str = "rmccann-hub/Platterpus"
 RELEASES_API_URL: str = f"https://api.github.com/repos/{_REPO_SLUG}/releases?per_page=5"
 RELEASES_PAGE_URL: str = f"https://github.com/{_REPO_SLUG}/releases"
 _TIMEOUT_S: float = 6.0
+# The releases-list JSON is a few KB in practice. Cap the read so a misbehaving
+# or hostile endpoint can't stream an unbounded body into memory on the worker
+# thread — same defensive bound the cover-art / CTDB / updater fetchers all use.
+# This is over-HTTPS to api.github.com, so it's belt-and-braces, not the front
+# line — but an unbounded read has no upside, and the cap keeps the fetchers
+# consistent (nothing reads a network body without a ceiling).
+_MAX_BODY_BYTES: int = 4 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -42,12 +49,23 @@ class ReleaseInfo:
 
 
 def _default_fetch(url: str) -> str:
-    """GET `url` and return the body text (raises on any failure)."""
+    """GET `url` and return the body text (raises on any failure).
+
+    Reads at most ``_MAX_BODY_BYTES`` (one byte past, to distinguish "at the cap"
+    from "over it") so an oversized response can't exhaust memory; an over-cap
+    body raises, which ``latest_release`` turns into "couldn't check" like any
+    other failure.
+    """
     request = urllib.request.Request(
         url, headers={"Accept": "application/vnd.github+json"}
     )
     with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
-        return response.read().decode("utf-8")
+        data = response.read(_MAX_BODY_BYTES + 1)
+    if len(data) > _MAX_BODY_BYTES:
+        raise ValueError(
+            f"update check response exceeded {_MAX_BODY_BYTES} bytes — refusing it"
+        )
+    return data.decode("utf-8")
 
 
 def latest_release(fetch: Callable[[str], str] | None = None) -> ReleaseInfo | None:

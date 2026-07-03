@@ -11,6 +11,8 @@ import logging
 from pathlib import Path
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from platterpus import settings_validation as sv
 from platterpus.config import Config
@@ -323,6 +325,72 @@ def test_path_traversal_in_template_is_error(template: str) -> None:
 def test_control_chars_in_path_are_error(bad: str) -> None:
     issues = sv.validate_config(Config(output_dir=bad))
     assert any(i.field == "output_dir" and i.is_error() for i in issues)
+
+
+# --- Property-based: the security invariants hold at EVERY position ---------
+#
+# The examples above pin a few `..`/control-char placements; these prove the
+# invariant across the whole input space. A path-traversal or control-char check
+# that a refactor accidentally scoped to "only the first segment" or "not at the
+# end" would pass the examples yet reopen the hole — hypothesis finds exactly
+# that by fuzzing the position. deadline=None: `_validate_dir`/`_validate_template`
+# short-circuit before any filesystem probe on these inputs, but CI runners are
+# noisy and this is a correctness assertion, not a timing one.
+
+# Path segments that carry no "/" and no control char, so the ONLY thing that
+# can trip validation is the ".." we inject — isolating the traversal rule.
+_SAFE_SEG = st.text(
+    alphabet=st.characters(
+        min_codepoint=0x20, max_codepoint=0x7E, blacklist_characters="/"
+    ),
+    max_size=6,
+)
+
+
+@st.composite
+def _template_with_a_dotdot_segment(draw: st.DrawFn) -> str:
+    """A relative template whose "/"-split contains a literal ".." segment,
+    placed at a hypothesis-chosen position among otherwise-innocuous segments."""
+    parts = draw(st.lists(_SAFE_SEG, max_size=5))
+    idx = draw(st.integers(min_value=0, max_value=len(parts)))
+    parts.insert(idx, "..")
+    return "/".join(parts)
+
+
+@given(template=_template_with_a_dotdot_segment())
+@settings(max_examples=200, deadline=None)
+def test_dotdot_template_is_always_an_error_property(template: str) -> None:
+    # Wherever the ".." sits, the traversal guard must flag track_template as an
+    # error — else a crafted/typo'd template writes outside the output directory.
+    assert ".." in template.split("/")  # sanity: the injection survived
+    issues = sv.validate_config(Config(track_template=template))
+    assert any(
+        i.field == "track_template" and ".." in i.message and i.is_error()
+        for i in issues
+    ), f"'..' traversal not rejected for template {template!r}"
+
+
+# Non-whitespace C0/DEL controls only, so `.strip()` can never quietly remove the
+# character before the check runs (\t \n \v \f \r ARE whitespace and would be
+# stripped from the ends — those are covered by the middle-of-string examples).
+_NON_WS_CONTROLS = [chr(c) for c in [*range(0x00, 0x09), *range(0x0E, 0x20), 0x7F]]
+_PRINTABLE = st.text(
+    alphabet=st.characters(min_codepoint=0x21, max_codepoint=0x7E), max_size=6
+)
+
+
+@given(ctrl=st.sampled_from(_NON_WS_CONTROLS), prefix=_PRINTABLE, suffix=_PRINTABLE)
+@settings(max_examples=200, deadline=None)
+def test_control_char_in_output_dir_is_always_an_error_property(
+    ctrl: str, prefix: str, suffix: str
+) -> None:
+    # A control character anywhere in a path (NUL truncates a C string; ESC & co.
+    # have no business in a path) must be rejected wherever it lands.
+    value = "/tmp/" + prefix + ctrl + suffix
+    issues = sv.validate_config(Config(output_dir=value))
+    assert any(i.field == "output_dir" and i.is_error() for i in issues), (
+        f"control char {ctrl!r} not rejected in {value!r}"
+    )
 
 
 def test_log_issues_writes_errors_and_warnings(caplog) -> None:

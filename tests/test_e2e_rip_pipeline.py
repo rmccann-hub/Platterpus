@@ -34,6 +34,7 @@ path schedules no deferred offers, and the loop is bounded.)
 
 from __future__ import annotations
 
+import gc
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -175,16 +176,34 @@ def e2e_window(qapp: QApplication, monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     window._current_release_id = "release-mbid"
     window._metaflac = metaflac  # type: ignore[assignment]
 
-    yield window, metaflac, Path(config.output_dir)
-
-    # Teardown: stop the persistent MB worker thread + any rip thread.
-    if window._mb_thread.isRunning():
-        window._mb_thread.quit()
-        window._mb_thread.wait(2000)
-    if window._rip_thread is not None and window._rip_thread.isRunning():
-        window._rip_thread.quit()
-        window._rip_thread.wait(2000)
-    window.deleteLater()
+    # Pause the cyclic garbage collector for the life of this test. This is the
+    # only test that runs *real* worker/daemon threads doing file I/O + Qt work
+    # concurrently with the GUI thread, and Python's cyclic GC can fire on ANY
+    # thread when its allocation threshold trips. Under the headless `offscreen`
+    # platform, a collection that finalizes a QObject on a non-Qt thread
+    # segfaults the interpreter mid-run — a real, intermittent CI abort (exit
+    # 139), traced from a faulthandler dump to a GC pass on the cover-art worker
+    # thread inside `apply_cover_art`'s file write. Pausing cyclic collection
+    # removes the race; refcount-based freeing still runs, so nothing this test
+    # asserts (files, tags, embedded/saved art) changes, and GC is restored in
+    # teardown so no other test is affected. (Deferring cycle collection can't
+    # affect correctness here — the test owns a fresh window and asserts on
+    # on-disk artifacts, not object lifetimes.)
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        yield window, metaflac, Path(config.output_dir)
+    finally:
+        # Teardown: stop the persistent MB worker thread + any rip thread.
+        if window._mb_thread.isRunning():
+            window._mb_thread.quit()
+            window._mb_thread.wait(2000)
+        if window._rip_thread is not None and window._rip_thread.isRunning():
+            window._rip_thread.quit()
+            window._rip_thread.wait(2000)
+        window.deleteLater()
+        if gc_was_enabled:
+            gc.enable()
 
 
 def test_e2e_unknown_rip_tags_flacs_and_embeds_cover_art(
