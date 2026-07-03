@@ -181,6 +181,15 @@ _MIN_ELAPSED_FOR_ETA_S: float = 8.0
 # slowdowns within a few seconds.
 _ETA_SMOOTHING_ALPHA: float = 0.15
 
+# Trailing window (seconds) for the ETA's *rate* estimate. The remaining time is
+# projected from the read rate over the last this-many seconds, NOT from the
+# cumulative average since the pass began. Why: the disc-scan phase (the first
+# ~5%) and the disc's inner tracks read far faster than the bulk, so averaging
+# from zero let that fast start dominate and the early ETA came out absurdly low
+# (real hardware: at 5% done / 14s in it said "~4m left" with 58m to go). A
+# trailing window tracks the CURRENT rate and self-corrects as the rip proceeds.
+_ETA_RATE_WINDOW_S: float = 90.0
+
 # The "for posterity" ETA trace: sample at most this often (seconds) and cap the
 # number of samples, so a long rip yields a compact comparable curve, not a
 # per-tick flood. ~10s over even a 5-hour rip stays well under the cap.
@@ -297,6 +306,10 @@ class RipWorker(QObject):
         # remaining time (#21). Reset per pass (in _reset_pass_progress) so each
         # pass estimates its own remaining time; falls back to the rip start.
         self._eta_pass_started: float | None = None
+        # Trailing (elapsed_s, fraction) samples for the windowed rate estimate
+        # (see _album_eta_text / _ETA_RATE_WINDOW_S). Pruned to the window and
+        # cleared per pass so each pass's rate is measured on its own progress.
+        self._eta_rate_window: list[tuple[float, float]] = []
         # ETA trace kept "for posterity" (maintainer's ask): a throttled series of
         # samples, each pairing the PC wall-clock time with BOTH estimates —
         # cyanrip's own per-op ETA and our smoothed album ETA — so the report can
@@ -359,7 +372,27 @@ class RipWorker(QObject):
         elapsed = time.monotonic() - started
         if elapsed < _MIN_ELAPSED_FOR_ETA_S:
             return ""
-        raw_remaining = elapsed * (1.0 - frac) / frac
+        # Project the remaining time from the RECENT read rate (a trailing
+        # window), not the cumulative average since the pass began. The fast
+        # disc-scan phase and the disc's inner tracks read much faster than the
+        # bulk, so a from-zero average let that fast start dominate and the early
+        # ETA came out absurdly low. Collect (elapsed, frac) points — only past
+        # the scan band, so the scan never enters the window — prune to the
+        # window, and measure the rate over it.
+        self._eta_rate_window.append((elapsed, frac))
+        cutoff = elapsed - _ETA_RATE_WINDOW_S
+        self._eta_rate_window = [p for p in self._eta_rate_window if p[0] >= cutoff]
+        base_elapsed, base_frac = self._eta_rate_window[0]
+        window_dt = elapsed - base_elapsed
+        window_dfrac = frac - base_frac
+        if window_dt > 0 and window_dfrac > 0:
+            # remaining = remaining_fraction ÷ recent_rate (frac per second).
+            raw_remaining = (1.0 - frac) * window_dt / window_dfrac
+        else:
+            # Only one distinct point so far (first post-scan tick) or a paused
+            # bar (encode phase, no forward progress): fall back to the
+            # cumulative projection until the window has real movement.
+            raw_remaining = elapsed * (1.0 - frac) / frac
         if not raw_remaining >= 1:  # guards NaN/inf and sub-second "0s left"
             return ""
         # EMA-smooth so a per-tick swing doesn't yank the number around.
@@ -802,6 +835,7 @@ class RipWorker(QObject):
         # elapsed would project a wildly inflated remaining time on pass 2+ (#21).
         self._eta_pass_started = time.monotonic()
         self._smoothed_remaining_s = None
+        self._eta_rate_window = []
 
     def _auto_fix_tracks(
         self,

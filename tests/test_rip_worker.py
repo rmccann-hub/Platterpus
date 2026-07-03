@@ -862,6 +862,43 @@ def test_eta_rebaselines_per_pass_not_whole_rip(
     assert worker._smoothed_remaining_s < 600  # minutes, not the ~9000s inflation
 
 
+def test_album_eta_uses_recent_rate_not_scan_biased_average(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (real hardware, 2026-07-02): the disc-scan phase (first ~5%) and
+    the disc's inner tracks read ~10-15x faster than the bulk, so averaging the
+    rate from zero made the EARLY ETA absurdly low — at 5% done / 14s in it said
+    "~4m left" with 58m to go. The ETA now projects from a trailing-window rate,
+    so it tracks reality once real ripping is under way instead of being dominated
+    by the fast start."""
+    import platterpus.workers.rip_worker as rw
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rw.time, "monotonic", lambda: clock["t"])
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    worker._started_monotonic = 0.0
+    worker._eta_pass_started = 0.0
+
+    # A fast scan (0→5% in 10s) then a steady 1%-per-40s audio read.
+    def frac_at(elapsed: float) -> float:
+        if elapsed <= 10.0:
+            return 0.05 * (elapsed / 10.0)
+        return 0.05 + (elapsed - 10.0) * 0.00025
+
+    for elapsed in range(10, 220, 10):
+        clock["t"] = float(elapsed)
+        worker._album_eta_text(frac_at(float(elapsed)) * 100.0)
+
+    smoothed = worker._smoothed_remaining_s
+    assert smoothed is not None
+    # At elapsed=210s / 10% done, the read rate is 0.00025 frac/s, so ~3600s truly
+    # remain (total ≈ 10s scan + 0.95/0.00025 = 3810s). The OLD from-zero average
+    # would have projected 210*(0.9/0.1) = 1890s — roughly half of reality, the
+    # scan-biased error this fixes. The windowed estimate must track the truth.
+    assert 2800 < smoothed < 4400, smoothed
+    assert smoothed > 2500  # decisively above the ~1890s scan-biased cumulative
+
+
 def test_eta_trace_records_both_estimates_speed_and_clock(
     qapp: QApplication, tmp_path: Path
 ) -> None:

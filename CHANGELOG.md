@@ -12,6 +12,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The album ETA is no longer wildly optimistic early in a rip.** It projected
+  the remaining time from the average rate *since the pass began*, but the disc
+  scan (first ~5%) and the disc's inner tracks read far faster than the bulk — so
+  early on the estimate was dominated by that fast start and read absurdly low
+  (real hardware: at 5% done it showed "~4m left" with 58m to go, then climbed).
+  It now projects from the read rate over a trailing 90-second window, so it
+  tracks the actual current speed and stays honest throughout instead of starting
+  low and ramping up.
 - **Upgraders no longer inherit the dynamic secure re-rip switched *off*.** The
   0.4.9 headline (secure only the AccurateRip-failing tracks) needs the "Max reads
   to confirm a shaky track" ceiling (`-Z`) above 0, and a fresh install defaults
