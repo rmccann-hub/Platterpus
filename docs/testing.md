@@ -142,6 +142,22 @@ tiers. "I added a happy-path test" is not done.
     exit code and `coverage report` reads the saved `.coverage` anytime. This is
     best-effort — it greatly reduces but doesn't 100% eliminate the local race
     (it's environment-specific; real CI has been green).
+  - **A *mid-run* GC pass can finalize a QObject off the Qt thread → SIGSEGV.**
+    Distinct from the shutdown abort above (which the `os._exit` hook covers):
+    the `test_e2e_rip_pipeline` test runs real worker/daemon threads doing file
+    I/O + Qt work *concurrently* with the GUI thread, and Python's cyclic GC can
+    fire on **any** thread when its allocation threshold trips. Under `offscreen`,
+    a collection that finalizes a QObject on a non-Qt thread segfaults the
+    interpreter *during the run* (exit 139) — a real, intermittent CI abort
+    (traced from a faulthandler dump to a GC pass on the cover-art worker thread
+    inside `apply_cover_art`, 2026-07-03; it hit py3.12 three runs straight while
+    3.11/3.13/3.14 stayed green). The `os._exit` hook can't help (the crash is
+    mid-run, not at shutdown). **Mitigation:** the `e2e_window` fixture pauses the
+    cyclic collector (`gc.disable()`) for the life of that test and restores it in
+    teardown — refcount freeing still runs, so nothing the test asserts changes,
+    and no other test is affected. Reach for this only for a test that genuinely
+    runs Qt work on non-Qt threads; the real answer everywhere else is to drive
+    workers to completion and not create QObjects off the Qt thread.
   - **Suppress first-run offers before pumping events.** `processEvents()` will
     fire any pending `QTimer.singleShot` — including `_maybe_offer_first_run_setup`,
     whose `QMessageBox.exec()` **blocks forever headless**. Construct the window
