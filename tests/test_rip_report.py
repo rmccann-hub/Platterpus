@@ -16,12 +16,35 @@ from platterpus.parsers.rip_log import (
 from platterpus.rip_report import (
     REPORT_SCHEMA_VERSION,
     build_debug_log,
+    build_gates,
+    build_outcome,
     build_report,
+    build_settings,
     build_timing,
     report_path_for,
     report_to_json,
     write_report,
 )
+
+
+class _FakeConfig:
+    """A minimal Config-shaped object for build_settings tests (pure, no I/O)."""
+
+    output_format = "flac"
+    mp3_vbr_quality = 0
+    cover_art = "embed"
+    read_speed_mode = "auto_ladder"
+    read_speed = 0
+    secure_rerip_dynamic = True
+    secure_rerip_matches = 2
+    max_retries = 5
+    ctdb_verify_after_rip = True
+    verify_flac_after_rip = True
+    recompress_flac_after_rip = False
+    rip_goal = "fast_verified"
+    read_offset = 667
+    override_read_offset = True
+
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CYANRIP_REFERENCE = (
@@ -153,9 +176,11 @@ def test_debug_section_notes_truncation() -> None:
 def test_verification_block_present_but_empty_by_default() -> None:
     report = build_report(_sample_log())
     assert report["verification"] == {
+        "gates": None,
         "flac_integrity": None,
         "transcode": None,
         "derived": None,
+        "recompress": None,
     }
     assert report["checksums"] is None
 
@@ -361,9 +386,9 @@ def test_checksums_embedded_in_report() -> None:
     assert report["checksums"] == sums
 
 
-def test_schema_version_is_v6() -> None:
-    assert REPORT_SCHEMA_VERSION == 6
-    assert build_report(_sample_log())["schema_version"] == 6
+def test_schema_version_is_v7() -> None:
+    assert REPORT_SCHEMA_VERSION == 7
+    assert build_report(_sample_log())["schema_version"] == 7
 
 
 def test_report_surfaces_v6_drive_and_track_diagnostics() -> None:
@@ -552,6 +577,225 @@ def test_write_report_overwrite_stays_atomic(tmp_path: Path) -> None:
     )
     assert out is not None and out.is_file()
     assert not out.with_name(out.name + ".tmp").exists()
+
+
+# --- v7 (0.4.10): outcome / settings / disc / environment / issues -------
+
+
+def test_v7_schema_and_generator_fingerprint() -> None:
+    report = build_report(_sample_log())
+    assert report["schema_version"] == 7
+    # A source checkout has no _build.py stamp → the "source" sentinel, always
+    # present so a consumer never has to handle a missing fingerprint.
+    assert report["generator"]["build_fingerprint"] == "source"
+
+
+def test_outcome_block_default_absent_but_present_when_supplied() -> None:
+    # No outcome passed → the key exists (present-or-null contract) but is null.
+    assert build_report(_sample_log())["outcome"] is None
+    outcome = build_outcome(
+        status="failed",
+        failure_hint="Track 5 couldn't be read.",
+        auto_unknown_retry_fired=True,
+        auto_unknown_retry_reason="ripper could not reach MusicBrainz",
+    )
+    report = build_report(_sample_log(), outcome=outcome)
+    assert report["outcome"]["status"] == "failed"
+    assert report["outcome"]["failure_hint"] == "Track 5 couldn't be read."
+    assert report["outcome"]["auto_unknown_retry"] == {
+        "fired": True,
+        "reason": "ripper could not reach MusicBrainz",
+    }
+
+
+def test_settings_block_records_effective_read_offset() -> None:
+    settings = build_settings(_FakeConfig())
+    report = build_report(_sample_log(), settings=settings)
+    s = report["settings"]
+    assert s["output_format"] == "flac"
+    assert s["secure_rerip_dynamic"] is True and s["secure_rerip_matches"] == 2
+    # The offset triple disambiguates "0 configured" from "configured but off".
+    assert s["read_offset"] == {"configured": 667, "applied": True, "effective": 667}
+    # MP3-only field omitted when the format isn't MP3.
+    assert "mp3_vbr_quality" not in s
+
+
+def test_settings_offset_effective_zero_when_not_applied() -> None:
+    class Cfg(_FakeConfig):
+        override_read_offset = False
+
+    s = build_settings(Cfg())
+    # Configured 667 but NOT applied → effective 0 (the case the log hides).
+    assert s["read_offset"] == {"configured": 667, "applied": False, "effective": 0}
+
+
+def test_settings_includes_mp3_quality_only_for_mp3() -> None:
+    class Cfg(_FakeConfig):
+        output_format = "mp3"
+        mp3_vbr_quality = 2
+
+    s = build_settings(Cfg())
+    assert s["output_format"] == "mp3" and s["mp3_vbr_quality"] == 2
+
+
+def test_disc_block_carries_provenance() -> None:
+    report = build_report(
+        _sample_log(),
+        disc={"unknown": False, "musicbrainz_release_id": "release-123"},
+    )
+    assert report["disc"] == {
+        "unknown": False,
+        "musicbrainz_release_id": "release-123",
+    }
+
+
+def test_environment_block_defaults_to_live_probe() -> None:
+    # Omitted → build_report fills it from build_info (always populated).
+    report = build_report(_sample_log())
+    env = report["environment"]
+    assert env["install_channel"] in {"appimage", "pipx", "source"}
+    assert set(env) == {"python", "platform", "pyside6", "install_channel"}
+
+
+def test_environment_block_accepts_injected_dict() -> None:
+    injected = {"python": "3.11.0", "platform": "Linux", "pyside6": "6.9"}
+    report = build_report(_sample_log(), environment=injected)
+    assert report["environment"] == injected
+
+
+def test_verification_gates_explain_null_subblocks() -> None:
+    gates = build_gates(
+        ctdb_enabled=True,
+        flac_verify_enabled=True,
+        backend_self_verifies=True,  # → not "ran"
+        recompress_enabled=False,
+        backend_maxes_compression=True,
+        transcode_requested=False,
+    )
+    v = build_report(_sample_log(), gates=gates)["verification"]
+    assert v["gates"] == {
+        "ctdb": "ran",
+        "flac_integrity": "backend self-verifies",
+        "recompress": "disabled",
+        "derived": "flac-only",
+    }
+
+
+def test_recompress_result_serialized() -> None:
+    from platterpus.adapters.flac_recompress import RecompressResult
+
+    report = build_report(
+        _sample_log(), recompress_result=RecompressResult(reencoded=14)
+    )
+    rc = report["verification"]["recompress"]
+    assert rc == {
+        "ran": True,
+        "ok": True,
+        "reencoded": 14,
+        "failures": [],
+        "error": None,
+    }
+
+
+def test_secure_rerip_block_folded_into_read_speed() -> None:
+    sr = {
+        "mode": "dynamic",
+        "engaged": False,
+        "disc_in_accuraterip": False,
+        "skipped_reason": "disc_not_in_accuraterip",
+    }
+    report = build_report(_sample_log(), secure_rerip=sr)
+    assert report["read_speed"]["secure_rerip"] == sr
+
+
+def test_cover_art_block_serialized() -> None:
+    from dataclasses import dataclass
+
+    @dataclass
+    class _CoverArtResult:
+        mode: str = "embed"
+        found: bool = True
+        reason: str = "ok"
+        embedded_count: int = 14
+        saved_as: str = ""
+        release_id: str = "rel-1"
+        bytes: int = 20345
+        format: str = "jpg"
+        error: str = ""
+
+    ca = build_report(_sample_log(), cover_art_result=_CoverArtResult())["cover_art"]
+    assert ca["found"] is True and ca["reason"] == "ok"
+    assert ca["embedded_count"] == 14 and ca["format"] == "jpg"
+
+
+def test_log_parse_block_flags_thin_parse() -> None:
+    # A real log → ok True.
+    assert build_report(_sample_log())["log_parse"]["ok"] is True
+    # An empty log (nothing parsed) → ok False, so a thin report is explained.
+    assert build_report(RipLog())["log_parse"]["ok"] is False
+    # An explicit override is honoured verbatim.
+    report = build_report(_sample_log(), log_parse={"ok": False, "note": "degraded"})
+    assert report["log_parse"] == {"ok": False, "note": "degraded"}
+
+
+def test_issues_empty_on_a_clean_rip() -> None:
+    # All-verified sample would still be "warn" (1 of 2); use a fully-verified one.
+    log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(
+                number=1,
+                copy_crc="AA",
+                accuraterip_v2=AccurateRipResult(
+                    version=2, result="accurately ripped", confidence=200
+                ),
+            ),
+        ),
+    )
+    report = build_report(log, outcome=build_outcome(status="success"))
+    assert report["issues"] == []
+
+
+def test_issues_consolidates_failures_with_severity() -> None:
+    from platterpus.adapters.derived_verify import DerivedVerifyResult
+    from platterpus.adapters.flac_verify import FlacVerifyResult
+
+    report = build_report(
+        _sample_log(),  # 1 of 2 verified → not_bit_perfect (warning)
+        outcome=build_outcome(status="failed", failure_hint="disc unreadable"),
+        flac_verify_result=FlacVerifyResult(checked=2, failures=(Path("bad.flac"),)),
+        derived_verify_result=DerivedVerifyResult(
+            fmt="wav", lossless=True, mismatches=(Path("bad.wav"),)
+        ),
+    )
+    codes = {i["code"]: i["severity"] for i in report["issues"]}
+    assert codes["rip_failed"] == "error"
+    assert codes["flac_integrity_failed"] == "error"
+    assert codes["derived_mismatch"] == "error"
+    assert codes["not_bit_perfect"] == "warning"
+    # The failure hint is surfaced in the consolidated list.
+    assert any(i["message"] == "disc unreadable" for i in report["issues"])
+
+
+def test_issues_flags_read_instability_and_cover_art_and_transcode() -> None:
+    from dataclasses import dataclass
+
+    from platterpus.adapters.transcode import TranscodeResult
+
+    @dataclass
+    class _CoverArtResult:
+        mode: str = "embed"
+        found: bool = False
+        reason: str = "404"
+
+    report = build_report(
+        _sample_log(),
+        read_speed={"unresolved": True, "unstable_tracks": [5]},
+        transcode_result=TranscodeResult(error="ffmpeg missing"),
+        cover_art_result=_CoverArtResult(),
+    )
+    codes = {i["code"] for i in report["issues"]}
+    assert {"read_unstable", "transcode_failed", "cover_art_missing"} <= codes
 
 
 # --- CLI: scripts/rip_report.py -------------------------------------------

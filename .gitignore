@@ -10,6 +10,10 @@ dist/
 *.egg-info/
 *.egg
 wheels/
+# Generated at package time by build/build_appimage.sh (the build fingerprint
+# baked into the wheel — see src/platterpus/build_info.py). Never committed; a
+# source checkout has no stamp and reports the "source" sentinel.
+src/platterpus/_build.py
 
 # AppImage build artifacts (the build script outputs to repo root)
 *.AppImage

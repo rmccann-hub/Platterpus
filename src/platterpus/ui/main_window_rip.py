@@ -215,6 +215,18 @@ class RipMixin:
         self._last_transcode_result = None
         self._last_derived_verify_result = None
         self._last_checksums = None
+        # v7 report snapshots (0.4.10): the PROCESS outcome, disc provenance, the
+        # effective read offset, and the cover-art / re-compress / secure-re-rip
+        # results. Reset per rip so a debounced re-write for a NEW rip can never
+        # carry the previous rip's values (the report is re-written after each
+        # async check finishes; see _schedule_rip_report_write / #20-style guard).
+        self._last_outcome = None
+        self._last_disc = None
+        self._last_read_offset_effective = None
+        self._last_secure_rerip = None
+        self._last_cover_art_result = None
+        self._last_recompress_result = None
+        self._last_rip_error = None
         # Rip generation, bumped every Start. Each post-rip verify daemon captures
         # the generation it launched under and drops its result if a NEWER rip has
         # started since — so a slow verify from album A (FLAC-verify waits up to
@@ -470,6 +482,9 @@ class RipMixin:
 
     def _on_rip_error(self, message: str) -> None:
         log.warning("rip error: %s", message)
+        # Remember the last hard error so a no-log failure's minimal report can
+        # carry it as the outcome's failure hint (see _write_minimal_failure_report).
+        self._last_rip_error = message
         self._rip_progress.set_status(f"Error: {message}")
 
     def _on_rip_finished(self, success: bool, log_path: str) -> None:
@@ -520,6 +535,45 @@ class RipMixin:
         # The "for posterity" ETA trace (PC clock + cyanrip's ETA + our ETA),
         # captured while the worker is alive; folded into the report below.
         self._last_eta_trace = getattr(self._rip_worker, "eta_trace", [])
+        # v7 report (0.4.10): snapshot the PROCESS outcome + disc provenance +
+        # the effective read offset NOW, while the worker and `params` are still
+        # alive — both are cleared at the end of this handler, and the report is
+        # re-written (debounced) afterwards, so these must be captured here and
+        # read from self._last_* by _write_rip_report (never off the worker/params).
+        from platterpus import rip_report as _rip_report
+
+        if success:
+            _status = "success"
+        elif self._rip_cancelled:
+            _status = "cancelled"
+        else:
+            _status = "failed"
+        self._last_outcome = _rip_report.build_outcome(
+            status=_status,
+            failure_hint=(
+                (self._rip_worker.failure_hint if self._rip_worker else "")
+                or getattr(self, "_last_rip_error", None)
+                or None
+            ),
+            # `_auto_retry_done` is set True when the "re-rip as unknown" self-heal
+            # fired earlier this Start; the healed rip's report should say so.
+            auto_unknown_retry_fired=self._auto_retry_done,
+            auto_unknown_retry_reason=(
+                "ripper could not reach MusicBrainz" if self._auto_retry_done else None
+            ),
+        )
+        self._last_disc = {
+            "unknown": bool(params.unknown) if params is not None else None,
+            "musicbrainz_release_id": (self._current_release_id or None),
+        }
+        # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
+        # report's settings.read_offset.effective is the truth, not just config.
+        self._last_read_offset_effective = (
+            params.read_offset_override if params is not None else None
+        )
+        # Why the dynamic secure re-rip did/didn't run (mode/engaged/skip reason).
+        # getattr so this is None until the worker grows the property (wired next).
+        self._last_secure_rerip = getattr(self._rip_worker, "secure_rerip_report", None)
 
         self._rip_controls.set_rip_active(False)
         self._set_rip_lock(False)  # rip over — re-enable the locked-down UI
@@ -589,6 +643,13 @@ class RipMixin:
                 # leave the rip state uncleared). Log and continue; the rest of
                 # the chain (tagging, cover art, verify, eject, state clear) runs.
                 log.exception("rendering rip results failed for %s", log_file)
+        elif not success and not self._rip_cancelled:
+            # No .log at all + a genuine failure (the backend never started, or
+            # the stream died before any file was written) → today this wrote NO
+            # report, so a hard failure was completely silent. Leave a minimal
+            # one (outcome + settings + environment) beside the intended output
+            # dir so the failure is still diagnosable. Best-effort; never raises.
+            self._write_minimal_failure_report(params)
 
         # Post-rip processing: unknown-mode tagging + backend-independent
         # cover art. Both shell out to metaflac on the SAME FLAC files, so
@@ -1137,17 +1198,84 @@ class RipMixin:
             flac_verify_result=getattr(self, "_last_flac_verify_result", None),
             transcode_result=getattr(self, "_last_transcode_result", None),
             derived_verify_result=getattr(self, "_last_derived_verify_result", None),
+            recompress_result=getattr(self, "_last_recompress_result", None),
+            cover_art_result=getattr(self, "_last_cover_art_result", None),
             read_speed=read_speed_ladder.attempts_to_report(
                 getattr(self, "_last_speed_attempts", []) or [],
                 getattr(self, "_last_unstable_tracks", []) or [],
                 getattr(self, "_last_retried_tracks", []) or [],
             ),
+            secure_rerip=getattr(self, "_last_secure_rerip", None),
             eta_trace=getattr(self, "_last_eta_trace", None) or None,
             checksums=getattr(self, "_last_checksums", None),
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
             debug_log=self._build_rip_debug_log(),
+            # v7 process/settings/provenance blocks. `outcome`/`disc` are
+            # snapshotted at finish (worker/params are cleared before the debounced
+            # re-writes); `settings`/`gates` come from the persistent config +
+            # backend, so they're rebuilt here each write (pure + cheap).
+            outcome=getattr(self, "_last_outcome", None),
+            settings=rip_report.build_settings(
+                self._config,
+                read_offset_effective=getattr(
+                    self, "_last_read_offset_effective", None
+                ),
+            ),
+            disc=getattr(self, "_last_disc", None),
+            gates=rip_report.build_gates(
+                ctdb_enabled=self._config.ctdb_verify_after_rip,
+                flac_verify_enabled=self._config.verify_flac_after_rip,
+                backend_self_verifies=self._backend.self_verifies_encode(),
+                recompress_enabled=self._config.recompress_flac_after_rip,
+                backend_maxes_compression=(
+                    self._backend.produces_max_compression_flac()
+                ),
+                transcode_requested=self._config.output_format in TRANSCODE_FORMATS,
+            ),
         )
+
+    def _write_minimal_failure_report(self, params: RipParameters | None) -> None:
+        """Write a minimal report for a rip that produced NO log at all.
+
+        A hard failure before any output (the backend never started, or the
+        stream died before a file was written) used to write nothing — so the
+        most-broken rips were the *least* diagnosable. This drops a small
+        ``platterpus-rip-failure.platterpus.json`` beside the intended output dir
+        carrying the process ``outcome`` (with the failure hint), the effective
+        ``settings``, and the ``environment`` — enough to triage from. Best-effort
+        and never raises (a failing rip must not be made worse by a report write).
+        """
+        if params is None:
+            return
+        from datetime import datetime
+
+        from platterpus import rip_report
+        from platterpus.parsers.rip_log import RipLog
+
+        try:
+            out_dir = Path(params.output_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            # write_report derives the JSON path from a .log path but never reads
+            # it, so a synthetic name is fine — no real log exists for this rip.
+            synthetic_log = out_dir / "platterpus-rip-failure.log"
+            written = rip_report.write_report(
+                RipLog(),
+                synthetic_log,
+                outcome=getattr(self, "_last_outcome", None),
+                settings=rip_report.build_settings(
+                    self._config,
+                    read_offset_effective=getattr(
+                        self, "_last_read_offset_effective", None
+                    ),
+                ),
+                disc=getattr(self, "_last_disc", None),
+                generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+            if written is not None:
+                log.info("wrote minimal failure report to %s", written)
+        except Exception:  # noqa: BLE001 — a failure report must never crash close
+            log.exception("could not write the minimal failure report")
 
     def _append_read_speed_summary(self) -> None:
         """Note the read-speed ladder's outcome in the results log, if it acted.
@@ -1375,6 +1503,11 @@ class RipMixin:
         """
         if not isinstance(result, RecompressResult):
             return
+        # Record + schedule a (debounced) re-write so the re-compress outcome
+        # lands in the report's verification block (it mutates the masters, so
+        # its result belongs in the one debug file alongside the other checks).
+        self._last_recompress_result = result
+        self._schedule_rip_report_write()
         if result.error:
             message = f"FLAC re-compress: skipped — {result.error}"
         elif result.failures:

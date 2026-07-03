@@ -3608,7 +3608,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 6
+    assert report["schema_version"] == 7
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True
@@ -3696,6 +3696,119 @@ def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
     window._on_flac_verified(FlacVerifyResult(checked=2))
     assert window._rip_progress._status_label.text() == "Done."  # clean pass is quiet
     assert any("decode cleanly" in line for line in lines)
+
+
+def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> None:
+    """v7 (0.4.10): the report records the PROCESS outcome, the asked-for
+    settings (incl. the effective read offset), disc provenance, the runtime
+    environment, and a build fingerprint — all snapshotted at finish, so a
+    debounced re-write can't lose them."""
+    import json as _json
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+            cover_art="",  # no post-rip cover-art thread — keep the test hermetic
+            override_read_offset=True,
+            read_offset=667,
+        )
+    )
+    window._current_release_id = "release-xyz"
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+        read_offset_override=667,
+    )
+
+    window._on_rip_finished(True, str(log_file))
+
+    report = _json.loads((album_dir / "Album.platterpus.json").read_text())
+    assert report["schema_version"] == 7
+    assert report["outcome"]["status"] == "success"
+    assert report["settings"]["read_offset"] == {
+        "configured": 667,
+        "applied": True,
+        "effective": 667,
+    }
+    assert report["disc"] == {
+        "unknown": False,
+        "musicbrainz_release_id": "release-xyz",
+    }
+    assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
+    assert report["generator"]["build_fingerprint"] == "source"
+    # A disabled check is explicitly labelled, not an ambiguous null.
+    assert report["verification"]["gates"]["ctdb"] == "disabled"
+
+
+def test_failed_rip_with_no_log_writes_minimal_failure_report(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Regression (0.4.10): a hard failure that produced NO log used to write no
+    report at all — the most-broken rips were the least diagnosable. Now a
+    minimal report lands beside the intended output dir with the failure."""
+    import json as _json
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True)
+    )
+    out_dir = tmp_path / "music"
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=out_dir,
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    window._last_rip_error = "cyanrip: could not open device /dev/sr0"
+
+    window._on_rip_finished(False, "")  # hard failure, no log written
+
+    report_path = out_dir / "platterpus-rip-failure.platterpus.json"
+    assert report_path.is_file()
+    report = _json.loads(report_path.read_text())
+    assert report["outcome"]["status"] == "failed"
+    assert "could not open device" in report["outcome"]["failure_hint"]
+    assert any(i["code"] == "rip_failed" for i in report["issues"])
+
+
+def test_no_failure_report_when_rip_cancelled(teardown_threads, tmp_path: Path) -> None:
+    """A user cancellation with no log is NOT a failure — don't litter the music
+    root with a failure report (the minimal report is for genuine failures)."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True)
+    )
+    out_dir = tmp_path / "music"
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=out_dir,
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    window._rip_cancelled = True
+
+    window._on_rip_finished(False, "")
+
+    assert not (out_dir / "platterpus-rip-failure.platterpus.json").exists()
 
 
 # --- Post-rip FLAC re-compress (opt-in, off by default) --------------------

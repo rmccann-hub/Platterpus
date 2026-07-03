@@ -21,7 +21,7 @@ import logging
 import os
 from pathlib import Path
 
-from platterpus import __version__
+from platterpus import __version__, build_info
 from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.verdict import accuraterip_verdict
 
@@ -73,7 +73,28 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # cyanrip logs: `extraction_speed` (×), `extraction_quality` (%), `pre_emphasis`,
 # and `peak_level`. All were already parsed; v6 just surfaces them so a re-rip's
 # JSON reports back everything the log reveals.
-REPORT_SCHEMA_VERSION: int = 6
+# v7 (0.4.10): "one file explains a rip" — the report now records the *process*
+# result and everything a triager asks for, all additive keys:
+#   * `outcome` — success/cancelled/failed + a failure hint + whether the
+#     auto-heal (re-rip as unknown) fired (the actual process result; the older
+#     `verdict`/`health_status` are AccurateRip/log-derived, not that).
+#   * `settings` — what the GUI *asked for* (output format, cover-art mode, the
+#     secure-re-rip config, and the read offset {configured, applied, effective}
+#     — the log shows `0` whether the offset was truly 0 or configured-but-off).
+#   * `disc` — provenance: unknown-mode + the MusicBrainz release id.
+#   * `environment` — Python / OS / PySide6 / install channel (+ per-dependency
+#     versions & paths, filled by the GUI from the launch-time dependency probe).
+#   * `generator.build_fingerprint` — the build's git short-SHA (or "source"),
+#     so a report is traceable to an exact build (debug only; NOT EAC parity).
+#   * `verification.gates` — turns an ambiguous `null` sub-block into an explicit
+#     "ran"/"disabled"/"backend self-verifies"/"flac-only" so a missing check is
+#     never confused with a failed one.
+#   * `cover_art` — the structured front-cover result (found / why-not / embedded).
+#   * `read_speed.secure_rerip` — why the dynamic secure re-rip did or didn't run.
+#   * `log_parse` — whether the human log parsed cleanly (flags a degraded read).
+#   * `issues` — one consolidated, severity-tagged "what went wrong" list a
+#     triager opens first (empty on a clean rip).
+REPORT_SCHEMA_VERSION: int = 7
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -93,12 +114,21 @@ def build_report(
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
     derived_verify_result: object | None = None,
+    recompress_result: object | None = None,
+    cover_art_result: object | None = None,
     read_speed: dict | None = None,
+    secure_rerip: dict | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
     generated_at: str = "",
     timing: dict | None = None,
     debug_log: dict | None = None,
+    outcome: dict | None = None,
+    settings: dict | None = None,
+    disc: dict | None = None,
+    environment: dict | None = None,
+    gates: dict | None = None,
+    log_parse: dict | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -111,7 +141,16 @@ def build_report(
     the report's ``verification`` block alongside CTDB. ``checksums`` is an
     optional ``{relpath: sha256}`` map (see :mod:`platterpus.checksums`).
     ``timing`` / ``debug_log`` are as in :func:`build_timing` /
-    :func:`build_debug_log`. Never raises.
+    :func:`build_debug_log`.
+
+    The v7 (0.4.10) blocks are assembled by the caller (they depend on live
+    config / rip params / the launch-time dependency probe, which this pure
+    builder can't reach) and passed in: ``outcome`` (see :func:`build_outcome`),
+    ``settings`` (:func:`build_settings`), ``disc``, ``environment``
+    (defaults to :func:`build_info.environment_report` when omitted), ``gates``
+    (:func:`build_gates`), ``cover_art_result``, ``secure_rerip`` (folded into
+    the ``read_speed`` block), ``recompress_result`` and ``log_parse``. The
+    ``issues`` list is derived here from the assembled blocks. Never raises.
     """
     try:
         return _build(
@@ -126,12 +165,25 @@ def build_report(
             derived_verify_result,
             read_speed,
             eta_trace,
+            recompress_result=recompress_result,
+            cover_art_result=cover_art_result,
+            secure_rerip=secure_rerip,
+            outcome=outcome,
+            settings=settings,
+            disc=disc,
+            environment=environment,
+            gates=gates,
+            log_parse=log_parse,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
         return {
             "schema_version": REPORT_SCHEMA_VERSION,
-            "generator": {"name": "platterpus", "version": __version__},
+            "generator": {
+                "name": "platterpus",
+                "version": __version__,
+                "build_fingerprint": build_info.build_fingerprint(),
+            },
             "error": "report could not be built",
         }
 
@@ -197,6 +249,109 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> dict:
     }
 
 
+def build_outcome(
+    *,
+    status: str,
+    failure_hint: str | None = None,
+    auto_unknown_retry_fired: bool = False,
+    auto_unknown_retry_reason: str | None = None,
+) -> dict:
+    """Build the ``outcome`` block: the PROCESS result of the rip.
+
+    This is the single most-requested support datum and was previously absent —
+    ``verdict``/``health_status`` describe AccurateRip / the rip log, not whether
+    the *run* succeeded. ``status`` is one of ``"success"`` / ``"cancelled"`` /
+    ``"failed"``; ``failure_hint`` is an actionable one-liner when we have one;
+    ``auto_unknown_retry`` records whether the self-heal (re-rip as unknown when
+    the ripper couldn't reach MusicBrainz) fired. Pure; never raises.
+    """
+    return {
+        "status": status,
+        "failure_hint": failure_hint or None,
+        "auto_unknown_retry": {
+            "fired": bool(auto_unknown_retry_fired),
+            "reason": auto_unknown_retry_reason or None,
+        },
+    }
+
+
+def build_settings(config: object, *, read_offset_effective: int | None = None) -> dict:
+    """Build the ``settings`` block: what the GUI *asked the ripper for*.
+
+    The rip log only ever shows what the drive *did*; this records the user's
+    configured intent so a support reader can tell, e.g., a genuine 0 read offset
+    from one that was configured but never applied. Reads a
+    :class:`~platterpus.config.Config` via ``getattr`` so it's pure and tolerant
+    of a partial/duck-typed object; ``read_offset_effective`` is the value
+    actually handed to cyanrip for this rip (``-s``), passed by the caller from
+    the rip params. Never raises.
+    """
+    fmt = getattr(config, "output_format", None)
+    configured_offset = getattr(config, "read_offset", None)
+    applied = bool(getattr(config, "override_read_offset", False))
+    if read_offset_effective is None:
+        read_offset_effective = (configured_offset or 0) if applied else 0
+    settings: dict = {
+        "output_format": fmt,
+        "cover_art": getattr(config, "cover_art", "") or None,
+        "read_speed_mode": getattr(config, "read_speed_mode", None),
+        "read_speed": getattr(config, "read_speed", None),
+        "secure_rerip_dynamic": getattr(config, "secure_rerip_dynamic", None),
+        "secure_rerip_matches": getattr(config, "secure_rerip_matches", None),
+        "max_retries": getattr(config, "max_retries", None),
+        "ctdb_verify_after_rip": getattr(config, "ctdb_verify_after_rip", None),
+        "verify_flac_after_rip": getattr(config, "verify_flac_after_rip", None),
+        "recompress_flac_after_rip": getattr(config, "recompress_flac_after_rip", None),
+        "rip_goal": getattr(config, "rip_goal", None),
+        "read_offset": {
+            "configured": configured_offset,
+            "applied": applied,
+            "effective": read_offset_effective,
+        },
+    }
+    # MP3's VBR quality is only meaningful when MP3 is the chosen output.
+    if fmt == "mp3":
+        settings["mp3_vbr_quality"] = getattr(config, "mp3_vbr_quality", None)
+    return settings
+
+
+def build_gates(
+    *,
+    ctdb_enabled: bool,
+    flac_verify_enabled: bool,
+    backend_self_verifies: bool,
+    recompress_enabled: bool,
+    backend_maxes_compression: bool,
+    transcode_requested: bool,
+) -> dict:
+    """Build ``verification.gates``: WHY each verification sub-block is or isn't
+    populated.
+
+    A `null` result sub-block (``flac_integrity``, ``transcode``, ``derived``…)
+    is ambiguous on its own — did the check fail to run, or was it never meant to?
+    This turns each into an explicit state the report is self-describing about, so
+    "didn't run" is never misread as "passed" (or "failed"). Pure; never raises.
+    """
+    if not flac_verify_enabled:
+        flac_gate = "disabled"
+    elif backend_self_verifies:
+        flac_gate = "backend self-verifies"
+    else:
+        flac_gate = "ran"
+    if not recompress_enabled:
+        recompress_gate = "disabled"
+    elif backend_maxes_compression:
+        recompress_gate = "backend already maxes compression"
+    else:
+        recompress_gate = "ran"
+    return {
+        "ctdb": "ran" if ctdb_enabled else "disabled",
+        "flac_integrity": flac_gate,
+        "recompress": recompress_gate,
+        "derived": "ran" if transcode_requested else "flac-only",
+    }
+
+
 def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None:
     """Assemble the report's ``eta_trace`` block from the recorded samples.
 
@@ -256,14 +411,71 @@ def _build(
     derived_verify_result: object | None = None,
     read_speed: dict | None = None,
     eta_trace: list | None = None,
+    *,
+    recompress_result: object | None = None,
+    cover_art_result: object | None = None,
+    secure_rerip: dict | None = None,
+    outcome: dict | None = None,
+    settings: dict | None = None,
+    disc: dict | None = None,
+    environment: dict | None = None,
+    gates: dict | None = None,
+    log_parse: dict | None = None,
 ) -> dict:
     message, level = accuraterip_verdict(rip_log)
     info = getattr(rip_log, "ripping_info", None)
+    # Serialize the verification sub-blocks once, into locals, so both the
+    # `verification` block below and the derived `issues` list read the SAME
+    # values (they can never disagree). The read-speed block carries the dynamic
+    # secure-re-rip provenance (why the targeted re-rip did/didn't run) when the
+    # GUI supplied it.
+    flac_integrity = _flac_verify(flac_verify_result)
+    transcode = _transcode(transcode_result)
+    derived = _derived_verify(derived_verify_result)
+    recompress = _recompress(recompress_result)
+    ctdb = _ctdb(ctdb_result)
+    cover_art = _cover_art(cover_art_result)
+    read_speed_block = dict(read_speed) if read_speed else None
+    if secure_rerip is not None:
+        read_speed_block = read_speed_block or {}
+        read_speed_block["secure_rerip"] = secure_rerip
+    # The environment defaults to a live probe (Python/OS/PySide6/channel) when
+    # the caller didn't supply one — so a report always carries it — but a test
+    # can inject a fixed dict for determinism.
+    if environment is None:
+        environment = build_info.environment_report()
+    issues = _issues(
+        outcome=outcome,
+        verdict_level=level,
+        ctdb=ctdb,
+        flac_integrity=flac_integrity,
+        derived=derived,
+        transcode=transcode,
+        cover_art=cover_art,
+        read_speed=read_speed_block,
+    )
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
-        "generator": {"name": "platterpus", "version": __version__},
+        "generator": {
+            "name": "platterpus",
+            "version": __version__,
+            # Ties this report to an exact build (git short-SHA, or "source" on a
+            # checkout). Debug aid only — NOT part of any EAC-parity/bit-perfection
+            # claim (maintainer's ask, 0.4.10).
+            "build_fingerprint": build_info.build_fingerprint(),
+        },
         "generated_at": generated_at or None,
+        # The PROCESS result (success/cancelled/failed + hint + auto-heal). The
+        # single most-requested support datum; distinct from `verdict`/
+        # `health_status`, which describe AccurateRip / the rip log, not the run.
+        "outcome": outcome,
         "timing": timing,
+        # What the host ran it on + which exact build (first bug-report question).
+        "environment": environment,
+        # What the GUI ASKED the ripper for (vs. what the log says the drive did).
+        "settings": settings,
+        # Provenance: unknown-mode + the MusicBrainz release id this rip used.
+        "disc": disc,
         "log_creator": getattr(rip_log, "log_creator", "") or None,
         "verdict": {"level": level, "message": message or None},
         "rip": {
@@ -294,8 +506,10 @@ def _build(
         # it converged and whether the better FLAC replaced the original).
         # `unstable_tracks` lists tracks the auto-fix could NOT rescue, and
         # `unresolved: true` FLAGS the disc when any remain (or a pass never read
-        # clean) — surfaced, never papered over.
-        "read_speed": (dict(read_speed) if read_speed else None),
+        # clean) — surfaced, never papered over. In dynamic mode this also carries
+        # a `secure_rerip` sub-block explaining why the targeted secure re-rip did
+        # or didn't run (e.g. skipped because the disc isn't in AccurateRip).
+        "read_speed": read_speed_block,
         # ETA trace kept "for posterity": a throttled series of samples pairing
         # the PC wall-clock time with our smoothed estimate, cyanrip's own ETA, the
         # read speed, and the event context (track + phase). Each sample is
@@ -312,17 +526,32 @@ def _build(
         # cyanrip's own log signature ("Log FUN512:") — its analogue to EAC's
         # signed log checksum, the one archival-forensic field we were dropping.
         "log_checksum": getattr(rip_log, "log_checksum", "") or None,
+        # Whether the human ``.log`` parsed cleanly. A degraded read (a stray
+        # non-UTF-8 byte forced ``errors="replace"``, or nothing parsed) is flagged
+        # here so a thin/empty report isn't mistaken for a clean rip.
+        "log_parse": _log_parse(rip_log, log_parse),
         "tracks": [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())],
-        "ctdb": _ctdb(ctdb_result),
+        "ctdb": ctdb,
         # The full post-rip verification suite in one place: AccurateRip lives in
         # `verdict`/`tracks`, CTDB stays at `ctdb` (back-compat), and this block
-        # adds the FLAC-integrity decode + the transcode outcome so a reader sees
-        # every check the master (and any derived files) passed.
+        # adds the FLAC-integrity decode + the transcode + re-compress outcomes so
+        # a reader sees every check the master (and any derived files) passed.
+        # `gates` says WHY each result is or isn't populated ("ran" / "disabled" /
+        # "backend self-verifies" / "flac-only"), so a null is never ambiguous.
         "verification": {
-            "flac_integrity": _flac_verify(flac_verify_result),
-            "transcode": _transcode(transcode_result),
-            "derived": _derived_verify(derived_verify_result),
+            "gates": gates,
+            "flac_integrity": flac_integrity,
+            "transcode": transcode,
+            "derived": derived,
+            "recompress": recompress,
         },
+        # The front-cover result — hits "good cover image" directly: found / why
+        # not / how many files it was embedded in. None on a FLAC-only rip with no
+        # art requested (see _cover_art).
+        "cover_art": cover_art,
+        # One consolidated, severity-tagged "what went wrong" list, derived from
+        # the blocks above — the first thing a triager opens. Empty on a clean rip.
+        "issues": issues,
         # Per-file SHA256 for long-term integrity checking (bit-rot). Embedded
         # here rather than a separate checksums.sha256 sidecar — one debug file.
         "checksums": (dict(checksums) if checksums else None),
@@ -470,6 +699,154 @@ def _ctdb(result: object | None) -> dict | None:
     }
 
 
+def _recompress(result: object | None) -> dict | None:
+    """Serialize a RecompressResult (opt-in ``flac -8`` re-encode of the masters).
+
+    It mutates the archival masters, so its outcome belongs in the report. ``ok``
+    is true only when every file re-encoded (or none needed to) with no error.
+    None when re-compress wasn't run (the common case). Never raises."""
+    if result is None:
+        return None
+    failures = getattr(result, "failures", ()) or ()
+    error = getattr(result, "error", "") or None
+    return {
+        "ran": True,
+        "ok": (not failures) and (error is None),
+        "reencoded": getattr(result, "reencoded", 0),
+        "failures": [str(p) for p in failures],
+        "error": error,
+    }
+
+
+def _cover_art(result: object | None) -> dict | None:
+    """Serialize a CoverArtResult (the front-cover fetch/embed outcome).
+
+    Duck-typed via ``getattr`` (like every other serializer here) so it tolerates
+    a partial/None object and never raises — the biggest previously-unstructured
+    field, and the one that answers "did I get a good cover image?". ``found`` is
+    True/False once art was attempted, None when it wasn't; ``reason`` is a short
+    machine code (``"ok"``/``"404"``/``"oversize"``/``"not-image"``/
+    ``"network"``…). None on a rip that neither embedded nor saved art."""
+    if result is None:
+        return None
+    saved_as = getattr(result, "saved_as", None)
+    return {
+        "mode": getattr(result, "mode", "") or None,
+        "found": getattr(result, "found", None),
+        "reason": getattr(result, "reason", "") or None,
+        "embedded_count": getattr(result, "embedded_count", None),
+        "saved_as": str(saved_as) if saved_as else None,
+        "release_id": getattr(result, "release_id", "") or None,
+        "bytes": getattr(result, "bytes", None),
+        "format": getattr(result, "format", "") or None,
+        "error": getattr(result, "error", "") or None,
+    }
+
+
+def _log_parse(rip_log: object, override: dict | None) -> dict:
+    """The ``log_parse`` block: did the human ``.log`` parse into real content?
+
+    The GUI can pass an explicit ``{ok, note}`` (e.g. it caught a decode that
+    needed ``errors="replace"``); otherwise we infer ``ok`` from whether the
+    parse produced any tracks or a creator line. A False here explains a thin
+    report without implying the *rip* failed. Pure; never raises."""
+    if isinstance(override, dict):
+        return override
+    tracks = getattr(rip_log, "tracks", ()) or ()
+    ok = bool(tracks) or bool(getattr(rip_log, "log_creator", ""))
+    return {"ok": ok, "note": None}
+
+
+def _issues(
+    *,
+    outcome: dict | None,
+    verdict_level: str,
+    ctdb: dict | None,
+    flac_integrity: dict | None,
+    derived: dict | None,
+    transcode: dict | None,
+    cover_art: dict | None,
+    read_speed: dict | None,
+) -> list[dict]:
+    """Derive the consolidated ``issues`` list from the already-assembled blocks.
+
+    One severity-tagged list a triager opens first, instead of cross-reading five
+    sub-blocks. Reads the SERIALIZED dicts (not the raw results) so it can never
+    disagree with what the report shows. Empty on a clean rip. Pure; never raises.
+    """
+    issues: list[dict] = []
+
+    def add(severity: str, code: str, message: str) -> None:
+        issues.append({"severity": severity, "code": code, "message": message})
+
+    status = (outcome or {}).get("status")
+    if status == "failed":
+        add(
+            "error",
+            "rip_failed",
+            (outcome or {}).get("failure_hint")
+            or "the rip did not complete successfully",
+        )
+    elif status == "cancelled":
+        add("warning", "rip_cancelled", "the rip was cancelled before it finished")
+
+    if verdict_level == "warn":
+        add(
+            "warning",
+            "not_bit_perfect",
+            "not every track verified exactly against AccurateRip — "
+            "see verdict and the per-track table",
+        )
+
+    if read_speed and read_speed.get("unresolved"):
+        unstable = read_speed.get("unstable_tracks") or []
+        tail = f" (track(s) {', '.join(str(t) for t in unstable)})" if unstable else ""
+        add(
+            "warning",
+            "read_unstable",
+            f"read instability remained after the automatic re-rip{tail}",
+        )
+
+    if flac_integrity and flac_integrity.get("ran") and not flac_integrity.get("ok"):
+        add(
+            "error",
+            "flac_integrity_failed",
+            "one or more FLAC masters failed the decode/MD5 integrity test",
+        )
+
+    if derived:
+        if derived.get("mismatches"):
+            add(
+                "error",
+                "derived_mismatch",
+                "a lossless derived file is NOT bit-identical to the FLAC master",
+            )
+        elif derived.get("failures"):
+            add(
+                "warning",
+                "derived_verify_failed",
+                "a derived file could not be decoded/verified",
+            )
+
+    if transcode and (transcode.get("error") or transcode.get("failures")):
+        add(
+            "warning",
+            "transcode_failed",
+            "one or more derived files could not be produced "
+            "(the FLAC master was kept)",
+        )
+
+    if cover_art and cover_art.get("mode") and cover_art.get("found") is False:
+        add(
+            "warning",
+            "cover_art_missing",
+            cover_art.get("reason")
+            or "the front cover could not be fetched or embedded",
+        )
+
+    return issues
+
+
 def report_to_json(report: dict) -> str:
     """Serialize a report dict to pretty UTF-8 JSON (trailing newline).
 
@@ -504,12 +881,21 @@ def write_report(
     flac_verify_result: object | None = None,
     transcode_result: object | None = None,
     derived_verify_result: object | None = None,
+    recompress_result: object | None = None,
+    cover_art_result: object | None = None,
     read_speed: dict | None = None,
+    secure_rerip: dict | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
     generated_at: str = "",
     timing: dict | None = None,
     debug_log: dict | None = None,
+    outcome: dict | None = None,
+    settings: dict | None = None,
+    disc: dict | None = None,
+    environment: dict | None = None,
+    gates: dict | None = None,
+    log_parse: dict | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -526,12 +912,21 @@ def write_report(
             flac_verify_result=flac_verify_result,
             transcode_result=transcode_result,
             derived_verify_result=derived_verify_result,
+            recompress_result=recompress_result,
+            cover_art_result=cover_art_result,
             read_speed=read_speed,
+            secure_rerip=secure_rerip,
             eta_trace=eta_trace,
             checksums=checksums,
             generated_at=generated_at,
             timing=timing,
             debug_log=debug_log,
+            outcome=outcome,
+            settings=settings,
+            disc=disc,
+            environment=environment,
+            gates=gates,
+            log_parse=log_parse,
         )
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is

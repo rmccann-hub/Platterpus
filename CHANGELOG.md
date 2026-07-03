@@ -49,6 +49,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   siblings). Found by a new position-fuzzing property test.
 
 ### Added
+- **The rip report (`.platterpus.json`) now explains a whole rip on its own
+  (schema v7).** New, additive sections so one file answers the questions a
+  support thread always asks: `outcome` (did the *run* succeed / cancel / fail,
+  with a failure hint and whether the "re-rip as unknown" self-heal fired —
+  distinct from the AccurateRip `verdict`); `settings` (what the GUI *asked the
+  ripper for*, including the read offset as `{configured, applied, effective}` so
+  a genuine 0 is told apart from a configured-but-not-applied one — which the log
+  can't show); `disc` (unknown-mode + the MusicBrainz release id); `environment`
+  (Python / OS / PySide6 / install channel); a `generator.build_fingerprint` (the
+  build's git short-SHA, or `"source"` on a checkout — debug only, never part of
+  any bit-perfection claim); `verification.gates` (turns an ambiguous `null`
+  check into an explicit "ran" / "disabled" / "backend self-verifies" /
+  "flac-only"); `verification.recompress` (the opt-in `flac -8` result, which
+  mutates the masters); `log_parse` (flags a degraded read of the human log);
+  and a consolidated, severity-tagged `issues` list a triager opens first (empty
+  on a clean rip). A hard failure that produced **no** log now also leaves a
+  minimal report (`platterpus-rip-failure.platterpus.json`) so the most-broken
+  rips are no longer the least diagnosable.
+- **A report-completeness test now fails CI if a report section goes missing or
+  a new one is added without being declared** (`test_rip_report_completeness.py`)
+  — the JSON's whole value is that a consumer can rely on every section being
+  present-or-explicitly-null, so a check can't be added to the rip and silently
+  left out of the report.
 - **Property-based (fuzzed) tests for two never-raise/security surfaces:** the
   naming live-preview renderer (`render_preview` must never raise on any typed
   template) and the Settings path validators (a `..` traversal segment, and a
