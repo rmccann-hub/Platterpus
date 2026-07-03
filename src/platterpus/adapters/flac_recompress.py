@@ -95,13 +95,23 @@ class RecompressResult:
 
 
 def _default_runner(argv: list[str]) -> int:
+    # Capture stderr and log its tail on failure — never swallow a dependency's
+    # error output (CLAUDE.md "validate every input and every dependency output"),
+    # so a failed re-encode is diagnosable from the log file.
     proc = subprocess.run(
         argv,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
         timeout=_TIMEOUT_S,
+        text=True,
     )
+    if proc.returncode != 0 and proc.stderr and proc.stderr.strip():
+        log.warning(
+            "flac re-compress failed (rc=%s): %s",
+            proc.returncode,
+            proc.stderr.strip().splitlines()[-1],
+        )
     return proc.returncode
 
 

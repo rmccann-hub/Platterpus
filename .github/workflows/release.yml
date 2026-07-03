@@ -79,9 +79,20 @@ jobs:
       - name: Sanity-check the built AppImage
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           chmod +x platterpus-x86_64.AppImage
-          ./platterpus-x86_64.AppImage --version
+          out="$(./platterpus-x86_64.AppImage --version)"
+          echo "$out"
+          # Fail loudly if the built version doesn't match the release tag — a
+          # forgotten __version__ bump would otherwise ship a mislabeled binary
+          # (e.g. a v0.4.9 release containing 0.4.8), breaking the in-app updater's
+          # version compare. TAG is like "v0.4.9"; --version prints "platterpus 0.4.9".
+          expected="${TAG#v}"
+          case "$out" in
+            *"$expected"*) : ;;
+            *) echo "::error::built version ($out) does not match tag $TAG"; exit 1 ;;
+          esac
 
       - name: Publish to GitHub Release
         env:
@@ -102,6 +113,11 @@ jobs:
               platterpus-x86_64.AppImage platterpus-x86_64.AppImage.sha256 \
               platterpus-x86_64.AppImage.zsync \
               install.sh install-appimage.sh --clobber
+            # Ensure it's published, not left a draft. If a PRIOR run created the
+            # draft (below) but died before flipping it off, every retry took this
+            # branch and re-uploaded assets while the release stayed an invisible
+            # draft forever. Idempotent on an already-published release.
+            gh release edit "$TAG" --draft=false
           else
             # Create as a DRAFT first. A draft is invisible to the unauthenticated
             # releases-list API the in-app updater polls, so the release can't be

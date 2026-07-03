@@ -105,12 +105,14 @@ class RipControls(QWidget):
         self._refresh_button_state()
 
     def set_scan_active(self, active: bool) -> None:
-        """Toggle Force-stop availability during a disc scan.
+        """Toggle Start + Force-stop state during a disc scan.
 
-        A stuck disc scan can wedge the drive too (the in-container TOC reader
-        keeps the device open), but Start/Cancel don't apply to a scan — only
-        Force-stop does. So a scan enables JUST Force-stop, leaving Start and
-        Cancel governed by the rip state.
+        A scan holds the drive (the in-container TOC reader keeps the device
+        open), so Start MUST be locked while one is in flight — starting a rip
+        then would contend with the probe for the same device, and the scan/MB
+        completion would pop a modal over an already-rip-locked UI (#37). A scan
+        also enables Force-stop (a stuck TOC read can wedge the drive). Cancel is
+        unaffected — there's no rip to cancel during a scan.
         """
         self._scan_active = bool(active)
         self._refresh_button_state()
@@ -133,7 +135,13 @@ class RipControls(QWidget):
     # --- Internals ----------------------------------------------------------
 
     def _refresh_button_state(self) -> None:
-        can_start = (not self._rip_active) and self._has_minimum_state()
+        # Start is locked during a rip AND during a disc scan (the scan holds the
+        # drive; starting a rip then would contend for the device — #37).
+        can_start = (
+            (not self._rip_active)
+            and (not self._scan_active)
+            and self._has_minimum_state()
+        )
         self._start_button.setEnabled(can_start)
         # A disabled button with no explanation reads as "broken" — say *why*
         # it's greyed out (and what to do) so the user is never left guessing.
@@ -159,6 +167,8 @@ class RipControls(QWidget):
         """
         if self._rip_active:
             return "A rip is already running — use Cancel to stop it."
+        if self._scan_active:
+            return "Reading the disc… Start will be available once the scan finishes."
         if not self._drive:
             return "Insert a disc and choose a drive above to start a rip."
         if not self._unknown_mode and not self._release_id:

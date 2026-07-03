@@ -254,16 +254,13 @@ class DriveSetupDialog(CenteredDialog):
         this, closing mid-detection destroys a still-running QThread (Qt
         aborts the process) and leaves whipper spinning the drive.
         """
-        thread = self._thread
-        worker = self._worker
-        if thread is None:
-            return
-        if worker is not None:
-            worker.cancel()  # kills the subprocess so run() returns promptly
-        thread.quit()
-        # Generous wait: cancel_setup does SIGTERM then SIGKILL after 5s.
-        if not thread.wait(10000):
-            log.error("drive-setup thread did not stop within 10s")
+        # cancel_setup SIGTERM/SIGKILLs the subprocess so run() returns promptly;
+        # stop_thread waits briefly for that and detaches if the kill is slow,
+        # so closing the dialog never blocks the GUI thread nor destroys a
+        # still-running QThread.
+        from platterpus.workers import stop_thread
+
+        stop_thread(self._thread, self._worker)
         self._worker = None
         self._thread = None
 

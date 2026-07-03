@@ -10,7 +10,7 @@
 #   - MusicBrainz Picard Flatpak
 #   - The Distrobox 'ripping' container
 #   - whipper.conf at ~/.config/whipper/
-#   - Host-exported whipper, metaflac and cyanrip at ~/.local/bin/
+#   - Host-exported whipper, metaflac, flac and cyanrip at ~/.local/bin/
 #
 # NEVER removed unless explicitly asked via --remove-rips:
 #   - Music files at ~/Music/rips/ (or wherever your Config points)
@@ -48,7 +48,7 @@ Optional removals (prompted interactively, or --full to enable all):
   - MusicBrainz Picard Flatpak
   - The Distrobox 'ripping' container
   - whipper.conf at ~/.config/whipper/
-  - Host-exported whipper, metaflac and cyanrip at ~/.local/bin/
+  - Host-exported whipper, metaflac, flac and cyanrip at ~/.local/bin/
 
 NEVER removed unless explicitly asked via --remove-rips:
   - Music files at ~/Music/rips/ (or wherever your Config points)
@@ -310,9 +310,11 @@ else
     skipped "$WHIPPER_CONF_DIR"
 fi
 
-# Host-exported binaries from Distrobox
-if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac and cyanrip wrappers at ~/.local/bin/?"; then
-    for bin in whipper metaflac cyanrip; do
+# Host-exported binaries from Distrobox. Must match what setup-host.sh exported
+# (cyanrip, metaflac AND flac); `flac` was missing, so its wrapper was orphaned.
+# `whipper` stays for a pre-KDD-18 install that may still have it exported.
+if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac, flac and cyanrip wrappers at ~/.local/bin/?"; then
+    for bin in whipper metaflac flac cyanrip; do
         target="$HOME/.local/bin/$bin"
         if [ -f "$target" ]; then
             run rm -f "$target"
@@ -322,7 +324,7 @@ if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac
         fi
     done
 else
-    skipped "host-exported whipper and metaflac"
+    skipped "host-exported whipper, metaflac, flac and cyanrip"
 fi
 
 # Music files — opt-in only, never via --full.

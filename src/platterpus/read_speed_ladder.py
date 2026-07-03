@@ -219,6 +219,31 @@ def unstable_tracks(rip_log: object) -> list[int]:
         return []
 
 
+def disc_in_accuraterip(rip_log: object) -> bool:
+    """True if the disc appears to be in the AccurateRip database.
+
+    Signalled by *at least one* track getting a real AR match — v1/v2
+    (:func:`track_accuraterip_verified`) or an offset-variant match
+    (``accuraterip_offset``). This is the discriminator the dynamic secure
+    re-rip needs: it separates "in the DB, but some tracks didn't match" (worth
+    a targeted re-rip of the failing tracks — a DB consensus exists to converge
+    toward) from "not in the DB at all" (a CD-R or obscure pressing — no
+    consensus exists, so a re-rip can't produce a match and would only waste a
+    whole second pass on every track, the exact slowdown dynamic mode avoids).
+    Pure, never raises.
+    """
+    try:
+        for track in getattr(rip_log, "tracks", ()) or ():
+            if track_accuraterip_verified(track):
+                return True
+            if accuraterip_is_match(getattr(track, "accuraterip_offset", None)):
+                return True
+        return False
+    except Exception:  # noqa: BLE001 — a predicate must never crash a rip
+        log.exception("disc_in_accuraterip failed; assuming not in DB")
+        return False
+
+
 def tracks_failing_accuraterip(rip_log: object) -> list[int]:
     """Track numbers NOT proven by AccurateRip after a pass.
 

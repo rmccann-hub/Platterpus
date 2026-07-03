@@ -185,17 +185,17 @@ class HostSetupDialog(CenteredDialog):
     # --- Lifecycle ----------------------------------------------------------
 
     def _stop(self) -> None:
-        """Cancel the run (at the next step boundary) and join the thread."""
-        thread = self._thread
-        worker = self._worker
-        if thread is None:
-            return
-        if worker is not None:
-            worker.cancel()
-        thread.quit()
-        # A step in flight (e.g. dnf) must finish first, so wait generously.
-        if not thread.wait(120_000):
-            log.error("host-setup thread did not stop within 120s")
+        """Cancel the run and stop the thread WITHOUT freezing the window.
+
+        A step in flight (dnf, an image pull) can't be interrupted by quit(), so
+        we never block the GUI thread waiting for it: stop_thread cancels, waits
+        briefly, and detaches a still-running thread (which finishes its step and
+        reaps itself) rather than blocking or destroying it (real-user report:
+        closing mid-dnf froze the app, then risked a destroyed-while-running
+        abort)."""
+        from platterpus.workers import stop_thread
+
+        stop_thread(self._thread, self._worker)
         self._worker = None
         self._thread = None
 

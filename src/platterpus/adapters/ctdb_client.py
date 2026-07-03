@@ -50,6 +50,9 @@ USER_AGENT: str = (
 # a hobby server that occasionally stalls). We retry rather than wait out one
 # long hang — three quick failures beat a single 20s freeze.
 _HTTP_TIMEOUT_S: float = 15.0
+# Hard cap on a CTDB lookup response (a few KB in practice) — bounds memory
+# against a hostile/misbehaving server over the plain-HTTP transport.
+_MAX_RESPONSE_BYTES: int = 8 * 1024 * 1024
 # Transient failures (timeout / connection / 5xx) are retried with backoff;
 # a clean 404 or a parsed empty response is deterministic and NOT retried.
 _RETRY_BACKOFFS_S: tuple[float, ...] = (0.0, 1.5, 3.0)  # len = number of attempts
@@ -104,7 +107,16 @@ class CTDBClient(ABC):
 def _default_fetcher(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT_S) as response:
-        return response.read()
+        # Bound the read: the transport is plain HTTP (db.cuetools.net serves no
+        # valid TLS cert — see CTDB_SCHEME), so a MITM or a misbehaving server
+        # could otherwise return a multi-GB body and exhaust memory before the
+        # XML parse. A CTDB lookup response is a few KB; 8 MiB is generous.
+        data = response.read(_MAX_RESPONSE_BYTES + 1)
+    if len(data) > _MAX_RESPONSE_BYTES:
+        raise CtdbLookupError(
+            f"CTDB response exceeded {_MAX_RESPONSE_BYTES} bytes — refusing it"
+        )
+    return data
 
 
 class CtdbHttpImpl(CTDBClient):

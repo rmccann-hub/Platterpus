@@ -7,14 +7,37 @@ binary. The contract: never raise; distinguish "couldn't run" (error) from
 
 from __future__ import annotations
 
+import logging
 import subprocess
 import threading
 from pathlib import Path
 
+import pytest
+
+from platterpus.adapters import flac_verify as fv
 from platterpus.adapters.flac_verify import FlacVerifyResult, verify_flac_files
 from platterpus.workers.flac_verify_worker import verify_rip_dir
 
 # --- adapter: verify_flac_files -------------------------------------------
+
+
+def test_default_runner_logs_stderr_tail_on_failure(
+    monkeypatch: pytest.MonkeyPatch, caplog
+) -> None:
+    """Regression: the real runner must not swallow flac's stderr — a failed
+    `flac --test` (corruption) has to be diagnosable from the log file."""
+
+    class _Proc:
+        returncode = 1
+        stderr = "some warning\nERROR: got error while decoding\n"
+
+    monkeypatch.setattr(fv.subprocess, "run", lambda *a, **k: _Proc())
+    with caplog.at_level(logging.WARNING):
+        rc = fv._default_runner(["flac", "--test", "x.flac"])
+
+    assert rc == 1
+    assert "flac --test failed (rc=1)" in caplog.text
+    assert "got error while decoding" in caplog.text  # the stderr tail landed
 
 
 def test_all_pass() -> None:

@@ -88,6 +88,39 @@ _FORCE_STOP_COUNTDOWN_MS: int = 5000
 _CHECKSUM_SETTLE_TIMEOUT_S: float = 120.0
 
 
+def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> bool:
+    """Whether any tag value handed to cyanrip carries a literal ``:``.
+
+    Drives the post-rip colon-restore (KDD-22): cyanrip can't take a ``:`` in a
+    tag arg, so each such value is fed as the U+2236 lookalike and must be
+    restored in the written tags afterward. This must cover EVERY field the
+    backend's ``_escape_meta_value`` touches — album artist/title, year, genre,
+    the ``musicbrainz_albumid`` (``release_id``), and each track's title, artist,
+    and ISRC. It previously checked only album/track title+artist, so a colon in
+    year/genre/isrc/albumid kept its U+2236 in the tag forever (#29). Pure and
+    testable; reads the assembled ``RipMetadata`` so it can't drift from what was
+    actually sent.
+    """
+    if ":" in (release_id or ""):
+        return True
+    if metadata is None:
+        return False
+    for value in (
+        metadata.album_artist,
+        metadata.album_title,
+        metadata.year,
+        metadata.genre,
+    ):
+        if ":" in (value or ""):
+            return True
+    return any(
+        ":" in (track.title or "")
+        or ":" in (track.artist or "")
+        or ":" in (track.isrc or "")
+        for track in metadata.tracks
+    )
+
+
 class RipMixin:
     """Start/cancel/finish a rip, plus eject, unknown-album, and cover art."""
 
@@ -180,7 +213,13 @@ class RipMixin:
         self._last_ctdb_result = None
         self._last_flac_verify_result = None
         self._last_transcode_result = None
+        self._last_derived_verify_result = None
         self._last_checksums = None
+        # Rip generation, bumped every Start. Each post-rip verify daemon captures
+        # the generation it launched under and drops its result if a NEWER rip has
+        # started since — so a slow verify from album A (FLAC-verify waits up to
+        # 120s) can't write its verdict into album B's report/UI after B begins.
+        self._rip_generation += 1
         # Allow exactly one auto-heal retry (rip-as-unknown) per Start, so a
         # persistent failure can't loop.
         self._auto_retry_done = False
@@ -504,7 +543,14 @@ class RipMixin:
             self._rip_progress.set_log_path(log_file)
             # Parse and render AR results if the file exists.
             try:
-                text = log_file.read_text(encoding="utf-8")
+                # errors="replace" (matching the worker's own _parse_log): a rip
+                # log with a stray non-UTF-8 byte must NOT raise here — this runs
+                # on the GUI thread, and a UnicodeDecodeError (a ValueError, which
+                # the old `except OSError` didn't catch) would crash the finish
+                # handler and abort the entire post-rip chain (no report, no
+                # tagging, no cover art, no eject, and the rip state left uncleared
+                # so shutdown thinks a rip is still live).
+                text = log_file.read_text(encoding="utf-8", errors="replace")
                 # Sniff the format instead of trusting the configured
                 # backend: a folder can hold logs from either ripper, and
                 # the auto-heal path can change mid-session.
@@ -537,6 +583,12 @@ class RipMixin:
                 self._append_read_speed_summary()
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
+            except Exception:  # noqa: BLE001 — GUI-thread finish handler: a
+                # malformed log or a parser/report edge must never crash the
+                # finish handler (which would abort the whole post-rip chain and
+                # leave the rip state uncleared). Log and continue; the rest of
+                # the chain (tagging, cover art, verify, eject, state clear) runs.
+                log.exception("rendering rip results failed for %s", log_file)
 
         # Post-rip processing: unknown-mode tagging + backend-independent
         # cover art. Both shell out to metaflac on the SAME FLAC files, so
@@ -752,19 +804,23 @@ class RipMixin:
             launch_picard_for(rip_output_dir)
 
     def _metadata_has_colon(self) -> bool:
-        """True if the album or any track's name contains a ``:``.
+        """True if any metadata value fed to cyanrip contains a ``:``.
 
         Drives the cyanrip colon-restore (KDD-22): only worth a post-rip metaflac
-        pass when a colon was actually substituted. Reads the current track table
-        (the names the user saw/edited), so it's accurate for known discs.
+        pass when a colon was actually substituted with the U+2236 lookalike. We
+        check the assembled ``RipMetadata`` that was actually sent (album fields,
+        year, genre, the release id, and every track's title/artist/isrc) rather
+        than re-deriving from the track table — the table exposes only
+        title/artist, so a colon in year/genre/isrc/albumid used to be missed and
+        left un-restored (#29). Falls back to the current release id if no rip
+        params are recorded (e.g. exercised directly in a test).
         """
-        album = self._track_table.album_metadata()
-        if ":" in (album.title or "") or ":" in (album.artist or ""):
-            return True
-        return any(
-            ":" in (track.title or "") or ":" in (track.artist_credit or "")
-            for track in self._track_table.tracks()
+        params = self._active_rip_params
+        metadata = params.metadata if params is not None else None
+        release_id = (
+            params.release_id if params is not None else self._current_release_id
         )
+        return _metadata_contains_colon(metadata, release_id)
 
     # --- Post-rip processing: tagging + cover art (one off-GUI thread) -------
 
@@ -818,6 +874,7 @@ class RipMixin:
         emit (the same pattern the cover-art fetch always used). Tests join the
         handle on ``self._post_rip_thread`` for determinism.
         """
+        gen = self._rip_generation  # drop the transcode result if a newer rip starts
 
         def work() -> None:
             # 0) Restore the real ':' in cyanrip's tags (it was fed the ∶
@@ -889,6 +946,8 @@ class RipMixin:
                 except Exception:  # noqa: BLE001 — must never crash the GUI
                     log.exception("transcode failed unexpectedly")
                     tresult = TranscodeResult(error="failed unexpectedly")
+                if self._rip_generation != gen:
+                    return  # a newer rip started — this result is for the old album
                 try:
                     self.transcode_done.emit(tresult)
                 except RuntimeError:  # window destroyed — nothing to update
@@ -931,8 +990,12 @@ class RipMixin:
         verdict is reported via ``ctdb_verify_done`` (queued to the GUI thread).
         """
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             result = verify_rip_dir(self._ctdb_client, rip_dir, wait_for=wait_for)
+            if self._rip_generation != gen:
+                return  # a newer rip started — this verdict is for the old album
             try:
                 self.ctdb_verify_done.emit(result)
             except RuntimeError:  # window already destroyed — nothing to update
@@ -1200,10 +1263,28 @@ class RipMixin:
         """
         from platterpus import checksums
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             if wait_for is not None:
                 wait_for.join(timeout=_CHECKSUM_SETTLE_TIMEOUT_S)
+                # `join(timeout)` returns whether or not the thread finished. If
+                # the post-rip tagging/transcode is STILL running, the FLAC/derived
+                # files are mid-rewrite — hashing them now would record a SHA256
+                # that doesn't match the final file, i.e. a false "integrity truth".
+                # Better to record no checksums than wrong ones: skip this run
+                # (the report simply omits checksums; the fidelity verdict, which
+                # comes from AccurateRip/the rip log, is unaffected).
+                if wait_for.is_alive():
+                    log.warning(
+                        "post-rip work did not settle within %.0fs — skipping "
+                        "checksums so a mid-rewrite file isn't hashed as final",
+                        _CHECKSUM_SETTLE_TIMEOUT_S,
+                    )
+                    return
             digests = checksums.compute_digests(rip_dir)
+            if self._rip_generation != gen:
+                return  # a newer rip started — these digests are for the old album
             try:
                 self.checksums_done.emit(digests)
             except RuntimeError:  # window already destroyed — nothing to update
@@ -1234,8 +1315,12 @@ class RipMixin:
         never tests a file mid-rewrite. Result reported via ``flac_verify_done``
         (queued to the GUI thread)."""
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             result = verify_flac_dir(rip_dir, wait_for=wait_for)
+            if self._rip_generation != gen:
+                return  # a newer rip started — this result is for the old album
             try:
                 self.flac_verify_done.emit(result)
             except RuntimeError:  # window already destroyed — nothing to update
@@ -1351,8 +1436,12 @@ class RipMixin:
         file mid-write. Result reported via ``derived_verify_done`` (queued to the
         GUI thread)."""
 
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
         def work() -> None:
             result = verify_derived_dir(rip_dir, fmt, wait_for=wait_for)
+            if self._rip_generation != gen:
+                return  # a newer rip started — this result is for the old album
             try:
                 self.derived_verify_done.emit(result)
             except RuntimeError:  # window already destroyed — nothing to update

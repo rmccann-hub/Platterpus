@@ -93,8 +93,10 @@ jobs:
         # Test across the Python versions our users actually run. We've been
         # bitten by version-specific breakage before (whipper's pkg_resources
         # use vs Python 3.14); a matrix catches the GUI side of that class of
-        # problem early. 3.11 is the floor (pyproject `requires-python`).
-        python-version: ["3.11", "3.12", "3.13"]
+        # problem early. 3.11 is the floor (pyproject `requires-python`); 3.14
+        # (2025-10) is the newest — added 2026-07-02 (nothing the project uses
+        # was removed in it; PySide6 6.11 supports it).
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     name: test (py${{ matrix.python-version }})
     steps:
       - uses: actions/checkout@v4

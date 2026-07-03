@@ -4,16 +4,18 @@ A small horizontal panel: label + dropdown of detected drives + Refresh.
 Populates from `RipBackend.list_drives()`; emits `drive_changed`
 when the selection changes.
 
-The backend's list_drives() call shells out to the ripper, which can take
-a second or two. For v1 we make the call synchronously from the GUI
-thread — the user interaction model here is "click refresh, briefly
-wait, see the list". P1 could push it into a worker if the latency
-becomes annoying in practice.
+The backend's list_drives() call shells out to the ripper (which enters the
+Distrobox container — slow on a cold start). The Refresh button routes through
+an injected off-GUI-thread refresh when one is set (`set_async_refresh`, wired
+by MainWindow to its threaded `refresh_drives`), so a cold container can't
+freeze the window; standalone (no callback) it falls back to the synchronous
+`refresh()`.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -74,8 +76,11 @@ class DrivePicker(QWidget):
         self._combo.currentIndexChanged.connect(self._on_index_changed)
         layout.addWidget(self._combo, stretch=1)
 
+        # Off-GUI-thread refresh, injected by MainWindow (see set_async_refresh).
+        # None → the button falls back to the synchronous refresh().
+        self._async_refresh: Callable[[], None] | None = None
         self._refresh_button: QPushButton = QPushButton("Refresh", self)
-        self._refresh_button.clicked.connect(self.refresh)
+        self._refresh_button.clicked.connect(self._on_refresh_clicked)
         layout.addWidget(self._refresh_button)
 
         # Re-run the disc scan for the CURRENT drive. Refresh only reloads
@@ -100,13 +105,28 @@ class DrivePicker(QWidget):
 
     # --- Public surface -----------------------------------------------------
 
+    def set_async_refresh(self, callback: Callable[[], None] | None) -> None:
+        """Route the Refresh button through an off-GUI-thread fetch.
+
+        MainWindow injects its threaded `refresh_drives` here so clicking
+        Refresh on a cold container doesn't freeze the window. When unset
+        (standalone widget / tests), the button uses the synchronous `refresh()`.
+        """
+        self._async_refresh = callback
+
+    def _on_refresh_clicked(self) -> None:
+        """Refresh button slot: prefer the injected off-thread refresh."""
+        if self._async_refresh is not None:
+            self._async_refresh()
+        else:
+            self.refresh()
+
     def refresh(self) -> None:
         """Reload drives from the backend **synchronously**.
 
-        Used by the Refresh button (user-initiated, so a brief block while
-        `list_drives` shells out is acceptable) and by direct callers/tests.
-        The launch path uses `MainWindow.refresh_drives`, which fetches the
-        list off the GUI thread and calls `populate()` with the result. On a
+        Kept for direct callers/tests. In the app the Refresh button routes
+        through `set_async_refresh` (MainWindow's threaded `refresh_drives`),
+        which fetches the list off the GUI thread and calls `populate()`. On a
         backend error, shows an "(error: …)" placeholder rather than crashing.
         """
         try:

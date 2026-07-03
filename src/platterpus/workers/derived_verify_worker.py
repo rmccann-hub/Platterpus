@@ -45,7 +45,11 @@ def _pair_derived_with_masters(
     can't be bit-compared), and a master with no derived sibling is what makes
     ``len(pairs) < expected`` — i.e. the transcode was incomplete.
     """
-    masters = sorted(rip_dir.rglob("*.flac"))
+    # Non-recursive: pair this album's masters (direct children) with their
+    # sibling derived files. A recursive glob would count nested/other-album
+    # FLACs as masters and inflate `expected`, wrongly reading the transcode as
+    # incomplete (#40) — matches the CTDB/FLAC-verify enumeration.
+    masters = sorted(rip_dir.glob("*.flac"))
     pairs: list[tuple[Path, Path]] = []
     for master in masters:
         derived = master.with_suffix(f".{ext}")

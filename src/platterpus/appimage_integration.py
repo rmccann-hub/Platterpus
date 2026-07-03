@@ -134,6 +134,24 @@ def _desktop_file(desktop_dir: Path) -> Path:
     return desktop_dir / f"{DESKTOP_ID}.desktop"
 
 
+def _quote_exec_path(appimage: Path) -> str:
+    """Return the AppImage path as a properly-quoted ``Exec=`` argument.
+
+    The freedesktop Desktop Entry spec requires an argument that contains
+    reserved characters to be wrapped in double quotes with the double quote,
+    backtick, dollar sign, and backslash each backslash-escaped inside them.
+    We were dropping the raw path between quotes, so an AppImage under a path
+    containing ``"`` / `` ` `` / ``$`` / ``\\`` (e.g. a user folder with a
+    dollar sign) would break the quoting — or, in a launcher that hands the
+    line to a shell, allow command substitution via ``$(...)`` / backticks
+    (#26). Escaping backslash FIRST avoids double-escaping the ones we add.
+    """
+    escaped = str(appimage)
+    for char in ("\\", '"', "`", "$"):
+        escaped = escaped.replace(char, "\\" + char)
+    return f'"{escaped}"'
+
+
 def is_integrated(appimage: Path, desktop_dir: Path = DESKTOP_DIR) -> bool:
     """True if a desktop entry exists that launches *this* AppImage.
 
@@ -145,19 +163,20 @@ def is_integrated(appimage: Path, desktop_dir: Path = DESKTOP_DIR) -> bool:
         text = target.read_text(encoding="utf-8")
     except OSError:
         return False
-    # Exec is written quoted ('Exec="<path>" %U'); match that exact form.
-    return f'Exec="{appimage}"' in text
+    # Exec is written quoted+escaped ('Exec="<path>" %U'); match that exact form.
+    return f"Exec={_quote_exec_path(appimage)}" in text
 
 
 def _desktop_contents(appimage: Path, icon: str) -> str:
-    # Exec is quoted so a path with spaces still launches.
+    # Exec is quoted+escaped (freedesktop spec) so a path with spaces or reserved
+    # characters still launches and can't be misparsed — see _quote_exec_path.
     return (
         "[Desktop Entry]\n"
         "Type=Application\n"
         f"Name={_DISPLAY_NAME}\n"
         "GenericName=CD Ripper\n"
         "Comment=Rip audio CDs to FLAC with EAC-equivalent accuracy\n"
-        f'Exec="{appimage}" %U\n'
+        f"Exec={_quote_exec_path(appimage)} %U\n"
         f"Icon={icon}\n"
         "Terminal=false\n"
         "Categories=AudioVideo;Audio;\n"
@@ -249,7 +268,7 @@ def integrate(
         "Name=Uninstall Platterpus\n"
         "Comment=Remove Platterpus and everything it installed "
         "(your music is kept)\n"
-        f'Exec="{appimage}" --uninstall\n'
+        f"Exec={_quote_exec_path(appimage)} --uninstall\n"
         f"Icon={icon_value}\n"
         "Terminal=false\n"
         "Categories=System;\n",

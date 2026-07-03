@@ -44,13 +44,7 @@ from platterpus.deps.manager import DependencyManager
 from platterpus.drive_profile_store import DriveProfileStore
 from platterpus.ui.disc_info_panel import DiscInfoPanel
 from platterpus.ui.drive_picker import DrivePicker
-
-# _DialogQueuedResolver moved to main_window_deps with the dependency UI;
-# re-exported here for the test-facing API (tests import it from main_window).
-from platterpus.ui.main_window_deps import (  # noqa: F401
-    DependencyMixin,
-    _DialogQueuedResolver,
-)
+from platterpus.ui.main_window_deps import DependencyMixin
 from platterpus.ui.main_window_drive import DriveMixin
 
 # fidelity_summary / safe_path_segment are re-exported for the test-facing
@@ -126,6 +120,15 @@ class MainWindow(
     # {relpath: sha256} digest map, once every audio file (masters + any
     # derived) has been hashed, so the report's checksums land on the GUI thread.
     checksums_done = Signal(object)
+    # Requests to the persistent MusicBrainz worker. Emitting these (instead of
+    # calling the worker's slots directly) is what actually runs the query on
+    # the worker's thread: a direct method call would run on the *caller's* (GUI)
+    # thread regardless of moveToThread — freezing the window on a slow lookup.
+    # Connected to the worker's slots in __init__ (queued, cross-thread).
+    _mb_lookup_disc_id_requested = Signal(str)
+    # (mbid, context) — context is the disc-id the fetch belongs to, echoed back
+    # so a late fetch for an already-ejected disc is dropped (wrong-album guard).
+    _mb_fetch_release_requested = Signal(str, str)
 
     def __init__(
         self,
@@ -175,6 +178,13 @@ class MainWindow(
         self._current_release_id: str = ""
         self._current_release_detail: ReleaseDetail | None = None
         self._last_mb_releases: list[ReleaseSummary] = []
+        # The disc-id of the disc currently on screen. MB lookups echo the
+        # disc-id they were fired for; a returned result whose context doesn't
+        # match this is stale (from a disc the user already swapped away from)
+        # and is dropped, so a slow lookup can't tag the *next* disc with the
+        # *previous* disc's release. Set when a probe identifies a disc, cleared
+        # at the start of every new scan.
+        self._current_disc_id: str = ""
         # Track count for the current disc (from whipper cd info). Used to
         # render numbered blank rows when MusicBrainz has no match.
         self._current_num_tracks: int = 0
@@ -205,6 +215,9 @@ class MainWindow(
         # the GUI thread) instead of a lambda (which Qt delivers DIRECTLY on the
         # worker thread — building resolver dialogs there is a cross-thread bug).
         self._dep_check_manager: object | None = None
+        # Whether the in-flight async dep check should show its end-of-check
+        # summary popup (True for the user-clicked Tools/Settings paths).
+        self._dep_check_show_summary: bool = False
         # Disc probe (disc_info enters the container + reads the disc — slow);
         # run off-thread per drive change so selecting a drive never freezes
         # the window. Joined in closeEvent.
@@ -325,6 +338,10 @@ class MainWindow(
         # Stored so tests can join it. The last result is folded into the report.
         self._derived_verify_thread: threading.Thread | None = None
         self._last_derived_verify_result: object | None = None
+        # Rip generation, bumped on each Start (see main_window_rip). Post-rip
+        # verify daemons capture it and drop their result if a newer rip has begun
+        # since, so a previous album's late verify can't contaminate this one.
+        self._rip_generation: int = 0
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
         # once per session (refreshing shouldn't re-pop the dialog).
         self._drive_access_nudged: bool = False
@@ -393,6 +410,11 @@ class MainWindow(
         self._mb_worker: MusicBrainzWorker = MusicBrainzWorker(mb_client)
         self._mb_thread: QThread = QThread(self)
         self._mb_worker.moveToThread(self._mb_thread)
+        # Dispatch queries by *emitting* to the worker's slots. The worker lives
+        # on _mb_thread, so these AutoConnections resolve to QueuedConnection and
+        # the HTTP call runs off the GUI thread (see the signal declarations).
+        self._mb_lookup_disc_id_requested.connect(self._mb_worker.lookup_disc_id)
+        self._mb_fetch_release_requested.connect(self._mb_worker.fetch_release)
         self._mb_thread.start()
         # Stop the thread cleanly when the window closes.
         self.destroyed.connect(self._mb_thread.quit)
@@ -450,36 +472,24 @@ class MainWindow(
         self._drive_picker.show_error(message)
 
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt API
-        """Tear down the MB worker thread cleanly on window close."""
+        """Tear down worker threads cleanly on window close.
+
+        Every worker thread is stopped via ``stop_thread``, which cancels + waits
+        briefly + DETACHES a still-running thread instead of blocking the GUI
+        thread on a wedged subprocess or destroying a live QThread (a hard abort
+        that could happen when a bounded wait timed out against a much longer
+        subprocess timeout — disc probe up to 120s vs the old 3s wait)."""
+        from platterpus.workers import stop_thread
+
         # Disarm the auto-force-stop so it can't fire into a torn-down window.
         self._force_stop_timer.stop()
-        if self._mb_thread.isRunning():
-            self._mb_thread.quit()
-            self._mb_thread.wait(2000)
-        # Join a still-running update check (short HTTP call; bounded wait).
-        if self._update_thread is not None and self._update_thread.isRunning():
-            self._update_thread.quit()
-            self._update_thread.wait(2000)
-        # Cancel + join an in-flight update download (it polls the cancel
-        # flag between 1 MiB chunks, so this returns quickly).
-        if self._install_thread is not None and self._install_thread.isRunning():
-            if self._install_worker is not None:
-                self._install_worker.cancel()
-            self._install_thread.quit()
-            self._install_thread.wait(5000)
-        # Join a still-running launch dependency probe (bounded subprocess
-        # probes; short wait).
-        if self._dep_check_thread is not None and self._dep_check_thread.isRunning():
-            self._dep_check_thread.quit()
-            self._dep_check_thread.wait(2000)
-        # Join a still-running disc probe (disc_info can be mid-read; bounded).
-        if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
-            self._disc_info_thread.quit()
-            self._disc_info_thread.wait(3000)
-        # Join a still-running drive-list probe.
-        if self._drive_list_thread is not None and self._drive_list_thread.isRunning():
-            self._drive_list_thread.quit()
-            self._drive_list_thread.wait(2000)
+        stop_thread(self._mb_thread)  # persistent worker; idle loop quits fast
+        stop_thread(self._update_thread)  # short HTTP release check
+        # In-flight update download: cancel polls between 1 MiB chunks.
+        stop_thread(self._install_thread, self._install_worker, wait_ms=5000)
+        stop_thread(self._dep_check_thread)  # bounded container probe
+        stop_thread(self._disc_info_thread)  # can be mid-read
+        stop_thread(self._drive_list_thread)
         # The post-rip CTDB verify runs on a DAEMON thread (not a QThread), so
         # it's intentionally not joined here — it dies with the process and
         # guards its own emit. Joining it would risk blocking close on a long
@@ -596,6 +606,12 @@ class MainWindow(
     def _wire_signals(self) -> None:
         # Drive selection → disc info + MB lookup pipeline.
         self._drive_picker.drive_changed.connect(self._on_drive_changed)
+        # Route the Refresh button through the off-GUI-thread drive-list fetch
+        # so clicking it on a cold container can't freeze the window. Wrapped in
+        # a closure (resolved at click time) rather than a captured bound method
+        # — a plain stored callback invoked on the GUI thread, not a cross-thread
+        # signal connection, so the no-lambda-connection rule doesn't apply.
+        self._drive_picker.set_async_refresh(lambda: self.refresh_drives())
         # No drive found → offer an actionable diagnosis (once per session).
         self._drive_picker.drives_unavailable.connect(self._on_drives_unavailable)
         # Manual Eject button.
@@ -636,16 +652,38 @@ class MainWindow(
 
     def _start_disc_info(self, device: str) -> None:
         """Probe the disc on a worker thread. Replaces any in-flight probe
-        (a previous drive's result would be stale)."""
-        from platterpus.workers import start_worker_thread
+        (a previous probe's result would be stale)."""
+        from platterpus.workers import start_worker_thread, stop_thread
         from platterpus.workers.disc_info_worker import DiscInfoWorker
 
-        # Stop a still-running probe for the previous drive before starting a
-        # new one. quit() is delivered to that thread's own loop directly (not
-        # via the queued finished→quit), so it works without an event-loop spin.
+        # A new disc scan resets unknown-album mode: it latches True when a disc
+        # can't be identified (the auto-offer / File → Rip as Unknown), and if it
+        # were never cleared a *later* identified disc would rip through the
+        # unknown path — MBID dropped, validation skipped, generic "Track N"
+        # filenames. _handle_no_mb_match re-sets it for this disc if it too is
+        # unknown, so resetting here (before the lookup) is safe.
+        self._rip_controls.set_unknown_mode(False)
+
+        # Clear the current disc-id so any MB lookup still in flight for the
+        # *previous* disc is dropped when it lands (its echoed context won't
+        # match ""). The new disc's probe sets this again once it identifies it.
+        self._current_disc_id = ""
+
+        # Supersede any in-flight probe. DISCONNECT its result signals first so a
+        # late finish (even for the SAME device — the device-only stale check
+        # can't tell two probes of one drive apart) can't clobber the new probe's
+        # state, then stop it WITHOUT blocking the GUI thread: quit() can't
+        # interrupt a mid-read subprocess, so the old 2s wait was a dead stutter
+        # on every rescan and risked destroying a running thread. stop_thread
+        # detaches it instead; its disconnected result is simply ignored.
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
-            self._disc_info_thread.quit()
-            self._disc_info_thread.wait(2000)
+            if self._disc_info_worker is not None:
+                try:
+                    self._disc_info_worker.finished.disconnect(self._on_disc_info_ready)
+                    self._disc_info_worker.failed.disconnect(self._on_disc_info_failed)
+                except (RuntimeError, TypeError):
+                    pass  # already disconnected / never connected
+            stop_thread(self._disc_info_thread, wait_ms=0)
 
         # A scan can wedge the drive (a stuck in-container TOC reader), so make
         # Force-stop available for the duration and clear any prior stop flag.
@@ -674,10 +712,15 @@ class MainWindow(
         # rows if MusicBrainz turns up nothing.
         self._current_num_tracks = info.num_tracks
         if info.musicbrainz_disc_id:
+            # Remember which disc the upcoming lookup belongs to; its result
+            # (and any follow-on release fetch) echoes this back, and a
+            # mismatch on return means the user moved on — drop it.
+            self._current_disc_id = info.musicbrainz_disc_id
             self._disc_info_panel.set_mb_loading()
-            # Run the MB query on the worker thread. A 0-result response
-            # routes to _handle_no_mb_match (same as an empty disc ID).
-            self._mb_worker.lookup_disc_id(info.musicbrainz_disc_id)
+            # Run the MB query on the worker thread (emit, don't call — a direct
+            # call would run on this GUI thread). A 0-result response routes to
+            # _handle_no_mb_match (same as an empty disc ID).
+            self._mb_lookup_disc_id_requested.emit(info.musicbrainz_disc_id)
         else:
             # Empty disc ID means the backend couldn't retrieve metadata
             # (the disc isn't in MusicBrainz). Surface "not in MusicBrainz"
@@ -725,34 +768,56 @@ class MainWindow(
 
     # --- Slots: MusicBrainz results ----------------------------------------
 
-    def _on_mb_releases(self, releases: list[ReleaseSummary]) -> None:
+    def _is_stale_mb_result(self, context: str) -> bool:
+        """True if an MB result is for a disc the user already left.
+
+        MB queries are async: a lookup fired for disc A can return *after* the
+        user swapped to disc B. Each result echoes the disc-id it was fired for
+        (`context`); if that no longer matches the disc on screen, applying it
+        would tag the current disc with the previous disc's release — the
+        wrong-album bug. Mirror of `_is_stale_disc_result`, for the MB path.
+        """
+        return context != self._current_disc_id
+
+    def _on_mb_releases(self, context: str, releases: list[ReleaseSummary]) -> None:
         """MB lookup returned candidates."""
+        if self._is_stale_mb_result(context):
+            log.debug("dropping stale MB releases for disc %r", context)
+            return
         self._last_mb_releases = list(releases)
         self._disc_info_panel.set_mb_matches(releases)
 
         if len(releases) == 1:
-            self._fetch_release_detail(releases[0].mbid)
+            self._fetch_release_detail(releases[0].mbid, context)
         elif len(releases) > 1:
             # Defer to user. The picker is modal; we block here briefly
-            # to keep the flow linear.
+            # to keep the flow linear. Capture `context` locally and thread it
+            # into the fetch — the modal runs a nested event loop, so the disc
+            # could change mid-dialog; the fetch must stay tagged to *this* disc.
             dialog = ReleasePickerDialog(releases, self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 mbid = dialog.selected_mbid()
                 if mbid:
-                    self._fetch_release_detail(mbid)
+                    self._fetch_release_detail(mbid, context)
         else:
             # 0 matches: the disc had a MusicBrainz disc ID but no release
             # is registered for it. Same outcome as a disc with no ID —
             # show blank track rows and offer the unknown-album rip.
             self._handle_no_mb_match()
 
-    def _on_mb_release_detail(self, detail: ReleaseDetail) -> None:
+    def _on_mb_release_detail(self, context: str, detail: ReleaseDetail) -> None:
+        if self._is_stale_mb_result(context):
+            log.debug("dropping stale MB release detail for disc %r", context)
+            return
         self._current_release_detail = detail
         self._current_release_id = detail.summary.mbid
         self._track_table.set_release(detail)
         self._rip_controls.set_release_id(detail.summary.mbid)
 
-    def _on_mb_error(self, message: str) -> None:
+    def _on_mb_error(self, context: str, message: str) -> None:
+        if self._is_stale_mb_result(context):
+            log.debug("dropping stale MB error for disc %r: %s", context, message)
+            return
         log.warning("MB worker error: %s", message)
         self._disc_info_panel.set_mb_error(message)
         # A lookup *failure* (network down, TLS error, rate limit) must not
@@ -778,8 +843,11 @@ class MainWindow(
         if not self._rip_controls.is_unknown_mode():
             self.open_unknown_album_dialog()
 
-    def _fetch_release_detail(self, mbid: str) -> None:
-        self._mb_worker.fetch_release(mbid)
+    def _fetch_release_detail(self, mbid: str, context: str) -> None:
+        # Emit (don't call) so the fetch runs on the MB worker thread. `context`
+        # (the disc-id) rides along and is echoed back, so a fetch that finishes
+        # after the user swapped discs is dropped rather than tagging the new one.
+        self._mb_fetch_release_requested.emit(mbid, context)
 
     # --- Slots: menu actions -----------------------------------------------
 

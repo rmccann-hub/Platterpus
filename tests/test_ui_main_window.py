@@ -272,23 +272,79 @@ def test_drive_change_runs_disc_info_off_thread_and_populates(
         cddb_disc_id="abc",
         musicbrainz_disc_id="mb-id",
     )
-    window = teardown_threads(backend=backend, mb_client=_FakeMb())
+    mb = _FakeMb()
+    window = teardown_threads(backend=backend, mb_client=mb)
     monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
 
     window._on_drive_changed("/dev/sr0")
     assert window._disc_info_thread is not None  # probe started off-thread
 
-    # Pump the event loop until the worker finishes and the cascade runs
-    # (_on_disc_info_ready clears the thread ref at its start).
+    # Pump the event loop until the disc probe finishes AND the MB query has
+    # run on the MB worker thread (disc_id_calls records it) AND the result has
+    # round-tripped back to the panel. The MB lookup is now genuinely async —
+    # _on_disc_info_ready clears the disc thread ref then *emits* to the MB
+    # worker — so waiting on the disc thread alone is not enough.
     deadline = time.monotonic() + 8.0
-    while window._disc_info_thread is not None and time.monotonic() < deadline:
+    while (
+        window._disc_info_thread is not None or mb.disc_id_calls == []
+    ) and time.monotonic() < deadline:
         qapp.processEvents()
         time.sleep(0.005)
+    # Flush the queued releases_returned → _on_mb_releases round-trip.
+    for _ in range(50):
+        qapp.processEvents()
+        time.sleep(0.002)
 
     assert backend.disc_info_calls == ["/dev/sr0"]  # probed off-thread
+    assert mb.disc_id_calls == ["mb-id"]  # MB query ran off-thread, not on GUI
     assert window._disc_info_panel._mb_id_value.text() == "mb-id"
     assert window._disc_info_panel._cddb_id_value.text() == "abc"
     assert "MusicBrainz" in window._disc_info_panel._mb_match_value.text()
+
+
+def test_mb_lookup_runs_off_the_gui_thread(
+    teardown_threads,
+    qapp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: a MusicBrainz lookup must run on the MB worker thread, not
+    the GUI thread (a direct slot call on a moved-to-thread worker would run on
+    the caller's thread and freeze the window on a slow lookup)."""
+    import threading
+
+    gui_ident = threading.get_ident()
+    call_idents: list[int] = []
+
+    class _IdentMb(_FakeMb):
+        def releases_by_disc_id(self, disc_id: str) -> list[ReleaseSummary]:
+            call_idents.append(threading.get_ident())
+            return super().releases_by_disc_id(disc_id)
+
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_IdentMb())
+    monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
+
+    window._on_disc_info_ready("/dev/sr0", DiscInfo(musicbrainz_disc_id="mb-id"))
+
+    deadline = time.monotonic() + 8.0
+    while call_idents == [] and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.005)
+
+    assert call_idents, "MB lookup never ran"
+    assert call_idents[0] != gui_ident  # ran on the worker thread, not the GUI
+
+
+def test_new_disc_scan_resets_unknown_mode(teardown_threads) -> None:
+    """Regression: unknown-album mode latches True when a disc can't be
+    identified; a new disc scan must clear it, or a later identified disc would
+    rip through the unknown path (MBID dropped, generic filenames)."""
+    window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
+    window._rip_controls.set_unknown_mode(True)  # a prior unknown rip latched it
+    assert window._rip_controls.is_unknown_mode() is True
+
+    window._start_disc_info("/dev/sr0")  # a fresh scan begins
+
+    assert window._rip_controls.is_unknown_mode() is False
 
 
 def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
@@ -318,15 +374,25 @@ def test_disc_info_ready_no_mb_id_shows_blank_track_rows(
 
 def test_disc_info_ready_zero_mb_results_shows_blank_track_rows(
     teardown_threads,
+    qapp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A disc with an MB ID but no registered release also gets blank rows."""
+    """A disc with an MB ID but no registered release also gets blank rows.
+
+    The MB lookup runs on the worker thread, so the no-match cascade
+    (_on_mb_releases([]) → _handle_no_mb_match → placeholder rows) lands after
+    the query round-trips — pump the event loop until it does."""
     window = teardown_threads(backend=_FakeBackend(), mb_client=_FakeMb())
     monkeypatch.setattr(window, "open_unknown_album_dialog", lambda: False)
 
     window._on_disc_info_ready(
         "/dev/sr0", DiscInfo(musicbrainz_disc_id="mb-id", num_tracks=12)
     )
+
+    deadline = time.monotonic() + 8.0
+    while len(window._track_table.tracks()) != 12 and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.005)
 
     assert len(window._track_table.tracks()) == 12
 
@@ -342,7 +408,10 @@ def test_mb_lookup_error_falls_back_to_placeholder_rows(
     # Simulate disc_info having recorded the track count, then the worker
     # erroring out (as the SSL CERTIFICATE_VERIFY_FAILED did).
     window._current_num_tracks = 10
-    window._on_mb_error("MB disc-id lookup failed: SSL CERTIFICATE_VERIFY_FAILED")
+    window._current_disc_id = "mb-id"  # the disc the (failed) lookup was for
+    window._on_mb_error(
+        "mb-id", "MB disc-id lookup failed: SSL CERTIFICATE_VERIFY_FAILED"
+    )
 
     assert len(window._track_table.tracks()) == 10
     assert "error" in window._disc_info_panel._mb_match_value.text().lower()
@@ -369,9 +438,11 @@ def test_mb_releases_single_match_fetches_detail(teardown_threads) -> None:
     window = teardown_threads(mb_client=mb)
 
     # Single-match path goes through fetch_release on the MB worker;
-    # We exercise it via the slot directly to avoid thread timing.
+    # We exercise it via the slot directly to avoid thread timing. The context
+    # (disc-id) must match the current disc or the result is dropped as stale.
+    window._current_disc_id = "mb-id"
     summary = ReleaseSummary(mbid="some-mbid", title="Album", artist_credit="Artist")
-    window._on_mb_releases([summary])
+    window._on_mb_releases("mb-id", [summary])
 
     # The fetch is queued via signal; we can't deterministically observe
     # mbid_result without driving the event loop. Instead, assert that
@@ -383,10 +454,39 @@ def test_mb_releases_single_match_fetches_detail(teardown_threads) -> None:
 def test_mb_release_detail_populates_track_table(teardown_threads) -> None:
     window = teardown_threads()
 
-    window._on_mb_release_detail(_detail())
+    window._current_disc_id = "mb-id"  # match the fetch context
+    window._on_mb_release_detail("mb-id", _detail())
 
     assert window._track_table.album_metadata().artist == "Artist"
     assert len(window._track_table.tracks()) == 2
+    assert window._current_release_id == "some-mbid"
+
+
+def test_stale_mb_result_dropped_after_disc_change(teardown_threads) -> None:
+    """Regression (#6): a MusicBrainz lookup fired for disc A can return *after*
+    the user swapped to disc B. Each result echoes the disc-id it was fired for;
+    if that no longer matches the disc on screen it must be dropped — otherwise
+    disc A's release would repopulate disc B's tracks/release-id, tagging the
+    new disc with the previous disc's metadata (the wrong-album bug)."""
+    window = teardown_threads()
+    window._current_disc_id = "disc-B"  # disc B is now on screen
+
+    # A late candidate list for the *previous* disc A must be ignored.
+    stale = ReleaseSummary(mbid="a-mbid", title="Album A", artist_credit="Artist A")
+    window._on_mb_releases("disc-A", [stale])
+    assert window._last_mb_releases == []  # not stored
+
+    # A late release-detail for disc A must be ignored too — no wrong-album tag.
+    window._on_mb_release_detail("disc-A", _detail())
+    assert window._current_release_id == ""
+    assert len(window._track_table.tracks()) == 0
+
+    # A late error for disc A must not overwrite disc B's panel.
+    window._on_mb_error("disc-A", "network down")
+    assert "error" not in window._disc_info_panel._mb_match_value.text().lower()
+
+    # The matching disc-B result IS applied.
+    window._on_mb_release_detail("disc-B", _detail())
     assert window._current_release_id == "some-mbid"
 
 
@@ -1300,6 +1400,139 @@ def test_unknown_rip_finish_runs_tag_post_processing(
     assert window._active_rip_params is None  # cleared for the next rip (sync)
 
 
+def test_finish_handler_survives_non_utf8_log(teardown_threads, tmp_path: Path) -> None:
+    """Regression: a rip log with a stray non-UTF-8 byte must not crash the
+    finish handler. It runs on the GUI thread; a UnicodeDecodeError used to
+    escape the `except OSError`, abort the whole post-rip chain, and leave the
+    rip state uncleared (so shutdown thought a rip was still live)."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    album_dir = tmp_path / "Artist" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    # Invalid UTF-8 (a lone 0xFF/0x80) amid otherwise plausible cyanrip text.
+    log_file.write_bytes(b"cyanrip log\nEAC CRC32: \xff\x80 DEADBEEF\n")
+
+    # Must not raise, and must complete the handler (state cleared).
+    window._on_rip_finished(True, str(log_file))
+
+    assert window._active_rip_params is None  # chain completed, state cleared
+    assert window._rip_thread is None
+
+
+def test_stale_verify_result_dropped_when_a_newer_rip_starts(
+    teardown_threads, tmp_path: Path, qapp
+) -> None:
+    """Regression: a post-rip verify daemon from album A must not write its
+    result into album B's state if B started while A's verify was still running
+    (A's report would otherwise get B's verdicts, or vice-versa). Each daemon
+    captures the rip generation it launched under and drops a stale result."""
+    from platterpus import checksums as _cs
+
+    window = teardown_threads()
+    window._rip_generation = 5
+    window._last_checksums = None
+
+    def fake_compute(rip_dir: Path) -> dict[str, str]:
+        # Simulate a NEWER rip starting while this album's hashing runs.
+        window._rip_generation += 1
+        return {"01 - A.flac": "deadbeef"}
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(_cs, "compute_digests", fake_compute)
+    try:
+        window._start_checksums(tmp_path, wait_for=None)
+        if window._checksums_thread is not None:
+            window._checksums_thread.join(timeout=5)
+        qapp.processEvents()  # deliver any (should-be-suppressed) queued signal
+    finally:
+        monkeypatch.undo()
+
+    # The generation advanced during hashing, so the result was dropped — it did
+    # NOT land in the (now newer) rip's state.
+    assert window._last_checksums is None
+
+
+def test_checksums_skipped_when_post_rip_work_never_settles(
+    teardown_threads, tmp_path: Path, qapp
+) -> None:
+    """Regression (#30): the checksum step joins the post-rip tagging/transcode
+    thread with a timeout, then hashes. If that thread is STILL running when the
+    timeout expires, the FLAC/derived files are mid-rewrite — hashing them would
+    record a SHA256 that doesn't match the final file (a false integrity truth).
+    The step must skip (record nothing) rather than hash unsettled files."""
+    import threading
+
+    from platterpus import checksums as _cs
+    from platterpus.ui import main_window_rip as mwr
+
+    window = teardown_threads()
+    window._last_checksums = None
+
+    # A post-rip thread that stays alive well past the (shortened) settle bound.
+    release = threading.Event()
+    never_settles = threading.Thread(target=release.wait, daemon=True)
+    never_settles.start()
+
+    computed: list[Path] = []
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(mwr, "_CHECKSUM_SETTLE_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(
+        _cs, "compute_digests", lambda d: computed.append(d) or {"x": "y"}
+    )
+    try:
+        window._start_checksums(tmp_path, wait_for=never_settles)
+        if window._checksums_thread is not None:
+            window._checksums_thread.join(timeout=5)
+        qapp.processEvents()
+    finally:
+        release.set()  # let the stand-in post-rip thread finish
+        monkeypatch.undo()
+
+    assert computed == []  # never hashed the unsettled (mid-rewrite) files
+    assert window._last_checksums is None  # and recorded nothing
+
+
+def test_metadata_contains_colon_checks_every_cyanrip_field() -> None:
+    """Regression (#29): colon-restore must fire for a ':' in ANY value fed to
+    cyanrip — not just album/track title+artist. A ':' in year, genre, ISRC, or
+    the release id (musicbrainz_albumid) has to trigger it too, or the U+2236
+    lookalike stays in the written tag forever."""
+    from dataclasses import replace
+
+    from platterpus.adapters.rip_backend import RipMetadata, TrackTag
+    from platterpus.ui.main_window_rip import _metadata_contains_colon
+
+    clean = RipMetadata(
+        album_artist="A",
+        album_title="B",
+        year="1999",
+        genre="Rock",
+        tracks=(TrackTag(number=1, title="T", artist="A", isrc="X"),),
+    )
+    assert _metadata_contains_colon(clean, "mbid-no-colon") is False
+
+    # Each previously-unchecked field, in isolation, now triggers restore.
+    assert _metadata_contains_colon(replace(clean, year="1999: Remaster"), "m") is True
+    assert _metadata_contains_colon(replace(clean, genre="Jazz: Fusion"), "m") is True
+    assert (
+        _metadata_contains_colon(
+            replace(clean, tracks=(TrackTag(number=1, title="T", isrc="US:12"),)), "m"
+        )
+        is True
+    )
+    assert _metadata_contains_colon(clean, "urn:mbid") is True  # release id
+    # …and the fields that were already covered still trigger it.
+    assert _metadata_contains_colon(replace(clean, album_title="X: Y"), "m") is True
+
+
 def test_unknown_rip_tagging_runs_off_the_gui_thread(
     teardown_threads, tmp_path: Path
 ) -> None:
@@ -1689,14 +1922,17 @@ def test_maybe_offer_skips_when_configured(teardown_threads, monkeypatch) -> Non
 # --- First-run host-setup offer ------------------------------------------
 
 
-def test_host_stack_ready_reflects_cyanrip_binary(
-    teardown_threads, tmp_path, monkeypatch
+def test_host_stack_ready_delegates_to_cyanrip_on_host(
+    teardown_threads, monkeypatch
 ) -> None:
-    cyanrip = tmp_path / "cyanrip"
-    monkeypatch.setattr("platterpus.paths.CYANRIP_BINARY_DEFAULT", cyanrip)
+    """Regression (#36): _host_stack_ready must delegate to the dependency
+    subsystem's cyanrip_on_host (Critical Rule #6) — which counts a PATH-native
+    cyanrip, not just the exported wrapper — so a user who installed cyanrip
+    natively isn't wrongly nagged to run host setup."""
     window = teardown_threads()
+    monkeypatch.setattr("platterpus.deps.host_setup.cyanrip_on_host", lambda: False)
     assert window._host_stack_ready() is False
-    cyanrip.write_text("#!/bin/sh\n")
+    monkeypatch.setattr("platterpus.deps.host_setup.cyanrip_on_host", lambda: True)
     assert window._host_stack_ready() is True
 
 
@@ -2455,14 +2691,14 @@ def test_host_setup_finished_skips_drive_refresh_when_drive_selected(
     checked: list[bool] = []
     monkeypatch.setattr(window, "refresh_drives", lambda: refreshed.append(True))
     monkeypatch.setattr(
-        window, "run_dependency_check", lambda **k: checked.append(True)
+        window, "run_dependency_check_async", lambda **k: checked.append(True)
     )
     monkeypatch.setattr(window._drive_picker, "current_device", lambda: "/dev/sr0")
 
     window._on_host_setup_finished(True)
 
     assert refreshed == []  # drive already selected → no re-scan
-    assert checked == [True]  # dep re-check still runs (cheap)
+    assert checked == [True]  # dep re-check still runs (off-thread now)
 
 
 def test_host_setup_finished_refreshes_drives_on_first_setup(
@@ -2471,7 +2707,7 @@ def test_host_setup_finished_refreshes_drives_on_first_setup(
     window = teardown_threads()
     refreshed: list[bool] = []
     monkeypatch.setattr(window, "refresh_drives", lambda: refreshed.append(True))
-    monkeypatch.setattr(window, "run_dependency_check", lambda **k: None)
+    monkeypatch.setattr(window, "run_dependency_check_async", lambda **k: None)
     monkeypatch.setattr(window._drive_picker, "current_device", lambda: "")
 
     window._on_host_setup_finished(True)
@@ -2479,17 +2715,36 @@ def test_host_setup_finished_refreshes_drives_on_first_setup(
     assert refreshed == [True]  # no drive yet → first-time setup refreshes
 
 
+def _colon_params(**meta_fields: object):
+    """A RipParameters carrying a RipMetadata built from `meta_fields` — the
+    source _metadata_has_colon now reads (the tags actually fed to cyanrip)."""
+    from platterpus.adapters.rip_backend import RipMetadata
+    from platterpus.workers.rip_worker import RipParameters
+
+    return RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        metadata=RipMetadata(**meta_fields),  # type: ignore[arg-type]
+    )
+
+
 def test_metadata_has_colon_detects_album_colon(teardown_threads) -> None:
-    """The cyanrip colon-restore only fires when a name actually has a ':'."""
+    """The cyanrip colon-restore only fires when a value fed to cyanrip has ':'."""
     window = teardown_threads()
-    window._track_table._album_title_edit.setText("Every Breath You Take: The Classics")
+    window._active_rip_params = _colon_params(
+        album_title="Every Breath You Take: The Classics"
+    )
     assert window._metadata_has_colon() is True
 
 
 def test_metadata_has_colon_false_for_clean_names(teardown_threads) -> None:
     window = teardown_threads()
-    window._track_table._album_title_edit.setText("Synchronicity")
-    window._track_table._album_artist_edit.setText("The Police")
+    window._active_rip_params = _colon_params(
+        album_title="Synchronicity", album_artist="The Police"
+    )
     assert window._metadata_has_colon() is False
 
 
@@ -2684,70 +2939,6 @@ def test_manual_offset_saved_sets_override(teardown_threads) -> None:
     assert window._config.read_offset == 667
     assert window._config.override_read_offset is True
     assert saved and saved[-1].read_offset == 667
-
-
-# --- Dialog-driven queued resolver (live per-item install feedback) ------
-
-
-def test_dialog_queued_resolver_returns_install_results(
-    qapp, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """_DialogQueuedResolver drives the dialog's own install loop and returns
-    one InstallResult per item. We replace exec() (which would block on a
-    modal loop) with a stub that runs the loop and accepts, so the wiring is
-    tested without a real event loop."""
-    from platterpus.deps.checks import ProbeResult
-    from platterpus.deps.registry import DependencySpec, Tier
-    from platterpus.deps.resolvers import InstallResult, MissingItem
-    from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
-    from platterpus.ui.main_window import _DialogQueuedResolver
-
-    def _item(dep_id: str) -> MissingItem:
-        spec = DependencySpec(
-            dep_id=dep_id,
-            display_name=dep_id,
-            probe=lambda: ProbeResult(present=False, version=None, location=None),
-            min_version=(0, 0, 0),
-            tier=Tier.QUEUED,
-            install_command=["echo", dep_id],
-            search_string="x",
-        )
-        return MissingItem(
-            spec=spec,
-            probe=ProbeResult(present=False, version=None, location=None),
-        )
-
-    def fake_exec(self: PendingInstallsDialog) -> int:
-        # The install now runs on a worker thread (the 0.4.2 freeze fix), so
-        # pump the event loop until it finishes — otherwise the dialog would be
-        # GC'd with its QThread still running (a hard abort), and results()
-        # would be read empty.
-        import time
-
-        self._run_install_loop()
-        deadline = time.monotonic() + 5.0
-        while self._close_button is None and time.monotonic() < deadline:
-            qapp.processEvents()
-            time.sleep(0.005)
-        return int(self.DialogCode.Accepted)
-
-    monkeypatch.setattr(PendingInstallsDialog, "exec", fake_exec)
-
-    def install_one(item):
-        return InstallResult(spec=item.spec, success=True, message="installed")
-
-    resolver = _DialogQueuedResolver(parent=None, install_one=install_one)
-
-    results = resolver.resolve([_item("a"), _item("b")])
-
-    assert [(r.spec.dep_id, r.success) for r in results] == [("a", True), ("b", True)]
-
-
-def test_dialog_queued_resolver_empty_items_is_noop(qapp) -> None:
-    from platterpus.ui.main_window import _DialogQueuedResolver
-
-    resolver = _DialogQueuedResolver(parent=None, install_one=lambda i: None)
-    assert resolver.resolve([]) == []
 
 
 # --- Unified dependency dialog (items 2+6: one dialog, wizard once) --------
@@ -3836,6 +4027,29 @@ def test_run_dependency_check_async_is_single_flight(
     first_thread = window._dep_check_thread
     window.run_dependency_check_async()  # must not start a second
     assert window._dep_check_thread is first_thread
+
+
+def test_refresh_button_uses_off_thread_drive_listing(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the drive-picker Refresh button must route through the
+    off-GUI-thread refresh_drives (list_drives enters the container), not the
+    synchronous picker.refresh()."""
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, drive_setup_prompted=True)
+    )
+    called: list[bool] = []
+    monkeypatch.setattr(window, "refresh_drives", lambda: called.append(True))
+    # Synchronous refresh must NOT run when the async route is wired.
+    monkeypatch.setattr(
+        window._drive_picker,
+        "refresh",
+        lambda: called.append("sync"),  # pragma: no cover - must not be hit
+    )
+
+    window._drive_picker._refresh_button.click()
+
+    assert called == [True]  # off-thread path, never the sync refresh()
 
 
 # --- Launch drive listing runs off the GUI thread (TASKS #11b) -------------

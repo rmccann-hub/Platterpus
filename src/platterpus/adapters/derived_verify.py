@@ -36,6 +36,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import subprocess
+import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -152,12 +153,31 @@ def _default_hasher(path: Path, *, binary: str = _FFMPEG_BINARY) -> str | None:
         log.warning("derived-verify: could not launch %s: %s", binary, exc)
         return None
     assert proc.stdout is not None
+    # Wall-clock deadline for the WHOLE decode. `proc.wait(timeout=…)` alone only
+    # bounds the wait *after* stdout hits EOF — but a stalled ffmpeg can hold the
+    # pipe open without producing EOF, so the read() loop below would block
+    # forever and never reach that wait (#27). A watchdog timer kills the process
+    # on the deadline; killing it closes its stdout, so the blocked read returns
+    # EOF and the loop unwinds. `timed_out` records that this happened.
+    timed_out = threading.Event()
+
+    def _on_deadline() -> None:
+        timed_out.set()
+        try:
+            proc.kill()
+        except OSError:  # already gone — nothing to signal
+            pass
+
+    watchdog = threading.Timer(_DECODE_TIMEOUT_S, _on_deadline)
+    watchdog.start()
     try:
         while True:
             chunk = proc.stdout.read(_PCM_CHUNK)
             if not chunk:
                 break
             digest.update(chunk)
+        # The read loop has ended (real EOF, or the watchdog closed the pipe), so
+        # the process is exiting; this wait just reaps it and shouldn't linger.
         rc = proc.wait(timeout=_DECODE_TIMEOUT_S)
     except subprocess.TimeoutExpired:
         log.warning("derived-verify: decode timed out on %s", path)
@@ -168,8 +188,21 @@ def _default_hasher(path: Path, *, binary: str = _FFMPEG_BINARY) -> str | None:
         _kill_and_reap(proc)
         return None
     finally:
+        watchdog.cancel()
         proc.stdout.close()
+    if timed_out.is_set():
+        # The watchdog fired mid-decode — a stalled ffmpeg. Ensure it's reaped
+        # (kill already sent) and report "couldn't verify" rather than trust a
+        # partial digest.
+        log.warning("derived-verify: decode exceeded deadline on %s", path)
+        _kill_and_reap(proc)
+        return None
     if rc != 0:
+        # Don't swallow the failure silently. (stderr is left at DEVNULL rather
+        # than PIPE: this streams a whole album's PCM on stdout, and draining a
+        # second full pipe here could deadlock — so we log the exit code + file,
+        # which is enough to diagnose a bad decode from the log.)
+        log.warning("derived-verify: ffmpeg decode failed (rc=%s) on %s", rc, path)
         return None
     return digest.hexdigest()
 

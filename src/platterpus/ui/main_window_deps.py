@@ -6,15 +6,13 @@ one focused file while its methods stay reachable as ``window._x`` (tests +
 Qt signal wiring rely on that). ``MainWindow`` inherits this; methods run
 with ``self`` being the window.
 
-This is *only* the GUI glue: it builds GUI-backed resolvers (consent dialog,
-the queued-install dialog, the manual-search-string dialog) and runs the
-injected ``DependencyManager``'s registry through them, then shows a summary.
-All the actual "is it present / what version / how to install" logic lives in
-``deps/`` (Critical Rule #6) — this file must never grow an ad-hoc
-``shutil.which`` check.
-
-``_DialogQueuedResolver`` lives here too (it's the tier-(b) resolver the dep
-check uses); ``main_window`` re-exports it for the test-facing API.
+This is *only* the GUI glue: it probes via the injected ``DependencyManager``'s
+``check_all`` (off the GUI thread) and then, for anything missing, resolves it on
+the GUI thread through ``_resolve_missing_unified`` — the single resolution path
+(a setup-wizard tier for container tools, a live-progress ``PendingInstallsDialog``
+for packaged installs, and a manual-search dialog otherwise). All the "is it
+present / what version" logic lives in ``deps/`` (Critical Rule #6) — this file
+must never grow an ad-hoc ``shutil.which`` check.
 
 Contract this mixin expects from the host window (set in
 ``MainWindow.__init__``): ``self._config``, ``self._dependency_manager``;
@@ -27,12 +25,11 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
 
 from platterpus.deps.resolvers import (
     AutoInstaller,
     InstallResult,
-    ManualPrompt,
     MissingItem,
 )
 from platterpus.deps.version import format_version
@@ -61,77 +58,50 @@ def _optional_purpose(item: MissingItem) -> str:
     return sentence or "optional extra"
 
 
-class _DialogQueuedResolver:
-    """Tier-(b) resolver for the GUI: drives `PendingInstallsDialog` with live
-    per-item progress, then returns the `InstallResult`s.
-
-    Replaces `QueuedInstaller` in the GUI path. `QueuedInstaller` installs
-    *after* its dialog callback returns — which closes the dialog — so it can't
-    show per-item progress. Here the dialog stays open and installs inline,
-    updating each row as it goes. Duck-typed to the resolver interface the
-    `DependencyManager` dispatches to (`resolve(items) -> list[InstallResult]`).
-    """
-
-    def __init__(
-        self,
-        parent: QWidget | None,
-        install_one: Callable[[MissingItem], InstallResult],
-    ) -> None:
-        self._parent = parent
-        self._install_one = install_one
-
-    def resolve(self, items: list[MissingItem]) -> list[InstallResult]:
-        if not items:
-            return []
-        dialog = PendingInstallsDialog(
-            items, install_one=self._install_one, parent=self._parent
-        )
-        # The dialog drives the install loop itself and populates results();
-        # exec() blocks until the user closes it (Close after install, or
-        # Cancel → all declined). results() always has one entry per item.
-        dialog.exec()
-        return dialog.results()
-
-
 class DependencyMixin:
     """Run the dependency subsystem with GUI-backed resolvers + summary."""
 
     def _on_check_dependencies(self) -> None:
         """Run the dependency subsystem with GUI-backed resolvers.
 
-        Always shows the summary popup at the end. Use
-        `run_dependency_check(show_summary=False)` to suppress the
-        popup when nothing's missing — that's the launch-time path.
+        Runs the probe OFF the GUI thread (Tools → Check dependencies and the
+        Settings button both land here): ``check_all()`` shells out per
+        dependency and enters the Distrobox container, which is slow on a cold
+        start and would otherwise freeze the window. The summary popup shows when
+        the probe finishes.
         """
-        self.run_dependency_check(show_summary=True)
+        self.run_dependency_check_async(show_summary=True)
 
     def run_dependency_check(self, show_summary: bool = True) -> None:
-        """Run check_all + resolve_missing with GUI-backed resolvers, **synchronously**.
+        """Probe (check_all) then resolve any missing deps, **synchronously**.
 
-        Used by the Tools → Check dependencies menu action (the user clicked,
-        so a brief block while probing is acceptable) and by tests. The
-        launch-time path uses `run_dependency_check_async` instead so a
-        cold-container probe can't freeze the just-shown window.
+        Retained for tests (which drive it directly and assert on the result).
+        Every in-app entry point uses `run_dependency_check_async` instead so a
+        cold-container probe can't freeze the window — `check_all()` shells out
+        per dependency and enters the Distrobox container.
         """
         gui_manager = self._build_gui_dependency_manager()
         self._apply_dependency_report(
             gui_manager, gui_manager.check_all(), show_summary=show_summary
         )
 
-    def run_dependency_check_async(self) -> None:
-        """Launch-time dependency check that probes **off the GUI thread**.
+    def run_dependency_check_async(self, show_summary: bool = False) -> None:
+        """Dependency check that probes **off the GUI thread**.
 
-        `check_all()` shells out per dependency, and the whipper probe enters
+        `check_all()` shells out per dependency, and the cyanrip probe enters
         the Distrobox container — slow on a cold start. Running it on the GUI
-        thread at launch froze the just-shown window; here the probing runs on
-        a worker and only the *result* is applied on the GUI thread (where the
-        resolver dialogs must live). One check at a time.
+        thread froze the window; here the probing runs on a worker and only the
+        *result* is applied on the GUI thread (where the resolver dialogs must
+        live). `show_summary` controls the end-of-check popup (True for the
+        user-clicked Tools/Settings paths; False for the silent launch check).
+        One check at a time.
         """
         if self._dep_check_thread is not None:  # a check is already running
             return
         from platterpus.workers import start_worker_thread
         from platterpus.workers.dependency_worker import DependencyCheckWorker
 
+        self._dep_check_show_summary = show_summary
         gui_manager = self._build_gui_dependency_manager()
         # Stash the manager so `finished` can connect to a BOUND METHOD rather
         # than a lambda. This matters for correctness, not just style: a lambda
@@ -155,23 +125,26 @@ class DependencyMixin:
         so it's safe to build resolver dialogs here.
         """
         gui_manager = self._dep_check_manager
+        show_summary = self._dep_check_show_summary
         self._dep_check_worker = None
         self._dep_check_thread = None
         self._dep_check_manager = None
-        # Launch path never forces the "all good" popup (silent unless action
-        # is needed); resolver dialogs still surface for genuinely-missing deps.
-        self._apply_dependency_report(gui_manager, report, show_summary=False)
+        self._dep_check_show_summary = False
+        # `show_summary` is True for the user-clicked Tools/Settings check and
+        # False for the silent launch check; resolver dialogs surface for
+        # genuinely-missing deps regardless.
+        self._apply_dependency_report(gui_manager, report, show_summary=show_summary)
 
     def _build_gui_dependency_manager(self) -> object:
-        """A DependencyManager wired with GUI-backed resolvers (consent dialog,
-        queued-install dialog, manual-search dialog), reusing the injected
-        manager's registry so it sees exactly the deps the app cares about."""
+        """A DependencyManager over the injected manager's registry.
+
+        The manager now only *probes* (check_all) — resolution is done by
+        `_resolve_missing_unified` on the GUI thread. We reuse the injected
+        manager's spec list so the check sees exactly the deps the app cares
+        about."""
         from platterpus.deps.manager import DependencyManager
 
         return DependencyManager(
-            auto=AutoInstaller(consent=self._gui_auto_consent),
-            queued=_DialogQueuedResolver(self, self._make_install_one()),
-            manual=ManualPrompt(dialog_callback=self._gui_manual_dialog),
             specs=self._dependency_manager._specs,  # type: ignore[attr-defined]
         )
 
@@ -374,17 +347,6 @@ class DependencyMixin:
                     ),
                 )
             )
-
-    def _gui_auto_consent(self, items: list[MissingItem]) -> bool:
-        if not items:
-            return True
-        names = ", ".join(item.spec.display_name for item in items)
-        choice = QMessageBox.question(
-            self,
-            "Install dependencies",
-            f"Install the following automatically?\n\n{names}",
-        )
-        return choice == QMessageBox.StandardButton.Yes
 
     def _make_install_one(self) -> Callable[[MissingItem], InstallResult]:
         """Build the per-item installer the PendingInstallsDialog drives.

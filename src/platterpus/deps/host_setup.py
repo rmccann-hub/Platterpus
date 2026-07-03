@@ -126,12 +126,19 @@ def install_argv(
         return [elevate, "pacman", "-S", "--noconfirm", tool]
     if "suse" in ids:
         return [elevate, "zypper", "--non-interactive", "install", tool]
-    # Unknown distro.
+    # Unknown distro: fall back to the upstream Distrobox installer, elevated
+    # via the INJECTED `elevate` — not a hardcoded `sudo`. From the GUI `elevate`
+    # is `pkexec` (graphical polkit); hardcoding `sudo` here meant the one path
+    # that's supposed to work without a terminal still shelled out to `sudo`,
+    # which has no TTY to read a password from and silently fails (#35). (Best-
+    # effort / hardware-gated on an actual unknown distro; the known-distro
+    # branches above are the tested, common paths.)
     if tool == "distrobox":
         return [
             "sh",
             "-c",
-            "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh",
+            "curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install "
+            f"| {elevate} sh",
         ]
     return []  # podman on an unknown distro → manual
 

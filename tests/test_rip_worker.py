@@ -49,12 +49,18 @@ class _FakeHandle:
         self._lines: list[str] = list(lines)
         self._exit_code: int = exit_code
         self.cancel_calls: int = 0
+        self.terminate_calls: int = 0
 
     def log_lines(self) -> Iterable[str]:
         yield from self._lines
 
     def wait(self, timeout: float | None = None) -> int:
         return self._exit_code
+
+    def terminate(self) -> None:
+        # Non-blocking cancel path used from the GUI thread — the worker forwards
+        # here so a wedged drive can't freeze the window.
+        self.terminate_calls += 1
 
     def cancel(self, term_timeout: float = 5.0) -> int:
         self.cancel_calls += 1
@@ -455,6 +461,43 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     assert swapped.read_bytes() == b"FIXED-FLAC-BYTES"
 
 
+def test_auto_fix_appends_swap_addendum_to_album_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression (#19): after a re-ripped track is swapped in, the first-pass
+    album .log's CRC for that track describes the DISCARDED bytes. An addendum
+    must be appended naming the swapped track and the SHIPPED file's CRC, so the
+    committed durable-proof text matches the audio on disk. The original log
+    content is preserved verbatim (append-only)."""
+    rerip_ok = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    3\n"
+        "Done; (2 out of 2 matches for current checksum BBBB2222)\n"
+        "Track 3 ripped and encoded successfully!\n"
+        "  EAC CRC32:     99999999\n"  # the shipped file's CRC
+        "  File(s):\n"
+        "    Artist/Album/03 - C.flac\n"
+        "Ripping errors: 0\n"
+    )
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = _fake_rip_writer(_PASS1_UNSTABLE, rerip_ok, True)
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    worker.start_rip()
+
+    album_log = (tmp_path / "Artist" / "Album" / "rip.log").read_text(encoding="utf-8")
+    # Original first-pass content is intact…
+    assert "Track 1 ripped and encoded successfully!" in album_log
+    assert "EAC CRC32:     11111111" in album_log
+    # …and a clearly-delimited addendum names the swapped track + its new CRC.
+    assert "[Platterpus auto-fix addendum]" in album_log
+    assert "Track 3" in album_log
+    assert "99999999" in album_log
+
+
 def test_auto_fix_keeps_original_when_rerip_still_unstable(
     qapp: QApplication, tmp_path: Path
 ) -> None:
@@ -570,6 +613,125 @@ def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
     assert (tmp_path / "Artist" / "Album" / "02 - B.flac").read_bytes() == b"SECURED-B"
 
 
+def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression: a disc that isn't in AccurateRip at all (a CD-R / obscure
+    pressing — every track "fails" AR because there's nothing to match) must NOT
+    trigger a whole-disc secure re-rip. There's no DB consensus to converge
+    toward, so a re-rip can't verify anything and would just re-read + swap every
+    track (the "20min → 1h" slowdown dynamic mode exists to avoid). The fast pass
+    stands, no track re-ripped."""
+    pass1 = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    2\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     11111111\n"
+        "    Accurip v1:  AAAAAAAA (not found, either a new pressing, or bad rip)\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - A.flac\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     22222222\n"
+        "    Accurip v1:  BBBBBBBB (not found, either a new pressing, or bad rip)\n"
+        "  File(s):\n"
+        "    Artist/Album/02 - B.flac\n"
+        "Ripping errors: 0\n"
+    )
+
+    def side_effect(call: dict) -> None:
+        rel = call["output_dir"] / "Artist" / "Album"
+        rel.mkdir(parents=True, exist_ok=True)
+        # A re-rip would be a bug here — write only the whole-disc pass log.
+        if not call["only_tracks"]:
+            (rel / "rip.log").write_text(pass1, encoding="utf-8")
+
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    backend.rip_side_effect = side_effect
+    worker = RipWorker(
+        backend,
+        _params(
+            tmp_path,
+            read_speed_mode="auto_ladder",
+            secure_rerip_matches=2,
+            secure_rerip_dynamic=True,
+        ),
+    )
+
+    worker.start_rip()
+
+    assert len(backend.rip_calls) == 1  # ONE fast pass, no targeted re-rip
+    assert backend.rip_calls[0]["only_tracks"] == ()
+    assert worker.retried_tracks == []
+
+
+def test_swap_in_reripped_track_never_corrupts_the_master(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the auto-fix FLAC swap is atomic (temp + os.replace), so a
+    failure mid-swap leaves the original archival master intact and no temp
+    behind — never a truncated/corrupt FLAC where a good one was."""
+    from types import SimpleNamespace
+
+    rel = "Artist/Album/02 - B.flac"
+    (tmp_path / "Artist" / "Album").mkdir(parents=True)
+    dst = tmp_path / rel
+    dst.write_bytes(b"ORIGINAL-GOOD-MASTER")
+    tmp_root = tmp_path / "refix"
+    (tmp_root / "Artist" / "Album").mkdir(parents=True)
+    (tmp_root / rel).write_bytes(b"NEW-REREAD")
+
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+
+    # Force the atomic replace to fail (disk full / crash surrogate).
+    import os
+
+    def boom(_src: object, _dst: object) -> None:
+        raise OSError("simulated failure during swap")
+
+    monkeypatch.setattr(os, "replace", boom)
+
+    ok = worker._swap_in_reripped_track(
+        SimpleNamespace(filename=rel, number=2), tmp_root
+    )
+
+    assert ok is False
+    assert dst.read_bytes() == b"ORIGINAL-GOOD-MASTER"  # master untouched
+    # No partial temp left in the album dir.
+    assert not list((tmp_path / "Artist" / "Album").glob("*.tmp"))
+
+
+def test_find_log_path_ignores_a_previous_albums_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression (#20): the output dir is the shared music root. A rip that
+    fails before writing its own log must NOT adopt a previous album's log from
+    a sibling folder (which rglob-most-recent would otherwise return) and parse
+    it as this rip's. Logs older than the rip's start are scoped out."""
+    import os
+
+    # A prior album's log, aged an hour into the past.
+    stale_dir = tmp_path / "Old Artist" / "Old Album"
+    stale_dir.mkdir(parents=True)
+    stale = stale_dir / "rip.log"
+    stale.write_text("cyanrip 0.9.3\nRipping errors: 0\n", encoding="utf-8")
+    old = stale.stat().st_mtime - 3600
+    os.utime(stale, (old, old))
+
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    worker._rip_started_at = stale.stat().st_mtime + 1800  # this rip started later
+
+    # Only the stale log exists → scoped out → nothing found for this rip.
+    assert worker._find_log_path(tmp_path, since=worker._rip_started_at) is None
+
+    # A log this rip actually wrote (newer than the rip start) IS found.
+    fresh_dir = tmp_path / "New Artist" / "New Album"
+    fresh_dir.mkdir(parents=True)
+    fresh = fresh_dir / "rip.log"
+    fresh.write_text("cyanrip 0.9.3\nRipping errors: 0\n", encoding="utf-8")
+    found = worker._find_log_path(tmp_path, since=worker._rip_started_at)
+    assert found == fresh
+
+
 def test_fixed_mode_never_auto_fixes(qapp: QApplication, tmp_path: Path) -> None:
     """Fixed-speed mode is a single pass with no auto-fix, even if a track was
     unstable — the ladder (and its auto-fix) only run in auto_ladder mode."""
@@ -671,6 +833,33 @@ def test_album_eta_is_smoothed(qapp: QApplication, tmp_path: Path) -> None:
     # smoothed value all the way there.
     worker._album_eta_text(10.0)  # raw ~900s, but EMA moves only ~15% of the gap
     assert worker._smoothed_remaining_s < 0.5 * (seeded + 900)
+
+
+def test_eta_rebaselines_per_pass_not_whole_rip(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression (#21): the overall-progress fraction resets to 0 at the start
+    of every pass, so the album ETA must measure elapsed from THIS pass's start.
+    Measuring from the whole-rip start on pass 2+ divided a large elapsed by a
+    tiny fresh fraction and projected a wildly inflated 'time left'."""
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    now = time.monotonic()
+    worker._started_monotonic = now - 1000.0  # pass 1 ran ~1000s
+
+    # A new pass begins: the reset drops the stale smoothing and re-baselines.
+    worker._smoothed_remaining_s = 9999.0
+    worker._reset_pass_progress()
+    assert worker._smoothed_remaining_s is None
+
+    # 20s into pass 2, at 10% of THIS pass's bar.
+    worker._eta_pass_started = now - 20.0
+    text = worker._album_eta_text(10.0)
+
+    # Per-pass: raw = 20 * 0.9/0.1 = 180s (~3 min). The whole-rip baseline would
+    # have given 1000 * 0.9/0.1 = 9000s (2.5h) — the inflation this fixes.
+    assert "left" in text
+    assert worker._smoothed_remaining_s is not None
+    assert worker._smoothed_remaining_s < 600  # minutes, not the ~9000s inflation
 
 
 def test_eta_trace_records_both_estimates_speed_and_clock(
@@ -1075,11 +1264,14 @@ def test_cancel_before_start_stops_the_subprocess_once_it_exists(
 
     # Cancel before start: the handle isn't set yet, so only the flag is set.
     worker.cancel()
-    assert handle.cancel_calls == 0
+    assert handle.terminate_calls == 0
 
     worker.start_rip()  # gets the handle, sees the flag, and stops the rip
 
-    assert handle.cancel_calls == 1  # the subprocess was actually cancelled
+    # The subprocess was terminated (non-blocking SIGTERM), not the blocking
+    # cancel() — a GUI-thread cancel must never wait.
+    assert handle.terminate_calls == 1
+    assert handle.cancel_calls == 0
 
 
 def test_cancel_after_start_forwards_to_handle(
@@ -1091,10 +1283,11 @@ def test_cancel_after_start_forwards_to_handle(
     worker = RipWorker(backend, _params(tmp_path))
 
     worker.start_rip()  # no cancel → completes; the startup re-check is a no-op
-    assert handle.cancel_calls == 0
+    assert handle.terminate_calls == 0
 
-    worker.cancel()  # handle exists now → forwarded
-    assert handle.cancel_calls == 1
+    worker.cancel()  # handle exists now → forwarded (non-blocking terminate)
+    assert handle.terminate_calls == 1
+    assert handle.cancel_calls == 0
 
 
 def test_cancellation_makes_finished_report_false(

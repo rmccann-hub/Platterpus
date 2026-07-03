@@ -11,9 +11,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-<!-- These entries are the next release (intended 0.4.9); the version bump in
-     src/platterpus/__init__.py and the dated heading move happen at release time,
-     per the release process in CLAUDE.md. Merged to main but NOT yet released. -->
+## [0.4.9] — 2026-07-02
 
 ### Added
 - **Dynamic secure re-rip is now how ripping works — no checkbox.** Platterpus
@@ -22,10 +20,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   first read is already proven bit-perfect, so re-reading it is wasted time). This
   used to be an opt-in checkbox; it's now the default behaviour with no toggle —
   the dialog clutter is gone (a power user can still force `-Z` on every track by
-  hand-editing `secure_rerip_dynamic = false` in `config.toml`). On a clean disc
-  that's a single fast pass (roughly real-time, no ballooning ETA); marginal or
-  not-in-database tracks still get the full secure treatment. The re-rip reason
-  (`instability` vs `accuraterip`) is recorded per track in the report's
+  hand-editing `secure_rerip_dynamic = false` in `config.toml`). It's **on by
+  default** — a fresh install ships with the re-read ceiling (`-Z`) at 2, so the
+  secure re-rip actually runs (at 0 the whole feature would be inert). On a clean
+  disc that's a single fast pass (roughly real-time, no ballooning ETA); a disc
+  in AccurateRip whose few tracks didn't match gets those secured, while a disc
+  that isn't in AccurateRip at all keeps its fast read (there's no database
+  consensus to verify against, so a re-rip couldn't prove anything). The re-rip
+  reason (`instability` vs `accuraterip`) is recorded per track in the report's
   `read_speed.retried_tracks`.
 - **The number you set is a *ceiling*, not a tax.** The "Max reads to confirm a
   shaky track" setting (cyanrip's `-Z`) is now the *most* effort spent on an
@@ -63,6 +65,190 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   transcode failure left no diagnosis in the log. Its error output is now captured
   and the tail logged on any non-zero exit (the master FLAC is still never at
   risk — a per-file failure leaves the source untouched).
+- **Closing a setup/uninstall dialog (or the app) during a long step no longer
+  freezes or crashes.** The wizard, uninstaller, and drive-setup dialogs joined
+  their worker thread on the GUI thread with waits up to two minutes — closing
+  mid-`dnf`/mid-teardown hung the window (real-user report), and if the wait
+  timed out the still-running thread was destroyed, aborting the app. All
+  worker-thread teardown (those dialogs and the main window's close) now goes
+  through one helper that cancels, waits briefly, and *detaches* a thread still
+  stuck in an uninterruptible step (it finishes and cleans itself up) instead of
+  blocking or destroying it.
+- **A rip that isn't in the AccurateRip database no longer triggers a needless
+  full second pass.** Dynamic secure re-rip is meant to re-read only the few
+  tracks that didn't match AccurateRip — but a disc with no database entry at all
+  (a CD-R, an obscure pressing) made *every* track "fail", so it re-ripped and
+  replaced the whole disc for no benefit (there's no database consensus to match
+  against). Such a disc now keeps its fast first read, flagged as not-verified.
+- **A bad byte in a rip log can't derail the finish.** If a rip log contained a
+  stray non-UTF-8 byte, reading it raised an error that aborted the entire
+  post-rip step (no report, no tags, no cover art, no eject) and left the app
+  thinking a rip was still running. The log is now read leniently and any
+  rendering error is contained, so the rip always finishes cleanly.
+- **The time-remaining estimate no longer balloons on a second pass.** The
+  progress bar resets to 0% at the start of each rip pass (a read-speed retry or
+  a secure re-rip), but the ETA still divided the *whole rip's* elapsed time by
+  that fresh 0-based fraction — projecting a wildly inflated "time left" (e.g.
+  hours) the moment a second pass began. The ETA now measures from each pass's
+  own start, so it stays sensible across passes.
+- **The album log stays honest after an auto-fix swap.** When a re-ripped track
+  replaced the original, the whole-disc `.log` still recorded the *discarded*
+  bytes' CRC — so the committed durable-proof text no longer matched the audio on
+  disk. A clearly-delimited addendum is now appended to that log naming each
+  swapped track and the shipped file's CRC (the original content is preserved
+  verbatim; the `.platterpus.json` report already tracked the swap structurally).
+- **A failed rip can't adopt a previous album's log.** The rip log is located by
+  searching the output folder — which is the shared music root — for the most
+  recent `.log`. A rip that failed before writing its own log would pick up a
+  *previous* album's log from a sibling folder and parse it as this rip's. Log
+  discovery is now scoped to logs written at or after this rip started, so an
+  older album's log is ignored.
+- **The auto-fix track swap can't corrupt a master.** When a re-ripped track
+  replaced the original, it was copied straight over the file; a crash or full
+  disk mid-copy could truncate a good archival FLAC. The swap is now atomic
+  (write a temp, then rename), so the original is only ever replaced whole.
+- **A rip-stream error no longer leaves the ripper running.** If reading the
+  ripper's output failed mid-rip, the subprocess kept running and holding the
+  drive; it's now stopped before the error is reported.
+- **A later identified disc no longer rips as "Unknown".** Once a disc that
+  couldn't be identified put the app in unknown-album mode, that mode stuck for
+  the session — so the *next* disc, even a fully-identified one, could rip with
+  the MusicBrainz release dropped and generic "Track N" filenames. Starting a
+  new disc scan now clears it.
+- **Rescanning a disc no longer stutters or risks a crash.** Starting a new scan
+  while one was still running blocked the window for up to two seconds and could
+  let a stale result from the old scan overwrite the new one. The old scan is now
+  detached cleanly and its late result ignored.
+- **Unknown-distro setup no longer silently fails on privilege escalation.** On
+  a distro without a known package manager, the setup wizard fell back to the
+  upstream Distrobox installer piped to a hardcoded `sudo sh` — but the GUI has no
+  terminal for `sudo` to prompt on, so it failed silently. It now uses the same
+  graphical elevation (`pkexec`) the wizard uses everywhere else.
+- **A native cyanrip install no longer triggers the setup nag.** The first-run
+  "set up Platterpus" check only looked for the container-exported cyanrip
+  wrapper, so a user who installed cyanrip natively (on `PATH`) was still prompted
+  to run host setup. The check now uses the dependency subsystem's host-presence
+  test, which also counts a PATH-native cyanrip.
+- **Uninstall now removes the exported `flac` wrapper too.** Setup exports
+  cyanrip, metaflac *and* flac to `~/.local/bin/`, but both the in-app uninstaller
+  and `uninstall.sh` removed only whipper/metaflac/cyanrip — leaving
+  `~/.local/bin/flac` orphaned. It's now removed alongside the others.
+- **CTDB verification uses far less memory.** It decoded every track and
+  concatenated the whole disc's PCM (~750 MB) plus a join copy (~1.5 GB peak) on
+  the verify thread before computing the CRC. It now folds each track into the
+  running CRC one at a time, so peak memory is a single track — no behaviour
+  change (the CRC is identical), just a large memory saving on modest machines.
+- **The EAC-style exported log no longer invents a read mode.** The optional
+  EAC-layout log hardcoded `Read mode: Secure` and `Make use of C2 pointers: No`
+  regardless of the actual rip — but nothing in the parsed data backs those, so
+  they were fabricated. Those two lines are now omitted (only fields actually
+  parsed are rendered), keeping the export honest per its own "not a genuine EAC
+  log" banner.
+- **Force-stopping one drive no longer risks killing a rip on another.**
+  Force-stop began with a name-matched `pkill cyanrip` (and cdparanoia/cdrdao),
+  which would SIGKILL *any* such process on the system — including one ripping a
+  different disc on a second drive. It now tries the device-scoped `fuser -k
+  <device>` first (which targets only the process holding *that* drive) and falls
+  back to the broad by-name kill only when there's no device to scope to or
+  nothing held it.
+- **Post-rip verification only looks at this album's files.** The CTDB, FLAC-
+  integrity, and derived-file checks enumerated FLACs *recursively* under the
+  album folder, so a FLAC in a nested subfolder (a bonus disc, a leftover — or
+  the entire music library if the folder ever fell back to the output root) got
+  pulled into the CTDB TOC (corrupting the CRC → a spurious "not in database") or
+  inflated the transcode-completeness count. They now enumerate only the album
+  folder's direct files, matching how the rip is actually laid out.
+- **Checksums are never taken of a still-being-written file.** The per-file
+  SHA256 step waits for post-rip tagging/transcoding to settle, then hashes — but
+  if that work didn't finish within the settle window it hashed anyway, recording
+  a digest of a mid-rewrite file as "integrity truth". It now checks whether the
+  work actually settled and, if not, records no checksums (an honest omission)
+  rather than a wrong one; the fidelity verdict is unaffected.
+- **Start is locked while a disc is being scanned.** The disc probe holds the
+  drive, but Start could still be pressed during a scan (in unknown-album mode a
+  drive alone enables it) — starting a rip then contended with the probe for the
+  device and let the scan's completion pop a dialog over an already-rip-locked
+  window. Start is now disabled for the duration of a scan (with a tooltip saying
+  why) and re-enables when it finishes.
+- **A slow MusicBrainz lookup can't tag the *next* disc with the previous
+  disc's album.** MusicBrainz lookups run in the background; if you swapped discs
+  before a lookup finished, the late result (release candidates or the fetched
+  release detail) could repopulate the new disc's tracks and release-id — tagging
+  the new disc with the *previous* disc's metadata. Every lookup now carries the
+  disc-id it was fired for, and a result whose disc-id no longer matches the disc
+  on screen is dropped (the same staleness guard the disc probe already had).
+- **A previous album's verification can't land in the next album's report.** The
+  post-rip checks (CTDB, FLAC-integrity, transcode, per-file checksums, derived-
+  file verify) run in the background and can outlast the rip; if you started a
+  second rip before the first's checks finished, a late result could be written
+  into the wrong album's report (and one result — the derived-file verify — was
+  never even reset between rips). Each check now records which rip it belongs to
+  and is discarded if a newer rip has started.
+- **A hand-edited or corrupt config can't crash startup or slip a bad value into
+  a rip.** A broken `config.toml` (invalid TOML, a non-numeric schema version)
+  used to crash the app before it could even show an error; it's now backed up
+  to `config.toml.bad` and the app starts from defaults. And because editing the
+  file by hand bypasses the Settings dialog's checks, every loaded value is now
+  validated the same way — any field with an error (e.g. a `..` path-traversal
+  template) is reset to its default before it can reach the ripper, with the
+  problem written to the log.
+- **Failures in the FLAC verify / re-compress / derived-file checks are now
+  logged.** These steps discarded the tool's error output, so a failed
+  `flac --test` (corruption) or ffmpeg decode left no reason in the log. Their
+  stderr tail (or exit code) is now captured on failure, matching the transcode
+  step — so a bug report's log actually explains what went wrong.
+- **A colon in the year, genre, ISRC, or release id is now restored in tags.**
+  cyanrip can't take a literal `:` in a tag argument, so Platterpus feeds it a
+  visually-identical lookalike and restores the real colon afterward. The check
+  that decided whether to run that restore only looked at album/track title and
+  artist, so a `:` in the year, genre, an ISRC, or the MusicBrainz release id was
+  left as the lookalike in the written tag. It now checks every field fed to
+  cyanrip.
+- **The menu-entry launcher escapes special characters in its path.** The
+  `.desktop` `Exec=` line dropped the AppImage path raw between quotes, so an
+  AppImage under a folder containing `"`, `` ` ``, `$`, or `\` (e.g. a path with a
+  dollar sign) could break the entry — or, in a launcher that hands the line to a
+  shell, allow command substitution. The path is now escaped per the freedesktop
+  spec for both the main and the uninstaller entries.
+- **A stalled derived-file verify can't hang forever.** The post-transcode
+  decode-verify bounded only the *wait after* ffmpeg finished; if ffmpeg stalled
+  mid-decode holding the output pipe open, the read loop could block indefinitely.
+  A watchdog now kills a decode that exceeds the deadline (which unblocks the read
+  and reports the file as unverifiable) so the verify thread always makes progress.
+- **The in-app updater caps the download size.** The AppImage download is now
+  bounded (rejected up front if the server declares an oversized `Content-Length`,
+  and aborted if the running byte count exceeds the cap) so a misbehaving or
+  hostile server can't stream an endless body onto the disk before the existing
+  post-download SHA-256 gate rejects it.
+- **Hardening for the network lookups.** The CUETools-DB (CTDB) verification
+  reads over plain HTTP, so its response is now size-capped — a misbehaving or
+  hostile server can't return a giant body and exhaust memory. And the cover-art
+  release id is URL-encoded into the request, so a tampered id can't rewrite
+  which resource is fetched.
+- **The window no longer freezes while identifying a disc.** MusicBrainz lookups
+  were running on the GUI thread — the worker was moved to its own thread, but its
+  slots were being *called* directly, which runs them on the caller's thread
+  regardless. A slow or unreachable MusicBrainz would hang the whole window on the
+  most common action (inserting an identified disc). Queries now genuinely run on
+  the worker thread, and the MusicBrainz adapter bounds every request with a
+  timeout so a stalled server can't hang the lookup at all.
+- **Cancel no longer freezes the window.** Pressing Cancel during a rip forwarded
+  to a blocking SIGTERM-then-wait on the GUI thread — a drive stuck in a kernel
+  read could freeze the window for seconds. Cancel now sends a non-blocking stop
+  signal and returns immediately; the reap and the force-stop escalation happen off
+  the GUI thread as before.
+- **Checking dependencies and refreshing drives no longer freeze the window.**
+  Tools → Check dependencies, the Settings “Check dependencies” button, and the
+  drive-picker Refresh button all probed the system synchronously on the GUI
+  thread — each shells into the Distrobox container, which is slow on a cold
+  start and could hang the window for tens of seconds. They now run the probe on
+  a worker thread (the same off-thread path the launch check already used) and
+  apply the result on the GUI thread.
+- **The update dialog's Cancel button works again.** It was wired to the download
+  worker's slot as a queued call, but the worker was busy downloading and never
+  processed it, so Cancel did nothing and the update installed anyway. Cancel now
+  flips the worker's flag directly from the GUI thread, and the download stops
+  between chunks.
 - **Dialogs open on the right screen, on top, and fully visible.** Every dialog is
   centred on the main window (a `CenteredDialog` base + an app-wide filter that
   also catches `QMessageBox`/`QFileDialog`), but two gaps remained on a
@@ -77,8 +263,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   point is off *all* screens) and **raises + focuses** it so it comes to the
   front. No resize — just a slide; an oversized dialog pins its top-left so the
   title bar and buttons stay reachable.
+- **The release workflow can't ship a mislabeled or invisible release.** Two
+  release-side gaps are closed: (1) the built AppImage's `--version` is now
+  asserted to match the release tag, so a forgotten `__version__` bump fails the
+  build loudly instead of shipping a binary whose version disagrees with its tag
+  (which would break the in-app updater's version compare); and (2) if a release
+  re-run takes the "release already exists" branch, it now flips the draft flag
+  off — previously a first run that created the draft but died before publishing
+  left every retry re-uploading assets to a release that stayed an invisible
+  draft forever.
 
 ### Changed
+- **Python 3.14 is now a supported/tested version.** Added to the packaging
+  classifiers and the CI test matrix (3.11–3.14); nothing the project uses was
+  removed in 3.14 and PySide6 6.11 supports it. The dev `pytest` pin widened to
+  `>=8,<10` so the suite runs under pytest 9 as well.
+- **License metadata migrated to the modern PEP 639 form.** `pyproject.toml`
+  now declares `license = "GPL-3.0-only"` (SPDX) + `license-files = ["LICENSE"]`
+  with `setuptools>=77`, and the deprecated `License :: OSI Approved …`
+  classifier was removed. The license itself is unchanged (GPL-3.0-only); this
+  just tracks the packaging standard (setuptools now warns on the old
+  classifier). Wheel metadata is now Metadata-Version 2.4.
 - **Institutional: "validate every input and every dependency output" is now a
   written rule** (CLAUDE.md Code conventions), with the *why it was missing*
   recorded — it had never been documented, which is why Settings inputs had only
@@ -1581,7 +1786,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...HEAD
+[0.4.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.5...v0.4.6

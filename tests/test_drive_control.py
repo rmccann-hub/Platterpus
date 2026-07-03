@@ -122,28 +122,43 @@ def test_in_container_uses_distrobox_enter() -> None:
 
 
 def test_force_stop_host_path_no_container_call() -> None:
-    # Host kill succeeds (rc 0) → no distrobox fallback.
+    # Device-scoped fuser succeeds (rc 0) → the broad name pkill is skipped, and
+    # no distrobox fallback. Precise kill only, then eject.
     rec = _Recorder(returncode=0)
     msg = drive_control.force_stop_drive("/dev/sr0", runner=rec)
     cmds = [os.path.basename(c[0]) for c in rec.calls]
     assert "distrobox" not in cmds
-    assert cmds == ["pkill", "pkill", "fuser", "eject"]
+    assert cmds == ["fuser", "eject"]
     assert "spin down" in msg.lower()
 
 
-def test_force_stop_falls_back_to_container_when_host_misses() -> None:
-    # rc 1 everywhere → host pkills + fuser match nothing → distrobox fallback.
+def test_force_stop_does_not_broadly_pkill_when_device_scoped_kill_works() -> None:
+    """Regression (#23): the old code ran a name-matched `pkill cyanrip` FIRST,
+    which would SIGKILL a cyanrip ripping a *different* disc on another drive.
+    When the device-scoped `fuser -k <device>` succeeds, the broad pkill must not
+    run at all — only the process holding THIS drive is touched."""
+    rec = _Recorder(returncode=0)
+    drive_control.force_stop_drive("/dev/sr0", runner=rec)
+    cmds = [os.path.basename(c[0]) for c in rec.calls]
+    assert "pkill" not in cmds  # no by-name kill that could hit an unrelated rip
+    assert cmds[0] == "fuser"  # the precise, device-scoped kill went first
+
+
+def test_force_stop_falls_back_to_broad_pkill_then_container_when_fuser_misses() -> (
+    None
+):
+    # rc 1 everywhere → fuser catches nothing → broad host pkills → distrobox.
     rec = _Recorder(returncode=1)
     drive_control.force_stop_drive("/dev/sr0", runner=rec)
     cmds = [os.path.basename(c[0]) for c in rec.calls]
-    assert cmds == ["pkill", "pkill", "fuser", "distrobox", "distrobox", "eject"]
+    assert cmds == ["fuser", "pkill", "pkill", "distrobox", "distrobox", "eject"]
 
 
 def test_force_stop_kills_before_ejecting() -> None:
     rec = _Recorder(returncode=0)
     drive_control.force_stop_drive("/dev/sr0", runner=rec)
     order = [os.path.basename(c[0]) for c in rec.calls]
-    assert order.index("pkill") < order.index("eject")
+    assert order.index("fuser") < order.index("eject")
 
 
 # --- free_drive (scan-stall recovery: kill the reader, do NOT eject) ------
@@ -151,20 +166,20 @@ def test_force_stop_kills_before_ejecting() -> None:
 
 def test_free_drive_kills_but_never_ejects() -> None:
     """A wedged disc *scan* frees the drive without ejecting, so the disc stays
-    in for a Rescan — the kill sequence runs but `eject` never does."""
+    in for a Rescan — the (device-scoped) kill runs but `eject` never does."""
     rec = _Recorder(returncode=0)
     msg = drive_control.free_drive("/dev/sr0", runner=rec)
     cmds = [os.path.basename(c[0]) for c in rec.calls]
     assert "eject" not in cmds
-    assert cmds == ["pkill", "pkill", "fuser"]
+    assert cmds == ["fuser"]  # device-scoped kill succeeded; no broad pkill
     assert "free" in msg.lower()
 
 
 def test_free_drive_falls_back_to_container_when_host_misses() -> None:
-    # rc 1 everywhere → host pkills + fuser match nothing → distrobox fallback,
-    # still without any eject.
+    # rc 1 everywhere → fuser catches nothing → broad host pkills → distrobox
+    # fallback, still without any eject.
     rec = _Recorder(returncode=1)
     drive_control.free_drive("/dev/sr0", runner=rec)
     cmds = [os.path.basename(c[0]) for c in rec.calls]
-    assert cmds == ["pkill", "pkill", "fuser", "distrobox", "distrobox"]
+    assert cmds == ["fuser", "pkill", "pkill", "distrobox", "distrobox"]
     assert "eject" not in cmds
