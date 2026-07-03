@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.10] — 2026-07-03
+
 ### Fixed
 - **The setup wizard no longer freezes the window while it checks what got
   installed.** After the host-setup wizard ran, Platterpus re-probed each
@@ -1926,7 +1928,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...HEAD
+[0.4.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.6...v0.4.7
