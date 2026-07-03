@@ -11,6 +11,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Settings validation now rejects a control character at the *start or end* of
+  an output/working directory, not only in the middle.** The check ran on the
+  whitespace-stripped value, and Python treats the C0 "information separators"
+  `\x1c`–`\x1f` (and tab/newline/CR) as whitespace — so a leading or trailing one
+  was trimmed away before the check and slipped through, yet stayed in the saved
+  config and reached the rip as a real path character. Now checked on the raw
+  value, so the "no control characters in a path" rule holds at every position
+  (NUL was always caught; this closes the gap for its whitespace-classified
+  siblings). Found by a new position-fuzzing property test.
+
+### Added
+- **Property-based (fuzzed) tests for two never-raise/security surfaces:** the
+  naming live-preview renderer (`render_preview` must never raise on any typed
+  template) and the Settings path validators (a `..` traversal segment, and a
+  control character, must be rejected wherever they appear — not just in the few
+  hand-picked example positions). These complement the existing example tests and
+  guard against a refactor accidentally narrowing a check's scope.
+
 ### Changed
 - **After an in-app update, the "Restart now?" prompt now warns that the new
   version can take 20–30 seconds to reappear** (a new AppImage unpacks itself on

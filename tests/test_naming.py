@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from platterpus import naming
 
@@ -85,6 +87,21 @@ def test_render_preview_never_raises(template: str) -> None:
     # It backs a live preview as the user types — it must never raise, on any
     # input, and always end in .flac.
     out = naming.render_preview(template, naming.SAMPLE_EASY)
+    assert out.endswith(".flac")
+
+
+# The 7 examples above pin the known-interesting shapes; this fuzzes the whole
+# input space. render_preview backs a LIVE preview updated on every keystroke,
+# so its docstring promises it NEVER raises — a crash here would take the
+# Settings dialog down mid-type. Hypothesis throws arbitrary text (lone/trailing
+# "%", stray tokens, control chars, odd Unicode) and shrinks any crash to a
+# minimal reproducer. text() draws the full unicode range by default, so a "%"
+# followed by any codepoint — including an astral/surrogate one — is exercised.
+@given(template=st.text(max_size=200))
+@settings(max_examples=300, deadline=None)
+def test_render_preview_never_raises_property(template: str) -> None:
+    out = naming.render_preview(template, naming.SAMPLE_STRESS)
+    assert isinstance(out, str)
     assert out.endswith(".flac")
 
 
