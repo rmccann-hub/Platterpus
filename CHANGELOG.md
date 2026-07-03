@@ -12,6 +12,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A batch of small robustness + hardening fixes.** The in-app updater now caps
+  the `.sha256` read (a hostile mirror could otherwise stream a huge body into
+  memory before the length check); the CTDB verify now classifies a wedged
+  `flac`/`metaflac` (`TimeoutExpired`) as a lookup/decode error instead of
+  letting it escape the never-raise path; the metaflac tool-path Settings field
+  now rejects control characters (the other path fields already did); Picard is
+  launched detached (`start_new_session`) so quitting Platterpus can't take it
+  down; the dialog-centering filter tracks dialogs by weak reference instead of
+  `id()` (a reused id could leave a later dialog un-centred); and the AppImage
+  `.desktop` `Exec=` writer neutralises newline/tab/CR so a control character in
+  the path can't inject a second key. Each carries a regression test.
 - **A rip that finishes could no longer leave the app wedged.** Three latent
   failures in the finish path are closed: (1) the post-rip tagging step read the
   track-table widgets from its background thread — a data race on every

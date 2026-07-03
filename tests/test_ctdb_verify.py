@@ -137,6 +137,34 @@ def test_trustworthy_true_for_non_match_verdicts() -> None:
     assert res.trustworthy is True
 
 
+def test_toc_build_timeout_is_lookup_error_not_a_raise() -> None:
+    # BUG-4: a wedged flac/metaflac raises subprocess.TimeoutExpired, which is
+    # NOT an OSError/RuntimeError/ValueError — so it used to bypass the never-raise
+    # classification and escape uncaught. It must become a LOOKUP_ERROR verdict.
+    import subprocess
+
+    def timing_out_probe(_p: Path) -> int:
+        raise subprocess.TimeoutExpired(cmd="metaflac", timeout=5)
+
+    client = _FakeClient(CtdbLookupResult(entries=()))
+    res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=timing_out_probe)
+    assert res.verdict is Verdict.LOOKUP_ERROR
+
+
+def test_decode_timeout_after_db_hit_is_lookup_error() -> None:
+    # BUG-4: same for a decoder that wedges during the CRC pass (after a DB hit).
+    import subprocess
+
+    entry = CtdbEntry(crc=123, confidence=3)
+    client = _FakeClient(CtdbLookupResult(entries=(entry,)))
+
+    def timing_out_decoder(_p: Path) -> bytes:
+        raise subprocess.TimeoutExpired(cmd="flac", timeout=5)
+
+    res = verify_rip(_FLACS, client, decoder=timing_out_decoder, samples_probe=_probe)
+    assert res.verdict is Verdict.LOOKUP_ERROR
+
+
 def test_toc_build_error_is_lookup_error() -> None:
     # A probe failure while building the TOC (before any lookup) → LOOKUP_ERROR.
     def bad_probe(_p: Path) -> int:

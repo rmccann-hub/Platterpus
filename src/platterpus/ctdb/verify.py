@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,7 +92,10 @@ def verify_rip(
         toc = disc_toc_from_files(flac_paths, samples_probe)
     except decode.DecoderUnavailable as exc:
         return CtdbVerifyResult(Verdict.DECODER_UNAVAILABLE, message=str(exc))
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
+        # BUG-4: a wedged flac/metaflac raises TimeoutExpired (the decoders use
+        # real timeouts); it's NOT an OSError/RuntimeError, so without it a hang
+        # bypassed classification and only the worker's broad except caught it.
         return CtdbVerifyResult(Verdict.LOOKUP_ERROR, message=f"TOC error: {exc}")
 
     try:
@@ -111,7 +115,9 @@ def verify_rip(
         our_crc = _crc_all(flac_paths, decoder)
     except decode.DecoderUnavailable as exc:
         return _db_only_result(result, Verdict.DECODER_UNAVAILABLE, str(exc))
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        # BUG-4: include TimeoutExpired here too — a wedged decoder during the
+        # CRC pass must classify as a decode error, not escape uncaught.
         return _db_only_result(result, Verdict.LOOKUP_ERROR, f"decode error: {exc}")
 
     return _match_verdict(result, our_crc)

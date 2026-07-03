@@ -47,6 +47,12 @@ _TIMEOUT_S: float = 30.0  # per network operation (connect/read stall)
 # byte count (a lying/absent header can't get past the streaming check).
 _MAX_DOWNLOAD_BYTES: int = 1024 * 1024 * 1024
 
+# Cap on the `.sha256` sidecar read (BUG-3). The body is a 64-hex digest plus an
+# optional filename — a few dozen bytes — but the read was unbounded, so a hostile
+# mirror could stream a multi-GB body into memory before the `len == 64` check.
+# 4 KiB is generous for the real content; anything past it is already malformed.
+_MAX_SHA256_BYTES: int = 4096
+
 
 class UpdateInstallError(Exception):
     """Any failure installing an update. The message is user-presentable."""
@@ -97,7 +103,15 @@ def download_and_install(
     _status("Checking for the update…")
     try:
         with open_url(url + ".sha256") as response:
-            expected = response.read().decode("utf-8").split()[0].strip().lower()
+            # BUG-3: bound the read — an unbounded response.read() let a hostile
+            # mirror buffer a huge body before the length check below.
+            expected = (
+                response.read(_MAX_SHA256_BYTES)
+                .decode("utf-8")
+                .split()[0]
+                .strip()
+                .lower()
+            )
     except Exception as exc:  # noqa: BLE001 — network/shape errors alike
         raise UpdateInstallError(f"couldn't fetch the update checksum: {exc}") from exc
     if len(expected) != 64:
