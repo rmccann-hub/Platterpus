@@ -59,3 +59,41 @@ def test_environment_report_shape_and_never_raises() -> None:
     # Python version is always determinable in-process.
     assert isinstance(env["python"], str) and env["python"]
     assert env["install_channel"] in {"appimage", "pipx", "source"}
+
+
+def test_dependency_summary_from_report() -> None:
+    from types import SimpleNamespace as NS
+
+    report = NS(
+        ok=[NS(dep_id="cyanrip"), NS(dep_id="flac")],
+        ok_versions={"cyanrip": (0, 9, 3), "flac": (1, 4, 0)},
+        ok_probes={
+            "cyanrip": NS(location="/home/u/.local/bin/cyanrip"),
+            "flac": NS(location="/usr/bin/flac"),
+        },
+        missing=[
+            NS(
+                spec=NS(dep_id="picard"),
+                probe=NS(present=False, version=None, location=None),
+            )
+        ],
+    )
+    summary = build_info.dependency_summary(report)
+    assert summary["cyanrip"] == {
+        "present": True,
+        "version": "0.9.3",
+        "location": "/home/u/.local/bin/cyanrip",
+        "min_version_met": True,
+    }
+    assert summary["flac"]["version"] == "1.4.0"
+    assert summary["picard"] == {
+        "present": False,
+        "version": None,
+        "location": None,
+        "min_version_met": False,
+    }
+
+
+def test_dependency_summary_never_raises_on_junk() -> None:
+    # A non-report object degrades to an empty summary, never an exception.
+    assert build_info.dependency_summary(object()) == {}

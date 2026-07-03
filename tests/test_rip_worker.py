@@ -611,6 +611,14 @@ def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
     ]
     assert worker.unstable_tracks == []
     assert (tmp_path / "Artist" / "Album" / "02 - B.flac").read_bytes() == b"SECURED-B"
+    # The report can explain WHY the re-rip ran: dynamic mode, disc in the DB,
+    # a track needed securing → engaged.
+    assert worker.secure_rerip_report == {
+        "mode": "dynamic",
+        "engaged": True,
+        "disc_in_accuraterip": True,
+        "skipped_reason": None,
+    }
 
 
 def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
@@ -662,6 +670,40 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
     assert len(backend.rip_calls) == 1  # ONE fast pass, no targeted re-rip
     assert backend.rip_calls[0]["only_tracks"] == ()
     assert worker.retried_tracks == []
+    # The report explains WHY the shaky-looking tracks weren't re-ripped: the
+    # disc isn't in AccurateRip, so a targeted re-rip couldn't verify anything.
+    assert worker.secure_rerip_report == {
+        "mode": "dynamic",
+        "engaged": False,
+        "disc_in_accuraterip": False,
+        "skipped_reason": "disc_not_in_accuraterip",
+    }
+
+
+def test_secure_rerip_report_uniform_and_off_modes(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The report's secure_rerip block reflects the non-dynamic modes too:
+    uniform (-Z on every track) is 'engaged' from the start; plain off (no -Z)
+    has no block to show."""
+    # Uniform: a -Z is set but dynamic is off → -Z applies to every track.
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, secure_rerip_matches=2, secure_rerip_dynamic=False),
+    )
+    worker.start_rip()
+    report = worker.secure_rerip_report
+    assert report is not None
+    assert report["mode"] == "uniform" and report["engaged"] is True
+
+    # Off: no -Z at all → nothing to explain, so no block.
+    worker_off = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0)),
+        _params(tmp_path, secure_rerip_matches=0),
+    )
+    worker_off.start_rip()
+    assert worker_off.secure_rerip_report is None
 
 
 def test_swap_in_reripped_track_never_corrupts_the_master(

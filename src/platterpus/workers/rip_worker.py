@@ -342,6 +342,18 @@ class RipWorker(QObject):
         # GUI folds this into the report and results pane. Empty when nothing was
         # re-ripped.
         self._retried_tracks: list[dict] = []
+        # Why the dynamic secure re-rip did or didn't run (report's
+        # read_speed.secure_rerip), so "why wasn't my shaky track re-ripped?" is
+        # answerable from the JSON. `mode` is dynamic / uniform / off; `engaged`
+        # is whether a secure re-rip actually happened (dynamic: a targeted
+        # re-rip ran; uniform: -Z was applied to every track); `disc_in_ar` is
+        # whether the disc was in AccurateRip (dynamic only); `skipped_reason`
+        # explains a dynamic skip (e.g. the disc isn't in AccurateRip so a
+        # targeted re-rip can't converge on a consensus). Set in start_rip.
+        self._secure_rerip_mode: str = "off"
+        self._secure_rerip_engaged: bool = False
+        self._disc_in_accuraterip: bool | None = None
+        self._secure_rerip_skipped_reason: str | None = None
 
     def _album_eta_text(self, overall_pct: float) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
@@ -501,6 +513,21 @@ class RipWorker(QObject):
         finish for the report. NOT the estimate shown live (that's the status)."""
         return list(self._eta_trace)
 
+    @property
+    def secure_rerip_report(self) -> dict | None:
+        """Why the dynamic secure re-rip did/didn't run — the report's
+        ``read_speed.secure_rerip``. None in plain ``off`` mode (nothing to
+        explain); otherwise ``{mode, engaged, disc_in_accuraterip,
+        skipped_reason}``. The GUI reads this at finish."""
+        if self._secure_rerip_mode == "off":
+            return None
+        return {
+            "mode": self._secure_rerip_mode,
+            "engaged": self._secure_rerip_engaged,
+            "disc_in_accuraterip": self._disc_in_accuraterip,
+            "skipped_reason": self._secure_rerip_skipped_reason,
+        }
+
     # --- Slots ---
 
     @Slot()
@@ -531,6 +558,17 @@ class RipWorker(QObject):
         dynamic_secure = (
             self._params.secure_rerip_dynamic and self._params.secure_rerip_matches > 0
         )
+        # Record the secure-re-rip mode up front for the report (see
+        # secure_rerip_report). Uniform mode applies `-Z` to every track on every
+        # pass, so it's "engaged" the moment it starts; dynamic mode's engagement
+        # is decided later (only if some track needs the targeted re-rip).
+        if dynamic_secure:
+            self._secure_rerip_mode = "dynamic"
+        elif self._params.secure_rerip_matches > 0:
+            self._secure_rerip_mode = "uniform"
+            self._secure_rerip_engaged = True
+        else:
+            self._secure_rerip_mode = "off"
         # Starting rung: the ladder starts at the drive's max (0); a fixed mode
         # uses the configured speed for its single pass.
         speed = 0 if auto_ladder else self._params.read_speed
@@ -645,16 +683,21 @@ class RipWorker(QObject):
                 # exists to avoid). Skip it; the fast first pass stands, flagged
                 # as not-verified. (An in-DB disc where a *few* tracks failed is
                 # the real dynamic case and still re-rips just those.)
-                if disc_in_accuraterip(parsed_log):
+                self._disc_in_accuraterip = disc_in_accuraterip(parsed_log)
+                if self._disc_in_accuraterip:
                     to_fix = tracks_failing_accuraterip(parsed_log)
                 else:
                     to_fix = []
+                    self._secure_rerip_skipped_reason = "disc_not_in_accuraterip"
                     self.log_line.emit(
                         "[secure re-rip] disc is not in AccurateRip — keeping the "
                         "fast read (a re-rip can't verify against a DB that has no "
                         "entry for this disc)."
                     )
                     log.info("dynamic secure re-rip skipped: disc not in AccurateRip")
+                # Engaged only when there's actually a track to secure (every
+                # track matching AccurateRip on the fast read is already proven).
+                self._secure_rerip_engaged = bool(to_fix)
                 trigger = "accuraterip"
                 rerip_z = self._params.secure_rerip_matches
             elif auto_ladder:

@@ -964,19 +964,28 @@ class RipMixin:
             #    two never touch a FLAC at the same time.
             if embed or save_file:
                 try:
-                    message = cover_art.apply_cover_art(
+                    art_result = cover_art.apply_cover_art(
                         rip_dir,
                         release_id,
                         embed=embed,
                         save_file=save_file,
                         metaflac=self._metaflac,
                         fetcher=self._cover_art_fetcher,
+                        # The config mode is recorded in the report so it knows
+                        # art was *requested* (a plain attribute read — no Qt).
+                        mode=self._config.cover_art,
                     )
                 except Exception:  # noqa: BLE001 — art must never crash the GUI
                     log.exception("cover art post-processing failed")
-                    message = "Cover art: failed unexpectedly (rip unaffected)."
+                    art_result = cover_art.CoverArtResult(
+                        mode=self._config.cover_art,
+                        found=False,
+                        reason="error",
+                        error="failed unexpectedly",
+                        message="Cover art: failed unexpectedly (rip unaffected).",
+                    )
                 try:
-                    self.cover_art_done.emit(message)
+                    self.cover_art_done.emit(art_result)
                 except RuntimeError:  # window destroyed — nothing to update
                     pass
             # 3) Re-compress LAST, so it rewrites the final tagged-and-arted
@@ -1028,8 +1037,22 @@ class RipMixin:
         self._post_rip_thread = thread
         thread.start()
 
-    def _on_cover_art_done(self, message: str) -> None:
-        """Cover-art thread finished — record the outcome in the log view."""
+    def _on_cover_art_done(self, result: object) -> None:
+        """Cover-art thread finished — record the outcome (runs on the GUI thread).
+
+        Carries a :class:`~platterpus.adapters.cover_art.CoverArtResult` (folded
+        into the report's ``cover_art`` block); a bare string is still accepted
+        for back-compat (older callers / tests). The human line goes to the log
+        view either way.
+        """
+        if isinstance(result, cover_art.CoverArtResult):
+            self._last_cover_art_result = result
+            self._schedule_rip_report_write()
+            message = result.message or "Cover art applied."
+        elif isinstance(result, str):
+            message = result
+        else:
+            return
         log.info("%s", message)
         self._rip_progress.append_log_line(message)
 
@@ -1189,7 +1212,19 @@ class RipMixin:
         """
         from datetime import datetime
 
-        from platterpus import read_speed_ladder, rip_report
+        from platterpus import build_info, read_speed_ladder, rip_report
+
+        # environment: the live Python/OS/PySide6/channel probe, plus the
+        # per-dependency versions + locations from the LAUNCH-TIME dependency
+        # check (never a fresh probe here — that enters the container and would
+        # freeze the GUI). None dependencies until the launch check has landed.
+        environment = build_info.environment_report()
+        dep_report = getattr(self, "_last_dependency_report", None)
+        environment["dependencies"] = (
+            build_info.dependency_summary(dep_report)
+            if dep_report is not None
+            else None
+        )
 
         rip_report.write_report(
             rip_log,
@@ -1223,6 +1258,7 @@ class RipMixin:
                 ),
             ),
             disc=getattr(self, "_last_disc", None),
+            environment=environment,
             gates=rip_report.build_gates(
                 ctdb_enabled=self._config.ctdb_verify_after_rip,
                 flac_verify_enabled=self._config.verify_flac_after_rip,

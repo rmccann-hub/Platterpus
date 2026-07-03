@@ -57,16 +57,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   ripper for*, including the read offset as `{configured, applied, effective}` so
   a genuine 0 is told apart from a configured-but-not-applied one — which the log
   can't show); `disc` (unknown-mode + the MusicBrainz release id); `environment`
-  (Python / OS / PySide6 / install channel); a `generator.build_fingerprint` (the
-  build's git short-SHA, or `"source"` on a checkout — debug only, never part of
-  any bit-perfection claim); `verification.gates` (turns an ambiguous `null`
-  check into an explicit "ran" / "disabled" / "backend self-verifies" /
-  "flac-only"); `verification.recompress` (the opt-in `flac -8` result, which
-  mutates the masters); `log_parse` (flags a degraded read of the human log);
-  and a consolidated, severity-tagged `issues` list a triager opens first (empty
-  on a clean rip). A hard failure that produced **no** log now also leaves a
-  minimal report (`platterpus-rip-failure.platterpus.json`) so the most-broken
-  rips are no longer the least diagnosable.
+  (Python / OS / PySide6 / install channel, plus per-dependency versions **and
+  paths** from the launch-time probe — cyanrip/flac/metaflac/ffmpeg/…); a
+  `generator.build_fingerprint` (the build's git short-SHA, or `"source"` on a
+  checkout — debug only, never part of any bit-perfection claim); `cover_art`
+  (the structured front-cover result — found / why-not, e.g. `404` vs `network`,
+  and how many files it was embedded in); `read_speed.secure_rerip` (why the
+  dynamic secure re-rip did or didn't run — e.g. skipped because the disc isn't
+  in AccurateRip, so "why wasn't my shaky track re-ripped?" is answerable);
+  `verification.gates` (turns an ambiguous `null` check into an explicit "ran" /
+  "disabled" / "backend self-verifies" / "flac-only"); `verification.recompress`
+  (the opt-in `flac -8` result, which mutates the masters); `log_parse` (flags a
+  degraded read of the human log); and a consolidated, severity-tagged `issues`
+  list a triager opens first (empty on a clean rip). A hard failure that produced
+  **no** log now also leaves a minimal report
+  (`platterpus-rip-failure.platterpus.json`) so the most-broken rips are no
+  longer the least diagnosable.
 - **A report-completeness test now fails CI if a report section goes missing or
   a new one is added without being declared** (`test_rip_report_completeness.py`)
   — the JSON's whole value is that a consumer can rely on every section being

@@ -93,3 +93,51 @@ def environment_report() -> dict:
     except Exception:  # noqa: BLE001 — absent/broken Qt must not break the report
         pass
     return env
+
+
+def _format_version(version: object) -> str | None:
+    """Render a parsed version tuple ``(9, 3, 0)`` as ``"9.3.0"``; None passes
+    through. Best-effort — a non-tuple just stringifies."""
+    if version is None:
+        return None
+    if isinstance(version, tuple):
+        return ".".join(str(part) for part in version)
+    return str(version)
+
+
+def dependency_summary(report: object) -> dict:
+    """Summarize a ``DependencyReport`` for ``environment.dependencies``.
+
+    Returns ``{dep_id: {present, version, location, min_version_met}}`` for every
+    known dependency — the "what tools & versions did you run it on" answer, from
+    the LAUNCH-TIME probe the GUI already ran (never a fresh probe on the report
+    path: re-probing enters the Distrobox container and would freeze the GUI).
+    Pure and never raises: it only reads the pre-computed report via ``getattr``.
+    """
+    summary: dict = {}
+    for spec in getattr(report, "ok", []) or []:
+        dep_id = getattr(spec, "dep_id", None)
+        if dep_id is None:
+            continue
+        probe = (getattr(report, "ok_probes", {}) or {}).get(dep_id)
+        version = (getattr(report, "ok_versions", {}) or {}).get(dep_id)
+        summary[dep_id] = {
+            "present": True,
+            "version": _format_version(version),
+            "location": getattr(probe, "location", None),
+            "min_version_met": True,
+        }
+    for item in getattr(report, "missing", []) or []:
+        spec = getattr(item, "spec", None)
+        probe = getattr(item, "probe", None)
+        dep_id = getattr(spec, "dep_id", None)
+        if dep_id is None:
+            continue
+        summary[dep_id] = {
+            "present": bool(getattr(probe, "present", False)),
+            "version": _format_version(getattr(probe, "version", None)),
+            "location": getattr(probe, "location", None),
+            # It's in `missing`, so either absent or below the floor.
+            "min_version_met": False,
+        }
+    return summary

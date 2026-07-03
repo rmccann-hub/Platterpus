@@ -130,6 +130,20 @@ class DependencyMixin:
         self._dep_check_thread = None
         self._dep_check_manager = None
         self._dep_check_show_summary = False
+        # Stash the launch-time probe so the rip report's
+        # environment.dependencies can record each tool's version + location
+        # WITHOUT re-probing on the GUI thread (a probe enters the Distrobox
+        # container — the exact freeze the never-block rule forbids). A shallow
+        # copy, because _apply_dependency_report below filters report.missing to
+        # required-only; the copy keeps the full picture (incl. optional deps
+        # like Picard). Guarded so a non-dataclass test double doesn't break.
+        if report is not None:
+            from dataclasses import replace
+
+            try:
+                self._last_dependency_report = replace(report)
+            except TypeError:
+                self._last_dependency_report = report
         # `show_summary` is True for the user-clicked Tools/Settings check and
         # False for the silent launch check; resolver dialogs surface for
         # genuinely-missing deps regardless.

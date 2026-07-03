@@ -3719,6 +3719,18 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         )
     )
     window._current_release_id = "release-xyz"
+    # A launch-time dependency probe is stashed by _on_dependency_check_done; the
+    # report's environment.dependencies reads it (it never re-probes on the GUI
+    # thread — that enters the container and would freeze the window).
+    from types import SimpleNamespace as _NS
+
+    from platterpus.deps.manager import DependencyReport
+
+    window._last_dependency_report = DependencyReport(
+        ok=[_NS(dep_id="cyanrip")],
+        ok_versions={"cyanrip": (0, 9, 3)},
+        ok_probes={"cyanrip": _NS(location="/home/u/.local/bin/cyanrip")},
+    )
     album_dir = tmp_path / "Artist" / "Album"
     album_dir.mkdir(parents=True)
     log_file = album_dir / "Album.log"
@@ -3748,6 +3760,12 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "musicbrainz_release_id": "release-xyz",
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
+    assert report["environment"]["dependencies"]["cyanrip"] == {
+        "present": True,
+        "version": "0.9.3",
+        "location": "/home/u/.local/bin/cyanrip",
+        "min_version_met": True,
+    }
     assert report["generator"]["build_fingerprint"] == "source"
     # A disabled check is explicitly labelled, not an ambiguous null.
     assert report["verification"]["gates"]["ctdb"] == "disabled"

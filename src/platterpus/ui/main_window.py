@@ -93,9 +93,10 @@ class MainWindow(
     # the user-side "after a rip finishes, helpers run" flow is testable).
     rip_post_processing_done = Signal()
     # Emitted (from the cover-art daemon thread; cross-thread emission is
-    # queued by Qt, so the slot runs on the GUI thread) with the one-line
-    # outcome of the post-rip cover-art fetch.
-    cover_art_done = Signal(str)
+    # queued by Qt, so the slot runs on the GUI thread) with the post-rip
+    # cover-art outcome — a CoverArtResult (folded into the rip report), or a
+    # bare string for back-compat. `object` so it can carry either.
+    cover_art_done = Signal(object)
     # Emitted (from the post-rip CTDB-verify daemon thread; queued to the GUI
     # thread) with the CtdbVerifyResult, so the verdict renders on the GUI
     # thread.
