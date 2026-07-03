@@ -95,6 +95,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   nits.
 
 ### Added
+- **"View log" and "View report" now open in an in-app read-only viewer.** A
+  `.log` / `.platterpus.json` has no default application on a fresh KDE, so the
+  old behaviour popped the OS "Open With" app-chooser (a jarring, un-asked-for
+  prompt against the zero-terminal bar — real-user report). The files now show in
+  a self-contained, read-only, monospace pane; an "Open externally…" button still
+  hands off to your own editor when you want it. ("Open rip folder" still uses
+  the file manager, which does have a default handler.)
 - **The rip report (`.platterpus.json`) now explains a whole rip on its own
   (schema v7).** New, additive sections so one file answers the questions a
   support thread always asks: `outcome` (did the *run* succeed / cancel / fail,
