@@ -690,12 +690,16 @@ class RipMixin:
         # right when the rip finishes (CLAUDE.md "never block the GUI thread";
         # docs/architecture.md §3.2). Only on a successful rip.
         if success and params is not None:
+            # The album folder the ripper just wrote: the .log lands next to the
+            # FLACs, so its parent is that folder (fall back to the output root
+            # if somehow no log). Computed once here — every post-rip step below
+            # scopes to it (TD-5: this used to be recomputed 5×).
+            rip_dir = Path(log_path).parent if log_path else params.output_dir
             # Tagging — only when the rip we started was unknown-mode (an
             # identified disc is tagged by cyanrip itself, fed the GUI's -a/-t
-            # tags). Scope it to the album folder the ripper just wrote: the .log
-            # lands next to the FLACs, so its parent is that folder. Using the
-            # configured output root instead would re-tag every previously ripped
-            # album in the library with THIS disc's metadata.
+            # tags). Scoping to `rip_dir` (not the configured output root) is what
+            # keeps this from re-tagging every previously ripped album in the
+            # library with THIS disc's metadata.
             tag = params.unknown
             # BUG-1: snapshot the track table HERE (on the GUI thread) — the
             # post-rip daemon must NOT read QWidgets. album_metadata()/tracks()
@@ -760,7 +764,6 @@ class RipMixin:
                 or transcode_fmt
                 or restore_colons
             ):
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_post_rip_processing(
                     rip_dir,
                     tag=tag,
@@ -786,7 +789,6 @@ class RipMixin:
             # mid-rewrite. Works for known and unknown discs (CTDB is keyed by
             # TOC, not MBID).
             if self._config.ctdb_verify_after_rip:
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_ctdb_verify(rip_dir, wait_for=post_rip_thread)
 
             # Opt-in (default on) FLAC encode-verify — only for a backend that
@@ -798,7 +800,6 @@ class RipMixin:
                 self._config.verify_flac_after_rip
                 and not self._backend.self_verifies_encode()
             ):
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_flac_verify(rip_dir, wait_for=post_rip_thread)
 
             # Derived-file verify: when a non-FLAC output was produced, prove the
@@ -807,7 +808,6 @@ class RipMixin:
             # MP3 (honest per Critical Rule #4). Runs off-thread AFTER the
             # transcode (post_rip_thread) so it never reads a file mid-write.
             if transcode_fmt:
-                rip_dir = Path(log_path).parent if log_path else params.output_dir
                 self._start_derived_verify(
                     rip_dir, transcode_fmt, wait_for=post_rip_thread
                 )
@@ -816,7 +816,6 @@ class RipMixin:
             # on a successful rip (every format), after the post-rip thread so it
             # hashes the final masters + any derived files. Off-thread; folded
             # into the one debug report via checksums_done.
-            rip_dir = Path(log_path).parent if log_path else params.output_dir
             self._start_checksums(rip_dir, wait_for=post_rip_thread)
 
         # Auto-eject on a clean finish if the user opted in. Only on success —
@@ -1110,6 +1109,52 @@ class RipMixin:
         log.info("%s", message)
         self._rip_progress.append_log_line(message)
 
+    # --- Shared post-rip daemon launcher -----------------------------------
+
+    def _launch_post_rip_daemon(
+        self,
+        compute: object,
+        signal: object,
+        thread_attr: str,
+    ) -> threading.Thread:
+        """Run a post-rip check on a daemon thread, guarded by the rip generation.
+
+        ``compute`` is a no-arg callable that does the off-thread work (a network
+        lookup + FLAC decode, a hash sweep, …) and returns its result — or
+        ``None`` to signal "skip, don't emit" (e.g. the checksum step when the
+        post-rip work didn't settle in time). If a NEWER rip has started since
+        this was launched, the result is dropped; otherwise it's delivered via
+        ``signal`` (a queued Qt signal), guarded against a destroyed window. The
+        thread is stored on ``self.<thread_attr>`` so tests can join it.
+
+        TD-2: this is the ONE place the rip-generation staleness guard lives —
+        the correctness property that stops a slow verify from album A writing
+        its verdict into album B's report/UI. Extracting it means a new post-rip
+        check can't accidentally omit the guard by copy-pasting a launcher.
+
+        Daemon + guarded emit (not a QThread) is deliberate: a full-album decode
+        can outlast any reasonable ``closeEvent`` wait, and destroying a running
+        QThread aborts the app (docs/architecture.md §3.2). The daemon dies with
+        the process and never touches a widget except through the queued signal.
+        """
+        gen = self._rip_generation  # drop the result if a newer rip starts
+
+        def runner() -> None:
+            result = compute()
+            if result is None:
+                return  # the work opted out (e.g. didn't settle) — nothing to emit
+            if self._rip_generation != gen:
+                return  # a newer rip started — this result is for the old album
+            try:
+                signal.emit(result)  # type: ignore[attr-defined]
+            except RuntimeError:  # window already destroyed — nothing to update
+                pass
+
+        thread = threading.Thread(target=runner, daemon=True)
+        setattr(self, thread_attr, thread)
+        thread.start()
+        return thread
+
     # --- Post-rip CTDB verify (opt-in, KDD-14 Phase 1) ----------------------
 
     def _start_ctdb_verify(
@@ -1118,32 +1163,21 @@ class RipMixin:
         """Verify the just-finished rip against CTDB on a daemon thread.
 
         The lookup (network) and the local FLAC decode (a `flac` subprocess per
-        track) must not run on the GUI thread. We use a daemon thread + a
-        queued signal — NOT a QThread — for the same reason cover art does: the
-        decode can run far longer than any reasonable closeEvent wait, and
-        destroying a running QThread aborts the app (§3.2). The daemon thread
-        dies with the process and guards its own emit, so closing the window
-        mid-verify is always safe. ``wait_for`` is the post-rip metaflac thread
-        (or None): we join it first so we never decode a FLAC mid-rewrite. The
-        verdict is reported via ``ctdb_verify_done`` (queued to the GUI thread).
+        track) must not run on the GUI thread. ``wait_for`` is the post-rip
+        metaflac thread (or None): we join it first so we never decode a FLAC
+        mid-rewrite. The verdict is reported via ``ctdb_verify_done`` (queued to
+        the GUI thread). Threading/generation guard: see
+        :meth:`_launch_post_rip_daemon`.
         """
-
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
-            result = verify_rip_dir(self._ctdb_client, rip_dir, wait_for=wait_for)
-            if self._rip_generation != gen:
-                return  # a newer rip started — this verdict is for the old album
-            try:
-                self.ctdb_verify_done.emit(result)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
-
         log.info("starting CTDB verify for %s", rip_dir)
         self._rip_progress.set_ctdb_status("Verifying against CTDB…")
-        thread = threading.Thread(target=work, daemon=True)
-        self._ctdb_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=lambda: verify_rip_dir(
+                self._ctdb_client, rip_dir, wait_for=wait_for
+            ),
+            signal=self.ctdb_verify_done,
+            thread_attr="_ctdb_thread",
+        )
 
     def _on_ctdb_verified(self, result: object) -> None:
         """CTDB verify finished — render the verdict under the AR table.
@@ -1481,9 +1515,7 @@ class RipMixin:
         """
         from platterpus import checksums
 
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
+        def compute() -> object | None:
             if wait_for is not None:
                 wait_for.join(timeout=_CHECKSUM_SETTLE_TIMEOUT_S)
                 # `join(timeout)` returns whether or not the thread finished. If
@@ -1491,27 +1523,23 @@ class RipMixin:
                 # files are mid-rewrite — hashing them now would record a SHA256
                 # that doesn't match the final file, i.e. a false "integrity truth".
                 # Better to record no checksums than wrong ones: skip this run
-                # (the report simply omits checksums; the fidelity verdict, which
-                # comes from AccurateRip/the rip log, is unaffected).
+                # (returning None → the shared launcher emits nothing; the report
+                # simply omits checksums; the fidelity verdict is unaffected).
                 if wait_for.is_alive():
                     log.warning(
                         "post-rip work did not settle within %.0fs — skipping "
                         "checksums so a mid-rewrite file isn't hashed as final",
                         _CHECKSUM_SETTLE_TIMEOUT_S,
                     )
-                    return
-            digests = checksums.compute_digests(rip_dir)
-            if self._rip_generation != gen:
-                return  # a newer rip started — these digests are for the old album
-            try:
-                self.checksums_done.emit(digests)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
+                    return None
+            return checksums.compute_digests(rip_dir)
 
         log.info("computing SHA256 digests for %s", rip_dir)
-        thread = threading.Thread(target=work, daemon=True)
-        self._checksums_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=compute,
+            signal=self.checksums_done,
+            thread_attr="_checksums_thread",
+        )
 
     def _on_checksums_done(self, digests: object) -> None:
         """Digests computed — record + re-write the report (on the GUI thread)."""
@@ -1531,24 +1559,15 @@ class RipMixin:
         ``closeEvent`` wait, and destroying a running ``QThread`` aborts the app
         — §3.2). Joins the post-rip metaflac thread first (``wait_for``) so it
         never tests a file mid-rewrite. Result reported via ``flac_verify_done``
-        (queued to the GUI thread)."""
-
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
-            result = verify_flac_dir(rip_dir, wait_for=wait_for)
-            if self._rip_generation != gen:
-                return  # a newer rip started — this result is for the old album
-            try:
-                self.flac_verify_done.emit(result)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
-
+        (queued to the GUI thread). Threading/generation guard: see
+        :meth:`_launch_post_rip_daemon`."""
         log.info("starting FLAC verify for %s", rip_dir)
         self._rip_progress.append_log_line("Verifying FLAC integrity…")
-        thread = threading.Thread(target=work, daemon=True)
-        self._flac_verify_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=lambda: verify_flac_dir(rip_dir, wait_for=wait_for),
+            signal=self.flac_verify_done,
+            thread_attr="_flac_verify_thread",
+        )
 
     def _on_flac_verified(self, result: object) -> None:
         """FLAC verify finished — record the outcome (runs on the GUI thread).
@@ -1657,24 +1676,15 @@ class RipMixin:
         and destroying a running ``QThread`` aborts the app — §3.2). Joins the
         post-rip transcode thread first (``wait_for``) so it never reads a derived
         file mid-write. Result reported via ``derived_verify_done`` (queued to the
-        GUI thread)."""
-
-        gen = self._rip_generation  # drop the result if a newer rip starts
-
-        def work() -> None:
-            result = verify_derived_dir(rip_dir, fmt, wait_for=wait_for)
-            if self._rip_generation != gen:
-                return  # a newer rip started — this result is for the old album
-            try:
-                self.derived_verify_done.emit(result)
-            except RuntimeError:  # window already destroyed — nothing to update
-                pass
-
+        GUI thread). Threading/generation guard: see
+        :meth:`_launch_post_rip_daemon`."""
         log.info("starting derived-file verify (%s) for %s", fmt, rip_dir)
         self._rip_progress.append_log_line(f"Verifying derived {fmt.upper()} files…")
-        thread = threading.Thread(target=work, daemon=True)
-        self._derived_verify_thread = thread
-        thread.start()
+        self._launch_post_rip_daemon(
+            compute=lambda: verify_derived_dir(rip_dir, fmt, wait_for=wait_for),
+            signal=self.derived_verify_done,
+            thread_attr="_derived_verify_thread",
+        )
 
     def _on_derived_verified(self, result: object) -> None:
         """Derived-file verify finished — record + surface the outcome.
