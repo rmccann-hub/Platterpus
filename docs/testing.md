@@ -84,6 +84,17 @@ tiers. "I added a happy-path test" is not done.
   adversarial inputs and **shrinks** any failure to a minimal reproducer.
   Also good for round-trips (build valid input → parse → recover it) and
   metamorphic relations (N concatenated blocks → N records).
+  - **Where they earn their keep over examples: *position-dependent* invariants.**
+    A security/format check written against a few hand-picked example positions
+    ("`..` in the middle", "control char in the middle") can silently *not* hold
+    at the edges. Fuzz the position (`test_settings_validation.py`'s traversal /
+    control-char property tests) — that's exactly how the 2026-07-03 bug was
+    found: `_validate_dir` checked the **stripped** value, and `str.strip()`
+    removes more than the obvious whitespace — the C0 "information separators"
+    `\x1c`–`\x1f` (plus `\t\n\r\v\f`) are stripped too, so a leading/trailing one
+    slipped past a check that caught it mid-string. **Lesson:** validate the
+    **raw** input for a forbidden character class; strip only for the empty /
+    format checks, never before a character-set check.
 - **Fakes over mocks.** Construct a real fake implementing the adapter ABC
   (`_FakeBackend`) rather than patching internals — it survives refactors and
   documents the contract.

@@ -29,6 +29,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   control character, must be rejected wherever they appear — not just in the few
   hand-picked example positions). These complement the existing example tests and
   guard against a refactor accidentally narrowing a check's scope.
+- **Fault-injection tests for the host step-engine's real subprocess runner**
+  (`SubprocessRunner`): a missing command surfaces as the `127` sentinel and a
+  timeout as `124` — never an exception that would abort the setup/uninstall
+  pipeline mid-step. (Previously only the injected fake runner was exercised.)
 
 ### Changed
 - **After an in-app update, the "Restart now?" prompt now warns that the new
