@@ -12,6 +12,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A rip that finishes could no longer leave the app wedged.** Three latent
+  failures in the finish path are closed: (1) the post-rip tagging step read the
+  track-table widgets from its background thread — a data race on every
+  unknown-album rip; the table is now snapshotted on the GUI thread and the plain
+  data handed in. (2) A `.log` vanishing mid-scan while discovering the rip log
+  raised an error that escaped the worker, so `finished` never fired and the rip
+  lock stuck on (drive spinning, UI dead until restart); log discovery now stats
+  each candidate once, guarded, and `start_rip` always emits `finished` even on
+  an unexpected error. (3) If anything in the finish handler raised, the rip-state
+  clear was skipped, so shutdown thought a finished rip was still live; the reset
+  now runs in a `finally`. Each has a regression test.
 - **The album ETA is no longer wildly optimistic early in a rip.** It projected
   the remaining time from the average rate *since the pass began*, but the disc
   scan (first ~5%) and the disc's inner tracks read far faster than the bulk — so

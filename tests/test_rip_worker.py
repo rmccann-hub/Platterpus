@@ -1421,3 +1421,44 @@ def test_finished_log_path_empty_when_no_log_file(
 
     _, path = sigs.finished[0]
     assert path == ""
+
+
+def test_find_log_path_skips_a_candidate_that_vanishes_mid_scan(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-2: a `.log` that disappears between the rglob and its stat is skipped,
+    not a fatal FileNotFoundError escaping into start_rip (which would leave
+    `finished` un-emitted and the GUI's rip lock stuck)."""
+    worker = RipWorker(_FakeBackend(), _params(tmp_path))
+    good = tmp_path / "good.log"
+    good.write_text("x", encoding="utf-8")
+    (tmp_path / "bad.log").write_text("x", encoding="utf-8")
+    real_stat = Path.stat
+
+    def flaky_stat(self: Path, *a: object, **k: object):  # noqa: ANN202
+        if self.name == "bad.log":
+            raise FileNotFoundError("vanished mid-scan")
+        return real_stat(self, *a, **k)
+
+    monkeypatch.setattr(Path, "stat", flaky_stat)
+    # No raise, and the surviving candidate is returned.
+    assert worker._find_log_path(tmp_path) == good
+
+
+def test_start_rip_belt_emits_finished_on_unexpected_error(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-2: any unexpected error in the rip body still emits finished(False,
+    "") — a rip that never emits finished leaves the GUI rip lock on forever."""
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0)), _params(tmp_path)
+    )
+    finished: list[tuple[bool, str]] = []
+    worker.finished.connect(lambda ok, path: finished.append((ok, path)))
+
+    def boom() -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(worker, "_run_rip", boom)
+    worker.start_rip()
+    assert finished == [(False, "")]

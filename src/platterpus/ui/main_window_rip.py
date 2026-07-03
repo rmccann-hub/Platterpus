@@ -517,6 +517,35 @@ class RipMixin:
             QTimer.singleShot(0, lambda: self._start_rip_worker(unknown_params))
             return
 
+        try:
+            self._finish_rip(success, log_path)
+        except Exception:  # noqa: BLE001 — a finish-handler slot must never crash
+            log.exception("finish handler failed; rip state cleared in finally")
+        finally:
+            # BUG-5: ALWAYS release the rip lock + clear the rip-state references,
+            # even if _finish_rip raised partway. These used to be linear at the
+            # end of the handler, so an exception anywhere above left _rip_thread
+            # set — and shutdown then treats a finished rip as still live (the
+            # drive is left spinning, the UI stays disabled until an app restart).
+            self._rip_controls.set_rip_active(False)
+            self._set_rip_lock(False)  # rip over — re-enable the locked-down UI
+            self._repaint_timer.stop()  # rip over — stop the Wayland repaint belt
+            self._rip_worker = None
+            self._rip_thread = None
+            self._active_rip_params = None
+            # Hook for tests to know that finish-time post-processing is done.
+            self.rip_post_processing_done.emit()
+
+    def _finish_rip(self, success: bool, log_path: str) -> None:
+        """Body of the finish handler, after the auto-heal decision.
+
+        Snapshots the worker's results, renders + reports the log, and spawns the
+        off-thread post-rip work. ``_on_rip_finished`` wraps this in try/finally
+        so the rip lock and rip-state references are ALWAYS cleared even if
+        something here raises (BUG-5) — otherwise a finished rip looks live to
+        shutdown and the drive is left spinning.
+        """
+        params = self._active_rip_params
         # Measure the actual wall-clock elapsed and record it against cyanrip's
         # own estimate. This is the ONLY place the real run time exists — cyanrip
         # logs the disc's audio length and a finish timestamp but never how long
@@ -575,9 +604,8 @@ class RipMixin:
         # getattr so this is None until the worker grows the property (wired next).
         self._last_secure_rerip = getattr(self._rip_worker, "secure_rerip_report", None)
 
-        self._rip_controls.set_rip_active(False)
-        self._set_rip_lock(False)  # rip over — re-enable the locked-down UI
-        self._repaint_timer.stop()  # rip over — stop the Wayland repaint belt
+        # (The rip lock + repaint belt are released in _on_rip_finished's finally,
+        # so they're reset even if anything below raises — BUG-5.)
         # Default status; replaced with a fidelity summary below if the
         # rip succeeded and we can parse its log. Distinguish a user
         # cancellation from a genuine failure (both report success=False).
@@ -668,6 +696,13 @@ class RipMixin:
             # root instead would re-tag every previously ripped album in the
             # library with THIS disc's metadata.
             tag = params.unknown
+            # BUG-1: snapshot the track table HERE (on the GUI thread) — the
+            # post-rip daemon must NOT read QWidgets. album_metadata()/tracks()
+            # call into Qt models/QLineEdits, which aren't thread-safe; reading
+            # them from the daemon was an undefined-behaviour data race on every
+            # unknown-album rip. We pass the plain dataclasses into the thread.
+            album_snapshot = self._track_table.album_metadata() if tag else None
+            tracks_snapshot = list(self._track_table.tracks()) if tag else None
             # Output format: both backends rip to FLAC, so a non-FLAC choice
             # means a post-rip transcode (FLAC kept as the master). "flac" (or
             # any value we don't transcode) leaves transcode_fmt empty = no-op.
@@ -737,6 +772,8 @@ class RipMixin:
                     transcode_fmt=transcode_fmt,
                     mp3_vbr_quality=self._config.mp3_vbr_quality,
                     restore_colons=restore_colons,
+                    album_metadata=album_snapshot,
+                    track_rows=tracks_snapshot,
                 )
                 post_rip_thread = self._post_rip_thread
             else:
@@ -793,15 +830,6 @@ class RipMixin:
             )
             self._eject_async(device, status="Rip complete — ejecting the disc…")
 
-        # Clear references so a future rip starts cleanly. The thread
-        # itself is auto-deleted via finished.connect(deleteLater) above.
-        self._rip_worker = None
-        self._rip_thread = None
-        self._active_rip_params = None
-
-        # Hook for tests to know that finish-time post-processing is done.
-        self.rip_post_processing_done.emit()
-
     # --- Convenience for the Unknown Album flow ----------------------------
 
     def _on_rip_as_unknown(self) -> None:
@@ -845,22 +873,35 @@ class RipMixin:
         self,
         rip_output_dir: Path,
         launch_picard: bool,
+        album: object | None = None,
+        tracks: object | None = None,
     ) -> None:
         """Tag the FLACs from the track table + optionally launch Picard.
 
-        Called after an unknown-mode rip finishes. The track table holds
-        the placeholder rows the user saw before ripping — including any
-        edits they made to the titles/artist/album/year — so we write
-        those through to the FLAC tags (blank fields fall back to the
-        "Unknown" placeholders). Public so it can be exercised from tests.
+        Called after an unknown-mode rip finishes. The track table holds the
+        placeholder rows the user saw before ripping — including any edits they
+        made to the titles/artist/album/year — so we write those through to the
+        FLAC tags (blank fields fall back to the "Unknown" placeholders).
+
+        ``album`` / ``tracks`` are the track-table snapshot taken on the GUI
+        thread by the caller (BUG-1): this method runs on the post-rip DAEMON
+        thread, where reading the Qt widgets directly is a data race. When they
+        are omitted (a direct test/manual call), we read the table here — which
+        is only safe on the GUI thread, so we assert that. Public so it can be
+        exercised from tests.
         """
+        if album is None or tracks is None:
+            # Only reachable on a direct (test/GUI-thread) call — reading the
+            # widgets off the GUI thread is the exact bug this signature exists
+            # to prevent, so make the misuse loud rather than silently racy.
+            assert threading.current_thread() is threading.main_thread(), (
+                "run_unknown_post_processing read the track table off the GUI "
+                "thread — snapshot it on the GUI thread and pass album/tracks in"
+            )
+            album = self._track_table.album_metadata()
+            tracks = self._track_table.tracks()
         flac_files = sorted(rip_output_dir.rglob("*.flac"))
-        apply_track_tags(
-            self._metaflac,
-            flac_files,
-            self._track_table.album_metadata(),
-            self._track_table.tracks(),
-        )
+        apply_track_tags(self._metaflac, flac_files, album, tracks)
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
 
@@ -898,9 +939,15 @@ class RipMixin:
         transcode_fmt: str = "",
         mp3_vbr_quality: int = 0,
         restore_colons: bool = False,
+        album_metadata: object | None = None,
+        track_rows: object | None = None,
     ) -> None:
         """Run unknown-mode tagging, then cover art, then FLAC re-compress, then
         an optional transcode, on ONE daemon thread.
+
+        ``album_metadata`` / ``track_rows`` are the track-table snapshot taken on
+        the GUI thread (BUG-1) and handed to the daemon's tagging step — the
+        daemon must never read the Qt widgets itself.
 
         Why one thread, in this order: the first two steps shell out to
         ``metaflac`` on the SAME FLAC files, and the re-compress step *rewrites*
@@ -957,7 +1004,14 @@ class RipMixin:
             #    off the GUI thread, instead of inline in _on_rip_finished.
             if tag:
                 try:
-                    self.run_unknown_post_processing(rip_dir, launch_picard)
+                    # Pass the GUI-thread snapshot in — the daemon must not read
+                    # the track-table widgets itself (BUG-1).
+                    self.run_unknown_post_processing(
+                        rip_dir,
+                        launch_picard,
+                        album=album_metadata,
+                        tracks=track_rows,
+                    )
                 except Exception:  # noqa: BLE001 — tagging must never crash the GUI
                     log.exception("unknown-album post-processing failed")
             # 2) Cover art second, only after tagging has fully finished so the

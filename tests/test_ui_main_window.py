@@ -1375,11 +1375,13 @@ def test_unknown_rip_finish_runs_tag_post_processing(
 ) -> None:
     window = teardown_threads()
     calls: list[tuple[Path, bool]] = []
-    monkeypatch.setattr(
-        window,
-        "run_unknown_post_processing",
-        lambda out, picard: calls.append((out, picard)),
-    )
+    snaps: list[tuple[object, object]] = []
+
+    def _record(out, picard, album=None, tracks=None):
+        calls.append((out, picard))
+        snaps.append((album, tracks))
+
+    monkeypatch.setattr(window, "run_unknown_post_processing", _record)
     window._pending_picard_launch = True
     window._active_rip_params = _params(tmp_path, unknown=True)
     # whipper writes the .log next to the FLACs; that folder (not the
@@ -1397,6 +1399,9 @@ def test_unknown_rip_finish_runs_tag_post_processing(
     window._post_rip_thread.join(timeout=10)
 
     assert calls == [(album_dir, True)]  # scoped to the just-ripped folder
+    # BUG-1: the track table was snapshotted on the GUI thread and handed in —
+    # the daemon never read the widgets itself.
+    assert snaps and snaps[0][0] is not None and snaps[0][1] is not None
     assert window._active_rip_params is None  # cleared for the next rip (sync)
 
 
@@ -1587,7 +1592,7 @@ def test_known_rip_finish_skips_tag_post_processing(
     monkeypatch.setattr(
         window,
         "run_unknown_post_processing",
-        lambda out, picard: calls.append((out, picard)),
+        lambda out, picard, album=None, tracks=None: calls.append((out, picard)),
     )
     window._active_rip_params = _params(tmp_path, unknown=False)
 
@@ -1604,7 +1609,7 @@ def test_failed_unknown_rip_skips_tag_post_processing(
     monkeypatch.setattr(
         window,
         "run_unknown_post_processing",
-        lambda out, picard: calls.append((out, picard)),
+        lambda out, picard, album=None, tracks=None: calls.append((out, picard)),
     )
     window._active_rip_params = _params(tmp_path, unknown=True)
 
@@ -1645,6 +1650,78 @@ def test_run_unknown_post_processing_applies_table_edits(
     assert first_tags["ALBUMARTIST"] == "Various Artists"
     assert first_tags["DATE"] == "2001"
     assert first_tags["TRACKNUMBER"] == "01"
+
+
+def test_run_unknown_post_processing_uses_snapshot_not_widgets(
+    teardown_threads, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-1: given a GUI-thread snapshot, tagging uses it and must NOT read the
+    track-table widgets (they aren't thread-safe on the post-rip daemon)."""
+    window = teardown_threads()
+    captured: dict = {}
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.apply_track_tags",
+        lambda mf, files, album, tracks: captured.update(album=album, tracks=tracks),
+    )
+
+    def boom() -> None:
+        raise AssertionError("the track table was read on the snapshot path")
+
+    monkeypatch.setattr(window._track_table, "album_metadata", boom)
+    monkeypatch.setattr(window._track_table, "tracks", boom)
+    (tmp_path / "01 - A.flac").write_bytes(b"x")
+
+    window.run_unknown_post_processing(tmp_path, False, album="ALBUM", tracks=["T"])
+
+    assert captured == {"album": "ALBUM", "tracks": ["T"]}
+
+
+def test_run_unknown_post_processing_rejects_off_gui_thread_read(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """BUG-1: called WITHOUT a snapshot from a non-GUI thread, it must refuse
+    (assert) rather than silently race the Qt widgets."""
+    import threading
+
+    window = teardown_threads()
+    errors: list[str] = []
+
+    def run() -> None:
+        try:
+            window.run_unknown_post_processing(tmp_path, False)
+        except AssertionError as exc:
+            errors.append(str(exc))
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join()
+    assert errors and "GUI thread" in errors[0]
+
+
+def test_finish_handler_clears_state_even_if_body_raises(
+    teardown_threads, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-5: if the finish body raises, the rip lock + state are STILL cleared.
+    A linear clear used to be skipped on an exception, leaving _rip_thread set —
+    and shutdown then treats a finished rip as live (drive left spinning)."""
+    from types import SimpleNamespace
+
+    window = teardown_threads()
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    window._rip_thread = SimpleNamespace()  # sentinel "a rip is live"
+    window._rip_worker = SimpleNamespace(needs_unknown_retry=False)
+
+    def boom(*_a: object) -> None:
+        raise RuntimeError("boom mid-finish")
+
+    monkeypatch.setattr(window, "_finish_rip", boom)
+
+    # Must NOT raise (the slot swallows + logs) and must clear all rip state.
+    window._on_rip_finished(True, "")
+
+    assert window._rip_thread is None
+    assert window._rip_worker is None
+    assert window._active_rip_params is None
 
 
 # --- Drive-access diagnostics ---------------------------------------------
@@ -3366,7 +3443,11 @@ def test_unknown_heal_rip_fetches_cover_art_when_release_is_known(
     """The no-network heal re-rips as --unknown (whipper can't fetch art),
     but the GUI still knows the release — so it supplies the art too."""
     window = teardown_threads(config=Config(cover_art="embed"))
-    monkeypatch.setattr(window, "run_unknown_post_processing", lambda out, picard: None)
+    monkeypatch.setattr(
+        window,
+        "run_unknown_post_processing",
+        lambda out, picard, album=None, tracks=None: None,
+    )
     album, log_file = _cover_album(tmp_path)
     fake_metaflac = _RecordingMetaflac()
     window._metaflac = fake_metaflac

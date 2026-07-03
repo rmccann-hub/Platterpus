@@ -532,15 +532,35 @@ class RipWorker(QObject):
 
     @Slot()
     def start_rip(self) -> None:
-        """Begin the rip. Invoked via QThread.started.
+        """Begin the rip (QThread.started slot).
 
-        Runs the adaptive read-speed ladder: rip once, and — in ``auto_ladder``
-        mode — if the pass completed with unrecoverable read errors, re-rip the
-        disc a rung slower (and, at the floor, with a higher ``-Z``), until it
-        reads clean or the ladder is exhausted (then the disc is FLAGGED via the
-        recorded attempts). A clean disc, or ``fixed`` mode, is a single pass
-        exactly as before — no regression. Each pass's speed/``-Z``/outcome is
-        recorded in ``_speed_attempts`` for honest reporting.
+        BUG-2 belt: delegates to ``_run_rip`` inside a last-resort try/except so
+        ANY unexpected error still emits ``finished(False, "")``. ``_run_rip``
+        already emits ``finished`` on all of its own paths; this only fires if an
+        exception escapes it (e.g. a filesystem race in log discovery). Without
+        it, an un-emitted ``finished`` leaves the GUI's rip lock on forever —
+        the drive keeps spinning and the UI is dead until an app restart.
+        """
+        try:
+            self._run_rip()
+        except Exception as exc:  # noqa: BLE001 — never leave the rip hung
+            log.exception("rip aborted by an unexpected error")
+            try:
+                self.error.emit(f"rip aborted unexpectedly: {exc}")
+            except Exception:  # noqa: BLE001 — even the error signal is best-effort
+                log.exception("error signal emit failed during abort")
+            self.finished.emit(False, "")
+
+    def _run_rip(self) -> None:
+        """The rip's main body: run the adaptive read-speed ladder — rip once,
+        and — in ``auto_ladder`` mode — if the pass completed with unrecoverable
+        read errors, re-rip the disc a rung slower (and, at the floor, with a
+        higher ``-Z``), until it reads clean or the ladder is exhausted (then the
+        disc is FLAGGED via the recorded attempts). A clean disc, or ``fixed``
+        mode, is a single pass exactly as before — no regression. Each pass's
+        speed/``-Z``/outcome is recorded in ``_speed_attempts`` for honest
+        reporting. Emits ``finished`` on every normal path; ``start_rip`` wraps
+        this so an unexpected escape still emits it (BUG-2).
         """
         # Stamp the wall-clock start once (album-ETA baseline spans all passes).
         self._started_monotonic = time.monotonic()
@@ -1217,21 +1237,26 @@ class RipWorker(QObject):
         if not output_dir.exists():
             return None
 
-        candidates = list(output_dir.rglob("*.log"))
-        if since is not None:
-            cutoff = since - _LOG_MTIME_SLACK_S
-            fresh: list[Path] = []
-            for path in candidates:
-                try:
-                    if path.stat().st_mtime >= cutoff:
-                        fresh.append(path)
-                except OSError:
-                    continue  # vanished mid-scan — skip it
-            candidates = fresh
-        if not candidates:
+        # BUG-2: stat EACH candidate exactly once, guarded — a `.log` can vanish
+        # between the rglob and the read (a concurrent cleanup, a temp-dir sweep).
+        # Both the `since` filter AND the recency sort need the mtime; doing the
+        # stat once in a guarded pass means a file that disappears mid-scan is
+        # simply skipped, never a `FileNotFoundError` escaping into start_rip's
+        # loop (which would leave `finished` un-emitted and the rip lock stuck).
+        cutoff = None if since is None else since - _LOG_MTIME_SLACK_S
+        scored: list[tuple[float, Path]] = []
+        for path in output_dir.rglob("*.log"):
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue  # vanished / unreadable mid-scan — skip it
+            if cutoff is not None and mtime < cutoff:
+                continue
+            scored.append((mtime, path))
+        if not scored:
             return None
-        candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-        return candidates[0]
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return scored[0][1]
 
 
 def _describe_activity(line: str) -> str | None:
