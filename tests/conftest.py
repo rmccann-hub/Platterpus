@@ -100,16 +100,35 @@ def process_until(qapp: QApplication):
     final value). Use it instead of ``QThread.wait()`` on the GUI thread: a bare
     ``wait()`` blocks the loop, so a queued ``finished``/``quit`` can never be
     delivered — a deadlock (see docs/testing.md and architecture.md §3.2).
+
+    While pumping, the cyclic garbage collector is paused (see below). This is
+    the window where a worker thread is churning Qt objects concurrently with the
+    GUI thread; a cyclic-GC pass that fires on *any* thread here can finalize a
+    QObject off the Qt thread and SIGSEGV the interpreter mid-run under the
+    headless ``offscreen`` platform (a real, intermittent CI abort, exit 139 —
+    seen in both the e2e rip test and the pending-installs dialog test, hopping
+    between Python cells run to run). The ``os._exit`` shutdown hook can't help (a
+    mid-run crash never reaches session finish). Pausing only for the pump keeps
+    it surgical: refcount freeing still runs throughout, and cyclic collection
+    resumes the moment the pump returns, so memory stays bounded. Reentrant/
+    nesting-safe: it only re-enables GC if it was enabled on entry.
     """
+    import gc
     import time
 
     def pump(predicate, timeout: float = 5.0, step: float = 0.005) -> bool:
-        deadline = time.monotonic() + timeout
-        while not predicate() and time.monotonic() < deadline:
-            qapp.processEvents()
-            qapp.sendPostedEvents()  # flush queued cross-thread signals too
-            time.sleep(step)
-        return predicate()
+        gc_was_enabled = gc.isenabled()
+        gc.disable()
+        try:
+            deadline = time.monotonic() + timeout
+            while not predicate() and time.monotonic() < deadline:
+                qapp.processEvents()
+                qapp.sendPostedEvents()  # flush queued cross-thread signals too
+                time.sleep(step)
+            return predicate()
+        finally:
+            if gc_was_enabled:
+                gc.enable()
 
     return pump
 

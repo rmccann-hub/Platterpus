@@ -334,7 +334,10 @@ class UpdateMixin:
         choice = QMessageBox.question(
             self,
             "Update installed",
-            "The new version is installed. Restart Platterpus now?",
+            "The new version is installed. Restart Platterpus now?\n\n"
+            "Heads-up: the first launch of a new version unpacks itself, so "
+            "the window can take 20–30 seconds to reappear — that's normal. "
+            "Give it a moment before reopening it yourself.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )

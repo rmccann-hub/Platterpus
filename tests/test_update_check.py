@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+import platterpus.update_check as uc
 from platterpus.update_check import (
     RELEASES_API_URL,
     ReleaseInfo,
@@ -61,6 +64,63 @@ def test_latest_release_unparseable_tag_is_none() -> None:
     # A tag that isn't a version must not be treated as one.
     bad = json.dumps([{"tag_name": "nightly-build", "html_url": "x"}])
     assert latest_release(fetch=lambda url: bad) is None
+
+
+# --- _default_fetch: the real network path's read cap (fault-injection) ------
+#
+# latest_release injects a fetcher in every other test, so _default_fetch (the
+# only code that touches urllib) is otherwise unexercised. These monkeypatch
+# urllib's urlopen with a fake response — the repo's convention (see
+# test_cover_art) rather than a real socket — to prove the read is bounded.
+
+
+class _FakeResponse:
+    """A urlopen()-shaped context manager whose read(n) honours the byte limit,
+    so we can prove _default_fetch stops at the cap instead of slurping it all."""
+
+    def __init__(self, body: bytes) -> None:
+        self._body = body
+
+    def __enter__(self) -> _FakeResponse:
+        return self
+
+    def __exit__(self, *exc: object) -> bool:
+        return False
+
+    def read(self, amount: int | None = None) -> bytes:
+        if amount is None or amount < 0:
+            return self._body
+        return self._body[:amount]
+
+
+def _patch_urlopen(monkeypatch, body: bytes) -> None:
+    monkeypatch.setattr(
+        uc.urllib.request,
+        "urlopen",
+        lambda request, timeout=None: _FakeResponse(body),
+    )
+
+
+def test_default_fetch_reads_a_normal_body(monkeypatch) -> None:
+    _patch_urlopen(monkeypatch, json.dumps(_RELEASES).encode("utf-8"))
+    body = uc._default_fetch(RELEASES_API_URL)
+    assert json.loads(body)[0]["tag_name"] == "v0.3.0"
+
+
+def test_default_fetch_rejects_an_oversized_body(monkeypatch) -> None:
+    # A hostile/misbehaving endpoint streaming a huge body must NOT be read
+    # unbounded into memory on the worker thread — the read is capped and an
+    # over-cap body raises (which latest_release turns into "couldn't check").
+    _patch_urlopen(monkeypatch, b"x" * (uc._MAX_BODY_BYTES + 64))
+    with pytest.raises(ValueError, match="exceeded"):
+        uc._default_fetch(RELEASES_API_URL)
+
+
+def test_oversized_body_surfaces_as_no_update(monkeypatch) -> None:
+    # End-to-end: the cap breach is just another failure — the app says
+    # "couldn't check", never crashes or hangs.
+    _patch_urlopen(monkeypatch, b"x" * (uc._MAX_BODY_BYTES + 64))
+    assert latest_release() is None
 
 
 # --- is_newer ----------------------------------------------------------------

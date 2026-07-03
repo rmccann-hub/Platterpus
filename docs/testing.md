@@ -84,6 +84,17 @@ tiers. "I added a happy-path test" is not done.
   adversarial inputs and **shrinks** any failure to a minimal reproducer.
   Also good for round-trips (build valid input → parse → recover it) and
   metamorphic relations (N concatenated blocks → N records).
+  - **Where they earn their keep over examples: *position-dependent* invariants.**
+    A security/format check written against a few hand-picked example positions
+    ("`..` in the middle", "control char in the middle") can silently *not* hold
+    at the edges. Fuzz the position (`test_settings_validation.py`'s traversal /
+    control-char property tests) — that's exactly how the 2026-07-03 bug was
+    found: `_validate_dir` checked the **stripped** value, and `str.strip()`
+    removes more than the obvious whitespace — the C0 "information separators"
+    `\x1c`–`\x1f` (plus `\t\n\r\v\f`) are stripped too, so a leading/trailing one
+    slipped past a check that caught it mid-string. **Lesson:** validate the
+    **raw** input for a forbidden character class; strip only for the empty /
+    format checks, never before a character-set check.
 - **Fakes over mocks.** Construct a real fake implementing the adapter ABC
   (`_FakeBackend`) rather than patching internals — it survives refactors and
   documents the contract.
@@ -131,6 +142,28 @@ tiers. "I added a happy-path test" is not done.
     exit code and `coverage report` reads the saved `.coverage` anytime. This is
     best-effort — it greatly reduces but doesn't 100% eliminate the local race
     (it's environment-specific; real CI has been green).
+  - **A *mid-run* GC pass can finalize a QObject off the Qt thread → SIGSEGV.**
+    Distinct from the shutdown abort above (which the `os._exit` hook covers):
+    the `test_e2e_rip_pipeline` test runs real worker/daemon threads doing file
+    I/O + Qt work *concurrently* with the GUI thread, and Python's cyclic GC can
+    fire on **any** thread when its allocation threshold trips. Under `offscreen`,
+    a collection that finalizes a QObject on a non-Qt thread segfaults the
+    interpreter *during the run* (exit 139) — a real, intermittent CI abort
+    (traced from a faulthandler dump to a GC pass on the cover-art worker thread
+    inside `apply_cover_art`, 2026-07-03; it hit py3.12 three runs straight while
+    3.11/3.13/3.14 stayed green — then hopped to the pending-installs-dialog test
+    on 3.13 the next run). The `os._exit` hook can't help (the crash is mid-run,
+    not at shutdown). **Mitigation (central):** the shared `process_until` **pump**
+    pauses the cyclic collector (`gc.disable()`) for the duration of each pump and
+    restores it after — the pump *is* the window where a worker thread churns Qt
+    objects concurrently with the GUI thread, so every worker-thread test that
+    waits via `process_until` is covered at once. The `e2e_window` fixture does the
+    same for the one test with its own inline poll loop. Refcount freeing still
+    runs throughout and cyclic collection resumes the instant the pump returns, so
+    memory stays bounded and nothing any test asserts changes. Reach for a manual
+    `gc.disable()` only for a test that runs Qt work on non-Qt threads *without*
+    going through the pump; the real answer everywhere else is to drive workers to
+    completion and not create QObjects off the Qt thread.
   - **Suppress first-run offers before pumping events.** `processEvents()` will
     fire any pending `QTimer.singleShot` — including `_maybe_offer_first_run_setup`,
     whose `QMessageBox.exec()` **blocks forever headless**. Construct the window

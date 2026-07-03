@@ -260,11 +260,21 @@ def _validate_dir(field: str, value: str, label: str) -> list[ValidationIssue]:
     ancestor is a writable directory. The writability probe is best-effort; if
     we genuinely can't tell, we don't manufacture an error.
     """
-    text = (value or "").strip()
+    raw = value or ""
+    # Check for control characters on the RAW value, BEFORE stripping. Python's
+    # str.strip() classifies the C0 "information separators" \x1c–\x1f (and
+    # \t\n\r\v\f) as whitespace, so a leading/trailing one would be silently
+    # trimmed here and slip past the check — yet it stays in the persisted config
+    # value and reaches the rip as a real path character. A control char in the
+    # MIDDLE was already caught; checking the raw value closes the leading/trailing
+    # gap so the rule ("no control chars in a path") holds at every position.
+    # (NUL was always caught since it isn't whitespace; this widens the net to its
+    # whitespace-classified siblings — found by a position-fuzzing property test.)
+    if _has_control_char(raw):
+        return [ValidationIssue(field, f"{label} contains an illegal character.")]
+    text = raw.strip()
     if not text:
         return [ValidationIssue(field, f"{label} cannot be empty.")]
-    if _has_control_char(text):
-        return [ValidationIssue(field, f"{label} contains an illegal character.")]
     path = Path(text)
     if not path.is_absolute():
         return [
