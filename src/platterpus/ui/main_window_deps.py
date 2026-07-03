@@ -22,6 +22,7 @@ Contract this mixin expects from the host window (set in
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 
 from PySide6.QtCore import QThread
@@ -302,8 +303,6 @@ class DependencyMixin:
         package → "reinstall the AppImage") fall back to the per-item manual
         dialog. Outcomes land in `report.install_results`.
         """
-        from platterpus.deps.version import meets_minimum
-
         missing = list(getattr(report, "missing", []))
         wizard_items = [
             item for item in missing if getattr(item.spec, "from_setup_wizard", False)
@@ -320,25 +319,12 @@ class DependencyMixin:
         ]
 
         # 1. Container tools → the setup wizard (GUI thread, internally async).
-        #    Open it once; it installs them all, then probe each for its result.
+        #    Open it once; it installs them all, then re-probe each for its result
+        #    OFF the GUI thread (BUG-9) — probe() shells into the Distrobox
+        #    container, which can take up to minutes on a cold container.
         if wizard_items:
             self.open_host_setup_dialog()
-            for item in wizard_items:
-                probe = item.spec.probe()
-                ok = probe.present and meets_minimum(
-                    probe.version, item.spec.min_version
-                )
-                report.install_results.append(
-                    InstallResult(
-                        spec=item.spec,
-                        success=ok,
-                        message=(
-                            "installed via setup wizard"
-                            if ok
-                            else "still missing after setup — re-run the wizard"
-                        ),
-                    )
-                )
+            report.install_results.extend(self._reprobe_wizard_items(wizard_items))
 
         # 2. Packaged deps → the off-GUI-thread PendingInstallsDialog.
         if command_items:
@@ -361,6 +347,59 @@ class DependencyMixin:
                     ),
                 )
             )
+
+    def _reprobe_wizard_items(self, items: list[MissingItem]) -> list[InstallResult]:
+        """Re-probe each wizard item's spec OFF the GUI thread (BUG-9).
+
+        ``spec.probe()`` for a container tool shells into the Distrobox container
+        (a subprocess that can take up to *minutes* on a cold container), so
+        running it inline after the setup wizard froze the window — the exact
+        never-block-the-GUI-thread rule this project keeps re-learning. A daemon
+        thread does the probing while a nested ``QEventLoop`` keeps the window
+        responsive; a ``QTimer`` polls for completion and quits the loop. Returns
+        the per-item :class:`InstallResult` list (present-and-current → success).
+        """
+        from PySide6.QtCore import QEventLoop, QTimer
+
+        from platterpus.deps.version import meets_minimum
+
+        results: list[InstallResult] = []
+        done = threading.Event()
+
+        def work() -> None:
+            try:
+                for item in items:
+                    probe = item.spec.probe()
+                    ok = probe.present and meets_minimum(
+                        probe.version, item.spec.min_version
+                    )
+                    results.append(
+                        InstallResult(
+                            spec=item.spec,
+                            success=ok,
+                            message=(
+                                "installed via setup wizard"
+                                if ok
+                                else "still missing after setup — re-run the wizard"
+                            ),
+                        )
+                    )
+            finally:
+                done.set()
+
+        thread = threading.Thread(target=work, daemon=True)
+        thread.start()
+        # Spin a nested event loop so the window keeps repainting while we wait;
+        # the timer quits it as soon as the probe thread signals completion.
+        loop = QEventLoop()
+        timer = QTimer()
+        timer.setInterval(30)
+        timer.timeout.connect(lambda: loop.quit() if done.is_set() else None)
+        timer.start()
+        loop.exec()
+        timer.stop()
+        thread.join(timeout=5)  # already finished (done is set) — instant
+        return results
 
     def _make_install_one(self) -> Callable[[MissingItem], InstallResult]:
         """Build the per-item installer the PendingInstallsDialog drives.

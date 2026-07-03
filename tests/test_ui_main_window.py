@@ -3250,6 +3250,50 @@ def test_resolve_missing_unified_opens_wizard_once_for_container_tools(
     }
 
 
+def test_wizard_reprobe_runs_off_the_gui_thread(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BUG-9: re-probing the container tools after the setup wizard must run OFF
+    the GUI thread — probe() shells into the Distrobox container (a subprocess
+    that can take minutes on a cold container), so on the GUI thread it froze
+    the window right after the wizard closed."""
+    import threading as _t
+
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.manager import DependencyReport
+    from platterpus.deps.registry import DependencySpec, Tier
+    from platterpus.deps.resolvers import MissingItem
+
+    probe_threads: list[_t.Thread] = []
+
+    def probe() -> ProbeResult:
+        probe_threads.append(_t.current_thread())
+        return ProbeResult(present=True, version=(1, 0, 0), location=None)
+
+    spec = DependencySpec(
+        dep_id="cyanrip",
+        display_name="cyanrip",
+        probe=probe,
+        min_version=(1, 0, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string="x",
+        from_setup_wizard=True,
+    )
+    item = MissingItem(
+        spec=spec, probe=ProbeResult(present=False, version=None, location=None)
+    )
+    window = teardown_threads()
+    monkeypatch.setattr(window, "open_host_setup_dialog", lambda: None)
+
+    report = DependencyReport(missing=[item])
+    window._resolve_missing_unified(report)
+
+    assert probe_threads, "the tool was never re-probed"
+    assert all(t is not _t.main_thread() for t in probe_threads)
+    assert report.install_results[0].success is True
+
+
 def test_resolve_missing_unified_falls_back_to_manual_for_uninstallable(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:

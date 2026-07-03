@@ -12,6 +12,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The setup wizard no longer freezes the window while it checks what got
+  installed.** After the host-setup wizard ran, Platterpus re-probed each
+  container tool (cyanrip/flac/metaflac) on the GUI thread — and each probe
+  shells into the Distrobox container, which can take up to minutes on a cold
+  container, so the window locked up. The re-probe now runs on a worker thread
+  while a nested event loop keeps the window responsive.
 - **A batch of small robustness + hardening fixes.** The in-app updater now caps
   the `.sha256` read (a hostile mirror could otherwise stream a huge body into
   memory before the length check); the CTDB verify now classifies a wedged
