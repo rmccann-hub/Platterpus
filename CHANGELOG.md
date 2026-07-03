@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A literal `%%` in a naming template now produces one `%` in the filename, not
+  two — and matches the live preview.** The template-to-cyanrip translator didn't
+  recognise `%%` (whipper's escape for a literal percent): it passed `%%` through
+  unchanged, so the real filename had two percent signs while the Settings preview
+  showed one, and every rip using such a template logged a bogus "no cyanrip
+  mapping for token '%%'" warning. Now `%%` collapses to a single `%` (as the
+  preview always did), so preview and result agree and the spurious warning is
+  gone. (Found while re-checking a deferred audit note that turned out to be a
+  real preview-vs-result mismatch, not the "intentional" behaviour it was filed
+  as.)
 - **Settings validation now rejects a control character at the *start or end* of
   an output/working directory, not only in the middle.** The check ran on the
   whitespace-stripped value, and Python treats the C0 "information separators"

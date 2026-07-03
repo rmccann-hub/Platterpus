@@ -21,7 +21,7 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=91` (ratchets up). See [docs/testing.md](docs/testing.md).) |
 | hypothesis | `>=6` | (per PyPI at first install) | MPL-2.0 | Active | — (dev/test only; property-based tests in `tests/test_parsers_property.py`. MPL-2.0 is fine — test-time tool, not linked/distributed.) |
 | mutmut | not installed (`pipx run mutmut`) | — | BSD-3-Clause | Active | — (dev/test only; periodic mutation-testing **audit**, not a CI gate — see [docs/testing.md](docs/testing.md) §7. Run on demand, no pin needed.) |
-| Pillow | (unpinned; per PyPI) | Active | HPND (PIL license) | Active | — **Optional, not required for normal builds.** Only `build/make_icon.py` uses it, to regenerate the committed app icon (`build/python-appimage/platterpus.png`). The icon is committed, so a normal AppImage build needs no image tooling. |
+| Pillow | (no longer used) | Active | HPND (PIL license) | Active | — **No longer a dependency.** `build/make_icon.py` was rewritten to rasterize the SVG logo via an external tool (`rsvg-convert` / Inkscape / ImageMagick / the `cairosvg` module) instead of Pillow, and nothing else imports it; it is not declared in `pyproject.toml`. The committed icon means a normal AppImage build needs no image tooling at all. Row kept for the record; remove at the next dependency-table review if still unused. |
 
 ## System dependencies (user-system, surfaced via the dependency subsystem or the setup wizard)
 

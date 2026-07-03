@@ -128,7 +128,7 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 ### Build commands
 
 - AppImage: `bash build/build_appimage.sh` (produces `platterpus-x86_64.AppImage` at repo root via `python-appimage`)
-- App icon: `python3 build/make_icon.py` (regenerates the committed `build/python-appimage/platterpus.png`; needs Pillow)
+- App icon: `python3 build/make_icon.py` (regenerates the committed `build/python-appimage/io.github.rmccann_hub.Platterpus.png` from `assets/platterpus-logo.svg`; needs an SVG rasterizer on PATH — `rsvg-convert`, Inkscape, ImageMagick, or the `cairosvg` module — **not** Pillow)
 
 ### CI / release
 
