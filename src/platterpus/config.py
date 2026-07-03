@@ -29,7 +29,7 @@ from platterpus.paths import (
 
 # Bump this when the schema grows new keys or changes defaults that we
 # want to migrate. Migration logic lives in _migrate() below.
-SCHEMA_VERSION: int = 6
+SCHEMA_VERSION: int = 7
 
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
@@ -438,6 +438,22 @@ def _migrate(raw: dict) -> dict:
         # No value transform needed; bump the version so the record stays explicit.
         raw["schema_version"] = 6
         version = 6
+
+    if version < 7:
+        # v6→v7: one-time correction for upgraders whose dynamic secure re-rip
+        # was silently OFF. v6 preserved a saved `secure_rerip_matches` of 0 — but
+        # 0 was 0.4.8's *default*, so anyone who upgraded without touching the
+        # setting inherited `-Z 0` and the 0.4.9 headline feature never ran (real
+        # hardware confirmed it: a rip with `secure_rerip_matches: 0` and no `-Z`).
+        # A fresh install defaults to 2, so upgraders were the only ones left
+        # inert. Bump a saved 0 to 2 ONCE here so the feature they read about
+        # actually engages. This runs a single time (the version then becomes 7),
+        # so a user who genuinely wants it off can set 0 again afterward and it
+        # sticks — this corrects the inherited default, it is not a permanent floor.
+        if raw.get("secure_rerip_matches") == 0:
+            raw["secure_rerip_matches"] = 2
+        raw["schema_version"] = 7
+        version = 7
 
     if version == SCHEMA_VERSION:
         return raw

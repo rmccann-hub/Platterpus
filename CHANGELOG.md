@@ -12,6 +12,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Upgraders no longer inherit the dynamic secure re-rip switched *off*.** The
+  0.4.9 headline (secure only the AccurateRip-failing tracks) needs the "Max reads
+  to confirm a shaky track" ceiling (`-Z`) above 0, and a fresh install defaults
+  to 2 — but anyone upgrading from 0.4.8 (whose default was 0) kept the old 0, so
+  the feature silently never ran (confirmed on real hardware: a rip with
+  `secure_rerip_matches: 0` and no `-Z`). A one-time config migration (v6→v7) now
+  bumps an inherited `0` to `2` so the feature actually engages. It runs once, so
+  anyone who genuinely wants re-rip off can set `0` again afterward and it sticks.
 - **A literal `%%` in a naming template now produces one `%` in the filename, not
   two — and matches the live preview.** The template-to-cyanrip translator didn't
   recognise `%%` (whipper's escape for a literal percent): it passed `%%` through
