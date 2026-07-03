@@ -279,6 +279,15 @@ tiers. "I added a happy-path test" is not done.
       args/syntax we pass each tool are recorded in
       [dependency-contracts.md](dependency-contracts.md) — keep it in step with
       the adapter in the same change.
+    - **Reports:** the `.platterpus.json` rip report is the machine-readable
+      record of *everything that happened* — every gate, error, and check (the
+      maintainer's standing ask). Its completeness is enforced the same way
+      inputs are: a **completeness meta-test** (`test_rip_report_completeness.py`)
+      asserts every top-level section the schema promises is actually populated by
+      `build_report`, so a new report field **cannot ship un-serialized** (the
+      test goes red). Same shape as the settings completeness meta-test above —
+      the discipline is *don't trust a human to remember; make the omission fail a
+      test*.
 
 ## 6. Definition of Done (testing) — paste into every PR
 
@@ -294,6 +303,10 @@ tiers. "I added a happy-path test" is not done.
       `_BAD_VALUES` entry. New **dependency call** or flag is recorded in
       [dependency-contracts.md](dependency-contracts.md) and captures the tool's
       stderr to the log on failure. — *CLAUDE.md: validate every input & output*
+- [ ] New **rip-report section/field** is populated by `build_report` and the
+      report **completeness meta-test** (`test_rip_report_completeness.py`) still
+      passes — a new field cannot ship un-serialized. — *CLAUDE.md: validate every
+      input & output*
 - [ ] `ruff check` + `ruff format --check` clean.
 - [ ] Coverage gate passes; gate not lowered.
 - [ ] If the change touches hardware-only behaviour, [test-plan.md](test-plan.md)
