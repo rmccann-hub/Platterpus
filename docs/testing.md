@@ -151,13 +151,19 @@ tiers. "I added a happy-path test" is not done.
     interpreter *during the run* (exit 139) — a real, intermittent CI abort
     (traced from a faulthandler dump to a GC pass on the cover-art worker thread
     inside `apply_cover_art`, 2026-07-03; it hit py3.12 three runs straight while
-    3.11/3.13/3.14 stayed green). The `os._exit` hook can't help (the crash is
-    mid-run, not at shutdown). **Mitigation:** the `e2e_window` fixture pauses the
-    cyclic collector (`gc.disable()`) for the life of that test and restores it in
-    teardown — refcount freeing still runs, so nothing the test asserts changes,
-    and no other test is affected. Reach for this only for a test that genuinely
-    runs Qt work on non-Qt threads; the real answer everywhere else is to drive
-    workers to completion and not create QObjects off the Qt thread.
+    3.11/3.13/3.14 stayed green — then hopped to the pending-installs-dialog test
+    on 3.13 the next run). The `os._exit` hook can't help (the crash is mid-run,
+    not at shutdown). **Mitigation (central):** the shared `process_until` **pump**
+    pauses the cyclic collector (`gc.disable()`) for the duration of each pump and
+    restores it after — the pump *is* the window where a worker thread churns Qt
+    objects concurrently with the GUI thread, so every worker-thread test that
+    waits via `process_until` is covered at once. The `e2e_window` fixture does the
+    same for the one test with its own inline poll loop. Refcount freeing still
+    runs throughout and cyclic collection resumes the instant the pump returns, so
+    memory stays bounded and nothing any test asserts changes. Reach for a manual
+    `gc.disable()` only for a test that runs Qt work on non-Qt threads *without*
+    going through the pump; the real answer everywhere else is to drive workers to
+    completion and not create QObjects off the Qt thread.
   - **Suppress first-run offers before pumping events.** `processEvents()` will
     fire any pending `QTimer.singleShot` — including `_maybe_offer_first_run_setup`,
     whose `QMessageBox.exec()` **blocks forever headless**. Construct the window
