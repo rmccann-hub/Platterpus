@@ -285,6 +285,37 @@ class RipWorker(QObject):
         self._overall: float = 0.0
         self._total_tracks: int = 0
         self._current_track: int = 0
+        # Per-track MusicBrainz durations (ms), for weighting the overall bar by
+        # each track's real length so the ETA tracks wall-clock instead of
+        # oscillating (a 5-minute track is a bigger slice than a 3-minute one).
+        # Built ONLY when the metadata gives a positive length for every track,
+        # numbered 1..N contiguously; otherwise stays empty and the bar falls back
+        # to today's equal-per-track slices (unknown discs, partial metadata). See
+        # _overall_from_track. `_track_ms_prefix[n]` = ms before track n starts.
+        self._track_ms: dict[int, int] = {}
+        self._track_ms_total: int = 0
+        self._track_ms_prefix: dict[int, int] = {}
+        meta = getattr(params, "metadata", None)
+        meta_tracks = list(getattr(meta, "tracks", ()) or ()) if meta else []
+        if meta_tracks:
+            lengths: dict[int, int] = {}
+            usable = True
+            for t in meta_tracks:
+                n = getattr(t, "number", None)
+                length = getattr(t, "length_ms", None)
+                if not isinstance(n, int) or not isinstance(length, int) or length <= 0:
+                    usable = False
+                    break
+                lengths[n] = length
+            # Require a contiguous 1..N with no gaps/dupes — anything else and we
+            # can't trust the weighting, so we don't use it.
+            if usable and lengths and set(lengths) == set(range(1, len(lengths) + 1)):
+                self._track_ms = lengths
+                self._track_ms_total = sum(lengths.values())
+                running = 0
+                for n in range(1, len(lengths) + 1):
+                    self._track_ms_prefix[n] = running
+                    running += lengths[n]
         # Last track number we emitted `current_track` for, so we signal
         # once per track instead of on every per-percent progress line.
         self._emitted_track: int = 0
@@ -1316,12 +1347,9 @@ class RipWorker(QObject):
             self._current_track = int(match.group("track"))
             self._total_tracks = int(match.group("total"))
             task = float(match.group("pct"))
-            frac = (
-                ((self._current_track - 1) + task / 100.0) / self._total_tracks
-                if self._total_tracks
-                else 0.0
-            )
-            return self._bump_overall(5.0 + frac * 90.0), task
+            return self._bump_overall(
+                self._overall_from_track(self._current_track, task)
+            ), task
 
         match = _LENGTH_PHASE_PATTERN.search(line)
         if match:
@@ -1343,20 +1371,45 @@ class RipWorker(QObject):
             self._current_track = int(match.group("track"))
             self._record_cyanrip_eta(match.group("eta"))
             task = float(match.group("pct"))
-            frac = (
-                ((self._current_track - 1) + task / 100.0) / self._total_tracks
-                if self._total_tracks
-                else 0.0
-            )
-            return self._bump_overall(5.0 + frac * 90.0), task
+            return self._bump_overall(
+                self._overall_from_track(self._current_track, task)
+            ), task
 
         match = _CYANRIP_TRACK_DONE.search(line)
         if match:
             done = int(match.group("track"))
-            frac = done / self._total_tracks if self._total_tracks else 0.0
-            return self._bump_overall(5.0 + frac * 90.0), 100.0
+            # task=100 → the end of this track's slice (its full length consumed).
+            return self._bump_overall(self._overall_from_track(done, 100.0)), 100.0
 
         return None
+
+    def _overall_from_track(self, current_track: int, task_pct: float) -> float:
+        """Map (track, within-track %) to an overall 0-100 bar value in the 5-95%
+        read band.
+
+        When per-track MusicBrainz durations are known for the whole disc
+        (``self._track_ms``), each track's slice of the band is proportional to
+        its real length, so the bar advances with *audio position* — which, at a
+        steady read speed, is ~linear with wall-clock, so the elapsed÷fraction ETA
+        stops oscillating between long and short tracks. Without usable durations
+        (unknown disc, partial metadata), falls back to today's equal-per-track
+        slices. Pure; never raises (guards a zero total)."""
+        total = self._total_tracks
+        weighted_ok = (
+            self._track_ms_total > 0
+            and total > 0
+            and len(self._track_ms) == total
+            and 1 <= current_track <= total
+        )
+        if weighted_ok:
+            before = self._track_ms_prefix[current_track]
+            cur = self._track_ms[current_track]
+            frac = (before + (task_pct / 100.0) * cur) / self._track_ms_total
+        elif total:
+            frac = ((current_track - 1) + task_pct / 100.0) / total
+        else:
+            frac = 0.0
+        return 5.0 + frac * 90.0
 
     def _bump_overall(self, value: float) -> float:
         """Clamp `value` to [0, 100] and never let the overall bar regress."""
