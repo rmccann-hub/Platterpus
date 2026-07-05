@@ -47,6 +47,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   complete, debuggable record out of the box. The “Debug logging” setting now
   governs only how verbose the on-disk `log.txt` is.
 
+### Fixed
+- **The rip status no longer says “Encoding” for the whole rip.** cyanrip reads
+  *and* encodes each track in one pass (“Ripping and encoding track N”), and
+  Platterpus labelled that “Encoding track N…” — so during a normal ~1× secure
+  rip the status showed “Encoding track 1… 7%” crawling for minutes, which read
+  as if encoding (which is near-instant) was the slow part instead of the disc
+  read. Both cyanrip progress forms are now labelled **“Ripping track N…”** —
+  one honest verb that matches what’s happening (and stops the label flickering
+  between “Reading”/“Encoding”). Surfaced by the real-hardware Police rip.
+- **A cancelled rip no longer logs a scary traceback when writing its report.**
+  If a rip is cancelled and its album folder is removed, the best-effort report
+  write found the folder gone and logged a full `FileNotFoundError` traceback at
+  `WARNING`, which reads like a crash. That benign case is now a concise `INFO`
+  line (“skipped rip report; album folder no longer exists”); a genuine write
+  error still logs the full detail. Surfaced by the real-hardware Roots cancel.
+
 ## [0.4.12] — 2026-07-05
 
 ### Added

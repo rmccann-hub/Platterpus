@@ -823,13 +823,15 @@ def test_cyanrip_progress_lines_drive_bars_and_track(
     assert 10.0 < done_overall < 11.0  # 5 + 1/16*90 ≈ 10.6
     # Track follows along for the row highlight; once per track.
     assert sigs.current_tracks == [1, 2]
-    # Status names the phase (read) — cyanrip's own per-op ETA is NOT echoed
-    # (it resets every phase and is wildly wrong early). No ETA suffix here
-    # because the test rip elapses <8s (the minimum before we project one).
-    assert any(s.startswith("Reading track 1… 25%") for s in sigs.statuses)
-    # The "and encoding" pass is labelled "Encoding" so its 0→100% restart reads
-    # as expected, not a regression.
-    assert any(s.startswith("Encoding track 1… 75%") for s in sigs.statuses)
+    # Both cyanrip progress forms — the bare "Ripping track N" read and the
+    # "Ripping and encoding track N" combined pass — are labelled "Ripping" (one
+    # honest verb; "Encoding" hid the disc read, which is the slow part). cyanrip's
+    # own per-op ETA is NOT echoed (it resets every phase and is wildly wrong
+    # early). No ETA suffix here because the test rip elapses <8s (the minimum
+    # before we project one).
+    assert any(s.startswith("Ripping track 1… 25%") for s in sigs.statuses)
+    assert any(s.startswith("Ripping track 1… 75%") for s in sigs.statuses)
+    assert not any("Encoding track" in s for s in sigs.statuses)
     assert any(s.startswith("Track 1 done") for s in sigs.statuses)
     # cyanrip's raw "(ETA 3m)" is never surfaced verbatim.
     assert not any("(ETA" in s for s in sigs.statuses)

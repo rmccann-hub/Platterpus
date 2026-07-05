@@ -1435,13 +1435,19 @@ def _describe_activity(line: str) -> str | None:
     match = _CYANRIP_TRACK_PROGRESS.search(line)
     if match:
         pct = float(match.group("pct"))
-        # Name the phase so the per-track bar visibly restarting for the encode
-        # pass reads as expected, not a regression. cyanrip's own per-op ETA is
-        # deliberately dropped here — it resets every phase and is wildly wrong
-        # early (it once printed "822h"); the run loop appends our own smoothed
-        # album ETA instead.
-        phase = "Encoding" if match.group("encoding") else "Reading"
-        return f"{phase} track {match.group('track')}… {pct:.0f}%"
+        # Always "Ripping" — cyanrip's own verb, and the app's. cyanrip reads AND
+        # encodes a track in ONE pass ("Ripping and encoding track N"), so calling
+        # that "Encoding" was actively misleading: encoding FLAC is near-instant,
+        # the minutes are the disc READ, yet a real user watched "Encoding
+        # track 1… 7%" crawl for a whole ~1× secure read and reasonably wondered
+        # why encoding was so slow (real-hardware finding — the Police rip's trace
+        # showed "Encoding track N" for all 59 minutes). Using one honest verb for
+        # BOTH progress forms also stops the label flickering between
+        # "Reading"/"Encoding" as cyanrip interleaves the read and read+encode
+        # lines. cyanrip's own per-op ETA is still dropped here (it resets every
+        # phase and is wildly wrong early — it once printed "822h"); the run loop
+        # appends our own smoothed album ETA instead.
+        return f"Ripping track {match.group('track')}… {pct:.0f}%"
 
     match = _CYANRIP_TRACK_DONE.search(line)
     if match:
