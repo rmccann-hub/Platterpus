@@ -110,6 +110,24 @@ def test_no_match_when_crc_differs() -> None:
     res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
     assert res.verdict is Verdict.NO_MATCH
     assert res.confidence == 5  # best confidence still surfaced
+    # The DB's CRC(s) are carried on the result so a report / --ctdb-calibrate
+    # can diagnose our_crc vs the expected value(s) without a second lookup.
+    assert res.db_crcs == (0xDEADBEEF,)
+    assert res.our_crc == _whole_disc_crc()
+
+
+def test_no_match_message_does_not_blame_the_rip_while_unvalidated() -> None:
+    # Regression (real-disc Police report): a NO_MATCH message must not lead with
+    # "the rip differs" while CRC_VALIDATED is False (KDD-16) — our CRC is a
+    # placeholder EXPECTED to disagree, so it says nothing about the rip.
+    entry = CtdbEntry(crc=0xDEADBEEF, confidence=1347)
+    client = _FakeClient(CtdbLookupResult(entries=(entry,)))
+    res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
+    assert res.crc_validated is False
+    assert "not yet hardware-validated" in res.message
+    assert "KDD-16" in res.message
+    # It must NOT flatly assert the rip differs (that's the false alarm).
+    assert "this rip differs" not in res.message
 
 
 def test_lookup_error_is_a_verdict_not_a_raise() -> None:

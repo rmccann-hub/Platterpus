@@ -94,7 +94,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #   * `log_parse` — whether the human log parsed cleanly (flags a degraded read).
 #   * `issues` — one consolidated, severity-tagged "what went wrong" list a
 #     triager opens first (empty on a clean rip).
-REPORT_SCHEMA_VERSION: int = 7
+REPORT_SCHEMA_VERSION: int = 8
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -686,6 +686,7 @@ def _ctdb(result: object | None) -> dict | None:
     if result is None:
         return None
     verdict = getattr(getattr(result, "verdict", None), "value", None)
+    db_crcs = getattr(result, "db_crcs", ()) or ()
     return {
         "verdict": verdict,
         "confidence": getattr(result, "confidence", None),
@@ -695,6 +696,12 @@ def _ctdb(result: object | None) -> dict | None:
         # see the verdict (hex to match the per-track AccurateRip CRC style).
         "our_crc": _hex_crc(getattr(result, "our_crc", None)),
         "matched_crc": _hex_crc(getattr(result, "matched_crc", None)),
+        # The database's CRC(s) for this TOC + how many entries it had. With
+        # `our_crc` this makes a no_match self-diagnosing: a reader (or the
+        # KDD-16 calibration) sees exactly what we computed vs what the DB
+        # expected, without a second live lookup.
+        "entry_count": len(db_crcs),
+        "db_crcs": [_hex_crc(c) for c in db_crcs],
         "message": getattr(result, "message", "") or None,
     }
 
