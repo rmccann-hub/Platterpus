@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The `.platterpus.json` rip report now builds incrementally.** As each track
+  finishes, a partial report (`outcome.status: "in_progress"`) is written beside
+  the growing cyanrip `.log`, off the GUI thread and atomically. So a hard stop
+  that never reaches the normal finish handler — a power loss, a `SIGKILL`, an OS
+  crash — still leaves a report of the tracks completed so far, not nothing. (A
+  normal finish or cancel still writes the full report, superseding the
+  partials.) The human `.log` and the app `log.txt` were already incremental;
+  this closes the gap for the JSON.
+- **A freshly-inserted disc is detected automatically.** After cancelling a rip
+  (which force-stops *and ejects* the drive), putting a new CD in did nothing
+  until a manual “Rescan disc”. Platterpus now polls the drive's media state
+  (a lightweight `CDROM_DRIVE_STATUS` check that never spins the disc) while
+  idle, and auto-runs the same rescan the moment a disc appears — so a new disc
+  is picked up on its own. Skipped entirely while a rip or scan holds the drive;
+  best-effort (degrades to the old manual-Rescan behaviour if the drive can't be
+  queried).
+
+### Changed
+- **The rip status line now carries a timestamp** (`HH:MM:SS · …`), so a glance
+  — or a screenshot — shows *when* the current phase was reached.
+
 ## [0.4.11] — 2026-07-05
 
 ### Fixed

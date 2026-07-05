@@ -273,6 +273,21 @@ class MainWindow(
         self._rip_report_timer.setSingleShot(True)
         self._rip_report_timer.setInterval(750)
         self._rip_report_timer.timeout.connect(self._flush_rip_report)
+        # Auto-detect a freshly-inserted disc so a new CD is picked up without a
+        # manual Rescan — the "cancel the rip, put a new CD in, nothing happens"
+        # gap (cancel force-stops AND ejects the drive, so the new disc was
+        # invisible until a manual Rescan). A lightweight CDROM_DRIVE_STATUS poll
+        # (best-effort, never spins the disc) feeds a pure MediaWatcher; a real
+        # empty→disc transition, while idle, auto-rescans. The probe is injectable
+        # so tests never touch a device. See drive_media + _poll_disc_media.
+        from platterpus.drive_media import MediaWatcher, probe_disc_status
+
+        self._disc_status_probe = probe_disc_status
+        self._media_watcher = MediaWatcher()
+        self._media_poll_timer: QTimer = QTimer(self)
+        self._media_poll_timer.setInterval(2500)
+        self._media_poll_timer.timeout.connect(self._poll_disc_media)
+        self._media_poll_timer.start()
         # Holds the daemon thread for a manual/auto eject so tests can join it.
         self._eject_thread: threading.Thread | None = None
         # Post-rip cover-art fetch (backend-independent, 2026-06-13): the
@@ -638,6 +653,10 @@ class MainWindow(
         pick up on the GUI thread. The window stays responsive throughout.
         """
         log.info("drive changed: %s", device)
+        # New drive → forget the media baseline so the auto-detect re-establishes
+        # it on the next poll without mistaking "this drive already has a disc"
+        # for a fresh insertion (this manual change already scans it below).
+        self._media_watcher.reset()
         self._disc_info_panel.set_drive(device)
         # Refresh the read-offset trust line (provenance + any guard warnings)
         # for the newly-selected drive from the drive-profile ledger.

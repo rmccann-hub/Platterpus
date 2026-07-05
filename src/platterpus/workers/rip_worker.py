@@ -772,6 +772,9 @@ class RipWorker(QObject):
         temp dir so the album's whole-disc log/cue are left intact.
         """
         out_dir = output_dir or self._params.output_dir
+        # Only the MAIN rip passes snapshot an incremental report — never the
+        # throwaway auto-fix temp rip (output_dir set). See _write_incremental_report.
+        incremental = output_dir is None
         try:
             self._handle = self._backend.rip(
                 drive=self._params.drive,
@@ -875,6 +878,15 @@ class RipWorker(QObject):
                 if self._current_track and self._current_track != self._emitted_track:
                     self._emitted_track = self._current_track
                     self.current_track.emit(self._current_track)
+                # Incremental report snapshot: each time cyanrip finishes a track
+                # it appends that track's summary to its .log; re-parse it and
+                # re-write a PARTIAL .platterpus.json beside it. This closes the
+                # last durability gap — a HARD stop (power loss, SIGKILL, an OS
+                # crash) that never reaches the GUI's finish handler still leaves
+                # the tracks completed so far on disk. A clean cancel/finish is
+                # still written by the GUI afterward, superseding these partials.
+                if incremental and _CYANRIP_TRACK_DONE.search(line):
+                    self._write_incremental_report(out_dir)
         except Exception as exc:  # noqa: BLE001
             log.exception("error reading ripper stdout")
             # The subprocess is still running (we broke out of the read loop
@@ -891,6 +903,56 @@ class RipWorker(QObject):
         success = (exit_code == 0) and not self._cancelled
         log_path = self._find_log_path(out_dir, since=self._rip_started_at)
         return success, str(log_path) if log_path else ""
+
+    def _write_incremental_report(self, out_dir: Path) -> None:
+        """Snapshot a PARTIAL ``.platterpus.json`` after a track completes.
+
+        The FULL report is written by the GUI at finish (success or cancel). This
+        fills the one remaining durability gap — a hard stop that never reaches
+        that handler (power loss, SIGKILL, an OS crash) — by re-writing the report
+        beside the growing cyanrip ``.log`` as each track lands, so whatever
+        completed is always on disk. Its ``outcome.status`` is ``"in_progress"``;
+        the GUI overwrites it with the real status when the rip actually ends.
+
+        Runs on the WORKER thread (never the GUI thread — it does file I/O), is
+        atomic (temp + ``os.replace``, inside ``write_report``), and is
+        best-effort: a diagnostic snapshot must never crash the rip. No-op until
+        cyanrip has written its log (nothing to snapshot yet).
+        """
+        from datetime import datetime
+
+        from platterpus.rip_report import build_outcome, build_timing, write_report
+
+        try:
+            log_path = self._find_log_path(out_dir, since=self._rip_started_at)
+            if log_path is None:
+                return  # cyanrip hasn't written its .log yet — nothing to snapshot
+            parsed = self._parse_log(str(log_path))
+            if parsed is None:
+                return
+            elapsed = (
+                time.monotonic() - self._started_monotonic
+                if self._started_monotonic is not None
+                else None
+            )
+            started_iso = (
+                datetime.fromtimestamp(self._rip_started_at)
+                .astimezone()
+                .isoformat(timespec="seconds")
+                if self._rip_started_at
+                else ""
+            )
+            write_report(
+                parsed,
+                log_path,
+                outcome=build_outcome(status="in_progress"),
+                timing=build_timing(elapsed, started_at=started_iso),
+                eta_trace=self.eta_trace,
+                secure_rerip=self.secure_rerip_report,
+                generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+        except Exception:  # noqa: BLE001 — a partial snapshot must never crash a rip
+            log.exception("incremental report snapshot failed; continuing rip")
 
     def _reset_pass_progress(self) -> None:
         """Reset the per-pass progress state before a (re-)rip pass, so a re-rip's

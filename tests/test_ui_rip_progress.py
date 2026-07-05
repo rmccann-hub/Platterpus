@@ -194,8 +194,13 @@ def test_set_progress_updates_both_bars_only(qapp: QApplication) -> None:
 
 def test_set_status_updates_label(qapp: QApplication) -> None:
     widget = RipProgress()
+    # Fixed clock so the timestamp prefix is deterministic (maintainer's ask:
+    # every status carries the wall-clock time it was set).
+    from datetime import datetime
+
+    widget._now = lambda: datetime(2026, 7, 5, 15, 20, 11)
     widget.set_status("All done.")
-    assert widget._status_label.text() == "All done."
+    assert widget._status_label.text() == "15:20:11 · All done."
 
 
 # --- AccurateRip table ---------------------------------------------------

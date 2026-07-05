@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
@@ -82,6 +83,10 @@ class RipProgress(QWidget):
         # .log/.platterpus.json has no default handler on a fresh KDE, so
         # openUrl would pop the "Open With" chooser. Injected for tests.
         self._view_file: _ViewFileFn = view_file or self._default_view_file
+        # Wall-clock source for the status-line timestamp (maintainer's ask:
+        # "if you have a status, put a timestamp in too"). Injectable so tests
+        # get a fixed clock instead of the moving wall clock.
+        self._now: Callable[[], datetime] = datetime.now
         self._log_path: Path | None = None
         # The JSON report and the album folder, derived from the log path when a
         # rip finishes (set in set_log_path) — back the "View report" / "Open
@@ -267,8 +272,16 @@ class RipProgress(QWidget):
         self._progress_bar.setValue(int(task))
 
     def set_status(self, text: str) -> None:
-        """Set the status label (start/finish + per-phase updates)."""
-        self._status_label.setText(text)
+        """Set the status label, prefixed with the wall-clock time it was set.
+
+        The timestamp (maintainer's ask: "if you're going to have a status,
+        put a timestamp in as well") gives every phase a visible "when" — so a
+        screenshot or a glance at a long rip shows the moment the current state
+        was reached, and a status that stops advancing shows a time that stops
+        advancing. Format ``HH:MM:SS · <text>``.
+        """
+        stamp = self._now().strftime("%H:%M:%S")
+        self._status_label.setText(f"{stamp} · {text}")
 
     def set_rip_log(self, rip_log: RipLog) -> None:
         """Populate the AccurateRip table + verdict banner from a parsed log."""

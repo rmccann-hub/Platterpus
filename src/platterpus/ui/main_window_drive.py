@@ -292,6 +292,37 @@ class DriveMixin:
         )
         self._drive_profiles.save()
 
+    def _poll_disc_media(self) -> None:
+        """Auto-detect a newly-inserted disc and rescan (media-poll timer slot).
+
+        Fixes the "cancel the rip, put a new CD in, nothing happens" gap: cancel
+        force-stops AND ejects the drive, and there was no media-change detection,
+        so the new disc stayed invisible until a manual Rescan. Cheap and safe:
+        skips entirely while a rip or a scan is in flight (the drive is busy and
+        the status ioctl would just read 'not ready'/'unavailable'), reads the
+        drive's media state best-effort (never raises, never spins the disc), and
+        only when the pure MediaWatcher sees a real empty→disc transition does it
+        kick the SAME rescan path as the Rescan button. Best-effort throughout —
+        a diagnostic poll must never disrupt the UI.
+        """
+        try:
+            # Idle only: a rip holds the drive (_rip_thread), and a scan is
+            # already doing exactly what a rescan would (_disc_info_thread).
+            if getattr(self, "_rip_thread", None) is not None:
+                return
+            scan = getattr(self, "_disc_info_thread", None)
+            if scan is not None and scan.isRunning():
+                return
+            device = self._drive_picker.current_device()
+            if not device:
+                return
+            status = self._disc_status_probe(device)
+            if self._media_watcher.observe(status):
+                log.info("disc inserted in %s — auto-rescanning", device)
+                self._start_disc_info(device)
+        except Exception:  # noqa: BLE001 — a background poll must never crash the UI
+            log.exception("disc-media poll failed; skipping this tick")
+
     def _refresh_drive_profile_display(self) -> None:
         """Recompute and push the read-offset trust line for the selected drive.
 
