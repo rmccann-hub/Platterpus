@@ -1462,3 +1462,74 @@ def test_start_rip_belt_emits_finished_on_unexpected_error(
     monkeypatch.setattr(worker, "_run_rip", boom)
     worker.start_rip()
     assert finished == [(False, "")]
+
+
+# --- Incremental report snapshot (crash/kill durability) ------------------
+
+_INCREMENTAL_LOG = """\
+cyanrip 0.9.3 (release)
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Disc tracks:    2
+Album:          Test Album
+
+Track 1 ripped and encoded successfully!
+  Duration:    03:51.44
+  EAC CRC32:     A1B2C3D4
+  Accurip:       found in database (max confidence: 3)
+    Accurip v1:  12345678 (accurately ripped, confidence 3)
+  File(s):
+    Test Album/01 - One.flac
+"""
+
+
+def test_incremental_report_snapshot_written_on_track_completion(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """A PARTIAL .platterpus.json is written beside the growing cyanrip .log as
+    each track completes, so a hard stop (SIGKILL/power-loss) that never reaches
+    the GUI finish handler still leaves the tracks-so-far on disk. Its outcome is
+    'in_progress' (the GUI overwrites with the real status at finish)."""
+    import json
+
+    album = tmp_path / "Test Album"
+    album.mkdir()
+    log_file = album / "Test Album.log"
+
+    def side_effect(_call: dict) -> None:
+        # cyanrip writes its .log incrementally; emulate the log existing with
+        # track 1's summary by the time track 1's "done" line streams.
+        log_file.write_text(_INCREMENTAL_LOG, encoding="utf-8")
+
+    handle = _FakeHandle(
+        lines=[
+            "Ripping and encoding track 1, progress - 99.00%",
+            "Track 1 ripped and encoded successfully!",
+        ],
+        exit_code=0,
+    )
+    backend = _FakeBackend(handle=handle)
+    backend.rip_side_effect = side_effect
+    worker = RipWorker(backend, _params(tmp_path))
+
+    worker.start_rip()
+
+    report = album / "Test Album.platterpus.json"
+    assert report.is_file(), "a partial report must exist once a track completes"
+    data = json.loads(report.read_text(encoding="utf-8"))
+    assert data["outcome"]["status"] == "in_progress"
+    assert len(data["tracks"]) >= 1
+
+
+def test_incremental_report_snapshot_skipped_before_any_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """No .log yet (cyanrip hasn't written one) → the snapshot is a silent no-op,
+    never a crash. The auto-fix temp rip (output_dir set) also never snapshots."""
+    handle = _FakeHandle(
+        lines=["Track 1 ripped and encoded successfully!"], exit_code=0
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    # No side_effect → no .log is ever written; must not raise, no report appears.
+    worker.start_rip()
+    assert not list(tmp_path.rglob("*.platterpus.json"))

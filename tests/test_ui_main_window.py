@@ -3819,7 +3819,9 @@ def test_on_flac_verified_surfaces_failure_loudly(teardown_threads) -> None:
 
     window._rip_progress.set_status("Done.")
     window._on_flac_verified(FlacVerifyResult(checked=2))
-    assert window._rip_progress._status_label.text() == "Done."  # clean pass is quiet
+    assert window._rip_progress._status_label.text().endswith(
+        "Done."
+    )  # clean pass is quiet
     assert any("decode cleanly" in line for line in lines)
 
 
@@ -4050,7 +4052,7 @@ def test_on_flac_recompressed_logs_outcome(teardown_threads) -> None:
     assert any("skipped" in line for line in lines)
 
     # None of these are alarming enough to replace the status line.
-    assert window._rip_progress._status_label.text() == "Done."
+    assert window._rip_progress._status_label.text().endswith("Done.")
 
 
 # --- Post-rip transcode (non-FLAC output format) --------------------------
@@ -4151,7 +4153,7 @@ def test_on_transcoded_logs_outcome(teardown_threads) -> None:
     window._on_transcoded(TranscodeResult(error="'ffmpeg' not found"))
     assert any("skipped" in line and "FLAC master kept" in line for line in lines)
 
-    assert window._rip_progress._status_label.text() == "Done."
+    assert window._rip_progress._status_label.text().endswith("Done.")
 
 
 def test_nonflac_rip_starts_derived_verify(
@@ -4341,7 +4343,7 @@ def test_on_derived_verified_mp3_states_decode_clean_not_bit_identity(
     assert any(
         "decode cleanly" in line and "not bit-identity" in line for line in lines
     )
-    assert window._rip_progress._status_label.text() == "Done."
+    assert window._rip_progress._status_label.text().endswith("Done.")
 
 
 def test_window_closes_during_ctdb_verify_without_blocking(
@@ -4536,3 +4538,50 @@ def test_disc_info_ready_ignores_stale_result_after_drive_switch(
     # Stale result ignored: track count not adopted, no rows rendered.
     assert window._current_num_tracks == 0
     assert len(window._track_table.tracks()) == 0
+
+
+# --- Disc media auto-detect (cancel→eject→new-disc, and general insert) ----
+
+
+def test_poll_disc_media_auto_rescans_when_a_disc_appears(teardown_threads) -> None:
+    """A new disc inserted while idle auto-triggers the same rescan as the
+    Rescan button — the fix for 'cancel the rip, put a new CD in, nothing
+    happens' (cancel ejects the drive)."""
+    window = teardown_threads()
+    # Idle: no rip, no scan in flight.
+    window._rip_thread = None
+    window._disc_info_thread = None
+    rescanned: list[str] = []
+    window._start_disc_info = lambda device: rescanned.append(device)  # type: ignore[assignment]
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+
+    statuses = iter(["empty", "disc"])
+    window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
+
+    window._poll_disc_media()  # baseline: empty tray
+    assert rescanned == []
+    window._poll_disc_media()  # a disc appeared → rescan
+    assert rescanned == ["/dev/sr0"]
+
+
+def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:
+    """The poll never touches the drive or rescans while a rip holds it."""
+    window = teardown_threads()
+    window._disc_info_thread = None
+    window._rip_thread = object()  # type: ignore[assignment]  # a rip is in flight
+    called: list[str] = []
+    window._start_disc_info = lambda device: called.append(device)  # type: ignore[assignment]
+    probed: list[str] = []
+
+    def _probe(dev: str) -> str:
+        probed.append(dev)
+        return "disc"
+
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._disc_status_probe = _probe  # type: ignore[assignment]
+
+    window._poll_disc_media()
+    assert called == []  # no rescan while ripping
+    assert probed == []  # didn't even probe the busy drive
+    window._rip_thread = None

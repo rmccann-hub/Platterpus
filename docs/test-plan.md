@@ -152,6 +152,20 @@ full parity checklist (track-3 fix, per-track CRC match), see **Test 8**.
 - **CD-R (home-burned):** Settings → **Continue on CD-R** (whipper) → rips;
   cyanrip handles CD-Rs with no switch.
 
+### A9b — [ ] Cancel / crash / new-disc edge cases (0.4.12, HARDWARE-GATED)
+- **New-disc auto-detect:** with the app idle (no rip running), eject and insert
+  a different CD. *Expected:* within ~2–3 s the app auto-rescans (disc info →
+  MusicBrainz) with **no** click on “Rescan disc”. Then: start a rip, **Cancel**
+  it (the drive force-stops and *ejects*), insert a new CD → *Expected:* the new
+  disc is auto-detected. (Backed by `drive_media.probe_disc_status` /
+  `MediaWatcher`; the ioctl is the hardware-gated piece — validate here.)
+- **Incremental report on a hard stop:** start a rip; after a few tracks finish,
+  **kill the app hard** (`kill -9` the process, or pull power). *Expected:* the
+  album folder still has a `<album>.platterpus.json` with `outcome.status:
+  "in_progress"` and the tracks completed so far (not an empty/missing report).
+- **Status timestamp:** during any rip, the status line reads `HH:MM:SS · <phase>`
+  and the time advances as phases change.
+
 ### A10 — [ ] In-app update (when a newer release exists)
 **Help → Check for updates.** *Expected:* if newer, it downloads (cancellable
 progress), shows phase labels (Downloading → Verifying → *"Installing — almost
