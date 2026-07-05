@@ -386,9 +386,9 @@ def test_checksums_embedded_in_report() -> None:
     assert report["checksums"] == sums
 
 
-def test_schema_version_is_v7() -> None:
-    assert REPORT_SCHEMA_VERSION == 7
-    assert build_report(_sample_log())["schema_version"] == 7
+def test_schema_version_is_v8() -> None:
+    assert REPORT_SCHEMA_VERSION == 8
+    assert build_report(_sample_log())["schema_version"] == 8
 
 
 def test_report_surfaces_v6_drive_and_track_diagnostics() -> None:
@@ -498,6 +498,24 @@ def test_ctdb_section_serialized_when_present() -> None:
     assert build_report(_sample_log())["ctdb"] is None
 
 
+def test_ctdb_section_carries_db_crcs_for_offline_diagnosis() -> None:
+    # v8: a no_match report is self-diagnosing — it carries the DB's expected
+    # CRC(s) + entry_count alongside our_crc, so a reader (or the KDD-16
+    # calibration) sees exactly what we computed vs what CTDB expected without a
+    # second live lookup. Mirrors the real-disc Police no_match.
+    result = CtdbVerifyResult(
+        Verdict.NO_MATCH,
+        confidence=1347,
+        our_crc=0x9C4045CE,
+        db_crcs=(0xDEADBEEF, 0x12345678),
+    )
+    ctdb = build_report(_sample_log(), ctdb_result=result)["ctdb"]
+    assert ctdb["our_crc"] == "9C4045CE"
+    assert ctdb["matched_crc"] is None
+    assert ctdb["entry_count"] == 2
+    assert ctdb["db_crcs"] == ["DEADBEEF", "12345678"]
+
+
 def test_rewrite_adds_ctdb_section_to_same_file(tmp_path: Path) -> None:
     # Mirrors the GUI: write the report at rip-finish (no CTDB), then re-write
     # the SAME file once the async CTDB verify lands. The final file carries it.
@@ -582,9 +600,9 @@ def test_write_report_overwrite_stays_atomic(tmp_path: Path) -> None:
 # --- v7 (0.4.10): outcome / settings / disc / environment / issues -------
 
 
-def test_v7_schema_and_generator_fingerprint() -> None:
+def test_v8_schema_and_generator_fingerprint() -> None:
     report = build_report(_sample_log())
-    assert report["schema_version"] == 7
+    assert report["schema_version"] == 8
     # A source checkout has no _build.py stamp → the "source" sentinel, always
     # present so a consumer never has to handle a missing fingerprint.
     assert report["generator"]["build_fingerprint"] == "source"

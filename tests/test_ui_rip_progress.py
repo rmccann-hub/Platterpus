@@ -466,8 +466,25 @@ def test_ctdb_verdict_line_match_unvalidated_is_experimental() -> None:
     assert "verified ✓" not in line
 
 
+def test_ctdb_verdict_line_no_match_unvalidated_does_not_blame_the_rip() -> None:
+    # Regression (real-disc Police report): with the CRC algorithm un-hardware-
+    # validated (default crc_validated=False, KDD-16), a NO_MATCH must NOT assert
+    # "this rip differs" — our CRC is a placeholder that's EXPECTED to disagree.
+    line = ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH))
+    assert "differs" not in line
+    assert "experimental" in line.lower()
+    assert "KDD-16" in line
+
+
+def test_ctdb_verdict_line_no_match_validated_can_state_it_differs() -> None:
+    # Once the CRC algorithm IS validated, a NO_MATCH legitimately means the rip
+    # differs from the database — the honesty guard only muzzles the unvalidated
+    # case, it doesn't lose the real signal.
+    line = ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=True))
+    assert "differs" in line
+
+
 def test_ctdb_verdict_line_other_verdicts() -> None:
-    assert "no match" in ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH))
     assert "database" in ctdb_verdict_line(CtdbVerifyResult(Verdict.NOT_IN_DATABASE))
     assert "flac" in ctdb_verdict_line(CtdbVerifyResult(Verdict.DECODER_UNAVAILABLE))
     assert "unavailable" in ctdb_verdict_line(CtdbVerifyResult(Verdict.LOOKUP_ERROR))

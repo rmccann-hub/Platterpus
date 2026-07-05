@@ -3733,7 +3733,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 7
+    assert report["schema_version"] == 8
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True
@@ -3873,7 +3873,7 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
     window._on_rip_finished(True, str(log_file))
 
     report = _json.loads((album_dir / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 7
+    assert report["schema_version"] == 8
     assert report["outcome"]["status"] == "success"
     assert report["settings"]["read_offset"] == {
         "configured": 667,
@@ -4384,7 +4384,11 @@ def test_window_closes_during_ctdb_verify_without_blocking(
 def test_on_ctdb_verified_renders_verdict(teardown_threads) -> None:
     window = teardown_threads()
     window._on_ctdb_verified(CtdbVerifyResult(Verdict.NO_MATCH))
-    assert "no match" in window._rip_progress._ctdb_label.text()
+    # Default crc_validated=False (KDD-16): an unvalidated no_match renders as
+    # "not confirmed / experimental", never "your rip differs" (honesty guard).
+    text = window._rip_progress._ctdb_label.text()
+    assert "not confirmed" in text
+    assert "differs" not in text
 
 
 # --- Launch dependency check runs off the GUI thread (TASKS #11a) ----------

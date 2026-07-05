@@ -22,6 +22,7 @@ import argparse
 import logging
 import sys
 import traceback
+from pathlib import Path
 
 from platterpus import __version__
 
@@ -131,6 +132,14 @@ def main(argv: list[str] | None = None) -> int:
         help="run a first-pass check of the rip environment (no CD needed) "
         "and exit; prints a pass/fail report",
     )
+    parser.add_argument(
+        "--ctdb-calibrate",
+        metavar="FOLDER",
+        type=Path,
+        help="verify an already-ripped album folder against CTDB and sweep the "
+        "CRC-offset trims to pin the CTDB-CRC algorithm on real hardware "
+        "(KDD-16), then exit; no CD or re-rip needed",
+    )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     # Logging is the first thing — any failure below this line shows up
@@ -165,6 +174,14 @@ def main(argv: list[str] | None = None) -> int:
             print("\n" + details)
         print("\n" + preflight.format_summary(results, color=color))
         return preflight.exit_code(results)
+
+    # CTDB calibrate mode: a no-GUI, no-disc CTDB verify + CRC-trim sweep over an
+    # already-ripped folder (KDD-16 hardware validation from the AppImage). Like
+    # --doctor, it's a terminal diagnostic that runs before QApplication.
+    if args.ctdb_calibrate is not None:
+        from platterpus.ctdb.diagnose import run_diagnostics
+
+        return run_diagnostics(args.ctdb_calibrate, calibrate_crc=True)
 
     # QApplication MUST exist before any QWidget. Build it as early as
     # possible so the dep-check dialogs can run.

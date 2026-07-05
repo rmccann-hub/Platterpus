@@ -307,11 +307,32 @@ album works best) exercises almost everything in one sitting:
 > container once: `distrobox enter ripping -- distrobox-export --bin /usr/bin/flac`.
 > Even without it, the **lookup half** of Test 1 still validates the wire format.
 
-## Test 1 — [ ] CTDB verify: wire format + CRC (KDD-16)
+## Test 1 — [~] CTDB verify: wire format + CRC (KDD-16)
 
 **Goal:** confirm (or correct) the CTDB lookup wire format and the audio-CRC
 algorithm, which were written clean-room from the spec and are unvalidated.
 This unblocks wiring CTDB verify into the GUI.
+
+> **Status (2026-07-05, real-hardware v0.4.10 rip of The Police — "Every Breath
+> You Take: The Classics"):** the **`toc=` wire format is now hardware-CONFIRMED**
+> — the disc was found in CTDB (confidence 1347, entries returned), so the lookup
+> half of this test passes. The result was **`no_match` (disc found, CRC differs)**
+> against an AccurateRip-confidence-200 rip, which is the documented signature of
+> the **placeholder CRC** — so the ONE remaining piece is the bit-exact CRC trim
+> (see the `no_match` branch below). The verify wording no longer misreports this
+> as "your rip differs" (v0.4.11). **Next:** pin the CRC via the calibration
+> vehicle below, then flip `crc.CRC_VALIDATED = True` + add the golden-vector
+> regression test.
+>
+> **Calibration vehicle (v0.4.11):** run it from the shipped AppImage — no dev
+> checkout, no re-rip:
+> ```bash
+> ./platterpus-x86_64.AppImage --ctdb-calibrate "~/Music/rips/<Artist>/<Album>/"
+> ```
+> It sweeps the candidate offset-guard trims over the existing FLACs and prints
+> the `(front, back)` trim that reproduces a DB CRC — paste that back to bake it
+> into `ctdb/crc.py`. (`scripts/ctdb_verify.py --calibrate` is the dev-checkout
+> equivalent; both share `ctdb/diagnose.py`.)
 
 **Preconditions**
 - A pressed commercial CD that is very likely in CTDB (a well-known album).

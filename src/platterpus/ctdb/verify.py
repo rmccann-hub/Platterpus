@@ -60,6 +60,11 @@ class CtdbVerifyResult:
     matched_crc: int | None = None
     message: str = ""
     crc_validated: bool = crc_mod.CRC_VALIDATED
+    # The database's CRC(s) for this disc's TOC — what we tried (and, while the
+    # CRC algorithm is unvalidated, failed) to match. Kept so the rip report and
+    # `--ctdb-calibrate` carry everything needed to pin the algorithm offline
+    # (our_crc vs these) without a second live lookup. Empty when not in the DB.
+    db_crcs: tuple[int, ...] = ()
 
     @property
     def trustworthy(self) -> bool:
@@ -135,6 +140,7 @@ def _crc_all(flac_paths: Sequence[Path], decoder: PcmDecoder) -> int:
 
 
 def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
+    db_crcs = tuple(e.crc for e in result.entries if e.crc is not None)
     for entry in result.entries:
         if entry.crc is not None and entry.crc == our_crc:
             return CtdbVerifyResult(
@@ -142,6 +148,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
                 confidence=entry.confidence,
                 our_crc=our_crc,
                 matched_crc=entry.crc,
+                db_crcs=db_crcs,
                 message=(
                     f"verified against CTDB (confidence {entry.confidence})"
                     if crc_mod.CRC_VALIDATED
@@ -150,15 +157,31 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
                 ),
             )
     best = max((e.confidence for e in result.entries), default=0)
+    n = len(result.entries)
+    # The message MUST depend on whether our CRC algorithm is trustworthy. While
+    # CRC_VALIDATED is False (KDD-16), our_crc is a known-placeholder value that
+    # is EXPECTED to disagree with the database, so a no-match says nothing about
+    # the rip — claiming "the rip differs" here is the false alarm the real-disc
+    # Police report exposed. Only once the algorithm is hardware-validated does a
+    # no-match actually mean the audio differs from the database.
+    if crc_mod.CRC_VALIDATED:
+        message = (
+            f"disc is in CTDB but our CRC didn't match any of the {n} "
+            "entries — this rip differs from the database."
+        )
+    else:
+        message = (
+            f"disc is in CTDB (confidence {best}), but the CTDB CRC algorithm is "
+            "not yet hardware-validated (KDD-16), so this non-match is not "
+            "meaningful — AccurateRip is the authority here. Run "
+            "`platterpus --ctdb-calibrate <folder>` to pin the algorithm."
+        )
     return CtdbVerifyResult(
         Verdict.NO_MATCH,
         confidence=best,
         our_crc=our_crc,
-        message=(
-            "disc is in CTDB but our CRC didn't match any entry. Expected if "
-            "the rip differs — OR if the offset-0/CRC algorithm needs the "
-            "hardware-validated fix (KDD-16)."
-        ),
+        db_crcs=db_crcs,
+        message=message,
     )
 
 
@@ -167,4 +190,9 @@ def _db_only_result(
 ) -> CtdbVerifyResult:
     """Verdict for 'found in DB but couldn't compute our CRC'."""
     best = max((e.confidence for e in result.entries), default=0)
-    return CtdbVerifyResult(verdict, confidence=best, message=message)
+    return CtdbVerifyResult(
+        verdict,
+        confidence=best,
+        db_crcs=tuple(e.crc for e in result.entries if e.crc is not None),
+        message=message,
+    )

@@ -11,6 +11,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.11] — 2026-07-05
+
+### Fixed
+- **CTDB "no match" no longer implies your rip is bad.** The results panel used
+  to say *"CTDB: no match — this rip differs from the database entries"* on every
+  rip — even a rip AccurateRip had just verified at confidence 200. That was a
+  false alarm: the CTDB CRC algorithm is still a placeholder pending hardware
+  validation (KDD-16), so its CRC is *expected* to disagree and a non-match says
+  nothing about the rip. The verdict now branches on whether the CRC algorithm
+  is hardware-validated — until it is, a no-match reads as *"not confirmed — the
+  CRC check is still experimental; a non-match here doesn't mean your rip is
+  wrong."* AccurateRip remains the authority. (Same guard on the `.log`/report
+  wording.) Surfaced by the real-hardware v0.4.10 rip of The Police.
+
+### Added
+- **The rip report's `ctdb` block is now self-diagnosing** (report schema v8).
+  It records the database's expected CRC(s) (`db_crcs`) and `entry_count`
+  alongside our computed `our_crc`, so a no-match can be diagnosed — and the
+  CTDB-CRC algorithm calibrated — straight from a saved report, without a second
+  live lookup.
+- **`platterpus --ctdb-calibrate <folder>`** — run a CTDB verify + CRC-offset
+  calibration over an already-ripped album folder (no CD, no re-rip) straight
+  from the AppImage. It prints the disc TOC, the lookup URL, the verdict, and —
+  if the disc is in CTDB — sweeps the candidate offset-guard trims and reports
+  which one reproduces the database CRC. That discovered trim is the
+  hardware-validated CTDB-CRC algorithm (KDD-16). The standalone
+  `scripts/ctdb_verify.py --calibrate` now shares the same engine.
+
 ## [0.4.10] — 2026-07-03
 
 ### Fixed
@@ -1928,7 +1956,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.11...HEAD
+[0.4.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.7...v0.4.8

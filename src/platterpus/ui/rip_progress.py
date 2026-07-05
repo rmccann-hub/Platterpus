@@ -379,11 +379,15 @@ class RipProgress(QWidget):
 def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
     """One-line, user-facing summary of a CTDB verify outcome.
 
-    Pure function (no widget) so it's unit-testable. The MATCH wording is the
-    important safety case: until ``result.trustworthy`` (the CRC algorithm is
-    hardware-validated, KDD-16) a match is spelled out as *experimental*, never
-    as a plain "verified" — mirroring the rip's own "never claim a check that
-    didn't run" rule.
+    Pure function (no widget) so it's unit-testable. The wording is the
+    important safety case, in BOTH directions, and hinges on
+    ``result.crc_validated`` (the CRC algorithm is hardware-validated, KDD-16):
+    until then a MATCH is spelled out as *experimental* (never a plain
+    "verified") and a NO_MATCH is spelled out as *not confirmed* (never "your
+    rip differs") — because an un-validated CRC is a placeholder that is
+    EXPECTED to disagree with the database, so neither a hit nor a miss is
+    meaningful yet. This mirrors the rip's own "never claim a check that didn't
+    run" rule.
     """
     verdict = result.verdict
     if verdict is Verdict.MATCH:
@@ -395,7 +399,19 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
             "(not yet a confirmed verification)"
         )
     if verdict is Verdict.NO_MATCH:
-        return "CTDB: no match — this rip differs from the database entries"
+        # A no-match only means "the rip differs" if our CRC is trustworthy.
+        # While the CRC algorithm is un-hardware-validated (KDD-16) our CRC is a
+        # known placeholder that is EXPECTED to disagree, so asserting the rip
+        # differs is a false alarm (the real-disc Police report showed exactly
+        # this against an AccurateRip-verified rip). Mirror the MATCH path, which
+        # already spells itself out as experimental until validated.
+        if result.crc_validated:
+            return "CTDB: no match — this rip differs from the database entries"
+        return (
+            "CTDB: not confirmed — the CRC check is still experimental (pending "
+            "hardware validation, KDD-16); a non-match here doesn’t mean your "
+            "rip is wrong — AccurateRip is the authority"
+        )
     if verdict is Verdict.NOT_IN_DATABASE:
         return "CTDB: this disc isn’t in the database"
     if verdict is Verdict.DECODER_UNAVAILABLE:

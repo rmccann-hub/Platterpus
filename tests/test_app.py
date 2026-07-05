@@ -167,6 +167,35 @@ def test_install_excepthook_sets_and_routes(monkeypatch: pytest.MonkeyPatch) -> 
         sys.excepthook = original
 
 
+def test_main_ctdb_calibrate_flag_runs_diagnostics_and_exits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """`platterpus --ctdb-calibrate <folder>` short-circuits into the CTDB
+    diagnostics (calibrate mode) before QApplication and returns its exit code —
+    so the maintainer can pin the CTDB CRC straight from the AppImage (KDD-16)."""
+    import platterpus.ctdb.diagnose as diag
+
+    calls: list[tuple[object, bool]] = []
+
+    def _fake(folder, *, calibrate_crc):
+        calls.append((folder, calibrate_crc))
+        return 0
+
+    monkeypatch.setattr(diag, "run_diagnostics", _fake)
+    # A MainWindow being constructed would mean the flag was ignored.
+    import platterpus.ui.main_window as mw
+
+    monkeypatch.setattr(
+        mw,
+        "MainWindow",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("main window built")),
+    )
+
+    rc = app_module.main(["--ctdb-calibrate", str(tmp_path)])
+    assert rc == 0
+    assert calls == [(tmp_path, True)]
+
+
 def test_main_uninstall_flag_opens_uninstaller_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
