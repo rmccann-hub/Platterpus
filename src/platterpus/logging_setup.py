@@ -49,6 +49,43 @@ _FILE_HANDLER_ATTR: str = "_platterpus_file_handler"
 _BUFFER_HANDLER_ATTR: str = "_platterpus_buffer_handler"
 
 
+class _BannerRotatingFileHandler(RotatingFileHandler):
+    """A ``RotatingFileHandler`` that stamps an app+version banner at the top of
+    every file it writes — the initial ``log.txt`` at each session start AND every
+    rotated backup.
+
+    Why: a log excerpt is often the only thing in a bug report, and a *rotated*
+    backup (``log.txt.3``) could otherwise carry no clue which Platterpus version
+    produced it. Writing the banner on open and after each rollover guarantees
+    every physical log file says its version (maintainer's ask). This is a
+    standard logging pattern (override ``doRollover``), not metaprogramming.
+    """
+
+    def __init__(self, *args: object, banner: str, **kwargs: object) -> None:
+        # Store the banner before super().__init__ opens the stream, so the very
+        # first _write_banner() below has it.
+        self._banner: str = banner
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self._write_banner()
+
+    def _write_banner(self) -> None:
+        """Write the version banner to the current stream. Best-effort — a logging
+        handler must never crash the app, so an I/O error is swallowed (the next
+        real log line still lands; only the cosmetic header is lost)."""
+        try:
+            if self.stream is not None:
+                self.stream.write(self._banner + "\n")
+                self.stream.flush()
+        except OSError:
+            pass
+
+    def doRollover(self) -> None:
+        # Re-stamp the banner onto the freshly-opened file after each rotation
+        # (see the class docstring).
+        super().doRollover()
+        self._write_banner()
+
+
 def configure_logging(console_level: int = logging.INFO, debug: bool = False) -> None:
     """Initialize the root logger with a rotating file and a console handler.
 
@@ -76,11 +113,22 @@ def configure_logging(console_level: int = logging.INFO, debug: bool = False) ->
 
     formatter = logging.Formatter(_LOG_FORMAT)
 
-    file_handler = RotatingFileHandler(
+    # The banner every log file is stamped with (session start + each rollover),
+    # so any excerpt — even a rotated backup — says which build wrote it. Built
+    # here (not import-time) so it reflects the running version/build. Kept cheap
+    # and dependency-light; build_fingerprint() just reads a constant/generated
+    # file and never raises.
+    from platterpus import __version__
+    from platterpus.build_info import build_fingerprint
+
+    banner = f"──── Platterpus {__version__} (build {build_fingerprint()}) ────"
+
+    file_handler = _BannerRotatingFileHandler(
         LOG_PATH,
         maxBytes=_LOG_MAX_BYTES,
         backupCount=_LOG_BACKUP_COUNT,
         encoding="utf-8",
+        banner=banner,
     )
     file_handler.setLevel(logging.DEBUG if debug else logging.INFO)
     file_handler.setFormatter(formatter)

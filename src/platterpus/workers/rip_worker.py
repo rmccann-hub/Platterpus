@@ -337,6 +337,11 @@ class RipWorker(QObject):
         # instead of a misleading countdown. Reset per pass.
         self._eta_stall_frac: float | None = None
         self._eta_stall_since: float | None = None
+        # True once we've LOGGED that this pass is stalled, so the warning is
+        # written to the record (log.txt + the report's embedded debug log) exactly
+        # once per stall — on entry — not on every progress tick while it's stuck.
+        # Flipped back off (with a recovery line) when real progress resumes.
+        self._eta_stalled: bool = False
         # ETA trace kept "for posterity" (maintainer's ask): a throttled series of
         # samples, each pairing the PC wall-clock time with BOTH estimates —
         # cyanrip's own per-op ETA and our smoothed album ETA — so the report can
@@ -425,6 +430,15 @@ class RipWorker(QObject):
             self._eta_stall_frac is None
             or frac >= self._eta_stall_frac + _ETA_STALL_MIN_PROGRESS
         ):
+            # Real forward progress. If we were stalled, note the recovery in the
+            # record (the transient status line can't be a durable record).
+            if self._eta_stalled:
+                log.info(
+                    "rip recovered from stall at %.1f%% (track %s)",
+                    overall_pct,
+                    self._current_track,
+                )
+                self._eta_stalled = False
             self._eta_stall_frac = frac
             self._eta_stall_since = now
         elif (
@@ -432,6 +446,19 @@ class RipWorker(QObject):
             and now - self._eta_stall_since >= _ETA_STALL_THRESHOLD_S
         ):
             stalled_for = now - self._eta_stall_since
+            # Record the stall ONCE (on entry) at WARNING, so it lands in both
+            # log.txt (INFO+) and the report's embedded debug log regardless of the
+            # Debug-logging setting — the status line alone is not a durable record
+            # (maintainer's ask: "show up in either the log or json file").
+            if not self._eta_stalled:
+                self._eta_stalled = True
+                log.warning(
+                    "rip stalled: no forward progress for %s at %.1f%% (track %s) "
+                    "— the drive is stuck on a hard-to-read spot",
+                    format_duration(stalled_for),
+                    overall_pct,
+                    self._current_track,
+                )
             return (
                 f" · stalled {format_duration(stalled_for)} — the drive is stuck "
                 "on a hard-to-read spot (a scratch or smudge)"
@@ -1017,6 +1044,7 @@ class RipWorker(QObject):
         self._eta_rate_window = []
         self._eta_stall_frac = None
         self._eta_stall_since = None
+        self._eta_stalled = False
 
     def _auto_fix_tracks(
         self,

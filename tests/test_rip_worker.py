@@ -1022,6 +1022,46 @@ def test_slow_but_advancing_read_is_not_flagged_stalled(
     assert "left" in text
 
 
+def test_stall_is_logged_once_on_entry_and_recovery_is_logged(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A stall must be RECORDED (log.txt + the report's embedded debug log), not
+    just shown on the transient status line — the maintainer's "show up in either
+    the log or json file". It's logged exactly once on entry (a warning), and the
+    recovery is logged too; it does not re-log on every stuck tick."""
+    import logging
+
+    import platterpus.workers.rip_worker as rw
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rw.time, "monotonic", lambda: clock["t"])
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    worker._started_monotonic = 0.0
+    worker._eta_pass_started = 0.0
+
+    clock["t"] = 10.0
+    worker._album_eta_text(50.0)
+
+    with caplog.at_level(logging.INFO, logger="platterpus.workers.rip_worker"):
+        # Several stuck ticks past the threshold — the warning must appear ONCE.
+        for i in range(1, 20):
+            clock["t"] = 10.0 + rw._ETA_STALL_THRESHOLD_S + i * 5.0
+            worker._album_eta_text(50.0 + i * 0.001)
+        stall_warnings = [
+            r for r in caplog.records if "stalled" in r.getMessage().lower()
+        ]
+        assert len(stall_warnings) == 1
+        assert stall_warnings[0].levelno == logging.WARNING
+
+        # Real progress resumes → a recovery line is logged.
+        clock["t"] = clock["t"] + 30.0
+        worker._album_eta_text(60.0)
+        assert any("recovered from stall" in r.getMessage() for r in caplog.records)
+
+
 def test_eta_trace_records_both_estimates_speed_and_clock(
     qapp: QApplication, tmp_path: Path
 ) -> None:

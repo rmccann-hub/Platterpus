@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pytest
@@ -72,7 +73,8 @@ def test_configure_logging_adds_file_and_console_handlers(
     # The log directory is created up front.
     assert logging_setup.LOG_DIR.exists()
     names = _handler_names(clean_root)
-    assert "RotatingFileHandler" in names
+    # The file handler is our banner-stamping RotatingFileHandler subclass.
+    assert any(isinstance(h, RotatingFileHandler) for h in clean_root.handlers)
     assert "StreamHandler" in names  # exact-name match: the console handler
     # Root captures everything; per-handler levels filter.
     assert clean_root.level == logging.DEBUG
@@ -84,7 +86,7 @@ def test_console_level_is_honoured(clean_root: logging.Logger) -> None:
         h for h in clean_root.handlers if type(h).__name__ == "StreamHandler"
     )
     file_handler = next(
-        h for h in clean_root.handlers if type(h).__name__ == "RotatingFileHandler"
+        h for h in clean_root.handlers if isinstance(h, RotatingFileHandler)
     )
     assert console.level == logging.ERROR
     # File defaults to INFO now; debug mode (below) raises it to DEBUG.
@@ -98,7 +100,7 @@ def test_configure_logging_is_idempotent(clean_root: logging.Logger) -> None:
     logging_setup.configure_logging()
     count = len(clean_root.handlers)
     # Our two handlers are present after the first call.
-    assert "RotatingFileHandler" in _handler_names(clean_root)
+    assert any(isinstance(h, RotatingFileHandler) for h in clean_root.handlers)
     assert "StreamHandler" in _handler_names(clean_root)
     # A second call must not pile on duplicate handlers.
     logging_setup.configure_logging()
@@ -106,7 +108,7 @@ def test_configure_logging_is_idempotent(clean_root: logging.Logger) -> None:
 
 
 def _file_handler(root: logging.Logger) -> logging.Handler:
-    return next(h for h in root.handlers if type(h).__name__ == "RotatingFileHandler")
+    return next(h for h in root.handlers if isinstance(h, RotatingFileHandler))
 
 
 def test_debug_true_sets_file_handler_to_debug(clean_root: logging.Logger) -> None:
@@ -193,3 +195,36 @@ def test_configure_with_debug_still_leaves_buffer_at_debug(
 
     logging_setup.configure_logging(debug=False)
     assert get_session_buffer().level == logging.DEBUG
+
+
+def test_log_file_is_stamped_with_app_and_version_banner(
+    clean_root: logging.Logger,
+) -> None:
+    """Every log.txt is stamped with an app+version banner at the top, so a log
+    excerpt in a bug report always says which build wrote it (maintainer's ask)."""
+    from platterpus import __version__
+
+    logging_setup.configure_logging()
+    text = logging_setup.LOG_PATH.read_text(encoding="utf-8")
+    assert "Platterpus" in text
+    assert __version__ in text  # the running version is named in the file
+
+
+def test_rotated_backup_also_gets_the_version_banner(
+    clean_root: logging.Logger,
+) -> None:
+    """A ROTATED backup must carry the banner too — a bug report often attaches a
+    backup, not the live file. Forcing a rollover re-stamps the new active file."""
+    from platterpus import __version__
+
+    logging_setup.configure_logging()
+    fh = _file_handler(clean_root)
+    # Force a rollover: the previous file becomes log.txt.1 and a fresh log.txt is
+    # opened — which must be re-stamped with the banner.
+    fh.doRollover()  # type: ignore[attr-defined]
+    logging.getLogger("platterpus.test").info("after-rollover-line")
+
+    backup = logging_setup.LOG_PATH.with_name(logging_setup.LOG_PATH.name + ".1")
+    assert backup.exists()
+    assert __version__ in backup.read_text(encoding="utf-8")  # the old file
+    assert __version__ in logging_setup.LOG_PATH.read_text(encoding="utf-8")  # the new

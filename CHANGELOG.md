@@ -22,7 +22,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   line reads *“stalled 4m — the drive is stuck on a hard-to-read spot (a scratch
   or smudge)”* instead of a misleading “time left”. A merely-slow-but-advancing
   read is never mislabelled, and the countdown returns on its own once the drive
-  gets past the spot.
+  gets past the spot. **The stall is also recorded** — a warning is written when
+  it starts and an info line when it recovers — so it lands in both `log.txt` and
+  the rip report’s embedded debug log, not just the transient status line.
+- **Every `log.txt` file now carries a Platterpus version banner.** A line like
+  `──── Platterpus 0.4.13 (build abc1234) ────` is stamped at the top of the log
+  at each session start *and* on every rotation, so a log excerpt in a bug report
+  — even a rotated backup — always says which build wrote it. (The JSON report
+  already records the version and build fingerprint in its `generator` block.)
 - **`platterpus --version` and Help → About now show the build fingerprint** — the
   exact git short-SHA of a built AppImage (or `source` for a checkout) beside the
   version number — and it’s written to the log at startup. A bug report now
