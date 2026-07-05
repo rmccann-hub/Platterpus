@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus import __version__, help_content
+from platterpus.build_info import build_fingerprint
 from platterpus.paths import (
     CONFIG_PATH,
     CYANRIP_BINARY_DEFAULT,
@@ -78,6 +79,7 @@ class AboutDialog(CenteredDialog):
             f"**Version {__version__}**\n\n"
             f"{help_content.TAGLINE}\n\n"
             f"### Environment\n"
+            f"- Build: {build_fingerprint()}\n"
             f"- Python: {py}\n"
             f"- Qt: {qVersion()}\n"
             f"- PySide6: {PYSIDE_VERSION}\n"
