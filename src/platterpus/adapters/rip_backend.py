@@ -118,13 +118,18 @@ class TrackTag:
     `number` is the 1-based track position. `title`/`artist` are the
     (possibly user-edited) values from the track table; `isrc` is the
     MusicBrainz-supplied recording ISRC (silent passthrough — not editable),
-    empty when MB has none.
+    empty when MB has none. `length_ms` is the MusicBrainz track duration in
+    milliseconds (None when unknown) — a silent passthrough the ripper doesn't
+    use, but the rip worker uses it to weight the overall progress bar by each
+    track's real length (a long track is a bigger slice), which makes the ETA
+    track wall-clock instead of oscillating per track.
     """
 
     number: int
     title: str = ""
     artist: str = ""
     isrc: str = ""
+    length_ms: int | None = None
 
 
 @dataclass(frozen=True)
