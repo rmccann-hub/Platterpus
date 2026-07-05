@@ -160,17 +160,36 @@ def test_installs_session_log_buffer_that_captures_records(
     assert any("hello-from-a-test" in line for line in buffer.lines_excluding([]))
 
 
-def test_session_buffer_level_follows_the_debug_toggle(
+def test_session_buffer_is_always_debug_regardless_of_toggle(
     clean_root: logging.Logger,
 ) -> None:
-    """The buffer mirrors the file handler's verbosity so the embedded log
-    matches what log.txt records (and respects the Debug-logging setting)."""
+    """The in-memory buffer is held at DEBUG **always**, independent of the
+    Debug-logging setting, so the `.platterpus.json` report is the fully-verbose
+    per-album record even with default settings. The toggle governs only the
+    on-disk log.txt verbosity — never the buffer."""
     from platterpus.log_buffer import get_session_buffer
 
-    logging_setup.configure_logging()  # INFO
+    logging_setup.configure_logging()  # log.txt starts at INFO…
     buffer = get_session_buffer()
-    assert buffer.level == logging.INFO
+    fh = _file_handler(clean_root)
+    assert buffer.level == logging.DEBUG  # …but the buffer is DEBUG from the start
+    assert fh.level == logging.INFO
+
     logging_setup.set_debug_logging(True)
-    assert buffer.level == logging.DEBUG
+    assert buffer.level == logging.DEBUG  # unchanged
+    assert fh.level == logging.DEBUG  # only the file follows the toggle
+
     logging_setup.set_debug_logging(False)
-    assert buffer.level == logging.INFO
+    assert buffer.level == logging.DEBUG  # still DEBUG — never lowered
+    assert fh.level == logging.INFO
+
+
+def test_configure_with_debug_still_leaves_buffer_at_debug(
+    clean_root: logging.Logger,
+) -> None:
+    """Even the default (debug=False) start puts the buffer at DEBUG — the report
+    must never depend on the user having enabled Debug logging first."""
+    from platterpus.log_buffer import get_session_buffer
+
+    logging_setup.configure_logging(debug=False)
+    assert get_session_buffer().level == logging.DEBUG

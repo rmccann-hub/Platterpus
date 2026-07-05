@@ -11,6 +11,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The time-remaining estimate now says when the drive is *stalled*.** A
+  scratched or smudged spot can make a drive retry the same audio for a very long
+  time (real hardware: a single track that hung for hours). The estimate used to
+  keep showing a normal — and eventually absurd — countdown through that. Now,
+  when the disc makes no meaningful forward progress for a few minutes, the status
+  line reads *“stalled 4m — the drive is stuck on a hard-to-read spot (a scratch
+  or smudge)”* instead of a misleading “time left”. A merely-slow-but-advancing
+  read is never mislabelled, and the countdown returns on its own once the drive
+  gets past the spot.
+- **`platterpus --version` and Help → About now show the build fingerprint** — the
+  exact git short-SHA of a built AppImage (or `source` for a checkout) beside the
+  version number — and it’s written to the log at startup. A bug report now
+  carries the precise build, not just the marketing version. (It was already in
+  the JSON rip report; this surfaces it in the two other places a user reads a
+  version.)
+
+### Changed
+- **The `.platterpus.json` rip report is now always fully verbose.** Its embedded
+  session log (the `debug` block) previously captured only INFO-level detail
+  unless you had first turned on “Debug logging” in Settings — so a report sent
+  for a problem rip was often missing the subprocess/probe/parse steps needed to
+  diagnose it. The report’s in-memory log buffer is now held at DEBUG *always* (it
+  lives only in memory and is bounded, so this is free), making every report a
+  complete, debuggable record out of the box. The “Debug logging” setting now
+  governs only how verbose the on-disk `log.txt` is.
+
 ## [0.4.12] — 2026-07-05
 
 ### Added

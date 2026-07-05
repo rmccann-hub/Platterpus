@@ -941,6 +941,87 @@ def test_album_eta_uses_recent_rate_not_scan_biased_average(
     assert smoothed > 2500  # decisively above the ~1890s scan-biased cumulative
 
 
+def test_album_eta_reports_stall_when_progress_flatlines(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression (real hardware: the Roots track-18 read hung for HOURS while the
+    on-screen ETA still counted down "~4h left"). When the album fraction stops
+    clearing a meaningful forward step for the stall threshold — even if it crawls
+    a hair — the ETA must say the drive is STALLED, not show a misleading
+    countdown."""
+    import platterpus.workers.rip_worker as rw
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rw.time, "monotonic", lambda: clock["t"])
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    worker._started_monotonic = 0.0
+    worker._eta_pass_started = 0.0
+
+    # Establish real forward progress at 50%.
+    clock["t"] = 10.0
+    first = worker._album_eta_text(50.0)
+    assert "left" in first and "stalled" not in first
+
+    # Now the read only crawls — +0.001% per tick, never clearing the 0.5% step —
+    # for longer than the stall threshold. The timer must NOT reset on the crawl.
+    text = ""
+    for i in range(1, 30):
+        clock["t"] = 10.0 + i * 10.0
+        text = worker._album_eta_text(50.0 + i * 0.001)
+    assert "stalled" in text
+    assert "left" not in text  # no misleading countdown while stuck
+
+
+def test_album_eta_recovers_after_stall_clears(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once the drive gets past the hard-to-read spot and the bar jumps forward
+    again, the ETA returns to a normal estimate — the stall message is transient,
+    not sticky."""
+    import platterpus.workers.rip_worker as rw
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rw.time, "monotonic", lambda: clock["t"])
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    worker._started_monotonic = 0.0
+    worker._eta_pass_started = 0.0
+
+    clock["t"] = 10.0
+    worker._album_eta_text(50.0)
+    clock["t"] = 10.0 + rw._ETA_STALL_THRESHOLD_S + 1.0
+    assert "stalled" in worker._album_eta_text(50.02)  # stuck
+
+    # Real progress resumes (bar jumps past the 0.5% step): back to a countdown.
+    clock["t"] = clock["t"] + 30.0
+    recovered = worker._album_eta_text(60.0)
+    assert "stalled" not in recovered
+    assert "left" in recovered
+
+
+def test_slow_but_advancing_read_is_not_flagged_stalled(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A merely-slow drive that still makes real forward progress each tick must
+    NEVER be mislabelled 'stalled' — only a genuine hang crosses the threshold.
+    Guards against a false alarm scaring the user on a healthy (if slow) rip."""
+    import platterpus.workers.rip_worker as rw
+
+    clock = {"t": 0.0}
+    monkeypatch.setattr(rw.time, "monotonic", lambda: clock["t"])
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    worker._started_monotonic = 0.0
+    worker._eta_pass_started = 0.0
+
+    # Advance 0.6% every 10s — clears the 0.5% step each tick — for well past the
+    # stall threshold. Never a stall.
+    text = ""
+    for i in range(1, 40):
+        clock["t"] = float(i * 10)
+        text = worker._album_eta_text(min(99.0, 10.0 + i * 0.6))
+    assert "stalled" not in text
+    assert "left" in text
+
+
 def test_eta_trace_records_both_estimates_speed_and_clock(
     qapp: QApplication, tmp_path: Path
 ) -> None:

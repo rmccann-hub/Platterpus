@@ -2,15 +2,22 @@
 
 Call `configure_logging()` once at startup (from `app.main`). After that,
 every module that does `logging.getLogger(__name__).info(...)` writes to
-two destinations:
+three destinations:
 
-  1. A rotating file at `LOG_PATH` (DEBUG and up).
+  1. A rotating file at `LOG_PATH` — INFO by default, DEBUG when the
+     "Debug logging" setting is on (`set_debug_logging`). The always-on,
+     cross-session catch-all for problems with no rip folder to attach to.
   2. The console (INFO and up, configurable).
+  3. An in-memory `SessionLogBuffer` — **always DEBUG**, independent of the
+     toggle. It's the sole source for the `.platterpus.json` rip report's
+     embedded log, so that per-album debug record is always fully verbose
+     (it lives only in memory and is bounded, so DEBUG here is free).
 
 Modules MUST NOT add their own handlers or call `logging.basicConfig` —
 configuration is centralized here per CLAUDE.md's "Log with the `logging`
-module, not `print`" rule. New code that wants extra detail in the file
-just logs at DEBUG and it shows up there but not on the console.
+module, not `print`" rule. New code that wants extra detail just logs at
+DEBUG: it always reaches the rip report, and reaches log.txt when the
+Debug-logging setting is on.
 """
 
 from __future__ import annotations
@@ -82,12 +89,17 @@ def configure_logging(console_level: int = logging.INFO, debug: bool = False) ->
     console_handler.setLevel(console_level)
     console_handler.setFormatter(formatter)
 
-    # In-memory session buffer: same format and level as the file handler, so
-    # the rip report's embedded log mirrors what log.txt records (and respects
-    # the Debug-logging toggle). It only lives in memory, so it doesn't add a
-    # second file on disk.
+    # In-memory session buffer: ALWAYS DEBUG, independent of the file handler and
+    # the Debug-logging toggle. Rationale: this buffer is the SOLE source for the
+    # `.platterpus.json` report's embedded log, whose whole job is to be "verbose
+    # enough to debug a rip from alone." It lives only in memory (no second file
+    # on disk) and is bounded (see SessionLogBuffer's record cap), so capturing
+    # DEBUG here is free. Pinning it to the file handler's level meant a
+    # default-settings bug report shipped a JSON missing every subprocess/probe/
+    # parse DEBUG line — the "not verbose enough" gap. The report is now always
+    # fully verbose; the toggle below governs only how chatty log.txt is on disk.
     buffer_handler = SessionLogBuffer()
-    buffer_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+    buffer_handler.setLevel(logging.DEBUG)
     buffer_handler.setFormatter(formatter)
 
     root.addHandler(file_handler)
@@ -122,11 +134,10 @@ def set_debug_logging(enabled: bool) -> None:
     if file_handler is None:
         return
     file_handler.setLevel(logging.DEBUG if enabled else logging.INFO)
-    # Keep the in-memory buffer at the same verbosity, so the rip report's
-    # embedded log matches what log.txt is capturing.
-    buffer_handler = getattr(root, _BUFFER_HANDLER_ATTR, None)
-    if buffer_handler is not None:
-        buffer_handler.setLevel(logging.DEBUG if enabled else logging.INFO)
+    # The in-memory buffer is deliberately NOT re-leveled here: it stays at DEBUG
+    # always (set in configure_logging) so the `.platterpus.json` report is the
+    # fully-verbose per-album record regardless of this toggle — which now governs
+    # only log.txt's on-disk verbosity.
     logging.getLogger(__name__).info(
         "debug logging %s", "ENABLED" if enabled else "disabled"
     )

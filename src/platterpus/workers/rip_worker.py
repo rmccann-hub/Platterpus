@@ -199,6 +199,21 @@ _ETA_RATE_WINDOW_S: float = 90.0
 _ETA_SAMPLE_INTERVAL_S: float = 10.0
 _ETA_TRACE_MAX: int = 2000
 
+# Stall detection for the ETA (real-hardware lesson: the Roots track-18 read that
+# hung for HOURS while the on-screen ETA still counted down "~4h left"). When the
+# album fraction hasn't advanced by a MEANINGFUL step for this long, the drive is
+# stuck on a hard-to-read spot (a scratch/smudge); the plain projection would just
+# show a misleading — and eventually absurd — countdown, so we say "stalled"
+# instead. Keyed on meaningful progress, not zero movement, so a barely-crawling
+# read (the disc showed 72.00→72.02% over minutes) is still caught.
+#   * MIN_PROGRESS is what a HEALTHY read clears in a second or two (a track is a
+#     several-percent slice of the album), so a normal rip never trips this; a
+#     stuck/crawling read takes many minutes to clear it.
+#   * THRESHOLD is deliberately generous (3 min) so a merely-slow-but-advancing
+#     drive is never mislabelled — only a genuine hang crosses it.
+_ETA_STALL_MIN_PROGRESS: float = 0.005  # 0.5% of the whole album
+_ETA_STALL_THRESHOLD_S: float = 180.0
+
 # cyanrip appends its OWN per-op ETA to each progress redraw
 # ("…, progress - 42%, ETA - 3m"). We distrust it (it printed "822h" at 0.01%)
 # and show our own smoothed album ETA instead — so strip cyanrip's trailing
@@ -315,6 +330,13 @@ class RipWorker(QObject):
         # (see _album_eta_text / _ETA_RATE_WINDOW_S). Pruned to the window and
         # cleared per pass so each pass's rate is measured on its own progress.
         self._eta_rate_window: list[tuple[float, float]] = []
+        # Stall detection (see _album_eta_text / _ETA_STALL_THRESHOLD_S): the album
+        # fraction at the last MEANINGFUL forward step, and the monotonic time it
+        # was reached. When the fraction hasn't cleared another step for the
+        # threshold, the read is stalled on a hard-to-read spot and we say so
+        # instead of a misleading countdown. Reset per pass.
+        self._eta_stall_frac: float | None = None
+        self._eta_stall_since: float | None = None
         # ETA trace kept "for posterity" (maintainer's ask): a throttled series of
         # samples, each pairing the PC wall-clock time with BOTH estimates —
         # cyanrip's own per-op ETA and our smoothed album ETA — so the report can
@@ -386,9 +408,34 @@ class RipWorker(QObject):
         # Skip the disc-scan band (0-5%) and the very end; both give noise.
         if frac <= 0.05 or frac >= 0.999:
             return ""
-        elapsed = time.monotonic() - started
+        now = time.monotonic()
+        elapsed = now - started
         if elapsed < _MIN_ELAPSED_FOR_ETA_S:
             return ""
+        # Stall detection FIRST — before any projection. Track when the album
+        # fraction last cleared a meaningful forward step; if it hasn't for the
+        # threshold, the drive is stuck on a hard-to-read spot (real hardware: a
+        # track that hung for hours while the projection still counted down "~4h
+        # left"). Say so plainly instead — honest and far more useful than a
+        # misleading, ever-growing number. A tiny per-tick crawl doesn't reset the
+        # timer (the step is what a healthy read clears in a second or two), so a
+        # barely-moving read is caught, while a merely-slow-but-advancing one is
+        # not. Note `frac > 0.05` already here (scan band skipped above).
+        if (
+            self._eta_stall_frac is None
+            or frac >= self._eta_stall_frac + _ETA_STALL_MIN_PROGRESS
+        ):
+            self._eta_stall_frac = frac
+            self._eta_stall_since = now
+        elif (
+            self._eta_stall_since is not None
+            and now - self._eta_stall_since >= _ETA_STALL_THRESHOLD_S
+        ):
+            stalled_for = now - self._eta_stall_since
+            return (
+                f" · stalled {format_duration(stalled_for)} — the drive is stuck "
+                "on a hard-to-read spot (a scratch or smudge)"
+            )
         # Project the remaining time from the RECENT read rate (a trailing
         # window), not the cumulative average since the pass began. The fast
         # disc-scan phase and the disc's inner tracks read much faster than the
@@ -968,6 +1015,8 @@ class RipWorker(QObject):
         self._eta_pass_started = time.monotonic()
         self._smoothed_remaining_s = None
         self._eta_rate_window = []
+        self._eta_stall_frac = None
+        self._eta_stall_since = None
 
     def _auto_fix_tracks(
         self,

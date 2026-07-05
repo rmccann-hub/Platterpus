@@ -25,6 +25,7 @@ import traceback
 from pathlib import Path
 
 from platterpus import __version__
+from platterpus.build_info import build_fingerprint
 
 log = logging.getLogger(__name__)
 
@@ -119,7 +120,9 @@ def main(argv: list[str] | None = None) -> int:
         description="A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3)",
     )
     parser.add_argument(
-        "--version", action="version", version=f"platterpus {__version__}"
+        "--version",
+        action="version",
+        version=f"platterpus {__version__} ({build_fingerprint()})",
     )
     parser.add_argument(
         "--uninstall",
@@ -147,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
     from platterpus.logging_setup import configure_logging, set_debug_logging
 
     configure_logging()
-    log.info("platterpus %s starting", __version__)
+    log.info("platterpus %s (build %s) starting", __version__, build_fingerprint())
 
     # Config first; both the logging path and the adapter constructors
     # depend on what the user has configured.
