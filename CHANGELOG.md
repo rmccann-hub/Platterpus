@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.14] — 2026-07-05
+
+### Changed
+- **The time-remaining estimate is now duration-weighted, so it stops
+  oscillating.** The progress bar used to give every track an equal slice
+  regardless of length, so a long track made the bar (and the ETA) crawl while a
+  short one made it race — the estimate swung by ~10 minutes across a disc. Each
+  track's slice is now sized by its real MusicBrainz duration, so the bar tracks
+  *audio position* — and, at a steady read speed, wall-clock — making the ETA
+  much steadier and more accurate. Falls back to the old equal-slice behaviour
+  when track durations aren't known (an unknown disc, or partial metadata), so
+  nothing regresses there.
+
 ## [0.4.13] — 2026-07-05
 
 ### Added
@@ -2032,7 +2045,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.13...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.14...HEAD
+[0.4.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.13...v0.4.14
 [0.4.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.12...v0.4.13
 [0.4.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...v0.4.11

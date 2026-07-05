@@ -22,6 +22,8 @@ from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
     RipHandle,
+    RipMetadata,
+    TrackTag,
 )
 from platterpus.workers.rip_worker import (
     RipParameters,
@@ -1062,6 +1064,66 @@ def test_stall_is_logged_once_on_entry_and_recovery_is_logged(
         clock["t"] = clock["t"] + 30.0
         worker._album_eta_text(60.0)
         assert any("recovered from stall" in r.getMessage() for r in caplog.records)
+
+
+def _params_with_lengths(tmp_path: Path, lengths_ms: list[int | None]) -> RipParameters:
+    """RipParameters carrying MB per-track durations (1-based) for the ETA weighting."""
+    tracks = tuple(
+        TrackTag(number=i, title=f"T{i}", length_ms=ln)
+        for i, ln in enumerate(lengths_ms, start=1)
+    )
+    return _params(tmp_path, metadata=RipMetadata(tracks=tracks))
+
+
+def test_overall_bar_is_duration_weighted_when_lengths_known(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """With per-track durations, a track's slice of the 5-95% read band is sized by
+    its real length — a long track is a bigger slice — so the bar advances with
+    audio position (and thus ~wall-clock), which is what stops the ETA oscillating.
+    """
+    # Tracks 1min / 2min / 1min (total 4min). Track 2 is half the disc.
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[])),
+        _params_with_lengths(tmp_path, [60_000, 120_000, 60_000]),
+    )
+    worker._total_tracks = 3
+
+    # End of track 1 (task=100): duration-weighted = 5 + (60/240)*90 = 27.5,
+    # NOT the equal-slice 5 + (1/3)*90 = 35.
+    assert worker._overall_from_track(1, 100.0) == pytest.approx(27.5)
+    # End of track 2: 5 + (180/240)*90 = 72.5 (equal-slice would be 65).
+    assert worker._overall_from_track(2, 100.0) == pytest.approx(72.5)
+    # End of the last track always reaches the full read band (95%).
+    assert worker._overall_from_track(3, 100.0) == pytest.approx(95.0)
+    # Mid track 2 (50%): 5 + (60 + 60)/240*90 = 50.0.
+    assert worker._overall_from_track(2, 50.0) == pytest.approx(50.0)
+
+
+def test_overall_bar_falls_back_to_equal_slices_without_lengths(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """No metadata (unknown disc) → equal-per-track slices, exactly today's
+    behaviour. The weighting is a best-effort refinement, never a dependency."""
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle(lines=[])), _params(tmp_path))
+    worker._total_tracks = 3
+    assert worker._track_ms == {}  # nothing to weight with
+    assert worker._overall_from_track(1, 100.0) == pytest.approx(35.0)  # 5 + 1/3*90
+    assert worker._overall_from_track(2, 0.0) == pytest.approx(35.0)
+
+
+def test_overall_bar_ignores_incomplete_lengths(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """If ANY track is missing a (positive) duration, the whole weighting is
+    dropped — a partial weight would be worse than honest equal slices."""
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[])),
+        _params_with_lengths(tmp_path, [60_000, None, 60_000]),  # track 2 unknown
+    )
+    worker._total_tracks = 3
+    assert worker._track_ms == {}  # refused to build a partial map
+    assert worker._overall_from_track(1, 100.0) == pytest.approx(35.0)  # equal-slice
 
 
 def test_eta_trace_records_both_estimates_speed_and_clock(

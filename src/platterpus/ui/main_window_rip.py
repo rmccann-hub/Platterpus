@@ -275,8 +275,14 @@ class RipMixin:
             disc_number = detail.summary.disc_number
             total_discs = detail.summary.total_discs
             isrc_by_number = {t.number: t.isrc for t in detail.tracks}
+            # Per-track MusicBrainz durations (ms), same number-keyed passthrough
+            # as ISRC. The worker uses these to weight the overall progress bar by
+            # each track's real length so the ETA tracks wall-clock (a long track
+            # is a bigger slice) instead of oscillating. Absent → equal-slice.
+            length_ms_by_number = {t.number: t.length_ms for t in detail.tracks}
         else:
             genre, disc_number, total_discs, isrc_by_number = "", 1, 1, {}
+            length_ms_by_number = {}
         params = replace(
             params,
             metadata=RipMetadata(
@@ -292,6 +298,7 @@ class RipMixin:
                         title=t.title,
                         artist=t.artist_credit,
                         isrc=isrc_by_number.get(t.number, ""),
+                        length_ms=length_ms_by_number.get(t.number),
                     )
                     for t in self._track_table.tracks()
                 ),
