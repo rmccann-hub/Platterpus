@@ -11,6 +11,58 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.13] — 2026-07-05
+
+### Added
+- **The time-remaining estimate now says when the drive is *stalled*.** A
+  scratched or smudged spot can make a drive retry the same audio for a very long
+  time (real hardware: a single track that hung for hours). The estimate used to
+  keep showing a normal — and eventually absurd — countdown through that. Now,
+  when the disc makes no meaningful forward progress for a few minutes, the status
+  line reads *“stalled 4m — the drive is stuck on a hard-to-read spot (a scratch
+  or smudge)”* instead of a misleading “time left”. A merely-slow-but-advancing
+  read is never mislabelled, and the countdown returns on its own once the drive
+  gets past the spot. **The stall is also recorded** — a warning is written when
+  it starts and an info line when it recovers — so it lands in both `log.txt` and
+  the rip report’s embedded debug log, not just the transient status line.
+- **Every `log.txt` file now carries a Platterpus version banner.** A line like
+  `──── Platterpus 0.4.13 (build abc1234) ────` is stamped at the top of the log
+  at each session start *and* on every rotation, so a log excerpt in a bug report
+  — even a rotated backup — always says which build wrote it. (The JSON report
+  already records the version and build fingerprint in its `generator` block.)
+- **`platterpus --version` and Help → About now show the build fingerprint** — the
+  exact git short-SHA of a built AppImage (or `source` for a checkout) beside the
+  version number — and it’s written to the log at startup. A bug report now
+  carries the precise build, not just the marketing version. (It was already in
+  the JSON rip report; this surfaces it in the two other places a user reads a
+  version.)
+
+### Changed
+- **The `.platterpus.json` rip report is now always fully verbose.** Its embedded
+  session log (the `debug` block) previously captured only INFO-level detail
+  unless you had first turned on “Debug logging” in Settings — so a report sent
+  for a problem rip was often missing the subprocess/probe/parse steps needed to
+  diagnose it. The report’s in-memory log buffer is now held at DEBUG *always* (it
+  lives only in memory and is bounded, so this is free), making every report a
+  complete, debuggable record out of the box. The “Debug logging” setting now
+  governs only how verbose the on-disk `log.txt` is.
+
+### Fixed
+- **The rip status no longer says “Encoding” for the whole rip.** cyanrip reads
+  *and* encodes each track in one pass (“Ripping and encoding track N”), and
+  Platterpus labelled that “Encoding track N…” — so during a normal ~1× secure
+  rip the status showed “Encoding track 1… 7%” crawling for minutes, which read
+  as if encoding (which is near-instant) was the slow part instead of the disc
+  read. Both cyanrip progress forms are now labelled **“Ripping track N…”** —
+  one honest verb that matches what’s happening (and stops the label flickering
+  between “Reading”/“Encoding”). Surfaced by the real-hardware Police rip.
+- **A cancelled rip no longer logs a scary traceback when writing its report.**
+  If a rip is cancelled and its album folder is removed, the best-effort report
+  write found the folder gone and logged a full `FileNotFoundError` traceback at
+  `WARNING`, which reads like a crash. That benign case is now a concise `INFO`
+  line (“skipped rip report; album folder no longer exists”); a genuine write
+  error still logs the full detail. Surfaced by the real-hardware Roots cancel.
+
 ## [0.4.12] — 2026-07-05
 
 ### Added
@@ -1980,7 +2032,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.12...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.13...HEAD
+[0.4.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.12...v0.4.13
 [0.4.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.9...v0.4.10

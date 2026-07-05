@@ -341,6 +341,11 @@ count, starts sharing the file.)
      verification result + checksums + timing + loudness + read-speed history +
      the embedded log. **Humans read cyanrip's own `.log`/`.cue`** that sit beside
      it; the JSON is for machine/LLM consumption and deep debugging.
+     The `SessionLogBuffer` is held at **DEBUG always**, independent of the
+     Settings *debug logging* toggle (v0.4.13) — it's in-memory and bounded, so
+     capturing DEBUG is free, and it means every report is verbose enough to
+     debug from *out of the box* rather than only after a user enables the toggle.
+     The toggle governs only the on-disk `log.txt`'s verbosity (item 1).
   We deliberately do NOT also write a plain-text `.platterpus.log` sidecar — it
   duplicated cyanrip's human `.log` (for people) and the JSON's `debug` block (for
   machines), so it earned its place in neither. The global log is the program-

@@ -944,5 +944,18 @@ def write_report(
         _atomic_write_text(target, report_to_json(report))
         return target
     except (OSError, TypeError, ValueError):
-        log.warning("could not write rip report to %s", target, exc_info=True)
+        # A vanished album folder is benign and expected — the rip was
+        # cancelled/cleaned and its directory removed before this best-effort
+        # (and debounced/incremental) write ran. Real-hardware log: a cancelled
+        # rip's folder was gone 8 minutes later, and this logged a full
+        # FileNotFoundError traceback at WARNING, which reads like a crash. Note
+        # that case concisely without a traceback; keep the full diagnostics for
+        # any genuine write failure (a real permissions/disk error).
+        if not target.parent.exists():
+            log.info(
+                "skipped rip report; album folder no longer exists: %s",
+                target.parent,
+            )
+        else:
+            log.warning("could not write rip report to %s", target, exc_info=True)
         return None

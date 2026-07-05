@@ -85,6 +85,21 @@ def test_main_version_text_matches_package_version(
     assert __version__ in combined
 
 
+def test_main_version_includes_build_fingerprint(
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """`--version` also reports the build fingerprint (the exact git SHA in a
+    built AppImage, the "source" sentinel in a checkout) so a bug report carries
+    the precise build, not just the marketing version — the version audit gap."""
+    from platterpus.build_info import build_fingerprint
+
+    with pytest.raises(SystemExit):
+        app_module.main(["--version"])
+    captured = capsys.readouterr()
+    text = captured.out + captured.err
+    assert f"({build_fingerprint()})" in text
+
+
 def test_installed_metadata_matches_canonical_version() -> None:
     """The build's dynamic version must equal the single source of truth.
 

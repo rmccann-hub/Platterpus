@@ -8,9 +8,15 @@ rip) — **minus the lines that belong to a different album's rip**. So each
 album's report carries the full environmental picture without the noise of other
 albums ripped in the same session.
 
-The on-disk rolling log (`log.txt`) is unchanged and still records everything,
-including every rip — it's the catch-all for problems with no rip to attach to
-(startup, a dependency install, a crash before any rip ever runs).
+This handler is held at **DEBUG always** (see ``logging_setup``), independent of
+the "Debug logging" setting — so the embedded report is fully verbose (every
+subprocess/probe/parse line) even with default settings. That's cheap: it lives
+only in memory and is capped (below). The setting instead governs only how chatty
+the on-disk ``log.txt`` is.
+
+The on-disk rolling log (`log.txt`) still records everything at its configured
+level, including every rip — it's the catch-all for problems with no rip to
+attach to (startup, a dependency install, a crash before any rip ever runs).
 
 This handler is installed once by ``logging_setup.configure_logging`` and reached
 by the report builder through the module-level singleton — so no call site has

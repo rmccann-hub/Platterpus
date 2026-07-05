@@ -564,6 +564,28 @@ def test_write_report_returns_none_on_oserror(tmp_path: Path) -> None:
     assert write_report(_sample_log(), missing) is None
 
 
+def test_write_report_vanished_folder_logs_quietly_no_traceback(
+    tmp_path: Path, caplog
+) -> None:
+    """A cancelled/cleaned rip whose album folder is gone must NOT dump a
+    FileNotFoundError traceback at WARNING (that reads like a crash — a real
+    user's log showed exactly this). It's a benign, expected case: log a concise
+    INFO and move on. Regression for the uploaded Roots cancel log."""
+    import logging
+
+    missing = tmp_path / "gone" / "Album.log"  # parent "gone/" never created
+    with caplog.at_level(logging.INFO, logger="platterpus.rip_report"):
+        assert write_report(_sample_log(), missing) is None
+    # No WARNING and no traceback for the benign vanished-folder case…
+    assert not any(r.levelno >= logging.WARNING for r in caplog.records)
+    assert not any(r.exc_info for r in caplog.records)
+    # …but it IS noted (so the skip is visible), naming the missing folder.
+    assert any(
+        "no longer exists" in r.getMessage() and "gone" in r.getMessage()
+        for r in caplog.records
+    )
+
+
 def test_write_report_writes_beside_the_log(tmp_path: Path) -> None:
     log_file = tmp_path / "Album.log"
     log_file.write_text("(human log)")
