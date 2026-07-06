@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from platterpus import drive_media
 from platterpus.drive_access import (
     SEVERITY_NO_DEVICE,
     SEVERITY_OK,
@@ -317,11 +318,36 @@ class DriveMixin:
             if not device:
                 return
             status = self._disc_status_probe(device)
-            if self._media_watcher.observe(status):
+            event = self._media_watcher.observe_event(status)
+            if event == drive_media.INSERTED:
                 log.info("disc inserted in %s — auto-rescanning", device)
                 self._start_disc_info(device)
+            elif event == drive_media.REMOVED:
+                # The disc left the drive (an eject or a physical removal). Clear
+                # the now-stale disc-identity view so the app doesn't look like it
+                # still has the old disc loaded (the results pane keeps the last
+                # rip's outcome — this only clears "what's in the drive now").
+                log.info("disc removed from %s — clearing the disc view", device)
+                self._reset_disc_view()
         except Exception:  # noqa: BLE001 — a background poll must never crash the UI
             log.exception("disc-media poll failed; skipping this tick")
+
+    def _reset_disc_view(self) -> None:
+        """Clear the disc-identity view when the disc leaves the drive.
+
+        Called by the media poll on a disc→empty transition. Mirrors the *clear*
+        half of ``_on_drive_changed`` but starts no scan (there's no disc to
+        read) and does NOT touch the results/verdict pane — the disc-info panel
+        answers "what disc is in the drive now", so with no disc it goes empty,
+        while the last rip's outcome stays where the user can still see it.
+        """
+        self._disc_info_panel.clear_disc_state()
+        self._track_table.clear()
+        self._current_release_id = ""
+        self._current_num_tracks = 0
+        self._current_disc_id = ""
+        self._rip_controls.set_release_id("")
+        self._rip_controls.set_unknown_mode(False)
 
     def _refresh_drive_profile_display(self) -> None:
         """Recompute and push the read-offset trust line for the selected drive.

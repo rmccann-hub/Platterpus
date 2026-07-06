@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The disc view now clears when you eject or remove the disc.** Previously the
+  disc-ID/MusicBrainz panel and the track list kept showing the *previous* disc
+  after it left the drive, so the app looked like it still had that disc loaded.
+  The media watcher now detects the disc→empty transition (an eject or a physical
+  removal) and blanks the "what's in the drive now" view within a couple of
+  seconds — while the last rip's results pane stays put so you don't lose your
+  outcome.
+
 ### Added
 - **The rip status line now shows "track N of M".** During a rip the label reads
   *"Ripping track 12 of 17… 42%"* instead of just *"Ripping track 12…"*, so you

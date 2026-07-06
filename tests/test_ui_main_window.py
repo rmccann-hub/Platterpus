@@ -4565,6 +4565,44 @@ def test_poll_disc_media_auto_rescans_when_a_disc_appears(teardown_threads) -> N
     assert rescanned == ["/dev/sr0"]
 
 
+def test_poll_disc_media_resets_view_when_the_disc_leaves(teardown_threads) -> None:
+    """A disc→empty transition (an eject or physical removal) clears the stale
+    disc-identity view so the app doesn't look like it still holds the old disc."""
+    window = teardown_threads()
+    window._rip_thread = None
+    window._disc_info_thread = None
+    reset_calls: list[int] = []
+    window._reset_disc_view = lambda: reset_calls.append(1)  # type: ignore[assignment]
+    rescanned: list[str] = []
+    window._start_disc_info = lambda device: rescanned.append(device)  # type: ignore[assignment]
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+
+    statuses = iter(["disc", "open"])
+    window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
+
+    window._poll_disc_media()  # baseline: a disc is present
+    assert reset_calls == []
+    window._poll_disc_media()  # disc ejected → clear the view, no rescan
+    assert reset_calls == [1]
+    assert rescanned == []
+
+
+def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
+    """The removal reset blanks the disc-identity fields and disc/release state
+    but leaves the results pane untouched (only 'what's in the drive now')."""
+    window = teardown_threads()
+    window._current_release_id = "rel-123"
+    window._current_num_tracks = 12
+    window._current_disc_id = "disc-abc"
+
+    window._reset_disc_view()
+
+    assert window._current_release_id == ""
+    assert window._current_num_tracks == 0
+    assert window._current_disc_id == ""
+
+
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:
     """The poll never touches the drive or rescans while a rip holds it."""
     window = teardown_threads()
