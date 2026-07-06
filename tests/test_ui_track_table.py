@@ -70,7 +70,7 @@ def test_format_length_negative_is_empty() -> None:
 def test_model_starts_empty(qapp: QApplication) -> None:
     model = TrackTableModel()
     assert model.rowCount() == 0
-    assert model.columnCount() == 4
+    assert model.columnCount() == 5  # #, Title, Artist, Length, Status
 
 
 def test_model_set_tracks_populates_rows(qapp: QApplication) -> None:
@@ -138,9 +138,73 @@ def test_model_setData_refuses_to_edit_number_or_length(
 
 def test_model_headers(qapp: QApplication) -> None:
     model = TrackTableModel()
-    expected = ["#", "Title", "Artist", "Length"]
+    expected = ["#", "Title", "Artist", "Length", "Status"]
     for i, header in enumerate(expected):
         assert model.headerData(i, Qt.Orientation.Horizontal) == header
+
+
+def test_status_column_starts_blank_and_advances(qapp: QApplication) -> None:
+    from platterpus.ui.track_table import _COL_STATUS
+
+    model = TrackTableModel()
+    model.set_tracks([_track(1, "A"), _track(2, "B")])
+    # Pending → blank (no clutter before/while another track rips).
+    assert model.data(model.index(0, _COL_STATUS)) == ""
+    # Ripping / done render symbol + text (not colour alone).
+    model.set_track_status(1, "ripping")
+    assert model.data(model.index(0, _COL_STATUS)) == "⟳ Ripping"
+    model.set_track_status(1, "done")
+    assert model.data(model.index(0, _COL_STATUS)) == "✓ Done"
+    assert model.data(model.index(1, _COL_STATUS)) == ""  # track 2 untouched
+
+
+def test_reset_statuses_clears_all(qapp: QApplication) -> None:
+    from platterpus.ui.track_table import _COL_STATUS
+
+    model = TrackTableModel()
+    model.set_tracks([_track(1, "A"), _track(2, "B")])
+    model.set_track_status(1, "done")
+    model.set_track_status(2, "ripping")
+    model.reset_statuses()
+    assert model.data(model.index(0, _COL_STATUS)) == ""
+    assert model.data(model.index(1, _COL_STATUS)) == ""
+
+
+def test_set_track_status_ignores_out_of_range(qapp: QApplication) -> None:
+    model = TrackTableModel()
+    model.set_tracks([_track(1, "A")])
+    model.set_track_status(0, "done")  # no such 1-based track
+    model.set_track_status(99, "done")  # beyond the loaded rows
+    # No raise, and the one real row stays pending.
+    from platterpus.ui.track_table import _COL_STATUS
+
+    assert model.data(model.index(0, _COL_STATUS)) == ""
+
+
+def test_widget_status_helpers_and_reset(qapp: QApplication) -> None:
+    from platterpus.ui.track_table import _COL_STATUS
+
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget.mark_track_ripping(1)
+    widget.mark_track_done(1)
+    widget.mark_track_ripping(2)
+    model = widget._model
+    assert model.data(model.index(0, _COL_STATUS)) == "✓ Done"
+    assert model.data(model.index(1, _COL_STATUS)) == "⟳ Ripping"
+    widget.reset_track_status()
+    assert model.data(model.index(1, _COL_STATUS)) == ""
+
+
+def test_set_tracks_resets_status(qapp: QApplication) -> None:
+    from platterpus.ui.track_table import _COL_STATUS
+
+    model = TrackTableModel()
+    model.set_tracks([_track(1, "A")])
+    model.set_track_status(1, "done")
+    # Loading a new track list clears leftover status.
+    model.set_tracks([_track(1, "X"), _track(2, "Y")])
+    assert model.data(model.index(0, _COL_STATUS)) == ""
 
 
 # --- TrackTable widget ----------------------------------------------------

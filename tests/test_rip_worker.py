@@ -160,6 +160,7 @@ class _Signals:
         self.progress: list[tuple[float, float]] = []  # (overall, task)
         self.statuses: list[str] = []
         self.current_tracks: list[int] = []
+        self.completed_tracks: list[int] = []
         self.errors: list[str] = []
         self.finished: list[tuple[bool, str]] = []
 
@@ -170,6 +171,7 @@ class _Signals:
         )
         worker.status.connect(self.statuses.append)
         worker.current_track.connect(self.current_tracks.append)
+        worker.track_completed.connect(self.completed_tracks.append)
         worker.error.connect(self.errors.append)
         worker.finished.connect(lambda ok, path: self.finished.append((ok, path)))
 
@@ -825,6 +827,9 @@ def test_cyanrip_progress_lines_drive_bars_and_track(
     assert 10.0 < done_overall < 11.0  # 5 + 1/16*90 ≈ 10.6
     # Track follows along for the row highlight; once per track.
     assert sigs.current_tracks == [1, 2]
+    # The completion line ("Track 1 ripped …") fires track_completed(1) so the
+    # GUI can mark that row done in the live Status column.
+    assert sigs.completed_tracks == [1]
     # Both cyanrip progress forms — the bare "Ripping track N" read and the
     # "Ripping and encoding track N" combined pass — are labelled "Ripping" (one
     # honest verb; "Encoding" hid the disc read, which is the slow part). cyanrip's

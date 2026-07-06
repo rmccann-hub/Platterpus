@@ -21,6 +21,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   outcome.
 
 ### Added
+- **Live per-track status in the track list.** A new *Status* column marks each
+  track *⟳ Ripping* as the drive reaches it and *✓ Done* as it completes, so you
+  can see at a glance which tracks are finished and which are still to come —
+  alongside the existing current-row highlight. Clears back to blank at the start
+  of each rip.
 - **Desktop notification when a rip finishes.** An unattended rip now pops a
   desktop notification on completion (or failure) — e.g. *"Platterpus — rip
   complete · All 14 tracks verified against AccurateRip."* — so you don't have to

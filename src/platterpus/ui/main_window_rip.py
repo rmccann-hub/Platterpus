@@ -315,11 +315,19 @@ class RipMixin:
         self._rip_worker = RipWorker(self._backend, params)
         self._rip_thread = QThread(self)
 
+        # Fresh rip → clear any leftover per-track status from a previous run so
+        # the live Status column starts all-pending.
+        self._track_table.reset_track_status()
+
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
         self._rip_worker.status.connect(self._rip_progress.set_status)
-        # Follow the rip in the track table — highlight the row the ripper is on.
+        # Follow the rip in the track table — highlight the row the ripper is on
+        # and advance the live Status column (current row → ripping, each finished
+        # track → done).
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
+        self._rip_worker.current_track.connect(self._track_table.mark_track_ripping)
+        self._rip_worker.track_completed.connect(self._track_table.mark_track_done)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
 

@@ -2101,7 +2101,9 @@ def test_start_rip_worker_snapshots_track_table_metadata(
             def connect(self, *_a, **_k):
                 pass
 
-        log_line = progress = status = current_track = error = finished = _Sig()
+        log_line = progress = status = current_track = track_completed = error = (
+            finished
+        ) = _Sig()
 
     monkeypatch.setattr("platterpus.ui.main_window_rip.RipWorker", _NoopWorker)
     monkeypatch.setattr(
