@@ -21,6 +21,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   outcome.
 
 ### Added
+- **UPC/barcode and catalog number are now captured and tagged.** When
+  MusicBrainz has them, the release's barcode (UPC/EAN) and label catalog number
+  are written to the audio as standard `BARCODE`/`CATALOGNUMBER` tags and recorded
+  in the JSON rip report, so the library entry carries the disc's canonical
+  identifiers (catalog number was already fetched; barcode is new, and both are
+  now fed through to the files).
 - **Optional EAC-compatible log beside each rip.** A new Settings toggle
   (*EAC-style log*, off by default) writes an honest, clearly-attributed
   EAC-*layout* text log — *"… (EAC-compatible).log"* — next to the audio after a

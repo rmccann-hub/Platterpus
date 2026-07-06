@@ -274,6 +274,8 @@ class RipMixin:
             genre = detail.summary.genre
             disc_number = detail.summary.disc_number
             total_discs = detail.summary.total_discs
+            catalog_number = detail.summary.catalog_number
+            barcode = detail.summary.barcode
             isrc_by_number = {t.number: t.isrc for t in detail.tracks}
             # Per-track MusicBrainz durations (ms), same number-keyed passthrough
             # as ISRC. The worker uses these to weight the overall progress bar by
@@ -282,6 +284,7 @@ class RipMixin:
             length_ms_by_number = {t.number: t.length_ms for t in detail.tracks}
         else:
             genre, disc_number, total_discs, isrc_by_number = "", 1, 1, {}
+            catalog_number, barcode = "", ""
             length_ms_by_number = {}
         params = replace(
             params,
@@ -292,6 +295,8 @@ class RipMixin:
                 genre=genre,
                 disc_number=disc_number,
                 total_discs=total_discs,
+                catalog_number=catalog_number,
+                barcode=barcode,
                 tracks=tuple(
                     TrackTag(
                         number=t.number,
@@ -654,9 +659,15 @@ class RipMixin:
                 "ripper could not reach MusicBrainz" if self._auto_retry_done else None
             ),
         )
+        _meta = params.metadata if params is not None else None
         self._last_disc = {
             "unknown": bool(params.unknown) if params is not None else None,
             "musicbrainz_release_id": (self._current_release_id or None),
+            # Release identifiers written as tags this rip (Picard-style), echoed
+            # into the report so the one-file record carries the disc's canonical
+            # IDs. None when MB had none / an unknown-album rip.
+            "catalog_number": (getattr(_meta, "catalog_number", "") or None),
+            "barcode": (getattr(_meta, "barcode", "") or None),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.

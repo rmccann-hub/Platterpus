@@ -3887,6 +3887,8 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
     assert report["disc"] == {
         "unknown": False,
         "musicbrainz_release_id": "release-xyz",
+        "catalog_number": None,
+        "barcode": None,
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
     assert report["environment"]["dependencies"]["cyanrip"] == {

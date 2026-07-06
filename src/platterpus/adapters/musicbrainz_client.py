@@ -118,6 +118,7 @@ class ReleaseSummary:
     track_count: int | None = None
     label: str = ""
     catalog_number: str = ""
+    barcode: str = ""  # UPC/EAN, when MB has one ("" otherwise)
     medium_format: str = ""  # e.g. "CD"
     disambiguation: str = ""
     genre: str = ""  # top MB tag (requires the "tags" include); "" when none
@@ -289,6 +290,7 @@ def _summary_from_release_dict(release: dict) -> ReleaseSummary:
         track_count=track_count,
         label=label,
         catalog_number=catalog_number,
+        barcode=str(release.get("barcode", "") or ""),
         medium_format=medium_format,
         disambiguation=disambiguation,
         genre=_top_tag_name(release),

@@ -284,6 +284,7 @@ _BAD_VALUES: dict[str, object] = {
     "override_read_offset": "yes",  # not a bool
     "auto_launch_picard": "yes",
     "auto_eject_after_rip": "yes",
+    "notify_on_completion": "yes",
     "drive_setup_prompted": "yes",
     "host_setup_prompted": "yes",
     "appimage_integration_prompted": "yes",
@@ -292,6 +293,7 @@ _BAD_VALUES: dict[str, object] = {
     "ctdb_verify_after_rip": "yes",
     "verify_flac_after_rip": "yes",
     "recompress_flac_after_rip": "yes",
+    "write_eac_log_after_rip": "yes",
 }
 
 
