@@ -31,12 +31,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   pick your own image (a good scan, a corrected cover) to use as the front cover
   for the disc on screen, instead of the archive fetch — embedded/saved on the
   next rip. The file is checked to be a real image when you pick it.
-- **UPC/barcode and catalog number are now captured and tagged.** When
-  MusicBrainz has them, the release's barcode (UPC/EAN) and label catalog number
-  are written to the audio as standard `BARCODE`/`CATALOGNUMBER` tags and recorded
-  in the JSON rip report, so the library entry carries the disc's canonical
-  identifiers (catalog number was already fetched; barcode is new, and both are
-  now fed through to the files).
+- **UPC/barcode, catalog number, and label are now captured and tagged.** When
+  MusicBrainz has them, the release's barcode (UPC/EAN), label catalog number, and
+  record label are written to the audio as standard `BARCODE`/`CATALOGNUMBER`/
+  `LABEL` tags and recorded in the JSON rip report, so the library entry carries
+  the disc's canonical identifiers.
+
+### Changed
+- **The JSON rip report now records the full cover-art package.** Beyond the front
+  cover, the report's `cover_art` block lists any back/booklet images saved
+  (`additional_saved`), and the `disc` block carries the release's catalog number,
+  barcode, and label — so the one-file per-album record reflects everything the rip
+  produced.
 - **Optional EAC-compatible log beside each rip.** A new Settings toggle
   (*EAC-style log*, off by default) writes an honest, clearly-attributed
   EAC-*layout* text log — *"… (EAC-compatible).log"* — next to the audio after a

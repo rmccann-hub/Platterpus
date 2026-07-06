@@ -33,7 +33,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
@@ -65,6 +65,10 @@ class CoverArtResult:
     format: str = ""
     error: str = ""
     message: str = ""
+    # Extra images saved beside the audio (back.jpg / booklet-NN.jpg) — filled by
+    # the caller from :func:`save_additional_covers` so the report records the
+    # whole cover-art package, not just the front.
+    additional_saved: list[str] = field(default_factory=list)
 
 
 # `/front` redirects to the original full-resolution "front" image the

@@ -276,6 +276,7 @@ class RipMixin:
             total_discs = detail.summary.total_discs
             catalog_number = detail.summary.catalog_number
             barcode = detail.summary.barcode
+            label = detail.summary.label
             isrc_by_number = {t.number: t.isrc for t in detail.tracks}
             # Per-track MusicBrainz durations (ms), same number-keyed passthrough
             # as ISRC. The worker uses these to weight the overall progress bar by
@@ -284,7 +285,7 @@ class RipMixin:
             length_ms_by_number = {t.number: t.length_ms for t in detail.tracks}
         else:
             genre, disc_number, total_discs, isrc_by_number = "", 1, 1, {}
-            catalog_number, barcode = "", ""
+            catalog_number, barcode, label = "", "", ""
             length_ms_by_number = {}
         params = replace(
             params,
@@ -297,6 +298,7 @@ class RipMixin:
                 total_discs=total_discs,
                 catalog_number=catalog_number,
                 barcode=barcode,
+                label=label,
                 tracks=tuple(
                     TrackTag(
                         number=t.number,
@@ -704,6 +706,7 @@ class RipMixin:
             # IDs. None when MB had none / an unknown-album rip.
             "catalog_number": (getattr(_meta, "catalog_number", "") or None),
             "barcode": (getattr(_meta, "barcode", "") or None),
+            "label": (getattr(_meta, "label", "") or None),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.
@@ -1178,24 +1181,25 @@ class RipMixin:
                         error="failed unexpectedly",
                         message="Cover art: failed unexpectedly (rip unaffected).",
                     )
-                try:
-                    self.cover_art_done.emit(art_result)
-                except RuntimeError:  # window destroyed — nothing to update
-                    pass
                 # Also grab the back cover + booklet scans, saved as files (they
-                # can't be embedded in FLAC). Only when front art was fetched
-                # from the archive (a local override has no manifest to consult).
+                # can't be embedded in FLAC). Only when front art was fetched from
+                # the archive (a local override has no manifest to consult).
+                # Recorded on the result so the report captures the whole package.
                 if (
                     self._config.save_additional_art
                     and not local_cover_path
                     and (release_id or "").strip()
                 ):
                     try:
-                        cover_art.save_additional_covers(
+                        art_result.additional_saved = cover_art.save_additional_covers(
                             rip_dir, release_id, fetcher=self._cover_art_fetcher
                         )
                     except Exception:  # noqa: BLE001 — extra art must never crash
                         log.exception("additional cover art fetch failed")
+                try:
+                    self.cover_art_done.emit(art_result)
+                except RuntimeError:  # window destroyed — nothing to update
+                    pass
             # 3) Re-compress LAST, so it rewrites the final tagged-and-arted
             #    FLACs (flac preserves their tags + embedded art). Best-effort;
             #    each file is swapped in atomically, so a failure or crash leaves
