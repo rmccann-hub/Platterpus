@@ -487,6 +487,53 @@ class RipMixin:
         self._eject_thread = thread
         thread.start()
 
+    def _notify_rip_complete(self, success: bool, detail: str) -> None:
+        """Show a desktop notification that the rip finished (best-effort).
+
+        Gated by the ``notify_on_completion`` setting. A user-cancelled rip is
+        NOT announced (you just clicked Cancel). Uses a lazily-created
+        ``QSystemTrayIcon`` message — pure PySide6, no external tool (so no
+        dependency check, Critical rule #6) and no work on any slow path. Guarded
+        so a missing tray / notification daemon degrades to a silent no-op and a
+        courtesy notification can never crash the finish handler.
+        """
+        if not self._config.notify_on_completion or self._rip_cancelled:
+            return
+        try:
+            from PySide6.QtWidgets import QSystemTrayIcon
+
+            from platterpus.notify import build_completion_message
+
+            title, body = build_completion_message(success, self._rip_cancelled, detail)
+            icon = self._ensure_tray_icon()
+            if icon is not None:
+                icon.showMessage(
+                    title, body, QSystemTrayIcon.MessageIcon.Information, 8000
+                )
+        except Exception:  # noqa: BLE001 — a courtesy notification is never load-bearing
+            log.debug("completion notification failed (best-effort)", exc_info=True)
+
+    def _ensure_tray_icon(self):
+        """Return the shared QSystemTrayIcon used for notifications, or None.
+
+        Created lazily on first use (so users who turn notifications off never
+        get a tray presence) and kept for the app's lifetime — ``showMessage``
+        needs a visible tray icon. Returns None when the desktop has no usable
+        system tray, so the caller simply skips the notification.
+        """
+        from PySide6.QtWidgets import QSystemTrayIcon
+
+        existing = getattr(self, "_tray_icon", None)
+        if existing is not None:
+            return existing
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return None
+        icon = QSystemTrayIcon(self.windowIcon(), self)
+        icon.setToolTip("Platterpus")
+        icon.show()
+        self._tray_icon = icon
+        return icon
+
     def _on_rip_error(self, message: str) -> None:
         log.warning("rip error: %s", message)
         # Remember the last hard error so a no-log failure's minimal report can
@@ -654,7 +701,8 @@ class RipMixin:
                 # the old misleading static "verified during rip".
                 self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
-                    self._rip_progress.set_status(fidelity_summary(rip_log))
+                    status = fidelity_summary(rip_log)
+                    self._rip_progress.set_status(status)
                 # Write the machine-readable JSON rip report beside the log
                 # (the "two outputs every time" rule, docs/ux-design-principles
                 # #2). Kept for the CTDB handler to re-write with the CTDB
@@ -686,6 +734,12 @@ class RipMixin:
             # one (outcome + settings + environment) beside the intended output
             # dir so the failure is still diagnosable. Best-effort; never raises.
             self._write_minimal_failure_report(params)
+
+        # Desktop notification so an unattended rip announces itself even when
+        # Platterpus isn't the focused window. `status` now holds the final,
+        # user-facing summary (the fidelity line on success, the failure hint
+        # otherwise). Best-effort; a user cancel is not announced (see helper).
+        self._notify_rip_complete(success, status)
 
         # Post-rip processing: unknown-mode tagging + backend-independent
         # cover art. Both shell out to metaflac on the SAME FLAC files, so

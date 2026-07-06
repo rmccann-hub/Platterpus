@@ -4603,6 +4603,28 @@ def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
     assert window._current_disc_id == ""
 
 
+def test_notify_rip_complete_respects_toggle_and_cancel(teardown_threads) -> None:
+    """The completion notification is gated by the setting and never fires for a
+    user-cancelled rip; otherwise it reaches the tray step (None here → no-op)."""
+    window = teardown_threads()
+    asked: list[str] = []
+    window._ensure_tray_icon = lambda: asked.append("icon") or None  # type: ignore[assignment]
+
+    window._config.notify_on_completion = False
+    window._rip_cancelled = False
+    window._notify_rip_complete(True, "done")
+    assert asked == []  # toggle off → doesn't even look for a tray
+
+    window._config.notify_on_completion = True
+    window._rip_cancelled = True
+    window._notify_rip_complete(True, "done")
+    assert asked == []  # a user cancel is not announced
+
+    window._rip_cancelled = False
+    window._notify_rip_complete(True, "done")
+    assert asked == ["icon"]  # on + not cancelled → attempts the tray (no-op here)
+
+
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:
     """The poll never touches the drive or rescans while a rip holds it."""
     window = teardown_threads()

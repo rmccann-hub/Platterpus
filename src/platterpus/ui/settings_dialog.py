@@ -248,6 +248,19 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("After rip:", self._auto_eject_check)
 
+        # Desktop notification when a rip finishes — so an unattended rip alerts
+        # you even when Platterpus isn't the focused window. On by default.
+        self._notify_check: QCheckBox = QCheckBox(
+            "Show a desktop notification when a rip finishes", self
+        )
+        self._notify_check.setChecked(config.notify_on_completion)
+        self._notify_check.setToolTip(
+            "Pop a desktop notification when a rip completes (or fails), so you "
+            "don't have to watch the window. A rip you cancel yourself is not "
+            "announced."
+        )
+        form.addRow("", self._notify_check)
+
         # Debug logging — verbose log file for bug reports. Off by default;
         # testers turn it on, reproduce the issue, then attach the log.
         self._debug_logging_check: QCheckBox = QCheckBox(
@@ -492,6 +505,7 @@ class SettingsDialog(CenteredDialog):
             override_read_offset=self._override_offset_check.isChecked(),
             auto_launch_picard=self._auto_picard_check.isChecked(),
             auto_eject_after_rip=self._auto_eject_check.isChecked(),
+            notify_on_completion=self._notify_check.isChecked(),
             debug_logging=self._debug_logging_check.isChecked(),
             cover_art=self._cover_art_combo.currentData(),
             max_retries=self._max_retries_spin.value(),

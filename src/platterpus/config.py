@@ -29,7 +29,7 @@ from platterpus.paths import (
 
 # Bump this when the schema grows new keys or changes defaults that we
 # want to migrate. Migration logic lives in _migrate() below.
-SCHEMA_VERSION: int = 7
+SCHEMA_VERSION: int = 8
 
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
@@ -127,6 +127,14 @@ class Config:
     # an auto-eject would be in the way. Purely a convenience; the manual
     # Eject button works regardless of this setting.
     auto_eject_after_rip: bool = False
+
+    # Show a desktop notification when a rip finishes (success or failure) so an
+    # unattended rip alerts you even when Platterpus isn't the focused window. On
+    # by default; it's a courtesy — a Qt system-tray message (no external tool,
+    # so nothing extra to install) that fails safe if the desktop has no
+    # notification support. A user-cancelled rip is NOT announced (you just
+    # clicked Cancel, so you already know).
+    notify_on_completion: bool = True
 
     # Set once we've auto-offered the drive-setup wizard on first run (when no
     # read offset was configured). Keeps the offer to a single, dismissible
@@ -456,6 +464,14 @@ def _migrate(raw: dict) -> dict:
             raw["secure_rerip_matches"] = 2
         raw["schema_version"] = 7
         version = 7
+
+    if version < 8:
+        # v7→v8: added several post-rip convenience fields (notify_on_completion,
+        # write_eac_log_after_rip, save_additional_art). All are new keys that
+        # fill from the dataclass defaults on load, so no value transform is
+        # needed — bump the version so the record stays explicit and honest.
+        raw["schema_version"] = 8
+        version = 8
 
     if version == SCHEMA_VERSION:
         return raw

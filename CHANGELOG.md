@@ -21,6 +21,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   outcome.
 
 ### Added
+- **Desktop notification when a rip finishes.** An unattended rip now pops a
+  desktop notification on completion (or failure) — e.g. *"Platterpus — rip
+  complete · All 14 tracks verified against AccurateRip."* — so you don't have to
+  watch the window. On by default (Settings → *After rip*); a rip you cancel
+  yourself is not announced. It's a Qt system-tray message (no extra tool to
+  install) and fails safe on desktops without notification support.
 - **The rip status line now shows "track N of M".** During a rip the label reads
   *"Ripping track 12 of 17… 42%"* instead of just *"Ripping track 12…"*, so you
   can see how far through the disc you are at a glance. The total comes from the
