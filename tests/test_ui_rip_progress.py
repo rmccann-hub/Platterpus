@@ -41,6 +41,7 @@ def _track(
     status: str = "Copy OK",
     v1: AccurateRipResult | None = None,
     v2: AccurateRipResult | None = None,
+    offset: AccurateRipResult | None = None,
 ) -> TrackResult:
     return TrackResult(
         number=number,
@@ -48,6 +49,7 @@ def _track(
         status=status,
         accuraterip_v1=v1,
         accuraterip_v2=v2,
+        accuraterip_offset=offset,
     )
 
 
@@ -449,6 +451,67 @@ def test_ar_cell_not_in_db() -> None:
         confidence=0,
     )
     assert _ar_cell(ar) == "not in DB"
+
+
+def test_ar_cell_cyanrip_not_found_reads_not_in_db_not_bad_rip() -> None:
+    """cyanrip's alarming "not found, either a new pressing, or bad rip" must
+    render as the plain, non-alarmist "not in DB" — a track absent from the
+    database is not necessarily a bad rip (trust-first wording)."""
+    ar = AccurateRipResult(
+        version=1,
+        result="not found, either a new pressing, or bad rip",
+        confidence=None,
+    )
+    cell = _ar_cell(ar)
+    assert cell == "not in DB"
+    assert "bad rip" not in cell
+
+
+def test_ar_cell_offset_variant_match_reads_as_partial_not_bad() -> None:
+    """When v1/v2 didn't match but the +450 offset variant did, the cell reads
+    "offset-variant match (N)" — a partially-accurate result — instead of the
+    standard checksum's scary "…or bad rip". Regression for the Roots rip, where
+    tracks 11–17 are legit offset-variant matches that read as "bad rip"."""
+    not_found = AccurateRipResult(
+        version=1,
+        result="not found, either a new pressing, or bad rip",
+        confidence=None,
+    )
+    offset = AccurateRipResult(version=450, result="partial", confidence=28)
+    cell = _ar_cell(not_found, offset_result=offset)
+    assert cell == "offset-variant match (28)"
+    assert "bad rip" not in cell
+
+
+def test_ar_cell_plain_match_wins_over_offset() -> None:
+    """A track that DID match v1/v2 shows the plain OK, even if an offset result
+    is also present — a real match is never downgraded to "offset-variant"."""
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    offset = AccurateRipResult(version=450, result="partial", confidence=28)
+    assert _ar_cell(ok, offset_result=offset) == "OK (200)"
+
+
+def test_set_rip_log_offset_variant_track_not_shown_as_bad(
+    qapp: QApplication,
+) -> None:
+    """End-to-end: an offset-variant track's AR cells in the table read as a
+    partial match, never "bad rip" — the on-screen fix the maintainer asked for."""
+    widget = RipProgress()
+    log = RipLog(
+        tracks=(
+            _track(
+                11,
+                filename="VA/Roots/11 - All the Way.flac",
+                v1=AccurateRipResult(version=1, result="not found", confidence=None),
+                v2=AccurateRipResult(version=2, result="not found", confidence=None),
+                offset=AccurateRipResult(version=450, result="partial", confidence=28),
+            ),
+        )
+    )
+    widget.set_rip_log(log)
+    assert widget._ar_table.item(0, 3).text() == "offset-variant match (28)"
+    assert widget._ar_table.item(0, 4).text() == "offset-variant match (28)"
+    assert "bad rip" not in widget._ar_table.item(0, 3).text()
 
 
 # --- CTDB verdict --------------------------------------------------------

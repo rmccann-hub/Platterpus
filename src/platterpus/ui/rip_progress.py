@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
-from platterpus.parsers.rip_log import RipLog
+from platterpus.parsers.rip_log import RipLog, accuraterip_is_match
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
@@ -299,8 +299,16 @@ class RipProgress(QWidget):
             number_item = QTableWidgetItem(str(track.number))
             title_item = QTableWidgetItem(_basename(track.filename))
             status_item = QTableWidgetItem(track.status or "")
-            v1_item = QTableWidgetItem(_ar_cell(track.accuraterip_v1))
-            v2_item = QTableWidgetItem(_ar_cell(track.accuraterip_v2))
+            # Pass the +450 offset-variant result so a track that matched only
+            # that (v1/v2 "not found") reads as a partially-accurate match, not
+            # an alarming "…or bad rip" (trust-first, mirrors the CTDB fix).
+            offset = track.accuraterip_offset
+            v1_item = QTableWidgetItem(
+                _ar_cell(track.accuraterip_v1, offset_result=offset)
+            )
+            v2_item = QTableWidgetItem(
+                _ar_cell(track.accuraterip_v2, offset_result=offset)
+            )
             self._ar_table.setItem(row, _AR_COL_NUMBER, number_item)
             self._ar_table.setItem(row, _AR_COL_TITLE, title_item)
             self._ar_table.setItem(row, _AR_COL_STATUS, status_item)
@@ -507,18 +515,38 @@ def _basename(path: str) -> str:
     return stem or path
 
 
-def _ar_cell(result: object) -> str:
-    """Render an AccurateRipResult (or None) for one cell."""
+def _ar_cell(result: object, *, offset_result: object = None) -> str:
+    """Render one AccurateRip cell (v1 or v2) for a track.
+
+    ``offset_result`` is the track's +450 offset-variant result (cyanrip's
+    "Accurip 450:"). When the standard checksum (``result``) did NOT match but
+    the offset-variant DID, the track is a **partially-accurate** match — a
+    pressing shifted by the common offset — so we say "offset-variant match (N)"
+    rather than leave cyanrip's alarming "not found, either a new pressing, or
+    bad rip" on screen for a track that's actually fine. This mirrors the CTDB
+    honesty fix: a benign result must never read as a failure. Never raises
+    (duck-typed via ``accuraterip_is_match`` / ``getattr``).
+    """
+    # Partially-accurate: standard v1/v2 didn't match, but the offset variant did.
+    if not accuraterip_is_match(result) and accuraterip_is_match(offset_result):
+        conf = getattr(offset_result, "confidence", None)
+        return (
+            f"offset-variant match ({conf})"
+            if conf is not None
+            else "offset-variant match"
+        )
     if result is None:
         return "—"
-    # Don't import the dataclass to avoid circular fuss; rely on duck
-    # typing — RipLog hands us AccurateRipResult instances directly.
     confidence = getattr(result, "confidence", None)
     result_text = getattr(result, "result", "") or ""
-    if confidence is None:
-        return result_text or "—"
-    if "exact match" in result_text:
+    # A genuine database match (confidence >= 1), format-agnostic across whipper's
+    # "Found, exact match" and cyanrip's "accurately ripped, confidence N".
+    if accuraterip_is_match(result):
         return f"OK ({confidence})"
-    if "not present" in result_text.lower():
+    # Not matched and no offset match — it's simply absent from the database. Say
+    # that plainly instead of cyanrip's alarmist "either a new pressing, or bad
+    # rip" (a not-in-DB track is not necessarily a bad rip).
+    lowered = result_text.lower()
+    if not result_text or "not present" in lowered or "not found" in lowered:
         return "not in DB"
-    return f"{result_text} ({confidence})"
+    return f"{result_text} ({confidence})" if confidence is not None else result_text

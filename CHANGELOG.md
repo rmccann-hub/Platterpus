@@ -11,6 +11,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.15] — 2026-07-06
+
+### Fixed
+- **Offset-variant tracks no longer read as "bad rip" in the results table.** A
+  track that matched the database only at the common +450-frame pressing offset
+  (a *partially-accurate* match — perfectly good archival audio) used to show
+  cyanrip's raw *"not found, either a new pressing, or bad rip"* in the AR v1/v2
+  columns, which looked alarming even though the banner said the track was fine.
+  Those cells now read **"offset-variant match (N)"**, surfacing the partial
+  match the report already recorded. Genuinely not-in-database tracks now read a
+  plain **"not in DB"** instead of the *"…or bad rip"* phrasing (a track absent
+  from the database isn't necessarily a bad rip). Same trust-first principle as
+  the CTDB honesty fix; surfaced by the real-hardware Roots compilation, whose
+  tracks 11–17 are legitimate offset-variant matches.
+
 ## [0.4.14] — 2026-07-05
 
 ### Changed
@@ -2045,7 +2060,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.14...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.15...HEAD
+[0.4.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.14...v0.4.15
 [0.4.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.13...v0.4.14
 [0.4.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.12...v0.4.13
 [0.4.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.11...v0.4.12
