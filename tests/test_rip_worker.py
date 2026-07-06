@@ -831,8 +831,10 @@ def test_cyanrip_progress_lines_drive_bars_and_track(
     # own per-op ETA is NOT echoed (it resets every phase and is wildly wrong
     # early). No ETA suffix here because the test rip elapses <8s (the minimum
     # before we project one).
-    assert any(s.startswith("Ripping track 1… 25%") for s in sigs.statuses)
-    assert any(s.startswith("Ripping track 1… 75%") for s in sigs.statuses)
+    # "of 16" comes from the "Disc tracks: 16" banner (parsed first), so the
+    # user sees position at a glance — "track 1 of 16" — from the first line.
+    assert any(s.startswith("Ripping track 1 of 16… 25%") for s in sigs.statuses)
+    assert any(s.startswith("Ripping track 1 of 16… 75%") for s in sigs.statuses)
     assert not any("Encoding track" in s for s in sigs.statuses)
     assert any(s.startswith("Track 1 done") for s in sigs.statuses)
     # cyanrip's raw "(ETA 3m)" is never surfaced verbatim.
@@ -1430,6 +1432,21 @@ def test_describe_activity_recognizes_named_subphases() -> None:
         _describe_activity("Getting length of audio track (1 of 16) ... 100 %")
         == "Checking track 1 of 16…"
     )
+
+
+def test_describe_activity_cyanrip_shows_track_x_of_y_when_total_known() -> None:
+    # When the worker knows the disc's track count it renders "of M" so the user
+    # sees position at a glance ("track 12 of 17"). Real cyanrip progress line.
+    line = "Ripping and encoding track 12, progress - 42.37%, ETA - 3m, errors - 0"
+    assert _describe_activity(line, 17) == "Ripping track 12 of 17… 42%"
+
+
+def test_describe_activity_cyanrip_omits_total_when_unknown() -> None:
+    # With no known total (0 — e.g. before the disc banner on an unknown disc) we
+    # omit "of M" rather than show a wrong count. Default keeps old callers happy.
+    line = "Ripping track 3, progress - 7.00%"
+    assert _describe_activity(line, 0) == "Ripping track 3… 7%"
+    assert _describe_activity(line) == "Ripping track 3… 7%"
 
 
 def test_describe_activity_returns_none_for_unrelated_lines() -> None:

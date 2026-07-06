@@ -967,7 +967,12 @@ class RipWorker(QObject):
                 # Status text first (covers the pre-track disc scan and
                 # the encode/tag sub-phases), then the numeric progress
                 # that drives the bar.
-                desc = _describe_activity(line)
+                # Prefer the metadata track count (known from __init__, so the
+                # label is right from the very first progress line) and fall back
+                # to the count parsed from cyanrip's disc banner.
+                desc = _describe_activity(
+                    line, len(self._track_ms) or self._total_tracks
+                )
                 # Append our own smoothed album ETA to a progress phase (never
                 # cyanrip's per-op ETA — see _album_eta_text / _describe_activity).
                 if desc is not None and prog is not None:
@@ -1461,13 +1466,19 @@ class RipWorker(QObject):
         return scored[0][1]
 
 
-def _describe_activity(line: str) -> str | None:
+def _describe_activity(line: str, total_tracks: int = 0) -> str | None:
     """Return a short human status for a ripper progress line, or None.
 
     Matches cyanrip's progress lines (and the inert whipper-format seam). Used
     to keep the status label live across every phase — especially the pre-track
     disc scan, which otherwise left the GUI on "Starting rip…" for a minute-plus
     and looked hung.
+
+    `total_tracks` is the disc's track count when the caller knows it (the worker
+    learns it from cyanrip's "Disc tracks: N" banner and independently from the
+    MusicBrainz metadata). When it's > 0 the cyanrip progress line reads
+    "Ripping track N of M…" so the user can see position at a glance; when it's
+    still unknown (0) we omit "of M" rather than show a wrong total.
     """
     match = _DISC_SCAN_PATTERN.search(line)
     if match:
@@ -1500,7 +1511,10 @@ def _describe_activity(line: str) -> str | None:
         # lines. cyanrip's own per-op ETA is still dropped here (it resets every
         # phase and is wildly wrong early — it once printed "822h"); the run loop
         # appends our own smoothed album ETA instead.
-        return f"Ripping track {match.group('track')}… {pct:.0f}%"
+        # "of M" appears once we know the disc's track count (see the docstring);
+        # it turns "Ripping track 12…" into "Ripping track 12 of 17…".
+        of_total = f" of {total_tracks}" if total_tracks > 0 else ""
+        return f"Ripping track {match.group('track')}{of_total}… {pct:.0f}%"
 
     match = _CYANRIP_TRACK_DONE.search(line)
     if match:

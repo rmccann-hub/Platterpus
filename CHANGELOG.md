@@ -11,6 +11,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The rip status line now shows "track N of M".** During a rip the label reads
+  *"Ripping track 12 of 17… 42%"* instead of just *"Ripping track 12…"*, so you
+  can see how far through the disc you are at a glance. The total comes from the
+  MusicBrainz metadata (correct from the first progress line) and falls back to
+  cyanrip's disc banner; when the count is genuinely unknown the "of M" is
+  omitted rather than shown wrong.
+
 ## [0.4.15] — 2026-07-06
 
 ### Fixed
