@@ -252,6 +252,13 @@ class Config:
     # failure leaves the original untouched.
     recompress_flac_after_rip: bool = False
 
+    # Write an EAC-*layout* text log beside each successful rip (an honest,
+    # clearly-attributed rendering — never a signed/forged EAC log, KDD-11/13).
+    # OFF by default so it doesn't clutter the folder or get confused with
+    # cyanrip's own .log; a user who wants a familiar EAC-style log for a human
+    # diff or an archive can turn it on. See eac_log_export.py.
+    write_eac_log_after_rip: bool = False
+
     # --- Output format (Settings → Output format) ---
     # Which audio format the rip delivers. "flac" (default, the lossless
     # archival master) | "wavpack" (.wv, lossless, with tags) | "mp3" (lossy,

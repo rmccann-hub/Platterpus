@@ -4627,6 +4627,28 @@ def test_notify_rip_complete_respects_toggle_and_cancel(teardown_threads) -> Non
     assert asked == ["icon"]  # on + not cancelled → attempts the tray (no-op here)
 
 
+def test_write_eac_log_respects_toggle(teardown_threads, tmp_path) -> None:
+    """The EAC-layout companion log is written beside the rip only when the
+    setting is on, named so it's never confused with cyanrip's own .log."""
+    window = teardown_threads()
+    log_file = tmp_path / "The Police - Album.log"
+    log_file.write_text("cyanrip log", encoding="utf-8")
+    rip_log = RipLog(tracks=(TrackResult(number=1),))
+    companion = tmp_path / "The Police - Album (EAC-compatible).log"
+
+    window._config.write_eac_log_after_rip = False
+    window._write_eac_log(rip_log, log_file)
+    assert not companion.exists()  # toggle off → nothing written
+
+    window._config.write_eac_log_after_rip = True
+    window._write_eac_log(rip_log, log_file)
+    assert companion.exists()
+    # Honest banner (clearly attributed, never a real signed EAC log).
+    assert companion.read_text(encoding="utf-8").startswith(
+        "Exact Audio Copy-compatible"
+    )
+
+
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:
     """The poll never touches the drive or rescans while a rip holds it."""
     window = teardown_threads()

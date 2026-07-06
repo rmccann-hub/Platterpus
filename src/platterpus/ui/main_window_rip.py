@@ -722,6 +722,8 @@ class RipMixin:
                 # metric that replaces cyanrip's bogus ETA. Best-effort.
                 self._enrich_timing_with_disc_duration(rip_log)
                 self._write_rip_report(rip_log, log_file)
+                # Optional EAC-layout companion log beside the JSON report.
+                self._write_eac_log(rip_log, log_file)
                 # Surface the adaptive read-speed ladder's outcome in the results
                 # pane when it actually did something — so a user who wasn't
                 # watching the live log still sees that a disc needed a slow
@@ -1344,6 +1346,28 @@ class RipMixin:
         return build_debug_log(
             buffer.lines_excluding(others), truncated=buffer.truncated
         )
+
+    def _write_eac_log(self, rip_log: object, log_file: Path) -> None:
+        """Write an EAC-layout companion log beside ``log_file`` (best-effort).
+
+        Gated by ``write_eac_log_after_rip`` (off by default). The rendering is
+        the honest, clearly-attributed EAC-*layout* text (never a signed/forged
+        EAC log — KDD-11/13); it goes next to cyanrip's own ``.log`` as
+        ``<name> (EAC-compatible).log`` so the two are never confused. A small
+        text write — safe on the GUI thread, same as the JSON report beside it —
+        and never raises (a companion log is a courtesy, never load-bearing).
+        """
+        if not self._config.write_eac_log_after_rip:
+            return
+        try:
+            from platterpus.eac_log_export import render_eac_style_log
+
+            text = render_eac_style_log(rip_log)
+            target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
+            target.write_text(text, encoding="utf-8")
+            log.info("wrote EAC-layout companion log: %s", target)
+        except Exception:  # noqa: BLE001 — a companion log must never crash finish
+            log.warning("could not write EAC-layout log", exc_info=True)
 
     def _write_rip_report(self, rip_log: object, log_file: Path) -> None:
         """Write the JSON rip report beside ``log_file`` (best-effort).
