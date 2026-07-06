@@ -195,6 +195,7 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "verify_flac_after_rip",
     "recompress_flac_after_rip",
     "write_eac_log_after_rip",
+    "save_additional_art",
 )
 
 

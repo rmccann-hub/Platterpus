@@ -21,6 +21,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   outcome.
 
 ### Added
+- **Back cover and booklet scans are now saved too.** When cover art is enabled,
+  Platterpus also fetches any back cover and booklet images the Cover Art Archive
+  has for the release and saves them beside the audio (`back.jpg`,
+  `booklet-NN.jpg`) — the front cover is still embedded as before. On by default
+  (Settings → *Cover art → Also save back cover & booklet images*); these can't be
+  embedded in FLAC, so they're saved as files.
+- **Set cover art from a local file.** *Tools → Set cover art from file…* lets you
+  pick your own image (a good scan, a corrected cover) to use as the front cover
+  for the disc on screen, instead of the archive fetch — embedded/saved on the
+  next rip. The file is checked to be a real image when you pick it.
 - **UPC/barcode and catalog number are now captured and tagged.** When
   MusicBrainz has them, the release's barcode (UPC/EAN) and label catalog number
   are written to the audio as standard `BARCODE`/`CATALOGNUMBER` tags and recorded

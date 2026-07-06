@@ -295,6 +295,18 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Cover art:", self._cover_art_combo)
 
+        # Also save back cover + booklet scans (as files — they can't be embedded).
+        self._additional_art_check: QCheckBox = QCheckBox(
+            "Also save back cover & booklet images", self
+        )
+        self._additional_art_check.setChecked(config.save_additional_art)
+        self._additional_art_check.setToolTip(
+            "When fetching cover art, also save any back cover and booklet scans "
+            "the Cover Art Archive has (as back.jpg / booklet-NN.jpg beside the "
+            "audio). These can't be embedded in FLAC, so they're saved as files."
+        )
+        form.addRow("", self._additional_art_check)
+
         self._max_retries_spin: QSpinBox = QSpinBox(self)
         self._max_retries_spin.setRange(
             settings_validation.MAX_RETRIES_MIN, settings_validation.MAX_RETRIES_MAX
@@ -534,6 +546,7 @@ class SettingsDialog(CenteredDialog):
             verify_flac_after_rip=self._verify_flac_check.isChecked(),
             recompress_flac_after_rip=self._recompress_flac_check.isChecked(),
             write_eac_log_after_rip=self._eac_log_check.isChecked(),
+            save_additional_art=self._additional_art_check.isChecked(),
             output_format=self._format_combo.currentData(),
             rip_goal=self._goal_combo.currentData(),
             # MP3 quality isn't exposed yet (fixed at the best-practice -V0);

@@ -3460,7 +3460,11 @@ def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
 ) -> None:
     """cyanrip never fetches art (the GUI bypasses its MB lookup), so the
     GUI fetches the front cover itself and embeds + saves it."""
-    window = teardown_threads(config=Config(cover_art="complete"))
+    # save_additional_art off so this stays focused on the front-cover fetch
+    # (the back/booklet manifest fetch is covered in test_cover_art).
+    window = teardown_threads(
+        config=Config(cover_art="complete", save_additional_art=False)
+    )
     album, log_file = _cover_album(tmp_path)
     fake_metaflac = _RecordingMetaflac()
     window._metaflac = fake_metaflac

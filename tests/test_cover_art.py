@@ -10,6 +10,7 @@ parses external input).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -376,3 +377,101 @@ def test_apply_result_distinguishes_404_from_network(tmp_path: Path) -> None:
         fetcher=down,
     )
     assert r2.found is False and r2.reason == "network"
+
+
+# --- save_additional_covers (back + booklet) --------------------------------
+
+
+def test_save_additional_covers_saves_back_and_booklet(tmp_path: Path) -> None:
+    manifest = json.dumps(
+        {
+            "images": [
+                {"types": ["Front"], "image": "http://caa/front.jpg"},
+                {"types": ["Back"], "image": "http://caa/back.jpg"},
+                {"types": ["Booklet"], "image": "http://caa/b1.jpg"},
+                {"types": ["Booklet"], "image": "http://caa/b2.jpg"},
+            ]
+        }
+    ).encode()
+
+    def fetcher(url: str) -> bytes:
+        # The manifest URL has no /front suffix; everything else is an image.
+        return manifest if url.rstrip("/").endswith(_MBID) else _JPEG
+
+    saved = cover_art.save_additional_covers(tmp_path, _MBID, fetcher=fetcher)
+    assert set(saved) == {"back.jpg", "booklet-01.jpg", "booklet-02.jpg"}
+    assert (tmp_path / "back.jpg").exists()
+    assert (tmp_path / "booklet-02.jpg").exists()
+    # The front cover is NOT saved here — apply_cover_art owns it.
+    assert not (tmp_path / "front.jpg").exists()
+
+
+def test_save_additional_covers_no_release_or_error(tmp_path: Path) -> None:
+    assert cover_art.save_additional_covers(tmp_path, "") == []
+
+    def boom(_url: str) -> bytes:
+        raise OSError("network down")
+
+    assert cover_art.save_additional_covers(tmp_path, _MBID, fetcher=boom) == []
+
+
+def test_save_additional_covers_ignores_non_image_bytes(tmp_path: Path) -> None:
+    manifest = json.dumps(
+        {"images": [{"types": ["Back"], "image": "http://caa/back"}]}
+    ).encode()
+
+    def fetcher(url: str) -> bytes:
+        return manifest if url.rstrip("/").endswith(_MBID) else b"<html>nope</html>"
+
+    assert cover_art.save_additional_covers(tmp_path, _MBID, fetcher=fetcher) == []
+    assert not (tmp_path / "back.jpg").exists()
+
+
+# --- apply_local_cover_art (load from a file) -------------------------------
+
+
+def test_apply_local_cover_art_embeds_and_saves(tmp_path: Path) -> None:
+    (tmp_path / "01.flac").write_bytes(b"")
+    (tmp_path / "02.flac").write_bytes(b"")
+    img = tmp_path / "mine.png"
+    img.write_bytes(_PNG)
+    fake = _FakeMetaflac()
+    r = cover_art.apply_local_cover_art(
+        tmp_path, img, embed=True, save_file=True, metaflac=fake
+    )
+    assert r.found is True and r.mode == "local"
+    assert r.embedded_count == 2
+    assert (tmp_path / "cover.png").exists()
+    assert r.saved_as == "cover.png"
+
+
+def test_apply_local_cover_art_embed_only_removes_the_file(tmp_path: Path) -> None:
+    (tmp_path / "01.flac").write_bytes(b"")
+    img = tmp_path / "mine.jpg"
+    img.write_bytes(_JPEG)
+    r = cover_art.apply_local_cover_art(
+        tmp_path, img, embed=True, save_file=False, metaflac=_FakeMetaflac()
+    )
+    assert r.embedded_count == 1
+    assert not (tmp_path / "cover.jpg").exists()  # temp copy cleaned up
+
+
+def test_apply_local_cover_art_rejects_non_image(tmp_path: Path) -> None:
+    bad = tmp_path / "notimg.txt"
+    bad.write_bytes(b"hello, not an image")
+    r = cover_art.apply_local_cover_art(
+        tmp_path, bad, embed=True, save_file=True, metaflac=_FakeMetaflac()
+    )
+    assert r.found is False and r.reason == "not-image"
+    assert not (tmp_path / "cover.png").exists()
+
+
+def test_apply_local_cover_art_missing_file(tmp_path: Path) -> None:
+    r = cover_art.apply_local_cover_art(
+        tmp_path,
+        tmp_path / "nope.png",
+        embed=True,
+        save_file=False,
+        metaflac=_FakeMetaflac(),
+    )
+    assert r.found is False and r.reason == "read-failed"

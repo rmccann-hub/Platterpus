@@ -547,6 +547,42 @@ class RipMixin:
         self._tray_icon = icon
         return icon
 
+    def _on_set_cover_art_from_file(self) -> None:
+        """Pick a local image to use as the front cover for the disc on screen.
+
+        Stored on ``self._manual_cover_path`` and used by the next rip's cover-art
+        step instead of the archive fetch (cleared when the disc changes). The
+        file is validated to be a real JPEG/PNG/GIF at pick time so a wrong file
+        is caught here, not silently at rip end.
+        """
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        from platterpus.adapters.cover_art import image_extension
+
+        path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose cover art image",
+            "",
+            "Images (*.jpg *.jpeg *.png *.gif);;All files (*)",
+        )
+        if not path_str:
+            return  # cancelled
+        try:
+            head = Path(path_str).read_bytes()[:16]
+        except OSError as exc:
+            QMessageBox.warning(self, "Cover art", f"Couldn't read that file:\n{exc}")
+            return
+        if not image_extension(head):
+            QMessageBox.warning(
+                self, "Cover art", "That file isn't a JPEG, PNG, or GIF image."
+            )
+            return
+        self._manual_cover_path = path_str
+        self._rip_progress.set_status(
+            f"Cover art set from “{Path(path_str).name}” — it will be used on the "
+            "next rip of this disc."
+        )
+
     def _on_rip_error(self, message: str) -> None:
         log.warning("rip error: %s", message)
         # Remember the last hard error so a no-log failure's minimal report can
@@ -838,6 +874,12 @@ class RipMixin:
             # the metadata actually contains a colon — so a colon-free album
             # (the common case) doesn't spin up the post-rip thread for nothing.
             restore_colons = self._metadata_has_colon()
+            # A user-chosen cover image (Set cover art from file…) overrides the
+            # archive fetch for THIS disc. Ensure it's at least embedded even if
+            # auto cover-art is off, so an explicit choice is always honoured.
+            local_cover = getattr(self, "_manual_cover_path", None)
+            if local_cover and not (embed or save_file):
+                embed = True
             if (
                 tag
                 or embed
@@ -845,6 +887,7 @@ class RipMixin:
                 or recompress
                 or transcode_fmt
                 or restore_colons
+                or local_cover
             ):
                 self._start_post_rip_processing(
                     rip_dir,
@@ -859,6 +902,7 @@ class RipMixin:
                     restore_colons=restore_colons,
                     album_metadata=album_snapshot,
                     track_rows=tracks_snapshot,
+                    local_cover_path=local_cover,
                 )
                 post_rip_thread = self._post_rip_thread
             else:
@@ -1022,9 +1066,14 @@ class RipMixin:
         restore_colons: bool = False,
         album_metadata: object | None = None,
         track_rows: object | None = None,
+        local_cover_path: object | None = None,
     ) -> None:
         """Run unknown-mode tagging, then cover art, then FLAC re-compress, then
         an optional transcode, on ONE daemon thread.
+
+        ``local_cover_path`` (when set) is a user-chosen image file used as the
+        front cover *instead of* fetching from the Cover Art Archive — the "load
+        cover art from a file" path.
 
         ``album_metadata`` / ``track_rows`` are the track-table snapshot taken on
         the GUI thread (BUG-1) and handed to the daemon's tagging step — the
@@ -1099,17 +1148,27 @@ class RipMixin:
             #    two never touch a FLAC at the same time.
             if embed or save_file:
                 try:
-                    art_result = cover_art.apply_cover_art(
-                        rip_dir,
-                        release_id,
-                        embed=embed,
-                        save_file=save_file,
-                        metaflac=self._metaflac,
-                        fetcher=self._cover_art_fetcher,
-                        # The config mode is recorded in the report so it knows
-                        # art was *requested* (a plain attribute read — no Qt).
-                        mode=self._config.cover_art,
-                    )
+                    if local_cover_path:
+                        # User-chosen image wins over the archive fetch.
+                        art_result = cover_art.apply_local_cover_art(
+                            rip_dir,
+                            Path(str(local_cover_path)),
+                            embed=embed,
+                            save_file=save_file,
+                            metaflac=self._metaflac,
+                        )
+                    else:
+                        art_result = cover_art.apply_cover_art(
+                            rip_dir,
+                            release_id,
+                            embed=embed,
+                            save_file=save_file,
+                            metaflac=self._metaflac,
+                            fetcher=self._cover_art_fetcher,
+                            # The config mode is recorded in the report so it knows
+                            # art was *requested* (a plain attribute read — no Qt).
+                            mode=self._config.cover_art,
+                        )
                 except Exception:  # noqa: BLE001 — art must never crash the GUI
                     log.exception("cover art post-processing failed")
                     art_result = cover_art.CoverArtResult(
@@ -1123,6 +1182,20 @@ class RipMixin:
                     self.cover_art_done.emit(art_result)
                 except RuntimeError:  # window destroyed — nothing to update
                     pass
+                # Also grab the back cover + booklet scans, saved as files (they
+                # can't be embedded in FLAC). Only when front art was fetched
+                # from the archive (a local override has no manifest to consult).
+                if (
+                    self._config.save_additional_art
+                    and not local_cover_path
+                    and (release_id or "").strip()
+                ):
+                    try:
+                        cover_art.save_additional_covers(
+                            rip_dir, release_id, fetcher=self._cover_art_fetcher
+                        )
+                    except Exception:  # noqa: BLE001 — extra art must never crash
+                        log.exception("additional cover art fetch failed")
             # 3) Re-compress LAST, so it rewrites the final tagged-and-arted
             #    FLACs (flac preserves their tags + embedded art). Best-effort;
             #    each file is swapped in atomically, so a failure or crash leaves

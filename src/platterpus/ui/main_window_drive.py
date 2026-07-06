@@ -346,6 +346,7 @@ class DriveMixin:
         self._current_release_id = ""
         self._current_num_tracks = 0
         self._current_disc_id = ""
+        self._manual_cover_path = None
         self._rip_controls.set_release_id("")
         self._rip_controls.set_unknown_mode(False)
 

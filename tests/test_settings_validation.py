@@ -294,6 +294,7 @@ _BAD_VALUES: dict[str, object] = {
     "verify_flac_after_rip": "yes",
     "recompress_flac_after_rip": "yes",
     "write_eac_log_after_rip": "yes",
+    "save_additional_art": "yes",
 }
 
 

@@ -175,6 +175,12 @@ class Config:
     # fetches the front cover from the Cover Art Archive after the rip and
     # embeds it (cyanrip itself is run offline).
     cover_art: str = "embed"
+    # Also save any BACK cover and BOOKLET scans the Cover Art Archive has for the
+    # release (as back.jpg / booklet-NN.jpg beside the audio) — "good cover image"
+    # means the whole package, not just the front. On by default; only fires when
+    # front-cover fetching is on (cover_art set) and the disc was identified.
+    # These can't be embedded in FLAC, so they're saved as files.
+    save_additional_art: bool = True
     # Rip attempts before giving up on a track (cyanrip's `-r`).
     max_retries: int = 5
 
