@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.20] — 2026-07-07
+
 ### Documentation
 - **Every Markdown doc now carries a `*Last updated for Platterpus vX.Y.Z.*`
   footer** — the release its content was last revised for, so a reader can judge
@@ -2262,7 +2264,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.20...HEAD
+[0.4.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...v0.4.20
 [0.4.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.18...v0.4.19
 [0.4.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...v0.4.18
 [0.4.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...v0.4.17
@@ -2307,4 +2310,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.20.*
