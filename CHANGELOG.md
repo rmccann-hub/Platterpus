@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **CTDB CRC algorithm corrected (KDD-16).** The CUETools DB per-disc CRC was
+  reconstructed bit-for-bit from the CueTools LGPL source: it *is* a plain zlib
+  CRC-32 — the old code only got the **trim** wrong (it used no trim; the real one
+  is a fixed 5880-frame front trim and a length-dependent back trim). CTDB verify
+  now computes the correct value, and `platterpus --ctdb-calibrate` sweeps the
+  ±2939-sample offset window (fast `crc32_combine`) to confirm it against a real
+  in-database disc. Still shown as **experimental** until a hardware run flips the
+  validation flag (fails safe until then). See `docs/ctdb-crc-algorithm.md`.
+
 ## [0.4.16] — 2026-07-06
 
 A quality-of-life + reporting release: clearer progress, unattended-rip alerts,
