@@ -9,7 +9,6 @@ decoder/probe, so nothing touches the network or shells out to flac/metaflac.
 from __future__ import annotations
 
 import threading
-import zlib
 from pathlib import Path
 
 from platterpus.adapters.ctdb_client import (
@@ -52,14 +51,22 @@ def test_not_in_database_returns_not_in_db_verdict(tmp_path: Path) -> None:
 
 
 def test_matching_crc_returns_match(tmp_path: Path) -> None:
+    from platterpus.ctdb import crc as crc_mod
+
     _make_flacs(tmp_path, 2)
-    pcm = b"\x01\x02\x03\x04"
-    whole_disc_crc = zlib.crc32(pcm * 2) & 0xFFFFFFFF  # two tracks concatenated
+    # 17 whole sectors per file: sector-aligned (TOC total == decoded frames) and
+    # long enough for the CTDB guard band (a shorter disc has no CRC).
+    frames_per_file = 17 * 588  # 9996
+    pcm = bytes((i * 5 + 1) & 0xFF for i in range(frames_per_file * 4))
+    whole_disc_crc = crc_mod.ctdb_crc_offset0(pcm * 2)  # correct offset-0 CTDB CRC
     client = _FakeClient(
         CtdbLookupResult(entries=(CtdbEntry(crc=whole_disc_crc, confidence=42),))
     )
     result = verify_rip_dir(
-        client, tmp_path, samples_probe=lambda _p: 1000, decoder=lambda _p: pcm
+        client,
+        tmp_path,
+        samples_probe=lambda _p: frames_per_file,
+        decoder=lambda _p: pcm,
     )
 
     assert result.verdict is Verdict.MATCH
@@ -131,7 +138,10 @@ def test_waits_for_post_rip_thread_before_decoding(tmp_path: Path) -> None:
         target=lambda: verify_rip_dir(
             client,
             tmp_path,
-            samples_probe=lambda _p: 1000,
+            # Long enough that the CTDB guard-band window is non-empty, so the
+            # decoder is actually reached (a too-short disc short-circuits before
+            # decoding) — this test is about join-ordering, not the CRC value.
+            samples_probe=lambda _p: 30000,
             decoder=decoder,
             wait_for=pr,
         ),

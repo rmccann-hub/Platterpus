@@ -6,6 +6,9 @@ from __future__ import annotations
 import zlib
 from pathlib import Path
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from platterpus.adapters.ctdb_client import (
     CTDBClient,
     CtdbEntry,
@@ -19,31 +22,64 @@ from platterpus.ctdb.verify import CtdbVerifyResult, Verdict, verify_rip
 # --- crc -------------------------------------------------------------------
 
 
-def test_ctdb_crc_offset0_is_zlib_crc32() -> None:
-    pcm = b"\x00\x01\x02\x03" * 10
-    assert crc_mod.ctdb_crc_offset0(pcm) == (zlib.crc32(pcm) & 0xFFFFFFFF)
+def _big_pcm(frames: int) -> bytes:
+    """Deterministic pseudo-PCM of `frames` stereo frames (4 bytes each)."""
+    return bytes((i * 7 + 3) & 0xFF for i in range(frames * 4))
+
+
+def test_ctdb_trims_front_fixed_back_length_dependent() -> None:
+    # front = stride/2 = 5880 frames (10 sectors), fixed for every disc.
+    assert crc_mod.ctdb_trims(20_000)[0] == 10 * 588
+    # back = laststride/2, laststride = 11760 + (2*frames mod 11760).
+    frames = 20_000
+    laststride = crc_mod.CTDB_STRIDE_WORDS + ((2 * frames) % crc_mod.CTDB_STRIDE_WORDS)
+    assert crc_mod.ctdb_trims(frames)[1] == laststride // 2
+
+
+def test_ctdb_crc_offset0_is_zlib_crc32_of_the_trimmed_range() -> None:
+    # The CRC IS zlib.crc32; only the TRIM (front stride/2, back laststride/2)
+    # makes it the CTDB value — that trim was the bug the placeholder got wrong.
+    pcm = _big_pcm(20_000)
+    front, back = crc_mod.ctdb_trims(20_000)
+    expected = zlib.crc32(pcm[front * 4 : len(pcm) - back * 4]) & 0xFFFFFFFF
+    assert crc_mod.ctdb_crc_offset0(pcm) == expected
+
+
+def test_ctdb_crc_none_when_disc_too_short_for_guard_band() -> None:
+    # A handful of frames can't hold the ~14k-frame guard band → no CTDB CRC.
+    assert crc_mod.ctdb_crc_offset0(b"\x00\x01\x02\x03" * 10) is None
 
 
 def test_streaming_crc_equals_whole_buffer_crc() -> None:
-    """Regression (#39): the whole-disc CRC is now folded track-by-track to avoid
+    """Regression (#39): the whole-disc CRC is folded track-by-track to avoid
     buffering the entire album (+ its b''.join copy) — ~1.5 GB — in memory. The
-    streamed result must be byte-for-byte identical to CRC'ing the concatenation
-    (zlib CRC-32 is linear), so it's purely a memory optimization."""
-    chunks = [b"\x01\x02", b"\x03\x04\x05", b"", b"\xff" * 257, b"\x00"]
-    assert crc_mod.ctdb_crc_offset0_streaming(chunks) == crc_mod.ctdb_crc_offset0(
-        b"".join(chunks)
+    streamed offset-0 result must be byte-for-byte identical to CRC'ing the
+    concatenation, so it's purely a memory optimization."""
+    pcm = _big_pcm(20_000)
+    chunks = [pcm[:1234], pcm[1234:50_000], b"", pcm[50_000:]]
+    assert crc_mod.ctdb_crc_offset0_streaming(chunks, 20_000) == (
+        crc_mod.ctdb_crc_offset0(pcm)
     )
-    # An empty disc folds to the empty-input CRC (0), and a generator works too.
-    assert crc_mod.ctdb_crc_offset0_streaming(iter(())) == (
-        zlib.crc32(b"") & 0xFFFFFFFF
-    )
-    assert crc_mod.ctdb_crc_offset0_streaming(iter([b"abc"])) == (
-        zlib.crc32(b"abc") & 0xFFFFFFFF
-    )
+    # A too-short disc has no CRC in either form.
+    assert crc_mod.ctdb_crc_offset0_streaming([b"abc"], 10) is None
 
 
 def test_offset_range_constant() -> None:
     assert crc_mod.CTDB_OFFSET_RANGE == 2939
+
+
+@given(st.binary(max_size=400))
+def test_ctdb_crc_never_raises_on_arbitrary_bytes(data: bytes) -> None:
+    # The CRC consumes decoded PCM (external-derived), so — like the parsers —
+    # it must never raise: only ever an int or None, for any input length.
+    total = len(data) // crc_mod.BYTES_PER_SAMPLE_FRAME
+    for value in (
+        crc_mod.ctdb_crc(data, 0),
+        crc_mod.ctdb_crc(data, 100),
+        crc_mod.ctdb_crc_offset0(data),
+        crc_mod.ctdb_crc_offset0_streaming([data], total),
+    ):
+        assert value is None or isinstance(value, int)
 
 
 # --- fakes -----------------------------------------------------------------
@@ -60,12 +96,18 @@ class _FakeClient(CTDBClient):
 
 
 _FLACS = [Path("01.flac"), Path("02.flac")]
-# Each "file" decodes to one sector of silence so TOC math is happy.
-_PCM = {p: b"\x00" * (SAMPLES_PER_SECTOR * 4) for p in _FLACS}
+# Each "file" decodes to 17 WHOLE sectors (9996 frames), so (a) the disc is long
+# enough to hold the CTDB guard band (front 5880 + back ~8232 frames — a shorter
+# disc has no CRC) and (b) sample count is sector-aligned, so the TOC-derived
+# total_frames equals the decoded frame count (as it is for a real CD rip).
+_FRAMES_PER_FILE = 17 * SAMPLES_PER_SECTOR  # 9996
+_PCM = {
+    p: bytes((i * 5 + 1) & 0xFF for i in range(_FRAMES_PER_FILE * 4)) for p in _FLACS
+}
 
 
 def _probe(_: Path) -> int:
-    return SAMPLES_PER_SECTOR
+    return _FRAMES_PER_FILE
 
 
 def _decoder(path: Path) -> bytes:
@@ -73,7 +115,8 @@ def _decoder(path: Path) -> bytes:
 
 
 def _whole_disc_crc() -> int:
-    return zlib.crc32(b"".join(_PCM[p] for p in _FLACS)) & 0xFFFFFFFF
+    # The CORRECT offset-0 CTDB CRC of the concatenated disc (not a plain crc32).
+    return crc_mod.ctdb_crc_offset0(b"".join(_PCM[p] for p in _FLACS))
 
 
 # --- verdicts --------------------------------------------------------------

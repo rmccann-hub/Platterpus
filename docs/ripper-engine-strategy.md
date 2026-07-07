@@ -354,3 +354,107 @@ flagged.
 [dbp]: https://forum.dbpoweramp.com/forum/dbpoweramp/cd-ripper/31777-pioneer-bdr-208dbk-ripping-questions
 [cdr]: https://www.cdrinfo.com/d7/content/pioneer-bdr-2207-bdr-207m-bdxl-burner-review?page=1
 
+## 9. Cache defeating vs. the 2026 landscape doc (research finding, 2026-07)
+
+**Symptom.** The maintainer's 2026 ripper-landscape research doc treats **cache
+defeating** as a required extraction vector for archival credibility (alongside
+read offset, overread, C2, AccurateRip, etc.), scoring tools against it.
+
+**The finding.** Neither engine in our current lineage gives us a *measured*
+cache-defeat verdict:
+
+- **cyanrip** has no cache-defeat flag and prints no cache line in its log at
+  all (confirmed against `adapters/cyanrip_backend.py`'s argv builder and the
+  `parsers/cyanrip_log.py` finish-log parser — only `read_offset` and
+  `speed_changeable` are extracted from the banner).
+- Its engine, **libcdio-paranoia**, *attempts* cache defeat every rip —
+  readahead cache-exhaustion reads, plus FUA (Force Unit Access) where the
+  drive advertises support — but this is **best-effort and drive-dependent**,
+  with no runtime signal confirming it actually happened on a given drive.
+  whipper's `defeats_cache` setting in `whipper.conf` was the same shape: a
+  configured *intent*, not a measured *result*.
+
+**Decision (see PLANNING.md KDD-25 for the full record):** report this
+honestly as **"attempted, not measured."** Our EAC-style log export
+(`eac_log_export.py`) already renders `Defeat audio cache: (unknown)` rather
+than fabricating a `Yes` we can't verify. Correctness doesn't depend on having
+a cache-defeat bit anyway — `-Z N` secure re-read consensus plus
+AccurateRip/CTDB external verification catches a cache-served stale read the
+same way it catches any other read discrepancy, by disagreeing with a trusted
+external checksum rather than by asserting an unverifiable drive-behavior
+fact. A *measured* verdict (`cd-paranoia -A`, the standalone cdparanoia tool's
+own cache-defeat self-test) is deferred, not rejected — it would add a new
+host-tool dependency, which needs a `DEPENDENCIES.md` entry, deviation-policy
+sign-off, and hardware validation before it could be trusted (KDD-25).
+
+**Two more notes from cross-checking that doc against our own decisions:**
+
+- **The doc's favored tracker path is the one we deliberately left behind.**
+  It endorses whipper + `whipper-plugin-eaclogger` as the way to satisfy
+  OPS/Orpheus-style tracker log acceptance. That's the exact backend we
+  removed as the ripper (KDD-18) and the exact path our own research
+  concluded does **not** cleanly work even for whipper (the plugin's
+  EAC-*style* log still can't emit a real EAC checksum — RED's wall — per
+  [whipper-plugin-eaclogger#7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7)).
+  Our no-forged-provenance / open-trust position (AccurateRip + CTDB + an
+  honest unsigned log) is **unchanged** by the doc's framing — see
+  PLANNING.md **KDD-24** and `docs/eac-log-and-repair-feasibility.md`.
+- **The doc's "wanted-tier" comparator is fre:ac.** It names **fre:ac** as a
+  tool that has shipped AccurateRip support since 2021 while writing no
+  tracker-submittable logs — i.e. the same open-trust-only shape we've landed
+  in, not a tool that has actually solved tracker acceptance either.
+
+## 10. Closing the gaps with license-compatible open source (per-gap option menu, 2026-07)
+
+The maintainer's directive, recorded here as the standing policy for every gap
+below:
+
+1. **PR-first, not merge-assumed.** Where a gap is best closed *inside* an
+   upstream tool, the plan is to **open a pull request upstream** (cyanrip,
+   whipper, libcdio-paranoia, cdrdao, or the tracker logcheckers) and *be
+   adaptable to their decision* — merging is their call. A **fork is the
+   fallback**, taken only if upstream declines or stalls (§7 is the heavy
+   in-house-tree procedure if it ever comes to that).
+2. **Plan every gap — except the signed EAC log checksum.** That one is
+   permanently off the table: emitting an EAC Rijndael-256 checksum over a
+   non-EAC rip forges provenance (KDD-11/13, brief, CLAUDE.md). Not "hard" —
+   *refused*. Everything else gets a real route below.
+3. **The honesty gate.** For any capability we can't currently *prove*, we
+   either ship a **verification path** or **state explicitly why we can't verify
+   it yet** — never a bare "(unknown)" without a reason, never a fabricated
+   claim. "Verify, or say why we're unsure" is the acceptance test for each row.
+
+**Licensing latitude (recap of §2, why the menu is wide).** Platterpus is
+GPL-3.0 and — critically — **invokes every external tool as a subprocess, never
+links it** (KDD-10). Subprocess use is mere aggregation, not a derivative work,
+so we can *invoke* essentially any OSI-licensed tool regardless of its license,
+**including GPL-2.0-only** tools like `cdrdao`. Linking or copying source is the
+only place license compatibility bites (and there GPL-2-only stays barred,
+KDD-16). So "integrate as a subprocess" is almost always the cheapest,
+lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metaflac.
+
+### The menu, gap by gap
+
+| Gap | Best route (PR-first) | Candidate OSS / where | License fit | Effort | How we'd *verify* it (honesty gate) | Go / no-go |
+|---|---|---|---|---|---|---|
+| **Cache-defeat verdict** | PR to cyanrip to surface a cache self-test; else integrate `cd-paranoia -A` as a subprocess | cyanrip; `cdparanoia`/libcdio-paranoia (GPL-3) | ✓ (subprocess: any; PR to LGPL cyanrip: fine) | Med | Run `-A` on the real BDR-209D; a self-test that reports the drive's cache size + defeat method IS the verification. Until then KDD-25 keeps the honest "attempted, not measured" note. | **Deferred, PR-first.** Not worth a new host tool until a gap-consumer needs it; the honest note already satisfies the gate. |
+| **Test & Copy** (two-pass Test+Copy CRC) | PR to cyanrip for a two-pass mode; else our own second invocation + diff | cyanrip | ✓ | Med | Two independent passes producing two CRCs that we compare — self-verifying by construction. | **No-go for now.** Our `-Z N` consensus re-read is a *stronger* real-world guarantee; T&C matters only for a tracker log we don't target. Revisit only if whipper is re-added. |
+| **Gap / INDEX-00 detection** | Integrate `cdrdao read-toc` as a subprocess (what whipper does); else PR cyanrip | `cdrdao` (**GPL-2.0-only** — fine as a subprocess) | ✓ (subprocess only — do **not** link/copy) | Med–hard | Compare our detected pregaps against an EAC/whipper baseline cue on a real disc. | **Deferred.** Audio is already bit-perfect; only INDEX-00 *cue metadata* differs. Worth it only alongside a single-image rip mode. |
+| **HTOA** (hidden track-0 audio) | PR to cyanrip to rip the track-1 pregap; else `cdrdao`/`cdparanoia` span read | cyanrip; cdparanoia | ✓ | Med | Rip a known-HTOA disc and confirm the pregap audio extracts + verifies. **Hardware-gated** (need such a disc). | **Deferred, explicit scope note.** Rare; documented as out-of-scope until a real HTOA disc is on hand (TASKS.md). |
+| **C2 error pointers** | PR to **libcdio-paranoia** to expose C2, or a different read primitive below cyanrip | libcdio-paranoia (GPL-3); or a C2-aware reader | ✓ (GPL-3) | **Hard** | Only a real drive+disc with induced errors can confirm C2 flags are read and acted on. | **No-go (documented uncertainty).** The gap is *below* cyanrip — cd-paranoia deliberately ignores C2. Honest status: we do **not** use C2; overlap re-reads + AR/CTDB are our error defense. A PR to libcdio is the only route and upstream interest is unknown. |
+| **Tracker (RED/OPS) recognition** | **Re-add whipper as an optional secondary backend** (reverses KDD-18, needs maintainer sign-off); *and/or* PR to add cyanrip to the OPS/orpheus Logchecker allow-list | whipper (GPL-3, a **recognized** ripper); OPSnet/orpheusnet Logchecker (PHP) | ✓ | Med (whipper) / Low but uncertain (logchecker PR) | A recognized-ripper native log scored by the real logchecker — verifiable directly against OPS's checker. | **Documented option, maintainer's call.** A cyanrip *fork alone cannot* solve this (checkers gate on ripper *identity*, not our code). whipper is the honest OSS answer; the checksum wall still bars RED regardless. |
+
+### Recommendation & decision gates
+
+- **Do nothing speculative.** Every row is *deferred with a plan*, not built — matching §5's decision gates. Adopt a route only when a specific gap becomes a **hard requirement** for a real user goal.
+- **When a gap does become required:** open the **upstream PR first**; keep the change small and rebased against upstream `master`; only fall back to a fork (§7) if it's declined. Prefer **subprocess integration** over forking wherever the capability can be reached from a separate binary (it sidesteps the maintenance and most obligations).
+- **The one permanent no:** never forge the EAC log checksum. If tracker acceptance is ever a hard requirement, the *only* honest routes are re-adding whipper (a recognized ripper) or getting cyanrip onto the logchecker allow-list upstream — both leave provenance truthful.
+- **Honesty gate is binding:** anything we surface to the user (a report field, a log line, a Settings claim) must be something we've verified or explicitly qualified — the cache-defeat "(unknown)" + reasoned note (KDD-25) is the template.
+
+> **Ordered, step-by-step version:** this menu is turned into a *ranked* action
+> list — which upstream PR to do first, its odds, and exactly how to contribute
+> each — in [`upstream-pr-roadmap.md`](upstream-pr-roadmap.md). Start there when
+> actually contributing; the headline is that the pregap/INDEX-00 + HTOA gaps are
+> best closed *now* by a Platterpus-side `cdrdao` subprocess integration (no
+> upstream PR), and cyanrip's live PR #115 already tackles the same two gaps.
+
