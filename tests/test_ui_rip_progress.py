@@ -162,6 +162,22 @@ def test_every_verdict_level_has_a_non_color_symbol() -> None:
     assert neutral.startswith("ⓘ")
 
 
+def test_neutral_verdict_is_honest_about_no_verification() -> None:
+    """Regression (honesty): a zero-AccurateRip-match verdict must NOT claim the
+    Copy CRC proves 'a secure read', and must name the wrong-offset possibility —
+    this is the exact headline a wrong-offset rip produces, and the old wording
+    falsely reassured on bit-shifted audio.
+    """
+    from platterpus.parsers.rip_log import RipLog, TrackResult
+
+    message, level = accuraterip_verdict(RipLog(tracks=(TrackResult(1, copy_crc="AAAA"),)))
+    lowered = message.lower()
+    assert "secure read" not in lowered
+    assert "not independently verified" in lowered
+    assert "offset" in lowered  # names the wrong-offset possibility
+    assert level == "neutral"
+
+
 def test_verdict_confidence_floor_ignores_non_matching_zero() -> None:
     # Each track is verified via v2 (conf >= 1) while v1 is "present, no match"
     # at confidence 0. The "(confidence X+)" floor must reflect only the real
@@ -661,7 +677,7 @@ def test_accuraterip_verdict_confidence_zero_is_not_a_match() -> None:
     log = RipLog(tracks=(_track(1, v1=_ar(1, 0, "not present")),))
     message, level = accuraterip_verdict(log)
     assert level == "neutral"
-    assert "no tracks matched" in message
+    assert "none of these tracks matched" in message
 
 
 def test_accuraterip_verdict_none_matched_is_neutral() -> None:

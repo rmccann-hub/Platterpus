@@ -12,6 +12,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Read offset was silently wrong — the app's core promise.** A cluster of
+  bugs in the read-offset chain (a wrong offset makes every rip NOT bit-perfect):
+  - **cyanrip has no offset finder.** "Detect" ran `cyanrip -f` (which is
+    *force-overread*, not an AccurateRip finder) and scraped a number from its
+    output — latching onto a default/echo **0** and saving it as the offset, with
+    a false **"measured on this drive (high confidence)"** label. Removed: cyanrip
+    now honestly reports it can't auto-detect, and the offset comes from the
+    bundled AccurateRip drive-model list (e.g. **+667** for the Pioneer BDR-209D)
+    or manual entry. The "Detect" button is hidden when the backend can't measure.
+  - **Agreement-based confidence.** An offset is **HIGH** confidence only when two
+    independent sources agree (e.g. the AccurateRip list value and your entry);
+    a lone reading is at most MEDIUM. A disagreeing automatic reading can no
+    longer clobber a correct AccurateRip-list or manual value.
+  - **whipper.conf no longer falsely satisfies the offset gate.** A leftover
+    `whipper.conf` offset is never passed to cyanrip, so counting it as
+    "configured" made an upgrader's rip run at offset 0; now only the GUI override
+    (what cyanrip actually receives via `-s`) counts, so the AccurateRip-list
+    auto-apply / setup wizard kicks in as intended.
+  - **Self-heal + disagreement warning.** If the saved offset disagrees with the
+    AccurateRip drive-list value for the selected drive, the rip preflight now
+    surfaces it and offers to use the list value (instead of silently ripping at
+    the wrong offset), and the drive trust line flags the disagreement.
+- **AccurateRip verdict no longer over-claims.** When no track matched
+  AccurateRip, the verdict said matches were "expected for a CD-R" and that the
+  Copy CRCs "prove a secure read" — false reassurance on what may be a
+  wrong-offset rip. It now honestly says the audio is *not independently
+  verified* and names the possibilities (not in the DB / AccurateRip unreachable
+  / wrong offset).
 - **Dependency-install dialog crash (root cause of the CI flake).** The pending-
   installs dialog destroyed its install **worker** by dropping the last Python
   reference on the GUI thread while the worker's own thread was still alive — a

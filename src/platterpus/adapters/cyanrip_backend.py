@@ -25,7 +25,6 @@ version.
 from __future__ import annotations
 
 import logging
-import re
 import subprocess
 from pathlib import Path
 
@@ -262,20 +261,17 @@ class CyanripImpl(RipBackend):
         # VBR MP3 + FLAC master), so this isn't consumed for the rip today.
         return frozenset({"flac", "wav", "mp3", "wavpack"})
 
-    def find_offset(self, device: str) -> int:
-        """Run cyanrip's own offset finder (``-f``) and parse the result."""
-        args = ["-f"]
-        if device:
-            args += ["-d", device]
-        out = self._run(args)
-        match = re.search(r"offset[^\-0-9]*(?P<offset>-?\d+)", out, re.IGNORECASE)
-        if match:
-            return int(match.group("offset"))
-        raise RipError(
-            "cyanrip could not detect the read offset. Insert a CD that's in "
-            "the AccurateRip database and try again.",
-            output=out,
-        )
+    # NOTE: `find_offset` is deliberately NOT implemented. cyanrip has no
+    # AccurateRip offset-finder — its ``-f`` is *force-overread*, not a detector —
+    # so there is nothing to run. An earlier version ran ``cyanrip -f`` and
+    # regex-scraped "offset…N" from the output, which latched onto cyanrip's
+    # help/default echo and returned a meaningless 0 that then overrode the
+    # correct AccurateRip-list value (a silent wrong-offset bug on real
+    # hardware — the drive's true offset was +667). By leaving `find_offset`
+    # unimplemented we inherit the base class's ``NotImplementedError``, which the
+    # drive-setup wizard already handles as "this backend can't auto-detect the
+    # read offset"; the offset comes from the bundled AccurateRip drive-model list
+    # + manual entry instead.
 
     def _run(self, args: list[str], timeout: float = _INFO_TIMEOUT_S) -> str:
         # cyanrip's info/version probes share whipper's run-capture core; only

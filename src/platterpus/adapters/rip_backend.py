@@ -334,13 +334,31 @@ class RipBackend(ABC):
         """
         raise NotImplementedError
 
-    def find_offset(self, device: str) -> int:
-        """Auto-detect the drive read offset in samples, signed.
+    def supports_offset_detection(self) -> bool:
+        """Whether this backend can genuinely MEASURE a drive's read offset.
 
-        Tests candidate offsets against AccurateRip. Raises :class:`RipError`
-        if none was found (most often: the inserted disc isn't in AccurateRip).
-        The caller persists the returned value (Platterpus's `--offset`
-        override); the backend does not write it anywhere.
+        Drives the setup wizard's UI: when False, the wizard hides the "Detect"
+        action entirely — rather than offer a button that can only fail — and
+        relies on the bundled AccurateRip drive-model list + manual entry.
+        Default **False**: a backend must actively prove it has a real,
+        AccurateRip-based offset finder. cyanrip does NOT (see ``find_offset``),
+        so it inherits False.
+        """
+        return False
+
+    def find_offset(self, device: str) -> int:
+        """Auto-detect the drive read offset in samples, signed — OPTIONAL.
+
+        A backend that can genuinely measure a drive's read offset against
+        AccurateRip may implement this; it must return a value it actually
+        measured (never a default/echo) and raise :class:`RipError` if it could
+        not (e.g. the inserted disc isn't in AccurateRip). Backends that cannot
+        measure an offset leave this unimplemented — the drive-setup wizard
+        treats :class:`NotImplementedError` as "this backend can't auto-detect"
+        and relies on the bundled AccurateRip drive-model list + manual entry
+        instead. **cyanrip does NOT implement this**: it has no offset-finding
+        command (its ``-f`` is force-overread, not a finder), so it inherits this
+        default rather than fabricating a number.
         """
         raise NotImplementedError
 

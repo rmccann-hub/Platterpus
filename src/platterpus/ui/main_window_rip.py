@@ -159,11 +159,43 @@ class RipMixin:
                 self._on_drive_setup()
             return
 
+        # Self-heal a stale/wrong SAVED offset before it silently ruins the rip.
+        # `is_offset_configured` is True as soon as an override exists — even if
+        # its value is wrong (e.g. a 0 left by the old, since-removed cyanrip
+        # "offset detection", or a hand-entry that no longer matches this drive).
+        # If the saved offset disagrees with the AccurateRip drive-list value for
+        # the selected drive, don't rip at the wrong value: surface it and offer
+        # to use the list value. (Choosing No respects a user who deliberately
+        # measured a different offset for this exact unit — MANUAL authority.)
+        drive = self._drive_picker.current_drive()
+        if self._config.override_read_offset and drive is not None:
+            listed = self._offset_db.lookup(drive.vendor, drive.model)
+            if listed is not None and listed != self._config.read_offset:
+                label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
+                answer = QMessageBox.warning(
+                    self,
+                    "Read offset disagreement",
+                    f"The saved read offset is {self._config.read_offset:+d}, but "
+                    f"the AccurateRip drive list says {listed:+d} for "
+                    f"{label or 'this drive'}.\n\n"
+                    "A wrong read offset makes the rip NOT bit-perfect — it won't "
+                    "match AccurateRip. Use the AccurateRip value "
+                    f"({listed:+d}) instead?\n\n"
+                    "Choose No only if you deliberately measured a different "
+                    "offset for this exact drive.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if answer == QMessageBox.StandardButton.Yes:
+                    self._set_read_offset_override(listed)
+                    self._refresh_drive_profile_display()
+
         # The offset is configured now — but `params` was built by the rip
-        # controls BEFORE any auto-apply above, so it may still carry
-        # read_offset_override=None. Inject it here so cyanrip actually gets its
-        # `-s` sample offset (otherwise the rip isn't offset-corrected).
-        if self._config.override_read_offset and params.read_offset_override is None:
+        # controls BEFORE any auto-apply/heal above, so it may still carry
+        # read_offset_override=None (or the pre-heal value). Inject the current
+        # config value here so cyanrip actually gets its `-s` sample offset
+        # (otherwise the rip isn't offset-corrected).
+        if self._config.override_read_offset:
             params = replace(params, read_offset_override=self._config.read_offset)
 
         # Only validate the track table for non-unknown rips — placeholder

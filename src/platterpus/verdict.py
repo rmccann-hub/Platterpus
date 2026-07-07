@@ -109,8 +109,11 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
     # text, never colour alone — colour-blind and screen-reader users get the
     # same signal as the green/amber/grey tint (ux-design-principles.md #10).
     return (
-        "ⓘ AccurateRip: no tracks matched the database — expected for a disc "
-        "nobody has submitted (e.g. a burned CD-R); the per-track Copy CRCs "
-        "below still prove a secure read",
+        "ⓘ AccurateRip: none of these tracks matched the database. That can mean "
+        "the disc isn't in AccurateRip (e.g. a burned CD-R or an obscure "
+        "pressing), AccurateRip couldn't be reached, or the read offset is wrong "
+        "— so the audio is NOT independently verified. The per-track Copy CRCs "
+        "below only show the FLAC losslessly encodes what was read; they don't "
+        "prove the read itself was correct.",
         "neutral",
     )
