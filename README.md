@@ -605,6 +605,38 @@ For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the men
 
 ---
 
+## Command-line usage (advanced)
+
+Platterpus is a GUI first, but it has a few command-line flags for diagnostics.
+**There is no `platterpus` command on your `PATH` unless you installed via `pipx`
+(Method B).** If you run the downloaded **AppImage** (the recommended install),
+the AppImage *is* the executable — pass the flags to it directly (its launcher
+forwards every argument straight to the app):
+
+```bash
+# Show the version and build fingerprint, then exit
+./platterpus-x86_64.AppImage --version
+
+# "Doctor" — a no-CD first-pass check of the ripping environment, then exit
+./platterpus-x86_64.AppImage --doctor
+
+# Verify an already-ripped album against the CUETools Database (CTDB) and sweep
+# the CRC offset to confirm the read offset aligns with the pressing. No CD or
+# re-rip needed — it reads the FLACs already on disk.
+./platterpus-x86_64.AppImage --ctdb-calibrate "/path/to/Artist/Album/"
+```
+
+**Path tip for `--ctdb-calibrate`:** a rip folder can contain a look-alike colon
+(`∶`, U+2236) where the album title had a `:` — cyanrip substitutes it so the
+folder name is filesystem-safe. Don't type a normal `:` (the path won't be
+found); let the shell supply the real character — `cd` into the folder and pass
+`"$PWD"`, or use tab-completion / a glob (`…/Every\ Breath\ You\ Take*`).
+
+If you installed with **`pipx`** (Method B), the same flags work on the
+`platterpus` command instead — e.g. `platterpus --doctor`.
+
+---
+
 ## Troubleshooting
 
 ### `pip install` fails with "does not appear to be a Python project"
@@ -656,6 +688,12 @@ export PATH="$HOME/.local/bin:$PATH"
 ```
 
 Open a new terminal. Verify with `which cyanrip`.
+
+### `platterpus: command not found`
+
+There's no `platterpus` command unless you installed via `pipx` (Method B). If
+you run the **AppImage**, the AppImage is the executable — invoke it directly,
+e.g. `./platterpus-x86_64.AppImage --doctor`. See [Command-line usage](#command-line-usage-advanced).
 
 ### "no drives found" when launching the GUI
 

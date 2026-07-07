@@ -11,6 +11,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- **Command-line usage of the AppImage.** Documented that the diagnostic flags
+  (`--version`, `--doctor`, `--ctdb-calibrate`) work by passing them to the
+  AppImage directly (there is no `platterpus` on `PATH` unless installed via
+  `pipx`), plus a path tip for the U+2236 look-alike colon in rip-folder names.
+  New README *Command-line usage* section + a `platterpus: command not found`
+  troubleshooting entry.
+
 ### Changed
 - **CTDB verify is now hardware-validated — a match reads "verified," not
   "experimental" (KDD-16).** A `platterpus --ctdb-calibrate` run on a real
