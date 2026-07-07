@@ -35,6 +35,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the tooltip is explicit it is *not* a claim of EAC-checksum equivalence.
 
 ### Fixed
+- **CTDB offset search range corrected (KDD-16).** Calibration swept
+  AccurateRip's ±2939-frame window; CTDB actually matches over
+  **±(stride/2 − 1) = ±5879** (verified against the CueTools C# source). The
+  CRC, trim, and offset-combine were already correct — a pressing whose
+  alignment sat in (2939, 5879] was simply never reached, which is why two
+  hardware calibrations returned no-match. Still gated by the fail-safe
+  (`CRC_VALIDATED = False`, shown "experimental") until a hardware
+  `--ctdb-calibrate` run confirms an offset-0 match.
 - **`--doctor` / preflight now stamps the Platterpus version + build** in its
   header, so a pasted doctor report identifies the exact build.
 - **Settings label rendered wrong.** "Also save back cover & booklet images"

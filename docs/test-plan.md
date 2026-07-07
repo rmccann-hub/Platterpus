@@ -382,10 +382,11 @@ This unblocks wiring CTDB verify into the GUI.
 - **`no_match` (disc found, CRC differs)** → the lookup format is right; the
   **CRC algorithm needs the bit-exact fix**. Read the **LGPL**
   `CUETools.AccurateRip` (`AccurateRipVerify.CTDBCRC`) + `CUETools.Parity` for
-  the polynomial/init/reflection and the ±2939 offset sweep, then replace
+  the polynomial/init/reflection and the ±5879-frame offset sweep (CTDB's
+  range, `CDRepair.FindOffset` — wider than AccurateRip's ±2939), then replace
   `ctdb/crc.py:ctdb_crc_offset0` (the single seam). **Do not read
   `python-cuetoolsdb`** (GPL-2.0; KDD-16). Re-run until it matches a DB CRC.
-- **`match`** → success. Implement the ±2939 offset sweep if not already, set
+- **`match`** → success. Implement the ±5879 offset sweep if not already, set
   `crc.CRC_VALIDATED = True`, add a regression test with the real CRC vector,
   and proceed to Test 1b.
 

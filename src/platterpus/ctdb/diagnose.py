@@ -112,7 +112,7 @@ def _run_calibration(
     probe: SamplesProbe,
     out: Out,
 ) -> None:
-    """Sweep the ±2939-sample offset guard band to confirm the CTDB-CRC algorithm.
+    """Sweep the ±5879-frame offset guard band to confirm the CTDB-CRC algorithm.
 
     Re-runs the lookup to collect the database's expected CRC(s), decodes the
     disc to PCM, and reports which offset (ideally 0) reproduces an expected CRC.
