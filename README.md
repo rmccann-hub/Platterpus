@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.4.x — public pre-release.** Implemented end-to-end with 1,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage, and validated on real Bazzite hardware: a full 16-track rip *through the published AppImage*, AccurateRip-verified bit-perfect. Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), and **cover art** from the Cover Art Archive. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **Status: v0.4.x — public pre-release.** Implemented end-to-end with 1,600+ tests (including a full-pipeline end-to-end test) at over 91% branch coverage, and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), **cover art** from the Cover Art Archive, an **EAC-compatible companion log** with a per-track **EAC CRC32 column** in the results table, and **software-version provenance** (Platterpus + encoder versions) recorded in the log header and the window title. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -203,7 +203,7 @@ distrobox enter ripping
 
 You're now inside the container. The prompt should change to show you're in the `ripping` environment. To leave at any time, type `exit`.
 
-> **Why `:latest` and not `:40`?** The brief specifies Fedora 40; newer Fedora releases (41, 42, 43, 44…) also work and ship newer security fixes. `:latest` resolves to whatever's current. If you specifically want to pin to Fedora 40 to match the brief exactly, swap `:latest` for `:40`.
+> **Why `:latest` and not `:40`?** The brief specifies Fedora 40; newer Fedora releases (42, 43, 44…) also work and ship newer security fixes. `:latest` resolves to whatever's current. Don't pin *below* Fedora 42, though: the cyanrip COPR (`barsnick/non-fed`) only builds for Fedora 42–44 + rawhide, so an older container would fail the Step 3 `dnf install cyanrip`.
 
 ### Step 3 — Install cyanrip and flac
 
@@ -227,7 +227,7 @@ cyanrip -V
 metaflac --version
 ```
 
-`cyanrip -V` should report a version such as `cyanrip 0.9.3` (note the capital `-V` — cyanrip has no `--version`). `metaflac` is part of the `flac` package.
+`cyanrip -V` should report a version such as `cyanrip 0.9.3.1` (note the capital `-V` — cyanrip has no `--version`). `metaflac` is part of the `flac` package.
 
 ### Step 4 — Export the binaries to your host
 
@@ -253,7 +253,7 @@ which cyanrip
 # → /home/<you>/.local/bin/cyanrip
 
 cyanrip -V
-# → cyanrip 0.9.3
+# → cyanrip 0.9.3.1
 ```
 
 If `which` returns nothing, your `~/.local/bin` isn't on `$PATH`. Most desktop Linux setups put it there automatically; if yours doesn't, add this to `~/.bashrc` or `~/.zshrc`:
@@ -747,7 +747,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-23)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-25)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 
@@ -774,6 +774,6 @@ Build / dev tooling:
 
 ## License
 
-[**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (whipper, cdparanoia, CUETools) and to keep the tool and any forks open. whipper and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
+[**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (whipper, cdparanoia, CUETools) and to keep the tool and any forks open. cyanrip and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
 
 See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
