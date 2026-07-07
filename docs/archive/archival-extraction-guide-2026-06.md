@@ -1,225 +1,89 @@
-> **Archived reference — external, not a project investigation.**
-> Source: user-supplied master guide *"Archival-Grade Digital Audio Extraction
-> and Compression"* (added 2026-06-23). Unlike the other files here, this is a
-> third-party reference, not a write-up of our own work — so it has no
-> "graduated conclusions" row; instead its actionable items are captured in the
-> session-log gap analysis of 2026-06-23 (and, once approved, in TASKS/KDDs).
+# EAC-archival parity targets (our summary)
+
+> **What this is.** Our own condensed summary of the *actionable* archival
+> extraction/compression targets from a user-supplied master guide,
+> *"Archival-Grade Digital Audio Extraction and Compression"* (added 2026-06-23,
+> EAC 1.8 / FLAC 1.5 / WavPack 5.9 / LAME 3.100.1, Windows-centric).
 >
-> Read it as **parity targets and principles, not literal config**: it is
-> EAC 1.8 / Windows-centric, while Whipper GUI drives whipper/cyanrip on Linux.
-> A few claims are the author's assertions and are flagged *verify before
-> relying* in the gap analysis — notably the LAME 3.100.1 `noise_shaping_amp`
-> / `-q 4` bug (r6147) and the exact upstream version/date numbers. The
-> "Command-Line Parameter Placeholder Overhaul" mapping table arrived with
-> garbled cells (mojibake); cross-check against EAC's own documentation before
-> using those placeholder strings. The body below is kept verbatim for the
-> audit trail.
+> **The verbatim third-party text was removed (2026-07-07)** — reproducing a
+> full external document in a public repo is a provenance/permission risk we
+> don't need to carry. This is a paraphrased summary of the parts we actually
+> use as *parity targets*, in our own words. Treat it as **targets and
+> principles, not literal config**: it describes EAC on Windows; Platterpus
+> drives cyanrip on Linux, and the concrete mapping lives in the README
+> "Capability & EAC-parity matrix" + [`../ripper-engine-strategy.md`](../ripper-engine-strategy.md).
+> A couple of the source's claims are the author's assertions flagged
+> **verify-before-relying** (notably the LAME 3.100.1 `noise_shaping_amp` / `-q 4`
+> r6147 claim and some exact version/date numbers).
 
 ---
 
-Archival-Grade Digital Audio Extraction and Compression: A Technical Master Guide for EAC 1.8, FLAC 1.5.0, Uncompressed WAV, and LAME 3.100.1
-The Imperative of Bit-Parity in Digital Audio Preservation
-The transition from physical optical media to digital storage arrays necessitates a rigorous approach to audio extraction and programmatic compression. The Red Book CD Digital Audio standard, formulated in 1980, lacks the sector synchronization headers and robust error-correction layers inherent to standard data CD-ROMs. Consequently, reading an audio CD through standard operating system subroutines frequently results in timing discrepancies, jitter, and dropped frames, rendering bit-parity impossible. For archival databases, preserving the mathematical exactness of the original Pulse Code Modulation (PCM) stream is the paramount objective.
-Over the past two decades, Exact Audio Copy (EAC) has established itself as the definitive digital audio extraction application, utilizing proprietary Secure Mode algorithms to bypass operating system caches and force optical drives to re-read sectors until statistical parity is achieved. However, the ecosystem of audio compression libraries interfaced with EAC has undergone radical transformations. Legacy configurations, once considered the gold standard for extraction and compression, have become severely deprecated. Exact Audio Copy version 1.8, released in July 2024, introduces fundamental shifts in metadata handling. The Free Lossless Audio Codec (FLAC), now at version 1.5.0, has revolutionized its encoding architecture by integrating native multithreading capabilities. Furthermore, the LAME MP3 encoder, currently at version 3.100.1, harbors a documented but unpatched psychoacoustic bug that actively degrades audio quality unless specific, counter-intuitive command-line parameters are invoked.
-This report provides an exhaustive, programmatic, and mathematically rigorous framework for configuring a modern audio archival pipeline. The hierarchy of archival preservation dictates the following priorities: the establishment of flawless FLAC lossless archives as the primary standard, the utilization of uncompressed WAV (and its advanced WavPack derivatives) for secondary raw data compliance, and the configuration of LAME MP3 for the highest possible lossy acoustic transparency.
-Encoder Acquisition and Installation Procedures (The "Where, How, and Why")
-Before configuring EAC, the specific external encoders must be acquired and installed. It is critical to use the exact recommended versions to leverage modern hardware optimizations and bypass legacy software bugs.
-Procedure for all encoders: Create a dedicated directory on your system (e.g., C:\EAC_Encoders\). Download the respective archives and extract the executable files (.exe) into this directory. Do not scatter them across system folders.
-1. Exact Audio Copy 1.8
-o Where: https://www.exactaudiocopy.de/ 
-o How: Run the Windows installer. During setup, ensure you install the AccurateRip, CTDB, and MusicBrainz metadata plugins.
-o Why: EAC 1.8 fixes critical initialization bugs with the metadata engines found in 1.7 and officially abandons the obsolete freedb service in favor of the vastly superior AccurateRip and CUETools Database engines.
-2. FLAC 1.5.0
-o Where: https://xiph.org/flac/download.html 
-o How: Download the flac-1.5.0-win.zip archive. Extract flac.exe (ensure you select the 64-bit version if your OS supports it) into your encoders folder.
-o Why: FLAC 1.5.0 is the first version to introduce native multithreaded encoding to the command-line tool, fundamentally changing how fast maximum compression profiles can be processed.
-3. WavPack 5.9.0
-o Where: https://www.wavpack.com/ or the official GitHub repository releases page.
-o How: Download the Windows binaries archive. Extract wavpack.exe to your encoders folder.
-o Why: Version 5.9.0 includes critical fixes for the Dynamic Noise Shaping (DNS) algorithm used in hybrid mode and improves compatibility with pipes and unknown-length streams.
-4. LAME 3.100.1
-o Where: https://www.rarewares.org/mp3-lame-bundle.php 
-o How: Download the latest 3.100 or 3.100.1 bundle. Extract lame.exe to your encoders folder.
-o Why: The official LAME project has essentially entered hibernation and no longer issues official compiled releases. RareWares compiles the SVN commits using optimized Intel compilers. Some of these compiles even contain a hardcoded patch for the r6147 bug, but we will still supply the -q 4 argument manually to ensure absolute safety.
-Exact Audio Copy 1.8 Mechanics and Optical Drive Calibration
-Exact Audio Copy operates on the principle that standard optical drives are inherently flawed when reading Audio CDs. To achieve absolute bit-parity, EAC implements a Secure Mode that re-reads audio sectors, bypasses drive caches, and aligns data using drive-specific offset values. The progression from legacy versions to EAC 1.8 represents a significant paradigm shift in how the software handles external metadata databases and external compressor parameter routing.
-The Evolution of Metadata Retrieval and Software Dependencies
-The transition from EAC versions 1.6 and 1.7 to version 1.8 marks the complete obsolescence of the freedb metadata service. Following the permanent shutdown of freedb, EAC temporarily relied on gnudb. However, starting with version 1.7 and stabilized in version 1.8, freedb support was entirely excised from the codebase. In its place, EAC natively integrates the AccurateRip metadata engine, providing superior composer and cover art retrieval without necessitating external.NET plugins. EAC 1.8 specifically resolves a critical initialization failure present in 1.7, wherein fresh installations on new workstations failed to retrieve metadata due to an absent email address configuration variable.
-For advanced metadata curation, EAC 1.8 relies heavily on the CUETools Database (CTDB) plugin and the MusicBrainz plugin, both of which require the Windows.NET 4.8 framework. The software architecture allows these plugins to fetch high-resolution cover art, comprehensive lyric sheets, and extended artist information. The AcoustID plugin, utilized for audio fingerprinting, has experienced server-side communication disruptions; however, archivists can circumvent this by generating a personal user API key and injecting it directly into the AcoustID plugin settings.
-In emulation environments, specifically Linux distributions running WINE, the Advanced SCSI Programming Interface (ASPI) may fail to initialize, resulting in optical drives remaining undetected. Resolving this requires the implementation of native ASPI wrappers or specific WINE prefix configurations to ensure optical drives are recognized. Programmers deploying EAC 1.8 on Linux must run the command WINEPREFIX=~/.exact-audio-copy/ winetricks dotnet48 to install the prerequisite.NET dependencies for the metadata plugins. Furthermore, downgrading WINE from version 10.9 to 10.8-1 has been documented as a temporary mitigation for drive visibility regressions.
-Algorithmic Drive Calibration for Bit-Parity
-To guarantee mathematical bit-parity, the optical drive must be calibrated against known offsets in the AccurateRip database. Every optical drive manufactured offsets the audio data by a specific number of samples during the read process. EAC 1.8 automatically calculates this "read sample offset correction value" upon the insertion of a popular commercial release, known programmatically as a "Key Disc". If the drive cannot be auto-configured, the archivist must manually cross-reference the drive's firmware model with the AccurateRip hardware database and input the correction value as a signed integer (for example, +6 or +103) into the EAC drive parameters.
-Drive caching presents another programmatic hurdle. Optical drives natively cache audio data to accelerate read speeds. In Secure Mode, EAC must force the drive to flush its cache to perform legitimate independent re-reads of erroneous sectors. The configuration parameter dictating that the drive caches audio data must be enabled if the drive exhibits this behavior, allowing EAC to execute cache-clearing commands between read passes.
-While the Red Book standard allows drives to report hardware-level C2 error pointers, relying on C2 pointers is heavily discouraged in strict archival extraction. Extensive testing reveals that many drives falsely report successful reads despite dropping C2 errors internally. Archival best practice mandates completely disabling C2 error information retrieval. By disabling this hardware reliance, the software forces EAC to depend entirely on its own software-based redundant re-reading algorithms, ensuring no silent errors pass through the extraction pipeline.
-Gap and index retrieval must be set to "Detection method A" with "Secure" accuracy. If the extraction log reveals that the gap length of the first track does not match the Table of Contents (ToC), the user must fall back to Method B or C, as drive firmware dictates which subchannel reading method is supported.
-The Command-Line Parameter Placeholder Overhaul
-A frequent point of failure in modern EAC configuration is the reliance on outdated command-line parameters published in legacy tutorials. Beginning with EAC version 1.0 beta 2, the variable placeholder strings used to pass parsed metadata to external executable encoders were completely overhauled. This overhaul was necessary to accommodate complex naming schemas, longer character limits, and advanced conditional tagging boolean logic. Configurations utilizing legacy strings (such as %s for source and %d for destination) will fail or parse incorrectly in EAC 1.8.
-The translation mapping from legacy parameters to the modern EAC 1.8 standard is detailed below:
-Metadata PropertyLegacy Placeholder (Pre-1.0b2)Modern Placeholder (EAC 1.0b2 - 1.8)Source filename%s%source%Destination filename%d%dest%Original filename%o%original%Track artist%a%artist%Track title%t%title%Album artist%v%albumartist%Album title%g%albumtitle%Track number%n%tracknr%Total tracks%x%numtracks%Year%y%year%Genre%m%genre%CD composerN/A%albumcomposer%CD performerN/A%albuminterpret%CD numberN/A%cdnumber%Total CDs in setN/A%totalcds%High quality conditional toggle%h�%h%ishigh%�%ishigh%Low quality conditional toggle%l�%l%islow%�%islow%Cover Image Filename%i%coverfile%Cover Image Boolean toggle%j...%j%hascover%...%hascover%Lyrics Boolean toggleN/A%haslyrics%...%haslyrics%CRC Enabled Boolean toggle%c...%c%crcenabled%...%crcenabled%When passing these parameters in EAC 1.8, the modern placeholders must be enclosed in standard quotation marks to prevent command-line execution truncation when metadata strings contain spaces. Furthermore, conditional boolean toggles, such as %hascover%, allow the command line to execute specific arguments only if EAC successfully retrieves the corresponding metadata from its plugins.
-Priority 1: Free Lossless Audio Codec (FLAC) 1.5.0 Architecture
-The Free Lossless Audio Codec (FLAC) remains the incontrovertible standard for digital audio preservation. Supported natively by an overwhelming majority of software and hardware platforms, FLAC reduces storage requirements by 40-60% without discarding any audio data, maintaining strict, verifiable bit-parity with the original PCM stream. The release of FLAC 1.5.0 in February 2025 introduced major architectural improvements, most notably native multithreaded encoding, which fundamentally alters archival deployment strategies.
-Mathematical Foundations of Linear Prediction and Entropy Coding
-FLAC achieves lossless compression through a sophisticated pipeline of blocking, inter-channel decorrelation, linear prediction, and residual entropy coding. Rather than coding the audio samples directly, FLAC attempts to predict the mathematical value of the next sample based on a history of previous samples. The difference between the predictive model's output and the actual audio sample�termed the residual or error signal�is then encoded. Because the residual signal typically possesses a significantly smaller variance than the original audio waveform, it can be encoded using far fewer bits.
-To solve the system of linear equations required for accurate sample prediction, FLAC utilizes the Levinson-Durbin algorithm. Given an autocorrelation matrix $R$ representing the audio sequence, replacing the expectations with autocorrelation coefficients yields a system of $n$ linear equations with the $n$ coefficients $c_j$ as the unknowns :
-$$\begin{bmatrix} R(0) & R(1) & \dots & R(n-1) \\ R(1) & R(0) & \dots & R(n-2) \\ \vdots & \vdots & \ddots & \vdots \\ R(n-1) & R(n-2) & \dots & R(0) \end{bmatrix} \begin{bmatrix} c_1 \\ c_2 \\ \vdots \\ c_n \end{bmatrix} = \begin{bmatrix} R(1) \\ R(2) \\ \vdots \\ R(n) \end{bmatrix}$$
-Because this matrix $R$ is symmetric and consists of identical elements along its diagonals (a Toeplitz matrix), the Levinson-Durbin recursion resolves the coefficients utilizing only $3n^2$ multiplications rather than the general $O(n^3)$ operations required for standard matrix inversion, dramatically optimizing CPU overhead.
-The residual error values generated by this predictive model follow a two-sided geometric distribution (TSGD) centered at zero. FLAC optimally compresses these distributions using Golomb-Rice coding, a simplification of the Golomb code where the divisor parameter is strictly a power of two, enabling the mathematical division to be executed as highly efficient bit-shift operations at the processor level. To track the optimal Rice parameter (the median of the residual distribution), the algorithm dynamically adjusts the mathematical median $m(k)$ directly from the current residual $e(k)$ without requiring side-information to be transmitted to the decoder :
-If the residual $e(k)\ge m(k)$, the median shifts upward : 
-$$m(k+1)=m(k)+\text{int}\left[\frac{m(k)+127}{128}\right]$$
-Conversely, if $e(k)<m(k)$, the median shifts downward : 
-$$m(k+1)=m(k)-\text{int}\left[\frac{m(k)+126}{128}\right]$$
-FLAC 1.5.0 Multithreading and Algorithmic Enhancements
-Historically, FLAC encoding was restricted to a single CPU thread, making maximum compression presets (level -8) computationally expensive on older hardware architectures. With the release of FLAC 1.5.0, native multithreaded encoding was introduced to both the libFLAC library and the flac command-line executable.
-By utilizing the -j (or --threads) parameter, developers can drastically accelerate the encoding process. Benchmarks indicate that deploying up to 16 threads provides a 10x compression speed multiplier, effectively eliminating the temporal penalty of maximum compression. To accommodate this parallel processing, the algorithm governing the "loose mid-side" option was refactored. Instead of checking every few frames to determine the optimal channel correlation strategy, FLAC 1.5.0 employs a fast heuristic that operates safely across concurrent thread allocations.
-Version 1.4.0 and 1.5.0 also introduced the --limit-min-bitrate argument. This parameter prevents the encoder from generating frames consisting entirely of constant subframes, ensuring the bitrate never drops below 1 bit per sample (e.g., 48 kbit/s for a 48 kHz input). While primarily designed to prevent buffer underruns in live internet streaming, it highlights the continuous refinement of the FLAC specification for modern transmission protocols. Furthermore, FLAC 1.5.0 now supports the decoding of chained Ogg FLAC files and integrates MD5 checksum verification when re-encoding an existing FLAC file to ensure cryptographic parity.
-EAC 1.8 FLAC Command-Line Deployment and Argument Justification
-To properly route EAC 1.8 through the FLAC 1.5.0 executable, the user must define the external compressor settings. In EAC's "External Compression" tab, the parameter "Use external program for compression" must be enabled, the parameter passing scheme set to "User Defined Encoder," and the extension strictly defined as .flac.
-The following command-line string represents the modern optimal deployment for FLAC archival extraction, thoroughly compliant with HydrogenAudio standards :
--8 -V -j 16 -T "ARTIST=%artist%" -T "TITLE=%title%" -T "ALBUM=%albumtitle%" -T "DATE=%year%" -T "TRACKNUMBER=%tracknr%" -T "GENRE=%genre%" -T "COMMENT=%comment%" -T "BAND=%albuminterpret%" -T "ALBUMARTIST=%albumartist%" -T "COMPOSER=%composer%" %haslyrics%--tag-from-file=LYRICS="%lyricsfile%"%haslyrics% -T "DISCNUMBER=%cdnumber%" -T "TOTALDISCS=%totalcds%" -T "TOTALTRACKS=%numtracks%" %hascover%--picture="%coverfile%"%hascover% %source% -o %dest%
-FLAC Argument Breakdown & Reasoning:
-Argument / PlaceholderTechnical FunctionArchival Reason-8Sets compression preset to level 8.Maximizes mathematical predictive model depth and partition order searches. Because FLAC is lossless, higher levels only decrease file size, never quality.-VForces parallel decode and verification.The executable immediately decodes the resulting FLAC file in RAM and mathematically compares it bit-for-bit against the source WAV. Guarantees zero disk-write corruption.-j 16Enables up to 16 threads for encoding.Introduced in 1.5.0, this completely mitigates the CPU bottleneck historically associated with the -8 preset, preventing drive spin-downs during extraction.-T "FIELD=%value%"Appends Vorbis Comments metadata.Passes parsed EAC metadata directly into the FLAC container natively, avoiding non-standard ID3 tags that cause parsing errors in FLAC. (Includes BAND tag for absolute HydrogenAudio compliance).%hascover%...Conditional execution for cover art.Only attempts to inject the --picture argument if EAC successfully scraped album art, preventing command-line execution errors.%source% -o %dest%Directs input and output files.Explicitly tells FLAC where the temporary WAV is located and exactly where and what to name the final compressed archive.The Cuesheet .flac.flac Double Extension Anomaly
-A persistent programmatic bug exists in EAC when users attempt to rip an entire CD as a single, continuous audio image while simultaneously generating a CUE sheet (Copy Image & Create CUE Sheet > Compressed). EAC was originally engineered under the assumption of three-letter file extensions (e.g., .mp3, .wav). When forced to utilize the four-letter .flac extension, the internal string parsing logic fails, resulting in EAC appending the extension twice to the final audio image.
-Consequently, the physical file is written to the disk as album_name.flac.flac. However, the generated .cue text file statically references album_name.flac. When an archivist or playback application attempts to mount, parse, or burn the CUE sheet, the software fails to locate the audio source, resulting in a fatal file-not-found exception.
-Archivists deploy three distinct resolution strategies for this anomaly:
-1. Manual String Correction: Open the output .cue file in a plaintext editor and manually alter the FILE parameter string from album_name.flac to album_name.flac.flac.
-2. Batch Script Interception: Advanced users point EAC to an intermediary batch script (e.g., C:\ESCR\EACPASS.CMD) instead of directly to flac.exe. The script receives the %dest% string, strips the erroneous double extension using string manipulation operations, executes the FLAC binary, and deletes the temporary WAV file spawned by EAC.
-3. Internal CUESHEET Metadata Embedding: FLAC natively supports housing the entire CUE sheet schema inside its own metadata blocks. The command line can be modified to inject the .cue file natively, rendering the external text file obsolete. This is achieved by appending --tag-from-file="CUESHEET=%albumartist% - %albumtitle%.cue" --cuesheet="%albumartist% - %albumtitle%.cue" to the execution string. It must be noted that attempting to use the "Test Encoder" button in EAC with this command will yield a false error, as EAC does not generate a dummy .cue file during its internal testing phase.
-Priority 2: Uncompressed WAV Baseline and Programmatic Limitations
-While FLAC is the mathematical superior for storage, uncompressed Microsoft Waveform Audio Format (WAV) remains the baseline container for raw Pulse Code Modulation (PCM) data. Extracting directly to WAV guarantees zero CPU overhead during decompression and provides universal compatibility with legacy editing suites. In EAC 1.8, uncompressed WAV extraction is managed natively without the need for external command-line executables.
-However, the WAV format is fundamentally limited in a modern archival context due to its lack of standardized metadata support. The RIFF (Resource Interchange File Format) specification that governs WAV files does not natively support robust tagging structures like Vorbis Comments or APEv2. While some software attempts to inject ID3v2 tags into WAV files by appending non-standard chunks, this breaks compliance with many strict hardware decoders. Consequently, relying on raw WAV files for a large archival database guarantees severe difficulties in cataloging, searching, and organizing artist and track data.
-Furthermore, standard WAV files are structurally constrained by a 4-gigabyte file size limit dictated by the 32-bit integer used to define the data chunk size in the RIFF header. For continuous, high-resolution audio extractions that exceed this limit, the file must be formatted using the RF64 extension or Sony's Wave64 format, both of which utilize 64-bit integers to bypass the 4GB boundary. Because of these metadata and size limitations, raw WAV should only be utilized as an intermediary staging format, which leads archivists to adopt WavPack as the definitive programmatic extension of the WAV architecture.
-Priority 2b: WavPack 5.9.0 Library, Binary Format, and Hybrid Archival
-WavPack 5.9.0 provides unparalleled programmatic flexibility for complex archival requirements that extend beyond standard Red Book CD parameters. WavPack natively supports integer audio up to 32-bit, 32-bit IEEE floating-point data, and 1-bit Direct Stream Digital (DSD) audio streams. It bridges the gap between raw WAV extraction and highly compressed archives.
-Binary Structure and C Library Implementation
-The architecture of WavPack is highly optimized for integration into third-party software and hardware decoders via the libwavpack C library. Every WavPack file consists of a series of independent blocks, allowing for streamability and error resilience. The binary block format begins with a 32-byte little-endian WavpackHeader C struct :
-C
-typedef struct {
-    char ckID[4];              // "wvpk"
-    uint32_t ckSize;           // size of entire block (minus 8)
-    uint16_t version;          // 0x402 to 0x410 are valid for decode
-    uchar block_index_u8;      // upper 8 bits of 40-bit block_index
-    uchar total_samples_u8;    // upper 8 bits of 40-bit total_samples
-    uint32_t total_samples;    // lower 32 bits of total samples
-    uint32_t block_index;      // lower 32 bit index of the first sample
-    uint32_t block_samples;    // number of samples in this block
-    uint32_t flags;            // various flags for id and decoding
-    uint32_t crc;              // crc for actual decoded data
-} WavpackHeader;
-With version 5.0.0 and continuing into 5.9.0, the total_samples and block_index variables were expanded from 32-bit to 40-bit integers, increasing the maximum number of samples in a seekable WavPack file to approximately $2^{40}$, thereby eliminating practical duration limits for extremely high sample-rate data.[13, 13] Following this header, the binary structure contains metadata sub-blocks identified by unique hexadecimal IDs. For instance, ID 0x26 dictates a 16-byte MD5 checksum of the raw audio data, while ID 0x2b maps the identities of non-Microsoft standard audio channels.
-To process files exceeding the legacy 2-gigabyte operating system limit, the library implements the WavpackStreamReader64 callback structure, which accepts 64-bit arguments for read, write, and seek positioning operations. Developers instantiate decoding via the WavpackOpenFileInputEx64() function, passing specific bitmask flags such as OPEN_WVC to locate correction files, OPEN_NORMALIZE to normalize 32-bit floating data to the +/- 1.0 range, and OPEN_STREAMING for blind decoding of raw blocks from pipelines like Matroska.
-Decorrelation Algorithms and Multithreading Modalities
-WavPack's internal compression engine eschews multi-tap filters for decorrelation, instead utilizing single-tap linear predictive filters governed by a sign-sign Least Mean Squares (LMS) adaptation. This self-limiting adaptation eliminates convergence instability. The residual error $e(k)$ is computed as the difference $e(k)=s(k)-w(k)u(k)$ where $w(k)$ is the filter weight value and $u(k)$ is the filter input.
-The weight is continuously updated based on the signs of the filter input and the residual error : 
-$$w(k+1)=w(k)+d\cdot sgn(u(k))\cdot sgn(e(k))$$
-where the parameter $d$ dictates the step-size of the adaptation. During the encoding of cross-channel information, where the weight could theoretically grow indefinitely, the library clips the adaptation variables mathematically to $\pm1$ after each iteration.
-Instead of standard Rice coding, WavPack implements proprietary "Recursive Golomb Coding." Recognizing that standard Rice codes lose efficiency when the optimal divisor parameter falls between two consecutive powers of two, WavPack calculates multiple distinct medians ($m$, $m'$, $m''$) dynamically representing varying sub-populations (1/2, 1/4, 1/8) of the residuals, tracking the signal envelope instantaneously and absorbing transient spikes without requiring side-information to be transmitted to the decoder.
-WavPack 5.9.0 supports two distinct paradigms of multithreading. "Spatial multithreading" processes independent channels of a multichannel file in parallel. "Temporal multithreading" processes sequential frames of a single stream (mono or stereo) in parallel. However, temporal multithreading is mathematically incompatible with WavPack's hybrid lossy modes, as the noise-shaping algorithms require continuity from one frame to the next to prevent audible glitches. Thus, multithreading in stereo hybrid modes falls back to single-threaded operation automatically.
-The Hybrid Lossless Paradigm and DSD Processing
-WavPack�s most potent architectural feature is its Hybrid Compression Mode. Instead of forcing an archivist to choose between lossy compression and lossless preservation, WavPack bifurcates the data stream. It generates a highly optimized lossy .wv file (utilizing dynamic noise shaping) and a proprietary .wvc (WavPack Correction) file. The .wvc file contains the exact residual integer data discarded during the lossy quantization phase. When a compliant decoder detects both files in the same directory, it mathematically recombines them to output a flawless, bit-for-bit restoration of the original PCM audio. This dual-file approach generates minimal overhead while allowing the deployment of the smaller .wv files to bandwidth-constrained environments.
-For 1-bit Direct Stream Digital (DSD) audio, WavPack implements specialized packing matrices. The DSD files can either be opened with the OPEN_AS_PCM flag, which automatically decimates the signal 8x into 24-bit PCM, or with the OPEN_DSD_NATIVE flag, which treats each 8-bit byte as eight consecutive 1-bit DSD samples, preserving the original Sony DSF or Philips DSDIFF structure flawlessly.[13, 13]
-EAC 1.8 WavPack Command-Line Configuration and Argument Justification
-To integrate WavPack into EAC 1.8, the archivist must point the external compressor to wavpack.exe and establish the extension as .wv.
-For Hybrid Lossless Archival, generating both the .wv lossy base and the mathematically required .wvc correction file, deploy the following execution string :
--b320 -c %original% -hh -x6 -m -v --threads=12 -w "Artist=%artist%" -w "Title=%title%" -w "Album=%albumtitle%" -w "Year=%year%" -w "Track=%tracknr%" -w "Genre=%genre%" %source% %dest%
-WavPack Argument Breakdown & Reasoning:
-Argument / PlaceholderTechnical FunctionArchival Reason-b320Target Hybrid Bitrate.Instructs the lossy base file to target 320 kbps. If audio can be packed losslessly under this size, it remains untouched.-c %original%Correction file creation.Instructs WavPack to dump all discarded bits into a companion .wvc file. Using the EAC %original% placeholder string ensures the .wvc file receives the correct filename, bypassing EAC's known double-extension bug.-hhVery High mode.Sacrifices encoding speed to significantly enhance algorithmic compression density without affecting playback speed.-x6Extra Level 6.Engages an exhaustive search model across prediction filters to maximize compression efficiency.-mCompute & store MD5.Generates an MD5 signature of the uncompressed raw audio and writes it to the metadata header. Essential for later bit-parity verification against other lossless files.-vVerification pass.Performs a secondary read pass post-write to verify disk I/O integrity.--threads=12Allocates multiple CPU threads.Vastly speeds up encoding. Note: Official WavPack documentation strictly limits this value to a maximum of 12 for fine-tuning multithreading.-w "FIELD=..."Writes APEv2 tags.Utilizes the APEv2 standard natively supported by WavPack for metadata embedding.Priority 3: LAME 3.100.1 MP3 Encoding and Psychoacoustic Deficiencies
-While lossless archiving remains the absolute priority, extensive database infrastructures still require MP3 files for legacy hardware compatibility, strict streaming bandwidth constraints, and low-latency decoding pipelines. LAME (LAME Ain't an MP3 Encoder) serves as the industry standard for MPEG-1 Audio Layer III encoding. However, compiling a mathematically sound command-line string for version 3.100.1 requires navigating a critical, undocumented psychoacoustic bug that actively destroys audio fidelity if default high-quality parameters are selected.
-The VBR vs. CBR Paradigm
-LAME offers three distinct bitrate allocation modalities:
-1. Constant Bitrate (CBR): Encodes every frame at exactly the same bitrate parameter (e.g., -b 320). This is statistically inefficient, as absolute digital silence requires the same data allocation as a complex orchestral crescendo.
-2. Average Bitrate (ABR): Allows bitrate variance around a targeted mean threshold (e.g., --preset 200), offering a compromise between file size predictability and qualitative flexibility.
-3. Variable Bitrate (VBR): The de facto standard for perceptual audio quality. VBR dynamically adjusts the bitrate on a frame-by-frame basis, dedicating maximum bandwidth to transient-heavy or spectrally dense passages, and dropping to minimal bitrates during silence. This guarantees a fixed perceptual quality across the entire file.
-In modern LAME compilations, the obsolete --alt-preset nomenclature has been entirely replaced by the -V scale, ranging from -V 0 (Highest Quality, approximately 240 kbps average, with no lowpass filter transition band applied) to -V 9 (Lowest Quality).
-The noise_shaping_amp Bug in LAME 3.100 (Ticket #516)
-A severe software regression exists in the LAME 3.100 and 3.100.1 compilations. When operators attempt to encode audio utilizing the highest perceived algorithmic quality settings�specifically CBR -b 320 combined with the internal quality switches -q 0, -q 1, -q 2, or -q 3�the psychoacoustic model fails catastrophically. The resulting output suffers from audible metallic artifacts, "glassy" transient smearing, and destructive high-frequency spectral roll-off.
-This bug traces back to commit r6147 in the LAME SVN repository. The top four -q settings trigger an obsolete acoustic tuning model that remains improperly integrated into the modern codebase. Specifically, the noise_shaping_amp algorithm erroneously suppresses critical high-frequency bands under the false mathematical assumption that quantization noise is overwhelming the channel data. Because the LAME development community has essentially entered hibernation, this bug remains present in all official binaries compiled by MSYS2/Clang or Intel Compilers downloaded from standard repositories like RareWares.
-To bypass this corrupted psychoacoustic model, programmers must explicitly force the command line to inject the -q 4 parameter. Setting -q 4 forces the noise_shaping_amp variable to 0. In this state, quantization noise is spread evenly across all frequency bands, and the encoder correctly boosts bands that exceed the noise threshold rather than destructively suppressing them. Forcing -q 4 completely bypasses the bug, yielding a vastly cleaner, artifact-free MP3 file across all bitrates.
-Debunking the Joint Stereo Channel Separation Myth
-Another persistent misconception in digital audio extraction is the belief that "Joint Stereo" degrades audio quality by destroying discrete channel separation. This leads many users to manually force Normal Stereo via the -m s flag, operating under the assumption that it yields a superior soundstage. This demonstrates a fundamental misunderstanding of LAME's Joint Stereo Mid/Side mathematical implementation.
-In standard Stereo encoding, the Left and Right channels are encoded entirely independently. If both channels contain a centrally panned, monophonic vocal track, the encoder wastes bit allocations compressing the exact same vocal data twice.
-In Joint Stereo mode, LAME applies a mathematical matrix transformation to convert the Left and Right channels into a Mid channel (L+R) and a Side channel (L-R). Because the vast majority of commercial audio is highly correlated�containing significant shared center-channel energy�the Mid channel houses almost all the audio data. The Side channel contains only the subtle phase differences, panning anomalies, and spatial cues. Consequently, LAME can dedicate the overwhelming majority of its bitrate allocation to perfectly preserving the dense Mid channel, utilizing minimal bits for the Side channel.
-Upon playback, the MP3 decoder losslessly reverses the matrix ($L=\frac{Mid+Side}{2}$ and $R=\frac{Mid-Side}{2}$), perfectly and mathematically restoring the original stereo separation. By forcing Normal Stereo (-m s), the user actively starves the encoder of available bits, tangibly degrading the overall audio quality at equivalent bitrates. Joint Stereo must remain at its default operational state for optimal psychoacoustic performance.
-EAC 1.8 LAME Command-Line Deployment and Argument Justification
-In EAC 1.8's "External Compression" tab, set the extension parameter to .mp3 and target the lame.exe executable.
-For standard VBR archival targeting the highest perceptual transparency while actively bypassing the r6147 bug, use the following execution string :
--V 0 -q 4 --ta "%artist%" --tt "%title%" --tg "%genre%" --tl "%albumtitle%" --ty "%year%" --tn "%tracknr%/%numtracks%" %source% %dest%
-LAME Argument Breakdown & Reasoning:
-Argument / PlaceholderTechnical FunctionArchival Reason-V 0Selects Variable Bitrate Level 0.Generates the highest possible VBR quality (averaging ~240kbps) with no lowpass transition band filter applied.-q 4Algorithm quality switch.Bypasses the critical noise_shaping_amp bug (r6147) present in modern LAME compiles, preventing glassy metallic artifacts in high frequencies.--ta, --tt, etc.Internal ID3 tag insertion.Instructs LAME to handle the metadata generation natively during encoding. This guarantees proper ID3v2 padding allocation and prevents file-size mismatch errors.%source% %dest%Directs input and output files.Explicitly tells LAME where the temporary WAV is located and exactly where and what to name the final MP3.Windows 11 Baseline Implementation: Step-by-Step Best Practices
-To establish a flawless Windows 11 baseline for cross-platform comparisons (e.g., against Linux deployments), the archivist must configure Exact Audio Copy 1.8 via the graphical user interface according to strict algorithmic parameters. Below are the definitive steps to achieve optimal extraction.
-Step 1: Optical Drive Calibration (EAC > Drive Options)
-1. Navigate to EAC > Drive Options and select the Extraction Method tab. Click Detect Read Features.
-2. Select Secure mode with following drive features (recommended).
-3. Check Drive has 'Accurate Stream' feature and Drive caches audio data (if detected by the test).
-4. Crucial: Ensure Drive is compatible of retrieving C2 error information remains unchecked, even if the test shows your drive supports it. This forces EAC's software-based verification.
-5. On the Offset / Speed tab, ensure Use AccurateRip with this drive is checked.
-6. Ensure Overread intro Lead-In and Lead-Out is unchecked unless you have exhaustively verified your drive firmware correctly supports this feature without throwing fatal errors.
-7. Ensure Allow speed reduction during extraction is checked, as this algorithm lowers RPMs to smoothly bypass heavily scratched vectors.
-8. On the Gap Detection tab, set Gap/Index retrieval method to Detection method A and Detection accuracy to Secure. (Fallback to Method B or C only if Method A fails to read track gaps).
-Step 2: Uncompressed WAV Extraction Baseline
-For raw PCM baseline testing, no external compressor is configured.
-1. Ensure EAC's main window has the CD tracks selected.
-2. Use the shortcut Shift+F7 or navigate to Action > Copy Selected Tracks > Uncompressed.
-3. This bypasses the External Compression tab entirely, utilizing the secure drive settings to dump raw Windows 11 WAV files directly to the target directory.
-Step 3: FLAC 1.5.0 Step-by-Step Configuration
-1. Navigate to EAC > Compression Options and select the External Compression tab.
-2. Check Use external program for compression.
-3. Set Parameter passing scheme to User Defined Encoder.
-4. Set Use file extension to .flac.
-5. Click Browse and locate the Windows 11 flac.exe binary (version 1.5.0).
-6. Uncheck Use CRC check and Add ID3 tag.
-7. Check Check for external programs return code.
-8. Paste the optimal multithreaded command line into the Additional command-line options box : -8 -V -j 16 -T "ARTIST=%artist%" -T "TITLE=%title%" -T "ALBUM=%albumtitle%" -T "DATE=%year%" -T "TRACKNUMBER=%tracknr%" -T "GENRE=%genre%" -T "COMMENT=%comment%" -T "BAND=%albuminterpret%" -T "ALBUMARTIST=%albumartist%" -T "COMPOSER=%composer%" %haslyrics%--tag-from-file=LYRICS="%lyricsfile%"%haslyrics% -T "DISCNUMBER=%cdnumber%" -T "TOTALDISCS=%totalcds%" -T "TOTALTRACKS=%numtracks%" %hascover%--picture="%coverfile%"%hascover% %source% -o %dest%
-Step 4: LAME 3.100.1 MP3 Step-by-Step Configuration
-1. Navigate to EAC > Compression Options and select the External Compression tab.
-2. Check Use external program for compression.
-3. Set Parameter passing scheme to User Defined Encoder.
-4. Set Use file extension to .mp3.
-5. Click Browse and locate the patched Windows 11 lame.exe binary.
-6. Uncheck Use CRC check and Add ID3 tag (allowing LAME to handle ID3v2 natively via the command line prevents padding errors).
-7. Check Check for external programs return code.
-8. Paste the VBR optimization string (incorporating the psychoacoustic fix) into the Additional command-line options box : -V 0 -q 4 --ta "%artist%" --tt "%title%" --tg "%genre%" --tl "%albumtitle%" --ty "%year%" --tn "%tracknr%/%numtracks%" %source% %dest%
-Cross-Format Tagging and Metadata Uniformity
-A cohesive archival database requires standardized metadata payload injection across disparate file formats. EAC 1.8 dynamically fetches metadata from AccurateRip, CTDB, and MusicBrainz via its.NET plugins, but translating that raw metadata into the container file requires format-specific protocols mapped directly in the external compression command lines.
-Audio FormatPrimary Tag SchemaEAC Implementation MechanismFLACVorbis CommentsHandled natively via the -T flag in the command-line string.WavPackAPEv2Handled natively via the -w flag in the command-line string.MP3ID3v2.3 / ID3v2.4Handled via LAME's internal flags (--ta, --tl). ID3v1 is generated by default; if character limits are exceeded, ID3v2 is automatically appended.Maintaining strict adherence to these tagging methodologies ensures that the resulting digital extraction library remains universally searchable, scriptable, and immune to cross-platform parsing failures.
-Final Architectural Directives
-The transition to EAC 1.8, alongside the modern algorithmic iterations of FLAC, WavPack, and LAME, mandates that programmers and database archivists abandon obsolete methodologies. The permanent removal of freedb and the deprecation of pre-1.0b2 placeholder strings dictate a complete fundamental reconfiguration of all extraction environments.
-To maintain perfect mathematical bit-parity and playback integrity across all deployed formats, the following architectural directives must be adhered to:
-1. Drive Security and Error Mitigation: Always disable C2 error pointers in EAC configuration. Unless the optical drive is mathematically verified through programmatic testing to report C2 vectors without false positives, relying on them introduces silent data corruption. Rely exclusively on EAC's native Secure Mode re-reading algorithms.
-2. FLAC Multithreaded Deployment: Utilize FLAC 1.5.0 with the -j parameter to enable native multithreading. This allows for maximum mathematical compression (-8) without bottlenecking the extraction pipeline's read speeds. If generating unified CUE sheets, preempt the .flac.flac double extension anomaly through intermediary batch scripting (EACPASS.CMD) or by utilizing FLAC's internal --cuesheet metadata embedding parameters.
-3. WavPack Hybrid Mastery for Advanced Architecture: For database environments demanding both low-bandwidth portability and flawless lossless restoration, deploy WavPack 5.9.0's -c parameter. This provides a mathematically exact .wvc correction file that bridges the gap between raw WAV extraction and high-efficiency streaming. Always append the -m and -v flags to ensure MD5 hash generation and post-write I/O verification at the disc level.
-4. LAME Psychoacoustic Correction: Never utilize the default high-quality preset switches (-q 0 through -q 3) in LAME 3.100.1 compilations. These flags trigger severe acoustic degradation via the noise_shaping_amp bug. Always force the -q 4 parameter to disable the faulty model. Furthermore, never disable Joint Stereo; Mid/Side matrix encoding is mathematically essential for optimal bit-allocation and preserves absolute spatial phase integrity.
-By systematically implementing these updated programmatic configurations, database maintainers guarantee that the digital extraction process remains mathematically flawless, technologically resilient against software bugs, and compliant with the highest standards of archival science.
-Appendix: Distilled Quick-Start Setup Guide for Direct Comparison
-This section serves as a direct, step-by-step checklist for configuring your 3 primary output formats for a direct cross-platform comparison.
-Configuration 1: Baseline Uncompressed WAV
-Raw WAV requires no external encoder configuration. This is used to test the pure drive reading performance and extraction bit-parity.
-1. Launch EAC.
-2. Insert your reference CD and ensure track metadata is loaded (via AccurateRip or MusicBrainz).
-3. Select all tracks (Ctrl + A).
-4. Press Shift + F7 on your keyboard (or navigate to Action > Copy Selected Tracks > Uncompressed).
-5. Select your output folder. EAC will output bit-perfect .wav files.
-Configuration 2: FLAC 1.5.0 (Maximum Lossless Compression)
-1. Open EAC and go to EAC > Compression Options (F11).
-2. Select the External Compression tab.
-3. Check: "Use external program for compression". 
-4. Parameter passing scheme: Select "User Defined Encoder". 
-5. Use file extension: Type .flac.
-6. Program, including path: Click Browse and point to your downloaded flac.exe (v1.5.0).
-7. Additional command-line options: Paste the following string exactly as written. This ensures maximum compression (-8), native multithreading (-j 16), post-write verification (-V), and exhaustive Vorbis metadata passing: -8 -V -j 16 -T "ARTIST=%artist%" -T "TITLE=%title%" -T "ALBUM=%albumtitle%" -T "DATE=%year%" -T "TRACKNUMBER=%tracknr%" -T "GENRE=%genre%" -T "COMMENT=%comment%" -T "BAND=%albuminterpret%" -T "ALBUMARTIST=%albumartist%" -T "COMPOSER=%composer%" %haslyrics%--tag-from-file=LYRICS="%lyricsfile%"%haslyrics% -T "DISCNUMBER=%cdnumber%" -T "TOTALDISCS=%totalcds%" -T "TOTALTRACKS=%numtracks%" %hascover%--picture="%coverfile%"%hascover% %source% -o %dest%
-8. Uncheck: "Use CRC check". 
-9. Uncheck: "Add ID3 tag" (FLAC uses Vorbis comments natively). 
-10. Check: "Check for external programs return code". 
-11. Click OK, select your tracks, and press Shift + F8 (or Action > Copy Selected Tracks > Compressed).
-Configuration 3: LAME 3.100.1 MP3 (Maximum Lossy Quality)
-1. Open EAC and go to EAC > Compression Options (F11).
-2. Select the External Compression tab.
-3. Check: "Use external program for compression".
-4. Parameter passing scheme: Select "User Defined Encoder".
-5. Use file extension: Type .mp3.
-6. Program, including path: Click Browse and point to your downloaded lame.exe (v3.100.1).
-7. Additional command-line options: Paste the following string. This ensures the highest possible Variable Bitrate (VBR) transparency (-V 0), forces the bug-free acoustic model (-q 4), and allows LAME to write its own ID3 tags perfectly padded: -V 0 -q 4 --ta "%artist%" --tt "%title%" --tg "%genre%" --tl "%albumtitle%" --ty "%year%" --tn "%tracknr%/%numtracks%" %source% %dest% (Note: If you require absolute Constant Bitrate for legacy hardware compatibility, replace -V 0 with -b 320 in the string above).
-8. Uncheck: "Use CRC check".
-9. Uncheck: "Add ID3 tag" (Crucial: the command line string above tells LAME to do this internally to prevent padding issues).
-10. Check: "Check for external programs return code".
-11. Click OK, select your tracks, and press Shift + F8 (or Action > Copy Selected Tracks > Compressed).
+## The principle
 
+Red Book audio CDs lack the sync/error-correction layer of data CDs, so a naive
+OS read yields jitter and dropped samples. Archival extraction means forcing
+**bit-parity** with the original PCM: re-read until the reads agree, correct for
+the drive's read offset, and verify the result against independent databases
+(AccurateRip, CTDB). FLAC is the lossless master; WAV is the raw baseline;
+WavPack and MP3 are derived.
+
+## EAC drive / extraction settings the guide calls out (parity checklist)
+
+- **Secure Mode** — re-read sectors until statistical parity; never trust a
+  single read.
+- **Accurate Stream** — assume the drive has it (nearly all modern drives do).
+- **Drive caches audio data → defeat the cache** — enable so EAC flushes the
+  cache between re-reads, forcing genuinely independent reads.
+- **C2 error pointers — leave DISABLED**, *even if the drive reports support*.
+  Many drives falsely report clean reads while dropping C2 internally, so the
+  guide relies on software re-reading, not C2. (So "no C2" is best practice, not
+  a deficiency.)
+- **Read sample offset correction** — set from the AccurateRip drive database
+  (auto via a "Key Disc", or entered manually as a signed integer).
+- **Overread into Lead-In/Lead-Out** — leave OFF unless the drive's firmware is
+  verified to support it without errors.
+- **Allow speed reduction during extraction** — on, so the drive slows over
+  scratches instead of erroring.
+- **Gap/Index retrieval — Detection Method A, "Secure" accuracy** (fall back to
+  B/C only if A can't read the gaps).
+- **AccurateRip + CTDB** — use both for verification/metadata; freedb is dead.
+
+## Encoder targets (best-practice command intent)
+
+- **FLAC 1.5** — max compression + verify + multithread: `-8 -V -j <N>`, tags as
+  native Vorbis comments. `-V` decodes the result and compares it to the source
+  (guards disk-write corruption).
+- **WAV** — uncompressed PCM baseline; no standardized tagging (RIFF), so it's a
+  staging/comparison format, not the archive.
+- **WavPack 5.9** — hybrid lossless (`-c` writes the `.wv` lossy base + a `.wvc`
+  correction file that recombines to bit-exact), plus `-m` (store MD5) and `-v`
+  (verify pass).
+- **LAME 3.100.1 MP3** — best-practice VBR (`-V 0`), with the author's
+  **verify-before-relying** claim that `-q 4` sidesteps an `noise_shaping_amp`
+  regression (SVN r6147) that degrades `-q 0..3`. Keep Joint Stereo (Mid/Side)
+  on. *N.B.:* Platterpus encodes MP3 with **ffmpeg**, not `lame.exe -q 0..3`, so
+  this specific LAME command-line footgun isn't in our path.
+
+## How Platterpus maps to these
+
+See the README's **"Capability & EAC-parity matrix"** and **"Point-by-point vs.
+the EAC 'perfect rip' checklist"** for the line-by-line mapping (Secure Mode →
+cyanrip paranoia + `-Z`, C2 correctly off, offset via AccurateRip, gaps via TOC
++ cyanrip PR #115, FLAC `-8 -V`, etc.), and `../ripper-engine-strategy.md` for
+the deferred gaps.
+
+## Sources referenced
+
+The source guide is a user-supplied document (not a public URL we can cite), but
+the authoritative tool/reference websites it points to are kept here so a reader
+can go to the primary source rather than trusting a paraphrase:
+
+- **Exact Audio Copy** — <https://www.exactaudiocopy.de/> (the reference ripper;
+  our parity target)
+- **FLAC** — <https://xiph.org/flac/> (encoder + format spec)
+- **WavPack** — <https://www.wavpack.com/> (hybrid-lossless encoder)
+- **LAME** — <https://lame.sourceforge.io/> (the MP3 encoder the guide's
+  `-q 4`/`noise_shaping_amp` claim concerns; *verify before relying* — and note
+  Platterpus encodes MP3 via ffmpeg, not LAME directly)
+- **AccurateRip** — <https://www.accuraterip.com/> and **CueTools DB (CTDB)** —
+  <http://cue.tools/> (the two verification databases)
