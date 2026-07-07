@@ -34,11 +34,34 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 | Gap / `INDEX 00` pre-gap detection + HTOA (hidden track) | ❌ | **Yes** — `cdrdao read-toc` subprocess (**no PR**), and/or cyanrip **PR #115** (cyanreg) |
 | Test & Copy (two full passes) | ⚠️ | Partial — cyanrip `-Z` re-read consensus (a stronger guarantee); optional PR to **cyanreg**, low value |
 | Cache-defeat *verdict* | ⚠️ | "Attempted, not measured" — optional self-test PR to **cyanreg**; low priority |
-| C2 error pointers | ❌ | **No on this drive** (BDR-209D lacks C2). Otherwise a 2-repo chain: **rocky** → **cyanreg** |
+| C2 error pointers | ✅\* | **Aligned with EAC archival best practice — which *disables* C2.** The perfect-rip guide leaves C2 unchecked *even when the drive supports it* (drives falsely report clean reads while dropping C2 internally); the archival path relies on re-reads + AccurateRip/CTDB. So "no C2" is correct, not a gap |
 | Signed EAC log checksum | ❌ | **Never** — signing our log as EAC forges provenance (bannable fake log). No PR, ever |
 | Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: re-add whipper, or a 2-PR chain **cyanreg → itismadness** (low odds) |
 
-**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip, tags, art, provenance — is in place. The one clearly-worth-doing gap is **gap/INDEX-00 + HTOA** (a `cdrdao` subprocess integration, no upstream PR needed). CTDB is a code fix in progress. The rest is either *never* (signed checksum = forgery), *moot on this hardware* (C2), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
+**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip, tags, art, provenance — is in place. The one clearly-worth-doing gap is **gap/INDEX-00 + HTOA** (a `cdrdao` subprocess integration, no upstream PR needed). CTDB is a code fix in progress. The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
+
+### Point-by-point vs. the EAC "perfect rip" checklist
+
+Mapped directly to the settings the *Archival-Grade Extraction* master guide calls out for EAC 1.8 (`docs/archive/archival-extraction-guide-2026-06.md`). ✅ matches · ⚠️ partial/in-progress · ➖ deliberately N/A.
+
+| EAC "perfect rip" setting | Platterpus / cyanrip equivalent | Match |
+|---|---|---|
+| **Secure Mode** — re-read sectors until statistical parity | cyanrip paranoia = **max** + `-Z N` consensus re-read (re-rips a track until N reads agree) | ✅ |
+| **Accurate Stream** drive feature | assumed by the paranoia read path | ✅ |
+| **Drive caches audio data** → flush cache between re-reads (cache-defeat) | libcdio-paranoia *attempts* cache-defeat; we report it **"(unknown)"** — attempted, not *measured* (KDD-25), never faked "Yes" | ⚠️ |
+| **C2 error info — leave UNCHECKED** (disable, even if supported) | We don't use C2 → **exactly what the guide prescribes** | ✅ |
+| **Read sample offset correction** (AccurateRip Key Disc) | `+667` from the bundled AccurateRip drive DB / **Set up drive** | ✅ |
+| **Overread into Lead-In/Lead-Out** — off unless firmware-verified | cyanrip overreads **+2 frames, filled with silence** (conservative) | ✅ |
+| **Allow speed reduction** on scratches | cyanrip adaptive read-speed ladder | ✅ |
+| **Gap/Index — Detection Method A, Secure** | cyanrip emits `INDEX 00`/pregaps from the TOC today; exact subchannel detection + HTOA is cyanrip **PR #115** (in progress) | ⚠️ |
+| **AccurateRip** verify | v1 + v2 (+ offset-variant) | ✅ |
+| **CTDB** verify | present; CRC algorithm fix pending your hardware re-validation | ⚠️ |
+| **FLAC** `-8 -V -j` (max compression + decode-verify + threads) | cyanrip FLAC → post-rip **FLAC verify (decodes clean)** + optional max-compression recompress | ✅ |
+| **WAV** uncompressed baseline | WAV output (no tags — the UI warns) | ✅ |
+| **WavPack** hybrid `-c` + `-m -v` | WavPack **lossless** (not the lossy+`.wvc` hybrid) | ⚠️ |
+| **LAME** `-V 0 -q 4` (dodge the r6147 `noise_shaping_amp` bug) | MP3 is encoded by **ffmpeg** VBR, not `lame.exe -q 0..3` — so that LAME-specific footgun **isn't in our path** | ➖ |
+| **Vorbis / APEv2 / ID3** tags per format | FLAC→Vorbis (cyanrip), MP3/WavPack tags via ffmpeg | ✅ |
+| **Signed EAC log checksum** | **never** — signing our log as EAC forges provenance | ➖ (refused) |
 
 ---
 
