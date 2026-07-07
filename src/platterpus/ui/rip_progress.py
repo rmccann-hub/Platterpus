@@ -38,7 +38,11 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
-from platterpus.parsers.rip_log import RipLog, accuraterip_is_match
+from platterpus.parsers.rip_log import (
+    RipLog,
+    accuraterip_is_match,
+    track_accuraterip_verified,
+)
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
@@ -50,13 +54,22 @@ __all__ = ["RipProgress", "accuraterip_verdict", "loudness_summary_line"]
 log = logging.getLogger(__name__)
 
 # AR table column layout. The brief calls out per-track AR confidence;
-# we expose v1 and v2 separately since they can disagree.
-_AR_COLUMNS: list[str] = ["#", "Title", "Status", "AR v1", "AR v2"]
+# we expose v1 and v2 separately since they can disagree. The trailing "EAC"
+# column shows each track's EAC-format CRC32 (cyanrip's "EAC CRC32", = the Copy
+# CRC in the companion log) so it can be eyeballed against a real EAC rip,
+# plus a ✓ when the track meets the archival bar we can actually verify.
+_AR_COLUMNS: list[str] = ["#", "Title", "Status", "AR v1", "AR v2", "EAC"]
 _AR_COL_NUMBER: int = 0
 _AR_COL_TITLE: int = 1
 _AR_COL_STATUS: int = 2
 _AR_COL_V1: int = 3
 _AR_COL_V2: int = 4
+_AR_COL_EAC: int = 5
+
+# Glyphs for the EAC column's at-a-glance archival mark (symbol + text, never
+# colour alone — the trust-first UX rule).
+_EAC_VERIFIED: str = "✓"
+_EAC_PARTIAL: str = "~"
 
 
 # Hook so tests can intercept the "open file" action without launching
@@ -159,7 +172,13 @@ class RipProgress(QWidget):
         self._ar_table.verticalHeader().setVisible(False)
         header = self._ar_table.horizontalHeader()
         header.setSectionResizeMode(_AR_COL_TITLE, QHeaderView.ResizeMode.Stretch)
-        for col in (_AR_COL_NUMBER, _AR_COL_STATUS, _AR_COL_V1, _AR_COL_V2):
+        for col in (
+            _AR_COL_NUMBER,
+            _AR_COL_STATUS,
+            _AR_COL_V1,
+            _AR_COL_V2,
+            _AR_COL_EAC,
+        ):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         # Same reasoning as the log view: a small minimum so the splitter can
         # shrink this table and free up drag slack at the default window size.
@@ -309,11 +328,15 @@ class RipProgress(QWidget):
             v2_item = QTableWidgetItem(
                 _ar_cell(track.accuraterip_v2, offset_result=offset)
             )
+            eac_text, eac_tip = _eac_cell(track)
+            eac_item = QTableWidgetItem(eac_text)
+            eac_item.setToolTip(eac_tip)
             self._ar_table.setItem(row, _AR_COL_NUMBER, number_item)
             self._ar_table.setItem(row, _AR_COL_TITLE, title_item)
             self._ar_table.setItem(row, _AR_COL_STATUS, status_item)
             self._ar_table.setItem(row, _AR_COL_V1, v1_item)
             self._ar_table.setItem(row, _AR_COL_V2, v2_item)
+            self._ar_table.setItem(row, _AR_COL_EAC, eac_item)
 
         # Album loudness + partial-accurate footnote (data cyanrip already
         # logged; previously only in the JSON). Hidden when there's nothing.
@@ -513,6 +536,55 @@ def _basename(path: str) -> str:
         return ""
     stem = Path(path).stem
     return stem or path
+
+
+def _copy_is_ok(status: str) -> bool:
+    """True when a track's status is a clean copy (EAC's 'Copy OK')."""
+    return status.strip().lower() in ("copy ok", "ripped successfully")
+
+
+def _eac_cell(track: object) -> tuple[str, str]:
+    """Render the EAC column for a track: the EAC CRC32 value + an archival mark.
+
+    Returns ``(text, tooltip)``. The value is cyanrip's per-track EAC CRC32 (the
+    same "Copy CRC" the companion log carries), so it can be diffed against a
+    real EAC rip. The trailing glyph is an at-a-glance, HONEST archival mark —
+    never a claim that our log equals an EAC-signed one (Platterpus never signs
+    an EAC log):
+
+    * ``✓`` — the track is AccurateRip-verified *and* its copy is OK. The rip as
+      a whole is read-offset-corrected with no read errors, so a verified track
+      meets the archival bar we can actually check.
+    * ``~`` — partially accurate: matched only an offset-variant pressing, not
+      the exact AccurateRip checksum (never a false ✓).
+    * (no glyph) — a real CRC we recorded but can't externally verify (not in
+      the AccurateRip database).
+
+    Never raises (duck-typed via ``getattr`` / the shared match helpers).
+    """
+    crc = (getattr(track, "copy_crc", "") or "").upper()
+    if not crc:
+        return "—", "No per-track EAC CRC32 was recorded for this track."
+    status = getattr(track, "status", "") or ""
+    if track_accuraterip_verified(track) and _copy_is_ok(status):
+        return (
+            f"{crc}  {_EAC_VERIFIED}",
+            "EAC-format CRC32. ✓ = AccurateRip-verified and copy OK; the rip is "
+            "read-offset-corrected with no read errors, so this track meets the "
+            "archival bar we can verify. NOT a claim of EAC-checksum equivalence "
+            "— Platterpus never signs an EAC log.",
+        )
+    if accuraterip_is_match(getattr(track, "accuraterip_offset", None)):
+        return (
+            f"{crc}  {_EAC_PARTIAL}",
+            "EAC-format CRC32. ~ = partially accurate: matched an offset-variant "
+            "pressing, not the exact AccurateRip checksum.",
+        )
+    return (
+        crc,
+        "EAC-format CRC32 (compare against a real EAC log). No ✓: this track "
+        "isn't in the AccurateRip database, so it can't be externally verified.",
+    )
 
 
 def _ar_cell(result: object, *, offset_result: object = None) -> str:

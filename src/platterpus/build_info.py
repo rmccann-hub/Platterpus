@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 # The sentinel used when no build stamp is present (source/editable installs).
@@ -141,3 +142,26 @@ def dependency_summary(report: object) -> dict:
             "min_version_met": False,
         }
     return summary
+
+
+def encoder_versions(report: object, dep_ids: Iterable[str]) -> dict[str, str]:
+    """``{dep_id: "version"}`` for the named deps present with a known version.
+
+    A thin, DRY reducer over :func:`dependency_summary` so every provenance
+    surface (the EAC-compatible log, ``--doctor``) records the *same* tool
+    versions from the *same* source — the LAUNCH-TIME dependency probe, never a
+    fresh one (re-probing enters the Distrobox container and would freeze the
+    GUI). A dep that's absent or whose version is unknown is **omitted, never
+    invented** — the honesty gate: we only ever record a version we actually
+    measured. Pure and never raises (delegates to ``dependency_summary``).
+
+    Example: ``encoder_versions(report, ["flac", "metaflac", "ffmpeg"])`` →
+    ``{"flac": "1.5.0", "metaflac": "1.5.0", "ffmpeg": "8.1.1"}``.
+    """
+    summary = dependency_summary(report) if report is not None else {}
+    result: dict[str, str] = {}
+    for dep_id in dep_ids:
+        version = (summary.get(dep_id) or {}).get("version")
+        if version:
+            result[dep_id] = str(version)
+    return result

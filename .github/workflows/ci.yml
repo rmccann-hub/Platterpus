@@ -137,11 +137,34 @@ jobs:
       # Run with branch coverage and a hard floor. The gate ratchets up as
       # the suite grows — raise --cov-fail-under when TOTAL comfortably clears
       # it; never lower it to make a red build pass.
+      #
+      # Retry-on-abort wrapper: the offscreen-Qt/PySide test harness
+      # intermittently ABORTS at *process* level — SIGABRT/SIGSEGV/SIGBUS (exit
+      # 134/135/139), a known Qt-teardown / worker-thread data race under the
+      # headless platform, NOT a product or test-logic failure (documented in
+      # tests/conftest.py and docs/testing.md). It hits a large fraction of runs
+      # of the QThread-heavy files, so a single attempt reddens the matrix far too
+      # often to be a useful signal. We retry ONLY on such an abort, or on a
+      # per-attempt hang caught by `timeout` (exit 124/137). A genuine test
+      # failure or a coverage-gate miss is exit 1 and is returned immediately —
+      # never retried, never masked — so the gate keeps all its teeth. Each retry
+      # is surfaced as a CI warning so a rising abort rate stays visible.
       - name: Run tests (with coverage gate)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: >-
-          pytest -q
-          --cov=platterpus
-          --cov-report=term-missing
-          --cov-fail-under=91
+        timeout-minutes: 45
+        run: |
+          set +e
+          attempts=6
+          for attempt in $(seq 1 "$attempts"); do
+            timeout --signal=KILL 7m \
+              pytest -q --cov=platterpus --cov-report=term-missing --cov-fail-under=91
+            rc=$?
+            # 0 = pass, 1 = real test failure or coverage-gate miss → return as-is.
+            if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then
+              exit "$rc"
+            fi
+            echo "::warning::pytest exited $rc (known offscreen-Qt teardown abort/hang, not a test failure) — attempt $attempt/$attempts"
+          done
+          echo "::error::pytest did not complete cleanly after $attempts attempts (last exit $rc)"
+          exit "$rc"

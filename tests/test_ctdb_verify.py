@@ -65,7 +65,11 @@ def test_streaming_crc_equals_whole_buffer_crc() -> None:
 
 
 def test_offset_range_constant() -> None:
-    assert crc_mod.CTDB_OFFSET_RANGE == 2939
+    # CTDB sweeps ±(stride/2 − 1) = ±5879 frames — WIDER than AccurateRip's
+    # ±2939. Using the AR range was the KDD-16 calibration bug; pin the correct
+    # CTDB value so it can't regress back.
+    assert crc_mod.CTDB_OFFSET_RANGE == 5879
+    assert crc_mod.CTDB_OFFSET_RANGE == crc_mod.CTDB_STRIDE_WORDS // 2 - 1
 
 
 @given(st.binary(max_size=400))

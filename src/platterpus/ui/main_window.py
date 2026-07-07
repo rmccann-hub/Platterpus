@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus import __version__
 from platterpus.adapters import cover_art
 from platterpus.adapters.accuraterip_offsets import OffsetDatabase
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbHttpImpl
@@ -143,7 +144,10 @@ class MainWindow(
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Platterpus")
+        # Show the running version at a glance — the title bar is the one
+        # always-visible surface, so a rip's provenance no longer requires
+        # opening Help → About (which still carries the build fingerprint too).
+        self.setWindowTitle(f"Platterpus {__version__}")
         self.resize(960, 720)
 
         # --- Injected dependencies -----------------------------------------

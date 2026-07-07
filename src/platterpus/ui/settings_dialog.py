@@ -296,8 +296,11 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Cover art:", self._cover_art_combo)
 
         # Also save back cover + booklet scans (as files — they can't be embedded).
+        # "and", not "&": Qt eats a lone "&" in a widget label as a mnemonic
+        # marker (it was rendering "back cover  booklet images" + a stray
+        # Alt+Space shortcut). Spelling it out avoids the ampersand entirely.
         self._additional_art_check: QCheckBox = QCheckBox(
-            "Also save back cover & booklet images", self
+            "Also save back cover and booklet images", self
         )
         self._additional_art_check.setChecked(config.save_additional_art)
         self._additional_art_check.setToolTip(

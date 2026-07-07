@@ -32,18 +32,26 @@ CTDBCRC(offset) = zlib.crc32( pcm[ (front+offset)*4 : len - (back-offset)*4 ] )
   `(leadout - 150) * 588` (lead-in removed), which for a real CD equals the
   concatenated decoded-FLAC frame count (tracks are sector-aligned).
 - `offset` slides a **constant-length window** across the guard band
-  (`front += offset; back -= offset`), tolerance `±(5·588−1) = ±2939` samples.
-  `offset = 0` is the value stored in the database; a correctly-offset rip
-  matches there.
+  (`front += offset; back -= offset`), tolerance **`±(stride/2 − 1) = ±5879`
+  frames** — CueTools `CDRepair.FindOffset` sweeps `1 − stride/2 … stride/2`.
+  This is DELIBERATELY WIDER than AccurateRip's ±2939 (`5·588 − 1`); real
+  pressing offsets routinely exceed the AR window. `offset = 0` is the value
+  stored in the database; a correctly-offset rip matches there.
 
-### Why the earlier placeholder failed
+### Why the earlier attempts failed
 
-The v0.4.x placeholder computed a plain `zlib.crc32` of the **untrimmed** disc
-(equivalently trim `(0,0)`). The CRC *polynomial was always right* — the **trim**
-was wrong. On the maintainer's Police disc the real trim is `front=5880`,
-`back=9996` frames (asymmetric), which the old symmetric candidate sweep never
-generated, so a genuinely-good, in-database disc reported `NO_MATCH`. See the
-2026-07-06/07 session log.
+Two separate off-by-a-constant bugs, both since fixed (verified against the
+CueTools C# source):
+
+1. **Trim (v0.4.16 placeholder).** It computed a plain `zlib.crc32` of the
+   **untrimmed** disc (trim `(0,0)`). The CRC polynomial was always right — the
+   trim was wrong. The real trim is `front=5880`, `back=9996` frames
+   (asymmetric); v0.4.17 fixed this.
+2. **Offset range (v0.4.17).** The trim was now correct, but calibration swept
+   only AccurateRip's **±2939**. CTDB matches over **±5879**; a pressing aligned
+   in (2939, 5879] was never reached, so a genuinely-good in-database disc still
+   reported `NO_MATCH`. v0.4.18 widened the sweep to the CTDB range. The
+   CRC/trim/combine were confirmed bit-for-bit correct.
 
 ## How Platterpus uses it
 
@@ -51,7 +59,7 @@ generated, so a genuinely-good, in-database disc reported `NO_MATCH`. See the
   (`crc.ctdb_crc_offset0_streaming`, one track resident at a time — #39 memory
   fix) using `total_frames` from the TOC, and compares to the DB entries.
 - **Calibrate** (`ctdb/calibrate.py`, `platterpus --ctdb-calibrate`): sweeps the
-  full ±2939 offset window and reports which offset reproduces a DB CRC. Uses the
+  full ±5879 offset window and reports which offset reproduces a DB CRC. Uses the
   zlib `crc32_combine` (GF(2) "append N zero bytes") operator so the whole sweep
   is a few big CRC passes plus cheap algebra, not 5 879 re-CRCs of a ~600 MB disc.
   A match at `offset 0` means the rip's read offset aligns with that pressing; a

@@ -168,7 +168,10 @@ def main(argv: list[str] | None = None) -> int:
 
         ctx = preflight.default_context(cfg)
         color = sys.stdout.isatty()
-        print(f"Platterpus preflight — backend: {ctx.backend_name}\n")
+        print(
+            f"Platterpus {__version__} (build {build_fingerprint()}) preflight "
+            f"— backend: {ctx.backend_name}\n"
+        )
         results = preflight.run_preflight(
             ctx, on_result=lambda r: print(preflight.format_line(r, color=color))
         )

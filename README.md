@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.4.x — public pre-release.** Implemented end-to-end with 1,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage, and validated on real Bazzite hardware: a full 16-track rip *through the published AppImage*, AccurateRip-verified bit-perfect. Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), and **cover art** from the Cover Art Archive. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **Status: v0.4.x — public pre-release.** Implemented end-to-end with 1,600+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), **cover art** from the Cover Art Archive, an **EAC-compatible companion log** with a per-track **EAC CRC32 column** in the results table, and **software-version provenance** (Platterpus + encoder versions) recorded in the log header and the window title. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -16,6 +16,52 @@
 - **No terminal prompts from the ripper** — the GUI queries MusicBrainz directly, then runs cyanrip offline with the chosen release's tags, so its interactive prompt never surfaces.
 - **Choose your output format** — FLAC (default), WavPack, MP3, or WAV. FLAC is always produced as the lossless master; other formats are derived from it, so you never lose the archival copy. See [Audio output](#audio-output-what-you-get-what-you-dont).
 - **Distribution model:** AppImage primary, `pipx` secondary.
+
+---
+
+## Capability & EAC-parity matrix
+
+Where Platterpus stands against EAC-equivalent archival quality: what it has, what's missing, whether each gap is closeable, and — if closing it needs an upstream pull request — from which project's maintainer. **✅ have it · ⚠️ partial · ❌ not yet.** Maintainers: **cyanreg** = [cyanrip](https://github.com/cyanreg/cyanrip), **rocky** = [libcdio-paranoia](https://github.com/libcdio/libcdio-paranoia), **itismadness** = [OPS/Orpheus Logchecker](https://github.com/OPSnet/Logchecker).
+
+| Capability | Status | Reachable? — how / who |
+|---|---|---|
+| Bit-perfect audio, CRC-provable | ✅ | Have it — AccurateRip + CTDB CRCs |
+| AccurateRip verify (v1 + v2) | ✅ | Have it |
+| CTDB audio-CRC verify | ⚠️ | **Yes** — CRC algorithm being corrected; **Platterpus code, no PR** |
+| EAC-style log + per-track EAC CRC32 column + software-version provenance | ✅ | Have it |
+| MusicBrainz tags · front/back/booklet art · UPC/catalog/label · ReplayGain | ✅ | Have it |
+| AppImage · zero-terminal setup · in-app update · FLAC master + WavPack/MP3/WAV | ✅ | Have it |
+| Gap / `INDEX 00` pre-gap detection + HTOA (hidden track) | ❌ | **Yes** — `cdrdao read-toc` subprocess (**no PR**), and/or cyanrip **PR #115** (cyanreg) |
+| Test & Copy (two full passes) | ⚠️ | Partial — cyanrip `-Z` re-read consensus (a stronger guarantee); optional PR to **cyanreg**, low value |
+| Cache-defeat *verdict* | ⚠️ | "Attempted, not measured" — optional self-test PR to **cyanreg**; low priority |
+| C2 error pointers | ✅\* | **Aligned with EAC archival best practice — which *disables* C2.** The perfect-rip guide leaves C2 unchecked *even when the drive supports it* (drives falsely report clean reads while dropping C2 internally); the archival path relies on re-reads + AccurateRip/CTDB. So "no C2" is correct, not a gap |
+| Signed EAC log checksum | ❌ | **Never** — signing our log as EAC forges provenance (bannable fake log). No PR, ever |
+| Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: re-add whipper, or a 2-PR chain **cyanreg → itismadness** (low odds) |
+
+**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip, tags, art, provenance — is in place. The one clearly-worth-doing gap is **gap/INDEX-00 + HTOA** (a `cdrdao` subprocess integration, no upstream PR needed). CTDB is a code fix in progress. The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
+
+### Point-by-point vs. the EAC "perfect rip" checklist
+
+Mapped directly to the settings the *Archival-Grade Extraction* master guide calls out for EAC 1.8 (`docs/archive/archival-extraction-guide-2026-06.md`). ✅ matches · ⚠️ partial/in-progress · ➖ deliberately N/A.
+
+| EAC "perfect rip" setting | Platterpus / cyanrip equivalent | Match |
+|---|---|---|
+| **Secure Mode** — re-read sectors until statistical parity | cyanrip paranoia = **max** + `-Z N` consensus re-read (re-rips a track until N reads agree) | ✅ |
+| **Accurate Stream** drive feature | assumed by the paranoia read path | ✅ |
+| **Drive caches audio data** → flush cache between re-reads (cache-defeat) | libcdio-paranoia *attempts* cache-defeat; we report it **"(unknown)"** — attempted, not *measured* (KDD-25), never faked "Yes" | ⚠️ |
+| **C2 error info — leave UNCHECKED** (disable, even if supported) | We don't use C2 → **exactly what the guide prescribes** | ✅ |
+| **Read sample offset correction** (AccurateRip Key Disc) | `+667` from the bundled AccurateRip drive DB / **Set up drive** | ✅ |
+| **Overread into Lead-In/Lead-Out** — off unless firmware-verified | cyanrip overreads **+2 frames, filled with silence** (conservative) | ✅ |
+| **Allow speed reduction** on scratches | cyanrip adaptive read-speed ladder | ✅ |
+| **Gap/Index — Detection Method A, Secure** | cyanrip emits `INDEX 00`/pregaps from the TOC today; exact subchannel detection + HTOA is cyanrip **PR #115** (in progress) | ⚠️ |
+| **AccurateRip** verify | v1 + v2 (+ offset-variant) | ✅ |
+| **CTDB** verify | present; CRC algorithm fix pending your hardware re-validation | ⚠️ |
+| **FLAC** `-8 -V -j` (max compression + decode-verify + threads) | cyanrip FLAC → post-rip **FLAC verify (decodes clean)** + optional max-compression recompress | ✅ |
+| **WAV** uncompressed baseline | WAV output (no tags — the UI warns) | ✅ |
+| **WavPack** hybrid `-c` + `-m -v` | WavPack **lossless** (not the lossy+`.wvc` hybrid) | ⚠️ |
+| **LAME** `-V 0 -q 4` (dodge the r6147 `noise_shaping_amp` bug) | MP3 is encoded by **ffmpeg** VBR, not `lame.exe -q 0..3` — so that LAME-specific footgun **isn't in our path** | ➖ |
+| **Vorbis / APEv2 / ID3** tags per format | FLAC→Vorbis (cyanrip), MP3/WavPack tags via ffmpeg | ✅ |
+| **Signed EAC log checksum** | **never** — signing our log as EAC forges provenance | ➖ (refused) |
 
 ---
 
@@ -203,7 +249,7 @@ distrobox enter ripping
 
 You're now inside the container. The prompt should change to show you're in the `ripping` environment. To leave at any time, type `exit`.
 
-> **Why `:latest` and not `:40`?** The brief specifies Fedora 40; newer Fedora releases (41, 42, 43, 44…) also work and ship newer security fixes. `:latest` resolves to whatever's current. If you specifically want to pin to Fedora 40 to match the brief exactly, swap `:latest` for `:40`.
+> **Why `:latest` and not `:40`?** The brief specifies Fedora 40; newer Fedora releases (42, 43, 44…) also work and ship newer security fixes. `:latest` resolves to whatever's current. Don't pin *below* Fedora 42, though: the cyanrip COPR (`barsnick/non-fed`) only builds for Fedora 42–44 + rawhide, so an older container would fail the Step 3 `dnf install cyanrip`.
 
 ### Step 3 — Install cyanrip and flac
 
@@ -227,7 +273,7 @@ cyanrip -V
 metaflac --version
 ```
 
-`cyanrip -V` should report a version such as `cyanrip 0.9.3` (note the capital `-V` — cyanrip has no `--version`). `metaflac` is part of the `flac` package.
+`cyanrip -V` should report a version such as `cyanrip 0.9.3.1` (note the capital `-V` — cyanrip has no `--version`). `metaflac` is part of the `flac` package.
 
 ### Step 4 — Export the binaries to your host
 
@@ -253,7 +299,7 @@ which cyanrip
 # → /home/<you>/.local/bin/cyanrip
 
 cyanrip -V
-# → cyanrip 0.9.3
+# → cyanrip 0.9.3.1
 ```
 
 If `which` returns nothing, your `~/.local/bin` isn't on `$PATH`. Most desktop Linux setups put it there automatically; if yours doesn't, add this to `~/.bashrc` or `~/.zshrc`:
@@ -747,7 +793,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-23)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-25)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 
@@ -774,6 +820,6 @@ Build / dev tooling:
 
 ## License
 
-[**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (whipper, cdparanoia, CUETools) and to keep the tool and any forks open. whipper and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
+[**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (whipper, cdparanoia, CUETools) and to keep the tool and any forks open. cyanrip and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
 
 See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
