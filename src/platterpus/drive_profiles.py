@@ -57,7 +57,7 @@ class OffsetSource(StrEnum):
     string, so deserializing a future/garbled value never raises.
     """
 
-    # measured on THIS drive (whipper/cyanrip offset find)
+    # measured on THIS drive (a single offset-find reading)
     OFFSET_FIND = "offset_find"
     # read live from whipper.conf (whipper measured it)
     WHIPPER_CONF = "whipper_conf"
@@ -65,6 +65,11 @@ class OffsetSource(StrEnum):
     ACCURATERIP_LIST = "accuraterip_list"
     # the user typed it (the --offset override path)
     MANUAL = "manual"
+    # the value two INDEPENDENT sources agree on — the only path to HIGH
+    # confidence (see reconcile_offset). Not a raw source a caller records; it's
+    # the *derived* provenance produced when e.g. the AccurateRip-list value and
+    # a manual entry (or a real measurement) coincide.
+    CONFIRMED = "confirmed"
     UNKNOWN = "unknown"
 
     @classmethod
@@ -98,15 +103,27 @@ _CONFIDENCE_ORDER: dict[Confidence, int] = {
     Confidence.HIGH: 2,
 }
 
-# The default confidence for each source, so a caller never hand-picks a
-# mismatched pair. OFFSET_FIND / WHIPPER_CONF are measured-on-this-unit → HIGH;
-# MANUAL is a deliberate-but-unverified user act → MEDIUM; the AccurateRip list
-# is reliable per *model* but never probed on this *unit* → MEDIUM.
+# Base confidence for a SINGLE source, standing alone. The maintainer's model:
+# HIGH is EARNED only when two *independent* sources agree on the value (see
+# :func:`reconcile_offset`) — never granted to a lone reading. So no single
+# source is HIGH here:
+#   * OFFSET_FIND — one measurement on this unit (unconfirmed) → MEDIUM. (It was
+#     wrongly HIGH; a fabricated cyanrip "-f" reading of 0 then outranked and
+#     clobbered the correct AccurateRip-list value. cyanrip no longer produces
+#     these at all — see cyanrip_backend.find_offset — but the demotion is the
+#     durable fix for any future real detector.)
+#   * WHIPPER_CONF — a value read from a leftover config, not verified here →
+#     MEDIUM (whipper is no longer a backend, KDD-18).
+#   * MANUAL — a deliberate but unverified user entry → MEDIUM.
+#   * ACCURATERIP_LIST — reliable per *model*, never probed on this *unit* →
+#     MEDIUM.
+#   * UNKNOWN — least-trusted → LOW.
 _SOURCE_CONFIDENCE: dict[OffsetSource, Confidence] = {
-    OffsetSource.OFFSET_FIND: Confidence.HIGH,
-    OffsetSource.WHIPPER_CONF: Confidence.HIGH,
+    OffsetSource.OFFSET_FIND: Confidence.MEDIUM,
+    OffsetSource.WHIPPER_CONF: Confidence.MEDIUM,
     OffsetSource.MANUAL: Confidence.MEDIUM,
     OffsetSource.ACCURATERIP_LIST: Confidence.MEDIUM,
+    OffsetSource.CONFIRMED: Confidence.HIGH,
     OffsetSource.UNKNOWN: Confidence.LOW,
 }
 
@@ -123,10 +140,11 @@ def confidence_rank(confidence: Confidence) -> int:
 
 # Friendly, effect-first labels for each provenance source (UI display).
 _SOURCE_LABEL: dict[OffsetSource, str] = {
-    OffsetSource.OFFSET_FIND: "measured on this drive",
+    OffsetSource.OFFSET_FIND: "measured once on this drive",
     OffsetSource.WHIPPER_CONF: "from whipper.conf",
     OffsetSource.ACCURATERIP_LIST: "from the AccurateRip list",
     OffsetSource.MANUAL: "entered by hand",
+    OffsetSource.CONFIRMED: "confirmed — two independent sources agree",
     OffsetSource.UNKNOWN: "from an unknown source",
 }
 
@@ -150,26 +168,58 @@ class OffsetRecord:
     detected_at: str = ""
 
 
-def should_replace_offset(
+def reconcile_offset(
     existing: OffsetRecord | None, candidate: OffsetRecord
-) -> bool:
-    """The upgrade rule deciding whether `candidate` replaces `existing`.
+) -> OffsetRecord:
+    """Merge a newly-learned offset fact with the stored one — the maintainer's
+    **agreement-based confidence** model. Pure; never raises.
 
-    - With nothing stored yet → record it.
-    - A MANUAL entry always wins: it's a deliberate user act for this drive.
-    - The same source refreshes itself (its value/date may have changed).
-    - Otherwise an automatic source replaces only a *strictly* lower-confidence
-      record — so a model-list lookup (MEDIUM) never clobbers a measured value
-      (HIGH) or a deliberate manual one (also MEDIUM, but protected by the
-      same-source rule above). Pure; never raises.
+    The record's confidence reflects how many *independent* sources corroborate
+    its value, never the source type alone:
+
+    - **Nothing stored** → take the candidate at its base (single-source)
+      confidence.
+    - **Same source** → refresh (value/date may change), but never downgrade a
+      value already CONFIRMED by agreement.
+    - **Two independent sources AGREE on the value** → promote to a CONFIRMED,
+      HIGH-confidence record. This is the *only* way to reach HIGH.
+    - **They DISAGREE** → do NOT silently clobber; keep the more-trustworthy
+      record and let :func:`evaluate_drive_state` surface the conflict:
+        * a deliberate MANUAL entry always wins (user authority);
+        * a MANUAL or already-CONFIRMED stored value is never overwritten by an
+          automatic source;
+        * otherwise keep the strictly-higher-confidence record, and on a tie keep
+          the incumbent (so an equal-confidence newcomer — e.g. a bogus reading —
+          can't flip-flop or overwrite the AccurateRip-list value).
+
+    This replaced the old confidence-rank-only rule, under which a lone
+    HIGH-confidence "measurement" (a fabricated cyanrip 0) clobbered the correct
+    AccurateRip-list value and could never be corrected.
     """
     if existing is None:
-        return True
-    if candidate.source is OffsetSource.MANUAL:
-        return True
+        return candidate
     if candidate.source == existing.source:
-        return True
-    return confidence_rank(candidate.confidence) > confidence_rank(existing.confidence)
+        # A refresh of the same source. Don't let it downgrade an
+        # agreement-confirmed value that still matches.
+        if existing.confidence is Confidence.HIGH and candidate.value == existing.value:
+            return existing
+        return candidate
+    if candidate.value == existing.value:
+        # Independent corroboration → CONFIRMED / HIGH.
+        return OffsetRecord(
+            value=candidate.value,
+            source=OffsetSource.CONFIRMED,
+            confidence=Confidence.HIGH,
+            detected_at=candidate.detected_at,
+        )
+    # Disagreement on the value.
+    if candidate.source is OffsetSource.MANUAL:
+        return candidate  # a deliberate user override always wins
+    if existing.source is OffsetSource.MANUAL or existing.confidence is Confidence.HIGH:
+        return existing  # never clobber a manual or already-confirmed value
+    if confidence_rank(candidate.confidence) > confidence_rank(existing.confidence):
+        return candidate
+    return existing
 
 
 @dataclass(frozen=True)
@@ -322,11 +372,17 @@ def evaluate_drive_state(
     stored: DriveProfile | None,
     conf_offsets: list[object],
     collisions: set[str],
+    accuraterip_value: int | None = None,
 ) -> list[DriveWarning]:
     """Return the trust warnings for the currently-selected drive. Never raises.
 
     Empty list means "nothing to flag". All warnings are advisory — the caller
     surfaces them as text, never as a gate on ripping.
+
+    `accuraterip_value` is the offset the bundled AccurateRip drive-model list
+    gives for this drive (``offset_db.lookup``), or None if the model isn't
+    listed. When it disagrees with the stored/applied offset, that's the exact
+    silent-wrong-offset case this guard exists to catch — so it's surfaced.
     """
     warnings: list[DriveWarning] = []
 
@@ -360,30 +416,56 @@ def evaluate_drive_state(
 
     # 3 & 4. Offset provenance checks (only when we have a recorded offset).
     if stored is not None and stored.offset is not None:
+        stored_value = stored.offset.value
         conf_value = conf_offset_for(vendor, model, conf_offsets)
-        if conf_value is not None and conf_value != stored.offset.value:
-            # The silent-wrong-offset detector made visible: name both values and
-            # which one whipper will actually use.
+        disagreement = False
+
+        # (a) whipper.conf disagrees with the stored/applied value.
+        if conf_value is not None and conf_value != stored_value:
+            disagreement = True
             warnings.append(
                 DriveWarning(
                     WARNING_DISAGREEMENT,
-                    f"whipper.conf will apply {conf_value:+d}, but Platterpus "
-                    f"recorded {stored.offset.value:+d} "
-                    f"({stored.offset.source.value}). These disagree — re-run "
-                    "Set up drive to reconcile them.",
+                    f"whipper.conf has {conf_value:+d}, but Platterpus recorded "
+                    f"{stored_value:+d} ({describe_source(stored.offset.source)}). "
+                    "These disagree — re-open Set up drive to reconcile them.",
                     SEVERITY_WARN,
                 )
             )
-        elif conf_value is None and stored.offset.confidence is not Confidence.HIGH:
-            # The offset in use isn't measured on this unit and whipper.conf
-            # hasn't confirmed it — a gentle nudge, not an alarm.
+
+        # (b) The AccurateRip drive list disagrees — the classic silent
+        #     wrong-offset case. Name both values and which the rip will use.
+        if accuraterip_value is not None and accuraterip_value != stored_value:
+            disagreement = True
+            warnings.append(
+                DriveWarning(
+                    WARNING_DISAGREEMENT,
+                    f"The AccurateRip drive list says {accuraterip_value:+d} for "
+                    f"this model, but the offset in use is {stored_value:+d} "
+                    f"({describe_source(stored.offset.source)}). These disagree — "
+                    f"the rip will use {stored_value:+d}. Re-open Set up drive and "
+                    "save the AccurateRip value unless you measured otherwise.",
+                    SEVERITY_WARN,
+                )
+            )
+
+        # (c) Gentle nudge: the value isn't confirmed by agreement, and nothing
+        #     above either corroborated or contradicted it. Honest about cyanrip
+        #     having no on-disc measurement — a rip that verifies against
+        #     AccurateRip is what actually confirms the offset on your unit.
+        if (
+            not disagreement
+            and stored.offset.confidence is not Confidence.HIGH
+            and conf_value is None
+            and accuraterip_value is None
+        ):
             warnings.append(
                 DriveWarning(
                     WARNING_LOW_CONFIDENCE,
-                    "This drive's offset isn't measured on your actual unit "
-                    f"(source: {stored.offset.source.value}, "
-                    f"{stored.offset.confidence.value} confidence). Run Set up "
-                    "drive to confirm it by measurement.",
+                    "This drive's offset isn't yet confirmed on your specific unit "
+                    f"(source: {describe_source(stored.offset.source)}, "
+                    f"{stored.offset.confidence.value} confidence). A rip that "
+                    "matches AccurateRip will confirm it.",
                     SEVERITY_INFO,
                 )
             )

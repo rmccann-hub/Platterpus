@@ -863,6 +863,118 @@ def test_rip_not_blocked_when_drive_offset_is_known(
     assert rip_kwargs and rip_kwargs[0].get("read_offset_override") == 667
 
 
+def _fake_rip_backend() -> tuple[object, list[dict]]:
+    """A backend whose rip() records its kwargs and returns a no-op handle."""
+    backend = _FakeBackend()
+    rip_kwargs: list[dict] = []
+
+    class _StubHandle:
+        def log_lines(self):
+            return iter(())
+
+        def wait(self, timeout=None):
+            return 0
+
+        def cancel(self, term_timeout: float = 5.0):
+            return -15
+
+    def _fake_rip(**kw):
+        rip_kwargs.append(kw)
+        return _StubHandle()
+
+    backend.rip = _fake_rip  # type: ignore[assignment]
+    return backend, rip_kwargs
+
+
+def _params_unknown() -> RipParameters:  # noqa: F821 - imported in-function below
+    from platterpus.workers.rip_worker import RipParameters
+
+    return RipParameters(
+        drive="/dev/sr0",
+        release_id="",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        unknown=True,
+    )
+
+
+def _pump_until_rip_started(window, rip_kwargs: list[dict]) -> None:
+    import time as _time
+
+    from PySide6.QtWidgets import QApplication
+
+    deadline = _time.monotonic() + 3.0
+    while not rip_kwargs and _time.monotonic() < deadline:
+        QApplication.processEvents()
+        _time.sleep(0.005)
+
+
+def test_rip_self_heals_untrusted_wrong_offset(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stale UNTRUSTED saved offset (the bogus 0 the removed cyanrip detection
+    left, provenance OFFSET_FIND) that disagrees with the AccurateRip list is
+    offered for correction. Accepting heals config AND updates the ledger (so the
+    trust line doesn't keep showing a now-false disagreement), and cyanrip gets
+    the corrected -s. (Regression: offset review findings #1/#2.)"""
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _o: True
+    )
+    backend, rip_kwargs = _fake_rip_backend()
+    window = teardown_threads(backend=backend)
+    _pin_pioneer(window, monkeypatch)
+    window._config.override_read_offset = True
+    window._config.read_offset = 0  # the bogus value the old detection saved
+    window._record_drive_fact(_PIONEER, offset_value=0, source=OffsetSource.OFFSET_FIND)
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "platterpus.ui.main_window.QMessageBox.warning",
+        lambda *a, **k: QMessageBox.StandardButton.Yes,
+    )
+
+    window._on_rip_requested(_params_unknown())
+
+    assert window._config.read_offset == 667  # healed to the list value
+    profile = window._drive_profiles.get(_PIONEER_FP)
+    assert profile is not None and profile.offset is not None
+    assert profile.offset.value == 667  # ledger updated → no stale disagreement
+    _pump_until_rip_started(window, rip_kwargs)
+    assert rip_kwargs and rip_kwargs[0].get("read_offset_override") == 667
+
+
+def test_rip_does_not_heal_a_deliberate_manual_offset(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A DELIBERATE per-unit offset (provenance MANUAL, e.g. a measured +691 on
+    one of two same-model drives) must NOT be silently overwritten with the
+    model-list value — no disagreement prompt fires, and the rip uses the user's
+    value. (Regression: offset review finding #2 — the self-heal must respect the
+    same MANUAL authority reconcile_offset enforces.)"""
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_rip.is_offset_configured", lambda _o: True
+    )
+    backend, rip_kwargs = _fake_rip_backend()
+    window = teardown_threads(backend=backend)
+    _pin_pioneer(window, monkeypatch)
+    window._config.override_read_offset = True
+    window._config.read_offset = 691  # deliberately measured for THIS unit
+    window._record_drive_fact(_PIONEER, offset_value=691, source=OffsetSource.MANUAL)
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: None)
+    warned: list[tuple] = []
+    monkeypatch.setattr(
+        "platterpus.ui.main_window.QMessageBox.warning",
+        lambda *a, **k: warned.append(a) or QMessageBox.StandardButton.Yes,
+    )
+
+    window._on_rip_requested(_params_unknown())
+
+    assert window._config.read_offset == 691  # respected, not clobbered
+    assert warned == []  # no disagreement prompt for a deliberate value
+    _pump_until_rip_started(window, rip_kwargs)
+    assert rip_kwargs and rip_kwargs[0].get("read_offset_override") == 691
+
+
 def test_auto_heal_retries_as_unknown_on_no_metadata_failure(
     teardown_threads, monkeypatch: pytest.MonkeyPatch
 ) -> None:

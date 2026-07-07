@@ -50,7 +50,7 @@ from platterpus.drive_profiles import (
     evaluate_drive_state,
     find_fingerprint_collisions,
     read_drive_identity,
-    should_replace_offset,
+    reconcile_offset,
 )
 from platterpus.offset_config import is_offset_configured, read_drive_offsets
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
@@ -250,10 +250,12 @@ class DriveMixin:
     ) -> None:
         """The single writer of the drive-profile ledger.
 
-        Updates (or creates) the profile for `drive`'s fingerprint, applying the
-        upgrade rule so an automatic source never clobbers a higher-confidence
-        record (`should_replace_offset`). Stamps last-seen and saves atomically.
-        Never changes which offset a rip uses.
+        Updates (or creates) the profile for `drive`'s fingerprint, merging any
+        new offset fact via the agreement-based model (`reconcile_offset`): two
+        independent sources agreeing promote to CONFIRMED/HIGH, while a
+        disagreeing automatic source never clobbers a manual or already-confirmed
+        value. Stamps last-seen and saves atomically. Never changes which offset
+        a rip uses.
         """
         fingerprint, serial, wwn = self._fingerprint_for(drive)
         existing = self._drive_profiles.get(fingerprint)
@@ -267,8 +269,7 @@ class DriveMixin:
                 confidence=confidence_for(source),
                 detected_at=now,
             )
-            if should_replace_offset(new_offset, candidate):
-                new_offset = candidate
+            new_offset = reconcile_offset(new_offset, candidate)
 
         new_cache = existing.cache_defeat if existing else None
         new_cache_source = existing.cache_defeat_source if existing else None
@@ -393,6 +394,9 @@ class DriveMixin:
             stored=existing,
             conf_offsets=conf_offsets,
             collisions=find_fingerprint_collisions(all_fingerprints),
+            # The AccurateRip drive-list value for this model, so the guard can
+            # flag a stored/applied offset that silently disagrees with it.
+            accuraterip_value=self._offset_db.lookup(drive.vendor, drive.model),
         )
         self._disc_info_panel.set_drive_offset_provenance(
             _format_offset_provenance(existing, warnings)

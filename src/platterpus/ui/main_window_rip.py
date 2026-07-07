@@ -58,6 +58,7 @@ from platterpus.adapters.transcode import (
 from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS as TRANSCODE_FORMATS,
 )
+from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import parse_rip_log
@@ -159,11 +160,77 @@ class RipMixin:
                 self._on_drive_setup()
             return
 
+        # Self-heal a stale/wrong SAVED offset before it silently ruins the rip.
+        # `is_offset_configured` is True as soon as an override exists — even if
+        # its value is wrong (e.g. a 0 left by the old, since-removed cyanrip
+        # "offset detection"). If the saved offset disagrees with the AccurateRip
+        # drive-list value for the selected drive, surface it and offer the list
+        # value.
+        #
+        # BUT respect a *deliberate* per-unit offset: if the stored provenance is
+        # MANUAL (the user typed it on purpose) or CONFIRMED (two independent
+        # sources already agreed), we do NOT offer to overwrite it — that would
+        # re-introduce the very silent-wrong-offset the ledger's own rule
+        # (`reconcile_offset`) forbids, e.g. clobbering a measured +691 on one of
+        # two same-model drives with the model-list +667. Only an untrusted/
+        # leftover value (a stale OFFSET_FIND, WHIPPER_CONF, or no provenance)
+        # gets the offer.
+        drive = self._drive_picker.current_drive()
+        if self._config.override_read_offset and drive is not None:
+            listed = self._offset_db.lookup(drive.vendor, drive.model)
+            if listed is not None and listed != self._config.read_offset:
+                fingerprint, _serial, _wwn = self._fingerprint_for(drive)
+                stored = self._drive_profiles.get(fingerprint)
+                stored_source = (
+                    stored.offset.source
+                    if stored is not None and stored.offset is not None
+                    else None
+                )
+                deliberate = stored_source in (
+                    OffsetSource.MANUAL,
+                    OffsetSource.CONFIRMED,
+                )
+                if not deliberate:
+                    label = f"{drive.vendor.strip()} {drive.model.strip()}".strip()
+                    answer = QMessageBox.warning(
+                        self,
+                        "Read offset disagreement",
+                        f"The saved read offset is {self._config.read_offset:+d}, "
+                        f"but the AccurateRip drive list says {listed:+d} for "
+                        f"{label or 'this drive'}.\n\n"
+                        "A wrong read offset makes the rip NOT bit-perfect — it "
+                        f"won't match AccurateRip. Use the AccurateRip value "
+                        f"({listed:+d}) instead?\n\n"
+                        "Choose No only if you deliberately measured a different "
+                        "offset for this exact drive.",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes,
+                    )
+                    if answer == QMessageBox.StandardButton.Yes:
+                        self._set_read_offset_override(listed)
+                        # Record the healed value in the ledger too, so the trust
+                        # line reflects it immediately (otherwise the refresh below
+                        # re-reads the stale record and shows a now-false "the rip
+                        # will use +0" disagreement, telling the user to redo the
+                        # fix they just made). Recorded as MANUAL because accepting
+                        # this prompt IS a deliberate user choice — and MANUAL is
+                        # the one source that always wins `reconcile_offset`, so it
+                        # actually replaces the stale record (an ACCURATERIP_LIST
+                        # write would tie the incumbent's confidence and be kept
+                        # out).
+                        self._record_drive_fact(
+                            drive,
+                            offset_value=listed,
+                            source=OffsetSource.MANUAL,
+                        )
+                        self._refresh_drive_profile_display()
+
         # The offset is configured now — but `params` was built by the rip
-        # controls BEFORE any auto-apply above, so it may still carry
-        # read_offset_override=None. Inject it here so cyanrip actually gets its
-        # `-s` sample offset (otherwise the rip isn't offset-corrected).
-        if self._config.override_read_offset and params.read_offset_override is None:
+        # controls BEFORE any auto-apply/heal above, so it may still carry
+        # read_offset_override=None (or the pre-heal value). Inject the current
+        # config value here so cyanrip actually gets its `-s` sample offset
+        # (otherwise the rip isn't offset-corrected).
+        if self._config.override_read_offset:
             params = replace(params, read_offset_override=self._config.read_offset)
 
         # Only validate the track table for non-unknown rips — placeholder
