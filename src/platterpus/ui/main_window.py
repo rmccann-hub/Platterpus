@@ -179,6 +179,10 @@ class MainWindow(
         self._current_release_id: str = ""
         self._current_release_detail: ReleaseDetail | None = None
         self._last_mb_releases: list[ReleaseSummary] = []
+        # A cover image the user picked with "Set cover art from file…"; used for
+        # the next rip's front cover instead of the archive fetch. Per-disc —
+        # cleared whenever the disc/drive changes. None = use the archive.
+        self._manual_cover_path: str | None = None
         # The disc-id of the disc currently on screen. MB lookups echo the
         # disc-id they were fired for; a returned result whose context doesn't
         # match this is stale (from a disc the user already swapped away from)
@@ -561,6 +565,9 @@ class MainWindow(
         drive_setup_action = tools_menu.addAction("Set up &drive…")
         drive_setup_action.triggered.connect(self._on_drive_setup)
 
+        cover_from_file_action = tools_menu.addAction("Set &cover art from file…")
+        cover_from_file_action.triggered.connect(self._on_set_cover_art_from_file)
+
         diagnose_action = tools_menu.addAction("Diagnose drive &access…")
         diagnose_action.triggered.connect(self._show_drive_access_diagnosis)
         # The dependency check lives only on the Settings dialog's
@@ -688,6 +695,9 @@ class MainWindow(
         # *previous* disc is dropped when it lands (its echoed context won't
         # match ""). The new disc's probe sets this again once it identifies it.
         self._current_disc_id = ""
+        # A hand-picked cover was for the previous disc — forget it so it can't
+        # bleed onto a different album.
+        self._manual_cover_path = None
 
         # Supersede any in-flight probe. DISCONNECT its result signals first so a
         # late finish (even for the SAME device — the device-only stale check

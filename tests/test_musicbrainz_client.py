@@ -42,6 +42,7 @@ def _sample_disc_response() -> dict[str, Any]:
                     "date": "1973-03-01",
                     "country": "GB",
                     "disambiguation": "remastered",
+                    "barcode": "5099902987682",
                     "medium-list": [
                         {
                             "format": "CD",
@@ -182,6 +183,7 @@ def test_releases_by_disc_id_parses_summary_fields(
     assert r.medium_format == "CD"
     assert r.label == "Harvest"
     assert r.catalog_number == "SHVL 804"
+    assert r.barcode == "5099902987682"
     assert r.disambiguation == "remastered"
 
 

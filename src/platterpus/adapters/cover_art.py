@@ -27,12 +27,13 @@ Design rules:
 from __future__ import annotations
 
 import http.client
+import json
 import logging
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
@@ -64,12 +65,22 @@ class CoverArtResult:
     format: str = ""
     error: str = ""
     message: str = ""
+    # Extra images saved beside the audio (back.jpg / booklet-NN.jpg) — filled by
+    # the caller from :func:`save_additional_covers` so the report records the
+    # whole cover-art package, not just the front.
+    additional_saved: list[str] = field(default_factory=list)
 
 
 # `/front` redirects to the original full-resolution "front" image the
 # community uploaded for this release — same image Picard shows. (The
 # `/front-500` variants are downscaled thumbnails; we want the good one.)
 COVER_URL_TEMPLATE: str = "https://coverartarchive.org/release/{mbid}/front"
+
+# The typed-image manifest (JSON): lists every image for a release with its
+# `types` (Front / Back / Booklet / …) and full-size `image` URL. Used to grab
+# the back cover and booklet scans, which have no single-shot shortcut like
+# `/front` for booklets.
+MANIFEST_URL_TEMPLATE: str = "https://coverartarchive.org/release/{mbid}"
 
 # The Cover Art Archive asks clients to identify themselves, same
 # convention as MusicBrainz proper.
@@ -168,6 +179,153 @@ def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes 
     """
     data, _reason = _fetch_front_cover_detailed(release_id, fetcher=fetcher)
     return data
+
+
+def save_additional_covers(
+    rip_dir: Path,
+    release_id: str,
+    fetcher: Fetcher | None = None,
+) -> list[str]:
+    """Save the release's BACK cover and BOOKLET scans into ``rip_dir``.
+
+    Reads the Cover Art Archive typed-image manifest for ``release_id`` and
+    downloads any Back/Booklet images, saving them as ``back.<ext>`` and
+    ``booklet-NN.<ext>`` beside the audio (they can't be embedded in FLAC, so
+    they live as files — the front cover is handled by :func:`apply_cover_art`).
+    Returns the filenames written (empty when the release has none, or on any
+    failure). Best-effort and **never raises** — extra art is a bonus.
+    """
+    mbid = (release_id or "").strip()
+    if not mbid:
+        return []
+    fetch = fetcher or _default_fetcher
+    url = MANIFEST_URL_TEMPLATE.format(mbid=urllib.parse.quote(mbid, safe=""))
+    try:
+        raw = fetch(url)
+        manifest = json.loads(raw)
+        images = manifest.get("images", []) if isinstance(manifest, dict) else []
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
+        log.info("cover-art manifest fetch failed for %s: %s", mbid, e)
+        return []
+
+    saved: list[str] = []
+    have_back = False
+    booklet_n = 0
+    for img in images:
+        if not isinstance(img, dict):
+            continue
+        types = [str(t).lower() for t in (img.get("types") or [])]
+        image_url = str(img.get("image") or "")
+        if not image_url:
+            continue
+        if "back" in types and not have_back:
+            stem = "back"
+        elif "booklet" in types:
+            booklet_n += 1
+            stem = f"booklet-{booklet_n:02d}"
+        else:
+            continue
+        try:
+            data = fetch(image_url)
+        except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):
+            log.info("cover image fetch failed (%s) for %s", stem, mbid)
+            continue
+        ext = image_extension(data or b"")
+        if not data or len(data) > _MAX_BYTES or not ext:
+            continue
+        target = rip_dir / f"{stem}{ext}"
+        try:
+            target.write_bytes(data)
+        except OSError as exc:
+            log.warning("could not write %s: %s", target, exc)
+            continue
+        saved.append(target.name)
+        if stem == "back":
+            have_back = True
+    if saved:
+        log.info("saved %d extra cover image(s) for %s: %s", len(saved), mbid, saved)
+    return saved
+
+
+def apply_local_cover_art(
+    rip_dir: Path,
+    image_path: Path,
+    embed: bool,
+    save_file: bool,
+    metaflac: MetaflacAdapter,
+) -> CoverArtResult:
+    """Embed/save a user-supplied local image as the cover for ``rip_dir``.
+
+    The "load cover art from a file" path: instead of fetching from the archive,
+    use ``image_path`` (an image the user picked) as the front cover — embed it
+    into the FLACs and/or save it as ``cover.<ext>``. Mirrors
+    :func:`apply_cover_art` so the rip report gets the same structured outcome;
+    ``mode`` is recorded as ``"local"`` so the report shows the art came from a
+    file. Never raises — a bad/unreadable file degrades to a populated result.
+    """
+    result = CoverArtResult(mode="local")
+    try:
+        data = image_path.read_bytes()
+    except OSError as exc:
+        log.warning("could not read chosen cover image %s: %s", image_path, exc)
+        result.found = False
+        result.reason = "read-failed"
+        result.error = str(exc)
+        result.message = "Cover art: the chosen image could not be read."
+        return result
+    extension = image_extension(data)
+    if not extension:
+        result.found = False
+        result.reason = "not-image"
+        result.message = "Cover art: the chosen file is not a JPEG/PNG/GIF image."
+        return result
+
+    result.found = True
+    result.reason = "ok"
+    result.bytes = len(data)
+    result.format = extension.lstrip(".")
+    target = rip_dir / f"cover{extension}"
+    try:
+        target.write_bytes(data)
+    except OSError as exc:
+        log.warning("could not write cover image %s: %s", target, exc)
+        result.reason = "write-failed"
+        result.error = str(exc)
+        result.message = "Cover art: found, but could not be saved (rip unaffected)."
+        return result
+
+    embedded = 0
+    if embed:
+        for flac_path in sorted(rip_dir.rglob("*.flac")):
+            try:
+                metaflac.embed_picture(flac_path, target)
+                embedded += 1
+            except MetaflacError as exc:
+                log.warning("cover embed failed for %s: %s", flac_path, exc)
+    result.embedded_count = embedded
+    if not save_file:
+        try:
+            target.unlink(missing_ok=True)
+        except OSError as exc:
+            log.warning("could not remove temporary cover %s: %s", target, exc)
+    else:
+        result.saved_as = target.name
+
+    parts: list[str] = []
+    if embed:
+        parts.append(
+            f"embedded in {embedded} track(s)"
+            if embedded
+            else "chosen, but embedding failed (see the app log)"
+        )
+    if save_file:
+        parts.append(f"saved as {target.name}")
+    result.message = (
+        "Cover art (from file): " + " and ".join(parts) + "."
+        if parts
+        else "Cover art: set from file."
+    )
+    return result
 
 
 def plan_actions(

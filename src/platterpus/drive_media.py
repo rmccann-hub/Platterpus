@@ -60,8 +60,14 @@ def status_from_code(code: int) -> str:
 
 # A disc "appeared" only when the tray was in one of these KNOWN empty states
 # just before — so we never re-scan off an "unavailable"/unknown blip (a busy
-# drive mid-teardown), only off a real empty→loaded transition.
+# drive mid-teardown), only off a real empty→loaded transition. The same set is
+# the "disc left" target for removal (disc→known-empty).
 _EMPTY_STATES: frozenset[str] = frozenset({EMPTY, OPEN, NOT_READY})
+
+# The three outcomes of one observation, returned by MediaWatcher.observe_event.
+INSERTED: str = "inserted"  # known-empty → disc: a new disc to scan
+REMOVED: str = "removed"  # disc → known-empty: the disc left; clear the stale view
+NO_CHANGE: str = "none"  # steady state, a baseline observation, or an unknown blip
 
 
 def probe_disc_status(device: str) -> str:
@@ -103,11 +109,16 @@ class MediaWatcher:
     Rules:
       * the FIRST observation only records the baseline — a disc already in the
         drive at startup is handled by the normal startup scan, not us;
-      * thereafter, fire exactly once on a transition INTO :data:`DISC` from a
-        known-empty tray (:data:`EMPTY`/:data:`OPEN`/:data:`NOT_READY`) — this is
-        the "inserted a new disc" (or "re-inserted after the cancel/eject") event;
+      * thereafter, fire :data:`INSERTED` exactly once on a transition INTO
+        :data:`DISC` from a known-empty tray (:data:`EMPTY`/:data:`OPEN`/
+        :data:`NOT_READY`) — the "inserted a new disc" (or "re-inserted after the
+        cancel/eject") event;
+      * fire :data:`REMOVED` exactly once on the reverse transition, :data:`DISC`
+        → a known-empty tray — the "disc left the drive" event, so the GUI can
+        clear the now-stale disc view (an eject or a physical removal);
       * an ``UNAVAILABLE`` blip (drive busy mid-teardown) is remembered but never
-        itself a trigger, so it can't manufacture a spurious rescan.
+        itself a trigger in either direction, so it can't manufacture a spurious
+        rescan or a spurious clear.
     """
 
     def __init__(self) -> None:
@@ -118,8 +129,24 @@ class MediaWatcher:
         observation re-establishes it without firing."""
         self._prev = None
 
-    def observe(self, status: str) -> bool:
-        """Record `status`; return True iff it means "rescan now"."""
+    def observe_event(self, status: str) -> str:
+        """Record `status`; return :data:`INSERTED`, :data:`REMOVED`, or
+        :data:`NO_CHANGE`.
+
+        This is the richer form; :meth:`observe` is the insert-only bool wrapper
+        kept for existing callers. Exactly one event can fire per observation
+        (insert and removal are opposite transitions).
+        """
         prev = self._prev
         self._prev = status
-        return prev in _EMPTY_STATES and status == DISC
+        if prev in _EMPTY_STATES and status == DISC:
+            return INSERTED
+        if prev == DISC and status in _EMPTY_STATES:
+            return REMOVED
+        return NO_CHANGE
+
+    def observe(self, status: str) -> bool:
+        """Record `status`; return True iff it means "a new disc appeared —
+        rescan now". Back-compat wrapper over :meth:`observe_event`; prefer that
+        method, which also reports removal."""
+        return self.observe_event(status) == INSERTED

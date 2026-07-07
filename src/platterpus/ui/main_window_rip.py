@@ -274,6 +274,9 @@ class RipMixin:
             genre = detail.summary.genre
             disc_number = detail.summary.disc_number
             total_discs = detail.summary.total_discs
+            catalog_number = detail.summary.catalog_number
+            barcode = detail.summary.barcode
+            label = detail.summary.label
             isrc_by_number = {t.number: t.isrc for t in detail.tracks}
             # Per-track MusicBrainz durations (ms), same number-keyed passthrough
             # as ISRC. The worker uses these to weight the overall progress bar by
@@ -282,6 +285,7 @@ class RipMixin:
             length_ms_by_number = {t.number: t.length_ms for t in detail.tracks}
         else:
             genre, disc_number, total_discs, isrc_by_number = "", 1, 1, {}
+            catalog_number, barcode, label = "", "", ""
             length_ms_by_number = {}
         params = replace(
             params,
@@ -292,6 +296,9 @@ class RipMixin:
                 genre=genre,
                 disc_number=disc_number,
                 total_discs=total_discs,
+                catalog_number=catalog_number,
+                barcode=barcode,
+                label=label,
                 tracks=tuple(
                     TrackTag(
                         number=t.number,
@@ -315,11 +322,19 @@ class RipMixin:
         self._rip_worker = RipWorker(self._backend, params)
         self._rip_thread = QThread(self)
 
+        # Fresh rip → clear any leftover per-track status from a previous run so
+        # the live Status column starts all-pending.
+        self._track_table.reset_track_status()
+
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
         self._rip_worker.status.connect(self._rip_progress.set_status)
-        # Follow the rip in the track table — highlight the row the ripper is on.
+        # Follow the rip in the track table — highlight the row the ripper is on
+        # and advance the live Status column (current row → ripping, each finished
+        # track → done).
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
+        self._rip_worker.current_track.connect(self._track_table.mark_track_ripping)
+        self._rip_worker.track_completed.connect(self._track_table.mark_track_done)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
 
@@ -487,6 +502,89 @@ class RipMixin:
         self._eject_thread = thread
         thread.start()
 
+    def _notify_rip_complete(self, success: bool, detail: str) -> None:
+        """Show a desktop notification that the rip finished (best-effort).
+
+        Gated by the ``notify_on_completion`` setting. A user-cancelled rip is
+        NOT announced (you just clicked Cancel). Uses a lazily-created
+        ``QSystemTrayIcon`` message — pure PySide6, no external tool (so no
+        dependency check, Critical rule #6) and no work on any slow path. Guarded
+        so a missing tray / notification daemon degrades to a silent no-op and a
+        courtesy notification can never crash the finish handler.
+        """
+        if not self._config.notify_on_completion or self._rip_cancelled:
+            return
+        try:
+            from PySide6.QtWidgets import QSystemTrayIcon
+
+            from platterpus.notify import build_completion_message
+
+            title, body = build_completion_message(success, self._rip_cancelled, detail)
+            icon = self._ensure_tray_icon()
+            if icon is not None:
+                icon.showMessage(
+                    title, body, QSystemTrayIcon.MessageIcon.Information, 8000
+                )
+        except Exception:  # noqa: BLE001 — a courtesy notification is never load-bearing
+            log.debug("completion notification failed (best-effort)", exc_info=True)
+
+    def _ensure_tray_icon(self):
+        """Return the shared QSystemTrayIcon used for notifications, or None.
+
+        Created lazily on first use (so users who turn notifications off never
+        get a tray presence) and kept for the app's lifetime — ``showMessage``
+        needs a visible tray icon. Returns None when the desktop has no usable
+        system tray, so the caller simply skips the notification.
+        """
+        from PySide6.QtWidgets import QSystemTrayIcon
+
+        existing = getattr(self, "_tray_icon", None)
+        if existing is not None:
+            return existing
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return None
+        icon = QSystemTrayIcon(self.windowIcon(), self)
+        icon.setToolTip("Platterpus")
+        icon.show()
+        self._tray_icon = icon
+        return icon
+
+    def _on_set_cover_art_from_file(self) -> None:
+        """Pick a local image to use as the front cover for the disc on screen.
+
+        Stored on ``self._manual_cover_path`` and used by the next rip's cover-art
+        step instead of the archive fetch (cleared when the disc changes). The
+        file is validated to be a real JPEG/PNG/GIF at pick time so a wrong file
+        is caught here, not silently at rip end.
+        """
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        from platterpus.adapters.cover_art import image_extension
+
+        path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose cover art image",
+            "",
+            "Images (*.jpg *.jpeg *.png *.gif);;All files (*)",
+        )
+        if not path_str:
+            return  # cancelled
+        try:
+            head = Path(path_str).read_bytes()[:16]
+        except OSError as exc:
+            QMessageBox.warning(self, "Cover art", f"Couldn't read that file:\n{exc}")
+            return
+        if not image_extension(head):
+            QMessageBox.warning(
+                self, "Cover art", "That file isn't a JPEG, PNG, or GIF image."
+            )
+            return
+        self._manual_cover_path = path_str
+        self._rip_progress.set_status(
+            f"Cover art set from “{Path(path_str).name}” — it will be used on the "
+            "next rip of this disc."
+        )
+
     def _on_rip_error(self, message: str) -> None:
         log.warning("rip error: %s", message)
         # Remember the last hard error so a no-log failure's minimal report can
@@ -599,9 +697,16 @@ class RipMixin:
                 "ripper could not reach MusicBrainz" if self._auto_retry_done else None
             ),
         )
+        _meta = params.metadata if params is not None else None
         self._last_disc = {
             "unknown": bool(params.unknown) if params is not None else None,
             "musicbrainz_release_id": (self._current_release_id or None),
+            # Release identifiers written as tags this rip (Picard-style), echoed
+            # into the report so the one-file record carries the disc's canonical
+            # IDs. None when MB had none / an unknown-album rip.
+            "catalog_number": (getattr(_meta, "catalog_number", "") or None),
+            "barcode": (getattr(_meta, "barcode", "") or None),
+            "label": (getattr(_meta, "label", "") or None),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.
@@ -654,7 +759,8 @@ class RipMixin:
                 # the old misleading static "verified during rip".
                 self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
-                    self._rip_progress.set_status(fidelity_summary(rip_log))
+                    status = fidelity_summary(rip_log)
+                    self._rip_progress.set_status(status)
                 # Write the machine-readable JSON rip report beside the log
                 # (the "two outputs every time" rule, docs/ux-design-principles
                 # #2). Kept for the CTDB handler to re-write with the CTDB
@@ -666,6 +772,8 @@ class RipMixin:
                 # metric that replaces cyanrip's bogus ETA. Best-effort.
                 self._enrich_timing_with_disc_duration(rip_log)
                 self._write_rip_report(rip_log, log_file)
+                # Optional EAC-layout companion log beside the JSON report.
+                self._write_eac_log(rip_log, log_file)
                 # Surface the adaptive read-speed ladder's outcome in the results
                 # pane when it actually did something — so a user who wasn't
                 # watching the live log still sees that a disc needed a slow
@@ -686,6 +794,12 @@ class RipMixin:
             # one (outcome + settings + environment) beside the intended output
             # dir so the failure is still diagnosable. Best-effort; never raises.
             self._write_minimal_failure_report(params)
+
+        # Desktop notification so an unattended rip announces itself even when
+        # Platterpus isn't the focused window. `status` now holds the final,
+        # user-facing summary (the fidelity line on success, the failure hint
+        # otherwise). Best-effort; a user cancel is not announced (see helper).
+        self._notify_rip_complete(success, status)
 
         # Post-rip processing: unknown-mode tagging + backend-independent
         # cover art. Both shell out to metaflac on the SAME FLAC files, so
@@ -763,6 +877,12 @@ class RipMixin:
             # the metadata actually contains a colon — so a colon-free album
             # (the common case) doesn't spin up the post-rip thread for nothing.
             restore_colons = self._metadata_has_colon()
+            # A user-chosen cover image (Set cover art from file…) overrides the
+            # archive fetch for THIS disc. Ensure it's at least embedded even if
+            # auto cover-art is off, so an explicit choice is always honoured.
+            local_cover = getattr(self, "_manual_cover_path", None)
+            if local_cover and not (embed or save_file):
+                embed = True
             if (
                 tag
                 or embed
@@ -770,6 +890,7 @@ class RipMixin:
                 or recompress
                 or transcode_fmt
                 or restore_colons
+                or local_cover
             ):
                 self._start_post_rip_processing(
                     rip_dir,
@@ -784,6 +905,7 @@ class RipMixin:
                     restore_colons=restore_colons,
                     album_metadata=album_snapshot,
                     track_rows=tracks_snapshot,
+                    local_cover_path=local_cover,
                 )
                 post_rip_thread = self._post_rip_thread
             else:
@@ -947,9 +1069,14 @@ class RipMixin:
         restore_colons: bool = False,
         album_metadata: object | None = None,
         track_rows: object | None = None,
+        local_cover_path: object | None = None,
     ) -> None:
         """Run unknown-mode tagging, then cover art, then FLAC re-compress, then
         an optional transcode, on ONE daemon thread.
+
+        ``local_cover_path`` (when set) is a user-chosen image file used as the
+        front cover *instead of* fetching from the Cover Art Archive — the "load
+        cover art from a file" path.
 
         ``album_metadata`` / ``track_rows`` are the track-table snapshot taken on
         the GUI thread (BUG-1) and handed to the daemon's tagging step — the
@@ -1024,17 +1151,27 @@ class RipMixin:
             #    two never touch a FLAC at the same time.
             if embed or save_file:
                 try:
-                    art_result = cover_art.apply_cover_art(
-                        rip_dir,
-                        release_id,
-                        embed=embed,
-                        save_file=save_file,
-                        metaflac=self._metaflac,
-                        fetcher=self._cover_art_fetcher,
-                        # The config mode is recorded in the report so it knows
-                        # art was *requested* (a plain attribute read — no Qt).
-                        mode=self._config.cover_art,
-                    )
+                    if local_cover_path:
+                        # User-chosen image wins over the archive fetch.
+                        art_result = cover_art.apply_local_cover_art(
+                            rip_dir,
+                            Path(str(local_cover_path)),
+                            embed=embed,
+                            save_file=save_file,
+                            metaflac=self._metaflac,
+                        )
+                    else:
+                        art_result = cover_art.apply_cover_art(
+                            rip_dir,
+                            release_id,
+                            embed=embed,
+                            save_file=save_file,
+                            metaflac=self._metaflac,
+                            fetcher=self._cover_art_fetcher,
+                            # The config mode is recorded in the report so it knows
+                            # art was *requested* (a plain attribute read — no Qt).
+                            mode=self._config.cover_art,
+                        )
                 except Exception:  # noqa: BLE001 — art must never crash the GUI
                     log.exception("cover art post-processing failed")
                     art_result = cover_art.CoverArtResult(
@@ -1044,6 +1181,21 @@ class RipMixin:
                         error="failed unexpectedly",
                         message="Cover art: failed unexpectedly (rip unaffected).",
                     )
+                # Also grab the back cover + booklet scans, saved as files (they
+                # can't be embedded in FLAC). Only when front art was fetched from
+                # the archive (a local override has no manifest to consult).
+                # Recorded on the result so the report captures the whole package.
+                if (
+                    self._config.save_additional_art
+                    and not local_cover_path
+                    and (release_id or "").strip()
+                ):
+                    try:
+                        art_result.additional_saved = cover_art.save_additional_covers(
+                            rip_dir, release_id, fetcher=self._cover_art_fetcher
+                        )
+                    except Exception:  # noqa: BLE001 — extra art must never crash
+                        log.exception("additional cover art fetch failed")
                 try:
                     self.cover_art_done.emit(art_result)
                 except RuntimeError:  # window destroyed — nothing to update
@@ -1282,6 +1434,28 @@ class RipMixin:
         return build_debug_log(
             buffer.lines_excluding(others), truncated=buffer.truncated
         )
+
+    def _write_eac_log(self, rip_log: object, log_file: Path) -> None:
+        """Write an EAC-layout companion log beside ``log_file`` (best-effort).
+
+        Gated by ``write_eac_log_after_rip`` (off by default). The rendering is
+        the honest, clearly-attributed EAC-*layout* text (never a signed/forged
+        EAC log — KDD-11/13); it goes next to cyanrip's own ``.log`` as
+        ``<name> (EAC-compatible).log`` so the two are never confused. A small
+        text write — safe on the GUI thread, same as the JSON report beside it —
+        and never raises (a companion log is a courtesy, never load-bearing).
+        """
+        if not self._config.write_eac_log_after_rip:
+            return
+        try:
+            from platterpus.eac_log_export import render_eac_style_log
+
+            text = render_eac_style_log(rip_log)
+            target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
+            target.write_text(text, encoding="utf-8")
+            log.info("wrote EAC-layout companion log: %s", target)
+        except Exception:  # noqa: BLE001 — a companion log must never crash finish
+            log.warning("could not write EAC-layout log", exc_info=True)
 
     def _write_rip_report(self, rip_log: object, log_file: Path) -> None:
         """Write the JSON rip report beside ``log_file`` (best-effort).

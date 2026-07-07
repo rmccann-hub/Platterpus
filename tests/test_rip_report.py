@@ -751,6 +751,8 @@ def test_secure_rerip_block_folded_into_read_speed() -> None:
 def test_cover_art_block_serialized() -> None:
     from dataclasses import dataclass
 
+    from dataclasses import field
+
     @dataclass
     class _CoverArtResult:
         mode: str = "embed"
@@ -762,10 +764,13 @@ def test_cover_art_block_serialized() -> None:
         bytes: int = 20345
         format: str = "jpg"
         error: str = ""
+        additional_saved: list = field(default_factory=lambda: ["back.jpg"])
 
     ca = build_report(_sample_log(), cover_art_result=_CoverArtResult())["cover_art"]
     assert ca["found"] is True and ca["reason"] == "ok"
     assert ca["embedded_count"] == 14 and ca["format"] == "jpg"
+    # The back/booklet package is recorded too (None when there was none).
+    assert ca["additional_saved"] == ["back.jpg"]
 
 
 def test_log_parse_block_flags_thin_parse() -> None:

@@ -7,8 +7,11 @@ from platterpus import drive_media
 from platterpus.drive_media import (
     DISC,
     EMPTY,
+    INSERTED,
+    NO_CHANGE,
     NOT_READY,
     OPEN,
+    REMOVED,
     UNAVAILABLE,
     MediaWatcher,
     probe_disc_status,
@@ -61,6 +64,39 @@ def test_reset_forgets_baseline() -> None:
     w.observe(EMPTY)
     w.reset()
     assert w.observe(DISC) is False  # first obs after reset = baseline only
+
+
+def test_observe_event_reports_insert_removal_and_none() -> None:
+    # The richer form reports both transitions; insert/removal are opposites.
+    w = MediaWatcher()
+    assert w.observe_event(EMPTY) == NO_CHANGE  # baseline
+    assert w.observe_event(DISC) == INSERTED  # empty → disc
+    assert w.observe_event(DISC) == NO_CHANGE  # steady state
+    assert w.observe_event(OPEN) == REMOVED  # disc → tray open (ejected)
+    assert w.observe_event(EMPTY) == NO_CHANGE  # open → empty is not a new event
+
+
+def test_observe_event_removal_fires_for_each_empty_state() -> None:
+    # A disc → any known-empty state (empty / open / not-ready) is a removal.
+    for empty in (EMPTY, OPEN, NOT_READY):
+        w = MediaWatcher()
+        assert w.observe_event(DISC) == NO_CHANGE  # baseline (disc present)
+        assert w.observe_event(empty) == REMOVED
+
+
+def test_observe_event_removal_ignores_unavailable_blip() -> None:
+    # disc → 'unavailable' (a busy drive mid-teardown) is NOT a removal, so a
+    # transient probe failure can't wrongly clear a still-loaded disc view.
+    w = MediaWatcher()
+    assert w.observe_event(DISC) == NO_CHANGE  # baseline
+    assert w.observe_event(UNAVAILABLE) == NO_CHANGE  # blip, not a removal
+    assert w.observe_event(DISC) == NO_CHANGE  # back to disc from unknown → nothing
+
+
+def test_observe_event_first_observation_never_fires_removal() -> None:
+    # The very first reading only establishes the baseline, even if it's empty.
+    w = MediaWatcher()
+    assert w.observe_event(EMPTY) == NO_CHANGE
 
 
 def test_probe_disc_status_never_raises_on_bad_device() -> None:

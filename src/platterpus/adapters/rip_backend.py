@@ -152,6 +152,12 @@ class RipMetadata:
     genre: str = ""
     disc_number: int = 1
     total_discs: int = 1
+    # Release identifiers — MusicBrainz-supplied silent passthroughs (best-effort;
+    # "" when MB has none). Written as tags so the library entry carries the
+    # disc's canonical identifiers (Picard-style CATALOGNUMBER / BARCODE / LABEL).
+    catalog_number: str = ""
+    barcode: str = ""
+    label: str = ""
     tracks: tuple[TrackTag, ...] = ()
 
 

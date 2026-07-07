@@ -29,7 +29,7 @@ from platterpus.paths import (
 
 # Bump this when the schema grows new keys or changes defaults that we
 # want to migrate. Migration logic lives in _migrate() below.
-SCHEMA_VERSION: int = 7
+SCHEMA_VERSION: int = 8
 
 # Computed once at import time. If the user's HOME changes mid-process,
 # the GUI needs a restart — same as every other XDG-aware application.
@@ -128,6 +128,14 @@ class Config:
     # Eject button works regardless of this setting.
     auto_eject_after_rip: bool = False
 
+    # Show a desktop notification when a rip finishes (success or failure) so an
+    # unattended rip alerts you even when Platterpus isn't the focused window. On
+    # by default; it's a courtesy — a Qt system-tray message (no external tool,
+    # so nothing extra to install) that fails safe if the desktop has no
+    # notification support. A user-cancelled rip is NOT announced (you just
+    # clicked Cancel, so you already know).
+    notify_on_completion: bool = True
+
     # Set once we've auto-offered the drive-setup wizard on first run (when no
     # read offset was configured). Keeps the offer to a single, dismissible
     # prompt — afterwards the user runs it from Tools → Set up drive…. Pure UI
@@ -167,6 +175,12 @@ class Config:
     # fetches the front cover from the Cover Art Archive after the rip and
     # embeds it (cyanrip itself is run offline).
     cover_art: str = "embed"
+    # Also save any BACK cover and BOOKLET scans the Cover Art Archive has for the
+    # release (as back.jpg / booklet-NN.jpg beside the audio) — "good cover image"
+    # means the whole package, not just the front. On by default; only fires when
+    # front-cover fetching is on (cover_art set) and the disc was identified.
+    # These can't be embedded in FLAC, so they're saved as files.
+    save_additional_art: bool = True
     # Rip attempts before giving up on a track (cyanrip's `-r`).
     max_retries: int = 5
 
@@ -243,6 +257,13 @@ class Config:
     # Best-effort, off the GUI thread; each file is swapped in atomically so a
     # failure leaves the original untouched.
     recompress_flac_after_rip: bool = False
+
+    # Write an EAC-*layout* text log beside each successful rip (an honest,
+    # clearly-attributed rendering — never a signed/forged EAC log, KDD-11/13).
+    # OFF by default so it doesn't clutter the folder or get confused with
+    # cyanrip's own .log; a user who wants a familiar EAC-style log for a human
+    # diff or an archive can turn it on. See eac_log_export.py.
+    write_eac_log_after_rip: bool = False
 
     # --- Output format (Settings → Output format) ---
     # Which audio format the rip delivers. "flac" (default, the lossless
@@ -456,6 +477,14 @@ def _migrate(raw: dict) -> dict:
             raw["secure_rerip_matches"] = 2
         raw["schema_version"] = 7
         version = 7
+
+    if version < 8:
+        # v7→v8: added several post-rip convenience fields (notify_on_completion,
+        # write_eac_log_after_rip, save_additional_art). All are new keys that
+        # fill from the dataclass defaults on load, so no value transform is
+        # needed — bump the version so the record stays explicit and honest.
+        raw["schema_version"] = 8
+        version = 8
 
     if version == SCHEMA_VERSION:
         return raw
