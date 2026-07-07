@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.19] — 2026-07-07
+
 ### Fixed
 - **CTDB calibration was ~150× too slow (`--ctdb-calibrate` and CI).** The offset
   sweep rebuilt the full GF(2) `crc32_combine` operator for every one of ~11,759
@@ -2236,7 +2238,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.18...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...HEAD
+[0.4.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.18...v0.4.19
 [0.4.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...v0.4.18
 [0.4.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...v0.4.17
 [0.4.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.15...v0.4.16
