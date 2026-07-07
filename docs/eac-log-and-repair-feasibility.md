@@ -171,10 +171,11 @@ samples** and bring the track back to the consensus. We already do CTDB
    FLAC master means re-split + re-tag + re-embed + re-transcode. Real work, and
    it touches the archival master, so it must be provably lossless.
 3. **Repair rewrites audio — it is far higher-stakes than verify.** Our own CTDB
-   CRC is **not yet hardware-validated** (KDD-16, `crc.CRC_VALIDATED` is False);
-   verify fails *safe* (can only under-claim), but **repair cannot** — a wrong
-   alignment would corrupt the master. Repair must wait on that validation
-   regardless of the dependency question.
+   verify CRC is now hardware-validated (KDD-16, `crc.CRC_VALIDATED` is True since
+   2026-07-07); verify fails *safe* (can only under-claim), but **repair cannot** —
+   a wrong alignment would corrupt the master, and repair exercises the *parity*
+   path (`CUETools.Parity`), not just this verify CRC, so it still needs its own
+   validation regardless of the dependency question.
 
 ### Recommendation
 

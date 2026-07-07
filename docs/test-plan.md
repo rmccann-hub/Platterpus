@@ -335,9 +335,11 @@ This unblocks wiring CTDB verify into the GUI.
 > against an AccurateRip-confidence-200 rip, which is the documented signature of
 > the **placeholder CRC** — so the ONE remaining piece is the bit-exact CRC trim
 > (see the `no_match` branch below). The verify wording no longer misreports this
-> as "your rip differs" (v0.4.11). **Next:** pin the CRC via the calibration
-> vehicle below, then flip `crc.CRC_VALIDATED = True` + add the golden-vector
-> regression test.
+> as "your rip differs" (v0.4.11). **DONE (2026-07-07):** a `--ctdb-calibrate`
+> run on the v0.4.19 re-rip reproduced a stored CTDB CRC at aligned offset 0
+> (frames 157,999,716; trim front 5880 / back 9996; CRC `0x5DA89FCD`), so
+> `crc.CRC_VALIDATED` is now `True` with that vector as the golden-vector
+> regression fixture (`crc.CONFIRMED_VECTOR` + `test_kdd16_confirmed_vector_trim`).
 >
 > **Calibration vehicle (v0.4.11):** run it from the shipped AppImage — no dev
 > checkout, no re-rip:
@@ -387,17 +389,18 @@ This unblocks wiring CTDB verify into the GUI.
   range, `CDRepair.FindOffset` — wider than AccurateRip's ±2939), then replace
   `ctdb/crc.py:ctdb_crc_offset0` (the single seam). **Do not read
   `python-cuetoolsdb`** (GPL-2.0; KDD-16). Re-run until it matches a DB CRC.
-- **`match`** → success. Implement the ±5879 offset sweep if not already, set
-  `crc.CRC_VALIDATED = True`, add a regression test with the real CRC vector,
-  and proceed to Test 1b.
+- **`match`** → success (achieved 2026-07-07). The ±5879 offset sweep is
+  implemented, `crc.CRC_VALIDATED = True`, and the real CRC vector is pinned as a
+  regression test (`crc.CONFIRMED_VECTOR`).
 
 **If it fails:** record the URL, raw XML, and TOC; the fix lives in `ctdb/toc.py`
 (format) or `ctdb/crc.py` (CRC) — both are isolated for exactly this.
 
 ### Test 1b — [x] wire CTDB verify into the GUI — BUILT 2026-06-17 (experimental seam)
 The GUI wiring shipped ahead of the hardware validation, kept safe behind the
-`crc.CRC_VALIDATED=False` seam (a match shows as **EXPERIMENTAL**, never
-"verified"). As built: `workers/ctdb_worker.py::CtdbVerifyWorker` (off-thread
+`crc.CRC_VALIDATED=False` seam (a match showed as **EXPERIMENTAL**, never
+"verified"); since 2026-07-07 `CRC_VALIDATED=True`, so a match now reads
+**verified**. As built: `workers/ctdb_worker.py::CtdbVerifyWorker` (off-thread
 lookup + decode, emits `finished(result)`; joins the post-rip metaflac thread
 first so it never decodes a file mid-rewrite); a CTDB verdict line under the
 AccurateRip table in `ui/rip_progress.py` (`set_ctdb_status`/`set_ctdb_result`
@@ -406,10 +409,9 @@ Settings toggle (default off — it's a network call); tests for the worker
 signal flow, the UI render (incl. experimental labelling), and the off-thread
 MainWindow wiring.
 
-**Remaining (depends on Test 1):** once Test 1 confirms the `toc=` wire format
-and a trustworthy `match`, flip `crc.CRC_VALIDATED` → `True` (the single seam)
-so matches read "verified ✓", and export host `flac` in the wizard for the
-decoder.
+**Done (2026-07-07):** Test 1 confirmed the `toc=` wire format and a trustworthy
+`match`, so `crc.CRC_VALIDATED` was flipped → `True` (the single seam) and matches
+now read "verified ✓". (Host `flac` export in the wizard is tracked separately.)
 
 ## Test 2 — [ ] CTDB repair direction (Phase 2, KDD-14)
 

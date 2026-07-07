@@ -11,6 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **CTDB verify is now hardware-validated — a match reads "verified," not
+  "experimental" (KDD-16).** A `platterpus --ctdb-calibrate` run on a real
+  in-database disc (The Police — *Every Breath You Take: The Classics*, Pioneer
+  BDR-209D) reproduced a stored CTDB CRC bit-exactly at aligned **offset 0**, so
+  `ctdb/crc.py::CRC_VALIDATED` is now `True`. A CTDB `MATCH` is trustworthy (shown
+  "verified" with confidence) and a `NO_MATCH` now legitimately means the rip
+  differs from the database. The confirmed vector (whole-disc frames, front/back
+  trim, offset, CRC) is recorded as `crc.CONFIRMED_VECTOR` and pinned by a
+  regression test so the trim/offset math can't silently regress; the honesty
+  behaviour for a future re-opened gate stays covered.
+
 ## [0.4.19] — 2026-07-07
 
 ### Fixed
