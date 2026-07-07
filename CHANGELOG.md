@@ -38,9 +38,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     (what cyanrip actually receives via `-s`) counts, so the AccurateRip-list
     auto-apply / setup wizard kicks in as intended.
   - **Self-heal + disagreement warning.** If the saved offset disagrees with the
-    AccurateRip drive-list value for the selected drive, the rip preflight now
+    AccurateRip drive-list value for the selected drive, the rip preflight
     surfaces it and offers to use the list value (instead of silently ripping at
-    the wrong offset), and the drive trust line flags the disagreement.
+    the wrong offset), recording the accepted value so the trust line updates —
+    but it never offers to overwrite a *deliberate* per-unit offset (a MANUAL
+    entry or a two-source-CONFIRMED value), so a measured offset on one of two
+    same-model drives is respected. The trust line also flags the disagreement.
 - **AccurateRip verdict no longer over-claims.** When no track matched
   AccurateRip, the verdict said matches were "expected for a CD-R" and that the
   Copy CRCs "prove a secure read" — false reassurance on what may be a
