@@ -21,8 +21,9 @@ from __future__ import annotations
 import argparse
 import sys
 
+from platterpus import __version__, preflight
 from platterpus import config as config_module
-from platterpus import preflight
+from platterpus.build_info import build_fingerprint
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,7 +48,10 @@ def main(argv: list[str] | None = None) -> int:
     ctx = preflight.default_context(cfg)
     color = sys.stdout.isatty() and not args.no_color
 
-    print(f"Platterpus preflight — backend: {ctx.backend_name}\n")
+    print(
+        f"Platterpus {__version__} (build {build_fingerprint()}) preflight "
+        f"— backend: {ctx.backend_name}\n"
+    )
     results = preflight.run_preflight(
         ctx,
         network=not args.no_network,

@@ -1448,9 +1448,24 @@ class RipMixin:
         if not self._config.write_eac_log_after_rip:
             return
         try:
+            from platterpus import __version__, build_info
             from platterpus.eac_log_export import render_eac_style_log
 
-            text = render_eac_style_log(rip_log)
+            # Software provenance for the archival text artifact, all from
+            # already-resolved state (never a fresh probe — that would enter the
+            # container and freeze the GUI): our own version+build, and the FLAC
+            # encoder versions from the launch-time dependency report. ffmpeg is
+            # named only when a derived (non-FLAC) format was produced.
+            dep_report = getattr(self, "_last_dependency_report", None)
+            wanted = ["flac", "metaflac"]
+            if getattr(self._config, "output_format", "flac") != "flac":
+                wanted.append("ffmpeg")
+            text = render_eac_style_log(
+                rip_log,
+                platterpus_version=__version__,
+                build_fingerprint=build_info.build_fingerprint(),
+                encoder_versions=build_info.encoder_versions(dep_report, wanted),
+            )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
             log.info("wrote EAC-layout companion log: %s", target)
