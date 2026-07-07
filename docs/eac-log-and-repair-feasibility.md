@@ -11,11 +11,54 @@ plan) and answers the two questions that investigation deferred.
 
 ## Part A — Can we make our rips *tracker-accepted* by emitting an EAC log?
 
+### The decisive finding (added 2026-07, research session): the block is ripper identity, above the audio layer
+
+Before any of the checksum discussion below, there's a harder wall: the
+gazelle logcheckers (OPSnet's/orpheusnet's PHP logchecker; RED's EAC/XLD +
+Python `eac_logchecker` for the checksum) score a log by **which program
+produced it**, not by whether the underlying audio is bit-perfect. Their
+ripper allow-list is **EAC, XLD, and whipper ≥ 0.7.3** — full stop. An
+unrecognized ripper, including **cyanrip**, is hard-set to score **0 /
+rejected** before the checker ever looks at read quality, AccurateRip
+confidence, or anything audio-related.
+
+That matters for how to read everything below: there is **no honest partial
+ceiling** to aim for. A cyanrip log with perfect AccurateRip confidence and a
+flawless extraction still scores exactly the same as a garbage rip — zero —
+because the gate is identity, not quality. "Get closer to tracker-accepted" is
+not a spectrum we can climb by improving the rip; it's a binary allow-list we
+are not on. This reframes Part A from "how close can we get" to "this is
+categorically out of scope by design" — see PLANNING.md **KDD-24** for the
+full record.
+
+**Two corrections to the maintainer's 2026 ripper-landscape research doc**,
+surfaced while researching this:
+
+1. **whipper + `whipper-plugin-eaclogger` does not actually satisfy RED at
+   100%,** contrary to how the landscape doc frames it. The plugin renders an
+   EAC-*style* log, but it cannot emit the real EAC Rijndael-256 checksum RED
+   requires — the upstream issue tracking this is
+   [whipper-plugin-eaclogger#7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7),
+   still open. So whipper+eaclogger hits the *same* RED checksum wall
+   described below. Only whipper's **native** log (not the eaclogger plugin's
+   EAC-style one) is OPS/Orpheus-accepted, via SHA-256 under the
+   ripper-identity allow-list above — a narrower, different claim than
+   "satisfies RED."
+2. **"logchecker-go (pure Go)"** — cited in the landscape doc as a
+   characterization of the tracker tooling — **is unverified** as a claim
+   about implementation language and isn't the load-bearing fact anyway. The
+   fact that matters and *is* verifiable is the **scoring mechanics**:
+   ripper-identity allow-list, plus (for RED) the EAC checksum requirement.
+   Whatever language a given logchecker happens to be written in doesn't
+   change whether cyanrip passes it.
+
 ### The constraint
 
-Gazelle trackers (RED/OPS) accept **only EAC or XLD logs**. A cyanrip/whipper
-log — even with a valid AccurateRip result and cyanrip's own FUN512 checksum —
-is **not** accepted. So "make the CD-archiving community fully trust our rips"
+Gazelle trackers (RED/OPS) accept **only EAC or XLD logs** (whipper ≥ 0.7.3
+also clears the *identity* gate per the finding above, but still cannot clear
+RED's checksum requirement — see Part A's first section). A cyanrip log —
+even with a valid AccurateRip result and cyanrip's own FUN512 checksum — is
+**not** accepted. So "make the CD-archiving community fully trust our rips"
 splits into two very different audiences:
 
 - **AccurateRip + CTDB** = the *open*, tool-agnostic trust system. Anyone can
@@ -150,9 +193,25 @@ samples** and bring the track back to the consensus. We already do CTDB
 ## Bottom line
 
 - **EAC-log tracker acceptance:** technically trivial to *forge*, ethically and
-  per-the-brief a hard **no**. Trust the open path (AccurateRip + CTDB + honest
-  attributed logs); optionally emit an *unsigned, attributed* EAC-format log for
-  humans. **Maintainer decides 1/2/3.**
+  per-the-brief a hard **no** — and, per the ripper-identity finding above, not
+  even reachable by degrees since the gate is binary allow-list, not audio
+  quality. Trust the open path (AccurateRip + CTDB + honest attributed logs);
+  optionally emit an *unsigned, attributed* EAC-format log for humans.
+  **Maintainer decides 1/2/3.** This conclusion is **unchanged** by the
+  ripper-identity finding — it's the same "don't forge, invest in open trust"
+  answer, now with a sharper reason why closing the gap by degrees was never
+  on the table.
+- **Why we ship no two-pass Test&Copy, and why our log is unsigned — both are
+  the open-trust choice, not gaps.** A literal EAC-style Test&Copy (two full
+  disc passes, compared) and a signed EAC checksum are both *provenance/process
+  attestations* — "this ran the way EAC runs" — not audio-correctness
+  mechanisms. Given tracker acceptance is out of scope by design (KDD-24), we
+  spend the equivalent effort on the open-trust primitives instead: `-Z N`
+  secure-re-read convergence (a cheaper, single-engine analogue of Test&Copy's
+  purpose) plus AccurateRip/CTDB consensus for correctness, and an honest
+  **unsigned** attributed log for humans instead of a **signed** one that would
+  misrepresent which tool ran. Building Test&Copy or a real signature would
+  buy tracker-shaped credibility we've deliberately decided not to chase.
 - **In-app CTDB repair:** feasible on Linux (`ctdb-cli`/.NET or CUETools/Mono)
   but a heavy dependency that rewrites the master, **blocked on CRC
   hardware-validation**. Ship `-Z N` now, document the manual workflow, gate the
