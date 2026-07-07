@@ -17,6 +17,7 @@ from platterpus.ui.rip_progress import (
     RipProgress,
     _ar_cell,
     _basename,
+    _eac_cell,
     accuraterip_verdict,
     ctdb_verdict_level,
     ctdb_verdict_line,
@@ -51,6 +52,54 @@ def _track(
         accuraterip_v2=v2,
         accuraterip_offset=offset,
     )
+
+
+# --- EAC results column ---------------------------------------------------
+
+
+def test_eac_cell_verified_shows_crc_and_check() -> None:
+    """A verified, Copy-OK track shows its EAC CRC32 + the ✓ archival mark, and
+    the tooltip disclaims EAC-checksum equivalence (honesty)."""
+    track = TrackResult(
+        number=1,
+        copy_crc="b0d122e7",
+        status="ripped successfully",
+        accuraterip_v2=AccurateRipResult(version=2, confidence=200),
+    )
+    text, tip = _eac_cell(track)
+    assert text == "B0D122E7  ✓"
+    assert "AccurateRip-verified" in tip
+    assert "never signs an EAC log" in tip
+
+
+def test_eac_cell_offset_variant_is_partial_not_a_check() -> None:
+    """An offset-variant-only match is partial (~), never a false ✓."""
+    track = TrackResult(
+        number=1,
+        copy_crc="E0036697",
+        status="ripped successfully",
+        accuraterip_v1=AccurateRipResult(
+            version=1, result="not found", confidence=None
+        ),
+        accuraterip_offset=AccurateRipResult(version=1, confidence=200),
+    )
+    text, tip = _eac_cell(track)
+    assert text == "E0036697  ~"
+    assert "partially accurate" in tip.lower()
+
+
+def test_eac_cell_not_in_db_shows_value_without_check() -> None:
+    """A recorded CRC that can't be externally verified shows the value, no ✓."""
+    track = TrackResult(number=1, copy_crc="7A2ED98F", status="ripped successfully")
+    text, tip = _eac_cell(track)
+    assert text == "7A2ED98F"
+    assert "✓" not in text and "~" not in text
+    assert "AccurateRip database" in tip
+
+
+def test_eac_cell_without_crc_is_dash() -> None:
+    text, tip = _eac_cell(TrackResult(number=1))
+    assert text == "—"
 
 
 # --- Initial state -------------------------------------------------------

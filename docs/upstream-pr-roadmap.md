@@ -69,12 +69,45 @@ stalling. Do it regardless of what happens upstream.
 
 ---
 
-## DO NOW (no upstream PR) — cdrdao integration for pregap/INDEX-00 + HTOA
+> **Source-grounded update (2026-07-07 — cloned the cyanrip repo + fetched PR
+> #115's head).** This reorders the pregap/HTOA priorities below:
+> - **cyanrip `master` already handles pregaps from the TOC** — `enum
+>   cyanrip_pregap_action {DEFAULT,DROP,MERGE,TRACK}`, `-p <track>=<action>`,
+>   it *synthesises* a track-1 pregap when it sees an unmarked lead-in↔track-1
+>   gap, and `cue_writer.c` already emits `INDEX 00`/`PREGAP`/`INDEX 01`. It also
+>   merged **PR #127** (cdrdao TOC/bin support) already. So we likely already
+>   *receive* most INDEX-00 cue metadata from cyanrip — **check what cyanrip's
+>   own `.cue` contains before building anything.**
+> - **The accuracy gap (exact pregaps + true HTOA) is PR #115** (UltraFuzzy,
+>   **open** since 2025-09-27, rebased 2025-11-28): adds `src/pregap.c`
+>   (+483) + `pregap.h`, wired in by a **one-line call-site swap**
+>   (`cdio_get_track_pregap_lsn` → `cyanrip_get_track_pregap_lsn`). It reads
+>   Subchannel-Q via MMC — the thing the TOC can't give. Its blockers are a
+>   leftover `// remove after testing` `assert.h` block and a macOS
+>   private-libcdio-struct hack (wants `cdio_get_device_fd()`).
+> - **Therefore the honest priority is to help land #115, NOT to build a
+>   parallel Platterpus cdrdao path.** #115 delivers HTOA/INDEX-00 natively
+>   through the sanctioned `~/.local/bin/cyanrip` with no Platterpus subchannel
+>   code; a cdrdao integration duplicates it and adds a dependency. Keep the
+>   cdrdao option below only as the fallback if #115 stalls indefinitely.
+> - **License constraint:** cyanrip is **LGPL-2.1-or-later**; Platterpus is
+>   GPL-3.0. Any code contributed *into cyanrip* must be LGPL-2.1+ (never paste
+>   GPL-3-only Platterpus code upstream). Calling the LGPL binary as a subprocess
+>   is unaffected.
+> - **CTDB is confirmed Platterpus-only** — cyanrip has *zero* CTDB code
+>   (AccurateRip-only); our `crc.py` fix is the whole story, no cyanrip PR.
+> - **Process:** maintainer **Lynne "cyanreg" `<dev@lynne.ee>`**; IRC `#cyanrip`
+>   on Libera.Chat (sanity-check before coding); no `CONTRIBUTING`/tests; only CI
+>   is a Windows/MinGW build — **don't break it**. The two non-default branches
+>   (`accurip_test`, `deemphasis`) are dead/superseded — ignore them.
 
-**This is not a contribution — it lands entirely in Platterpus.** cdrdao is
-GPL-2-only, but we invoke every tool as a **subprocess** (never link it — the
-KDD-18 model), so GPL-2-only is fully compatible with our GPL-3.0 GUI. This is
-*exactly how whipper obtained gaps.*
+## DO-LATER / FALLBACK (no upstream PR) — cdrdao integration for pregap/INDEX-00 + HTOA
+
+**Reconsidered (see the update box above): prefer landing cyanrip PR #115 over
+this.** Keep this only as the fallback if #115 stalls. It is not a contribution —
+it lands entirely in Platterpus. cdrdao is GPL-2-only, but we invoke every tool
+as a **subprocess** (never link it — the KDD-18 model), so GPL-2-only is fully
+compatible with our GPL-3.0 GUI. This is *exactly how whipper obtained gaps.*
 
 - **What it does:** run `cdrdao read-toc` to scan the Q sub-channel for pre-gap
   lengths + index marks → a `.toc` file (`toc2cue` converts to `.cue`); parse it

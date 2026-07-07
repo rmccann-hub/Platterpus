@@ -11,6 +11,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.18] — 2026-07-07
+
+### Added
+- **Software-version provenance in the EAC-compatible log.** The companion
+  `<name> (EAC-compatible).log` header now records **which softwares produced
+  the rip** — *Platterpus &lt;version&gt; (build &lt;fingerprint&gt;)*, the
+  **FLAC encoder** (flac + metaflac versions), and **ffmpeg** when a derived
+  format (MP3/WavPack/WAV) was produced — alongside the cyanrip line it already
+  carried. Values come from the launch-time dependency probe; an unmeasured
+  version is omitted, never invented, and the "NOT a genuine EAC log / no EAC
+  checksum" honesty guardrails are unchanged. (Previously the log named
+  "Platterpus" with no version and omitted the encoder versions.)
+- **Version in the window title.** The main window title now reads
+  *"Platterpus &lt;version&gt;"* so the running version is visible at a glance,
+  not only in Help → About.
+- **EAC column in the results table.** The per-track AccurateRip results table
+  gains an **EAC** column showing each track's EAC-format CRC32 (the value to
+  compare against a real EAC rip) plus a ✓ when the track meets the archival bar
+  Platterpus can verify (AccurateRip-verified + copy OK on an offset-corrected,
+  error-free rip). Offset-variant-only matches show `~` (partial), and a track
+  absent from AccurateRip shows the value with no mark — never a false ✓, and
+  the tooltip is explicit it is *not* a claim of EAC-checksum equivalence.
+
+### Fixed
+- **CTDB offset search range corrected (KDD-16).** Calibration swept
+  AccurateRip's ±2939-frame window; CTDB actually matches over
+  **±(stride/2 − 1) = ±5879** (verified against the CueTools C# source). The
+  CRC, trim, and offset-combine were already correct — a pressing whose
+  alignment sat in (2939, 5879] was simply never reached, which is why two
+  hardware calibrations returned no-match. Still gated by the fail-safe
+  (`CRC_VALIDATED = False`, shown "experimental") until a hardware
+  `--ctdb-calibrate` run confirms an offset-0 match.
+- **`--doctor` / preflight now stamps the Platterpus version + build** in its
+  header, so a pasted doctor report identifies the exact build.
+- **Settings label rendered wrong.** "Also save back cover & booklet images"
+  showed as "back cover  booklet images" (Qt ate the lone `&` as a mnemonic and
+  bound a stray Alt+Space); reworded to "and".
+- **CI test stability (internal).** The CI test step now retries **only** on a
+  process-level abort (SIGABRT/SIGSEGV/SIGBUS, or a per-attempt `timeout` hang) —
+  the known offscreen-Qt/PySide teardown/worker-thread race in the headless test
+  harness that reddened the matrix at random. A real test failure or coverage
+  miss (exit 1) is never retried, so the gate keeps all its teeth; each retry is
+  logged as a CI warning, and a per-attempt timeout bounds the old 6-hour hang.
+  No product code changed. (See `docs/testing.md`.)
+
 ## [0.4.17] — 2026-07-07
 
 ### Changed
@@ -2142,7 +2187,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.18...HEAD
+[0.4.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...v0.4.18
 [0.4.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...v0.4.17
 [0.4.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.15...v0.4.16
 [0.4.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.14...v0.4.15

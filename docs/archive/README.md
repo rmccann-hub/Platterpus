@@ -15,10 +15,10 @@ conflicts with a living doc, the living doc wins.
 
 ## External reference material
 
-Third-party references kept for context — *not* our own investigations, so they
-carry no "graduated conclusions" row. Treat them as parity targets/principles to
-mine, not as authority over the living docs.
+Third-party references distilled for context — *not* our own investigations, so
+they carry no "graduated conclusions" row. Treat them as parity targets/principles
+to mine, not as authority over the living docs.
 
 | Archived file | What it is |
 |---|---|
-| [`archival-extraction-guide-2026-06.md`](archival-extraction-guide-2026-06.md) — a user-supplied EAC 1.8 / FLAC 1.5 / WavPack / LAME master guide | EAC/Windows-centric archival pipeline reference. Its actionable items (FLAC `-V` verify + compression level, the LAME `-q 4` `noise_shaping_amp` gotcha for future MP3, RF64/Wave64 for WAV >4 GB, richer metadata, AcoustID/lyrics) feed the **2026-06-23 gap analysis** in `docs/session-log.md`; several claims are flagged *verify before relying*. |
+| [`archival-extraction-guide-2026-06.md`](archival-extraction-guide-2026-06.md) — **our own cited summary** of a user-supplied EAC 1.8 / FLAC 1.5 / WavPack / LAME master guide | Our paraphrased summary of the guide's actionable EAC/Windows-centric archival targets (FLAC `-V` verify + compression level, the LAME `-q 4` `noise_shaping_amp` gotcha for future MP3, WAV metadata limits, richer metadata, AcoustID/lyrics), with links to the primary tool sites. The **verbatim third-party text was removed 2026-07-07** (provenance/permission hygiene for a public repo); the summary feeds the **2026-06-23 gap analysis** in `docs/session-log.md`; several source claims are flagged *verify before relying*. |

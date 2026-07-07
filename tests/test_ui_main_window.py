@@ -203,8 +203,11 @@ def teardown_threads(qapp: QApplication):
 
 
 def test_constructs_without_crashing(teardown_threads) -> None:
+    from platterpus import __version__
+
     window = teardown_threads()
-    assert window.windowTitle() == "Platterpus"
+    # The title carries the running version at a glance (v0.4.18 provenance).
+    assert window.windowTitle() == f"Platterpus {__version__}"
 
 
 def test_central_widget_contains_main_widgets(teardown_threads) -> None:

@@ -30,9 +30,6 @@ from __future__ import annotations
 import zlib
 from collections.abc import Iterable
 
-# CTDB's offset tolerance: 5 CD frames of 588 samples, minus one.
-CTDB_OFFSET_RANGE: int = 5 * 588 - 1  # = 2939
-
 # Bytes per stereo 16-bit sample frame.
 BYTES_PER_SAMPLE_FRAME: int = 4
 
@@ -40,6 +37,17 @@ BYTES_PER_SAMPLE_FRAME: int = 4
 # `new CDRepairEncode(ar, 10 * 588 * 2)`. Frame trims are half of a word count
 # (2 words = 1 stereo frame), so `stride/2` and `laststride/2` are FRAME counts.
 CTDB_STRIDE_WORDS: int = 10 * 588 * 2  # = 11760
+
+# CTDB's offset search range — the window CueTools' `CDRepair.FindOffset` sweeps:
+# `for (offset = 1 - stride/2; offset < stride/2; offset++)` (CDRepair.cs). In
+# stereo frames that is ±(stride/2 − 1) = ±5879, DELIBERATELY WIDER than
+# AccurateRip's ±2939 (`5*588 − 1`), because real pressing offsets routinely
+# exceed the AR window. Using the narrower AR range here was the bug behind two
+# failed hardware calibrations (KDD-16): a pressing aligned at an offset in
+# (2939, 5879] was never reached — the CRC/trim/combine were already correct
+# (verified bit-for-bit against the CueTools C# source). The fixed stride/2-frame
+# front trim exists precisely to give this range room.
+CTDB_OFFSET_RANGE: int = CTDB_STRIDE_WORDS // 2 - 1  # = 5879 frames
 
 # Set True only once the algorithm has been confirmed bit-exact on hardware.
 CRC_VALIDATED: bool = False
