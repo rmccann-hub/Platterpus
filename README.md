@@ -19,6 +19,29 @@
 
 ---
 
+## Capability & EAC-parity matrix
+
+Where Platterpus stands against EAC-equivalent archival quality: what it has, what's missing, whether each gap is closeable, and — if closing it needs an upstream pull request — from which project's maintainer. **✅ have it · ⚠️ partial · ❌ not yet.** Maintainers: **cyanreg** = [cyanrip](https://github.com/cyanreg/cyanrip), **rocky** = [libcdio-paranoia](https://github.com/libcdio/libcdio-paranoia), **itismadness** = [OPS/Orpheus Logchecker](https://github.com/OPSnet/Logchecker).
+
+| Capability | Status | Reachable? — how / who |
+|---|---|---|
+| Bit-perfect audio, CRC-provable | ✅ | Have it — AccurateRip + CTDB CRCs |
+| AccurateRip verify (v1 + v2) | ✅ | Have it |
+| CTDB audio-CRC verify | ⚠️ | **Yes** — CRC algorithm being corrected; **Platterpus code, no PR** |
+| EAC-style log + per-track EAC CRC32 column + software-version provenance | ✅ | Have it |
+| MusicBrainz tags · front/back/booklet art · UPC/catalog/label · ReplayGain | ✅ | Have it |
+| AppImage · zero-terminal setup · in-app update · FLAC master + WavPack/MP3/WAV | ✅ | Have it |
+| Gap / `INDEX 00` pre-gap detection + HTOA (hidden track) | ❌ | **Yes** — `cdrdao read-toc` subprocess (**no PR**), and/or cyanrip **PR #115** (cyanreg) |
+| Test & Copy (two full passes) | ⚠️ | Partial — cyanrip `-Z` re-read consensus (a stronger guarantee); optional PR to **cyanreg**, low value |
+| Cache-defeat *verdict* | ⚠️ | "Attempted, not measured" — optional self-test PR to **cyanreg**; low priority |
+| C2 error pointers | ❌ | **No on this drive** (BDR-209D lacks C2). Otherwise a 2-repo chain: **rocky** → **cyanreg** |
+| Signed EAC log checksum | ❌ | **Never** — signing our log as EAC forges provenance (bannable fake log). No PR, ever |
+| Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: re-add whipper, or a 2-PR chain **cyanreg → itismadness** (low odds) |
+
+**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip, tags, art, provenance — is in place. The one clearly-worth-doing gap is **gap/INDEX-00 + HTOA** (a `cdrdao` subprocess integration, no upstream PR needed). CTDB is a code fix in progress. The rest is either *never* (signed checksum = forgery), *moot on this hardware* (C2), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
+
+---
+
 ## Installation
 
 ### Easiest — download one file, no terminal (recommended)
