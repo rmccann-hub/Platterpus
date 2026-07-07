@@ -751,6 +751,8 @@ def test_secure_rerip_block_folded_into_read_speed() -> None:
 def test_cover_art_block_serialized() -> None:
     from dataclasses import dataclass, field
 
+    from dataclasses import field
+
     @dataclass
     class _CoverArtResult:
         mode: str = "embed"
