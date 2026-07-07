@@ -170,7 +170,9 @@ def test_neutral_verdict_is_honest_about_no_verification() -> None:
     """
     from platterpus.parsers.rip_log import RipLog, TrackResult
 
-    message, level = accuraterip_verdict(RipLog(tracks=(TrackResult(1, copy_crc="AAAA"),)))
+    message, level = accuraterip_verdict(
+        RipLog(tracks=(TrackResult(1, copy_crc="AAAA"),))
+    )
     lowered = message.lower()
     assert "secure read" not in lowered
     assert "not independently verified" in lowered

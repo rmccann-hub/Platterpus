@@ -57,7 +57,13 @@ FLAC tags post-rip via metaflac (`_escape_meta_value` / `restore_substituted_col
 Other tokenizer-special chars (`\ = '`) are backslash-escaped.
 
 **Info / probe flags:** `-I -N` (info-only, computes DiscID/CDDB locally, no
-network — `disc_info`); `-f` (find read offset — `find_offset`); `-V` (version).
+network — `disc_info`); `-V` (version). **cyanrip has NO offset-finder** — its
+`-f` is *force-overread*, not an AccurateRip offset detector — so `find_offset`
+is deliberately unimplemented (inherits `NotImplementedError`). The read offset
+comes from the bundled AccurateRip drive-model list (`adapters/accuraterip_offsets.py`)
+or manual entry, never from a cyanrip probe. (An earlier build ran `cyanrip -f`
+and regex-scraped "offset…N", which read a default 0 and silently overrode the
+correct list value — removed.)
 
 **Expected output we parse** (`parsers/cyanrip_log.py`, `parsers/cyanrip_info.py`):
 the finish log's banner (`Drive:`, `Disc tracks: N`, `Speed: default

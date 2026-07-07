@@ -1,13 +1,20 @@
 """Drive setup wizard — one-click calibration of the optical drive.
 
-Replaces the manual hand-edit of a config file (the worst first-run step)
-with a guided flow: the user inserts a popular CD and clicks Detect; we run
-cyanrip's offset finder off the GUI thread (via DriveSetupWorker), which
-*returns* the read offset. The main window then persists it as Platterpus's
-`--offset` override (the backend writes no config file of its own).
+Replaces the manual hand-edit of a config file (the worst first-run step) with a
+guided flow. The read offset (what makes a rip bit-perfect) comes from the
+bundled AccurateRip drive-model list — pre-filled and saved in one click when the
+drive is recognised — or is entered by hand. The main window persists it as
+Platterpus's `--offset` override (the backend writes no config file of its own).
 
-The dialog owns the worker thread; `_on_finished` is a plain slot so
-tests can exercise the result rendering without a live event loop.
+Backends that can genuinely MEASURE an offset from a disc
+(``RipBackend.supports_offset_detection()``) additionally get a "Detect" button
+that runs off the GUI thread via ``DriveSetupWorker``. **cyanrip cannot** (it has
+no offset finder — its ``-f`` is force-overread), so that button is hidden for it
+rather than offering a probe that can only fail — honest UI. The
+``DriveSetupWorker``/detection seam remains for a future measuring backend.
+
+The dialog owns the worker thread; `_on_finished` is a plain slot so tests can
+exercise the result rendering without a live event loop.
 """
 
 from __future__ import annotations
@@ -47,11 +54,12 @@ class DriveSetupDialog(CenteredDialog):
     # stays a view and never writes config itself.
     manual_offset_saved = Signal(int)
 
-    # Emitted after a successful auto-detect. Carries the DriveSetupResult so
-    # the main window can PERSIST the detected offset (as the `--offset`
-    # override — the backend writes no config file itself) and record the
-    # provenance in the drive-profile ledger (a high-confidence "measured on
-    # this drive" fact). The dialog stays a view.
+    # Emitted after a successful auto-detect (only reachable for a backend that
+    # can measure — not cyanrip). Carries the DriveSetupResult so the main window
+    # can persist the measured offset and record its provenance in the
+    # drive-profile ledger. Confidence is earned by AGREEMENT with the AccurateRip
+    # list (reconcile_offset), never granted to a lone reading. The dialog stays
+    # a view.
     detection_recorded = Signal(object)
 
     def __init__(
@@ -131,7 +139,7 @@ class DriveSetupDialog(CenteredDialog):
         if known_offset is not None:
             name = drive_label or "this drive"
             verify_clause = (
-                ' Auto-detect (Detect) is optional verification.'
+                " Auto-detect (Detect) is optional verification."
                 if self._can_detect
                 else ""
             )

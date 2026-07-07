@@ -9,17 +9,19 @@ FLAC compression, offers ``-Z`` re-rip-until-match, and does AccurateRip v1/v2 +
 EAC CRC. It sits behind the RipBackend ABC and ripping routes through a
 host-exported binary (Critical Rule #3).
 
-**Implemented:** the rip argv builder, version, find-offset, a backend-
-independent drive scan, and `disc_info` via ``-I -N`` (parsed by
-`parsers/cyanrip_info.py` — the DiscID/CDDB ID are computed locally from the
-TOC, so identification needs no network).
+**Implemented:** the rip argv builder, version, a backend-independent drive
+scan, and `disc_info` via ``-I -N`` (parsed by `parsers/cyanrip_info.py` — the
+DiscID/CDDB ID are computed locally from the TOC, so identification needs no
+network). **Not** implemented: `find_offset`/`analyze_drive` — cyanrip has no
+offset-finder or cache-analysis command, so both inherit ``NotImplementedError``
+(the read offset comes from the AccurateRip drive-model list + manual entry).
 
 cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
 (always passed — the GUI feeds the tags instead), ``-a``/``-t`` album/track
 metadata, ``-D``/``-F`` dir/file naming schemes (``{key}`` substitution),
-``-G`` disable cover-art embed, ``-I`` info-only, ``-f`` find offset, ``-V``
-version.
+``-G`` disable cover-art embed, ``-I`` info-only, ``-V`` version. (``-f`` is
+cyanrip's *force-overread*, NOT an offset finder — we never use it.)
 """
 
 from __future__ import annotations
@@ -30,7 +32,6 @@ from pathlib import Path
 
 from platterpus.adapters.rip_backend import (
     RipBackend,
-    RipError,
     RipHandle,
     RipMetadata,
     run_capture,

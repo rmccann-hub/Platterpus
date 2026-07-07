@@ -171,7 +171,7 @@ Platterpus/
         │   ├── rip_progress.py          # live progress + AccurateRip results + log viewer
         │   ├── settings_dialog.py       # settings page
         │   ├── unknown_album.py         # unknown-album helper flow
-        │   ├── drive_setup_dialog.py    # drive-setup wizard (analyze + offset find; KDD-15)
+        │   ├── drive_setup_dialog.py    # drive-setup wizard (AccurateRip-list + manual offset; KDD-15)
         │   ├── host_setup_dialog.py     # host-setup wizard (no-terminal setup-host.sh; KDD-17c)
         │   ├── uninstall_dialog.py      # in-app Uninstaller (no-terminal uninstall.sh)
         │   ├── help_dialogs.py          # Help → About + User Guide dialogs
@@ -186,7 +186,7 @@ Platterpus/
             ├── __init__.py              # start_worker_thread() — the shared one-shot QThread lifecycle wiring
             ├── rip_worker.py            # drives the cyanrip rip subprocess
             ├── mb_worker.py             # drives MusicBrainz queries
-            ├── drive_setup_worker.py    # drives drive analyze / offset find off-thread
+            ├── drive_setup_worker.py    # runs backend drive-calibration off-thread (cyanrip: none)
             ├── host_setup_worker.py     # drives the setup AND teardown engines off-thread (StepEngine)
             ├── drive_list_worker.py     # drives list_drives() off-thread (cold-container probe)
             ├── disc_info_worker.py      # drives disc_info() off-thread
@@ -305,7 +305,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`rip_progress.py`** — three panes: live cyanrip stdout (read-only), per-track AccurateRip results table (populated when the rip log is parsed at the end), and a "View log" button that opens the saved `.log` file in the default text viewer.
 - **`settings_dialog.py`** — `SettingsDialog(QDialog)`. One unified page: output/working dirs, track/disc templates, read-offset override, the metaflac path, output format, cover art, force-overread, max-retries, keep-going, secure re-rip, CD-R, auto-launch-Picard, auto-eject. Options the sole backend doesn't need are greyed out with a why+how-to tooltip (e.g. FLAC re-compress — cyanrip already maxes compression), and `to_config()` still reads disabled widgets so a value is never lost. Persists through `config.py`. (The old whipper|cyanrip backend toggle and `_apply_backend_capabilities` were removed when cyanrip became the sole backend — KDD-18/21.)
 - **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers an unknown-album rip (cyanrip, no MBID), applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
-- **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). Runs cyanrip's `drive analyze` + `offset find` off-thread via `DriveSetupWorker`; the detected offset persists to Platterpus's own config (applied to cyanrip as `-s`), with a manual-offset fallback and a pre-filled offset when the drive model is in the bundled AccurateRip list.
+- **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). The read offset comes from the bundled AccurateRip drive-model list (pre-filled when the drive is recognised) or manual entry, persisted to Platterpus's own config (applied to cyanrip as `-s`). cyanrip has **no** offset finder (its `-f` is force-overread, not detection) — so `RipBackend.supports_offset_detection()` is False for it and the wizard hides the "Detect" button rather than offer a probe that can only fail. The `DriveSetupWorker`/`find_offset` seam remains for a future backend that can genuinely measure an offset.
 - **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend into the container.
 - **`uninstall_dialog.py`** — `UninstallDialog`, the in-app Uninstaller (Tools → Uninstall Platterpus…, also launched directly by `platterpus --uninstall` from the menu entry). Confirmation gate + per-piece checkboxes (container, whipper.conf; the AppImage step appears only when running as one); drives `deps/host_teardown.py` via the shared worker; on success the main window offers to close itself (its settings no longer exist on disk).
 - **`help_dialogs.py`** — `AboutDialog` (version + Python/Qt/PySide6 versions + config/log/whipper paths) and `HelpDialog` (renders `help_content.USER_GUIDE`).
@@ -324,7 +324,7 @@ module's `QThread` keep working) and connects its own result slots first.
 
 - **`rip_worker.py`** — `RipWorker(QObject)` moved to a `QThread`. Owns the rip subprocess. Emits `log_line(str)` for each line of cyanrip output, `progress(...)` for parseable progress events, `finished(success, rip_log_path)` on exit, `error(message)` on failure. Supports cancel via subprocess terminate + child-process cleanup.
 - **`mb_worker.py`** — `MusicBrainzWorker(QObject)` moved to a `QThread`. Drives `MusicBrainzClient` calls (which can take a few seconds and shouldn't block input). Emits `releases_returned(list)` or `error(message)`. The one *persistent* worker (window lifetime), so it's wired by hand rather than via `start_worker_thread`.
-- **`drive_setup_worker.py`** — `DriveSetupWorker(QObject)` moved to a `QThread`. Runs the wizard's `drive analyze` / `offset find` via cancellable `Popen` so closing the dialog mid-detection can't orphan a running process or strand the drive.
+- **`drive_setup_worker.py`** — `DriveSetupWorker(QObject)` moved to a `QThread`. Runs any backend drive-calibration commands via cancellable `Popen` so closing the dialog mid-run can't orphan a running process or strand the drive. For cyanrip both `analyze_drive` and `find_offset` are unimplemented (it has neither a cache-analysis nor an offset-finder command), so the worker reports "can't auto-detect" and the offset comes from the AccurateRip list / manual entry; the seam stays for a backend that can.
 - **`host_setup_worker.py`** — `HostSetupWorker(QObject)` moved to a `QThread`. Runs any `StepEngine` (a Protocol in `deps/step_engine.py` that both `HostSetup` and `HostTeardown` satisfy — one worker drives setup and uninstall) off the GUI thread, relaying per-step `StepResult`s as signals; supports cancel at step boundaries.
 - **`drive_list_worker.py` / `disc_info_worker.py`** — run `list_drives()` / `disc_info()` off-thread (both shell out to the backend, slow on a cold container); emit `finished`/`failed`.
 - **`dependency_worker.py`** — runs `DependencyManager.check_all()` (the launch-time probe) off-thread; emits `finished(report)`.
