@@ -48,6 +48,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 - **Settings label rendered wrong.** "Also save back cover & booklet images"
   showed as "back cover  booklet images" (Qt ate the lone `&` as a mnemonic and
   bound a stray Alt+Space); reworded to "and".
+- **CI test stability (internal).** The CI test step now retries **only** on a
+  process-level abort (SIGABRT/SIGSEGV/SIGBUS, or a per-attempt `timeout` hang) —
+  the known offscreen-Qt/PySide teardown/worker-thread race in the headless test
+  harness that reddened the matrix at random. A real test failure or coverage
+  miss (exit 1) is never retried, so the gate keeps all its teeth; each retry is
+  logged as a CI warning, and a per-attempt timeout bounds the old 6-hour hang.
+  No product code changed. (See `docs/testing.md`.)
 
 ## [0.4.17] — 2026-07-07
 
