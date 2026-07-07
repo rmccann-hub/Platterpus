@@ -11,6 +11,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Dependency-install dialog crash (root cause of the CI flake).** The pending-
+  installs dialog destroyed its install **worker** by dropping the last Python
+  reference on the GUI thread while the worker's own thread was still alive — a
+  wrong-thread QObject destruction that intermittently aborted the process
+  (SIGSEGV/SIGABRT). The worker is now destroyed on its own thread via the queued
+  `deleteLater`, and the Python references are cleared only after the thread's
+  event loop has fully stopped. This is the real defect the CI test-retry
+  wrapper was masking (local abort rate on the two worst test files dropped from
+  ~40–55% to 0/25).
+
 ## [0.4.18] — 2026-07-07
 
 ### Added
