@@ -451,3 +451,10 @@ lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metafla
 - **The one permanent no:** never forge the EAC log checksum. If tracker acceptance is ever a hard requirement, the *only* honest routes are re-adding whipper (a recognized ripper) or getting cyanrip onto the logchecker allow-list upstream — both leave provenance truthful.
 - **Honesty gate is binding:** anything we surface to the user (a report field, a log line, a Settings claim) must be something we've verified or explicitly qualified — the cache-defeat "(unknown)" + reasoned note (KDD-25) is the template.
 
+> **Ordered, step-by-step version:** this menu is turned into a *ranked* action
+> list — which upstream PR to do first, its odds, and exactly how to contribute
+> each — in [`upstream-pr-roadmap.md`](upstream-pr-roadmap.md). Start there when
+> actually contributing; the headline is that the pregap/INDEX-00 + HTOA gaps are
+> best closed *now* by a Platterpus-side `cdrdao` subprocess integration (no
+> upstream PR), and cyanrip's live PR #115 already tackles the same two gaps.
+
