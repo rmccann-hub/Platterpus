@@ -185,6 +185,7 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "override_read_offset",
     "auto_launch_picard",
     "auto_eject_after_rip",
+    "notify_on_completion",
     "drive_setup_prompted",
     "host_setup_prompted",
     "appimage_integration_prompted",
@@ -193,6 +194,8 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "ctdb_verify_after_rip",
     "verify_flac_after_rip",
     "recompress_flac_after_rip",
+    "write_eac_log_after_rip",
+    "save_additional_art",
 )
 
 

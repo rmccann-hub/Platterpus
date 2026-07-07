@@ -2101,7 +2101,9 @@ def test_start_rip_worker_snapshots_track_table_metadata(
             def connect(self, *_a, **_k):
                 pass
 
-        log_line = progress = status = current_track = error = finished = _Sig()
+        log_line = progress = status = current_track = track_completed = error = (
+            finished
+        ) = _Sig()
 
     monkeypatch.setattr("platterpus.ui.main_window_rip.RipWorker", _NoopWorker)
     monkeypatch.setattr(
@@ -3458,7 +3460,11 @@ def test_cyanrip_rip_finish_fetches_and_applies_cover_art(
 ) -> None:
     """cyanrip never fetches art (the GUI bypasses its MB lookup), so the
     GUI fetches the front cover itself and embeds + saves it."""
-    window = teardown_threads(config=Config(cover_art="complete"))
+    # save_additional_art off so this stays focused on the front-cover fetch
+    # (the back/booklet manifest fetch is covered in test_cover_art).
+    window = teardown_threads(
+        config=Config(cover_art="complete", save_additional_art=False)
+    )
     album, log_file = _cover_album(tmp_path)
     fake_metaflac = _RecordingMetaflac()
     window._metaflac = fake_metaflac
@@ -3885,6 +3891,9 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
     assert report["disc"] == {
         "unknown": False,
         "musicbrainz_release_id": "release-xyz",
+        "catalog_number": None,
+        "barcode": None,
+        "label": None,
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
     assert report["environment"]["dependencies"]["cyanrip"] == {
@@ -4563,6 +4572,88 @@ def test_poll_disc_media_auto_rescans_when_a_disc_appears(teardown_threads) -> N
     assert rescanned == []
     window._poll_disc_media()  # a disc appeared → rescan
     assert rescanned == ["/dev/sr0"]
+
+
+def test_poll_disc_media_resets_view_when_the_disc_leaves(teardown_threads) -> None:
+    """A disc→empty transition (an eject or physical removal) clears the stale
+    disc-identity view so the app doesn't look like it still holds the old disc."""
+    window = teardown_threads()
+    window._rip_thread = None
+    window._disc_info_thread = None
+    reset_calls: list[int] = []
+    window._reset_disc_view = lambda: reset_calls.append(1)  # type: ignore[assignment]
+    rescanned: list[str] = []
+    window._start_disc_info = lambda device: rescanned.append(device)  # type: ignore[assignment]
+    window._drive_picker.current_device = lambda: "/dev/sr0"  # type: ignore[assignment]
+    window._media_watcher.reset()
+
+    statuses = iter(["disc", "open"])
+    window._disc_status_probe = lambda _dev: next(statuses)  # type: ignore[assignment]
+
+    window._poll_disc_media()  # baseline: a disc is present
+    assert reset_calls == []
+    window._poll_disc_media()  # disc ejected → clear the view, no rescan
+    assert reset_calls == [1]
+    assert rescanned == []
+
+
+def test_reset_disc_view_clears_disc_state(teardown_threads) -> None:
+    """The removal reset blanks the disc-identity fields and disc/release state
+    but leaves the results pane untouched (only 'what's in the drive now')."""
+    window = teardown_threads()
+    window._current_release_id = "rel-123"
+    window._current_num_tracks = 12
+    window._current_disc_id = "disc-abc"
+
+    window._reset_disc_view()
+
+    assert window._current_release_id == ""
+    assert window._current_num_tracks == 0
+    assert window._current_disc_id == ""
+
+
+def test_notify_rip_complete_respects_toggle_and_cancel(teardown_threads) -> None:
+    """The completion notification is gated by the setting and never fires for a
+    user-cancelled rip; otherwise it reaches the tray step (None here → no-op)."""
+    window = teardown_threads()
+    asked: list[str] = []
+    window._ensure_tray_icon = lambda: asked.append("icon") or None  # type: ignore[assignment]
+
+    window._config.notify_on_completion = False
+    window._rip_cancelled = False
+    window._notify_rip_complete(True, "done")
+    assert asked == []  # toggle off → doesn't even look for a tray
+
+    window._config.notify_on_completion = True
+    window._rip_cancelled = True
+    window._notify_rip_complete(True, "done")
+    assert asked == []  # a user cancel is not announced
+
+    window._rip_cancelled = False
+    window._notify_rip_complete(True, "done")
+    assert asked == ["icon"]  # on + not cancelled → attempts the tray (no-op here)
+
+
+def test_write_eac_log_respects_toggle(teardown_threads, tmp_path) -> None:
+    """The EAC-layout companion log is written beside the rip only when the
+    setting is on, named so it's never confused with cyanrip's own .log."""
+    window = teardown_threads()
+    log_file = tmp_path / "The Police - Album.log"
+    log_file.write_text("cyanrip log", encoding="utf-8")
+    rip_log = RipLog(tracks=(TrackResult(number=1),))
+    companion = tmp_path / "The Police - Album (EAC-compatible).log"
+
+    window._config.write_eac_log_after_rip = False
+    window._write_eac_log(rip_log, log_file)
+    assert not companion.exists()  # toggle off → nothing written
+
+    window._config.write_eac_log_after_rip = True
+    window._write_eac_log(rip_log, log_file)
+    assert companion.exists()
+    # Honest banner (clearly attributed, never a real signed EAC log).
+    assert companion.read_text(encoding="utf-8").startswith(
+        "Exact Audio Copy-compatible"
+    )
 
 
 def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:

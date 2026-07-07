@@ -399,6 +399,15 @@ def _metadata_args(metadata: RipMetadata | None, release_id: str) -> list[str]:
     # single CD gets no disc tag (no point tagging 1/1).
     if meta.total_discs > 1:
         album_pairs.append(f"disc={meta.disc_number}/{meta.total_discs}")
+    # Release identifiers, Picard-style Vorbis keys, so the archived files carry
+    # the disc's canonical IDs. Escaped like every other value (the -a colon-split
+    # trap — a catalog number can contain a colon).
+    if meta.catalog_number:
+        album_pairs.append(f"catalognumber={_escape_meta_value(meta.catalog_number)}")
+    if meta.barcode:
+        album_pairs.append(f"barcode={_escape_meta_value(meta.barcode)}")
+    if meta.label:
+        album_pairs.append(f"label={_escape_meta_value(meta.label)}")
     if release_id:
         album_pairs.append(f"musicbrainz_albumid={_escape_meta_value(release_id)}")
     if album_pairs:

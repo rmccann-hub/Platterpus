@@ -291,6 +291,25 @@ def test_metadata_args_skip_empty_fields() -> None:
     assert args == []
 
 
+def test_metadata_args_include_catalog_barcode_and_label() -> None:
+    # Release identifiers ride the -a album tag list as Picard-style Vorbis keys.
+    args = _metadata_args(
+        RipMetadata(
+            catalog_number="SHVL 804", barcode="5099902987682", label="Harvest"
+        ),
+        release_id="",
+    )
+    album_arg = args[args.index("-a") + 1]
+    assert "catalognumber=SHVL 804" in album_arg
+    assert "barcode=5099902987682" in album_arg
+    assert "label=Harvest" in album_arg
+    # Absent identifiers add nothing.
+    empty = _metadata_args(RipMetadata(album_title="X"), release_id="")
+    assert "catalognumber" not in empty[1]
+    assert "barcode" not in empty[1]
+    assert "label" not in empty[1]
+
+
 # --- whipper template → cyanrip scheme --------------------------------------
 
 

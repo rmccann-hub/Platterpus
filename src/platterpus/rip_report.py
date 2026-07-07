@@ -747,6 +747,7 @@ def _cover_art(result: object | None) -> dict | None:
         "bytes": getattr(result, "bytes", None),
         "format": getattr(result, "format", "") or None,
         "error": getattr(result, "error", "") or None,
+        "additional_saved": list(getattr(result, "additional_saved", []) or []) or None,
     }
 
 

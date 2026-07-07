@@ -46,13 +46,27 @@ class AlbumMetadata:
     year: str = ""
 
 
-# Column layout. Defined once so the model + view + tests share it.
-_COLUMNS: list[str] = ["#", "Title", "Artist", "Length"]
+# Column layout. Defined once so the model + view + tests share it. Status is
+# LAST so the existing column indices (and every test/consumer that uses them)
+# stay put.
+_COLUMNS: list[str] = ["#", "Title", "Artist", "Length", "Status"]
 _COL_NUMBER: int = 0
 _COL_TITLE: int = 1
 _COL_ARTIST: int = 2
 _COL_LENGTH: int = 3
+_COL_STATUS: int = 4
 _EDITABLE_COLS: set[int] = {_COL_TITLE, _COL_ARTIST}
+
+# Per-track live rip status, shown in the Status column as it advances. Symbol
+# AND text (not colour alone) per docs/ux-design-principles.md #7; pending shows
+# nothing so a not-yet-ripping list stays uncluttered.
+STATUS_PENDING: str = "pending"
+STATUS_RIPPING: str = "ripping"
+STATUS_DONE: str = "done"
+_STATUS_DISPLAY: dict[str, str] = {
+    STATUS_RIPPING: "⟳ Ripping",
+    STATUS_DONE: "✓ Done",
+}
 
 
 def _format_length(ms: int | None) -> str:
@@ -74,14 +88,37 @@ class TrackTableModel(QAbstractTableModel):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._tracks: list[TrackSummary] = []
+        # Live per-track rip status keyed by 1-based track number; absent = pending.
+        self._status: dict[int, str] = {}
 
     # --- Public surface ---
 
     def set_tracks(self, tracks: Sequence[TrackSummary]) -> None:
-        """Replace the current track list. Resets the view."""
+        """Replace the current track list. Resets the view (and rip status)."""
         self.beginResetModel()
         self._tracks = list(tracks)
+        self._status = {}
         self.endResetModel()
+
+    def set_track_status(self, track_number: int, status: str) -> None:
+        """Set the live rip status for a 1-based `track_number` and refresh its
+        Status cell. Out-of-range numbers are ignored (never raises)."""
+        row = track_number - 1
+        if row < 0 or row >= len(self._tracks):
+            return
+        self._status[track_number] = status
+        cell = self.index(row, _COL_STATUS)
+        self.dataChanged.emit(cell, cell, [Qt.ItemDataRole.DisplayRole])
+
+    def reset_statuses(self) -> None:
+        """Clear every track's rip status back to pending (called at rip start)."""
+        if not self._status:
+            return
+        self._status = {}
+        if self._tracks:
+            top = self.index(0, _COL_STATUS)
+            bottom = self.index(len(self._tracks) - 1, _COL_STATUS)
+            self.dataChanged.emit(top, bottom, [Qt.ItemDataRole.DisplayRole])
 
     def tracks(self) -> list[TrackSummary]:
         """Return the current track list (with any user edits applied)."""
@@ -142,6 +179,10 @@ class TrackTableModel(QAbstractTableModel):
             return track.artist_credit
         if col == _COL_LENGTH:
             return _format_length(track.length_ms)
+        if col == _COL_STATUS:
+            return _STATUS_DISPLAY.get(
+                self._status.get(track.number, STATUS_PENDING), ""
+            )
         return None
 
     def setData(
@@ -293,6 +334,18 @@ class TrackTable(QWidget):
             self._model.index(row, _COL_NUMBER),
             QAbstractItemView.ScrollHint.EnsureVisible,
         )
+
+    def mark_track_ripping(self, track_number: int) -> None:
+        """Show `track_number` (1-based) as the one currently being ripped."""
+        self._model.set_track_status(track_number, STATUS_RIPPING)
+
+    def mark_track_done(self, track_number: int) -> None:
+        """Show `track_number` (1-based) as finished ripping."""
+        self._model.set_track_status(track_number, STATUS_DONE)
+
+    def reset_track_status(self) -> None:
+        """Clear the live Status column back to pending (called at rip start)."""
+        self._model.reset_statuses()
 
     def clear(self) -> None:
         """Reset to the empty state (no album metadata, no tracks)."""
