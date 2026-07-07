@@ -1,13 +1,20 @@
 """Drive setup wizard — one-click calibration of the optical drive.
 
-Replaces the manual hand-edit of a config file (the worst first-run step)
-with a guided flow: the user inserts a popular CD and clicks Detect; we run
-cyanrip's offset finder off the GUI thread (via DriveSetupWorker), which
-*returns* the read offset. The main window then persists it as Platterpus's
-`--offset` override (the backend writes no config file of its own).
+Replaces the manual hand-edit of a config file (the worst first-run step) with a
+guided flow. The read offset (what makes a rip bit-perfect) comes from the
+bundled AccurateRip drive-model list — pre-filled and saved in one click when the
+drive is recognised — or is entered by hand. The main window persists it as
+Platterpus's `--offset` override (the backend writes no config file of its own).
 
-The dialog owns the worker thread; `_on_finished` is a plain slot so
-tests can exercise the result rendering without a live event loop.
+Backends that can genuinely MEASURE an offset from a disc
+(``RipBackend.supports_offset_detection()``) additionally get a "Detect" button
+that runs off the GUI thread via ``DriveSetupWorker``. **cyanrip cannot** (it has
+no offset finder — its ``-f`` is force-overread), so that button is hidden for it
+rather than offering a probe that can only fail — honest UI. The
+``DriveSetupWorker``/detection seam remains for a future measuring backend.
+
+The dialog owns the worker thread; `_on_finished` is a plain slot so tests can
+exercise the result rendering without a live event loop.
 """
 
 from __future__ import annotations
@@ -47,11 +54,12 @@ class DriveSetupDialog(CenteredDialog):
     # stays a view and never writes config itself.
     manual_offset_saved = Signal(int)
 
-    # Emitted after a successful auto-detect. Carries the DriveSetupResult so
-    # the main window can PERSIST the detected offset (as the `--offset`
-    # override — the backend writes no config file itself) and record the
-    # provenance in the drive-profile ledger (a high-confidence "measured on
-    # this drive" fact). The dialog stays a view.
+    # Emitted after a successful auto-detect (only reachable for a backend that
+    # can measure — not cyanrip). Carries the DriveSetupResult so the main window
+    # can persist the measured offset and record its provenance in the
+    # drive-profile ledger. Confidence is earned by AGREEMENT with the AccurateRip
+    # list (reconcile_offset), never granted to a lone reading. The dialog stays
+    # a view.
     detection_recorded = Signal(object)
 
     def __init__(
@@ -71,6 +79,11 @@ class DriveSetupDialog(CenteredDialog):
         """
         super().__init__(parent)
         self._backend: RipBackend = backend
+        # Whether this backend can genuinely measure the offset from a disc. When
+        # False (cyanrip), we do NOT show a "Detect" button that can only fail —
+        # the offset comes from the AccurateRip drive list (pre-filled below) or
+        # manual entry. Honest UI: never present a non-working path as working.
+        self._can_detect: bool = backend.supports_offset_detection()
         self._device: str = device
         self._known_offset: int | None = known_offset
         self._thread: QThread | None = None
@@ -87,15 +100,30 @@ class DriveSetupDialog(CenteredDialog):
 
         root = QVBoxLayout(self)
 
-        intro = QLabel(
-            "This calibrates your drive for bit-perfect rips. It detects the "
-            "drive's read offset and audio-cache behaviour and saves the offset "
-            "to Platterpus's own settings, which are applied to cyanrip on every "
-            "rip.\n\n"
-            "Insert a popular commercial CD — one likely to be in the "
-            "AccurateRip database — then click Detect. This can take a minute.",
-            self,
-        )
+        if self._can_detect:
+            intro_text = (
+                "This calibrates your drive for bit-perfect rips. It detects the "
+                "drive's read offset and audio-cache behaviour and saves the "
+                "offset to Platterpus's own settings, which are applied to "
+                "cyanrip on every rip.\n\n"
+                "Insert a popular commercial CD — one likely to be in the "
+                "AccurateRip database — then click Detect. This can take a minute."
+            )
+        else:
+            # cyanrip can't measure the offset from a disc, so we don't pretend
+            # to. The read offset — what makes a rip bit-perfect — comes from the
+            # AccurateRip drive list (pre-filled below when your drive is known)
+            # or is entered by hand. It's saved to Platterpus's settings and
+            # applied to cyanrip on every rip.
+            intro_text = (
+                "The read offset is what makes a rip bit-perfect. Platterpus "
+                "applies it to cyanrip on every rip.\n\n"
+                "Your drive's offset comes from the AccurateRip drive list "
+                "(pre-filled below when your drive is recognised) or you can "
+                "enter it by hand. On-disc auto-detection isn't available with "
+                "this backend."
+            )
+        intro = QLabel(intro_text, self)
         intro.setWordWrap(True)
         root.addWidget(intro)
 
@@ -110,26 +138,37 @@ class DriveSetupDialog(CenteredDialog):
         # This sidesteps cyanrip's disc-based offset detection entirely.
         if known_offset is not None:
             name = drive_label or "this drive"
+            verify_clause = (
+                " Auto-detect (Detect) is optional verification."
+                if self._can_detect
+                else ""
+            )
             suggestion = QLabel(
                 f"✓ Known read offset for {name}: <b>{known_offset:+d}</b> "
                 "(from the AccurateRip drive list). It's pre-filled below — "
-                'click "Save offset" to use it. No disc needed. '
-                "Auto-detect (Detect) is optional verification.",
+                'click "Save offset" to use it. No disc needed.' + verify_clause,
                 self,
             )
             suggestion.setWordWrap(True)
             root.addWidget(suggestion)
 
-        self._detect_button: QPushButton = QPushButton("Detect", self)
-        self._detect_button.clicked.connect(self._on_detect_clicked)
-        root.addWidget(self._detect_button)
+        # The "Detect" action + its busy bar only exist when the backend can
+        # actually measure an offset from a disc. cyanrip can't, so we don't show
+        # a button that would only ever report "can't do it" — honest UI (the
+        # offset comes from the AccurateRip list / manual entry below instead).
+        self._detect_button: QPushButton | None = None
+        self._progress: QProgressBar | None = None
+        if self._can_detect:
+            self._detect_button = QPushButton("Detect", self)
+            self._detect_button.clicked.connect(self._on_detect_clicked)
+            root.addWidget(self._detect_button)
 
-        # Indeterminate (busy) bar — min==max==0 animates with no percentage,
-        # which is honest here since neither cyanrip command reports progress.
-        self._progress: QProgressBar = QProgressBar(self)
-        self._progress.setRange(0, 0)
-        self._progress.setVisible(False)
-        root.addWidget(self._progress)
+            # Indeterminate (busy) bar — min==max==0 animates with no percentage,
+            # honest here since the detection command reports no progress.
+            self._progress = QProgressBar(self)
+            self._progress.setRange(0, 0)
+            self._progress.setVisible(False)
+            root.addWidget(self._progress)
 
         self._status_label: QLabel = QLabel("", self)
         self._status_label.setWordWrap(True)
@@ -190,7 +229,9 @@ class DriveSetupDialog(CenteredDialog):
 
     def _on_detect_clicked(self) -> None:
         """Kick off calibration on a worker thread."""
-        if self._thread is not None:  # already running
+        # Only reachable when the backend can detect (the button doesn't exist
+        # otherwise), but guard defensively.
+        if self._detect_button is None or self._thread is not None:
             return
         self._detect_button.setEnabled(False)
         # Lock the manual-offset controls while detection runs: editing or
@@ -198,7 +239,8 @@ class DriveSetupDialog(CenteredDialog):
         # about to report. They're re-enabled in `_on_finished`.
         self._set_manual_controls_enabled(False)
         self._results_label.clear()
-        self._progress.setVisible(True)
+        if self._progress is not None:
+            self._progress.setVisible(True)
         self._status_label.setText("Starting…")
 
         self._worker = DriveSetupWorker(self._backend, self._device)
@@ -214,11 +256,13 @@ class DriveSetupDialog(CenteredDialog):
         # don't touch them.
         if self._closing:
             return
-        self._progress.setVisible(False)
+        if self._progress is not None:
+            self._progress.setVisible(False)
         self._status_label.setText("Done." if result.ok else "Finished with issues.")
         self._results_label.setPlainText(_format_result(result))
-        self._detect_button.setEnabled(True)
-        self._detect_button.setText("Re-detect")
+        if self._detect_button is not None:
+            self._detect_button.setEnabled(True)
+            self._detect_button.setText("Re-detect")
         self._set_manual_controls_enabled(True)
         self._worker = None
         self._thread = None

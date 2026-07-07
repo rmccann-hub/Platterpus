@@ -9,11 +9,15 @@ only a real disc can settle is *which* offset (ideally 0, if the rip's read
 offset matches the pressing) reproduces a database CRC — so this module sweeps
 the whole guard band and reports every offset whose CTDB CRC matches a DB entry.
 
-A naive sweep (re-CRC the ~600 MB disc at each of 5 879 offsets) would take tens
-of minutes. Instead we compute the offset-0 CRC once and derive every other
-offset's CRC in microseconds with the standard zlib ``crc32_combine`` operator
-(the same GF(2) "append N zero bytes" trick CueTools' ``Crc32.Combine`` uses) —
-so the full sweep is a handful of big CRC passes plus cheap algebra.
+A naive sweep (re-CRC the ~600 MB disc at each of ~11 759 offsets in the ±5879
+band) would take tens of minutes. Instead we compute a couple of big base CRCs
+once and derive every offset's CRC with the standard zlib ``crc32_combine``
+operator (the same GF(2) "append N zero bytes" trick CueTools' ``Crc32.Combine``
+uses). The GF(2) matrix work depends only on byte-*lengths*, not on the disc, and
+those lengths are arithmetic across the sweep — so we build each operator ONCE
+and apply a cheap matrix-multiply per offset (a full sweep is ~0.3 s, vs ~40 s if
+each offset rebuilt the operators — a difference that used to look like a CI hang
+under coverage and made the real ``--ctdb-calibrate`` wait).
 
 Everything here is pure (PCM in, matches out) so it's unit-tested without a disc
 (the algebra is checked against the naive per-offset CRC); the disc only supplies
@@ -64,12 +68,26 @@ def _gf2_matrix_square(square: list[int], mat: list[int]) -> None:
         square[n] = _gf2_matrix_times(mat, mat[n])
 
 
-def crc32_combine(crc1: int, crc2: int, len2: int) -> int:
-    """Standard zlib ``crc32_combine``: the CRC of ``A ‖ B`` given ``crc1`` =
-    CRC(A), ``crc2`` = CRC(B), and ``len2`` = len(B) in bytes. Bit-identical to
-    CueTools' ``Crc32.Combine`` and to zlib's C implementation."""
+def _gf2_matrix_compose(a: list[int], b: list[int]) -> list[int]:
+    """The matrix for "apply ``b`` then ``a``": ``(a∘b)[n] = a(b[n])``, so
+    ``_gf2_matrix_times(a∘b, v) == _gf2_matrix_times(a, _gf2_matrix_times(b, v))``.
+    """
+    return [_gf2_matrix_times(a, b[n]) for n in range(_GF2_DIM)]
+
+
+def _gf2_combine_operator(len2: int) -> list[int]:
+    """The single GF(2) operator matrix equivalent to ``crc32_combine(·, 0, len2)``.
+
+    ``crc32_combine`` applies a sequence of even/odd square matrices to the input
+    register; that whole sequence composes into one 32×32 matrix that depends
+    ONLY on ``len2``. Building it once (``O(log len2)`` matrix squarings) and then
+    applying it with a single :func:`_gf2_matrix_times` is what lets a sweep that
+    combines the *same* ``len2`` thousands of times (the offset scan) pay the
+    log-cost once instead of per offset. For ``len2 <= 0`` this is the identity.
+    """
+    op = [1 << n for n in range(_GF2_DIM)]  # identity: matrix_times(op, v) == v
     if len2 <= 0:
-        return crc1
+        return op
     even = [0] * _GF2_DIM
     odd = [0] * _GF2_DIM
     odd[0] = 0xEDB88320  # the CRC-32 polynomial (reflected)
@@ -82,29 +100,31 @@ def crc32_combine(crc1: int, crc2: int, len2: int) -> int:
     while True:
         _gf2_matrix_square(even, odd)
         if len2 & 1:
-            crc1 = _gf2_matrix_times(even, crc1)
+            op = _gf2_matrix_compose(even, op)
         len2 >>= 1
         if len2 == 0:
             break
         _gf2_matrix_square(odd, even)
         if len2 & 1:
-            crc1 = _gf2_matrix_times(odd, crc1)
+            op = _gf2_matrix_compose(odd, op)
         len2 >>= 1
         if len2 == 0:
             break
-    return crc1 ^ crc2
+    return op
+
+
+def crc32_combine(crc1: int, crc2: int, len2: int) -> int:
+    """Standard zlib ``crc32_combine``: the CRC of ``A ‖ B`` given ``crc1`` =
+    CRC(A), ``crc2`` = CRC(B), and ``len2`` = len(B) in bytes. Bit-identical to
+    CueTools' ``Crc32.Combine`` and to zlib's C implementation."""
+    if len2 <= 0:
+        return crc1
+    return _gf2_matrix_times(_gf2_combine_operator(len2), crc1) ^ crc2
 
 
 def _shift_crc(crc: int, nbytes: int) -> int:
     """CRC of ``data ‖ (nbytes zero bytes)`` given CRC(data) — the zeros operator."""
     return crc32_combine(crc, 0, nbytes)
-
-
-def _raw_prefix(std_crc: int, nbytes: int) -> int:
-    """The init-0 / no-xorout running CRC register for a `nbytes`-long prefix,
-    given its standard ``zlib.crc32`` value. Lets us splice prefixes/suffixes the
-    way CUETools' ``CTDBCRC`` does with its per-track running registers."""
-    return (0xFFFFFFFF ^ std_crc ^ _shift_crc(0xFFFFFFFF, nbytes)) & 0xFFFFFFFF
 
 
 def ctdb_crc_offsets(pcm: bytes, offsets: range | None = None) -> dict[int, int]:
@@ -136,15 +156,60 @@ def ctdb_crc_offsets(pcm: bytes, offsets: range | None = None) -> dict[int, int]
 
     b_min = min(ends.values())
     base = zlib.crc32(pcm[:b_min])  # one big pass over the common prefix
-    raw_a = {a: _raw_prefix(zlib.crc32(pcm[:a]), a) for a in set(starts.values())}
-    raw_b = {
-        b: _raw_prefix(zlib.crc32(pcm[b_min:b], base), b)
-        for b in sorted(set(ends.values()))
+
+    # The per-offset prefix lengths (the ``a`` values, and the ``b`` values) are
+    # ARITHMETIC — consecutive offsets differ by exactly one sample-frame
+    # (``fpb`` bytes) — so ``_shift_crc(0xFFFFFFFF, L)`` for each length is just the
+    # previous one shifted by one more frame. Build the one-frame shift operator
+    # ONCE and walk the lengths in order, applying a single cheap matrix-multiply
+    # per step, instead of a full ``O(log L)`` combine per length. A non-``fpb``
+    # gap (only at the range extremes) falls back to a full shift. Without this
+    # the ~2 × 11 759 full combines dominate (tens of seconds — a coverage-time
+    # "hang", and a real ``--ctdb-calibrate`` that made the user wait).
+    fpb_op = _gf2_combine_operator(fpb)
+
+    def _shift_ff_map(lengths: list[int]) -> dict[int, int]:
+        """``{L: _shift_crc(0xFFFFFFFF, L)}`` computed incrementally over sorted L."""
+        result: dict[int, int] = {}
+        prev_len: int | None = None
+        prev_val = 0
+        for length in lengths:
+            if prev_len is not None and length == prev_len + fpb:
+                val = _gf2_matrix_times(fpb_op, prev_val)
+            else:
+                val = _shift_crc(0xFFFFFFFF, length)
+            result[length] = val
+            prev_len, prev_val = length, val
+        return result
+
+    a_lengths = sorted(set(starts.values()))
+    b_lengths = sorted(set(ends.values()))
+    shift_a = _shift_ff_map(a_lengths)
+    shift_b = _shift_ff_map(b_lengths)
+    raw_a = {
+        a: (0xFFFFFFFF ^ zlib.crc32(pcm[:a]) ^ shift_a[a]) & 0xFFFFFFFF
+        for a in a_lengths
     }
+    raw_b = {
+        b: (0xFFFFFFFF ^ zlib.crc32(pcm[b_min:b], base) ^ shift_b[b]) & 0xFFFFFFFF
+        for b in b_lengths
+    }
+
+    # The window length ``b - a`` is CONSTANT across offsets (``a`` and ``b`` both
+    # shift by ``+oi``, so their difference is offset-independent), so the GF(2)
+    # combine operator is identical for every offset — build it ONCE and apply a
+    # single cheap matrix-multiply per offset instead of a full ``crc32_combine``.
+    # Keyed by length for safety, but in practice there is a single entry.
+    op_cache: dict[int, list[int]] = {}
     out: dict[int, int] = {}
     for oi, a in starts.items():
         b = ends[oi]
-        out[oi] = 0xFFFFFFFF ^ crc32_combine(0xFFFFFFFF ^ raw_a[a], raw_b[b], b - a)
+        len2 = b - a
+        op = op_cache.get(len2)
+        if op is None:
+            op = _gf2_combine_operator(len2)
+            op_cache[len2] = op
+        out[oi] = 0xFFFFFFFF ^ (_gf2_matrix_times(op, 0xFFFFFFFF ^ raw_a[a]) ^ raw_b[b])
     return out
 
 

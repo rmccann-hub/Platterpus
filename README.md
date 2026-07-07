@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.4.x — public pre-release.** Implemented end-to-end with 1,600+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-detect** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), **cover art** from the Cover Art Archive, an **EAC-compatible companion log** with a per-track **EAC CRC32 column** in the results table, and **software-version provenance** (Platterpus + encoder versions) recorded in the log header and the window title. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **Status: v0.4.x — public pre-release.** Implemented end-to-end with 1,600+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), **cover art** from the Cover Art Archive, an **EAC-compatible companion log** with a per-track **EAC CRC32 column** in the results table, and **software-version provenance** (Platterpus + encoder versions) recorded in the log header and the window title. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -50,7 +50,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 | **Accurate Stream** drive feature | assumed by the paranoia read path | ✅ |
 | **Drive caches audio data** → flush cache between re-reads (cache-defeat) | libcdio-paranoia *attempts* cache-defeat; we report it **"(unknown)"** — attempted, not *measured* (KDD-25), never faked "Yes" | ⚠️ |
 | **C2 error info — leave UNCHECKED** (disable, even if supported) | We don't use C2 → **exactly what the guide prescribes** | ✅ |
-| **Read sample offset correction** (AccurateRip Key Disc) | `+667` from the bundled AccurateRip drive DB / **Set up drive** | ✅ |
+| **Read sample offset correction** | applied via cyanrip `-s`, value from the bundled AccurateRip drive DB (by model, e.g. `+667`) or manual entry — not EAC's on-disc "Key Disc" method, but the same corrected result | ✅ |
 | **Overread into Lead-In/Lead-Out** — off unless firmware-verified | cyanrip overreads **+2 frames, filled with silence** (conservative) | ✅ |
 | **Allow speed reduction** on scratches | cyanrip adaptive read-speed ladder | ✅ |
 | **Gap/Index — Detection Method A, Secure** | cyanrip emits `INDEX 00`/pregaps from the TOC today; exact subchannel detection + HTOA is cyanrip **PR #115** (in progress) | ⚠️ |
@@ -167,7 +167,7 @@ There are five things to set up. Plan on **20-40 minutes** the first time. Once 
 | 2 | Create a `ripping` container | Where cyanrip actually lives |
 | 3 | Install cyanrip + flac in the container | The tools that do the ripping |
 | 4 | Export them to the host | So Platterpus can find them |
-| 5 | Detect your drive's read offset | One-time calibration for accurate rips |
+| 5 | Set your drive's read offset | One-time calibration for accurate rips |
 | 6 | Install MusicBrainz Picard *(optional)* | Manual tag editing for unknown discs |
 | 7 | Install Platterpus | This project |
 
@@ -314,11 +314,12 @@ Then open a new terminal.
 
 Every optical drive reads audio slightly off from where it "should" — by a positive or negative number of samples. For bit-perfect archival rips that match AccurateRip's database, the offset for your drive has to be known so cyanrip can correct for it.
 
-**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered on first launch (or anytime from **Tools → Set up drive…**), which gives you three ways to get the value:
+**This is a one-time, in-app step — there's no terminal command for it.** cyanrip reads no config file of its own; Platterpus stores the offset in its own config at `~/.config/platterpus/config.toml` and passes it to cyanrip at rip time via the `-s` flag. You set it through the **drive-setup wizard**, offered on first launch (or anytime from **Tools → Set up drive…**), which gives you two ways to get the value:
 
-- **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list. Just click **Save offset**.
-- **Detect from a CD** — insert a commercial audio CD that's in [AccurateRip's database](https://www.accuraterip.com) (any common retail pressing — Pink Floyd, Beatles, Metallica; not a CD-R or burned mix), click **Detect**, then **Save**.
-- **Enter it by hand** — look your drive up in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm) and type the value into the wizard's manual-entry field. Handy if you only have CD-Rs.
+- **Automatic, no disc needed** — if Platterpus recognises your drive model, it fills the offset in from the bundled AccurateRip drive-offset list (e.g. `+667` for the Pioneer BDR-209D). Just click **Save offset**.
+- **Enter it by hand** — look your drive up in the [AccurateRip offset list](https://www.accuraterip.com/driveoffsets.htm) and type the value into the wizard's manual-entry field. Handy if your model isn't recognised, or if you only have CD-Rs.
+
+> **Why no "detect from a disc" button?** cyanrip (the ripping backend) has no AccurateRip offset-*finder*, so Platterpus doesn't offer on-disc auto-detection — a button that could only guess or fail would be worse than none. The drive-offset list is the reliable, disc-free source; a rip that then verifies against AccurateRip is what confirms the offset is right for your unit.
 
 > **What about `~/.config/whipper/whipper.conf`?** If you ran an older whipper-based install, that file may still exist. It's **legacy, read-only reference only** — kept so an upgrading user can see their previous offset. cyanrip neither reads nor writes it; the live offset lives in Platterpus's own config. There's nothing to create or edit there.
 
@@ -588,7 +589,7 @@ When you launch Platterpus for the first time:
    - **Pending installs:** a checklist for items that need batching or confirmation.
    - **Manual install:** a copyable search string for items like `libdiscid` that need root + reboot.
 
-2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), **detect** it (insert a commercial CD that's in AccurateRip), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Set up drive…**.
+2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if your model isn't recognised or you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Set up drive…**.
 
 3. **Pick a drive.** The dropdown at the top of the window lists the optical drives detected on your system. Click Refresh if you plug in a drive after launch.
 
@@ -697,7 +698,7 @@ Check the log at `~/.local/share/platterpus/log.txt`. The most common cause is t
 
 ### The drive-setup wizard says my disc isn't in AccurateRip
 
-When detecting the offset from a CD, try a well-known commercial CD (Pink Floyd, Beatles, Metallica — anything in the top 1000 records). Mix CDs and very obscure pressings often aren't in AccurateRip's database. If you can't get a detection, look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) and enter the value by hand in the wizard's manual-entry field.
+If Platterpus doesn't recognise your drive model (so the offset isn't filled in automatically), look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) and enter the value by hand in the wizard's manual-entry field. After a rip, the AccurateRip verdict tells you whether the offset was right — matching tracks confirm it; zero matches (on a disc that's in the database) suggest the offset is wrong.
 
 ### "metaflac: command not found" only when ripping
 

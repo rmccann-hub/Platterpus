@@ -535,14 +535,15 @@ def test_native_output_formats_includes_wav_and_mp3() -> None:
     assert {"flac", "wav", "mp3", "wavpack"} <= fmts
 
 
-def test_find_offset_parses_value(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_run(monkeypatch, stdout="Detected drive offset: 667\n")
-    assert _impl().find_offset("/dev/sr0") == 667
-
-
-def test_find_offset_raises_when_absent(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_run(monkeypatch, stdout="no offset here")
-    with pytest.raises(RipError):
+def test_find_offset_is_not_implemented() -> None:
+    """Regression: cyanrip has NO AccurateRip offset finder (its ``-f`` is
+    force-overread, not a detector). The old override ran ``cyanrip -f`` and
+    scraped "offset…N" from the help/default echo, returning a meaningless 0
+    that overrode the correct AccurateRip-list value on real hardware. cyanrip
+    must inherit the base ``NotImplementedError`` so the wizard falls back to the
+    drive-model list + manual entry, never a fabricated number.
+    """
+    with pytest.raises(NotImplementedError):
         _impl().find_offset("/dev/sr0")
 
 

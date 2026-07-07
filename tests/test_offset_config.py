@@ -79,12 +79,16 @@ def test_is_configured_true_when_override_on(tmp_path: Path) -> None:
     assert is_offset_configured(True, tmp_path / "missing.conf") is True
 
 
-def test_is_configured_true_from_conf(tmp_path: Path) -> None:
+def test_is_configured_false_from_conf_alone(tmp_path: Path) -> None:
+    # Regression: a leftover whipper.conf offset must NOT satisfy the gate — it
+    # never reaches cyanrip's -s, so counting it as "configured" made the rip
+    # preflight skip auto-apply + the wizard and rip at offset 0. Only the GUI
+    # override (which is what cyanrip actually gets) configures the offset.
     conf = _write(tmp_path, _CONF_WITH_OFFSET)
-    assert is_offset_configured(False, conf) is True
+    assert is_offset_configured(False, conf) is False
 
 
-def test_is_configured_false_when_neither(tmp_path: Path) -> None:
+def test_is_configured_false_when_no_override(tmp_path: Path) -> None:
     conf = _write(tmp_path, _CONF_NO_OFFSET)
     assert is_offset_configured(False, conf) is False
 

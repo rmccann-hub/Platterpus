@@ -117,9 +117,10 @@ call. Record any wizard step that fails **verbatim**.
 ### A5 — [ ] Drive setup (read offset)
 **Tools → Set up drive…** *Expected:* the offset is **pre-filled** from the
 AccurateRip drive list (e.g. **+667** for a BDR-209D) — one **Save offset**
-click, no disc. If your drive isn't in the list: insert a popular commercial CD,
-click **Detect**, then Save (or type it). (To bank the verbatim success strings
-for the docs, see **Test 3 / Test 4**.)
+click, no disc. If your drive isn't in the list: look it up at
+accuraterip.com/driveoffsets.htm and **type it** into the manual field, then
+Save. (cyanrip has no on-disc offset detection, so there is no "Detect" button —
+the value comes from the list or manual entry.)
 
 ### A6 — [ ] Rip a recognized CD (whipper backend)
 Insert a commercial CD → it's identified via MusicBrainz, the track list fills →
@@ -282,7 +283,7 @@ recovers, never hangs or silently fails). One row = one test.
 | D8 | **Disc unknown to MusicBrainz** | numbered blank rows + offer to *Rip as Unknown Album*; no TTY prompt | rip as unknown |
 | D9 | **CD-R (home-burned)** | whipper: enable "Continue on CD-R"; cyanrip: just works | — |
 | D10 | **Scratched / unreadable track** | clear "Track N couldn't be read… clean it / enable Keep going" hint | clean disc, or Keep going |
-| D11 | **Drive offset unknown** (drive not in the list) | rip is blocked with a "set up your drive first" prompt → wizard | Detect from a CD, or type it |
+| D11 | **Drive offset unknown** (drive not in the list) | rip is blocked with a "set up your drive first" prompt → wizard | type the offset from the AccurateRip list |
 | D12 | **Cancel mid-rip** | drive spins down; if not, auto-force-stop after a few seconds (or **Force stop**) | — |
 | D13 | **Update downloaded over the old file's path** | integration still offered; menu entry/icon fixed | accept the offer |
 | D14 | **Quit while a rip / wizard / update runs** | clean shutdown (threads joined); no crash/zombie | — |

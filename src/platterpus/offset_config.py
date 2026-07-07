@@ -88,12 +88,22 @@ def is_offset_configured(
     override_read_offset: bool,
     conf_path: Path = WHIPPER_CONFIG_PATH,
 ) -> bool:
-    """True if a read offset will reach whipper from either source.
+    """True only if an offset will ACTUALLY reach the ripper.
 
-    `override_read_offset` is Config.override_read_offset — when set, the GUI
-    passes `--offset` and whipper.conf is irrelevant.
+    cyanrip (the sole backend, KDD-18) reads no config file — it only receives
+    the offset from the GUI's ``-s N``, emitted solely when
+    ``Config.override_read_offset`` is set. A leftover ``whipper.conf`` offset is
+    **never** passed to cyanrip, so it must NOT satisfy this gate. Treating it as
+    "configured" (the old behaviour) made the rip preflight skip *both* the
+    AccurateRip-list auto-apply *and* the setup wizard, and the rip then ran at
+    offset 0 — a silent wrong-offset rip for an upgrading whipper user.
+
+    whipper.conf is still read for the *trust display* (see
+    :func:`read_drive_offsets` / :func:`describe_conf_offsets`), just never as
+    authority over whether an offset is configured. `conf_path` is retained for
+    call/signature compatibility but no longer consulted here.
     """
-    return bool(override_read_offset) or whipper_conf_has_offset(conf_path)
+    return bool(override_read_offset)
 
 
 @dataclass(frozen=True)

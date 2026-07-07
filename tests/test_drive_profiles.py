@@ -35,7 +35,7 @@ from platterpus.drive_profiles import (
     evaluate_drive_state,
     find_fingerprint_collisions,
     read_drive_identity,
-    should_replace_offset,
+    reconcile_offset,
 )
 
 
@@ -143,9 +143,12 @@ def test_read_drive_identity_absent_returns_empty(tmp_path: Path) -> None:
 
 
 def test_confidence_for_maps_sources() -> None:
-    assert confidence_for(OffsetSource.OFFSET_FIND) is Confidence.HIGH
+    # No LONE source is HIGH — HIGH is earned only by agreement (CONFIRMED).
+    assert confidence_for(OffsetSource.OFFSET_FIND) is Confidence.MEDIUM
+    assert confidence_for(OffsetSource.WHIPPER_CONF) is Confidence.MEDIUM
     assert confidence_for(OffsetSource.ACCURATERIP_LIST) is Confidence.MEDIUM
     assert confidence_for(OffsetSource.MANUAL) is Confidence.MEDIUM
+    assert confidence_for(OffsetSource.CONFIRMED) is Confidence.HIGH
     assert confidence_for(OffsetSource.UNKNOWN) is Confidence.LOW
 
 
@@ -161,57 +164,74 @@ def test_unknown_enum_strings_decode_to_safe_defaults() -> None:
 
 
 def test_describe_source_labels() -> None:
-    assert describe_source(OffsetSource.OFFSET_FIND) == "measured on this drive"
+    assert describe_source(OffsetSource.OFFSET_FIND) == "measured once on this drive"
     assert describe_source(OffsetSource.ACCURATERIP_LIST) == "from the AccurateRip list"
     assert describe_source(OffsetSource.MANUAL) == "entered by hand"
+    assert "confirmed" in describe_source(OffsetSource.CONFIRMED).lower()
 
 
-# --- Upgrade rule -----------------------------------------------------------
+# --- Agreement-based reconciliation -----------------------------------------
 
 
 def _rec(source: OffsetSource, confidence: Confidence, value: int = 1) -> OffsetRecord:
     return OffsetRecord(value=value, source=source, confidence=confidence)
 
 
-def test_upgrade_records_when_nothing_stored() -> None:
-    assert should_replace_offset(
-        None, _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
-    )
+def test_reconcile_records_when_nothing_stored() -> None:
+    cand = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
+    assert reconcile_offset(None, cand) is cand
 
 
-def test_upgrade_manual_always_wins() -> None:
-    high = _rec(OffsetSource.OFFSET_FIND, Confidence.HIGH)
-    assert should_replace_offset(high, _rec(OffsetSource.MANUAL, Confidence.MEDIUM))
+def test_reconcile_two_independent_sources_agreeing_is_confirmed_high() -> None:
+    # The AccurateRip list said +667; the user hand-enters +667 → CONFIRMED/HIGH.
+    listed = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=667)
+    manual = _rec(OffsetSource.MANUAL, Confidence.MEDIUM, value=667)
+    merged = reconcile_offset(listed, manual)
+    assert merged.value == 667
+    assert merged.source is OffsetSource.CONFIRMED
+    assert merged.confidence is Confidence.HIGH
 
 
-def test_upgrade_same_source_refreshes() -> None:
+def test_reconcile_manual_disagreeing_wins_but_stays_medium() -> None:
+    listed = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=667)
+    manual = _rec(OffsetSource.MANUAL, Confidence.MEDIUM, value=6)
+    merged = reconcile_offset(listed, manual)
+    assert merged.value == 6
+    assert merged.source is OffsetSource.MANUAL
+    assert merged.confidence is Confidence.MEDIUM
+
+
+def test_reconcile_disagreeing_auto_never_clobbers_the_incumbent() -> None:
+    # Regression for the whole bug: a lone automatic reading (the fabricated 0)
+    # must NOT overwrite the correct AccurateRip-list value.
+    listed = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=667)
+    bogus = _rec(OffsetSource.OFFSET_FIND, Confidence.MEDIUM, value=0)
+    merged = reconcile_offset(listed, bogus)
+    assert merged.value == 667
+    assert merged.source is OffsetSource.ACCURATERIP_LIST
+
+
+def test_reconcile_disagreeing_auto_never_clobbers_manual() -> None:
+    manual = _rec(OffsetSource.MANUAL, Confidence.MEDIUM, value=667)
+    bogus = _rec(OffsetSource.OFFSET_FIND, Confidence.MEDIUM, value=0)
+    assert reconcile_offset(manual, bogus) is manual
+
+
+def test_reconcile_disagreeing_auto_never_clobbers_confirmed() -> None:
+    confirmed = _rec(OffsetSource.CONFIRMED, Confidence.HIGH, value=667)
+    bogus = _rec(OffsetSource.OFFSET_FIND, Confidence.MEDIUM, value=0)
+    assert reconcile_offset(confirmed, bogus) is confirmed
+
+
+def test_reconcile_same_source_refreshes_but_keeps_confirmed() -> None:
+    # A same-source refresh updates value/date...
     existing = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=10)
     candidate = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=20)
-    assert should_replace_offset(existing, candidate)
-
-
-def test_upgrade_auto_does_not_clobber_higher_confidence() -> None:
-    measured = _rec(OffsetSource.OFFSET_FIND, Confidence.HIGH)
-    # An AccurateRip list lookup (MEDIUM) must NOT overwrite a measured (HIGH).
-    assert not should_replace_offset(
-        measured, _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
-    )
-
-
-def test_upgrade_auto_does_not_clobber_equal_manual() -> None:
-    manual = _rec(OffsetSource.MANUAL, Confidence.MEDIUM)
-    # AccurateRip (MEDIUM) must not silently replace a deliberate MANUAL (MEDIUM).
-    assert not should_replace_offset(
-        manual, _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
-    )
-
-
-def test_upgrade_higher_confidence_auto_replaces_lower() -> None:
-    listed = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM)
-    # A measured value (HIGH) replaces a list lookup (MEDIUM).
-    assert should_replace_offset(
-        listed, _rec(OffsetSource.OFFSET_FIND, Confidence.HIGH)
-    )
+    assert reconcile_offset(existing, candidate) is candidate
+    # ...but a same-source, same-value refresh never downgrades a CONFIRMED value.
+    confirmed = _rec(OffsetSource.CONFIRMED, Confidence.HIGH, value=667)
+    same = _rec(OffsetSource.CONFIRMED, Confidence.MEDIUM, value=667)
+    assert reconcile_offset(confirmed, same) is confirmed
 
 
 def test_conf_offset_for_matches_by_canonical_name() -> None:
@@ -453,6 +473,43 @@ def test_guard_flags_offset_disagreement() -> None:
     # The message names both values so the user sees which one whipper uses.
     assert "+667" in disagreements[0].message
     assert "+12" in disagreements[0].message
+
+
+def test_guard_flags_accuraterip_list_disagreement() -> None:
+    # The silent wrong-offset detector: the applied offset (0, the fabricated
+    # value) disagrees with the AccurateRip drive list (+667). It must be
+    # surfaced, naming both values and which the rip will use.
+    stored = _stored(OffsetRecord(0, OffsetSource.OFFSET_FIND, Confidence.MEDIUM))
+    warnings = evaluate_drive_state(
+        fingerprint="vm:PIONEER BD-RW BDR-209D",
+        vendor="PIONEER",
+        model="BD-RW BDR-209D",
+        release="1.51",
+        stored=stored,
+        conf_offsets=[],
+        collisions=set(),
+        accuraterip_value=667,
+    )
+    disagreements = [w for w in warnings if w.kind == WARNING_DISAGREEMENT]
+    assert len(disagreements) == 1
+    assert "+667" in disagreements[0].message
+    assert "+0" in disagreements[0].message
+
+
+def test_guard_silent_when_applied_offset_matches_accuraterip_list() -> None:
+    # Agreement between the applied offset and the list is not a warning.
+    stored = _stored(OffsetRecord(667, OffsetSource.MANUAL, Confidence.MEDIUM))
+    warnings = evaluate_drive_state(
+        fingerprint="vm:PIONEER BD-RW BDR-209D",
+        vendor="PIONEER",
+        model="BD-RW BDR-209D",
+        release="1.51",
+        stored=stored,
+        conf_offsets=[],
+        collisions=set(),
+        accuraterip_value=667,
+    )
+    assert [w for w in warnings if w.kind == WARNING_DISAGREEMENT] == []
 
 
 def test_guard_skips_malformed_conf_entries() -> None:

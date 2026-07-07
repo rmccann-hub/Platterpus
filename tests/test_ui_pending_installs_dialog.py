@@ -397,6 +397,42 @@ def test_cannot_dismiss_while_install_in_flight(process_until) -> None:
     assert process_until(lambda: dialog._close_button is not None)
 
 
+def test_install_finished_does_not_clear_worker_refs_until_thread_finished(
+    qapp: QApplication,
+) -> None:
+    """Regression (wrong-thread destruction -> intermittent SIGSEGV/SIGABRT, the
+    CI flake behind the retry band-aid): the worker's C++ QObject lives on the
+    worker thread and must be destroyed there via the queued ``deleteLater``.
+    Clearing ``_install_worker``/``_install_thread`` in ``_on_install_finished``
+    (which runs on the GUI thread while the worker thread is still alive) dropped
+    the last Python ref and destroyed the object on the wrong thread. The refs
+    must survive until the *thread's* own ``finished`` fires — only then is it
+    safe to clear them and reveal Close.
+    """
+    dialog = PendingInstallsDialog([_item("a")], install_one=_ok)
+    # Stand in for what _run_install_loop sets up (no live thread needed — we are
+    # asserting the teardown *sequencing*, which must not depend on timing).
+    sentinel_worker = object()
+    sentinel_thread = object()
+    dialog._install_worker = sentinel_worker  # type: ignore[assignment]
+    dialog._install_thread = sentinel_thread  # type: ignore[assignment]
+    dialog._install_active = True
+
+    # Worker finished (GUI thread, worker thread still alive): record results and
+    # go inactive, but the refs must NOT be cleared yet and Close must NOT show.
+    dialog._on_install_finished([_ok(_item("a"))])
+    assert dialog._install_worker is sentinel_worker
+    assert dialog._install_thread is sentinel_thread
+    assert dialog._install_active is False
+    assert dialog._close_button is None
+
+    # Thread's event loop fully stopped: now the refs clear and Close appears.
+    dialog._on_install_thread_finished()
+    assert dialog._install_worker is None
+    assert dialog._install_thread is None
+    assert dialog._close_button is not None
+
+
 def test_cancel_in_install_one_mode_declines_all(qapp: QApplication) -> None:
     """Cancelling before installing records a decline for every item."""
     items = [_item("a"), _item("b")]

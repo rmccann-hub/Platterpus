@@ -164,28 +164,25 @@ tiers. "I added a happy-path test" is not done.
     `gc.disable()` only for a test that runs Qt work on non-Qt threads *without*
     going through the pump; the real answer everywhere else is to drive workers to
     completion and not create QObjects off the Qt thread.
-  - **The mid-run abort is broader than GC — a Qt concurrency race — and CI
-    retries on it (2026-07-07).** The GC-pause above helps but does **not**
-    eliminate the abort. Hammering the two worst files (`test_e2e_rip_pipeline` +
+  - **The mid-run abort was a wrong-thread QObject destruction — ROOT-CAUSED and
+    FIXED (2026-07).** Hammering the two worst files (`test_e2e_rip_pipeline` +
     `test_ui_pending_installs_dialog`) reproduced a ~40–55% process abort
-    (SIGABRT/SIGSEGV/SIGBUS, exit 134/135/139) locally on py3.11 — and it
-    **persisted with cyclic GC fully disabled for the whole session**, with the
-    faulthandler dump showing the *main* thread inside the `process_until` pump
-    (where GC is already paused) and a *worker* thread aborting in pure C++ with no
-    Python frames. So the root cause is a data race between the main-thread event
-    pump (`processEvents`/`sendPostedEvents`) and a live worker thread under the
-    headless `offscreen` platform — a Qt/PySide harness issue, **not** a product or
-    test-logic bug (the tests pass whenever they don't abort; the product runs on a
-    real display, not offscreen). Because it aborts the *process*, `pytest-rerun`
-    can't catch it. **Backstop:** the CI test step (`.github/workflows/ci.yml`)
-    wraps `pytest` in a bounded retry loop that re-runs **only** on an abort exit
-    code (or a per-attempt `timeout` hang, exit 124/137) and returns a real test
-    failure or coverage-gate miss (exit 1) immediately — so the gate keeps its
-    teeth while the known flake stops reddening the matrix, and each retry prints a
-    CI `::warning::` so a rising rate stays visible. A proper root-cause fix (drive
-    these workers to completion without a concurrent pump, or isolate them per
-    subprocess) is a tracked follow-up; the retry is the honest interim mitigation,
-    not a mask.
+    (SIGABRT/SIGSEGV/SIGBUS, exit 134/135/139) on py3.11 — and it **persisted with
+    cyclic GC fully disabled**, which ruled out the GC-finalize theory. The
+    faulthandler dump showed a *worker* thread aborting in pure C++. The real
+    cause: `PendingInstallsDialog._on_install_finished` (a queued slot on the GUI
+    thread) cleared the last Python reference to the install **worker** while the
+    worker's own `QThread` was still alive — destroying the worker's C++ QObject
+    on the wrong thread (undefined behaviour). `gc.disable()` couldn't help because
+    the destruction was refcount-driven (`= None`), not a cyclic collection. **Fix:**
+    let the queued `deleteLater` destroy the worker on its own thread, and clear
+    the Python refs only after the *thread's* `finished` signal (event loop fully
+    stopped). Local abort rate dropped from ~40–55% to **0/25**. The CI test step
+    is back to a single clean pass (no retry wrapper) with a `timeout-minutes`
+    backstop. Lesson graduated: a worker moved to a `QThread` must be destroyed on
+    that thread (queued `deleteLater`), never by dropping its last Python ref from
+    the GUI thread — clear the owning references on `QThread.finished`, not on the
+    worker's `finished`.
   - **Suppress first-run offers before pumping events.** `processEvents()` will
     fire any pending `QTimer.singleShot` — including `_maybe_offer_first_run_setup`,
     whose `QMessageBox.exec()` **blocks forever headless**. Construct the window

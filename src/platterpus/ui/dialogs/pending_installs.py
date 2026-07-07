@@ -311,9 +311,19 @@ class PendingInstallsDialog(CenteredDialog):
         self._install_worker.item_started.connect(self.mark_in_progress)
         self._install_worker.item_done.connect(self._on_item_done)
         self._install_worker.finished.connect(self._on_install_finished)
-        # Standard worker teardown.
+        # Worker teardown — ORDER AND THREAD AFFINITY ARE LOAD-BEARING (this was a
+        # real intermittent SIGSEGV/SIGABRT, and the CI flake behind the retry
+        # band-aid). The worker's C++ QObject lives on `_install_thread`, so it
+        # must be destroyed ON THAT THREAD via the queued `deleteLater` below —
+        # NOT by dropping its last Python reference on the GUI thread. So we clear
+        # `self._install_worker`/`_install_thread` only after the THREAD's event
+        # loop has fully stopped (its `finished` signal), by which point the
+        # queued `deleteLater` has already run on the worker thread. Clearing the
+        # refs in `_on_install_finished` (GUI thread, worker thread still alive)
+        # is a wrong-thread destruction → undefined behaviour → crash.
         self._install_worker.finished.connect(self._install_thread.quit)
         self._install_worker.finished.connect(self._install_worker.deleteLater)
+        self._install_thread.finished.connect(self._on_install_thread_finished)
         self._install_thread.finished.connect(self._install_thread.deleteLater)
         self._install_thread.started.connect(self._install_worker.run)
         self._install_thread.start()
@@ -323,11 +333,28 @@ class PendingInstallsDialog(CenteredDialog):
         self.mark_result(dep_id, result.success, result.message)
 
     def _on_install_finished(self, results: list[InstallResult]) -> None:
-        """The whole loop finished — record results and reveal Close."""
+        """The install loop finished (queued from the worker → GUI thread).
+
+        Record results and mark the phase inactive, but do NOT drop the
+        worker/thread references here — that happens in
+        `_on_install_thread_finished`, once the worker thread's event loop has
+        fully stopped and the queued `deleteLater` has destroyed the worker on
+        its OWN thread. Nulling the refs here (GUI thread, worker thread still
+        alive) destroys the worker QObject on the wrong thread → crash.
+        """
         self._results = list(results)
+        self._install_active = False
+
+    def _on_install_thread_finished(self) -> None:
+        """The worker thread's event loop has fully stopped (GUI thread).
+
+        Safe point to drop the Python references: the worker's C++ object was
+        already destroyed on the worker thread via the queued `deleteLater`, so
+        clearing these just releases the now-invalid wrappers — no wrong-thread
+        destruction. Reveal Close now that teardown is complete.
+        """
         self._install_worker = None
         self._install_thread = None
-        self._install_active = False
         self.show_close_button()
 
     @staticmethod

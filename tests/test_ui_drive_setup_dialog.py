@@ -26,6 +26,19 @@ class _StubBackend(RipBackend):
     def version(self) -> str:  # type: ignore[override]
         return "fake"
 
+    def supports_offset_detection(self) -> bool:  # type: ignore[override]
+        # A detection-capable backend, so the detect-flow tests exercise the
+        # Detect button + progress bar. cyanrip is the real no-detect case,
+        # covered by _NonDetectingBackend below.
+        return True
+
+
+class _NonDetectingBackend(_StubBackend):
+    """Mirrors cyanrip: no on-disc offset detection (inherits the ABC default)."""
+
+    def supports_offset_detection(self) -> bool:  # type: ignore[override]
+        return False
+
 
 def _dialog(qapp: QApplication) -> DriveSetupDialog:
     return DriveSetupDialog(_StubBackend(), "/dev/sr0")
@@ -124,6 +137,46 @@ def test_on_finished_ignored_while_closing(qapp: QApplication) -> None:
     dialog._closing = True
     dialog._on_finished(DriveSetupResult(offset=667, can_defeat_cache=True))
     assert dialog._results_label.toPlainText() == ""  # untouched
+
+
+def test_no_detect_button_when_backend_cannot_detect(qapp: QApplication) -> None:
+    """cyanrip has no offset finder, so the dialog must NOT offer a Detect button
+    that can only fail — the offset comes from the AccurateRip list / manual
+    entry. (Honesty: never present a non-working path as working.)
+    """
+    dialog = DriveSetupDialog(
+        _NonDetectingBackend(),
+        "/dev/sr0",
+        known_offset=667,
+        drive_label="PIONEER BD-RW BDR-209D",
+    )
+    assert dialog._can_detect is False
+    assert dialog._detect_button is None
+    assert dialog._progress is None
+    # Manual save still works — it's the primary path now.
+    captured: list[int] = []
+    dialog.manual_offset_saved.connect(captured.append)
+    dialog._save_offset_button.click()
+    assert captured == [667]
+
+
+def test_no_detect_mode_omits_verification_wording(qapp: QApplication) -> None:
+    """The known-offset callout must not advertise 'Detect' verification when the
+    backend can't detect."""
+    dialog = DriveSetupDialog(
+        _NonDetectingBackend(),
+        "/dev/sr0",
+        known_offset=667,
+        drive_label="PIONEER BD-RW BDR-209D",
+    )
+    texts = [
+        w.text()
+        for w in dialog.findChildren(type(dialog._device_label))
+        if hasattr(w, "text")
+    ]
+    joined = "\n".join(texts)
+    assert "optional verification" not in joined
+    assert "auto-detection isn't available" in joined.lower()
 
 
 def test_format_result_offset_failure() -> None:
