@@ -559,6 +559,8 @@ The "why is it like this?" changelog. Read this before changing architecture.
 
 PySide6 is LGPL-3.0; PyQt6 is GPL-3.0 (or paid commercial). PySide6 lets the project stay license-flexible — it can be redistributed inside an AppImage without forcing the whole codebase to GPL. PySide6 is the official Qt-for-Python binding (maintained by The Qt Company), which means release cadence tracks Qt itself. Brief Appendix A also names PySide6.
 
+**Addendum (2026-07, landscape-doc cross-check):** a 2026 Linux GUI-framework landscape review frames GTK4/Libadwaita as "the modern paradigm" for Linux desktop apps. That doesn't move this decision — it's a recorded, still-valid choice, not an oversight. The project's primary target is **Bazzite + KDE Plasma 6** (CLAUDE.md "Project"), where **Qt is the native toolkit**; GTK4/Libadwaita is GNOME's native choice, not KDE's, so it would be the *off-paradigm* pick for this project's actual desktop. PySide6's LGPL-3.0 licensing (vs. PyQt6's GPL-3.0/commercial split) is what keeps the AppImage freely redistributable without forcing a GPL binding choice on the project — a separate axis from the project's own GPL-3.0-only *license* (KDD-10, a values call, not a toolkit constraint). Qt/PySide6 stands.
+
 ### KDD-02 — Bypass whipper's TTY prompt, never drive it with pexpect
 
 Critical Rule #5. We obtain the MBID via `MusicBrainzClient` (a real adapter, with the option to swap the implementation), then invoke `whipper cd rip --release-id <MBID>`. Whipper sees a single deterministic answer and never opens a prompt. pexpect would couple us to whipper's prompt text, which is exactly the kind of "subprocess output detail" CLAUDE.md tells us not to depend on.
@@ -633,21 +635,25 @@ We benchmark our defaults and exposed settings against the widely-cited "Perfect
 
 **Matches (already in scope or delivered):**
 
+*(Table originally written when whipper was the reference backend; whipper was fully removed 2026-06-30 and cyanrip is now the sole backend — KDD-18. Rows below are corrected where cyanrip's behavior actually differs from whipper's; unmarked rows describe a property whipper had that cyanrip also has.)*
+
 | EAC setting | Our path |
 |---|---|
-| Secure mode + Accurate Stream | cdparanoia paranoia mode is whipper's default |
-| Drive caches audio data → defeat | `defeats_cache = True` in whipper.conf (set per drive) |
+| Secure mode + Accurate Stream | cyanrip's extraction engine is libcdio-paranoia (cd-paranoia), always run at its most secure/paranoid setting |
+| Drive caches audio data → defeat | **Corrected:** cyanrip has no cache-defeat flag and emits no cache line. libcdio-paranoia *attempts* cache defeat every rip (readahead-cache exhaustion + FUA where the drive supports it) but this is best-effort/drive-dependent and never confirmed at runtime — reported as "(unknown)" in our EAC-style export, never forged as "Yes." The real anti-cache guarantee is AccurateRip/CTDB consensus + `-Z` re-reads. See **KDD-25**. |
 | Read offset calibration | `whipper drive analyze` + `whipper offset find` (README step 5) |
-| Use AccurateRip | whipper queries AR every rip; we render results in rip-progress (KDD-12) |
+| Use AccurateRip | cyanrip queries AR every rip; we render results in rip-progress (KDD-12) |
 | Error recovery quality: High | cdparanoia is always at maximum |
 | No normalize | whipper does not normalize; bit-perfect intact |
-| FLAC `--verify` | whipper passes `--verify`, proves bit-perfect reversibility |
+| FLAC `--verify` | **Corrected:** cyanrip has no `--verify` flag itself. Bit-perfect reversibility instead comes from libcdio-paranoia's own read-verify plus an optional post-rip `flac --test` decode-check (`adapters/flac_verify.py`, `flac_verify.py`'s `verify_flac_files()`), gated on `RipBackend.self_verifies_encode()`. |
 | Status report (.log) after rip | whipper writes; our parser captures |
 | Checksum on status report | SHA-256 (caveat: weaker than EAC's signed checksum; KDD-11) |
-| Gap detection (Secure) | whipper uses cdrdao for gap detection |
+| Gap detection (Secure) | **Corrected:** cyanrip does not use cdrdao. It performs no subchannel INDEX-00 pre-gap *detection*, so it emits no EAC-style `INDEX 00` cue metadata — but the *audio* itself is still handled the EAC-matching way (append/merge-to-previous), confirmed byte-for-byte on 12/14 real tracks; see `docs/eac-parity-investigation.md`. This is a cue-metadata gap, not an audio gap. |
 | Track/Disc filename template | configurable in Settings dialog |
 | Detect drive features auto-test | `whipper drive analyze` |
 | CUETools DB metadata plugin | We use MusicBrainz; CTDB verify (P1) + parity repair (in scope) — KDD-12, KDD-14 |
+
+**Out of scope by design (not a gap):** tracker (RED/OPS/Orpheus) log acceptance. See **KDD-24**.
 
 **Upstream-locked (whipper hardcodes, can't expose from our GUI):**
 
@@ -823,3 +829,28 @@ UX gap #6 (ux-design-principles principle 7) asked for per-drive profiles keyed 
 - **One writer, upgrade rule.** A single `DriveMixin._record_drive_fact` funnels every learned fact into the store (no scattered writes — the Critical-Rule-#6 "one subsystem" principle applied to provenance). `should_replace_offset`: a MANUAL entry always wins (explicit user act); the same source refreshes itself; otherwise an automatic source replaces only a *strictly* lower-confidence record (so a model-list lookup never clobbers a measurement). whipper.conf is only *seeded* into the ledger when nothing is recorded yet — never used to overwrite known provenance; a live disagreement is surfaced by the guard instead.
 - **Storage:** a separate `~/.config/platterpus/drive_profiles.json` (not `config.toml`) — a machine-managed, never-hand-edited keyed collection with a different lifecycle than user prefs; stdlib `json` reads and writes it. Never-raises load + atomic save + `schema_version`/`_migrate` stub, mirroring `config.py`. The store resolves its path live from `paths` so an autouse test fixture can sandbox it.
 - **Lesson:** when a gap names a *correctness* bug ("silent wrong-offset rips") but the correctness fix is hardware-gated, ship the **trust-visibility** layer (provenance + confidence + a loud guard) first — it delivers the gap's intent (the user can *see* and be *warned*) at zero blast radius on the value that makes a rip bit-perfect, and lays the substrate the per-drive override needs later.
+
+### KDD-24 — Tracker-log acceptance is out of scope (cyanrip), by design, not by gap (decided 2026-07, research session)
+
+A research pass asked whether Platterpus rips could ever become *tracker-accepted* (RED/OPS/Orpheus, the gazelle-based private trackers) the way EAC/XLD/whipper rips are. **Finding: no, and the block sits above the audio layer, so there is no honest partial score to chase.**
+
+- **The ripper-identity wall.** The gazelle logcheckers score by **which program produced the log**, not by whether the audio is bit-perfect. OPSnet's/orpheusnet's logchecker (PHP) and RED's EAC/XLD + Python `eac_logchecker` checksum path recognize only **EAC, XLD, and whipper ≥ 0.7.3**. An unrecognized ripper — cyanrip — is hard-set to score **0 / rejected**, regardless of how clean the rip is. This is a *ripper-identity* gate, not an audio-quality gate.
+- **The EAC-checksum wall (RED specifically).** RED additionally requires a valid EAC Rijndael-256 log checksum. We already refuse to forge that signature (KDD-11, KDD-13; `docs/eac-log-and-repair-feasibility.md`) — signing a log as if EAC produced it misrepresents *provenance*, not just audio, and is a bannable "faked log" on these trackers.
+- **Structural gaps underneath, even if the identity wall didn't exist.** cyanrip also lacks a literal two-pass Test & Copy (it does one CRC'd read, strengthened by `-Z`, not two full disc passes), cdrdao-style gap/INDEX-00 subchannel detection (`docs/eac-parity-investigation.md`), and any asserted (as opposed to attempted) cache-defeat signal (KDD-25). None of these are the *actual* blocker — the ripper-identity wall alone already sets the score to zero before any of them are evaluated — but they mean even a hypothetical "cyanrip added to the logchecker" future would still need real engineering, not just a name added to an allow-list.
+- **Two corrections to the maintainer's 2026 ripper-landscape research doc**, made while researching this KDD:
+  1. **whipper + `whipper-plugin-eaclogger` does NOT genuinely satisfy RED at 100%.** The plugin's EAC-*style* log cannot emit the real EAC checksum (upstream tracks this at [whipper-plugin-eaclogger#7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7), open) — so it hits the *same* RED checksum wall as we would. Only whipper's **native** log format is OPS/Orpheus-accepted (via SHA-256, per the ripper-identity allow-list above), and that's a different, weaker claim than "satisfies RED."
+  2. **"logchecker-go (pure Go)" is unverified** as a claim about the tracker tooling's implementation language. What's actually verifiable and load-bearing is the **scoring mechanics** — ripper-identity allow-list + (for RED) the EAC checksum requirement — not which language a logchecker happens to be written in. Cite the mechanics, not the claimed rewrite.
+- **The deliberate alternative we invest in instead: the open-trust path.** AccurateRip v1/v2 (done, every rip) + CTDB whole-disc verify (KDD-16, experimental until hardware-validated) + an honest, **unsigned**, attributed EAC-*layout* log (`eac_log_export.py`, done — human/diff-comparison only, and its header/footer say plainly it is not a genuine EAC log). This is checkable by anyone against public databases, unlike tracker acceptance, which is a private allow-list decision.
+- **The only legitimate future routes back to tracker acceptance** — neither is being built now, both require a fresh sign-off:
+  1. **Re-add whipper as an optional secondary backend**, specifically to produce its native, tracker-recognized log format for users who want it. This directly **reverses KDD-18** ("cyanrip is the sole backend") and needs explicit maintainer sign-off, not a quiet re-introduction.
+  2. **Upstream advocacy** — ask the tracker communities (who already maintain their own logchecker tooling) to add cyanrip to the ripper-identity allow-list. Outside our control; document the ask, don't build around its absence.
+- **Status:** documented, not pursued. No code changes from this KDD. Revisit only via an explicit new KDD if the maintainer decides tracker acceptance is worth one of the two routes above.
+
+### KDD-25 — Cache-defeat is reported as attempted, not measured (decided 2026-07, research session)
+
+EAC's archival header carries a `Defeat audio cache: Yes/No` fact, and whipper could set it from `defeats_cache` in `whipper.conf`. cyanrip has **no equivalent flag and prints no cache line at all** — confirmed against both `adapters/cyanrip_backend.py` (no cache flag is ever built into the argv) and `parsers/cyanrip_log.py` (only `read_offset` and `speed_changeable` are parsed off the finish-log banner; there is no cache field to parse).
+
+- **What cyanrip's engine actually does.** libcdio-paranoia (cd-paranoia) *attempts* cache defeat on every rip — via readahead cache-exhaustion reads and, where the drive supports it, FUA (Force Unit Access). This is a real mitigation, not nothing. But it is **best-effort and drive-dependent**: there is no runtime signal that confirms the defeat actually happened on a given drive, the way EAC's own cache-defeat test can report a measured Yes/No.
+- **Decision: keep the measured EAC-export field `"(unknown)"`; never forge `"Yes"`.** `eac_log_export.py`'s `RippingInfo.defeat_audio_cache` already renders `(unknown)` when unreported (comment in the source: "never a fabricated value") — this KDD is the record of *why* that's correct behavior and not a gap to "fix" by hardcoding a value we can't actually observe.
+- **The real anti-cache guarantee lives elsewhere.** We don't need a measured cache-defeat bit to prove bit-perfection: AccurateRip/CTDB consensus matching plus `-Z N` secure re-reads (re-ripping until N reads' checksums agree) catch a cache-served stale read the same way they catch any other read error — by disagreeing with the trusted external checksum, not by asserting a drive-behavior fact we can't verify.
+- **A measured verdict is deferred, not rejected.** `cd-paranoia -A` (the standalone cdparanoia tool's own cache-defeat self-test) could in principle produce a real measured Yes/No. This is deliberately **not** pursued now: it would mean adding a new host-tool dependency (cd-paranoia is not currently a dependency at all — DEPENDENCIES.md), which requires Critical Rule #3 consideration, a new `DEPENDENCIES.md` entry, explicit deviation-policy sign-off ("adding a dependency not listed in DEPENDENCIES.md" is must-ask territory), and real-hardware validation before the field could be trusted. Revisit only if the maintainer decides a measured cache-defeat verdict is worth a new dependency.

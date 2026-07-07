@@ -137,6 +137,18 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 - **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing `build/build_appimage.sh`) and attaches it + a `.sha256` to a GitHub Release; `publish-pypi.yml` publishes the wheel+sdist. `v0.*` tags publish as pre-releases. Before tagging: **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — this is the *single source*; `pyproject.toml` reads it dynamically, so do **not** add a version there — and **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading with a matching compare link.
 - **Single record of changes:** every notable change is recorded in **`CHANGELOG.md`** (the one authoritative update log; Keep-a-Changelog style). Add a bullet to its `[Unreleased]` section **in the same commit** as the change. `PLANNING.md` (KDDs) and `docs/session-log.md` are for *design decisions and session history*, not the user-facing change record.
 
+### Commit & PR hygiene
+
+The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md`](docs/github-workflow-sop.md)** (identity/SSH, fork+PR, atomic commits, the seven commit-message rules, PR anatomy, merge strategies, conflict resolution) — read it for *upstream* contributions especially. **This section is the authority for *this* repo and wins wherever the generic SOP differs.** What we actually do:
+
+- **Atomic commits.** One logical change per commit — don't mix a fix with an unrelated refactor. Small, test-green units keep review, `git bisect`, and `git revert` surgical.
+- **Conventional-commit subject:** `type(scope): imperative summary` — **lowercase** after the colon, no trailing period, concise (aim short, but the `type(scope):` prefix + a release subject legitimately run past 50 chars — clarity over a hard cap). Types in use: `feat`, `fix`, `docs`, `test`, `refactor`, `style`, `chore`, `release`. Blank line, then a body wrapped ~72 cols that explains **what and why, not how** (the diff shows how).
+- **Required trailers** on every commit (per the harness rules): the `Co-Authored-By:` line and the `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
+- **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for a pure historical-record commit. CI backstops this.
+- **Branch:** commit only to the session's designated `claude/…` branch; never push to `main`. Prefer `git switch` over `git checkout` for branch ops.
+- **PRs squash-merge into `main`** — one `main` node per complete, deployable change. Merge only when CI is green (the `pytest` 3.11–3.14 matrix + coverage floor, `ruff` lint/format, and the changelog check). Don't open a PR unless asked.
+- **Deliberate divergences from the generic SOP** (do *not* "fix" these to match it): (1) we use **lowercase conventional-commit prefixes**, not the SOP's "Capitalize the subject" / no-prefix style; (2) no hard 50-char subject cap; (3) the agent git proxy is **fast-forward-only** — **no force-push, no branch delete, no tag push**; releases go via the `release.yml` `workflow_dispatch`, not `git push origin vX.Y.Z`; (4) personal `username/…` branches don't apply — the session branch is assigned.
+
 ### Run commands
 
 - **Quickstart from a fresh clone:** `bash dev-setup.sh` then `source .venv/bin/activate && platterpus`

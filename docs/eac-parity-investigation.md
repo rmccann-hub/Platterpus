@@ -89,6 +89,34 @@ Findings:
 So writing EAC-style `INDEX 00` pre-gaps is **blocked on pre-gap detection**,
 which cyanrip doesn't currently do on this path. Options are in the plan.
 
+## Extraction-vector scorecard (vs. the 2026 landscape doc)
+
+The maintainer's 2026 ripper-landscape research doc scores extraction tools
+against a fuller list of vectors than the EAC-guide audit (KDD-13) covers.
+Scoring Platterpus/cyanrip against that full list, one row per vector:
+
+| Vector | Status | Rationale |
+|---|---|---|
+| Read offset | **Present** | Per-drive offset applied via cyanrip `-s`; correct on the BDR-209D (+667), confirmed byte-identical on 12/14 tracks. |
+| Cache defeat | **Attempted, not measured** | libcdio-paranoia attempts cache defeat (readahead exhaustion + FUA where supported); cyanrip emits no verdict. Reported `(unknown)` by design, never forged. See PLANNING.md KDD-25. |
+| Overread (into lead-in/lead-out) | **Exists upstream, not surfaced** | cyanrip's `-x` flag exists but Platterpus never passes it (dropped as a Settings toggle when whipper was removed, KDD-18); re-openable as a fresh cyanrip-native task. |
+| Subcode / pre-gap / `INDEX 00` | **Absent** | cyanrip performs no subchannel pre-gap detection on this path, so no `INDEX 00` cue metadata is emitted. The underlying *audio* is unaffected (append/merge-to-previous matches EAC) — this is a cue-metadata gap only. See "Pre-gaps" above. |
+| HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and neither backend gives us a clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
+| Pre-emphasis | **Flag-only, intentionally unused** | cyanrip's `-E` (de-emphasis) flag exists but is deliberately not passed — Platterpus preserves pre-emphasis-encoded discs as-is (an archival choice: don't alter samples) rather than actively de-emphasizing. See `docs/dependency-contracts.md`. |
+| AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
+| CTDB (whole-disc verify) | **Present, experimental** | `ctdb/` clean-room client (KDD-16); GUI-wired, but `crc.CRC_VALIDATED=False` until a real disc's CRC is hardware-confirmed. |
+| Test & Copy (two full passes) | **Absent** | No literal two-pass Test&Copy. Single secure read strengthened by `-Z N` re-read convergence instead — a different, cheaper mechanism aimed at the same correctness goal, not a gap we're trying to close by adding a second pass. |
+| EAC log + checksum | **Unsigned, by design** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip and explicitly marked "not a genuine EAC log" — never a forged checksum. This is the deliberate open-trust choice (KDD-24), not a missing feature. |
+| Gap handling | **Audio matches; no `INDEX 00`** | Same entry as "Subcode / pre-gap" above — audio placement is EAC-equivalent, cue metadata isn't. |
+
+**Reading this table:** "present"/"partial" rows are real capability; "absent"
+and "out-of-scope" rows are **deliberate**, not oversights discovered too
+late — each links back to the KDD or doc that made the call. The one
+genuinely load-bearing absence for *tracker* purposes (not audio purposes) is
+covered separately in PLANNING.md **KDD-24**: none of the rows above matter
+for tracker acceptance anyway, because that gate is ripper-identity, not
+vector coverage.
+
 ## Plan (prioritized)
 
 **P0 — Reframe + lock the achievable bar (docs only).**

@@ -61,13 +61,37 @@ network — `disc_info`); `-f` (find read offset — `find_offset`); `-V` (versi
 
 **Expected output we parse** (`parsers/cyanrip_log.py`, `parsers/cyanrip_info.py`):
 the finish log's banner (`Drive:`, `Disc tracks: N`, `Speed: default
-(unchangeable)` → `speed_changeable`, offset, cache), per-track blocks (`Track N
+(unchangeable)` → `speed_changeable`, offset → `read_offset`), per-track blocks (`Track N
 ripped and encoded …`, `EAC CRC32:`, `Accurip v1/v2: … (accurately ripped,
 confidence N)`, `(after N rips)` → `rip_count`, extraction speed/quality,
 `Done; (M out of N matches …)` / `(no matches found, but hit repeat limit of N)`
 → `secure_rerip_converged`), the AccurateRip summary, album loudness, and the
 `Log FUN512:` signature. cyanrip writes its own `.log` + `.cue` at the end; a
-**cancelled** rip writes neither.
+**cancelled** rip writes neither. **Note:** only `read_offset` and
+`speed_changeable` are parsed off the banner — cyanrip prints **no cache
+line at all**, so there is no `cache` field to parse (see the cache-handling
+note below; this corrects an earlier version of this doc that implied one).
+
+**Cache handling — attempted, not asserted.** cyanrip has no cache-defeat
+flag and emits no cache-defeat verdict in its log. Its engine,
+**libcdio-paranoia**, *attempts* cache defeat on every rip — readahead
+cache-exhaustion reads, plus FUA (Force Unit Access) where the drive
+advertises support — but this is best-effort and drive-dependent, with no
+runtime signal confirming success on a given drive. We report this honestly
+as "(unknown)" rather than a measured value (`eac_log_export.py`'s
+`Defeat audio cache` line never renders a fabricated `Yes`); the correctness
+guarantee instead comes from AccurateRip/CTDB consensus plus `-Z N` secure
+re-reads, which would catch a cache-served stale read the same way they catch
+any other discrepancy. See PLANNING.md KDD-25.
+
+**Flags that exist upstream but are intentionally not passed:** cyanrip's
+`-x` (force overread into the lead-out/lead-in) and `-E` (pre-emphasis
+de-emphasis) both exist in cyanrip's own CLI, but Platterpus never passes
+either. Emphasis handling is **flag-only preservation** — we deliberately
+leave pre-emphasis-encoded discs as cyanrip finds them (an archival choice,
+not an oversight) rather than actively de-emphasizing; overread control was a
+whipper-era Settings toggle (`-x/--force-overread`) dropped when whipper was
+removed (KDD-18) and is currently a re-openable task, not a supported knob.
 
 **Non-zero exit / errors:** streamed stdout+stderr is captured line-by-line
 (`RipHandle.log_lines`); a start failure raises `RipError` carrying the output.

@@ -40,6 +40,21 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | libdiscid | (not installed) | n/a | **Not needed on host** — cyanrip computes the disc ID; the GUI never calls libdiscid (KDD-06, confirmed T32 2026-05-29) | — |
 | MusicBrainz Picard | Flathub via `.flatpakref` URL (see install_command in `deps/registry.py`) | latest | Active | — |
 
+**Cache-defeat note on the cyanrip row above:** cyanrip's engine,
+**libcdio-paranoia**, *attempts* cache defeat on every rip (readahead
+cache-exhaustion reads plus FUA where the drive advertises support) — this
+comes bundled inside cyanrip itself, so it adds no dependency of its own.
+It is **best-effort and drive-dependent**; nothing confirms at runtime that
+defeat actually happened on a given drive, so we report the EAC-equivalent
+field as `(unknown)`, never a measured `Yes` (PLANNING.md KDD-25). There is
+**no standalone `cd-paranoia`/`cdparanoia` CLI tool in our dependency table**
+today — libcdio-paranoia is only ever used as a library linked *inside*
+cyanrip, never invoked by us directly. Adding the standalone `cd-paranoia -A`
+tool (which could give a real *measured* cache-defeat verdict) would be a new
+row here plus explicit deviation-policy sign-off ("adding a dependency not
+listed in DEPENDENCIES.md" is must-ask territory) and hardware validation
+before the result could be trusted — deferred, not rejected.
+
 ## System dependencies (build/runtime requirements inside the Distrobox container) — HISTORICAL (whipper-era)
 
 > **HISTORICAL — whipper was removed on 2026-06-30 (KDD-18 amendment); the rows below were whipper-specific and are no longer current requirements.** cyanrip (the sole backend now) is installed from the COPR by the host-setup wizard and pulls its own runtime deps; it needs neither `python3-setuptools` nor `cdrdao`. Kept as the record of what the whipper-in-container era required.

@@ -4,7 +4,6 @@ behind `scripts/ctdb_verify.py` and `platterpus --ctdb-calibrate` (fakes only)."
 
 from __future__ import annotations
 
-import zlib
 from pathlib import Path
 
 import pytest
@@ -27,19 +26,24 @@ class _FakeClient(CTDBClient):
         return self._result
 
 
+# 17 whole sectors per file: sector-aligned (TOC total_frames == decoded frames)
+# and long enough for the CTDB guard band (front 5880 + back ~8232 frames).
+_FRAMES_PER_FILE = 17 * SAMPLES_PER_SECTOR  # 9996
+
+
 def _probe(_: Path) -> int:
-    return SAMPLES_PER_SECTOR
+    return _FRAMES_PER_FILE
 
 
 def _make_flacs(tmp_path: Path, n: int = 2) -> tuple[list[Path], bytes]:
-    """Create `n` empty .flac files; return them + the whole-disc PCM they map
-    to (one sector of silence each)."""
+    """Create `n` empty .flac files; return them + the per-file PCM they map to
+    (17 sectors of deterministic pseudo-audio each)."""
     flacs = []
     for i in range(1, n + 1):
         p = tmp_path / f"{i:02d}.flac"
         p.write_bytes(b"")
         flacs.append(p)
-    pcm = b"\x00" * (SAMPLES_PER_SECTOR * 4)  # per file
+    pcm = bytes((i * 5 + 1) & 0xFF for i in range(_FRAMES_PER_FILE * 4))  # per file
     return flacs, pcm
 
 
@@ -80,15 +84,18 @@ def test_verify_no_match_reports_db_crcs(tmp_path: Path) -> None:
     assert "deadbeef" in text  # the DB CRC is surfaced for diagnosis
 
 
-def test_calibrate_finds_the_trim(
+def test_calibrate_finds_the_offset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Build a whole-disc PCM and pick an expected CRC that a KNOWN trim produces,
-    # so the sweep must find it — proving the calibrate wiring end to end.
+    # Build a whole-disc PCM and use its CORRECT offset-0 CTDB CRC as the
+    # "expected" DB CRC, so the sweep must find a match at offset 0 — proving the
+    # calibrate wiring end to end.
+    from platterpus.ctdb import crc as crc_mod
+
     flacs, pcm = _make_flacs(tmp_path, n=2)
-    whole = pcm * 2  # two files
-    # A no-trim (0,0) CRC is always a candidate — use it as the "expected" DB CRC.
-    expected_crc = zlib.crc32(whole) & 0xFFFFFFFF
+    whole = pcm * 2  # two files, concatenated as the decoder yields them
+    expected_crc = crc_mod.ctdb_crc_offset0(whole)
+    assert expected_crc is not None
     client = _FakeClient(
         CtdbLookupResult(entries=(CtdbEntry(crc=expected_crc, confidence=1347),))
     )
@@ -105,8 +112,9 @@ def test_calibrate_finds_the_trim(
     )
     assert rc == 0
     text = "\n".join(lines)
-    assert "MATCH — the CTDB-CRC algorithm is pinned" in text
-    assert "front=0 back=0" in text
+    assert "MATCH — the CTDB-CRC algorithm is confirmed" in text
+    assert "offset=+0" in text
+    assert "confidence 1347" in text
 
 
 def test_calibrate_bails_when_not_in_db(

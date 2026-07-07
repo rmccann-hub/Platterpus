@@ -485,17 +485,19 @@ rationale: [docs/mp3-wav-support.md](docs/mp3-wav-support.md).
 
 The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. Here's how this GUI's pipeline maps to it. Full audit in [PLANNING.md KDD-13](PLANNING.md).
 
+Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md).
+
 **Matches the guide today:**
 
-- Secure read mode (cyanrip's own paranoia engine)
-- Defeat audio cache (per-drive)
+- Secure read mode (cyanrip's own paranoia engine, libcdio-paranoia)
+- Defeat audio cache — libcdio-paranoia *attempts* this every rip (readahead-cache exhaustion + FUA where the drive supports it), but it's best-effort and never confirmed at runtime, so it's not a measured per-drive match the way EAC's toggle is; see [PLANNING.md KDD-25](PLANNING.md)
 - Read offset calibration (per-drive, set in the GUI's drive-setup wizard and passed to cyanrip via `-s`)
 - AccurateRip verification (the GUI/cyanrip query; we render the v1/v2 confidence)
 - High error-recovery quality (cyanrip's paranoia is always at maximum)
 - No normalization
-- FLAC `--verify` (proves bit-perfect reversibility)
+- FLAC bit-perfect reversibility — libcdio-paranoia's own read-verify, plus an optional post-rip `flac --test` decode-check
 - `.log` file written after every rip
-- Gap detection in "Secure" mode (cdrdao)
+- Gap handling — the *audio* placement (append/merge-to-previous) matches EAC (confirmed byte-for-byte on 12/14 real tracks); cyanrip doesn't use cdrdao and doesn't emit EAC-style `INDEX 00` pre-gap cue *metadata* — a metadata gap, not an audio one (see [docs/eac-parity-investigation.md](docs/eac-parity-investigation.md))
 - Status-report checksum (SHA-256)
 
 **Not configurable from the GUI** (cyanrip is already at the archival maximum):
@@ -513,14 +515,13 @@ The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https:
 - **Goal** preset — *Fast verified* / *Archival exact* / *Portable* snaps the format/verification/quality controls to your intent; editing any of them switches the goal to *Custom*
 - **Output format** — FLAC (the lossless master, always produced), WavPack, MP3, or WAV
 - Cover art — fetch + embed in FLAC, save next to it, or both (defaults to *embed*)
-- Force overread into lead-out
 - Max retries per track (default 5)
-- Keep going on track failure
 - **Max reads to confirm a shaky track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until N reads agree on the checksum (cyanrip's `-Z`; **on by default**, 2). See "How ripping works" below.
 - Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; experimental until the CRC is hardware-validated)
 - Verify FLACs after a rip (decode-test each output against its stored MD5)
-- Continue ripping CD-Rs
 - Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
+
+*(Three whipper-only toggles — force overread into lead-out, keep-going-on-track-failure, and continue-ripping-CD-Rs — were removed with whipper, KDD-18, and are not Settings widgets today: cyanrip handles track failures and CD-Rs natively with no equivalent flag, and force overread is a re-openable cyanrip `-x` task if ever wanted — see `TASKS.md`.)*
 
 After a rip, the results pane shows an at-a-glance **verification verdict** (green = every track verified against AccurateRip, amber = partial, grey = not in the database) above the per-track table, plus the CTDB result.
 

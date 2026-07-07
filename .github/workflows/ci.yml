@@ -10,6 +10,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Allow a manual run on any branch. Needed because pushes/PRs made with a
+  # GitHub App token (e.g. from a cloud session) do NOT auto-trigger `push`/
+  # `pull_request` workflows — GitHub's recursion guard — so without this the
+  # suite can't be run on such a branch at all. `workflow_dispatch` IS honoured
+  # for App tokens (same path release.yml uses), so this is the escape hatch.
+  workflow_dispatch:
 
 jobs:
   # Lint + format check. Fast and dependency-light (ruff is a single binary,
@@ -56,6 +62,13 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -euo pipefail
+          # A manual run has no "change range" to police (no before/base sha),
+          # so the changelog gate is meaningless here — skip it. The real gate
+          # still runs on every push-to-main and PR.
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "Manual dispatch; no change range to police — skipping CHANGELOG check."
+            exit 0
+          fi
           if [ "$EVENT" = "pull_request" ]; then
             base="$PR_BASE"; head="$PR_HEAD"; title="$PR_TITLE"
           else

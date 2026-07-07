@@ -35,7 +35,12 @@ from platterpus.adapters.ctdb_client import (
 )
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
-from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
+from platterpus.ctdb.toc import (
+    LEAD_IN_SECTORS,
+    SAMPLES_PER_SECTOR,
+    SamplesProbe,
+    disc_toc_from_files,
+)
 
 log = logging.getLogger(__name__)
 
@@ -116,27 +121,40 @@ def verify_rip(
     # 3) decode + CRC compare. Stream each track's PCM through the running CRC
     #    (one track resident at a time) rather than buffering the whole disc plus
     #    a b"".join copy — that spiked ~1.5 GB on the verify daemon thread (#39).
+    #    The offset-0 CTDB CRC needs the whole-disc frame count up front (the back
+    #    trim is length-dependent), which the TOC gives us before decoding.
+    total_frames = (toc.leadout - LEAD_IN_SECTORS) * SAMPLES_PER_SECTOR
     try:
-        our_crc = _crc_all(flac_paths, decoder)
+        our_crc = _crc_all(flac_paths, decoder, total_frames)
     except decode.DecoderUnavailable as exc:
         return _db_only_result(result, Verdict.DECODER_UNAVAILABLE, str(exc))
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         # BUG-4: include TimeoutExpired here too — a wedged decoder during the
         # CRC pass must classify as a decode error, not escape uncaught.
         return _db_only_result(result, Verdict.LOOKUP_ERROR, f"decode error: {exc}")
+    if our_crc is None:
+        # A disc too short to hold the guard band — no meaningful CTDB CRC.
+        return _db_only_result(
+            result, Verdict.LOOKUP_ERROR, "disc too short for the CTDB CRC guard band"
+        )
 
     return _match_verdict(result, our_crc)
 
 
-def _crc_all(flac_paths: Sequence[Path], decoder: PcmDecoder) -> int:
-    """Whole-disc CRC over every track (in track order), streamed.
+def _crc_all(
+    flac_paths: Sequence[Path], decoder: PcmDecoder, total_frames: int
+) -> int | None:
+    """Whole-disc offset-0 CTDB CRC over every track (in track order), streamed.
 
     Each track is decoded, folded into the running CRC, then released — so peak
-    memory is a single track's PCM, not the whole album twice (#39). A decoder
-    error propagates (caught by the caller). The result is identical to CRC'ing
-    the concatenated whole-disc PCM (zlib CRC-32 is linear).
+    memory is a single track's PCM, not the whole album twice (#39). `total_frames`
+    (from the TOC) sizes the length-dependent back trim. A decoder error
+    propagates (caught by the caller); ``None`` for a degenerate short disc. The
+    result equals ``ctdb_crc(whole_disc_pcm, 0)``.
     """
-    return crc_mod.ctdb_crc_offset0_streaming(decoder(Path(p)) for p in flac_paths)
+    return crc_mod.ctdb_crc_offset0_streaming(
+        (decoder(Path(p)) for p in flac_paths), total_frames
+    )
 
 
 def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:

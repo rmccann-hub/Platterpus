@@ -22,6 +22,7 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 | Read mode | `Read mode : Secure` | (implicit — cyanrip always reads with paranoia) | EAC offers Burst mode; cyanrip doesn't. Not a gap for archival. |
 | Read offset correction | `Read offset correction : 667` | `Offset:         +667 samples` | Equivalent. cyanrip applies the offset itself (no whipper >587 cd-paranoia bug), and prints the sign explicitly. |
 | C2 pointers | `Make use of C2 pointers : No` | (not exposed) | Neither the Linux libcdio-paranoia stack nor the tested BDR-209D uses C2 — see `docs/ripper-engine-strategy.md §8`. Not actionable here. |
+| Cache defeat | `Defeat audio cache : Yes/No` | (no equivalent line) | **No cyanrip equivalent.** cyanrip prints no cache line at all; libcdio-paranoia *attempts* cache defeat (readahead exhaustion + FUA where supported) but never asserts success. By design, our EAC-style log export renders this field `(unknown)` rather than a fabricated `Yes` — see PLANNING.md KDD-25. |
 | Paranoia status counts | (not in EAC log) | `Paranoia status counts:` block (`SKIP: N`, `READ_ERROR: N`, …) | **cyanrip extra.** A per-status tally of how hard paranoia had to work — a useful marginal-disc signal EAC doesn't surface. |
 | Disc audio duration | (implicit) | `Total time:     00:59:42.354` | cyanrip records the disc's audio length; Platterpus uses it for the honest realtime multiplier. |
 

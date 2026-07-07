@@ -22,7 +22,8 @@ from pathlib import Path
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbHttpImpl
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
-from platterpus.ctdb.calibrate import calibrate, candidate_trims
+from platterpus.ctdb.calibrate import calibrate, crc_at_offset
+from platterpus.ctdb.crc import CTDB_OFFSET_RANGE, ctdb_trims
 from platterpus.ctdb.toc import SamplesProbe, disc_toc_from_files
 from platterpus.ctdb.verify import PcmDecoder, Verdict, verify_rip
 
@@ -111,12 +112,13 @@ def _run_calibration(
     probe: SamplesProbe,
     out: Out,
 ) -> None:
-    """Sweep candidate offset-guard trims to pin the CTDB-CRC algorithm.
+    """Sweep the ±2939-sample offset guard band to confirm the CTDB-CRC algorithm.
 
     Re-runs the lookup to collect the database's expected CRC(s), decodes the
-    disc to PCM, and reports which trim (if any) reproduces an expected CRC. A
-    hit IS the validated algorithm; paste the result back so it can be baked
-    into ``ctdb/crc.py`` and ``CRC_VALIDATED`` flipped.
+    disc to PCM, and reports which offset (ideally 0) reproduces an expected CRC.
+    A hit confirms the algorithm on a real, in-database disc — paste it back so
+    ``CRC_VALIDATED`` can be flipped True with this vector as the regression
+    fixture.
     """
     out("\n=== CTDB CRC calibration (KDD-16) ===")
     if not decode.flac_available():
@@ -132,7 +134,13 @@ def _run_calibration(
         out("Cannot calibrate: this disc isn't in CTDB (no expected CRC to match).")
         return
 
-    expected = {e.crc for e in lookup.entries if e.crc is not None}
+    # Pair each DB CRC with its confidence so a match can name how popular that
+    # pressing is (the confidence-1347 entry is the dominant one, etc.).
+    conf_by_crc: dict[int, int] = {}
+    for e in lookup.entries:
+        if e.crc is not None:
+            conf_by_crc[e.crc] = max(conf_by_crc.get(e.crc, 0), e.confidence)
+    expected = set(conf_by_crc)
     out(f"Disc is in CTDB. Expected disc CRC(s): {_fmt_crcs(expected)}")
     out(f"Entry confidence(s): {sorted({e.confidence for e in lookup.entries})}")
 
@@ -142,28 +150,38 @@ def _run_calibration(
         out(f"Cannot calibrate: decode failed ({exc}).")
         return
     frames = len(pcm) // 4
+    front, back = ctdb_trims(frames)
     out(f"Decoded whole-disc PCM: {len(pcm)} bytes = {frames} stereo frames.")
-    out(f"Trying {len(candidate_trims())} candidate trims…")
+    out(f"Trim (offset 0): front={front} back={back} frames.")
+    out(f"Sweeping offsets ±{CTDB_OFFSET_RANGE} samples…")
 
     matches = calibrate(pcm, expected)
     if matches:
-        out("\n✅ MATCH — the CTDB-CRC algorithm is pinned:")
+        out("\n✅ MATCH — the CTDB-CRC algorithm is confirmed:")
         for m in matches:
+            conf = conf_by_crc.get(m.crc, 0)
+            aligned = (
+                " (aligned — read offset matches this pressing)"
+                if m.offset == 0
+                else ""
+            )
             out(
-                f"   front={m.front_frames} back={m.back_frames} frames "
-                f"→ CRC {m.crc:08x}"
+                f"   offset={m.offset:+d} → CRC {m.crc:08x} (confidence {conf}){aligned}"
             )
         out(
-            "Paste this back: the trim goes into ctdb/crc.py and CRC_VALIDATED "
-            "flips to True (with a regression test using this vector)."
+            "Paste this back: CRC_VALIDATED flips to True with this vector as the "
+            "regression fixture (front/back trim + offset + CRC)."
         )
     else:
+        no_off = crc_at_offset(pcm, 0)
+        no_off_str = f"{no_off:08x}" if no_off is not None else "(disc too short)"
         out(
-            "\n❌ No candidate trim reproduced the expected CRC. Paste these "
-            "numbers back so the exact trim can be solved:\n"
+            "\n❌ No offset in the guard band reproduced an expected CRC. Paste "
+            "these numbers back so it can be solved:\n"
             f"   expected CRC(s): {_fmt_crcs(expected)}\n"
             f"   whole-disc frames: {frames}\n"
-            f"   no-trim CRC: {crc_mod.ctdb_crc_offset0(pcm):08x}"
+            f"   trim front/back: {front}/{back}\n"
+            f"   offset-0 CRC: {no_off_str}"
         )
 
 

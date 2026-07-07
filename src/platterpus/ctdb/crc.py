@@ -2,22 +2,27 @@
 """The CTDB audio CRC.
 
 ⚠️⚠️ HARDWARE-VALIDATION GATE (PLANNING.md KDD-16) ⚠️⚠️
-This is the one part of the CTDB feature that CANNOT be confirmed correct in a
-cloud environment. CTDB's per-disc CRC is computed by `CUETools.AccurateRip`'s
-`CTDBCRC(offset)` over the decoded audio, tolerant of a pressing/drive offset
-of ±(5·588−1) = ±2939 samples. The *bit-exact* polynomial, initial value,
-reflection, and the efficient per-offset sliding computation must be read from
-the **LGPL** `CUETools.AccurateRip`/`CUETools.Parity` source and validated
-against a real CD that is in CTDB — see `docs/test-plan.md`.
+The *algorithm* below is now reconstructed bit-for-bit from the LGPL
+`CUETools.AccurateRip` / `CUETools.Codecs` source (see
+`docs/ctdb-crc-algorithm.md`), but ``CRC_VALIDATED`` stays **False** until a
+real, in-database disc confirms it end-to-end on hardware (the maintainer's
+`--ctdb-calibrate` run) — only then does a ``MATCH`` become trustworthy.
 
-Until then this module implements a **documented best-effort** standard CRC-32
-(IEEE / zlib) over the whole-disc PCM at offset 0. Consequences:
-  * The transformation is deterministic and unit-tested (it does what we say).
-  * If CTDB uses a different CRC variant or offset, this will report
-    NO MATCH for a genuinely-good disc — i.e. it fails *safe* (it never
-    fabricates a "verified" result). Correcting it is the hardware task.
+What we established from the CueTools source (and reproduced in Python):
+  * the checksum IS the **standard IEEE/zlib CRC-32** (poly ``0x04c11db7``,
+    reflected, init/xor ``0xffffffff``) — exactly :func:`zlib.crc32`; and
+  * ``CTDBCRC(offset)`` is that CRC over the whole-disc little-endian 16-bit
+    stereo PCM with a **fixed front trim of ``stride/2`` frames** and a
+    **length-dependent back trim of ``laststride/2`` frames**, where
+    ``stride = 10·588·2`` 16-bit words and
+    ``laststride = stride + (2·total_frames mod stride)`` — an offset guard band
+    so the value survives a small pressing/drive offset. An ``offset`` slides
+    that constant-length window (``front += offset``; ``back -= offset``).
 
-Keep this function the single seam to change when the algorithm is confirmed.
+The earlier placeholder was a plain offset-0 CRC with **no trim**, which is why
+a genuinely-good, in-database disc reported NO MATCH — the trim, not the CRC
+polynomial, was wrong. This module is the single seam; :mod:`platterpus.ctdb.
+calibrate` sweeps the ``offset`` axis to confirm the algorithm on a real disc.
 """
 
 from __future__ import annotations
@@ -28,42 +33,89 @@ from collections.abc import Iterable
 # CTDB's offset tolerance: 5 CD frames of 588 samples, minus one.
 CTDB_OFFSET_RANGE: int = 5 * 588 - 1  # = 2939
 
-# Bytes per stereo 16-bit sample frame (used to convert a sample offset to a
-# byte offset when/if the offset sweep is implemented).
+# Bytes per stereo 16-bit sample frame.
 BYTES_PER_SAMPLE_FRAME: int = 4
+
+# CUETools' CTDB parity stride, in 16-bit words: `CUEToolsDB.Init` constructs
+# `new CDRepairEncode(ar, 10 * 588 * 2)`. Frame trims are half of a word count
+# (2 words = 1 stereo frame), so `stride/2` and `laststride/2` are FRAME counts.
+CTDB_STRIDE_WORDS: int = 10 * 588 * 2  # = 11760
 
 # Set True only once the algorithm has been confirmed bit-exact on hardware.
 CRC_VALIDATED: bool = False
 
 
-def ctdb_crc_offset0(pcm: bytes) -> int:
-    """Best-effort CTDB CRC of the whole-disc PCM at offset 0.
+def ctdb_trims(total_frames: int) -> tuple[int, int]:
+    """Return the ``(front, back)`` frame trims for a whole disc's CTDB CRC.
 
-    `pcm` is the concatenation of every track decoded to little-endian signed
-    16-bit stereo (see `decode.decode_flac_to_pcm`). Returns a 32-bit int.
-
-    ⚠️ UNVERIFIED variant — see the module docstring. This is a standard
-    zlib CRC-32; the real CTDB variant is confirmed on hardware (KDD-16).
+    ``front`` is fixed at ``stride/2`` (5880 frames = 10 sectors) for every disc;
+    ``back`` is ``laststride/2`` where ``laststride = stride + (2·total_frames
+    mod stride)`` (from ``CDRepair.cs``). Pure; never raises (a tiny/zero disc
+    just yields trims that :func:`ctdb_crc` will reject as out-of-range).
     """
-    return zlib.crc32(pcm) & 0xFFFFFFFF
+    n_words = total_frames * 2
+    laststride = CTDB_STRIDE_WORDS + (n_words % CTDB_STRIDE_WORDS)
+    return CTDB_STRIDE_WORDS // 2, laststride // 2
 
 
-def ctdb_crc_offset0_streaming(chunks: Iterable[bytes]) -> int:
-    """Whole-disc offset-0 CRC folded over `chunks` one at a time.
+def ctdb_crc(pcm: bytes, offset: int = 0) -> int | None:
+    """Bit-exact CUETools ``CTDBCRC(offset)`` of whole-disc LE-16 stereo PCM.
 
-    Identical result to ``ctdb_crc_offset0(b"".join(chunks))`` — zlib CRC-32 is
-    linear, so ``crc32(a + b) == crc32(b, crc32(a))`` — but it never holds more
-    than one chunk in memory. The caller passes a generator that decodes one
-    track at a time, so a whole album (~750 MB of PCM) is CRC'd with a single
-    track's footprint instead of buffering the disc AND the ``b"".join`` copy
-    (which spiked ~1.5 GB on the verify thread, #39).
-
-    ⚠️ Streaming is valid ONLY for this offset-0 zlib variant. The real,
-    hardware-validated CTDB CRC sweeps a ±2939-sample offset window (module
-    docstring / KDD-16) and needs the whole-disc PCM; when that lands it must
-    change THIS seam and revisit whether a streaming form is still possible.
+    ``offset`` slides a constant-length window over the guard band: ``front +=
+    offset``, ``back -= offset``. ``offset=0`` is the value stored in the
+    database and the value a rip with the correct read offset must reproduce.
+    Returns a 32-bit int, or ``None`` when the offset pushes the window outside
+    the audio (the caller — a sweep — simply skips it). Never raises.
     """
+    total_frames = len(pcm) // BYTES_PER_SAMPLE_FRAME
+    front, back = ctdb_trims(total_frames)
+    start = (front + offset) * BYTES_PER_SAMPLE_FRAME
+    end = len(pcm) - (back - offset) * BYTES_PER_SAMPLE_FRAME
+    if start < 0 or end > len(pcm) or end <= start:
+        return None
+    return zlib.crc32(pcm[start:end]) & 0xFFFFFFFF
+
+
+def ctdb_crc_offset0(pcm: bytes) -> int | None:
+    """The offset-0 CTDB CRC of the whole-disc PCM (``ctdb_crc(pcm, 0)``).
+
+    The value a correctly-offset rip must match in the database. ``None`` only
+    for a degenerate disc too short to hold the guard band.
+    """
+    return ctdb_crc(pcm, 0)
+
+
+def ctdb_crc_offset0_streaming(
+    chunks: Iterable[bytes], total_frames: int
+) -> int | None:
+    """Offset-0 CTDB CRC folded over `chunks` one track at a time.
+
+    Identical result to ``ctdb_crc(b"".join(chunks), 0)`` for a whole disc whose
+    frame count is `total_frames`, but it never holds more than one track's PCM
+    resident (the caller passes a generator that decodes one FLAC at a time), so
+    a whole album is CRC'd with a single track's memory footprint instead of
+    buffering the disc plus a ``b"".join`` copy (which spiked ~1.5 GB on the
+    verify thread, #39).
+
+    `total_frames` is required up front (from the disc TOC) because the back trim
+    depends on the whole-disc length — a streamed offset-0 CRC skips the front
+    ``stride/2`` frames and stops ``laststride/2`` frames before the end, folding
+    only the in-window slice of each chunk. Returns ``None`` for a degenerate
+    (too-short) disc. Never raises.
+    """
+    front, back = ctdb_trims(total_frames)
+    start = front * BYTES_PER_SAMPLE_FRAME
+    end = total_frames * BYTES_PER_SAMPLE_FRAME - back * BYTES_PER_SAMPLE_FRAME
+    if end <= start:
+        return None
     crc = 0
+    pos = 0
     for chunk in chunks:
-        crc = zlib.crc32(chunk, crc)
+        chunk_start = pos
+        chunk_end = pos + len(chunk)
+        pos = chunk_end
+        lo = max(chunk_start, start)
+        hi = min(chunk_end, end)
+        if hi > lo:
+            crc = zlib.crc32(chunk[lo - chunk_start : hi - chunk_start], crc)
     return crc & 0xFFFFFFFF
