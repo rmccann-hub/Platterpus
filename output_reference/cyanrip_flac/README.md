@@ -74,3 +74,7 @@ but strong evidence that cyanrip ≈ EAC on this disc/drive. The album name show
 the `∶` (U+2236) look-alike because cyanrip can't take a literal colon on its
 command line; Platterpus ≥ 0.3.10 restores the real `:` in the FLAC **tags**
 after the rip (the folder name and this log keep `∶`).
+
+---
+
+*Last updated for Platterpus v0.4.2.*

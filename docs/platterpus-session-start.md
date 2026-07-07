@@ -233,3 +233,7 @@ Begin Step 1.
 **Why `CLAUDE.md` is pre-built and locked.** If Claude Code generates `CLAUDE.md` from scratch, it will subtly vary between project re-creations and between users using the same template. Locking the rules section to a known-good copy is the only reliable way to keep behavior consistent.
 
 **Why plan-first inside Claude Code.** The brief originally specified a separate plan-writing session between Research and Claude Code. Folding plan-writing into Claude Code is fine, but only if Claude Code is forced to produce and surface the planning artifacts as discrete files and pause for approval before building. The Steps above enforce that. If Claude Code starts coding before showing the five files, interrupt and re-anchor to Step 4.
+
+---
+
+*Last updated for Platterpus v0.4.2.*

@@ -11,6 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.20] — 2026-07-07
+
+### Documentation
+- **Every Markdown doc now carries a `*Last updated for Platterpus vX.Y.Z.*`
+  footer** — the release its content was last revised for, so a reader can judge
+  currency at a glance. Seeded from git history; bump it when you change a doc
+  (documentation-currency convention, see `docs/README.md`).
+- **Command-line usage of the AppImage.** Documented that the diagnostic flags
+  (`--version`, `--doctor`, `--ctdb-calibrate`) work by passing them to the
+  AppImage directly (there is no `platterpus` on `PATH` unless installed via
+  `pipx`), plus a path tip for the U+2236 look-alike colon in rip-folder names.
+  New README *Command-line usage* section + a `platterpus: command not found`
+  troubleshooting entry.
+
+### Changed
+- **CTDB verify is now hardware-validated — a match reads "verified," not
+  "experimental" (KDD-16).** A `platterpus --ctdb-calibrate` run on a real
+  in-database disc (The Police — *Every Breath You Take: The Classics*, Pioneer
+  BDR-209D) reproduced a stored CTDB CRC bit-exactly at aligned **offset 0**, so
+  `ctdb/crc.py::CRC_VALIDATED` is now `True`. A CTDB `MATCH` is trustworthy (shown
+  "verified" with confidence) and a `NO_MATCH` now legitimately means the rip
+  differs from the database. The confirmed vector (whole-disc frames, front/back
+  trim, offset, CRC) is recorded as `crc.CONFIRMED_VECTOR` and pinned by a
+  regression test so the trim/offset math can't silently regress; the honesty
+  behaviour for a future re-opened gate stays covered.
+
 ## [0.4.19] — 2026-07-07
 
 ### Fixed
@@ -2238,7 +2264,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.20...HEAD
+[0.4.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...v0.4.20
 [0.4.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.18...v0.4.19
 [0.4.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...v0.4.18
 [0.4.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...v0.4.17
@@ -2280,3 +2307,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.1.0
 [0.0.1]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.0.1
+
+---
+
+*Last updated for Platterpus v0.4.20.*

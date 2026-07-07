@@ -34,3 +34,7 @@ Checked with `scripts/eac_parity.py` against
 
 So this extraction is **better than the FLAC reference** (13/14 vs 12/14): the
 only remaining gap is the disc's own bad spot.
+
+---
+
+*Last updated for Platterpus v0.4.2.*

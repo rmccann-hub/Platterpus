@@ -87,3 +87,7 @@ can go to the primary source rather than trusting a paraphrase:
   Platterpus encodes MP3 via ffmpeg, not LAME directly)
 - **AccurateRip** — <https://www.accuraterip.com/> and **CueTools DB (CTDB)** —
   <http://cue.tools/> (the two verification databases)
+
+---
+
+*Last updated for Platterpus v0.4.18.*

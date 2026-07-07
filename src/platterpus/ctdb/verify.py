@@ -13,10 +13,12 @@ The flow:
 Every step degrades to a clear verdict rather than raising, so a missing
 decoder or a network blip never crashes the caller.
 
-⚠️ The CRC/offset/wire-format pieces are hardware-validation-gated (KDD-16);
-a `MATCH` verdict is only trustworthy once `crc.CRC_VALIDATED` is True. Until
-then the GUI must label any match "experimental" — which is why the UI wiring
-is deliberately deferred (see `docs/test-plan.md`).
+The CRC/offset/wire-format pieces are hardware-validated (KDD-16): a
+`--ctdb-calibrate` run reproduced a stored CTDB CRC at aligned offset 0, so
+`crc.CRC_VALIDATED` is True and a `MATCH` is trustworthy (shown "verified",
+not "experimental"). Each result still carries `crc_validated` and reads the
+gate live at verdict time, so the honesty wording tracks the flag if it's
+ever toggled back (e.g. a future algorithm change re-opening the gate).
 """
 
 from __future__ import annotations
@@ -167,6 +169,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
                 our_crc=our_crc,
                 matched_crc=entry.crc,
                 db_crcs=db_crcs,
+                crc_validated=crc_mod.CRC_VALIDATED,
                 message=(
                     f"verified against CTDB (confidence {entry.confidence})"
                     if crc_mod.CRC_VALIDATED
@@ -199,6 +202,7 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
         confidence=best,
         our_crc=our_crc,
         db_crcs=db_crcs,
+        crc_validated=crc_mod.CRC_VALIDATED,
         message=message,
     )
 
@@ -212,5 +216,6 @@ def _db_only_result(
         verdict,
         confidence=best,
         db_crcs=tuple(e.crc for e in result.entries if e.crc is not None),
+        crc_validated=crc_mod.CRC_VALIDATED,
         message=message,
     )

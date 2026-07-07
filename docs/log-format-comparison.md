@@ -79,3 +79,7 @@ The album folder therefore holds only: the audio, the front cover, cyanrip's EAC
 - EAC format: cross-referenced against the Hydrogenaudio Knowledgebase EAC article and CueTools' AccurateRip log parser documentation, both stable public references.
 
 If a future cyanrip version changes its log format, update both this document and the cyanrip parser tests together.
+
+---
+
+*Last updated for Platterpus v0.4.17.*

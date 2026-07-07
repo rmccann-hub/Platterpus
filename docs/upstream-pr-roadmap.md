@@ -322,3 +322,7 @@ Everything above is point-in-time. Before spending build/test hours:
 (the per-gap option menu) and [`github-workflow-sop.md`](github-workflow-sop.md)
 (the fork + PR mechanics). PR-first, adaptable to the maintainer's call, and we
 never fake provenance — the signed EAC checksum stays permanently out of scope.*
+
+---
+
+*Last updated for Platterpus v0.4.18.*

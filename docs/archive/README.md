@@ -22,3 +22,7 @@ to mine, not as authority over the living docs.
 | Archived file | What it is |
 |---|---|
 | [`archival-extraction-guide-2026-06.md`](archival-extraction-guide-2026-06.md) — **our own cited summary** of a user-supplied EAC 1.8 / FLAC 1.5 / WavPack / LAME master guide | Our paraphrased summary of the guide's actionable EAC/Windows-centric archival targets (FLAC `-V` verify + compression level, the LAME `-q 4` `noise_shaping_amp` gotcha for future MP3, WAV metadata limits, richer metadata, AcoustID/lyrics), with links to the primary tool sites. The **verbatim third-party text was removed 2026-07-07** (provenance/permission hygiene for a public repo); the summary feeds the **2026-06-23 gap analysis** in `docs/session-log.md`; several source claims are flagged *verify before relying*. |
+
+---
+
+*Last updated for Platterpus v0.4.18.*

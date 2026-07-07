@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """The CTDB audio CRC.
 
-⚠️⚠️ HARDWARE-VALIDATION GATE (PLANNING.md KDD-16) ⚠️⚠️
-The *algorithm* below is now reconstructed bit-for-bit from the LGPL
+✅ HARDWARE-VALIDATION GATE PASSED (PLANNING.md KDD-16) ✅
+The *algorithm* below is reconstructed bit-for-bit from the LGPL
 `CUETools.AccurateRip` / `CUETools.Codecs` source (see
-`docs/ctdb-crc-algorithm.md`), but ``CRC_VALIDATED`` stays **False** until a
-real, in-database disc confirms it end-to-end on hardware (the maintainer's
-`--ctdb-calibrate` run) — only then does a ``MATCH`` become trustworthy.
+`docs/ctdb-crc-algorithm.md`) AND confirmed end-to-end on real hardware: a
+`platterpus --ctdb-calibrate` run on a known in-database disc reproduced a
+stored CTDB CRC at aligned **offset 0** (see ``CONFIRMED_VECTOR`` below), so
+``CRC_VALIDATED`` is now **True** and a ``MATCH`` is trustworthy (2026-07-07).
 
 What we established from the CueTools source (and reproduced in Python):
   * the checksum IS the **standard IEEE/zlib CRC-32** (poly ``0x04c11db7``,
@@ -49,8 +50,27 @@ CTDB_STRIDE_WORDS: int = 10 * 588 * 2  # = 11760
 # front trim exists precisely to give this range room.
 CTDB_OFFSET_RANGE: int = CTDB_STRIDE_WORDS // 2 - 1  # = 5879 frames
 
-# Set True only once the algorithm has been confirmed bit-exact on hardware.
-CRC_VALIDATED: bool = False
+# Hardware-confirmed CTDB-CRC vector (KDD-16) — the evidence that flipped
+# CRC_VALIDATED to True. Reproduce any time with `platterpus --ctdb-calibrate`
+# on the same disc; the test suite pins the trim (`ctdb_trims`) against it so a
+# future refactor of the trim/offset math can't silently regress.
+#   Disc:  The Police — Every Breath You Take: The Classics (14 tracks)
+#   Drive: PIONEER BD-RW BDR-209D (read offset +667); Platterpus build f50258c
+#   Whole-disc PCM: 631_998_864 bytes = 157_999_716 stereo frames
+#   ctdb_trims(157_999_716) == (front 5880, back 9996)
+#   offset 0 → CTDB CRC 0x5DA89FCD, matched an in-database entry (confidence 1)
+# Tuple layout: (total_frames, front_trim, back_trim, offset, crc).
+CONFIRMED_VECTOR: tuple[int, int, int, int, int] = (
+    157_999_716,
+    5880,
+    9996,
+    0,
+    0x5DA89FCD,
+)
+
+# True: the algorithm has been confirmed bit-exact on real hardware (see the
+# CONFIRMED_VECTOR above and docs/ctdb-crc-algorithm.md "Confirming on hardware").
+CRC_VALIDATED: bool = True
 
 
 def ctdb_trims(total_frames: int) -> tuple[int, int]:

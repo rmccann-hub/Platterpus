@@ -60,3 +60,7 @@ tests (`tests/test_install_script.py`, `tests/test_install_appimage_script.py`,
 behaviour, and exercise an install→uninstall round-trip against a sandboxed
 `HOME`. Run them with `pytest`. The full host-stack bootstrap (Distrobox +
 whipper) still needs a real-hardware confirmation — CI only dry-run-tests it.
+
+---
+
+*Last updated for Platterpus v0.4.2.*

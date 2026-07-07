@@ -50,3 +50,7 @@ UTF-16** (the authentic artifact); the parity checker and tests decode it via
 `platterpus.parity.decode_log_bytes`. (`.gitattributes` marks
 `output_reference/**/*.log` `-text` so UTF-16 isn't corrupted by line-ending
 normalization.)
+
+---
+
+*Last updated for Platterpus v0.4.2.*

@@ -155,7 +155,8 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 - **Manual:** `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e . && platterpus`
 - **From the AppImage (once published):** `./platterpus-x86_64.AppImage`
 - **From a `pipx` install (once published):** `platterpus`
-- **Version check without launching the GUI:** `platterpus --version`
+- **CLI flags on the AppImage:** there is **no `platterpus` on `PATH`** for AppImage users (only `pipx`/dev installs put one there). The AppImage entrypoint (`build/python-appimage/entrypoint.sh`) ends with `exec python -m platterpus "$@"`, so every flag below works by passing it to the AppImage directly, e.g. `./platterpus-x86_64.AppImage --doctor` or `./platterpus-x86_64.AppImage --ctdb-calibrate "<album folder>"`. (User-facing version in README → *Command-line usage*.)
+- **Version check without launching the GUI:** `platterpus --version` (or `./platterpus-x86_64.AppImage --version`)
 - **Preflight / "doctor" (first-pass environment test, no CD needed):** `platterpus --doctor` (no extra flags — it just runs the full check and exits). For the tunable form use `python scripts/preflight.py`, which adds `--no-network` (skip the MB/CAA/CTDB reachability checks). It exits non-zero on a hard blocker. Logic lives in `src/platterpus/preflight.py` (reuses the real adapters + the dependency subsystem); `--doctor` and the script are thin CLIs over it. (cyanrip is the sole backend — KDD-18 — so there is no backend-override flag.)
 
 ### Test commands
@@ -211,3 +212,7 @@ For problems with the **AI tooling itself** — Claude Code, the Claude model, o
 Chronological session notes — what was built, decided, and learned each session — live in **[`docs/session-log.md`](docs/session-log.md)** (newest first). They're kept out of this file so the always-loaded project context stays lean and scannable.
 
 **Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* / *Critical rules* above, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — not left only in the dated log. The log is append-only chronology; the rules are the distillation.
+
+---
+
+*Last updated for Platterpus v0.4.19.*
