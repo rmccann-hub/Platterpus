@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **CTDB calibration was ~150× too slow (`--ctdb-calibrate` and CI).** The offset
+  sweep rebuilt the full GF(2) `crc32_combine` operator for every one of ~11,759
+  offsets *and* for every prefix length, even though the window length is
+  constant and the prefix lengths are arithmetic. Build each operator once and
+  apply a cheap per-offset multiply: a full sweep dropped from ~40 s to ~0.3 s
+  (bit-identical output, asserted against the naive per-offset CRC). This also
+  removes a coverage-time CI stall the offset-range widening had introduced.
 - **Read offset was silently wrong — the app's core promise.** A cluster of
   bugs in the read-offset chain (a wrong offset makes every rip NOT bit-perfect):
   - **cyanrip has no offset finder.** "Detect" ran `cyanrip -f` (which is
