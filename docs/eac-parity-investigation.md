@@ -104,7 +104,7 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 | HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and neither backend gives us a clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
 | Pre-emphasis | **Flag-only, intentionally unused** | cyanrip's `-E` (de-emphasis) flag exists but is deliberately not passed — Platterpus preserves pre-emphasis-encoded discs as-is (an archival choice: don't alter samples) rather than actively de-emphasizing. See `docs/dependency-contracts.md`. |
 | AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
-| CTDB (whole-disc verify) | **Present, experimental** | `ctdb/` clean-room client (KDD-16); GUI-wired, but `crc.CRC_VALIDATED=False` until a real disc's CRC is hardware-confirmed. |
+| CTDB (whole-disc verify) | **Present, validated** | `ctdb/` clean-room client (KDD-16); GUI-wired; `crc.CRC_VALIDATED=True` since 2026-07-07 (a real disc's CRC reproduced at offset 0 on hardware), so a match reads "verified". |
 | Test & Copy (two full passes) | **Absent** | No literal two-pass Test&Copy. Single secure read strengthened by `-Z N` re-read convergence instead — a different, cheaper mechanism aimed at the same correctness goal, not a gap we're trying to close by adding a second pass. |
 | EAC log + checksum | **Unsigned, by design** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip and explicitly marked "not a genuine EAC log" — never a forged checksum. This is the deliberate open-trust choice (KDD-24), not a missing feature. |
 | Gap handling | **Audio matches; no `INDEX 00`** | Same entry as "Subcode / pre-gap" above — audio placement is EAC-equivalent, cue metadata isn't. |
@@ -176,3 +176,7 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
   it where the disc allows.
 - **EAC-style pre-gap cue markers are a metadata nicety, currently blocked on
   cyanrip pre-gap detection**, and only matter for disc-image use (P3/P5).
+
+---
+
+*Last updated for Platterpus v0.4.19.*

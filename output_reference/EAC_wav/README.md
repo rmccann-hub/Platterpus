@@ -54,3 +54,7 @@ UTF-16**; the parity checker and tests decode it via
 `output_reference/**/*.log` `-text` so the UTF-16 isn't corrupted). Cue nit: this
 session's cue dropped track 10's ISRC. No audio is committed — see
 [`../README.md`](../README.md).
+
+---
+
+*Last updated for Platterpus v0.4.2.*

@@ -4509,9 +4509,10 @@ def test_window_closes_during_ctdb_verify_without_blocking(
 
 def test_on_ctdb_verified_renders_verdict(teardown_threads) -> None:
     window = teardown_threads()
-    window._on_ctdb_verified(CtdbVerifyResult(Verdict.NO_MATCH))
-    # Default crc_validated=False (KDD-16): an unvalidated no_match renders as
-    # "not confirmed / experimental", never "your rip differs" (honesty guard).
+    window._on_ctdb_verified(CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=False))
+    # Gate re-opened (crc_validated=False, KDD-16): an unvalidated no_match renders
+    # as "not confirmed / experimental", never "your rip differs" (honesty guard).
+    # The shipped default is now True; pin False here to keep this path covered.
     text = window._rip_progress._ctdb_label.text()
     assert "not confirmed" in text
     assert "differs" not in text

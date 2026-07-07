@@ -368,3 +368,7 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 - [pytest-qt — Qt GUI testing](https://pytest-qt.readthedocs.io/)
 - [Golden/snapshot testing options](https://pypi.org/project/pytest-golden/)
 - [Mutation testing with mutmut](https://johal.in/mutation-testing-with-mutmut-python-for-code-reliability-2026/)
+
+---
+
+*Last updated for Platterpus v0.4.19.*

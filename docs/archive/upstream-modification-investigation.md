@@ -255,3 +255,7 @@ Sources: [whipper](https://github.com/whipper-team/whipper) ·
 [ctdb-cli](https://github.com/Masterisk-F/ctdb-cli) ·
 [CUETools Database](http://cue.tools/wiki/CUETools_Database) ·
 [cuetools.net (LGPL client/server)](https://github.com/gchudov/cuetools.net)
+
+---
+
+*Last updated for Platterpus v0.4.2.*

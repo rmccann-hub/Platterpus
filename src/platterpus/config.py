@@ -225,11 +225,10 @@ class Config:
     # --- CTDB verification (KDD-14 Phase 1) ---
     # After a successful rip, verify the result against the CUETools Database
     # (a second, TOC-keyed verification path alongside AccurateRip). Off by
-    # default: it's a network call, and — until the audio-CRC algorithm is
-    # confirmed bit-exact on real hardware (KDD-16, crc.CRC_VALIDATED) — a
-    # match is only "experimental" and is labelled as such in the UI. The
-    # verify fails *safe*: a wrong CRC can only ever under-claim (NO_MATCH),
-    # never fabricate a "verified".
+    # default: it's a network call. The audio-CRC algorithm is now confirmed
+    # bit-exact on real hardware (KDD-16, crc.CRC_VALIDATED=True), so a match
+    # reads as "verified"; either way the verify fails *safe* — a wrong CRC can
+    # only ever under-claim (NO_MATCH), never fabricate a "verified".
     # On by default (0.4.5): the maintainer's bar is "verification is paramount
     # for every format", so a fresh install runs the full verification suite
     # (AccurateRip + CTDB + FLAC-integrity) on the master before any transcode.

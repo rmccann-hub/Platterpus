@@ -5,12 +5,14 @@ computes it. Reconstructed clean-room from the **LGPL** `CUETools.AccurateRip` /
 `CUETools.Codecs` source (github.com/gchudov/cuetools.net) — the algorithm is a
 *fact*, reimplemented here, not ported from the GPL `python-cuetoolsdb`.
 
-> ⚠️ **Hardware-validation gate.** The algorithm below is source-grounded and
-> reproduced in Python, but `ctdb/crc.py::CRC_VALIDATED` stays **False** until a
-> real, in-database disc confirms it end-to-end (`platterpus --ctdb-calibrate`).
-> Until then a CTDB `MATCH` is shown as *experimental* and a `NO_MATCH` says
-> nothing about the rip (the fail-safe direction). Flipping the flag is a
-> one-line change plus baking the confirmed vector as a regression fixture.
+> ✅ **Hardware-validation gate — PASSED (2026-07-07).** The algorithm below is
+> source-grounded, reproduced in Python, and now **confirmed end-to-end on real
+> hardware**: `platterpus --ctdb-calibrate` on an in-database disc reproduced a
+> stored CTDB CRC at aligned `offset=+0` (see *Confirming on hardware* below), so
+> `ctdb/crc.py::CRC_VALIDATED` is **True** — a CTDB `MATCH` now reads as
+> *verified* and a `NO_MATCH` legitimately means the rip differs. The confirmed
+> vector is baked as a regression fixture (`crc.CONFIRMED_VECTOR` +
+> `tests/test_ctdb_verify.py::test_kdd16_confirmed_vector_trim`).
 
 ## The algorithm
 
@@ -65,10 +67,31 @@ CueTools C# source):
   A match at `offset 0` means the rip's read offset aligns with that pressing; a
   match at `±k` means it differs by `k` samples (still a valid verify).
 
-## Confirming on hardware
+## Confirming on hardware — done
 
-Run `platterpus --ctdb-calibrate "<album folder>"` on a disc that is in CTDB.
-Expect a `✅ MATCH` at (ideally) `offset=+0` against the highest-confidence
-entry. Paste the offset + CRC + trim back; then `CRC_VALIDATED` flips to `True`
-with that vector as the KDD-16 regression fixture, and CTDB `MATCH` becomes a
-plain "verified" instead of "experimental".
+Confirmed 2026-07-07 (Platterpus build `f50258c`). Running
+`platterpus --ctdb-calibrate "<album folder>"` on *The Police — Every Breath You
+Take: The Classics* (14 tracks, Pioneer BDR-209D, read offset +667) reported:
+
+```
+Decoded whole-disc PCM: 631998864 bytes = 157999716 stereo frames.
+Trim (offset 0): front=5880 back=9996 frames.
+✅ MATCH — the CTDB-CRC algorithm is confirmed:
+   offset=+0 → CRC 5da89fcd (confidence 1) (aligned — read offset matches this pressing)
+```
+
+Our offset-0 CRC reproduced a CTDB-stored value bit-exactly — an aligned
+`offset=+0` match — which confirms the trim + polynomial + offset window against
+the database. (It matched a confidence-1 pressing rather than the dominant
+confidence-1350 one; that only means this physical disc is a less-common
+pressing — it doesn't affect *algorithm* correctness, which is all the gate
+tests.) The vector `(total_frames, front, back, offset, crc) =
+(157_999_716, 5880, 9996, 0, 0x5DA89FCD)` is recorded as `crc.CONFIRMED_VECTOR`
+and pinned by `tests/test_ctdb_verify.py::test_kdd16_confirmed_vector_trim`.
+
+To re-confirm (e.g. after any change to the trim/offset math), re-run the same
+command on any in-CTDB disc and expect a `✅ MATCH` at `offset=+0`.
+
+---
+
+*Last updated for Platterpus v0.4.19.*

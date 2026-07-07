@@ -353,3 +353,7 @@ enhancement (not blocking):* embedding *inside* the `.wv` needs the standalone
 register through the subsystem, deferred until it can be hardware-validated.
 - **MP3 `-V` level** stays fixed at 0 (config field exists for a future Settings
   spinbox).
+
+---
+
+*Last updated for Platterpus v0.4.2.*

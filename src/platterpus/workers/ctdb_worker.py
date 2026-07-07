@@ -11,10 +11,11 @@ and destroying a still-running ``QThread`` aborts the whole app
 (``docs/architecture.md`` §3.2). A daemon thread dies with the process and
 guards its own emit, so closing the window mid-verify is always safe.
 
-The verdict is always trustworthy-by-construction-or-labelled: until the audio
-CRC is hardware-validated (``ctdb.crc.CRC_VALIDATED``), a ``MATCH`` is flagged
-experimental inside the result. This never *fabricates* a verdict — every
-failure mode is already a verdict from ``verify_rip``.
+The verdict is always trustworthy-by-construction-or-labelled: the audio CRC is
+now hardware-validated (``ctdb.crc.CRC_VALIDATED`` is True, KDD-16), so a
+``MATCH`` reads as "verified"; were the gate ever re-opened, a ``MATCH`` is
+flagged experimental inside the result instead. This never *fabricates* a
+verdict — every failure mode is already a verdict from ``verify_rip``.
 """
 
 from __future__ import annotations

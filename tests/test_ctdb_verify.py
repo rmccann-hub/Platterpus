@@ -72,6 +72,25 @@ def test_offset_range_constant() -> None:
     assert crc_mod.CTDB_OFFSET_RANGE == crc_mod.CTDB_STRIDE_WORDS // 2 - 1
 
 
+def test_kdd16_confirmed_vector_trim() -> None:
+    """KDD-16 regression: the hardware-confirmed CTDB-CRC vector.
+
+    `platterpus --ctdb-calibrate` on *The Police — Every Breath You Take: The
+    Classics* (Pioneer BDR-209D, read offset +667; build f50258c, 2026-07-07)
+    reproduced a stored CTDB CRC at aligned offset 0 — the run that flipped
+    ``CRC_VALIDATED`` to True. The 632 MB of disc PCM can't ship (Critical rule
+    #8, and its size), so the *executable* pin is the length-dependent trim for
+    that exact disc; regenerate by re-running the calibrate command on it.
+    """
+    total_frames, front, back, offset, crc = crc_mod.CONFIRMED_VECTOR
+    assert crc_mod.CRC_VALIDATED is True
+    assert offset == 0  # aligned — the read offset matches this pressing
+    assert crc == 0x5DA89FCD
+    assert total_frames == 157_999_716
+    # The trim math must reproduce the confirmed (front, back) for this disc.
+    assert crc_mod.ctdb_trims(total_frames) == (front, back) == (5880, 9996)
+
+
 @given(st.binary(max_size=400))
 def test_ctdb_crc_never_raises_on_arbitrary_bytes(data: bytes) -> None:
     # The CRC consumes decoded PCM (external-derived), so — like the parsers —
@@ -141,14 +160,30 @@ def test_match_when_crc_equals_entry() -> None:
     assert res.our_crc == _whole_disc_crc()
 
 
-def test_match_is_flagged_experimental_until_validated() -> None:
+def test_match_is_flagged_experimental_when_gate_reopened(monkeypatch) -> None:
+    # The honesty path for a *future* re-opened gate: if CRC_VALIDATED were ever
+    # set back to False (e.g. an algorithm change awaiting re-confirmation), a
+    # MATCH must again be flagged experimental / not trustworthy. Kept covered
+    # (and coverage-gated) even though the shipped default is now True (KDD-16).
+    monkeypatch.setattr(crc_mod, "CRC_VALIDATED", False)
     entry = CtdbEntry(crc=_whole_disc_crc(), confidence=1)
     client = _FakeClient(CtdbLookupResult(entries=(entry,)))
     res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
-    # CRC_VALIDATED is False until hardware confirms it (KDD-16).
     assert res.crc_validated is False
     assert res.trustworthy is False
     assert "experimental" in res.message.lower()
+
+
+def test_match_is_verified_now_that_algorithm_is_validated() -> None:
+    # Shipped state (KDD-16 gate PASSED): CRC_VALIDATED is True, so a CRC match
+    # is a trustworthy "verified", not "experimental".
+    entry = CtdbEntry(crc=_whole_disc_crc(), confidence=1)
+    client = _FakeClient(CtdbLookupResult(entries=(entry,)))
+    res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
+    assert res.crc_validated is True
+    assert res.trustworthy is True
+    assert "verified" in res.message.lower()
+    assert "experimental" not in res.message.lower()
 
 
 def test_no_match_when_crc_differs() -> None:
@@ -163,10 +198,12 @@ def test_no_match_when_crc_differs() -> None:
     assert res.our_crc == _whole_disc_crc()
 
 
-def test_no_match_message_does_not_blame_the_rip_while_unvalidated() -> None:
-    # Regression (real-disc Police report): a NO_MATCH message must not lead with
-    # "the rip differs" while CRC_VALIDATED is False (KDD-16) — our CRC is a
-    # placeholder EXPECTED to disagree, so it says nothing about the rip.
+def test_no_match_message_does_not_blame_the_rip_while_unvalidated(monkeypatch) -> None:
+    # Regression (real-disc Police report): with the gate re-opened
+    # (CRC_VALIDATED False), a NO_MATCH message must not lead with "the rip
+    # differs" — our CRC would be unproven and EXPECTED to disagree, so it says
+    # nothing about the rip. Kept covered for the "gate ever re-opened" path.
+    monkeypatch.setattr(crc_mod, "CRC_VALIDATED", False)
     entry = CtdbEntry(crc=0xDEADBEEF, confidence=1347)
     client = _FakeClient(CtdbLookupResult(entries=(entry,)))
     res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
@@ -175,6 +212,16 @@ def test_no_match_message_does_not_blame_the_rip_while_unvalidated() -> None:
     assert "KDD-16" in res.message
     # It must NOT flatly assert the rip differs (that's the false alarm).
     assert "this rip differs" not in res.message
+
+
+def test_no_match_states_rip_differs_now_that_algorithm_is_validated() -> None:
+    # Shipped state (KDD-16 gate PASSED): with the CRC algorithm hardware-
+    # validated, a NO_MATCH legitimately means the rip differs from the database.
+    entry = CtdbEntry(crc=0xDEADBEEF, confidence=1347)
+    client = _FakeClient(CtdbLookupResult(entries=(entry,)))
+    res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
+    assert res.crc_validated is True
+    assert "this rip differs" in res.message
 
 
 def test_lookup_error_is_a_verdict_not_a_raise() -> None:

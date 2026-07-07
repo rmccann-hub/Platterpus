@@ -463,3 +463,7 @@ Listed here for clarity so they don't sneak in:
 - Library/catalog database
 - DVD/Blu-ray support
 - Windows or macOS support
+
+---
+
+*Last updated for Platterpus v0.4.18.*

@@ -187,3 +187,7 @@ launcher):
 **Shutdown contract (0.4.9):** closing the app during a rip runs `free_drive`
 (kill the reader, no eject) **synchronously** so the in-container reader can't
 outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
+
+---
+
+*Last updated for Platterpus v0.4.19.*

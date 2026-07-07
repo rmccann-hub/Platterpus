@@ -293,3 +293,7 @@ This is what I'm leaning toward. Tell me if it's right or wrong.
 ---
 
 *End of research brief. When you finish, your output should be self-contained enough that I can paste it into a fresh Claude session along with this brief and Appendix A, and get a buildable Claude Code plan.*
+
+---
+
+*Last updated for Platterpus v0.4.2.*

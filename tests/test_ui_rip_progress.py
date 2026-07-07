@@ -593,19 +593,21 @@ def test_ctdb_verdict_line_match_validated() -> None:
 
 
 def test_ctdb_verdict_line_match_unvalidated_is_experimental() -> None:
-    # Default crc_validated mirrors crc.CRC_VALIDATED (False today) → a match
-    # must be labelled experimental, never a plain "verified".
-    result = CtdbVerifyResult(Verdict.MATCH, confidence=8)
+    # If the gate were ever re-opened (crc_validated=False), a match must be
+    # labelled experimental, never a plain "verified". (The shipped default is
+    # now True — KDD-16 — so this pins the value explicitly.)
+    result = CtdbVerifyResult(Verdict.MATCH, confidence=8, crc_validated=False)
     line = ctdb_verdict_line(result)
     assert "EXPERIMENTAL" in line
     assert "verified ✓" not in line
 
 
 def test_ctdb_verdict_line_no_match_unvalidated_does_not_blame_the_rip() -> None:
-    # Regression (real-disc Police report): with the CRC algorithm un-hardware-
-    # validated (default crc_validated=False, KDD-16), a NO_MATCH must NOT assert
-    # "this rip differs" — our CRC is a placeholder that's EXPECTED to disagree.
-    line = ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH))
+    # Regression (real-disc Police report): with the gate re-opened
+    # (crc_validated=False, KDD-16), a NO_MATCH must NOT assert "this rip
+    # differs" — an unproven CRC is EXPECTED to disagree. (Shipped default is
+    # now True; pin the value explicitly to keep this path covered.)
+    line = ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=False))
     assert "differs" not in line
     assert "experimental" in line.lower()
     assert "KDD-16" in line
@@ -634,7 +636,12 @@ def test_ctdb_verdict_level_tracks_trust() -> None:
         )
         == "ok"
     )
-    assert ctdb_verdict_level(CtdbVerifyResult(Verdict.MATCH, confidence=8)) == "warn"
+    assert (
+        ctdb_verdict_level(
+            CtdbVerifyResult(Verdict.MATCH, confidence=8, crc_validated=False)
+        )
+        == "warn"
+    )
     assert ctdb_verdict_level(CtdbVerifyResult(Verdict.NO_MATCH)) == "neutral"
     assert ctdb_verdict_level(CtdbVerifyResult(Verdict.NOT_IN_DATABASE)) == "neutral"
 

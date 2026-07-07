@@ -106,3 +106,7 @@ tiers, CSV overlay, a never-raises property test, and a **regression test
 pinning the user's exact `PIONEER`/`BD-RW  BDR-209D` string → +667**), plus
 `DrivePicker.current_drive()` cases and `DriveSetupDialog` prefill/save cases.
 Suite 534 → 556.
+
+---
+
+*Last updated for Platterpus v0.4.2.*

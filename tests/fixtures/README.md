@@ -38,3 +38,7 @@ per-track EAC CRC32s must match exactly (same disc, same offset). Known
 disc quirk to expect everywhere: **track 5** fails AccurateRip v2 and CTDB
 says "differs in 3 samples @02:24:59" even under EAC — that's the disc,
 not the ripper. Track 3 (whipper's >587-offset failure) rips CLEAN in EAC.
+
+---
+
+*Last updated for Platterpus v0.4.2.*

@@ -112,3 +112,7 @@ Before a rip-related feature is "done," ask: does it make trust **more visible**
 keep the **safe path the default**, and explain failure in the **four layers**
 (what / meaning / tried / next)? If a feature needs a wiki tour to use, it isn't
 finished — put the explanation *in the product*.
+
+---
+
+*Last updated for Platterpus v0.4.4.*
