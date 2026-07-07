@@ -216,3 +216,7 @@ is now answered, verified against the live indexes:
 - [setuptools history — pkg_resources removal](https://setuptools.pypa.io/en/stable/history.html)
 - [riprip (track recovery)](https://github.com/Blobfolio/riprip)
 - [CUETools Database](http://cue.tools/wiki/CUETools_Database)
+
+---
+
+*Last updated for Platterpus v0.4.2.*

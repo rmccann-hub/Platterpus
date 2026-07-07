@@ -89,3 +89,7 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 > A second, unrelated EAC sample log (*Shark Tale* soundtrack) lives in
 > `../tests/fixtures/rip_log_eac_reference.log`; it's a parser sample, not a
 > parity baseline.
+
+---
+
+*Last updated for Platterpus v0.4.2.*

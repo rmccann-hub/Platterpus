@@ -12,6 +12,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Documentation
+- **Every Markdown doc now carries a `*Last updated for Platterpus vX.Y.Z.*`
+  footer** — the release its content was last revised for, so a reader can judge
+  currency at a glance. Seeded from git history; bump it when you change a doc
+  (documentation-currency convention, see `docs/README.md`).
 - **Command-line usage of the AppImage.** Documented that the diagnostic flags
   (`--version`, `--doctor`, `--ctdb-calibrate`) work by passing them to the
   AppImage directly (there is no `platterpus` on `PATH` unless installed via
@@ -2300,3 +2304,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.1.0
 [0.0.1]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.0.1
+
+---
+
+*Last updated for Platterpus v0.4.19.*

@@ -217,3 +217,7 @@ samples** and bring the track back to the consensus. We already do CTDB
   but a heavy dependency that rewrites the master, **blocked on CRC
   hardware-validation**. Ship `-Z N` now, document the manual workflow, gate the
   integration behind maintainer sign-off + validation.
+
+---
+
+*Last updated for Platterpus v0.4.19.*

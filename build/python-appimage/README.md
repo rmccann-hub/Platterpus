@@ -68,3 +68,7 @@ succeeds.
 When `DEPENDENCIES.md` bumps a pin, update the matching line in
 `requirements.txt` in the same commit. The two files are the only
 authoritative sources for runtime deps.
+
+---
+
+*Last updated for Platterpus v0.4.10.*

@@ -862,3 +862,7 @@ Build / dev tooling:
 [**GPL-3.0-only**](LICENSE). Chosen to align with the free-software CD-ripping ecosystem this builds on (whipper, cdparanoia, CUETools) and to keep the tool and any forks open. cyanrip and other GPL tools are invoked as separate processes (not linked), and PySide6 is used under its LGPL-3 option — so the combined work is cleanly GPL-3.0.
 
 See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
+
+---
+
+*Last updated for Platterpus v0.4.19.*

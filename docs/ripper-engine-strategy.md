@@ -458,3 +458,6 @@ lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metafla
 > best closed *now* by a Platterpus-side `cdrdao` subprocess integration (no
 > upstream PR), and cyanrip's live PR #115 already tackles the same two gaps.
 
+---
+
+*Last updated for Platterpus v0.4.17.*

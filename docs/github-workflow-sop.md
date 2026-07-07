@@ -195,3 +195,7 @@ edit-vs-delete). Git halts and flags the files.
 *Filed 2026-07-07 at the maintainer's request as the contributor/upstream-PR
 reference. See `docs/ripper-engine-strategy.md` §10 for which upstream repos
 we'd PR to and in what order.*
+
+---
+
+*Last updated for Platterpus v0.4.17.*

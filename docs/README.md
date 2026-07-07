@@ -25,6 +25,10 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 
 A lesson legitimately appears in **two** places: a one-line *rule* in its canonical home, and a dated *entry* in `docs/session-log.md` recording how it arose (the **graduation rule** — distillation up, chronology down). Anything beyond that is duplication to delete.
 
+### Doc version stamps
+
+Every Markdown doc ends with a **`*Last updated for Platterpus vX.Y.Z.*`** footer — the release the doc's content was last revised for — so a reader can gauge its currency at a glance. This is part of *documentation currency* (CLAUDE.md Critical rule #7): **when you meaningfully change a doc, bump its stamp to the current `__version__`.** The stamps were seeded (2026-07-07) from git history — the `__version__` in effect at each file's last content commit — so an old stamp means the doc simply hasn't needed a change since, not that it's unmaintained.
+
 ## Source documents (anchor for "rebuild from scratch")
 
 These two files, together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.md`, `DEPENDENCIES.md`, and `README.md`, are the full context needed to reproduce the project from a clean slate.
@@ -83,3 +87,7 @@ If you needed to start over with a fresh git repository:
 3. **(Optional but recommended after 6+ months) Re-run Research validation:** follow `platterpus-session-start.md` **Step 0**, save the result as `docs/compass_artifact_<hash>_text_markdown.md`.
 4. **Boot a fresh Claude Code session,** attach the brief + session-start + (if present) compass artifact + CLAUDE.md, and ask it to execute `platterpus-session-start.md`. The session reproduces PLANNING.md, TASKS.md, DEPENDENCIES.md, README.md from scratch and then begins executing the task list.
 5. **Subsequent sessions** follow CLAUDE.md as the primary instruction document, using TASKS.md to track what's next.
+
+---
+
+*Last updated for Platterpus v0.4.19.*

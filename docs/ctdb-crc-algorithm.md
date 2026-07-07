@@ -91,3 +91,7 @@ and pinned by `tests/test_ctdb_verify.py::test_kdd16_confirmed_vector_trim`.
 
 To re-confirm (e.g. after any change to the trim/offset math), re-run the same
 command on any in-CTDB disc and expect a `✅ MATCH` at `offset=+0`.
+
+---
+
+*Last updated for Platterpus v0.4.19.*

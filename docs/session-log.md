@@ -347,3 +347,7 @@ Chronological record of what each Claude Code session built, decided, and learne
   - `gh` isn't preinstalled on Bazzite and `sudo dnf install gh` doesn't work on immutable hosts — README recommends SSH key auth as the primary path for Bazzite/Silverblue
   - Fresh venvs ship outdated `pip` on most distros — `dev-setup.sh` runs `pip install --upgrade pip` before installing the package
 - **Branch state (2026-05-30):** merged to **`main`** — `main` now carries the full project (default branch for fresh clones). Repo is public; license GPL-3.0-only. Ongoing work continued on `claude/lucid-babbage-JYI8c` and is merged forward to `main`. The `dev-setup.sh` branch-guard and the README dev-branch/auth steps were removed as part of the merge.
+
+---
+
+*Last updated for Platterpus v0.4.19.*

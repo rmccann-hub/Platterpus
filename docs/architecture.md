@@ -629,3 +629,7 @@ External sources for the practices above:
   [OWASP — OS command injection](https://owasp.org/www-community/attacks/Command_Injection) ·
   [SPDX licenses](https://spdx.org/licenses/) ·
   [GNU license compatibility](https://www.gnu.org/licenses/gpl-faq.html)
+
+---
+
+*Last updated for Platterpus v0.4.13.*

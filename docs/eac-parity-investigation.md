@@ -176,3 +176,7 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
   it where the disc allows.
 - **EAC-style pre-gap cue markers are a metadata nicety, currently blocked on
   cyanrip pre-gap detection**, and only matter for disc-image use (P3/P5).
+
+---
+
+*Last updated for Platterpus v0.4.19.*

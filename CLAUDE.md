@@ -212,3 +212,7 @@ For problems with the **AI tooling itself** — Claude Code, the Claude model, o
 Chronological session notes — what was built, decided, and learned each session — live in **[`docs/session-log.md`](docs/session-log.md)** (newest first). They're kept out of this file so the always-loaded project context stays lean and scannable.
 
 **Graduation rule:** a durable lesson from the log belongs in its real home — *Code conventions* / *Critical rules* above, a KDD in `PLANNING.md`, or `docs/architecture.md` / `docs/testing.md` — not left only in the dated log. The log is append-only chronology; the rules are the distillation.
+
+---
+
+*Last updated for Platterpus v0.4.19.*
