@@ -11,6 +11,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Locked coding conventions & critical rules | `CLAUDE.md` → *Code conventions* / *Critical rules* |
 | How the maintainer works / project values | `CLAUDE.md` → *Working with the maintainer* |
 | CI / release & build operations | `CLAUDE.md` → *Project operations* |
+| Commit & PR conventions (this repo) | `CLAUDE.md` → *Project operations → Commit & PR hygiene* (general mechanics: `docs/github-workflow-sop.md`) |
 | Architectural decisions + rationale (KDD-NN) | `PLANNING.md` |
 | Module map & per-module responsibility | `PLANNING.md` |
 | Layered design, patterns, engineering lessons, extension recipes, packaging/release/security | `docs/architecture.md` |
