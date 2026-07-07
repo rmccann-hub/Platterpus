@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.17] — 2026-07-07
+
 ### Changed
 - **CTDB CRC algorithm corrected (KDD-16).** The CUETools DB per-disc CRC was
   reconstructed bit-for-bit from the CueTools LGPL source: it *is* a plain zlib
@@ -20,6 +22,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   ±2939-sample offset window (fast `crc32_combine`) to confirm it against a real
   in-database disc. Still shown as **experimental** until a hardware run flips the
   validation flag (fails safe until then). See `docs/ctdb-crc-algorithm.md`.
+
+### Docs
+- **Honest gap + strategy documentation.** Recorded that elite-tracker (RED/OPS/
+  Orpheus) log acceptance is out of scope for the cyanrip backend by design
+  (their logcheckers gate on ripper *identity*, plus a checksum we refuse to
+  forge) and that cache-defeat is reported "attempted, not measured" rather than
+  faked (PLANNING.md KDD-24/25). Added a per-gap, license-compatible open-source
+  option menu (`docs/ripper-engine-strategy.md` §10) and corrected stale
+  whipper-era claims across the docs after the KDD-18 backend swap.
 
 ## [0.4.16] — 2026-07-06
 
@@ -2131,7 +2142,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.17...HEAD
+[0.4.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.16...v0.4.17
 [0.4.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.15...v0.4.16
 [0.4.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.14...v0.4.15
 [0.4.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.13...v0.4.14
