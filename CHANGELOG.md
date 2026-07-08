@@ -56,6 +56,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   parsers, verdict, and CTDB CRC) for test-efficacy signal.
 
 ### Added
+- **A known-disc re-rip no longer silently overwrites an existing rip.** Ripping
+  an already-identified album to a folder that already holds audio now asks first
+  — **Replace**, **Rip to a new folder** (lands in a fresh `… (2)`/`(3)` sibling,
+  tags unchanged), or **Cancel** — instead of quietly clobbering the archival
+  master. Completes the overwrite-safety work started for unknown discs in
+  v0.4.22 (from the 2026-07-08 trust audit).
 - **Static type-checking in CI (`mypy`).** The project mandates type hints but
   nothing verified them; a new gating `typecheck` CI job now runs `mypy` on every
   push/PR. It's a deliberately non-strict baseline over the whole package **except**
