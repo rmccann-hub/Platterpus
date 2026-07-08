@@ -205,7 +205,7 @@ def fidelity_summary(rip_log: object) -> str:
         and getattr(t, "test_crc", "") == getattr(t, "copy_crc", "")
     )
     if verified == total:
-        summary = f"Done — all {total} tracks verified, Test/Copy CRCs match."
+        summary = f"Done — all {total} tracks read consistently, Test/Copy CRCs match."
     else:
         summary = (
             f"Done — {verified}/{total} tracks CRC-verified; "

@@ -188,8 +188,10 @@ class RipProgress(QWidget):
         # --- CTDB verdict line (second, TOC-keyed verification path) ---
         # Sits directly under the AccurateRip table — a one-liner that only
         # appears when a CTDB verify ran (it's an opt-in, post-rip network
-        # check). Until the audio-CRC algorithm is hardware-validated a match
-        # is shown as "experimental" (KDD-16); see set_ctdb_result.
+        # check). The audio-CRC algorithm is now hardware-validated (KDD-16,
+        # crc.CRC_VALIDATED True), so a match renders green "verified"; the
+        # "experimental" wording remains only as a defensive fallback should the
+        # gate ever be re-opened (set_ctdb_result reads the flag live).
         self._ctdb_label: QLabel = QLabel("", self)
         self._ctdb_label.setWordWrap(True)
         self._ctdb_label.setVisible(False)
@@ -352,9 +354,10 @@ class RipProgress(QWidget):
     def set_ctdb_result(self, result: CtdbVerifyResult) -> None:
         """Render the final CTDB verdict under the AccurateRip table.
 
-        A match that isn't yet trustworthy (the audio-CRC algorithm is not
-        hardware-validated, KDD-16) is labelled experimental — we never claim
-        a verification the algorithm can't yet stand behind.
+        The audio-CRC algorithm is hardware-validated (KDD-16), so a trustworthy
+        match renders as verified. If that gate is ever re-opened
+        (``result.trustworthy`` False), a match falls back to an "experimental"
+        label — we never claim a verification the algorithm can't stand behind.
         """
         self._ctdb_label.setText(ctdb_verdict_line(result))
         self._ctdb_label.setStyleSheet(_banner_style(ctdb_verdict_level(result)))
@@ -583,7 +586,8 @@ def _eac_cell(track: object) -> tuple[str, str]:
     return (
         crc,
         "EAC-format CRC32 (compare against a real EAC log). No ✓: this track "
-        "isn't in the AccurateRip database, so it can't be externally verified.",
+        "didn't match the AccurateRip database — either it isn't present, or the "
+        "read didn't match a stored copy — so it can't be independently verified.",
     )
 
 

@@ -12,6 +12,21 @@ from platterpus.ui.settings_dialog import SettingsDialog
 # --- Construction --------------------------------------------------------
 
 
+def test_ctdb_checkbox_copy_is_not_stale_experimental(qapp: QApplication) -> None:
+    """Trust-copy audit (2026-07-08): after the CTDB CRC gate was
+    hardware-validated (KDD-16), a CTDB match reads as *verified*. The Settings
+    checkbox label + tooltip must not still call it "experimental" or claim it
+    "never [says] verified" — that would contradict the live green "verified"
+    banner."""
+    dialog = SettingsDialog(Config())
+    label = dialog._ctdb_verify_check.text()
+    tip = dialog._ctdb_verify_check.toolTip()
+    assert "experimental" not in label.lower()
+    assert "experimental" not in tip.lower()
+    # The tooltip should reflect the current, honest standing.
+    assert "verified" in tip.lower()
+
+
 # --- Naming presets ------------------------------------------------------
 
 
