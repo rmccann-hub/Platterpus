@@ -22,11 +22,14 @@ on:
         description: "Release tag to create (e.g. v0.2.4)"
         required: true
 
-# Needed for the `gh release` calls to create/update the release, and for
-# `gh workflow run` to dispatch the PyPI publish workflow.
+# Needed for the `gh release` calls to create/update the release, for
+# `gh workflow run` to dispatch the PyPI publish workflow, and for the
+# build-provenance attestation (OIDC identity + writing the attestation).
 permissions:
   contents: write # create the GitHub Release + upload assets
   actions: write # dispatch publish-pypi.yml (gh workflow run)
+  id-token: write # OIDC identity for build-provenance attestation (Sigstore)
+  attestations: write # write the provenance attestation to the repo's store
 
 jobs:
   build-and-release:
@@ -141,6 +144,27 @@ jobs:
             # flag set at create time).
             gh release edit "$TAG" --draft=false
           fi
+
+      # Build-provenance attestation (2026-07-08 trust-audit follow-up). Emits a
+      # cryptographically signed SLSA provenance statement binding THIS exact
+      # AppImage — by its SHA-256 digest — to the workflow, repo, and commit that
+      # produced it, using GitHub's OIDC identity and the public Sigstore
+      # transparency log. There is NO maintainer-held key and NO new runtime
+      # dependency: the trust root is GitHub + Sigstore. A downloader can then
+      # prove the binary genuinely came from this repo's release pipeline (not
+      # swapped by an attacker or a compromised mirror) with:
+      #   gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus
+      # The .sha256 asset proves a download is INTACT (integrity); this proves it
+      # is AUTHENTIC (built by us). NOTE: the in-app auto-updater still verifies
+      # only the SHA-256 — it does not yet check this attestation (that, plus
+      # minisign signing, is the remaining "update authenticity" work in TASKS.md
+      # / SECURITY.md). Placed AFTER the release is published so a transient
+      # attestation hiccup can never block shipping the binary; the attestation
+      # binds to the artifact's digest, so this ordering doesn't affect it.
+      - name: Attest AppImage build provenance
+        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4
+        with:
+          subject-path: platterpus-x86_64.AppImage
 
       # Kick off the PyPI publish in its OWN run. We must DISPATCH it rather
       # than rely on a `release: published` trigger: the release above is
