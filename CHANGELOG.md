@@ -11,6 +11,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The in-app User Guide (Help → User Guide) now shows the running version.**
+  It carried no version at all — an oversight in the doc version-stamp pass,
+  which only covered Markdown files while the guide lives in `help_content.py`.
+  A footer now stamps `Platterpus vX.Y.Z (build …)` at render time, read live
+  from `__version__` so it always matches the app you're running and can't go
+  stale (same approach as the About dialog).
+
+### Added
+- **`scripts/file_versions.py`** — a git-derived "last updated (version)" report
+  for *every* tracked file (`--markdown` for a committable manifest, `--path` to
+  filter). Gives the whole-repo currency view for inspection without embedding
+  stamps in source files (git is the source of truth there; a hand-typed stamp
+  would rot). Docs keep their visible footer because they're read where git
+  history isn't at hand; source does not.
+
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
