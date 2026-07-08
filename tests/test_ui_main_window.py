@@ -1354,8 +1354,13 @@ def test_fidelity_summary_all_verified() -> None:
         )
     )
     summary = _fidelity_summary(rip_log)
-    assert "all 2 tracks verified" in summary
+    # Honesty (trust-copy audit, 2026-07-08): agreeing Test/Copy CRCs prove a
+    # *consistent read*, NOT the "one definition of verified" (AccurateRip
+    # confidence >= 1). The bare word "verified" is reserved for AccurateRip, so
+    # this CRC-agreement summary must say "read consistently", not "verified".
+    assert "all 2 tracks read consistently" in summary
     assert "CRCs match" in summary
+    assert "tracks verified" not in summary
 
 
 def test_fidelity_summary_partial_verification() -> None:

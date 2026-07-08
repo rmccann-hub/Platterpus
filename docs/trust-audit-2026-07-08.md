@@ -85,6 +85,26 @@ spot-check along the way: `settings_validation.validate_config` is comprehensive
 — every `Config` field has a rule, enforced by a completeness meta-test — so the
 Settings boundary is solid; the un-run part is the config-file / CLI-arg surfaces.
 
+**Trust-claim-rendering sweep — completed 2026-07-08; 11 copy defects fixed.** Ran
+as a two-phase workflow: (1) adversarially re-verify an initial 6-finding audit
+against the current code + `verdict.py`, and (2) diverse-lens finders hunting for
+*missed* overclaims. All 6 originals CONFIRMED (one upgraded to **trust-critical**:
+the User Guide's grey verdict claimed the Copy CRC "proves the disc was read
+securely"), and the find-more phase surfaced **5 more** the single-agent pass had
+missed — including a stale CTDB parenthetical it had wrongly cleared, two
+bit-perfection overclaims ("converges on the bit-perfect result", "the one
+calibration that makes rips bit-perfect"), an `_eac_cell` tooltip that told a
+present-but-no-match track it "isn't in the AccurateRip database", and stale
+`rip_progress` comments/docstring. **Verdict: the trust *engine* is sound** —
+`verdict.py`, `track_accuraterip_verified` (confidence ≥ 1), the AR table cells,
+disc-info panel, JSON report, and EAC-log renderer (never signs, invents nothing)
+all gate "verified"/"bit-perfect" correctly and never count a confidence-0 /
+offset-variant / CD-R track as fully verified. The dishonesty was entirely in
+**static copy that drifted from the code** (an overclaim + the stale
+"experimental" caveats the KDD-16 flip left behind). All 11 fixed with regression
+tests (`tests/test_trust_copy_honesty.py` + updated `_eac_cell`/`fidelity_summary`
+tests). This closes the trust-integrity render-sweep charter.
+
 ---
 
 *Last updated for Platterpus v0.4.22.*

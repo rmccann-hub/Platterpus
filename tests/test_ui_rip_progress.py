@@ -95,6 +95,12 @@ def test_eac_cell_not_in_db_shows_value_without_check() -> None:
     assert text == "7A2ED98F"
     assert "✓" not in text and "~" not in text
     assert "AccurateRip database" in tip
+    # Honesty (trust-copy audit, 2026-07-08): this branch fires for BOTH a track
+    # that isn't in AccurateRip AND one that IS present but whose CRC didn't match
+    # (confidence 0). The tip must not assert the absolute "isn't in the database"
+    # — it must acknowledge the didn't-match case too.
+    assert "didn't match" in tip
+    assert "can't be independently verified" in tip
 
 
 def test_eac_cell_without_crc_is_dash() -> None:

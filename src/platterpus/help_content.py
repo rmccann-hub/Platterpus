@@ -61,15 +61,18 @@ tells you at a glance whether the rip can be trusted:
   time; check the per-track table and consider re-ripping (the **Max reads to
   confirm a shaky track** setting helps marginal discs).
 - ⚪ **Grey — "no tracks matched the database"** — normal for a disc nobody has
-  submitted (a home-burned CD-R, or an obscure pressing). It does *not* mean a
-  bad rip: the per-track **Copy CRC** still proves the disc was read securely;
-  AccurateRip simply has nothing to compare against.
+  submitted (a home-burned CD-R, or an obscure pressing). It does *not*
+  automatically mean a bad rip — AccurateRip simply has nothing to compare
+  against. But the per-track **Copy CRC** only shows the FLAC losslessly encodes
+  what was read; it does *not* prove the read itself was correct or the read
+  offset right, so the audio isn't independently verified here.
 
 A track counts as "verified" only when AccurateRip reports a **confidence of 1
 or more** (how many submitted rips share its checksum) — the app never calls a
 track verified on a guess. If you enabled **Verify with CTDB**, its result
-appears just below, colour-coded the same way (green only once its checksum is
-hardware-confirmed; an experimental match shows amber).
+appears just below, marked the same way by symbol and text: a CTDB match shows
+green (verified — its checksum is hardware-confirmed, the same standing as an
+AccurateRip match), and no match shows amber.
 
 Alongside the rip, two records are saved next to your music: the backend's
 human-readable **`.log`**, and a **`.platterpus.json`** report with the same
@@ -112,14 +115,16 @@ named from the album artist/title you type.
   before giving up.
 - **Max reads to confirm a shaky track** — Platterpus rips the disc once at full
   speed, then re-reads *only* the tracks that didn't match AccurateRip until this
-  many reads agree, so a shaky track converges on the bit-perfect result while a
-  clean disc stays a single fast pass. It's **on by default** (2) — raise it for
-  a badly scratched disc, or set it to *Off* to accept the first read even when a
-  track can't be verified.
+  many reads agree, so a shaky track converges on a stable, repeatable read
+  (which then has a better chance of matching AccurateRip) while a clean disc
+  stays a single fast pass. It's **on by default** (2) — raise it for a badly
+  scratched disc, or set it to *Off* to accept the first read even when a track
+  can't be verified.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
-  the CUETools Database, alongside AccurateRip. A network check, off by default,
-  and labelled *experimental* until its checksum is confirmed on real hardware
-  (it can only ever under-claim, never falsely say "verified").
+  the CUETools Database, alongside AccurateRip. A network check, off by default.
+  Its checksum is now confirmed on real hardware, so a match reads as *verified*
+  — the same bar as AccurateRip; a non-match can only ever under-claim, never
+  falsely say "verified".
 - **Verify FLACs after a rip** — decode each FLAC back and check it against its
   stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
   cyanrip already encodes FLAC at maximum compression, so there's nothing to
@@ -155,8 +160,9 @@ You'll confirm before anything is removed.
 
 ## Drive setup (Tools → Set up drive)
 
-Sets your drive's **read offset** — the one calibration that makes rips
-bit-perfect. For most drives the wizard already knows the right value (from
+Sets your drive's **read offset** — the one calibration a bit-perfect rip
+depends on (without the right offset, even a clean disc won't match AccurateRip).
+For most drives the wizard already knows the right value (from
 the bundled AccurateRip drive list) and pre-fills it, so it's a single
 **Save offset** click — no disc needed. If your drive isn't in the list,
 insert a popular commercial CD and click **Detect**, or type the offset by

@@ -388,19 +388,20 @@ class SettingsDialog(CenteredDialog):
 
         # --- CTDB verification (KDD-14 Phase 1) ---
         # A second, TOC-keyed verification path alongside AccurateRip. Off by
-        # default: it's a post-rip network call, and a match is currently
-        # labelled "experimental" until the audio-CRC is hardware-validated.
+        # default: it's a post-rip network call. The audio-CRC algorithm was
+        # hardware-validated (KDD-16, 2026-07-07), so a match now reads as a real
+        # "verified" — the same standing as an AccurateRip match.
         self._ctdb_verify_check: QCheckBox = QCheckBox(
-            "Verify with CTDB after a rip (experimental)", self
+            "Verify with CTDB after a rip", self
         )
         self._ctdb_verify_check.setChecked(config.ctdb_verify_after_rip)
         self._ctdb_verify_check.setToolTip(
             "After a successful rip, also check it against the CUETools "
             "Database (a second verification path alongside AccurateRip). This "
             "is a network lookup and decodes the FLACs locally (needs `flac`). "
-            "A match is shown as EXPERIMENTAL until the CRC algorithm is "
-            "confirmed on real hardware — it can only ever under-claim, never "
-            "fabricate a 'verified'. Off by default."
+            "The CRC algorithm is confirmed on real hardware, so a match reads "
+            "as verified — it can only ever under-claim, never fabricate a "
+            "'verified'. Off by default."
         )
         form.addRow("CTDB:", self._ctdb_verify_check)
 

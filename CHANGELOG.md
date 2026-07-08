@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Trust-claim honesty sweep (2026-07-08 audit).** An adversarial sweep of every
+  place the app renders a verification/trust claim found and fixed a cluster of
+  copy defects that over- or mis-stated a rip's trustworthiness:
+  - The User Guide's grey ("no tracks matched") verdict said the per-track Copy
+    CRC "proves the disc was read securely" — an **overclaim**. A lone Copy CRC
+    only shows the FLAC losslessly encodes what was read; it doesn't prove the
+    read (or offset) was correct — a wrong-offset rip has a self-consistent Copy
+    CRC. Reworded to match `verdict.py`'s honest wording.
+  - Removed the stale **"experimental" CTDB caveats** that the KDD-16 hardware
+    validation (`CRC_VALIDATED` → True) left behind in the Settings checkbox
+    label + tooltip, the User Guide, the doctor/preflight hint, and the
+    rip-progress comments/docstring — a CTDB match now legitimately reads as
+    *verified*, so the copy no longer says it "never [says] verified".
+  - The per-track EAC-CRC tooltip for a non-matching track said it "isn't in the
+    AccurateRip database"; it also fires for a track that **is** present but
+    whose CRC didn't match, so it now says "didn't match … either it isn't
+    present, or the read didn't match a stored copy".
+  - Softened two other over-broad claims: repeated re-reads "converge on a
+    stable, repeatable read" (not "the bit-perfect result"), the read offset is
+    "the one calibration a bit-perfect rip depends on" (not what "makes rips
+    bit-perfect"), and the drive-setup cache line no longer calls a non-caching
+    drive's reads "already trustworthy". Regression tests lock the honest copy.
+
 ### Security
 - **Build-provenance attestation for the released AppImage (2026-07-08 trust-audit
   follow-up).** `release.yml` now runs `actions/attest-build-provenance` over the
