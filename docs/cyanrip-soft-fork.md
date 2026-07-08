@@ -139,6 +139,26 @@ no reformatting. **Callers pass a literal colon as `\:`** (which
 `av_dict_parse_string` unescapes); the guard ensures the pre-pass no longer
 mangles it.
 
+**Verified (2026-07-08) — the algorithm is proven before it goes upstream.**
+`docs/cyanrip-soft-fork-verify-meta-colon.c` transcribes the current function
+1:1 (FFmpeg helpers → libc: `av_mallocz`→`calloc`, `av_strtok`→`strtok_r`) and
+the fixed function, and asserts all four cases. Built ASan/UBSan-clean
+(`gcc -Wall -Wextra -fsanitize=address,undefined`) and run:
+
+```
+case 1  in : album=Every Breath You Take: The Classics
+        cur: album=Every Breath You Take:album_artist= The Classics   ← current CORRUPTS
+        fix: album=Every Breath You Take: The Classics                 ← fixed intact
+case 2  in : Some Album:Some Artist            → both: album=Some Album:album_artist=Some Artist (shorthand kept)
+case 3  in : album=Foo:date=2020               → both unchanged
+case 4  in : album=…Take\: The Classics        → current still corrupts; fixed keeps the \: intact
+ALL ASSERTIONS PASSED
+```
+
+This is a logic proof (a stand-in for `av_strtok`, no consecutive `:` in any
+case), not a cyanrip build — the real build + smoke rip still gate the PR — but
+it confirms the guard is correct and complete before we ask the maintainer.
+
 Case check:
 | Input | first `=` before first `:`? | Behaviour |
 |---|---|---|
