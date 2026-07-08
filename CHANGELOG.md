@@ -32,6 +32,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   parsers, verdict, and CTDB CRC) for test-efficacy signal.
 
 ### Documentation
+- **Documented cyanrip's filename/path cross-filesystem behaviour** (naming-scheme
+  audit, 2026-07-08). `docs/dependency-contracts.md` now spells out what cyanrip
+  sanitises (`:`→`∶`, value `/`→`∕`) and what it does *not* (Windows/NTFS/exFAT
+  reserved chars/names, trailing dots/spaces, case-insensitive collisions) — a
+  documented cross-filesystem limitation that is harmless on the Linux target and
+  never a silent bug (unwritable names fail the rip loudly). No behaviour change.
 - Corrected stale "not on PyPI yet" install docs: the wheel has in fact been
   publishing to PyPI on every tagged release via Trusted Publishing, and
   `pipx install platterpus` is live (verified through v0.4.22). Updated README,
