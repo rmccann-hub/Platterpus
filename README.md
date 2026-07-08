@@ -351,7 +351,7 @@ Platterpus will auto-launch Picard with the rip folder when you mark a disc as U
 
 ### Step 7 — Install Platterpus
 
-> **Recommended: Method A (AppImage).** As of v0.1.0 it's published as a downloadable release asset — this is the simplest path for most people. Method B (`pipx` from PyPI) publishes automatically on each tagged release (Trusted Publishing); if it's not on PyPI yet, install from a checkout (see Method B). Method C runs the GUI from a source clone and is aimed at developers.
+> **Recommended: Method A (AppImage).** As of v0.1.0 it's published as a downloadable release asset — this is the simplest path for most people. Method B (`pipx install platterpus`) installs from **PyPI**, where the wheel is published automatically on each tagged release via Trusted Publishing (live through the current release). Method C runs the GUI from a source clone and is aimed at developers.
 
 Pick **one** of the methods below.
 
@@ -390,7 +390,7 @@ Then install Platterpus:
 pipx install platterpus
 ```
 
-> Releases publish the wheel to PyPI automatically (via Trusted Publishing on each tagged release). If `pipx install platterpus` can't find it yet — e.g. before the first PyPI-published release — install from a local checkout instead: `git clone …` then `pipx install .` from inside the repo.
+> The wheel is published to PyPI automatically on each tagged release (via Trusted Publishing), so `pipx install platterpus` is live. To pin a version, `pipx install platterpus==X.Y.Z`. (Install from a local checkout — `git clone …` then `pipx install .` — only when you want unreleased/dev code.)
 
 Run with `platterpus` from any terminal.
 
@@ -865,4 +865,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.22.*

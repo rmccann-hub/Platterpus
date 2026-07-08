@@ -11,6 +11,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- Corrected stale "not on PyPI yet" install docs: the wheel has in fact been
+  publishing to PyPI on every tagged release via Trusted Publishing, and
+  `pipx install platterpus` is live (verified through v0.4.22). Updated README,
+  PLANNING, TASKS, and test-plan Test 7 (marked done).
+
 ## [0.4.22] — 2026-07-08
 
 ### Fixed
