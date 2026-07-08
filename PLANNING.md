@@ -541,7 +541,7 @@ python3 -m python_appimage build app \
 pipx install platterpus
 ```
 
-(This requires building and uploading the wheel — out of scope for v1's "ship something runnable" milestone; the entry point is still present so `pipx install ./` from a local checkout works.)
+(The wheel is published to PyPI automatically on each tagged release via Trusted Publishing — `pipx install platterpus` is live; the entry point also makes `pipx install ./` from a checkout work for dev.)
 
 ### Not in scope (yet)
 
@@ -857,4 +857,4 @@ EAC's archival header carries a `Defeat audio cache: Yes/No` fact, and whipper c
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.22.*
