@@ -11,6 +11,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- CI: the CHANGELOG gate now auto-exempts Dependabot dependency-bump PRs — they
+  can't add a changelog bullet and the bump PR is itself the record — so
+  dependency updates no longer show a spurious failing `changelog` check (on the
+  PR or the merge commit).
+
 ## [0.4.23] — 2026-07-08
 
 ### Fixed
