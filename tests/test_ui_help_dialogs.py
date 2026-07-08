@@ -30,3 +30,14 @@ def test_about_dialog_shows_version_and_paths(qapp: QApplication) -> None:
 def test_help_dialog_constructs(qapp: QApplication) -> None:
     dialog = HelpDialog()
     assert "User Guide" in dialog.windowTitle()
+
+
+def test_user_guide_shows_running_version() -> None:
+    # The in-app guide stamps the running version at render time (sourced live
+    # from __version__, so it never goes stale), the user-facing counterpart to
+    # the docs' "Last updated for vX.Y.Z" footers.
+    md = HelpDialog._guide_markdown()
+    assert f"Platterpus v{__version__}" in md
+    # The full guide content is still present (the footer is appended, not a
+    # replacement).
+    assert "Start rip" in md and "Troubleshooting" in md

@@ -104,9 +104,26 @@ class HelpDialog(CenteredDialog):
         self.resize(720, 580)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(_markdown_viewer(self, help_content.USER_GUIDE))
+        layout.addWidget(_markdown_viewer(self, self._guide_markdown()))
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.reject)
         buttons.accepted.connect(self.accept)
         layout.addWidget(buttons)
+
+    @staticmethod
+    def _guide_markdown() -> str:
+        """The user guide with a version footer stamped in at render time.
+
+        The version is read live from ``__version__`` (not a hardcoded string in
+        the guide text) so it always matches the app you're running and can never
+        go stale — the same reason the About dialog shows the version dynamically.
+        This is the user-facing counterpart to the docs' "Last updated for vX.Y.Z"
+        stamps: the in-app guide is read where git history isn't visible, so a
+        visible version is a real currency signal.
+        """
+        return (
+            f"{help_content.USER_GUIDE}\n\n---\n\n"
+            f"*User Guide for **Platterpus v{__version__}** "
+            f"(build {build_fingerprint()}).*\n"
+        )
