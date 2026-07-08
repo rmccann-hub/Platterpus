@@ -56,6 +56,35 @@ first runs it through `append_missing_keys()` which splits on `:` *naïvely*
 FLAC tags post-rip via metaflac (`_escape_meta_value` / `restore_substituted_colons`).
 Other tokenizer-special chars (`\ = '`) are backslash-escaped.
 
+**Filename / path cross-filesystem safety (the `-D`/`-F` output on disk).**
+cyanrip builds each folder/file segment from the naming template with the fetched
+tag values substituted in, and sanitises the characters illegal in a *path
+segment* on the primary Linux target by swapping them for Unicode look-alikes:
+`:` → `∶` (U+2236) and a `/` *inside a value* → `∕` (U+2215) (a `/` in the
+template itself stays a real separator). On ext4/btrfs — the Bazzite target — the
+only truly-illegal filename bytes are `/` and NUL, and both are covered: `/` is
+mapped, and NUL can't reach here because MB values are text and the
+Settings/config boundary rejects every control character
+(`settings_validation._has_control_char`). So on the target filesystem the output
+is always writable, and any genuinely-unwritable name (e.g. a component over the
+255-**byte** ext4 limit from a very long multibyte title) fails the rip **loudly**
+(captured stderr + log), never silently.
+
+**Not sanitised — a documented cross-filesystem limitation, not a silent bug**
+(naming audit, 2026-07-08). cyanrip does *not* remap the other
+Windows/NTFS/exFAT-reserved characters (`< > " \ | ? *`), the reserved device
+names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`9`, `LPT1`–`9`), or trailing
+dots/spaces, and those filesystems are case-insensitive (two titles differing
+only in case collide). All of these are legal on Linux, so a rip to the native
+library succeeds; they bite only when the output directory is on a mounted
+NTFS/exFAT volume or the library is later copied to Windows/macOS. Platterpus
+deliberately does **not** re-sanitise the names cyanrip produces — Critical Rule
+#3 (the ripper owns naming; overriding it would duplicate cyanrip's logic and
+break the Settings naming preview↔reality round-trip). If cross-FS portability is
+wanted, the tracked non-overriding options are a *non-blocking* Settings warning
+on a cross-FS-unsafe template and/or a user-doc note — a maintainer feature call,
+not a unilateral fix.
+
 **Info / probe flags:** `-I -N` (info-only, computes DiscID/CDDB locally, no
 network — `disc_info`); `-V` (version). **cyanrip has NO offset-finder** — its
 `-f` is *force-overread*, not an AccurateRip offset detector — so `find_offset`
