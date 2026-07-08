@@ -23,6 +23,7 @@ import logging
 import sys
 import traceback
 from pathlib import Path
+from typing import cast
 
 from platterpus import __version__
 from platterpus.build_info import build_fingerprint
@@ -207,7 +208,10 @@ def main(argv: list[str] | None = None) -> int:
 
     _icon = app_icon()
     if _icon is not None:
-        app.setWindowIcon(_icon)
+        # `QApplication.instance()` is typed as the base QCoreApplication (which
+        # has no window-icon concept); the instance we hold is always the concrete
+        # QApplication created just above, so the cast is safe.
+        cast("QApplication", app).setWindowIcon(_icon)
 
     # Centre every dialog (incl. QMessageBox / QFileDialog) over the window the
     # user is looking at, so a prompt never opens on a different monitor and

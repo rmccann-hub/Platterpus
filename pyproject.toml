@@ -47,6 +47,7 @@ dev = [
     "ruff>=0.15,<1",
     "pytest-cov>=5",      # coverage measurement + the CI --cov-fail-under gate
     "hypothesis>=6",      # property-based tests (tests/test_parsers_property.py)
+    "mypy>=1.13,<2",      # static type-checking (the CI `typecheck` job)
 ]
 
 [project.scripts]
@@ -98,6 +99,33 @@ ignore = [
 # fresh QModelIndex() (the documented PySide idiom); treat it as immutable so
 # B008 doesn't flag every rowCount/columnCount/data/parent override.
 extend-immutable-calls = ["PySide6.QtCore.QModelIndex"]
+
+# Static type-checking (added 2026-07-08). The project mandates type hints on
+# every signature, but nothing verified them until now. This is a deliberately
+# NON-STRICT baseline: it catches real type errors (wrong attribute, bad return
+# type, None where a value is required) without a big-bang annotation sprint.
+# Strictness ratchets up module-by-module — mirroring the coverage floor — with
+# adapters/parsers/workers/ctdb the first candidates for `disallow_untyped_defs`.
+#
+# The Qt UI layer is excluded for now (see the override below): the MainWindow
+# "god-object" is composed from mixins (docs/architecture.md), so attributes are
+# declared in one mixin and assigned in the concrete class, and `self` inside a
+# mixin isn't a QWidget — patterns mypy can't follow without a dedicated typing
+# strategy (a shared Protocol or typed base). Typing that layer is its own
+# tracked follow-up; until then the rest of the codebase is checked on every PR.
+[tool.mypy]
+python_version = "3.11"
+files = ["src/platterpus"]
+# Third-party libs without type stubs (musicbrainzngs, etc.) are ignored for now;
+# this too can tighten later (per-module overrides) once the core is clean.
+ignore_missing_imports = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+# The Qt UI mixin layer — excluded from the gate until it gets a typing strategy
+# (see the note above). Everything else IS checked.
+module = "platterpus.ui.*"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
