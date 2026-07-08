@@ -16,13 +16,71 @@ should be a method instead.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from platterpus.parsers.rip_log import track_accuraterip_verified
+
+# Audio extensions that mark a folder as already holding a rip (mirrors the
+# Critical-Rule-#8 media list + .githooks/pre-commit). Used to detect an
+# occupied album folder so an unknown-disc rip never silently overwrites a
+# previous disc's archival master.
+_AUDIO_EXTS: frozenset[str] = frozenset(
+    {
+        ".flac", ".wav", ".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus",
+        ".wv", ".ape", ".wma", ".aiff", ".aif", ".alac", ".dsf", ".dff",
+    }
+)  # fmt: skip
 
 # A single path component may be at most NAME_MAX bytes on every mainstream
 # Linux filesystem (ext4/btrfs/xfs) — 255 *bytes*, not characters. A long CJK or
 # accented title is multi-byte in UTF-8 (≈3 bytes/CJK char), so ~85 characters
 # already blows the limit and directory creation would fail. We cap here.
 _NAME_MAX_BYTES: int = 255
+
+
+def _dir_has_audio(directory: Path) -> bool:
+    """True if ``directory`` already contains at least one audio file.
+
+    Best-effort and never raises — a missing/unreadable directory reads as
+    "no audio" so the caller proceeds normally.
+    """
+    try:
+        return any(
+            p.is_file() and p.suffix.lower() in _AUDIO_EXTS for p in directory.iterdir()
+        )
+    except OSError:
+        return False
+
+
+def unique_album_title(
+    output_root: Path, artist: str, title: str, *, max_tries: int = 999
+) -> str:
+    """Return an album title whose folder isn't already holding a rip.
+
+    An unknown-disc rip names its folder literally from what the user typed
+    (``output_root/artist/title``). Two *different* unknown discs both left at the
+    defaults ("Unknown Artist" / "Unknown Album") would otherwise land in the SAME
+    folder and the second rip would silently overwrite the first — destroying an
+    archival master (the never-touch-the-user's-music line). This returns:
+
+    * ``title`` unchanged when the target folder is absent or has no audio, or
+    * the first free ``"title (2)"``, ``"title (3)"``… whose folder holds no audio.
+
+    Pure + filesystem-only (no Qt); never raises — on any error it returns the
+    original title so the rip proceeds exactly as before. (Known/identified discs
+    are deliberately NOT auto-suffixed: re-ripping the same album to the same
+    folder is usually intentional, so that case is left for a future confirm.)
+    """
+    try:
+        if not _dir_has_audio(output_root / artist / title):
+            return title
+        for n in range(2, max_tries + 1):
+            candidate = f"{title} ({n})"
+            if not _dir_has_audio(output_root / artist / candidate):
+                return candidate
+        return title
+    except OSError:
+        return title
 
 
 def safe_path_segment(value: str) -> str:

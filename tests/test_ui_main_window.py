@@ -2021,6 +2021,40 @@ def test_safe_path_segment_i18n_and_robustness() -> None:
     assert out and all(ch == "あ" for ch in out)  # no mojibake from a split char
 
 
+def test_unique_album_title_never_overwrites_a_previous_unknown_rip(
+    tmp_path,
+) -> None:
+    """Two different unknown discs default to 'Unknown Artist/Unknown Album', so
+    the second rip would silently overwrite the first's master. unique_album_title
+    detects an occupied folder and returns a fresh '(N)' title instead."""
+    from platterpus.ui.main_window_helpers import unique_album_title
+
+    root = tmp_path
+    artist, title = "Unknown Artist", "Unknown Album"
+
+    # Empty / absent target → title unchanged (the common first-rip case).
+    assert unique_album_title(root, artist, title) == title
+
+    # First unknown disc lands here and writes a master.
+    album_dir = root / artist / title
+    album_dir.mkdir(parents=True)
+    (album_dir / "01 - Track 1.flac").write_bytes(b"not really audio")
+
+    # Second unknown disc must NOT reuse the occupied folder.
+    assert unique_album_title(root, artist, title) == f"{title} (2)"
+
+    # And it keeps climbing past each occupied variant.
+    (root / artist / f"{title} (2)").mkdir()
+    (root / artist / f"{title} (2)" / "01 - Track 1.wav").write_bytes(b"x")
+    assert unique_album_title(root, artist, title) == f"{title} (3)"
+
+    # A folder with only non-audio (e.g. a stray cover.jpg) is NOT "occupied".
+    other = root / artist / "Sparse"
+    other.mkdir()
+    (other / "cover.jpg").write_bytes(b"img")
+    assert unique_album_title(root, artist, "Sparse") == "Sparse"
+
+
 # --- First-run drive-setup offer + manual offset -------------------------
 
 
