@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.23] — 2026-07-08
+
 ### Fixed
 - **Trust-claim honesty sweep (2026-07-08 audit).** An adversarial sweep of every
   place the app renders a verification/trust claim found and fixed a cluster of
@@ -2389,7 +2391,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...HEAD
+[0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
 [0.4.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.21...v0.4.22
 [0.4.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.20...v0.4.21
 [0.4.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.19...v0.4.20
@@ -2437,4 +2440,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.4.22.*
+*Last updated for Platterpus v0.4.23.*
