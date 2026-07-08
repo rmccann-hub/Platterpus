@@ -488,7 +488,12 @@ toggle actually does.
 **Record:** Picard launched? `____`; files loaded? `____`; UX notes `__________`.
 Update README Step 6 with the real behaviour.
 
-## Test 7 — [ ] PyPI go-live (maintainer credential)
+## Test 7 — [x] PyPI go-live — DONE (live on PyPI through v0.4.22)
+
+**Status (2026-07-08):** the Trusted Publisher is configured and the wheel
+publishes automatically on each release — `platterpus` is on PyPI through
+**v0.4.22** and `pipx install platterpus` works. The steps below are retained as
+the record of what was set up.
 
 **Goal:** make `pipx install platterpus` work from PyPI. The `publish-pypi.yml`
 workflow is already in place (Trusted Publishing) and is dispatched automatically
@@ -737,4 +742,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.22.*
