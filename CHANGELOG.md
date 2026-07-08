@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Security
+- **Supply-chain hardening round 2 (2026-07-08 trust-audit follow-ups).** All CI/
+  release GitHub Actions are now pinned to full commit SHAs (with a `# vN` comment)
+  instead of mutable tags, so a re-pointed tag can't inject code into the pipeline
+  that builds the auto-updated binary; Dependabot keeps the pins current. Added a
+  gating **`pip-audit`** CI job (dependency-vulnerability scan, currently clean),
+  an advisory **`tests-touched`** check that warns when `src/` changes without a
+  test, and a weekly non-blocking **mutation-testing** workflow (`mutmut` over the
+  parsers, verdict, and CTDB CRC) for test-efficacy signal.
+
 ### Documentation
 - Corrected stale "not on PyPI yet" install docs: the wheel has in fact been
   publishing to PyPI on every tagged release via Trusted Publishing, and
