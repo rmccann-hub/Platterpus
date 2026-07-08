@@ -2060,6 +2060,136 @@ def test_unique_album_title_never_overwrites_a_previous_unknown_rip(
     assert unique_album_title(root, artist, "Sparse") == "Sparse"
 
 
+# --- Known-disc overwrite confirm (2026-07-08 trust audit) ----------------
+
+
+def test_known_album_folder_matches_cyanrip_folder_derivation(tmp_path) -> None:
+    """The folder a known-disc rip lands in is the disc template rendered from the
+    tags — including cyanrip's ':' → '∶' path sanitisation."""
+    from platterpus.ui.main_window_helpers import known_album_folder
+
+    root = tmp_path
+    folder = known_album_folder(root, "%A/%d/%d", "The Police", "Best: Hits", "1995")
+    assert folder == root / "The Police" / "Best∶ Hits"
+    # The year preset puts the 4-digit year in the folder, not the filename.
+    folder2 = known_album_folder(root, "%A/%d (%Y)/%d", "Air", "Moon Safari", "1998")
+    assert folder2 == root / "Air" / "Moon Safari (1998)"
+
+
+def test_suffix_album_folder_template_suffixes_only_the_album_folder() -> None:
+    from platterpus.ui.main_window_helpers import suffix_album_folder_template
+
+    # The suffix lands on the album's own folder (the file's parent), keeping the
+    # tag tokens intact so the FLAC album tag is unchanged — only the folder gets
+    # a "(2)".
+    assert suffix_album_folder_template("%A/%d/%t - %n", 2) == "%A/%d (2)/%t - %n"
+    assert suffix_album_folder_template("%A/%d (%Y)/%d", 3) == "%A/%d (%Y) (3)/%d"
+    # A single-segment template has no folder to suffix → returned unchanged.
+    assert suffix_album_folder_template("%d", 2) == "%d"
+
+
+def test_free_album_folder_templates_finds_smallest_free_sibling(tmp_path) -> None:
+    from platterpus.ui.main_window_helpers import free_album_folder_templates
+
+    root = tmp_path
+    artist, title, year = "Air", "Moon Safari", "1998"
+    for name in ("Moon Safari", "Moon Safari (2)"):  # occupy base + (2)
+        d = root / artist / name
+        d.mkdir(parents=True)
+        (d / "01.flac").write_bytes(b"x")
+    disc_out, track_out = free_album_folder_templates(
+        root, "%A/%d/%d", "%A/%d/%t - %n", artist, title, year
+    )
+    assert disc_out == "%A/%d (3)/%d"
+    assert track_out == "%A/%d (3)/%t - %n"
+
+
+def _known_params(output_dir: Path):
+    from platterpus.workers.rip_worker import RipParameters
+
+    return RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=output_dir,
+        track_template="%A/%d/%t - %n",
+        disc_template="%A/%d/%d",
+        unknown=False,
+    )
+
+
+def _set_album(window, artist: str, title: str) -> None:
+    window._track_table._album_artist_edit.setText(artist)
+    window._track_table._album_title_edit.setText(title)
+
+
+def _occupy_album_folder(root: Path, artist: str, title: str) -> None:
+    d = root / artist / title
+    d.mkdir(parents=True)
+    (d / "01.flac").write_bytes(b"not really audio")
+
+
+def _pick_dialog_button(monkeypatch, text_prefix: str) -> None:
+    """Make the next QMessageBox 'click' the button whose text starts with
+    ``text_prefix`` (so a custom-button confirm can be driven in a test)."""
+
+    def fake_exec(self) -> int:
+        self._picked = next(
+            (b for b in self.buttons() if b.text().startswith(text_prefix)), None
+        )
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    monkeypatch.setattr(QMessageBox, "clickedButton", lambda self: self._picked)
+
+
+def test_known_overwrite_no_existing_audio_proceeds_silently(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    window = teardown_threads()
+    _set_album(window, "Air", "Moon Safari")
+
+    def _boom(self) -> int:
+        raise AssertionError("the overwrite dialog must not appear for an empty folder")
+
+    monkeypatch.setattr(QMessageBox, "exec", _boom)
+    params = _known_params(tmp_path)
+    assert window._confirm_known_overwrite(params) is params
+
+
+def test_known_overwrite_replace_keeps_the_same_folder(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    window = teardown_threads()
+    _set_album(window, "Air", "Moon Safari")
+    _occupy_album_folder(tmp_path, "Air", "Moon Safari")
+    _pick_dialog_button(monkeypatch, "Replace")
+    result = window._confirm_known_overwrite(_known_params(tmp_path))
+    assert result is not None
+    assert result.disc_template == "%A/%d/%d"  # unchanged → replaces in place
+    assert result.track_template == "%A/%d/%t - %n"
+
+
+def test_known_overwrite_new_folder_suffixes_both_templates(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    window = teardown_threads()
+    _set_album(window, "Air", "Moon Safari")
+    _occupy_album_folder(tmp_path, "Air", "Moon Safari")
+    _pick_dialog_button(monkeypatch, "Rip to a new folder")
+    result = window._confirm_known_overwrite(_known_params(tmp_path))
+    assert result is not None
+    assert result.disc_template == "%A/%d (2)/%d"
+    assert result.track_template == "%A/%d (2)/%t - %n"
+
+
+def test_known_overwrite_cancel_aborts(teardown_threads, monkeypatch, tmp_path) -> None:
+    window = teardown_threads()
+    _set_album(window, "Air", "Moon Safari")
+    _occupy_album_folder(tmp_path, "Air", "Moon Safari")
+    _pick_dialog_button(monkeypatch, "Cancel")
+    assert window._confirm_known_overwrite(_known_params(tmp_path)) is None
+
+
 # --- First-run drive-setup offer + manual offset -------------------------
 
 

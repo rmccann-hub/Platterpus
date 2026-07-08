@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from platterpus import naming
 from platterpus.parsers.rip_log import track_accuraterip_verified
 
 # Audio extensions that mark a folder as already holding a rip (mirrors the
@@ -81,6 +82,90 @@ def unique_album_title(
         return title
     except OSError:
         return title
+
+
+def known_album_folder(
+    output_root: Path, disc_template: str, artist: str, title: str, year: str
+) -> Path:
+    """The folder a KNOWN (identified) disc's rip will write into.
+
+    Unlike an unknown disc — whose folder we build literally — a known disc's
+    folder is produced by cyanrip rendering the *disc template* from the fetched
+    tags. We reproduce that here (via :func:`naming.render_preview`, which mirrors
+    cyanrip's token substitution + path sanitisation) and take the rendered
+    file's parent directory, so the caller can check whether that folder already
+    holds a rip *before* starting.
+
+    Best-effort: exact for ordinary titles; a title with characters cyanrip maps
+    differently than the preview may yield a slightly different folder, in which
+    case the overwrite check simply won't fire — it can only ever *miss* a
+    collision, never invent one (fail-safe toward not blocking the user).
+    """
+    sample = naming.SampleTrack(
+        album_artist=artist,
+        track_artist=artist,
+        album=title,
+        title="",  # the track title never affects the album folder
+        track=1,
+        track_total=1,
+        date=year or "",
+    )
+    # render_preview appends ".flac"; the album folder is that file's parent.
+    rendered = naming.render_preview(disc_template, sample)
+    return output_root / Path(rendered).parent
+
+
+def suffix_album_folder_template(template: str, n: int) -> str:
+    """Append ``" (n)"`` to the album-folder segment of a naming template.
+
+    The album folder is the directory immediately containing the track files —
+    the second-to-last ``/``-separated segment (the last segment is the base
+    filename). We suffix *that* segment only, so the tag tokens (``%d`` etc.)
+    stay intact and the FLAC's album tag is unchanged — only the on-disk folder
+    gets a ``(2)``. E.g. ``"%A/%d/%t - %n"`` → ``"%A/%d (2)/%t - %n"``.
+
+    A single-segment template (no folder to suffix) is returned unchanged.
+    """
+    parts = template.split("/")
+    if len(parts) < 2:
+        return template
+    folder_idx = len(parts) - 2
+    parts[folder_idx] = f"{parts[folder_idx]} ({n})"
+    return "/".join(parts)
+
+
+def free_album_folder_templates(
+    output_root: Path,
+    disc_template: str,
+    track_template: str,
+    artist: str,
+    title: str,
+    year: str,
+    *,
+    max_tries: int = 999,
+) -> tuple[str, str]:
+    """Suffixed (disc_template, track_template) whose album folder is free.
+
+    Used for the "rip to a new folder" choice when a known-disc rip would land
+    on a folder that already holds audio: finds the smallest ``(2)``, ``(3)``…
+    whose rendered folder has no audio and returns both templates suffixed the
+    same way (so the track files and the disc log/cue land together). Falls back
+    to the originals if none is free within ``max_tries`` (never raises).
+    """
+    try:
+        for n in range(2, max_tries + 1):
+            candidate_disc = suffix_album_folder_template(disc_template, n)
+            folder = known_album_folder(
+                output_root, candidate_disc, artist, title, year
+            )
+            if not _dir_has_audio(folder):
+                return (
+                    candidate_disc,
+                    suffix_album_folder_template(track_template, n),
+                )
+    except OSError:
+        pass
+    return (disc_template, track_template)
 
 
 def safe_path_segment(value: str) -> str:

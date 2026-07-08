@@ -63,7 +63,10 @@ from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import parse_rip_log
 from platterpus.ui.main_window_helpers import (
+    _dir_has_audio,
     fidelity_summary,
+    free_album_folder_templates,
+    known_album_folder,
     safe_path_segment,
     unique_album_title,
 )
@@ -244,6 +247,16 @@ class RipMixin:
             if not ok:
                 QMessageBox.warning(self, "Cannot start rip", message)
                 return
+            # Known-disc overwrite guard (2026-07-08 trust audit): a re-rip of an
+            # ALREADY-identified album to the same folder used to overwrite the
+            # existing rip silently. (The unknown-disc collision case auto-suffixes
+            # — v0.4.22 — but a known re-rip is often deliberate, so it gets a
+            # confirm instead of silent behaviour either way.) If the target folder
+            # already holds audio, ask before touching it.
+            confirmed = self._confirm_known_overwrite(params)
+            if confirmed is None:
+                return  # user cancelled
+            params = confirmed
         else:
             # Unknown disc: build the output templates from the album fields
             # (literal folder names, not a disc-ID hash).
@@ -312,6 +325,61 @@ class RipMixin:
         self._force_stop_done = False
 
         self._start_rip_worker(params)
+
+    def _confirm_known_overwrite(self, params: RipParameters) -> RipParameters | None:
+        """Guard a known-disc rip against silently overwriting an existing rip.
+
+        Returns the params to rip with (possibly rewritten to a fresh numbered
+        folder), or ``None`` if the user cancelled. If the target folder holds no
+        audio, returns ``params`` unchanged (no dialog). Computing the folder and
+        probing it are cheap local operations, and the dialog only waits on the
+        user — nothing here blocks the GUI thread on I/O.
+        """
+        album = self._track_table.album_metadata()
+        target = known_album_folder(
+            Path(params.output_dir),
+            params.disc_template,
+            album.artist,
+            album.title,
+            album.year,
+        )
+        if not _dir_has_audio(target):
+            return params  # nothing there to overwrite → proceed silently
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Album already ripped")
+        box.setText(
+            f"“{target.name}” already contains a rip:\n{target}\n\n"
+            "Ripping here will overwrite the existing files."
+        )
+        box.setInformativeText("Replace them, rip to a new numbered folder, or cancel?")
+        # DestructiveRole flags the overwrite; AcceptRole is the safe keep-both.
+        replace_btn = box.addButton("Replace", QMessageBox.ButtonRole.DestructiveRole)
+        new_folder_btn = box.addButton(
+            "Rip to a new folder", QMessageBox.ButtonRole.AcceptRole
+        )
+        cancel_btn = box.addButton(QMessageBox.StandardButton.Cancel)
+        box.setDefaultButton(cancel_btn)  # safest default: do nothing
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is replace_btn:
+            return params
+        if clicked is new_folder_btn:
+            disc_template, track_template = free_album_folder_templates(
+                Path(params.output_dir),
+                params.disc_template,
+                params.track_template,
+                album.artist,
+                album.title,
+                album.year,
+            )
+            return replace(
+                params,
+                disc_template=disc_template,
+                track_template=track_template,
+            )
+        return None  # Cancel (or the dialog was dismissed)
 
     def _as_unknown_params(self, params: RipParameters) -> RipParameters:
         """Return `params` rewritten for an unknown-album rip: `--unknown`,
