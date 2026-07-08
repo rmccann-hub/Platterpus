@@ -36,6 +36,7 @@ import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from platterpus import composition
 from platterpus import config as config_module
@@ -53,6 +54,9 @@ from platterpus.ctdb.toc import DiscToc
 from platterpus.deps.manager import DependencyManager
 from platterpus.drive_access import SEVERITY_OK, diagnose_drive_access
 from platterpus.offset_config import WhipperConfOffset, read_drive_offsets
+
+if TYPE_CHECKING:
+    from platterpus.deps.host_setup import HostSetup
 
 # A well-formed MusicBrainz disc id used only to prove the server answers. We
 # don't care whether it matches anything: a 404 ("not in DB") still means MB
@@ -271,7 +275,7 @@ def check_dependencies(manager: DependencyManager) -> CheckResult:
 
 
 def check_backend_routing(
-    backend: RipBackend, *, backend_name: str, host: object | None = None
+    backend: RipBackend, *, backend_name: str, host: HostSetup | None = None
 ) -> CheckResult:
     """THE Distrobox-routing test: can we actually reach the ripper backend?
 
@@ -315,7 +319,7 @@ _WIZARD_HINT = (
 )
 
 
-def routing_drilldown(backend_name: str, host: object) -> tuple[str, str]:
+def routing_drilldown(backend_name: str, host: HostSetup) -> tuple[str, str]:
     """Pinpoint which link in host→container→backend is broken.
 
     Returns ``(detail, hint)``. Reuses `HostSetup`'s presence checks so the
@@ -357,7 +361,7 @@ def routing_drilldown(backend_name: str, host: object) -> tuple[str, str]:
 
 
 def _routing_failure_diagnosis(
-    backend_name: str, host: object | None, exc: Exception
+    backend_name: str, host: HostSetup | None, exc: Exception
 ) -> tuple[str, str]:
     """Build the (detail, hint) for a failed backend probe, preserving the raw
     error so no information is hidden."""
@@ -509,7 +513,7 @@ def check_musicbrainz(
 
 def check_cover_art_archive(
     *,
-    opener: Callable[..., object] = urllib.request.urlopen,
+    opener: Callable[..., Any] = urllib.request.urlopen,  # returns a urlopen-style CM
     url: str = _CAA_URL,
 ) -> CheckResult:
     """Prove the host can reach the Cover Art Archive (embedded cover art)."""

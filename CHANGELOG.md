@@ -31,6 +31,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   test, and a weekly non-blocking **mutation-testing** workflow (`mutmut` over the
   parsers, verdict, and CTDB CRC) for test-efficacy signal.
 
+### Added
+- **Static type-checking in CI (`mypy`).** The project mandates type hints but
+  nothing verified them; a new gating `typecheck` CI job now runs `mypy` on every
+  push/PR. It's a deliberately non-strict baseline over the whole package **except**
+  the Qt UI mixin layer (excluded with a documented ratchet — it needs a shared
+  Protocol/typed base first). Introducing it surfaced and fixed 17 real
+  type-annotation gaps in the non-UI code (loose `object` types at loosely-coupled
+  seams, an incorrect `CompletedProcess[str]` return, a Qt `setWindowIcon` on the
+  wrong base class) — all fixed with proper annotations, no behaviour change.
+
 ### Documentation
 - **Documented cyanrip's filename/path cross-filesystem behaviour** (naming-scheme
   audit, 2026-07-08). `docs/dependency-contracts.md` now spells out what cyanrip
