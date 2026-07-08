@@ -12,11 +12,15 @@
 #      Python interpreter + the wheel + its deps into a single .AppImage
 #      at the repo root.
 #
-# The build is reproducible to a first approximation: the wheel is
-# rebuilt every run from the current source, and python-appimage pins
-# a CPython tag (manylinux2014). Reproducibility in the strict sense
-# (bit-identical output) requires SOURCE_DATE_EPOCH discipline that
-# we don't enforce here — sufficient for v1.
+# Reproducibility: we pin every timestamp the build embeds via
+# SOURCE_DATE_EPOCH (below), so two builds of the *same commit* on the same
+# toolchain produce byte-identical output — verified for the wheel (identical
+# sha256 across runs). The remaining variable is the exact dependency *bytes*
+# python-appimage bundles: pinning those with `pip --require-hashes` is not
+# expressible in this recipe (python-appimage installs each requirements.txt
+# line via a separate shell `pip install`, and the locally-built platterpus
+# wheel is unhashed), so it stays a documented limitation — see the full
+# explanation in build/python-appimage/requirements.txt.
 
 set -euo pipefail
 
@@ -26,6 +30,24 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RECIPE_DIR="$SCRIPT_DIR/python-appimage"
 
 cd "$REPO_ROOT"
+
+# --- Reproducible-build timestamp (SOURCE_DATE_EPOCH) ----------------------
+# Pin every timestamp the build embeds — the wheel's zip entries and the
+# AppImage's squashfs — to one deterministic value, so rebuilding the same
+# commit yields identical bytes. Standard convention: the HEAD commit's
+# author/commit time. A caller can override by exporting SOURCE_DATE_EPOCH
+# themselves (e.g. to reproduce an older release); a git-less source tree
+# falls back to the zip epoch floor (1980-01-01, the earliest a zip can store).
+if [ -z "${SOURCE_DATE_EPOCH:-}" ]; then
+    if command -v git >/dev/null 2>&1 &&
+        git -C "$REPO_ROOT" rev-parse HEAD >/dev/null 2>&1; then
+        SOURCE_DATE_EPOCH="$(git -C "$REPO_ROOT" log -1 --format=%ct HEAD)"
+    else
+        SOURCE_DATE_EPOCH=315532800  # 1980-01-01 UTC — zip's minimum timestamp
+    fi
+fi
+export SOURCE_DATE_EPOCH
+echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH (reproducible-build timestamp)"
 
 # --- Prereq check ----------------------------------------------------------
 require_python_module() {

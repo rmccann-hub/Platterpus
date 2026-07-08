@@ -36,6 +36,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     drive's reads "already trustworthy". Regression tests lock the honest copy.
 
 ### Security
+- **Deterministic build timestamps (`SOURCE_DATE_EPOCH`) toward a reproducible
+  AppImage.** `build_appimage.sh` now pins every timestamp the build embeds (the
+  wheel's zip entries and the AppImage squashfs) to the HEAD commit time, so
+  rebuilding the same commit yields byte-identical output — verified for the
+  wheel (identical SHA-256 across runs). Combined with the build-provenance
+  attestation, a third party can both verify *who* built a release and *rebuild
+  it*. Full dependency byte-pinning (`pip --require-hashes`) remains a documented
+  limitation: python-appimage's per-line shell `pip install` plus the unhashed
+  locally-built wheel make it inexpressible in this recipe (details in
+  `build/python-appimage/requirements.txt`).
 - **Build-provenance attestation for the released AppImage (2026-07-08 trust-audit
   follow-up).** `release.yml` now runs `actions/attest-build-provenance` over the
   built AppImage, producing a signed SLSA provenance statement (GitHub OIDC +
