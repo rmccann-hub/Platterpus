@@ -14,19 +14,27 @@ from __future__ import annotations
 
 import logging
 from importlib import resources
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Type-only import — the return type is a QIcon, but importing this module
+    # must never force a Qt import at load time (the runtime import stays inside
+    # the function below). TYPE_CHECKING imports don't execute at runtime.
+    from PySide6.QtGui import QIcon
 
 log = logging.getLogger(__name__)
 
 _LOGO_RESOURCE: str = "platterpus-logo.svg"
 
 
-def app_icon() -> object | None:
+def app_icon() -> QIcon | None:
     """Return a ``QIcon`` for the app, or ``None`` if it can't be loaded.
 
-    Typed as ``object`` so importing this module never forces a Qt import at
-    module load (it's only needed when actually building the icon). PySide6
-    bundles the Qt SVG image plugin, so a ``QIcon`` built from the ``.svg``
-    renders at every size the window manager asks for.
+    The Qt import stays inside the function body so importing this module never
+    forces a Qt import at module load (it's only needed when actually building
+    the icon); the return type is declared via a ``TYPE_CHECKING`` import above.
+    PySide6 bundles the Qt SVG image plugin, so a ``QIcon`` built from the
+    ``.svg`` renders at every size the window manager asks for.
     """
     try:
         from PySide6.QtGui import QIcon

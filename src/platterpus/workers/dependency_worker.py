@@ -17,8 +17,12 @@ Signals:
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal, Slot
+
+if TYPE_CHECKING:
+    from platterpus.deps.manager import DependencyManager
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +37,9 @@ class DependencyCheckWorker(QObject):
 
     finished = Signal(object)  # DependencyReport | None
 
-    def __init__(self, manager: object, parent: QObject | None = None) -> None:
+    def __init__(
+        self, manager: DependencyManager, parent: QObject | None = None
+    ) -> None:
         super().__init__(parent)
         self._manager = manager
 

@@ -29,6 +29,7 @@ import logging
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from platterpus.appimage_integration import (
     APPLICATIONS_DIR,
@@ -77,7 +78,9 @@ def download_and_install(
     dest_dir: Path = APPLICATIONS_DIR,
     progress: Callable[[float], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
-    opener: Callable[[str], object] | None = None,
+    # `opener` returns a urlopen-style context manager (Any keeps the injection
+    # seam simple — a fake response can be any object with read()/__enter__).
+    opener: Callable[[str], Any] | None = None,
     status: Callable[[str], None] | None = None,
 ) -> Path:
     """Download release `version`, verify it, install it. Returns the path.

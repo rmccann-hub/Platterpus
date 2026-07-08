@@ -110,6 +110,10 @@ def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
         stderr=subprocess.DEVNULL,
         timeout=20,
         check=False,
+        # No output is captured (all streams are DEVNULL), so text mode is a
+        # no-op at runtime — but it makes the return type honestly
+        # CompletedProcess[str], matching the Runner alias callers rely on.
+        text=True,
     )
 
 

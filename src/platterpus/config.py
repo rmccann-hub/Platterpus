@@ -469,7 +469,12 @@ def _migrate(raw: dict) -> dict:
         # map and is left alone. Only the "known disc" templates carry a year
         # preset; the unknown-disc templates never do.
         for field_name in ("track_template", "disc_template"):
-            upgraded = _V3_TO_V4_TEMPLATES.get(raw.get(field_name))
+            current = raw.get(field_name)
+            # Only a string template can match the upgrade map; a missing or
+            # hand-edited (non-string) value is left untouched.
+            upgraded = (
+                _V3_TO_V4_TEMPLATES.get(current) if isinstance(current, str) else None
+            )
             if upgraded is not None:
                 raw[field_name] = upgraded
         raw["schema_version"] = 4

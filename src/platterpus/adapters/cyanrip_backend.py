@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from platterpus.adapters.rip_backend import (
     RipBackend,
@@ -39,6 +40,11 @@ from platterpus.adapters.rip_backend import (
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.drive_list import DriveDescriptor
+
+if TYPE_CHECKING:
+    # Type-only import — the runtime call stays duck-typed (the backend must not
+    # hard-depend on the metaflac adapter), but this gives the checker the shape.
+    from platterpus.adapters.metaflac import MetaflacAdapter
 
 log = logging.getLogger(__name__)
 
@@ -334,7 +340,9 @@ def _escape_meta_value(value: str) -> str:
     return "".join(out)
 
 
-def restore_substituted_colons(metaflac: object, flac_files: list[Path]) -> int:
+def restore_substituted_colons(
+    metaflac: MetaflacAdapter, flac_files: list[Path]
+) -> int:
     """Put the real ``:`` back into FLAC tags that `_escape_meta_value` had to
     write as the U+2236 lookalike for cyanrip's parser.
 
