@@ -60,6 +60,44 @@ def test_load_ignores_unknown_legacy_keys(
     assert not hasattr(cfg, "ripper_backend")
 
 
+def test_save_preserves_newer_binary_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Forward-compatibility: an OLDER binary loading a config written by a NEWER
+    one drops the unknown keys in memory, but a subsequent save() must NOT drop
+    them from disk (that would silently reset the newer version's settings on a
+    downgrade round-trip). It must also keep the newer schema_version."""
+    import tomllib
+
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        'schema_version = 99\nread_offset = 667\nfuture_only_key = "keepme"\n',
+        encoding="utf-8",
+    )
+
+    cfg = config_module.load()  # older binary: future key not in the dataclass
+    assert not hasattr(cfg, "future_only_key")
+
+    config_module.save(cfg)  # ...but the round-trip must preserve it on disk
+
+    raw = tomllib.loads(config_file.read_text(encoding="utf-8"))
+    assert raw["future_only_key"] == "keepme"  # newer key survived the save
+    assert raw["schema_version"] == 99  # newer schema not downgraded
+    assert raw["read_offset"] == 667
+
+
+def test_save_leaves_no_temp_and_round_trips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """save() writes durably+atomically via atomic_write: the real file exists,
+    no stray .tmp is left behind, and the value round-trips."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_module.save(config_module.Config(read_offset=667, override_read_offset=True))
+    assert config_file.exists()
+    assert not (tmp_path / "config.toml.tmp").exists()
+    assert config_module.load().read_offset == 667
+
+
 def test_first_load_creates_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

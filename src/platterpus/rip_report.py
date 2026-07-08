@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 
 from platterpus import __version__, build_info
+from platterpus.atomic_write import atomic_write_text
 from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.verdict import accuraterip_verdict
 
@@ -29,24 +29,22 @@ log = logging.getLogger(__name__)
 
 
 def _atomic_write_text(target: Path, text: str) -> None:
-    """Write ``text`` to ``target`` atomically (temp sibling + ``os.replace``).
+    """Write ``text`` to ``target`` atomically AND durably.
 
-    Crash-safety (it.12): a SIGKILL or power loss part-way through a plain
-    ``write_text`` would leave a truncated ``.platterpus.json`` — and the report
-    is re-written repeatedly as post-rip checks finish, widening that window.
-    ``os.replace`` is atomic on POSIX, so a reader ever sees either
-    the old complete file or the new complete file, never a torn one (the same
-    guarantee ``config.save`` already gives). Raises ``OSError`` on failure; the
-    callers below keep the best-effort/never-raise contract by catching it.
+    Crash-safety (it.12): the report is re-written repeatedly as post-rip checks
+    finish, so a torn/truncated ``.platterpus.json`` would be easy to hit on a
+    crash or power loss. Delegates to ``atomic_write`` (temp → fsync →
+    ``os.replace`` → parent-dir fsync), so a reader ever sees either the complete
+    old file or the complete new file. Raises ``OSError`` on failure; the callers
+    keep the best-effort/never-raise contract by catching it, and a stray temp
+    from a failed write is cleaned up here.
     """
-    tmp = target.with_name(target.name + ".tmp")
     try:
-        tmp.write_text(text, encoding="utf-8")
-        os.replace(tmp, target)
+        atomic_write_text(target, text)
     except OSError:
         # Don't leave a stray temp behind on a failed write.
         try:
-            tmp.unlink()
+            target.with_name(target.name + ".tmp").unlink()
         except OSError:
             pass
         raise

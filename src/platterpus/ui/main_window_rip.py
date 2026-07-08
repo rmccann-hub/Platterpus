@@ -62,7 +62,11 @@ from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import parse_rip_log
-from platterpus.ui.main_window_helpers import fidelity_summary, safe_path_segment
+from platterpus.ui.main_window_helpers import (
+    fidelity_summary,
+    safe_path_segment,
+    unique_album_title,
+)
 from platterpus.ui.unknown_album import (
     UnknownAlbumDialog,
     apply_track_tags,
@@ -316,6 +320,10 @@ class RipMixin:
         album = self._track_table.album_metadata()
         artist = safe_path_segment(album.artist) or "Unknown Artist"
         title = safe_path_segment(album.title) or "Unknown Album"
+        # Never silently overwrite a previous unknown disc's master: if this
+        # album folder already holds audio (two different unknown discs at the
+        # default "Unknown Album" would collide), land in a fresh "(N)" sibling.
+        title = unique_album_title(Path(params.output_dir), artist, title)
         return replace(
             params,
             unknown=True,

@@ -17,6 +17,14 @@ on:
   # for App tokens (same path release.yml uses), so this is the escape hatch.
   workflow_dispatch:
 
+# Least privilege: every job here only READS the repo (lint / test / changelog /
+# media-guard). The default GITHUB_TOKEN is broad (contents: write, etc.), so pin
+# it down — a compromised action pulled into CI then can't push, tag, or open
+# PRs. The release/publish workflows declare their own (wider) permissions where
+# they actually need them.
+permissions:
+  contents: read
+
 jobs:
   # Lint + format check. Fast and dependency-light (ruff is a single binary,
   # no Qt libs needed), so it runs as its own job in parallel with the tests.
@@ -97,6 +105,45 @@ jobs:
             echo "::error::No CHANGELOG.md entry for this change. Add a bullet to the [Unreleased] section in the same commit (CLAUDE.md Critical Rule #7), or put a '[skip changelog]' line of its own in the commit message for a pure historical-record commit."
             exit 1
           fi
+
+  # Server-side backstop for CLAUDE.md Critical Rule #8 (never commit audio /
+  # copyrighted media). `.githooks/pre-commit` is the client-side guard, but a
+  # contributor without the hook installed — or a `git commit --no-verify` — could
+  # still push audio to this PUBLIC repo. This makes the SERVER the authoritative
+  # guard: fail any push/PR that introduces a file with an audio extension.
+  media-guard:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need the range's history to diff
+      - name: Reject audio/copyrighted media (Critical Rule #8)
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Same audio-extension pattern as .githooks/pre-commit + .gitignore.
+          pattern='\.(flac|wav|mp3|m4a|aac|ogg|oga|opus|wv|ape|wma|aiff|aif|alac|dsf|dff)$'
+          if [ "$EVENT" = "pull_request" ]; then
+            base="$PR_BASE"; head="$PR_HEAD"
+          else
+            base="$PUSH_BEFORE"; head="$GITHUB_SHA"
+          fi
+          # Manual run or a new ref with no base → scan the whole tree instead of a range.
+          if [ "$EVENT" = "workflow_dispatch" ] || printf '%s' "$base" | grep -qE '^0+$'; then
+            offenders=$(git ls-files | grep -iE "$pattern" || true)
+          else
+            offenders=$(git diff --name-only --diff-filter=ACMR "$base" "$head" | grep -iE "$pattern" || true)
+          fi
+          if [ -n "$offenders" ]; then
+            echo "::error::Audio/copyrighted media must never be committed (CLAUDE.md Critical Rule #8). Offenders:"
+            printf '%s\n' "$offenders" >&2
+            exit 1
+          fi
+          echo "No audio/media files. ✅"
 
   test:
     runs-on: ubuntu-22.04

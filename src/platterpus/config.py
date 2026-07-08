@@ -6,14 +6,17 @@ so callers see attribute access (`cfg.output_dir`) instead of dict
 lookups, and so the schema lives in one place.
 
 - The first `load()` call creates the file with defaults if missing.
-- `save()` writes atomically (temp file + rename) so a crash mid-save
-  can't corrupt the user's settings.
-- Unknown keys in an older binary loading a newer file are logged and
-  dropped, not crashed on. This keeps forward compatibility cheap.
+- `save()` writes atomically AND durably (temp + fsync + rename + dir fsync,
+  via `atomic_write`) so neither a crash nor a power loss can corrupt or
+  truncate the user's settings.
+- Unknown keys from a NEWER binary are ignored on load but PRESERVED on save
+  (re-merged from disk), so a downgrade round-trip never silently drops a newer
+  version's settings.
 """
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import tomllib
@@ -22,6 +25,7 @@ from pathlib import Path
 
 import tomli_w
 
+from platterpus.atomic_write import atomic_write_bytes
 from platterpus.paths import (
     CONFIG_DIR,
     CONFIG_PATH,
@@ -373,20 +377,50 @@ def _sanitized(cfg: Config) -> Config:
 
 
 def save(cfg: Config) -> None:
-    """Atomically write `cfg` to CONFIG_PATH.
+    """Atomically and durably write `cfg` to CONFIG_PATH.
 
-    Atomicity matters: a SIGKILL or power loss between `open` and
-    `close` of the real file would otherwise leave a half-written TOML.
-    We write to a sibling temp file and rename — `os.replace` is atomic
-    on POSIX.
+    Durability matters: a SIGKILL or a power loss mid-write must never leave a
+    half-written or truncated TOML. `atomic_write_bytes` writes a sibling temp
+    file, fsyncs it, `os.replace`s it over the real file (atomic on POSIX), then
+    fsyncs the parent directory so the rename itself survives a power loss.
+
+    Forward-compatibility: any keys a NEWER Platterpus wrote that this binary
+    doesn't recognise are preserved (re-merged from the on-disk file), so saving
+    from an older binary can't silently drop a newer version's settings.
     """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-
-    tmp = CONFIG_PATH.with_suffix(".tmp")
-    with tmp.open("wb") as f:
-        tomli_w.dump(asdict(cfg), f)
-    os.replace(tmp, CONFIG_PATH)
+    payload = {**asdict(cfg), **_forward_compat_extra()}
+    buf = io.BytesIO()
+    tomli_w.dump(payload, buf)
+    atomic_write_bytes(CONFIG_PATH, buf.getvalue())
     log.debug("config saved to %s", CONFIG_PATH)
+
+
+def _forward_compat_extra() -> dict:
+    """Keys on disk this binary doesn't recognise, to preserve on save.
+
+    An older Platterpus loading a config written by a NEWER one drops the newer
+    keys in memory (``load()`` filters to known fields). Without this, the next
+    ``save()`` would write them away for good — silently resetting the newer
+    version's settings on a downgrade. So we re-read the current file and carry
+    forward any unknown keys, plus a higher ``schema_version`` (so a downgrade
+    save doesn't relabel a newer file as older). Best-effort: a missing/corrupt
+    file just yields no extras, and known keys are never overridden.
+    """
+    try:
+        with CONFIG_PATH.open("rb") as f:
+            raw = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    known = {field.name for field in Config.__dataclass_fields__.values()}
+    extra = {k: v for k, v in raw.items() if k not in known}
+    try:
+        disk_version = int(raw.get("schema_version", 0))
+        if disk_version > SCHEMA_VERSION:
+            extra["schema_version"] = disk_version
+    except (TypeError, ValueError):
+        pass
+    return extra
 
 
 def _migrate(raw: dict) -> dict:

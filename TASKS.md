@@ -394,6 +394,18 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 - **[x] Declined dependencies should not cascade to the next tier.** Done (verified 2026-06-02) — see the identical item under P1.1 above. `resolve_missing` skips cascade for `user_declined`; three tests cover it.
 - **[x] Picard auto-install failure mode — resolved.** Both halves are done: (1) **root cause** — the registry now installs Picard via the **`.flatpakref` URL** (`https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref`) instead of `flathub <ref>`; the `.flatpakref` carries the remote URL so flatpak adds flathub at *user* level on first install, fixing the Bazzite "No remote refs found for 'flathub'" error (Atomic distros configure flathub as a *system* remote). See `deps/registry.py`. (2) **diagnostics** — `AutoInstaller` captures the failed command's last stderr/stdout line into `InstallResult.message`, and `_show_dep_summary` surfaces it in an "Install failures:" block (no longer debug-only). Picard is also `optional=True`, so a failure doesn't nag.
 
+### P1 — Trust & supply-chain hardening (2026-07-08 audit follow-ups)
+
+From the trust/quality deep audit — see [docs/trust-audit-2026-07-08.md](docs/trust-audit-2026-07-08.md). Confirmed-but-deferred items (the audit's in-release fixes shipped in v0.4.22):
+
+- **[ ] ⭐ Update authenticity (trust-critical).** The in-app updater checksum-verifies (integrity) but does not sign (authenticity). Add build-provenance attestation (`actions/attest-build-provenance`, no secret) now; real minisign/ed25519 signing needs a **new crypto dep (must-ask)** + a maintainer-held signing key. Make the updater fail-closed on a present-but-invalid signature. `SECURITY.md` documents the current boundary.
+- **[ ] Pin GitHub Actions to commit SHAs** across `release.yml`/`publish-pypi.yml`/`appimage.yml` (ci.yml first — self-validating). Dependabot (`github-actions`, added v0.4.22) now drives the bumps.
+- **[ ] Reproducible, hash-pinned AppImage build** — `pip-compile --generate-hashes` + `--require-hashes` in `build_appimage.sh` + `SOURCE_DATE_EPOCH`; validate on a real build.
+- **[ ] Static type-checking in CI** — add `mypy`/`basedpyright`, non-strict baseline → ratchet strict on `adapters`/`parsers`/`workers` first (mirrors the coverage ratchet).
+- **[ ] `pip-audit` CI job** (initially non-gating) + **scheduled `mutmut`** (weekly, non-blocking) over `parsers/`, `verdict.py`, `ctdb/crc.py`, and a warn-only "src changed without tests" PR check.
+- **[ ] Known-disc re-rip overwrite confirm.** Unknown-disc collisions are fixed (v0.4.22 auto-suffix); an identified-album re-rip to the same folder still overwrites silently — add a confirm dialog (GUI/HW-verified).
+- **[ ] Finish the audit's un-run categories** — naming-scheme cross-FS safety (NTFS/exFAT reserved names, length, collisions), the "validate every input" rule's real coverage, and a full trust-claim-rendering sweep. Best run where the consensus fan-out can complete (the 2-core sandbox serialized it).
+
 ### P1 — Documentation backlog
 
 Items that need real-system output to write authoritatively. Address as T32's smoke test on a real Bazzite system surfaces the actual output. Each is small (a paragraph or two of README) but writing them now would be guesswork.
@@ -466,4 +478,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.4.18.*
+*Last updated for Platterpus v0.4.22.*

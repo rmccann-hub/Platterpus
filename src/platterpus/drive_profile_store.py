@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 
 from platterpus import paths
+from platterpus.atomic_write import atomic_write_text
 from platterpus.drive_profiles import (
     Confidence,
     DriveProfile,
@@ -190,12 +190,13 @@ class DriveProfileStore:
         return cls(profiles, path=path)
 
     def save(self, path: Path | None = None) -> None:
-        """Atomically write the store (temp file + os.replace).
+        """Atomically and durably write the store.
 
-        Writes to `path`, or the path this store was loaded from. Atomicity
-        matters: a crash between open and close would otherwise leave a
-        half-written file that the next load would (safely) discard. Same
-        pattern config.save uses.
+        Writes to `path`, or the path this store was loaded from. Durability
+        matters: a crash OR a power loss mid-write must never leave a
+        half-written file. `atomic_write_text` fsyncs the temp file, `os.replace`s
+        it (atomic on POSIX), then fsyncs the parent directory. Same helper
+        `config.save` uses.
         """
         if path is None:
             path = self._path
@@ -206,10 +207,7 @@ class DriveProfileStore:
                 fp: _profile_to_dict(profile) for fp, profile in self._profiles.items()
             },
         }
-        tmp = path.with_suffix(".tmp")
-        with tmp.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, sort_keys=True)
-        os.replace(tmp, path)
+        atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True))
         log.debug("drive profiles saved to %s", path)
 
 

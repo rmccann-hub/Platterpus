@@ -1,0 +1,24 @@
+# Dependabot keeps the two supply-chain surfaces current via reviewed PRs:
+#   * pip            — the Python runtime/dev dependencies (pyproject.toml),
+#     including the self-declared-unmaintained musicbrainzngs (DEPENDENCIES.md);
+#   * github-actions — the CI/release workflow actions, so `uses:` pins are
+#     bumped for us as new versions ship (a step toward SHA-pinning).
+# Weekly, small batches, so a bump is easy to review against the changelog rule.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
