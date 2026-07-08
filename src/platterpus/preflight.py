@@ -546,7 +546,7 @@ def check_cover_art_archive(
 
 
 def check_ctdb(ctdb_client: CTDBClient, *, toc: DiscToc = _PROBE_TOC) -> CheckResult:
-    """Prove the host can reach CTDB (optional, experimental verification)."""
+    """Prove the host can reach CTDB (an optional second verification path)."""
     try:
         result = ctdb_client.lookup(toc)
     except CtdbLookupError as exc:
@@ -555,7 +555,7 @@ def check_ctdb(ctdb_client: CTDBClient, *, toc: DiscToc = _PROBE_TOC) -> CheckRe
             Status.WARN,
             "could not reach CTDB",
             detail=str(exc),
-            hint="CTDB verify is optional/experimental; rips work without it.",
+            hint="CTDB verify is optional; rips work without it.",
         )
     except Exception as exc:  # noqa: BLE001
         return CheckResult(

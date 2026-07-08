@@ -339,8 +339,8 @@ def _format_result(result: DriveSetupResult) -> str:
         )
     elif result.can_defeat_cache is False:
         lines.append(
-            "• Audio cache: this drive doesn't cache audio, so its reads are "
-            "already trustworthy (saved)."
+            "• Audio cache: this drive doesn't cache audio, so Platterpus "
+            "doesn't need to read around a cache (saved)."
         )
     else:
         lines.append(
