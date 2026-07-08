@@ -23,14 +23,20 @@ reproduce on the newest release before reporting.
 
 ## Known hardening items (tracked, not secret)
 
-- **Update authenticity.** The in-app updater verifies the downloaded AppImage
-  against the release's published **SHA-256 checksum** (integrity). Cryptographic
-  **signature** verification (e.g. minisign) and build-provenance attestation are
-  tracked hardening items — see the trust-audit notes in `docs/`.
+- **Update authenticity.** Every released AppImage carries a **build-provenance
+  attestation** (SLSA, via GitHub OIDC + Sigstore — no maintainer-held key), so
+  you can prove a download really came from this repo's release pipeline:
+  `gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus`.
+  The in-app updater itself still verifies only the release's published
+  **SHA-256 checksum** (integrity) — it does not yet check the attestation, and
+  cryptographic **signature** verification (e.g. minisign) is still a tracked
+  hardening item (it needs a maintainer-held signing key). See the trust-audit
+  notes in `docs/`.
 - **Workflow supply chain.** CI runs least-privilege (`contents: read`), a
-  server-side guard rejects committed audio, and Dependabot watches the `pip` and
-  `github-actions` dependency surfaces; pinning every action to a commit SHA is a
-  tracked follow-up.
+  server-side guard rejects committed audio, every GitHub Action is pinned to a
+  full commit SHA, a gating `pip-audit` job scans the dependency graph, and
+  Dependabot watches the `pip` and `github-actions` surfaces to keep the pins
+  current.
 
 ## Scope
 

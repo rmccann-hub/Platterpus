@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Security
+- **Build-provenance attestation for the released AppImage (2026-07-08 trust-audit
+  follow-up).** `release.yml` now runs `actions/attest-build-provenance` over the
+  built AppImage, producing a signed SLSA provenance statement (GitHub OIDC +
+  Sigstore — no maintainer-held key, no new runtime dependency) that binds the
+  binary's SHA-256 to the workflow and commit that built it. Anyone can now prove
+  a download really came from this repo's pipeline with
+  `gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus`
+  (the `.sha256` proves *integrity*; this proves *authenticity*). The in-app
+  updater still checks only the SHA-256 for now; SECURITY.md documents that
+  boundary. PyPI wheels are already attested via Trusted Publishing.
 - **Supply-chain hardening round 2 (2026-07-08 trust-audit follow-ups).** All CI/
   release GitHub Actions are now pinned to full commit SHAs (with a `# vN` comment)
   instead of mutable tags, so a re-pointed tag can't inject code into the pipeline
