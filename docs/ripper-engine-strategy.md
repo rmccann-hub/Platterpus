@@ -37,7 +37,11 @@ fully open at
 
 **cyanrip** — [`cyanreg/cyanrip`](https://github.com/cyanreg/cyanrip)
 - License: **GNU LGPL-2.1** (`LICENSE.md`). C (~99%) + Meson build.
-- Releases: latest **v0.9.3.1, 2024-06-05**; actively developed (8 releases).
+- Releases: latest **tag** v0.9.3.1 (2024-06-05) — but **`master` is actively
+  developed**: commits through **2026-03-25** (~25–30 in the trailing year —
+  pregap/cue fixes, cdrdao TOC/bin support, metadata-tag fixes, Windows fixes).
+  So the accurate picture is **stalled *releases*, live *development*** — the
+  distinction that actually decides the fork question (see §6 finding).
 - Architecture: read + offset compensation + error recovery via
   **libcdio-paranoia**; encode/mux via **FFmpeg ≥4.0** → 11 formats
   (flac, mp3, opus, aac, wavpack, alac, vorbis, tta, wav, alac/aac/opus-in-mp4,
@@ -119,7 +123,7 @@ fork/combine option open.
 
 ## 6. Open research tasks (append findings here as we learn)
 
-- [ ] Gauge cyanrip upstream's PR responsiveness (issue/PR turnaround) — gates Option 0.
+- [x] **Gauge cyanrip upstream's activity + PR responsiveness (gates Option 0) — done 2026-07-08.** *Development:* `master` is live (last commit 2026-03-25; ~25–30 commits/yr). *Releases:* stalled — last tag v0.9.3.1 is ~2 yr old. *Responsiveness:* the maintainer (**Lynne "cyanreg" `<dev@lynne.ee>`**, IRC `#cyanrip` on Libera.Chat) **does merge external PRs, but slowly** — jp-sarte's #130 landed ~3.5 months out; some PRs sit 1–2 years; PR #115 (pregap/HTOA) is open and actively reviewed. **Conclusion — a fork is NOT warranted for "slow releases":** because Platterpus owns the `ripping` Distrobox container, we can build cyanrip **from any git commit** (our own topic branch *before* a merge, or upstream `master` *after*), so cyanrip's release cadence never gates us — the "slow releases → must fork" reasoning dissolves. The real, smaller decision is **build-cyanrip-from-source in the container vs. a distro package** (a maintenance choice, not a fork). Escalate to a **soft fork** (upstream `master` + our small rebased patch set) only if a needed PR is *declined or stalls indefinitely*; a **hard fork / consolidated tree (§7)** stays behind the §5 gates + a KDD-18 amendment. Only CI upstream is a Windows/MinGW build — don't break it; no `CONTRIBUTING`, match surrounding C.
 - [ ] Inventory exactly what whipper does that cyanrip doesn't (gap-detection
       method, log fields, `.cue`/`.toc` output) — gates Option 3.
 - [ ] Map cyanrip's FFmpeg flag surface for what we want (FLAC compression level,
@@ -460,4 +464,4 @@ lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metafla
 
 ---
 
-*Last updated for Platterpus v0.4.17.*
+*Last updated for Platterpus v0.4.23.*
