@@ -65,6 +65,26 @@ name safety incl. NTFS/exFAT reserved names + length limits + collisions; the
 is rendered) should be run as a focused follow-up — ideally on a
 higher-core environment where the consensus fan-out can actually complete.
 
+**Naming-scheme cross-filesystem safety — audited directly 2026-07-08; no
+shippable bug on the target.** Read `naming.py`, `settings_validation.py`, and
+the cyanrip naming contract. Finding: the output-naming path is **sound for the
+Linux (ext4/btrfs) target** — cyanrip maps the only path-illegal characters
+(`:`→`∶`, value `/`→`∕`), the Settings/config boundary rejects all control
+chars incl. NUL and blocks `..` traversal / absolute templates, and any
+genuinely-unwritable name fails the rip loudly, not silently. The residual
+hazards (Windows/NTFS/exFAT-reserved chars `< > " \ | ? *`, reserved device
+names, trailing dots/spaces, case-insensitive collisions) are legal on Linux and
+bite **only** on a non-native output volume or after copying the library to
+Windows/macOS — a **documented cross-filesystem limitation**, now written up in
+`docs/dependency-contracts.md`, *not* a silent-data-loss bug. Re-sanitising
+cyanrip's output is deliberately rejected (Critical Rule #3 — the ripper owns
+naming; overriding it duplicates cyanrip and breaks the Settings preview↔reality
+round-trip). Remaining as a maintainer *feature* call (not a fix): an optional
+non-blocking Settings warning on a cross-FS-unsafe template. **Input-validation**
+spot-check along the way: `settings_validation.validate_config` is comprehensive
+— every `Config` field has a rule, enforced by a completeness meta-test — so the
+Settings boundary is solid; the un-run part is the config-file / CLI-arg surfaces.
+
 ---
 
 *Last updated for Platterpus v0.4.22.*
