@@ -44,6 +44,15 @@ which is the `ripping`-container / real-hardware environment, not the cloud
 session. Treat every patch here as **reviewed-but-unbuilt** until it compiles in
 that environment and passes a smoke rip.
 
+**Execution kit.** The mechanical steps below are packaged as run-anywhere
+helpers in [`scripts/cyanrip/`](../scripts/cyanrip/) so each is one command:
+`setup-fork.sh` (fork clone + branch layout), `apply-colon-fix.py` (a
+**verified, dry-run-first** patcher for the §2 fix — it checks the function's
+shape and aborts rather than write a wrong diff; unit-tested in
+`tests/test_cyanrip_colon_patcher.py`), `build.sh` (meson/ninja in the
+container), and copy-paste `issue-*.md` / `pr-*.md` bodies. This doc stays the
+*rationale + reference*; the kit is the *execution layer*.
+
 ---
 
 ## 1. Fork & branch layout
