@@ -183,6 +183,15 @@ class RipLog:
     # EAC's signed log checksum. A different algorithm from `sha256_hash`, so
     # kept as its own field. Empty for whipper logs.
     log_checksum: str = ""
+    # The MusicBrainz Disc ID (cyanrip's "DiscID:" line) and the freedb/CDDB
+    # Disc ID ("CDDB ID:"). BOTH are computed purely from the disc's Table Of
+    # Contents, so they are the truest "is this the SAME physical disc?" key —
+    # stable across re-rips and independent of any MusicBrainz *release* edit
+    # (which the release id is not). The re-rip comparison (rip_compare) keys on
+    # the MB Disc ID first, so these are surfaced into the JSON report's `rip`
+    # block. Empty for whipper logs / when cyanrip didn't print them.
+    disc_id: str = ""
+    cddb_id: str = ""
 
 
 # --- AccurateRip "is this track verified?" — the ONE shared definition -------
@@ -218,6 +227,61 @@ def track_accuraterip_verified(track: object) -> bool:
     return accuraterip_is_match(
         getattr(track, "accuraterip_v1", None)
     ) or accuraterip_is_match(getattr(track, "accuraterip_v2", None))
+
+
+# --- Per-track read-effort ("this track was hard to read") -------------------
+#
+# A rip can be reported with zero *hard* errors yet still have needed heavy
+# re-reading on a marginal region — the earliest in-rip hint that a track's
+# audio may not be reproducible. cyanrip exposes two per-track signals we can
+# read from the log today:
+#
+#   * ``rip_count`` — how many passes the drive took ("(after N rips)"). 1 is a
+#     clean single pass; a higher number means the paranoia layer had to re-read.
+#   * ``secure_rerip_converged`` — for a ``-Z N`` secure re-read, whether N
+#     reads' checksums ever agreed. False = it hit the repeat limit WITHOUT any
+#     two reads matching — the reliable "this region isn't reading stably" flag
+#     (cyanrip's whole-disc "Ripping errors" stays 0 even then).
+#
+# NOTE this is a *complement* to, not a replacement for, the cross-rip
+# comparison (rip_compare): a disc whose paranoia settles on ONE (wrong) answer
+# per pass — no re-reads, no -Z — shows rip_count 1 and converged None, so this
+# helper won't flag it. Catching that needs either a second rip to diff against
+# or per-track paranoia counts, which cyanrip only emits disc-wide today (a
+# tracked upstream JSON-output ask). Kept honest in the docs so nobody reads a
+# clean read-effort result as "provably reproducible".
+
+# A track needing this many passes (or more) is called out as "unusually heavy
+# re-reading". 2 passes (one re-read) is common and benign on real hardware, so
+# the floor is 3 to flag genuinely stubborn regions, not ordinary paranoia.
+HEAVY_REREAD_THRESHOLD: int = 3
+
+
+def track_read_effort_flag(track: object) -> bool:
+    """True when a track shows a read-effort warning sign.
+
+    Either its secure re-read never converged (``secure_rerip_converged`` is
+    False) or it needed ``HEAVY_REREAD_THRESHOLD`` passes or more. Reads via
+    ``getattr`` so it accepts any track shape and never raises.
+    """
+    if getattr(track, "secure_rerip_converged", None) is False:
+        return True
+    rip_count = getattr(track, "rip_count", None)
+    return isinstance(rip_count, int) and rip_count >= HEAVY_REREAD_THRESHOLD
+
+
+def tracks_needing_heavy_reread(rip_log: object) -> list[int]:
+    """Return the 1-based numbers of tracks that showed a read-effort warning.
+
+    The results-pane footnote and the report's ``read_effort`` issue both read
+    this, so they can never disagree. Pure; never raises."""
+    flagged: list[int] = []
+    for track in getattr(rip_log, "tracks", ()) or ():
+        if track_read_effort_flag(track):
+            number = getattr(track, "number", None)
+            if isinstance(number, int):
+                flagged.append(number)
+    return flagged
 
 
 # --- Line-level regexes -----------------------------------------------------

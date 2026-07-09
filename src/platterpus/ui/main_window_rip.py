@@ -915,6 +915,12 @@ class RipMixin:
                 # metric that replaces cyanrip's bogus ETA. Best-effort.
                 self._enrich_timing_with_disc_duration(rip_log)
                 self._write_rip_report(rip_log, log_file)
+                # If a prior rip of THIS disc exists in the library, compare them
+                # and surface a banner — the "you've ripped this before" catch for
+                # a track that silently changed on a re-rip. Off-thread (it scans
+                # the library); only meaningful on a successful, identified rip.
+                if success:
+                    self._start_rip_comparison(log_file)
                 # Optional EAC-layout companion log beside the JSON report.
                 self._write_eac_log(rip_log, log_file)
                 # Surface the adaptive read-speed ladder's outcome in the results
@@ -1495,6 +1501,58 @@ class RipMixin:
         # CTDB verdict alongside whatever else has finished.
         self._last_ctdb_result = result
         self._schedule_rip_report_write()
+
+    # --- Re-rip comparison ("you've ripped this disc before") ---------------
+
+    def _start_rip_comparison(self, log_file: Path) -> None:
+        """Compare this rip against a prior rip of the same disc, off-thread.
+
+        Scans the configured output library for a ``.platterpus.json`` with the
+        same disc identity as the rip that just finished; if one is found, builds
+        the track-by-track comparison and surfaces it via ``rip_comparison_done``
+        (queued to the GUI thread). Returns nothing to emit — so no banner — when
+        there's no prior rip (the common case) or the reports can't be read.
+
+        The scan is filesystem I/O over the whole library, so it runs on a daemon
+        (never the GUI thread), guarded by the rip generation like every other
+        post-rip check (see :meth:`_launch_post_rip_daemon`). Best-effort: the
+        pure ``rip_compare`` helpers never raise.
+        """
+        from platterpus import rip_compare, rip_report
+
+        report_path = rip_report.report_path_for(log_file)
+        output_root = Path(self._config.output_dir)
+
+        def compute() -> object:
+            current = rip_compare.load_report(report_path)
+            if current is None or not current.get("tracks"):
+                return None  # nothing to compare against
+            prior = rip_compare.find_prior_report(
+                report_path, output_root, current_report=current
+            )
+            if prior is None:
+                return None  # no earlier rip of this disc → no banner
+            other = rip_compare.load_report(prior)
+            if other is None:
+                return None
+            # `other` is the earlier rip (A); `current` is this one (B).
+            return rip_compare.compare_reports(
+                other,
+                current,
+                label_a=rip_compare.report_label(other, fallback=str(prior)),
+                label_b=rip_compare.report_label(current, fallback=str(report_path)),
+            )
+
+        self._launch_post_rip_daemon(
+            compute=compute,
+            signal=self.rip_comparison_done,
+            thread_attr="_comparison_thread",
+        )
+
+    def _on_rip_comparison_done(self, comparison: object) -> None:
+        """Render the re-rip comparison banner (queued to the GUI thread)."""
+        self._rip_progress.set_comparison(comparison)
+        log.info("re-rip comparison: %s", getattr(comparison, "summary", ""))
 
     def _build_rip_timing(self) -> dict | None:
         """Build the timing dict for the just-finished rip and log it.

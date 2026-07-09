@@ -55,7 +55,12 @@ and important settings were scattered across many dialogs.
    machine-readable structure. *Platterpus:* ✅ human log + the EAC-layout
    renderer, **plus** the per-rip `.platterpus.json` (the machine-readable log,
    gap #2 — shipped 2026-06-28; it embeds this session's log so one file is a
-   self-contained debug record, 0.4.2).
+   self-contained debug record, 0.4.2). **The machine-readable log also makes a
+   rip *comparable across time*:** because it records every track's checksum,
+   `rip_compare` can diff a re-rip against a prior rip of the same disc and catch
+   a track that silently changed — the thing a stateless per-rip tool otherwise
+   can't see (2026-07-09). A `.platterpus.json` isn't just a record; it's the
+   memory the app itself lacks.
 7. **Per-drive profiles, keyed by stable hardware identity.** Separate
    learned-once drive facts (offset, cache, C2) from per-disc session state, with
    *provenance + confidence* on each detection. *Platterpus:* ✅ a drive-profile
@@ -115,4 +120,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.4.4.*
+*Last updated for Platterpus v0.4.24.*

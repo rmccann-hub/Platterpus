@@ -451,6 +451,26 @@ renders our rip into an EAC *layout* (clearly attributed, **never signed** — a
 EAC-signed log would be provenance forgery) so the two can be eyeballed
 side-by-side.
 
+**Re-rip comparison ("you've ripped this disc before").** Platterpus is
+stateless per rip, so it can't natively tell you a re-rip came out *different*
+from last time — but the `.platterpus.json` reports remember, and
+`platterpus.rip_compare` (pure, never-raises) diffs two of them: per-track
+byte-identity, and a **better-master** call (exact AccurateRip match >
+offset-variant > not-in-DB, confidence tiebreak, genuine ties left `unknown`).
+It reads trust straight from each report's `accuraterip_verified` flag — the
+*same* shared definition above — so it can never contradict the rip it compares.
+Discovery (`find_prior_report`) keys on the **TOC-derived disc IDs** now in the
+report's `rip` block (`musicbrainz_disc_id`, then `cddb_id`, then the MB
+release id) — a physical-disc key that's stable across re-rips, unlike the
+release id. Three surfaces consume it: the `--compare` CLI, the results-pane
+banner after a rip (discovery scans the library, so it runs **off the GUI
+thread** via `_launch_post_rip_daemon` and reports back through the queued
+`rip_comparison_done` signal — same pattern as CTDB verify), and the
+`--assemble-best-of` CLI (a **non-destructive** per-track copy of the better
+rip into a new folder; it never touches the sources). To extend it, add fields
+to the report and read them in `compare_reports`; keep the module Qt-free and
+never-raising.
+
 ### Add a metadata or art source
 New adapter behind a small interface (mirror `MusicBrainzClient` /
 `cover_art`). Query it on the host (Critical Rule #5: the GUI resolves the
@@ -632,4 +652,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.4.13.*
+*Last updated for Platterpus v0.4.24.*

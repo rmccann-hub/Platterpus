@@ -394,3 +394,24 @@ def test_whipper_log_is_not_detected_as_cyanrip() -> None:
     assert looks_like_cyanrip_log(_FULL_LOG) is True
     assert looks_like_cyanrip_log("") is False
     assert looks_like_cyanrip_log("\n\n  \n") is False
+
+
+# --- v9 (0.4.24): TOC-derived disc IDs ---------------------------------------
+
+
+def test_parses_disc_id_and_cddb_id() -> None:
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM\n"
+        "Offset:         +667 samples\n"
+        "DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-\n"
+        "CDDB ID:        E20DFE0E\n"
+    )
+    assert log.disc_id == "pNtImOkdBm9RMBIalzx0w9cfsYY-"
+    assert log.cddb_id == "E20DFE0E"
+
+
+def test_disc_ids_default_empty_when_absent() -> None:
+    log = parse_cyanrip_log("cyanrip 0.9.3 (release)\nOffset:  +0 samples\n")
+    assert log.disc_id == ""
+    assert log.cddb_id == ""
