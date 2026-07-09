@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.24] — 2026-07-09
+
 ### Added
 - **Re-rip comparison — "you've ripped this disc before".** Platterpus was
   stateless per rip, so it couldn't tell you a re-rip came out *different* from
@@ -2431,7 +2433,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...HEAD
+[0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
 [0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
 [0.4.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.21...v0.4.22
 [0.4.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.20...v0.4.21
@@ -2480,4 +2483,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.4.23.*
+*Last updated for Platterpus v0.4.24.*

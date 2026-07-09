@@ -120,4 +120,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.4.4.*
+*Last updated for Platterpus v0.4.24.*
