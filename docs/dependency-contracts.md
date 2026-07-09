@@ -96,9 +96,12 @@ correct list value — removed.)
 
 **Expected output we parse** (`parsers/cyanrip_log.py`, `parsers/cyanrip_info.py`):
 the finish log's banner (`Drive:`, `Disc tracks: N`, `Speed: default
-(unchangeable)` → `speed_changeable`, offset → `read_offset`), per-track blocks (`Track N
+(unchangeable)` → `speed_changeable`, offset → `read_offset`, `DiscID:` →
+`disc_id` and `CDDB ID:` → `cddb_id` — both TOC-derived, used as the "same
+physical disc" key by the re-rip comparison), per-track blocks (`Track N
 ripped and encoded …`, `EAC CRC32:`, `Accurip v1/v2: … (accurately ripped,
-confidence N)`, `(after N rips)` → `rip_count`, extraction speed/quality,
+confidence N)`, `Accurip 450:` → the offset-variant match, `(after N rips)` →
+`rip_count`, extraction speed/quality,
 `Done; (M out of N matches …)` / `(no matches found, but hit repeat limit of N)`
 → `secure_rerip_converged`), the AccurateRip summary, album loudness, and the
 `Log FUN512:` signature. cyanrip writes its own `.log` + `.cue` at the end; a

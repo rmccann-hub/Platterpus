@@ -17,6 +17,37 @@ from __future__ import annotations
 from platterpus.parsers.rip_log import track_accuraterip_verified
 
 
+def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
+    """Return ``(total_audio, verified, partial)`` for a rip log.
+
+    ``total_audio`` counts tracks AccurateRip has anything to say about (a Copy
+    CRC or any AR result), ``verified`` those that matched exactly (confidence
+    ≥ 1), and ``partial`` those that matched only the offset-variant pressing
+    ("Accurip 450") without an exact match. The single source both
+    :func:`accuraterip_verdict` and :func:`reconcile_ar_ctdb` read, so the
+    banner, the JSON, and the reconciliation line can never disagree on the
+    tally. Pure; reads via ``getattr`` and never raises.
+    """
+    tracks = getattr(rip_log, "tracks", ()) or ()
+    audio = [
+        t
+        for t in tracks
+        if getattr(t, "copy_crc", "")
+        or getattr(t, "accuraterip_v1", None) is not None
+        or getattr(t, "accuraterip_v2", None) is not None
+        or getattr(t, "accuraterip_offset", None) is not None
+    ]
+    total = len(audio)
+    verified = sum(1 for t in audio if track_accuraterip_verified(t))
+    partial = sum(
+        1
+        for t in audio
+        if not track_accuraterip_verified(t)
+        and getattr(t, "accuraterip_offset", None) is not None
+    )
+    return total, verified, partial
+
+
 def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
     """At-a-glance AccurateRip verdict: ``(message, level)``.
 
@@ -30,33 +61,18 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
     wording never claims more than AccurateRip returned — this is the trust
     headline, so it must be honest above all.
     """
+    total, verified, partial = accuraterip_counts(rip_log)
+    if total == 0:
+        return "", "neutral"
     tracks = getattr(rip_log, "tracks", ()) or ()
-    # Audio tracks only: a data track has neither a Copy CRC nor an AR result.
     audio = [
         t
         for t in tracks
         if getattr(t, "copy_crc", "")
         or getattr(t, "accuraterip_v1", None) is not None
         or getattr(t, "accuraterip_v2", None) is not None
-        # An offset-variant (Accurip 450) match with no v1/v2 is still an audio
-        # track that AccurateRip has something to say about — count it.
         or getattr(t, "accuraterip_offset", None) is not None
     ]
-    total = len(audio)
-    if total == 0:
-        return "", "neutral"
-    verified = sum(1 for t in audio if track_accuraterip_verified(t))
-    # Tracks that didn't verify EXACTLY but matched an offset-variant pressing
-    # (cyanrip's "Accurip 450", confidence-N). Honest middle ground: the disc IS
-    # in AccurateRip, but this pressing's canonical CRC didn't match, so it's
-    # "partially accurate" — never counted as bit-perfect, but not silently
-    # lumped into "not in the database" either (real-disc report: tracks 3 & 5).
-    partial = sum(
-        1
-        for t in audio
-        if not track_accuraterip_verified(t)
-        and getattr(t, "accuraterip_offset", None) is not None
-    )
     if verified == total:
         # Only count confidences of ACTUAL matches (>= 1, same as
         # accuraterip_is_match). A track can be verified on its v2 while its v1
@@ -117,3 +133,64 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
         "prove the read itself was correct.",
         "neutral",
     )
+
+
+def reconcile_ar_ctdb(rip_log: object, ctdb_result: object) -> str | None:
+    """Explain an AccurateRip-vs-CTDB result that *looks* contradictory.
+
+    The two checks read as if they disagree to a non-expert: AccurateRip can say
+    "12/14 accurate" while CTDB says "no match". They don't actually disagree —
+    CTDB folds the WHOLE disc into one CRC, so if even a couple of tracks differ
+    from the common pressing (an offset-variant, or a genuinely different read),
+    the whole-disc CRC won't be in CTDB. That's the *same* finding AccurateRip
+    already reported, seen from a different angle — not a second problem.
+
+    Returns a one-line reconciliation to show under the CTDB verdict, or None
+    when there's nothing to reconcile (CTDB matched, isn't a validated no-match,
+    or there was no AccurateRip signal to compare against). Pure; reads via
+    ``getattr`` and never raises — it backs a results-pane label populated from a
+    best-effort parse.
+
+    This only speaks when the CTDB CRC is *hardware-validated* (KDD-16,
+    ``crc_validated`` True); before that a no-match is expected noise and
+    :func:`platterpus.ui.rip_progress.ctdb_verdict_line` already says so, so
+    adding a reconciliation would over-explain a placeholder.
+    """
+    try:
+        verdict = getattr(getattr(ctdb_result, "verdict", None), "value", None)
+        if verdict != "no_match":
+            return None
+        if not getattr(ctdb_result, "crc_validated", False):
+            return None
+        total, verified, partial = accuraterip_counts(rip_log)
+        if total == 0 or (verified == 0 and partial == 0):
+            # No AccurateRip signal at all → the two aren't in apparent conflict;
+            # the standalone CTDB line already stands alone. (An all-offset-
+            # variant disc — verified 0 but partial > 0 — DOES look contradictory
+            # next to a CTDB no-match, so it falls through to the partial branch.)
+            return None
+        if partial > 0:
+            return (
+                f"Why this and AccurateRip seem to disagree: {partial} track(s) "
+                "matched only an offset-variant pressing, so the whole-disc CTDB "
+                "CRC won't match the database's common-pressing entries — this is "
+                "the SAME finding as AccurateRip above, not a separate problem."
+            )
+        if verified == total:
+            return (
+                "AccurateRip verified every track, but CTDB has no matching "
+                "whole-disc entry — most likely this exact pressing just hasn't "
+                "been submitted to CTDB. AccurateRip is the authority here."
+            )
+        # verified > 0 and the rest are NOT in AccurateRip at all (not
+        # offset-variants). AccurateRip made no finding about those tracks, so
+        # this is NOT "the same finding" — a CTDB no-match here is unsurprising
+        # and doesn't mean the rip is wrong. Say exactly that, and don't claim a
+        # mismatch AccurateRip never reported.
+        return (
+            "Some of these tracks aren't in AccurateRip at all, so the whole-disc "
+            "CTDB CRC has nothing in the database to match against — this doesn't "
+            "mean your rip is wrong; AccurateRip is the per-track authority."
+        )
+    except Exception:  # noqa: BLE001 — a results-pane footnote must never crash
+        return None

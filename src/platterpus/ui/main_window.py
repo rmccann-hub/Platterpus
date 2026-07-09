@@ -122,6 +122,11 @@ class MainWindow(
     # {relpath: sha256} digest map, once every audio file (masters + any
     # derived) has been hashed, so the report's checksums land on the GUI thread.
     checksums_done = Signal(object)
+    # Emitted (from the re-rip-comparison daemon thread; queued to the GUI
+    # thread) with a rip_compare.RipComparison when a prior rip of the same disc
+    # was found in the library, so the comparison banner renders on the GUI
+    # thread. Never emitted when there's no prior rip.
+    rip_comparison_done = Signal(object)
     # Requests to the persistent MusicBrainz worker. Emitting these (instead of
     # calling the worker's slots directly) is what actually runs the query on
     # the worker's thread: a direct method call would run on the *caller's* (GUI)
@@ -425,6 +430,8 @@ class MainWindow(
         # Derived-file verify outcome (MP3/WavPack/WAV) lands in the rip log view.
         self.derived_verify_done.connect(self._on_derived_verified)
         self.checksums_done.connect(self._on_checksums_done)
+        # Re-rip comparison banner (when a prior rip of the same disc exists).
+        self.rip_comparison_done.connect(self._on_rip_comparison_done)
 
         self.setCentralWidget(central)
 

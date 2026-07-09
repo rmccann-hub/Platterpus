@@ -55,6 +55,12 @@ _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)")
 _DRIVE = re.compile(r"^(?:Drive used|Device model):\s+(?P<drive>.+?)\s*$")
 # "Offset:         +667 samples" (sign printed explicitly by cyanrip).
 _OFFSET = re.compile(r"^Offset:\s+(?P<sign>[+-])(?P<value>\d+)\s+samples")
+# "DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-" (MusicBrainz Disc ID) and
+# "CDDB ID:        E20DFE0E" (freedb/CDDB Disc ID). Both are TOC-derived, so
+# they identify the SAME physical disc across re-rips — the key the re-rip
+# comparison uses. Values are opaque tokens (no spaces), so \S+ is exact.
+_DISC_ID = re.compile(r"^DiscID:\s+(?P<value>\S+)")
+_CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)")
 # "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
 # cyanrip's drive banner reports whether the drive can change read speed. When
 # it can't, cyanrip ABORTS on `-S` — so the read-speed ladder must read this and
@@ -149,6 +155,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
     drive = ""
     read_offset: int | None = None
     speed_changeable: bool | None = None
+    disc_id = ""
+    cddb_id = ""
     accuraterip_summary = ""
     partially_accurate_summary = ""
     disc_duration = ""
@@ -205,6 +213,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if match:
             value = int(match.group("value"))
             read_offset = -value if match.group("sign") == "-" else value
+            continue
+
+        match = _DISC_ID.match(line)
+        if match:
+            disc_id = match.group("value")
+            continue
+
+        match = _CDDB_ID.match(line)
+        if match:
+            cddb_id = match.group("value")
             continue
 
         match = _SPEED_CAP.match(line)
@@ -413,4 +431,6 @@ def parse_cyanrip_log(text: str) -> RipLog:
         paranoia_counts=paranoia_counts,
         album_loudness=album_loudness,
         log_checksum=log_checksum,
+        disc_id=disc_id,
+        cddb_id=cddb_id,
     )

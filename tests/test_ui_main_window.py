@@ -4023,7 +4023,7 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 8
+    assert report["schema_version"] == 9
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True
@@ -4165,7 +4165,7 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
     window._on_rip_finished(True, str(log_file))
 
     report = _json.loads((album_dir / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 8
+    assert report["schema_version"] == 9
     assert report["outcome"]["status"] == "success"
     assert report["settings"]["read_offset"] == {
         "configured": 667,
@@ -4961,3 +4961,82 @@ def test_poll_disc_media_skips_while_ripping(teardown_threads) -> None:
     assert called == []  # no rescan while ripping
     assert probed == []  # didn't even probe the busy drive
     window._rip_thread = None
+
+
+# --- Re-rip comparison banner (0.4.24) --------------------------------------
+
+
+def _cmp_report(disc_id: str, *, crc: str, verified: bool, offset: int | None = None):
+    import json as _json
+
+    track = {
+        "number": 1,
+        "filename": "01 - Track.flac",
+        "copy_crc": crc,
+        "accuraterip_verified": verified,
+        "accuraterip": {
+            "v1": {"confidence": 200} if verified else None,
+            "v2": None,
+            "offset_450": {"confidence": offset} if offset is not None else None,
+        },
+    }
+    return _json.dumps(
+        {
+            "schema_version": 9,
+            "generator": {"name": "platterpus", "version": "0.4.24"},
+            "generated_at": "2026-07-08T00:00:00",
+            "rip": {"musicbrainz_disc_id": disc_id, "creation_date": "2026-07-08"},
+            "disc": {"musicbrainz_release_id": "REL"},
+            "tracks": [track],
+        }
+    )
+
+
+def test_rip_comparison_finds_prior_and_shows_banner(
+    teardown_threads, qapp: QApplication, tmp_path: Path
+) -> None:
+    root = tmp_path / "Music"
+    prior_dir = root / "Album"
+    cur_dir = root / "Album (2)"
+    prior_dir.mkdir(parents=True)
+    cur_dir.mkdir(parents=True)
+    # Prior rip: track 1 an exact match. This rip: same disc, track 1 differs
+    # (offset-variant only) — the regression the banner is meant to catch.
+    (prior_dir / "Album.platterpus.json").write_text(
+        _cmp_report("DISC1", crc="AAAA", verified=True), encoding="utf-8"
+    )
+    log_file = cur_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    (cur_dir / "Album.platterpus.json").write_text(
+        _cmp_report("DISC1", crc="BBBB", verified=False, offset=200), encoding="utf-8"
+    )
+
+    window = teardown_threads(config=Config(output_dir=str(root)))
+    window._start_rip_comparison(log_file)
+    assert window._comparison_thread is not None
+    window._comparison_thread.join(timeout=10)
+    qapp.processEvents()  # deliver the queued rip_comparison_done
+
+    label = window._rip_progress._comparison_label
+    assert label.isHidden() is False
+    assert "differ" in label.text().lower()
+
+
+def test_rip_comparison_no_banner_without_prior(
+    teardown_threads, qapp: QApplication, tmp_path: Path
+) -> None:
+    root = tmp_path / "Music"
+    cur_dir = root / "Album"
+    cur_dir.mkdir(parents=True)
+    log_file = cur_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+    (cur_dir / "Album.platterpus.json").write_text(
+        _cmp_report("ONLYDISC", crc="AAAA", verified=True), encoding="utf-8"
+    )
+
+    window = teardown_threads(config=Config(output_dir=str(root)))
+    window._start_rip_comparison(log_file)
+    window._comparison_thread.join(timeout=10)
+    qapp.processEvents()
+
+    assert window._rip_progress._comparison_label.isHidden() is True

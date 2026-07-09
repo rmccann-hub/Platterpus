@@ -386,9 +386,8 @@ def test_checksums_embedded_in_report() -> None:
     assert report["checksums"] == sums
 
 
-def test_schema_version_is_v8() -> None:
-    assert REPORT_SCHEMA_VERSION == 8
-    assert build_report(_sample_log())["schema_version"] == 8
+def test_schema_version_matches_constant() -> None:
+    assert build_report(_sample_log())["schema_version"] == REPORT_SCHEMA_VERSION
 
 
 def test_report_surfaces_v6_drive_and_track_diagnostics() -> None:
@@ -622,9 +621,9 @@ def test_write_report_overwrite_stays_atomic(tmp_path: Path) -> None:
 # --- v7 (0.4.10): outcome / settings / disc / environment / issues -------
 
 
-def test_v8_schema_and_generator_fingerprint() -> None:
+def test_schema_and_generator_fingerprint() -> None:
     report = build_report(_sample_log())
-    assert report["schema_version"] == 8
+    assert report["schema_version"] == REPORT_SCHEMA_VERSION
     # A source checkout has no _build.py stamp → the "source" sentinel, always
     # present so a consumer never has to handle a missing fingerprint.
     assert report["generator"]["build_fingerprint"] == "source"
@@ -881,3 +880,73 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
     rc = cli.main([str(eac)])
     assert rc == 2
     assert "EAC log" in capsys.readouterr().err
+
+
+# --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
+
+
+def test_schema_version_is_9() -> None:
+    assert REPORT_SCHEMA_VERSION == 9
+
+
+def test_rip_block_carries_disc_ids() -> None:
+    log = RipLog(disc_id="MBDISC", cddb_id="CDDB01", tracks=(TrackResult(1),))
+    report = build_report(log)
+    assert report["rip"]["musicbrainz_disc_id"] == "MBDISC"
+    assert report["rip"]["cddb_id"] == "CDDB01"
+
+
+def test_rip_block_disc_ids_null_when_absent() -> None:
+    report = build_report(RipLog(tracks=(TrackResult(1),)))
+    assert report["rip"]["musicbrainz_disc_id"] is None
+    assert report["rip"]["cddb_id"] is None
+
+
+def test_track_serializes_secure_rerip_converged() -> None:
+    log = RipLog(
+        tracks=(
+            TrackResult(1, copy_crc="AA", secure_rerip_converged=True),
+            TrackResult(2, copy_crc="BB", secure_rerip_converged=False),
+            TrackResult(3, copy_crc="CC"),
+        )
+    )
+    report = build_report(log)
+    assert report["tracks"][0]["secure_rerip_converged"] is True
+    assert report["tracks"][1]["secure_rerip_converged"] is False
+    assert report["tracks"][2]["secure_rerip_converged"] is None
+
+
+def test_heavy_reread_issue_fires_on_non_convergence() -> None:
+    # track 2 never converged; track 3 needed 4 passes → both flagged.
+    log = RipLog(
+        tracks=(
+            TrackResult(1, copy_crc="AA", rip_count=1),
+            TrackResult(2, copy_crc="BB", secure_rerip_converged=False),
+            TrackResult(3, copy_crc="CC", rip_count=4),
+        )
+    )
+    report = build_report(log)
+    codes = [i["code"] for i in report["issues"]]
+    assert "heavy_reread" in codes
+    msg = next(i for i in report["issues"] if i["code"] == "heavy_reread")["message"]
+    assert "2" in msg and "3" in msg
+
+
+def test_no_heavy_reread_issue_on_clean_rip() -> None:
+    log = RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=1),))
+    report = build_report(log)
+    assert "heavy_reread" not in [i["code"] for i in report["issues"]]
+
+
+def test_heavy_reread_threshold_boundary() -> None:
+    # Boundary of HEAVY_REREAD_THRESHOLD (3): 2 passes is benign (no flag),
+    # 3 passes flags. A one-character off-by-one here would slip the whole suite.
+    from platterpus.parsers.rip_log import tracks_needing_heavy_reread
+
+    two = RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=2),))
+    three = RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=3),))
+    assert tracks_needing_heavy_reread(two) == []
+    assert tracks_needing_heavy_reread(three) == [1]
+    # And it surfaces in the report issue only at the threshold.
+    assert "heavy_reread" not in [i["code"] for i in build_report(two)["issues"]]
+    assert "heavy_reread" in [i["code"] for i in build_report(three)["issues"]]

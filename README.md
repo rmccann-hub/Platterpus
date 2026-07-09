@@ -624,7 +624,27 @@ forwards every argument straight to the app):
 # the CRC offset to confirm the read offset aligns with the pressing. No CD or
 # re-rip needed — it reads the FLACs already on disk.
 ./platterpus-x86_64.AppImage --ctdb-calibrate "/path/to/Artist/Album/"
+
+# Compare two rips of the SAME disc track-by-track (which tracks are byte-for-
+# byte identical, which differ, and which rip is the better master). Points at
+# the .platterpus.json report each rip writes beside the FLACs.
+./platterpus-x86_64.AppImage --compare "/path/old/Album.platterpus.json" \
+                                        "/path/new/Album.platterpus.json"
+
+# Assemble the best of two rips of the same disc into a new folder — copies, per
+# track, whichever rip is the better master. Non-destructive: your two source
+# folders are never touched.
+./platterpus-x86_64.AppImage --assemble-best-of "/path/BestOf/" \
+    "/path/old/Album.platterpus.json" "/path/new/Album.platterpus.json"
 ```
+
+**When to use `--compare`:** re-ripping a disc you already ripped? Compare the
+new report against the old one. Tracks that come back *identical* are rock-solid;
+a track whose result *changed* (e.g. an exact AccurateRip match last time,
+offset-variant this time) points to a read-stability problem on that track worth
+a closer look. The GUI does this automatically after a rip when it finds a prior
+rip of the same disc in your library, and shows a one-line summary in the
+results pane.
 
 **Path tip for `--ctdb-calibrate`:** a rip folder can contain a look-alike colon
 (`∶`, U+2236) where the album title had a `:` — cyanrip substitutes it so the
