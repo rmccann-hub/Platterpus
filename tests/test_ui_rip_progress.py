@@ -748,3 +748,183 @@ def test_clear_hides_ctdb_label(qapp: QApplication) -> None:
     widget.clear()
     assert widget._ctdb_label.text() == ""
     assert widget._ctdb_label.isVisible() is False
+
+
+# --- Read-effort footnote + AR/CTDB reconciliation + tooltip (0.4.24) --------
+
+
+def test_read_effort_summary_line_flags_heavy_reread() -> None:
+    from platterpus.ui.rip_progress import read_effort_summary_line
+
+    log = RipLog(
+        tracks=(
+            TrackResult(1, copy_crc="AA", rip_count=1),
+            TrackResult(2, copy_crc="BB", secure_rerip_converged=False),
+            TrackResult(3, copy_crc="CC", rip_count=5),
+        )
+    )
+    line = read_effort_summary_line(log)
+    assert "2" in line and "3" in line
+    assert "re-read" in line.lower()
+
+
+def test_read_effort_summary_line_empty_when_clean() -> None:
+    from platterpus.ui.rip_progress import read_effort_summary_line
+
+    log = RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=1),))
+    assert read_effort_summary_line(log) == ""
+
+
+def test_read_effort_summary_line_never_raises() -> None:
+    from platterpus.ui.rip_progress import read_effort_summary_line
+
+    assert read_effort_summary_line(object()) == ""
+
+
+def test_set_rip_log_shows_read_effort_label(qapp: QApplication) -> None:
+    widget = RipProgress()
+    log = RipLog(tracks=(TrackResult(2, copy_crc="BB", secure_rerip_converged=False),))
+    widget.set_rip_log(log)
+    # isHidden(), not isVisible() — isVisible() is always False on an unshown
+    # widget tree (matches the loudness/verdict-banner tests above).
+    assert widget._read_effort_label.isHidden() is False
+    assert "2" in widget._read_effort_label.text()
+
+
+def test_set_rip_log_hides_read_effort_label_when_clean(qapp: QApplication) -> None:
+    widget = RipProgress()
+    widget.set_rip_log(RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=1),)))
+    assert widget._read_effort_label.isHidden() is True
+
+
+def test_ctdb_no_match_shows_reconciliation(qapp: QApplication) -> None:
+    widget = RipProgress()
+    # 12 verified + 2 offset-variant, then a validated CTDB no-match.
+    tracks = tuple(
+        TrackResult(
+            n, copy_crc=f"{n:08X}", accuraterip_v2=AccurateRipResult(2, confidence=200)
+        )
+        for n in range(1, 13)
+    ) + (
+        TrackResult(
+            13, copy_crc="AA", accuraterip_offset=AccurateRipResult(450, confidence=200)
+        ),
+        TrackResult(
+            14, copy_crc="BB", accuraterip_offset=AccurateRipResult(450, confidence=200)
+        ),
+    )
+    widget.set_rip_log(RipLog(tracks=tracks))
+    widget.set_ctdb_result(
+        CtdbVerifyResult(verdict=Verdict.NO_MATCH, confidence=100, crc_validated=True)
+    )
+    assert widget._ctdb_reconcile_label.isHidden() is False
+    assert "offset-variant" in widget._ctdb_reconcile_label.text()
+
+
+def test_ctdb_match_hides_reconciliation(qapp: QApplication) -> None:
+    widget = RipProgress()
+    widget.set_rip_log(
+        RipLog(
+            tracks=(
+                TrackResult(
+                    1, copy_crc="AA", accuraterip_v2=AccurateRipResult(2, confidence=9)
+                ),
+            )
+        )
+    )
+    widget.set_ctdb_result(
+        CtdbVerifyResult(verdict=Verdict.MATCH, confidence=9, crc_validated=True)
+    )
+    assert widget._ctdb_reconcile_label.isHidden() is True
+
+
+def test_offset_variant_cells_get_a_tooltip(qapp: QApplication) -> None:
+    from platterpus.ui.rip_progress import _AR_COL_V1, OFFSET_VARIANT_TOOLTIP
+
+    widget = RipProgress()
+    log = RipLog(
+        tracks=(
+            TrackResult(
+                1,
+                copy_crc="AA",
+                accuraterip_offset=AccurateRipResult(450, confidence=200),
+            ),
+        )
+    )
+    widget.set_rip_log(log)
+    item = widget._ar_table.item(0, _AR_COL_V1)
+    assert item.toolTip() == OFFSET_VARIANT_TOOLTIP
+
+
+# --- Re-rip comparison banner (0.4.24) --------------------------------------
+
+
+def _mk_comparison(differing: int, level: str, summary: str = "summary text"):
+    from platterpus.rip_compare import RipComparison
+
+    return RipComparison(
+        label_a="A",
+        label_b="B",
+        disc_key_a="D",
+        disc_key_b="D",
+        same_disc=True,
+        tracks=(),
+        identical_count=0,
+        differing_count=differing,
+        total=0,
+        a_better_tracks=(),
+        b_better_tracks=(),
+        headline_level=level,
+        summary=summary,
+    )
+
+
+def test_comparison_banner_text_identical_is_ok() -> None:
+    from platterpus.ui.rip_progress import comparison_banner_text
+
+    text, level = comparison_banner_text(_mk_comparison(0, "ok", "All 5 identical."))
+    assert level == "ok"
+    assert text.startswith("✓")
+    assert "All 5 identical." in text
+    assert "--compare" not in text  # no CLI hint when nothing differs
+
+
+def test_comparison_banner_text_differing_adds_cli_hint() -> None:
+    from platterpus.ui.rip_progress import comparison_banner_text
+
+    text, level = comparison_banner_text(_mk_comparison(2, "warn", "2 differ."))
+    assert level == "warn"
+    assert text.startswith("⚠")
+    assert "--compare" in text and "--assemble-best-of" in text
+
+
+def test_comparison_banner_text_empty_on_none() -> None:
+    from platterpus.ui.rip_progress import comparison_banner_text
+
+    assert comparison_banner_text(None) == ("", "neutral")
+    assert comparison_banner_text(object()) == ("", "neutral")
+
+
+def test_set_comparison_shows_and_hides(qapp: QApplication) -> None:
+    widget = RipProgress()
+    widget.set_comparison(_mk_comparison(1, "warn", "1 differs."))
+    assert widget._comparison_label.isHidden() is False
+    assert "1 differs." in widget._comparison_label.text()
+    # None hides it again.
+    widget.set_comparison(None)
+    assert widget._comparison_label.isHidden() is True
+
+
+def test_read_effort_summary_line_threshold_boundary() -> None:
+    from platterpus.ui.rip_progress import read_effort_summary_line
+
+    # 2 passes → benign (no footnote); 3 → flagged.
+    assert (
+        read_effort_summary_line(
+            RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=2),))
+        )
+        == ""
+    )
+    assert "1" in read_effort_summary_line(
+        RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=3),))
+    )

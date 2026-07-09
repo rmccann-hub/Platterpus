@@ -79,6 +79,45 @@ human-readable **`.log`**, and a **`.platterpus.json`** report with the same
 results in a machine-readable form (per-track CRCs, AccurateRip/CTDB outcomes,
 the verdict) — handy for scripting, re-verifying later, or attaching to a report.
 
+## What the trickier results mean
+
+- **"Offset-variant" / "partially accurate"** (a `~` in the table, and an amber
+  verdict): the track's audio matches a *known* pressing in AccurateRip, but one
+  shifted by a fixed offset from the most common pressing — so it isn't the exact
+  canonical checksum. Most of the time this just means you have a slightly
+  different pressing, and it's fine. **But** if you re-rip the same disc and a
+  track's result *changes*, that's not a pressing difference — it's a
+  read-stability problem on that track (see re-rip comparison below).
+- **"Track(s) N needed heavy re-reading"** (an amber footnote): the drive had to
+  re-read those tracks a lot (or a secure re-read never settled on one answer).
+  Even if they matched AccurateRip, that's the earliest sign a track might not be
+  reproducible — worth a re-rip to confirm. *(This only fires when the ripper
+  itself re-read; a disc that quietly reads one wrong-but-consistent answer per
+  pass won't trip it — that's what the re-rip comparison is for.)*
+- **AccurateRip says "mostly accurate" but CTDB says "no match"** — this is *not*
+  a contradiction. CTDB folds the whole disc into one checksum, so if even a
+  couple of tracks differ from the common pressing the whole-disc CRC can't
+  match. The app spells this out in a line under the CTDB result. AccurateRip is
+  the per-track authority.
+
+## Comparing a re-rip against the last one
+
+Because each `.platterpus.json` records every track's checksum, you can compare
+two rips of the *same disc* and see exactly what changed — the app can't do this
+from memory, but the reports remember it. From a terminal (or the AppImage):
+
+    platterpus --compare previous.platterpus.json later.platterpus.json
+
+It prints a track-by-track table: which tracks are byte-for-byte identical, which
+differ, and — for the ones that differ — **which rip is the better master** (an
+exact AccurateRip match beats an offset-variant one). This is how you catch a
+track that quietly regressed on a re-rip even though nothing looked wrong.
+
+If a re-rip wins on some tracks and loses on others, assemble the best of both
+into a new folder (non-destructive — your originals are untouched):
+
+    platterpus --assemble-best-of BestOf/ rip1.platterpus.json rip2.platterpus.json
+
 ## Unknown discs
 
 If MusicBrainz has no match (or you're offline), use **File → Rip as Unknown

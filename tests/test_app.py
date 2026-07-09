@@ -241,3 +241,46 @@ def test_main_uninstall_flag_opens_uninstaller_only(
 
     assert app_module.main(["--uninstall"]) == 0
     assert opened == [True]
+
+
+# --- --compare / --assemble-best-of routing (0.4.24) ------------------------
+
+
+def _stub_startup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Neutralize config load + logging so a CLI-diagnostic path can run without
+    touching the real user config/log (these run before the diagnostic handler)."""
+    monkeypatch.setattr("platterpus.logging_setup.configure_logging", lambda: None)
+    monkeypatch.setattr("platterpus.logging_setup.set_debug_logging", lambda v: None)
+
+    class _Cfg:
+        debug_logging = False
+
+    monkeypatch.setattr("platterpus.config.load", lambda: _Cfg())
+
+
+def test_compare_flag_routes_to_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_startup(monkeypatch)
+    seen: dict = {}
+
+    def _fake(prev, later, **kw):  # type: ignore[no-untyped-def]
+        seen["args"] = (prev, later)
+        return 7
+
+    monkeypatch.setattr("platterpus.cli_compare.run_compare", _fake)
+    rc = app_module.main(["--compare", "prev.json", "later.json"])
+    assert rc == 7
+    assert [str(p) for p in seen["args"]] == ["prev.json", "later.json"]
+
+
+def test_assemble_best_of_flag_routes_to_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_startup(monkeypatch)
+    seen: dict = {}
+
+    def _fake(dest, a, b):  # type: ignore[no-untyped-def]
+        seen["args"] = (dest, a, b)
+        return 0
+
+    monkeypatch.setattr("platterpus.cli_compare.run_assemble_best_of", _fake)
+    rc = app_module.main(["--assemble-best-of", "Best", "a.json", "b.json"])
+    assert rc == 0
+    assert [str(p) for p in seen["args"]] == ["Best", "a.json", "b.json"]

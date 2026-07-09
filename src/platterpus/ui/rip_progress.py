@@ -42,14 +42,33 @@ from platterpus.parsers.rip_log import (
     RipLog,
     accuraterip_is_match,
     track_accuraterip_verified,
+    tracks_needing_heavy_reread,
 )
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
 # home is the pure platterpus.verdict module.
-from platterpus.verdict import accuraterip_verdict
+from platterpus.verdict import accuraterip_verdict, reconcile_ar_ctdb
 
-__all__ = ["RipProgress", "accuraterip_verdict", "loudness_summary_line"]
+__all__ = [
+    "RipProgress",
+    "accuraterip_verdict",
+    "comparison_banner_text",
+    "loudness_summary_line",
+    "read_effort_summary_line",
+]
+
+# Shared explanation of the offset-variant ("partially accurate") status, used
+# both as an AR-cell tooltip and echoed in the User Guide glossary — one wording
+# so the table and the help can't drift (docs/ux-design-principles.md #1).
+OFFSET_VARIANT_TOOLTIP: str = (
+    "Offset-variant (partially accurate): the audio matches a known pressing in "
+    "AccurateRip, but one shifted by a fixed offset from the common pressing — "
+    "so it's not the exact canonical checksum. Usually just a different pressing "
+    "and perfectly fine. BUT if a re-rip of the same disc gives a different "
+    "result here, that points to a read-stability problem on this track, not a "
+    "pressing difference — re-rip to confirm."
+)
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +125,9 @@ class RipProgress(QWidget):
         # rip folder" buttons.
         self._report_path: Path | None = None
         self._rip_dir: Path | None = None
+        # The last parsed rip log, kept so the CTDB handler (which finishes later,
+        # asynchronously) can reconcile its verdict against AccurateRip.
+        self._last_rip_log: RipLog | None = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -161,6 +183,26 @@ class RipProgress(QWidget):
         self._verdict_banner.setVisible(False)
         root.addWidget(self._verdict_banner)
 
+        # --- Read-effort early warning (per-track "hard to read") ---
+        # Amber footnote naming tracks that needed unusually heavy re-reading (or
+        # a -Z that never converged) even if they matched AccurateRip — the
+        # earliest hint a track may not be reproducible. Hidden on a clean rip.
+        self._read_effort_label: QLabel = QLabel("", self)
+        self._read_effort_label.setWordWrap(True)
+        self._read_effort_label.setVisible(False)
+        self._read_effort_label.setStyleSheet(_banner_style("warn"))
+        root.addWidget(self._read_effort_label)
+
+        # --- Re-rip comparison banner ("you've ripped this disc before") ---
+        # When a prior rip of the SAME disc is found in the library, a one-liner
+        # here says how this rip compares — how many tracks are byte-identical,
+        # which differ, and which rip is the better master. Populated off-thread
+        # after the rip (set_comparison); hidden when there's no prior rip.
+        self._comparison_label: QLabel = QLabel("", self)
+        self._comparison_label.setWordWrap(True)
+        self._comparison_label.setVisible(False)
+        root.addWidget(self._comparison_label)
+
         # --- AccurateRip results table ---
         self._ar_table: QTableWidget = QTableWidget(0, len(_AR_COLUMNS), self)
         self._ar_table.setHorizontalHeaderLabels(_AR_COLUMNS)
@@ -196,6 +238,18 @@ class RipProgress(QWidget):
         self._ctdb_label.setWordWrap(True)
         self._ctdb_label.setVisible(False)
         root.addWidget(self._ctdb_label)
+
+        # --- CTDB ↔ AccurateRip reconciliation ---
+        # A neutral one-liner explaining why a CTDB "no match" and an AccurateRip
+        # "mostly accurate" are the SAME finding, not two contradictory ones (a
+        # whole-disc CRC can't match when a couple of tracks differ). Only shown
+        # when the two would otherwise look like they disagree (see
+        # verdict.reconcile_ar_ctdb); hidden the rest of the time.
+        self._ctdb_reconcile_label: QLabel = QLabel("", self)
+        self._ctdb_reconcile_label.setWordWrap(True)
+        self._ctdb_reconcile_label.setVisible(False)
+        self._ctdb_reconcile_label.setStyleSheet("QLabel { color: palette(mid); }")
+        root.addWidget(self._ctdb_reconcile_label)
 
         # --- Album loudness + partial-accurate footnote ---
         # A neutral one-liner surfacing two facts cyanrip already computed and
@@ -243,8 +297,13 @@ class RipProgress(QWidget):
         self._status_label.setAccessibleName("Rip status")
         self._log_view.setAccessibleName("Rip log output")
         self._verdict_banner.setAccessibleName("AccurateRip verification verdict")
+        self._read_effort_label.setAccessibleName("Read-effort warning")
+        self._comparison_label.setAccessibleName("Re-rip comparison")
         self._ar_table.setAccessibleName("Per-track AccurateRip results")
         self._ctdb_label.setAccessibleName("CTDB verification result")
+        self._ctdb_reconcile_label.setAccessibleName(
+            "CTDB and AccurateRip reconciliation"
+        )
         self._loudness_label.setAccessibleName(
             "Album loudness and partial-match summary"
         )
@@ -264,9 +323,15 @@ class RipProgress(QWidget):
         self._log_view.clear()
         self._verdict_banner.clear()
         self._verdict_banner.setVisible(False)
+        self._read_effort_label.clear()
+        self._read_effort_label.setVisible(False)
+        self._comparison_label.clear()
+        self._comparison_label.setVisible(False)
         self._ar_table.setRowCount(0)
         self._ctdb_label.clear()
         self._ctdb_label.setVisible(False)
+        self._ctdb_reconcile_label.clear()
+        self._ctdb_reconcile_label.setVisible(False)
         self._loudness_label.clear()
         self._loudness_label.setVisible(False)
         self._view_log_button.setEnabled(False)
@@ -275,6 +340,7 @@ class RipProgress(QWidget):
         self._log_path = None
         self._report_path = None
         self._rip_dir = None
+        self._last_rip_log = None
 
     def append_log_line(self, line: str) -> None:
         """Append one line of whipper output to the streaming log view."""
@@ -306,6 +372,8 @@ class RipProgress(QWidget):
 
     def set_rip_log(self, rip_log: RipLog) -> None:
         """Populate the AccurateRip table + verdict banner from a parsed log."""
+        # Kept so the async CTDB verdict can reconcile itself against AccurateRip.
+        self._last_rip_log = rip_log
         message, level = accuraterip_verdict(rip_log)
         if message:
             self._verdict_banner.setText(message)
@@ -313,6 +381,11 @@ class RipProgress(QWidget):
             self._verdict_banner.setVisible(True)
         else:
             self._verdict_banner.setVisible(False)
+
+        # Read-effort early warning (per-track "hard to read"). Hidden when clean.
+        effort = read_effort_summary_line(rip_log)
+        self._read_effort_label.setText(effort)
+        self._read_effort_label.setVisible(bool(effort))
 
         tracks = rip_log.tracks
         self._ar_table.setRowCount(len(tracks))
@@ -330,6 +403,12 @@ class RipProgress(QWidget):
             v2_item = QTableWidgetItem(
                 _ar_cell(track.accuraterip_v2, offset_result=offset)
             )
+            # When a track matched only the offset-variant pressing, explain what
+            # that means (and the re-rip caveat) right on the cell — #4 of the
+            # 2026-07-09 trust improvements.
+            if not track_accuraterip_verified(track) and accuraterip_is_match(offset):
+                v1_item.setToolTip(OFFSET_VARIANT_TOOLTIP)
+                v2_item.setToolTip(OFFSET_VARIANT_TOOLTIP)
             eac_text, eac_tip = _eac_cell(track)
             eac_item = QTableWidgetItem(eac_text)
             eac_item.setToolTip(eac_tip)
@@ -345,6 +424,21 @@ class RipProgress(QWidget):
         summary = loudness_summary_line(rip_log)
         self._loudness_label.setText(summary)
         self._loudness_label.setVisible(bool(summary))
+
+    def set_comparison(self, comparison: object) -> None:
+        """Show the re-rip comparison banner from a RipComparison.
+
+        ``comparison`` is a :class:`platterpus.rip_compare.RipComparison`. Passing
+        None (or something with no summary) hides the banner. Duck-typed via the
+        pure :func:`comparison_banner_text` so it never raises."""
+        text, level = comparison_banner_text(comparison)
+        if not text:
+            self._comparison_label.clear()
+            self._comparison_label.setVisible(False)
+            return
+        self._comparison_label.setText(text)
+        self._comparison_label.setStyleSheet(_banner_style(level))
+        self._comparison_label.setVisible(True)
 
     def set_ctdb_status(self, text: str) -> None:
         """Show an in-progress CTDB line (e.g. 'Verifying against CTDB…')."""
@@ -362,6 +456,21 @@ class RipProgress(QWidget):
         self._ctdb_label.setText(ctdb_verdict_line(result))
         self._ctdb_label.setStyleSheet(_banner_style(ctdb_verdict_level(result)))
         self._ctdb_label.setVisible(True)
+
+        # Reconcile against AccurateRip so a CTDB "no match" beside an
+        # AccurateRip "mostly accurate" doesn't read as a contradiction. Shown
+        # only when the two would otherwise look like they disagree.
+        reconciliation = (
+            reconcile_ar_ctdb(self._last_rip_log, result)
+            if self._last_rip_log is not None
+            else None
+        )
+        if reconciliation:
+            self._ctdb_reconcile_label.setText(reconciliation)
+            self._ctdb_reconcile_label.setVisible(True)
+        else:
+            self._ctdb_reconcile_label.clear()
+            self._ctdb_reconcile_label.setVisible(False)
 
     def set_log_path(self, path: Path | None) -> None:
         """Enable the post-rip output buttons from the rip log's path.
@@ -516,6 +625,58 @@ def loudness_summary_line(rip_log: object) -> str:
         log.exception("loudness summary line failed; omitting")
         return ""
     return " · ".join(parts)
+
+
+def comparison_banner_text(comparison: object) -> tuple[str, str]:
+    """Render a re-rip comparison banner: ``(text, level)``.
+
+    ``comparison`` is a :class:`platterpus.rip_compare.RipComparison`. Returns
+    ``("", "neutral")`` when there's nothing to show (no comparison, or no
+    summary). The level ("ok"/"warn"/"neutral") drives the banner colour and the
+    leading symbol (symbol + text, never colour alone — a11y). When some tracks
+    differ, it appends the CLI hint for the full table / best-of assembly. Pure
+    and **never raises** (duck-typed via ``getattr``); it backs a results-pane
+    label populated off-thread.
+    """
+    try:
+        summary = getattr(comparison, "summary", "") or ""
+        if not summary:
+            return "", "neutral"
+        level = getattr(comparison, "headline_level", "neutral") or "neutral"
+        prefix = {"ok": "✓", "warn": "⚠", "neutral": "ⓘ"}.get(level, "ⓘ")
+        text = f"{prefix} Compared to your previous rip of this disc: {summary}"
+        if getattr(comparison, "differing_count", 0):
+            text += (
+                "  Run  platterpus --compare  for the full table, or  "
+                "--assemble-best-of  to keep the best copy of each track."
+            )
+        return text, level
+    except Exception:  # noqa: BLE001 — a results-pane banner must never crash
+        log.exception("comparison banner text failed; omitting")
+        return "", "neutral"
+
+
+def read_effort_summary_line(rip_log: object) -> str:
+    """One-line "these tracks were hard to read" footnote, or "" when clean.
+
+    Names the tracks that needed unusually heavy re-reading (or a ``-Z`` secure
+    re-read that never converged) — the earliest in-rip hint that a track's audio
+    may not be reproducible, even when it ultimately matched AccurateRip. Pure
+    and **never raises** (it backs a results-pane label). Returns "" on a clean
+    single-pass rip so the label stays hidden and uncluttered.
+    """
+    try:
+        flagged = tracks_needing_heavy_reread(rip_log)
+    except Exception:  # noqa: BLE001 — a footnote must never crash the pane
+        log.exception("read-effort summary line failed; omitting")
+        return ""
+    if not flagged:
+        return ""
+    listed = ", ".join(str(n) for n in flagged)
+    return (
+        f"⚠ Track(s) {listed} needed heavy re-reading — the read may not be "
+        "reproducible; re-rip to confirm."
+    )
 
 
 # Banner colours by level. Muted, theme-neutral hues that read on both light

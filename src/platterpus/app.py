@@ -144,6 +144,24 @@ def main(argv: list[str] | None = None) -> int:
         "CRC-offset trims to pin the CTDB-CRC algorithm on real hardware "
         "(KDD-16), then exit; no CD or re-rip needed",
     )
+    parser.add_argument(
+        "--compare",
+        nargs=2,
+        metavar=("PREVIOUS.json", "LATER.json"),
+        type=Path,
+        help="compare two .platterpus.json rip reports of the same disc "
+        "track-by-track (which tracks are byte-identical, which differ, and "
+        "which rip is the better master), then exit; no CD needed",
+    )
+    parser.add_argument(
+        "--assemble-best-of",
+        nargs=3,
+        metavar=("DEST", "A.json", "B.json"),
+        type=Path,
+        help="assemble a best-of-both master folder DEST by copying, per track, "
+        "the better of two rips of the same disc (non-destructive — the source "
+        "folders are untouched), then exit",
+    )
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
 
     # Logging is the first thing — any failure below this line shows up
@@ -189,6 +207,21 @@ def main(argv: list[str] | None = None) -> int:
         from platterpus.ctdb.diagnose import run_diagnostics
 
         return run_diagnostics(args.ctdb_calibrate, calibrate_crc=True)
+
+    # Compare two rip reports of the same disc (a re-rip vs the previous one).
+    # Terminal diagnostic like --doctor: no GUI, no CD.
+    if args.compare is not None:
+        from platterpus import cli_compare
+
+        previous, later = args.compare
+        return cli_compare.run_compare(previous, later)
+
+    # Assemble a best-of-both master folder from two rips of the same disc.
+    if args.assemble_best_of is not None:
+        from platterpus import cli_compare
+
+        dest, report_a, report_b = args.assemble_best_of
+        return cli_compare.run_assemble_best_of(dest, report_a, report_b)
 
     # QApplication MUST exist before any QWidget. Build it as early as
     # possible so the dep-check dialogs can run.

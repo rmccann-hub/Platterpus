@@ -11,7 +11,43 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.4.24] — 2026-07-09
+
+### Added
+- **Re-rip comparison — "you've ripped this disc before".** Platterpus was
+  stateless per rip, so it couldn't tell you a re-rip came out *different* from
+  the last one. Now, after a rip, it looks for a prior `.platterpus.json` for the
+  same disc (keyed on the TOC-derived MusicBrainz Disc ID) and, if found, shows a
+  results-pane banner: how many tracks are byte-for-byte identical, which differ,
+  and **which rip is the better master** (an exact AccurateRip match beats an
+  offset-variant one). The discovery scan runs off the GUI thread. This is the
+  automatic version of the by-hand finding that a re-rip's track 3 had silently
+  regressed from an exact match to an offset-variant read.
+- **`--compare A.platterpus.json B.platterpus.json`** — a terminal CLI that
+  prints the same track-by-track comparison (identical / differing / better
+  master), plus a best-of-both plan preview when tracks differ. Exit code 1 when
+  rips differ, 0 when identical, 2 on a read error.
+- **`--assemble-best-of DEST A.json B.json`** — copies, per track, the better of
+  two rips of the same disc into a new folder. Strictly non-destructive: the two
+  source folders are never modified. Refuses to run across different discs.
+- **Per-track read-effort warning.** The report and results pane now flag tracks
+  that needed unusually heavy re-reading (or a `-Z` secure re-read that never
+  converged) even if they matched AccurateRip — the earliest in-rip hint a track
+  may not be reproducible (report issue `heavy_reread`; a results-pane footnote).
+- **AccurateRip ↔ CTDB reconciliation line.** When AccurateRip reports "mostly
+  accurate" but CTDB reports "no match", a one-liner now explains they're the
+  *same* finding (a whole-disc CRC can't match when a couple of tracks differ),
+  not two contradictory ones.
+- **Offset-variant / "partially accurate" explanations** — a tooltip on the
+  affected AccurateRip cells and a User-Guide glossary section, including the
+  re-rip caveat (a result that *changes* across rips is a read-stability problem,
+  not a pressing difference).
+
 ### Changed
+- **Rip report schema → v9** (additive): the `rip` block now carries
+  `musicbrainz_disc_id` and `cddb_id` (TOC-derived disc identity, the key the
+  re-rip comparison uses); each track now serializes `secure_rerip_converged`
+  (previously parsed but dropped); `issues` can carry a `heavy_reread` warning.
 - CI: the CHANGELOG gate now auto-exempts Dependabot dependency-bump PRs — they
   can't add a changelog bullet and the bump PR is itself the record — so
   dependency updates no longer show a spurious failing `changelog` check (on the
@@ -2397,7 +2433,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...HEAD
+[0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
 [0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
 [0.4.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.21...v0.4.22
 [0.4.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.20...v0.4.21
@@ -2446,4 +2483,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.4.23.*
+*Last updated for Platterpus v0.4.24.*

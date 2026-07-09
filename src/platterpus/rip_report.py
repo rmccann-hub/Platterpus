@@ -22,7 +22,10 @@ from pathlib import Path
 
 from platterpus import __version__, build_info
 from platterpus.atomic_write import atomic_write_text
-from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.parsers.rip_log import (
+    track_accuraterip_verified,
+    tracks_needing_heavy_reread,
+)
 from platterpus.verdict import accuraterip_verdict
 
 log = logging.getLogger(__name__)
@@ -92,7 +95,18 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #   * `log_parse` — whether the human log parsed cleanly (flags a degraded read).
 #   * `issues` — one consolidated, severity-tagged "what went wrong" list a
 #     triager opens first (empty on a clean rip).
-REPORT_SCHEMA_VERSION: int = 8
+# v9 (0.4.24): re-rip trust support, all additive:
+#   * `rip.musicbrainz_disc_id` / `rip.cddb_id` — the TOC-derived disc IDs, the
+#     truest "same physical disc" key (stable across re-rips, independent of any
+#     MusicBrainz *release* edit). The re-rip comparison (rip_compare) keys on
+#     them, so a report is self-sufficient for that diff.
+#   * each track now serializes `secure_rerip_converged` (was parsed but dropped)
+#     beside `rip_count`, so the read-effort signal is in the machine record.
+#   * `issues` can now carry a `heavy_reread` warning — tracks that needed
+#     unusually heavy re-reading (or a -Z that never converged) even when they
+#     ultimately matched AccurateRip: the earliest in-rip "this may not be
+#     reproducible" hint (see parsers.rip_log.tracks_needing_heavy_reread).
+REPORT_SCHEMA_VERSION: int = 9
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -451,6 +465,7 @@ def _build(
         transcode=transcode,
         cover_art=cover_art,
         read_speed=read_speed_block,
+        heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
     )
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -490,6 +505,13 @@ def _build(
             # when the log didn't say (older cyanrip / whipper).
             "speed_changeable": getattr(info, "speed_changeable", None),
             "creation_date": getattr(rip_log, "creation_date", "") or None,
+            # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
+            # The truest "same physical disc" key — stable across re-rips and
+            # independent of any MusicBrainz release edit — so the re-rip
+            # comparison (rip_compare) keys on the MB Disc ID first. None on a
+            # whipper log / when cyanrip didn't print them.
+            "musicbrainz_disc_id": getattr(rip_log, "disc_id", "") or None,
+            "cddb_id": getattr(rip_log, "cddb_id", "") or None,
         },
         "accuraterip_summary": getattr(rip_log, "accuraterip_summary", "") or None,
         "partially_accurate_summary": (
@@ -569,6 +591,11 @@ def _track(track: object) -> dict:
         # How many read passes cyanrip needed (its "(after N rips)"); None for
         # whipper logs / a clean single-pass cyanrip track.
         "rip_count": getattr(track, "rip_count", None),
+        # cyanrip's -Z secure re-read verdict: True = N reads' checksums agreed;
+        # False = it hit the repeat limit without any two agreeing (the reliable
+        # per-track read-instability flag); None = -Z off / older log. Was parsed
+        # but not serialized before v9 — the read-effort signal in machine form.
+        "secure_rerip_converged": getattr(track, "secure_rerip_converged", None),
         # Per-track extraction diagnostics cyanrip logs (all None on whipper):
         # the drive speed this track read at (×), the extraction quality (%),
         # whether pre-emphasis was flagged, and the sample peak level. Surfaced
@@ -773,6 +800,7 @@ def _issues(
     transcode: dict | None,
     cover_art: dict | None,
     read_speed: dict | None,
+    heavy_reread_tracks: list[int] | None = None,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
 
@@ -811,6 +839,22 @@ def _issues(
             "warning",
             "read_unstable",
             f"read instability remained after the automatic re-rip{tail}",
+        )
+
+    # Read-effort early warning: tracks that needed unusually heavy re-reading
+    # (or a -Z secure re-read that never converged) even if they ultimately
+    # matched AccurateRip. The earliest in-rip hint that a track's audio may not
+    # be reproducible — worth a look before trusting it as an archival master.
+    # Distinct from `read_unstable` above (which is the ladder's post-auto-fix
+    # verdict); this reads straight from the per-track log signals so it fires
+    # even when the ladder never ran.
+    if heavy_reread_tracks:
+        listed = ", ".join(str(t) for t in heavy_reread_tracks)
+        add(
+            "warning",
+            "heavy_reread",
+            f"track(s) {listed} needed unusually heavy re-reading — a sign the "
+            "read may not be reproducible; consider re-ripping to confirm",
         )
 
     if flac_integrity and flac_integrity.get("ran") and not flac_integrity.get("ok"):
