@@ -23,7 +23,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtCore import (
+    QAbstractTableModel,
+    QModelIndex,
+    QPersistentModelIndex,
+    Qt,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFormLayout,
@@ -35,6 +40,13 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
+
+# Qt's model/view API types every index/parent argument as this union, so our
+# QAbstractTableModel overrides must annotate it the same way or mypy flags an
+# LSP (Liskov) violation. Both member types expose the .isValid()/.row()/
+# .column() we actually call, so widening the annotation is a pure signature
+# match — no behaviour change (Qt still passes a plain QModelIndex at runtime).
+_Index = QModelIndex | QPersistentModelIndex
 
 
 @dataclass(frozen=True)
@@ -140,10 +152,10 @@ class TrackTableModel(QAbstractTableModel):
 
     # --- QAbstractTableModel overrides ---
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, parent: _Index = QModelIndex()) -> int:
         return 0 if parent.isValid() else len(self._tracks)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def columnCount(self, parent: _Index = QModelIndex()) -> int:
         return 0 if parent.isValid() else len(_COLUMNS)
 
     def headerData(
@@ -161,7 +173,7 @@ class TrackTableModel(QAbstractTableModel):
 
     def data(
         self,
-        index: QModelIndex,
+        index: _Index,
         role: int = Qt.ItemDataRole.DisplayRole,
     ) -> object:
         if not index.isValid() or role not in (
@@ -187,7 +199,7 @@ class TrackTableModel(QAbstractTableModel):
 
     def setData(
         self,
-        index: QModelIndex,
+        index: _Index,
         value: object,
         role: int = Qt.ItemDataRole.EditRole,
     ) -> bool:
@@ -206,7 +218,7 @@ class TrackTableModel(QAbstractTableModel):
         self.dataChanged.emit(index, index, [role])
         return True
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+    def flags(self, index: _Index) -> Qt.ItemFlag:
         base = super().flags(index)
         if index.column() in _EDITABLE_COLS:
             return base | Qt.ItemFlag.ItemIsEditable
