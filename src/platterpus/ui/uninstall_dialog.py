@@ -16,6 +16,7 @@ before anything runs, and per-piece checkboxes for the optional parts.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
@@ -57,7 +58,7 @@ class UninstallDialog(CenteredDialog):
     def __init__(
         self,
         parent: QWidget | None = None,
-        build_teardown=None,
+        build_teardown: Callable[[bool, bool], HostTeardown] | None = None,
     ) -> None:
         """`build_teardown(remove_container, remove_whipper_config) ->
         HostTeardown` is injectable for tests; production builds the real

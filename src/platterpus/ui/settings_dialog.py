@@ -643,10 +643,10 @@ class SettingsDialog(CenteredDialog):
         errors = [i for i in issues if i.is_error()]
         warnings = [i for i in issues if not i.is_error()]
         for issue in issues:
-            widget = self._validated_widgets.get(issue.field)
-            if widget is not None:
+            field_widget = self._validated_widgets.get(issue.field)
+            if field_widget is not None:
                 colour = "#c0392b" if issue.is_error() else "#b9770e"
-                widget.setStyleSheet(f"border: 1px solid {colour};")
+                field_widget.setStyleSheet(f"border: 1px solid {colour};")
         lines = [f"✖ {i.message}" for i in errors] + [
             f"⚠ {i.message}" for i in warnings
         ]
