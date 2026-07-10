@@ -311,6 +311,19 @@ modules. (The split first landed it at ~460 lines; it has since grown as
 new-feature wiring accreted — split again if a *concern*, not just a line
 count, starts sharing the file.)
 
+**Typing status (the one mypy hold-out).** A mixin's `self` is the concrete
+`MainWindow` at runtime, but mypy types it as the bare mixin — so cross-mixin
+`self._x` access it can't see raises `attr-defined`. That's why these **six
+modules** (the assembler + the five mixins) are the *only* thing still behind
+`ignore_errors` in `[tool.mypy]`; every other module under `platterpus.ui` is
+type-checked at the same strict def-typing as the rest of the codebase (the
+standalone widgets joined the gate 2026-07-10). Bringing the six in is the last
+ratchet and needs a **shared typing seam** — a Protocol (or a `TYPE_CHECKING`
+typed base) that declares the shared attribute/method surface `__init__` sets,
+which each mixin references for `self`. Until then, keep the per-mixin `self.`
+dependency comments accurate (above) — they are the human-readable stand-in for
+that seam.
+
 ### 3.7 Error handling & logging
 - **Catch specific exceptions**, never bare `except:`. A last-resort
   `except Exception` is acceptable *only* at a thread/GUI boundary where a

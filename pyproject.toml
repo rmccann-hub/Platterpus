@@ -101,18 +101,20 @@ ignore = [
 extend-immutable-calls = ["PySide6.QtCore.QModelIndex"]
 
 # Static type-checking (added 2026-07-08). The project mandates type hints on
-# every signature, but nothing verified them until now. This is a deliberately
-# NON-STRICT baseline: it catches real type errors (wrong attribute, bad return
-# type, None where a value is required) without a big-bang annotation sprint.
-# Strictness ratchets up module-by-module — mirroring the coverage floor — with
-# adapters/parsers/workers/ctdb the first candidates for `disallow_untyped_defs`.
+# every signature; this gate verifies them. It began as a non-strict baseline
+# (catch wrong-attribute / bad-return / None-misuse without a big-bang sprint)
+# and has since ratcheted up module-by-module, mirroring the coverage floor:
+# `disallow_untyped_defs` + `disallow_incomplete_defs` are now ENFORCED across
+# the whole package EXCEPT the six MainWindow modules (see below).
 #
-# The Qt UI layer is excluded for now (see the override below): the MainWindow
-# "god-object" is composed from mixins (docs/architecture.md), so attributes are
-# declared in one mixin and assigned in the concrete class, and `self` inside a
-# mixin isn't a QWidget — patterns mypy can't follow without a dedicated typing
-# strategy (a shared Protocol or typed base). Typing that layer is its own
-# tracked follow-up; until then the rest of the codebase is checked on every PR.
+# The MainWindow "god-object" + its five mixins are still excluded (see the
+# override below): a mixin's `self` is the concrete window at runtime but is
+# typed as the bare mixin, so cross-mixin `self._x` access can't resolve — a
+# pattern mypy can't follow without a dedicated typing strategy (a shared
+# Protocol or typed base). Bringing those six modules in is the last ratchet.
+# Everything ELSE under `platterpus.ui` (the ~14 standalone widget/dialog
+# modules) IS checked now, at the same strict def-typing as the rest of the
+# codebase — the UI layer is no longer a total type-checking blind spot.
 [tool.mypy]
 python_version = "3.11"
 files = ["src/platterpus"]
@@ -129,9 +131,19 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
-# The Qt UI mixin layer — excluded from the gate until it gets a typing strategy
-# (see the note above). Everything else IS checked, now at strict def-typing.
-module = "platterpus.ui.*"
+# The MainWindow concrete class + its five concern mixins — excluded from the
+# gate until they get a shared-Protocol/typed-base typing strategy (see the note
+# above; the bulk of their errors are `attr-defined` from cross-mixin `self._x`
+# access mypy can't resolve). Every OTHER module under `platterpus.ui` is now
+# checked at strict def-typing. Bringing these six in is the tracked last ratchet.
+module = [
+    "platterpus.ui.main_window",
+    "platterpus.ui.main_window_rip",
+    "platterpus.ui.main_window_drive",
+    "platterpus.ui.main_window_provision",
+    "platterpus.ui.main_window_update",
+    "platterpus.ui.main_window_deps",
+]
 ignore_errors = true
 
 [tool.pytest.ini_options]
