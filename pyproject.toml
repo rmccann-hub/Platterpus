@@ -120,10 +120,17 @@ files = ["src/platterpus"]
 # this too can tighten later (per-module overrides) once the core is clean.
 ignore_missing_imports = true
 warn_redundant_casts = true
+# Ratchet step (2026-07-09): every non-UI package (parsers, adapters, workers,
+# ctdb, deps, and the top-level core modules) already carried full annotations,
+# so we now ENFORCE it — an untyped or partially-typed function anywhere outside
+# `ui` fails the gate. The UI mixin layer is still excluded below until it gets a
+# shared-Protocol typing strategy; bringing it in is the next ratchet.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 # The Qt UI mixin layer — excluded from the gate until it gets a typing strategy
-# (see the note above). Everything else IS checked.
+# (see the note above). Everything else IS checked, now at strict def-typing.
 module = "platterpus.ui.*"
 ignore_errors = true
 
