@@ -202,7 +202,12 @@ jobs:
           cache: pip
       - name: Install project + pip-audit
         run: |
-          python -m pip install --upgrade pip
+          # Upgrade setuptools alongside pip: it's a build-time tool the runner
+          # ships (not a shipped runtime dep of the wheel), and a fresh advisory
+          # (PYSEC-2026-3447) flags the runner's older setuptools. Pulling the
+          # latest patched setuptools keeps the audit honest without suppressing
+          # a real finding — the actual fix, not an --ignore-vuln.
+          python -m pip install --upgrade pip setuptools
           python -m pip install -e . pip-audit
       - name: Audit dependencies
         run: pip-audit --progress-spinner=off

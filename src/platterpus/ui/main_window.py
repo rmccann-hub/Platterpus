@@ -207,35 +207,37 @@ class MainWindow(
         self._rip_thread: QThread | None = None
         # Update-check worker/thread (Help → Check for updates…); one at a
         # time, joined in closeEvent so a slow check can't outlive the window.
-        self._update_worker: object | None = None
+        # Type declared on MainWindowShared (the mixins share it); a bare
+        # assignment here so there's one source of truth for the type.
+        self._update_worker = None
         self._update_thread: QThread | None = None
         # In-flight update INSTALL (download+verify+swap); cancelled+joined
         # in closeEvent so a half-downloaded update can't outlive the window.
-        self._install_worker: object | None = None
+        self._install_worker = None  # type on MainWindowShared
         self._install_thread: QThread | None = None
         # The update progress dialog + a "past the download phase" flag, stashed
         # on self so the worker→GUI signal handlers can be BOUND METHODS (queued
         # to the GUI thread) instead of closures that would run on the worker
         # thread and touch widgets there (the "Not Responding" freeze).
-        self._install_dialog: object | None = None
+        self._install_dialog = None  # type on MainWindowShared
         self._install_post_download: bool = False
         # Launch-time dependency probe, run off-thread so a cold-container
         # `cyanrip --version` can't freeze the just-shown window; joined in
         # closeEvent. (DependencyMixin.run_dependency_check_async)
-        self._dep_check_worker: object | None = None
+        self._dep_check_worker = None  # type on MainWindowShared
         self._dep_check_thread: QThread | None = None
         # The GUI-backed DependencyManager for the in-flight async check. Stashed
         # so the finished handler can be a plain bound method (which Qt queues to
         # the GUI thread) instead of a lambda (which Qt delivers DIRECTLY on the
         # worker thread — building resolver dialogs there is a cross-thread bug).
-        self._dep_check_manager: object | None = None
+        self._dep_check_manager = None  # type on MainWindowShared
         # Whether the in-flight async dep check should show its end-of-check
         # summary popup (True for the user-clicked Tools/Settings paths).
         self._dep_check_show_summary: bool = False
         # Disc probe (disc_info enters the container + reads the disc — slow);
         # run off-thread per drive change so selecting a drive never freezes
         # the window. Joined in closeEvent.
-        self._disc_info_worker: object | None = None
+        self._disc_info_worker = None  # type on MainWindowShared
         self._disc_info_thread: QThread | None = None
         # Set when the user Force-stops a *scan* (a stuck TOC read wedged the
         # drive). The kill makes the scan subprocess fail, so `_on_disc_info_failed`
@@ -245,7 +247,7 @@ class MainWindow(
         # Launch-time drive listing (the scan enters the container);
         # run off-thread so it can't freeze the just-shown window. Joined in
         # closeEvent. (The Refresh button stays synchronous — user-initiated.)
-        self._drive_list_worker: object | None = None
+        self._drive_list_worker = None  # type on MainWindowShared
         self._drive_list_thread: QThread | None = None
         # Params of the in-flight rip, captured at start so the finish
         # handler knows whether it was an unknown-mode rip (and where the
@@ -318,7 +320,7 @@ class MainWindow(
         # The last parsed rip log + its file path, kept so the CTDB-verify
         # handler can re-write the JSON rip report with the CTDB verdict once
         # that async check finishes (see main_window_rip).
-        self._last_rip_log: object | None = None
+        self._last_rip_log = None  # type on MainWindowShared
         self._last_rip_log_file: Path | None = None
         # Wall-clock timing of the in-flight rip. `_rip_started_monotonic` is the
         # elapsed-time clock (immune to system-clock changes); `_rip_started_at`
@@ -366,7 +368,7 @@ class MainWindow(
         # + queued-signal pattern; only runs when a non-FLAC output was produced.
         # Stored so tests can join it. The last result is folded into the report.
         self._derived_verify_thread: threading.Thread | None = None
-        self._last_derived_verify_result: object | None = None
+        self._last_derived_verify_result = None  # type on MainWindowShared
         # Rip generation, bumped on each Start (see main_window_rip). Post-rip
         # verify daemons capture it and drop their result if a newer rip has begun
         # since, so a previous album's late verify can't contaminate this one.

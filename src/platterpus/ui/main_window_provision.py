@@ -32,13 +32,15 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QMessageBox
 
+from platterpus.ui.main_window_shared import MainWindowShared
+
 if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
     from platterpus.deps.host_setup import HostSetup
 
 log = logging.getLogger(__name__)
 
 
-class ProvisioningMixin:
+class ProvisioningMixin(MainWindowShared):
     """First-run offers, AppImage menu integration, host-setup, and uninstall."""
 
     def _maybe_offer_first_run_setup(self) -> None:

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QMessageBox
@@ -36,6 +37,10 @@ from platterpus.deps.resolvers import (
 from platterpus.deps.version import format_version
 from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
+from platterpus.ui.main_window_shared import MainWindowShared
+
+if TYPE_CHECKING:
+    from platterpus.deps.manager import DependencyManager, DependencyReport
 
 
 def _optional_purpose(item: MissingItem) -> str:
@@ -59,7 +64,7 @@ def _optional_purpose(item: MissingItem) -> str:
     return sentence or "optional extra"
 
 
-class DependencyMixin:
+class DependencyMixin(MainWindowShared):
     """Run the dependency subsystem with GUI-backed resolvers + summary."""
 
     def _on_check_dependencies(self) -> None:
@@ -119,7 +124,7 @@ class DependencyMixin:
             self._dep_check_worker, self._dep_check_thread, self._dep_check_worker.run
         )
 
-    def _on_dependency_check_done(self, report: object) -> None:
+    def _on_dependency_check_done(self, report: DependencyReport | None) -> None:
         """Worker finished probing — apply the report on the GUI thread.
 
         Runs on the GUI thread (queued from the worker's `finished` signal),
@@ -150,7 +155,7 @@ class DependencyMixin:
         # genuinely-missing deps regardless.
         self._apply_dependency_report(gui_manager, report, show_summary=show_summary)
 
-    def _build_gui_dependency_manager(self) -> object:
+    def _build_gui_dependency_manager(self) -> DependencyManager:
         """A DependencyManager over the injected manager's registry.
 
         The manager now only *probes* (check_all) — resolution is done by
@@ -164,7 +169,7 @@ class DependencyMixin:
         )
 
     def _apply_dependency_report(
-        self, gui_manager: object, report: object, show_summary: bool
+        self, gui_manager: object, report: DependencyReport | None, show_summary: bool
     ) -> None:
         """GUI-thread half: set optional deps aside, resolve the required
         missing ones (dialogs), then show the summary. `report` is None only
@@ -271,7 +276,7 @@ class DependencyMixin:
             "set up via the container wizard, it's ready now too.)",
         )
 
-    def _resolve_missing_unified(self, report: object) -> None:
+    def _resolve_missing_unified(self, report: DependencyReport) -> None:
         """Resolve every missing dependency through **one** dialog (items 2+6).
 
         This replaces the old per-tier fan-out — a consent box for auto deps,
