@@ -26,6 +26,7 @@ Contract this mixin expects from the host window (set in
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from PySide6.QtCore import Qt
@@ -54,11 +55,12 @@ from platterpus.drive_profiles import (
 )
 from platterpus.offset_config import is_offset_configured, read_drive_offsets
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
+from platterpus.ui.main_window_shared import MainWindowShared
 
 log = logging.getLogger(__name__)
 
 
-class DriveMixin:
+class DriveMixin(MainWindowShared):
     """Drive setup wizard, read-offset auto-apply/override, access diagnostics."""
 
     def _on_drive_setup(self) -> None:
@@ -443,7 +445,7 @@ class DriveMixin:
 
 
 def _format_offset_provenance(
-    profile: DriveProfile | None, warnings: list[object]
+    profile: DriveProfile | None, warnings: Sequence[object]
 ) -> str:
     """Build the disc-info panel's read-offset trust line.
 

@@ -33,6 +33,7 @@ lives in the sibling :mod:`platterpus.drive_profile_store`.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -339,7 +340,9 @@ class DriveWarning:
     severity: str  # SEVERITY_WARN | SEVERITY_INFO
 
 
-def conf_offset_for(vendor: str, model: str, conf_offsets: list[object]) -> int | None:
+def conf_offset_for(
+    vendor: str, model: str, conf_offsets: Sequence[object]
+) -> int | None:
     """The live whipper.conf offset for this drive, matched by canonical name.
 
     `conf_offsets` is a list of objects with ``.drive`` (whipper's decoded
@@ -370,7 +373,7 @@ def evaluate_drive_state(
     model: str,
     release: str,
     stored: DriveProfile | None,
-    conf_offsets: list[object],
+    conf_offsets: Sequence[object],
     collisions: set[str],
     accuraterip_value: int | None = None,
 ) -> list[DriveWarning]:
