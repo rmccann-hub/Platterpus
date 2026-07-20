@@ -51,8 +51,19 @@ It changes **no runtime behaviour**:
   exactly what they were before this file existed. Verified: the full test
   suite is unchanged.
 
-So: the single source of truth for "what does the window expose to its mixins",
-written once, read by the next contributor, and enforced by the type gate.
+So: the single source of truth for the *shared surface* — "what does the window
+expose to its mixins" — written once, read by the next contributor, and enforced
+by the type gate.
+
+A note on the annotation convention, so the split doesn't puzzle you: the few
+attributes whose type was *changed* for the seam (the workers/dialogs/manager
+that used to be ``object | None``) drop their inline annotation in
+``MainWindow.__init__`` — a bare ``self._x = None  # type on MainWindowShared``
+— so the concrete type lives in exactly one place (here). The rest keep their
+inline ``__init__`` annotation *and* are declared here; that duplication is
+deliberate (the assignment stays self-documenting at its site) and harmless —
+mypy holds the two in sync, and would flag any drift. Either way, this class is
+the declaration the mixins actually type-check against.
 """
 
 from __future__ import annotations
