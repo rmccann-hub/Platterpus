@@ -35,11 +35,19 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QDialog, QMessageBox
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    from platterpus.adapters.musicbrainz_client import TrackSummary
+    from platterpus.ui.track_table import AlbumMetadata
 
 from platterpus import drive_control
 from platterpus.adapters import cover_art
@@ -61,7 +69,7 @@ from platterpus.adapters.transcode import (
 from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from platterpus.parsers.rip_log import parse_rip_log
+from platterpus.parsers.rip_log import RipLog, parse_rip_log
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
     fidelity_summary,
@@ -70,6 +78,7 @@ from platterpus.ui.main_window_helpers import (
     safe_path_segment,
     unique_album_title,
 )
+from platterpus.ui.main_window_shared import MainWindowShared
 from platterpus.ui.unknown_album import (
     UnknownAlbumDialog,
     apply_track_tags,
@@ -129,7 +138,7 @@ def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> b
     )
 
 
-class RipMixin:
+class RipMixin(MainWindowShared):
     """Start/cancel/finish a rip, plus eject, unknown-album, and cover art."""
 
     # --- Slots: rip flow ----------------------------------------------------
@@ -671,7 +680,7 @@ class RipMixin:
         except Exception:  # noqa: BLE001 — a courtesy notification is never load-bearing
             log.debug("completion notification failed (best-effort)", exc_info=True)
 
-    def _ensure_tray_icon(self):
+    def _ensure_tray_icon(self) -> QSystemTrayIcon | None:
         """Return the shared QSystemTrayIcon used for notifications, or None.
 
         Created lazily on first use (so users who turn notifications off never
@@ -1150,8 +1159,8 @@ class RipMixin:
         self,
         rip_output_dir: Path,
         launch_picard: bool,
-        album: object | None = None,
-        tracks: object | None = None,
+        album: AlbumMetadata | None = None,
+        tracks: Sequence[TrackSummary] | None = None,
     ) -> None:
         """Tag the FLACs from the track table + optionally launch Picard.
 
@@ -1216,8 +1225,8 @@ class RipMixin:
         transcode_fmt: str = "",
         mp3_vbr_quality: int = 0,
         restore_colons: bool = False,
-        album_metadata: object | None = None,
-        track_rows: object | None = None,
+        album_metadata: AlbumMetadata | None = None,
+        track_rows: Sequence[TrackSummary] | None = None,
         local_cover_path: object | None = None,
     ) -> None:
         """Run unknown-mode tagging, then cover art, then FLAC re-compress, then
@@ -1421,7 +1430,7 @@ class RipMixin:
 
     def _launch_post_rip_daemon(
         self,
-        compute: object,
+        compute: Callable[[], object],
         signal: object,
         thread_attr: str,
     ) -> threading.Thread:
@@ -1636,7 +1645,7 @@ class RipMixin:
             buffer.lines_excluding(others), truncated=buffer.truncated
         )
 
-    def _write_eac_log(self, rip_log: object, log_file: Path) -> None:
+    def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:
         """Write an EAC-layout companion log beside ``log_file`` (best-effort).
 
         Gated by ``write_eac_log_after_rip`` (off by default). The rendering is

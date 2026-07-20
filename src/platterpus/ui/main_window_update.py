@@ -31,6 +31,8 @@ from pathlib import Path
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QMessageBox
 
+from platterpus.ui.main_window_shared import MainWindowShared
+
 log = logging.getLogger(__name__)
 
 
@@ -117,7 +119,7 @@ def _is_download_phase(status_message: str) -> bool:
     return status_message.startswith(("Checking", "Downloading"))
 
 
-class UpdateMixin:
+class UpdateMixin(MainWindowShared):
     """Help → Check for updates, and the download/verify/install/restart UI."""
 
     def _on_check_updates(self) -> None:

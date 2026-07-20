@@ -103,18 +103,14 @@ extend-immutable-calls = ["PySide6.QtCore.QModelIndex"]
 # Static type-checking (added 2026-07-08). The project mandates type hints on
 # every signature; this gate verifies them. It began as a non-strict baseline
 # (catch wrong-attribute / bad-return / None-misuse without a big-bang sprint)
-# and has since ratcheted up module-by-module, mirroring the coverage floor:
-# `disallow_untyped_defs` + `disallow_incomplete_defs` are now ENFORCED across
-# the whole package EXCEPT the six MainWindow modules (see below).
-#
-# The MainWindow "god-object" + its five mixins are still excluded (see the
-# override below): a mixin's `self` is the concrete window at runtime but is
-# typed as the bare mixin, so cross-mixin `self._x` access can't resolve — a
-# pattern mypy can't follow without a dedicated typing strategy (a shared
-# Protocol or typed base). Bringing those six modules in is the last ratchet.
-# Everything ELSE under `platterpus.ui` (the ~14 standalone widget/dialog
-# modules) IS checked now, at the same strict def-typing as the rest of the
-# codebase — the UI layer is no longer a total type-checking blind spot.
+# and ratcheted up module-by-module, mirroring the coverage floor. As of
+# 2026-07-20 `disallow_untyped_defs` + `disallow_incomplete_defs` are ENFORCED
+# across the ENTIRE package — there are no per-module exclusions left. The Qt
+# MainWindow "god-object" and its five mixins were the last hold-out (a mixin's
+# `self` is the concrete window at runtime but typed as the bare mixin, so
+# cross-mixin `self._x` access couldn't resolve); they now share a typing seam,
+# `platterpus.ui.main_window_shared.MainWindowShared`, that declares the surface
+# the window exposes to its mixins (see that module + docs/architecture.md §3.6).
 [tool.mypy]
 python_version = "3.11"
 files = ["src/platterpus"]
@@ -122,29 +118,12 @@ files = ["src/platterpus"]
 # this too can tighten later (per-module overrides) once the core is clean.
 ignore_missing_imports = true
 warn_redundant_casts = true
-# Ratchet step (2026-07-09): every non-UI package (parsers, adapters, workers,
-# ctdb, deps, and the top-level core modules) already carried full annotations,
-# so we now ENFORCE it — an untyped or partially-typed function anywhere outside
-# `ui` fails the gate. The UI mixin layer is still excluded below until it gets a
-# shared-Protocol typing strategy; bringing it in is the next ratchet.
+# Strict def-typing across the whole package: an untyped or partially-typed
+# function ANYWHERE now fails the gate. Every package already carried full
+# annotations by the time it was brought in, so each ratchet step was a config
+# tighten, not an annotation sprint (the UI mixins needed the seam module above).
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
-
-[[tool.mypy.overrides]]
-# The MainWindow concrete class + its five concern mixins — excluded from the
-# gate until they get a shared-Protocol/typed-base typing strategy (see the note
-# above; the bulk of their errors are `attr-defined` from cross-mixin `self._x`
-# access mypy can't resolve). Every OTHER module under `platterpus.ui` is now
-# checked at strict def-typing. Bringing these six in is the tracked last ratchet.
-module = [
-    "platterpus.ui.main_window",
-    "platterpus.ui.main_window_rip",
-    "platterpus.ui.main_window_drive",
-    "platterpus.ui.main_window_provision",
-    "platterpus.ui.main_window_update",
-    "platterpus.ui.main_window_deps",
-]
-ignore_errors = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

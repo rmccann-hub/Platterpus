@@ -311,18 +311,28 @@ modules. (The split first landed it at ~460 lines; it has since grown as
 new-feature wiring accreted — split again if a *concern*, not just a line
 count, starts sharing the file.)
 
-**Typing status (the one mypy hold-out).** A mixin's `self` is the concrete
+**Typing seam (`main_window_shared.py`).** A mixin's `self` is the concrete
 `MainWindow` at runtime, but mypy types it as the bare mixin — so cross-mixin
-`self._x` access it can't see raises `attr-defined`. That's why these **six
-modules** (the assembler + the five mixins) are the *only* thing still behind
-`ignore_errors` in `[tool.mypy]`; every other module under `platterpus.ui` is
-type-checked at the same strict def-typing as the rest of the codebase (the
-standalone widgets joined the gate 2026-07-10). Bringing the six in is the last
-ratchet and needs a **shared typing seam** — a Protocol (or a `TYPE_CHECKING`
-typed base) that declares the shared attribute/method surface `__init__` sets,
-which each mixin references for `self`. Until then, keep the per-mixin `self.`
-dependency comments accurate (above) — they are the human-readable stand-in for
-that seam.
+`self._x` access it can't see would raise `attr-defined`. The **shared typing
+seam** `MainWindowShared` (in `main_window_shared.py`) is the fix: a single,
+type-only declaration of the surface the window exposes to its mixins (injected
+deps, child widgets, per-session state, Qt signals, and the cross-mixin methods
+each mixin calls on `self`). Every mixin *and* the concrete window inherit it,
+so mypy resolves cross-mixin access from any mixin, and all six modules are now
+in the strict gate (2026-07-20) with no `ignore_errors` left anywhere.
+
+It is **runtime-neutral**: the attribute lines are bare annotations (no runtime
+state), the cross-mixin method stubs live under `if TYPE_CHECKING:` (they don't
+exist at runtime — the real impls are the only ones called), and the base it
+inherits is chosen by `TYPE_CHECKING` — `QWidget` for the type checker (so mypy
+knows `self` is a Qt widget), plain `object` at runtime (so the mixins gain no
+Qt base and the MRO/metaclass are exactly as before). It is deliberately
+`QWidget`, not `QMainWindow`: `MainWindow` lists `QMainWindow` first in its own
+bases, so a seam deriving `QMainWindow` would demand it come both before *and*
+after the mixins in the MRO — unsatisfiable; `QWidget` (never a *direct* base of
+`MainWindow`) has no such conflict. When you add a shared attribute or a
+cross-mixin call, declare it on the seam (keep the per-mixin `self.` dependency
+comments accurate too — they document *which* mixin owns each concern).
 
 ### 3.7 Error handling & logging
 - **Catch specific exceptions**, never bare `except:`. A last-resort
