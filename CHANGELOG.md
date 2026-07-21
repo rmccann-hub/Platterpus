@@ -45,6 +45,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **`docs/test-plan.md` no longer directs testers at removed whipper
+  features.** The whipper-era cases (Tests 3, 4, 8, 10 and step A8) now carry
+  explicit ⚠️ SUPERSEDED banners with the cyanrip-era successor flow (their
+  full rewrite is tracked in the TASKS.md Documentation backlog); wording
+  fixes throughout: the preflight verifies the cyanrip routing, the wizard
+  installs cyanrip/flac/metaflac, the uninstaller has two checkboxes, D9/D10
+  are cyanrip-native (no "Continue on CD-R" / "Keep going" toggles), the
+  fidelity-verdict quote matches the shipped string, Test 1b's as-built
+  record matches today's `verify_rip_dir` + on-by-default CTDB toggle, and
+  the reporting template is single-backend.
 - **`docs/architecture.md` / `docs/testing.md` corrections.** Architecture: the
   §1 diagram no longer claims the GUI queries AccurateRip (cyanrip verifies
   in-rip; the GUI only carries the offline offset list); `build_backend` is no
