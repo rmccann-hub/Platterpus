@@ -40,9 +40,12 @@ dependencies = [
     "musicbrainzngs==0.7.1",
     "tomli-w>=1.0,<2",
     # Ed25519 verification of a release's minisign signature (the in-app
-    # updater's authenticity gate — src/platterpus/update_signing.py). Floor 41
-    # comfortably has Ed25519; ceiling <47 refuses a future major unreviewed.
-    "cryptography>=41,<47",
+    # updater's authenticity gate — src/platterpus/update_signing.py). Floor is
+    # 48.0.1: earlier versions carry GHSA-537c-gmf6-5ccf (bundled-OpenSSL
+    # advisory, fixed there) which the CI pip-audit gate rejects. Ed25519 verify
+    # is API-stable across majors, and pip-audit — not this ceiling — is the real
+    # vulnerability gate, so <50 only guards against a surprise major API break.
+    "cryptography>=48.0.1,<50",
 ]
 
 [project.optional-dependencies]

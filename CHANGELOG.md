@@ -24,8 +24,9 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   signature is missing or invalid. It's **armed** only once a maintainer public
   key is baked into `update_signing.PUBLIC_KEY_B64`; until then the updater is
   SHA-256-only exactly as before, so this release changes nothing user-visible.
-  Adds `cryptography` as a dependency. See `docs/release-signing.md` (the
-  offline signing ritual) and PLANNING KDD-26.
+  Adds `cryptography` as a dependency (floored at `48.0.1`, the fix for advisory
+  GHSA-537c-gmf6-5ccf, so the CI `pip-audit` gate stays green). See
+  `docs/release-signing.md` (the offline signing ritual) and PLANNING KDD-26.
 - **Reproducible-build dependency hash-pinning (opt-in plumbing).** The AppImage
   build can now pin the exact *bytes* of every bundled third-party dependency,
   not just their versions: `build/lock-requirements.sh` writes a hash-pinned

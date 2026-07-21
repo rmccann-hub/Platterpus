@@ -32,9 +32,10 @@
 PySide6~=6.7
 musicbrainzngs==0.7.1
 tomli-w~=1.0
-# Ed25519 release-signature verification (update_signing.py). `~=` can't span
-# majors, so this pins the bundled line to one recent series while pyproject
-# allows the broader >=41,<47 for dev/pipx; the exact bundled version is fixed
-# by requirements.lock (see the reproducibility note above). Bump both together.
-cryptography~=44.0
+# Ed25519 release-signature verification (update_signing.py). Floor is the
+# GHSA-537c-gmf6-5ccf fix (48.0.1); `~=48.0` (>=48.0,<49.0) resolves to the
+# newest patched 48.x. pyproject allows the broader >=48.0.1,<50 for dev/pipx;
+# the exact bundled version is fixed by requirements.lock (see the
+# reproducibility note above). Bump both together, and keep the floor patched.
+cryptography~=48.0
 platterpus
