@@ -27,7 +27,7 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 |---|---|---|
 | Bit-perfect audio, CRC-provable | ✅ | Have it — AccurateRip + CTDB CRCs |
 | AccurateRip verify (v1 + v2) | ✅ | Have it |
-| CTDB audio-CRC verify | ⚠️ | **Yes** — CRC algorithm being corrected; **Platterpus code, no PR** |
+| CTDB audio-CRC verify | ✅ | Have it — CRC hardware-validated (KDD-16) |
 | EAC-style log + per-track EAC CRC32 column + software-version provenance | ✅ | Have it |
 | MusicBrainz tags · front/back/booklet art · UPC/catalog/label · ReplayGain | ✅ | Have it |
 | AppImage · zero-terminal setup · in-app update · FLAC master + WavPack/MP3/WAV | ✅ | Have it |
@@ -38,7 +38,7 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 | Signed EAC log checksum | ❌ | **Never** — signing our log as EAC forges provenance (bannable fake log). No PR, ever |
 | Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: re-add whipper, or a 2-PR chain **cyanreg → itismadness** (low odds) |
 
-**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip, tags, art, provenance — is in place. The one clearly-worth-doing gap is **gap/INDEX-00 + HTOA** (a `cdrdao` subprocess integration, no upstream PR needed). CTDB is a code fix in progress. The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
+**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip + CTDB verification, tags, art, provenance — is in place. The one clearly-worth-doing gap is **gap/INDEX-00 + HTOA** (a `cdrdao` subprocess integration, no upstream PR needed). The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
 
 ### Point-by-point vs. the EAC "perfect rip" checklist
 
@@ -55,7 +55,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 | **Allow speed reduction** on scratches | cyanrip adaptive read-speed ladder | ✅ |
 | **Gap/Index — Detection Method A, Secure** | cyanrip emits `INDEX 00`/pregaps from the TOC today; exact subchannel detection + HTOA is cyanrip **PR #115** (in progress) | ⚠️ |
 | **AccurateRip** verify | v1 + v2 (+ offset-variant) | ✅ |
-| **CTDB** verify | present; CRC algorithm fix pending your hardware re-validation | ⚠️ |
+| **CTDB** verify | present — CRC hardware-validated (KDD-16) | ✅ |
 | **FLAC** `-8 -V -j` (max compression + decode-verify + threads) | cyanrip FLAC → post-rip **FLAC verify (decodes clean)** + optional max-compression recompress | ✅ |
 | **WAV** uncompressed baseline | WAV output (no tags — the UI warns) | ✅ |
 | **WavPack** hybrid `-c` + `-m -v` | WavPack **lossless** (not the lossy+`.wvc` hybrid) | ⚠️ |
@@ -97,10 +97,9 @@ pipx install platterpus    # then run:  platterpus
 ```
 
 Don't have pipx? `sudo dnf install pipx` (Fedora/Bazzite) or `sudo apt install
-pipx` (Ubuntu/Debian). Upgrade later with `pipx upgrade platterpus`. (If it isn't
-on PyPI yet — before the first published release — see
-[Method B](#method-b--pipx-recommended-for-technical-users) for installing from a
-checkout.)
+pipx` (Ubuntu/Debian). Upgrade later with `pipx upgrade platterpus`. (To run
+unreleased/dev code from a checkout instead, see
+[Method B](#method-b--pipx-recommended-for-technical-users).)
 
 > **Why a wizard?** Ripping runs through `cyanrip` inside a small container so
 > it never touches your system ([why](PLANNING.md)). The first-run wizard sets
@@ -564,7 +563,7 @@ Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checka
 - Cover art — fetch + embed in FLAC, save next to it, or both (defaults to *embed*)
 - Max retries per track (default 5)
 - **Max reads to confirm a shaky track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until N reads agree on the checksum (cyanrip's `-Z`; **on by default**, 2). See "How ripping works" below.
-- Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; experimental until the CRC is hardware-validated)
+- Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; the CRC is hardware-validated — a match means verified)
 - Verify FLACs after a rip (decode-test each output against its stored MD5)
 - Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
 
@@ -587,7 +586,7 @@ When you launch Platterpus for the first time:
 1. **Dependency check.** The GUI verifies cyanrip, metaflac, and Picard are reachable. If anything's missing, it pops a dialog with one of three resolutions:
    - **Auto-install** (Picard): one OK and it runs `flatpak install --user`.
    - **Pending installs:** a checklist for items that need batching or confirmation.
-   - **Manual install:** a copyable search string for items like `libdiscid` that need root + reboot.
+   - **Manual install:** a copyable search string for anything that needs root (or a reboot) to install.
 
 2. **Drive offset (first launch only).** Rips can't be made bit-perfect until your drive's read offset is set. If none is configured yet, the GUI offers the drive-setup wizard once. It can fill the offset in **automatically** from the bundled AccurateRip drive list (no disc needed), or take a value you **enter by hand** (look your drive up at [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm) — handy if your model isn't recognised or you only have CD-Rs). It's a one-time, dismissible prompt; afterwards re-run it anytime from **Tools → Set up drive…**.
 
@@ -792,7 +791,7 @@ The host-exported wrappers don't change; they always run whatever is currently i
 
 ```bash
 distrobox enter ripping
-sudo dnf system-upgrade download --refresh --releasever=41
+sudo dnf system-upgrade download --refresh --releasever=44   # stay >= 42: the cyanrip COPR only builds for Fedora 42+
 sudo dnf system-upgrade reboot   # inside the container only
 ```
 
@@ -800,7 +799,7 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Uninstalling
 
-**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac commands (and any leftover whipper export from an older install), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `platterpus --uninstall`.
+**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac commands (and any leftover whipper export from an older install), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `./platterpus-x86_64.AppImage --uninstall` (or `platterpus --uninstall` on a pipx install).
 
 **Script alternative** (source checkouts, or if you prefer the terminal): the [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first — it also covers the dev `.venv/`, which the in-app uninstaller doesn't (a packaged app doesn't know your checkout's location). It **never** removes your ripped music or a source checkout without an explicit flag.
 
@@ -873,7 +872,7 @@ Build / dev tooling:
 - [`build/build_appimage.sh`](build/build_appimage.sh) — produce the AppImage locally
 - [`build/make_icon.py`](build/make_icon.py) — regenerate the app icon
 - [`build/python-appimage/README.md`](build/python-appimage/README.md) — AppImage recipe details
-- **CI / releases:** `.github/workflows/ci.yml` runs the tests on every push/PR; `.github/workflows/release.yml` builds the AppImage and publishes it to a GitHub Release when a `vX.Y.Z` tag is pushed — so cutting a release is just `git tag vX.Y.Z && git push origin vX.Y.Z` (no local build or manual upload).
+- **CI / releases:** `.github/workflows/ci.yml` runs the tests on every push/PR; `.github/workflows/release.yml` builds the AppImage and publishes it to a GitHub Release when a `vX.Y.Z` tag is pushed or the workflow is dispatched with the tag as input — after bumping `__version__` and rolling the `CHANGELOG.md` `[Unreleased]` section (see `CLAUDE.md` → *CI / release*; the build fails if the version and tag disagree). No local build or manual upload.
 
 ---
 

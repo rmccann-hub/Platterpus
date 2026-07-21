@@ -22,6 +22,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **README caught up with shipped reality.** CTDB verification is no longer
+  described as "experimental / CRC fix pending" (it was hardware-validated in
+  v0.4.20 — all four stale spots corrected); the container-upgrade example no
+  longer suggests `--releasever=41` (below the cyanrip COPR's Fedora-42
+  floor); the uninstall one-liner no longer implies AppImage users have a
+  `platterpus` command; the pipx section drops the "before the first
+  published release" hedge; the release bullet now states the version-bump +
+  changelog preconditions and the dispatch path.
 - **Documentation: five broken relative links repaired.** Four links in
   `docs/session-log.md` and one in
   `docs/archive/upstream-modification-investigation.md` used repo-root-relative
