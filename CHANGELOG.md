@@ -73,6 +73,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   installer/desktop-integration/GitHub-API surfaces it deliberately excludes;
   `docs/architecture.md` §2's layer table gained a "Qt-free domain modules"
   row pointing at PLANNING.md §2 as the canonical per-module map.
+- **`ripper-engine-strategy.md` §9 now states where the 2026 ripper-landscape
+  research doc lives** (closing the consolidation plan's last open sub-item):
+  it was maintainer-provided session research input, never committed to the
+  repo — the project's own record preserves (and corrects) its load-bearing
+  claims via the parity scorecard, §9's notes, and KDD-24; if the file
+  resurfaces it goes to `docs/archive/` per the compass-artifact convention.
 - **The "two corrections to the ripper-landscape doc" condensed to one home**
   (docs-audit consolidation plan): PLANNING.md KDD-24 keeps the full text (the
   designated record); `docs/eac-log-and-repair-feasibility.md` now carries a
