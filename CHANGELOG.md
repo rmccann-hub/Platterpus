@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **README's duplicate EAC-parity section folded into the top matrix**
+  (maintainer-approved): the "Compared to EAC's bit-perfect settings" lists
+  restated the capability matrix and point-by-point table from the top of the
+  README (the drifted CTDB status had rotted in three places for exactly this
+  reason) — the section now points at the matrix, KDD-13, and
+  `docs/eac-parity-investigation.md`, and the Settings rundown lives under its
+  own "Rip settings at a glance" heading.
 - **`CLAUDE.md`'s companion-document list slimmed to one-line pointers**
   (maintainer-approved): `docs/README.md` is the canonical annotated index and
   the two lists had already drifted once — the always-loaded anchor now names

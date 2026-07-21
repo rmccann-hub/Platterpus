@@ -529,32 +529,11 @@ rationale: [docs/mp3-wav-support.md](docs/mp3-wav-support.md).
 
 ### Compared to EAC's bit-perfect settings
 
-The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. Here's how this GUI's pipeline maps to it. Full audit in [PLANNING.md KDD-13](PLANNING.md).
+The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. The full point-by-point mapping lives **once**, in the [capability & EAC-parity matrix](#capability--eac-parity-matrix) at the top of this README; the per-setting audit is [PLANNING.md KDD-13](PLANNING.md) and the deep-dive is [docs/eac-parity-investigation.md](docs/eac-parity-investigation.md).
 
 Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md).
 
-**Matches the guide today:**
-
-- Secure read mode (cyanrip's own paranoia engine, libcdio-paranoia)
-- Defeat audio cache — libcdio-paranoia *attempts* this every rip (readahead-cache exhaustion + FUA where the drive supports it), but it's best-effort and never confirmed at runtime, so it's not a measured per-drive match the way EAC's toggle is; see [PLANNING.md KDD-25](PLANNING.md)
-- Read offset calibration (per-drive, set in the GUI's drive-setup wizard and passed to cyanrip via `-s`)
-- AccurateRip verification (the GUI/cyanrip query; we render the v1/v2 confidence)
-- High error-recovery quality (cyanrip's paranoia is always at maximum)
-- No normalization
-- FLAC bit-perfect reversibility — libcdio-paranoia's own read-verify, plus an optional post-rip `flac --test` decode-check
-- `.log` file written after every rip
-- Gap handling — the *audio* placement (append/merge-to-previous) matches EAC (confirmed byte-for-byte on 12/14 real tracks); cyanrip doesn't use cdrdao and doesn't emit EAC-style `INDEX 00` pre-gap cue *metadata* — a metadata gap, not an audio one (see [docs/eac-parity-investigation.md](docs/eac-parity-investigation.md))
-- Status-report checksum (SHA-256)
-
-**Not configurable from the GUI** (cyanrip is already at the archival maximum):
-
-- **FLAC compression level.** EAC's guide says `-8 --best`; cyanrip already encodes FLAC at maximum compression, so there's nothing to turn up. Archival quality is identical at any compression level — only file size differs — and cyanrip is at the smallest standard size already. (The legacy "Re-compress FLACs" toggle is inert with cyanrip — see "FLAC" above.)
-
-**Not possible on Linux today:**
-
-- **C2 error pointers.** Cdparanoia is the Linux secure-read primitive; it doesn't use C2.
-- **A *tracker-accepted* EAC-signed log.** The EAC log checksum algorithm has been reverse-engineered, so a valid checksum is technically reproducible — but signing our log as if Exact Audio Copy produced it is **forging the rip's provenance** (a bannable "faked log" on gazelle trackers), and we won't do it. We rely on the open, tool-agnostic trust signals instead: AccurateRip + CTDB verification and an honest log. See [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md).
-- **AccurateRip submission** (writing new entries to the database). Blocked by AccurateRip's operators, who accept submissions only from EAC and dBpoweramp. Verification (reading) works fine — see "AccurateRip" in the audit above.
+### Rip settings at a glance
 
 **Now in Settings** (surfaced in the Settings dialog):
 
