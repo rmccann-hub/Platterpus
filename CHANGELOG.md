@@ -46,6 +46,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   installer/desktop-integration/GitHub-API surfaces it deliberately excludes;
   `docs/architecture.md` §2's layer table gained a "Qt-free domain modules"
   row pointing at PLANNING.md §2 as the canonical per-module map.
+- **The "two corrections to the ripper-landscape doc" condensed to one home**
+  (docs-audit consolidation plan): PLANNING.md KDD-24 keeps the full text (the
+  designated record); `docs/eac-log-and-repair-feasibility.md` now carries a
+  one-line summary + link instead of the duplicated telling.
 - **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
   call, completing the audit doc-map): graduation row added to the archive
   index; its still-open items (release signing, dependency hash-pinning)
