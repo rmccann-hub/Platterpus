@@ -30,7 +30,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QLabel, QMessageBox
 
 from platterpus import drive_media
 from platterpus.drive_access import (
@@ -439,8 +439,22 @@ class DriveMixin(MainWindowShared):
                 f"\n\nRun this, then log out and back in:\n    {diagnosis.fix_command}"
             )
         box.setInformativeText(info)
-        # Let the user select/copy the fix command out of the dialog.
-        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        # Let the user select/copy the fix command out of the dialog — by
+        # keyboard too, since copying the fix command is this dialog's whole
+        # point and a keyboard-only user must not be locked out of it (gap #4).
+        box.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        # Same Qt quirk as the disc-info panel: keyboard-selectable text gets
+        # only ClickFocus, so Tab would skip it. StrongFocus on the message
+        # box's labels puts the text in the dialog's tab chain.
+        for label in box.findChildren(QLabel):
+            if (
+                label.textInteractionFlags()
+                & Qt.TextInteractionFlag.TextSelectableByKeyboard
+            ):
+                label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         box.exec()
 
 

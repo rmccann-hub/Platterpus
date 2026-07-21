@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QHBoxLayout,
@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.rip_backend import RipBackend
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.workers import start_worker_thread
 from platterpus.workers.drive_setup_worker import (
@@ -159,7 +160,7 @@ class DriveSetupDialog(CenteredDialog):
         self._detect_button: QPushButton | None = None
         self._progress: QProgressBar | None = None
         if self._can_detect:
-            self._detect_button = QPushButton("Detect", self)
+            self._detect_button = QPushButton("&Detect", self)
             self._detect_button.clicked.connect(self._on_detect_clicked)
             root.addWidget(self._detect_button)
 
@@ -172,12 +173,14 @@ class DriveSetupDialog(CenteredDialog):
 
         self._status_label: QLabel = QLabel("", self)
         self._status_label.setWordWrap(True)
+        self._status_label.setAccessibleName("Drive setup status")
         root.addWidget(self._status_label)
 
         # Read-only, scrollable: detection output can be several lines and
         # the offset-find guidance is long, so a label clipped it.
         self._results_label: QPlainTextEdit = QPlainTextEdit("", self)
         self._results_label.setReadOnly(True)
+        self._results_label.setAccessibleName("Drive setup results")
         root.addWidget(self._results_label, stretch=1)
 
         # --- Manual fallback ---------------------------------------------------
@@ -195,11 +198,22 @@ class DriveSetupDialog(CenteredDialog):
         )
         manual_intro.setWordWrap(True)
         manual_intro.setOpenExternalLinks(True)
+        # QLabel links are mouse-only by default — LinksAccessibleByKeyboard
+        # puts the label in the tab chain (Qt sets StrongFocus for it) so the
+        # accuraterip.com link can be reached and opened with Tab + Enter
+        # (gap #4 sweep finding: this was the one unreachable affordance here).
+        manual_intro.setTextInteractionFlags(
+            Qt.TextInteractionFlag.LinksAccessibleByMouse
+            | Qt.TextInteractionFlag.LinksAccessibleByKeyboard
+        )
         root.addWidget(manual_intro)
 
         manual_row = QHBoxLayout()
         manual_row.addWidget(QLabel("Read offset (samples):", self))
         self._offset_spin: QSpinBox = QSpinBox(self)
+        # The plain QLabel beside it isn't a buddy, so name the spin box for
+        # screen readers explicitly.
+        self._offset_spin.setAccessibleName("Read offset in samples")
         # AccurateRip offsets sit well within ±2000 samples in practice.
         self._offset_spin.setRange(-2000, 2000)
         # Prefill with the model-looked-up offset when we have one (the
@@ -209,7 +223,7 @@ class DriveSetupDialog(CenteredDialog):
             known_offset if known_offset is not None else current_offset
         )
         manual_row.addWidget(self._offset_spin)
-        self._save_offset_button: QPushButton = QPushButton("Save offset", self)
+        self._save_offset_button: QPushButton = QPushButton("&Save offset", self)
         self._save_offset_button.clicked.connect(self._on_save_offset_clicked)
         manual_row.addWidget(self._save_offset_button)
         manual_row.addStretch(1)
@@ -258,8 +272,12 @@ class DriveSetupDialog(CenteredDialog):
             return
         if self._progress is not None:
             self._progress.setVisible(False)
-        self._status_label.setText("Done." if result.ok else "Finished with issues.")
+        outcome = "Done." if result.ok else "Finished with issues."
+        self._status_label.setText(outcome)
         self._results_label.setPlainText(_format_result(result))
+        # Detection ran for up to a minute with focus elsewhere — announce the
+        # outcome + summary focus-safely (gap #4).
+        announce(self._status_label, f"Drive setup: {outcome} {_format_result(result)}")
         if self._detect_button is not None:
             self._detect_button.setEnabled(True)
             self._detect_button.setText("Re-detect")
@@ -285,9 +303,11 @@ class DriveSetupDialog(CenteredDialog):
         """Persist a hand-entered offset via the main window (--offset path)."""
         value = self._offset_spin.value()
         self.manual_offset_saved.emit(value)
-        self._status_label.setText(
-            f"Saved read offset {value:+d} — it will be used for rips."
-        )
+        confirmation = f"Saved read offset {value:+d} — it will be used for rips."
+        self._status_label.setText(confirmation)
+        # The save confirmation lands in a passive label — announce it so a
+        # screen-reader user hears that the click took effect (gap #4).
+        announce(self._status_label, confirmation)
 
     # --- Lifecycle ----------------------------------------------------------
 

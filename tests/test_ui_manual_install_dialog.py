@@ -81,7 +81,8 @@ def test_copy_writes_search_string_to_clipboard(qapp: QApplication) -> None:
 def test_copy_button_label_updates_then_resets(qapp: QApplication) -> None:
     dialog = ManualInstallDialog(_spec(), _absent_probe())
 
-    assert dialog._copy_button.text() == "Copy"
+    # "&Copy" — the "&" is the Alt+C keyboard mnemonic (a11y pass, gap #4).
+    assert dialog._copy_button.text() == "&Copy"
     dialog.copy_search_string()
     assert dialog._copy_button.text() == "Copied!"
     # The reset is via a 1500ms QTimer; not driving the event loop
@@ -199,3 +200,18 @@ def test_close_button_triggers_reject(qapp: QApplication) -> None:
 
     # QDialog.reject() sets result to Rejected (0).
     assert result_holder["result"] == int(dialog.DialogCode.Rejected)
+
+
+def test_copy_confirmation_is_announced(qapp: QApplication, monkeypatch) -> None:
+    """The Copied! button-label flip is visual-only feedback — a screen-reader
+    user must hear that the copy took effect (a11y gap #4)."""
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.dialogs.manual_install.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    dialog = ManualInstallDialog(_spec(), _absent_probe())
+
+    dialog.copy_search_string()
+
+    assert heard == ["Search string copied to the clipboard."]

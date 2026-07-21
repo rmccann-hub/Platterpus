@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from typing import TypeAlias
 
 from PySide6.QtCore import (
     QAbstractTableModel,
@@ -46,7 +47,10 @@ from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
 # LSP (Liskov) violation. Both member types expose the .isValid()/.row()/
 # .column() we actually call, so widening the annotation is a pure signature
 # match — no behaviour change (Qt still passes a plain QModelIndex at runtime).
-_Index = QModelIndex | QPersistentModelIndex
+# The explicit TypeAlias marker is load-bearing: mypy 2.3 stopped inferring a
+# bare ``X | Y`` assignment of these Qt wrapper types as a type alias and
+# started rejecting it wherever it was used as an annotation.
+_Index: TypeAlias = QModelIndex | QPersistentModelIndex
 
 
 @dataclass(frozen=True)

@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.deps.resolvers import InstallResult, MissingItem
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 
 log = logging.getLogger(__name__)
@@ -135,6 +136,11 @@ class PendingInstallsDialog(CenteredDialog):
         self._results: list[InstallResult] = []
         self._checkboxes: dict[str, QCheckBox] = {}
         self._status_labels: dict[str, QLabel] = {}
+        # dep_id → human display name, so the live row-status announcements
+        # (mark_in_progress / mark_result) can speak the name, not the id.
+        self._display_names: dict[str, str] = {
+            item.spec.dep_id: item.spec.display_name for item in self._items
+        }
         # Off-GUI-thread install machinery (set while a loop runs).
         self._install_thread: QThread | None = None
         self._install_worker: _InstallWorker | None = None
@@ -179,7 +185,7 @@ class PendingInstallsDialog(CenteredDialog):
         # a "Close" mode via show_close_button().
         self._button_box: QDialogButtonBox = QDialogButtonBox(self)
         self._install_button: QPushButton = self._button_box.addButton(
-            "Install Selected", QDialogButtonBox.ButtonRole.AcceptRole
+            "&Install Selected", QDialogButtonBox.ButtonRole.AcceptRole
         )
         self._cancel_button: QPushButton = self._button_box.addButton(
             "Cancel", QDialogButtonBox.ButtonRole.RejectRole
@@ -213,6 +219,10 @@ class PendingInstallsDialog(CenteredDialog):
         label = self._status_labels.get(dep_id)
         if label is not None:
             label.setText("installing…")
+            # Row updates land while the (modal) dialog holds focus on a
+            # button — announce them so an install's progress is audible
+            # without moving focus (one per dep, low-frequency; gap #4).
+            announce(label, f"Installing {self._display_names.get(dep_id, dep_id)}…")
 
     def mark_result(self, dep_id: str, success: bool, message: str = "") -> None:
         """Update the status label for `dep_id` with the install outcome."""
@@ -225,6 +235,8 @@ class PendingInstallsDialog(CenteredDialog):
             # Compact rendering — the full message lives in the log.
             short = message if len(message) <= 60 else message[:57] + "…"
             label.setText(f"FAILED: {short}" if short else "FAILED")
+        name = self._display_names.get(dep_id, dep_id)
+        announce(label, f"{name}: {label.text()}")
 
     def set_install_phase_active(self, active: bool) -> None:
         """Lock down the picker during the install loop.

@@ -74,6 +74,9 @@ class ReleasePickerDialog(CenteredDialog):
         self._table: QTableWidget = QTableWidget(
             len(self._releases), len(_COLUMNS), self
         )
+        # Screen readers announce a table by its accessible name; without one
+        # this reads as an anonymous grid (ux-design-principles.md #10).
+        self._table.setAccessibleName("MusicBrainz release candidates")
         self._table.setHorizontalHeaderLabels([header for header, _ in _COLUMNS])
         # Select whole rows, one at a time — the user is picking a
         # release, not editing cells.

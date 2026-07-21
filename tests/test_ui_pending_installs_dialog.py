@@ -442,3 +442,30 @@ def test_cancel_in_install_one_mode_declines_all(qapp: QApplication) -> None:
 
     assert all(r.user_declined for r in dialog.results())
     assert {r.spec.dep_id for r in dialog.results()} == {"a", "b"}
+
+
+# --- Live row-status announcements (a11y gap #4) ------------------------------
+
+
+def test_install_row_updates_are_announced_by_display_name(
+    qapp: QApplication, monkeypatch
+) -> None:
+    """The per-row 'installing… / OK / FAILED' updates land while the modal
+    holds focus on a button — they must be spoken, by human name (gap #4)."""
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.dialogs.pending_installs.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    items = [_item("picard")]
+    dialog = PendingInstallsDialog(items)
+    dep_id = items[0].spec.dep_id
+    name = items[0].spec.display_name
+
+    dialog.mark_in_progress(dep_id)
+    dialog.mark_result(dep_id, True)
+    dialog.mark_result(dep_id, False, "network unreachable")
+
+    assert heard[0] == f"Installing {name}…"
+    assert heard[1] == f"{name}: OK"
+    assert heard[2].startswith(f"{name}: FAILED")

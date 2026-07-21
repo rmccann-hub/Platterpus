@@ -160,7 +160,9 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
   "partially accurate (450)" track, and evaluate a future in-app CTDB-repair
   step (large; CTDB verify already exists, repair does not). Evaluated in
   [docs/eac-log-and-repair-feasibility.md](eac-log-and-repair-feasibility.md)
-  (repair deferred; its CRC-validation gate cleared 2026-07-07).
+  (repair deferred; its CRC-validation gate cleared 2026-07-07). **✅ The
+  manual workflow is written: [`manual-ctdb-repair.md`](manual-ctdb-repair.md)
+  (2026-07-21).**
 - (c) First, simply **re-rip track 3** to see if the near-miss was transient.
 
 **P3 — Pre-gaps / `INDEX 00` in the cue (decision-gated).**

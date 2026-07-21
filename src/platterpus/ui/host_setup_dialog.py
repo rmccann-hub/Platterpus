@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps.host_setup import HostSetup
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
@@ -88,7 +89,7 @@ class HostSetupDialog(CenteredDialog):
         self._intro.setWordWrap(True)
         root.addWidget(self._intro)
 
-        self._setup_button: QPushButton = QPushButton("Set up", self)
+        self._setup_button: QPushButton = QPushButton("&Set up", self)
         self._setup_button.clicked.connect(self._on_setup_clicked)
         root.addWidget(self._setup_button)
 
@@ -100,10 +101,12 @@ class HostSetupDialog(CenteredDialog):
 
         self._status_label: QLabel = QLabel("", self)
         self._status_label.setWordWrap(True)
+        self._status_label.setAccessibleName("Setup status")
         root.addWidget(self._status_label)
 
         self._results: QPlainTextEdit = QPlainTextEdit("", self)
         self._results.setReadOnly(True)
+        self._results.setAccessibleName("Setup step results")
         root.addWidget(self._results, stretch=1)
 
         self._button_box: QDialogButtonBox = QDialogButtonBox(
@@ -140,7 +143,11 @@ class HostSetupDialog(CenteredDialog):
             return
         if result.status is StepStatus.RUNNING:
             hint = f" — {result.detail}" if result.detail else ""
-            self._status_label.setText(f"⏳ {result.title}{hint}")
+            step_text = f"⏳ {result.title}{hint}"
+            self._status_label.setText(step_text)
+            # Steps run for minutes with focus elsewhere — announce each new
+            # step start focus-safely (low-frequency, one per step; gap #4).
+            announce(self._status_label, step_text)
             return
         glyph = _STATUS_GLYPH.get(result.status, "•")
         line = f"{glyph} {result.title}"
@@ -178,6 +185,8 @@ class HostSetupDialog(CenteredDialog):
                 )
             else:
                 self._status_label.setText("Setup did not complete.")
+        # Announce the final outcome — the run may have taken minutes (gap #4).
+        announce(self._status_label, self._status_label.text())
         self._worker = None
         self._thread = None
         self.setup_finished.emit(ready)

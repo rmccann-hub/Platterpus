@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 from platterpus import goal_presets, naming, offset_config, settings_validation
 from platterpus.config import Config
 from platterpus.settings_validation import ValidationIssue
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 
 
@@ -57,6 +58,10 @@ class SettingsDialog(CenteredDialog):
         # Guard so applying a preset (which sets the widgets) doesn't recursively
         # flip the combo back to Custom.
         self._applying_preset: bool = False
+        # Screen-reader dedup for the live validation banner: _revalidate runs on
+        # every keystroke, but the same issue text must be announced only once
+        # (announcing per keystroke would drown the reader — gap #4).
+        self._announced_validation_text: str = ""
         self._goal_combo: QComboBox = QComboBox(self)
         for key, label in goal_presets.GOAL_LABELS:
             self._goal_combo.addItem(label, key)
@@ -69,10 +74,20 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Goal:", self._goal_combo)
 
         # --- Path rows (QLineEdit + Browse button) ---
-        self._output_dir_edit, output_row = self._build_dir_row(config.output_dir)
+        # These fields live inside a composite row widget, so the form label is
+        # NOT their buddy (QFormLayout only auto-buddies a directly-added
+        # field) — without explicit accessible names they read as anonymous
+        # text boxes, and the three identical "Browse…" buttons as
+        # indistinguishable (gap #4 sweep finding). _build_dir_row/_build_file_row
+        # name both widgets from the name we pass.
+        self._output_dir_edit, output_row = self._build_dir_row(
+            config.output_dir, "Output directory"
+        )
         form.addRow("Output directory:", output_row)
 
-        self._working_dir_edit, working_row = self._build_dir_row(config.working_dir)
+        self._working_dir_edit, working_row = self._build_dir_row(
+            config.working_dir, "Working directory"
+        )
         form.addRow("Working directory:", working_row)
 
         # --- Templates ---
@@ -137,6 +152,9 @@ class SettingsDialog(CenteredDialog):
         #      `-s`). cyanrip needs the offset every run; it has no config file
         #      of its own, so this value is the single source.
         self._read_offset_spin: QSpinBox = QSpinBox(self)
+        # In a composite row (spin + Re-detect button), so no auto-buddy — name
+        # it explicitly for screen readers (same reasoning as the path rows).
+        self._read_offset_spin.setAccessibleName("Read offset in samples")
         # Range comes from settings_validation (the single source of truth) so the
         # widget bound and the validator can never drift. AccurateRip offsets are
         # in the low hundreds of samples; ±5000 blocks typos like "60000".
@@ -148,7 +166,7 @@ class SettingsDialog(CenteredDialog):
             "Read offset in samples (signed). Tick Apply to use this value for "
             "rips (cyanrip's -s). Set it once per drive via Re-detect…."
         )
-        self._detect_offset_button: QPushButton = QPushButton("Re-detect…", self)
+        self._detect_offset_button: QPushButton = QPushButton("Re-&detect…", self)
         self._detect_offset_button.setToolTip(
             "Run the drive setup wizard to auto-detect the read offset and "
             "save it to Platterpus's settings."
@@ -188,7 +206,7 @@ class SettingsDialog(CenteredDialog):
 
         # --- Tool paths ---
         self._metaflac_path_edit, metaflac_row = self._build_file_row(
-            config.metaflac_path
+            config.metaflac_path, "metaflac path"
         )
         form.addRow("metaflac path:", metaflac_row)
 
@@ -498,7 +516,7 @@ class SettingsDialog(CenteredDialog):
         # This sits between the form and the OK/Cancel row so it's
         # visually associated with the settings (which is where the
         # paths live that the dep check verifies).
-        self._check_deps_button: QPushButton = QPushButton("Check dependencies", self)
+        self._check_deps_button: QPushButton = QPushButton("Chec&k dependencies", self)
         self._check_deps_button.clicked.connect(self.check_dependencies_requested)
         root.addWidget(self._check_deps_button)
 
@@ -639,6 +657,9 @@ class SettingsDialog(CenteredDialog):
         if not issues:
             self._validation_label.clear()
             self._validation_label.setVisible(False)
+            # Issues cleared: reset the announce dedup so the SAME issue coming
+            # back later (e.g. the path re-broken) is announced again.
+            self._announced_validation_text = ""
             return
         errors = [i for i in issues if i.is_error()]
         warnings = [i for i in issues if not i.is_error()]
@@ -650,11 +671,18 @@ class SettingsDialog(CenteredDialog):
         lines = [f"✖ {i.message}" for i in errors] + [
             f"⚠ {i.message}" for i in warnings
         ]
-        self._validation_label.setText("\n".join(lines))
+        banner_text = "\n".join(lines)
+        self._validation_label.setText(banner_text)
         self._validation_label.setStyleSheet(
             "color: #c0392b;" if errors else "color: #b9770e;"
         )
         self._validation_label.setVisible(True)
+        # "Visible, specific error at the point of entry" must include hearing
+        # it: announce the banner focus-safely, once per distinct text (this
+        # runs on every keystroke while an issue persists — see the dedup attr).
+        if banner_text != self._announced_validation_text:
+            self._announced_validation_text = banner_text
+            announce(self._validation_label, banner_text)
 
     def _sync_naming_combo_to_templates(self) -> None:
         """Point the combo at the matching preset, or "Custom" if hand-edited.
@@ -741,28 +769,44 @@ class SettingsDialog(CenteredDialog):
         if custom_index >= 0 and self._goal_combo.currentIndex() != custom_index:
             self._goal_combo.setCurrentIndex(custom_index)
 
-    def _build_dir_row(self, initial_path: str) -> tuple[QLineEdit, QWidget]:
-        """Build a row: QLineEdit + 'Browse…' button (for directories)."""
+    def _build_dir_row(
+        self, initial_path: str, accessible_name: str
+    ) -> tuple[QLineEdit, QWidget]:
+        """Build a row: QLineEdit + 'Browse…' button (for directories).
+
+        `accessible_name` names the field for screen readers (the composite row
+        breaks QFormLayout's auto-buddy) and disambiguates its Browse button
+        from the other rows' identical ones.
+        """
         row = QWidget(self)
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
 
         edit = QLineEdit(initial_path, row)
+        edit.setAccessibleName(accessible_name)
         button = QPushButton("Browse…", row)
+        button.setAccessibleName(f"Browse for {accessible_name.lower()}")
         button.clicked.connect(lambda: self._pick_directory(edit))
 
         layout.addWidget(edit, stretch=1)
         layout.addWidget(button)
         return edit, row
 
-    def _build_file_row(self, initial_path: str) -> tuple[QLineEdit, QWidget]:
-        """Build a row: QLineEdit + 'Browse…' button (for an executable)."""
+    def _build_file_row(
+        self, initial_path: str, accessible_name: str
+    ) -> tuple[QLineEdit, QWidget]:
+        """Build a row: QLineEdit + 'Browse…' button (for an executable).
+
+        Same accessible-name reasoning as `_build_dir_row`.
+        """
         row = QWidget(self)
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
 
         edit = QLineEdit(initial_path, row)
+        edit.setAccessibleName(accessible_name)
         button = QPushButton("Browse…", row)
+        button.setAccessibleName(f"Browse for {accessible_name.lower()}")
         button.clicked.connect(lambda: self._pick_file(edit))
 
         layout.addWidget(edit, stretch=1)

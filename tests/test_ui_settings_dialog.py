@@ -560,3 +560,52 @@ def test_accept_logs_validation_errors(qapp: QApplication, caplog) -> None:
     with caplog.at_level(logging.WARNING):
         dialog.accept()
     assert "track_template" in caplog.text
+
+
+# --- Accessible names + validation announcements (a11y gap #4) ---------------
+
+
+def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
+    """Fields inside composite rows (edit + Browse / spin + Re-detect) get no
+    QFormLayout auto-buddy, so they'd read as anonymous text boxes — and the
+    three identical Browse… buttons as indistinguishable — without explicit
+    accessible names. Regression for the gap-#4 sweep fix."""
+    from PySide6.QtWidgets import QPushButton
+
+    dialog = SettingsDialog(Config())
+    assert dialog._output_dir_edit.accessibleName() == "Output directory"
+    assert dialog._working_dir_edit.accessibleName() == "Working directory"
+    assert dialog._metaflac_path_edit.accessibleName() == "metaflac path"
+    assert dialog._read_offset_spin.accessibleName()
+    browse_names = [
+        b.accessibleName()
+        for b in dialog.findChildren(QPushButton)
+        if b.text() == "Browse…"
+    ]
+    assert len(browse_names) == 3
+    # All named, all distinct — a screen reader can tell them apart.
+    assert all(browse_names)
+    assert len(set(browse_names)) == 3
+
+
+def test_validation_banner_announces_once_per_distinct_text(
+    qapp: QApplication, monkeypatch
+) -> None:
+    """The live validation banner re-renders on every keystroke; the same
+    issue text must be announced exactly once — and again only after the
+    issues clear and come back (gap #4)."""
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.settings_dialog.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    dialog = SettingsDialog(Config())
+    baseline = len(heard)  # construction validates once (a clean config: 0)
+
+    dialog._track_template_edit.setText("%q bad token")  # invalid: unknown code
+    first = list(heard[baseline:])
+    dialog._track_template_edit.setText("%q bad token!")  # same issue text
+    second = list(heard[baseline:])
+
+    assert len(first) >= 1  # the error was announced…
+    assert second == first  # …and not repeated while unchanged

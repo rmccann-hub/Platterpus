@@ -41,3 +41,13 @@ def test_user_guide_shows_running_version() -> None:
     # The full guide content is still present (the footer is appended, not a
     # replacement).
     assert "Start rip" in md and "Troubleshooting" in md
+
+
+def test_markdown_viewers_have_accessible_names(qapp: QApplication) -> None:
+    """An anonymous QTextBrowser reads as just 'text' to a screen reader —
+    both help documents carry names (a11y gap #4)."""
+    from PySide6.QtWidgets import QTextBrowser
+
+    for dialog in (AboutDialog(), HelpDialog()):
+        views = dialog.findChildren(QTextBrowser)
+        assert views and all(v.accessibleName() for v in views)

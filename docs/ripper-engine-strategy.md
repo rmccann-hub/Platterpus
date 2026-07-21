@@ -363,6 +363,17 @@ flagged.
 
 ## 9. Cache defeating vs. the 2026 landscape doc (research finding, 2026-07)
 
+> **Where that doc lives (resolved 2026-07-21):** the maintainer's 2026
+> ripper-landscape research doc was provided as **session research input** and
+> was never committed to this repository (a repo-wide search, and the
+> 2026-07-21 full-docs audit before it, find only references). Its
+> load-bearing claims are preserved — and where wrong, corrected — in the
+> project's own record: `eac-parity-investigation.md`'s extraction-vector
+> scorecard, this section's notes, and PLANNING.md **KDD-24**'s two
+> corrections. If the original file resurfaces, save it under `docs/archive/`
+> with a banner — the same convention as the missing `compass_artifact_*.md`
+> (see `docs/README.md`).
+
 **Symptom.** The maintainer's 2026 ripper-landscape research doc treats **cache
 defeating** as a required extraction vector for archival credibility (alongside
 read offset, overread, C2, AccurateRip, etc.), scoring tools against it.

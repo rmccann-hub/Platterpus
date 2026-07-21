@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps.checks import ProbeResult
 from platterpus.deps.registry import DependencySpec
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 
 
@@ -98,11 +99,11 @@ class ManualInstallDialog(CenteredDialog):
         self._setup_button: QPushButton | None = None
         if self._on_setup_wizard is not None:
             self._setup_button = button_box.addButton(
-                "Set it up automatically…", QDialogButtonBox.ButtonRole.AcceptRole
+                "Set it &up automatically…", QDialogButtonBox.ButtonRole.AcceptRole
             )
             self._setup_button.clicked.connect(self._run_setup_wizard)
         self._copy_button: QPushButton = button_box.addButton(
-            "Copy", QDialogButtonBox.ButtonRole.ActionRole
+            "&Copy", QDialogButtonBox.ButtonRole.ActionRole
         )
         self._close_button: QPushButton = button_box.addButton(
             "Close", QDialogButtonBox.ButtonRole.RejectRole
@@ -139,11 +140,13 @@ class ManualInstallDialog(CenteredDialog):
         """
         QGuiApplication.clipboard().setText(self._search_field.text())
         self._copy_button.setText("Copied!")
+        # The button-label flip is visual-only feedback — say it too (gap #4).
+        announce(self._copy_button, "Search string copied to the clipboard.")
         # Reset the label after a short delay. Using Qt's single-shot
         # timer keeps the GUI thread non-blocking.
         from PySide6.QtCore import QTimer
 
-        QTimer.singleShot(1500, lambda: self._copy_button.setText("Copy"))
+        QTimer.singleShot(1500, lambda: self._copy_button.setText("&Copy"))
 
     # --- Display string builders -------------------------------------------
 

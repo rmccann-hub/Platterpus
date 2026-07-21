@@ -31,10 +31,19 @@ from platterpus.paths import (
 from platterpus.ui.dialogs.centering import CenteredDialog
 
 
-def _markdown_viewer(parent: QWidget | None, markdown: str) -> QTextBrowser:
-    """A read-only, link-clickable Markdown view."""
+def _markdown_viewer(
+    parent: QWidget | None, markdown: str, accessible_name: str
+) -> QTextBrowser:
+    """A read-only, link-clickable Markdown view.
+
+    `accessible_name` names the document for screen readers (an anonymous
+    QTextBrowser reads as just "text"). Links are keyboard-followable out of
+    the box — QTextBrowser's default interaction flags include
+    LinksAccessibleByKeyboard (Tab cycles the links, Enter opens).
+    """
     view = QTextBrowser(parent)
     view.setOpenExternalLinks(True)  # open repo/issue links in the browser
+    view.setAccessibleName(accessible_name)
     view.setMarkdown(markdown)
     return view
 
@@ -64,7 +73,9 @@ class AboutDialog(CenteredDialog):
             logo.setPixmap(pixmap)  # type: ignore[arg-type]
             logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(logo)
-        layout.addWidget(_markdown_viewer(self, self._build_markdown()))
+        layout.addWidget(
+            _markdown_viewer(self, self._build_markdown(), "About Platterpus details")
+        )
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.reject)
@@ -104,7 +115,9 @@ class HelpDialog(CenteredDialog):
         self.resize(720, 580)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(_markdown_viewer(self, self._guide_markdown()))
+        layout.addWidget(
+            _markdown_viewer(self, self._guide_markdown(), "User Guide content")
+        )
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.reject)

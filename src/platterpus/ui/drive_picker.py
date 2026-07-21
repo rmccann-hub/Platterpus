@@ -78,8 +78,10 @@ class DrivePicker(QWidget):
 
         # Off-GUI-thread refresh, injected by MainWindow (see set_async_refresh).
         # None → the button falls back to the synchronous refresh().
+        # "&" marks each button's Alt+<letter> mnemonic (keyboard reachability,
+        # gap #4) — letters chosen to stay unique across the main window.
         self._async_refresh: Callable[[], None] | None = None
-        self._refresh_button: QPushButton = QPushButton("Refresh", self)
+        self._refresh_button: QPushButton = QPushButton("&Refresh", self)
         self._refresh_button.clicked.connect(self._on_refresh_clicked)
         layout.addWidget(self._refresh_button)
 
@@ -88,7 +90,7 @@ class DrivePicker(QWidget):
         # the scan) — real-user feedback: when the first scan hits a
         # transient error (disc still spinning up → whipper's cdrdao
         # read-toc flake), there was no way to retry short of restarting.
-        self._rescan_button: QPushButton = QPushButton("Rescan disc", self)
+        self._rescan_button: QPushButton = QPushButton("R&escan disc", self)
         self._rescan_button.setToolTip(
             "Read the disc in the selected drive again — use this after "
             "inserting a disc, or when the first scan failed."
@@ -98,7 +100,7 @@ class DrivePicker(QWidget):
 
         # Eject the selected disc. Re-emits as eject_requested so the main
         # window can run the (potentially blocking) eject off the GUI thread.
-        self._eject_button: QPushButton = QPushButton("Eject", self)
+        self._eject_button: QPushButton = QPushButton("E&ject", self)
         self._eject_button.setToolTip("Eject the disc from the selected drive.")
         self._eject_button.clicked.connect(self._on_eject_clicked)
         layout.addWidget(self._eject_button)

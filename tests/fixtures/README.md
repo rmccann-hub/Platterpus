@@ -23,21 +23,14 @@ regenerate the affected tests (as the T32 smoke test did in 2026-05).
 
 ## eac_baseline_police_classics.log / .cue (added 2026-06-12)
 
-**The hardware parity baseline.** A real EAC V1.8 secure rip (Test & Copy)
-of the maintainer's *The Police — Every Breath You Take: The Classics* disc
-on the same Pioneer BDR-209D the GUI is tested with, conforming to the
-flemmingss.com bit-perfect guide (Secure mode, accurate stream, cache
-defeat, C2 off, offset +667, null samples in CRC). Lives in
-`output_reference/EAC_flac/`. Stored in EAC's **native UTF-16/CRLF** (the
-authentic artifact; was briefly UTF-8 — which hid a UTF-16-decoding bug in the
-parity checker, since fixed). Read it via `platterpus.parity.decode_log_bytes`,
-not `read_text("utf-8")`.
-
-Ground truth for comparing cyanrip rips of the same disc: the
-per-track EAC CRC32s must match exactly (same disc, same offset). Known
-disc quirk to expect everywhere: **track 5** fails AccurateRip v2 and CTDB
-says "differs in 3 samples @02:24:59" even under EAC — that's the disc,
-not the ripper. Track 3 (whipper's >587-offset failure) rips CLEAN in EAC.
+**The hardware parity baseline** (a real EAC V1.8 rip of the maintainer's
+Police disc) lives in `output_reference/EAC_flac/`; `output_reference/README.md`
++ that directory's own README are the canonical account (provenance, rip
+settings, and the disc's known track-3/track-5 quirks). One warning repeated
+here because it bites tests directly: the log is stored in EAC's **native
+UTF-16/CRLF** — read it via `platterpus.parity.decode_log_bytes`, never
+`read_text("utf-8")` (a UTF-8 copy once hid a real decoding bug in the parity
+checker).
 
 ---
 

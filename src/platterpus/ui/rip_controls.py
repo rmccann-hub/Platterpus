@@ -48,14 +48,17 @@ class RipControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addStretch(1)
 
-        self._start_button: QPushButton = QPushButton("Start rip", self)
-        self._cancel_button: QPushButton = QPushButton("Cancel", self)
+        # "&" marks each button's Alt+<letter> mnemonic (keyboard reachability,
+        # gap #4) — letters chosen to stay unique across the main window
+        # (menus hold F/T/H; "F&orce stop" avoids the &File collision).
+        self._start_button: QPushButton = QPushButton("&Start rip", self)
+        self._cancel_button: QPushButton = QPushButton("&Cancel", self)
         # Force stop is the drastic escalation: kill the in-container reader for
         # when the drive keeps spinning. Enabled during a rip (Cancel left it
         # spinning → eject + kill) AND during a disc scan (a stuck TOC read
         # wedges the drive too → free it without ejecting, so the disc stays in
         # for a Rescan).
-        self._force_stop_button: QPushButton = QPushButton("Force stop", self)
+        self._force_stop_button: QPushButton = QPushButton("F&orce stop", self)
         self._force_stop_button.setToolTip(
             "Stop the drive if it keeps spinning — after Cancel during a rip, "
             "or if a disc scan gets stuck."

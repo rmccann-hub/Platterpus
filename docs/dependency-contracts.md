@@ -24,6 +24,19 @@ best-effort dataclass (`docs/testing.md`). So "expected output" here is the
 *happy-path shape we parse*, not a guarantee; a mismatch degrades gracefully and,
 for a hard failure, the dependency's stderr is captured to the log.
 
+**Deliberately not covered here** (so the absence isn't read as a gap): the
+one-shot *provisioning and integration* command surfaces — the host-setup /
+teardown engines and the dependency registry's install commands (`distrobox`,
+`dnf`, `flatpak`, `pkexec`, `distrobox-export`, … — see `deps/host_setup.py`,
+`deps/host_teardown.py`, and `deps/registry.py`), the AppImage
+desktop-integration calls (`kbuildsycoca6`, `gio` — `appimage_integration.py`),
+and the GitHub releases API used by the update check/installer
+(`update_check.py` / `update_install.py`). Those invocations are owned,
+documented, and tested alongside their engines; this doc covers the
+**rip/verify/metadata path** — the tools whose arguments and parsed output a
+rip's correctness depends on. If one of the excluded surfaces ever grows a
+parsed-output contract of its own, it gains a section here like the rest.
+
 ---
 
 ## cyanrip — the ripping backend (sole backend, KDD-18)
