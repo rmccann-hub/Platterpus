@@ -12,6 +12,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **`CLAUDE.md`'s companion-document list slimmed to one-line pointers**
+  (maintainer-approved): `docs/README.md` is the canonical annotated index and
+  the two lists had already drifted once — the always-loaded anchor now names
+  each doc in a line and defers the annotations to the index.
 - **`docs/test-plan.md` whipper-era cases rewritten for the cyanrip-only
   reality** (maintainer-approved): Test 3 is now the drive-setup-wizard
   success-screens + auto-vs-manual offset capture (absorbing Test 4, retired);

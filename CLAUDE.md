@@ -97,26 +97,29 @@ This project is as much about building durable standards as shipping the app —
 
 ## Companion documents
 
-Read these alongside this file when picking up a session:
+Read these alongside this file when picking up a session. **`docs/README.md` is
+the canonical annotated index** — one line each here (so this list can't drift
+from it again; it did once, KDD-range v23 vs v25):
 
-- **`PLANNING.md`** — architecture, module design, key design decisions (the numbered KDD log — see `docs/README.md` for the current range)
-- **`TASKS.md`** — active task checklist; update status (`[ ]` → `[~]` → `[x]`) as work progresses. Sections: P0 (v1 release, T01-T32), P1 (broader backlog, incl. the P1.1 install/uninstall-ease subsection — highest-priority P1 subset), P2 (future), Out of scope.
-- **`DEPENDENCIES.md`** — dep table with last release dates and replacement plans; review per the cadence stated in that file
-- **`README.md`** — outward-facing project description and install instructions
-- **`SECURITY.md`** — the security policy (supported versions, how to report a vulnerability)
-- **`docs/architecture.md`** — architecture & contributor guide: the layered design, the core patterns *with the why and hard-won lessons* (adapter layer, the never-block-the-GUI-thread discipline + worker mechanics, subprocess rules, never-raise parsers, the dependency subsystem, the MainWindow mixin decomposition, error/logging), extension recipes, packaging/release/security, and future directions. **Start here to extend the program.** (Absorbed the former `docs/best-practices.md`.)
-- **`docs/README.md`** — the **complete annotated index** of the docs/ directory, the single-source-of-truth map, and a rebuild-from-scratch checklist. This curated list highlights the always-relevant docs; anything not listed here is indexed there.
-- **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements and scope
-- **`docs/ux-design-principles.md`** — the trust-first UX principles the GUI is built to (e.g. "two outputs every time", "one definition of verified", status by symbol+text not colour alone); referenced throughout the results/verdict code
-- **`docs/platterpus-session-start.md`** — bootstrap instructions a fresh Claude Code session uses to reproduce the initial planning artifacts; its **Step 0** holds the optional Research-mode prompt for refreshing tool-choice validation
-- **`docs/log-format-comparison.md`** — cyanrip rip log vs EAC log side-by-side (referenced by KDD-11)
-- **`docs/mp3-wav-support.md`** — the design-of-record behind Critical rule #4 / KDD-22 (FLAC master + derived MP3/WavPack/WAV via the single transcode adapter)
-- **`docs/dependency-contracts.md`** — the single reference for the exact args/flags/syntax we pass each external dependency (cyanrip, flac, metaflac, ffmpeg, musicbrainzngs, CAA, CTDB, drive/reader control) and the output shape we parse; the code-side half of the *validate every input and every dependency output* convention
-- **`docs/testing.md`** — the testing strategy & standards (the trophy + hardware gate, the five-tier case taxonomy, property/golden/fault-injection guidance, the coverage gate, and the institutional rules: every bug gets a regression test; parsers never raise)
-- **`docs/test-plan.md`** — manual & release testing: the end-to-end acceptance run, the EAC output-parity check, the distro + problem-permutation matrices, and the deep single-feature gated cases (absorbed the former `docs/release-testing.md`)
-- **`docs/session-log.md`** — chronological session history (what was built/decided/learned each session, newest first). Read it for *continuity*; durable lessons graduate from it into the docs above.
-- **`docs/ripper-engine-strategy.md`** — living research/options doc on forking/combining whipper + cyanrip long-term (licensing, option menu, decision gates). Revisits KDD-18; research only, not a commitment. Companions: `docs/upstream-pr-roadmap.md` (the ranked upstream-PR list) and `docs/cyanrip-soft-fork.md` (the soft-fork runbook, executed by the `scripts/cyanrip/` kit).
-- **`docs/archive/`** — retired point-in-time investigations (ecosystem audit, read-offset, upstream-modification/CTDB spec) **plus external reference material** (the EAC archival master guide); durable conclusions have graduated into KDDs / DEPENDENCIES / adapter comments (see `docs/archive/README.md`)
+- **`PLANNING.md`** — architecture, module map, and the numbered KDD decision log
+- **`TASKS.md`** — the active task checklist; update status (`[ ]` → `[~]` → `[x]`) in the same commit as the work
+- **`DEPENDENCIES.md`** — dep pins, review cadence, retirement log
+- **`README.md`** — outward-facing description + install instructions
+- **`SECURITY.md`** — security policy (supported versions, vulnerability reporting)
+- **`docs/README.md`** — the complete annotated index of docs/, the single-source-of-truth map, and the rebuild checklist
+- **`docs/architecture.md`** — the contributor guide: patterns with their *why*, extension recipes. **Start here to extend the program.**
+- **`docs/testing.md`** — testing strategy, institutional rules, and the Definition of Done (rule #7's checklist)
+- **`docs/test-plan.md`** — manual & release testing (acceptance run, EAC parity, gated hardware cases)
+- **`docs/dependency-contracts.md`** — exact args/flags per external tool + parsed output shapes
+- **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements/scope *as amended by the KDDs*
+- **`docs/ux-design-principles.md`** — the trust-first UX principles + the canonical gap backlog
+- **`docs/session-log.md`** — per-session chronology (newest first); lessons graduate out of it (rule #7)
+- **`docs/ripper-engine-strategy.md`** — living fork/engine research (+ companions: `upstream-pr-roadmap.md`, `cyanrip-soft-fork.md`, the `scripts/cyanrip/` kit)
+- **`docs/archive/`** — retired dated investigations + external reference; graduation map in its README
+
+Everything else under `docs/` (log-format comparison, mp3-wav design-of-record,
+CTDB CRC spec, EAC investigations, GitHub SOP, AppImage testing, dated audits)
+is indexed with one-line descriptions in `docs/README.md`.
 
 If `PLANNING.md` and the brief conflict, the brief **as amended by the maintainer-approved KDDs** wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
 
