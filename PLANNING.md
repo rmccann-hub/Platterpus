@@ -55,7 +55,6 @@ Platterpus/
 │   ├── upstream-pr-roadmap.md           # ranked upstream-PR action list (closes strategy §10 gaps)
 │   ├── cyanrip-soft-fork.md             # soft-fork runbook (proof harness: scripts/cyanrip/verify-meta-colon.c)
 │   ├── github-workflow-sop.md           # generic GitHub SOP (CLAUDE.md wins where they differ)
-│   ├── trust-audit-2026-07-08.md        # dated trust & supply-chain audit record
 │   ├── session-log.md                   # chronological session history (newest first)
 │   ├── archive/                         # retired investigations + external reference (see archive/README.md)
 │   │   ├── README.md                    # index + graduation notes for the archived material
@@ -63,6 +62,7 @@ Platterpus/
 │   │   ├── offset-investigation-2026-06.md # read-offset → offset-by-drive-model lookup
 │   │   ├── upstream-modification-investigation.md # EAC-parity investigation (CTDB, whipper)
 │   │   ├── audit-2026-07-02.md          # dated full-repo audit record (archived 2026-07-21)
+│   │   ├── trust-audit-2026-07-08.md    # dated trust & supply-chain audit record (archived 2026-07-21)
 │   │   └── archival-extraction-guide-2026-06.md   # external EAC archival master guide (reference)
 │   └── (compass_artifact_*.md if/when produced — see docs/README.md)
 │

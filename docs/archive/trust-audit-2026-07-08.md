@@ -1,5 +1,11 @@
 # Trust & quality deep audit (2026-07-08)
 
+> **ARCHIVED 2026-07-21** (maintainer's call, superseding the earlier
+> archive-after-signing-closes condition): retired to `docs/archive/`; the
+> still-open items — release signing (#1) and the hash-pinning half of #4 —
+> remain live in the **TASKS.md trust-hardening section**, which is the
+> tracker; this file is the dated record.
+>
 > **Status addendum (2026-07-21 — body below unedited, a dated record).**
 > Several deferred rows have since closed: **#3** (static type checker) — a
 > gating mypy CI job shipped in v0.4.23 and strict def-typing went

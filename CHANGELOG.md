@@ -20,6 +20,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   C harness.
 
 ### Changed
+- **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
+  call, completing the audit doc-map): graduation row added to the archive
+  index; its still-open items (release signing, dependency hash-pinning)
+  remain tracked in the TASKS.md trust-hardening section; inbound references
+  retargeted.
 - **Strict def-typing (`mypy`) enforced across the entire package** (PRs
   #81–#83, 2026-07-09→20; bullets added retroactively under the same ruling):
   staged in three ratchets — everything outside `ui/` (a zero-code-change
@@ -410,7 +415,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   previously only a client-side git hook); a `.github/dependabot.yml`
   (`pip` + `github-actions`) dependency watch; and a `SECURITY.md` disclosure
   policy. Deeper items (update signing, action SHA-pinning, reproducible builds,
-  static type-checking) are tracked in `TASKS.md` and `docs/trust-audit-2026-07-08.md`.
+  static type-checking) are tracked in `TASKS.md` and `docs/archive/trust-audit-2026-07-08.md`.
 
 ## [0.4.21] — 2026-07-08
 
