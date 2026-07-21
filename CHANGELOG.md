@@ -12,6 +12,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **`TASKS.md` statuses caught up with shipped reality.** CTDB verify's three
+  trackers all still read as open/hardware-gated although the CRC was
+  validated 2026-07-07 (v0.4.20) — current-plan item 8 is now marked complete
+  and declared the canonical status home, with the other two reduced to
+  pointers; the "both backends" hardware-parity item, the whipper parity-
+  matrix rows, and the whipper-era Step-5 doc item are marked
+  retired/superseded (whipper removed 2026-06-30); the committed cyanrip
+  FLAC (12/14) and MP3 (13/14) proofs are now reflected in the matrix; the
+  obsolete "don't start P1 until P0 ships" fences, the stale PyPI
+  verified-through pins, and the accessibility-pass over-claim (now 🟡 with
+  the remaining work named) are corrected.
 - **`PLANNING.md` synced with the post-whipper, v0.4.24 codebase.** The §1
   directory tree gained the ~25 files it was missing (docs, scripts incl. the
   `scripts/cyanrip/` kit, `atomic_write`/`build_info`/`rip_compare`/
