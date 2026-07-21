@@ -32,4 +32,9 @@
 PySide6~=6.7
 musicbrainzngs==0.7.1
 tomli-w~=1.0
+# Ed25519 release-signature verification (update_signing.py). `~=` can't span
+# majors, so this pins the bundled line to one recent series while pyproject
+# allows the broader >=41,<47 for dev/pipx; the exact bundled version is fixed
+# by requirements.lock (see the reproducibility note above). Bump both together.
+cryptography~=44.0
 platterpus

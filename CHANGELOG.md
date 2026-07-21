@@ -12,6 +12,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Security
+- **Release-signature verification in the in-app updater (Ed25519 / minisign,
+  fail-closed, ships dormant).** SHA-256 proves a download's integrity but not
+  its authenticity — a compromised release channel could swap both the AppImage
+  and its `.sha256`. The updater now also verifies a `minisign` signature made
+  with a key the maintainer holds **offline** (so a CI compromise can't forge
+  it): a new `update_signing.py` parses the `.minisig` and Ed25519-verifies it
+  via `cryptography`, and the updater refuses to install a release whose
+  signature is missing or invalid. It's **armed** only once a maintainer public
+  key is baked into `update_signing.PUBLIC_KEY_B64`; until then the updater is
+  SHA-256-only exactly as before, so this release changes nothing user-visible.
+  Adds `cryptography` as a dependency. See `docs/release-signing.md` (the
+  offline signing ritual) and PLANNING KDD-26.
 - **Reproducible-build dependency hash-pinning (opt-in plumbing).** The AppImage
   build can now pin the exact *bytes* of every bundled third-party dependency,
   not just their versions: `build/lock-requirements.sh` writes a hash-pinned

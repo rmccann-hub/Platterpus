@@ -30,11 +30,16 @@ reproduce on the newest release before reporting.
   attestation** (SLSA, via GitHub OIDC + Sigstore — no maintainer-held key), so
   you can prove a download really came from this repo's release pipeline:
   `gh attestation verify platterpus-x86_64.AppImage --repo rmccann-hub/Platterpus`.
-  The in-app updater itself still verifies only the release's published
-  **SHA-256 checksum** (integrity) — it does not yet check the attestation, and
-  cryptographic **signature** verification (e.g. minisign) is still a tracked
-  hardening item (it needs a maintainer-held signing key). See the trust-audit
-  notes in `docs/`.
+  The in-app updater verifies the release's published **SHA-256 checksum**
+  (integrity) on every download. **Cryptographic signature verification**
+  (Ed25519, via `minisign`) is implemented and verifies **fail-closed** — but it
+  is *armed* only once a maintainer-held **offline** signing key is baked into
+  the build (`update_signing.PUBLIC_KEY_B64`). Until then the updater is
+  SHA-256-only; from the first signed release on, it refuses any update whose
+  signature is missing or invalid. The key is held offline and signing happens
+  outside CI, so a CI compromise can't forge a signature. See
+  [`docs/release-signing.md`](docs/release-signing.md) and the trust-audit notes
+  in `docs/`. (The updater does not yet check the SLSA attestation itself.)
 - **Workflow supply chain.** CI runs least-privilege (`contents: read`), a
   server-side guard rejects committed audio, every GitHub Action is pinned to a
   full commit SHA, a gating `pip-audit` job scans the dependency graph, and

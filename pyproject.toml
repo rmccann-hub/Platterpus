@@ -39,6 +39,10 @@ dependencies = [
     "PySide6>=6.7,<7",
     "musicbrainzngs==0.7.1",
     "tomli-w>=1.0,<2",
+    # Ed25519 verification of a release's minisign signature (the in-app
+    # updater's authenticity gate — src/platterpus/update_signing.py). Floor 41
+    # comfortably has Ed25519; ceiling <47 refuses a future major unreviewed.
+    "cryptography>=41,<47",
 ]
 
 [project.optional-dependencies]

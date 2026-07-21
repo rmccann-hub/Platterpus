@@ -9,6 +9,7 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | PySide6 | `>=6.7,<7` (current: 6.11.1) | 2026-05-13 | LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only | Active | — |
 | musicbrainzngs | `==0.7.1` | 2020-01-11 | BSD-2-Clause (one file ISC) | Unmaintained (>12mo) | direct `requests` against `https://musicbrainz.org/ws/2/` via `MusicBrainzClient.RequestsJsonImpl` |
 | tomli-w | `>=1.0,<2` (current: 1.2.0) | 2025-01-15 | MIT | Active | — (stdlib `tomllib` is read-only, `tomli-w` is the canonical writer) |
+| cryptography | `>=41,<47` (pyproject); AppImage bundles `~=44.0`; exact version fixed by `requirements.lock` | (per PyPI) | Apache-2.0 OR BSD-3-Clause | Active | — (Ed25519 verification of a release's minisign signature — the in-app updater's authenticity gate, `src/platterpus/update_signing.py`. Verify-only; no secret key in the app. The BLAKE2b prehash uses stdlib `hashlib`, so only the Ed25519 primitive is needed — stable since cryptography 2.6.) |
 
 ## Python packages (dev / build only — not bundled)
 
