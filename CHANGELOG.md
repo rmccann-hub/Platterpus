@@ -20,6 +20,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   C harness.
 
 ### Changed
+- **TASKS.md's "⭐ START HERE" queue re-ranked around what is actually open**
+  (docs-audit consolidation plan, maintainer-approved): the live queue now
+  leads with trust hardening, the prepared cyanrip soft-fork PRs, the
+  consolidated hardware-gated proof list, the docs backlog, and the UX
+  remainder; the completed 2026-06-09 plan is preserved as ranked history
+  with its numbering intact (other text cites "current-plan item N").
 - **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
   call, completing the audit doc-map): graduation row added to the archive
   index; its still-open items (release signing, dependency hash-pinning)
