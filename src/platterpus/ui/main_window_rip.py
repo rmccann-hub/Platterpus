@@ -486,6 +486,9 @@ class RipMixin(MainWindowShared):
         # track → done).
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
         self._rip_worker.current_track.connect(self._track_table.mark_track_ripping)
+        # …and drive the ripping row's live progress bar from the same task
+        # percent the bottom progress bar shows (per-track progress bars).
+        self._rip_worker.progress.connect(self._track_table.on_rip_progress)
         self._rip_worker.track_completed.connect(self._track_table.mark_track_done)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)

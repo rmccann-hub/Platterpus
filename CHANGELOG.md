@@ -20,6 +20,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   matched; upstream's "may freeze if unsupported by drive" caveat is surfaced
   in the tooltip and User Guide.
 
+- **Live per-track progress bars**: the track table's Status column now shows
+  a real progress bar (percent visible in the bar) on the row currently being
+  ripped, driven by the same live percent as the bottom progress bar; a
+  finished track's bar is replaced by "✓ Done" (status stays text for screen
+  readers — the bar is decoration, never the only signal).
 - **Cross-filesystem naming warning (Settings, warning-only)**: a naming
   template whose literal text would not copy cleanly to Windows or an
   NTFS/exFAT drive (reserved characters, reserved device names like `CON`,
