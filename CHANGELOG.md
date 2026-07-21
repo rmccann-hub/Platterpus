@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **`docs/manual-ctdb-repair.md`** — the manual CUETools/`ctdb-cli` CTDB
+  repair workflow (the power-user escape hatch for a track that stays
+  "partially accurate (450)" after `-Z` re-rips) that the feasibility and
+  parity-investigation docs have recommended documenting since 2026-06-28.
+  Assembled strictly from the existing research record; steps never executed
+  on project hardware are marked *(unverified)*; in-app repair stays parked
+  (KDD-14 Phase 2).
 - **cyanrip upstream-contribution kit** (`scripts/cyanrip/`, PR #80,
   2026-07-09; bullet added retroactively under the 2026-07-21 strict
   `[skip changelog]` ruling): a verified, dry-run-first patcher for the

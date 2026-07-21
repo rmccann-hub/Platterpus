@@ -191,7 +191,9 @@ samples** and bring the track back to the consensus. We already do CTDB
   (done this session) converges most marginal tracks without any new dependency.
 - **Document the manual CUETools/ctdb-cli repair workflow** as the authoritative
   fix for a stubborn "partially accurate (450)" track (a power-user escape
-  hatch), pointing at the tools above.
+  hatch), pointing at the tools above. **✅ Written 2026-07-21:
+  [`manual-ctdb-repair.md`](manual-ctdb-repair.md)** (assembled strictly from
+  this doc + the investigation record; unexecuted steps marked unverified).
 - **Gate an in-app repair** behind: (a) ~~the CTDB CRC hardware-validation~~
   **cleared 2026-07-07 (KDD-16)**, (b) explicit maintainer appetite for the
   .NET/Mono dependency, and (c) repair-specific validation of the
@@ -227,8 +229,9 @@ samples** and bring the track back to the consensus. We already do CTDB
   but a heavy dependency that rewrites the master. The CRC-validation blocker
   **cleared 2026-07-07 (v0.4.20, KDD-16)**; the remaining gates are maintainer
   appetite for the .NET dependency and validation of the repair path itself.
-  `-Z N` shipped; document the manual workflow; gate the integration behind
-  maintainer sign-off + validation.
+  `-Z N` shipped; the manual workflow is documented
+  ([`manual-ctdb-repair.md`](manual-ctdb-repair.md), 2026-07-21); gate the
+  integration behind maintainer sign-off + validation.
 
 ---
 
