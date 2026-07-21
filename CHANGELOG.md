@@ -26,6 +26,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   consolidated hardware-gated proof list, the docs backlog, and the UX
   remainder; the completed 2026-06-09 plan is preserved as ranked history
   with its numbering intact (other text cites "current-plan item N").
+- **UX gap backlog single-homed** (docs-audit consolidation plan):
+  `docs/ux-design-principles.md`'s ranked gap table is the canonical record
+  (code comments cite its numbering); the TASKS.md item that had drifted from
+  it is now only a per-gap tracking checklist linking there.
 - **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
   call, completing the audit doc-map): graduation row added to the archive
   index; its still-open items (release signing, dependency hash-pinning)
