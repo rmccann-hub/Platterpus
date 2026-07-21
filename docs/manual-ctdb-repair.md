@@ -100,4 +100,4 @@ mathematically, without re-reading the disc. It operates on the **whole disc**
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

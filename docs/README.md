@@ -27,7 +27,9 @@ A lesson legitimately appears in **two** places: a one-line *rule* in its canoni
 
 ### Doc version stamps
 
-Every Markdown doc (excepting the ready-to-paste upstream issue/PR bodies in `scripts/cyanrip/`, where a Platterpus footer would pollute the paste) ends with a **`*Last updated for Platterpus vX.Y.Z.*`** footer — the release the doc's content was last revised for — so a reader can gauge its currency at a glance. This is part of *documentation currency* (CLAUDE.md Critical rule #7): **when you meaningfully change a doc, bump its stamp to the current `__version__`.** The stamps were seeded (2026-07-07) from git history — the `__version__` in effect at each file's last content commit — so an old stamp means the doc simply hasn't needed a change since, not that it's unmaintained.
+Every Markdown doc (excepting the ready-to-paste upstream issue/PR bodies in `scripts/cyanrip/`, where a Platterpus footer would pollute the paste) ends with a **`*Last updated for Platterpus vX.Y.Z.*`** footer — the release the doc's content was last revised for — so a reader can gauge its currency at a glance. This is part of *documentation currency* (CLAUDE.md Critical rule #7): **when you change a doc, bump its stamp to the current `__version__` in the same commit.** The stamps were seeded (2026-07-07) from git history — the `__version__` in effect at each file's last content commit — so an old stamp means the doc simply hasn't needed a change since, not that it's unmaintained.
+
+**Enforced since v0.5.0** by `tests/test_doc_version_stamps.py` (gating, runs in the CI `test` job): every tracked doc must carry exactly one footer, no footer may claim a version newer than `__version__`, and — the piece that keeps stamps honest across a release — any doc changed since the latest release tag must be stamped with the *current* `__version__`. That last rule means the release-prep version bump itself forces a restamp of every doc the cycle touched, so stamps can no longer lag the release their content actually ships in (which happened once: the entire v0.5.0 cycle shipped stamped v0.4.24 — caught by the maintainer on the public README, 2026-07-21). Note the test can't judge "meaningful," so *any* committed change to a doc requires the stamp bump — it's one line, in the same commit.
 
 ## Source documents (anchor for "rebuild from scratch")
 
@@ -97,4 +99,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

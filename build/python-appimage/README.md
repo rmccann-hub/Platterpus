@@ -76,4 +76,4 @@ operator note above) in the same commit, so the three stay in lockstep.
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

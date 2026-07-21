@@ -58,4 +58,4 @@ session's cue dropped track 10's ISRC. No audio is committed — see
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

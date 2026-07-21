@@ -202,4 +202,4 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

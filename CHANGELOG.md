@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **README/SECURITY front-door drift after v0.5.0** (maintainer-reported): the
+  README status banner still read "v0.4.x" with the old 1,600+ test count; the
+  settings section still called force-overread "a re-openable cyanrip `-x`
+  task" (it shipped in v0.5.0 as the Overread toggle — and the real flag is
+  `-O`, `-x` never existed); the v0.5.0 features (Overread, "Move finished
+  rips to", the live per-track progress bar) were missing from the settings
+  list, the first-run walkthrough, and the EAC-parity overread row; and
+  `SECURITY.md` still declared `v0.4.x` the supported series.
+
+### Documentation
+- **Doc version stamps can no longer lag the release they ship in.** Every doc
+  revised during the v0.5.0 cycle still carried a v0.4.24 footer, because the
+  convention bumps stamps to the `__version__` current *at commit time* —
+  always one release behind what the change ships in, with nothing enforcing
+  the convention at all. All 44 cycle-touched docs are restamped v0.5.0, and a
+  new gating test (`tests/test_doc_version_stamps.py`) closes the loop: every
+  tracked doc carries exactly one footer, no footer may claim a future
+  version, and any doc changed since the latest release tag must be stamped
+  with the current `__version__` — so the release-prep version bump itself
+  forces the cycle's restamp. The CI `test` job now checks out full history so
+  the tag diff works there; the release checklist (CLAUDE.md) gained the
+  restamp as step (3), and `docs/README.md` documents the enforced rule.
+
 ## [0.5.0] — 2026-07-21
 
 ### Added
@@ -2838,4 +2862,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

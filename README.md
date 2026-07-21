@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.4.x — public pre-release.** Implemented end-to-end with 1,600+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), **cover art** from the Cover Art Archive, an **EAC-compatible companion log** with a per-track **EAC CRC32 column** in the results table, and **software-version provenance** (Platterpus + encoder versions) recorded in the log header and the window title. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **Status: v0.5.x — public pre-release.** Implemented end-to-end with 1,800+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable) that anchor the settings to your intent, an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line** showing where the offset came from and how confident we are, **true in-app updates** (download → checksum-verify → self-restart), **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder** (only after every post-rip check has settled), a live **per-track progress bar** in the track table, an **EAC-compatible companion log** with a per-track **EAC CRC32 column** in the results table, and **software-version provenance** (Platterpus + encoder versions) recorded in the log header and the window title. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -51,7 +51,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 | **Drive caches audio data** → flush cache between re-reads (cache-defeat) | libcdio-paranoia *attempts* cache-defeat; we report it **"(unknown)"** — attempted, not *measured* (KDD-25), never faked "Yes" | ⚠️ |
 | **C2 error info — leave UNCHECKED** (disable, even if supported) | We don't use C2 → **exactly what the guide prescribes** | ✅ |
 | **Read sample offset correction** | applied via cyanrip `-s`, value from the bundled AccurateRip drive DB (by model, e.g. `+667`) or manual entry — not EAC's on-disc "Key Disc" method, but the same corrected result | ✅ |
-| **Overread into Lead-In/Lead-Out** — off unless firmware-verified | cyanrip overreads **+2 frames, filled with silence** (conservative) | ✅ |
+| **Overread into Lead-In/Lead-Out** — off unless firmware-verified | default: cyanrip overreads **+2 frames, filled with silence** (conservative — matches the guide's *off* baseline); opt-in **Settings → Overread** reads the real outermost samples (cyanrip `-O`) for drives verified to support it | ✅ |
 | **Allow speed reduction** on scratches | cyanrip adaptive read-speed ladder | ✅ |
 | **Gap/Index — Detection Method A, Secure** | cyanrip emits `INDEX 00`/pregaps from the TOC today; exact subchannel detection + HTOA is cyanrip **PR #115** (in progress) | ⚠️ |
 | **AccurateRip** verify | v1 + v2 (+ offset-variant) | ✅ |
@@ -544,9 +544,11 @@ Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checka
 - **Max reads to confirm a shaky track** — rip once at full speed, then re-read *only* the tracks that didn't match AccurateRip until N reads agree on the checksum (cyanrip's `-Z`; **on by default**, 2). See "How ripping works" below.
 - Verify with CTDB after a rip (a second, whole-disc verification path alongside AccurateRip; the CRC is hardware-validated — a match means verified)
 - Verify FLACs after a rip (decode-test each output against its stored MD5)
+- **Overread the lead-in/lead-out** (off by default) — ask the drive to read the disc's real outermost samples instead of writing them as silence (cyanrip `-O`). Leave it off unless your drive is known to support overreading — some firmware can freeze on it.
+- **Move finished rips to** a library folder (empty = off) — once every post-rip check has settled (verification, transcode, checksums, the rip report), the album folder is filed into your library; a name collision lands in a "(2)" sibling, never an overwrite
 - Auto-eject after a successful rip, plus read-offset calibration via the drive-setup wizard
 
-*(Three whipper-only toggles — force overread into lead-out, keep-going-on-track-failure, and continue-ripping-CD-Rs — were removed with whipper, KDD-18, and are not Settings widgets today: cyanrip handles track failures and CD-Rs natively with no equivalent flag, and force overread is a re-openable cyanrip `-x` task if ever wanted — see `TASKS.md`.)*
+*(Of the three whipper-only toggles removed with whipper (KDD-18) — force overread, keep-going-on-track-failure, and continue-ripping-CD-Rs — the last two stay gone: cyanrip handles track failures and CD-Rs natively with no equivalent flag. Force overread returned in v0.5.0, rebuilt cyanrip-native as the Overread toggle above.)*
 
 After a rip, the results pane shows an at-a-glance **verification verdict** (green = every track verified against AccurateRip, amber = partial, grey = not in the database) above the per-track table, plus the CTDB result.
 
@@ -575,9 +577,9 @@ When you launch Platterpus for the first time:
 
 5. **Edit metadata.** The track table is editable. Fix any tags that look wrong before you rip.
 
-6. **Click "Start rip."** Progress and per-track AccurateRip confidence appear as the rip runs. You can cancel mid-rip.
+6. **Click "Start rip."** Overall progress, a live progress bar on the track currently ripping, and per-track AccurateRip confidence appear as the rip runs. You can cancel mid-rip.
 
-7. **View the log.** When the rip finishes, the "View log" button opens the rip log in your default text editor.
+7. **View the log.** When the rip finishes, the "View log" button opens the rip log in your default text editor. If **Move finished rips to** is set in Settings, the album folder is filed into your library once every post-rip check has settled — the View log / report / folder buttons follow it to its new home.
 
 For discs MusicBrainz doesn't recognize, use the Unknown Album flow from the menu — the GUI rips with placeholder `Track NN` tags and optionally launches Picard for you to fix them up.
 
@@ -863,4 +865,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*
