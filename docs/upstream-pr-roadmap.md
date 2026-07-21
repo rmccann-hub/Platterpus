@@ -319,20 +319,32 @@ Neither consume nor contribute to it.
 
 Everything above is point-in-time. Before spending build/test hours:
 
-- [ ] **cyanrip PR #115** — confirm it's still open and read the latest review
-      round (it may have merged, closed, or moved).
-- [ ] **libcdio-paranoia #3** zero-comment status was read off the HTML issue
-      page twice (the GitHub API for non-Platterpus repos was unreachable here) —
-      high confidence, not API-confirmed.
+- [x] **cyanrip PR #115** — **re-verified 2026-07-21: still OPEN**, titled *"Add
+      pregap detection for physical CDs."* Latest activity 2025-11-28 (UltraFuzzy
+      force-pushed); cyanreg's last substantive review (2025-10-02) asked for the
+      code to be split into platform-specific files (`pregap_internal_osx.c` for
+      the APPLE path + a separate MMC file behind a shared header) — so it's
+      alive but mid-revision, not merge-ready. Consuming it still means building
+      from a branch, not a release.
+- [x] **libcdio-paranoia #3** — **re-verified 2026-07-21: still OPEN, zero
+      comments** (titled *"Feature request: use C2 pointers"*, opened 2015-05-02).
+      A second independent live read of the issue page, consistent with the
+      earlier two; the GitHub API for non-Platterpus repos is still unreachable
+      from this session, so this remains page-read-confirmed, not API-confirmed.
 - [ ] **C2 "where in code"** (`p_block.c` vs `paranoia.c`) is inferred from the
-      directory listing — a starting map, not a confirmed patch site.
+      directory listing — a starting map, not a confirmed patch site. *(Still
+      needs a source read; not re-checked 2026-07-21.)*
 - [ ] **Order 2 appetite** — whether cyanreg would freeze a stable log schema is
-      unknown; gauge on IRC/an issue before building.
+      unknown; gauge on IRC/an issue before building. *(Human/maintainer-contact
+      step — can't be verified from a session.)*
 - [ ] **whipper native-YAML → Logchecker recognition** — re-verify empirically
-      with the `analyze` command before relying on it as the fallback.
-- [ ] **cyanrip release cadence** — master moves but the last tag is ~2 years
-      old; a merged cyanrip PR would be consumed from master in the container, an
-      explicit maintenance decision.
+      with the `analyze` command before relying on it as the fallback. *(Needs a
+      local whipper + Logchecker run — hardware/tooling-gated.)*
+- [ ] **cyanrip release cadence** — **re-confirmed 2026-07-21: last tag still
+      0.9.3.1 (Jun 2024); `master` live** (commits into Mar 2026 per the dep
+      review + `ripper-engine-strategy.md` §6). A merged cyanrip PR would be
+      consumed from `master` in the container — still an explicit, unmade
+      maintenance decision, not a verification to tick.
 
 ---
 

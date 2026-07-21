@@ -48,6 +48,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `INDEX 00` cue-metadata difference stays tracked separately (PR #115 route).
 
 ### Documentation
+- **Housekeeping sweep (2026-07-21):** logged the pre-release dependency review
+  for v0.5.0 (no new dependencies — the whole cycle is stdlib + the existing
+  PySide6 pin); closed three stale whipper-era backlog rows in `TASKS.md` (the
+  dead "upstream whipper bug fixes" row — no upstream to route to since KDD-18 —
+  and the two whipper-CLI drive-setup doc rows, folded into the single
+  hardware-gated proof queue); and re-verified the upstream-PR "verify-before-
+  you-invest" checklist against live GitHub: cyanrip **PR #115** still open
+  (mid-revision, last activity 2025-11-28) and libcdio-paranoia **#3** still open
+  with zero comments.
 - **Doc version stamps can no longer lag the release they ship in.** Every doc
   revised during the v0.5.0 cycle still carried a v0.4.24 footer, because the
   convention bumps stamps to the `__version__` current *at commit time* —
