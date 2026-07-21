@@ -12,6 +12,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Accessibility: focus-safe live announcements + the full
+  keyboard-reachability sweep** (UX gap #4's remaining half, closing the gap —
+  a live screen-reader session on real hardware is the one confirmation still
+  owed). New `ui/accessibility.py` `announce()` helper (Qt announcement
+  events — the desktop `aria-live`; feature-detected, never raises, never
+  moves focus) now speaks the rip status per *phase* (throttled — never
+  per-percent), the AccurateRip verdict banner, the read-effort warning, the
+  CTDB line, the re-rip comparison, disc-identification outcomes, the
+  wrong-offset guard warning, setup/uninstall wizard steps and outcomes,
+  per-dependency install rows, the Settings validation banner, and
+  copy/save confirmations. Keyboard fixes: the copyable disc-ID values and
+  the drive-diagnosis fix command are now tab-reachable and
+  keyboard-selectable (Qt's keyboard-selectable labels default to
+  click-only focus), the accuraterip.com lookup link is keyboard-followable,
+  anonymous Settings fields/Browse buttons and the release-candidates table
+  gained accessible names, and every prominent button carries a unique
+  Alt+letter mnemonic (uniqueness pinned by test). Pattern documented in
+  `docs/architecture.md` §3.8.
+- **`docs/manual-ctdb-repair.md`** — the manual CUETools/`ctdb-cli` CTDB
+  repair workflow (the power-user escape hatch for a track that stays
+  "partially accurate (450)" after `-Z` re-rips) that the feasibility and
+  parity-investigation docs have recommended documenting since 2026-06-28.
+  Assembled strictly from the existing research record; steps never executed
+  on project hardware are marked *(unverified)*; in-app repair stays parked
+  (KDD-14 Phase 2).
 - **cyanrip upstream-contribution kit** (`scripts/cyanrip/`, PR #80,
   2026-07-09; bullet added retroactively under the 2026-07-21 strict
   `[skip changelog]` ruling): a verified, dry-run-first patcher for the
@@ -19,7 +44,45 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   canonical paste-ready upstream issue/PR bodies, and the ASan/UBSan-proved
   C harness.
 
+### Fixed
+- **mypy 2.3 compatibility for the two Qt typing seams**: mypy 2.3 stopped
+  accepting `track_table`'s bare `QModelIndex | QPersistentModelIndex`
+  assignment as a type alias and `main_window_shared`'s conditionally
+  re-assigned `_SeamBase` variable as a base class — the `typecheck` CI job
+  would go red on its next cold-cache run. An explicit `TypeAlias` marker and
+  the import-as conditional-base form restore a clean `mypy` with zero runtime
+  change (MRO/metaclass verified identical).
+
 ### Changed
+- **TASKS.md's "⭐ START HERE" queue re-ranked around what is actually open**
+  (docs-audit consolidation plan, maintainer-approved): the live queue now
+  leads with trust hardening, the prepared cyanrip soft-fork PRs, the
+  consolidated hardware-gated proof list, the docs backlog, and the UX
+  remainder; the completed 2026-06-09 plan is preserved as ranked history
+  with its numbering intact (other text cites "current-plan item N").
+- **UX gap backlog single-homed** (docs-audit consolidation plan):
+  `docs/ux-design-principles.md`'s ranked gap table is the canonical record
+  (code comments cite its numbering); the TASKS.md item that had drifted from
+  it is now only a per-gap tracking checklist linking there.
+- **Remaining single-home doc cleanups applied** (docs-audit consolidation
+  plan): `docs/log-format-comparison.md` now points at architecture §3.7 for
+  the two-artifacts rationale instead of restating it;
+  `tests/fixtures/README.md`'s EAC-baseline section is a pointer at
+  `output_reference/` plus the UTF-16/`decode_log_bytes` warning;
+  `docs/dependency-contracts.md` gained an explicit scope note naming the
+  installer/desktop-integration/GitHub-API surfaces it deliberately excludes;
+  `docs/architecture.md` §2's layer table gained a "Qt-free domain modules"
+  row pointing at PLANNING.md §2 as the canonical per-module map.
+- **`ripper-engine-strategy.md` §9 now states where the 2026 ripper-landscape
+  research doc lives** (closing the consolidation plan's last open sub-item):
+  it was maintainer-provided session research input, never committed to the
+  repo — the project's own record preserves (and corrects) its load-bearing
+  claims via the parity scorecard, §9's notes, and KDD-24; if the file
+  resurfaces it goes to `docs/archive/` per the compass-artifact convention.
+- **The "two corrections to the ripper-landscape doc" condensed to one home**
+  (docs-audit consolidation plan): PLANNING.md KDD-24 keeps the full text (the
+  designated record); `docs/eac-log-and-repair-feasibility.md` now carries a
+  one-line summary + link instead of the duplicated telling.
 - **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
   call, completing the audit doc-map): graduation row added to the archive
   index; its still-open items (release signing, dependency hash-pinning)

@@ -44,6 +44,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.ui.accessibility import announce
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
@@ -56,6 +57,7 @@ __all__ = [
     "comparison_banner_text",
     "loudness_summary_line",
     "read_effort_summary_line",
+    "status_phase_key",
 ]
 
 # Shared explanation of the offset-variant ("partially accurate") status, used
@@ -128,6 +130,12 @@ class RipProgress(QWidget):
         # The last parsed rip log, kept so the CTDB handler (which finishes later,
         # asynchronously) can reconcile its verdict against AccurateRip.
         self._last_rip_log: RipLog | None = None
+        # Screen-reader announcement throttles (gap #4, focus-safe live updates).
+        # The status line redraws many times a second (percent + ETA), so we
+        # announce only when its *phase* changes (see status_phase_key); the CTDB
+        # line is deduped on its full text (an in-progress ping then a verdict).
+        self._announced_status_key: str = ""
+        self._announced_ctdb_text: str = ""
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -273,15 +281,18 @@ class RipProgress(QWidget):
         # known (set_log_path), then enable together.
         button_row = QHBoxLayout()
         button_row.addStretch(1)
-        self._view_log_button: QPushButton = QPushButton("View log", self)
+        # "&" marks each button's Alt+<letter> mnemonic (keyboard reachability,
+        # gap #4) — letters chosen to stay unique within the main window
+        # (menus hold F/T/H; the drive row and rip controls hold theirs).
+        self._view_log_button: QPushButton = QPushButton("&View log", self)
         self._view_log_button.setEnabled(False)
         self._view_log_button.clicked.connect(self._on_view_log_clicked)
         button_row.addWidget(self._view_log_button)
-        self._view_report_button: QPushButton = QPushButton("View report", self)
+        self._view_report_button: QPushButton = QPushButton("View re&port", self)
         self._view_report_button.setEnabled(False)
         self._view_report_button.clicked.connect(self._on_view_report_clicked)
         button_row.addWidget(self._view_report_button)
-        self._open_folder_button: QPushButton = QPushButton("Open rip folder", self)
+        self._open_folder_button: QPushButton = QPushButton("Open rip fol&der", self)
         self._open_folder_button.setEnabled(False)
         self._open_folder_button.clicked.connect(self._on_open_folder_clicked)
         button_row.addWidget(self._open_folder_button)
@@ -341,6 +352,11 @@ class RipProgress(QWidget):
         self._report_path = None
         self._rip_dir = None
         self._last_rip_log = None
+        # Reset the announcement throttles so the NEXT rip's first phase is
+        # announced even if it matches the previous rip's last one. "Idle." is
+        # deliberately not announced — clearing the pane isn't news.
+        self._announced_status_key = ""
+        self._announced_ctdb_text = ""
 
     def append_log_line(self, line: str) -> None:
         """Append one line of whipper output to the streaming log view."""
@@ -369,6 +385,15 @@ class RipProgress(QWidget):
         """
         stamp = self._now().strftime("%H:%M:%S")
         self._status_label.setText(f"{stamp} · {text}")
+        # Focus-safe live announcement (gap #4): speak the phase to a screen
+        # reader WITHOUT touching focus — but only when the phase actually
+        # changes. The raw text redraws constantly ("… 27%", "… 28%", ETA
+        # ticks); announcing every redraw would drown the reader, so the
+        # percent/ETA tail after the "…" is not part of the dedup key.
+        key = status_phase_key(text)
+        if key and key != self._announced_status_key:
+            self._announced_status_key = key
+            announce(self._status_label, key)
 
     def set_rip_log(self, rip_log: RipLog) -> None:
         """Populate the AccurateRip table + verdict banner from a parsed log."""
@@ -379,6 +404,9 @@ class RipProgress(QWidget):
             self._verdict_banner.setText(message)
             self._verdict_banner.setStyleSheet(_banner_style(level))
             self._verdict_banner.setVisible(True)
+            # The trust headline is the one post-rip update a screen-reader user
+            # must not miss — announce it focus-safely (gap #4).
+            announce(self._verdict_banner, message)
         else:
             self._verdict_banner.setVisible(False)
 
@@ -386,6 +414,8 @@ class RipProgress(QWidget):
         effort = read_effort_summary_line(rip_log)
         self._read_effort_label.setText(effort)
         self._read_effort_label.setVisible(bool(effort))
+        if effort:
+            announce(self._read_effort_label, effort)
 
         tracks = rip_log.tracks
         self._ar_table.setRowCount(len(tracks))
@@ -439,11 +469,15 @@ class RipProgress(QWidget):
         self._comparison_label.setText(text)
         self._comparison_label.setStyleSheet(_banner_style(level))
         self._comparison_label.setVisible(True)
+        # A silently-changed track is exactly what a screen-reader user would
+        # otherwise never learn about — announce the comparison (gap #4).
+        announce(self._comparison_label, text)
 
     def set_ctdb_status(self, text: str) -> None:
         """Show an in-progress CTDB line (e.g. 'Verifying against CTDB…')."""
         self._ctdb_label.setText(text)
         self._ctdb_label.setVisible(True)
+        self._announce_ctdb(text)
 
     def set_ctdb_result(self, result: CtdbVerifyResult) -> None:
         """Render the final CTDB verdict under the AccurateRip table.
@@ -453,9 +487,11 @@ class RipProgress(QWidget):
         (``result.trustworthy`` False), a match falls back to an "experimental"
         label — we never claim a verification the algorithm can't stand behind.
         """
-        self._ctdb_label.setText(ctdb_verdict_line(result))
+        verdict_text = ctdb_verdict_line(result)
+        self._ctdb_label.setText(verdict_text)
         self._ctdb_label.setStyleSheet(_banner_style(ctdb_verdict_level(result)))
         self._ctdb_label.setVisible(True)
+        self._announce_ctdb(verdict_text)
 
         # Reconcile against AccurateRip so a CTDB "no match" beside an
         # AccurateRip "mostly accurate" doesn't read as a contradiction. Shown
@@ -501,6 +537,16 @@ class RipProgress(QWidget):
 
     # --- Internals ----------------------------------------------------------
 
+    def _announce_ctdb(self, text: str) -> None:
+        """Announce a CTDB line once — the in-progress ping, then the verdict.
+
+        Deduped on the full text so a repeated render of the same state (the
+        async handler can re-fire) never repeats itself to a screen reader.
+        """
+        if text and text != self._announced_ctdb_text:
+            self._announced_ctdb_text = text
+            announce(self._ctdb_label, text)
+
     def _default_view_file(self, path: Path, title: str) -> None:
         """Open ``path`` in the in-app read-only viewer (IMP-1), passing along the
         same injected ``open_url`` so the viewer's "Open externally…" button still
@@ -530,6 +576,20 @@ class RipProgress(QWidget):
         # A folder DOES have a default handler (the file manager), so openUrl is
         # the right call here — and revealing the folder is the whole point.
         self._open_url(QUrl.fromLocalFile(str(self._rip_dir)))
+
+
+def status_phase_key(text: str) -> str:
+    """The screen-reader dedup key for a status line: its *phase* clause.
+
+    Status texts carry a fast-changing numeric tail after an ellipsis —
+    "Ripping track 3 of 14… 27%", "Reading disc TOC… 42% — about 3m left" —
+    that redraws many times a second. The phase clause before the "…" is what
+    a listener actually needs ("Ripping track 3 of 14"), and it only changes
+    on real transitions (new track, new phase). A status with no ellipsis
+    (e.g. the finish verdict "Done — all 14 tracks verified, …") is its own
+    key, so it is announced in full, once. Pure; unit-tested directly.
+    """
+    return text.split("…", 1)[0].strip()
 
 
 def ctdb_verdict_line(result: CtdbVerifyResult) -> str:

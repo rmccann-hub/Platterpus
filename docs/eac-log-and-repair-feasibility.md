@@ -37,26 +37,13 @@ are not on. This reframes Part A from "how close can we get" to "this is
 categorically out of scope by design" — see PLANNING.md **KDD-24** for the
 full record.
 
-**Two corrections to the maintainer's 2026 ripper-landscape research doc**,
-surfaced while researching this:
-
-1. **whipper + `whipper-plugin-eaclogger` does not actually satisfy RED at
-   100%,** contrary to how the landscape doc frames it. The plugin renders an
-   EAC-*style* log, but it cannot emit the real EAC Rijndael-256 checksum RED
-   requires — the upstream issue tracking this is
-   [whipper-plugin-eaclogger#7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7),
-   still open. So whipper+eaclogger hits the *same* RED checksum wall
-   described below. Only whipper's **native** log (not the eaclogger plugin's
-   EAC-style one) is OPS/Orpheus-accepted, via SHA-256 under the
-   ripper-identity allow-list above — a narrower, different claim than
-   "satisfies RED."
-2. **"logchecker-go (pure Go)"** — cited in the landscape doc as a
-   characterization of the tracker tooling — **is unverified** as a claim
-   about implementation language and isn't the load-bearing fact anyway. The
-   fact that matters and *is* verifiable is the **scoring mechanics**:
-   ripper-identity allow-list, plus (for RED) the EAC checksum requirement.
-   Whatever language a given logchecker happens to be written in doesn't
-   change whether cyanrip passes it.
+**Two corrections to the maintainer's 2026 ripper-landscape research doc**
+surfaced while researching this — (1) whipper + `whipper-plugin-eaclogger`
+does **not** genuinely satisfy RED (the plugin hits the same EAC-checksum
+wall described below), and (2) the "logchecker-go (pure Go)" characterization
+is unverified and not load-bearing (the verifiable fact is the scoring
+mechanics). The full text of both corrections lives in PLANNING.md
+**KDD-24** — the designated record.
 
 ### The constraint
 
@@ -191,7 +178,9 @@ samples** and bring the track back to the consensus. We already do CTDB
   (done this session) converges most marginal tracks without any new dependency.
 - **Document the manual CUETools/ctdb-cli repair workflow** as the authoritative
   fix for a stubborn "partially accurate (450)" track (a power-user escape
-  hatch), pointing at the tools above.
+  hatch), pointing at the tools above. **✅ Written 2026-07-21:
+  [`manual-ctdb-repair.md`](manual-ctdb-repair.md)** (assembled strictly from
+  this doc + the investigation record; unexecuted steps marked unverified).
 - **Gate an in-app repair** behind: (a) ~~the CTDB CRC hardware-validation~~
   **cleared 2026-07-07 (KDD-16)**, (b) explicit maintainer appetite for the
   .NET/Mono dependency, and (c) repair-specific validation of the
@@ -227,8 +216,9 @@ samples** and bring the track back to the consensus. We already do CTDB
   but a heavy dependency that rewrites the master. The CRC-validation blocker
   **cleared 2026-07-07 (v0.4.20, KDD-16)**; the remaining gates are maintainer
   appetite for the .NET dependency and validation of the repair path itself.
-  `-Z N` shipped; document the manual workflow; gate the integration behind
-  maintainer sign-off + validation.
+  `-Z N` shipped; the manual workflow is documented
+  ([`manual-ctdb-repair.md`](manual-ctdb-repair.md), 2026-07-21); gate the
+  integration behind maintainer sign-off + validation.
 
 ---
 

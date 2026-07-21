@@ -928,3 +928,108 @@ def test_read_effort_summary_line_threshold_boundary() -> None:
     assert "1" in read_effort_summary_line(
         RipLog(tracks=(TrackResult(1, copy_crc="AA", rip_count=3),))
     )
+
+
+# --- Focus-safe live announcements (a11y gap #4) ----------------------------
+#
+# Every announcement goes through platterpus.ui.accessibility.announce, which
+# rip_progress imports by name — so the module attribute is the monkeypatch
+# target (the "patch where it's looked up" lesson, docs/architecture.md §5.1).
+
+
+def _capture_announcements(monkeypatch) -> list[str]:
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.rip_progress.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    return heard
+
+
+def test_status_announces_once_per_phase_not_per_percent(
+    qapp: QApplication, monkeypatch
+) -> None:
+    """The status label redraws constantly (percent/ETA); a screen reader must
+    hear each PHASE once — new percent silent, new track announced."""
+    heard = _capture_announcements(monkeypatch)
+    widget = RipProgress()
+
+    widget.set_status("Ripping track 1 of 14… 0%")
+    widget.set_status("Ripping track 1 of 14… 50%")
+    widget.set_status("Ripping track 1 of 14… 99%")
+    widget.set_status("Ripping track 2 of 14… 0%")
+
+    assert heard == ["Ripping track 1 of 14", "Ripping track 2 of 14"]
+
+
+def test_clear_resets_the_status_announcement_throttle(
+    qapp: QApplication, monkeypatch
+) -> None:
+    """A new rip's first phase must be announced even when it matches the
+    previous rip's last announced phase — and clearing itself says nothing."""
+    heard = _capture_announcements(monkeypatch)
+    widget = RipProgress()
+
+    widget.set_status("Starting rip… ")
+    widget.clear()
+    widget.set_status("Starting rip… ")
+
+    assert heard == ["Starting rip", "Starting rip"]
+
+
+def test_verdict_banner_and_read_effort_are_announced(
+    qapp: QApplication, monkeypatch
+) -> None:
+    heard = _capture_announcements(monkeypatch)
+    widget = RipProgress()
+
+    widget.set_rip_log(
+        RipLog(
+            tracks=(
+                TrackResult(
+                    1,
+                    copy_crc="AA",
+                    rip_count=5,
+                    accuraterip_v1=AccurateRipResult(1, confidence=9),
+                ),
+            )
+        )
+    )
+
+    # The trust headline is announced verbatim…
+    assert any(m.startswith("✓") for m in heard)
+    # …and the heavy-re-read warning too (rip_count 5 trips the footnote).
+    assert any("re-read" in m or "re-reading" in m for m in heard)
+
+
+def test_ctdb_line_is_announced_once_per_distinct_text(
+    qapp: QApplication, monkeypatch
+) -> None:
+    heard = _capture_announcements(monkeypatch)
+    widget = RipProgress()
+
+    widget.set_ctdb_status("Verifying against CTDB…")
+    widget.set_ctdb_status("Verifying against CTDB…")  # re-render: silent
+    widget.set_ctdb_result(
+        CtdbVerifyResult(Verdict.MATCH, confidence=8, crc_validated=True)
+    )
+
+    assert heard == [
+        "Verifying against CTDB…",
+        "CTDB: verified ✓ (confidence 8)",
+    ]
+
+
+def test_comparison_banner_is_announced(qapp: QApplication, monkeypatch) -> None:
+    heard = _capture_announcements(monkeypatch)
+    widget = RipProgress()
+
+    class _Comparison:
+        summary = "13 of 14 tracks byte-identical; 1 differs."
+        headline_level = "warn"
+        differing_count = 1
+
+    widget.set_comparison(_Comparison())
+
+    assert len(heard) == 1
+    assert "previous rip" in heard[0]

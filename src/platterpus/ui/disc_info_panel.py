@@ -28,6 +28,7 @@ from PySide6.QtWidgets import QFormLayout, QLabel, QWidget
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.ui.accessibility import announce
 
 # Placeholder shown in fields we don't have data for yet.
 _PLACEHOLDER: str = "—"
@@ -102,9 +103,13 @@ class DiscInfoPanel(QWidget):
 
         `text` is ready-to-display (e.g. "+667 — AccurateRip list (medium)" or
         a "⚠ …" guard line). Pushed by the main window from the drive profile;
-        this stays a pure view.
+        this stays a pure view. A guard *warning* (the "⚠ …" case — a possible
+        wrong-offset rip) is additionally announced to assistive technology:
+        it's a trust-critical line a screen-reader user must not miss (gap #4).
         """
         self._offset_value.setText(text or _PLACEHOLDER)
+        if "⚠" in text:
+            announce(self._offset_value, text)
 
     # --- AccurateRip outcome (from the parsed rip log) ----------------------
 
@@ -152,7 +157,11 @@ class DiscInfoPanel(QWidget):
         """Mark the disc fields as failed and show a short error."""
         self._mb_id_value.setText(_PLACEHOLDER)
         self._cddb_id_value.setText(_PLACEHOLDER)
-        self._mb_match_value.setText(f"error: {message}")
+        error_text = f"error: {message}"
+        self._mb_match_value.setText(error_text)
+        # A failed disc scan otherwise updates a passive label a screen-reader
+        # user never hears — announce it focus-safely (gap #4).
+        announce(self._mb_match_value, error_text)
 
     # --- MusicBrainz match (from MusicBrainzClient) --------------------------
 
@@ -161,19 +170,30 @@ class DiscInfoPanel(QWidget):
         self._mb_match_value.setText("querying MusicBrainz…")
 
     def set_mb_matches(self, releases: list[ReleaseSummary]) -> None:
-        """Render the count and (when unique) the matched release."""
+        """Render the count and (when unique) the matched release.
+
+        The outcome is also announced to assistive technology: identification
+        is the async status a user is actually waiting on after inserting a
+        disc, and it lands in a passive label that never takes focus (gap #4).
+        The transient "querying…" state is deliberately NOT announced — only
+        outcomes are news.
+        """
         if not releases:
-            self._mb_match_value.setText("not in MusicBrainz")
+            text = "not in MusicBrainz"
         elif len(releases) == 1:
             release = releases[0]
             artist = release.artist_credit or "Unknown Artist"
             title = release.title or "Unknown Title"
-            self._mb_match_value.setText(f"1 match: {artist} — {title}")
+            text = f"1 match: {artist} — {title}"
         else:
-            self._mb_match_value.setText(f"{len(releases)} matches found — pick one")
+            text = f"{len(releases)} matches found — pick one"
+        self._mb_match_value.setText(text)
+        announce(self._mb_match_value, f"MusicBrainz: {text}")
 
     def set_mb_error(self, message: str) -> None:
-        self._mb_match_value.setText(f"MusicBrainz error: {message}")
+        error_text = f"MusicBrainz error: {message}"
+        self._mb_match_value.setText(error_text)
+        announce(self._mb_match_value, error_text)
 
     # --- Internals ---------------------------------------------------------
 
@@ -193,6 +213,12 @@ class DiscInfoPanel(QWidget):
             Qt.TextInteractionFlag.TextSelectableByMouse
             | Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
+        # Qt sets only ClickFocus for keyboard-selectable labels, which makes
+        # the "select by keyboard" flag above unreachable without a mouse click
+        # first — so Tab could never land here and a keyboard-only user could
+        # not copy a disc ID at all (gap #4 sweep finding). StrongFocus adds
+        # TabFocus while keeping click-to-focus.
+        label.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         if accessible_name:
             label.setAccessibleName(accessible_name)
         return label

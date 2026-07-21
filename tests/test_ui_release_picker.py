@@ -177,3 +177,10 @@ def test_pick_button_label_is_descriptive(qapp: QApplication) -> None:
     dialog = ReleasePickerDialog([_release()])
     label = _button_box(dialog).button(QDialogButtonBox.StandardButton.Ok).text()
     assert "Pick" in label or "pick" in label
+
+
+def test_candidates_table_has_accessible_name(qapp: QApplication) -> None:
+    """Screen readers announce a table by its accessible name; the candidate
+    grid was the one main table still anonymous (a11y gap #4)."""
+    dialog = ReleasePickerDialog([_release()])
+    assert dialog._table.accessibleName()

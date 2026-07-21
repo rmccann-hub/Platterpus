@@ -5040,3 +5040,31 @@ def test_rip_comparison_no_banner_without_prior(
     qapp.processEvents()
 
     assert window._rip_progress._comparison_label.isHidden() is True
+
+
+def test_drive_diagnosis_fix_command_is_keyboard_copyable(
+    teardown_threads,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The diagnosis dialog's whole point is copying the fix command — that
+    must work by keyboard too: keyboard-selectable text, and the label
+    tab-reachable (Qt gives keyboard-selectable labels only ClickFocus, so
+    without the explicit StrongFocus Tab skips them). A11y gap #4."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel, QMessageBox
+
+    window = teardown_threads()
+    seen: list[QMessageBox] = []
+    monkeypatch.setattr(QMessageBox, "exec", lambda box: seen.append(box) or 0)
+
+    window._present_drive_diagnosis(_diag("permission", "sudo usermod -aG cdrom $USER"))
+
+    assert len(seen) == 1
+    box = seen[0]
+    assert box.textInteractionFlags() & Qt.TextInteractionFlag.TextSelectableByKeyboard
+    focusable = [
+        label
+        for label in box.findChildren(QLabel)
+        if label.focusPolicy() & Qt.FocusPolicy.TabFocus
+    ]
+    assert focusable  # at least the message text is in the tab chain

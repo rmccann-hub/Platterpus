@@ -60,6 +60,7 @@ pieces independently testable and replaceable.
 | **Parsers** | `parsers/` | Turn external tool output (rip logs, disc info) into typed dataclasses. Pure, never raise. | stdlib only |
 | **Deps** | `deps/` | The single dependency self-management subsystem (detect → install → guide) and the host bootstrap/teardown engines. | adapters, stdlib |
 | **Domain** | `ctdb/` | Backend-independent CTDB verify (TOC math, PCM decode, CRC). | adapters, stdlib |
+| **Qt-free domain modules** | ~25 top-level modules (`verdict.py`, `rip_report.py`, `parity.py`, `rip_compare.py`, `naming.py`, `settings_validation.py`, …) | One pure, Qt-free concern each (verdicts, reports, parity, naming, validation, timing, …). **The canonical per-module map is PLANNING.md §2** — look there, not here, for what each does. | parsers, adapters, stdlib |
 | **Core** | `config.py`, `paths.py`, `logging_setup.py`, `app.py`, `composition.py` | Config schema, well-known paths, app entry, and the composition root. | everything (composition) |
 
 `app.py` is the **composition root**, with the reusable construction logic in
@@ -380,6 +381,30 @@ comments accurate too — they document *which* mixin owns each concern).
   machines), so it earned its place in neither. The global log is the program-
   failure catch-all; the JSON is the per-album debug record. Removing either loses
   a case the other can't cover.
+
+### 3.8 Live status surfaces announce, focus-safely (accessibility)
+
+A passive `QLabel`/banner that changes text is **invisible to a screen reader**
+unless the widget takes keyboard focus — and stealing focus mid-rip is exactly
+what an accessible app must never do. So every *live* status/verdict surface
+(rip status line, verdict banners, CTDB line, wizard steps, install rows,
+Settings validation, MB identification outcomes) also calls
+`ui.accessibility.announce(widget, message)` — Qt's announcement event, the
+desktop `aria-live`: spoken by assistive technology while focus stays put.
+Rules when adding one:
+
+- **Announce state changes, never repaints.** A percent/ETA tick is not news;
+  throttle like `RipProgress.set_status` (dedup on `status_phase_key`, the
+  clause before the "…") or on the full text for low-frequency lines.
+- **Outcomes, not transients** ("querying…" is silent; "1 match: …" speaks).
+- The helper **never raises**, feature-detects the Qt API, and is a cheap no-op
+  offscreen — safe to call unconditionally; tests monkeypatch the *importing
+  module's* `announce` name (§5.1) and assert on the messages.
+- Also keep every affordance **keyboard-reachable**: Qt gives
+  keyboard-selectable labels only `ClickFocus` (set `StrongFocus` explicitly —
+  the disc-ID labels bug), QLabel links need `LinksAccessibleByKeyboard`, and
+  prominent buttons carry unique `&`-mnemonics per window
+  (`tests/test_ui_accessibility.py` pins the uniqueness).
 
 ## 4. Extension points — how to add things
 

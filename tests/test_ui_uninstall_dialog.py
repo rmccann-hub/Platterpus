@@ -213,3 +213,19 @@ def test_close_event_marks_closing_and_stops(qapp: QApplication) -> None:
     dialog.close()  # delivers a real QCloseEvent → closeEvent
     assert dialog._closing is True
     assert dialog._thread is None
+
+
+def test_step_starts_and_finish_are_announced(qapp: QApplication, monkeypatch) -> None:
+    """Same focus-safe announcement contract as the setup wizard (a11y gap #4)."""
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.uninstall_dialog.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    dialog = _dialog(qapp)
+
+    dialog._on_step(StepResult("shortcuts", "Shortcuts", StepStatus.RUNNING))
+    dialog._on_finished([StepResult("shortcuts", "Shortcuts", StepStatus.RAN)])
+
+    assert any("Shortcuts" in m for m in heard)
+    assert heard[-1] == dialog._status_label.text()

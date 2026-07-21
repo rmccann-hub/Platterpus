@@ -329,3 +329,67 @@ def test_set_drive_clears_offset_provenance(qapp: QApplication) -> None:
     panel.set_drive_offset_provenance("+667 — measured on this drive (high)")
     panel.set_drive("/dev/sr1")  # picking a new drive clears the stale line
     assert panel._offset_value.text() == "—"
+
+
+# --- Keyboard reachability + announcements (a11y gap #4) ---------------------
+
+
+def test_value_labels_are_tab_reachable(qapp: QApplication) -> None:
+    """Qt gives keyboard-selectable labels only ClickFocus, so without an
+    explicit StrongFocus a keyboard-only user could never Tab to a disc ID to
+    copy it — the flag would be dead. Regression for the gap-#4 sweep fix."""
+    from PySide6.QtCore import Qt
+
+    panel = DiscInfoPanel()
+    for label in (
+        panel._drive_value,
+        panel._mb_id_value,
+        panel._cddb_id_value,
+        panel._mb_match_value,
+        panel._accuraterip_value,
+        panel._offset_value,
+    ):
+        assert label.focusPolicy() & Qt.FocusPolicy.TabFocus
+        assert (
+            label.textInteractionFlags()
+            & Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+
+
+def _capture_announcements(monkeypatch) -> list[str]:
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.disc_info_panel.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    return heard
+
+
+def test_mb_outcomes_are_announced(qapp: QApplication, monkeypatch) -> None:
+    """Disc identification is the async status the user is waiting on after
+    inserting a disc — its outcomes must be audible without focus (gap #4)."""
+    heard = _capture_announcements(monkeypatch)
+    panel = DiscInfoPanel()
+
+    panel.set_mb_loading()  # transient — deliberately NOT announced
+    panel.set_mb_matches([])
+    panel.set_mb_error("rate limited")
+    panel.set_disc_info_error("no disc")
+
+    assert heard == [
+        "MusicBrainz: not in MusicBrainz",
+        "MusicBrainz error: rate limited",
+        "error: no disc",
+    ]
+
+
+def test_offset_guard_warning_is_announced(qapp: QApplication, monkeypatch) -> None:
+    """The wrong-offset guard line is trust-critical; the plain provenance
+    line is routine and stays silent."""
+    heard = _capture_announcements(monkeypatch)
+    panel = DiscInfoPanel()
+
+    panel.set_drive_offset_provenance("+667 — AccurateRip list (medium)")
+    panel.set_drive_offset_provenance("⚠ two identical drives share this profile")
+
+    assert heard == ["⚠ two identical drives share this profile"]

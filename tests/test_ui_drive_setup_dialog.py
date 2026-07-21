@@ -190,3 +190,45 @@ def test_format_result_negative_offset_signed() -> None:
     text = _format_result(DriveSetupResult(offset=-582, can_defeat_cache=False))
     assert "-582 samples" in text
     assert "doesn't cache audio" in text
+
+
+# --- Keyboard reachability + announcements (a11y gap #4) ---------------------
+
+
+def test_offset_lookup_link_is_keyboard_followable(qapp: QApplication) -> None:
+    """The accuraterip.com lookup link was mouse-only (QLabel default) — the
+    one affordance in this dialog a keyboard user couldn't reach. The
+    keyboard-links flag also puts the label in the tab chain (StrongFocus)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QLabel
+
+    dialog = DriveSetupDialog(_StubBackend(), "/dev/sr0")
+    link_labels = [
+        label
+        for label in dialog.findChildren(QLabel)
+        if "accuraterip.com" in label.text()
+    ]
+    assert len(link_labels) == 1
+    flags = link_labels[0].textInteractionFlags()
+    assert flags & Qt.TextInteractionFlag.LinksAccessibleByKeyboard
+    assert link_labels[0].focusPolicy() & Qt.FocusPolicy.TabFocus
+
+
+def test_manual_offset_spin_has_accessible_name(qapp: QApplication) -> None:
+    dialog = DriveSetupDialog(_StubBackend(), "/dev/sr0")
+    assert dialog._offset_spin.accessibleName()
+
+
+def test_save_offset_confirmation_is_announced(qapp: QApplication, monkeypatch) -> None:
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.drive_setup_dialog.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    dialog = DriveSetupDialog(_StubBackend(), "/dev/sr0")
+    dialog._offset_spin.setValue(667)
+
+    dialog._on_save_offset_clicked()
+
+    assert len(heard) == 1
+    assert "+667" in heard[0]
