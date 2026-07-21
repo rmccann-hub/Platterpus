@@ -1,5 +1,13 @@
 # Upstream open-source modification — EAC-parity investigation
 
+> **ARCHIVED (retired point-in-time investigation).** The open items in the
+> 2026-06-03 update blockquote below have since closed: CTDB verify was
+> GUI-wired 2026-06-17 and the CRC hardware-validated 2026-07-07 (KDD-16).
+> Durable conclusions graduated to KDD-14/KDD-16 and the non-feasible list —
+> see [`README.md`](README.md) for the mapping. Body preserved as the dated
+> record.
+
+
 **Status: investigation only (2026-06-02).** No code here. This records what
 could be gained by *modifying the open-source programs underneath us* (not just
 wrapping them, which is all we've done so far), how feasible each is, and — just

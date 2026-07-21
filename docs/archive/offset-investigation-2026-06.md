@@ -1,5 +1,13 @@
 # Read-offset subsystem — investigation & refactor (2026-06)
 
+> **ARCHIVED (retired point-in-time investigation).** Describes the
+> whipper-era wizard flow and config paths in present tense; since KDD-18 the
+> offset lives in the GUI's own config (fed to cyanrip as `-s`). Durable
+> conclusions graduated to `adapters/accuraterip_offsets.py` /
+> `scripts/update_drive_offsets.py` and KDD-15/KDD-23 — see
+> [`README.md`](README.md) for the mapping. Body preserved as the dated record.
+
+
 **Trigger:** on a from-scratch test with a *recognizable* CD, auto-detect of the
 drive read offset failed. This is a complete investigation of the offset
 subsystem, the refactor that fixed it, and what remains hardware/data-gated.

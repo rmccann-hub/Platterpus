@@ -45,6 +45,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **AppImage/build/SOP docs corrected; dated records got preservation
+  banners.** `appimage-testing.md` now documents the `workflow_dispatch`
+  release route (the only one that works from cloud sessions), the `.zsync` +
+  PyPI hand-off in the asset checklist, artifact expiry, and the cyanrip host
+  stack. `build/python-appimage/README.md` no longer omits `pyproject.toml`
+  from the pin-update instruction (following it would have desynced the three
+  sources) and describes what the build script actually does.
+  `github-workflow-sop.md`'s preface now lists all four CLAUDE.md
+  divergences, §7.1 matches the all-PRs squash policy, and the footer credits
+  the roadmap for the PR ordering. The research brief, the session-start
+  bootstrap, the three 2026-06 archive investigations, and both dated audits
+  gained preservation banners / status addenda (bodies unedited) so none of
+  them reads as current where reality moved on.
 - **`output_reference/` + `tests/fixtures/` READMEs match the committed
   proofs.** The layout matrix no longer marks the committed cyanrip FLAC
   (12/14) and MP3 (13/14) proofs as empty; the whipper row and the three

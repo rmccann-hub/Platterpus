@@ -1,5 +1,19 @@
 # Trust & quality deep audit (2026-07-08)
 
+> **Status addendum (2026-07-21 — body below unedited, a dated record).**
+> Several deferred rows have since closed: **#3** (static type checker) — a
+> gating mypy CI job shipped in v0.4.23 and strict def-typing went
+> package-wide 2026-07-19/20; **#9b** (known-disc re-rip overwrite) — the
+> Replace / Rip-to-new-folder / Cancel confirm dialog shipped in v0.4.23;
+> **#4** is partially done (`SOURCE_DATE_EPOCH` shipped in the build script;
+> the hash-pinning half remains open). The "not yet audited"
+> config-file / CLI-arg validation surfaces were swept and confirmed
+> 2026-07-08/09 (see TASKS.md). One citation correction: the naming-sweep
+> paragraph's "Critical Rule #3 — the ripper owns naming" conflates the rule's
+> *number* — #3 is Distrobox routing; the ripper-owns-its-output principle is
+> the routing rule's corollary, not its title. Live tracking: the TASKS.md
+> trust-hardening section.
+
 A maintainer-requested "what did we miss, especially around breaking trust"
 audit. Research spanned seven categories — the four the maintainer named
 (preventative practices, general best practices, input validation, naming
@@ -107,4 +121,4 @@ tests). This closes the trust-integrity render-sweep charter.
 
 ---
 
-*Last updated for Platterpus v0.4.22.*
+*Last updated for Platterpus v0.4.24.*
