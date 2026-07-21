@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-21
+
 ### Added
 - **Overread toggle (Settings → Overread, off by default)**: ask the drive to
   read the disc's outermost samples from the lead-in/lead-out (cyanrip's `-O`)
@@ -2785,7 +2787,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
 [0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
 [0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
 [0.4.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.21...v0.4.22
