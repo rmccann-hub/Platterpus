@@ -53,9 +53,8 @@ Platterpus/
 │   ├── eac-log-and-repair-feasibility.md # EAC-log emit + CTDB repair feasibility (decision-gated)
 │   ├── ripper-engine-strategy.md        # living research: forking/combining whipper + cyanrip (KDD-18)
 │   ├── upstream-pr-roadmap.md           # ranked upstream-PR action list (closes strategy §10 gaps)
-│   ├── cyanrip-soft-fork.md             # soft-fork runbook (+ cyanrip-soft-fork-verify-meta-colon.c proof harness)
+│   ├── cyanrip-soft-fork.md             # soft-fork runbook (proof harness: scripts/cyanrip/verify-meta-colon.c)
 │   ├── github-workflow-sop.md           # generic GitHub SOP (CLAUDE.md wins where they differ)
-│   ├── audit-2026-07-02.md              # dated full-repo audit record
 │   ├── trust-audit-2026-07-08.md        # dated trust & supply-chain audit record
 │   ├── session-log.md                   # chronological session history (newest first)
 │   ├── archive/                         # retired investigations + external reference (see archive/README.md)
@@ -63,6 +62,7 @@ Platterpus/
 │   │   ├── ecosystem-audit-2026-06.md   # whipper-stalled / cyanrip-successor audit (KDD-18)
 │   │   ├── offset-investigation-2026-06.md # read-offset → offset-by-drive-model lookup
 │   │   ├── upstream-modification-investigation.md # EAC-parity investigation (CTDB, whipper)
+│   │   ├── audit-2026-07-02.md          # dated full-repo audit record (archived 2026-07-21)
 │   │   └── archival-extraction-guide-2026-06.md   # external EAC archival master guide (reference)
 │   └── (compass_artifact_*.md if/when produced — see docs/README.md)
 │
@@ -78,7 +78,8 @@ Platterpus/
 │       ├── README.md                    # kit map + order of operations
 │       ├── apply-colon-fix.py           # idempotent colon-fix patcher for a cyanrip checkout (dry-run default)
 │       ├── build.sh / setup-fork.sh     # build cyanrip in the container / set up the soft fork
-│       └── issue-colon.md / issue-encoder-opts.md / pr-colon.md   # paste artifacts (no doc stamps by design)
+│       ├── issue-colon.md / issue-encoder-opts.md / pr-colon.md   # paste artifacts (no doc stamps by design)
+│       └── verify-meta-colon.c          # ASan/UBSan-verified proof harness for the colon fix
 │
 ├── assets/                              # the SVG logo + rendered icon sizes (make_icon.py output)
 ├── data/                                # AppStream metainfo (io.github.rmccann_hub.Platterpus.metainfo.xml)

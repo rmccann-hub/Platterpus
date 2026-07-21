@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **`docs/audit-2026-07-02.md` retired to `docs/archive/`** (maintainer-
+  approved doc-map move): its §E remainders were already graduated to the
+  TASKS.md Documentation backlog, the archive index gained the graduation
+  row, and every inbound reference was retargeted. **The colon-fix proof
+  harness moved into the kit** as `scripts/cyanrip/verify-meta-colon.c`
+  (the kit is the declared execution layer) with the runbook, test
+  docstring, indexes, and PLANNING tree updated.
 - **Dependency-review catch-up logged for v0.4.19–v0.4.24** in
   `DEPENDENCIES.md` (maintainer-approved): all pins verified healthy against
   live PyPI — notably mypy is at 2.3.0 upstream, so the `>=1.13,<3` bound is

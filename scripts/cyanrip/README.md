@@ -21,6 +21,7 @@ command.
 | `build.sh` | `meson setup build && ninja` in the `ripping` container; prints the binary + export step. |
 | `issue-colon.md` / `pr-colon.md` | Copy-paste GitHub issue + PR bodies for the colon fix. |
 | `issue-encoder-opts.md` | Copy-paste issue for the full-FLAC-encoder-args request (sanity-check the flag name with the maintainer first). |
+| `verify-meta-colon.c` | Standalone proof harness for the colon fix — transcribes the current + fixed `append_missing_keys` 1:1, asserts all four cases; build & run with `gcc -Wall -Wextra -fsanitize=address,undefined`. |
 
 ## Order (colon fix — do this first)
 

@@ -152,7 +152,7 @@ no reformatting. **Callers pass a literal colon as `\:`** (which
 mangles it.
 
 **Verified (2026-07-08) — the algorithm is proven before it goes upstream.**
-`docs/cyanrip-soft-fork-verify-meta-colon.c` transcribes the current function
+`scripts/cyanrip/verify-meta-colon.c` (moved into the kit 2026-07-21) transcribes the current function
 1:1 (FFmpeg helpers → libc: `av_mallocz`→`calloc`, `av_strtok`→`strtok_r`) and
 the fixed function, and asserts all four cases. Built ASan/UBSan-clean
 (`gcc -Wall -Wextra -fsanitize=address,undefined`) and run:
