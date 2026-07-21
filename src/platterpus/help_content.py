@@ -148,6 +148,13 @@ named from the album artist/title you type.
   FLAC master, which is always kept, so you never lose the archival copy.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
+- **Move finished rips to** — optional library folder. When set, a successful
+  rip's album folder is moved there automatically — but only once every
+  post-rip check has finished (tagging, cover art, verification, checksums),
+  so your library only ever receives finished, verified rips. If a folder
+  with the same name already exists, the new rip lands beside it as
+  "… (2)" — nothing is ever overwritten. Leave empty to keep rips in the
+  output folder.
 - **Cover art** — off, embedded, or saved as a file. The app fetches the front
   cover from the Cover Art Archive after the rip and embeds/saves it.
 - **Max retries** — how many times the ripper retries a troublesome track

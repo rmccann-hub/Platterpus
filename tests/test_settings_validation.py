@@ -265,6 +265,7 @@ def test_validate_never_raises_on_garbage() -> None:
 _BAD_VALUES: dict[str, object] = {
     "output_dir": "",  # empty
     "working_dir": "relative/not/absolute",
+    "library_dir": "relative/not/absolute",  # optional, but non-empty must be absolute
     "track_template": "",  # empty
     "disc_template": "/leading/slash",  # absolute
     "track_template_unknown": "a/../b",  # path traversal
@@ -478,3 +479,25 @@ def test_cross_fs_trailing_dot_or_space_flagged() -> None:
     assert any("dot/space" in h for h in cross_fs_hazards("Best Of./%t"))
     assert any("dot/space" in h for h in cross_fs_hazards("Best Of /%t"))
     assert cross_fs_hazards("Best Of/%t") == []
+
+
+# --- Library folder (optional dir — auto-move feature) ------------------------
+
+
+def test_library_dir_empty_is_valid_feature_off() -> None:
+    """Empty = the auto-move feature is off — a fresh default config must not
+    warn or error on it."""
+    issues = sv.validate_config(Config(library_dir=""))
+    assert not any(i.field == "library_dir" for i in issues)
+
+
+def test_library_dir_relative_is_error() -> None:
+    issues = sv.validate_config(Config(library_dir="music/library"))
+    assert any(i.field == "library_dir" and i.is_error() for i in issues)
+
+
+def test_library_dir_control_char_only_is_error() -> None:
+    """A control char that str.strip() classifies as whitespace must not slip
+    through the 'empty means off' branch into the persisted config."""
+    issues = sv.validate_config(Config(library_dir="\x1f"))
+    assert any(i.field == "library_dir" and i.is_error() for i in issues)

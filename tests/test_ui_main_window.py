@@ -5068,3 +5068,129 @@ def test_drive_diagnosis_fix_command_is_keyboard_copyable(
         if label.focusPolicy() & Qt.FocusPolicy.TabFocus
     ]
     assert focusable  # at least the message text is in the tab chain
+
+
+# --- Auto-move finished rips to the library (Settings library_dir) ----------
+
+
+def _rip_folder(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """A fake finished rip: (output root, album folder, its log file)."""
+    out = tmp_path / "out"
+    rip_dir = out / "Artist" / "Album"
+    rip_dir.mkdir(parents=True)
+    log_file = rip_dir / "Album.log"
+    log_file.write_text("log")
+    return out, rip_dir, log_file
+
+
+def _move_params(out: Path) -> Any:
+    from platterpus.workers.rip_worker import RipParameters
+
+    return RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=out,
+        track_template="t",
+        disc_template="d",
+    )
+
+
+def test_library_move_waits_for_settlement_then_moves(
+    teardown_threads,
+    process_until,
+    tmp_path: Path,
+) -> None:
+    """The armed move fires only once every post-rip worker is done, moves the
+    album folder, and repoints the post-rip buttons at the new home."""
+    out, rip_dir, log_file = _rip_folder(tmp_path)
+    library = tmp_path / "library"
+    window = teardown_threads(
+        config=Config(output_dir=str(out), library_dir=str(library))
+    )
+    window._last_rip_log_file = log_file
+    params = _move_params(out)
+
+    window._maybe_schedule_library_move(rip_dir, params)
+    assert window._pending_library_move is not None
+
+    # A fresh window has no live post-rip workers, so the poll should settle,
+    # move the folder on a daemon thread, and deliver library_move_done.
+    moved = process_until(
+        lambda: (library / "Album").is_dir() and not rip_dir.exists(), timeout=10.0
+    )
+    assert moved
+    settled = process_until(
+        lambda: window._last_rip_log_file == library / "Album" / "Album.log",
+        timeout=10.0,
+    )
+    assert settled
+    assert window._rip_progress._log_path == library / "Album" / "Album.log"
+    assert window._pending_library_move is None
+
+
+def test_library_move_not_armed_when_feature_off_or_folder_unsafe(
+    teardown_threads,
+    tmp_path: Path,
+) -> None:
+    out, rip_dir, _log = _rip_folder(tmp_path)
+    params = _move_params(out)
+
+    # Feature off (empty library_dir) → never armed.
+    window = teardown_threads(config=Config(output_dir=str(out)))
+    window._maybe_schedule_library_move(rip_dir, params)
+    assert window._pending_library_move is None
+
+    # Album folder fell back to the OUTPUT ROOT (no rip log) → refused: moving
+    # it would relocate the user's whole workspace.
+    window2 = teardown_threads(
+        config=Config(output_dir=str(out), library_dir=str(tmp_path / "library"))
+    )
+    window2._maybe_schedule_library_move(out, params)
+    assert window2._pending_library_move is None
+
+
+def test_library_move_abandoned_when_a_newer_rip_starts(
+    teardown_threads,
+    process_until,
+    tmp_path: Path,
+) -> None:
+    out, rip_dir, _log = _rip_folder(tmp_path)
+    library = tmp_path / "library"
+    window = teardown_threads(
+        config=Config(output_dir=str(out), library_dir=str(library))
+    )
+    params = _move_params(out)
+    window._maybe_schedule_library_move(rip_dir, params)
+    window._rip_generation += 1  # a newer rip began
+
+    dropped = process_until(lambda: window._pending_library_move is None, timeout=10.0)
+    assert dropped
+    assert rip_dir.is_dir()  # the folder stayed put
+    assert not (library / "Album").exists()
+
+
+def test_post_rip_work_settled_respects_live_threads_and_report_timer(
+    teardown_threads,
+    tmp_path: Path,
+) -> None:
+    import threading as _threading
+
+    window = teardown_threads(config=Config(output_dir=str(tmp_path)))
+    assert window._post_rip_work_settled() is True
+
+    gate = _threading.Event()
+    worker = _threading.Thread(target=gate.wait, daemon=True)
+    worker.start()
+    window._ctdb_thread = worker
+    try:
+        assert window._post_rip_work_settled() is False
+    finally:
+        gate.set()
+        worker.join(2.0)
+    assert window._post_rip_work_settled() is True
+
+    window._rip_report_timer.start()  # a debounced report write is pending
+    try:
+        assert window._post_rip_work_settled() is False
+    finally:
+        window._rip_report_timer.stop()

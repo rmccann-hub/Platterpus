@@ -118,6 +118,19 @@ def validate_config(config: Config) -> list[ValidationIssue]:
     try:
         issues += _validate_dir("output_dir", config.output_dir, "Output directory")
         issues += _validate_dir("working_dir", config.working_dir, "Working directory")
+        # The library folder is OPTIONAL — empty means "leave rips in the
+        # output directory" (the feature is off), so only a non-empty value
+        # goes through the directory rules.
+        if (config.library_dir or "").strip():
+            issues += _validate_dir("library_dir", config.library_dir, "Library folder")
+        elif _has_control_char(config.library_dir or ""):
+            # A control char hiding in "whitespace" must still be rejected —
+            # the strip() above would otherwise let it persist to config.toml.
+            issues.append(
+                ValidationIssue(
+                    "library_dir", "Library folder contains an illegal character."
+                )
+            )
 
         for field_name, label in (
             ("track_template", "Track template"),
@@ -242,6 +255,7 @@ def validated_field_names() -> frozenset[str]:
             "read_speed_mode",
             "rip_goal",
             "integration_declined_path",
+            "library_dir",
             "schema_version",
         }
         | set(_BOOL_FIELDS)

@@ -20,6 +20,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   matched; upstream's "may freeze if unsupported by drive" caveat is surfaced
   in the tooltip and User Guide.
 
+- **Auto-move finished rips to a library folder** (Settings → "Move finished
+  rips to", empty = off): a successful rip's album folder is filed into the
+  library only after every post-rip check has settled — tagging, cover art,
+  transcode, the whole verification suite, checksums, and the report write all
+  finish first, so nothing ever verifies or hashes a file mid-move. Collisions
+  land in a "(N)" sibling (never overwritten), the View log / report / folder
+  buttons repoint to the new home, and the "you've ripped this before"
+  comparison now searches the library too. A failed move just leaves the rip
+  in the output folder and says so — it never looks like a failed rip.
 - **Live per-track progress bars**: the track table's Status column now shows
   a real progress bar (percent visible in the bar) on the row currently being
   ripped, driven by the same live percent as the bottom progress bar; a

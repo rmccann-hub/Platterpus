@@ -165,6 +165,14 @@ class Config:
     # again — exactly the update case where re-offering is wanted.
     integration_declined_path: str = ""
 
+    # Library folder for finished rips ("" = off, the default). When set, a
+    # SUCCESSFUL rip's album folder is moved here — but only after every
+    # post-rip check has settled (tagging, cover art, transcode, the whole
+    # verification suite, checksums, the report write), so nothing ever
+    # verifies or hashes a file mid-move. The rip itself always lands in
+    # output_dir first; this is the "then file it in my library" step.
+    library_dir: str = ""
+
     # Debug logging: when True, the log file at ~/.local/share/platterpus/
     # log.txt records verbose DEBUG detail (every probe, subprocess argv,
     # parser step) instead of the default INFO. Off by default — a tester

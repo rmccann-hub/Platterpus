@@ -216,6 +216,15 @@ class MainWindowShared(_SeamBase):
     _ctdb_thread: threading.Thread | None
     _flac_verify_thread: threading.Thread | None
     _derived_verify_thread: threading.Thread | None
+    _checksums_thread: threading.Thread | None
+    _comparison_thread: threading.Thread | None
+    _library_move_thread: threading.Thread | None
+
+    # Auto-move to the library: the armed pending move — (album folder,
+    # library folder, rip generation) — plus the settlement poll timer that
+    # fires the move once every post-rip worker above has wound down.
+    _pending_library_move: tuple[Path, Path, int] | None
+    _library_move_timer: QTimer
 
     # Per-rip result snapshots, reset to None at the start of each finish and
     # filled as each (possibly async) check lands, so the coalesced report
@@ -266,6 +275,7 @@ class MainWindowShared(_SeamBase):
     derived_verify_done: Signal
     checksums_done: Signal
     rip_comparison_done: Signal
+    library_move_done: Signal
     _mb_lookup_disc_id_requested: Signal
     _mb_fetch_release_requested: Signal
 

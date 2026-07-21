@@ -90,6 +90,21 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Working directory:", working_row)
 
+        # Library folder (optional — empty leaves rips in the output directory).
+        # When set, a finished rip's album folder is moved here AFTER every
+        # post-rip check settles (see main_window_rip._maybe_schedule_library_move).
+        self._library_dir_edit, library_row = self._build_dir_row(
+            config.library_dir, "Library folder"
+        )
+        self._library_dir_edit.setToolTip(
+            "Optional. When set, a successful rip's album folder is moved here "
+            "once every post-rip check has finished (tagging, cover art, the "
+            "verification suite, checksums) — so the output directory stays a "
+            "workspace and your library only ever receives finished, verified "
+            "rips. Leave empty to keep rips in the output directory."
+        )
+        form.addRow("Move finished rips to:", library_row)
+
         # --- Templates ---
         # A preset dropdown so the common layouts are one click instead of a
         # hand-written code string (the old default looked terrible — repeated
@@ -509,6 +524,7 @@ class SettingsDialog(CenteredDialog):
         self._validated_widgets: dict[str, QWidget] = {
             "output_dir": self._output_dir_edit,
             "working_dir": self._working_dir_edit,
+            "library_dir": self._library_dir_edit,
             "track_template": self._track_template_edit,
             "disc_template": self._disc_template_edit,
             "track_template_unknown": self._track_template_unknown_edit,
@@ -521,6 +537,7 @@ class SettingsDialog(CenteredDialog):
         for edit in (
             self._output_dir_edit,
             self._working_dir_edit,
+            self._library_dir_edit,
             self._track_template_unknown_edit,
             self._disc_template_unknown_edit,
             self._metaflac_path_edit,
@@ -563,6 +580,7 @@ class SettingsDialog(CenteredDialog):
         return Config(
             output_dir=self._output_dir_edit.text(),
             working_dir=self._working_dir_edit.text(),
+            library_dir=self._library_dir_edit.text(),
             track_template=self._track_template_edit.text(),
             disc_template=self._disc_template_edit.text(),
             track_template_unknown=self._track_template_unknown_edit.text(),

@@ -1108,6 +1108,11 @@ class RipMixin(MainWindowShared):
             # into the one debug report via checksums_done.
             self._start_checksums(rip_dir, wait_for=post_rip_thread)
 
+            # Auto-move to the library (Settings "Move finished rips to", "" =
+            # off): armed here, executed only once EVERY post-rip worker above
+            # has settled — nothing may verify/hash/rewrite a file mid-move.
+            self._maybe_schedule_library_move(rip_dir, params)
+
         # Auto-eject on a clean finish if the user opted in. Only on success —
         # a failed/cancelled rip leaves the disc in so the user can retry, and
         # ejecting mid-failure could fight the force-stop path.
@@ -1534,13 +1539,20 @@ class RipMixin(MainWindowShared):
 
         report_path = rip_report.report_path_for(log_file)
         output_root = Path(self._config.output_dir)
+        # With auto-move on, prior rips live in the LIBRARY folder, not the
+        # output workspace — scan it too (snapshotted here, on the GUI thread).
+        library_text = (self._config.library_dir or "").strip()
+        extra_roots = (Path(library_text),) if library_text else ()
 
         def compute() -> object:
             current = rip_compare.load_report(report_path)
             if current is None or not current.get("tracks"):
                 return None  # nothing to compare against
             prior = rip_compare.find_prior_report(
-                report_path, output_root, current_report=current
+                report_path,
+                output_root,
+                current_report=current,
+                extra_roots=extra_roots,
             )
             if prior is None:
                 return None  # no earlier rip of this disc → no banner
@@ -1565,6 +1577,135 @@ class RipMixin(MainWindowShared):
         """Render the re-rip comparison banner (queued to the GUI thread)."""
         self._rip_progress.set_comparison(comparison)
         log.info("re-rip comparison: %s", getattr(comparison, "summary", ""))
+
+    # --- Auto-move finished rips to the library ------------------------------
+
+    def _maybe_schedule_library_move(
+        self, rip_dir: Path, params: RipParameters
+    ) -> None:
+        """Arm the library move for a just-finished successful rip.
+
+        The move itself must wait for every post-rip worker (tag/cover/
+        transcode, the verification suite, checksums, the comparison scan) and
+        the debounced report write — moving the folder under a live verify
+        would hand it a vanished path mid-decode. So this only records the
+        intent and starts the settlement poll; :meth:`_poll_library_move` fires
+        the actual move once everything has wound down. No-op when the feature
+        is off (empty ``library_dir``).
+        """
+        library_text = (self._config.library_dir or "").strip()
+        if not library_text:
+            return
+        # Only ever move a real per-album folder. When no rip log was found,
+        # the caller's rip_dir FELL BACK to the output root — "moving" that
+        # would relocate the user's whole workspace into the library. Refuse.
+        try:
+            is_output_root = (
+                Path(rip_dir).resolve() == Path(params.output_dir).resolve()
+            )
+        except OSError:
+            is_output_root = rip_dir == params.output_dir
+        if is_output_root:
+            log.warning(
+                "library move skipped: the album folder could not be identified "
+                "(no rip log), so there is nothing safe to move"
+            )
+            return
+        self._pending_library_move = (
+            Path(rip_dir),
+            Path(library_text),
+            self._rip_generation,
+        )
+        self._library_move_timer.start()
+
+    def _post_rip_work_settled(self) -> bool:
+        """True when every post-rip worker is done and no report write pends.
+
+        The settlement gate for the library move: all the daemon threads the
+        finish handler may have spawned (tag/cover/transcode, CTDB, FLAC
+        verify, derived verify, checksums, the comparison scan) plus the
+        debounced report timer. ``getattr`` with a default because the thread
+        attributes only exist once their first launch happened this session.
+        """
+        for attr in (
+            "_post_rip_thread",
+            "_ctdb_thread",
+            "_flac_verify_thread",
+            "_derived_verify_thread",
+            "_checksums_thread",
+            "_comparison_thread",
+        ):
+            thread = getattr(self, attr, None)
+            if thread is not None and thread.is_alive():
+                return False
+        return not self._rip_report_timer.isActive()
+
+    def _poll_library_move(self) -> None:
+        """Settlement-poll slot: fire the armed library move once it's safe.
+
+        Runs on the GUI thread every 500ms while a move is pending. Abandons
+        the move if a newer rip has started (its folder stays in the output
+        directory — moving it then would race the new rip's post-rip state);
+        otherwise waits for :meth:`_post_rip_work_settled`, flushes the report
+        (so the finished JSON travels WITH the folder), and hands the actual
+        filesystem move to a daemon thread via the shared generation-guarded
+        launcher.
+        """
+        pending = self._pending_library_move
+        if pending is None:
+            self._library_move_timer.stop()
+            return
+        rip_dir, library, generation = pending
+        if generation != self._rip_generation:
+            self._pending_library_move = None
+            self._library_move_timer.stop()
+            log.info("library move of %s abandoned: a newer rip started", rip_dir)
+            return
+        if not self._post_rip_work_settled():
+            return  # keep polling
+        self._pending_library_move = None
+        self._library_move_timer.stop()
+        # The debounced report write targets the CURRENT path — flush it now so
+        # the complete report moves with the folder instead of being written
+        # into a folder that no longer exists.
+        self._flush_rip_report()
+        self._rip_progress.append_log_line(
+            f"Filing the rip in your library: {library} …"
+        )
+        from platterpus import library_move
+
+        self._launch_post_rip_daemon(
+            compute=lambda: library_move.move_album_folder(rip_dir, library),
+            signal=self.library_move_done,
+            thread_attr="_library_move_thread",
+        )
+
+    def _on_library_moved(self, result: object) -> None:
+        """The library move finished (queued to the GUI thread).
+
+        On success, repoint everything that references the album's old home —
+        the View log / View report / Open rip folder buttons and the cached
+        report path (so any defensive late report write lands in the folder's
+        NEW location, never resurrects the old one). On failure the rip simply
+        stays in the output directory: the rip itself already succeeded, so
+        this reports, it never alarms.
+        """
+        message = str(getattr(result, "message", ""))
+        destination = getattr(result, "destination", None)
+        if not bool(getattr(result, "ok", False)) or destination is None:
+            log.warning("library move failed: %s", message)
+            self._rip_progress.append_log_line(
+                f"⚠ Library move failed — the rip stayed in the output folder "
+                f"({message})."
+            )
+            return
+        new_dir = Path(destination)
+        if self._last_rip_log_file is not None:
+            new_log = new_dir / self._last_rip_log_file.name
+            self._last_rip_log_file = new_log
+            self._rip_progress.set_log_path(new_log)
+        self._rip_progress.append_log_line(f"✓ Rip filed in your library: {new_dir}")
+        log.info("library move complete: %s", new_dir)
 
     def _build_rip_timing(self) -> dict | None:
         """Build the timing dict for the just-finished rip and log it.

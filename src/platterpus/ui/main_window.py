@@ -127,6 +127,11 @@ class MainWindow(
     # was found in the library, so the comparison banner renders on the GUI
     # thread. Never emitted when there's no prior rip.
     rip_comparison_done = Signal(object)
+    # Emitted (from the library-move daemon thread; queued to the GUI thread)
+    # with a library_move.MoveResult once a finished rip's folder has been
+    # moved into the configured library (or the move failed) — so the post-rip
+    # buttons can be repointed at the new location on the GUI thread.
+    library_move_done = Signal(object)
     # Requests to the persistent MusicBrainz worker. Emitting these (instead of
     # calling the worker's slots directly) is what actually runs the query on
     # the worker's thread: a direct method call would run on the *caller's* (GUI)
@@ -373,6 +378,17 @@ class MainWindow(
         # verify daemons capture it and drop their result if a newer rip has begun
         # since, so a previous album's late verify can't contaminate this one.
         self._rip_generation: int = 0
+        # Auto-move to the library (Settings "Move finished rips to", "" = off).
+        # A finished rip may only move once EVERY post-rip worker has settled
+        # (nothing may verify/hash a file mid-move), so the move is armed as a
+        # pending entry + a poll timer that watches the workers wind down —
+        # (album folder, library folder, rip generation); the generation lets a
+        # newer rip abandon a superseded move. See main_window_rip.
+        self._pending_library_move: tuple[Path, Path, int] | None = None
+        self._library_move_thread: threading.Thread | None = None
+        self._library_move_timer: QTimer = QTimer(self)
+        self._library_move_timer.setInterval(500)
+        self._library_move_timer.timeout.connect(self._poll_library_move)
         # Guard so the "no drive — here's the fix" nudge auto-shows at most
         # once per session (refreshing shouldn't re-pop the dialog).
         self._drive_access_nudged: bool = False
@@ -434,6 +450,8 @@ class MainWindow(
         self.checksums_done.connect(self._on_checksums_done)
         # Re-rip comparison banner (when a prior rip of the same disc exists).
         self.rip_comparison_done.connect(self._on_rip_comparison_done)
+        # Library move outcome (when "Move finished rips to" is configured).
+        self.library_move_done.connect(self._on_library_moved)
 
         self.setCentralWidget(central)
 
@@ -516,6 +534,10 @@ class MainWindow(
 
         # Disarm the auto-force-stop so it can't fire into a torn-down window.
         self._force_stop_timer.stop()
+        # Disarm a pending library move — the folder simply stays in the output
+        # directory (safe default); moving during teardown would race close.
+        self._library_move_timer.stop()
+        self._pending_library_move = None
         stop_thread(self._mb_thread)  # persistent worker; idle loop quits fast
         stop_thread(self._update_thread)  # short HTTP release check
         # In-flight update download: cancel polls between 1 MiB chunks.
