@@ -256,6 +256,7 @@ class RipBackend(ABC):
         cover_art: str = "",
         max_retries: int = 5,
         secure_rerip_matches: int = 0,
+        force_overread: bool = False,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
         read_speed: int = 0,
@@ -269,7 +270,10 @@ class RipBackend(ABC):
         backend's accepted values, or "" to skip) and `max_retries` map to the
         matching rip flags — the EAC bit-perfect parity gaps (KDD-13).
         `secure_rerip_matches`, when > 0, is cyanrip's `-Z N` (re-rip a track
-        until N reads' checksums agree) for marginal discs. `read_speed`, when
+        until N reads' checksums agree) for marginal discs. `force_overread`,
+        when True, asks the drive to read into the lead-in/lead-out (cyanrip's
+        `-O`) instead of zero-padding the offset-shifted edge samples — opt-in,
+        drive-dependent. `read_speed`, when
         > 0, caps the drive read speed for this pass (cyanrip's `-S N`); 0 lets
         the drive pick its maximum. The adaptive ladder feeds slower values here
         on a re-rip (see :mod:`platterpus.read_speed_ladder`). `only_tracks`, when
@@ -356,9 +360,12 @@ class RipBackend(ABC):
         measure an offset leave this unimplemented — the drive-setup wizard
         treats :class:`NotImplementedError` as "this backend can't auto-detect"
         and relies on the bundled AccurateRip drive-model list + manual entry
-        instead. **cyanrip does NOT implement this**: it has no offset-finding
-        command (its ``-f`` is force-overread, not a finder), so it inherits this
-        default rather than fabricating a number.
+        instead. **cyanrip does NOT implement this** by decision, not absence:
+        its ``-f`` IS a "find drive offset" mode (verified against 0.9.3.1 +
+        master, 2026-07-21 — it needs an AccurateRip-listed disc in the drive),
+        but the earlier integration mis-scraped its output (read a default 0
+        and silently overrode the correct list value) and was removed — so the
+        impl inherits this default rather than trusting a probe that burned us.
         """
         raise NotImplementedError
 

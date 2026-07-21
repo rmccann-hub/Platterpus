@@ -282,6 +282,7 @@ _BAD_VALUES: dict[str, object] = {
     "integration_declined_path": "bad\x00path",  # control char
     "schema_version": "six",  # not an int
     "override_read_offset": "yes",  # not a bool
+    "force_overread": "yes",
     "auto_launch_picard": "yes",
     "auto_eject_after_rip": "yes",
     "notify_on_completion": "yes",

@@ -12,6 +12,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Overread toggle (Settings → Overread, off by default)**: ask the drive to
+  read the disc's outermost samples from the lead-in/lead-out (cyanrip's `-O`)
+  instead of writing them as silence — the last EAC parity-gap Settings knob,
+  rebuilt cyanrip-native (the whipper-era toggle died with whipper, KDD-18).
+  Off matches EAC's baseline setting and how the committed 12/14 parity proof
+  matched; upstream's "may freeze if unsupported by drive" caveat is surfaced
+  in the tooltip and User Guide.
+
+### Fixed
+- **cyanrip flag-letter corrections in the docs (a shipped-bug near-miss)**:
+  `docs/dependency-contracts.md`, TASKS.md, and the parity scorecard claimed
+  cyanrip's overread flag is `-x` — **`-x` does not exist in cyanrip's getopt
+  at all** (verified against the deployed 0.9.3.1 *and* master; wiring the
+  documented letter would have aborted every overread rip — the real flag is
+  `-O`, now pinned by a regression test). The same verification corrected the
+  `-f` description: it is a real "find drive offset" mode (deliberately unused
+  since the 2026-06 mis-scrape incident), not "force-overread" as three code
+  comments and the contracts doc said; a vetted re-integration is now a
+  tracked maintainer call in the feature backlog.
 - **Accessibility: focus-safe live announcements + the full
   keyboard-reachability sweep** (UX gap #4's remaining half, closing the gap —
   a live screen-reader session on real hardware is the one confirmation still

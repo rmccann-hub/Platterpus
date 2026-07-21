@@ -551,3 +551,33 @@ def test_run_raises_when_binary_missing(monkeypatch: pytest.MonkeyPatch) -> None
     _patch_run(monkeypatch, raises=FileNotFoundError("cyanrip"))
     with pytest.raises(RipError, match="not found"):
         _impl().version()
+
+
+def test_rip_argv_omits_overread_by_default() -> None:
+    # Off is the default — matches EAC's baseline "overread: No", which is
+    # exactly how the committed 12/14 parity proof matched.
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=667,
+    )
+    assert "-O" not in argv
+
+
+def test_rip_argv_passes_overread_when_enabled() -> None:
+    # Regression for the flag-letter trap (2026-07-21): the docs used to say
+    # cyanrip's overread flag is -x, but -x does not exist in cyanrip's getopt
+    # (verified against 0.9.3.1 + master) — the real flag is -O. Pin the
+    # correct letter so the mix-up can't come back.
+    argv = _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="embed",
+        max_retries=5,
+        read_offset_override=667,
+        force_overread=True,
+    )
+    assert "-O" in argv
+    assert "-x" not in argv

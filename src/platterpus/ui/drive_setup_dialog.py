@@ -8,10 +8,13 @@ Platterpus's `--offset` override (the backend writes no config file of its own).
 
 Backends that can genuinely MEASURE an offset from a disc
 (``RipBackend.supports_offset_detection()``) additionally get a "Detect" button
-that runs off the GUI thread via ``DriveSetupWorker``. **cyanrip cannot** (it has
-no offset finder — its ``-f`` is force-overread), so that button is hidden for it
-rather than offering a probe that can only fail — honest UI. The
-``DriveSetupWorker``/detection seam remains for a future measuring backend.
+that runs off the GUI thread via ``DriveSetupWorker``. **cyanrip's finder is
+deliberately not used** — its ``-f`` IS a "find drive offset" mode (verified
+against 0.9.3.1 + master, 2026-07-21), but the earlier integration mis-scraped
+its output (read a default 0 and silently overrode the correct list value) and
+was removed — so the button is hidden for it rather than offering a probe we
+don't trust. The ``DriveSetupWorker``/detection seam remains for a future
+measuring backend (or a re-vetted ``-f`` integration).
 
 The dialog owns the worker thread; `_on_finished` is a plain slot so tests can
 exercise the result rendering without a live event loop.

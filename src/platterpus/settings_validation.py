@@ -183,6 +183,7 @@ def validate_config(config: Config) -> list[ValidationIssue]:
 # where a bool belongs) is caught, not silently coerced.
 _BOOL_FIELDS: tuple[str, ...] = (
     "override_read_offset",
+    "force_overread",
     "auto_launch_picard",
     "auto_eject_after_rip",
     "notify_on_completion",

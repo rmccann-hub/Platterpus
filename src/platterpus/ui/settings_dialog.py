@@ -339,6 +339,24 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Max retries:", self._max_retries_spin)
 
+        # Overread (cyanrip -O): opt-in, effect-first wording (gap #5 style).
+        # Deliberately NOT goal-driven — it's a drive-capability call, not a
+        # rip-goal trade-off, so switching Goal never flips it.
+        self._force_overread_check: QCheckBox = QCheckBox(
+            "Read the disc's outermost samples (overread lead-in/out)", self
+        )
+        self._force_overread_check.setChecked(config.force_overread)
+        self._force_overread_check.setToolTip(
+            "With a read offset applied, a disc's very first and last samples "
+            "sit in the lead-in/lead-out. Off (default): those few samples are "
+            'written as silence — the same as EAC\'s "overread: No", and how '
+            "this app's EAC parity baseline matched. On: the drive is asked to "
+            "actually read them (cyanrip's -O). Advanced: only some drives can "
+            "overread — cyanrip warns an unsupported drive may freeze, so turn "
+            "this on only if you know your drive supports it."
+        )
+        form.addRow("Overread:", self._force_overread_check)
+
         # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
         # Secure re-rip effort: the MAX number of reads to spend confirming a
         # track that doesn't match AccurateRip. Ripping is always "dynamic" now —
@@ -558,6 +576,7 @@ class SettingsDialog(CenteredDialog):
             debug_logging=self._debug_logging_check.isChecked(),
             cover_art=self._cover_art_combo.currentData(),
             max_retries=self._max_retries_spin.value(),
+            force_overread=self._force_overread_check.isChecked(),
             secure_rerip_matches=self._secure_rerip_spin.value(),
             # Dynamic secure re-rip is the behaviour now, not a UI toggle — carry
             # the stored value through unchanged (a power user can flip it in TOML).

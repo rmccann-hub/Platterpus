@@ -53,6 +53,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-o flac` | output codec | always (FLAC is the archival master, Critical rule #4) |
 | `-r <int>` | max retries per track | when `max_retries > 0` |
 | `-Z <int>` | re-rip a track until N reads' checksums agree | only when `secure_rerip_matches > 0`; the user's number is the ceiling (dynamic mode applies it only to AccurateRip-failing tracks) |
+| `-O` | overread into the lead-in/lead-out (upstream help: "may freeze if unsupported by drive") | only when the Settings "Overread" toggle (`force_overread`) is on — off by default, matching EAC's baseline "overread: No". **Flag verified against 0.9.3.1 + master (2026-07-21); the previously-documented `-x` does not exist in cyanrip** |
 | `-S <int>` | cap read speed (× multiplier) | only when a positive fixed speed is requested. **⚠ ABORTS the rip (`EINVAL`) on a drive that reports speed as "unchangeable"** (the Pioneer BDR-209D does) — so the ladder parses `speed_changeable` and never sends `-S` to a speed-locked drive (real-hardware finding, 2026-07-01) |
 | `-l <n,n,…>` | rip only these 1-based track numbers | the per-track auto-fix re-rip (cheap targeted re-read); empty = whole disc |
 | `-N` | disable cyanrip's own MusicBrainz lookup | **always** (Critical rule #5 — the GUI feeds tags via `-a`/`-t`, so cyanrip stays offline and never shows its interactive prompt) |
@@ -99,13 +100,18 @@ on a cross-FS-unsafe template and/or a user-doc note — a maintainer feature ca
 not a unilateral fix.
 
 **Info / probe flags:** `-I -N` (info-only, computes DiscID/CDDB locally, no
-network — `disc_info`); `-V` (version). **cyanrip has NO offset-finder** — its
-`-f` is *force-overread*, not an AccurateRip offset detector — so `find_offset`
-is deliberately unimplemented (inherits `NotImplementedError`). The read offset
-comes from the bundled AccurateRip drive-model list (`adapters/accuraterip_offsets.py`)
-or manual entry, never from a cyanrip probe. (An earlier build ran `cyanrip -f`
-and regex-scraped "offset…N", which read a default 0 and silently overrode the
-correct list value — removed.)
+network — `disc_info`); `-V` (version). **cyanrip's offset-finder is
+deliberately unused** — its `-f` IS a "find drive offset" mode (verified
+against 0.9.3.1 + master getopt/help, 2026-07-21: `-f  Find drive offset
+(requires a disc with an AccuRip DB entry)`), but an earlier build that ran it
+regex-scraped "offset…N", read a default 0, and silently overrode the correct
+list value — so it was removed and `find_offset` stays unimplemented (inherits
+`NotImplementedError`). The read offset comes from the bundled AccurateRip
+drive-model list (`adapters/accuraterip_offsets.py`) or manual entry, never
+from a cyanrip probe. *(This corrects an earlier version of this paragraph
+that mis-described `-f` as "force-overread" — overread is `-O`, now the
+Settings "Overread" toggle. A re-vetted `-f` wizard integration is a tracked
+maintainer call — see the TASKS feature backlog.)*
 
 **Expected output we parse** (`parsers/cyanrip_log.py`, `parsers/cyanrip_info.py`):
 the finish log's banner (`Drive:`, `Disc tracks: N`, `Speed: default
@@ -137,13 +143,16 @@ re-reads, which would catch a cache-served stale read the same way they catch
 any other discrepancy. See PLANNING.md KDD-25.
 
 **Flags that exist upstream but are intentionally not passed:** cyanrip's
-`-x` (force overread into the lead-out/lead-in) and `-E` (pre-emphasis
-de-emphasis) both exist in cyanrip's own CLI, but Platterpus never passes
-either. Emphasis handling is **flag-only preservation** — we deliberately
-leave pre-emphasis-encoded discs as cyanrip finds them (an archival choice,
-not an oversight) rather than actively de-emphasizing; overread control was a
-whipper-era Settings toggle (`-x/--force-overread`) dropped when whipper was
-removed (KDD-18) and is currently a re-openable task, not a supported knob.
+`-E` (force de-emphasis) exists in its CLI but Platterpus never passes it —
+emphasis handling is **flag-only preservation**: we deliberately leave
+pre-emphasis-encoded discs as cyanrip finds them (an archival choice, not an
+oversight) rather than actively de-emphasizing. *(Overread moved out of this
+list 2026-07-21: it's now the opt-in Settings "Overread" toggle → `-O` in the
+table above. Note the flag-letter correction made the same day: earlier
+versions of this doc called overread `-x`, but `-x` does not exist in
+cyanrip's getopt at all — verified against both the deployed 0.9.3.1 and
+master; the whipper-era flag really was `-x/--force-overread`, which is
+likely where the mix-up came from.)*
 
 **Non-zero exit / errors:** streamed stdout+stderr is captured line-by-line
 (`RipHandle.log_lines`); a start failure raises `RipError` carrying the output.

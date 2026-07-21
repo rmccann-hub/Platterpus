@@ -152,6 +152,12 @@ named from the album artist/title you type.
   cover from the Cover Art Archive after the rip and embeds/saves it.
 - **Max retries** — how many times the ripper retries a troublesome track
   before giving up.
+- **Overread** — read the disc's very first/last samples from the
+  lead-in/lead-out instead of writing them as silence (they sit there once the
+  read offset is applied). **Off by default** — that matches how this app's
+  EAC parity baseline was ripped, and only some drives can overread; an
+  unsupported drive may freeze on it, so turn it on only if you know your
+  drive supports overreading.
 - **Max reads to confirm a shaky track** — Platterpus rips the disc once at full
   speed, then re-reads *only* the tracks that didn't match AccurateRip until this
   many reads agree, so a shaky track converges on a stable, repeatable read

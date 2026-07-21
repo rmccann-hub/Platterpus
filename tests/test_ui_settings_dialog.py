@@ -609,3 +609,17 @@ def test_validation_banner_announces_once_per_distinct_text(
 
     assert len(first) >= 1  # the error was announced…
     assert second == first  # …and not repeated while unchanged
+
+
+def test_overread_toggle_round_trips(qapp: QApplication) -> None:
+    """Settings → to_config carries the Overread (cyanrip -O) toggle, and the
+    dialog reflects the incoming value. Off by default (EAC-baseline)."""
+    dialog = SettingsDialog(Config())
+    assert dialog._force_overread_check.isChecked() is False
+    dialog._force_overread_check.setChecked(True)
+    assert dialog.to_config().force_overread is True
+
+    dialog2 = SettingsDialog(Config(force_overread=True))
+    assert dialog2._force_overread_check.isChecked() is True
+    # Honest UI: the tooltip must carry upstream's freeze caveat.
+    assert "freeze" in dialog2._force_overread_check.toolTip()
