@@ -17,6 +17,7 @@ Platterpus/
 ├── TASKS.md                             # active task checklist (P0/P1.1/P1/P2)
 ├── DEPENDENCIES.md                      # dep table with release dates + replacement plans
 ├── README.md                            # outward-facing description + install instructions
+├── SECURITY.md                          # security policy (supported versions, reporting)
 ├── CHANGELOG.md                         # Keep-a-Changelog release notes
 ├── LICENSE                              # GPL-3.0-only
 ├── pyproject.toml                       # package metadata + pinned deps + entry points + pytest/ruff config
@@ -29,9 +30,10 @@ Platterpus/
 ├── .gitattributes
 │
 ├── .github/workflows/                   # CI + release automation
-│   ├── ci.yml                           # pytest + ruff (lint/format) on push to main + PRs
+│   ├── ci.yml                           # gating: pytest matrix, ruff, mypy, changelog, media-guard, pip-audit (+ advisory tests-touched)
 │   ├── appimage.yml                     # build + smoke-test the AppImage (push to main; on-demand per branch)
-│   ├── release.yml                      # tag-driven: build AppImage + attach to a GitHub Release
+│   ├── mutation.yml                     # weekly non-gating mutation testing (parsers/, verdict.py, ctdb/crc.py)
+│   ├── release.yml                      # tag- or dispatch-driven: build AppImage + attach to a GitHub Release
 │   └── publish-pypi.yml                 # publish wheel+sdist to PyPI via Trusted Publishing on release
 │
 ├── docs/                                # source docs + reference material
@@ -39,12 +41,22 @@ Platterpus/
 │   ├── platterpus-research-brief-v2.1.md   # canonical project brief (authority on scope)
 │   ├── platterpus-session-start.md     # bootstrap instructions (incl. optional research-rerun prompt)
 │   ├── architecture.md                  # architecture & contributor guide (patterns, recipes, packaging)
-│   ├── log-format-comparison.md         # whipper rip log vs EAC log side-by-side (KDD-11)
+│   ├── log-format-comparison.md         # cyanrip rip log vs EAC log side-by-side (KDD-11)
+│   ├── dependency-contracts.md          # exact args/flags we pass each external tool + output shapes parsed
+│   ├── ux-design-principles.md          # trust-first UX principles + gap backlog
 │   ├── appimage-testing.md              # how the AppImage is built + tested
 │   ├── test-plan.md                     # manual & release testing (acceptance run + gated cases)
 │   ├── testing.md                       # testing strategy & standards (trophy + hardware gate)
-│   ├── mp3-wav-support.md               # P1 multi-format (MP3/WAV/WavPack) design + decision gates
+│   ├── mp3-wav-support.md               # multi-format design-of-record (SHIPPED 2026-06-26, KDD-22)
+│   ├── ctdb-crc-algorithm.md            # the bit-exact CTDB CRC spec (KDD-16)
+│   ├── eac-parity-investigation.md      # EAC bit-identical output research (2026-06-27)
+│   ├── eac-log-and-repair-feasibility.md # EAC-log emit + CTDB repair feasibility (decision-gated)
 │   ├── ripper-engine-strategy.md        # living research: forking/combining whipper + cyanrip (KDD-18)
+│   ├── upstream-pr-roadmap.md           # ranked upstream-PR action list (closes strategy §10 gaps)
+│   ├── cyanrip-soft-fork.md             # soft-fork runbook (+ cyanrip-soft-fork-verify-meta-colon.c proof harness)
+│   ├── github-workflow-sop.md           # generic GitHub SOP (CLAUDE.md wins where they differ)
+│   ├── audit-2026-07-02.md              # dated full-repo audit record
+│   ├── trust-audit-2026-07-08.md        # dated trust & supply-chain audit record
 │   ├── session-log.md                   # chronological session history (newest first)
 │   ├── archive/                         # retired investigations + external reference (see archive/README.md)
 │   │   ├── README.md                    # index + graduation notes for the archived material
@@ -58,19 +70,30 @@ Platterpus/
 │   ├── ctdb_verify.py                   # CTDB verify hardware-validation runner (KDD-16)
 │   ├── eac_parity.py                    # compare a rip's Copy CRCs vs an EAC baseline (uses parity.py)
 │   ├── preflight.py                     # thin CLI over src/platterpus/preflight.py (== `platterpus --doctor`)
-│   └── update_drive_offsets.py          # re-import AccurateRip DriveOffsets.bin (sentinel-guarded)
+│   ├── rip_report.py                    # render a rip log as the machine-readable JSON report
+│   ├── render_eac_log.py                # render a rip log in EAC layout (attributed, never signed)
+│   ├── file_versions.py                 # per-file last-touched version manifest (doc-currency helper)
+│   ├── update_drive_offsets.py          # re-import AccurateRip DriveOffsets.bin (sentinel-guarded)
+│   └── cyanrip/                         # upstream-contribution kit: verified patcher + paste-ready issue/PR text
+│       ├── README.md                    # kit map + order of operations
+│       ├── apply-colon-fix.py           # idempotent colon-fix patcher for a cyanrip checkout (dry-run default)
+│       ├── build.sh / setup-fork.sh     # build cyanrip in the container / set up the soft fork
+│       └── issue-colon.md / issue-encoder-opts.md / pr-colon.md   # paste artifacts (no doc stamps by design)
+│
+├── assets/                              # the SVG logo + rendered icon sizes (make_icon.py output)
+├── data/                                # AppStream metainfo (io.github.rmccann_hub.Platterpus.metainfo.xml)
 │
 ├── output_reference/                    # backend×format rip proofs: committed EAC baseline + placeholders
 │                                        #   (per-track CRCs prove bit-perfection; never commit audio — see its README)
 │
 ├── build/                               # everything related to producing the AppImage
 │   ├── build_appimage.sh                # one-shot build script (calls python-appimage)
-│   ├── make_icon.py                     # regenerate the committed app icon (needs Pillow)
+│   ├── make_icon.py                     # regenerate the committed app icon (needs an SVG rasterizer — rsvg-convert/Inkscape/ImageMagick/cairosvg; NOT Pillow)
 │   └── python-appimage/
 │       ├── requirements.txt             # pip deps bundled into the AppImage
 │       ├── entrypoint.sh                # executable AppRun script (needs .sh extension — T31)
-│       ├── platterpus.desktop          # desktop integration
-│       ├── platterpus.png              # committed app icon
+│       ├── io.github.rmccann_hub.Platterpus.desktop   # desktop integration
+│       ├── io.github.rmccann_hub.Platterpus.png       # committed app icon
 │       └── README.md                    # build-time prerequisites and gotchas
 │
 ├── tests/                               # pytest test tree (runs offscreen, no real hardware/network)
@@ -111,6 +134,13 @@ Platterpus/
         ├── checksums.py                 # per-file SHA256 integrity digests (embedded in the JSON report)
         ├── eac_log_export.py            # render a RipLog into an EAC-layout log (attributed, never signed)
         ├── log_buffer.py                # in-memory session-log capture for the per-album JSON report
+        ├── atomic_write.py              # durable atomic file writes (temp → fsync → replace → fsync-dir)
+        ├── build_info.py                # build/runtime facts for the JSON report's environment block
+        ├── cli_compare.py               # terminal glue for --compare / --assemble-best-of (logic in rip_compare)
+        ├── rip_compare.py               # compare two rips of the same disc (re-rip regression detection)
+        ├── drive_media.py               # disc-inserted/removed detection (auto-refresh after eject)
+        ├── notify.py                    # rip-completion desktop-notification text (pure)
+        ├── resources/                   # packaged SVG logo (package-data)
         │
         ├── adapters/                    # ALL calls into external tools/services go through here
         │   ├── __init__.py
@@ -132,6 +162,8 @@ Platterpus/
         │   ├── toc.py                   # DiscToc + `toc=` wire string + disc-TOC math
         │   ├── decode.py                # host flac→PCM + metaflac sample-count probe
         │   ├── crc.py                   # the audio CRC (hardware-validated; CRC_VALIDATED=True, KDD-16)
+        │   ├── calibrate.py             # CRC offset-sweep calibration against a real in-CTDB disc (KDD-16)
+        │   ├── diagnose.py              # shared engine behind scripts/ctdb_verify.py + --ctdb-calibrate
         │   └── verify.py                # verify_rip() orchestration + Verdict enum
         │
         ├── deps/                        # dependency self-management subsystem (brief P0 #11)
@@ -157,6 +189,7 @@ Platterpus/
         ├── ui/
         │   ├── __init__.py
         │   ├── main_window.py           # MainWindow assembler — layout, menus, signal wiring, MB slots
+        │   ├── main_window_shared.py    # the typing seam MainWindow + mixins share (mypy strictness)
         │   ├── main_window_helpers.py   # pure free fns (safe_path_segment, fidelity_summary, …)
         │   ├── main_window_update.py    # UpdateMixin — Help → Check for updates / download / install / restart
         │   ├── main_window_rip.py       # RipMixin — rip lifecycle, force-stop, eject, cover art, post-processing
@@ -180,7 +213,8 @@ Platterpus/
         │       ├── centering.py         # QDialog base that centres itself on the parent window
         │       ├── auto_center.py       # app-wide event filter centring QMessageBox/QFileDialog too
         │       ├── pending_installs.py  # tier (b) queued installs dialog
-        │       └── manual_install.py    # tier (c) copyable search string dialog
+        │       ├── manual_install.py    # tier (c) copyable search string dialog
+        │       └── file_viewer.py       # in-app read-only .log/.json viewer (no Open-With chooser)
         │
         └── workers/                     # long-running operations off the GUI thread
             ├── __init__.py              # start_worker_thread() — the shared one-shot QThread lifecycle wiring
@@ -212,7 +246,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`config.py`** — pure-Python TOML config loader/saver. Reads `~/.config/platterpus/config.toml` via `tomllib` (stdlib in 3.11+), writes via `tomli-w`. Defines the default config dict and a schema version. Atomic writes (temp file + rename) so a crash mid-save doesn't corrupt the file.
 - **`logging_setup.py`** — configures Python's `logging` module once at startup. Rotating file handler at `~/.local/share/platterpus/log.txt`, plus a console handler at INFO. Project modules use `logging.getLogger(__name__)` everywhere; no module configures handlers itself.
 - **`paths.py`** — module-level constants for the user config dir, log dir, and any other path computed from `XDG_*` env vars or hard-coded fallbacks. Single source of truth so paths aren't recomputed at call sites.
-- **`offset_config.py`** — reads `whipper.conf` (and the GUI's `--offset` override) to tell whether a read offset is configured; backs the drive-setup wizard's first-run auto-offer. One shared section scanner (`_iter_conf_offsets`) + one file reader (`_read_conf_text`) feed both the "any offset set?" check and the per-drive read-out, so the two filters can't drift.
+- **`offset_config.py`** — tells whether a read offset is configured (the GUI's `--offset` override **only** — a leftover `whipper.conf` value never reaches cyanrip's `-s`, so it must not satisfy the gate); backs the drive-setup wizard's first-run auto-offer. `whipper.conf` is still *read* solely for the legacy trust display (`read_drive_offsets`/`describe_conf_offsets`). One shared section scanner + one file reader feed both paths, so the two filters can't drift.
 - **`preflight.py`** — the `--doctor`/`scripts/preflight.py` checks: a no-disc, never-raise first-pass test of the rip environment (backend routing, drives, dependencies, network reachability). `default_context()` mirrors `app.py`'s composition via the shared `composition` root.
 - **`parity.py`** — compares a rip's per-track Copy CRCs against an EAC baseline log (`output_reference/`, `docs/test-plan.md`); the bit-perfect-equivalence check. `decode_log_bytes()` sniffs the log encoding (EAC writes **UTF-16**; whipper/cyanrip UTF-8) so real EAC logs read correctly; format-agnostic across FLAC/WAV/MP3 (the Copy CRC is on the extracted PCM).
 - **`update_check.py`** — "is a newer release published?" against the GitHub releases API (self-update, KDD-17b). Delivery is handled by `update_install.py`.
@@ -234,6 +268,12 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`log_buffer.py`** — in-memory capture of this session's log lines (minus lines belonging to a different album's rip) for embedding in the per-album JSON report; the on-disk rolling `log.txt` still records everything.
 - **`drive_profiles.py`** — per-drive profiles keyed by a stable hardware fingerprint (WWN → serial → vendor/model), with provenance + confidence per learned fact; a record/display/**guard** layer, never a second offset authority (KDD-23).
 - **`drive_profile_store.py`** — the only writer of `~/.config/platterpus/drive_profiles.json`: a never-raising, atomic JSON store for the drive-profile ledger, mirroring `config.py`'s load/save discipline.
+- **`atomic_write.py`** — durable atomic file writes (temp → fsync → replace → fsync-dir), the one shared implementation behind every small state file (`config.py`, `drive_profile_store.py`, `rip_report.py`) so "crash-safe" also means "power-loss-safe".
+- **`build_info.py`** — build + runtime environment facts (build fingerprint, platform) for the JSON report's `environment` block; tiny and Qt-free so `rip_report` can import it without PySide6.
+- **`rip_compare.py`** — compares two `.platterpus.json` reports of the same disc ("you've ripped this before"): which tracks are byte-identical, which differ, and which rip is the better master. Pure; powers the post-rip banner and the CLI.
+- **`cli_compare.py`** — terminal glue for `--compare` / `--assemble-best-of`; printing + exit codes only, all logic (and tests) in `rip_compare`.
+- **`drive_media.py`** — optical-media presence polling (disc inserted/removed) so a freshly-inserted disc is picked up automatically after an eject/cancel; decision logic split from the probe so it's testable without a drive.
+- **`notify.py`** — builds the (title, body) text for the rip-completion desktop notification as a pure function; the sending is one `QSystemTrayIcon.showMessage` call on the GUI side.
 
 ### Adapters (`adapters/`)
 
@@ -261,6 +301,8 @@ Clean-room CTDB verify support (KDD-16), kept as a standalone library so the det
 - **`decode.py`** — host `flac`→raw-PCM decode + `metaflac` sample-count probe (best-effort, optional `flac` dependency; degrades to `DecoderUnavailable`). Injectable runners.
 - **`crc.py`** — the CTDB audio CRC: bit-exact `zlib.crc32` over the whole-disc PCM with a fixed 5880-frame front / length-dependent back trim, ±5879 offset sweep. ✅ Hardware-validated (`CRC_VALIDATED=True`, KDD-16, 2026-07-07; see `CONFIRMED_VECTOR`). Fails safe (a wrong CRC yields `NO_MATCH`, never a false "verified").
 - **`verify.py`** — `verify_rip()` orchestration tying lookup + decode + CRC into a single `CtdbVerifyResult`/`Verdict`; every expected failure is a verdict, not a raise.
+- **`calibrate.py`** — the CRC offset-sweep calibration that pinned the algorithm against a real in-CTDB disc (KDD-16); kept so the vector can be re-derived on new hardware.
+- **`diagnose.py`** — the shared engine behind `scripts/ctdb_verify.py` and `platterpus --ctdb-calibrate`: run a CTDB verify (+ optional calibration) over an existing rip folder, no re-rip needed.
 
 ### Dependency self-management subsystem (`deps/`)
 
@@ -275,13 +317,13 @@ Implements brief P0 #11. **All** dependency checks live here. CLAUDE.md Critical
 - **`host_teardown.py`** — the **teardown arm** (the in-app Uninstaller's engine): idempotent steps removing shortcuts → host exports → the `ripping` container → optionally `whipper.conf` and the running AppImage → the GUI's own settings + logs LAST (so the log survives a failed step). Injectable runner + file/tree removers, dry-run, per-step `StepResult`s (from `step_engine`). The keep-contract is test-pinned: the only mutating command it can issue is `distrobox rm --force ripping` — Distrobox/podman and music are never targets.
 - **`host_setup.py`** — the **bootstrap arm** of this subsystem (KDD-17c): an idempotent step engine (Distrobox → container backend → `ripping` container → cyanrip-from-COPR install → host export) behind an injectable `CommandRunner` (from `step_engine`), so the orchestration is fully unit-testable and supports dry-run. Host-root installs use `pkexec` (graphical polkit — a GUI has no TTY for sudo); in-container installs stay `sudo`. Also home to `cyanrip_on_host()` so presence checks don't scatter (Critical Rule #6).
 
-### Whipper output parsers (`parsers/`)
+### Ripper/EAC output parsers (`parsers/`)
 
 Subprocess output parsing per CLAUDE.md (named-group regexes, robust to minor-version drift).
 
 - **`rip_log.py`** — parses whipper's per-rip `.log` file into a structured `RipLog` dataclass: per-track CRCs, AccurateRip match status, AccurateRip confidence, read offset confirmation, total error count.
 - **`drive_list.py`** — parses stdout of `whipper drive list` into a list of `DriveDescriptor` (vendor, model, firmware, device path).
-- **`cd_info.py`** — parses stdout of `whipper cd info` into a `DiscInfo` (TOC, MusicBrainz disc ID, MB match status, AccurateRip availability). `DiscInfo` is deliberately backend-neutral — both backends produce it.
+- **`cd_info.py`** — parses stdout of `whipper cd info` into a `DiscInfo` (TOC, MusicBrainz disc ID, MB match status, AccurateRip availability). `DiscInfo` is deliberately backend-neutral — it survived the whipper→cyanrip swap unchanged (KDD-18).
 - **`cyanrip_info.py`** — parses the `cyanrip -I` start report into the same `DiscInfo` (Disc tracks / DiscID / CDDB ID / the MusicBrainz URL printed on the line after its label). Labels verified against cyanrip master's `cyanrip_log_start_report`.
 - **`cyanrip_log.py`** — parses cyanrip's per-album `.log` into the shared `RipLog` (KDD-18), so the GUI's fidelity verdict is backend-neutral; `looks_like_cyanrip_log` lets the finish handler sniff which ripper wrote a log. Never raises.
 - **`eac_log.py`** — parses an Exact Audio Copy rip log's per-track Copy CRCs (`looks_like_eac_log` / `parse_eac_copy_crcs`), the bit-perfect baseline `parity.py` measures rips against. BOM-tolerant; never raises.
@@ -290,8 +332,9 @@ Subprocess output parsing per CLAUDE.md (named-group regexes, robust to minor-ve
 
 PySide6 widgets and dialogs. Each module is one screen or one widget; nothing here knows about subprocess details — that's the workers and adapters.
 
-- **`main_window.py`** — `MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)`, the **assembler** (~620 lines, down from a 1707-line god-object; the original split landed it at ~460 and it has grown back as wiring for new features accreted — still well under the god-object it replaced). Central widget is a vertical stack of: `DrivePicker`, `DiscInfoPanel`, `TrackTable`, `RipControls`, `RipProgress`. Owns construction, menus, signal wiring, the MusicBrainz slots, and Settings. Cohesive concern-groups are factored into the mixins it inherits (KDD-19) so this file stays focused on wiring; the mixins' methods run with `self` being the window.
-- **`main_window_helpers.py`** — pure free functions with no Qt/widget dependence: `safe_path_segment` (sanitize a user string for a whipper template), `friendly_disc_scan_error` (map known scan failures to plain language), `fidelity_summary` (one-line rip-quality verdict, worded per backend). Trivially unit-testable; `main_window` re-exports them under their old `_`-prefixed names for the test-facing API.
+- **`main_window.py`** — `MainWindow(QMainWindow, RipMixin, UpdateMixin, ProvisioningMixin, DriveMixin, DependencyMixin)`, the **assembler** (the original split landed it at ~460 lines and it has grown back as wiring for new features accreted — still well under the 1707-line god-object it replaced). Central widget is a vertical stack of: `DrivePicker`, `DiscInfoPanel`, `TrackTable`, `RipControls`, `RipProgress`. Owns construction, menus, signal wiring, the MusicBrainz slots, and Settings. Cohesive concern-groups are factored into the mixins it inherits (KDD-19) so this file stays focused on wiring; the mixins' methods run with `self` being the window.
+- **`main_window_shared.py`** — the typing seam `MainWindow` and its mixins share (`MainWindowShared`), so mypy's strict gate can type mixin `self` attributes without runtime cost (see `docs/architecture.md` §3.6).
+- **`main_window_helpers.py`** — pure free functions with no Qt/widget dependence: `safe_path_segment` (sanitize a user string for a filename template), `friendly_disc_scan_error` (map known scan failures to plain language), `fidelity_summary` (one-line rip-quality verdict). Trivially unit-testable; `main_window` re-exports them under their old `_`-prefixed names for the test-facing API.
 - **`main_window_update.py`** — `UpdateMixin`: Help → Check for updates and the download/verify/install/restart UI (KDD-17b). GUI orchestration only; the work is in `update_install.py` + `workers/update_worker.py`.
 - **`main_window_rip.py`** — `RipMixin`: the rip lifecycle (validate → start worker, cancel → force-stop escalation, eject, the finish handler with fidelity verdict + auto-heal + auto-eject), the unknown-album flow, post-rip tagging, and the backend-independent cover-art fetch. The largest concern; mixin docstring states the `self.` attributes it expects `MainWindow.__init__` to have set.
 - **`main_window_provision.py`** — `ProvisioningMixin`: first-run offers, AppImage menu self-integration (`_maybe_offer_appimage_integration` / `_on_add_app_shortcut`), the host-setup wizard entry points, and the in-app uninstaller. GUI-facing complement to `deps/host_setup.py` + `deps/host_teardown.py` + `appimage_integration.py`; heavy deps lazy-imported inside methods.
@@ -303,7 +346,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`track_table.py`** — `TrackTable(QTableView)` with a custom `QAbstractTableModel`. Editable per-track tags + album-level fields above the table. Validates before allowing the rip to start.
 - **`rip_controls.py`** — Start / Cancel buttons. On Start, assembles rip parameters (drive, MBID, output dir from config, template, edited tags) and emits `rip_requested(params)`.
 - **`rip_progress.py`** — three panes: live cyanrip stdout (read-only), per-track AccurateRip results table (populated when the rip log is parsed at the end), and a "View log" button that opens the saved `.log` file in the default text viewer.
-- **`settings_dialog.py`** — `SettingsDialog(QDialog)`. One unified page: output/working dirs, track/disc templates, read-offset override, the metaflac path, output format, cover art, force-overread, max-retries, keep-going, secure re-rip, CD-R, auto-launch-Picard, auto-eject. Options the sole backend doesn't need are greyed out with a why+how-to tooltip (e.g. FLAC re-compress — cyanrip already maxes compression), and `to_config()` still reads disabled widgets so a value is never lost. Persists through `config.py`. (The old whipper|cyanrip backend toggle and `_apply_backend_capabilities` were removed when cyanrip became the sole backend — KDD-18/21.)
+- **`settings_dialog.py`** — `SettingsDialog(QDialog)`. One unified page: output/working dirs, track/disc templates, read-offset override, the metaflac path, output format, cover art, max-retries, secure re-rip, FLAC re-compress, CTDB/FLAC verify toggles, auto-launch-Picard, auto-eject. (The whipper-only force-overread / keep-going / CD-R widgets were removed with whipper — KDD-18.) Options the sole backend doesn't need are greyed out with a why+how-to tooltip (e.g. FLAC re-compress — cyanrip already maxes compression), and `to_config()` still reads disabled widgets so a value is never lost. Persists through `config.py`. (The old whipper|cyanrip backend toggle and `_apply_backend_capabilities` were removed when cyanrip became the sole backend — KDD-18/21.)
 - **`unknown_album.py`** — `UnknownAlbumDialog(QDialog)` + helper functions. Triggers an unknown-album rip (cyanrip, no MBID), applies placeholder tags via `MetaflacAdapter`, optionally invokes `flatpak run org.musicbrainz.Picard <output_folder>`.
 - **`drive_setup_dialog.py`** — `DriveSetupDialog`, the drive-setup wizard (KDD-15). The read offset comes from the bundled AccurateRip drive-model list (pre-filled when the drive is recognised) or manual entry, persisted to Platterpus's own config (applied to cyanrip as `-s`). cyanrip has **no** offset finder (its `-f` is force-overread, not detection) — so `RipBackend.supports_offset_detection()` is False for it and the wizard hides the "Detect" button rather than offer a probe that can only fail. The `DriveSetupWorker`/`find_offset` seam remains for a future backend that can genuinely measure an offset.
 - **`host_setup_dialog.py`** — `HostSetupDialog`, the no-terminal host-setup wizard (KDD-17c). Drives `deps/host_setup.py` off-thread via `HostSetupWorker` with live per-step progress; offered on first launch when the ripper is absent and on Tools → Set up Platterpus…. Installs the cyanrip backend into the container.
@@ -313,6 +356,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`dialogs/auto_center.py`** — an application-wide event filter that centres *every* first-shown dialog — including the plain `QMessageBox`/`QFileDialog` static calls that can't subclass `CenteredDialog` — over the main window.
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.
+- **`dialogs/file_viewer.py`** — in-app read-only viewer for a rip's `.log` / `.platterpus.json`, so viewing a log never falls into KDE's "Open With" chooser (zero-terminal bar); "Open externally…" still defers to the OS.
 
 ### Workers (`workers/`)
 
@@ -342,11 +386,12 @@ last-upstream-release dates, licenses, status, replacement plans, the
 retirement-review log, and the system tools surfaced via the dependency
 subsystem). It is the single source; this section does not reproduce it.
 
-The one architectural point that belongs here, not there: the unmaintained pins
-(`musicbrainzngs==0.7.1`, and `whipper` itself) are each isolated behind an
-adapter ABC (§5–§6), so an exact pin is safe — the adapter, not the GUI, owns
-the assumption about that dependency's output shape, and a future swap is a
-one-file change.
+The one architectural point that belongs here, not there: the unmaintained pin
+(`musicbrainzngs==0.7.1`) is isolated behind an adapter ABC (§6), so an exact
+pin is safe — the adapter, not the GUI, owns the assumption about that
+dependency's output shape, and a future swap is a one-file change. (This is
+exactly what let the unmaintained *whipper* be removed cleanly in 2026-06-30 —
+KDD-18: the `RipBackend` ABC (§5) absorbed the whole swap.)
 
 ---
 
@@ -389,9 +434,16 @@ DependencyManager.check_all()
 └── return final DependencyReport (renders in Settings → Check Dependencies)
 ```
 
+*(Annotation, 2026-07: `check_all()` itself ends at the `DependencyReport`. The
+tier-cascade steps sketched below it are executed by the GUI —
+`ui/main_window_deps._resolve_missing_unified` — which reuses `AutoInstaller`
+and the install dialogs directly; the manager's old `resolve_missing` cascade
+was removed as an unused second implementation (audit #33). The tier semantics
+are unchanged.)*
+
 ### Key properties
 
-- **One registry, no scattered checks.** Adding MP3 (lame) or WAV (sox) support in P1 means appending a `DependencySpec` to `registry.py` — no other code change in `deps/`.
+- **One registry, no scattered checks.** Adding a new external tool (e.g. a standalone `wavpack` for in-`.wv` art embedding, or a future `cd-paranoia` cache probe — KDD-25) means appending a `DependencySpec` to `registry.py` — no other code change in `deps/`. (Multi-format shipped 2026-06-26 exactly this way: `ffmpeg` is the single encoder dependency, one registry entry — KDD-22.)
 - **Tier eligibility is declared, not computed at call time.** Each spec names its preferred tier. The resolver itself doesn't decide tiers — it just executes.
 - **Failures cascade downward.** If tier (a) fails (network blip, pipx missing), the item moves to tier (b). If tier (b) also fails, it falls to tier (c). The user always ends up at a working install path or a copyable search string.
 - **No surfaced terminal commands** at tier (a) or (b). The subsystem runs them internally and shows progress. Tier (c) is the only place the user sees a literal command — and only inside the copyable text field, never as instructions to paste.
@@ -404,6 +456,14 @@ DependencyManager.check_all()
 ABC (`adapters/rip_backend.py`) plus one concrete implementation — **cyanrip** (`adapters/cyanrip_backend.py`), the sole backend since whipper was removed 2026-06-30 (KDD-18). The whole point of the seam is that the GUI never has to know which ripper backs it — which is exactly what let whipper be swapped out for cyanrip without touching the GUI layer.
 
 ### Interface
+
+*(Original v1 sketch, kept as the record of the seam's first shape. The live
+interface in `adapters/rip_backend.py` has grown: `rip()` now takes the full
+parameter set — cover art, max retries, `secure_rerip_matches`, read-offset
+override, `RipMetadata`, read speed, `only_tracks` — and the ABC adds four
+capability flags (`self_verifies_encode`, `produces_max_compression_flac`,
+`native_output_formats`, `supports_offset_detection`) the GUI uses to gate
+per-backend behavior.)*
 
 ```python
 class RipBackend(ABC):
@@ -446,7 +506,7 @@ Built once whipper's cd-paranoia >587-offset bug failed real tracks on the BDR-2
 - `list_drives()` scans `/dev/sr*` + sysfs (cyanrip has no list command; the scan is backend-independent).
 - `disc_info()` runs `cyanrip -I -N` (offline — DiscID/CDDB are computed locally from the TOC) parsed by `parsers/cyanrip_info.py`.
 - `rip()` does **not** use `cyanrip -R` (the originally sketched shape): cyanrip always gets `-N` and is fed the GUI's `RipMetadata` via `-a`/`-t` instead — deterministic release, no in-container network, Critical Rule #5 intact. Naming templates translate to `-D`/`-F` schemes.
-- Still open: stdout progress parsing and cyanrip-log fidelity parsing (see TASKS).
+- Stdout progress parsing and cyanrip-log fidelity parsing both shipped 2026-06-09 (`workers/rip_worker.py`, `parsers/cyanrip_log.py`); hardware parity confirmed — see the KDD-18 amendment.
 
 ---
 
@@ -500,34 +560,19 @@ CLAUDE.md Critical Rule #2: `python-appimage` is the builder. `appimage-builder`
 
 #### What the AppImage does NOT contain
 
-- `whipper` itself, `metaflac`, `libdiscid` — these are user-system deps, surfaced through the dependency subsystem.
+- The ripper (`cyanrip`), `flac`, `metaflac` — these are user-system deps (host-exported from the Distrobox container), surfaced through the dependency subsystem. (`libdiscid` was confirmed unnecessary — KDD-06.)
 - The Distrobox container — that's the user's responsibility, documented in `README.md`.
 
 #### Build script shape
 
-`build/build_appimage.sh`:
+`build/build_appimage.sh` (the sole recipe — used identically by local builds,
+`appimage.yml`, and `release.yml`) runs these stages; see the script itself for
+the authoritative detail:
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Run from the repo root.
-ROOT="$(git rev-parse --show-toplevel)"
-cd "$ROOT"
-
-# Install python-appimage if not already present (dev tooling only).
-python3 -m pip install --user "python-appimage>=1.4,<2"
-
-# python-appimage's "build app" mode reads a small recipe directory
-# (build/python-appimage/) plus our package source.
-python3 -m python_appimage build app \
-    --python-version 3.11 \
-    --linux-tag manylinux2014_x86_64 \
-    --name platterpus \
-    build/python-appimage
-
-# Output: ./platterpus-x86_64.AppImage at repo root.
-```
+1. **Preflight** — requires `python3` + the `build` and `python_appimage` modules; pins `SOURCE_DATE_EPOCH` to the HEAD commit time for reproducible builds; stamps a temporary `_build.py` with the git build fingerprint.
+2. **Wheel build** — `python3 -m build --wheel`, then exports `PIP_FIND_LINKS` so python-appimage installs the local wheel.
+3. **AppImage build** — `python3 -m python_appimage build app build/python-appimage` (recipe dir carries the requirements, entrypoint, desktop file, icon), renamed to `platterpus-<arch>.AppImage` at repo root.
+4. **zsync re-pack** — re-packs with `appimagetool` to embed the AppImage update-information (KDD-17b) and emits the `.zsync` when `zsyncmake` is present.
 
 `build/python-appimage/requirements.txt` is the exact pip-resolvable list for the bundle (locked versions per `DEPENDENCIES.md`).
 
@@ -545,7 +590,7 @@ pipx install platterpus
 
 ### Not in scope (yet)
 
-- Flatpak: disqualified by the brief — sandbox cannot reliably reach `~/.local/bin/whipper`.
+- Flatpak: disqualified by the brief — the sandbox cannot reliably reach the host-exported ripper in `~/.local/bin/` (cyanrip today; whipper when this was written).
 - Snap: same sandbox concerns; not worth the cost.
 - Native RPM/DEB: out of scope per brief; revisit only if users demand it.
 
@@ -564,6 +609,8 @@ PySide6 is LGPL-3.0; PyQt6 is GPL-3.0 (or paid commercial). PySide6 lets the pro
 ### KDD-02 — Bypass whipper's TTY prompt, never drive it with pexpect
 
 Critical Rule #5. We obtain the MBID via `MusicBrainzClient` (a real adapter, with the option to swap the implementation), then invoke `whipper cd rip --release-id <MBID>`. Whipper sees a single deterministic answer and never opens a prompt. pexpect would couple us to whipper's prompt text, which is exactly the kind of "subprocess output detail" CLAUDE.md tells us not to depend on.
+
+*(cyanrip-era note, 2026-07: the principle is unchanged, the mechanism evolved — cyanrip runs with `-N` (its MB lookup disabled entirely) and is fed the GUI's already-fetched, user-edited tags via `-a`/`-t`, so no prompt can ever surface — see §5 and KDD-18.)*
 
 ### KDD-03 — One DependencyManager, not scattered `shutil.which()` calls
 
@@ -589,6 +636,8 @@ If this assumption holds, the dependency subsystem can downgrade `libdiscid` fro
 
 AppImages are unsandboxed, so calling `~/.local/bin/whipper` from inside one works. But bundling whipper into the AppImage would (a) duplicate what's already installed via Distrobox, (b) silently sidestep the host-exported binary the user has configured, and (c) violate Critical Rule #3 ("does not try to install or update whipper itself"). The AppImage ships the GUI; the user's existing Distrobox `ripping` container ships whipper. The README spells this out as a prerequisite.
 
+*(cyanrip-era note, 2026-07: applies unchanged with `whipper` → `cyanrip` — the AppImage still carries the GUI only; the ripper lives in the `ripping` container behind `~/.local/bin/cyanrip` — KDD-18.)*
+
 ### KDD-08 — Reserve, don't pre-build, the alternate adapter implementations
 
 `RipBackend` and `MusicBrainzClient` are ABCs, and the brief calls out future alternatives (`cyanrip`, raw `requests`). v1 did not create empty `CyanripImpl` or `RequestsJsonImpl` skeletons — they would have been dead code. The ABC shapes are documented above so when retirement happens, the new impl can be added in focused PRs. CLAUDE.md's "no half-finished implementations" rule. *(This played out as designed: `CyanripImpl` was added post-v0.1.0 once a real whipper bug created the need — KDD-18 — without touching the GUI layer. `RequestsJsonImpl` remains reserved.)*
@@ -612,6 +661,8 @@ Whipper's YAML-structured rip log captures every field EAC captures that bears o
 The one real gap is **log integrity**: EAC signs its log with a checksum that CTDB and forum communities recognize as a tamper-evidence signal. Whipper writes a plain SHA-256 of the file contents, which is weaker forensically. This is not actionable from the GUI side — closing it would require whipper itself to implement an EAC-equivalent scheme. Documented for users in `docs/log-format-comparison.md`.
 
 See `docs/log-format-comparison.md` for the full side-by-side. The comparison is anchored on a real upstream whipper test fixture (`tests/fixtures/rip_log_real_whipper_0_7.log`) and a representative EAC v1.6 log (`tests/fixtures/rip_log_eac_reference.log`, hand-authored to match Hydrogenaudio/CueTools documentation).
+
+*(cyanrip-era note, 2026-07: the description above is the whipper-era record. Since whipper's removal (KDD-18) the comparison doc compares **cyanrip** vs EAC — cyanrip signs its log with `Log FUN512:` rather than whipper's plain SHA-256, and the doc anchors on the EAC fixture + the cyanrip parser. The decision itself — EAC-equivalent archival content, weaker integrity, never forge an EAC signature — stands.)*
 
 ### KDD-12 — AccurateRip + CTDB scope, corrected from the brief
 
@@ -641,7 +692,7 @@ We benchmark our defaults and exposed settings against the widely-cited "Perfect
 |---|---|
 | Secure mode + Accurate Stream | cyanrip's extraction engine is libcdio-paranoia (cd-paranoia), always run at its most secure/paranoid setting |
 | Drive caches audio data → defeat | **Corrected:** cyanrip has no cache-defeat flag and emits no cache line. libcdio-paranoia *attempts* cache defeat every rip (readahead-cache exhaustion + FUA where the drive supports it) but this is best-effort/drive-dependent and never confirmed at runtime — reported as "(unknown)" in our EAC-style export, never forged as "Yes." The real anti-cache guarantee is AccurateRip/CTDB consensus + `-Z` re-reads. See **KDD-25**. |
-| Read offset calibration | `whipper drive analyze` + `whipper offset find` (README step 5) |
+| Read offset calibration | **Corrected:** cyanrip has no offset finder (`whipper drive analyze`/`offset find` are gone). The offset comes from the bundled AccurateRip drive list (auto-filled by drive model) or manual entry in the drive-setup wizard, fed to cyanrip as `-s` (KDD-15/KDD-18/KDD-23). |
 | Use AccurateRip | cyanrip queries AR every rip; we render results in rip-progress (KDD-12) |
 | Error recovery quality: High | cdparanoia is always at maximum |
 | No normalize | whipper does not normalize; bit-perfect intact |
@@ -650,7 +701,7 @@ We benchmark our defaults and exposed settings against the widely-cited "Perfect
 | Checksum on status report | SHA-256 (caveat: weaker than EAC's signed checksum; KDD-11) |
 | Gap detection (Secure) | **Corrected:** cyanrip does not use cdrdao. It performs no subchannel INDEX-00 pre-gap *detection*, so it emits no EAC-style `INDEX 00` cue metadata — but the *audio* itself is still handled the EAC-matching way (append/merge-to-previous), confirmed byte-for-byte on 12/14 real tracks; see `docs/eac-parity-investigation.md`. This is a cue-metadata gap, not an audio gap. |
 | Track/Disc filename template | configurable in Settings dialog |
-| Detect drive features auto-test | `whipper drive analyze` |
+| Detect drive features auto-test | **Corrected:** no equivalent under cyanrip — there is no drive-feature auto-test; drive facts come from the AccurateRip list + the drive-profile ledger (KDD-23). |
 | CUETools DB metadata plugin | We use MusicBrainz; CTDB verify (P1) + parity repair (in scope) — KDD-12, KDD-14 |
 
 **Out of scope by design (not a gap):** tracker (RED/OPS/Orpheus) log acceptance. See **KDD-24**.
@@ -678,6 +729,8 @@ EAC exposes a handful of toggles that whipper *also* supports via CLI flags but 
 
 These are listed in TASKS.md under "P1 — EAC bit-perfect parity gaps" and should land before the AppImage's first public release so users coming from EAC find the controls they expect.
 
+*(Resolution, 2026-07: all five shipped 2026-05-29/30. Force-overread, keep-going, and CD-R were whipper-only flags and were retired with whipper on 2026-06-30 (KDD-18); re-opening any of them is a fresh cyanrip task (e.g. `-x` overread) per TASKS.)*
+
 **Addendum (2026-06-28, EAC-parity follow-up) — marginal-disc convergence + verification-trust UX:**
 
 - **`secure_rerip_matches` (cyanrip `-Z N`).** A sixth, **cyanrip-only** rip setting in the same plumb-through shape (Config field → `RipParameters` → backend ABC `rip()` → cyanrip `_build_rip_argv`; whipper accepts and ignores it). It re-rips a track until N reads' checksums agree, so a marginal disc's near-miss (the Track-3-class gap vs the AccurateRip consensus) converges to the bit-perfect result. Off by default; greyed out under whipper, which has no equivalent flag. This is the lighter, no-new-dependency answer to a Track-3-class near-miss; the heavier CUETools/CTDB *repair* path stays deferred (see [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md)). *Hardware-gated:* the argv/plumbing is unit-tested, but the convergence effect needs a real marginal-disc run on the BDR-209D.
@@ -704,6 +757,8 @@ Implementation decisions (all 2026-05-30; vendoring revisited 2026-06-02):
 Net effect: the project becomes a superset of EAC's workflow — EAC needs CUETools as a *separate* application for parity repair; we integrate it.
 
 ### KDD-15 — Drive setup wizard writes `whipper.conf` (via whipper's own commands)
+
+*(cyanrip-era note, 2026-07: the title and body below are the whipper-era record. Since KDD-18 the wizard persists the offset to the GUI's own config (fed to cyanrip as `-s`); `whipper.conf` is never written and is read only as a legacy reference. The wizard's shape — auto-lookup + manual entry + first-run offer — is unchanged.)*
 
 The biggest first-run friction is calibrating the drive: today the user hand-edits `whipper.conf` with an offset they looked up manually. A guided wizard fixes this, and (user decision, 2026-05-30) it is allowed to **write** `whipper.conf`.
 
@@ -748,7 +803,7 @@ Decided 2026-06-04 (user-approved; this is a sanctioned evolution of the distrib
 
 **Amendment (2026-06-10, user-requested):** the original "never hand-roll the download — delegate to AppImageUpdate" call was reversed after real-world testing: `appimageupdatetool` isn't installed on the target systems (and is awkward to install on atomic distros), so the delegate path dead-ended in a browser download, a manual file swap, and a stale menu entry. The app now updates **in-app**: `update_install.py` downloads the release asset off-thread with progress, **verifies it against the published `.sha256`**, atomically installs it over `~/Applications/platterpus-x86_64.AppImage`, re-integrates the menu entries, and offers to restart into the new version (launch new + close old). The zsync update-information stays embedded, so AppImageUpdate delta updates remain possible for users who have the tool. Integration also re-offers per-file now (a declined offer silences only that exact file, so updates get their shortcuts remade).
 
-**Status: all three slices SHIPPED** — (a) self-integration 2026-06-05, (c) host wizard 2026-06-05 (+ cyanrip step 2026-06-09), (b) self-update 2026-06-09 (zsync update-information embedded by an appimagetool re-pack in `build_appimage.sh`; `.zsync` uploaded by release.yml; in-app Help → Check for updates… delegates to AppImageUpdate or the release page). Remaining proof is hardware/release-gated: a real delta update needs two consecutive releases with the embed (v0.2.0 → v0.3.0).
+**Status: all three slices SHIPPED** — (a) self-integration 2026-06-05, (c) host wizard 2026-06-05 (+ cyanrip step 2026-06-09), (b) self-update 2026-06-09, reworked in-app per the 2026-06-10 amendment (zsync update-information embedded by an appimagetool re-pack in `build_appimage.sh`; `.zsync` uploaded by release.yml; Help → Check for updates… downloads, sha256-verifies, atomically installs, and offers restart — AppImageUpdate remains possible externally for users who have it). Remaining proof is hardware/release-gated: a real delta update needs two consecutive releases with the embed (v0.2.0 → v0.3.0).
 
 ### KDD-18 — cyanrip is the ripping backend (whipper fully removed); never fork
 
@@ -823,7 +878,7 @@ The maintainer authorized shipping MP3/WavPack/WAV output, which **flipped the o
 
 UX gap #6 (ux-design-principles principle 7) asked for per-drive profiles keyed by a stable hardware identity, with provenance + confidence on each learned fact, to kill the EAC-2007 "silent wrong-offset rip" / identical-drive-collision bug class. The load-bearing decision was **what the profile store is allowed to do**.
 
-- **Decision: the ledger records and displays; it never decides which offset a rip uses.** `whipper.conf` stays whipper's sole authority (written only by whipper's own `offset find`, KDD-15), and the GUI's single global `--offset` override (`Config.read_offset`/`override_read_offset`) stays the only other authority. The new `drive_profiles.py` + `drive_profile_store.py` are a parallel **trust ledger**: per stable fingerprint, what offset was learned, from where (`OffsetSource`), with what confidence, and when. A test asserts the recorder never mutates `Config`.
+- **Decision: the ledger records and displays; it never decides which offset a rip uses.** `whipper.conf` stays whipper's sole authority (written only by whipper's own `offset find`, KDD-15), and the GUI's single global `--offset` override (`Config.read_offset`/`override_read_offset`) stays the only other authority. *(cyanrip-era note: with whipper removed the next day — KDD-18 — the GUI override is the only live authority; `whipper.conf` is a read-only legacy reference. The ledger's never-an-authority rule is unchanged.)* The new `drive_profiles.py` + `drive_profile_store.py` are a parallel **trust ledger**: per stable fingerprint, what offset was learned, from where (`OffsetSource`), with what confidence, and when. A test asserts the recorder never mutates `Config`.
 - **Why not make it authoritative (the rejected "fix the real bug" design).** Making the store feed the rip offset would mean either hand-authoring whipper.conf (forbidden) or forcing `--offset` from a possibly-stale cache — *re-creating* the silent-wrong-offset bug the feature exists to prevent. And whipper's primary backend exposes no serial/WWN, so the fingerprint collapses to the `vm:` (vendor+model) tier for the very identical-drive case per-unit application claims to fix. **Per-drive offset *application* is therefore deferred as hardware-gated** (it needs a real two-drive / BDR-209D run to prove the right offset reaches the right drive). The global override stays global (still functionally wrong with two drives) — but the guard now makes that situation *visible* where today it is silent.
 - **Fingerprint scheme:** `wwn:` → `sn:<vendor+model>:<serial>` → `vm:<vendor+model>`, first non-empty tier wins, tier prefix in the key so tiers can't cross-collide and *gaining* a serial later yields a new key (fail-safe re-confirm, never silent stale reuse). Firmware (`release`) is deliberately **excluded from the key** (a firmware flash must not orphan a profile) and surfaced by the swap guard instead. The vendor/model canonicalization is the **same** `canonical_token`/`normalize_combined` core as the AccurateRip lookup and whipper.conf section name, refactored into one place so the three keys can't drift apart (changing it is fail-safe: unknown fingerprint → re-confirm, never a wrong offset).
 - **One writer, upgrade rule.** A single `DriveMixin._record_drive_fact` funnels every learned fact into the store (no scattered writes — the Critical-Rule-#6 "one subsystem" principle applied to provenance). `should_replace_offset`: a MANUAL entry always wins (explicit user act); the same source refreshes itself; otherwise an automatic source replaces only a *strictly* lower-confidence record (so a model-list lookup never clobbers a measurement). whipper.conf is only *seeded* into the ledger when nothing is recorded yet — never used to overwrite known provenance; a live disagreement is surfaced by the guard instead.
@@ -840,7 +895,7 @@ A research pass asked whether Platterpus rips could ever become *tracker-accepte
 - **Two corrections to the maintainer's 2026 ripper-landscape research doc**, made while researching this KDD:
   1. **whipper + `whipper-plugin-eaclogger` does NOT genuinely satisfy RED at 100%.** The plugin's EAC-*style* log cannot emit the real EAC checksum (upstream tracks this at [whipper-plugin-eaclogger#7](https://github.com/whipper-team/whipper-plugin-eaclogger/issues/7), open) — so it hits the *same* RED checksum wall as we would. Only whipper's **native** log format is OPS/Orpheus-accepted (via SHA-256, per the ripper-identity allow-list above), and that's a different, weaker claim than "satisfies RED."
   2. **"logchecker-go (pure Go)" is unverified** as a claim about the tracker tooling's implementation language. What's actually verifiable and load-bearing is the **scoring mechanics** — ripper-identity allow-list + (for RED) the EAC checksum requirement — not which language a logchecker happens to be written in. Cite the mechanics, not the claimed rewrite.
-- **The deliberate alternative we invest in instead: the open-trust path.** AccurateRip v1/v2 (done, every rip) + CTDB whole-disc verify (KDD-16, experimental until hardware-validated) + an honest, **unsigned**, attributed EAC-*layout* log (`eac_log_export.py`, done — human/diff-comparison only, and its header/footer say plainly it is not a genuine EAC log). This is checkable by anyone against public databases, unlike tracker acceptance, which is a private allow-list decision.
+- **The deliberate alternative we invest in instead: the open-trust path.** AccurateRip v1/v2 (done, every rip) + CTDB whole-disc verify (KDD-16, hardware-validated 2026-07-07) + an honest, **unsigned**, attributed EAC-*layout* log (`eac_log_export.py`, done — human/diff-comparison only, and its header/footer say plainly it is not a genuine EAC log). This is checkable by anyone against public databases, unlike tracker acceptance, which is a private allow-list decision.
 - **The only legitimate future routes back to tracker acceptance** — neither is being built now, both require a fresh sign-off:
   1. **Re-add whipper as an optional secondary backend**, specifically to produce its native, tracker-recognized log format for users who want it. This directly **reverses KDD-18** ("cyanrip is the sole backend") and needs explicit maintainer sign-off, not a quiet re-introduction.
   2. **Upstream advocacy** — ask the tracker communities (who already maintain their own logchecker tooling) to add cyanrip to the ripper-identity allow-list. Outside our control; document the ask, don't build around its absence.
@@ -857,4 +912,4 @@ EAC's archival header carries a `Defeat audio cache: Yes/No` fact, and whipper c
 
 ---
 
-*Last updated for Platterpus v0.4.22.*
+*Last updated for Platterpus v0.4.24.*

@@ -12,6 +12,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **`PLANNING.md` synced with the post-whipper, v0.4.24 codebase.** The §1
+  directory tree gained the ~25 files it was missing (docs, scripts incl. the
+  `scripts/cyanrip/` kit, `atomic_write`/`build_info`/`rip_compare`/
+  `cli_compare`/`drive_media`/`notify`, `ctdb/calibrate`+`diagnose`,
+  `ui/main_window_shared`, `dialogs/file_viewer`, `mutation.yml`,
+  `SECURITY.md`) with matching §2 one-liners; stale claims corrected
+  (make_icon needs a rasterizer not Pillow, real AppImage recipe filenames,
+  SettingsDialog widget list, offset gate reads the GUI override only, §5
+  "still open" items that shipped 2026-06-09, §7 build-script sketch);
+  whipper-era KDDs (02, 07, 11, 13, 15, 17, 23, 24) got dated cyanrip-era
+  annotations in the established KDD-13/18 style — original decision text
+  preserved as the record.
 - **`CLAUDE.md` operations/companion sections brought up to current reality**
   (locked rules untouched): the CI description now lists all seven `ci.yml`
   jobs (incl. the gating `mypy` typecheck, `media-guard`, and `pip-audit` added
