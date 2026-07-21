@@ -48,7 +48,7 @@ jobs:
       - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
-          pip install build "python-appimage>=1.4,<2"
+          pip install "build>=1,<2" "python-appimage>=1.4,<2"
           # zsyncmake lets the build emit the .zsync delta-update file next
           # to the AppImage (KDD-17b self-update).
           sudo apt-get update -q && sudo apt-get install -y -q zsync

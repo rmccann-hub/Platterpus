@@ -42,14 +42,15 @@ the point: **we do not pretend CI proves the app rips a disc.**
 
 | Layer | Tooling | What we put here |
 |---|---|---|
-| **Static** | `ruff check` + `ruff format --check`, type hints | style, import order, likely-bug patterns (bugbear), modern-syntax. CI `lint` job. |
+| **Static** | `ruff check` + `ruff format --check`, `mypy` (strict def-typing, `pyproject.toml [tool.mypy]`) | style, import order, likely-bug patterns (bugbear), modern-syntax, wrong attributes / bad return types / None-misuse. CI `lint` + `typecheck` jobs (both gating). |
 | **Unit** | `pytest` | parsers (`test_parsers_*`), config schema/migration, value helpers, dependency-version logic. |
 | **Integration / contract** | `pytest` + fakes | adapters against a faked `subprocess` (argv built right, non-zero/timeout handled); Qt widgets driven through their signals with a fake backend (`test_ui_*`). |
 | **End-to-end** | `pytest` + fakes at the boundary only | the *whole* pipeline through the real assembled `MainWindow` (all mixins, real signals, a real `RipWorker` on a real `QThread`), faking only the external edge (ripper subprocess, MusicBrainz, cover-art HTTP, `metaflac`). `test_e2e_rip_pipeline.py` drives one full rip and asserts the cross-cutting outcome: tagged FLACs + embedded/saved cover art + a fidelity verdict. This is the only tier that proves the *threaded* finish path is wired across module boundaries. |
 | **Startup smoke** | `pytest` + offscreen Qt | the real `app.main()` entry point comes up headless (composition root, real adapters, a turn of the real event loop), with probes stubbed for hermeticity. `test_app_smoke.py` asserts the window composes (menus + widgets) and the launch dependency check applies **on the GUI thread** with no cross-thread Qt warnings — it caught a real off-thread-apply bug unit tests couldn't. |
 | **Property-based** | `hypothesis` | invariants over huge input spaces — see §4. |
 | **Packaging smoke** | `appimage.yml` | the built AppImage launches headless and reaches the Qt loop (`test_build_harness.py` guards the recipe). |
-| **Manual / hardware** | [test-plan.md](test-plan.md) | a real rip, CTDB verify CRC, `drive analyze`/`offset find`, the GUI screenshot. Gated work that the cloud env can't validate. |
+| **Supply-chain / audit** | `ci.yml` + `mutation.yml` | gating `pip-audit` (dependency CVEs), the server-side media-guard (rule 9's CI backstop), the advisory `tests-touched` nudge (rule 1's reminder), and the weekly non-gating mutation run — from the 2026-07-08 trust audit ([trust-audit-2026-07-08.md](archive/trust-audit-2026-07-08.md)). |
+| **Manual / hardware** | [test-plan.md](test-plan.md) | a real rip, CTDB verify CRC, the drive-setup wizard screens (Test 3), the read-effort/CD-Extra/companion-log cases (Tests 12–14), the GUI screenshot. Gated work that the cloud env can't validate. |
 
 ## 3. The five-tier case taxonomy (apply to every feature)
 
@@ -65,7 +66,7 @@ tiers. "I added a happy-path test" is not done.
 4. **Edge** — boundaries: empty input, zero tracks, a negative read offset,
    the max retries, a 99-track disc, a path with spaces/unicode.
 5. **Unexpected** — adversarial / malformed: garbage bytes where a number is
-   expected, a truncated log, an output format whipper has never actually
+   expected, a truncated log, an output format cyanrip has never actually
    emitted. **This tier is where the silent-crash bugs hide** — and where
    property-based testing (§4) earns its keep.
 
@@ -75,9 +76,10 @@ tiers. "I added a happy-path test" is not done.
   named for the behaviour (`test_refresh_handles_unexpected_exception...`).
 - **Golden / characterization tests.** For parsing real tool output, commit a
   captured sample under `tests/fixtures/` and assert against it. This is how we
-  pin whipper's actual log/`drive list`/`cd info` shapes
-  (`rip_log_real_whipper_0_7.log`, `drive_list_pioneer.txt`, …). When whipper's
-  output drifts, update the fixture in the same PR as the parser change.
+  pin cyanrip's actual log/`-I` shapes (the live backend whose output can
+  drift — when it does, update the fixture in the same PR as the parser
+  change) and how the frozen legacy whipper formats stay pinned for old logs
+  (`rip_log_real_whipper_0_7.log`, `drive_list_pioneer.txt`, …).
 - **Property-based tests** (`hypothesis`). Use for **invariants that must hold
   over all inputs**. Our keystone invariant: *a parser must never raise on
   arbitrary text* (`test_parsers_property.py`). Hypothesis generates hundreds of
@@ -215,11 +217,14 @@ tiers. "I added a happy-path test" is not done.
   GUI thread, `processEvents()` would block inside it and the timer would stall.
   Identity is the zero-flake primary; heartbeat catches blockers identity can't
   see (a slow pure-Python loop, a C-extension call).
-- **Mutation testing** (periodic, not in CI). Run `mutmut` occasionally on the
-  parsers/adapters to measure whether tests actually *catch* bugs rather than
-  just execute lines — coverage says a line ran, mutation says a test fails when
-  that line is wrong. It's slow, so it's a manual quality audit (see §7), not a
-  per-PR gate.
+- **Mutation testing** (weekly in CI, never a gate). `mutmut` measures whether
+  tests actually *catch* bugs rather than just execute lines — coverage says a
+  line ran, mutation says a test fails when that line is wrong. It runs
+  automatically as a weekly, non-blocking workflow
+  (`.github/workflows/mutation.yml`) over the parsers, the AccurateRip verdict
+  (`verdict.py`), and the CTDB CRC (`ctdb/crc.py`) — read the run summary for
+  survivors; it never gates a PR. The §7 `pipx` command runs it locally on any
+  module.
 
 ## 5. Institutional rules (the non-negotiables)
 
@@ -267,7 +272,8 @@ tiers. "I added a happy-path test" is not done.
    rip logs + per-track CRCs (the CRCs prove bit-perfection without the audio).
    If a test truly needs real PCM, generate a synthetic tone or use a CC0/
    public-domain clip — never a commercial track. `.gitignore` denies audio
-   extensions as a backstop.
+   extensions as a backstop, and CI's server-side `media-guard` job rejects any
+   pushed audio file even if the local hook was bypassed.
 10. **Off-thread work gets a runtime guard that it ran off the GUI thread.** The
     freeze bug class (now seen three times — see CLAUDE.md) is only caught if a
     test *proves* the blocking work (install, rip, probe, decode) ran on a
@@ -327,6 +333,7 @@ tiers. "I added a happy-path test" is not done.
       passes — a new field cannot ship un-serialized. — *CLAUDE.md: validate every
       input & output*
 - [ ] `ruff check` + `ruff format --check` clean.
+- [ ] `mypy` clean (the gating CI `typecheck` job; strict def-typing package-wide).
 - [ ] Coverage gate passes; gate not lowered.
 - [ ] If the change touches hardware-only behaviour, [test-plan.md](test-plan.md)
       has a new/updated checklist item.
@@ -334,8 +341,9 @@ tiers. "I added a happy-path test" is not done.
       in the commit, even a temporary test fixture. — *CLAUDE.md Critical Rule #8*
 - [ ] `CHANGELOG.md` `[Unreleased]` has a bullet for the change, **in the same
       commit** (CI enforces this; a pure historical-record commit opts out with a
-      `[skip changelog]` line of its own in the commit message). — *CLAUDE.md
-      Critical Rule #7*
+      `[skip changelog]` line of its own in the commit message — and *only* a
+      historical-record commit: contributor/CI-facing changes are **not** exempt,
+      maintainer ruling 2026-07-21). — *CLAUDE.md Critical Rule #7*
 - [ ] **At session end:** `docs/session-log.md` has a newest-first entry, and any
       durable lesson has been **graduated** to its home (CLAUDE.md / `PLANNING.md`
       KDD / [architecture.md](architecture.md) / this file) — not left only in the
@@ -353,13 +361,14 @@ pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91
 # Property tests only (more examples for a deeper sweep):
 pytest tests/test_parsers_property.py --hypothesis-seed=random
 
-# Periodic test-quality audit (slow; not a CI gate). Run on a module:
-pipx run mutmut run --paths-to-mutate src/platterpus/parsers/
+# Test-quality audit (slow; runs weekly in CI via mutation.yml, never a gate).
+# Run locally on the same scope, or any module:
+pipx run mutmut run --paths-to-mutate "src/platterpus/parsers/,src/platterpus/verdict.py,src/platterpus/ctdb/crc.py"
 pipx run mutmut results
 ```
 
 Install the test tooling with the dev extra: `pip install -e ".[dev]"`
-(brings in `pytest`, `ruff`, `pytest-cov`, `hypothesis`).
+(brings in `pytest`, `ruff`, `pytest-cov`, `hypothesis`, `mypy`).
 
 ## 8. Sources
 
@@ -371,4 +380,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.24.*

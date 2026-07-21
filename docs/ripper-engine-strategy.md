@@ -36,7 +36,7 @@ fully open at
   read-offset bug** that failed tracks on the Pioneer BDR-209D (+667) (KDD-18).
 
 **cyanrip** — [`cyanreg/cyanrip`](https://github.com/cyanreg/cyanrip)
-- License: **GNU LGPL-2.1** (`LICENSE.md`). C (~99%) + Meson build.
+- License: **LGPL-2.1-or-later** (`LICENSE.md`; confirmed from the 2026-07-07 repo clone — the roadmap doc records the same). C (~99%) + Meson build.
 - Releases: latest **tag** v0.9.3.1 (2024-06-05) — but **`master` is actively
   developed**: commits through **2026-03-25** (~25–30 in the trailing year —
   pregap/cue fixes, cdrdao TOC/bin support, metadata-tag fixes, Windows fixes).
@@ -99,7 +99,9 @@ Sources: [GNU license compatibility](https://www.gnu.org/licenses/license-compat
 
 **Preliminary lean (NOT a decision):** if we ever fork, **cyanrip is the stronger
 base** (active, no Python cliff, broad format support, permissive license, no >587
-bug) — which also matches KDD-18's "migrate the adapter to cyanrip if forced." The
+bug) — which also matches KDD-18's contribute-to-cyanrip stance (the "migrate the
+adapter to cyanrip if forced" phrasing comes from the 2026-06-02
+upstream-modification investigation guardrail that KDD-18 later codified). The
 sane escalation ladder: **Option 0 first** (upstream a specific need); escalate to
 **Option 2/3** only if upstream can't/won't *and* the maintenance cost is justified.
 
@@ -123,7 +125,7 @@ fork/combine option open.
 
 ## 6. Open research tasks (append findings here as we learn)
 
-- [x] **Gauge cyanrip upstream's activity + PR responsiveness (gates Option 0) — done 2026-07-08.** *Development:* `master` is live (last commit 2026-03-25; ~25–30 commits/yr). *Releases:* stalled — last tag v0.9.3.1 is ~2 yr old. *Responsiveness:* the maintainer (**Lynne "cyanreg" `<dev@lynne.ee>`**, IRC `#cyanrip` on Libera.Chat) **does merge external PRs, but slowly** — jp-sarte's #130 landed ~3.5 months out; some PRs sit 1–2 years; PR #115 (pregap/HTOA) is open and actively reviewed. **Conclusion — a fork is NOT warranted for "slow releases":** because Platterpus owns the `ripping` Distrobox container, we can build cyanrip **from any git commit** (our own topic branch *before* a merge, or upstream `master` *after*), so cyanrip's release cadence never gates us — the "slow releases → must fork" reasoning dissolves. The real, smaller decision is **build-cyanrip-from-source in the container vs. a distro package** (a maintenance choice, not a fork). Escalate to a **soft fork** (upstream `master` + our small rebased patch set) only if a needed PR is *declined or stalls indefinitely*; a **hard fork / consolidated tree (§7)** stays behind the §5 gates + a KDD-18 amendment. Only CI upstream is a Windows/MinGW build — don't break it; no `CONTRIBUTING`, match surrounding C.
+- [x] **Gauge cyanrip upstream's activity + PR responsiveness (gates Option 0) — done 2026-07-08.** *Development:* `master` is live (last commit 2026-03-25; ~25–30 commits/yr). *Releases:* stalled — last tag v0.9.3.1 is ~2 yr old. *Responsiveness:* the maintainer **does merge external PRs, but slowly** (contact/cadence facts live in the roadmap's **Process** block — [`upstream-pr-roadmap.md`](upstream-pr-roadmap.md) — the canonical home; PR #115, pregap/HTOA, is open and actively reviewed). **Conclusion — a fork is NOT warranted for "slow releases":** because Platterpus owns the `ripping` Distrobox container, we can build cyanrip **from any git commit** (our own topic branch *before* a merge, or upstream `master` *after*), so cyanrip's release cadence never gates us — the "slow releases → must fork" reasoning dissolves. The real, smaller decision is **build-cyanrip-from-source in the container vs. a distro package** (a maintenance choice, not a fork). Escalate to a **soft fork** (upstream `master` + our small rebased patch set) only if a needed PR is *declined or stalls indefinitely*; a **hard fork / consolidated tree (§7)** stays behind the §5 gates + a KDD-18 amendment. (Upstream conventions/CI: see the roadmap's Process block.) **The soft fork now exists** (decided 2026-07-08): runbook in [`cyanrip-soft-fork.md`](cyanrip-soft-fork.md), execution kit in `scripts/cyanrip/` — two contributions prepared (the `-a`/`-t` colon fix ⭐ and full encoder opts). The "map cyanrip's FFmpeg flag surface" question below was answered **negatively** the same day: cyanrip hardcodes `compression_level` and opens encoders with no options dict — hence the prepared encoder-opts contribution.
 - [ ] Inventory exactly what whipper does that cyanrip doesn't (gap-detection
       method, log fields, `.cue`/`.toc` output) — gates Option 3.
 - [ ] Map cyanrip's FFmpeg flag surface for what we want (FLAC compression level,
@@ -288,15 +290,16 @@ careful EAC user with zero terminal. **Quality can only go up.**
   speed change), so it works on a speed-locked drive, and it can never make a
   track worse. This **superseded 0.4.7's "flag, don't re-rip"** for instability
   once `-l` was confirmed (gate 3 below) — the whole-disc-cost objection was gone.
-- **Dynamic secure re-rip (0.4.9, opt-in — Settings "Only when needed").** When a
-  user has `-Z` on, `-Z` is normally applied to *every* track, so every track is
-  read at least twice (the dominant cost on a clean disc; a real-user "20 min on
+- **Dynamic secure re-rip (shipped 0.4.9 as the default behaviour — no
+  checkbox).** When `-Z` is applied to *every* track, every track is read at
+  least twice (the dominant cost on a clean disc; a real-user "20 min on
   track 1, an hour on track 2" ETA came straight from this). Dynamic mode instead
   rips pass 1 **fast** (`-Z 0`) and then secure-re-rips (same `-l` per-track path)
   **only the tracks that didn't match AccurateRip** — a DB match on the first read
   is already proof of bit-perfection, so re-reading it is wasted time. A clean disc
   becomes a single fast pass; marginal / not-in-DB tracks still get the full secure
-  treatment. Off by default (unchanged behaviour); the trigger is recorded per
+  treatment. **On by default** (a power user forces `-Z` on every track via
+  `secure_rerip_dynamic = false` in config.toml); the trigger is recorded per
   track (`retried_tracks[].trigger` = `accuraterip` vs `instability`).
 - **Manual override:** Settings → "Fixed speed (advanced)" disables the ladder
   and rips at one chosen `-S` value (0 = drive max).
@@ -369,8 +372,8 @@ cache-defeat verdict:
 
 - **cyanrip** has no cache-defeat flag and prints no cache line in its log at
   all (confirmed against `adapters/cyanrip_backend.py`'s argv builder and the
-  `parsers/cyanrip_log.py` finish-log parser — only `read_offset` and
-  `speed_changeable` are extracted from the banner).
+  `parsers/cyanrip_log.py` finish-log parser — no cache-related field exists on
+  the banner to parse; it reads the offset, speed capability, and disc IDs).
 - Its engine, **libcdio-paranoia**, *attempts* cache defeat every rip —
   readahead cache-exhaustion reads, plus FUA (Force Unit Access) where the
   drive advertises support — but this is **best-effort and drive-dependent**,
@@ -458,10 +461,11 @@ lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metafla
 > **Ordered, step-by-step version:** this menu is turned into a *ranked* action
 > list — which upstream PR to do first, its odds, and exactly how to contribute
 > each — in [`upstream-pr-roadmap.md`](upstream-pr-roadmap.md). Start there when
-> actually contributing; the headline is that the pregap/INDEX-00 + HTOA gaps are
-> best closed *now* by a Platterpus-side `cdrdao` subprocess integration (no
-> upstream PR), and cyanrip's live PR #115 already tackles the same two gaps.
+> actually contributing; the headline (revised 2026-07-07 in the roadmap) is
+> that the honest first move on the pregap/INDEX-00 + HTOA gaps is to **help
+> land cyanrip PR #115**, with a Platterpus-side `cdrdao` subprocess
+> integration kept only as the fallback if #115 stalls indefinitely.
 
 ---
 
-*Last updated for Platterpus v0.4.23.*
+*Last updated for Platterpus v0.4.24.*

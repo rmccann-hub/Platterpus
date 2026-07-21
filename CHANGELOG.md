@@ -7,9 +7,264 @@ adheres to [Semantic Versioning](https://semver.org/); dates are ISO-8601
 (YYYY-MM-DD). The version itself is single-sourced from
 `src/platterpus/__init__.py` (`__version__`); at release time the `[Unreleased]`
 entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
-`PLANNING.md` KDDs and the CLAUDE.md session log — not here.)
+`PLANNING.md` KDDs and `docs/session-log.md` — not here.)
 
 ## [Unreleased]
+
+### Added
+- **cyanrip upstream-contribution kit** (`scripts/cyanrip/`, PR #80,
+  2026-07-09; bullet added retroactively under the 2026-07-21 strict
+  `[skip changelog]` ruling): a verified, dry-run-first patcher for the
+  colon fix (`apply-colon-fix.py`, unit-tested), fork/build scripts, the
+  canonical paste-ready upstream issue/PR bodies, and the ASan/UBSan-proved
+  C harness.
+
+### Changed
+- **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
+  call, completing the audit doc-map): graduation row added to the archive
+  index; its still-open items (release signing, dependency hash-pinning)
+  remain tracked in the TASKS.md trust-hardening section; inbound references
+  retargeted.
+- **Strict def-typing (`mypy`) enforced across the entire package** (PRs
+  #81–#83, 2026-07-09→20; bullets added retroactively under the same ruling):
+  staged in three ratchets — everything outside `ui/` (a zero-code-change
+  config tighten), the standalone UI widgets (8 real annotations fixed), and
+  finally the `MainWindow` god-object + its five mixins via the new
+  runtime-neutral `ui/main_window_shared.py` typing seam (which also fixed
+  ~10 real type gaps). No per-module exclusions remain.
+- **`[skip changelog]` scope settled — strict** (maintainer ruling,
+  2026-07-21): the exemption covers *pure historical-record commits only*;
+  contributor/CI-facing changes get bullets like any other change. Wording
+  clarified in CLAUDE.md's Commit & PR hygiene and the testing.md Definition
+  of Done; the four PRs that had used the broader reading got their bullets
+  above.
+- **README's duplicate EAC-parity section folded into the top matrix**
+  (maintainer-approved): the "Compared to EAC's bit-perfect settings" lists
+  restated the capability matrix and point-by-point table from the top of the
+  README (the drifted CTDB status had rotted in three places for exactly this
+  reason) — the section now points at the matrix, KDD-13, and
+  `docs/eac-parity-investigation.md`, and the Settings rundown lives under its
+  own "Rip settings at a glance" heading.
+- **`CLAUDE.md`'s companion-document list slimmed to one-line pointers**
+  (maintainer-approved): `docs/README.md` is the canonical annotated index and
+  the two lists had already drifted once — the always-loaded anchor now names
+  each doc in a line and defers the annotations to the index.
+- **`docs/test-plan.md` whipper-era cases rewritten for the cyanrip-only
+  reality** (maintainer-approved): Test 3 is now the drive-setup-wizard
+  success-screens + auto-vs-manual offset capture (absorbing Test 4, retired);
+  Test 8 is the cyanrip parity record with the `-Z` convergence re-rip as its
+  open core; Test 10 and step A8 are retired stubs (numbers kept as stable
+  IDs); Part B's procedure and parity-variables are single-backend. **New
+  Tests 12–14** add the missing hardware rows: the read-speed ladder /
+  auto-fix / speed-locked `-S` stack, CD-Extra CTDB TOC handling, and the
+  EAC-compatible companion log + goal presets.
+- **cyanrip-cluster dedup completed** (maintainer-approved): the soft-fork
+  runbook's duplicated issue-body blockquotes are replaced by links to the
+  kit's canonical `scripts/cyanrip/issue-*.md` paste files, and the
+  upstream-process facts (maintainer contact, style, CI, PR responsiveness)
+  now live once, in the roadmap's Process block — the strategy doc §6 and the
+  runbook link there instead of restating them.
+- **`docs/audit-2026-07-02.md` retired to `docs/archive/`** (maintainer-
+  approved doc-map move): its §E remainders were already graduated to the
+  TASKS.md Documentation backlog, the archive index gained the graduation
+  row, and every inbound reference was retargeted. **The colon-fix proof
+  harness moved into the kit** as `scripts/cyanrip/verify-meta-colon.c`
+  (the kit is the declared execution layer) with the runbook, test
+  docstring, indexes, and PLANNING tree updated.
+- **Dependency-review catch-up logged for v0.4.19–v0.4.24** in
+  `DEPENDENCIES.md` (maintainer-approved): all pins verified healthy against
+  live PyPI — notably mypy is at 2.3.0 upstream, so the `>=1.13,<3` bound is
+  now load-bearing — and the per-release dependency changes since the
+  2026-07-07 review are recorded.
+- **The `build` frontend is now actually pinned `>=1,<2`** in `release.yml`,
+  `appimage.yml`, and `build_appimage.sh` (maintainer-approved; the audit
+  found `DEPENDENCIES.md` claiming a pin no install site applied — the doc
+  row now matches reality again).
+- **Two maintainer-approved doctrine updates in `CLAUDE.md`** (2026-07-21
+  audit follow-up, both explicitly authorized): Critical Rule #3 now names its
+  own scoped, user-approved force-stop exception (approved 2026-05-31, until
+  now documented only in `docs/dependency-contracts.md`); and the
+  brief-vs-PLANNING precedence rule reads "the brief **as amended by the
+  maintainer-approved KDDs** wins on requirements/scope" (matching actual
+  practice since KDD-12/KDD-22 — `docs/README.md` updated to match).
+- **Full documentation audit (2026-07-21).** Every Markdown doc in the repo was
+  audited against the code, CI, and the live tag history — 239 findings, ~160
+  fixed in this release's docs commits. The audit record (systemic patterns,
+  before→after doc map, open maintainer questions) is
+  `docs/audit-2026-07-21.md`; the unexecuted consolidation plan is captured in
+  `TASKS.md` → P1 Documentation backlog.
+- **`TASKS.md` statuses caught up with shipped reality.** CTDB verify's three
+  trackers all still read as open/hardware-gated although the CRC was
+  validated 2026-07-07 (v0.4.20) — current-plan item 8 is now marked complete
+  and declared the canonical status home, with the other two reduced to
+  pointers; the "both backends" hardware-parity item, the whipper parity-
+  matrix rows, and the whipper-era Step-5 doc item are marked
+  retired/superseded (whipper removed 2026-06-30); the committed cyanrip
+  FLAC (12/14) and MP3 (13/14) proofs are now reflected in the matrix; the
+  obsolete "don't start P1 until P0 ships" fences, the stale PyPI
+  verified-through pins, and the accessibility-pass over-claim (now 🟡 with
+  the remaining work named) are corrected.
+- **`PLANNING.md` synced with the post-whipper, v0.4.24 codebase.** The §1
+  directory tree gained the ~25 files it was missing (docs, scripts incl. the
+  `scripts/cyanrip/` kit, `atomic_write`/`build_info`/`rip_compare`/
+  `cli_compare`/`drive_media`/`notify`, `ctdb/calibrate`+`diagnose`,
+  `ui/main_window_shared`, `dialogs/file_viewer`, `mutation.yml`,
+  `SECURITY.md`) with matching §2 one-liners; stale claims corrected
+  (make_icon needs a rasterizer not Pillow, real AppImage recipe filenames,
+  SettingsDialog widget list, offset gate reads the GUI override only, §5
+  "still open" items that shipped 2026-06-09, §7 build-script sketch);
+  whipper-era KDDs (02, 07, 11, 13, 15, 17, 23, 24) got dated cyanrip-era
+  annotations in the established KDD-13/18 style — original decision text
+  preserved as the record.
+- **`CLAUDE.md` operations/companion sections brought up to current reality**
+  (locked rules untouched): the CI description now lists all seven `ci.yml`
+  jobs (incl. the gating `mypy` typecheck, `media-guard`, and `pip-audit` added
+  2026-07-08) plus the weekly `mutation.yml` and the `appimage.yml` branch
+  builds; the release-asset list now includes the `.zsync` and the provenance
+  attestation; the companion-document list gained `SECURITY.md`,
+  `docs/mp3-wav-support.md`, and the soft-fork/roadmap companions, and no
+  longer restates the KDD count (that lives in `docs/README.md`).
+
+### Fixed
+- **Duplicate category headings merged throughout this changelog**
+  (maintainer-approved audit follow-up): `[0.4.10]`, `[0.4.5]`, `[0.4.0]`,
+  and `[0.2.0]` each carried repeated `### Added`/`### Changed`/`### Fixed`
+  headings from incremental edits — now one heading per category per release
+  (Keep-a-Changelog form), every bullet preserved in order.
+- **AppImage/build/SOP docs corrected; dated records got preservation
+  banners.** `appimage-testing.md` now documents the `workflow_dispatch`
+  release route (the only one that works from cloud sessions), the `.zsync` +
+  PyPI hand-off in the asset checklist, artifact expiry, and the cyanrip host
+  stack. `build/python-appimage/README.md` no longer omits `pyproject.toml`
+  from the pin-update instruction (following it would have desynced the three
+  sources) and describes what the build script actually does.
+  `github-workflow-sop.md`'s preface now lists all four CLAUDE.md
+  divergences, §7.1 matches the all-PRs squash policy, and the footer credits
+  the roadmap for the PR ordering. The research brief, the session-start
+  bootstrap, the three 2026-06 archive investigations, and both dated audits
+  gained preservation banners / status addenda (bodies unedited) so none of
+  them reads as current where reality moved on.
+- **`output_reference/` + `tests/fixtures/` READMEs match the committed
+  proofs.** The layout matrix no longer marks the committed cyanrip FLAC
+  (12/14) and MP3 (13/14) proofs as empty; the whipper row and the three
+  `whipper_*` placeholder READMEs are reframed as historical (whipper removed
+  2026-06-30 — those proofs can never arrive); the commit policy matches the
+  actual "store the text, document the imperfection" practice; the Git-LFS
+  advice (never configured) is replaced by the real CC0 + `--no-verify` flow;
+  the EAC_wav README records that WavPack shipped; EAC_mp3's "planned
+  whipper-path transcode" is the shipped adapter; and `EAC_flac/` — the one
+  directory holding the canonical UTF-16 baseline — finally has its own
+  README with the don't-re-encode warning.
+- **CHANGELOG record repaired against the real tag history.** The lost
+  `## [0.3.10]` heading is restored (verbatim from the `v0.3.10` tag's own
+  CHANGELOG — its colon-in-tags fix had been absorbed into `[0.4.0]`); the
+  `[0.2.0]`/`[0.2.1]`/`[0.0.1]` link definitions no longer point at tags that
+  don't exist on the remote (both anomalies annotated inline); the skipped
+  `v0.4.3` number is annotated like the v0.2.0 anomaly; the head note now
+  names `docs/session-log.md` instead of "the CLAUDE.md session log".
+- **cyanrip cluster reconciled (strategy / roadmap / soft-fork / kit).** The
+  strategy doc's §8.1 no longer claims dynamic secure re-rip is opt-in/off (it
+  shipped on-by-default with no checkbox, 0.4.9), its §10 pointer box carries
+  the roadmap's revised support-#115-first headline instead of the superseded
+  cdrdao-DO-NOW one, §6 records that the soft fork now exists (with the
+  FFmpeg-flag question answered), and the KDD-18 "quote" is re-attributed.
+  The roadmap's at-a-glance table and intro now agree with its own 2026-07-07
+  update box (cdrdao = fallback), it gained a 2026-07-08 pointer box to the
+  two prepared contributions, and the deleted `config.ripper_backend` seam
+  claim now names the real `RipBackend` ABC seam. cyanrip's license reads
+  LGPL-2.1-or-later consistently across all three docs. The kit's paste files
+  are declared the canonical issue/PR text; `cyanrip/` (the local soft-fork
+  checkout) is now git-ignored with a note in the kit README, which also
+  gained the standard footer stamp and an accurate build.sh description.
+- **Research/design docs reconciled with their own outcomes.**
+  `eac-log-and-repair-feasibility.md` no longer reads as pending: Part A's
+  decision gate records the KDD-24 resolution (option 1 standing, option 2
+  shipped v0.4.16, signing permanently closed), Part B's CRC blocker is marked
+  cleared (v0.4.20), and the misattributed "CLAUDE.md" ethos quote is
+  re-cited. `eac-parity-investigation.md` gained a dated Outcome note (13/14
+  reached, Track-3 transience confirmed then refined to read-instability, the
+  `-Z` hardware gate answered, P1 done) plus superseded-pointers for the
+  INDEX-00 route (PR #115 via the upstream roadmap) and the renamed `-Z`
+  Settings control. `mp3-wav-support.md` gained a status note (whipper
+  removed; ffmpeg is the sole shipped WavPack encoder — as-built annotations
+  on the locked decision block rather than rewrites) and its stale
+  "still to add"/"Test-plan candidate" parentheticals now record what
+  shipped.
+- **Reference-doc accuracy sweep (dependency-contracts, ux-principles,
+  log-format, CTDB-CRC).** `dependency-contracts.md`: CTDB matches read
+  "verified" (CRC hardware-validated v0.4.20, this was the last "experimental"
+  holdout); the force-stop section now shows the real device-scoped-first kill
+  order (0.4.9, #23); three in-scope invocations documented (ffmpeg PCM
+  decode-hash, flac raw decode for the CTDB CRC, `metaflac
+  --show-total-samples`); CAA manifest/back/booklet fetches documented; the
+  musicbrainzngs contract gained `cdstubs=False` + the TOC-lookup form; the
+  recompress argv shows `--silent -f -o <tmp>`. Two stale code comments
+  corrected to the 2026-07-01 hardware finding (a speed-locked drive makes
+  cyanrip abort on `-S`; the ladder never sends it) and `track_table.py` now
+  cites UX principle #10, not #7. `ux-design-principles.md`: principles 2/3/7
+  and the gap table match shipped reality (dynamic `-Z` default, goal presets
+  shipped, the GUI offset override is the sole authority). `log-format-
+  comparison.md`: records the optional EAC-compatible companion log (v0.4.16)
+  instead of denying it exists; real parser-test path. `ctdb-crc-algorithm.md`:
+  disc-specific back-trim qualifier restored; the `crc32_combine` fast path
+  count matches the ±5879 window.
+- **`docs/test-plan.md` no longer directs testers at removed whipper
+  features.** The whipper-era cases (Tests 3, 4, 8, 10 and step A8) now carry
+  explicit ⚠️ SUPERSEDED banners with the cyanrip-era successor flow (their
+  full rewrite is tracked in the TASKS.md Documentation backlog); wording
+  fixes throughout: the preflight verifies the cyanrip routing, the wizard
+  installs cyanrip/flac/metaflac, the uninstaller has two checkboxes, D9/D10
+  are cyanrip-native (no "Continue on CD-R" / "Keep going" toggles), the
+  fidelity-verdict quote matches the shipped string, Test 1b's as-built
+  record matches today's `verify_rip_dir` + on-by-default CTDB toggle, and
+  the reporting template is single-backend.
+- **`docs/architecture.md` / `docs/testing.md` corrections.** Architecture: the
+  §1 diagram no longer claims the GUI queries AccurateRip (cyanrip verifies
+  in-rip; the GUI only carries the offline offset list); `build_backend` is no
+  longer "the whipper/cyanrip choice"; the unmaintained flag is
+  `appimage-builder` (matching Critical rule #1), not `python-appimage`;
+  `MbWorker` → `MusicBrainzWorker`; the §3.2 dialog bullet now carries the
+  "Dialogs that do blocking work" name CLAUDE.md cites; force-stop/pkill rules
+  repointed to `dependency-contracts.md` (they were never in CLAUDE.md); the
+  live cyanrip progress regex replaces the inert whipper one. Testing: the
+  gating `mypy` typecheck is now in the layers table, the Definition of Done,
+  and the dev-extra list; mutation testing is documented as the weekly CI run
+  it became 2026-07-08; golden-test guidance reframed around cyanrip as the
+  live backend; the supply-chain CI jobs (pip-audit, media-guard,
+  tests-touched) are in the layers table and rule 9's backstop list.
+- **`docs/README.md` index made complete and current.** The two dated audit
+  records (`audit-2026-07-02.md`, `trust-audit-2026-07-08.md`) are now
+  indexed; the soft-fork row points at its C proof harness and the
+  `scripts/cyanrip/` execution kit; the CTDB-repair row no longer claims the
+  CRC gate is still open (cleared v0.4.20); the outside-docs table gained
+  `SECURITY.md`, `CHANGELOG.md`, `output_reference/README.md`, and
+  `scripts/cyanrip/README.md`; the stamp rule now exempts the paste-ready
+  upstream issue bodies. `docs/archive/README.md`: the CTDB Phase-1 spec is
+  no longer called "unbuilt", the offset-investigation graduation row credits
+  the right modules, and the extraction-guide summary row matches the trimmed
+  content.
+- **`DEPENDENCIES.md` / `SECURITY.md` corrections.** The mypy row now shows
+  the real pin (`>=1.13,<3`) and the package-wide strict gate (the "except the
+  Qt UI mixin layer" note — also stale in a `ci.yml` comment — predated the
+  2026-07-19/20 strictness completion); the `build` row no longer claims a pin
+  that exists nowhere; the mutmut row records the weekly CI run; the Pillow
+  tombstone row was removed per its own review instruction. SECURITY.md's
+  no-overwrite promise now cites the actual v0.4.22/v0.4.23 overwrite guards
+  instead of the unrelated Critical Rule #8, and the file gained the standard
+  footer stamp.
+- **README caught up with shipped reality.** CTDB verification is no longer
+  described as "experimental / CRC fix pending" (it was hardware-validated in
+  v0.4.20 — all four stale spots corrected); the container-upgrade example no
+  longer suggests `--releasever=41` (below the cyanrip COPR's Fedora-42
+  floor); the uninstall one-liner no longer implies AppImage users have a
+  `platterpus` command; the pipx section drops the "before the first
+  published release" hedge; the release bullet now states the version-bump +
+  changelog preconditions and the dispatch path.
+- **Documentation: five broken relative links repaired.** Four links in
+  `docs/session-log.md` and one in
+  `docs/archive/upstream-modification-investigation.md` used repo-root-relative
+  targets from inside `docs/`, so they 404'd when browsed on GitHub. Link text
+  is unchanged — only the targets were corrected.
 
 ## [0.4.24] — 2026-07-09
 
@@ -160,7 +415,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   previously only a client-side git hook); a `.github/dependabot.yml`
   (`pip` + `github-actions`) dependency watch; and a `SECURITY.md` disclosure
   policy. Deeper items (update signing, action SHA-pinning, reproducible builds,
-  static type-checking) are tracked in `TASKS.md` and `docs/trust-audit-2026-07-08.md`.
+  static type-checking) are tracked in `TASKS.md` and `docs/archive/trust-audit-2026-07-08.md`.
 
 ## [0.4.21] — 2026-07-08
 
@@ -600,6 +855,13 @@ richer metadata and cover art, and a more complete per-album report.
   attribute that no longer exists), the dead `DriveSetupResult.backup_path`
   field, and corrected the Python matrix (3.11–3.14) and a few table/reference
   nits.
+- **After an in-app update, the "Restart now?" prompt now warns that the new
+  version can take 20–30 seconds to reappear** (a new AppImage unpacks itself on
+  its first launch). The app *does* relaunch itself, but that cold-extract gap
+  read as "it updated but didn't restart" (real-user report, 2026-07-02) and led
+  to reopening it by hand. Setting the expectation up front fixes the confusion
+  without changing the (correct) relaunch behaviour. Regression-tested so the
+  heads-up can't be silently dropped.
 
 ### Added
 - **"View log" and "View report" now open in an in-app read-only viewer.** A
@@ -648,15 +910,6 @@ richer metadata and cover art, and a more complete per-album report.
   (`SubprocessRunner`): a missing command surfaces as the `127` sentinel and a
   timeout as `124` — never an exception that would abort the setup/uninstall
   pipeline mid-step. (Previously only the injected fake runner was exercised.)
-
-### Changed
-- **After an in-app update, the "Restart now?" prompt now warns that the new
-  version can take 20–30 seconds to reappear** (a new AppImage unpacks itself on
-  its first launch). The app *does* relaunch itself, but that cold-extract gap
-  read as "it updated but didn't restart" (real-user report, 2026-07-02) and led
-  to reopening it by hand. Setting the expectation up front fixes the confusion
-  without changing the (correct) relaunch behaviour. Regression-tested so the
-  heads-up can't be silently dropped.
 
 ## [0.4.9] — 2026-07-02
 
@@ -1164,6 +1417,20 @@ richer metadata and cover art, and a more complete per-album report.
 - **The drive model is captured again.** cyanrip 0.9.3 prints `Device model:`,
   but the parser only matched the older `Drive used:` — so the archival "which
   drive" field came out empty. Both are accepted now.
+- **Dialogs now centre over the main window even when they're a plain message
+  box.** The 0.4.4 centering only covered our own dialog subclasses, so the
+  first-run "add to menu", shortcut, and update prompts (plain `QMessageBox`)
+  could still open on another monitor. An application-wide filter now centres
+  every dialog — message boxes and file pickers included — on the window that
+  opened it. (Still a no-op under native Wayland, where clients can't position
+  themselves; the app prefers XWayland, where it works.)
+- **The main-window splitter is draggable at the normal window size, not only
+  when maximized.** The three stacked panes' minimum heights summed to nearly
+  the whole default window, so the splitter handles showed the resize cursor but
+  had no slack to move (real-user report on 0.4.4). The scrollable areas (track
+  list, rip log, AccurateRip table) now keep a small minimum height, so the
+  splitter can always redistribute space. (The default window size is unchanged
+  — making it taller would overflow 1366×768 laptops.)
 
 ### Added
 - **The rip report now captures the loudness, ReplayGain, drive, and log
@@ -1186,19 +1453,6 @@ richer metadata and cover art, and a more complete per-album report.
   **per-file SHA256** map for long-term integrity checking (bit-rot) — embedded
   here rather than a separate `checksums.sha256` sidecar. The report is re-written
   as each async check finishes, so the final file always reflects every one.
-
-### Changed
-- **Every rip now fully verifies the bit-perfect FLAC master before deriving any
-  format.** Verification used to be format-dependent (CTDB only ran under the
-  Archival goal). Now all three goals — and a fresh install — run the full suite
-  on the master: **AccurateRip** (always) + **CTDB** whole-disc + **FLAC-integrity
-  decode**, *before* any MP3/WavPack/WAV transcode. So a portable MP3 is derived
-  from a master that's had exactly the same proof as an archival FLAC. The FLAC
-  master is always kept. CTDB is now on by default (a network lookup + a decode
-  per rip; it fails safe and off-thread, and is still toggleable). The goals now
-  differ only in *output* and *compression effort*, never in how hard they check.
-
-### Added
 - **File-naming presets with a live preview.** Settings has a new "Naming
   scheme" dropdown offering the layouts the popular tools use — *Artist / Album
   / 01 - Title* (the clean default, à la Picard/beets/Plex), a no-dash variant,
@@ -1210,6 +1464,15 @@ richer metadata and cover art, and a more complete per-album report.
   and all — before committing.
 
 ### Changed
+- **Every rip now fully verifies the bit-perfect FLAC master before deriving any
+  format.** Verification used to be format-dependent (CTDB only ran under the
+  Archival goal). Now all three goals — and a fresh install — run the full suite
+  on the master: **AccurateRip** (always) + **CTDB** whole-disc + **FLAC-integrity
+  decode**, *before* any MP3/WavPack/WAV transcode. So a portable MP3 is derived
+  from a master that's had exactly the same proof as an archival FLAC. The FLAC
+  master is always kept. CTDB is now on by default (a network lookup + a decode
+  per rip; it fails safe and off-thread, and is still toggleable). The goals now
+  differ only in *output* and *compression effort*, never in how hard they check.
 - **The default filename layout is now the clean `Artist/Album/01 - Title`.** The
   old default repeated the album and artist in every filename and tacked the full
   release date on the end (`01 - Roxanne - Every Breath You Take… - The Police -
@@ -1219,23 +1482,9 @@ richer metadata and cover art, and a more complete per-album report.
   Artist column and that individual rows can be overridden (for compilations or
   featured guests).
 
-### Fixed
-- **Dialogs now centre over the main window even when they're a plain message
-  box.** The 0.4.4 centering only covered our own dialog subclasses, so the
-  first-run "add to menu", shortcut, and update prompts (plain `QMessageBox`)
-  could still open on another monitor. An application-wide filter now centres
-  every dialog — message boxes and file pickers included — on the window that
-  opened it. (Still a no-op under native Wayland, where clients can't position
-  themselves; the app prefers XWayland, where it works.)
-- **The main-window splitter is draggable at the normal window size, not only
-  when maximized.** The three stacked panes' minimum heights summed to nearly
-  the whole default window, so the splitter handles showed the resize cursor but
-  had no slack to move (real-user report on 0.4.4). The scrollable areas (track
-  list, rip log, AccurateRip table) now keep a small minimum height, so the
-  splitter can always redistribute space. (The default window size is unchanged
-  — making it taller would overflow 1366×768 laptops.)
-
 ## [0.4.4] — 2026-06-30
+
+*(There is no v0.4.3 — the number was skipped; v0.4.4 follows v0.4.2.)*
 
 ### Added
 - **Accessibility pass.** Keyboard and screen-reader coverage of the everyday
@@ -1433,8 +1682,6 @@ richer metadata and cover art, and a more complete per-album report.
   by a leading symbol **and** text (✓ verified / ⚠ partial / ⓘ not-in-database),
   never by colour alone — so colour-blind and screen-reader users get the same
   signal as the green/amber/grey tint.
-
-### Added
 - **Per-drive trust line: where your read offset came from, and how sure.**
   The disc panel now shows a "Read offset" row for the selected drive — e.g.
   *"+667 — from the AccurateRip list (medium confidence)"* or *"measured on
@@ -1452,6 +1699,34 @@ richer metadata and cover art, and a more complete per-album report.
   authorities for the offset a rip actually uses (PLANNING.md KDD-23).
   *Applying* a remembered offset per drive (true multi-drive correctness) is a
   separate, hardware-gated change and is not done here.
+- **`scripts/render_eac_log.py` — render a rip log into an EAC-*layout*
+  comparison log.** Turns a cyanrip/whipper rip log into text that mirrors EAC's
+  section/per-track layout so you can `diff`/`meld` it against a real EAC log and
+  see the per-track Copy CRCs line up (the readable companion to
+  `scripts/eac_parity.py`). It is **clearly attributed and never signed** — the
+  first line says it was generated by Platterpus and is not a genuine EAC log,
+  and the footer carries an explicit "not signed by Exact Audio Copy" marker in
+  place of EAC's checksum. It only ever renders real rip data and refuses to
+  fabricate an EAC signature (see `docs/eac-log-and-repair-feasibility.md`).
+- **At-a-glance verification verdict banner above the results table.** A single
+  bold, colour-coded headline now summarises whether the rip is trustworthy
+  without reading every row: green "✓ Bit-perfect: all N tracks verified against
+  AccurateRip (confidence X+)" when every audio track matched the shared
+  database, amber when only some matched, grey for a disc nobody has submitted
+  (e.g. a CD-R — where the per-track Copy CRCs still prove a secure read). The
+  wording never over-claims — it only ever reports what AccurateRip actually
+  returned (a confidence of 0 / "not present" never counts as verified). The
+  CTDB result line below it is now colour-coded the same way (green only for a
+  hardware-validated match; an experimental match stays amber).
+- **Settings → "Re-rip until reads match" for damaged or marginal discs (cyanrip
+  only).** Maps to cyanrip's `-Z N`: each track is re-ripped until that many reads
+  produce the same checksum, so a shaky read converges to the bit-perfect result
+  instead of landing on a near-miss against the AccurateRip consensus (the
+  Track-3-class gap in the EAC-parity work). Off by default — a clean disc doesn't
+  need it and it costs time, so the normal secure read (paranoia + retries) still
+  handles those. Try **2** if a track won't verify against AccurateRip. The whipper
+  backend has no equivalent flag, so the control is greyed out (your value is kept)
+  when whipper is selected.
 
 ### Removed
 - **The one-time `~/.config/whipper-gui` → `~/.config/platterpus` settings
@@ -1496,17 +1771,6 @@ richer metadata and cover art, and a more complete per-album report.
   the AppImage bundles, and the hicolor/favicon set under `assets/icons/`
   (16–512px), all regenerated from the SVG by `build/make_icon.py`.
 
-### Added
-- **`scripts/render_eac_log.py` — render a rip log into an EAC-*layout*
-  comparison log.** Turns a cyanrip/whipper rip log into text that mirrors EAC's
-  section/per-track layout so you can `diff`/`meld` it against a real EAC log and
-  see the per-track Copy CRCs line up (the readable companion to
-  `scripts/eac_parity.py`). It is **clearly attributed and never signed** — the
-  first line says it was generated by Platterpus and is not a genuine EAC log,
-  and the footer carries an explicit "not signed by Exact Audio Copy" marker in
-  place of EAC's checksum. It only ever renders real rip data and refuses to
-  fabricate an EAC signature (see `docs/eac-log-and-repair-feasibility.md`).
-
 ### Fixed
 - **The post-rip status line now reports AccurateRip the same way the verdict
   banner does.** When per-track AccurateRip data is available it counts verified
@@ -1525,26 +1789,11 @@ richer metadata and cover art, and a more complete per-album report.
   (AccurateRip confidence ≥ 1), so the panel and the banner can never contradict
   each other and a cyanrip rip's verification is reported honestly.
 
-### Added
-- **At-a-glance verification verdict banner above the results table.** A single
-  bold, colour-coded headline now summarises whether the rip is trustworthy
-  without reading every row: green "✓ Bit-perfect: all N tracks verified against
-  AccurateRip (confidence X+)" when every audio track matched the shared
-  database, amber when only some matched, grey for a disc nobody has submitted
-  (e.g. a CD-R — where the per-track Copy CRCs still prove a secure read). The
-  wording never over-claims — it only ever reports what AccurateRip actually
-  returned (a confidence of 0 / "not present" never counts as verified). The
-  CTDB result line below it is now colour-coded the same way (green only for a
-  hardware-validated match; an experimental match stays amber).
-- **Settings → "Re-rip until reads match" for damaged or marginal discs (cyanrip
-  only).** Maps to cyanrip's `-Z N`: each track is re-ripped until that many reads
-  produce the same checksum, so a shaky read converges to the bit-perfect result
-  instead of landing on a near-miss against the AccurateRip consensus (the
-  Track-3-class gap in the EAC-parity work). Off by default — a clean disc doesn't
-  need it and it costs time, so the normal secure read (paranoia + retries) still
-  handles those. Try **2** if a track won't verify against AccurateRip. The whipper
-  backend has no equivalent flag, so the control is greyed out (your value is kept)
-  when whipper is selected.
+## [0.3.10] — 2026-06-27
+
+*(This heading was accidentally dropped in a later edit — the section below had
+been absorbed into [0.4.0]. Restored 2026-07-21 verbatim from the `v0.3.10`
+tag's own CHANGELOG.)*
 
 ### Fixed
 - **A colon in an album/track title now ends up as a real `:` in the FLAC tags
@@ -2090,6 +2339,10 @@ richer metadata and cover art, and a more complete per-album report.
 
 ## [0.2.0] — 2026-06-09
 
+*(No `v0.2.0` tag exists on GitHub — the release was superseded without
+artifacts by v0.2.1, see above. The compare links for 0.2.0/0.2.1 therefore
+span `v0.1.0…v0.2.1`.)*
+
 ### Added
 - **AppImage self-update (the last zero-CLI slice, KDD-17b).** The AppImage
   now embeds standard zsync update-information
@@ -2196,23 +2449,6 @@ richer metadata and cover art, and a more complete per-album report.
   Trusted Publishing (OIDC) — no stored token. One-time PyPI-side setup is
   documented in the workflow header. It's a separate workflow from
   `release.yml`, so a PyPI misconfiguration can't block the AppImage release.
-
-### Changed
-- **README leads with a no-terminal install.** A new "Easiest — download one
-  file, no terminal" section: download the AppImage, do the one-time "allow
-  executing" step (GUI instructions for KDE/GNOME), double-click, and answer the
-  first-run prompts (menu integration + the host-setup wizard). The scripted/
-  CLI paths remain below for testers and developers; Method A notes that
-  `install-appimage.sh` is no longer required (self-integration replaces it).
-
-### Changed
-- **Clear, actionable message when a track can't be read.** When whipper gives up
-  on a track after its retries (scratched/dirty disc, or the cd-paranoia
-  >587-offset upstream bug), the status now says which track failed and what to
-  do — clean the disc, or turn on "Keep going" in Settings to rip the readable
-  tracks — instead of a bare "Rip failed".
-
-### Added
 - **Settings → Ripping backend toggle (cyanrip, Phase 2 start).** You can now
   pick the backend (whipper | cyanrip) in Settings; it's wired to
   `Config.ripper_backend` and applied on next launch. cyanrip is marked
@@ -2237,26 +2473,6 @@ richer metadata and cover art, and a more complete per-album report.
   rip** (`--unknown`, no release-id → no network needed) and tags the FLACs
   locally from the on-screen track list. One retry per Start; surfaced in the
   status line. The `RipWorker` watches whipper's output for the marker.
-
-### Changed
-- **Ripping no longer demands the wizard when the drive's offset is already
-  known.** If you hit Start without a saved offset but your drive is in the
-  bundled AccurateRip list, the GUI now **applies that offset automatically**
-  (your Pioneer → +667), tells you once where it came from, and lets the rip
-  proceed — instead of blocking and sending you to the drive-setup wizard. Only
-  a genuinely unknown drive still needs the wizard. (The manual/wizard-saved
-  offset path is unchanged: set it once, then you're good.)
-- **Host-setup wizard: live progress + honest end states (no more "frozen / done
-  too soon").** The bootstrap engine now emits a **"⏳ currently doing X…"**
-  status *before* each step runs — so during a multi-minute image pull or
-  in-container `dnf install` the wizard shows what's happening instead of a
-  static bar that looks hung. Slow steps say "this can take a few minutes". The
-  finish message now distinguishes **"Everything was already set up — you're
-  ready to rip"** (the common Bazzite case, which previously flashed by and
-  looked like nothing happened) from a setup that actually installed things, and
-  surfaces the failed step otherwise.
-
-### Added
 - **App shortcut: Desktop icon + a re-runnable menu action.** Self-integration
   now also drops a clickable icon in your **Desktop folder** (not just the
   applications menu), and there's a **Tools → Add app shortcut** action so you
@@ -2296,6 +2512,44 @@ richer metadata and cover art, and a more complete per-album report.
   `adapters/accuraterip_offsets.py` (`OffsetDatabase`). See
   `docs/archive/offset-investigation-2026-06.md`.
 
+### Changed
+- **README leads with a no-terminal install.** A new "Easiest — download one
+  file, no terminal" section: download the AppImage, do the one-time "allow
+  executing" step (GUI instructions for KDE/GNOME), double-click, and answer the
+  first-run prompts (menu integration + the host-setup wizard). The scripted/
+  CLI paths remain below for testers and developers; Method A notes that
+  `install-appimage.sh` is no longer required (self-integration replaces it).
+- **Clear, actionable message when a track can't be read.** When whipper gives up
+  on a track after its retries (scratched/dirty disc, or the cd-paranoia
+  >587-offset upstream bug), the status now says which track failed and what to
+  do — clean the disc, or turn on "Keep going" in Settings to rip the readable
+  tracks — instead of a bare "Rip failed".
+- **Ripping no longer demands the wizard when the drive's offset is already
+  known.** If you hit Start without a saved offset but your drive is in the
+  bundled AccurateRip list, the GUI now **applies that offset automatically**
+  (your Pioneer → +667), tells you once where it came from, and lets the rip
+  proceed — instead of blocking and sending you to the drive-setup wizard. Only
+  a genuinely unknown drive still needs the wizard. (The manual/wizard-saved
+  offset path is unchanged: set it once, then you're good.)
+- **Host-setup wizard: live progress + honest end states (no more "frozen / done
+  too soon").** The bootstrap engine now emits a **"⏳ currently doing X…"**
+  status *before* each step runs — so during a multi-minute image pull or
+  in-container `dnf install` the wizard shows what's happening instead of a
+  static bar that looks hung. Slow steps say "this can take a few minutes". The
+  finish message now distinguishes **"Everything was already set up — you're
+  ready to rip"** (the common Bazzite case, which previously flashed by and
+  looked like nothing happened) from a setup that actually installed things, and
+  surfaces the failed step otherwise.
+- **Documentation audit (2026-06-09).** PLANNING.md caught up with the code
+  (directory tree + per-module list now include the host-setup wizard,
+  AppImage self-integration, AccurateRip offset lookup, and the cyanrip
+  backend/parser; the pre-implementation "future CyanripImpl" sketch replaced
+  with the as-built design). TASKS.md gained a **Current plan & priorities**
+  section — the live, ordered queue with difficulty estimates — and the
+  zero-CLI checkboxes were corrected to match what shipped. README gained a
+  "Ripping backends" section; the in-app User Guide documents the backend
+  toggle; the hardware test plan gained Test 8 (cyanrip install + parity run).
+
 ### Fixed
 - **Saving Settings no longer resets the one-time first-run flags.** `to_config`
   rebuilt `Config` from scratch and dropped `drive_setup_prompted` /
@@ -2321,17 +2575,6 @@ richer metadata and cover art, and a more complete per-album report.
   arrows) and the **Save offset** button are now locked while detection is
   running, so a value can't be edited/saved mid-detection and race what whipper
   writes. They re-enable when detection finishes.
-
-### Changed
-- **Documentation audit (2026-06-09).** PLANNING.md caught up with the code
-  (directory tree + per-module list now include the host-setup wizard,
-  AppImage self-integration, AccurateRip offset lookup, and the cyanrip
-  backend/parser; the pre-implementation "future CyanripImpl" sketch replaced
-  with the as-built design). TASKS.md gained a **Current plan & priorities**
-  section — the live, ordered queue with difficulty estimates — and the
-  zero-CLI checkboxes were corrected to match what shipped. README gained a
-  "Ripping backends" section; the in-app User Guide documents the backend
-  toggle; the hardware test plan gained Test 8 (cyanrip install + parity run).
 
 ## [0.1.0] — 2026-06-01
 
@@ -2385,6 +2628,10 @@ richer metadata and cover art, and a more complete per-album report.
   one test that asserts directory creation uses a writable temp path.
 
 ## [0.0.1] — 2026-05-31
+
+*(No `v0.0.1` tag exists on GitHub today — the earliest surviving tag is
+`v0.1.0`. Kept as the historical record; the link points at the releases
+page.)*
 
 **First public test release.** A Linux GUI front-end for the `whipper` CD-ripping
 CLI, aiming for EAC-equivalent archival quality. Validated on real Bazzite
@@ -2476,10 +2723,10 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.2.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.0
+[0.2.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
+[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
 [0.1.0]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.1.0
-[0.0.1]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.0.1
+[0.0.1]: https://github.com/rmccann-hub/Platterpus/releases
 
 ---
 

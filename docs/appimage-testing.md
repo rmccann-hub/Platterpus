@@ -9,8 +9,8 @@ in each situation, including branches that don't have a published release yet.
 | Trigger | Workflow | Result |
 |---|---|---|
 | Every push to `main` | `.github/workflows/appimage.yml` | Builds + smoke-tests (`--version`); uploads the AppImage as a **run artifact**. Catches a broken build recipe immediately. |
-| Manual run on **any branch** | `appimage.yml` (`workflow_dispatch`) | Same — a downloadable AppImage artifact for a branch with no release. |
-| Push a `vX.Y.Z` tag | `.github/workflows/release.yml` | Builds, checksums, and **publishes** the AppImage + `install.sh`/`install-appimage.sh` to a GitHub Release (`v0.*` → pre-release). |
+| Manual run on **any branch** | `appimage.yml` (`workflow_dispatch`) | Same — a downloadable AppImage artifact for a branch with no release. (Run artifacts expire — 90 days by default; re-run the workflow to regenerate one.) |
+| Push a `vX.Y.Z` tag **or dispatch the Release workflow with the tag as input** (Actions → Release → *Run workflow* — it creates the tag itself; the only route that works from cloud sessions) | `.github/workflows/release.yml` | Builds, checksums, and **publishes** the AppImage + its `.sha256` + `.zsync` (self-update) + `install.sh`/`install-appimage.sh` to a GitHub Release (`v0.*` → pre-release), then dispatches the PyPI publish. |
 
 ## Testing `main`
 
@@ -44,9 +44,13 @@ A branch won't have a published AppImage. Two ways to get one:
 
 1. Bump `__version__` in `src/platterpus/__init__.py` and add a `CHANGELOG.md`
    entry.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z` — or, from a cloud session
+   (tag pushes are proxy-blocked), dispatch the **Release** workflow with the
+   tag as input (it creates the tag itself).
 3. Watch the **Release** workflow; confirm the GitHub Release has the AppImage,
-   its `.sha256`, and the installer scripts attached.
+   its `.sha256`, its **`.zsync`** (the self-update file — the build fails
+   without it), and the installer scripts attached; then confirm the
+   dispatched `publish-pypi.yml` run published the wheel/sdist.
 4. Test the published artifact as an end user would:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/rmccann-hub/Platterpus/main/install.sh | bash
@@ -59,8 +63,8 @@ tests (`tests/test_install_script.py`, `tests/test_install_appimage_script.py`,
 `tests/test_setup_host_script.py`) that check syntax, `--help`, and `--dry-run`
 behaviour, and exercise an install→uninstall round-trip against a sandboxed
 `HOME`. Run them with `pytest`. The full host-stack bootstrap (Distrobox +
-whipper) still needs a real-hardware confirmation — CI only dry-run-tests it.
+cyanrip) still needs a real-hardware confirmation — CI only dry-run-tests it.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

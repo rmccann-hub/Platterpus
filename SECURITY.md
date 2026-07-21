@@ -3,7 +3,10 @@
 Platterpus rips audio CDs and can update itself from GitHub Releases. Two things
 matter most for security: the **integrity of the released binary** and the
 **safety of your music library** (Platterpus never deletes or overwrites your
-existing files — see Critical Rule #8 and the overwrite guards in the code).
+existing files — see the overwrite guards shipped in v0.4.22/v0.4.23: the
+unknown-disc auto-suffix and the known-disc re-rip Replace / Rip-to-new-folder /
+Cancel confirmation, both recorded in `CHANGELOG.md` and the 2026-07-08 trust
+audit).
 
 ## Reporting a vulnerability
 
@@ -43,3 +46,7 @@ reproduce on the newest release before reporting.
 This policy covers the **Platterpus application**. Vulnerabilities in the
 underlying external tools (cyanrip, flac/metaflac, ffmpeg, MusicBrainz Picard)
 should be reported to those projects.
+
+---
+
+*Last updated for Platterpus v0.4.24.*
