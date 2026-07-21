@@ -12,6 +12,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **`docs/test-plan.md` whipper-era cases rewritten for the cyanrip-only
+  reality** (maintainer-approved): Test 3 is now the drive-setup-wizard
+  success-screens + auto-vs-manual offset capture (absorbing Test 4, retired);
+  Test 8 is the cyanrip parity record with the `-Z` convergence re-rip as its
+  open core; Test 10 and step A8 are retired stubs (numbers kept as stable
+  IDs); Part B's procedure and parity-variables are single-backend. **New
+  Tests 12–14** add the missing hardware rows: the read-speed ladder /
+  auto-fix / speed-locked `-S` stack, CD-Extra CTDB TOC handling, and the
+  EAC-compatible companion log + goal presets.
 - **cyanrip-cluster dedup completed** (maintainer-approved): the soft-fork
   runbook's duplicated issue-body blockquotes are replaced by links to the
   kit's canonical `scripts/cyanrip/issue-*.md` paste files, and the

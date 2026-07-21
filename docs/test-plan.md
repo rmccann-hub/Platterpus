@@ -10,13 +10,16 @@
 >   uninstall → fresh install → rip → verify cycle, the **EAC output-parity**
 >   check, and the **distribution + problem-permutation matrices** to spread
 >   across testers.
-> - **Single-feature cases (Test 1–11)** — the deep, individually-gated cases
+> - **Single-feature cases (Test 1–14)** — the deep, individually-gated cases
 >   (CTDB verify CRC, PyPI go-live, the cyanrip parity run, and the
 >   multi-format output proof). Run one at a time and record the result.
->   ⚠️ Tests 3, 4, 8, and 10 (and A8/Part B's dual-backend framing) are
->   **whipper-era and superseded** (whipper removed 2026-06-30, KDD-18) — each
->   carries a banner; their rewrite is tracked in the TASKS.md Documentation
->   backlog.
+>   The whipper-era cases were **rewritten for the cyanrip-only reality on
+>   2026-07-21** (maintainer-approved): Test 3 is now the wizard success-screens
+>   capture (absorbing Test 4, retired), Test 8 is the cyanrip parity record,
+>   Test 10 is retired (feature inert under the sole backend), A8 is retired
+>   into A6, and Tests 12–14 add the newer hardware-gated features. Test
+>   numbers are stable IDs — retired numbers are kept as one-line stubs so
+>   cross-references stay valid.
 >
 > Everything here is already *implemented* (or, for upstream-blocked items,
 > *decided*) — these tests confirm reality matches intent and capture the real
@@ -141,17 +144,13 @@ Every Breath You Take: The Classics* on a BDR-209D at
 `output_reference/EAC_flac/eac_baseline_police_classics.log`), compare. See **Part B** for
 the full procedure, the per-track CRC baseline, and what "exact" means.
 
-### A8 — [ ] cyanrip backend rip — ⚠️ SUPERSEDED (whipper-era)
-*(cyanrip has been the sole backend since 2026-06-30 (KDD-18): there is no
-"Ripping backend" Settings row, so this step's switch cannot be performed and
-A6 already **is** the cyanrip rip. Kept until the acceptance run is
-renumbered — see the TASKS.md Documentation backlog. Its still-useful
-expectations — cover art present, verdict wording — are covered by A6.)*
-Settings → **Ripping backend → cyanrip** → Save → accept the install offer →
-restart. Re-rip the same disc. *Expected:* same files/tags/**cover art** (the
-app fetches it from the Cover Art Archive for cyanrip), and a cyanrip fidelity
-verdict. *This is the backend that avoids whipper's >587-offset bug.* For the
-full parity checklist (track-3 fix, per-track CRC match), see **Test 8**.
+### A8 — retired (2026-07-21)
+
+*(Was "cyanrip backend rip" — a backend-switch step from when whipper was the
+default. cyanrip is the sole backend (KDD-18), so A6 **is** the cyanrip rip and
+carries this step's expectations: cover art fetched from the Cover Art Archive,
+the cyanrip fidelity verdict. Number kept so A9+/Part C references stay valid;
+full text in git history. Parity checklist: **Test 8**.)*
 
 ### A9 — [ ] Edge discs
 - **Unknown disc / offline:** *File → Rip as Unknown Album…* → placeholders →
@@ -197,13 +196,13 @@ matching CRCs. UI differences don't matter; the bytes do.
 
 | Field | EAC baseline | Where ours shows it |
 |---|---|---|
-| Per-track **CRC32** | the table below | whipper **Test/Copy CRC**; cyanrip **EAC CRC32** |
+| Per-track **CRC32** | the table below | cyanrip **EAC CRC32** (same algorithm as EAC's Copy CRC) |
 | Read **offset** | `667` | Settings / drive setup; printed in our `.log` |
 | AccurateRip | confidence per track | our rip-log panel + `.log` |
 
-**The per-track CRC32 baseline** (ground truth — a whipper or cyanrip rip of
-this disc must reproduce these EXACTLY; EAC's "Copy CRC", whipper's Test/Copy
-CRC, and cyanrip's "EAC CRC32" are the same algorithm). Disc: *The Police —
+**The per-track CRC32 baseline** (ground truth — a cyanrip rip of this disc
+must reproduce these EXACTLY; EAC's "Copy CRC" and cyanrip's "EAC CRC32" are
+the same algorithm, as was whipper's Test/Copy CRC historically). Disc: *The Police —
 Every Breath You Take: The Classics*, EAC V1.8 on a BDR-209D at offset +667:
 
 | Track | EAC CRC32 | | Track | EAC CRC32 |
@@ -217,9 +216,10 @@ Every Breath You Take: The Classics*, EAC V1.8 on a BDR-209D at offset +667:
 | 7 | CCBFF669 | | 14 | 787BA2D6 |
 
 **Procedure:**
-1. Rip the disc with our app (A6 whipper, A8 cyanrip).
-2. Open both `.log`s and the EAC log. For each track, compare the CRC32 to the
-   table above.
+1. Rip the disc with our app (A6), or run `python3 scripts/eac_parity.py
+   output_reference/EAC_flac/eac_baseline_police_classics.log <your rip's .log>`
+   for the same comparison in one command.
+2. For each track, compare the `.log`'s EAC CRC32 to the table above.
 3. Record the comparison in the **Test 8** Record box.
 
 **They should match exactly** when the rip is bit-perfect. If a track's CRC
@@ -230,7 +230,7 @@ assuming a bug:
 - **Gap/pregap handling** — EAC here used **"Appended to previous track."** If
   the ripper splits gaps differently, track *boundaries* move and per-track CRCs
   differ even though the audio is correct. ⚠️ **We don't currently set a gap
-  mode** — the rip uses whipper's / cyanrip's default. So if a *clean* track's
+  mode** — the rip uses cyanrip's default. So if a *clean* track's
   CRC differs (especially one adjacent to a pregap) while the offset is right,
   **gap handling is the prime suspect**, and the fix is to expose/force the
   EAC-matching gap mode (tracked in TASKS — the "EAC gap-handling parity" item).
@@ -247,8 +247,8 @@ assuming a bug:
 > in EAC, so whipper's historical track-3 failure was its **>587-offset bug**,
 > not disc damage — cyanrip should clear it. Track 5 is a real disc quirk.
 
-If CRCs match on whipper *and* cyanrip → **output parity achieved** for this
-disc. Repeat on a few more discs (a clean pressing, a multi-disc set, a disc
+If every CRC matches → **output parity achieved** for this disc (the committed
+state is 12/14 — T3 read-instability + T5 disc defect — see Test 8). Repeat on a few more discs (a clean pressing, a multi-disc set, a disc
 with a known pregap) to generalize.
 
 ---
@@ -300,7 +300,7 @@ Each D-row that misbehaves → file a report with the log.
 
 ---
 
-# Single-feature cases (Test 1–11)
+# Single-feature cases (Test 1–14)
 
 The individually-gated deep cases. Each is self-contained: do the steps, record
 the result, follow **If it fails**. Several are unblocked by — or feed back
@@ -313,8 +313,7 @@ album works best) exercises almost everything in one sitting:
 
 1. **Calibrate the drive** — the wizard pre-fills the offset from the bundled
    AccurateRip list (or take manual entry); capture the wizard screens ("what
-   success looks like"). *(Tests 3 & 4 as written are whipper-era — see their
-   banners.)*
+   success looks like"). *(This is **Test 3**.)*
 2. **Rip it** from the GUI → confirm every track's **Test CRC == Copy CRC** and
    the AccurateRip confidence. Screenshot — **Test 5**.
 3. **CTDB-verify the rip** — **Test 1**, the highest-value step:
@@ -441,44 +440,37 @@ the choice in `TASKS.md` / KDD-14.)
 
 **Record:** chosen bundling option `____`; `ctdb-cli` CLI/output notes `____`.
 
-## Test 3 — [ ] `whipper drive analyze` success output — ⚠️ SUPERSEDED (whipper-era)
+## Test 3 — [ ] Drive-setup wizard: success screens + auto-vs-manual offset (rewritten 2026-07-21)
 
-*(whipper was removed 2026-06-30 (KDD-18) and cyanrip has no drive-analyze
-command — this test cannot be run as written. The successor case is capturing
-the drive-setup wizard's screens (A5). Rewrite tracked in the TASKS.md
-Documentation backlog.)*
+*(Successor to the whipper-era `drive analyze`/`offset find` string captures —
+whipper is gone (KDD-18) and cyanrip has no probe commands; the wizard fills
+the offset from the bundled AccurateRip drive list, or takes manual entry.)*
 
-**Goal:** capture the verbatim success output so the README/wizard can show
-"you should see this." (A5 does the functional check; this banks the strings.)
-
-**Steps**
-1. Insert any audio CD. Run `Tools → Set up drive…` (and/or `whipper drive
-   analyze` in the `ripping` container directly).
-2. Copy the full successful output.
-
-**Record:** paste the success lines, then add them to README Step 5 and the
-drive-setup wizard's help text:
-```
-__________
-```
-
-## Test 4 — [ ] `whipper offset find` success output — ⚠️ SUPERSEDED (whipper-era)
-
-*(whipper was removed 2026-06-30 (KDD-18) and cyanrip has no offset finder —
-the offset comes from the bundled AccurateRip list or manual entry in the
-wizard. Rewrite tracked in the TASKS.md Documentation backlog.)*
-
-**Goal:** capture the final offset line (e.g. `Read offset of drive is N
-samples`) and confirm the auto path matches the manual AccurateRip lookup.
+**Goal:** capture what wizard success actually looks like on real hardware —
+screenshots/strings for the README and the wizard's own help text — and confirm
+the auto-filled offset matches an independent manual lookup.
 
 **Steps**
-1. Insert a CD that is in AccurateRip. Run the wizard's offset step (or
-   `whipper offset find`).
-2. Record the final offset message and the numeric offset.
-3. Compare to the offset from the AccurateRip drive-offset list for your drive.
+1. Run **Tools → Set up drive…** with your drive connected (no disc needed —
+   the lookup is by drive model).
+2. Capture the wizard's screens: the recognized-drive state (offset pre-filled,
+   e.g. **+667** for the BDR-209D), and the save confirmation. Note the exact
+   wording shown.
+3. Independently look your drive up at
+   [accuraterip.com/driveoffsets.htm](https://www.accuraterip.com/driveoffsets.htm)
+   and compare to the pre-filled value.
+4. Confirm the saved offset lands in the GUI config (Settings shows it
+   read-only) and is passed to cyanrip as `-s` on the next rip (visible in the
+   rip log banner).
 
-**Record:** offset message `__________`; auto offset `____`; manual offset
-`____`; match? `____`. Add the message to README Step 5.
+**Record:** wizard wording `__________`; auto offset `____`; manual lookup
+`____`; match? `____`; screenshots saved for README/help? `____`.
+
+## Test 4 — retired (2026-07-21)
+
+*(Was "`whipper offset find` success output" — merged into **Test 3**: the
+auto-vs-manual offset comparison is its step 3. Number kept as a stable ID;
+full text in git history.)*
 
 ## Test 5 — [ ] GUI screenshot
 
@@ -534,58 +526,33 @@ step 1 is the missing piece.
 **Record:** published version `____`; `pipx install` works? `____`. Then drop
 the "if it's not on PyPI yet" caveat from the README.
 
-## Test 8 — [ ] cyanrip backend: install + parity run (KDD-18) — ⚠️ PARTLY SUPERSEDED
+## Test 8 — [~] cyanrip EAC-parity record + remaining `-Z` convergence (rewritten 2026-07-21)
 
-*(Written when cyanrip was a switchable second backend. Since 2026-06-30 it is
-the **sole** backend: step 1's Settings switch no longer exists, step 4's
-"progress bars don't move" cosmetic gap was fixed (cyanrip progress now drives
-the bars), and step 5's whipper-rip comparison is impossible. The parity core
-of this test **ran on real hardware 2026-07-05/07**: the committed result is
-12/14 vs EAC (T3+T5), pinned by `tests/test_parity.py`. Still genuinely open:
-step 6's `-Z` convergence re-rip on a marginal disc. Rewrite tracked in the
-TASKS.md Documentation backlog.)*
+**Status:** the parity core **ran on real hardware 2026-07-05/07** — the
+committed result is **12/14 byte-identical vs EAC** (T3 read-instability, T5
+disc defect), proof in `output_reference/cyanrip_flac/`, pinned by
+`tests/test_parity.py`; a v0.4.13 re-rip reached **13/14** (T3 converged
+partial→exact). What remains open here is the deliberate `-Z` convergence
+re-rip below. *(The original test's backend-switch/wizard-install steps died
+with whipper — that install path is now covered by A4; text in git history.)*
 
-**Goal:** prove the cyanrip backend end-to-end on real hardware — the wizard
-installs it, a rip completes with correct tags/paths, and it clears the track-3
-failure whipper's >587-offset cd-paranoia bug causes on the BDR-209D.
+**Goal:** prove on a marginal track that raising **Max reads to confirm a
+shaky track** (`-Z N`) converges a near-miss to the AccurateRip consensus.
 
 **Steps**
-1. Settings → Ripping backend → **cyanrip (experimental)** → Save. Accept the
-   "Install cyanrip?" offer (or Tools → Set up Platterpus…).
-2. Watch the wizard: the *cyanrip backend (in container)* step should enable the
-   COPR (`barsnick/non-fed`) **inside the container only** and `dnf install
-   cyanrip`; the export step should produce `~/.local/bin/cyanrip`. Record any
-   step that fails verbatim.
-3. Restart the app (backend choice is read at startup). Confirm the drive is
-   detected and the disc panel fills in (DiscID/CDDB from `cyanrip -I -N`).
-4. Rip the Police disc (the one whipper fails on track 3) as a known disc.
-   - [ ] Output lands under `Artist/Album/` per the same template as whipper.
-   - [ ] FLAC tags match the track table (album, artist, per-track titles, year,
-         `MUSICBRAINZ_ALBUMID`).
-   - [ ] **Track 3 rips and verifies** (the whole point).
-   - [ ] Known cosmetic gap: progress bars don't move during the rip — confirm
-         the rip still finishes and reports success.
-5. **Parity:** compare its per-track **EAC CRC32** to the baseline table in
-   **Part B** (and to a whipper rip of the same disc where both succeeded).
-   The committed baseline state is 12/14 (T3 + T5 differ) — pinned by
-   `tests/test_parity.py`; use `scripts/eac_parity.py <eac.log> <cyanrip.log>`.
-6. **`-Z N` marginal-disc convergence (the new EAC-parity lever).** If a track
-   is a near-miss (e.g. T3 against the AccurateRip consensus), set Settings →
-   **Max reads to confirm a shaky track → 2**, re-rip, and re-run `scripts/eac_parity.py`.
-   - [ ] The `-Z 2` rip's argv includes `-Z 2` (visible in the log/`--debug`).
-   - [ ] T3 converges to the consensus CRC (matches Part B) — **the thing to
-         prove**. (T5 is a physical disc defect; EAC fails it too — not expected
-         to converge.)
-   - [ ] Confirm the verdict banner turns green (or "13/14") accordingly.
-7. Record cyanrip's `.log` filename + a copy of its contents — it feeds the
-   fidelity-verdict parser.
-8. **Verification UX:** confirm the **verdict banner** (green/amber/grey) and the
-   disc-panel "AccurateRip" line **agree** on the verified count (one shared
+1. Rip the Police disc (A6). If a track reads as a near-miss/offset-variant
+   (T3-class), set Settings → **Max reads to confirm a shaky track → 2** and
+   re-rip.
+   - [ ] The re-rip's argv includes `-Z 2` (visible in the log).
+   - [ ] The track converges to the consensus CRC (matches Part B). (T5 is a
+         physical disc defect; EAC fails it too — not expected to converge.)
+2. Run `scripts/eac_parity.py` against the Part B baseline; record the count.
+3. **Verification UX:** confirm the **verdict banner** and the disc-panel
+   "AccurateRip" line **agree** on the verified count (one shared
    `confidence ≥ 1` rule), and that the status line matches.
 
-**Record:** cyanrip version `____`; track 3 verified? `____`; `-Z 2` converged
-T3? `____`; CRCs match the Part B baseline? `____`; whipper? `____`; banner =
-panel count? `____`; log file name `____`.
+**Record:** cyanrip version `____`; `-Z 2` converged the near-miss? `____`;
+CRCs vs Part B `____`/14; banner = panel count? `____`; log file `____`.
 
 ## Test 9 — [ ] In-app uninstaller: deep no-terminal run
 
@@ -615,73 +582,15 @@ version of A1/A2/A11; do it LAST in a session, or on a sacrificial setup.)
 
 ---
 
-## Test 10 — [ ] FLAC re-compress: bit-perfect + metadata survives + smaller — ⚠️ SUPERSEDED (whipper-era)
+## Test 10 — retired (2026-07-21)
 
-*(The re-compress feature targeted whipper's `-5` FLACs; cyanrip — the sole
-backend since 2026-06-30 — already encodes at maximum compression, so the
-Settings toggle is permanently disabled (see `settings_dialog.py`'s tooltip)
-and the post-rip step always skips it. The feature is kept as a seam for a
-future backend. Retire-vs-delete decision tracked in the TASKS.md
-Documentation backlog.)*
-
-**Goal:** prove the opt-in "Re-compress FLACs" feature (whipper backend) on real
-files: the audio is **provably bit-identical** after the `-8 -e -p --verify` re-encode,
-every tag and the embedded cover art survive, and the files actually shrink. The
-adapter is unit-tested with a stubbed `flac`; this is the real-binary proof, and
-it doubles as a check that the shipped flag set (`-8 -e -p --verify --silent -f -o`) is
-still correct against the installed `flac` version (flags verified against the
-xiph spec 2026-06-23; this catches a future flac that changes them).
-
-**Why these checks:** FLAC stores an MD5 of the *decoded PCM* in STREAMINFO, so
-if the audio is unchanged the MD5 is unchanged — `metaflac --show-md5sum` before
-vs after is a direct bit-perfect proof (independent of `--verify`, which already
-guarantees it during the encode).
-
-**Setup**
-1. Rip a recognized CD with the **whipper** backend (A6) so you have a folder of
-   tagged FLACs with embedded cover art. Don't turn the toggle on yet.
-2. Snapshot the originals (before re-compress):
-   ```bash
-   D="$HOME/Music/rips/<Artist>/<Album>"
-   for f in "$D"/*.flac; do
-     echo "$(basename "$f")  md5=$(metaflac --show-md5sum "$f")  bytes=$(stat -c%s "$f")"
-   done
-   metaflac --list --block-type=PICTURE "$D"/01*.flac | grep -E "type:|description:|data length"
-   metaflac --export-tags-to=- "$D"/01*.flac > /tmp/tags_before.txt
-   ```
-
-**Run**
-3. Settings → tick **"Re-compress FLACs"** → Save. (Confirm it's editable on
-   whipper and **greyed out** when you switch the backend to cyanrip — the
-   tooltip should say cyanrip already maxes compression.)
-4. Rip the same disc again (or re-run the feature on the existing folder via a
-   fresh rip). Watch the rip log: it should end with
-   `FLAC re-compress: N file(s) re-compressed.`
-
-**Verify**
-5. **Bit-perfect (the priority):** the decoded-PCM MD5 must be **identical** for
-   every track, before vs after:
-   ```bash
-   for f in "$D"/*.flac; do
-     echo "$(basename "$f")  md5=$(metaflac --show-md5sum "$f")  bytes=$(stat -c%s "$f")"
-   done
-   flac --test --silent "$D"/*.flac && echo "ALL DECODE OK"
-   ```
-   Every `md5=` must match step 2's. (`flac --test` is a second, independent
-   confirmation each file decodes back to its stored checksum.)
-6. **Metadata survives:** the PICTURE block is still present (re-run the
-   `--list --block-type=PICTURE` from step 2 — same type/description/length),
-   and the tags are unchanged (`metaflac --export-tags-to=- "$D"/01*.flac |
-   diff - /tmp/tags_before.txt` → no differences).
-7. **Smaller (the bonus):** the `bytes=` in step 5 should be ≤ step 2 for each
-   track (whipper writes `-5`; `-8` is typically a few % smaller). Equal is fine
-   for already-incompressible audio; **larger is a red flag** — investigate.
-
-**Record:** all MD5s identical? `____`; `flac --test` all OK? `____`; cover art +
-tags intact? `____`; total size before/after `____` / `____`; any track that
-grew? `____`.
-
----
+*(Was "FLAC re-compress: bit-perfect + metadata survives + smaller" — the
+opt-in re-encode existed for whipper's `-5` FLACs. cyanrip, the sole backend,
+already encodes at maximum compression, so the Settings toggle is permanently
+disabled and the post-rip step always skips it; the adapter is kept only as a
+seam for a future backend (unit-tested; `settings_dialog.py` tooltip explains).
+Number kept as a stable ID; the full real-binary procedure is in git history —
+resurrect it if a non-max-compression backend ever returns.)*
 
 ## Test 11 — [ ] Multi-format output: WavPack / MP3 / WAV (v0.3.0, KDD-22)
 
@@ -750,6 +659,65 @@ embedded cover? `____`; WAV warning shown? `____`; logs committed? `____`.
 on PATH (`platterpus --doctor` reports it); a PCM mismatch on WavPack/WAV → a real
 transcode bug (the adapter is `adapters/transcode.py`); a missing WavPack folder
 cover → the cover-art force-save gate in `main_window_rip._on_rip_finished`.
+
+
+## Test 12 — [ ] Read-speed ladder, auto-fix re-rip-and-swap, and the speed-locked drive (added 2026-07-21)
+
+**Goal:** hardware-prove the adaptive read-effort stack shipped in 0.4.7–0.4.13
+on the BDR-209D — none of it can be validated headless. Three checks in one run
+(a scuffed/marginal disc is ideal):
+
+**Steps**
+1. **Speed-locked `-S` safety (BDR-209D-specific):** the drive reports its
+   speed as *unchangeable*, and cyanrip **aborts** on `-S` there — so after
+   pass 1 the ladder must lock the speed and escalate via `-Z` only. Rip a
+   marginal disc; confirm the rip **never aborts with an `-S`/EINVAL error**
+   and later passes show `-Z` escalation, not `-S`, in the log.
+2. **Auto-fix re-rip-and-swap:** when a single track reads unstable, the
+   auto-fix re-rips just that track (`-l N` in the argv) and keeps the better
+   read. Confirm the report's `retried_tracks[]` names the track and trigger,
+   and the kept file's CRC matches the better read.
+3. **Ladder behaviour:** on repeated read errors the disc is re-read more
+   slowly (where the drive allows) — confirm the per-pass speeds in the log
+   descend, and quality only ever goes up (a verified track is never
+   re-ripped).
+
+**Record:** drive `____`; disc `____`; `-S` abort seen? `____` (must be no);
+auto-fix track + trigger `____`; final verified count `____`/N.
+
+## Test 13 — [ ] CD-Extra / data-track disc: CTDB TOC + rip behaviour (added 2026-07-21)
+
+**Goal:** a disc with a data session (CD-Extra/enhanced CD) has a TOC the CTDB
+`toc=` string must encode correctly (audio tracks only + the data-track
+convention) — owed from the 2026-07-02 audit; unverifiable without such a disc.
+
+**Steps**
+1. Rip a CD-Extra/enhanced disc (audio + data session) end-to-end.
+2. Confirm the rip covers the audio tracks only and completes with a verdict.
+3. Confirm the CTDB verify returns a real lookup result (found/not-found —
+   either is fine; what must NOT happen is a malformed-TOC 404/timeout on a
+   disc CTDB knows).
+
+**Record:** disc `____`; audio/data track split `____`; CTDB verdict `____`;
+any TOC error verbatim `__________`.
+
+## Test 14 — [ ] EAC-compatible companion log + goal presets (added 2026-07-21)
+
+**Goal:** exercise the two newer GUI-visible features that have no manual test
+row: the opt-in EAC-layout companion log (v0.4.16) and the Settings goal
+presets (0.4.0).
+
+**Steps**
+1. Settings → enable **EAC-style log** → rip → confirm
+   `<Album> (EAC-compatible).log` appears beside the rip, renders EAC's layout,
+   is **plainly attributed to Platterpus and carries no checksum signature**,
+   and `scripts/eac_parity.py` reads it interchangeably with cyanrip's own log.
+2. Settings → **Goal → Archival exact / Fast verified / Portable** — confirm
+   each preset snaps the format/verification controls as documented, and that
+   editing any snapped control flips the goal to *Custom*.
+
+**Record:** companion log present + attributed? `____`; parity script reads it?
+`____`; presets snap/flip correctly? `____`.
 
 ---
 
