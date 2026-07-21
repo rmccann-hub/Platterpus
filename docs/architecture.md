@@ -60,6 +60,7 @@ pieces independently testable and replaceable.
 | **Parsers** | `parsers/` | Turn external tool output (rip logs, disc info) into typed dataclasses. Pure, never raise. | stdlib only |
 | **Deps** | `deps/` | The single dependency self-management subsystem (detect → install → guide) and the host bootstrap/teardown engines. | adapters, stdlib |
 | **Domain** | `ctdb/` | Backend-independent CTDB verify (TOC math, PCM decode, CRC). | adapters, stdlib |
+| **Qt-free domain modules** | ~25 top-level modules (`verdict.py`, `rip_report.py`, `parity.py`, `rip_compare.py`, `naming.py`, `settings_validation.py`, …) | One pure, Qt-free concern each (verdicts, reports, parity, naming, validation, timing, …). **The canonical per-module map is PLANNING.md §2** — look there, not here, for what each does. | parsers, adapters, stdlib |
 | **Core** | `config.py`, `paths.py`, `logging_setup.py`, `app.py`, `composition.py` | Config schema, well-known paths, app entry, and the composition root. | everything (composition) |
 
 `app.py` is the **composition root**, with the reusable construction logic in

@@ -30,6 +30,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `docs/ux-design-principles.md`'s ranked gap table is the canonical record
   (code comments cite its numbering); the TASKS.md item that had drifted from
   it is now only a per-gap tracking checklist linking there.
+- **Remaining single-home doc cleanups applied** (docs-audit consolidation
+  plan): `docs/log-format-comparison.md` now points at architecture §3.7 for
+  the two-artifacts rationale instead of restating it;
+  `tests/fixtures/README.md`'s EAC-baseline section is a pointer at
+  `output_reference/` plus the UTF-16/`decode_log_bytes` warning;
+  `docs/dependency-contracts.md` gained an explicit scope note naming the
+  installer/desktop-integration/GitHub-API surfaces it deliberately excludes;
+  `docs/architecture.md` §2's layer table gained a "Qt-free domain modules"
+  row pointing at PLANNING.md §2 as the canonical per-module map.
 - **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
   call, completing the audit doc-map): graduation row added to the archive
   index; its still-open items (release signing, dependency hash-pinning)
