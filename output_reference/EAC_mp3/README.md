@@ -38,8 +38,8 @@ It documents **EAC's MP3 encoder configuration** — the real reason to keep it:
 - Encoder: `lame3.100.1`, options **`-V 0`** (VBR, ~245 kbps transparent), ID3
   tags **on**.
 - This **confirms our design** (`docs/mp3-wav-support.md` §3): VBR `-V0`,
-  joint-stereo on. Our planned whipper-path transcode (`ffmpeg -q:a 0`, ==
-  `-V0`) matches EAC's own MP3 settings.
+  joint-stereo on. Our shipped FLAC→MP3 transcode (`adapters/transcode.py`:
+  `ffmpeg -q:a 0`, == lame `-V0`) matches EAC's own MP3 settings.
 
 ## On format & encoding
 
@@ -53,4 +53,4 @@ normalization.)
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

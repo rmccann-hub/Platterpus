@@ -18,8 +18,8 @@ is hand-authored from public EAC log documentation and exists only
 as a reference for the format comparison in `docs/log-format-comparison.md`
 — it is NOT consumed by any parser.
 
-When T32 surfaces real-world output that differs from the fixtures,
-update the fixtures here and regenerate the affected tests.
+When real-world output differs from a fixture, update the fixture here and
+regenerate the affected tests (as the T32 smoke test did in 2026-05).
 
 ## eac_baseline_police_classics.log / .cue (added 2026-06-12)
 
@@ -33,7 +33,7 @@ authentic artifact; was briefly UTF-8 — which hid a UTF-16-decoding bug in the
 parity checker, since fixed). Read it via `platterpus.parity.decode_log_bytes`,
 not `read_text("utf-8")`.
 
-Ground truth for comparing whipper/cyanrip rips of the same disc: the
+Ground truth for comparing cyanrip rips of the same disc: the
 per-track EAC CRC32s must match exactly (same disc, same offset). Known
 disc quirk to expect everywhere: **track 5** fails AccurateRip v2 and CTDB
 says "differs in 3 samples @02:24:59" even under EAC — that's the disc,
@@ -41,4 +41,4 @@ not the ripper. Track 3 (whipper's >587-offset failure) rips CLEAN in EAC.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

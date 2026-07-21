@@ -45,6 +45,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **`output_reference/` + `tests/fixtures/` READMEs match the committed
+  proofs.** The layout matrix no longer marks the committed cyanrip FLAC
+  (12/14) and MP3 (13/14) proofs as empty; the whipper row and the three
+  `whipper_*` placeholder READMEs are reframed as historical (whipper removed
+  2026-06-30 — those proofs can never arrive); the commit policy matches the
+  actual "store the text, document the imperfection" practice; the Git-LFS
+  advice (never configured) is replaced by the real CC0 + `--no-verify` flow;
+  the EAC_wav README records that WavPack shipped; EAC_mp3's "planned
+  whipper-path transcode" is the shipped adapter; and `EAC_flac/` — the one
+  directory holding the canonical UTF-16 baseline — finally has its own
+  README with the don't-re-encode warning.
 - **CHANGELOG record repaired against the real tag history.** The lost
   `## [0.3.10]` heading is restored (verbatim from the `v0.3.10` tag's own
   CHANGELOG — its colon-in-tags fix had been absorbed into `[0.4.0]`); the
