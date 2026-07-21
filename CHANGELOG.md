@@ -12,6 +12,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Dependency-review catch-up logged for v0.4.19–v0.4.24** in
+  `DEPENDENCIES.md` (maintainer-approved): all pins verified healthy against
+  live PyPI — notably mypy is at 2.3.0 upstream, so the `>=1.13,<3` bound is
+  now load-bearing — and the per-release dependency changes since the
+  2026-07-07 review are recorded.
 - **The `build` frontend is now actually pinned `>=1,<2`** in `release.yml`,
   `appimage.yml`, and `build_appimage.sh` (maintainer-approved; the audit
   found `DEPENDENCIES.md` claiming a pin no install site applied — the doc
