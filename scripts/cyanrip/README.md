@@ -24,13 +24,17 @@ command.
 
 ## Order (colon fix — do this first)
 
+> The `cyanrip/` checkout these steps create at the repo root is **deliberately
+> git-ignored** (a foreign LGPL-2.1 C tree must never be vendored into this
+> GPL-3 repo).
+
 ```sh
 # 1. Fork cyanreg/cyanrip on GitHub (once), then:
 scripts/cyanrip/setup-fork.sh                 # clone + branch layout
 python3 scripts/cyanrip/apply-colon-fix.py cyanrip          # dry run — review the diff
 python3 scripts/cyanrip/apply-colon-fix.py cyanrip --apply  # write it
 ( cd cyanrip && git diff )                     # confirm it's minimal + clean
-scripts/cyanrip/build.sh cyanrip               # build + smoke-rip a colon-titled disc
+scripts/cyanrip/build.sh cyanrip               # build; then smoke-rip a colon-titled disc yourself
 # 2. Open the issue (issue-colon.md), push fix/meta-colon, open the PR (pr-colon.md).
 # 3. Build the branch in the ripping container to get the fix now (build.sh).
 ```
@@ -47,3 +51,7 @@ U+2236 colon substitution) behind a cyanrip-version guard. That last step is
 **deliberately deferred** until the fix is live in the container: the cyanrip
 version/commit that carries it doesn't exist yet, so guarding on it now would be
 guesswork. See the runbook §2 "Platterpus-side cleanup".
+
+---
+
+*Last updated for Platterpus v0.4.24.*

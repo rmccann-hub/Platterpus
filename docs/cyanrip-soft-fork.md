@@ -12,7 +12,7 @@
 > **Guiding rules (maintainer, 2026-07-08):**
 > 1. **Easy to re-merge for the owner.** Minimal diffs, one focused change per
 >    commit/PR, no drive-by reformatting, no churn.
-> 2. **Their conventions win.** cyanrip is C, LGPL-2.1, no `CONTRIBUTING`, terse
+> 2. **Their conventions win.** cyanrip is C, LGPL-2.1-or-later, no `CONTRIBUTING`, terse
 >    `av_`-prefixed FFmpeg-idiom style, only CI is a Windows/MinGW build. Where
 >    cyanrip's style/rules differ from Platterpus's (heavy comments, type hints,
 >    88-col, etc.), **match cyanrip** — our conventions do not apply to C we send
@@ -51,7 +51,10 @@ helpers in [`scripts/cyanrip/`](../scripts/cyanrip/) so each is one command:
 shape and aborts rather than write a wrong diff; unit-tested in
 `tests/test_cyanrip_colon_patcher.py`), `build.sh` (meson/ninja in the
 container), and copy-paste `issue-*.md` / `pr-*.md` bodies. This doc stays the
-*rationale + reference*; the kit is the *execution layer*.
+*rationale + reference*; the kit is the *execution layer* — **the kit's
+`issue-*.md` / `pr-*.md` files are the canonical paste text; the blockquoted
+issue bodies later in this doc are reference copies** (paste from the kit, not
+from here — a one-word drift between the copies has already happened once).
 
 ---
 
@@ -335,4 +338,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.4.23.*
+*Last updated for Platterpus v0.4.24.*

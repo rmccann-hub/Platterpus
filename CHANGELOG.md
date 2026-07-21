@@ -45,6 +45,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **cyanrip cluster reconciled (strategy / roadmap / soft-fork / kit).** The
+  strategy doc's §8.1 no longer claims dynamic secure re-rip is opt-in/off (it
+  shipped on-by-default with no checkbox, 0.4.9), its §10 pointer box carries
+  the roadmap's revised support-#115-first headline instead of the superseded
+  cdrdao-DO-NOW one, §6 records that the soft fork now exists (with the
+  FFmpeg-flag question answered), and the KDD-18 "quote" is re-attributed.
+  The roadmap's at-a-glance table and intro now agree with its own 2026-07-07
+  update box (cdrdao = fallback), it gained a 2026-07-08 pointer box to the
+  two prepared contributions, and the deleted `config.ripper_backend` seam
+  claim now names the real `RipBackend` ABC seam. cyanrip's license reads
+  LGPL-2.1-or-later consistently across all three docs. The kit's paste files
+  are declared the canonical issue/PR text; `cyanrip/` (the local soft-fork
+  checkout) is now git-ignored with a note in the kit README, which also
+  gained the standard footer stamp and an accurate build.sh description.
 - **Research/design docs reconciled with their own outcomes.**
   `eac-log-and-repair-feasibility.md` no longer reads as pending: Part A's
   decision gate records the KDD-24 resolution (option 1 standing, option 2

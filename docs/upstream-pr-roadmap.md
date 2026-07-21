@@ -1,5 +1,12 @@
 # Upstream-PR roadmap (contributor instructions)
 
+> **Update (2026-07-08, soft-fork decision):** two prepared, higher-readiness
+> cyanrip contributions now exist *alongside* this ranked list — the `-a`/`-t`
+> **meta-colon parsing fix** (⭐ do first; verified patch + ASan/UBSan proof)
+> and **full libavcodec encoder options**. Runbook:
+> [`cyanrip-soft-fork.md`](cyanrip-soft-fork.md); one-command execution kit:
+> `scripts/cyanrip/` (paste-ready issue/PR bodies live there).
+
 > **What this is.** The concrete, *ordered* answer to "which upstream pull
 > requests would close our remaining ripper-engine gaps, in what order, and how
 > do I do each one." It turns the per-gap option menu in
@@ -55,17 +62,19 @@ Rare exceptions (none block the work actually recommended below):
 
 | # | Gap | Where | Verdict | Effort | Odds |
 |---|-----|-------|---------|--------|------|
-| — | **gap / INDEX-00 pregap + HTOA** | **Platterpus-side `cdrdao` integration** | **DO NOW** (no upstream PR) | Moderate | N/A — lands in our repo |
+| — | **gap / INDEX-00 pregap + HTOA** | **Platterpus-side `cdrdao` integration** | **Fallback if #115 stalls** (see the 2026-07-07 update box) | Moderate | N/A — lands in our repo |
 | 1 | gap / INDEX-00 pregap + HTOA | cyanrip **PR #115** (exists) | **Support the existing PR** | Low (test + review) | Medium-good |
 | 2 | stable machine-parseable cyanrip log | cyanrip (new PR) | Do only if committing to #3 | Moderate-hard | Low value |
 | 3 | tracker recognizes cyanrip | OPSnet/Logchecker (new PR) | **Skip for now** | Hard (2-repo) | Low |
 | 4 | C2 error pointers (+ cache-defeat line) | libcdio-paranoia → cyanrip | **Skip** (keep deferred) | Hard (2-repo) | Very low |
 | — | tracker recognition via a recognized ripper | **Re-add whipper (Platterpus-side)** | Fallback, hardware-gated | Moderate | N/A — no PR |
 
-The single highest-value *action* is the un-numbered top row: the **cdrdao
-integration is a Platterpus task, not a contribution** — it closes the same two
-gaps as PR #115 with **zero upstream dependency**, so it also de-risks #115
-stalling. Do it regardless of what happens upstream.
+The single highest-value *action* (revised 2026-07-07 — see the update box
+below) is **supporting cyanrip PR #115** (Order 1). The un-numbered top row —
+the **cdrdao integration, a Platterpus task, not a contribution** — closes the
+same two gaps with zero upstream dependency, but it is now the
+**no-upstream-dependency fallback** kept for if #115 stalls indefinitely, not
+the first move.
 
 ---
 
@@ -106,7 +115,7 @@ stalling. Do it regardless of what happens upstream.
 **Reconsidered (see the update box above): prefer landing cyanrip PR #115 over
 this.** Keep this only as the fallback if #115 stalls. It is not a contribution —
 it lands entirely in Platterpus. cdrdao is GPL-2-only, but we invoke every tool
-as a **subprocess** (never link it — the KDD-18 model), so GPL-2-only is fully
+as a **subprocess** (never link it — KDD-10's aggregation model, routed like every backend subprocess per Critical rule #3), so GPL-2-only is fully
 compatible with our GPL-3.0 GUI. This is *exactly how whipper obtained gaps.*
 
 - **What it does:** run `cdrdao read-toc` to scan the Q sub-channel for pre-gap
@@ -145,8 +154,9 @@ compatible with our GPL-3.0 GUI. This is *exactly how whipper obtained gaps.*
 - **What you do:** you do **not** author a fresh PR. The highest-value move is to
   **engage with #115** — real-hardware test it on the BDR-209D, review it, help
   it over the finish line. That is exactly what an actively-reviewed-but-slow PR
-  needs, and it doubles as the concrete data point for strategy-doc §6 ("gauge
-  cyanrip PR responsiveness").
+  needs (the strategy-doc §6 responsiveness gauge concluded 2026-07-08:
+  cyanreg merges external work, slowly — hardware-testing #115 would add a
+  first-hand data point).
 - **Odds:** medium-good — the PR is alive and maintainer-reviewed. cyanreg *does*
   merge external work, just slowly (jp-sarte's #130 merged ~3.5 months after
   opening; some PRs sit 1–2 years).
@@ -279,7 +289,10 @@ honest path,** and it needs **no upstream PR at all**:
   whipper"` and `Logchecker.php` has a full `whipperParse()`. So tracker
   recognition via whipper is **purely a Platterpus-side second `RipBackend`
   adapter** that runs whipper and keeps its native `.log`. The
-  `config.ripper_backend` seam already anticipates this (strategy-doc §1).
+  `RipBackend` ABC seam (`adapters/rip_backend.py`) anticipates this — a
+  `Config.ripper_backend` selector existed while both backends shipped, was
+  removed with whipper (2026-06-30), and would return with a second engine
+  (strategy-doc §0).
 - **Hard blocker for your own hardware:** whipper orchestrates cd-paranoia, which
   carries the **>587-sample read-offset bug** that *failed* tracks on the
   BDR-209D (+667 offset) — the exact bug that drove the whipper→cyanrip switch
@@ -325,4 +338,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.4.18.*
+*Last updated for Platterpus v0.4.24.*
