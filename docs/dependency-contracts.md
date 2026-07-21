@@ -94,10 +94,13 @@ library succeeds; they bite only when the output directory is on a mounted
 NTFS/exFAT volume or the library is later copied to Windows/macOS. Platterpus
 deliberately does **not** re-sanitise the names cyanrip produces — Critical Rule
 #3 (the ripper owns naming; overriding it would duplicate cyanrip's logic and
-break the Settings naming preview↔reality round-trip). If cross-FS portability is
-wanted, the tracked non-overriding options are a *non-blocking* Settings warning
-on a cross-FS-unsafe template and/or a user-doc note — a maintainer feature call,
-not a unilateral fix.
+break the Settings naming preview↔reality round-trip). The non-overriding
+mitigation shipped 2026-07-21 (maintainer-approved): a **non-blocking Settings
+warning** (`settings_validation.cross_fs_hazards`) flags a naming template whose
+*literal* text is Windows-unsafe (reserved chars/device names, trailing
+dots/spaces). Hazards inside tag **values** remain out of reach by design — they
+are produced at rip time by cyanrip's own sanitiser — so this paragraph stays
+the honest record of that residual limitation.
 
 **Info / probe flags:** `-I -N` (info-only, computes DiscID/CDDB locally, no
 network — `disc_info`); `-V` (version). **cyanrip's offset-finder is

@@ -20,6 +20,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   matched; upstream's "may freeze if unsupported by drive" caveat is surfaced
   in the tooltip and User Guide.
 
+- **Cross-filesystem naming warning (Settings, warning-only)**: a naming
+  template whose literal text would not copy cleanly to Windows or an
+  NTFS/exFAT drive (reserved characters, reserved device names like `CON`,
+  trailing dots/spaces) now shows a live warning in the Settings validation
+  banner — never a block, since all of it is legal on the Linux target.
+  Closes the last open item of the 2026-07-08 trust audit
+  (maintainer-approved); hazards inside tag *values* remain a documented
+  limitation (the ripper owns naming).
+
 ### Fixed
 - **cyanrip flag-letter corrections in the docs (a shipped-bug near-miss)**:
   `docs/dependency-contracts.md`, TASKS.md, and the parity scorecard claimed

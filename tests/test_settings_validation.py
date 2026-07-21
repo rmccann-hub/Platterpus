@@ -425,3 +425,56 @@ def test_log_issues_writes_errors_and_warnings(caplog) -> None:
     text = caplog.text
     assert "output_dir" in text and "bad dir" in text
     assert "metaflac_path" in text and "not on path" in text
+
+
+# --- Cross-filesystem portability warning (maintainer-approved 2026-07-21) --
+
+
+def test_cross_fs_hazards_clean_on_defaults() -> None:
+    """The shipped default templates must never trip the portability warning."""
+    from platterpus.settings_validation import cross_fs_hazards
+
+    cfg = Config()
+    for template in (
+        cfg.track_template,
+        cfg.disc_template,
+        cfg.track_template_unknown,
+        cfg.disc_template_unknown,
+    ):
+        assert cross_fs_hazards(template) == []
+
+
+def test_cross_fs_reserved_characters_warn_never_block() -> None:
+    """A literal Windows-reserved char is a WARNING (legal on Linux) — the
+    template still saves; the message names the effect (won't copy cleanly)."""
+    issues = sv.validate_config(Config(track_template="%A/%d|mirror/%t - %n"))
+    hits = [i for i in issues if i.field == "track_template" and "Windows" in i.message]
+    assert len(hits) == 1
+    assert hits[0].severity == sv.SEVERITY_WARNING
+
+
+def test_cross_fs_token_is_not_a_literal_character() -> None:
+    """%-tokens and %%-escapes are unfolded before the char scan — a template
+    of only tokens/separators is clean even though '%' isn't a Windows char."""
+    from platterpus.settings_validation import cross_fs_hazards
+
+    assert cross_fs_hazards("%A/%d/%t - %n 100%%") == []
+
+
+def test_cross_fs_reserved_device_name_flagged_only_in_literal_segments() -> None:
+    from platterpus.settings_validation import cross_fs_hazards
+
+    # A fully-literal segment that IS a reserved name — with or without an
+    # extension — is flagged…
+    assert any("reserved device name" in h for h in cross_fs_hazards("aux/%t"))
+    assert any("reserved device name" in h for h in cross_fs_hazards("CON.flac"))
+    # …but a token-bearing segment can't be judged until rip time.
+    assert cross_fs_hazards("aux %A/%t") == []
+
+
+def test_cross_fs_trailing_dot_or_space_flagged() -> None:
+    from platterpus.settings_validation import cross_fs_hazards
+
+    assert any("dot/space" in h for h in cross_fs_hazards("Best Of./%t"))
+    assert any("dot/space" in h for h in cross_fs_hazards("Best Of /%t"))
+    assert cross_fs_hazards("Best Of/%t") == []
