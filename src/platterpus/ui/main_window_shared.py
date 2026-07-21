@@ -76,7 +76,16 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from PySide6.QtCore import QThread, QTimer, Signal
-    from PySide6.QtWidgets import QProgressDialog, QSplitter, QWidget
+    from PySide6.QtWidgets import QProgressDialog, QSplitter
+
+    # At type-check time the seam IS a QWidget (the concrete window is one), so
+    # mypy resolves the Qt methods a mixin calls on ``self`` and accepts ``self``
+    # where a QWidget parent is expected. See the module docstring for why this
+    # is QWidget (not QMainWindow) and why it is runtime-neutral. The import-as
+    # form (not ``_SeamBase = QWidget``) matters: mypy 2.3 stopped accepting a
+    # conditionally re-assigned *variable* as a base class, but an imported
+    # name is a class to it, so the conditional-base pattern stays valid.
+    from PySide6.QtWidgets import QWidget as _SeamBase
 
     from platterpus.adapters import cover_art
     from platterpus.adapters.accuraterip_offsets import OffsetDatabase
@@ -109,12 +118,6 @@ if TYPE_CHECKING:
         UpdateCheckWorker,
         UpdateInstallWorker,
     )
-
-    # At type-check time the seam IS a QWidget (the concrete window is one), so
-    # mypy resolves the Qt methods a mixin calls on ``self`` and accepts ``self``
-    # where a QWidget parent is expected. See the module docstring for why this
-    # is QWidget (not QMainWindow) and why it is runtime-neutral.
-    _SeamBase = QWidget
 else:
     # At runtime the seam is a plain object subclass — it adds no Qt base to the
     # mixins, so the MRO and metaclass are exactly as they were before.

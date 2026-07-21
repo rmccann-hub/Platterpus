@@ -26,6 +26,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   canonical paste-ready upstream issue/PR bodies, and the ASan/UBSan-proved
   C harness.
 
+### Fixed
+- **mypy 2.3 compatibility for the two Qt typing seams**: mypy 2.3 stopped
+  accepting `track_table`'s bare `QModelIndex | QPersistentModelIndex`
+  assignment as a type alias and `main_window_shared`'s conditionally
+  re-assigned `_SeamBase` variable as a base class — the `typecheck` CI job
+  would go red on its next cold-cache run. An explicit `TypeAlias` marker and
+  the import-as conditional-base form restore a clean `mypy` with zero runtime
+  change (MRO/metaclass verified identical).
+
 ### Changed
 - **TASKS.md's "⭐ START HERE" queue re-ranked around what is actually open**
   (docs-audit consolidation plan, maintainer-approved): the live queue now
