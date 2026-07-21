@@ -30,11 +30,14 @@ def test_config_has_no_whipper_era_fields() -> None:
     import dataclasses
 
     field_names = {f.name for f in dataclasses.fields(config_module.Config)}
+    # NOTE: "force_overread" left this retired set on 2026-07-21 — the name is
+    # legitimately back as a LIVE, cyanrip-native field (the Settings
+    # "Overread" toggle → cyanrip -O), not the dead whipper plumbing this
+    # guard exists to catch.
     retired = {
         "ripper_backend",
         "whipper_path",
         "continue_on_cdr",
-        "force_overread",
         "keep_going",
     }
     leaked = field_names & retired

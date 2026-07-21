@@ -533,3 +533,43 @@ def test_best_of_plan_never_raises_on_garbage() -> None:
     comp = compare_reports({}, {})
     plan = best_of_plan(comp, None, None)  # type: ignore[arg-type]
     assert plan.entries == ()
+
+
+def test_find_prior_report_scans_extra_roots(tmp_path: Path) -> None:
+    """With auto-move on, prior rips live in the LIBRARY folder — extra_roots
+    lets the scan cover it, and the newest match across ALL roots wins."""
+    out_root = tmp_path / "out"
+    library = tmp_path / "library"
+    current = out_root / "Album (2)" / "x.platterpus.json"
+    in_library = library / "Album" / "x.platterpus.json"
+    _write_report(
+        current,
+        _report(tracks=[_track(1, "NEW")], generated_at="2026-07-21T12:00:00"),
+    )
+    _write_report(
+        in_library,
+        _report(tracks=[_track(1, "OLD")], generated_at="2026-07-20T00:00:00"),
+    )
+    # Not found when only the output root is scanned…
+    assert find_prior_report(current, out_root) is None
+    # …found once the library rides along as an extra root.
+    assert find_prior_report(current, out_root, extra_roots=(library,)) == in_library
+
+
+def test_find_prior_report_dedups_nested_extra_roots(tmp_path: Path) -> None:
+    """A root nested inside another (or repeated) is scanned once — otherwise a
+    duplicate candidate would double-spend the bounded report budget."""
+    root = tmp_path / "Music"
+    current = root / "cur" / "x.platterpus.json"
+    prior = root / "Album" / "x.platterpus.json"
+    _write_report(
+        current, _report(tracks=[_track(1, "NEW")], generated_at="2026-07-21T00:00:00")
+    )
+    _write_report(
+        prior, _report(tracks=[_track(1, "OLD")], generated_at="2026-07-01T00:00:00")
+    )
+    # The nested and duplicate roots must not break or change the answer.
+    found = find_prior_report(
+        current, root, extra_roots=(root / "Album", root, tmp_path)
+    )
+    assert found == prior

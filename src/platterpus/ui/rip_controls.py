@@ -203,6 +203,7 @@ class RipControls(QWidget):
             max_retries=self._config.max_retries,
             secure_rerip_matches=self._config.secure_rerip_matches,
             secure_rerip_dynamic=self._config.secure_rerip_dynamic,
+            force_overread=self._config.force_overread,
             # Adaptive read-speed ladder (0.4.6), carried from Settings.
             read_speed_mode=self._config.read_speed_mode,
             read_speed=self._config.read_speed,

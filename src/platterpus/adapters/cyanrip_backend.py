@@ -125,6 +125,7 @@ class CyanripImpl(RipBackend):
         track_template: str = "",
         metadata: RipMetadata | None = None,
         secure_rerip_matches: int = 0,
+        force_overread: bool = False,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
     ) -> list[str]:
@@ -157,6 +158,15 @@ class CyanripImpl(RipBackend):
         # burns time, so the default rip omits it entirely.
         if secure_rerip_matches > 0:
             argv += ["-Z", str(secure_rerip_matches)]
+        # `-O`: read into the disc's lead-in/lead-out instead of zero-padding
+        # the offset-shifted edge samples. Opt-in (Settings "Overread") and
+        # drive-dependent — cyanrip's own help warns it "may freeze if
+        # unsupported by drive". Flag verified against BOTH the deployed
+        # 0.9.3.1 and master (2026-07-21): the letter is `-O`; the `-x` that
+        # older project notes named does not exist in cyanrip's getopt at all,
+        # so passing it would abort every rip.
+        if force_overread:
+            argv.append("-O")
         # `-S <speed>`: cap the drive's read speed for this pass. Only passed when
         # a positive speed is requested (> 0); 0 means "let the drive pick" (its
         # maximum), so the default fast rip omits `-S` entirely. The adaptive
@@ -211,6 +221,7 @@ class CyanripImpl(RipBackend):
         cover_art: str = "",
         max_retries: int = 5,
         secure_rerip_matches: int = 0,
+        force_overread: bool = False,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
         read_speed: int = 0,
@@ -231,6 +242,7 @@ class CyanripImpl(RipBackend):
             track_template=track_template,
             metadata=metadata,
             secure_rerip_matches=secure_rerip_matches,
+            force_overread=force_overread,
             read_speed=read_speed,
             only_tracks=only_tracks,
         )

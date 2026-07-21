@@ -65,6 +65,22 @@ READ_SPEED_MAX: int = 72  # CD ×-speeds; 0 = drive max
 MP3_QUALITY_MIN: int = 0
 MP3_QUALITY_MAX: int = 9
 
+# Windows/NTFS/exFAT portability hazards in a naming template's LITERAL text
+# (maintainer-approved warning, 2026-07-21 — see docs/dependency-contracts.md
+# "Not sanitised — a documented cross-filesystem limitation"). These are all
+# LEGAL on the Linux target, so they are a WARNING (never an error) and only
+# matter when the library is copied to Windows/macOS or a mounted NTFS/exFAT
+# volume. Only the template's literal parts can be judged here — hazards in
+# tag VALUES (an album title ending in a dot, say) are produced at rip time by
+# cyanrip's own sanitiser and are out of this validator's reach by design
+# (Critical rule #3: the ripper owns naming).
+_WINDOWS_RESERVED_CHARS: frozenset[str] = frozenset('<>:"\\|?*')
+_WINDOWS_RESERVED_NAMES: frozenset[str] = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"com{n}" for n in range(1, 10)}
+    | {f"lpt{n}" for n in range(1, 10)}
+)
+
 # Enum-valued fields → their allowed values (must match the Settings combos and
 # the consumers downstream). Kept here so the validator rejects a bad hand-edit.
 _ALLOWED_OUTPUT_FORMATS: frozenset[str] = frozenset({"flac", "wavpack", "mp3", "wav"})
@@ -102,6 +118,19 @@ def validate_config(config: Config) -> list[ValidationIssue]:
     try:
         issues += _validate_dir("output_dir", config.output_dir, "Output directory")
         issues += _validate_dir("working_dir", config.working_dir, "Working directory")
+        # The library folder is OPTIONAL — empty means "leave rips in the
+        # output directory" (the feature is off), so only a non-empty value
+        # goes through the directory rules.
+        if (config.library_dir or "").strip():
+            issues += _validate_dir("library_dir", config.library_dir, "Library folder")
+        elif _has_control_char(config.library_dir or ""):
+            # A control char hiding in "whitespace" must still be rejected —
+            # the strip() above would otherwise let it persist to config.toml.
+            issues.append(
+                ValidationIssue(
+                    "library_dir", "Library folder contains an illegal character."
+                )
+            )
 
         for field_name, label in (
             ("track_template", "Track template"),
@@ -183,6 +212,7 @@ def validate_config(config: Config) -> list[ValidationIssue]:
 # where a bool belongs) is caught, not silently coerced.
 _BOOL_FIELDS: tuple[str, ...] = (
     "override_read_offset",
+    "force_overread",
     "auto_launch_picard",
     "auto_eject_after_rip",
     "notify_on_completion",
@@ -225,6 +255,7 @@ def validated_field_names() -> frozenset[str]:
             "read_speed_mode",
             "rip_goal",
             "integration_declined_path",
+            "library_dir",
             "schema_version",
         }
         | set(_BOOL_FIELDS)
@@ -364,6 +395,20 @@ def _validate_template(field: str, value: str, label: str) -> list[ValidationIss
                 SEVERITY_WARNING,
             )
         )
+    # Cross-filesystem portability (warning only — everything here is legal on
+    # the Linux target): a template whose LITERAL text bakes in a Windows-unsafe
+    # character/name would make every rip's folder un-copyable to Windows/NTFS.
+    hazards = cross_fs_hazards(text)
+    if hazards:
+        issues.append(
+            ValidationIssue(
+                field,
+                f"{label} may not copy cleanly to Windows or an NTFS/exFAT "
+                f"drive: {'; '.join(hazards)}. Fine on Linux — only worth "
+                "changing if this library will be copied there.",
+                SEVERITY_WARNING,
+            )
+        )
     # Renders to something usable? (An all-token template of only unknown tokens,
     # or one that collapses to empty/slashes, would produce a nameless file.)
     try:
@@ -382,6 +427,47 @@ def _validate_template(field: str, value: str, label: str) -> list[ValidationIss
     except Exception:  # noqa: BLE001 — preview is best-effort; don't block on it
         log.debug("template render probe failed for %s", field, exc_info=True)
     return issues
+
+
+def cross_fs_hazards(template: str) -> list[str]:
+    """Windows/NTFS-portability hazards in a template's LITERAL text.
+
+    Returns human-readable descriptions ("" -free), empty when clean. Pure and
+    deliberately conservative: a path segment containing a ``%`` token can't be
+    judged until tag values exist at rip time, so token-bearing segments are
+    only checked for reserved *characters* (which survive any substitution),
+    never for reserved names or trailing dots/spaces. Hazards checked — all
+    legal on Linux, all real on Windows/NTFS/exFAT:
+
+    * reserved characters ``< > : " \\ | ? *`` anywhere in the literal text
+      (``%%`` escapes are unfolded first so a literal ``%`` never confuses it);
+    * reserved device names (``CON``, ``PRN``, ``AUX``, ``NUL``, ``COM1``–``9``,
+      ``LPT1``–``9``) as a whole literal segment, with or without an extension
+      (Windows reserves ``CON.flac`` too), case-insensitively;
+    * a literal segment ending in a dot or space (Windows strips or rejects
+      them, so the copied name silently changes or fails).
+    """
+    hazards: list[str] = []
+    # Unfold %%-escapes and blank out the known tokens so only literal text
+    # remains for the character scan ("%A" is not a literal "A").
+    literal = template.replace("%%", "%")
+    for token in _KNOWN_TEMPLATE_TOKENS:
+        literal = literal.replace(f"%{token}", "")
+    bad_chars = sorted(set(literal) & _WINDOWS_RESERVED_CHARS)
+    if bad_chars:
+        listed = " ".join(bad_chars)
+        hazards.append(f"the character(s) {listed} are reserved on Windows")
+    for segment in template.split("/"):
+        if "%" in segment:
+            continue  # value-dependent — judged at rip time, not here
+        stem = segment.split(".", 1)[0].strip().lower()
+        if stem in _WINDOWS_RESERVED_NAMES:
+            hazards.append(f"“{segment}” is a reserved device name on Windows")
+        if segment != segment.rstrip(". "):
+            hazards.append(
+                f"“{segment}” ends in a dot/space, which Windows strips or rejects"
+            )
+    return hazards
 
 
 def _validate_tool_path(field: str, value: str, tool: str) -> list[ValidationIssue]:

@@ -106,6 +106,7 @@ class _FakeBackend(RipBackend):
         cover_art: str = "",
         max_retries: int = 5,
         secure_rerip_matches: int = 0,
+        force_overread: bool = False,
         read_offset_override: int | None = None,
         metadata=None,
         read_speed: int = 0,
@@ -120,6 +121,7 @@ class _FakeBackend(RipBackend):
                 "cover_art": cover_art,
                 "max_retries": max_retries,
                 "secure_rerip_matches": secure_rerip_matches,
+                "force_overread": force_overread,
                 "read_offset_override": read_offset_override,
                 "metadata": metadata,
                 "read_speed": read_speed,
@@ -217,6 +219,20 @@ def test_secure_rerip_param_forwarded_to_backend(
     worker.start_rip()
 
     assert backend.rip_calls[0]["secure_rerip_matches"] == 2
+
+
+def test_force_overread_param_forwarded_to_backend(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """RipParameters.force_overread (the Overread toggle → cyanrip -O) must
+    reach RipBackend.rip(); off stays off."""
+    handle = _FakeHandle(lines=[], exit_code=0)
+    backend = _FakeBackend(handle=handle)
+    worker = RipWorker(backend, _params(tmp_path, force_overread=True))
+
+    worker.start_rip()
+
+    assert backend.rip_calls[0]["force_overread"] is True
 
 
 # --- Adaptive read-speed ladder -------------------------------------------

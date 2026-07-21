@@ -165,6 +165,14 @@ class Config:
     # again — exactly the update case where re-offering is wanted.
     integration_declined_path: str = ""
 
+    # Library folder for finished rips ("" = off, the default). When set, a
+    # SUCCESSFUL rip's album folder is moved here — but only after every
+    # post-rip check has settled (tagging, cover art, transcode, the whole
+    # verification suite, checksums, the report write), so nothing ever
+    # verifies or hashes a file mid-move. The rip itself always lands in
+    # output_dir first; this is the "then file it in my library" step.
+    library_dir: str = ""
+
     # Debug logging: when True, the log file at ~/.local/share/platterpus/
     # log.txt records verbose DEBUG detail (every probe, subprocess argv,
     # parser step) instead of the default INFO. Off by default — a tester
@@ -187,6 +195,16 @@ class Config:
     save_additional_art: bool = True
     # Rip attempts before giving up on a track (cyanrip's `-r`).
     max_retries: int = 5
+    # Read into the disc's lead-in/lead-out (cyanrip's `-O`). With a read
+    # offset applied, a disc's very first/last samples sit in the lead-in/out;
+    # off (the default) leaves them zero-padded — the same as EAC's
+    # "overread: No", which is exactly how the committed parity baseline
+    # matched (T1/T14 byte-identical). On asks the drive to actually read
+    # them. Advanced + drive-dependent: upstream warns it "may freeze if
+    # unsupported by drive", so this stays opt-in. (Flag verified against
+    # cyanrip 0.9.3.1 and master, 2026-07-21 — it is `-O`; the `-x` some
+    # older project notes named does not exist in cyanrip.)
+    force_overread: bool = False
 
     # --- Marginal-disc convergence (cyanrip -Z N, EAC-parity item 1) ---
     # cyanrip's `-Z <int>`: "rip a track until N reads' checksums agree" — for a

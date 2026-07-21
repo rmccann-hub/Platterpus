@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -547,10 +547,14 @@ def find_prior_report(
     search_root: Path,
     *,
     current_report: dict | None = None,
+    extra_roots: Sequence[Path] = (),
 ) -> Path | None:
     """Find a prior report for the SAME disc as ``current_report_path``.
 
-    Scans ``search_root`` for ``*.platterpus.json`` files (one per album),
+    Scans ``search_root`` — plus any ``extra_roots`` (e.g. the library folder
+    the auto-move feature relocates finished rips into; duplicates and roots
+    nested in one another are deduped so nothing is scanned twice) — for
+    ``*.platterpus.json`` files (one per album),
     skips the current report, and returns the most recent one that
     :func:`same_disc` confirms is the same disc — or None if there's no match.
     Matching via :func:`same_disc` (not raw key equality) is what lets a v9
@@ -574,43 +578,70 @@ def find_prior_report(
         # No disc identity to match on — don't guess across the library.
         return None
 
+    # Dedup the scan roots (resolved), and drop a root nested inside another —
+    # rglob on the outer root already covers it, and scanning twice would both
+    # waste the report budget and double-count candidates.
+    roots: list[Path] = []
+    for raw_root in (search_root, *extra_roots):
+        try:
+            resolved_root = Path(raw_root).resolve()
+        except OSError:
+            resolved_root = Path(raw_root)
+        if any(
+            resolved_root == kept or _is_under(resolved_root, kept) for kept in roots
+        ):
+            continue
+        roots = [kept for kept in roots if not _is_under(kept, resolved_root)]
+        roots.append(resolved_root)
+
     best: tuple[float, Path] | None = None  # (recency epoch, path)
-    scanned = 0
-    try:
-        candidates = Path(search_root).rglob("*.platterpus.json")
-    except OSError:
-        return None
-    # The rglob generator does its I/O lazily, so a traversal error (a dying
-    # disk, a stale NFS mount) can surface on ANY iteration step, not just the
-    # rglob() call above. Wrap the whole loop so such an error just ends the scan
-    # with whatever we found so far, never propagating out of this best-effort
-    # helper (its contract is "returns None rather than raising").
-    try:
-        for candidate in candidates:
-            if scanned >= _MAX_SCAN_REPORTS:
-                log.warning(
-                    "prior-rip scan stopped at %d reports under %s; a match "
-                    "beyond that was not considered",
-                    _MAX_SCAN_REPORTS,
-                    search_root,
-                )
-                break
-            try:
-                same_file = candidate.resolve() == current_path
-            except OSError:
-                same_file = candidate == current_path
-            if same_file:
-                continue
-            scanned += 1
-            other = load_report(candidate)
-            if other is None or same_disc(current_report, other) is not True:
-                continue
-            sort_key = _recency_key(other, candidate)
-            if best is None or sort_key > best[0]:
-                best = (sort_key, candidate)
-    except OSError:
-        log.warning("prior-rip scan hit an I/O error under %s", search_root)
+    scanned = 0  # one budget across ALL roots — the cap is about total I/O
+    for root in roots:
+        try:
+            candidates = root.rglob("*.platterpus.json")
+        except OSError:
+            continue
+        # The rglob generator does its I/O lazily, so a traversal error (a dying
+        # disk, a stale NFS mount) can surface on ANY iteration step, not just
+        # the rglob() call above. Wrap the whole loop so such an error just ends
+        # this root's scan with whatever was found so far, never propagating out
+        # of this best-effort helper ("returns None rather than raising").
+        try:
+            for candidate in candidates:
+                if scanned >= _MAX_SCAN_REPORTS:
+                    log.warning(
+                        "prior-rip scan stopped at %d reports under %s; a match "
+                        "beyond that was not considered",
+                        _MAX_SCAN_REPORTS,
+                        root,
+                    )
+                    break
+                try:
+                    same_file = candidate.resolve() == current_path
+                except OSError:
+                    same_file = candidate == current_path
+                if same_file:
+                    continue
+                scanned += 1
+                other = load_report(candidate)
+                if other is None or same_disc(current_report, other) is not True:
+                    continue
+                sort_key = _recency_key(other, candidate)
+                if best is None or sort_key > best[0]:
+                    best = (sort_key, candidate)
+        except OSError:
+            log.warning("prior-rip scan hit an I/O error under %s", root)
+        if scanned >= _MAX_SCAN_REPORTS:
+            break
     return best[1] if best is not None else None
+
+
+def _is_under(path: Path, ancestor: Path) -> bool:
+    """True when ``path`` sits strictly inside ``ancestor``. Pure; never raises."""
+    try:
+        return path != ancestor and path.is_relative_to(ancestor)
+    except (OSError, ValueError):
+        return False
 
 
 def _recency_key(report: dict, path: Path) -> float:
