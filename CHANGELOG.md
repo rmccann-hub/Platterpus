@@ -28,8 +28,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   brief-vs-PLANNING precedence rule reads "the brief **as amended by the
   maintainer-approved KDDs** wins on requirements/scope" (matching actual
   practice since KDD-12/KDD-22 — `docs/README.md` updated to match).
-
-### Changed
 - **Full documentation audit (2026-07-21).** Every Markdown doc in the repo was
   audited against the code, CI, and the live tag history — 239 findings, ~160
   fixed in this release's docs commits. The audit record (systemic patterns,
@@ -69,6 +67,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **Duplicate category headings merged throughout this changelog**
+  (maintainer-approved audit follow-up): `[0.4.10]`, `[0.4.5]`, `[0.4.0]`,
+  and `[0.2.0]` each carried repeated `### Added`/`### Changed`/`### Fixed`
+  headings from incremental edits — now one heading per category per release
+  (Keep-a-Changelog form), every bullet preserved in order.
 - **AppImage/build/SOP docs corrected; dated records got preservation
   banners.** `appimage-testing.md` now documents the `workflow_dispatch`
   release route (the only one that works from cloud sessions), the `.zsync` +
@@ -793,6 +796,13 @@ richer metadata and cover art, and a more complete per-album report.
   attribute that no longer exists), the dead `DriveSetupResult.backup_path`
   field, and corrected the Python matrix (3.11–3.14) and a few table/reference
   nits.
+- **After an in-app update, the "Restart now?" prompt now warns that the new
+  version can take 20–30 seconds to reappear** (a new AppImage unpacks itself on
+  its first launch). The app *does* relaunch itself, but that cold-extract gap
+  read as "it updated but didn't restart" (real-user report, 2026-07-02) and led
+  to reopening it by hand. Setting the expectation up front fixes the confusion
+  without changing the (correct) relaunch behaviour. Regression-tested so the
+  heads-up can't be silently dropped.
 
 ### Added
 - **"View log" and "View report" now open in an in-app read-only viewer.** A
@@ -841,15 +851,6 @@ richer metadata and cover art, and a more complete per-album report.
   (`SubprocessRunner`): a missing command surfaces as the `127` sentinel and a
   timeout as `124` — never an exception that would abort the setup/uninstall
   pipeline mid-step. (Previously only the injected fake runner was exercised.)
-
-### Changed
-- **After an in-app update, the "Restart now?" prompt now warns that the new
-  version can take 20–30 seconds to reappear** (a new AppImage unpacks itself on
-  its first launch). The app *does* relaunch itself, but that cold-extract gap
-  read as "it updated but didn't restart" (real-user report, 2026-07-02) and led
-  to reopening it by hand. Setting the expectation up front fixes the confusion
-  without changing the (correct) relaunch behaviour. Regression-tested so the
-  heads-up can't be silently dropped.
 
 ## [0.4.9] — 2026-07-02
 
@@ -1357,6 +1358,20 @@ richer metadata and cover art, and a more complete per-album report.
 - **The drive model is captured again.** cyanrip 0.9.3 prints `Device model:`,
   but the parser only matched the older `Drive used:` — so the archival "which
   drive" field came out empty. Both are accepted now.
+- **Dialogs now centre over the main window even when they're a plain message
+  box.** The 0.4.4 centering only covered our own dialog subclasses, so the
+  first-run "add to menu", shortcut, and update prompts (plain `QMessageBox`)
+  could still open on another monitor. An application-wide filter now centres
+  every dialog — message boxes and file pickers included — on the window that
+  opened it. (Still a no-op under native Wayland, where clients can't position
+  themselves; the app prefers XWayland, where it works.)
+- **The main-window splitter is draggable at the normal window size, not only
+  when maximized.** The three stacked panes' minimum heights summed to nearly
+  the whole default window, so the splitter handles showed the resize cursor but
+  had no slack to move (real-user report on 0.4.4). The scrollable areas (track
+  list, rip log, AccurateRip table) now keep a small minimum height, so the
+  splitter can always redistribute space. (The default window size is unchanged
+  — making it taller would overflow 1366×768 laptops.)
 
 ### Added
 - **The rip report now captures the loudness, ReplayGain, drive, and log
@@ -1379,19 +1394,6 @@ richer metadata and cover art, and a more complete per-album report.
   **per-file SHA256** map for long-term integrity checking (bit-rot) — embedded
   here rather than a separate `checksums.sha256` sidecar. The report is re-written
   as each async check finishes, so the final file always reflects every one.
-
-### Changed
-- **Every rip now fully verifies the bit-perfect FLAC master before deriving any
-  format.** Verification used to be format-dependent (CTDB only ran under the
-  Archival goal). Now all three goals — and a fresh install — run the full suite
-  on the master: **AccurateRip** (always) + **CTDB** whole-disc + **FLAC-integrity
-  decode**, *before* any MP3/WavPack/WAV transcode. So a portable MP3 is derived
-  from a master that's had exactly the same proof as an archival FLAC. The FLAC
-  master is always kept. CTDB is now on by default (a network lookup + a decode
-  per rip; it fails safe and off-thread, and is still toggleable). The goals now
-  differ only in *output* and *compression effort*, never in how hard they check.
-
-### Added
 - **File-naming presets with a live preview.** Settings has a new "Naming
   scheme" dropdown offering the layouts the popular tools use — *Artist / Album
   / 01 - Title* (the clean default, à la Picard/beets/Plex), a no-dash variant,
@@ -1403,6 +1405,15 @@ richer metadata and cover art, and a more complete per-album report.
   and all — before committing.
 
 ### Changed
+- **Every rip now fully verifies the bit-perfect FLAC master before deriving any
+  format.** Verification used to be format-dependent (CTDB only ran under the
+  Archival goal). Now all three goals — and a fresh install — run the full suite
+  on the master: **AccurateRip** (always) + **CTDB** whole-disc + **FLAC-integrity
+  decode**, *before* any MP3/WavPack/WAV transcode. So a portable MP3 is derived
+  from a master that's had exactly the same proof as an archival FLAC. The FLAC
+  master is always kept. CTDB is now on by default (a network lookup + a decode
+  per rip; it fails safe and off-thread, and is still toggleable). The goals now
+  differ only in *output* and *compression effort*, never in how hard they check.
 - **The default filename layout is now the clean `Artist/Album/01 - Title`.** The
   old default repeated the album and artist in every filename and tacked the full
   release date on the end (`01 - Roxanne - Every Breath You Take… - The Police -
@@ -1411,22 +1422,6 @@ richer metadata and cover art, and a more complete per-album report.
 - The **album-artist field** now has a tooltip explaining it fills every track's
   Artist column and that individual rows can be overridden (for compilations or
   featured guests).
-
-### Fixed
-- **Dialogs now centre over the main window even when they're a plain message
-  box.** The 0.4.4 centering only covered our own dialog subclasses, so the
-  first-run "add to menu", shortcut, and update prompts (plain `QMessageBox`)
-  could still open on another monitor. An application-wide filter now centres
-  every dialog — message boxes and file pickers included — on the window that
-  opened it. (Still a no-op under native Wayland, where clients can't position
-  themselves; the app prefers XWayland, where it works.)
-- **The main-window splitter is draggable at the normal window size, not only
-  when maximized.** The three stacked panes' minimum heights summed to nearly
-  the whole default window, so the splitter handles showed the resize cursor but
-  had no slack to move (real-user report on 0.4.4). The scrollable areas (track
-  list, rip log, AccurateRip table) now keep a small minimum height, so the
-  splitter can always redistribute space. (The default window size is unchanged
-  — making it taller would overflow 1366×768 laptops.)
 
 ## [0.4.4] — 2026-06-30
 
@@ -1628,8 +1623,6 @@ richer metadata and cover art, and a more complete per-album report.
   by a leading symbol **and** text (✓ verified / ⚠ partial / ⓘ not-in-database),
   never by colour alone — so colour-blind and screen-reader users get the same
   signal as the green/amber/grey tint.
-
-### Added
 - **Per-drive trust line: where your read offset came from, and how sure.**
   The disc panel now shows a "Read offset" row for the selected drive — e.g.
   *"+667 — from the AccurateRip list (medium confidence)"* or *"measured on
@@ -1647,6 +1640,34 @@ richer metadata and cover art, and a more complete per-album report.
   authorities for the offset a rip actually uses (PLANNING.md KDD-23).
   *Applying* a remembered offset per drive (true multi-drive correctness) is a
   separate, hardware-gated change and is not done here.
+- **`scripts/render_eac_log.py` — render a rip log into an EAC-*layout*
+  comparison log.** Turns a cyanrip/whipper rip log into text that mirrors EAC's
+  section/per-track layout so you can `diff`/`meld` it against a real EAC log and
+  see the per-track Copy CRCs line up (the readable companion to
+  `scripts/eac_parity.py`). It is **clearly attributed and never signed** — the
+  first line says it was generated by Platterpus and is not a genuine EAC log,
+  and the footer carries an explicit "not signed by Exact Audio Copy" marker in
+  place of EAC's checksum. It only ever renders real rip data and refuses to
+  fabricate an EAC signature (see `docs/eac-log-and-repair-feasibility.md`).
+- **At-a-glance verification verdict banner above the results table.** A single
+  bold, colour-coded headline now summarises whether the rip is trustworthy
+  without reading every row: green "✓ Bit-perfect: all N tracks verified against
+  AccurateRip (confidence X+)" when every audio track matched the shared
+  database, amber when only some matched, grey for a disc nobody has submitted
+  (e.g. a CD-R — where the per-track Copy CRCs still prove a secure read). The
+  wording never over-claims — it only ever reports what AccurateRip actually
+  returned (a confidence of 0 / "not present" never counts as verified). The
+  CTDB result line below it is now colour-coded the same way (green only for a
+  hardware-validated match; an experimental match stays amber).
+- **Settings → "Re-rip until reads match" for damaged or marginal discs (cyanrip
+  only).** Maps to cyanrip's `-Z N`: each track is re-ripped until that many reads
+  produce the same checksum, so a shaky read converges to the bit-perfect result
+  instead of landing on a near-miss against the AccurateRip consensus (the
+  Track-3-class gap in the EAC-parity work). Off by default — a clean disc doesn't
+  need it and it costs time, so the normal secure read (paranoia + retries) still
+  handles those. Try **2** if a track won't verify against AccurateRip. The whipper
+  backend has no equivalent flag, so the control is greyed out (your value is kept)
+  when whipper is selected.
 
 ### Removed
 - **The one-time `~/.config/whipper-gui` → `~/.config/platterpus` settings
@@ -1691,17 +1712,6 @@ richer metadata and cover art, and a more complete per-album report.
   the AppImage bundles, and the hicolor/favicon set under `assets/icons/`
   (16–512px), all regenerated from the SVG by `build/make_icon.py`.
 
-### Added
-- **`scripts/render_eac_log.py` — render a rip log into an EAC-*layout*
-  comparison log.** Turns a cyanrip/whipper rip log into text that mirrors EAC's
-  section/per-track layout so you can `diff`/`meld` it against a real EAC log and
-  see the per-track Copy CRCs line up (the readable companion to
-  `scripts/eac_parity.py`). It is **clearly attributed and never signed** — the
-  first line says it was generated by Platterpus and is not a genuine EAC log,
-  and the footer carries an explicit "not signed by Exact Audio Copy" marker in
-  place of EAC's checksum. It only ever renders real rip data and refuses to
-  fabricate an EAC signature (see `docs/eac-log-and-repair-feasibility.md`).
-
 ### Fixed
 - **The post-rip status line now reports AccurateRip the same way the verdict
   banner does.** When per-track AccurateRip data is available it counts verified
@@ -1719,27 +1729,6 @@ richer metadata and cover art, and a more complete per-album report.
   disc cyanrip had *fully verified*. Both surfaces now use one shared rule
   (AccurateRip confidence ≥ 1), so the panel and the banner can never contradict
   each other and a cyanrip rip's verification is reported honestly.
-
-### Added
-- **At-a-glance verification verdict banner above the results table.** A single
-  bold, colour-coded headline now summarises whether the rip is trustworthy
-  without reading every row: green "✓ Bit-perfect: all N tracks verified against
-  AccurateRip (confidence X+)" when every audio track matched the shared
-  database, amber when only some matched, grey for a disc nobody has submitted
-  (e.g. a CD-R — where the per-track Copy CRCs still prove a secure read). The
-  wording never over-claims — it only ever reports what AccurateRip actually
-  returned (a confidence of 0 / "not present" never counts as verified). The
-  CTDB result line below it is now colour-coded the same way (green only for a
-  hardware-validated match; an experimental match stays amber).
-- **Settings → "Re-rip until reads match" for damaged or marginal discs (cyanrip
-  only).** Maps to cyanrip's `-Z N`: each track is re-ripped until that many reads
-  produce the same checksum, so a shaky read converges to the bit-perfect result
-  instead of landing on a near-miss against the AccurateRip consensus (the
-  Track-3-class gap in the EAC-parity work). Off by default — a clean disc doesn't
-  need it and it costs time, so the normal secure read (paranoia + retries) still
-  handles those. Try **2** if a track won't verify against AccurateRip. The whipper
-  backend has no equivalent flag, so the control is greyed out (your value is kept)
-  when whipper is selected.
 
 ## [0.3.10] — 2026-06-27
 
@@ -2401,23 +2390,6 @@ span `v0.1.0…v0.2.1`.)*
   Trusted Publishing (OIDC) — no stored token. One-time PyPI-side setup is
   documented in the workflow header. It's a separate workflow from
   `release.yml`, so a PyPI misconfiguration can't block the AppImage release.
-
-### Changed
-- **README leads with a no-terminal install.** A new "Easiest — download one
-  file, no terminal" section: download the AppImage, do the one-time "allow
-  executing" step (GUI instructions for KDE/GNOME), double-click, and answer the
-  first-run prompts (menu integration + the host-setup wizard). The scripted/
-  CLI paths remain below for testers and developers; Method A notes that
-  `install-appimage.sh` is no longer required (self-integration replaces it).
-
-### Changed
-- **Clear, actionable message when a track can't be read.** When whipper gives up
-  on a track after its retries (scratched/dirty disc, or the cd-paranoia
-  >587-offset upstream bug), the status now says which track failed and what to
-  do — clean the disc, or turn on "Keep going" in Settings to rip the readable
-  tracks — instead of a bare "Rip failed".
-
-### Added
 - **Settings → Ripping backend toggle (cyanrip, Phase 2 start).** You can now
   pick the backend (whipper | cyanrip) in Settings; it's wired to
   `Config.ripper_backend` and applied on next launch. cyanrip is marked
@@ -2442,26 +2414,6 @@ span `v0.1.0…v0.2.1`.)*
   rip** (`--unknown`, no release-id → no network needed) and tags the FLACs
   locally from the on-screen track list. One retry per Start; surfaced in the
   status line. The `RipWorker` watches whipper's output for the marker.
-
-### Changed
-- **Ripping no longer demands the wizard when the drive's offset is already
-  known.** If you hit Start without a saved offset but your drive is in the
-  bundled AccurateRip list, the GUI now **applies that offset automatically**
-  (your Pioneer → +667), tells you once where it came from, and lets the rip
-  proceed — instead of blocking and sending you to the drive-setup wizard. Only
-  a genuinely unknown drive still needs the wizard. (The manual/wizard-saved
-  offset path is unchanged: set it once, then you're good.)
-- **Host-setup wizard: live progress + honest end states (no more "frozen / done
-  too soon").** The bootstrap engine now emits a **"⏳ currently doing X…"**
-  status *before* each step runs — so during a multi-minute image pull or
-  in-container `dnf install` the wizard shows what's happening instead of a
-  static bar that looks hung. Slow steps say "this can take a few minutes". The
-  finish message now distinguishes **"Everything was already set up — you're
-  ready to rip"** (the common Bazzite case, which previously flashed by and
-  looked like nothing happened) from a setup that actually installed things, and
-  surfaces the failed step otherwise.
-
-### Added
 - **App shortcut: Desktop icon + a re-runnable menu action.** Self-integration
   now also drops a clickable icon in your **Desktop folder** (not just the
   applications menu), and there's a **Tools → Add app shortcut** action so you
@@ -2501,6 +2453,44 @@ span `v0.1.0…v0.2.1`.)*
   `adapters/accuraterip_offsets.py` (`OffsetDatabase`). See
   `docs/archive/offset-investigation-2026-06.md`.
 
+### Changed
+- **README leads with a no-terminal install.** A new "Easiest — download one
+  file, no terminal" section: download the AppImage, do the one-time "allow
+  executing" step (GUI instructions for KDE/GNOME), double-click, and answer the
+  first-run prompts (menu integration + the host-setup wizard). The scripted/
+  CLI paths remain below for testers and developers; Method A notes that
+  `install-appimage.sh` is no longer required (self-integration replaces it).
+- **Clear, actionable message when a track can't be read.** When whipper gives up
+  on a track after its retries (scratched/dirty disc, or the cd-paranoia
+  >587-offset upstream bug), the status now says which track failed and what to
+  do — clean the disc, or turn on "Keep going" in Settings to rip the readable
+  tracks — instead of a bare "Rip failed".
+- **Ripping no longer demands the wizard when the drive's offset is already
+  known.** If you hit Start without a saved offset but your drive is in the
+  bundled AccurateRip list, the GUI now **applies that offset automatically**
+  (your Pioneer → +667), tells you once where it came from, and lets the rip
+  proceed — instead of blocking and sending you to the drive-setup wizard. Only
+  a genuinely unknown drive still needs the wizard. (The manual/wizard-saved
+  offset path is unchanged: set it once, then you're good.)
+- **Host-setup wizard: live progress + honest end states (no more "frozen / done
+  too soon").** The bootstrap engine now emits a **"⏳ currently doing X…"**
+  status *before* each step runs — so during a multi-minute image pull or
+  in-container `dnf install` the wizard shows what's happening instead of a
+  static bar that looks hung. Slow steps say "this can take a few minutes". The
+  finish message now distinguishes **"Everything was already set up — you're
+  ready to rip"** (the common Bazzite case, which previously flashed by and
+  looked like nothing happened) from a setup that actually installed things, and
+  surfaces the failed step otherwise.
+- **Documentation audit (2026-06-09).** PLANNING.md caught up with the code
+  (directory tree + per-module list now include the host-setup wizard,
+  AppImage self-integration, AccurateRip offset lookup, and the cyanrip
+  backend/parser; the pre-implementation "future CyanripImpl" sketch replaced
+  with the as-built design). TASKS.md gained a **Current plan & priorities**
+  section — the live, ordered queue with difficulty estimates — and the
+  zero-CLI checkboxes were corrected to match what shipped. README gained a
+  "Ripping backends" section; the in-app User Guide documents the backend
+  toggle; the hardware test plan gained Test 8 (cyanrip install + parity run).
+
 ### Fixed
 - **Saving Settings no longer resets the one-time first-run flags.** `to_config`
   rebuilt `Config` from scratch and dropped `drive_setup_prompted` /
@@ -2526,17 +2516,6 @@ span `v0.1.0…v0.2.1`.)*
   arrows) and the **Save offset** button are now locked while detection is
   running, so a value can't be edited/saved mid-detection and race what whipper
   writes. They re-enable when detection finishes.
-
-### Changed
-- **Documentation audit (2026-06-09).** PLANNING.md caught up with the code
-  (directory tree + per-module list now include the host-setup wizard,
-  AppImage self-integration, AccurateRip offset lookup, and the cyanrip
-  backend/parser; the pre-implementation "future CyanripImpl" sketch replaced
-  with the as-built design). TASKS.md gained a **Current plan & priorities**
-  section — the live, ordered queue with difficulty estimates — and the
-  zero-CLI checkboxes were corrected to match what shipped. README gained a
-  "Ripping backends" section; the in-app User Guide documents the backend
-  toggle; the hardware test plan gained Test 8 (cyanrip install + parity run).
 
 ## [0.1.0] — 2026-06-01
 
