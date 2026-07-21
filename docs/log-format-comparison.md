@@ -82,4 +82,4 @@ If a future cyanrip version changes its log format, update both this document an
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

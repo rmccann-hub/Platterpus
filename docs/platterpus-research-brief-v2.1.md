@@ -311,4 +311,4 @@ This is what I'm leaning toward. Tell me if it's right or wrong.
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

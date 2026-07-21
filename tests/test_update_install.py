@@ -223,6 +223,126 @@ def test_download_stream_failure_cleans_up_and_raises(tmp_path: Path) -> None:
     assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
 
 
+# --- Signature authenticity gate (fail-closed) -------------------------------
+# These arm the gate by monkeypatching a real test key into
+# update_signing.PUBLIC_KEY_B64, then serve a matching (or missing/bad) .minisig
+# through the fake opener. The contract: with a key configured, ONLY a
+# correctly-signed release installs; a missing or invalid signature is refused
+# and cleaned up. With no key configured, the .minisig is never even fetched.
+
+
+def _test_key_and_sig(payload: bytes = _PAYLOAD):
+    """A fresh Ed25519 key + its minisign pubkey b64 + a valid .minisig for
+    `payload` (prehashed ED, the mode we recommend for the large AppImage)."""
+    import base64
+    import hashlib as _hashlib
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    key = Ed25519PrivateKey.generate()
+    key_id = b"\x11\x22\x33\x44\x55\x66\x77\x88"
+    pub_raw = key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    pub_b64 = base64.b64encode(b"Ed" + key_id + pub_raw).decode("ascii")
+    signature = key.sign(_hashlib.blake2b(payload, digest_size=64).digest())
+    sig_payload = base64.b64encode(b"ED" + key_id + signature).decode("ascii")
+    global_line = base64.b64encode(b"\x00" * 64).decode("ascii")
+    minisig = (
+        f"untrusted comment: minisign\n{sig_payload}\n"
+        f"trusted comment: file:platterpus-x86_64.AppImage\n{global_line}\n"
+    )
+    return pub_b64, minisig
+
+
+def _signing_opener(payload: bytes, minisig: str | None):
+    """Opener serving the AppImage + .sha256 + (optionally) a .minisig."""
+    digest = hashlib.sha256(payload).hexdigest()
+
+    def open_url(url: str):
+        if url.endswith(".sha256"):
+            return _FakeResponse(f"{digest}  platterpus-x86_64.AppImage\n".encode())
+        if url.endswith(".minisig"):
+            if minisig is None:
+                raise OSError("404 no signature published")
+            return _FakeResponse(minisig.encode())
+        return _FakeResponse(payload)
+
+    return open_url
+
+
+def test_valid_signature_installs_when_signing_armed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from platterpus import update_signing
+
+    pub_b64, minisig = _test_key_and_sig()
+    monkeypatch.setattr(update_signing, "PUBLIC_KEY_B64", pub_b64)
+
+    result = download_and_install(
+        "0.2.3", dest_dir=tmp_path, opener=_signing_opener(_PAYLOAD, minisig)
+    )
+    assert result.read_bytes() == _PAYLOAD  # installed
+    assert not (tmp_path / ".platterpus-update.part").exists()
+
+
+def test_missing_signature_is_refused_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from platterpus import update_signing
+
+    pub_b64, _ = _test_key_and_sig()
+    monkeypatch.setattr(update_signing, "PUBLIC_KEY_B64", pub_b64)
+
+    # No .minisig published — fail-closed: refuse, don't fall through to install.
+    with pytest.raises(UpdateInstallError, match="no verifiable signature"):
+        download_and_install(
+            "0.2.3", dest_dir=tmp_path, opener=_signing_opener(_PAYLOAD, None)
+        )
+    assert not (tmp_path / ".platterpus-update.part").exists()
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
+
+
+def test_invalid_signature_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from platterpus import update_signing
+
+    # A signature made for DIFFERENT bytes than what we serve → verify fails.
+    pub_b64, minisig_for_other = _test_key_and_sig(payload=b"different bytes")
+    monkeypatch.setattr(update_signing, "PUBLIC_KEY_B64", pub_b64)
+
+    with pytest.raises(UpdateInstallError, match="failed signature verification"):
+        download_and_install(
+            "0.2.3",
+            dest_dir=tmp_path,
+            opener=_signing_opener(_PAYLOAD, minisig_for_other),
+        )
+    assert not (tmp_path / ".platterpus-update.part").exists()
+    assert not (tmp_path / "platterpus-x86_64.AppImage").exists()
+
+
+def test_signature_not_fetched_when_signing_not_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from platterpus import update_signing
+
+    # Default: no key → SHA-256-only behaviour, and the .minisig is never sought.
+    monkeypatch.setattr(update_signing, "PUBLIC_KEY_B64", "")
+    fetched: list[str] = []
+
+    inner = _signing_opener(_PAYLOAD, None)
+
+    def recording_opener(url: str):
+        fetched.append(url)
+        return inner(url)
+
+    download_and_install("0.2.3", dest_dir=tmp_path, opener=recording_opener)
+    assert not any(u.endswith(".minisig") for u in fetched)
+
+
 def test_install_swap_failure_cleans_up_and_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

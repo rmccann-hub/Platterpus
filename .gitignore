@@ -20,6 +20,10 @@ src/platterpus/_build.py
 *.AppDir/
 AppDir/
 build/python-appimage/.cache/
+# Transient hash-verified wheelhouse (build_appimage.sh builds + removes it per
+# run when requirements.lock is present); never committed. requirements.lock
+# itself IS committed — it's the small text pin the wheelhouse is rebuilt from.
+build/python-appimage/.wheelhouse/
 # Intermediate wheel build tree from `python -m build`
 build/lib/
 # Locally-built wheel staged for python-appimage's PIP_FIND_LINKS

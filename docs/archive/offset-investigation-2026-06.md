@@ -117,4 +117,4 @@ Suite 534 → 556.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.5.0.*

@@ -226,4 +226,4 @@ is now answered, verified against the live indexes:
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.5.0.*

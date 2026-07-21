@@ -420,6 +420,57 @@ def test_set_log_path_none_disables_all_three(qapp: QApplication) -> None:
     assert widget._open_folder_button.isEnabled() is False
 
 
+def test_cue_button_enabled_only_when_a_cue_sits_beside_the_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    # cyanrip writes <stem>.cue beside <stem>.log during the rip, so the button
+    # gates on the file actually being present (no dead button when a rip made
+    # no cue) — unlike the JSON report, which we write ourselves right after.
+    widget = RipProgress()
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("dummy")
+
+    # No cue on disk yet → button stays disabled…
+    widget.set_log_path(log_file)
+    assert widget._view_cue_button.isEnabled() is False
+
+    # …present it and re-point → button enables and targets the cue.
+    (tmp_path / "Album.cue").write_text('FILE "Album.flac" WAVE\n')
+    widget.set_log_path(log_file)
+    assert widget._view_cue_button.isEnabled() is True
+
+
+def test_view_cue_opens_the_cue_beside_the_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    # IMP-1: a .cue has no default app on a fresh KDE → in-app viewer, not openUrl.
+    views: list[tuple[Path, str]] = []
+    spy = _OpenUrlSpy()
+    widget = RipProgress(open_url=spy, view_file=lambda p, t: views.append((p, t)))
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("dummy")
+    (tmp_path / "Album.cue").write_text('FILE "Album.flac" WAVE\n')
+    widget.set_log_path(log_file)
+
+    widget._view_cue_button.click()
+
+    assert spy.calls == []  # NOT openUrl → no "Open With" chooser
+    assert views == [(tmp_path / "Album.cue", "Cue sheet — Album.cue")]
+
+
+def test_set_log_path_none_disables_the_cue_button(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    widget = RipProgress()
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("dummy")
+    (tmp_path / "Album.cue").write_text("x")
+    widget.set_log_path(log_file)  # enable
+    assert widget._view_cue_button.isEnabled() is True
+    widget.set_log_path(None)
+    assert widget._view_cue_button.isEnabled() is False
+
+
 def test_view_report_opens_the_json_beside_the_log(
     qapp: QApplication, tmp_path: Path
 ) -> None:
