@@ -261,6 +261,28 @@ class SettingsDialog(CenteredDialog):
         self._format_combo.currentIndexChanged.connect(self._update_wav_warning)
         self._update_wav_warning()
 
+        # MP3 encoder quality (ffmpeg -q:a N == lame -V N). 0 is the
+        # best-practice VBR (~245 kbps — HydrogenAudio's recommendation, and
+        # the fixed value this shipped with); higher numbers trade quality for
+        # smaller files. Only meaningful when the output format is MP3, so the
+        # control enables/disables with the format combo. Deliberately NOT
+        # goal-driven: no preset sets it (Portable picks MP3 but keeps the
+        # best-practice quality), so switching Goal never touches it and
+        # editing it never flips the Goal to Custom.
+        self._mp3_quality_spin: QSpinBox = QSpinBox(self)
+        self._mp3_quality_spin.setRange(
+            settings_validation.MP3_QUALITY_MIN, settings_validation.MP3_QUALITY_MAX
+        )
+        self._mp3_quality_spin.setValue(config.mp3_vbr_quality)
+        self._mp3_quality_spin.setToolTip(
+            "MP3 encoder quality (VBR): 0 = best quality (~245 kbps, the "
+            "recommended default — the same as lame -V0), 9 = smallest files. "
+            "Only affects MP3 output; the FLAC master is always lossless."
+        )
+        form.addRow("MP3 VBR quality:", self._mp3_quality_spin)
+        self._format_combo.currentIndexChanged.connect(self._update_mp3_quality_enabled)
+        self._update_mp3_quality_enabled()
+
         # --- Toggles ---
         self._auto_picard_check: QCheckBox = QCheckBox(
             "Launch MusicBrainz Picard on unknown discs", self
@@ -608,9 +630,7 @@ class SettingsDialog(CenteredDialog):
             save_additional_art=self._additional_art_check.isChecked(),
             output_format=self._format_combo.currentData(),
             rip_goal=self._goal_combo.currentData(),
-            # MP3 quality isn't exposed yet (fixed at the best-practice -V0);
-            # preserve the stored value so saving Settings never resets it.
-            mp3_vbr_quality=self._config.mp3_vbr_quality,
+            mp3_vbr_quality=self._mp3_quality_spin.value(),
             # Preserve fields the dialog doesn't model, so saving Settings
             # never silently resets them (these one-time "already offered"
             # flags being reset is what re-triggered the first-run prompts).
@@ -626,6 +646,10 @@ class SettingsDialog(CenteredDialog):
     def _update_wav_warning(self) -> None:
         """Show the no-tags/art warning only when WAV is the selected format."""
         self._wav_warning_label.setVisible(self._format_combo.currentData() == "wav")
+
+    def _update_mp3_quality_enabled(self) -> None:
+        """The MP3 quality knob only applies when MP3 is the chosen format."""
+        self._mp3_quality_spin.setEnabled(self._format_combo.currentData() == "mp3")
 
     def _update_read_speed_enabled(self) -> None:
         """The fixed-speed spinner only applies in Fixed mode; in Adaptive-ladder

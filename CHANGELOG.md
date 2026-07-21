@@ -11,6 +11,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **MP3 VBR quality is now a Settings control** (Settings → "MP3 VBR quality",
+  0–9, default 0). The `mp3_vbr_quality` config field was already plumbed
+  through the transcode adapter (ffmpeg `-q:a N`, the same as lame `-V N`) but
+  fixed at the best-practice `-V0`; it now has a spinbox that enables only when
+  the output format is MP3. Higher numbers trade quality for smaller files;
+  the FLAC master stays lossless regardless.
+
 ### Fixed
 - **README/SECURITY front-door drift after v0.5.0** (maintainer-reported): the
   README status banner still read "v0.4.x" with the old 1,600+ test count; the

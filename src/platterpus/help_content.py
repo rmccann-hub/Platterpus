@@ -146,6 +146,9 @@ named from the album artist/title you type.
   *WavPack* (also lossless, with tags), *MP3* (best-quality VBR for phones), or
   *WAV* (raw PCM — no tags or cover art). Non-FLAC formats are derived from the
   FLAC master, which is always kept, so you never lose the archival copy.
+- **MP3 VBR quality** — only when the output format is MP3: 0 is best quality
+  (~245 kbps, the recommended default) and 9 is the smallest files. It has no
+  effect on the FLAC master, which is always lossless.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
 - **Move finished rips to** — optional library folder. When set, a successful
