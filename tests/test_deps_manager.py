@@ -23,7 +23,6 @@ def _spec(
     tier: Tier = Tier.AUTO,
     min_version: tuple[int, ...] = (0, 0, 0),
     install_command: list[str] | None = None,
-    fallback_tiers: tuple[Tier, ...] = (),
 ) -> DependencySpec:
     return DependencySpec(
         dep_id=dep_id,
@@ -33,7 +32,6 @@ def _spec(
         tier=tier,
         install_command=install_command,
         search_string=f"install {dep_id}",
-        fallback_tiers=fallback_tiers,
     )
 
 

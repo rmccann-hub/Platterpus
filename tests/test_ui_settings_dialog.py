@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
-from platterpus import naming
+from platterpus import naming, settings_validation
 from platterpus.config import SCHEMA_VERSION, Config
 from platterpus.goal_presets import GOAL_ARCHIVAL, GOAL_CUSTOM, GOAL_FAST
 from platterpus.ui.settings_dialog import SettingsDialog
@@ -331,11 +331,44 @@ def test_output_format_user_change_survives_to_config(qapp: QApplication) -> Non
     assert dialog.to_config().output_format == "wavpack"
 
 
-def test_saving_settings_preserves_mp3_quality(qapp: QApplication) -> None:
-    # mp3_vbr_quality isn't a widget yet; saving must not reset it from a
-    # non-default stored value.
-    out = SettingsDialog(Config(mp3_vbr_quality=2)).to_config()
-    assert out.mp3_vbr_quality == 2
+def test_mp3_quality_reflects_config_and_round_trips(qapp: QApplication) -> None:
+    """The MP3 VBR quality spinbox models mp3_vbr_quality: it shows the stored
+    value (so saving never resets it — the old pass-through guarantee, now via
+    the widget) and carries user edits into to_config."""
+    dialog = SettingsDialog(Config(mp3_vbr_quality=2))
+    assert dialog._mp3_quality_spin.value() == 2
+    assert dialog.to_config().mp3_vbr_quality == 2
+
+    dialog._mp3_quality_spin.setValue(4)
+    assert dialog.to_config().mp3_vbr_quality == 4
+
+
+def test_mp3_quality_range_matches_the_pure_validator(qapp: QApplication) -> None:
+    # The spinbox range is a convenience mirror of the validator's bounds —
+    # the pure validator stays the source of truth (Code conventions).
+    dialog = SettingsDialog(Config())
+    assert dialog._mp3_quality_spin.minimum() == settings_validation.MP3_QUALITY_MIN
+    assert dialog._mp3_quality_spin.maximum() == settings_validation.MP3_QUALITY_MAX
+
+
+def test_mp3_quality_enabled_only_for_mp3_output(qapp: QApplication) -> None:
+    """The knob only affects MP3 output, so it enables/disables with the
+    format combo (disabled ≠ reset: its value still round-trips)."""
+    dialog = SettingsDialog(Config())  # starts on flac
+    assert dialog._mp3_quality_spin.isEnabled() is False
+    dialog._format_combo.setCurrentIndex(dialog._format_combo.findData("mp3"))
+    assert dialog._mp3_quality_spin.isEnabled() is True
+    dialog._format_combo.setCurrentIndex(dialog._format_combo.findData("flac"))
+    assert dialog._mp3_quality_spin.isEnabled() is False
+
+
+def test_mp3_quality_is_not_goal_driven(qapp: QApplication) -> None:
+    # No preset sets mp3_vbr_quality (Portable picks MP3 but keeps the
+    # best-practice quality), so editing it must NOT flip the goal to Custom.
+    dialog = SettingsDialog(Config())
+    goal_before = dialog._goal_combo.currentData()
+    dialog._mp3_quality_spin.setValue(3)
+    assert dialog._goal_combo.currentData() == goal_before
 
 
 def test_wav_warning_only_visible_for_wav(qapp: QApplication) -> None:

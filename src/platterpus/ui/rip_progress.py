@@ -127,6 +127,12 @@ class RipProgress(QWidget):
         # rip folder" buttons.
         self._report_path: Path | None = None
         self._rip_dir: Path | None = None
+        # cyanrip's own ``.cue`` sheet, written beside the ``.log`` (same stem).
+        # Backs the "View cue" button — enabled only when the file is actually
+        # present, since (unlike the JSON report we write ourselves right after)
+        # the cue is produced by cyanrip during the rip and a given rip may not
+        # have one.
+        self._cue_path: Path | None = None
         # The last parsed rip log, kept so the CTDB handler (which finishes later,
         # asynchronously) can reconcile its verdict against AccurateRip.
         self._last_rip_log: RipLog | None = None
@@ -292,6 +298,12 @@ class RipProgress(QWidget):
         self._view_report_button.setEnabled(False)
         self._view_report_button.clicked.connect(self._on_view_report_clicked)
         button_row.addWidget(self._view_report_button)
+        # cyanrip's .cue sheet — the disc's track/index map, the same artifact we
+        # surface the .log for. Enabled only when a cue is actually present.
+        self._view_cue_button: QPushButton = QPushButton("View c&ue", self)
+        self._view_cue_button.setEnabled(False)
+        self._view_cue_button.clicked.connect(self._on_view_cue_clicked)
+        button_row.addWidget(self._view_cue_button)
         self._open_folder_button: QPushButton = QPushButton("Open rip fol&der", self)
         self._open_folder_button.setEnabled(False)
         self._open_folder_button.clicked.connect(self._on_open_folder_clicked)
@@ -322,6 +334,7 @@ class RipProgress(QWidget):
         self._view_report_button.setAccessibleName(
             "Open the machine-readable rip report (JSON)"
         )
+        self._view_cue_button.setAccessibleName("Open the disc's cue sheet")
         self._open_folder_button.setAccessibleName("Open the folder containing the rip")
 
     # --- Public surface -----------------------------------------------------
@@ -347,9 +360,11 @@ class RipProgress(QWidget):
         self._loudness_label.setVisible(False)
         self._view_log_button.setEnabled(False)
         self._view_report_button.setEnabled(False)
+        self._view_cue_button.setEnabled(False)
         self._open_folder_button.setEnabled(False)
         self._log_path = None
         self._report_path = None
+        self._cue_path = None
         self._rip_dir = None
         self._last_rip_log = None
         # Reset the announcement throttles so the NEXT rip's first phase is
@@ -520,9 +535,11 @@ class RipProgress(QWidget):
         if path is None or str(path) == "":
             self._log_path = None
             self._report_path = None
+            self._cue_path = None
             self._rip_dir = None
             self._view_log_button.setEnabled(False)
             self._view_report_button.setEnabled(False)
+            self._view_cue_button.setEnabled(False)
             self._open_folder_button.setEnabled(False)
             return
         self._log_path = path
@@ -534,6 +551,14 @@ class RipProgress(QWidget):
         self._view_log_button.setEnabled(True)
         self._view_report_button.setEnabled(True)
         self._open_folder_button.setEnabled(True)
+        # cyanrip writes ``<stem>.cue`` beside ``<stem>.log``. Unlike the report,
+        # it's already on disk by now (cyanrip made it during the rip), so gate
+        # the button on the file actually being there — no dead button when a
+        # rip produced no cue. Deriving from the log path means a library move
+        # (which re-calls set_log_path with the new location) repoints it too.
+        cue_path = path.with_suffix(".cue")
+        self._cue_path = cue_path if cue_path.exists() else None
+        self._view_cue_button.setEnabled(self._cue_path is not None)
 
     # --- Internals ----------------------------------------------------------
 
@@ -569,6 +594,12 @@ class RipProgress(QWidget):
         if self._report_path is None:
             return
         self._view_file(self._report_path, f"Rip report — {self._report_path.name}")
+
+    def _on_view_cue_clicked(self) -> None:
+        if self._cue_path is None:
+            return
+        # In-app viewer, not openUrl: a .cue has no default app on a fresh KDE.
+        self._view_file(self._cue_path, f"Cue sheet — {self._cue_path.name}")
 
     def _on_open_folder_clicked(self) -> None:
         if self._rip_dir is None:

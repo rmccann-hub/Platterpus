@@ -373,4 +373,4 @@ register through the subsystem, deferred until it can be hardware-validated.
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

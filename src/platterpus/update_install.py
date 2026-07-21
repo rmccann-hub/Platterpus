@@ -31,6 +31,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from platterpus import update_signing
 from platterpus.appimage_integration import (
     APPLICATIONS_DIR,
     CANONICAL_APPIMAGE_NAME,
@@ -53,6 +54,11 @@ _MAX_DOWNLOAD_BYTES: int = 1024 * 1024 * 1024
 # mirror could stream a multi-GB body into memory before the `len == 64` check.
 # 4 KiB is generous for the real content; anything past it is already malformed.
 _MAX_SHA256_BYTES: int = 4096
+
+# Cap on the `.minisig` sidecar read. A real minisign signature is ~200 bytes
+# (two comment lines + two base64 lines); 4 KiB is generous, and bounding it
+# stops a hostile mirror streaming a huge body before we parse it.
+_MAX_SIG_BYTES: int = 4096
 
 
 class UpdateInstallError(Exception):
@@ -167,6 +173,38 @@ def download_and_install(
             "the downloaded file failed checksum verification — not installed "
             f"(expected {expected[:12]}…, got {actual[:12]}…)"
         )
+
+    # 3b. Authenticity gate (fail-closed) — armed only once a maintainer signing
+    # key is baked into update_signing.PUBLIC_KEY_B64. SHA-256 above proves the
+    # bytes match what was published; the signature proves WHO published them,
+    # which a compromised release channel (able to swap both AppImage and
+    # .sha256) can't forge without the maintainer's offline key. While no key is
+    # configured this whole block is skipped and behaviour is unchanged.
+    if update_signing.signing_configured():
+        _status("Verifying the signature…")
+        try:
+            with open_url(url + ".minisig") as response:
+                signature_text = response.read(_MAX_SIG_BYTES).decode(
+                    "utf-8", "replace"
+                )
+        except Exception as exc:  # noqa: BLE001 — network/shape errors alike
+            # Fail-closed: a missing/unfetchable signature is a REFUSAL, not a
+            # fall-through to installing unverified bytes. (Every release cut
+            # after signing is armed must carry a .minisig — see
+            # docs/release-signing.md.)
+            part.unlink(missing_ok=True)
+            raise UpdateInstallError(
+                "this release has no verifiable signature (.minisig) — refusing "
+                f"to install, because signature verification is required: {exc}"
+            ) from exc
+        if not update_signing.verify_minisign_file(
+            part, signature_text, update_signing.PUBLIC_KEY_B64
+        ):
+            part.unlink(missing_ok=True)
+            raise UpdateInstallError(
+                "the downloaded update failed signature verification — not "
+                "installed (its signature doesn't match the trusted key)"
+            )
 
     # 4. Make it launchable and atomically swap it in. Replacing the file
     # the app is running from is safe — the old session keeps its inode.

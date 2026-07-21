@@ -11,6 +11,100 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.5] — 2026-07-21
+
+### Security
+- **Release-signature verification in the in-app updater (Ed25519 / minisign,
+  fail-closed, ships dormant).** SHA-256 proves a download's integrity but not
+  its authenticity — a compromised release channel could swap both the AppImage
+  and its `.sha256`. The updater now also verifies a `minisign` signature made
+  with a key the maintainer holds **offline** (so a CI compromise can't forge
+  it): a new `update_signing.py` parses the `.minisig` and Ed25519-verifies it
+  via `cryptography`, and the updater refuses to install a release whose
+  signature is missing or invalid. It's **armed** only once a maintainer public
+  key is baked into `update_signing.PUBLIC_KEY_B64`; until then the updater is
+  SHA-256-only exactly as before, so this release changes nothing user-visible.
+  Adds `cryptography` as a dependency (floored at `48.0.1`, the fix for advisory
+  GHSA-537c-gmf6-5ccf, so the CI `pip-audit` gate stays green). See
+  `docs/release-signing.md` (the offline signing ritual) and PLANNING KDD-26.
+- **Reproducible-build dependency hash-pinning (opt-in plumbing).** The AppImage
+  build can now pin the exact *bytes* of every bundled third-party dependency,
+  not just their versions: `build/lock-requirements.sh` writes a hash-pinned
+  `requirements.lock`, and when that lock is present `build_appimage.sh`
+  re-downloads the closure with `pip --require-hashes` (aborting on any
+  mismatch) and installs python-appimage's per-line deps offline from the
+  verified wheelhouse. Additive — no lock means the previous version-pinned
+  online install, unchanged. Full-AppImage reproducibility validation is a
+  real-build step for the maintainer; the sandbox can only verify the wheel.
+
+### Added
+- **View the rip's cue sheet from the results pane.** cyanrip writes a `.cue`
+  (the disc's track/index map) beside the `.log` on every rip; a **View cue**
+  button now sits alongside View log / View report and opens it in the in-app
+  read-only viewer. It's enabled only when a cue is actually present, and — like
+  the other output buttons — it follows the album folder if a library move
+  relocates the rip. (PLANNING KDD-13's "small P1 addition".)
+- **MP3 VBR quality is now a Settings control** (Settings → "MP3 VBR quality",
+  0–9, default 0). The `mp3_vbr_quality` config field was already plumbed
+  through the transcode adapter (ffmpeg `-q:a N`, the same as lame `-V N`) but
+  fixed at the best-practice `-V0`; it now has a spinbox that enables only when
+  the output format is MP3. Higher numbers trade quality for smaller files;
+  the FLAC master stays lossless regardless.
+
+### Fixed
+- **README/SECURITY front-door drift after v0.5.0** (maintainer-reported): the
+  README status banner still read "v0.4.x" with the old 1,600+ test count; the
+  settings section still called force-overread "a re-openable cyanrip `-x`
+  task" (it shipped in v0.5.0 as the Overread toggle — and the real flag is
+  `-O`, `-x` never existed); the v0.5.0 features (Overread, "Move finished
+  rips to", the live per-track progress bar) were missing from the settings
+  list, the first-run walkthrough, and the EAC-parity overread row; and
+  `SECURITY.md` still declared `v0.4.x` the supported series.
+
+- **EAC gap-handling parity closed as already-satisfied.** A 2026-06-14 note
+  flagged gap handling as a possible parity lever ("we set no gap mode"). Re-
+  verified against cyanrip's own README and source (0.9.3.1 + master): cyanrip's
+  default *is* EAC's ("identical to EAC's default behaviour"), which is how the
+  committed 12/14 audio-parity proof matched — so there is no audio gap and no
+  knob to add (cyanrip's `-p` is a per-track override whose only archival-safe
+  value is the default we already use; `drop` deletes audio, `track` renumbers
+  tracks). The docs that implied an unset gap mode (`test-plan.md`,
+  `eac-parity-investigation.md`) are corrected, the `-p` contract is recorded in
+  `dependency-contracts.md`, and the TASKS item is closed. The remaining
+  `INDEX 00` cue-metadata difference stays tracked separately (PR #115 route).
+
+### Changed
+- **Removed the vestigial `fallback_tiers` field from `DependencySpec`.** The
+  manager-driven tier cascade it fed was removed long ago (TD-3); nothing read
+  the field, so it's deleted (with its one construction site and the test
+  helper's parameter). The `tier` label stays — it's now formally documented as
+  the descriptive AUTO/QUEUED/MANUAL summary of how a dep resolves (routing keys
+  on `from_setup_wizard`/`install_command`, not on `tier`), rather than a field
+  "pending removal." Contributor-facing; no behaviour change.
+
+### Documentation
+- **Housekeeping sweep (2026-07-21):** logged the pre-release dependency review
+  for v0.5.0 (no new dependencies — the whole cycle is stdlib + the existing
+  PySide6 pin); closed three stale whipper-era backlog rows in `TASKS.md` (the
+  dead "upstream whipper bug fixes" row — no upstream to route to since KDD-18 —
+  and the two whipper-CLI drive-setup doc rows, folded into the single
+  hardware-gated proof queue); and re-verified the upstream-PR "verify-before-
+  you-invest" checklist against live GitHub: cyanrip **PR #115** still open
+  (mid-revision, last activity 2025-11-28) and libcdio-paranoia **#3** still open
+  with zero comments.
+- **Doc version stamps can no longer lag the release they ship in.** Every doc
+  revised during the v0.5.0 cycle still carried a v0.4.24 footer, because the
+  convention bumps stamps to the `__version__` current *at commit time* —
+  always one release behind what the change ships in, with nothing enforcing
+  the convention at all. All 44 cycle-touched docs are restamped v0.5.0, and a
+  new gating test (`tests/test_doc_version_stamps.py`) closes the loop: every
+  tracked doc carries exactly one footer, no footer may claim a future
+  version, and any doc changed since the latest release tag must be stamped
+  with the current `__version__` — so the release-prep version bump itself
+  forces the cycle's restamp. The CI `test` job now checks out full history so
+  the tag diff works there; the release checklist (CLAUDE.md) gained the
+  restamp as step (3), and `docs/README.md` documents the enforced rule.
+
 ## [0.5.0] — 2026-07-21
 
 ### Added
@@ -2787,7 +2881,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
 [0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
 [0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
 [0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
@@ -2838,4 +2933,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.5.*

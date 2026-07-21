@@ -709,4 +709,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*

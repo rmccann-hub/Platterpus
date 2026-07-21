@@ -127,4 +127,4 @@ tests). This closes the trust-integrity render-sweep charter.
 
 ---
 
-*Last updated for Platterpus v0.4.24.*
+*Last updated for Platterpus v0.5.0.*
