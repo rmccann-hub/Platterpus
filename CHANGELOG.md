@@ -7,7 +7,7 @@ adheres to [Semantic Versioning](https://semver.org/); dates are ISO-8601
 (YYYY-MM-DD). The version itself is single-sourced from
 `src/platterpus/__init__.py` (`__version__`); at release time the `[Unreleased]`
 entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
-`PLANNING.md` KDDs and the CLAUDE.md session log — not here.)
+`PLANNING.md` KDDs and `docs/session-log.md` — not here.)
 
 ## [Unreleased]
 
@@ -45,6 +45,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **CHANGELOG record repaired against the real tag history.** The lost
+  `## [0.3.10]` heading is restored (verbatim from the `v0.3.10` tag's own
+  CHANGELOG — its colon-in-tags fix had been absorbed into `[0.4.0]`); the
+  `[0.2.0]`/`[0.2.1]`/`[0.0.1]` link definitions no longer point at tags that
+  don't exist on the remote (both anomalies annotated inline); the skipped
+  `v0.4.3` number is annotated like the v0.2.0 anomaly; the head note now
+  names `docs/session-log.md` instead of "the CLAUDE.md session log".
 - **cyanrip cluster reconciled (strategy / roadmap / soft-fork / kit).** The
   strategy doc's §8.1 no longer claims dynamic secure re-rip is opt-in/off (it
   shipped on-by-default with no checkbox, 0.4.9), its §10 pointer box carries
@@ -1375,6 +1382,8 @@ richer metadata and cover art, and a more complete per-album report.
 
 ## [0.4.4] — 2026-06-30
 
+*(There is no v0.4.3 — the number was skipped; v0.4.4 follows v0.4.2.)*
+
 ### Added
 - **Accessibility pass.** Keyboard and screen-reader coverage of the everyday
   surfaces: the album artist/title/year fields and the disc-info values (drive,
@@ -1683,6 +1692,12 @@ richer metadata and cover art, and a more complete per-album report.
   handles those. Try **2** if a track won't verify against AccurateRip. The whipper
   backend has no equivalent flag, so the control is greyed out (your value is kept)
   when whipper is selected.
+
+## [0.3.10] — 2026-06-27
+
+*(This heading was accidentally dropped in a later edit — the section below had
+been absorbed into [0.4.0]. Restored 2026-07-21 verbatim from the `v0.3.10`
+tag's own CHANGELOG.)*
 
 ### Fixed
 - **A colon in an album/track title now ends up as a real `:` in the FLAC tags
@@ -2228,6 +2243,10 @@ richer metadata and cover art, and a more complete per-album report.
 
 ## [0.2.0] — 2026-06-09
 
+*(No `v0.2.0` tag exists on GitHub — the release was superseded without
+artifacts by v0.2.1, see above. The compare links for 0.2.0/0.2.1 therefore
+span `v0.1.0…v0.2.1`.)*
+
 ### Added
 - **AppImage self-update (the last zero-CLI slice, KDD-17b).** The AppImage
   now embeds standard zsync update-information
@@ -2524,6 +2543,10 @@ richer metadata and cover art, and a more complete per-album report.
 
 ## [0.0.1] — 2026-05-31
 
+*(No `v0.0.1` tag exists on GitHub today — the earliest surviving tag is
+`v0.1.0`. Kept as the historical record; the link points at the releases
+page.)*
+
 **First public test release.** A Linux GUI front-end for the `whipper` CD-ripping
 CLI, aiming for EAC-equivalent archival quality. Validated on real Bazzite
 hardware: a full 16-track rip *through the published AppImage*, with every
@@ -2614,10 +2637,10 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 [0.2.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.0
+[0.2.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
+[0.2.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.1.0...v0.2.1
 [0.1.0]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.1.0
-[0.0.1]: https://github.com/rmccann-hub/Platterpus/releases/tag/v0.0.1
+[0.0.1]: https://github.com/rmccann-hub/Platterpus/releases
 
 ---
 
