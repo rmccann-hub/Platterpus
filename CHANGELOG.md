@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **`CLAUDE.md` operations/companion sections brought up to current reality**
+  (locked rules untouched): the CI description now lists all seven `ci.yml`
+  jobs (incl. the gating `mypy` typecheck, `media-guard`, and `pip-audit` added
+  2026-07-08) plus the weekly `mutation.yml` and the `appimage.yml` branch
+  builds; the release-asset list now includes the `.zsync` and the provenance
+  attestation; the companion-document list gained `SECURITY.md`,
+  `docs/mp3-wav-support.md`, and the soft-fork/roadmap companions, and no
+  longer restates the KDD count (that lives in `docs/README.md`).
+
 ### Fixed
 - **Documentation: five broken relative links repaired.** Four links in
   `docs/session-log.md` and one in
