@@ -12,6 +12,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Accessibility: focus-safe live announcements + the full
+  keyboard-reachability sweep** (UX gap #4's remaining half, closing the gap —
+  a live screen-reader session on real hardware is the one confirmation still
+  owed). New `ui/accessibility.py` `announce()` helper (Qt announcement
+  events — the desktop `aria-live`; feature-detected, never raises, never
+  moves focus) now speaks the rip status per *phase* (throttled — never
+  per-percent), the AccurateRip verdict banner, the read-effort warning, the
+  CTDB line, the re-rip comparison, disc-identification outcomes, the
+  wrong-offset guard warning, setup/uninstall wizard steps and outcomes,
+  per-dependency install rows, the Settings validation banner, and
+  copy/save confirmations. Keyboard fixes: the copyable disc-ID values and
+  the drive-diagnosis fix command are now tab-reachable and
+  keyboard-selectable (Qt's keyboard-selectable labels default to
+  click-only focus), the accuraterip.com lookup link is keyboard-followable,
+  anonymous Settings fields/Browse buttons and the release-candidates table
+  gained accessible names, and every prominent button carries a unique
+  Alt+letter mnemonic (uniqueness pinned by test). Pattern documented in
+  `docs/architecture.md` §3.8.
 - **`docs/manual-ctdb-repair.md`** — the manual CUETools/`ctdb-cli` CTDB
   repair workflow (the power-user escape hatch for a track that stays
   "partially accurate (450)" after `-Z` re-rips) that the feasibility and

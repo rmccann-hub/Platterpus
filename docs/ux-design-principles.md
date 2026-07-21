@@ -85,13 +85,20 @@ and important settings were scattered across many dialogs.
    happy path. *Platterpus:* ✅ in-app User Guide + tooltips.
 10. **Accessibility from the start.** Accessible names on every control, keyboard
     access to every action, status conveyed by **text/symbol, never colour
-    alone**, focus-safe live updates. *Platterpus:* 🟡 much improved (gap #4,
-    pass shipped 0.4.4): the status/verdict surfaces, the metadata fields, and
-    the disc-info values all carry accessible names; trust is signalled by
-    text + symbol, never colour alone; menus have mnemonics and the everyday
-    actions (Quit/Settings/User Guide) have platform-standard shortcuts. Still
-    open: a full keyboard-reachability sweep of every control and focus-safe
-    *live* announcements as a rip progresses.
+    alone**, focus-safe live updates. *Platterpus:* ✅ (names pass 0.4.4; the
+    remaining half — the full keyboard-reachability sweep + focus-safe live
+    announcements — shipped 2026-07-21): every status/verdict surface, field,
+    and button carries an accessible name; trust is text + symbol, never colour
+    alone; menus **and every prominent button** have (unique) mnemonics; every
+    affordance is keyboard-reachable (tab-focusable copyable disc IDs,
+    keyboard-followable links, keyboard-selectable fix commands); and the live
+    surfaces (rip status by phase, verdict banners, CTDB, re-rip comparison,
+    disc identification, wizard steps, install rows, Settings validation)
+    announce via `ui/accessibility.py` — Qt's announcement events, spoken
+    without ever moving focus (`docs/architecture.md` §3.8 is the pattern's
+    home). *Honestly held caveat:* proven headless (offscreen) + by regression
+    tests; a **live screen-reader session (e.g. Orca) on real hardware hasn't
+    run yet** — that confirmation is hardware-gated.
 
 ## Gap backlog (ranked) — tracked in [`TASKS.md`](../TASKS.md)
 
@@ -103,19 +110,19 @@ user impact ÷ effort:
 | 1 | ✅ **Goal presets** ("Fast verified" / "Archival exact" / "Portable") (`goal_presets.py` + the Settings Goal combo; 2026-06-28) | Anchors all config to user *intent* instead of asking novices to reason about abstract toggles first (EAC's "accuracy vs speed" was this, bluntly). | M |
 | 2 | ✅ **Machine-readable (JSON) log** beside the human one (`platterpus.rip_report` → `<name>.platterpus.json`; 2026-06-28) | Powers QA, re-verification, repair tooling, support; "two outputs every time." | S–M |
 | 3 | **Timestamp-localized anomalies + one-click playback** of flagged regions | The single most "friendly to demanding users" EAC trait — review only where confidence broke, not the whole disc. | M (HW-gated) |
-| 4 | 🟡 **Accessibility pass** (names on status/metadata/disc-info surfaces, text+symbol status, menu mnemonics + standard shortcuts; 0.4.4) | Accessible names, keyboard coverage, non-colour-only status, focus-safe live updates. Reports rank this the #1 modern gap. *Remaining:* full keyboard-reachability sweep + focus-safe live announcements. | S–M |
+| 4 | ✅ **Accessibility pass** (names pass 0.4.4; keyboard-reachability sweep + focus-safe live announcements via `ui/accessibility.py`, 2026-07-21) | Accessible names, keyboard coverage, non-colour-only status, focus-safe live updates. Reports rank this the #1 modern gap. *Hardware-gated fraction:* a live screen-reader (Orca) session on the real rig. | S–M |
 | 5 | ✅ **Outcome-oriented wording** across Settings/labels (overread + drive-setup cache verdict reworded effect-first; 2026-06-29) | Cuts the learning cost without removing the precise term. | S |
 | 6 | ✅ **Drive profiles keyed by stable fingerprint** + detection provenance/confidence (record/display/guard ledger shipped 2026-06-29; per-drive offset *application* deferred as hardware-gated — KDD-23) | Identical-drive collisions and silent wrong-offset rips are the classic *state* bugs (EAC hit exactly this in 2007). | M |
 
 **Status:** gaps #1 and #2 shipped 2026-06-28, #5 on 2026-06-29; #6 shipped 2026-06-29 (the
 record/display/guard ledger; per-drive offset *application* deferred as
-hardware-gated); #4 had its first substantive pass in 0.4.4 (🟡 — accessible
-names on the status/metadata/disc-info surfaces, text+symbol status, menu
-mnemonics + standard shortcuts; a full keyboard-reachability sweep and
-focus-safe live announcements remain). Only #3 (timestamp-localized anomalies +
-one-click playback) is untouched — it is hardware-gated (needs real
-anomaly-bearing rip output to write a position-level parser against, and a real
-FLAC + CC0 sample to validate playback).
+hardware-gated); #4 is ✅ complete (names pass 0.4.4; the keyboard-reachability
+sweep + focus-safe live announcements shipped 2026-07-21 — see principle 10 and
+`docs/architecture.md` §3.8; the one honestly-held remainder is a live
+screen-reader session on real hardware, which only the rig can prove). Only #3
+(timestamp-localized anomalies + one-click playback) is untouched — it is
+hardware-gated (needs real anomaly-bearing rip output to write a position-level
+parser against, and a real FLAC + CC0 sample to validate playback).
 
 ## The bar for new features
 

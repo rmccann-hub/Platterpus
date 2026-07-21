@@ -97,7 +97,7 @@ class FileViewerDialog(CenteredDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         # "Open externally…" is the escape hatch to the OS for those who want it
         # — but it's no longer the ONLY way to read the file.
-        self._open_external_button = QPushButton("Open externally…", self)
+        self._open_external_button = QPushButton("Open &externally…", self)
         buttons.addButton(
             self._open_external_button, QDialogButtonBox.ButtonRole.ActionRole
         )

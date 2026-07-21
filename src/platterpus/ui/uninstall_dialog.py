@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 
 from platterpus.deps.host_teardown import HostTeardown
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
@@ -101,7 +102,7 @@ class UninstallDialog(CenteredDialog):
         self._whipper_conf_check.setChecked(True)
         root.addWidget(self._whipper_conf_check)
 
-        self._uninstall_button: QPushButton = QPushButton("Uninstall…", self)
+        self._uninstall_button: QPushButton = QPushButton("&Uninstall…", self)
         self._uninstall_button.clicked.connect(self._on_uninstall_clicked)
         root.addWidget(self._uninstall_button)
 
@@ -112,10 +113,12 @@ class UninstallDialog(CenteredDialog):
 
         self._status_label: QLabel = QLabel("", self)
         self._status_label.setWordWrap(True)
+        self._status_label.setAccessibleName("Uninstall status")
         root.addWidget(self._status_label)
 
         self._results: QPlainTextEdit = QPlainTextEdit("", self)
         self._results.setReadOnly(True)
+        self._results.setAccessibleName("Uninstall step results")
         root.addWidget(self._results, stretch=1)
 
         self._button_box: QDialogButtonBox = QDialogButtonBox(
@@ -163,7 +166,11 @@ class UninstallDialog(CenteredDialog):
         if self._closing:
             return
         if result.status is StepStatus.RUNNING:
-            self._status_label.setText(f"⏳ {result.title}")
+            step_text = f"⏳ {result.title}"
+            self._status_label.setText(step_text)
+            # One announcement per step start — focus-safe progress for a
+            # minutes-long run (gap #4).
+            announce(self._status_label, step_text)
             return
         line = f"{_STATUS_GLYPH.get(result.status, '•')} {result.title}"
         if result.detail:
@@ -191,6 +198,8 @@ class UninstallDialog(CenteredDialog):
             self._uninstall_button.setEnabled(True)
             self._container_check.setEnabled(True)
             self._whipper_conf_check.setEnabled(True)
+        # Announce the final outcome — the run may have taken minutes (gap #4).
+        announce(self._status_label, self._status_label.text())
         self._worker = None
         self._thread = None
         self.uninstall_finished.emit(complete)

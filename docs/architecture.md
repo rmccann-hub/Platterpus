@@ -382,6 +382,30 @@ comments accurate too — they document *which* mixin owns each concern).
   failure catch-all; the JSON is the per-album debug record. Removing either loses
   a case the other can't cover.
 
+### 3.8 Live status surfaces announce, focus-safely (accessibility)
+
+A passive `QLabel`/banner that changes text is **invisible to a screen reader**
+unless the widget takes keyboard focus — and stealing focus mid-rip is exactly
+what an accessible app must never do. So every *live* status/verdict surface
+(rip status line, verdict banners, CTDB line, wizard steps, install rows,
+Settings validation, MB identification outcomes) also calls
+`ui.accessibility.announce(widget, message)` — Qt's announcement event, the
+desktop `aria-live`: spoken by assistive technology while focus stays put.
+Rules when adding one:
+
+- **Announce state changes, never repaints.** A percent/ETA tick is not news;
+  throttle like `RipProgress.set_status` (dedup on `status_phase_key`, the
+  clause before the "…") or on the full text for low-frequency lines.
+- **Outcomes, not transients** ("querying…" is silent; "1 match: …" speaks).
+- The helper **never raises**, feature-detects the Qt API, and is a cheap no-op
+  offscreen — safe to call unconditionally; tests monkeypatch the *importing
+  module's* `announce` name (§5.1) and assert on the messages.
+- Also keep every affordance **keyboard-reachable**: Qt gives
+  keyboard-selectable labels only `ClickFocus` (set `StrongFocus` explicitly —
+  the disc-ID labels bug), QLabel links need `LinksAccessibleByKeyboard`, and
+  prominent buttons carry unique `&`-mnemonics per window
+  (`tests/test_ui_accessibility.py` pins the uniqueness).
+
 ## 4. Extension points — how to add things
 
 > The goal: a contributor who has never spoken to the author can add a

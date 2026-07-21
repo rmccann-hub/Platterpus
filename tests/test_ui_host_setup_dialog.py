@@ -113,3 +113,20 @@ def test_on_finished_failure_shows_failed_step(qapp: QApplication) -> None:
     assert "Container backend" in text
     assert "manually" in text
     assert seen == [False]
+
+
+def test_step_starts_and_finish_are_announced(qapp: QApplication, monkeypatch) -> None:
+    """Setup runs for minutes with focus parked on a button — each step start
+    and the final outcome must be audible without focus (a11y gap #4)."""
+    heard: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.host_setup_dialog.announce",
+        lambda _source, message: heard.append(message) or True,
+    )
+    dialog = _dialog(qapp)
+
+    dialog._on_step(StepResult("container", "Create container", StepStatus.RUNNING))
+    dialog._on_finished([StepResult("container", "Create container", StepStatus.DONE)])
+
+    assert any("Create container" in m for m in heard)
+    assert heard[-1] == dialog._status_label.text()
