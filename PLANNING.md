@@ -928,4 +928,4 @@ The in-app updater verifies a download's **SHA-256** against the release's publi
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.5.*

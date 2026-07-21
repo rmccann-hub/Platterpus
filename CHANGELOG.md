@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.5] — 2026-07-21
+
 ### Security
 - **Release-signature verification in the in-app updater (Ed25519 / minisign,
   fail-closed, ships dormant).** SHA-256 proves a download's integrity but not
@@ -2878,7 +2880,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
 [0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
 [0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
 [0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
@@ -2929,4 +2932,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.5.*

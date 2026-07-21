@@ -18,9 +18,11 @@ These tests make that impossible to repeat:
    exactly one footer;
 2. no footer claims a version newer than the canonical ``__version__``
    (catches typos and copy-paste from the wrong branch);
-3. any doc changed since the latest release tag must be stamped with the
-   *current* ``__version__`` — so the release-prep version bump forces the
-   whole cycle's touched docs to be restamped before the release can go green.
+3. any doc whose *content* changed since the latest release tag must be
+   stamped with the *current* ``__version__`` — so the release-prep version
+   bump forces the cycle's edited docs to be restamped before the release can
+   go green. A stamp-only bump (footer-stripped content unchanged) doesn't
+   count, so the requirement never cascades across untouched docs.
 
 Test 3 needs git history and tags; on a checkout without them (e.g. a shallow
 clone) it skips rather than guessing.
@@ -119,14 +121,28 @@ def test_no_stamp_claims_a_future_version() -> None:
     assert not offenders, "Doc stamps ahead of __version__: " + ", ".join(offenders)
 
 
+def _strip_footer(text: str) -> str:
+    """`text` with its version-stamp footer line(s) removed, for content diffs.
+
+    A stamp bump alone must NOT count as a content change (otherwise every doc
+    would be forced to restamp every release, contradicting the convention's own
+    promise that an old stamp means "unchanged since"). Comparing the
+    footer-stripped content is how we tell a real edit from a stamp-only bump.
+    """
+    return "\n".join(line for line in text.splitlines() if not _FOOTER_RE.match(line))
+
+
 def test_docs_changed_since_last_release_are_stamped_current() -> None:
-    """Any doc changed since the newest release tag must stamp __version__.
+    """Any doc whose *content* changed since the newest release tag must stamp
+    __version__.
 
     This is the forcing function: mid-cycle, __version__ is the last released
-    version, so editing a doc requires bumping its stamp to that. The moment
-    release-prep bumps __version__, every doc the cycle touched fails this
-    test until restamped — so stamps can never again lag the release their
-    content ships in.
+    version, so editing a doc's content requires bumping its stamp to that. The
+    moment release-prep bumps __version__, every doc the cycle *actually edited*
+    fails this test until restamped — so stamps can't lag the release their
+    content ships in. A doc whose only difference from the tag is the stamp line
+    itself is ignored (a stamp-only bump isn't a content change), which keeps
+    the bump from cascading across untouched docs every release.
     """
     tag = _git("describe", "--tags", "--abbrev=0", "--match", "v*")
     if not tag:
@@ -140,12 +156,20 @@ def test_docs_changed_since_last_release_are_stamped_current() -> None:
         path = _REPO_ROOT / rel_path
         if _is_exempt(rel_path) or not path.exists():
             continue  # exempt paste body, or the doc was deleted
-        stamps = _FOOTER_RE.findall(path.read_text())
+        current = path.read_text()
+        # A stamp-only change (the footer-stripped content matches the tag) is
+        # not a content revision, so it doesn't require a fresh stamp. A file
+        # absent at the tag (git show fails → None) is genuinely new content.
+        at_tag = _git("show", f"{tag}:{rel_path}")
+        if at_tag is not None and _strip_footer(at_tag) == _strip_footer(current):
+            continue
+        stamps = _FOOTER_RE.findall(current)
         # A missing/duplicated footer is test 1's finding; only judge staleness.
         if len(stamps) == 1 and stamps[0] != __version__:
             offenders.append(f"{rel_path} (stamped v{stamps[0]})")
     assert not offenders, (
-        f"These docs changed since {tag} but aren't stamped with the current "
-        f"__version__ (v{__version__}) — bump each footer in the same commit "
-        "as the change (docs/README.md → 'Doc version stamps'): " + ", ".join(offenders)
+        f"These docs' content changed since {tag} but aren't stamped with the "
+        f"current __version__ (v{__version__}) — bump each footer in the same "
+        "commit as the change (docs/README.md → 'Doc version stamps'): "
+        + ", ".join(offenders)
     )
