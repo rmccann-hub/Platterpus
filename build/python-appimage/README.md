@@ -74,6 +74,42 @@ When `DEPENDENCIES.md` bumps a pin, update **both** `pyproject.toml`
 `requirements.txt` line here (what the AppImage bundles; `~=` form — see the
 operator note above) in the same commit, so the three stay in lockstep.
 
+If `requirements.lock` exists (see below), also regenerate it in the same
+commit — `bash build/lock-requirements.sh` — so its hashes track the new
+version, or the next build's hash gate will reject the changed wheel.
+
+## Reproducible dependency bytes (hash-verified wheelhouse)
+
+`SOURCE_DATE_EPOCH` already makes the wheel and squashfs timestamps
+deterministic. To also pin the exact *dependency* bytes (defends against
+PyPI or a mirror serving a swapped artifact for a pinned version), the build
+supports an **opt-in, hash-verified wheelhouse**:
+
+1. **Generate the lock, in the release environment** (Linux x86_64 + the
+   pinned CPython — the hashes are platform/Python-specific):
+
+   ```bash
+   bash build/lock-requirements.sh   # writes build/python-appimage/requirements.lock
+   ```
+
+   It resolves the third-party closure (PySide6 → shiboken6, musicbrainzngs,
+   tomli-w) via `pip download --report` and writes exact `name==version` pins
+   with `--hash=sha256:…`. The local `platterpus` wheel is intentionally *not*
+   locked (built here every commit; pinned by `SOURCE_DATE_EPOCH` instead).
+
+2. **Commit `requirements.lock`.** It's small text; the wheelhouse it rebuilds
+   from is transient and git-ignored (`.wheelhouse/`).
+
+3. **Build as usual.** When the lock is present, `build_appimage.sh`
+   `pip download --require-hashes`-es the closure into `.wheelhouse/` (aborting
+   on any hash mismatch), then installs python-appimage's per-line deps
+   **offline** from it (`PIP_NO_INDEX`). No lock ⇒ the previous version-pinned
+   (`~=`) online install, unchanged — the feature is purely additive.
+
+**Validation is a real-build step:** confirm the *full* AppImage (not just the
+wheel) is byte-identical across two rebuilds of the same commit once the lock
+is in place. That can't be done in a sandbox that can't run the AppImage build.
+
 ---
 
 *Last updated for Platterpus v0.5.0.*

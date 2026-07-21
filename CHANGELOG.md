@@ -11,6 +11,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Security
+- **Reproducible-build dependency hash-pinning (opt-in plumbing).** The AppImage
+  build can now pin the exact *bytes* of every bundled third-party dependency,
+  not just their versions: `build/lock-requirements.sh` writes a hash-pinned
+  `requirements.lock`, and when that lock is present `build_appimage.sh`
+  re-downloads the closure with `pip --require-hashes` (aborting on any
+  mismatch) and installs python-appimage's per-line deps offline from the
+  verified wheelhouse. Additive — no lock means the previous version-pinned
+  online install, unchanged. Full-AppImage reproducibility validation is a
+  real-build step for the maintainer; the sandbox can only verify the wheel.
+
 ### Added
 - **View the rip's cue sheet from the results pane.** cyanrip writes a `.cue`
   (the disc's track/index map) beside the `.log` on every rip; a **View cue**

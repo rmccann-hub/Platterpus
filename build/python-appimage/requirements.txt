@@ -17,15 +17,18 @@
 #   PySide6 ~=6.7  ==  >=6.7,<7.0      tomli-w ~=1.0  ==  >=1.0,<2.0
 #
 # LIMITATION — no `pip --require-hashes` byte-pinning here (tracked). Full
-# reproducibility would pin each dependency to an exact version + sha256
-# (`pip-compile --generate-hashes`). That can't be expressed in THIS recipe:
-# python-appimage installs each line in its own shell `pip install`, and
-# `--require-hashes` mode then demands a hash for that line's TRANSITIVE deps
-# too (e.g. PySide6 → shiboken6), which aren't available in a single-line
-# install — and the `platterpus` line is a locally-built, unhashed wheel that
-# changes every commit. Timestamps ARE pinned (SOURCE_DATE_EPOCH in
-# build_appimage.sh); exact dependency bytes are the remaining gap. Revisiting
-# needs a python-appimage-compatible pre-resolved/hashed install step.
+# reproducibility pins each third-party dependency to an exact version + sha256.
+# The naive `--require-hashes` per line can't work here (python-appimage installs
+# each line in its own `pip install`, and hash mode then demands hashes for that
+# line's TRANSITIVE deps too — e.g. PySide6 → shiboken6 — unavailable in a
+# single-line install). The python-appimage-compatible solution SHIPPED: a
+# separate step pre-downloads the full closure into a hash-verified wheelhouse
+# and the per-line installs then resolve OFFLINE from it (build_appimage.sh's
+# PIP_FIND_LINKS block, activated when requirements.lock exists — regenerate it
+# with build/lock-requirements.sh). The `platterpus` line stays a locally-built,
+# unhashed wheel (its bytes are pinned by SOURCE_DATE_EPOCH instead). Timestamps
+# are also pinned (SOURCE_DATE_EPOCH). Remaining: validate full-AppImage byte
+# reproducibility on a real release build (only the wheel half is sandbox-checkable).
 PySide6~=6.7
 musicbrainzngs==0.7.1
 tomli-w~=1.0

@@ -15,12 +15,14 @@
 # Reproducibility: we pin every timestamp the build embeds via
 # SOURCE_DATE_EPOCH (below), so two builds of the *same commit* on the same
 # toolchain produce byte-identical output — verified for the wheel (identical
-# sha256 across runs). The remaining variable is the exact dependency *bytes*
-# python-appimage bundles: pinning those with `pip --require-hashes` is not
-# expressible in this recipe (python-appimage installs each requirements.txt
-# line via a separate shell `pip install`, and the locally-built platterpus
-# wheel is unhashed), so it stays a documented limitation — see the full
-# explanation in build/python-appimage/requirements.txt.
+# sha256 across runs). The exact dependency *bytes* are pinned too, opt-in, via
+# a hash-verified wheelhouse (see the PIP_FIND_LINKS block below): when
+# build/python-appimage/requirements.lock exists, every third-party dep is
+# downloaded with `pip --require-hashes` and installed offline, so a swapped
+# artifact for a pinned version aborts the build. python-appimage's per-line
+# install is respected — pip just resolves from the verified wheelhouse instead
+# of PyPI. Generate the lock with build/lock-requirements.sh; without it the
+# build falls back to the version-pinned (`~=`) online install.
 
 set -euo pipefail
 
@@ -145,7 +147,32 @@ echo "[2/3] Building AppImage via python-appimage…"
 # relative `--find-links .` in the recipe can't work; PIP_FIND_LINKS is a pip
 # environment variable (not a PYTHON* one), so it survives pip's `-I` isolated
 # mode and applies to every per-line install.
-export PIP_FIND_LINKS="$RECIPE_DIR"
+#
+# Reproducible-build "Option A" (opt-in — activates ONLY when the lock exists):
+# if build/python-appimage/requirements.lock is present, pre-download every
+# third-party dependency into a local wheelhouse with `--require-hashes`, which
+# ABORTS the build if any wheel's bytes differ from the recorded sha256 (the
+# supply-chain gate — defends against a swapped artifact for a pinned version).
+# Then install python-appimage's deps OFFLINE (PIP_NO_INDEX) from that verified
+# wheelhouse, with the locally-built platterpus wheel served from the recipe dir
+# alongside it. WITHOUT the lock the build is unchanged: the version-pinned
+# (`~=`) online install exactly as before. Generate/refresh the lock with
+# build/lock-requirements.sh (run in the release env) whenever a dep changes.
+WHEELHOUSE="$RECIPE_DIR/.wheelhouse"
+rm -rf "$WHEELHOUSE"
+if [ -f "$RECIPE_DIR/requirements.lock" ]; then
+    echo "requirements.lock present — verifying deps against recorded hashes…"
+    mkdir -p "$WHEELHOUSE"
+    python3 -m pip download --require-hashes \
+        -r "$RECIPE_DIR/requirements.lock" --dest "$WHEELHOUSE"
+    export PIP_NO_INDEX=1
+    export PIP_FIND_LINKS="$WHEELHOUSE $RECIPE_DIR"
+    echo "Installing dependencies offline from the hash-verified wheelhouse."
+else
+    echo "No requirements.lock — version-pinned online install (run"
+    echo "build/lock-requirements.sh to enable hash-pinned reproducible deps)."
+    export PIP_FIND_LINKS="$RECIPE_DIR"
+fi
 
 # Optional offline / rate-limit escape hatch: by default python-appimage hits
 # the GitHub API to discover and download a CPython base AppImage. On a host
@@ -172,6 +199,10 @@ fi
 # not contain spaces or the output file is silently never produced. We
 # normalise the result to the canonical artifact name the rest of the project
 # (README, CLAUDE.md) refers to.
+# The verified wheelhouse (if we built one) has served its purpose — the deps
+# are now inside the AppImage. Remove it so it never lingers or gets committed.
+rm -rf "$WHEELHOUSE"
+
 echo "[3/3] Normalising AppImage name…"
 desktop_name="$(sed -n 's/^Name=//p' "$RECIPE_DIR/io.github.rmccann_hub.Platterpus.desktop" | head -1)"
 arch="$(uname -m)"
