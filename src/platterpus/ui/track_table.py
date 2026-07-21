@@ -70,7 +70,7 @@ _COL_STATUS: int = 4
 _EDITABLE_COLS: set[int] = {_COL_TITLE, _COL_ARTIST}
 
 # Per-track live rip status, shown in the Status column as it advances. Symbol
-# AND text (not colour alone) per docs/ux-design-principles.md #7; pending shows
+# AND text (not colour alone) per docs/ux-design-principles.md #10; pending shows
 # nothing so a not-yet-ripping list stays uncluttered.
 STATUS_PENDING: str = "pending"
 STATUS_RIPPING: str = "ripping"

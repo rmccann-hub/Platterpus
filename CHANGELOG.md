@@ -45,6 +45,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **Reference-doc accuracy sweep (dependency-contracts, ux-principles,
+  log-format, CTDB-CRC).** `dependency-contracts.md`: CTDB matches read
+  "verified" (CRC hardware-validated v0.4.20, this was the last "experimental"
+  holdout); the force-stop section now shows the real device-scoped-first kill
+  order (0.4.9, #23); three in-scope invocations documented (ffmpeg PCM
+  decode-hash, flac raw decode for the CTDB CRC, `metaflac
+  --show-total-samples`); CAA manifest/back/booklet fetches documented; the
+  musicbrainzngs contract gained `cdstubs=False` + the TOC-lookup form; the
+  recompress argv shows `--silent -f -o <tmp>`. Two stale code comments
+  corrected to the 2026-07-01 hardware finding (a speed-locked drive makes
+  cyanrip abort on `-S`; the ladder never sends it) and `track_table.py` now
+  cites UX principle #10, not #7. `ux-design-principles.md`: principles 2/3/7
+  and the gap table match shipped reality (dynamic `-Z` default, goal presets
+  shipped, the GUI offset override is the sole authority). `log-format-
+  comparison.md`: records the optional EAC-compatible companion log (v0.4.16)
+  instead of denying it exists; real parser-test path. `ctdb-crc-algorithm.md`:
+  disc-specific back-trim qualifier restored; the `crc32_combine` fast path
+  count matches the ±5879 window.
 - **`docs/test-plan.md` no longer directs testers at removed whipper
   features.** The whipper-era cases (Tests 3, 4, 8, 10 and step A8) now carry
   explicit ⚠️ SUPERSEDED banners with the cyanrip-era successor flow (their

@@ -7,7 +7,7 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 ## Where the reference material lives
 
 - `rip_log_eac_reference.log` (`tests/fixtures/`) — a representative EAC v1.6 log. Hand-authored to match the format documented on the Hydrogenaudio and CueTools wikis. **Not** used by the parser; stored for reference.
-- cyanrip's exact format strings are pinned in the parser docstring and regexes at `src/platterpus/parsers/cyanrip_log.py`, verified against cyanrip master `src/cyanrip_log.c` (cyanrip 0.9.3.x). The parser tests (`tests/test_cyanrip_log*.py`) carry inline cyanrip log samples.
+- cyanrip's exact format strings are pinned in the parser docstring and regexes at `src/platterpus/parsers/cyanrip_log.py`, verified against cyanrip master `src/cyanrip_log.c` (cyanrip 0.9.3.x). The parser tests (`tests/test_parsers_cyanrip_log.py`, plus the never-raises property test in `tests/test_parsers_property.py`) carry inline cyanrip log samples.
 
 ## Field-by-field comparison
 
@@ -55,11 +55,11 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 
 ## What Platterpus adds beside the log
 
-Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes exactly **one** companion next to them:
+Platterpus never *rewrites* cyanrip's `.log`/`.cue` — those stay the EAC-parity, human-facing archival record, named after the album. It writes exactly **one** companion next to them by default (a second, optional `<Album> (EAC-compatible).log` appears when the Settings toggle `write_eac_log_after_rip` is on — off by default; `eac_log_export.py`):
 
 - **`<Album>.platterpus.json`** — the single machine-readable / LLM-oriented rip report: the parsed verdict, per-track AccurateRip, the full post-rip verification suite (AccurateRip + CTDB + FLAC-integrity, plus derived-file verification for MP3/WavPack/WAV), per-file SHA256 digests, timing + realtime multiplier, album loudness, the read-speed-ladder history, **and this rip's embedded session log** (`debug.lines`, scoped to this album). It is the self-contained debug artifact — everything the application generated for this album's rip, in one file, re-verifiable later.
 
-The album folder therefore holds only: the audio, the front cover, cyanrip's EAC-style `<Album>.log`/`<Album>.cue` (for humans), and the `<Album>.platterpus.json` (for machines/LLMs/debugging). There is **no** separate plain-text `.platterpus.log` sidecar — it would only duplicate cyanrip's human `.log` and the JSON's embedded `debug` block. The always-on global `~/.local/share/platterpus/log.txt` lives *outside* the album folder and is the cross-session catch-all for **program-level failures** (see `docs/architecture.md §3.7`).
+The album folder therefore holds: the audio, the front cover, cyanrip's EAC-style `<Album>.log`/`<Album>.cue` (for humans), the `<Album>.platterpus.json` (for machines/LLMs/debugging), and — only when the toggle above is on — the optional `<Album> (EAC-compatible).log`. There is **no** separate plain-text `.platterpus.log` sidecar — it would only duplicate cyanrip's human `.log` and the JSON's embedded `debug` block. The always-on global `~/.local/share/platterpus/log.txt` lives *outside* the album folder and is the cross-session catch-all for **program-level failures** (see `docs/architecture.md §3.7`).
 
 ## Verdict on EAC-equivalence
 
@@ -71,7 +71,7 @@ The album folder therefore holds only: the audio, the front cover, cyanrip's EAC
 
 1. **The `RippingInfo` block on `RipLog` mirrors EAC's archival header** (drive/offset/etc.), so the GUI can surface it in a "Rip details" panel that gives the user EAC-level archival confidence — regardless of which tool wrote the log.
 2. **The per-track display** renders cyanrip's AR v1 / v2 confidence the same way EAC does, and the results pane now also surfaces the album loudness + partial-accurate count that cyanrip uniquely provides.
-3. **We don't export EAC-format logs.** No P0/P1 feature requires it, and Linux can't submit to AccurateRip anyway (the brief's confirmed quality gap). If ever needed it's a separate feature.
+3. **We offer an optional EAC-*layout* companion log (v0.4.16)** — the Settings toggle `write_eac_log_after_rip` (off by default) writes `<Album> (EAC-compatible).log` beside the rip, rendered by `eac_log_export.py`: conspicuously attributed and **never signed** as EAC (signing would forge provenance — KDD-11/KDD-24, `docs/eac-log-and-repair-feasibility.md`). Linux still can't submit to AccurateRip (the brief's confirmed gap).
 
 ## How this was verified
 
@@ -82,4 +82,4 @@ If a future cyanrip version changes its log format, update both this document an
 
 ---
 
-*Last updated for Platterpus v0.4.17.*
+*Last updated for Platterpus v0.4.24.*
