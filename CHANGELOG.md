@@ -12,6 +12,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Two maintainer-approved doctrine updates in `CLAUDE.md`** (2026-07-21
+  audit follow-up, both explicitly authorized): Critical Rule #3 now names its
+  own scoped, user-approved force-stop exception (approved 2026-05-31, until
+  now documented only in `docs/dependency-contracts.md`); and the
+  brief-vs-PLANNING precedence rule reads "the brief **as amended by the
+  maintainer-approved KDDs** wins on requirements/scope" (matching actual
+  practice since KDD-12/KDD-22 — `docs/README.md` updated to match).
+
+### Changed
 - **Full documentation audit (2026-07-21).** Every Markdown doc in the repo was
   audited against the code, CI, and the live tag history — 239 findings, ~160
   fixed in this release's docs commits. The audit record (systemic patterns,

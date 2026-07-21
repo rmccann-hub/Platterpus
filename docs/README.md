@@ -35,7 +35,7 @@ These two files, together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.
 
 | File | What it is | Authority on |
 |---|---|---|
-| [`platterpus-research-brief-v2.1.md`](platterpus-research-brief-v2.1.md) | The original requirements brief — every P0/P1 feature, every constraint, every scope decision started here. | **Requirements and scope.** When PLANNING.md and the brief conflict, the brief wins on requirements; PLANNING wins on implementation. |
+| [`platterpus-research-brief-v2.1.md`](platterpus-research-brief-v2.1.md) | The original requirements brief — every P0/P1 feature, every constraint, every scope decision started here. | **Requirements and scope.** When PLANNING.md and the brief conflict, the brief *as amended by the maintainer-approved KDDs* wins on requirements; PLANNING wins on implementation. |
 | [`platterpus-session-start.md`](platterpus-session-start.md) | The bootstrap instructions a fresh Claude Code session followed to produce the initial five top-level files — and (Step 0, optional) the paste-verbatim Research-mode prompt for refreshing the tool-choice validation against the brief. | **Initial repo state + the bootstrap procedure, and how to refresh the tool-choice research.** Re-run it against a clean repo to re-derive the planning artifacts. |
 
 > **About the `compass_artifact_*.md` Research validation file:** the original v1 brief produced a compass-artifact research validation in a Claude Research session; the user could not locate it when this project was bootstrapped, so the project proceeded against the brief alone (see CLAUDE.md "Companion documents"). If the session-start Step 0 rerun prompt is ever invoked, save the resulting `compass_artifact_*.md` into this directory.
