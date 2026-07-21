@@ -33,8 +33,10 @@ Bazzite + Pioneer BDR-209D validation before this is treated as authoritative):*
   (b) whether cyanrip can re-rip a *subset* of tracks at a new speed, or the whole
       disc must re-run (today we re-run the whole disc — safe, if slower — which
       is exactly why (a)'s instability is flagged rather than auto-re-ripped);
-  (c) whether the BDR-209D honours ``-S`` through the Linux/libcdio-paranoia
-      stack at all (if not, the ladder degrades to plain re-reads — no regression).
+  (c) RESOLVED on hardware (2026-07-01): the BDR-209D reports speed as
+      "unchangeable" and cyanrip ABORTS on ``-S`` there — so once the banner
+      reports speed_changeable=False the ladder degrades to plain re-reads and
+      never sends a speed again.
 """
 
 from __future__ import annotations

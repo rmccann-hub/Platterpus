@@ -161,9 +161,10 @@ class CyanripImpl(RipBackend):
         # a positive speed is requested (> 0); 0 means "let the drive pick" (its
         # maximum), so the default fast rip omits `-S` entirely. The adaptive
         # ladder (read_speed_ladder.py) feeds progressively slower values here on
-        # a re-rip of a marginal disc. Graceful fallback: if the drive/libcdio-
-        # paranoia stack ignores `-S` (hardware-gated — the BDR-209D is unverified
-        # here), the pass simply reads at the drive's speed — no regression.
+        # a re-rip of a marginal disc. Hardware finding (2026-07-01, BDR-209D):
+        # a drive that reports its speed as "unchangeable" makes cyanrip ABORT
+        # the rip on `-S` (EINVAL) — so the worker/ladder never send a speed
+        # once the log banner reports speed_changeable=False.
         if read_speed > 0:
             argv += ["-S", str(read_speed)]
         # `-l <comma-list>`: rip ONLY these (1-based) track numbers. Used by the

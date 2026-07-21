@@ -12,11 +12,12 @@
 > **Guiding rules (maintainer, 2026-07-08):**
 > 1. **Easy to re-merge for the owner.** Minimal diffs, one focused change per
 >    commit/PR, no drive-by reformatting, no churn.
-> 2. **Their conventions win.** cyanrip is C, LGPL-2.1, no `CONTRIBUTING`, terse
->    `av_`-prefixed FFmpeg-idiom style, only CI is a Windows/MinGW build. Where
->    cyanrip's style/rules differ from Platterpus's (heavy comments, type hints,
->    88-col, etc.), **match cyanrip** — our conventions do not apply to C we send
->    upstream.
+> 2. **Their conventions win.** cyanrip is C, LGPL-2.1-or-later; the process
+>    facts (maintainer contact, style, CI, responsiveness) live in the
+>    roadmap's **Process** block ([`upstream-pr-roadmap.md`](upstream-pr-roadmap.md)
+>    — the canonical home). Where cyanrip's style/rules differ from
+>    Platterpus's (heavy comments, type hints, 88-col, etc.), **match
+>    cyanrip** — our conventions do not apply to C we send upstream.
 > 3. **Documentation is key.** Each patch carries a clear rationale and, upstream,
 >    an issue that explains the bug/enhancement before the PR.
 > 4. **PR-first, adaptable to the maintainer's call.** The fork is the fallback if
@@ -51,7 +52,10 @@ helpers in [`scripts/cyanrip/`](../scripts/cyanrip/) so each is one command:
 shape and aborts rather than write a wrong diff; unit-tested in
 `tests/test_cyanrip_colon_patcher.py`), `build.sh` (meson/ninja in the
 container), and copy-paste `issue-*.md` / `pr-*.md` bodies. This doc stays the
-*rationale + reference*; the kit is the *execution layer*.
+*rationale + reference*; the kit is the *execution layer* — **the kit's
+`issue-*.md` / `pr-*.md` files are the canonical (and only) paste text**; since
+2026-07-21 this doc links to them instead of carrying copies (a one-word drift
+between the old duplicate copies is what forced the choice).
 
 ---
 
@@ -149,7 +153,7 @@ no reformatting. **Callers pass a literal colon as `\:`** (which
 mangles it.
 
 **Verified (2026-07-08) — the algorithm is proven before it goes upstream.**
-`docs/cyanrip-soft-fork-verify-meta-colon.c` transcribes the current function
+`scripts/cyanrip/verify-meta-colon.c` (moved into the kit 2026-07-21) transcribes the current function
 1:1 (FFmpeg helpers → libc: `av_mallocz`→`calloc`, `av_strtok`→`strtok_r`) and
 the fixed function, and asserts all four cases. Built ASan/UBSan-clean
 (`gcc -Wall -Wextra -fsanitize=address,undefined`) and run:
@@ -176,32 +180,15 @@ Case check:
 | `album=Every Breath You Take\: The Classics` | yes | skip → `av_dict_parse_string` unescapes `\:` → correct ✓ |
 | `Foo:artist=Bar` (mixed) | no (`=` after `:`) | inject `album=` before `Foo` — unchanged ✓ |
 
-### Upstream issue text (paste into github.com/cyanreg/cyanrip/issues)
+### Upstream issue text
 
-> **Title:** `-a`/`-t`: a literal `:` in a tag value is corrupted by
-> `append_missing_keys`
->
-> **Body:**
-> A colon inside an explicit metadata value is mangled. Example:
-> ```
-> cyanrip … -a "album=Every Breath You Take: The Classics"
-> ```
-> lands as album `Every Breath You Take` with a spurious `album_artist= The
-> Classics`, because `append_missing_keys()` (`src/cyanrip_main.c`) tokenises the
-> string with `av_strtok(src, ":")` before `av_dict_parse_string()` runs.
-> `av_strtok` splits on every `:` and ignores backslash escapes, so the fragment
-> after the colon looks like a keyless positional value and gets a key injected.
-> A backslash-escaped `\:` doesn't help either, because `av_strtok` doesn't
-> honour it (only the later `av_dict_parse_string` does).
->
-> Colons in album/track titles are common (subtitles, classical works), so this
-> bites any front-end feeding explicit tags.
->
-> **Proposed fix:** skip the positional-key injection when the string is already
-> explicit `key=value` (an `=` before the first `:`); then a caller can pass a
-> literal colon as `\:` and `av_dict_parse_string` handles it. Positional
-> shorthand (`album:album_artist`) is unaffected. Happy to open a PR — patch is a
-> ~4-line guard in `append_missing_keys()`.
+The canonical, paste-ready issue body lives in the kit:
+**[`scripts/cyanrip/issue-colon.md`](../scripts/cyanrip/issue-colon.md)**
+(title on its first line, body below — paste from there, not from this doc).
+In brief: a literal `:` inside an explicit `-a`/`-t` value is corrupted because
+`append_missing_keys()` tokenises with `av_strtok(src, ":")` before
+`av_dict_parse_string()` runs; the proposed fix is the ~4-line skip-injection
+guard from §2 above, after which callers pass `\:`.
 
 ### Platterpus-side cleanup — AFTER the fix is live in the container
 
@@ -267,23 +254,15 @@ text are the three touch points):
 This preserves every current default (no `-O` → identical output) and adds the
 full encoder surface.
 
-### Upstream issue text (paste into github.com/cyanreg/cyanrip/issues)
+### Upstream issue text
 
-> **Title:** Allow passing arbitrary libavcodec encoder options (e.g. FLAC
-> `compression_level`) instead of only the hardcoded per-format default
->
-> **Body:**
-> `setup_out_avctx()` sets `avctx->compression_level = cfmt->compression_level`
-> from the format table and `cyanrip_init_track_encoding()` calls
-> `avcodec_open2(…, NULL)`, so there's no way to change the FLAC compression level
-> or set any other libavcodec encoder option. For archival vs. speed trade-offs
-> (and codec tuning generally) it'd help to expose the encoder option surface.
->
-> **Proposal:** a repeatable `-O key=value` that builds an `AVDictionary` passed
-> to `avcodec_open2` (per track, via `av_dict_copy`). Generic across codecs;
-> defaults unchanged when unused; unknown keys warn rather than abort. Happy to
-> open a PR if this direction is acceptable — worth a quick sanity-check on the
-> flag name/behaviour first.
+The canonical, paste-ready issue body lives in the kit:
+**[`scripts/cyanrip/issue-encoder-opts.md`](../scripts/cyanrip/issue-encoder-opts.md)**
+(sanity-check the flag name with the maintainer first — see the kit README).
+In brief: `setup_out_avctx()` hardcodes `compression_level` and
+`cyanrip_init_track_encoding()` opens the encoder with `avcodec_open2(…, NULL)`,
+so no libavcodec encoder option is reachable; the proposal is the repeatable
+`-O key=value` → `AVDictionary` design from §3 above.
 
 ### Platterpus-side use — AFTER it's live
 
@@ -335,4 +314,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.4.23.*
+*Last updated for Platterpus v0.4.24.*

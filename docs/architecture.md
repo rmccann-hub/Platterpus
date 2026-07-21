@@ -12,7 +12,7 @@
 >   conflicts with CLAUDE.md, **CLAUDE.md wins**; this guide explains and
 >   expands those rules, it does not override them.
 > - **[`../PLANNING.md`](../PLANNING.md)** — the module map and the keyed
->   design-decision log (KDD-01 … KDD-23): the "why is it like this?" record.
+>   design-decision log (KDD-01 onward — see `docs/README.md` for the current range): the "why is it like this?" record.
 > - **[`testing.md`](testing.md)** — the testing strategy, taxonomy, and
 >   Definition of Done.
 > - **[`session-log.md`](session-log.md)** — the dated chronology of how each
@@ -37,8 +37,11 @@ interface, not a ripper.
                 │ subprocess → ~/.local/bin/cyanrip (host export)
                 ▼
         ┌───────────────────────┐     MusicBrainz / Cover Art Archive /
-        │ Distrobox "ripping"   │     CTDB / AccurateRip  ◄─ queried by the
-        │ container: cyanrip +  │        GUI on the host (never the ripper)
+        │ Distrobox "ripping"   │     CTDB  ◄─ queried by the GUI on the
+        │ container: cyanrip +  │        host (never the ripper; AccurateRip
+        │                       │        verification happens in-rip, inside
+        │                       │        cyanrip — the GUI only carries the
+        │                       │        bundled offline AR drive-offset list)
         │ flac                  │
         └───────────────────────┘
 ```
@@ -60,7 +63,7 @@ pieces independently testable and replaceable.
 | **Core** | `config.py`, `paths.py`, `logging_setup.py`, `app.py`, `composition.py` | Config schema, well-known paths, app entry, and the composition root. | everything (composition) |
 
 `app.py` is the **composition root**, with the reusable construction logic in
-`composition.py`: `build_backend(cfg)` (the whipper/cyanrip choice + the
+`composition.py`: `build_backend(cfg)` (constructs the sole cyanrip backend — KDD-18 — + the
 host-exported-path fallback) and `build_musicbrainz_client()`. `app.py` injects
 everything into `MainWindow`; `preflight.default_context()` (the `--doctor`
 diagnostic) builds the *same* adapters through the *same* helpers, so the GUI and
@@ -80,7 +83,8 @@ docs (and KDDs) link here rather than restating.
 Every call into an unmaintained or external dependency goes through a thin
 adapter behind an interface, so a future replacement is a one-file swap, not
 a codebase-wide rewrite. Currently flagged unmaintained:
-`python-musicbrainzngs`, `python-appimage`.
+`python-musicbrainzngs`, and `appimage-builder` (if ever reached for) — see
+Critical rule #1 and the `DEPENDENCIES.md` table.
 
 The pattern (designs in [`../PLANNING.md`](../PLANNING.md) §5–§6):
 
@@ -135,7 +139,7 @@ Worker mechanics, all demonstrated in `workers/`:
 - **Worker-object + `moveToThread`, not `QThread` subclassing.** A `QThread`
   instance lives in the thread that *created* it, so slots on a `QThread`
   subclass run in the wrong thread. Put the work in a `QObject` worker and
-  `moveToThread()` it. See `RipWorker`, `MbWorker`, `DriveSetupWorker`.
+  `moveToThread()` it. See `RipWorker`, `MusicBrainzWorker`, `DriveSetupWorker`.
 - **Never touch widgets from a worker thread.** Communicate results back via
   **signals** (delivered as queued connections on the GUI thread). The worker
   emits `progress`/`status`/`finished`; the GUI updates widgets in the slots.
@@ -182,8 +186,9 @@ Worker mechanics, all demonstrated in `workers/`:
   during a modal `exec()`.** It re-enters the event loop and pumps unrelated
   timers/threads — an order-dependent crash. To force an immediate repaint of a
   status label, use `widget.repaint()`.
-- **A modal dialog must NOT do blocking work in a button slot — this is the
-  freeze trap that has bitten three times (→ CLAUDE.md never-block rule).** A
+- **Dialogs that do blocking work** *(the name CLAUDE.md's never-block rule
+  cites — this bullet is that section)*: **a modal dialog must NOT do blocking
+  work in a button slot — this is the freeze trap that has bitten three times.** A
   `QDialog.exec()` runs a *nested* event loop, which tempts you to "just install
   here and `repaint()` between steps." But the slot itself still runs on the GUI
   thread, so a `subprocess`/network call in it freezes the whole window until it
@@ -217,7 +222,7 @@ Worker mechanics, all demonstrated in `workers/`:
   it's set. Same shape for any "set flag now, act on it later" cancellation.
 
 ### 3.3 Invoking external programs (subprocess)
-The GUI shells out constantly (whipper, flatpak, eject, pkill):
+The GUI shells out constantly (cyanrip, flatpak, eject, pkill):
 
 - **Never `shell=True`.** Pass an **argument list**, not a string — the module
   handles quoting/escaping and there is no shell to inject into. The GUI puts
@@ -230,7 +235,7 @@ The GUI shells out constantly (whipper, flatpak, eject, pkill):
   desktop-launched process must reach.
 - **Always set a `timeout`** (install commands cap at 300 s; force-stop probes
   at 20 s) — a wedged child must not hang forever. **But budget container-
-  entering commands for the cold-start.** The *first* `whipper`/`cyanrip` call of
+  entering commands for the cold-start.** The *first* `cyanrip` call of
   a session starts the Distrobox `ripping` container (podman cold-start), which
   routinely takes tens of seconds on first use after a boot. A timeout calibrated
   for a *warm* system turns that legitimately-slow first call into a false
@@ -251,9 +256,9 @@ The GUI shells out constantly (whipper, flatpak, eject, pkill):
 - **Cancel the whole process group, not just the parent.** A ripped-from-under
   reader (`cdparanoia`) outlives a killed parent. Launch cancellable
   subprocesses with `start_new_session=True` and signal the group
-  (`os.killpg`). See `drive_control.force_stop_drive()` and CLAUDE.md Critical
-  Rule #3 for the scoped, user-approved force-stop exception and its `pkill`
-  anchoring rules.
+  (`os.killpg`). See `drive_control.force_stop_drive()` and the drive/reader-control
+  section of `docs/dependency-contracts.md` for the scoped, user-approved
+  force-stop exception (to Critical Rule #3) and its `pkill` anchoring rules.
 
 ### 3.4 Parsers never raise (institutional rule)
 Anything that parses external output uses **named-group regexes** (not column
@@ -261,8 +266,9 @@ indices — tool output shifts between minor versions), tolerates garbage, and
 returns a best-effort dataclass instead of raising:
 
 - Match on *labels*, not positions. See `deps/version.py`
-  (`DEFAULT_VERSION_PATTERN`) and the rip-progress patterns in
-  `workers/rip_worker.py` (`Reading track (?P<track>\d+) of (?P<total>\d+)`).
+  (`DEFAULT_VERSION_PATTERN`) and the live cyanrip rip-progress patterns in
+  `workers/rip_worker.py` (`_CYANRIP_TRACK_PROGRESS`,
+  `Ripping(?: and encoding)? track (?P<track>\d+), progress - …`).
 - Treat "couldn't parse" as a first-class outcome (return `None`/empty), not a
   crash — upstream output drifts.
 - Add a fixture + test for every real-world output sample you encounter, and a
@@ -508,7 +514,9 @@ release, never the ripper's interactive prompt).
   `pythonpath = ["src"]`); the suite touches no real hardware, network, or
   container. CI enforces **branch coverage with a hard floor**
   (`--cov-fail-under`, 91, ratchets up) on Python 3.11–3.14, plus `ruff`
-  lint + format.
+  lint + format, the gating `mypy` typecheck (strict def-typing,
+  `pyproject.toml [tool.mypy]`), and the changelog / media-guard /
+  `pip-audit` backstop jobs.
 - **Institutional rules:** every shipped bug gets a regression test in the
   same change; every new external-output parser gets a never-raises property
   test.
@@ -537,7 +545,8 @@ is unaffected by where the caller lives.
 This isn't only about *methods* moving — a **shared helper** relocates name
 resolution too. When `cyanrip._run` was routed through `whipper_backend.run_capture`
 (2026-06-22), `subprocess.run` began resolving in `whipper_backend`, so the
-cyanrip tests' `subprocess.run` patch had to move there with it. The mirror-image
+cyanrip tests' `subprocess.run` patch had to move there with it (the helper
+now lives in `adapters/rip_backend.py` — today's patch point). The mirror-image
 trick is to design the helper so it *doesn't* relocate the patchable seam: the
 `workers.start_worker_thread` helper takes the `QThread` the caller already
 created (rather than constructing one), so every test that patches a module's

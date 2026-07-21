@@ -5,9 +5,11 @@ are correct by comparing them against a known-good baseline.
 
 **EAC is the baseline.** Exact Audio Copy is the gold standard this project is
 measured against (see [`../docs/test-plan.md`](../docs/test-plan.md) → *EAC
-output-parity check*). The EAC reference is committed here now. Outputs from the
-other backends (whipper, cyanrip) are added **only once they reach parity with
-EAC**, as proof — not before.
+output-parity check*). The EAC reference is committed here now. cyanrip (the sole backend since
+2026-06-30, KDD-18) rips are committed once there is a **hardware run worth
+documenting** — imperfections stated honestly in the dir README (the
+"store the text, document the imperfection" practice); full 14/14 parity is
+the goal that closes the TASKS.md checkbox.
 
 ## What "parity" means here (and why there's no audio)
 
@@ -42,13 +44,14 @@ directory stores **logs and cue sheets, never the decoded audio**:
 
 If a test ever genuinely needs real PCM to exercise the decode/CRC path, use a
 **short, freely-licensed or self-generated** sample (CC0 / public-domain / a
-synthetic tone with a known CRC), and **Git LFS** for any binary — never a
-commercial track.
+synthetic tone with a known CRC), and keep it tiny (kilobytes,
+not megabytes) — never a commercial track. (The pre-commit hook blocks audio
+extensions; a verified CC0 sample goes in via `git commit --no-verify`.)
 
 ## Layout — backend × format
 
-EAC is the baseline for each format; the matching backend dirs hold a rip's
-**log** only once it reaches parity. **Priority order: FLAC (1) → WAV (2) →
+EAC is the baseline for each format; the backend dirs hold a documented
+hardware rip's **log** (+ `.cue`) with its result stated honestly. **Priority order: FLAC (1) → WAV (2) →
 MP3 (3)** — FLAC is the archival master and the first parity target; the
 WavPack/MP3/WAV *output formats* now ship (KDD-22), but their per-backend parity
 *proofs* still await real-hardware rips (see `TASKS.md`).
@@ -56,8 +59,8 @@ WavPack/MP3/WAV *output formats* now ship (KDD-22), but their per-backend parity
 | | FLAC (priority 1) | WAV (priority 2) | MP3 (priority 3) |
 |---|---|---|---|
 | **EAC** (baseline) | `EAC_flac/` ✅ committed | `EAC_wav/` 🟡 13/14; **WavPack not plain WAV** (see its README) | `EAC_mp3/` 🟡 imperfect (12/14; see its README) |
-| **whipper** | `whipper_flac/` ⬜ | `whipper_wav/` ⬜ | `whipper_mp3/` ⬜ |
-| **cyanrip** | `cyanrip_flac/` ⬜ | `cyanrip_wav/` ⬜ | `cyanrip_mp3/` ⬜ |
+| **whipper** *(removed 2026-06-30, KDD-18 — historical row; no proof will be added)* | `whipper_flac/` — | `whipper_wav/` — | `whipper_mp3/` — |
+| **cyanrip** | `cyanrip_flac/` 🟡 12/14 (T3+T5; see its README) | `cyanrip_wav/` ⬜ | `cyanrip_mp3/` 🟡 13/14 (T5 only; see its README) |
 
 The committed EAC baseline (`EAC_flac/eac_baseline_police_classics.log`) is the
 canonical extraction reference. Its per-track **Copy CRC** is the CRC of the
@@ -87,9 +90,9 @@ therefore reuse this same extraction baseline rather than duplicating it.
 That commit is the durable evidence the backend is bit-perfect against EAC.
 
 > A second, unrelated EAC sample log (*Shark Tale* soundtrack) lives in
-> `../tests/fixtures/rip_log_eac_reference.log`; it's a parser sample, not a
-> parity baseline.
+> `../tests/fixtures/rip_log_eac_reference.log`; it's a format-reference sample for `docs/log-format-comparison.md`
+> (not parsed by any test), not a parity baseline.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

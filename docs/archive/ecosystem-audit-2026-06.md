@@ -1,5 +1,12 @@
 # Ecosystem audit & backend-successor plan (2026-06)
 
+> **ARCHIVED (retired point-in-time investigation).** Written when whipper was
+> the current backend and cyanrip a candidate successor; whipper was removed
+> 2026-06-30. Durable conclusions graduated to **PLANNING.md KDD-18** and
+> `DEPENDENCIES.md` — see [`README.md`](README.md) for the mapping. Body
+> preserved as the dated record.
+
+
 **Why this exists.** Real-hardware testing on a Pioneer BDR-209D hit whipper's
 offset-find failing ("could not detect the read offset", slow), which prompted
 the question: *is whipper the right foundation long-term, and should we fork,

@@ -1,12 +1,11 @@
-# whipper MP3 — EAC parity proof (pending, priority 3)
+# whipper MP3 — historical placeholder (no proof will be added)
 
-Empty until a whipper **MP3** rip of the baseline disc is validated. MP3 is
-**lossy**, so the encoded audio is not bit-comparable: "parity" here means the
-rip used the same **extraction** (its source Copy CRCs match `../EAC_flac/`)
-plus correct encoder settings and tags — not identical audio. (MP3 output ships
-now — KDD-22; this is the *parity proof*, pending a hardware rip.) Priority 3
-(after FLAC, WAV). See [`../README.md`](../README.md). No audio committed.
+whipper was removed as a backend on **2026-06-30 (KDD-18)** before reaching a
+MP3 parity proof, so this directory will stay empty. It is retained as the
+record of the originally-planned backend×format proof matrix (priority 3);
+see [`../README.md`](../README.md) for the live matrix and what "parity" means.
+Do **not** commit audio here — Critical rule #8.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

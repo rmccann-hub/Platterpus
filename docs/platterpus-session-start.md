@@ -1,12 +1,22 @@
 # Platterpus — Claude Code Session Start
 
+> **Historical bootstrap record (note added 2026-07-21).** This document is the
+> instruction set the *original* bootstrap session followed, preserved as the
+> rebuild-from-scratch anchor (`docs/README.md`). It predates the
+> whipper → cyanrip switch: whipper was removed 2026-06-30 (KDD-18) and
+> cyanrip is the sole backend, so a verbatim re-run today would contradict the
+> current CLAUDE.md it is told to read — treat the whipper framing (and
+> Step 0's whipper-centred research questions) as the historical starting
+> point, with `PLANNING.md`'s KDDs as the record of everything that changed
+> since.
+
 I am starting a fresh Claude Code session to build a Linux GUI front-end for the `whipper` audio-CD ripping CLI. This file is your instruction document. Follow the numbered steps below in order. Do not skip ahead.
 
 ---
 
 ## Attached files
 
-You should have four other files attached to this session:
+You should have three other files attached to this session (the fourth item below is this file itself):
 
 1. **`platterpus-research-brief-v2.1.md`** — the project brief. Authoritative for *what* to build (requirements, features, constraints, scope).
 2. **`compass_artifact_*.md`** — the Research-mode validation output. Authoritative for *which tools* to use and *why* (frameworks, distribution, dependencies). The filename will look like `compass_artifact_wf-<hash>_text_markdown.md`.
@@ -15,7 +25,7 @@ You should have four other files attached to this session:
 
 Where the brief and the research output conflict, the brief wins — its v2.1 changelog post-dates the research.
 
-If any of those files is missing, stop and ask me to attach it before continuing.
+If any of those files is missing, stop and ask me to attach it before continuing — except the `compass_artifact_*.md` research file, whose absence Step 0 exists to handle (proceed against the brief alone).
 
 ---
 
@@ -236,4 +246,4 @@ Begin Step 1.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

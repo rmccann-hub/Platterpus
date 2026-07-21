@@ -2,7 +2,7 @@
 
 The patcher edits *cyanrip's* C, which isn't in this repo, so we exercise its
 pure planning logic against a faithful reconstruction of ``append_missing_keys``
-(the same shape docs/cyanrip-soft-fork-verify-meta-colon.c is built from). This
+(the same shape scripts/cyanrip/verify-meta-colon.c is built from). This
 pins that the guard lands in the right place, is idempotent, and — crucially —
 refuses to touch a function that has drifted from what the fix assumes.
 """

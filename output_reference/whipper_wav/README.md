@@ -1,11 +1,11 @@
-# whipper WAV — EAC parity proof (pending, priority 2)
+# whipper WAV — historical placeholder (no proof will be added)
 
-Empty until a whipper **WAV** rip of the baseline disc matches the EAC
-extraction baseline (same per-track `Copy CRC` as `../EAC_flac/` — WAV is
-lossless). Verify with `scripts/eac_parity.py`, then add the whipper `.log`
-here per [`../README.md`](../README.md). Priority 2 (after FLAC). Do **not**
-commit audio — parity is proven by matching CRCs.
+whipper was removed as a backend on **2026-06-30 (KDD-18)** before reaching a
+WAV parity proof, so this directory will stay empty. It is retained as the
+record of the originally-planned backend×format proof matrix (priority 2);
+see [`../README.md`](../README.md) for the live matrix and what "parity" means.
+Do **not** commit audio here — Critical rule #8.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

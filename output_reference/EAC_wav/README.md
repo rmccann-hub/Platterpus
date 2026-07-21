@@ -19,9 +19,10 @@ maintainer confirmed this is fine — use the WavPack rip as the WAV-slot refere
   built, also proves parity against the **FLAC** baseline — not against this log
   specifically — so the format difference doesn't matter to the matrix.)
 - **WavPack is a legitimate tagged-lossless format** and a candidate output of its
-  own (cyanrip lists `wavpack` under `-o`). Whether to *offer* WavPack as a GUI
-  output format is an open product question (`docs/mp3-wav-support.md` §5), out of
-  the current flac/wav/mp3 scope — not blocking anything here.
+  own (cyanrip lists `wavpack` under `-o`). WavPack has since **shipped** as a GUI
+  output format (2026-06-26, KDD-22; decisions locked in
+  `docs/mp3-wav-support.md` §5) — which makes this WavPack reference doubly
+  useful.
 
 ## Extraction quality: 13/14 (best of the three sessions)
 
@@ -57,4 +58,4 @@ session's cue dropped track 10's ISRC. No audio is committed — see
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

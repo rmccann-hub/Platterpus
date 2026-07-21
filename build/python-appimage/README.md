@@ -29,7 +29,11 @@ bash build/build_appimage.sh
 ```
 
 The script builds a wheel from the current source, drops it next to
-`requirements.txt`, and runs `python-appimage`. The resulting
+`requirements.txt`, and runs `python-appimage`. It also normalises the
+artifact name, embeds the zsync update-information (install `zsync` locally
+to get a `.zsync`; releases require it), stamps a git build fingerprint into
+the wheel, and pins `SOURCE_DATE_EPOCH` for reproducible builds — details in
+the script header. The resulting
 `platterpus-x86_64.AppImage` appears at the repo root.
 
 ### Offline / rate-limited build hosts
@@ -65,10 +69,11 @@ succeeds.
 
 ## Updating pinned dependency versions
 
-When `DEPENDENCIES.md` bumps a pin, update the matching line in
-`requirements.txt` in the same commit. The two files are the only
-authoritative sources for runtime deps.
+When `DEPENDENCIES.md` bumps a pin, update **both** `pyproject.toml`
+`[project].dependencies` (what dev/pipx installs resolve) and the matching
+`requirements.txt` line here (what the AppImage bundles; `~=` form — see the
+operator note above) in the same commit, so the three stay in lockstep.
 
 ---
 
-*Last updated for Platterpus v0.4.10.*
+*Last updated for Platterpus v0.4.24.*

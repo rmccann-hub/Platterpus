@@ -1,5 +1,20 @@
 # Research Brief: Linux GUI Front-End for `whipper` CLI
 
+> **Preservation note (added 2026-07-21 — the body below is unedited).** This
+> brief is preserved **verbatim** as the original requirements record; it is
+> canonical for scope *as amended by the maintainer-approved KDDs in
+> `PLANNING.md`*. The largest amendments since it was written:
+> **whipper → cyanrip as the sole backend** (KDD-18, 2026-06-30 — the
+> Distrobox host-export routing constraint stands unchanged, the binary is
+> `~/.local/bin/cyanrip`, and `whipper.conf` is a read-only legacy reference);
+> **CTDB verification moved in-scope and shipped** (KDD-12/KDD-16,
+> hardware-validated v0.4.20); **MP3/WavPack/WAV shipped** via the single
+> ffmpeg transcode adapter, not lame/sox (KDD-22, 2026-06-26); and the
+> AccurateRip-submission exclusion is policy-blocked, not a technical Linux
+> gap (KDD-12). Where the body below disagrees with those KDDs, the KDD is
+> the operative record.
+
+
 > **For:** Claude Opus 4.7 Adaptive with **Research mode enabled**
 > **Output goal:** A complete, evidence-backed comparison of architectural options for building a Linux GUI wrapper around the `whipper` audio-CD ripping CLI, so I can make an informed final-plan document for Claude Code.
 >
@@ -296,4 +311,4 @@ This is what I'm leaning toward. Tell me if it's right or wrong.
 
 ---
 
-*Last updated for Platterpus v0.4.2.*
+*Last updated for Platterpus v0.4.24.*

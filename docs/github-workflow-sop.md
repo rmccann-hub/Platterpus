@@ -13,6 +13,9 @@
 > - Feature work goes on the **designated branch** the session is given
 >   (e.g. `claude/…`), never a personal `username/…` branch.
 > - We **squash-merge** PRs to `main` (matches §7.1 below).
+> - Commit subjects use **lowercase conventional-commit `type(scope):`
+>   prefixes**, not §5.2's "Capitalize the subject" style, and there is **no
+>   hard 50-char subject cap** (see CLAUDE.md → Commit & PR hygiene).
 > - Never commit copyrighted media (Critical rule #8); commit trailers and the
 >   model-identity rule are per CLAUDE.md.
 >
@@ -162,8 +165,7 @@ origin** (triggers CI).
 | **Rebase and merge** | Replays commits atop `main` (new hashes) | Linear, no merge nodes | Painful with conflicts; rewrites hashes |
 
 **Squash and merge is favored** for feature branches (each `main` node = one
-complete, deployable change). *(This is what Platterpus uses for its release
-PRs.)* Merge in the web UI → pick the strategy → **Confirm merge** → **Delete
+complete, deployable change). *(This is what Platterpus uses for **all** PRs into `main`.)* Merge in the web UI → pick the strategy → **Confirm merge** → **Delete
 branch**. "Merge when ready" / auto-merge merges the instant CI passes.
 
 ### 7.2 Branch protection (admin, server-enforced on `main`/`release/*`)
@@ -193,9 +195,10 @@ edit-vs-delete). Git halts and flags the files.
 ---
 
 *Filed 2026-07-07 at the maintainer's request as the contributor/upstream-PR
-reference. See `docs/ripper-engine-strategy.md` §10 for which upstream repos
-we'd PR to and in what order.*
+reference. See `docs/ripper-engine-strategy.md` §10 for the per-gap options
+and `docs/upstream-pr-roadmap.md` for which upstream repos we'd PR to and in
+what order.*
 
 ---
 
-*Last updated for Platterpus v0.4.17.*
+*Last updated for Platterpus v0.4.24.*

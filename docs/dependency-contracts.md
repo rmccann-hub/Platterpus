@@ -105,10 +105,11 @@ confidence N)`, `Accurip 450:` → the offset-variant match, `(after N rips)` �
 `Done; (M out of N matches …)` / `(no matches found, but hit repeat limit of N)`
 → `secure_rerip_converged`), the AccurateRip summary, album loudness, and the
 `Log FUN512:` signature. cyanrip writes its own `.log` + `.cue` at the end; a
-**cancelled** rip writes neither. **Note:** only `read_offset` and
-`speed_changeable` are parsed off the banner — cyanrip prints **no cache
-line at all**, so there is no `cache` field to parse (see the cache-handling
-note below; this corrects an earlier version of this doc that implied one).
+**cancelled** rip writes neither. **Note:** the banner block yields `drive`,
+`read_offset`, `disc_id`, `cddb_id`, `speed_changeable`, and the disc
+duration; cyanrip prints **no cache line at all**, so there is no `cache`
+field to parse (see the cache-handling note below; this corrects an earlier
+version of this doc that implied one).
 
 **Cache handling — attempted, not asserted.** cyanrip has no cache-defeat
 flag and emits no cache-defeat verdict in its log. Its engine,
@@ -142,11 +143,20 @@ removed (KDD-18) and is currently a re-openable task, not a supported knob.
 
 ## flac — re-compression (`adapters/flac_recompress.py`, opt-in, off for cyanrip)
 
-- **`flac -8 -e -p --verify [-o tmp] <file>`** — maximum-effort lossless
+- **`flac -8 -e -p --verify --silent -f -o <tmp> <file>`** (then an atomic `os.replace`) — maximum-effort lossless
   re-encode. `-e` (exhaustive model search) + `-p` (qlp-coeff precision search)
   keep LPC order at 12, so they add encode time but **no decode cost**; `--verify`
   re-decodes to confirm bit-identity. cyanrip already maxes compression, so this
   is skipped for it. To revert to a plain `-8`, set `_EXTRA_FLAGS = ()`.
+
+## flac / metaflac — CTDB decode path (`ctdb/decode.py`)
+
+- **`flac -d -s --force-raw-format --endian=little --sign=signed -c <file>`** —
+  decode a rip's FLAC to raw little-endian signed PCM on stdout for the CTDB
+  whole-disc CRC. `flac` missing/failing degrades to `DecoderUnavailable`
+  (a verdict, never a raise).
+- **`metaflac --show-total-samples <file>`** — the per-file sample-count probe
+  used to build the disc TOC from files. Same best-effort degrade.
 
 ## metaflac — tag / picture editing (`adapters/metaflac.py`)
 
@@ -177,25 +187,43 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
 ## musicbrainzngs — release lookup (`adapters/musicbrainz_client.py`)
 
 - `set_useragent(app, version, contact)` once (MB requires a UA).
-- `get_releases_by_discid(discid, includes=[…])` — TOC → candidate releases.
-- `get_release_by_id(mbid, includes=[…])` — full release detail (tracks, ISRCs).
+- `get_releases_by_discid(discid, includes=[…], cdstubs=False)` — disc ID →
+  candidate releases (CD stubs excluded on every lookup).
+- TOC-lookup variant: `get_releases_by_discid("-", toc=<query>, cdstubs=False)`
+  — the documented `"-"` placeholder disc ID when only `toc=` is meaningful.
+- `get_release_by_id(mbid, includes=[…])` — full release detail (tracks, ISRCs,
+  tags for genre).
 - All wrapped so `musicbrainzngs.WebServiceError`/`ResponseError` surface as our
   own error type; the adapter is the seam for this unmaintained dependency
   (Critical rule #1).
+
+## ffmpeg — derived-file verification (`adapters/derived_verify.py`)
+
+- **`ffmpeg -nostdin -v error -i <file> -map 0:a -f s16le -`** — decode a
+  derived WavPack/WAV (and the FLAC master) to canonical CD PCM (s16le) on
+  stdout and hash it, proving the derived file bit-identical to the master;
+  MP3 is only checked as cleanly decodable (lossy by design — Critical
+  rule #4). Watchdog timeout; never raises.
 
 ## Cover Art Archive (`adapters/cover_art.py`)
 
 - HTTPS GET **`https://coverartarchive.org/release/{mbid}/front`** — the front
   cover image. Best-effort (a missing cover is not an error).
+- HTTPS GET **`https://coverartarchive.org/release/{mbid}`** — the typed-image
+  JSON manifest; Back/Booklet full-size image URLs from it are downloaded and
+  saved as `back.<ext>` / `booklet-NN.<ext>`. Best-effort, size-capped, never
+  fatal.
 
 ## CTDB — CUETools Database (`adapters/ctdb_client.py`)
 
 - HTTP GET to the CTDB lookup endpoint (plain HTTP — the server serves no valid
   TLS cert; KDD-16) with params `version=3, ctdb=1, fuzzy=0,
   metadata=none, toc=<toc>`; response is MMD XML
-  (`<ctdb xmlns="…mmd-1.0#"><entry …/></ctdb>`). A match is labelled
-  **experimental** until the audio-CRC is hardware-validated (KDD-16) — it can
-  only ever under-claim, never fabricate a "verified".
+  (`<ctdb xmlns="…mmd-1.0#"><entry …/></ctdb>`). The audio-CRC is
+  **hardware-validated** (KDD-16 gate passed 2026-07-07 via `--ctdb-calibrate`),
+  so a MATCH renders as **verified**; the "experimental" labelling survives in
+  code only as the defensive fallback if `crc.CRC_VALIDATED` is ever re-opened —
+  the verdict can only ever under-claim, never fabricate a "verified".
 
 ## System drive/reader control (`drive_control.py`) — force-stop / free
 
@@ -203,18 +231,23 @@ Kill an orphaned rip that podman won't forward a signal into (see the module's
 hard-won notes). Tools resolved to absolute paths (minimal PATH under a desktop
 launcher):
 
-- **`pkill -KILL -f 'whipper (cd|drive|offset|image|accurip|mblookup|rip)'`** —
-  the whipper CLI, anchored so it can never match the GUI or the pkill wrapper.
-- **`pkill -KILL 'cdparanoia|cd-paranoia|cdrdao|cyanrip'`** — the readers, by
-  process **name** (never `-f` — that would self-match). **cyanrip is its own
-  reader** (libcdio, no child), so it must be killed by its own name.
-- **`fuser -s -k <device>`** — name-independent catch-all for whatever holds the
-  drive node (never the GUI, which doesn't open the device).
-- **`eject [<device>]`** — only *after* the holder is killed (a busy device
-  ignores eject).
-- **In-container fallback** (only if the host pkill matched nothing):
-  **`distrobox enter ripping -- pkill …`** — the one user-approved exception to
-  Critical rule #3, scoped strictly to force-stopping a cancelled rip.
+Ordered sequence (device-scoped first since 0.4.9 — a multi-drive box must
+never have a rip on another drive killed by a broad name match, #23):
+
+1. **`fuser -s -k <device>`** — device-scoped: kill whatever holds the drive
+   node (never the GUI, which doesn't open the device).
+2. **Only if that caught nothing**, the name-matched host pkills:
+   `pkill -KILL -f 'whipper (cd|drive|offset|image|accurip|mblookup|rip)'`
+   (an **inert whipper-era seam** — kept anchored so it can never match the
+   GUI or the pkill wrapper) and
+   `pkill -KILL 'cdparanoia|cd-paranoia|cdrdao|cyanrip'` — the readers, by
+   process **name** (never `-f` — that would self-match). **cyanrip is its own
+   reader** (libcdio, no child), so it must be killed by its own name.
+3. **In-container fallback** (only if the host saw nothing at all):
+   **`distrobox enter ripping -- pkill …`** — the one user-approved exception
+   to Critical rule #3, scoped strictly to force-stopping a cancelled rip.
+4. **`eject [<device>]`** — only *after* the holder is killed (a busy device
+   ignores eject).
 
 **Shutdown contract (0.4.9):** closing the app during a rip runs `free_drive`
 (kill the reader, no eject) **synchronously** so the in-container reader can't

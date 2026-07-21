@@ -37,11 +37,14 @@ and important settings were scattered across many dialogs.
 2. **Default to the safest true path.** If the promise is bit-perfect, the first
    rip after install must already be on a defensible path; never let the fast
    mode masquerade as the trustworthy one. *Platterpus:* ✅ secure by default;
-   `-Z N` re-rip is opt-in for marginal discs.
+   tracks that don't match AccurateRip are automatically secure-re-ripped
+   (`-Z`, ceiling default 2) since 0.4.9 — no opt-in needed; the ceiling is a
+   Settings spinner (0 disables).
 3. **Progressive disclosure, two axes.** Defer advanced controls by *task phase*
    (setup → rip → verify) and by *expertise* (basic → advanced → forensic) — but
    the beginner path must still produce a trustworthy result. *Platterpus:*
-   ✅ first-run wizard; ⚠️ no explicit **goal presets** yet (gap #1 below).
+   ✅ first-run wizard + **goal presets** ("Fast verified" / "Archival exact" /
+   "Portable" — gap #1, shipped 2026-06-28, 0.4.0).
 4. **Outcome-oriented terminology.** Lead with the *effect*, then the term:
    "Drive caches audio — needs slower secure reads," not "Cache defeat."
    *Platterpus:* ✅ goal presets + the format/verdict labels already lead with
@@ -67,9 +70,12 @@ and important settings were scattered across many dialogs.
    ledger (`drive_profiles.py`, 2026-06-29) keyed by a stable fingerprint
    (WWN → serial → vendor/model) records each offset's source + confidence and
    shows it as a trust line, and guards the identical-drive / offset-disagreement
-   cases. It is a **record/display/guard layer** — `whipper.conf` + the
-   `--offset` override stay authoritative (KDD-23); *applying* a remembered
-   offset per drive is the deferred, hardware-gated piece.
+   cases. It is a **record/display/guard layer** — the GUI's own offset override
+   (`Config.read_offset`, passed to cyanrip as `-s N`) is the **sole** offset
+   authority; a legacy `whipper.conf` is read only as a reference/trust
+   display, never applied (KDD-23, tightened by the 0.4.19 offset-gate fix);
+   *applying* a remembered offset per drive is the deferred, hardware-gated
+   piece.
 8. **Metadata = reviewable suggestions, not truth.** Auto-fetch and prefill;
    surface confidence/disagreement; never force manual tagging nor silently
    accept a low-confidence match. *Platterpus:* ✅ MusicBrainz pick + editable
@@ -94,14 +100,14 @@ user impact ÷ effort:
 
 | # | Gap | Why it matters | Rough size |
 |---|---|---|---|
-| 1 | **Goal presets** ("Fast verified" / "Archival exact" / "Portable") | Anchors all config to user *intent* instead of asking novices to reason about abstract toggles first (EAC's "accuracy vs speed" was this, bluntly). | M |
+| 1 | ✅ **Goal presets** ("Fast verified" / "Archival exact" / "Portable") (`goal_presets.py` + the Settings Goal combo; 2026-06-28) | Anchors all config to user *intent* instead of asking novices to reason about abstract toggles first (EAC's "accuracy vs speed" was this, bluntly). | M |
 | 2 | ✅ **Machine-readable (JSON) log** beside the human one (`platterpus.rip_report` → `<name>.platterpus.json`; 2026-06-28) | Powers QA, re-verification, repair tooling, support; "two outputs every time." | S–M |
 | 3 | **Timestamp-localized anomalies + one-click playback** of flagged regions | The single most "friendly to demanding users" EAC trait — review only where confidence broke, not the whole disc. | M (HW-gated) |
 | 4 | 🟡 **Accessibility pass** (names on status/metadata/disc-info surfaces, text+symbol status, menu mnemonics + standard shortcuts; 0.4.4) | Accessible names, keyboard coverage, non-colour-only status, focus-safe live updates. Reports rank this the #1 modern gap. *Remaining:* full keyboard-reachability sweep + focus-safe live announcements. | S–M |
 | 5 | ✅ **Outcome-oriented wording** across Settings/labels (overread + drive-setup cache verdict reworded effect-first; 2026-06-29) | Cuts the learning cost without removing the precise term. | S |
 | 6 | ✅ **Drive profiles keyed by stable fingerprint** + detection provenance/confidence (record/display/guard ledger shipped 2026-06-29; per-drive offset *application* deferred as hardware-gated — KDD-23) | Identical-drive collisions and silent wrong-offset rips are the classic *state* bugs (EAC hit exactly this in 2007). | M |
 
-**Status:** gaps #1, #2, #5 shipped 2026-06-28; #6 shipped 2026-06-29 (the
+**Status:** gaps #1 and #2 shipped 2026-06-28, #5 on 2026-06-29; #6 shipped 2026-06-29 (the
 record/display/guard ledger; per-drive offset *application* deferred as
 hardware-gated); #4 had its first substantive pass in 0.4.4 (🟡 — accessible
 names on the status/metadata/disc-info surfaces, text+symbol status, menu

@@ -47,8 +47,8 @@ CueTools C# source):
 
 1. **Trim (v0.4.16 placeholder).** It computed a plain `zlib.crc32` of the
    **untrimmed** disc (trim `(0,0)`). The CRC polynomial was always right — the
-   trim was wrong. The real trim is `front=5880`, `back=9996` frames
-   (asymmetric); v0.4.17 fixed this.
+   trim was wrong. The real trim is asymmetric: `front=5880` fixed, back length-dependent
+   (`laststride/2` — 9996 for the Police disc's 157,999,716 frames); v0.4.17 fixed this.
 2. **Offset range (v0.4.17).** The trim was now correct, but calibration swept
    only AccurateRip's **±2939**. CTDB matches over **±5879**; a pressing aligned
    in (2939, 5879] was never reached, so a genuinely-good in-database disc still
@@ -63,7 +63,7 @@ CueTools C# source):
 - **Calibrate** (`ctdb/calibrate.py`, `platterpus --ctdb-calibrate`): sweeps the
   full ±5879 offset window and reports which offset reproduces a DB CRC. Uses the
   zlib `crc32_combine` (GF(2) "append N zero bytes") operator so the whole sweep
-  is a few big CRC passes plus cheap algebra, not 5 879 re-CRCs of a ~600 MB disc.
+  is a few big CRC passes plus cheap algebra, not ~11 759 re-CRCs of a ~600 MB disc.
   A match at `offset 0` means the rip's read offset aligns with that pressing; a
   match at `±k` means it differs by `k` samples (still a valid verify).
 
@@ -94,4 +94,4 @@ command on any in-CTDB disc and expect a `✅ MATCH` at `offset=+0`.
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.24.*

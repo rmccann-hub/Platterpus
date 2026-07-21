@@ -42,7 +42,7 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
 
 2. **`python-appimage` is the AppImage builder.** Do not use `appimage-builder` without stopping and asking first. If a build requirement cannot be expressed in `python-appimage`, describe the specific limitation in detail before reaching for any alternative. If `appimage-builder` is approved as a fallback, the recipe must stay close enough to vanilla that swapping back is cheap.
 
-3. **Distrobox routing is sacred.** The GUI calls the host-exported ripper in `~/.local/bin/` (currently `~/.local/bin/cyanrip`). It does not call into the container directly, does not assume a native ripper, does not try to install or update the ripper itself. (The ripper *binary* changed — whipper → cyanrip-only, 2026-06-30, KDD-18 — but the routing pattern is unchanged and remains non-negotiable.)
+3. **Distrobox routing is sacred.** The GUI calls the host-exported ripper in `~/.local/bin/` (currently `~/.local/bin/cyanrip`). It does not call into the container directly, does not assume a native ripper, does not try to install or update the ripper itself. (The ripper *binary* changed — whipper → cyanrip-only, 2026-06-30, KDD-18 — but the routing pattern is unchanged and remains non-negotiable.) The one scoped, user-approved exception (2026-05-31): force-stopping a runaway drive on rip-cancel may kill the reader process — device-scoped on the host first and, only if the host saw nothing, inside the container — see `drive_control.py` and the drive/reader-control section of `docs/dependency-contracts.md`.
 
 4. **FLAC is the default and the archival master; MP3, WavPack, and WAV are derived outputs.** (Superseded the original "FLAC only for v1" — multi-format shipped 2026-06-26 with the maintainer's explicit sign-off; FLAC stays the lossless master.) Every rip produces FLAC first (lossless, provably bit-perfect); when the user selects another format in Settings the GUI **keeps that FLAC** and derives the chosen format from it via the *single* post-rip transcode adapter (`adapters/transcode.py`). FLAC and WavPack are lossless; MP3 is best-practice VBR (lossy by design — "not for that use"); WAV is raw PCM (no tags/art — the UI warns). Every encoder routes through the same dependency self-management subsystem — **no bespoke per-encoder install code**. A new format extends the one transcode adapter + the one dep subsystem; it never gets its own install path.
 
@@ -97,26 +97,31 @@ This project is as much about building durable standards as shipping the app —
 
 ## Companion documents
 
-Read these alongside this file when picking up a session:
+Read these alongside this file when picking up a session. **`docs/README.md` is
+the canonical annotated index** — one line each here (so this list can't drift
+from it again; it did once, KDD-range v23 vs v25):
 
-- **`PLANNING.md`** — architecture, module design, key design decisions (KDD-01 through KDD-23)
-- **`TASKS.md`** — active task checklist; update status (`[ ]` → `[~]` → `[x]`) as work progresses. Sections: P0 (v1 release, T01-T32), P1.1 (install/uninstall ease — highest-priority P1 subset), P1 (broader backlog), P2 (future), Out of scope.
-- **`DEPENDENCIES.md`** — dep table with last release dates and replacement plans; review per the cadence stated in that file
-- **`README.md`** — outward-facing project description and install instructions
-- **`docs/architecture.md`** — architecture & contributor guide: the layered design, the core patterns *with the why and hard-won lessons* (adapter layer, the never-block-the-GUI-thread discipline + worker mechanics, subprocess rules, never-raise parsers, the dependency subsystem, the MainWindow mixin decomposition, error/logging), extension recipes, packaging/release/security, and future directions. **Start here to extend the program.** (Absorbed the former `docs/best-practices.md`.)
-- **`docs/README.md`** — index of the docs/ directory, the single-source-of-truth map, and a rebuild-from-scratch checklist
-- **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements and scope
-- **`docs/ux-design-principles.md`** — the trust-first UX principles the GUI is built to (e.g. "two outputs every time", "one definition of verified", status by symbol+text not colour alone); referenced throughout the results/verdict code
-- **`docs/platterpus-session-start.md`** — bootstrap instructions a fresh Claude Code session uses to reproduce the initial planning artifacts; its **Step 0** holds the optional Research-mode prompt for refreshing tool-choice validation
-- **`docs/log-format-comparison.md`** — cyanrip rip log vs EAC log side-by-side (referenced by KDD-11)
-- **`docs/dependency-contracts.md`** — the single reference for the exact args/flags/syntax we pass each external dependency (cyanrip, flac, metaflac, ffmpeg, musicbrainzngs, CAA, CTDB, drive/reader control) and the output shape we parse; the code-side half of the *validate every input and every dependency output* convention
-- **`docs/testing.md`** — the testing strategy & standards (the trophy + hardware gate, the five-tier case taxonomy, property/golden/fault-injection guidance, the coverage gate, and the institutional rules: every bug gets a regression test; parsers never raise)
-- **`docs/test-plan.md`** — manual & release testing: the end-to-end acceptance run, the EAC output-parity check, the distro + problem-permutation matrices, and the deep single-feature gated cases (absorbed the former `docs/release-testing.md`)
-- **`docs/session-log.md`** — chronological session history (what was built/decided/learned each session, newest first). Read it for *continuity*; durable lessons graduate from it into the docs above.
-- **`docs/ripper-engine-strategy.md`** — living research/options doc on forking/combining whipper + cyanrip long-term (licensing, option menu, decision gates). Revisits KDD-18; research only, not a commitment.
-- **`docs/archive/`** — retired point-in-time investigations (ecosystem audit, read-offset, upstream-modification/CTDB spec) **plus external reference material** (the EAC archival master guide); durable conclusions have graduated into KDDs / DEPENDENCIES / adapter comments (see `docs/archive/README.md`)
+- **`PLANNING.md`** — architecture, module map, and the numbered KDD decision log
+- **`TASKS.md`** — the active task checklist; update status (`[ ]` → `[~]` → `[x]`) in the same commit as the work
+- **`DEPENDENCIES.md`** — dep pins, review cadence, retirement log
+- **`README.md`** — outward-facing description + install instructions
+- **`SECURITY.md`** — security policy (supported versions, vulnerability reporting)
+- **`docs/README.md`** — the complete annotated index of docs/, the single-source-of-truth map, and the rebuild checklist
+- **`docs/architecture.md`** — the contributor guide: patterns with their *why*, extension recipes. **Start here to extend the program.**
+- **`docs/testing.md`** — testing strategy, institutional rules, and the Definition of Done (rule #7's checklist)
+- **`docs/test-plan.md`** — manual & release testing (acceptance run, EAC parity, gated hardware cases)
+- **`docs/dependency-contracts.md`** — exact args/flags per external tool + parsed output shapes
+- **`docs/platterpus-research-brief-v2.1.md`** — the project brief; canonical for requirements/scope *as amended by the KDDs*
+- **`docs/ux-design-principles.md`** — the trust-first UX principles + the canonical gap backlog
+- **`docs/session-log.md`** — per-session chronology (newest first); lessons graduate out of it (rule #7)
+- **`docs/ripper-engine-strategy.md`** — living fork/engine research (+ companions: `upstream-pr-roadmap.md`, `cyanrip-soft-fork.md`, the `scripts/cyanrip/` kit)
+- **`docs/archive/`** — retired dated investigations + external reference; graduation map in its README
 
-If `PLANNING.md` and the brief conflict, the brief wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
+Everything else under `docs/` (log-format comparison, mp3-wav design-of-record,
+CTDB CRC spec, EAC investigations, GitHub SOP, AppImage testing, dated audits)
+is indexed with one-line descriptions in `docs/README.md`.
+
+If `PLANNING.md` and the brief conflict, the brief **as amended by the maintainer-approved KDDs** wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
 
 There is no `compass_artifact_*.md` in the repo; the original v1 research validation was unavailable when the project was bootstrapped, so the project proceeded against the brief alone. To refresh tool-choice research, follow `docs/platterpus-session-start.md` Step 0.
 
@@ -133,8 +138,8 @@ There is no `compass_artifact_*.md` in the repo; the original v1 research valida
 
 ### CI / release
 
-- **CI:** `.github/workflows/ci.yml` runs `pytest` **and `ruff`** (lint + format check) on every push to `main` and every PR.
-- **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing `build/build_appimage.sh`) and attaches it + a `.sha256` to a GitHub Release; `publish-pypi.yml` publishes the wheel+sdist. `v0.*` tags publish as pre-releases. Before tagging: **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — this is the *single source*; `pyproject.toml` reads it dynamically, so do **not** add a version there — and **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading with a matching compare link.
+- **CI:** `.github/workflows/ci.yml` runs on every push to `main` and every PR. **Gating jobs:** `test` (pytest on the 3.11–3.14 matrix + the coverage floor), `lint` (`ruff check` + `ruff format --check`), `typecheck` (`mypy`, config in `pyproject.toml` `[tool.mypy]` — strict def-typing across the whole package), `changelog` (the rule-#7 backstop), `media-guard` (the rule-#8 backstop), and `pip-audit` (dependency vulnerabilities). **Advisory:** `tests-touched` warns (never fails) when `src/` changes without a `tests/` change. Two more workflows: `mutation.yml` runs mutation testing **weekly, non-gating**, and `appimage.yml` builds + smoke-tests the AppImage on every push to `main` and on demand for any branch (see `docs/appimage-testing.md`).
+- **Releasing is automated** — do *not* hand-build/upload. Cut a release by pushing a version tag (`git tag vX.Y.Z && git push origin vX.Y.Z`) **or by dispatching the Release workflow with the tag as input — it creates the tag itself (works from the cloud session via the Actions API; tag pushes don't)**. `.github/workflows/release.yml` then builds the AppImage (reusing `build/build_appimage.sh`) and attaches it + a `.sha256` + the `.zsync` self-update file to a GitHub Release, with a signed build-provenance attestation; it then dispatches `publish-pypi.yml`, which publishes the wheel+sdist. `v0.*` tags publish as pre-releases. Before tagging: **(1)** bump the version in **`src/platterpus/__init__.py` (`__version__`)** — this is the *single source*; `pyproject.toml` reads it dynamically, so do **not** add a version there — and **(2)** move the `CHANGELOG.md` `[Unreleased]` entries under a new `## [X.Y.Z] — <date>` heading with a matching compare link.
 - **Single record of changes:** every notable change is recorded in **`CHANGELOG.md`** (the one authoritative update log; Keep-a-Changelog style). Add a bullet to its `[Unreleased]` section **in the same commit** as the change. `PLANNING.md` (KDDs) and `docs/session-log.md` are for *design decisions and session history*, not the user-facing change record.
 
 ### Commit & PR hygiene
@@ -144,9 +149,9 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 - **Atomic commits.** One logical change per commit — don't mix a fix with an unrelated refactor. Small, test-green units keep review, `git bisect`, and `git revert` surgical.
 - **Conventional-commit subject:** `type(scope): imperative summary` — **lowercase** after the colon, no trailing period, concise (aim short, but the `type(scope):` prefix + a release subject legitimately run past 50 chars — clarity over a hard cap). Types in use: `feat`, `fix`, `docs`, `test`, `refactor`, `style`, `chore`, `release`. Blank line, then a body wrapped ~72 cols that explains **what and why, not how** (the diff shows how).
 - **Required trailers** on every commit (per the harness rules): the `Co-Authored-By:` line and the `Claude-Session:` line. Never put the model identifier in a commit, PR, or any pushed artifact.
-- **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for a pure historical-record commit. CI backstops this.
+- **Changelog in the same commit** (Critical rule #7) — or a standalone `[skip changelog]` line for a pure historical-record commit. **The exemption is strictly that** (maintainer ruling, 2026-07-21): contributor/CI-facing changes — type annotations, CI config, dev tooling, refactors — are **not** exempt and get a bullet like any other change; "pure historical record" means the commit changes nothing but the record itself (e.g. a session-log catch-up). CI backstops this.
 - **Branch:** commit only to the session's designated `claude/…` branch; never push to `main`. Prefer `git switch` over `git checkout` for branch ops.
-- **PRs squash-merge into `main`** — one `main` node per complete, deployable change. Merge only when CI is green (the `pytest` 3.11–3.14 matrix + coverage floor, `ruff` lint/format, and the changelog check). Don't open a PR unless asked.
+- **PRs squash-merge into `main`** — one `main` node per complete, deployable change. Merge only when CI is green (the `pytest` 3.11–3.14 matrix + coverage floor, `ruff` lint/format, `mypy` typecheck, the changelog check, media-guard, and `pip-audit`). Don't open a PR unless asked.
 - **Deliberate divergences from the generic SOP** (do *not* "fix" these to match it): (1) we use **lowercase conventional-commit prefixes**, not the SOP's "Capitalize the subject" / no-prefix style; (2) no hard 50-char subject cap; (3) the agent git proxy is **fast-forward-only** — **no force-push, no branch delete, no tag push**; releases go via the `release.yml` `workflow_dispatch`, not `git push origin vX.Y.Z`; (4) personal `username/…` branches don't apply — the session branch is assigned.
 
 ### Run commands
@@ -164,7 +169,7 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 - `pytest` from repo root (no env vars needed — `pyproject.toml` sets `pythonpath = ["src"]`)
 - **What CI enforces:** branch coverage + a hard floor — `pytest --cov=platterpus --cov-report=term-missing --cov-fail-under=91` on a **Python 3.11–3.14 matrix**. The gate **ratchets up, never down**.
 - Property-based tests (parsers never crash on any input): `pytest tests/test_parsers_property.py` (needs `hypothesis`, in the `dev` extra).
-- Periodic test-quality audit (slow, not a CI gate): `pipx run mutmut run --paths-to-mutate src/platterpus/parsers/`.
+- Mutation testing (test-quality audit) runs **weekly in CI** (`.github/workflows/mutation.yml` — non-blocking, never gates a merge) over `src/platterpus/parsers/`, `src/platterpus/verdict.py`, and `src/platterpus/ctdb/crc.py`. Run locally with `pipx run mutmut run --paths-to-mutate "src/platterpus/parsers/,src/platterpus/verdict.py,src/platterpus/ctdb/crc.py"`.
 - **Testing strategy + the rules every change is held to live in [`docs/testing.md`](docs/testing.md)** (the trophy + hardware gate, the five-tier case taxonomy, and the Definition of Done). **Institutional rule: every shipped bug gets a regression test in the same PR as the fix; every new parser of external output gets a property-based "never raises" test.**
 
 ### Uninstall
@@ -178,8 +183,9 @@ The general GitHub mechanics + etiquette live in **[`docs/github-workflow-sop.md
 
 - **Lint:** `ruff check src tests` (config in `pyproject.toml` `[tool.ruff]`; rules `E,F,W,I,B,UP`, `E501` off). Auto-fix: `ruff check src tests --fix`.
 - **Format:** `ruff format src tests` (88-col, double quotes — matches the existing code). CI checks with `ruff format --check`.
-- **CI:** the `lint` job in `.github/workflows/ci.yml` runs both in check mode on every push/PR, in parallel with `test`.
-- `ruff` is in the `dev` extra (`pip install -e ".[dev]"`).
+- **Type-check:** `mypy` (bare invocation; config in `pyproject.toml` `[tool.mypy]`, strict def-typing across the whole package). CI runs it as the gating `typecheck` job.
+- **CI:** the `lint` job in `.github/workflows/ci.yml` runs both ruff commands in check mode on every push/PR, in parallel with `test` and `typecheck`.
+- `ruff` and `mypy` are in the `dev` extra (`pip install -e ".[dev]"`).
 
 ### Enforced safety (.claude/ + git hook)
 
@@ -215,4 +221,4 @@ Chronological session notes — what was built, decided, and learned each sessio
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.24.*

@@ -71,3 +71,7 @@ htmlcov/
 *.alac
 *.dsf
 *.dff
+
+# Local cyanrip soft-fork checkout (scripts/cyanrip/README.md) - never committed.
+# Root-anchored so scripts/cyanrip/ (the contribution kit) stays tracked.
+/cyanrip/
