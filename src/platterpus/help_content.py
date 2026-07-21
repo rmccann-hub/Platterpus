@@ -78,6 +78,9 @@ Alongside the rip, two records are saved next to your music: the backend's
 human-readable **`.log`**, and a **`.platterpus.json`** report with the same
 results in a machine-readable form (per-track CRCs, AccurateRip/CTDB outcomes,
 the verdict) — handy for scripting, re-verifying later, or attaching to a report.
+The ripper also writes a **`.cue`** sheet (the disc's track and index map); when
+one is present, a **View cue** button opens it beside **View log** and **View
+report**.
 
 ## What the trickier results mean
 

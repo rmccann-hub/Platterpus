@@ -741,7 +741,7 @@ These are listed in TASKS.md under "P1 — EAC bit-perfect parity gaps" and shou
 
 **Verification needed — ANSWERED by T32 (2026-05-29):**
 
-- **Does whipper emit a `.cue` sheet alongside the FLACs?** Yes. A real rip wrote `<disc>.cue`, `<disc>.m3u`, and `<disc>.toc` next to the FLACs (plus the `.log`). The `.cue` carries `REM DISCID`, per-track `INDEX`/`ISRC`, and the gap (`INDEX 00`) data. Surfacing the `.cue` in the rip-progress widget the way we surface the `.log` is a small P1 addition.
+- **Does whipper emit a `.cue` sheet alongside the FLACs?** Yes. A real rip wrote `<disc>.cue`, `<disc>.m3u`, and `<disc>.toc` next to the FLACs (plus the `.log`). The `.cue` carries `REM DISCID`, per-track `INDEX`/`ISRC`, and the gap (`INDEX 00`) data. Surfacing the `.cue` in the rip-progress widget the way we surface the `.log` shipped in v0.5.x — a **View cue** button beside View log / View report, enabled when a cue is present (cyanrip writes `<disc>.cue` beside `<disc>.log`; the whipper-era `.m3u`/`.toc` no longer apply).
 - **Does whipper capture per-track ISRC and disc UPC?** The slots exist — the `.cue` has `CATALOG` (UPC) and per-track `ISRC` lines, and the `.toc` has `ISRC` per track — but on the CD-R tested they were all zeros (`CATALOG 0000000000000`, `ISRC 000000000000`) because the disc carries no subchannel ISRC/UPC. A pressed commercial disc would populate them; capturing them into our `RipLog`/UI is a P1 evaluation once a disc with real ISRCs is on hand.
 
 ### KDD-14 — CTDB integration: verify (Python), then repair (wrap `ctdb-cli`; shipping TBD)

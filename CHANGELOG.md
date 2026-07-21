@@ -12,6 +12,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **View the rip's cue sheet from the results pane.** cyanrip writes a `.cue`
+  (the disc's track/index map) beside the `.log` on every rip; a **View cue**
+  button now sits alongside View log / View report and opens it in the in-app
+  read-only viewer. It's enabled only when a cue is actually present, and — like
+  the other output buttons — it follows the album folder if a library move
+  relocates the rip. (PLANNING KDD-13's "small P1 addition".)
 - **MP3 VBR quality is now a Settings control** (Settings → "MP3 VBR quality",
   0–9, default 0). The `mp3_vbr_quality` config field was already plumbed
   through the transcode adapter (ffmpeg `-q:a N`, the same as lame `-V N`) but
