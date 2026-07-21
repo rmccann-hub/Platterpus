@@ -45,6 +45,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **Research/design docs reconciled with their own outcomes.**
+  `eac-log-and-repair-feasibility.md` no longer reads as pending: Part A's
+  decision gate records the KDD-24 resolution (option 1 standing, option 2
+  shipped v0.4.16, signing permanently closed), Part B's CRC blocker is marked
+  cleared (v0.4.20), and the misattributed "CLAUDE.md" ethos quote is
+  re-cited. `eac-parity-investigation.md` gained a dated Outcome note (13/14
+  reached, Track-3 transience confirmed then refined to read-instability, the
+  `-Z` hardware gate answered, P1 done) plus superseded-pointers for the
+  INDEX-00 route (PR #115 via the upstream roadmap) and the renamed `-Z`
+  Settings control. `mp3-wav-support.md` gained a status note (whipper
+  removed; ffmpeg is the sole shipped WavPack encoder — as-built annotations
+  on the locked decision block rather than rewrites) and its stale
+  "still to add"/"Test-plan candidate" parentheticals now record what
+  shipped.
 - **Reference-doc accuracy sweep (dependency-contracts, ux-principles,
   log-format, CTDB-CRC).** `dependency-contracts.md`: CTDB matches read
   "verified" (CRC hardware-validated v0.4.20, this was the last "experimental"

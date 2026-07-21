@@ -19,6 +19,19 @@ EAC V1.8 baseline of the same disc. Logs/cues live in
    AccurateRip confidence 200. This is the goal worth chasing, and it's nearly
    met.
 
+   > **Outcome (2026-07, added after later hardware runs):** the v0.4.13
+   > re-rip reached **13/14** — Track 3 converged partial→exact on a re-read,
+   > confirming P2(c)'s transient-near-miss prediction (see
+   > `output_reference/cyanrip_mp3/README.md` and the v0.4.13 session-log
+   > entry); Track 5 remains the disc's own defect. A still-later re-rip
+   > regressed Track 3 again, refining the story to *read-instability on that
+   > track* — now auto-detected by the v0.4.24 re-rip comparison. The `-Z`
+   > hardware gate below is **answered** (a real `-Z` run produced per-track
+   > convergence data, session-log 0.4.7), and P1 is **✅ done**
+   > (`scripts/eac_parity.py` golden-tested; `tests/test_parity.py` pins the
+   > committed 12/14 baseline; procedure + CRC table in `docs/test-plan.md`).
+   > The committed-baseline analysis below is kept as the dated record.
+
 2. **Bit-identical *files* (the `.flac`/`.cue`/`.log` byte-for-byte) — NOT
    ACHIEVABLE, and not the right target.** A FLAC file's bytes are *encoder-
    determined*: EAC pipes PCM to `flac.exe -8`; we use FFmpeg/libavcodec. Even
@@ -133,9 +146,11 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
 **P2 — Close Track-3-class near-misses (the real audio gap).**
 - (a) Add cyanrip **`-Z N`** ("re-rip until checksums match N times") as a
   secure-rip option for marginal discs — strengthens reads so a near-miss track
-  converges to the consensus. **✅ Code landed 2026-06-28** (Settings →
-  "Re-rip until reads match", `config.secure_rerip_matches` → cyanrip `-Z N`;
-  whipper has no equivalent and greys it out). **⚠ HARDWARE-GATED:** confirmed
+  converges to the consensus. **✅ Code landed 2026-06-28** (as the Settings
+  control now named "Max reads to confirm a shaky track",
+  `config.secure_rerip_matches` → cyanrip `-Z N`; dynamic secure re-rip is
+  **on by default since v0.4.9** — no opt-in checkbox; the whipper grey-out
+  clause is history, whipper was removed 2026-06-30, KDD-18). **⚠ HARDWARE-GATED:** confirmed
   to build the right argv and pass through the stack in tests, but its *effect*
   on a marginal disc — does a `-Z 2` rip actually converge Track-3-class
   near-misses to the AccurateRip consensus? — can only be proven on the
@@ -143,7 +158,9 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
   `scripts/eac_parity.py` against the EAC baseline to measure.
 - (b) Document the **CUETools Repair** workflow as the authoritative fix for a
   "partially accurate (450)" track, and evaluate a future in-app CTDB-repair
-  step (large; CTDB verify already exists, repair does not).
+  step (large; CTDB verify already exists, repair does not). Evaluated in
+  [docs/eac-log-and-repair-feasibility.md](eac-log-and-repair-feasibility.md)
+  (repair deferred; its CRC-validation gate cleared 2026-07-07).
 - (c) First, simply **re-rip track 3** to see if the near-miss was transient.
 
 **P3 — Pre-gaps / `INDEX 00` in the cue (decision-gated).**
@@ -154,6 +171,10 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
   feature request, the whipper/cdrdao path (cdrdao reads full TOC incl. gaps —
   but whipper is offset->587-buggy and cdrdao stalls on this BD drive), or
   generating the cue ourselves from a subchannel read we don't currently do.
+  *(Superseded 2026-07-07: the researched answer lives in
+  [docs/upstream-pr-roadmap.md](upstream-pr-roadmap.md) — support cyanrip
+  **PR #115**, with a Platterpus-side `cdrdao read-toc` as the documented
+  fallback; the whipper route no longer exists — KDD-18.)*
 - (c) **Decision gate:** is `INDEX 00` worth it given the audio is already
   equivalent and per-track FLACs don't use it? Likely **only** pursue if we add a
   single-file-image output mode.
@@ -179,4 +200,4 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 
 ---
 
-*Last updated for Platterpus v0.4.19.*
+*Last updated for Platterpus v0.4.24.*
