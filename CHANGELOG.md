@@ -11,7 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **cyanrip upstream-contribution kit** (`scripts/cyanrip/`, PR #80,
+  2026-07-09; bullet added retroactively under the 2026-07-21 strict
+  `[skip changelog]` ruling): a verified, dry-run-first patcher for the
+  colon fix (`apply-colon-fix.py`, unit-tested), fork/build scripts, the
+  canonical paste-ready upstream issue/PR bodies, and the ASan/UBSan-proved
+  C harness.
+
 ### Changed
+- **Strict def-typing (`mypy`) enforced across the entire package** (PRs
+  #81–#83, 2026-07-09→20; bullets added retroactively under the same ruling):
+  staged in three ratchets — everything outside `ui/` (a zero-code-change
+  config tighten), the standalone UI widgets (8 real annotations fixed), and
+  finally the `MainWindow` god-object + its five mixins via the new
+  runtime-neutral `ui/main_window_shared.py` typing seam (which also fixed
+  ~10 real type gaps). No per-module exclusions remain.
+- **`[skip changelog]` scope settled — strict** (maintainer ruling,
+  2026-07-21): the exemption covers *pure historical-record commits only*;
+  contributor/CI-facing changes get bullets like any other change. Wording
+  clarified in CLAUDE.md's Commit & PR hygiene and the testing.md Definition
+  of Done; the four PRs that had used the broader reading got their bullets
+  above.
 - **README's duplicate EAC-parity section folded into the top matrix**
   (maintainer-approved): the "Compared to EAC's bit-perfect settings" lists
   restated the capability matrix and point-by-point table from the top of the

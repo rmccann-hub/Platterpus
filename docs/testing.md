@@ -341,8 +341,9 @@ tiers. "I added a happy-path test" is not done.
       in the commit, even a temporary test fixture. — *CLAUDE.md Critical Rule #8*
 - [ ] `CHANGELOG.md` `[Unreleased]` has a bullet for the change, **in the same
       commit** (CI enforces this; a pure historical-record commit opts out with a
-      `[skip changelog]` line of its own in the commit message). — *CLAUDE.md
-      Critical Rule #7*
+      `[skip changelog]` line of its own in the commit message — and *only* a
+      historical-record commit: contributor/CI-facing changes are **not** exempt,
+      maintainer ruling 2026-07-21). — *CLAUDE.md Critical Rule #7*
 - [ ] **At session end:** `docs/session-log.md` has a newest-first entry, and any
       durable lesson has been **graduated** to its home (CLAUDE.md / `PLANNING.md`
       KDD / [architecture.md](architecture.md) / this file) — not left only in the
