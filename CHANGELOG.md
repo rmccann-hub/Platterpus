@@ -45,6 +45,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **`DEPENDENCIES.md` / `SECURITY.md` corrections.** The mypy row now shows
+  the real pin (`>=1.13,<3`) and the package-wide strict gate (the "except the
+  Qt UI mixin layer" note — also stale in a `ci.yml` comment — predated the
+  2026-07-19/20 strictness completion); the `build` row no longer claims a pin
+  that exists nowhere; the mutmut row records the weekly CI run; the Pillow
+  tombstone row was removed per its own review instruction. SECURITY.md's
+  no-overwrite promise now cites the actual v0.4.22/v0.4.23 overwrite guards
+  instead of the unrelated Critical Rule #8, and the file gained the standard
+  footer stamp.
 - **README caught up with shipped reality.** CTDB verification is no longer
   described as "experimental / CRC fix pending" (it was hardware-validated in
   v0.4.20 — all four stale spots corrected); the container-upgrade example no

@@ -15,14 +15,13 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | Name | Pinned version | Last upstream release | License | Status | Planned replacement |
 |---|---|---|---|---|---|
 | python-appimage | `>=1.4,<2` (current: 1.4.5) | 2025-07-02 | GPL-3.0 (package itself); MIT for files under `python_appimage/data` | Active | `appimage-builder` only if `python-appimage` cannot express a required build step (CLAUDE.md Critical Rule #2). The recipe must avoid `appimage-builder`-specific features so swapping back is cheap. |
-| build | `>=1,<2` | (per PyPI at first install) | MIT | Active | — (PEP 517 build frontend; used by `build/build_appimage.sh`) |
+| build | unpinned (latest) | (per PyPI at first install) | MIT | Active | — (PEP 517 build frontend; used by `build/build_appimage.sh`) |
 | pytest | `>=8,<10` | (per PyPI at first install) | MIT | Active | — |
 | ruff | `>=0.15,<1` | (per PyPI at first install) | MIT | Active | — (linter + formatter; CI runs `ruff check` + `ruff format --check`. Rules `E,F,W,I,B,UP`, `E501` off. Config in `pyproject.toml`.) |
 | pytest-cov | `>=5` | (per PyPI at first install) | MIT | Active | — (dev/test only; CI runs branch coverage with `--cov-fail-under=91` (ratchets up). See [docs/testing.md](docs/testing.md).) |
 | hypothesis | `>=6` | (per PyPI at first install) | MPL-2.0 | Active | — (dev/test only; property-based tests in `tests/test_parsers_property.py`. MPL-2.0 is fine — test-time tool, not linked/distributed.) |
-| mutmut | not installed (`pipx run mutmut`) | — | BSD-3-Clause | Active | — (dev/test only; periodic mutation-testing **audit**, not a CI gate — see [docs/testing.md](docs/testing.md) §7. Run on demand, no pin needed.) |
-| mypy | `>=1.13,<2` | (per PyPI at first install) | MIT | Active | — (dev/test only; static type-checking. CI `typecheck` job runs `mypy` on every push/PR. Non-strict baseline over the whole package **except** the Qt UI mixin layer (excluded in `pyproject.toml` `[tool.mypy]`); strictness ratchets up per-module like the coverage floor. Approved as a new dev dep 2026-07-08.) |
-| Pillow | (no longer used) | — | HPND (PIL license) | Removed (unused) | — **No longer a dependency.** `build/make_icon.py` was rewritten to rasterize the SVG logo via an external tool (`rsvg-convert` / Inkscape / ImageMagick / the `cairosvg` module) instead of Pillow, and nothing else imports it; it is not declared in `pyproject.toml`. The committed icon means a normal AppImage build needs no image tooling at all. Row kept for the record; remove at the next dependency-table review if still unused. |
+| mutmut | not installed (unpinned by design) | — | BSD-3-Clause | Active | — (dev/test only; mutation-testing **audit**, not a CI gate — see [docs/testing.md](docs/testing.md) §7. Runs weekly in CI via `.github/workflows/mutation.yml` (non-gating) and on demand via `pipx run mutmut`.) |
+| mypy | `>=1.13,<3` | (per PyPI at first install) | MIT | Active | — (dev/test only; static type-checking. CI `typecheck` job runs `mypy` on every push/PR. **Strict def-typing (`disallow_untyped_defs`/`disallow_incomplete_defs`) enforced across the entire package since 2026-07-19/20** — the Qt UI mixin layer, the last hold-out, was brought in via the `MainWindowShared` typing seam (`docs/architecture.md` §3.6); no per-module exclusions remain. Approved as a new dev dep 2026-07-08.) |
 
 ## System dependencies (user-system, surfaced via the dependency subsystem or the setup wizard)
 
@@ -104,4 +103,4 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ---
 
-*Last updated for Platterpus v0.4.18.*
+*Last updated for Platterpus v0.4.24.*
