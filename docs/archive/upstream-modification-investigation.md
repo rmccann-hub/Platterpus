@@ -11,7 +11,7 @@ doesn't re-litigate them.
 > `adapters/ctdb_client.py` + `scripts/ctdb_verify.py`, 35 unit tests). The
 > `toc=` wire format and the audio CRC remain hardware-validation-gated and it's
 > not yet GUI-wired. Validation/wiring steps live in
-> [test-plan.md](test-plan.md) Test 1.
+> [test-plan.md](../test-plan.md) Test 1.
 
 The yardstick is **Exact Audio Copy (EAC)** on Windows: the de-facto gold
 standard for archival CD ripping. "Perfect use case vs Windows" means matching

@@ -11,6 +11,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **Documentation: five broken relative links repaired.** Four links in
+  `docs/session-log.md` and one in
+  `docs/archive/upstream-modification-investigation.md` used repo-root-relative
+  targets from inside `docs/`, so they 404'd when browsed on GitHub. Link text
+  is unchanged — only the targets were corrected.
+
 ## [0.4.24] — 2026-07-09
 
 ### Added
