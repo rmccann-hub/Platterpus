@@ -47,6 +47,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   `dependency-contracts.md`, and the TASKS item is closed. The remaining
   `INDEX 00` cue-metadata difference stays tracked separately (PR #115 route).
 
+### Changed
+- **Removed the vestigial `fallback_tiers` field from `DependencySpec`.** The
+  manager-driven tier cascade it fed was removed long ago (TD-3); nothing read
+  the field, so it's deleted (with its one construction site and the test
+  helper's parameter). The `tier` label stays — it's now formally documented as
+  the descriptive AUTO/QUEUED/MANUAL summary of how a dep resolves (routing keys
+  on `from_setup_wizard`/`install_command`, not on `tier`), rather than a field
+  "pending removal." Contributor-facing; no behaviour change.
+
 ### Documentation
 - **Housekeeping sweep (2026-07-21):** logged the pre-release dependency review
   for v0.5.0 (no new dependencies — the whole cycle is stdlib + the existing
