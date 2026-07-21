@@ -62,6 +62,22 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-D <scheme>` / `-F <scheme>` | directory / filename naming scheme | translated from the whipper-style template (`scheme_from_template`) |
 | `-G` | disable cover-art embedding | when cover art is not being embedded |
 
+**Gap/pregap handling (`-p`) — deliberately never passed.** cyanrip's default
+gap behaviour already matches EAC's, so we pass **no `-p`**. Verified against
+upstream README §"Pregap handling" (0.9.3.1 + master): *"By default, track 1
+pregap is ignored, while any other track's pregap is merged into the previous
+track. This is identical to EAC's default behaviour."* The contract, for the
+record: `-p` is a **per-track** override — `-p track_number=action`, repeated
+separately for each track (track index 1–197) — with actions `default` (merge
+into previous, drop on track 1), `merge` (into current track), `drop` (delete
+the pregap — **breaks cyanrip's no-discontinuities guarantee; not archival**),
+and `track` (split into a new track, which **renumbers all following tracks**
+and would desync our per-track `-t`/`-l`/progress/AccurateRip alignment). There
+is no global form: a bare `-p default` parses as track 0 and aborts the rip.
+Only the default (no flag) is archival-safe, which is why it's the only mode we
+use. See `docs/eac-parity-investigation.md` §Pregaps for the `INDEX 00`
+cue-metadata question (separate, decision-gated).
+
 **Tag string syntax (`-a`/`-t`) — a real trap:** the value list is
 `key=value:key=value`, parsed by FFmpeg's `av_dict_parse_string`, **but** cyanrip
 first runs it through `append_missing_keys()` which splits on `:` *naïvely*

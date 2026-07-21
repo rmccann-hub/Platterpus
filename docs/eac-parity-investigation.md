@@ -166,9 +166,15 @@ count — so "did this rip match EAC?" is one command. (Small; mostly done.)
 - (c) First, simply **re-rip track 3** to see if the near-miss was transient.
 
 **P3 — Pre-gaps / `INDEX 00` in the cue (decision-gated).**
-- (a) Hardware-test cyanrip's **`-p`** modes (`-p default`/`merge`) to see if any
-  makes it record `INDEX 00` for this disc; if so, pass it and we get EAC-style
-  pre-gap markers for free.
+- (a) Hardware-test cyanrip's **`-p`** modes to see if any makes it record
+  `INDEX 00` for this disc; if so, pass it and we get EAC-style pre-gap markers
+  for free. **Syntax note (verified upstream):** `-p` is *per-track* —
+  `-p track_number=action`, repeated for each track (actions:
+  `default`/`merge`/`drop`/`track`); there is no global `-p default`, and a bare
+  `-p default` aborts the rip (parsed as track 0). This is a **cue-metadata**
+  experiment only: the *audio* placement already matches EAC under the default
+  (§"Gap handling audio" above), so no `-p` mode changes audio parity — the
+  question is purely whether one triggers `INDEX 00` emission.
 - (b) If cyanrip won't detect subchannel pre-gaps, the only routes are a cyanrip
   feature request, the whipper/cdrdao path (cdrdao reads full TOC incl. gaps —
   but whipper is offset->587-buggy and cdrdao stalls on this BD drive), or

@@ -35,6 +35,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   list, the first-run walkthrough, and the EAC-parity overread row; and
   `SECURITY.md` still declared `v0.4.x` the supported series.
 
+- **EAC gap-handling parity closed as already-satisfied.** A 2026-06-14 note
+  flagged gap handling as a possible parity lever ("we set no gap mode"). Re-
+  verified against cyanrip's own README and source (0.9.3.1 + master): cyanrip's
+  default *is* EAC's ("identical to EAC's default behaviour"), which is how the
+  committed 12/14 audio-parity proof matched — so there is no audio gap and no
+  knob to add (cyanrip's `-p` is a per-track override whose only archival-safe
+  value is the default we already use; `drop` deletes audio, `track` renumbers
+  tracks). The docs that implied an unset gap mode (`test-plan.md`,
+  `eac-parity-investigation.md`) are corrected, the `-p` contract is recorded in
+  `dependency-contracts.md`, and the TASKS item is closed. The remaining
+  `INDEX 00` cue-metadata difference stays tracked separately (PR #115 route).
+
 ### Documentation
 - **Doc version stamps can no longer lag the release they ship in.** Every doc
   revised during the v0.5.0 cycle still carried a v0.4.24 footer, because the

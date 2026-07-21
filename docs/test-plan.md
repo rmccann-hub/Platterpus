@@ -227,14 +227,19 @@ differs, it's almost always one of these *parity variables* — check them befor
 assuming a bug:
 - **Read offset** — must be the EAC value (**+667** here). A wrong offset shifts
   every sample → every CRC differs.
-- **Gap/pregap handling** — EAC here used **"Appended to previous track."** If
-  the ripper splits gaps differently, track *boundaries* move and per-track CRCs
-  differ even though the audio is correct. ⚠️ **We don't currently set a gap
-  mode** — the rip uses cyanrip's default. So if a *clean* track's
-  CRC differs (especially one adjacent to a pregap) while the offset is right,
-  **gap handling is the prime suspect**, and the fix is to expose/force the
-  EAC-matching gap mode (tracked in TASKS — the "EAC gap-handling parity" item).
-  Tracks with no surrounding gap (most of a typical album) are unaffected.
+- **Gap/pregap handling** — EAC here used **"Appended to previous track."**
+  cyanrip's **default already matches this** — verified against upstream (README
+  §"Pregap handling", 0.9.3.1 and master): *"By default, track 1 pregap is
+  ignored, while any other track's pregap is merged into the previous track.
+  This is identical to EAC's default behaviour."* We deliberately pass **no
+  `-p` flag**, so the rip uses that EAC-equivalent default (which is exactly how
+  the committed 12/14 parity proof was ripped). So a clean track's CRC differing
+  while the offset is right is **not** expected from gap handling on this path;
+  investigate the offset or a disc defect first. (cyanrip's `-p` is a *per-track*
+  override — `-p track_number=action`, actions `default`/`merge`/`drop`/`track` —
+  not a global switch; `drop` deletes pregap audio and breaks cyanrip's
+  no-discontinuities guarantee, so it isn't an archival option.) Tracks with no
+  surrounding gap (most of a typical album) are unaffected either way.
 - **Lead-in/out overread** — EAC: **No** overread here. Keep "Force overread"
   off to match.
 - **Null samples in CRC** — EAC: **Yes**. (whipper/cyanrip CRC the decoded PCM,
