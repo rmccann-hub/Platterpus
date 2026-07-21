@@ -65,7 +65,7 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 1
 fi
 
-require_python_module build build
+require_python_module build 'build>=1,<2'
 require_python_module python_appimage 'python-appimage>=1.4,<2'
 
 # --- Stamp the build fingerprint (see src/platterpus/build_info.py) ---------

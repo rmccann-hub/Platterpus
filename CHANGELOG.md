@@ -12,6 +12,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **The `build` frontend is now actually pinned `>=1,<2`** in `release.yml`,
+  `appimage.yml`, and `build_appimage.sh` (maintainer-approved; the audit
+  found `DEPENDENCIES.md` claiming a pin no install site applied — the doc
+  row now matches reality again).
 - **Two maintainer-approved doctrine updates in `CLAUDE.md`** (2026-07-21
   audit follow-up, both explicitly authorized): Critical Rule #3 now names its
   own scoped, user-approved force-stop exception (approved 2026-05-31, until
