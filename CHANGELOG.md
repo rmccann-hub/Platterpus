@@ -45,6 +45,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **`docs/architecture.md` / `docs/testing.md` corrections.** Architecture: the
+  §1 diagram no longer claims the GUI queries AccurateRip (cyanrip verifies
+  in-rip; the GUI only carries the offline offset list); `build_backend` is no
+  longer "the whipper/cyanrip choice"; the unmaintained flag is
+  `appimage-builder` (matching Critical rule #1), not `python-appimage`;
+  `MbWorker` → `MusicBrainzWorker`; the §3.2 dialog bullet now carries the
+  "Dialogs that do blocking work" name CLAUDE.md cites; force-stop/pkill rules
+  repointed to `dependency-contracts.md` (they were never in CLAUDE.md); the
+  live cyanrip progress regex replaces the inert whipper one. Testing: the
+  gating `mypy` typecheck is now in the layers table, the Definition of Done,
+  and the dev-extra list; mutation testing is documented as the weekly CI run
+  it became 2026-07-08; golden-test guidance reframed around cyanrip as the
+  live backend; the supply-chain CI jobs (pip-audit, media-guard,
+  tests-touched) are in the layers table and rule 9's backstop list.
 - **`docs/README.md` index made complete and current.** The two dated audit
   records (`audit-2026-07-02.md`, `trust-audit-2026-07-08.md`) are now
   indexed; the soft-fork row points at its C proof harness and the
