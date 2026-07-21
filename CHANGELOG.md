@@ -45,6 +45,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   longer restates the KDD count (that lives in `docs/README.md`).
 
 ### Fixed
+- **`docs/README.md` index made complete and current.** The two dated audit
+  records (`audit-2026-07-02.md`, `trust-audit-2026-07-08.md`) are now
+  indexed; the soft-fork row points at its C proof harness and the
+  `scripts/cyanrip/` execution kit; the CTDB-repair row no longer claims the
+  CRC gate is still open (cleared v0.4.20); the outside-docs table gained
+  `SECURITY.md`, `CHANGELOG.md`, `output_reference/README.md`, and
+  `scripts/cyanrip/README.md`; the stamp rule now exempts the paste-ready
+  upstream issue bodies. `docs/archive/README.md`: the CTDB Phase-1 spec is
+  no longer called "unbuilt", the offset-investigation graduation row credits
+  the right modules, and the extraction-guide summary row matches the trimmed
+  content.
 - **`DEPENDENCIES.md` / `SECURITY.md` corrections.** The mypy row now shows
   the real pin (`>=1.13,<3`) and the package-wide strict gate (the "except the
   Qt UI mixin layer" note — also stale in a `ci.yml` comment — predated the
