@@ -12,6 +12,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **Full documentation audit (2026-07-21).** Every Markdown doc in the repo was
+  audited against the code, CI, and the live tag history — 239 findings, ~160
+  fixed in this release's docs commits. The audit record (systemic patterns,
+  before→after doc map, open maintainer questions) is
+  `docs/audit-2026-07-21.md`; the unexecuted consolidation plan is captured in
+  `TASKS.md` → P1 Documentation backlog.
 - **`TASKS.md` statuses caught up with shipped reality.** CTDB verify's three
   trackers all still read as open/hardware-gated although the CRC was
   validated 2026-07-07 (v0.4.20) — current-plan item 8 is now marked complete
