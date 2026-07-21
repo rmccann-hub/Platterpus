@@ -11,7 +11,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-21
+
 ### Added
+- **Overread toggle (Settings → Overread, off by default)**: ask the drive to
+  read the disc's outermost samples from the lead-in/lead-out (cyanrip's `-O`)
+  instead of writing them as silence — the last EAC parity-gap Settings knob,
+  rebuilt cyanrip-native (the whipper-era toggle died with whipper, KDD-18).
+  Off matches EAC's baseline setting and how the committed 12/14 parity proof
+  matched; upstream's "may freeze if unsupported by drive" caveat is surfaced
+  in the tooltip and User Guide.
+
+- **Auto-move finished rips to a library folder** (Settings → "Move finished
+  rips to", empty = off): a successful rip's album folder is filed into the
+  library only after every post-rip check has settled — tagging, cover art,
+  transcode, the whole verification suite, checksums, and the report write all
+  finish first, so nothing ever verifies or hashes a file mid-move. Collisions
+  land in a "(N)" sibling (never overwritten), the View log / report / folder
+  buttons repoint to the new home, and the "you've ripped this before"
+  comparison now searches the library too. A failed move just leaves the rip
+  in the output folder and says so — it never looks like a failed rip.
+- **Live per-track progress bars**: the track table's Status column now shows
+  a real progress bar (percent visible in the bar) on the row currently being
+  ripped, driven by the same live percent as the bottom progress bar; a
+  finished track's bar is replaced by "✓ Done" (status stays text for screen
+  readers — the bar is decoration, never the only signal).
+- **Cross-filesystem naming warning (Settings, warning-only)**: a naming
+  template whose literal text would not copy cleanly to Windows or an
+  NTFS/exFAT drive (reserved characters, reserved device names like `CON`,
+  trailing dots/spaces) now shows a live warning in the Settings validation
+  banner — never a block, since all of it is legal on the Linux target.
+  Closes the last open item of the 2026-07-08 trust audit
+  (maintainer-approved); hazards inside tag *values* remain a documented
+  limitation (the ripper owns naming).
+
+### Fixed
+- **cyanrip flag-letter corrections in the docs (a shipped-bug near-miss)**:
+  `docs/dependency-contracts.md`, TASKS.md, and the parity scorecard claimed
+  cyanrip's overread flag is `-x` — **`-x` does not exist in cyanrip's getopt
+  at all** (verified against the deployed 0.9.3.1 *and* master; wiring the
+  documented letter would have aborted every overread rip — the real flag is
+  `-O`, now pinned by a regression test). The same verification corrected the
+  `-f` description: it is a real "find drive offset" mode (deliberately unused
+  since the 2026-06 mis-scrape incident), not "force-overread" as three code
+  comments and the contracts doc said; a vetted re-integration is now a
+  tracked maintainer call in the feature backlog.
 - **Accessibility: focus-safe live announcements + the full
   keyboard-reachability sweep** (UX gap #4's remaining half, closing the gap —
   a live screen-reader session on real hardware is the one confirmation still
@@ -2743,7 +2787,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
 [0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
 [0.4.23]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.22...v0.4.23
 [0.4.22]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.21...v0.4.22

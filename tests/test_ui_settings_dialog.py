@@ -582,10 +582,11 @@ def test_composite_row_fields_have_accessible_names(qapp: QApplication) -> None:
         for b in dialog.findChildren(QPushButton)
         if b.text() == "Browse…"
     ]
-    assert len(browse_names) == 3
+    # Four Browse rows: output dir, working dir, library folder, metaflac path.
+    assert len(browse_names) == 4
     # All named, all distinct — a screen reader can tell them apart.
     assert all(browse_names)
-    assert len(set(browse_names)) == 3
+    assert len(set(browse_names)) == len(browse_names)
 
 
 def test_validation_banner_announces_once_per_distinct_text(
@@ -609,3 +610,29 @@ def test_validation_banner_announces_once_per_distinct_text(
 
     assert len(first) >= 1  # the error was announced…
     assert second == first  # …and not repeated while unchanged
+
+
+def test_overread_toggle_round_trips(qapp: QApplication) -> None:
+    """Settings → to_config carries the Overread (cyanrip -O) toggle, and the
+    dialog reflects the incoming value. Off by default (EAC-baseline)."""
+    dialog = SettingsDialog(Config())
+    assert dialog._force_overread_check.isChecked() is False
+    dialog._force_overread_check.setChecked(True)
+    assert dialog.to_config().force_overread is True
+
+    dialog2 = SettingsDialog(Config(force_overread=True))
+    assert dialog2._force_overread_check.isChecked() is True
+    # Honest UI: the tooltip must carry upstream's freeze caveat.
+    assert "freeze" in dialog2._force_overread_check.toolTip()
+
+
+def test_library_dir_round_trips(qapp: QApplication) -> None:
+    """Settings → to_config carries the library folder; empty stays empty
+    (feature off) and the field is validation-marked like the other dirs."""
+    dialog = SettingsDialog(Config())
+    assert dialog._library_dir_edit.text() == ""
+    assert dialog.to_config().library_dir == ""
+
+    dialog._library_dir_edit.setText("/music/library")
+    assert dialog.to_config().library_dir == "/music/library"
+    assert "library_dir" in dialog._validated_widgets

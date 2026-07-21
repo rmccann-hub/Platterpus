@@ -70,6 +70,10 @@ class RipParameters:
     # cyanrip's `-Z N` (rip until N reads' checksums match) for marginal
     # discs. 0 = off.
     secure_rerip_matches: int = 0
+    # cyanrip's `-O`: read into the disc's lead-in/lead-out instead of
+    # zero-padding the offset-shifted edge samples. Opt-in and
+    # drive-dependent (upstream: "may freeze if unsupported by drive").
+    force_overread: bool = False
     # Dynamic secure-rerip (0.4.9): when True (and secure_rerip_matches > 0),
     # DON'T apply `-Z` to every track. Rip once fast (no `-Z`), then secure-re-rip
     # only the tracks that didn't match AccurateRip (a DB match on the first read
@@ -895,6 +899,7 @@ class RipWorker(QObject):
                 cover_art=self._params.cover_art,
                 max_retries=self._params.max_retries,
                 secure_rerip_matches=secure_rerip_matches,
+                force_overread=self._params.force_overread,
                 read_offset_override=self._params.read_offset_override,
                 metadata=self._params.metadata,
                 read_speed=read_speed,

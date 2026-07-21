@@ -320,3 +320,27 @@ def test_force_stop_button_emits_signal(qapp: QApplication) -> None:
     controls.force_stop_requested.connect(lambda: fired.append(True))
     controls._force_stop_button.click()
     assert fired == [True]
+
+
+def test_start_passes_force_overread_from_config(qapp: QApplication) -> None:
+    """The Overread toggle rides Config → RipParameters (cyanrip -O)."""
+    controls = RipControls(Config(force_overread=True))
+    controls.set_drive("/dev/sr0")
+    controls.set_release_id("mbid")
+
+    captured: list[RipParameters] = []
+    controls.rip_requested.connect(captured.append)
+    controls._start_button.click()
+
+    assert captured[0].force_overread is True
+    # And the default stays off (EAC-baseline behaviour).
+    assert (
+        RipParameters(
+            drive="d",
+            release_id="r",
+            output_dir=Path("/m"),
+            track_template="t",
+            disc_template="d",
+        ).force_overread
+        is False
+    )
