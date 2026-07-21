@@ -12,6 +12,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Changed
+- **cyanrip-cluster dedup completed** (maintainer-approved): the soft-fork
+  runbook's duplicated issue-body blockquotes are replaced by links to the
+  kit's canonical `scripts/cyanrip/issue-*.md` paste files, and the
+  upstream-process facts (maintainer contact, style, CI, PR responsiveness)
+  now live once, in the roadmap's Process block — the strategy doc §6 and the
+  runbook link there instead of restating them.
 - **`docs/audit-2026-07-02.md` retired to `docs/archive/`** (maintainer-
   approved doc-map move): its §E remainders were already graduated to the
   TASKS.md Documentation backlog, the archive index gained the graduation

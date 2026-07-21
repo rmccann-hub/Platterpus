@@ -105,9 +105,14 @@ the first move.
 >   is unaffected.
 > - **CTDB is confirmed Platterpus-only** — cyanrip has *zero* CTDB code
 >   (AccurateRip-only); our `crc.py` fix is the whole story, no cyanrip PR.
-> - **Process:** maintainer **Lynne "cyanreg" `<dev@lynne.ee>`**; IRC `#cyanrip`
->   on Libera.Chat (sanity-check before coding); no `CONTRIBUTING`/tests; only CI
->   is a Windows/MinGW build — **don't break it**. The two non-default branches
+> - **Process (canonical home for the upstream-process facts — the strategy
+>   doc §6 and the soft-fork runbook link here):** maintainer **Lynne
+>   "cyanreg" `<dev@lynne.ee>`**; IRC `#cyanrip` on Libera.Chat (sanity-check
+>   before coding); no `CONTRIBUTING`/tests; terse `av_`-prefixed FFmpeg-idiom
+>   C — match the surrounding style; only CI is a Windows/MinGW build —
+>   **don't break it**. Responsiveness: external PRs do merge, slowly
+>   (jp-sarte's #130 landed ~3.5 months out; some PRs sit 1–2 years; #115 is
+>   open and actively reviewed). The two non-default branches
 >   (`accurip_test`, `deemphasis`) are dead/superseded — ignore them.
 
 ## DO-LATER / FALLBACK (no upstream PR) — cdrdao integration for pregap/INDEX-00 + HTOA
