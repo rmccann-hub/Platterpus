@@ -36,6 +36,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   99.47 %. When overread is enabled the banner names it as the likely cause,
   since overread can hang some drives on the disc's lead-out. The banner clears
   itself the moment the ripper produces output again.
+- **The disc panel's Drive line now identifies the exact drive** — make, model,
+  **firmware revision**, and device node (e.g. "PIONEER BD-RW BDR-209D ·
+  firmware 1.51 · /dev/sr0"), not just the `/dev` path. The firmware revision
+  is the identifier a hardware bug report needs, and the line stays
+  copy-selectable so it can be pasted straight in.
+
+### Changed
+- **Removed the per-track progress bar in the track grid.** It duplicated the
+  current-task bar in the progress pane below — same percent shown twice — so
+  the grid's Status column is back to plain "⟳ Ripping" / "✓ Done" text and live
+  progress lives in the one two-tier bar (overall + current task). (Real-user
+  feedback: "what is the point of having two progress bars show the same?")
+- **Filled the in-app User Guide's gaps** (Working directory, Read speed, the
+  desktop-completion notification, the EAC-compatible log, back-cover/booklet
+  art) and added a test that fails if any future setting ships undocumented —
+  every `Config` field must now be either documented in the guide or explicitly
+  marked internal, so the guide can't silently fall behind the settings again.
 
 ## [0.5.5] — 2026-07-21
 

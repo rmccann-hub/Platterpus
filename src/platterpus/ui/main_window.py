@@ -718,7 +718,11 @@ class MainWindow(
         # it on the next poll without mistaking "this drive already has a disc"
         # for a fresh insertion (this manual change already scans it below).
         self._media_watcher.reset()
-        self._disc_info_panel.set_drive(device)
+        # Pass the full descriptor (make/model/firmware) so the panel identifies
+        # the exact drive, not just its /dev node. current_drive() is the drive
+        # the picker just selected (the signal fires after the index change);
+        # None only for a placeholder/error selection, which set_drive handles.
+        self._disc_info_panel.set_drive(device, self._drive_picker.current_drive())
         # Refresh the read-offset trust line (provenance + any guard warnings)
         # for the newly-selected drive from the drive-profile ledger.
         self._refresh_drive_profile_display()
