@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.6] — 2026-07-22
+
 ### Fixed
 - **"Open rip folder" now works during a rip and after a cancel/partial rip.**
   Previously the button only became usable once a rip *finished successfully*;
@@ -2924,7 +2926,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
 [0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
 [0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
@@ -2976,4 +2979,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.6.*
