@@ -11,6 +11,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **"Open rip folder" now works during a rip and after a cancel/partial rip.**
+  Previously the button only became usable once a rip *finished successfully*;
+  a cancelled or failed rip left `set_log_path(None)`, which disabled the
+  folder and log buttons even though the (partial) output folder existed on
+  disk. The in-progress folder is now tracked separately from the last
+  finished rip, so Open-folder and View-log stay reachable from the moment a
+  rip starts through cancel, freeze, or failure. (Real-hardware bug: after a
+  force-cancel, "opening the rip folder with the button did not work.")
+
+### Added
+- **Real-time logs and access buttons during a rip.** "Open rip folder" and
+  "View log" are enabled from the moment the rip starts (not just on success),
+  and "View log" opens the live application log (`log.txt`) while the rip is
+  running — so if the ripper freezes you can still reach the logs immediately
+  instead of after it (never) returns. cyanrip's own output is now mirrored to
+  the app log line-by-line under Debug logging, so a frozen run leaves a
+  real-time trail on disk.
+- **Rip stall / liveness indicator.** A GUI-thread watchdog notices when the
+  ripper has produced no output for a while (default 45 s) and shows a warning
+  banner ("the ripper has gone quiet — it may be working on a difficult track,
+  or it may be stuck") instead of the progress bar silently sitting at, e.g.,
+  99.47 %. When overread is enabled the banner names it as the likely cause,
+  since overread can hang some drives on the disc's lead-out. The banner clears
+  itself the moment the ripper produces output again.
+
 ## [0.5.5] — 2026-07-21
 
 ### Security

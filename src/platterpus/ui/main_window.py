@@ -73,6 +73,12 @@ from platterpus.workers.rip_worker import RipParameters, RipWorker
 
 log = logging.getLogger(__name__)
 
+# How often the rip liveness watchdog wakes to check for a stalled drive. Cheap
+# (it only reads a timestamp), so a few seconds is plenty responsive without
+# adding timer noise. The stall *threshold* itself lives with the check logic in
+# main_window_rip (_RIP_STALL_THRESHOLD_S).
+_RIP_LIVENESS_INTERVAL_MS: int = 5000
+
 
 class MainWindow(
     QMainWindow,
@@ -280,6 +286,18 @@ class MainWindow(
         self._repaint_timer: QTimer = QTimer(self)
         self._repaint_timer.setInterval(500)
         self._repaint_timer.timeout.connect(self.update)
+        # Liveness watchdog: a GUI-thread timer that watches wall-clock time
+        # since the last signal from the rip worker. When the drive wedges (e.g.
+        # an unsupported lead-out overread on the last track), cyanrip blocks in a
+        # read and emits nothing, so the worker's progress-based stall detector
+        # can't fire — this timer notices the silence and surfaces a stall notice
+        # so a freeze is visible instead of a mystery 99% hang. Started/stopped
+        # with the rip. `_last_rip_signal_at` is a monotonic timestamp (0.0 = no
+        # signal yet); updated by _note_rip_signal on every worker signal.
+        self._rip_liveness_timer: QTimer = QTimer(self)
+        self._rip_liveness_timer.setInterval(_RIP_LIVENESS_INTERVAL_MS)
+        self._rip_liveness_timer.timeout.connect(self._check_rip_liveness)
+        self._last_rip_signal_at: float = 0.0
         # Debounce for the JSON rip-report re-writes. The post-rip async checks
         # (CTDB / FLAC-verify / checksums / transcode) each finish at their own
         # time and each wants the report re-serialized with its result. Rather
@@ -534,6 +552,7 @@ class MainWindow(
 
         # Disarm the auto-force-stop so it can't fire into a torn-down window.
         self._force_stop_timer.stop()
+        self._rip_liveness_timer.stop()  # disarm the stall watchdog too
         # Disarm a pending library move — the folder simply stays in the output
         # directory (safe default); moving during teardown would race close.
         self._library_move_timer.stop()

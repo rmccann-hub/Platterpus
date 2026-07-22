@@ -471,6 +471,100 @@ def test_set_log_path_none_disables_the_cue_button(
     assert widget._view_cue_button.isEnabled() is False
 
 
+# --- In-progress access (real-time logs + folder during/after the rip) -------
+
+
+def test_begin_rip_enables_folder_and_log_from_the_start(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    # A frozen or cancelled rip must never be a dead end: Open rip folder and
+    # View log are enabled the moment the rip begins, before any .log exists.
+    widget = RipProgress()
+    assert widget._open_folder_button.isEnabled() is False
+    widget.begin_rip(tmp_path, tmp_path / "log.txt")
+    assert widget._open_folder_button.isEnabled() is True
+    assert widget._view_log_button.isEnabled() is True
+    # Report + cue need the finished .log, so they stay disabled until finish.
+    assert widget._view_report_button.isEnabled() is False
+    assert widget._view_cue_button.isEnabled() is False
+
+
+def test_view_log_during_rip_opens_the_live_app_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    # During the rip (no backend .log yet) View log opens the real-time app log.
+    views: list[tuple[Path, str]] = []
+    widget = RipProgress(view_file=lambda p, t: views.append((p, t)))
+    live_log = tmp_path / "log.txt"
+    live_log.write_text("live")
+    widget.begin_rip(tmp_path, live_log)
+
+    widget._view_log_button.click()
+
+    assert views == [(live_log, f"Rip log — {live_log.name}")]
+
+
+def test_cancel_keeps_folder_and_log_reachable(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    # The reported bug: after force-cancel, Open rip folder did nothing. On
+    # cancel the finish handler calls set_log_path("") (no .log was written) —
+    # which must NOT blank the buttons begin_rip enabled; the partial folder +
+    # live log are still the user's way in.
+    widget = RipProgress()
+    live_log = tmp_path / "log.txt"
+    widget.begin_rip(tmp_path, live_log)
+    widget.set_log_path(None)  # cancel / no .log
+    assert widget._open_folder_button.isEnabled() is True
+    assert widget._view_log_button.isEnabled() is True
+    # …but the report/cue (which need the finished .log) are unavailable.
+    assert widget._view_report_button.isEnabled() is False
+    assert widget._view_cue_button.isEnabled() is False
+
+
+def test_set_log_path_supersedes_the_live_log_at_finish(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    # After a successful finish, View log opens the backend's own .log, not the
+    # live app log.
+    views: list[tuple[Path, str]] = []
+    widget = RipProgress(view_file=lambda p, t: views.append((p, t)))
+    widget.begin_rip(tmp_path, tmp_path / "log.txt")
+    rip_log = tmp_path / "Album.log"
+    rip_log.write_text("done")
+    widget.set_log_path(rip_log)
+
+    widget._view_log_button.click()
+
+    assert views == [(rip_log, f"Rip log — {rip_log.name}")]
+
+
+# --- Stall notice (liveness watchdog banner) ---------------------------------
+
+
+def test_stall_notice_shows_and_hides(qapp: QApplication) -> None:
+    widget = RipProgress()
+    assert widget._stall_label.isVisibleTo(widget) is False
+    widget.set_stall_notice("⚠ No progress for 1m — the drive may be stuck.")
+    assert widget._stall_label.isVisibleTo(widget) is True
+    assert "stuck" in widget._stall_label.text()
+    widget.set_stall_notice(None)
+    assert widget._stall_label.isVisibleTo(widget) is False
+
+
+def test_clear_resets_stall_notice_and_live_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    widget = RipProgress()
+    widget.begin_rip(tmp_path, tmp_path / "log.txt")
+    widget.set_stall_notice("⚠ stuck")
+    widget.clear()
+    assert widget._stall_label.isVisibleTo(widget) is False
+    assert widget._live_log_path is None
+    assert widget._view_log_button.isEnabled() is False
+    assert widget._open_folder_button.isEnabled() is False
+
+
 def test_view_report_opens_the_json_beside_the_log(
     qapp: QApplication, tmp_path: Path
 ) -> None:
