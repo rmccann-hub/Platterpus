@@ -154,6 +154,10 @@ named from the album artist/title you type.
   effect on the FLAC master, which is always lossless.
 - **Output folder** and **file-name templates** (separate templates for known
   and unknown discs).
+- **Working directory** — a scratch folder used *while* a rip is in progress;
+  the finished files are written to the output folder above. The default
+  (`~/.cache/platterpus`) suits almost everyone — change it only if that disk
+  is short on space.
 - **Move finished rips to** — optional library folder. When set, a successful
   rip's album folder is moved there automatically — but only once every
   post-rip check has finished (tagging, cover art, verification, checksums),
@@ -162,9 +166,17 @@ named from the album artist/title you type.
   "… (2)" — nothing is ever overwritten. Leave empty to keep rips in the
   output folder.
 - **Cover art** — off, embedded, or saved as a file. The app fetches the front
-  cover from the Cover Art Archive after the rip and embeds/saves it.
+  cover from the Cover Art Archive after the rip and embeds/saves it. Tick
+  **Also save back cover and booklet images** to pull down the extra artwork
+  the Cover Art Archive holds for the release and save it beside the album.
 - **Max retries** — how many times the ripper retries a troublesome track
   before giving up.
+- **Read speed** — how fast to read the disc. *Adaptive ladder* (the default)
+  reads at full speed and only slows down for a disc that needs it; you can
+  instead set a **Fixed speed** cap. A slower read sometimes helps a scratched
+  disc, at the cost of time. (Some drives — including the Pioneer BDR-209D —
+  report their speed as unchangeable and simply ignore a fixed cap; that's
+  harmless, and Platterpus never forces it on such a drive.)
 - **Overread** — read the disc's very first/last samples from the
   lead-in/lead-out instead of writing them as silence (they sit there once the
   read offset is applied). **Off by default** — that matches how this app's
@@ -187,11 +199,18 @@ named from the album artist/title you type.
   stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
   cyanrip already encodes FLAC at maximum compression, so there's nothing to
   gain.)
+- **Write an EAC-compatible log** — in addition to cyanrip's own `.log`, write a
+  second log beside each rip in the format Exact Audio Copy uses, for tools and
+  people that expect that layout. It records the same rip, just formatted like an
+  EAC log.
 - **Read offset override** — set the drive read-offset by hand (the drive-setup
   wizard is the recommended way to set it).
 - **Eject after a successful rip** — automatically eject the disc when a rip
   finishes (off by default). You can always eject by hand with the **Eject**
   button next to the drive picker.
+- **Show a desktop notification when a rip finishes** — pop a system
+  notification the moment a rip completes, so you don't have to watch the
+  window (on by default).
 
 ## Where the app lives
 

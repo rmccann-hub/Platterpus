@@ -27,11 +27,43 @@ from PySide6.QtWidgets import QFormLayout, QLabel, QWidget
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
 from platterpus.parsers.cd_info import DiscInfo
+from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import track_accuraterip_verified
 from platterpus.ui.accessibility import announce
 
 # Placeholder shown in fields we don't have data for yet.
 _PLACEHOLDER: str = "—"
+
+
+def format_drive_summary(
+    drive: DriveDescriptor | None, device: str | None = None
+) -> str:
+    """Build the human-readable drive line for the disc panel.
+
+    The picker dropdown already shows make + model; this is the *detail* line,
+    so it adds the firmware revision — the identifier real-hardware bug reports
+    actually need ("PIONEER BD-RW BDR-209D 1.51" in cyanrip's own log header) —
+    and the device node. Pure and testable (no Qt), so the exact string is
+    asserted in tests rather than eyeballed.
+
+    Falls back to the bare device (or "(no drive)") when no descriptor is
+    available — e.g. a placeholder selection or a drive-list error. sysfs
+    sometimes double-spaces the vendor/model ("BD-RW  BDR-209D"), so internal
+    whitespace is collapsed for display.
+    """
+    if drive is None:
+        return device or "(no drive)"
+    name = " ".join(f"{drive.vendor} {drive.model}".split())
+    parts: list[str] = [name] if name else []
+    firmware = drive.release.strip()
+    if firmware:
+        parts.append(f"firmware {firmware}")
+    node = (drive.device or device or "").strip()
+    if node:
+        parts.append(node)
+    # " · " reads as a compact "field · field · field" detail line; if we somehow
+    # have nothing, fall back rather than showing an empty label.
+    return " · ".join(parts) if parts else (device or "(no drive)")
 
 
 class DiscInfoPanel(QWidget):
@@ -78,13 +110,21 @@ class DiscInfoPanel(QWidget):
 
     # --- Drive selection -----------------------------------------------------
 
-    def set_drive(self, device: str | None) -> None:
+    def set_drive(
+        self, device: str | None, descriptor: DriveDescriptor | None = None
+    ) -> None:
         """Set the drive shown at the top of the panel.
+
+        When the selected drive's full ``descriptor`` is available (the normal
+        path — the picker holds it), show make + model + firmware + device so
+        the panel identifies the exact drive; otherwise fall back to the bare
+        device path. The value stays a copy-selectable label either way, so the
+        firmware/model can be pasted straight into a bug report.
 
         Clears the disc-derived fields — when the user picks a new
         drive, the disc that was loaded is no longer the relevant one.
         """
-        self._drive_value.setText(device or "(no drive)")
+        self._drive_value.setText(format_drive_summary(descriptor, device))
         self.clear_disc_state()
 
     def clear_disc_state(self) -> None:

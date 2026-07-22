@@ -11,6 +11,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.6] — 2026-07-22
+
+### Fixed
+- **"Open rip folder" now works during a rip and after a cancel/partial rip.**
+  Previously the button only became usable once a rip *finished successfully*;
+  a cancelled or failed rip left `set_log_path(None)`, which disabled the
+  folder and log buttons even though the (partial) output folder existed on
+  disk. The in-progress folder is now tracked separately from the last
+  finished rip, so Open-folder and View-log stay reachable from the moment a
+  rip starts through cancel, freeze, or failure. (Real-hardware bug: after a
+  force-cancel, "opening the rip folder with the button did not work.")
+
+### Added
+- **Real-time logs and access buttons during a rip.** "Open rip folder" and
+  "View log" are enabled from the moment the rip starts (not just on success),
+  and "View log" opens the live application log (`log.txt`) while the rip is
+  running — so if the ripper freezes you can still reach the logs immediately
+  instead of after it (never) returns. cyanrip's own output is now mirrored to
+  the app log line-by-line under Debug logging, so a frozen run leaves a
+  real-time trail on disk.
+- **Rip stall / liveness indicator.** A GUI-thread watchdog notices when the
+  ripper has produced no output for a while (default 45 s) and shows a warning
+  banner ("the ripper has gone quiet — it may be working on a difficult track,
+  or it may be stuck") instead of the progress bar silently sitting at, e.g.,
+  99.47 %. When overread is enabled the banner names it as the likely cause,
+  since overread can hang some drives on the disc's lead-out. The banner clears
+  itself the moment the ripper produces output again.
+- **The disc panel's Drive line now identifies the exact drive** — make, model,
+  **firmware revision**, and device node (e.g. "PIONEER BD-RW BDR-209D ·
+  firmware 1.51 · /dev/sr0"), not just the `/dev` path. The firmware revision
+  is the identifier a hardware bug report needs, and the line stays
+  copy-selectable so it can be pasted straight in.
+
+### Changed
+- **Removed the per-track progress bar in the track grid.** It duplicated the
+  current-task bar in the progress pane below — same percent shown twice — so
+  the grid's Status column is back to plain "⟳ Ripping" / "✓ Done" text and live
+  progress lives in the one two-tier bar (overall + current task). (Real-user
+  feedback: "what is the point of having two progress bars show the same?")
+- **Filled the in-app User Guide's gaps** (Working directory, Read speed, the
+  desktop-completion notification, the EAC-compatible log, back-cover/booklet
+  art) and added a test that fails if any future setting ships undocumented —
+  every `Config` field must now be either documented in the guide or explicitly
+  marked internal, so the guide can't silently fall behind the settings again.
+
 ## [0.5.5] — 2026-07-21
 
 ### Security
@@ -2881,7 +2926,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
 [0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
 [0.4.24]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.23...v0.4.24
@@ -2933,4 +2979,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.6.*

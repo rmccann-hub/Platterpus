@@ -183,6 +183,8 @@ class MainWindowShared(_SeamBase):
     _force_stop_thread: threading.Thread | None
     _repaint_timer: QTimer
     _rip_report_timer: QTimer
+    _rip_liveness_timer: QTimer
+    _last_rip_signal_at: float
 
     # Freshly-inserted-disc auto-detect (drive_media).
     _disc_status_probe: Callable[[str], str]

@@ -954,9 +954,19 @@ class RipWorker(QObject):
                         # never shows an ETA that contradicts our smoothed album
                         # ETA in the status line (real-user report). Detection
                         # below still uses the raw `line`.
-                        self.log_line.emit(_CYANRIP_ETA_CLAUSE.sub("", line))
+                        forwarded = _CYANRIP_ETA_CLAUSE.sub("", line)
+                        self.log_line.emit(forwarded)
+                        # Persist the forwarded stream to log.txt in real time
+                        # (DEBUG-gated, so it only lands when Debug logging is on
+                        # — the bug-report setting). The in-window log pane is
+                        # ephemeral; this survives a freeze/force-kill on disk, so
+                        # a bug report shows exactly where the drive stopped. Only
+                        # the throttled set is logged (not every redraw), keeping
+                        # the volume bounded.
+                        log.debug("cyanrip │ %s", forwarded)
                 else:
                     self.log_line.emit(line)
+                    log.debug("cyanrip │ %s", line)
                 # Watch for the "no online metadata" abort so the GUI can heal
                 # by re-ripping as unknown (only worth it if this rip wasn't
                 # already unknown). Inert whipper-era seam — cyanrip runs -N and

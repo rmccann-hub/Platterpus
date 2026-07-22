@@ -395,82 +395,34 @@ def test_per_track_artist_edit_holds_after_propagation(qapp) -> None:
     assert artists == ["Various", "Soloist"]
 
 
-# --- Live per-track progress bar (feature backlog, 2026-07-21) ---------------
+# --- Status column is text-only (per-track progress bar removed 2026-07-22) ---
 
 
-def test_progress_role_tracks_the_ripping_row(qapp: QApplication) -> None:
-    """The worker's task percent lands on (only) the currently-ripping row via
-    PROGRESS_ROLE; done clears it so a finished row never shows a frozen bar."""
-    from platterpus.ui.track_table import _COL_STATUS, PROGRESS_ROLE, TrackTable
+def test_status_column_is_text_only_no_progress_bar(qapp: QApplication) -> None:
+    """The Status column shows plain text and carries no per-track progress bar.
+
+    The bar was removed because it duplicated the current-task bar in the
+    progress pane (same percent, two places). Guard against it coming back:
+    the column has no custom delegate, the removed API is gone, and the status
+    stays textual across ripping → done.
+    """
+    from platterpus.ui import track_table
+    from platterpus.ui.track_table import _COL_STATUS, TrackTable
+
+    # The removed progress-bar machinery must not reappear.
+    assert not hasattr(track_table, "PROGRESS_ROLE")
+    assert not hasattr(track_table, "TrackStatusDelegate")
 
     widget = TrackTable()
+    # No column-specific delegate installed on the Status column (returns None) →
+    # the view's default text painting is used, not a progress-bar delegate.
+    assert widget._view.itemDelegateForColumn(_COL_STATUS) is None
+    assert not hasattr(widget, "on_rip_progress")
+    assert not hasattr(widget._model, "set_current_progress")
+
     widget._model.set_tracks([_track(1, "A"), _track(2, "B")])
-
-    # No track ripping yet (the pre-track disc scan) → percent is a no-op.
-    widget.on_rip_progress(3.0, 12.0)
-    assert (
-        widget._model.data(widget._model.index(0, _COL_STATUS), PROGRESS_ROLE) is None
-    )
-
     widget.mark_track_ripping(1)
-    widget.on_rip_progress(5.0, 42.7)
-    assert widget._model.data(widget._model.index(0, _COL_STATUS), PROGRESS_ROLE) == 42
-    # The other row carries no bar, and the display text stays textual.
-    assert (
-        widget._model.data(widget._model.index(1, _COL_STATUS), PROGRESS_ROLE) is None
-    )
     assert widget._model.data(widget._model.index(0, _COL_STATUS)) == "⟳ Ripping"
-
     widget.mark_track_done(1)
-    assert (
-        widget._model.data(widget._model.index(0, _COL_STATUS), PROGRESS_ROLE) is None
-    )
     assert widget._model.data(widget._model.index(0, _COL_STATUS)) == "✓ Done"
-
-
-def test_progress_percent_is_clamped_and_reset(qapp: QApplication) -> None:
-    from platterpus.ui.track_table import _COL_STATUS, PROGRESS_ROLE, TrackTable
-
-    widget = TrackTable()
-    widget._model.set_tracks([_track(1, "A")])
-    widget.mark_track_ripping(1)
-
-    widget.on_rip_progress(0.0, 250.0)  # defensive: parser glitch beyond 100
-    assert widget._model.data(widget._model.index(0, _COL_STATUS), PROGRESS_ROLE) == 100
-
-    widget.reset_track_status()  # a new rip starts clean
-    assert (
-        widget._model.data(widget._model.index(0, _COL_STATUS), PROGRESS_ROLE) is None
-    )
-
-
-def test_status_column_uses_the_progress_delegate(qapp: QApplication) -> None:
-    """The bar is painted by a dedicated delegate on the Status column — and it
-    paints without crashing for both the bar case and the text fallback."""
-    from PySide6.QtGui import QImage, QPainter
-    from PySide6.QtWidgets import QStyleOptionViewItem
-
-    from platterpus.ui.track_table import (
-        _COL_STATUS,
-        TrackStatusDelegate,
-        TrackTable,
-    )
-
-    widget = TrackTable()
-    delegate = widget._view.itemDelegateForColumn(_COL_STATUS)
-    assert isinstance(delegate, TrackStatusDelegate)
-
-    widget._model.set_tracks([_track(1, "A"), _track(2, "B")])
-    widget.mark_track_ripping(1)
-    widget.on_rip_progress(0.0, 55.0)
-
-    image = QImage(120, 24, QImage.Format.Format_ARGB32)
-    painter = QPainter(image)
-    option = QStyleOptionViewItem()
-    option.rect = image.rect()
-    option.widget = widget._view
-    try:
-        delegate.paint(painter, option, widget._model.index(0, _COL_STATUS))  # bar
-        delegate.paint(painter, option, widget._model.index(1, _COL_STATUS))  # text
-    finally:
-        painter.end()
+    assert widget._model.data(widget._model.index(1, _COL_STATUS)) == ""

@@ -6,8 +6,9 @@ from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.musicbrainz_client import ReleaseSummary
 from platterpus.parsers.cd_info import DiscInfo
+from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
-from platterpus.ui.disc_info_panel import DiscInfoPanel
+from platterpus.ui.disc_info_panel import DiscInfoPanel, format_drive_summary
 
 
 def _track(number: int, *, matched: bool) -> TrackResult:
@@ -69,6 +70,43 @@ def test_set_drive_updates_label(qapp: QApplication) -> None:
     panel = DiscInfoPanel()
     panel.set_drive("/dev/sr0")
     assert panel._drive_value.text() == "/dev/sr0"
+
+
+def test_set_drive_shows_make_model_firmware(qapp: QApplication) -> None:
+    """With the full descriptor, the panel identifies the exact drive —
+    make, model, firmware, and device — not just the /dev node."""
+    panel = DiscInfoPanel()
+    panel.set_drive(
+        "/dev/sr0",
+        DriveDescriptor(
+            device="/dev/sr0",
+            vendor="PIONEER",
+            model="BD-RW  BDR-209D",  # sysfs double-spacing is collapsed
+            release="1.51",
+        ),
+    )
+    assert (
+        panel._drive_value.text() == "PIONEER BD-RW BDR-209D · firmware 1.51 · /dev/sr0"
+    )
+
+
+def test_format_drive_summary_variants() -> None:
+    """The pure formatter: full record, missing firmware, and no record."""
+    full = DriveDescriptor(
+        device="/dev/sr1", vendor="HL-DT-ST", model="BD-RE WH16NS40", release="1.05"
+    )
+    assert (
+        format_drive_summary(full)
+        == "HL-DT-ST BD-RE WH16NS40 · firmware 1.05 · /dev/sr1"
+    )
+    # A drive whose firmware sysfs node was unreadable ("" release) just omits it.
+    no_fw = DriveDescriptor(
+        device="/dev/sr0", vendor="PIONEER", model="BDR-209D", release=""
+    )
+    assert format_drive_summary(no_fw) == "PIONEER BDR-209D · /dev/sr0"
+    # No descriptor at all → bare device, then the placeholder.
+    assert format_drive_summary(None, "/dev/sr0") == "/dev/sr0"
+    assert format_drive_summary(None, None) == "(no drive)"
 
 
 def test_set_drive_none_shows_placeholder(qapp: QApplication) -> None:
