@@ -122,6 +122,18 @@ class RipProgress(QWidget):
         # get a fixed clock instead of the moving wall clock.
         self._now: Callable[[], datetime] = datetime.now
         self._log_path: Path | None = None
+        # The real-time app log (``log.txt``), set at rip START by begin_rip so
+        # "View log" works *during* the rip — even if the drive freezes before
+        # the backend writes its own ``.log``. set_log_path supersedes it at
+        # finish with the backend's richer per-track log.
+        self._live_log_path: Path | None = None
+        # The in-progress album folder set by begin_rip (the output directory) —
+        # the fallback the Open-folder button reverts to if the rip finishes
+        # WITHOUT a backend .log (cancel / freeze), so it stays reachable. Kept
+        # separate from `_rip_dir` (which set_log_path repoints to the exact
+        # album folder on a successful finish) so a None finish reverts to the
+        # in-progress folder, not to a previous rip's.
+        self._inprogress_rip_dir: Path | None = None
         # The JSON report and the album folder, derived from the log path when a
         # rip finishes (set in set_log_path) — back the "View report" / "Open
         # rip folder" buttons.
@@ -142,6 +154,7 @@ class RipProgress(QWidget):
         # line is deduped on its full text (an in-progress ping then a verdict).
         self._announced_status_key: str = ""
         self._announced_ctdb_text: str = ""
+        self._announced_stall_text: str = ""
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -163,6 +176,21 @@ class RipProgress(QWidget):
         # tracks that one operation's 0-100% (it resets read→verify→encode).
         self._status_label: QLabel = QLabel("Idle.", self)
         root.addWidget(self._status_label)
+
+        # --- Stall notice (GUI-side liveness watchdog) ---
+        # The rip worker streams cyanrip's output; when the drive wedges (e.g.
+        # an unsupported lead-out overread on the last track), cyanrip blocks in
+        # a read syscall and emits NOTHING, so the worker's own progress-based
+        # stall detector can't fire and the bars just sit there. The main window
+        # runs a timer that watches wall-clock time since the last worker signal
+        # and calls set_stall_notice() when it crosses the threshold — this
+        # banner is how "it might be frozen" becomes visible instead of a silent
+        # hang. Hidden whenever the rip is making progress.
+        self._stall_label: QLabel = QLabel("", self)
+        self._stall_label.setWordWrap(True)
+        self._stall_label.setVisible(False)
+        self._stall_label.setStyleSheet(_banner_style("warn"))
+        root.addWidget(self._stall_label)
 
         self._progress_bar: QProgressBar = QProgressBar(self)
         self._progress_bar.setRange(0, 100)
@@ -321,6 +349,7 @@ class RipProgress(QWidget):
         self._log_view.setAccessibleName("Rip log output")
         self._verdict_banner.setAccessibleName("AccurateRip verification verdict")
         self._read_effort_label.setAccessibleName("Read-effort warning")
+        self._stall_label.setAccessibleName("Rip stall warning")
         self._comparison_label.setAccessibleName("Re-rip comparison")
         self._ar_table.setAccessibleName("Per-track AccurateRip results")
         self._ctdb_label.setAccessibleName("CTDB verification result")
@@ -358,20 +387,61 @@ class RipProgress(QWidget):
         self._ctdb_reconcile_label.setVisible(False)
         self._loudness_label.clear()
         self._loudness_label.setVisible(False)
+        self._stall_label.clear()
+        self._stall_label.setVisible(False)
         self._view_log_button.setEnabled(False)
         self._view_report_button.setEnabled(False)
         self._view_cue_button.setEnabled(False)
         self._open_folder_button.setEnabled(False)
         self._log_path = None
+        self._live_log_path = None
         self._report_path = None
         self._cue_path = None
         self._rip_dir = None
+        self._inprogress_rip_dir = None
         self._last_rip_log = None
         # Reset the announcement throttles so the NEXT rip's first phase is
         # announced even if it matches the previous rip's last one. "Idle." is
         # deliberately not announced — clearing the pane isn't news.
         self._announced_status_key = ""
         self._announced_ctdb_text = ""
+        self._announced_stall_text = ""
+
+    def begin_rip(self, rip_dir: Path | None, live_log: Path | None) -> None:
+        """At rip START, make the in-progress rip reachable immediately.
+
+        Enables **Open rip folder** (→ ``rip_dir``, which cyanrip populates as it
+        works) and **View log** (→ ``live_log``, the real-time app log) the moment
+        the rip begins — so a frozen or cancelled rip is never a dead end (the
+        reported "Open rip folder did nothing after I force-cancelled"). At finish
+        :meth:`set_log_path` supersedes these with the backend's own richer
+        ``.log`` / ``.cue`` / JSON report. Report + cue stay disabled until then
+        (they don't exist yet). Call after :meth:`clear`.
+        """
+        self._rip_dir = rip_dir
+        self._inprogress_rip_dir = rip_dir
+        self._live_log_path = live_log
+        self._open_folder_button.setEnabled(rip_dir is not None)
+        self._view_log_button.setEnabled(live_log is not None)
+
+    def set_stall_notice(self, text: str | None) -> None:
+        """Show (``text``) or hide (``None``) the stall banner.
+
+        Driven by the main window's liveness timer: shown when no worker signal
+        has arrived for a while (a likely drive freeze), hidden the instant
+        progress resumes. Announced once per distinct message for screen readers
+        (gap #4) — not on every timer tick while it's stuck.
+        """
+        if text:
+            self._stall_label.setText(text)
+            self._stall_label.setVisible(True)
+            if text != self._announced_stall_text:
+                self._announced_stall_text = text
+                announce(self._stall_label, text)
+        else:
+            self._stall_label.clear()
+            self._stall_label.setVisible(False)
+            self._announced_stall_text = ""
 
     def append_log_line(self, line: str) -> None:
         """Append one line of whipper output to the streaming log view."""
@@ -533,14 +603,22 @@ class RipProgress(QWidget):
         from platterpus.rip_report import report_path_for
 
         if path is None or str(path) == "":
+            # Cancelled, or no .log was written (a frozen last-track rip). Do NOT
+            # blank the buttons begin_rip enabled at start: the partial album
+            # folder and the real-time app log are still the user's way in. Only
+            # the report + cue (which need the finished .log) are unavailable.
             self._log_path = None
             self._report_path = None
             self._cue_path = None
-            self._rip_dir = None
-            self._view_log_button.setEnabled(False)
             self._view_report_button.setEnabled(False)
             self._view_cue_button.setEnabled(False)
-            self._open_folder_button.setEnabled(False)
+            # Revert Open folder to the in-progress folder begin_rip set (None if
+            # no rip was begun), NOT a previous finish's album folder. View log
+            # falls back to the live app log. Both stay reachable after a cancel /
+            # freeze; both are off if there was no in-progress rip.
+            self._rip_dir = self._inprogress_rip_dir
+            self._view_log_button.setEnabled(self._live_log_path is not None)
+            self._open_folder_button.setEnabled(self._rip_dir is not None)
             return
         self._log_path = path
         self._report_path = report_path_for(path)
@@ -585,10 +663,14 @@ class RipProgress(QWidget):
         dialog.exec()
 
     def _on_view_log_clicked(self) -> None:
-        if self._log_path is None:
+        # Prefer the backend's own .log once the rip has finished; during the
+        # rip (before it exists) fall back to the real-time app log so the button
+        # is useful the whole time — including while the drive is stuck.
+        target = self._log_path or self._live_log_path
+        if target is None:
             return
         # In-app viewer, not openUrl: a .log has no default app on a fresh KDE.
-        self._view_file(self._log_path, f"Rip log — {self._log_path.name}")
+        self._view_file(target, f"Rip log — {target.name}")
 
     def _on_view_report_clicked(self) -> None:
         if self._report_path is None:

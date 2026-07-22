@@ -30,16 +30,11 @@ from PySide6.QtCore import (
     QPersistentModelIndex,
     Qt,
 )
-from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFormLayout,
     QHeaderView,
     QLineEdit,
-    QStyle,
-    QStyledItemDelegate,
-    QStyleOptionProgressBar,
-    QStyleOptionViewItem,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -89,13 +84,6 @@ _STATUS_DISPLAY: dict[str, str] = {
     STATUS_DONE: "✓ Done",
 }
 
-# Custom model role carrying the ripping row's live percent (int 0–100, or None
-# when the row has no live progress). The Status-column delegate reads it to
-# draw a real progress bar; DisplayRole keeps the plain "⟳ Ripping" text so
-# assistive technology and tests still see status as text (never colour/paint
-# alone — docs/ux-design-principles.md #10).
-PROGRESS_ROLE: int = int(Qt.ItemDataRole.UserRole) + 1
-
 
 def _format_length(ms: int | None) -> str:
     """Render a track length in milliseconds as MM:SS."""
@@ -118,14 +106,6 @@ class TrackTableModel(QAbstractTableModel):
         self._tracks: list[TrackSummary] = []
         # Live per-track rip status keyed by 1-based track number; absent = pending.
         self._status: dict[int, str] = {}
-        # Live percent for the track currently being ripped (1-based number →
-        # 0–100). Only the RIPPING row ever holds one; done/reset clears it so a
-        # finished row shows "✓ Done", never a stale frozen bar.
-        self._progress: dict[int, int] = {}
-        # The track the worker's task-percent stream currently applies to (the
-        # last one marked RIPPING). The progress signal carries no track number
-        # — the worker's current_track signal set this just before.
-        self._ripping_track: int | None = None
 
     # --- Public surface ---
 
@@ -134,8 +114,6 @@ class TrackTableModel(QAbstractTableModel):
         self.beginResetModel()
         self._tracks = list(tracks)
         self._status = {}
-        self._progress = {}
-        self._ripping_track = None
         self.endResetModel()
 
     def set_track_status(self, track_number: int, status: str) -> None:
@@ -145,50 +123,18 @@ class TrackTableModel(QAbstractTableModel):
         if row < 0 or row >= len(self._tracks):
             return
         self._status[track_number] = status
-        # Keep the live-progress bookkeeping in step with the status: a row
-        # entering RIPPING becomes the target of the worker's task-percent
-        # stream; a row leaving RIPPING (done) drops its bar so it can never
-        # freeze mid-way on a finished track.
-        if status == STATUS_RIPPING:
-            self._ripping_track = track_number
-        else:
-            self._progress.pop(track_number, None)
-            if self._ripping_track == track_number:
-                self._ripping_track = None
         cell = self.index(row, _COL_STATUS)
-        self.dataChanged.emit(cell, cell, [Qt.ItemDataRole.DisplayRole, PROGRESS_ROLE])
-
-    def set_current_progress(self, task_percent: float) -> None:
-        """Update the live percent shown on the currently-ripping row.
-
-        The worker's ``progress`` signal carries no track number (the task bar
-        is per-operation), so the percent applies to whichever track was last
-        marked RIPPING via ``set_track_status``. No-op when no track is ripping
-        (e.g. during the pre-track disc scan). Never raises.
-        """
-        track = self._ripping_track
-        if track is None:
-            return
-        percent = max(0, min(100, int(task_percent)))
-        if self._progress.get(track) == percent:
-            return  # same value — skip the repaint (the stream is ~10/s)
-        self._progress[track] = percent
-        cell = self.index(track - 1, _COL_STATUS)
-        self.dataChanged.emit(cell, cell, [PROGRESS_ROLE])
+        self.dataChanged.emit(cell, cell, [Qt.ItemDataRole.DisplayRole])
 
     def reset_statuses(self) -> None:
         """Clear every track's rip status back to pending (called at rip start)."""
-        if not self._status and not self._progress:
+        if not self._status:
             return
         self._status = {}
-        self._progress = {}
-        self._ripping_track = None
         if self._tracks:
             top = self.index(0, _COL_STATUS)
             bottom = self.index(len(self._tracks) - 1, _COL_STATUS)
-            self.dataChanged.emit(
-                top, bottom, [Qt.ItemDataRole.DisplayRole, PROGRESS_ROLE]
-            )
+            self.dataChanged.emit(top, bottom, [Qt.ItemDataRole.DisplayRole])
 
     def tracks(self) -> list[TrackSummary]:
         """Return the current track list (with any user edits applied)."""
@@ -236,14 +182,6 @@ class TrackTableModel(QAbstractTableModel):
     ) -> object:
         if not index.isValid():
             return None
-        # Live percent for the Status column's progress-bar delegate: an int
-        # 0–100 while the row is ripping and a percent has arrived, else None
-        # (the delegate then paints plain text).
-        if role == PROGRESS_ROLE:
-            if index.column() != _COL_STATUS:
-                return None
-            track = self._tracks[index.row()]
-            return self._progress.get(track.number)
         if role not in (
             Qt.ItemDataRole.DisplayRole,
             Qt.ItemDataRole.EditRole,
@@ -291,43 +229,6 @@ class TrackTableModel(QAbstractTableModel):
         if index.column() in _EDITABLE_COLS:
             return base | Qt.ItemFlag.ItemIsEditable
         return base
-
-
-class TrackStatusDelegate(QStyledItemDelegate):
-    """Paints a live progress bar in the Status cell of the ripping row.
-
-    Reads :data:`PROGRESS_ROLE`: an int percent means "this row is ripping —
-    draw a real bar" (with the percent as the bar's own text, so the number is
-    visible without hovering); None falls back to the default text painting
-    ("✓ Done", "⟳ Ripping" before the first percent arrives, or blank for
-    pending). The DisplayRole text is untouched either way, so assistive
-    technology and tests keep reading the status as text.
-    """
-
-    def paint(
-        self,
-        painter: QPainter,
-        option: QStyleOptionViewItem,
-        index: _Index,
-    ) -> None:
-        percent = index.data(PROGRESS_ROLE)
-        if not isinstance(percent, int):
-            super().paint(painter, option, index)
-            return
-        bar = QStyleOptionProgressBar()
-        bar.rect = option.rect.adjusted(2, 2, -2, -2)  # breathing room in the cell
-        bar.minimum = 0
-        bar.maximum = 100
-        bar.progress = percent
-        bar.text = f"{percent}%"
-        bar.textVisible = True
-        style = option.widget.style() if option.widget is not None else None
-        if style is None:  # pragma: no cover — option.widget is always the view
-            super().paint(painter, option, index)
-            return
-        style.drawControl(
-            QStyle.ControlElement.CE_ProgressBar, bar, painter, option.widget
-        )
 
 
 class TrackTable(QWidget):
@@ -385,11 +286,12 @@ class TrackTable(QWidget):
         self._view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._view.verticalHeader().setVisible(False)
         self._view.setAlternatingRowColors(True)
-        # The Status column paints a live progress bar on the ripping row
-        # (per-track progress, feature backlog 2026-07-21); other rows/roles
-        # fall through to the default text painting.
-        self._status_delegate: TrackStatusDelegate = TrackStatusDelegate(self._view)
-        self._view.setItemDelegateForColumn(_COL_STATUS, self._status_delegate)
+        # The Status column shows plain text ("⟳ Ripping" / "✓ Done"). It used
+        # to also paint a per-track progress bar, but that duplicated the current-
+        # task bar in the progress pane below — same percent, two places — so it
+        # was removed (real-user feedback, 2026-07-22). Live progress lives in the
+        # one two-tier bar (overall + current task); the grid just says which
+        # track is active.
         # Title + Artist columns stretch; # + Length are content-sized.
         header = self._view.horizontalHeader()
         for col in range(len(_COLUMNS)):
@@ -464,16 +366,6 @@ class TrackTable(QWidget):
     def mark_track_done(self, track_number: int) -> None:
         """Show `track_number` (1-based) as finished ripping."""
         self._model.set_track_status(track_number, STATUS_DONE)
-
-    def on_rip_progress(self, overall: float, task: float) -> None:
-        """Drive the ripping row's live progress bar from the worker's
-        ``progress(overall, task)`` signal. The task percent is the current
-        operation's own 0–100 — exactly what the row's bar should show; the
-        overall percent belongs to the rip-progress pane, not a single row.
-        No-op when no track is marked ripping (e.g. the pre-track disc scan).
-        """
-        del overall
-        self._model.set_current_progress(task)
 
     def reset_track_status(self) -> None:
         """Clear the live Status column back to pending (called at rip start)."""

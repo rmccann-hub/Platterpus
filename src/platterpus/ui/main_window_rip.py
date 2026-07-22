@@ -70,6 +70,7 @@ from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import RipLog, parse_rip_log
+from platterpus.paths import LOG_PATH
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
     fidelity_summary,
@@ -98,6 +99,15 @@ log = logging.getLogger(__name__)
 # in-container reader can keep it spinning). The user can hit Force stop to
 # escalate sooner.
 _FORCE_STOP_COUNTDOWN_MS: int = 5000
+
+# How long the rip may go with NO signal from the worker (no progress line, no
+# status, no log output) before the liveness watchdog calls it a stall and shows
+# the notice. cyanrip streams several lines a second while healthy, so tens of
+# seconds of total silence means it's blocked in a read — almost always a wedged
+# drive (e.g. an unsupported lead-out overread on the last track). Generous
+# enough not to false-alarm on a slow re-read burst; short enough to reassure
+# quickly that the freeze is *seen*.
+_RIP_STALL_THRESHOLD_S: float = 45.0
 
 # Bound on how long the checksum step waits for in-flight tagging/transcode to
 # settle before hashing (mirrors the CTDB/FLAC-verify settle bound), so a wedged
@@ -478,17 +488,37 @@ class RipMixin(MainWindowShared):
         # the live Status column starts all-pending.
         self._track_table.reset_track_status()
 
+        # Make the in-progress rip reachable from the moment it starts: Open rip
+        # folder → the output directory (the album subfolder appears inside as
+        # cyanrip works), View log → the real-time app log. So a frozen or
+        # cancelled rip is never a dead end (the "Open rip folder did nothing
+        # after I force-cancelled" report). set_log_path refines these to the
+        # backend's own .log / folder at finish.
+        self._rip_progress.begin_rip(Path(params.output_dir), LOG_PATH)
+        # Arm the liveness watchdog: record "now" as the last-signal time and
+        # start the timer. Any worker signal below refreshes it via
+        # _note_rip_signal; the timer flags a stall when it goes quiet.
+        import time as _time
+
+        self._last_rip_signal_at = _time.monotonic()
+        self._rip_liveness_timer.start()
+
         self._rip_worker.log_line.connect(self._rip_progress.append_log_line)
         self._rip_worker.progress.connect(self._rip_progress.set_progress)
         self._rip_worker.status.connect(self._rip_progress.set_status)
+        # Feed the liveness watchdog: every worker signal is proof the rip is
+        # alive, so refresh the last-signal timestamp (and clear any stall notice)
+        # on each. Connected to the high-frequency signals — progress, status,
+        # and raw log lines — so even a phase with no percent movement (encode,
+        # verify) still counts as alive as long as output flows.
+        self._rip_worker.log_line.connect(self._note_rip_signal)
+        self._rip_worker.progress.connect(self._note_rip_signal)
+        self._rip_worker.status.connect(self._note_rip_signal)
         # Follow the rip in the track table — highlight the row the ripper is on
         # and advance the live Status column (current row → ripping, each finished
         # track → done).
         self._rip_worker.current_track.connect(self._track_table.highlight_track)
         self._rip_worker.current_track.connect(self._track_table.mark_track_ripping)
-        # …and drive the ripping row's live progress bar from the same task
-        # percent the bottom progress bar shows (per-track progress bars).
-        self._rip_worker.progress.connect(self._track_table.on_rip_progress)
         self._rip_worker.track_completed.connect(self._track_table.mark_track_done)
         self._rip_worker.error.connect(self._on_rip_error)
         self._rip_worker.finished.connect(self._on_rip_finished)
@@ -497,6 +527,54 @@ class RipMixin(MainWindowShared):
         # rip begins on start_rip when the thread spins up).
         start_worker_thread(
             self._rip_worker, self._rip_thread, self._rip_worker.start_rip
+        )
+
+    def _note_rip_signal(self, *_args: object) -> None:
+        """Refresh the liveness clock — the rip just proved it's alive.
+
+        Connected to every high-frequency worker signal. Also clears a showing
+        stall notice the instant output resumes, so a brief slow patch that
+        tripped the watchdog vanishes as soon as the drive gets going again.
+        Ignores its signal args (it's wired to several differently-typed signals).
+        """
+        import time as _time
+
+        self._last_rip_signal_at = _time.monotonic()
+        self._rip_progress.set_stall_notice(None)
+
+    def _check_rip_liveness(self) -> None:
+        """Timer slot: surface a stall notice when the worker has gone quiet.
+
+        Runs on the GUI thread and only reads a timestamp — never blocks. When
+        the drive wedges, the worker parks in a blocking read and stops emitting,
+        so `_last_rip_signal_at` stops advancing while this keeps ticking; once
+        the gap crosses the threshold we show the notice (and keep the elapsed
+        time fresh each tick). Guarded on a rip actually being in flight.
+        """
+        if self._rip_thread is None or self._last_rip_signal_at == 0.0:
+            return
+        import time as _time
+
+        from platterpus.rip_timing import format_duration
+
+        idle = _time.monotonic() - self._last_rip_signal_at
+        if idle < _RIP_STALL_THRESHOLD_S:
+            return
+        # Name the most likely culprit when it applies: overread on the last
+        # track is the confirmed lead-out-hang cause on some drives (BDR-209D).
+        overread_hint = ""
+        if (
+            self._active_rip_params is not None
+            and self._active_rip_params.force_overread
+        ):
+            overread_hint = (
+                " Overread is on, which can hang some drives while reading the "
+                "last track's lead-out — turn it off in Settings if this keeps "
+                "happening."
+            )
+        self._rip_progress.set_stall_notice(
+            f"⚠ No progress for {format_duration(idle)} — the drive may be stuck. "
+            f"Cancel or Force stop to recover.{overread_hint}"
         )
 
     def _on_rip_cancel(self) -> None:
@@ -791,6 +869,9 @@ class RipMixin(MainWindowShared):
             self._rip_controls.set_rip_active(False)
             self._set_rip_lock(False)  # rip over — re-enable the locked-down UI
             self._repaint_timer.stop()  # rip over — stop the Wayland repaint belt
+            self._rip_liveness_timer.stop()  # rip over — disarm the stall watchdog
+            self._rip_progress.set_stall_notice(None)  # clear any stall banner
+            self._last_rip_signal_at = 0.0
             self._rip_worker = None
             self._rip_thread = None
             self._active_rip_params = None

@@ -5194,3 +5194,74 @@ def test_post_rip_work_settled_respects_live_threads_and_report_timer(
         assert window._post_rip_work_settled() is False
     finally:
         window._rip_report_timer.stop()
+
+
+# --- Rip liveness watchdog (freeze visibility) -------------------------------
+# The reported bug: the rip sat at ~99% for ~23 min with no way to tell whether
+# it was frozen (an unsupported lead-out overread wedged the drive on the last
+# track). The worker's progress-based stall detector can't fire when cyanrip
+# blocks in a read and emits nothing, so a GUI-thread timer watches wall-clock
+# silence and surfaces a stall notice instead.
+
+
+def _arm_fake_rip(window: MainWindow, *, force_overread: bool = False) -> None:
+    """Put the window into a 'rip in flight' state without a real thread."""
+    from platterpus.workers.rip_worker import RipParameters
+
+    window._rip_thread = object()  # type: ignore[assignment]  # sentinel: only tested for None
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="",
+        output_dir=Path("/tmp/x"),
+        track_template="%t",
+        disc_template="%d",
+        force_overread=force_overread,
+    )
+
+
+def test_liveness_watchdog_shows_stall_after_silence(teardown_threads) -> None:
+    window = teardown_threads()
+    _arm_fake_rip(window)
+    # Last worker signal was long ago → the drive looks stuck.
+    window._last_rip_signal_at = time.monotonic() - 600
+    window._check_rip_liveness()
+    label = window._rip_progress._stall_label
+    assert label.isVisibleTo(window._rip_progress) is True
+    assert "No progress" in label.text()
+
+
+def test_liveness_watchdog_quiet_when_recent_signal(teardown_threads) -> None:
+    window = teardown_threads()
+    _arm_fake_rip(window)
+    window._last_rip_signal_at = time.monotonic()  # just heard from the worker
+    window._check_rip_liveness()
+    assert window._rip_progress._stall_label.isVisibleTo(window._rip_progress) is False
+
+
+def test_note_rip_signal_clears_a_showing_stall(teardown_threads) -> None:
+    window = teardown_threads()
+    _arm_fake_rip(window)
+    window._last_rip_signal_at = time.monotonic() - 600
+    window._check_rip_liveness()
+    assert window._rip_progress._stall_label.isVisibleTo(window._rip_progress) is True
+    # Output resumes → the notice clears and the clock advances.
+    before = window._last_rip_signal_at
+    window._note_rip_signal()
+    assert window._rip_progress._stall_label.isVisibleTo(window._rip_progress) is False
+    assert window._last_rip_signal_at > before
+
+
+def test_liveness_watchdog_names_overread_when_on(teardown_threads) -> None:
+    window = teardown_threads()
+    _arm_fake_rip(window, force_overread=True)
+    window._last_rip_signal_at = time.monotonic() - 600
+    window._check_rip_liveness()
+    assert "Overread" in window._rip_progress._stall_label.text()
+
+
+def test_liveness_watchdog_no_op_when_no_rip(teardown_threads) -> None:
+    window = teardown_threads()
+    # No rip in flight (_rip_thread is None) → never shows a stall.
+    window._last_rip_signal_at = time.monotonic() - 600
+    window._check_rip_liveness()
+    assert window._rip_progress._stall_label.isVisibleTo(window._rip_progress) is False
