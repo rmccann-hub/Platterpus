@@ -93,6 +93,10 @@ class RipParameters:
     # The GUI's already-fetched album/track tags (track table content),
     # fed to cyanrip via -a/-t so the rip needs no in-container network.
     metadata: RipMetadata | None = None
+    # User-chosen subset of 1-based track numbers to rip (the track table's
+    # "Rip?" checkboxes). Empty = rip the whole disc (the common case); a
+    # non-empty tuple becomes cyanrip's `-l` so only those tracks are read.
+    only_tracks: tuple[int, ...] = ()
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -725,7 +729,9 @@ class RipWorker(QObject):
             # Remember this pass's speed so ETA samples are tagged with it.
             self._current_read_speed = speed
             outcome = self._rip_once(
-                read_speed=speed, secure_rerip_matches=secure_rerip
+                read_speed=speed,
+                secure_rerip_matches=secure_rerip,
+                only_tracks=self._params.only_tracks,
             )
             if outcome is None:
                 # A hard start/stream error already emitted `error`; stop here.

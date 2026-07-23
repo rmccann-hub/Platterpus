@@ -669,3 +669,69 @@ def test_library_dir_round_trips(qapp: QApplication) -> None:
     dialog._library_dir_edit.setText("/music/library")
     assert dialog.to_config().library_dir == "/music/library"
     assert "library_dir" in dialog._validated_widgets
+
+
+def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
+    """Every user-facing setting the guide documents must also carry a tooltip
+    on its Settings control — the same info, on hover (real-user request,
+    2026-07-23).
+
+    Ties tooltip coverage to the guide-currency classification (the single
+    source of "which fields are user-facing"): a new setting can't ship with a
+    guide entry but no tooltip, and vice versa. Same enforcement shape as
+    test_user_guide_currency — a convention that's only trusted rots.
+    """
+    from test_user_guide_currency import _GUIDE_KEYWORDS
+
+    # Guide-documented user-facing field → the dialog widget that carries it.
+    field_to_widget: dict[str, str] = {
+        "output_dir": "_output_dir_edit",
+        "working_dir": "_working_dir_edit",
+        "track_template": "_track_template_edit",
+        "disc_template": "_disc_template_edit",
+        "track_template_unknown": "_track_template_unknown_edit",
+        "disc_template_unknown": "_disc_template_unknown_edit",
+        "read_offset": "_read_offset_spin",
+        "override_read_offset": "_override_offset_check",
+        "auto_launch_picard": "_auto_picard_check",
+        "auto_eject_after_rip": "_auto_eject_check",
+        "notify_on_completion": "_notify_check",
+        "library_dir": "_library_dir_edit",
+        "debug_logging": "_debug_logging_check",
+        "cover_art": "_cover_art_combo",
+        "save_additional_art": "_additional_art_check",
+        "max_retries": "_max_retries_spin",
+        "force_overread": "_force_overread_check",
+        "secure_rerip_matches": "_secure_rerip_spin",
+        "read_speed_mode": "_read_speed_mode_combo",
+        "read_speed": "_read_speed_spin",
+        "ctdb_verify_after_rip": "_ctdb_verify_check",
+        "verify_flac_after_rip": "_verify_flac_check",
+        "recompress_flac_after_rip": "_recompress_flac_check",
+        "write_eac_log_after_rip": "_eac_log_check",
+        "output_format": "_format_combo",
+        "mp3_vbr_quality": "_mp3_quality_spin",
+        "rip_goal": "_goal_combo",
+    }
+    # Guide-documented fields that share another setting's single control (no
+    # dedicated widget of their own): dynamic secure-rerip is folded into the
+    # "Max reads to confirm a shaky track" control.
+    no_dedicated_widget: set[str] = {"secure_rerip_dynamic"}
+
+    documented = set(_GUIDE_KEYWORDS)
+    covered = set(field_to_widget) | no_dedicated_widget
+    missing = documented - covered
+    assert not missing, (
+        "guide-documented settings with no tooltip mapping: "
+        f"{sorted(missing)} — give each a tooltip on its control and add it to "
+        "field_to_widget, or list it in no_dedicated_widget."
+    )
+    extra = covered - documented
+    assert not extra, (
+        f"tooltip map references fields the guide doesn't document: {sorted(extra)}"
+    )
+
+    dialog = SettingsDialog(Config())
+    for field, attr in field_to_widget.items():
+        tip = getattr(dialog, attr).toolTip()
+        assert tip and tip.strip(), f"setting {field} ({attr}) has no tooltip"

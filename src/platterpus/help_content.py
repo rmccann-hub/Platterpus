@@ -42,7 +42,11 @@ You don't interact with the container directly — the GUI handles it.
    track list. If several releases match, choose the right one.
 3. Check or edit the album/artist/track fields — your edits are written to the
    FLAC tags.
-4. Click **Start rip**. Progress shows an overall bar plus the current task.
+4. **Choose which tracks to rip** (optional). Every track is ticked in the
+   **Rip?** column by default — untick any you don't want. Or right-click one or
+   more highlighted rows for **Rip only these** / include / exclude. Start rips
+   whatever's ticked (all ticked = the whole disc).
+5. Click **Start rip**. Progress shows an overall bar plus the current task.
 5. When it finishes, the status line reports a fidelity verdict and the results
    pane shows a verification banner (see below). Files land under your output
    folder (see Settings).

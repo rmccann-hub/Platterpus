@@ -449,8 +449,18 @@ class RipMixin(MainWindowShared):
             genre, disc_number, total_discs, isrc_by_number = "", 1, 1, {}
             catalog_number, barcode, label = "", "", ""
             length_ms_by_number = {}
+        # Which tracks to rip, from the "Rip?" checkboxes. All ticked → rip the
+        # whole disc (empty tuple, no `-l`); a subset → just those track numbers
+        # (cyanrip `-l`). The table's validate() already blocked a zero-selection
+        # start, so a non-empty selection here is guaranteed for a real rip.
+        only_tracks: tuple[int, ...] = (
+            ()
+            if self._track_table.all_tracks_selected()
+            else tuple(self._track_table.selected_track_numbers())
+        )
         params = replace(
             params,
+            only_tracks=only_tracks,
             metadata=RipMetadata(
                 album_artist=album.artist,
                 album_title=album.title,

@@ -11,7 +11,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-## [0.5.6] — 2026-07-22
+### Added
+- **Choose which tracks to rip.** The track table has a leading **Rip?**
+  checkbox column (every track ticked by default), and right-clicking one or
+  more highlighted rows offers **Rip only these** / include / exclude / select
+  all / none. Start rips whatever's ticked — all ticked means the whole disc,
+  a subset becomes cyanrip's `-l`. A zero-selection start is blocked with a
+  clear message. Tags and AccurateRip stay aligned because track numbers are
+  absolute.
+- **Every setting now has a hover tooltip, enforced.** Filled the last few
+  Settings controls that lacked one (output/working directory, disc template,
+  the unknown-disc templates, Picard, metaflac path) so hovering any control
+  explains it the way the User Guide does. A new test ties tooltip coverage to
+  the guide-currency classification: a setting documented in the guide must also
+  carry a tooltip on its control (and vice versa), so the two can't drift apart.
 
 ### Fixed
 - **"Open rip folder" now works during a rip and after a cancel/partial rip.**
