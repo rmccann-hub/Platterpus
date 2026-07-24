@@ -11,6 +11,11 @@ from platterpus.adapters.musicbrainz_client import (
     TrackSummary,
 )
 from platterpus.ui.track_table import (
+    _COL_ARTIST,
+    _COL_LENGTH,
+    _COL_NUMBER,
+    _COL_RIP,
+    _COL_TITLE,
     AlbumMetadata,
     TrackTable,
     TrackTableModel,
@@ -70,7 +75,7 @@ def test_format_length_negative_is_empty() -> None:
 def test_model_starts_empty(qapp: QApplication) -> None:
     model = TrackTableModel()
     assert model.rowCount() == 0
-    assert model.columnCount() == 5  # #, Title, Artist, Length, Status
+    assert model.columnCount() == 6  # Rip?, #, Title, Artist, Length, Status
 
 
 def test_model_set_tracks_populates_rows(qapp: QApplication) -> None:
@@ -83,20 +88,20 @@ def test_model_data_displays_track_fields(qapp: QApplication) -> None:
     model = TrackTableModel()
     model.set_tracks([_track(1, "Speak to Me", "Pink Floyd", 67_000)])
 
-    assert model.data(model.index(0, 0)) == "1"
-    assert model.data(model.index(0, 1)) == "Speak to Me"
-    assert model.data(model.index(0, 2)) == "Pink Floyd"
-    assert model.data(model.index(0, 3)) == "1:07"
+    assert model.data(model.index(0, _COL_NUMBER)) == "1"
+    assert model.data(model.index(0, _COL_TITLE)) == "Speak to Me"
+    assert model.data(model.index(0, _COL_ARTIST)) == "Pink Floyd"
+    assert model.data(model.index(0, _COL_LENGTH)) == "1:07"
 
 
 def test_model_title_and_artist_are_editable(qapp: QApplication) -> None:
     model = TrackTableModel()
     model.set_tracks([_track()])
 
-    title_flags = model.flags(model.index(0, 1))
-    artist_flags = model.flags(model.index(0, 2))
-    number_flags = model.flags(model.index(0, 0))
-    length_flags = model.flags(model.index(0, 3))
+    title_flags = model.flags(model.index(0, _COL_TITLE))
+    artist_flags = model.flags(model.index(0, _COL_ARTIST))
+    number_flags = model.flags(model.index(0, _COL_NUMBER))
+    length_flags = model.flags(model.index(0, _COL_LENGTH))
 
     assert title_flags & Qt.ItemFlag.ItemIsEditable
     assert artist_flags & Qt.ItemFlag.ItemIsEditable
@@ -108,7 +113,7 @@ def test_model_setData_updates_title(qapp: QApplication) -> None:
     model = TrackTableModel()
     model.set_tracks([_track(title="Old")])
 
-    ok = model.setData(model.index(0, 1), "New")
+    ok = model.setData(model.index(0, _COL_TITLE), "New")
 
     assert ok is True
     assert model.tracks()[0].title == "New"
@@ -118,7 +123,7 @@ def test_model_setData_updates_artist(qapp: QApplication) -> None:
     model = TrackTableModel()
     model.set_tracks([_track(artist="Old")])
 
-    ok = model.setData(model.index(0, 2), "New")
+    ok = model.setData(model.index(0, _COL_ARTIST), "New")
 
     assert ok is True
     assert model.tracks()[0].artist_credit == "New"
@@ -130,15 +135,15 @@ def test_model_setData_refuses_to_edit_number_or_length(
     model = TrackTableModel()
     model.set_tracks([_track(number=1)])
 
-    assert model.setData(model.index(0, 0), "99") is False
-    assert model.setData(model.index(0, 3), "9:99") is False
+    assert model.setData(model.index(0, _COL_NUMBER), "99") is False
+    assert model.setData(model.index(0, _COL_LENGTH), "9:99") is False
     # Underlying data unchanged.
     assert model.tracks()[0].number == 1
 
 
 def test_model_headers(qapp: QApplication) -> None:
     model = TrackTableModel()
-    expected = ["#", "Title", "Artist", "Length", "Status"]
+    expected = ["Rip?", "#", "Title", "Artist", "Length", "Status"]
     for i, header in enumerate(expected):
         assert model.headerData(i, Qt.Orientation.Horizontal) == header
 
@@ -316,7 +321,7 @@ def test_user_edit_album_artist_visible_in_metadata(
 def test_user_edit_track_title_visible_in_tracks(qapp: QApplication) -> None:
     widget = TrackTable()
     widget.set_release(_detail())
-    widget._model.setData(widget._model.index(0, 1), "Edited Title")
+    widget._model.setData(widget._model.index(0, _COL_TITLE), "Edited Title")
 
     assert widget.tracks()[0].title == "Edited Title"
 
@@ -362,7 +367,7 @@ def test_validate_rejects_no_tracks(qapp: QApplication) -> None:
 def test_validate_rejects_blank_track_title(qapp: QApplication) -> None:
     widget = TrackTable()
     widget.set_release(_detail())
-    widget._model.setData(widget._model.index(0, 1), "")
+    widget._model.setData(widget._model.index(0, _COL_TITLE), "")
     ok, message = widget.validate()
     assert ok is False
     assert "track 1" in message.lower() or "track" in message.lower()
@@ -426,3 +431,71 @@ def test_status_column_is_text_only_no_progress_bar(qapp: QApplication) -> None:
     widget.mark_track_done(1)
     assert widget._model.data(widget._model.index(0, _COL_STATUS)) == "✓ Done"
     assert widget._model.data(widget._model.index(1, _COL_STATUS)) == ""
+
+
+# --- Per-track Rip? selection (checkbox column + right-click, 2026-07-23) -----
+
+
+def _checkstate(model: TrackTableModel, row: int) -> Qt.CheckState:
+    return model.data(model.index(row, _COL_RIP), Qt.ItemDataRole.CheckStateRole)
+
+
+def test_all_tracks_selected_by_default(qapp: QApplication) -> None:
+    """Every track ticked on load → the whole-disc case."""
+    widget = TrackTable()
+    widget.set_release(_detail())
+    assert widget.selected_track_numbers() == [1, 2]
+    assert widget.all_tracks_selected() is True
+    assert _checkstate(widget._model, 0) == Qt.CheckState.Checked
+    assert _checkstate(widget._model, 1) == Qt.CheckState.Checked
+
+
+def test_rip_column_is_user_checkable(qapp: QApplication) -> None:
+    model = TrackTableModel()
+    model.set_tracks([_track(1)])
+    flags = model.flags(model.index(0, _COL_RIP))
+    assert flags & Qt.ItemFlag.ItemIsUserCheckable
+    # The checkbox cell shows no text beside the box.
+    assert model.data(model.index(0, _COL_RIP)) is None
+
+
+def test_untick_via_setdata_drops_track_from_selection(qapp: QApplication) -> None:
+    widget = TrackTable()
+    widget.set_release(_detail())
+    ok = widget._model.setData(
+        widget._model.index(0, _COL_RIP),
+        Qt.CheckState.Unchecked,
+        Qt.ItemDataRole.CheckStateRole,
+    )
+    assert ok is True
+    assert widget.selected_track_numbers() == [2]
+    assert widget.all_tracks_selected() is False
+    assert _checkstate(widget._model, 0) == Qt.CheckState.Unchecked
+
+
+def test_set_only_selected_ticks_just_those(qapp: QApplication) -> None:
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._model.set_only_selected([2])
+    assert widget.selected_track_numbers() == [2]
+
+
+def test_set_all_selected_false_then_validate_fails(qapp: QApplication) -> None:
+    """Zero tracks ticked → validate() blocks the rip with a clear message."""
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._model.set_all_selected(False)
+    assert widget.selected_track_numbers() == []
+    ok, message = widget.validate()
+    assert ok is False
+    assert "select" in message.lower() or "rip?" in message.lower()
+
+
+def test_selection_changed_signal_fires(qapp: QApplication) -> None:
+    widget = TrackTable()
+    seen: list[tuple[int, int]] = []
+    widget.selection_changed.connect(lambda sel, total: seen.append((sel, total)))
+    widget.set_release(_detail())  # emits (2, 2)
+    widget._model.set_all_selected(False)  # emits (0, 2)
+    assert seen[-1] == (0, 2)
+    assert (2, 2) in seen

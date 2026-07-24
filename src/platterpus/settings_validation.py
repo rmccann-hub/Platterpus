@@ -221,6 +221,7 @@ _BOOL_FIELDS: tuple[str, ...] = (
     "appimage_integration_prompted",
     "debug_logging",
     "secure_rerip_dynamic",
+    "rerip_offset_variant",
     "ctdb_verify_after_rip",
     "verify_flac_after_rip",
     "recompress_flac_after_rip",

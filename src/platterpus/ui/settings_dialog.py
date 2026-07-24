@@ -83,10 +83,19 @@ class SettingsDialog(CenteredDialog):
         self._output_dir_edit, output_row = self._build_dir_row(
             config.output_dir, "Output directory"
         )
+        self._output_dir_edit.setToolTip(
+            "Where finished rips are written. Each album lands in its own "
+            "folder here, built from the naming template below."
+        )
         form.addRow("Output directory:", output_row)
 
         self._working_dir_edit, working_row = self._build_dir_row(
             config.working_dir, "Working directory"
+        )
+        self._working_dir_edit.setToolTip(
+            "A scratch folder used while a rip is in progress; the finished "
+            "files are written to the output directory above. The default suits "
+            "almost everyone — change it only if that disk is short on space."
         )
         form.addRow("Working directory:", working_row)
 
@@ -127,6 +136,10 @@ class SettingsDialog(CenteredDialog):
         form.addRow("Track template:", self._track_template_edit)
 
         self._disc_template_edit: QLineEdit = QLineEdit(config.disc_template, self)
+        self._disc_template_edit.setToolTip(
+            "Folder path for the rip's .log and .cue on identified discs. Same "
+            "codes as the track template above."
+        )
         form.addRow("Disc template (.log/.cue):", self._disc_template_edit)
 
         # Live preview: the selected template rendered against a metadata-heavy
@@ -152,10 +165,18 @@ class SettingsDialog(CenteredDialog):
         self._track_template_unknown_edit: QLineEdit = QLineEdit(
             config.track_template_unknown, self
         )
+        self._track_template_unknown_edit.setToolTip(
+            "Track path used when a disc isn't identified (File → Rip as Unknown "
+            "Album). Uses the literal 'Unknown Album' names, never a disc-ID hash."
+        )
         form.addRow("Track template (unknown):", self._track_template_unknown_edit)
 
         self._disc_template_unknown_edit: QLineEdit = QLineEdit(
             config.disc_template_unknown, self
+        )
+        self._disc_template_unknown_edit.setToolTip(
+            "Folder path for the .log/.cue of an unidentified disc "
+            "(File → Rip as Unknown Album)."
         )
         form.addRow("Disc template (unknown):", self._disc_template_unknown_edit)
 
@@ -223,6 +244,11 @@ class SettingsDialog(CenteredDialog):
         self._metaflac_path_edit, metaflac_row = self._build_file_row(
             config.metaflac_path, "metaflac path"
         )
+        self._metaflac_path_edit.setToolTip(
+            "Path to the 'metaflac' tool used to adjust FLAC tags after a rip. "
+            "Leave as 'metaflac' to use the host-exported command on your PATH "
+            "(the normal case). Advanced."
+        )
         form.addRow("metaflac path:", metaflac_row)
 
         # --- Output format ---
@@ -288,6 +314,10 @@ class SettingsDialog(CenteredDialog):
             "Launch MusicBrainz Picard on unknown discs", self
         )
         self._auto_picard_check.setChecked(config.auto_launch_picard)
+        self._auto_picard_check.setToolTip(
+            "When a disc can't be identified on MusicBrainz, offer to open it in "
+            "MusicBrainz Picard so you can tag it there. Off by default."
+        )
         form.addRow("Picard integration:", self._auto_picard_check)
 
         # Auto-eject the disc when a rip finishes successfully. Convenience
@@ -415,6 +445,25 @@ class SettingsDialog(CenteredDialog):
             "Clean, in-database discs finish in one fast pass either way."
         )
         form.addRow("Max reads to confirm a shaky track:", self._secure_rerip_spin)
+
+        # Re-read offset-variant tracks too (opt-in, off by default). An
+        # offset-variant ("partially accurate") match is normally accepted on the
+        # fast read; this makes such tracks get the same secure re-read so an
+        # unstable one converges on a reproducible read.
+        self._rerip_offset_variant_check: QCheckBox = QCheckBox(
+            "Also re-read offset-variant (partially accurate) tracks", self
+        )
+        self._rerip_offset_variant_check.setChecked(config.rerip_offset_variant)
+        self._rerip_offset_variant_check.setToolTip(
+            "Off by default. An offset-variant (“partially accurate”) match "
+            "confirms a pressing but does NOT prove the read is reproducible — the "
+            "same track can offset-variant-match two rips with different audio. "
+            "When on, those tracks get the same secure re-read (cyanrip's -Z) as an "
+            "AccurateRip miss, until reads agree, so the result is stable and "
+            "repeatable. Costs extra time on discs with offset-variant tracks "
+            "(compilations, remasters); leave off for the fast path."
+        )
+        form.addRow("", self._rerip_offset_variant_check)
 
         # --- Adaptive read-speed ladder (headline, 0.4.6) ---
         # "Adaptive ladder" (default): rip fast, and only if a disc reads with
@@ -621,6 +670,7 @@ class SettingsDialog(CenteredDialog):
             # Dynamic secure re-rip is the behaviour now, not a UI toggle — carry
             # the stored value through unchanged (a power user can flip it in TOML).
             secure_rerip_dynamic=self._config.secure_rerip_dynamic,
+            rerip_offset_variant=self._rerip_offset_variant_check.isChecked(),
             read_speed_mode=self._read_speed_mode_combo.currentData(),
             read_speed=self._read_speed_spin.value(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),

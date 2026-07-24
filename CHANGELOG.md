@@ -11,7 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-## [0.5.6] — 2026-07-22
+### Added
+- **Choose which tracks to rip.** The track table has a leading **Rip?**
+  checkbox column (every track ticked by default), and right-clicking one or
+  more highlighted rows offers **Rip only these** / include / exclude / select
+  all / none. Start rips whatever's ticked — all ticked means the whole disc,
+  a subset becomes cyanrip's `-l`. A zero-selection start is blocked with a
+  clear message. Tags and AccurateRip stay aligned because track numbers are
+  absolute.
+- **Every setting now has a hover tooltip, enforced.** Filled the last few
+  Settings controls that lacked one (output/working directory, disc template,
+  the unknown-disc templates, Picard, metaflac path) so hovering any control
+  explains it the way the User Guide does. A new test ties tooltip coverage to
+  the guide-currency classification: a setting documented in the guide must also
+  carry a tooltip on its control (and vice versa), so the two can't drift apart.
+- **Opt-in: also re-read offset-variant (partially accurate) tracks** (Settings,
+  off by default). An offset-variant AccurateRip match confirms a pressing but
+  does **not** prove the read is reproducible — real hardware showed a track
+  offset-variant-matching two rips with *different* audio each time. When on,
+  those tracks get the same secure `-Z` re-read as an AccurateRip miss, so an
+  unstable one converges on a stable, repeatable read. Off keeps today's fast
+  path (offset-variant accepted on the first read); it only costs time on discs
+  that actually have offset-variant tracks. See PLANNING KDD-27.
 
 ### Fixed
 - **"Open rip folder" now works during a rip and after a cancel/partial rip.**

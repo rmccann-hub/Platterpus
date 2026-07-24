@@ -42,7 +42,11 @@ You don't interact with the container directly — the GUI handles it.
    track list. If several releases match, choose the right one.
 3. Check or edit the album/artist/track fields — your edits are written to the
    FLAC tags.
-4. Click **Start rip**. Progress shows an overall bar plus the current task.
+4. **Choose which tracks to rip** (optional). Every track is ticked in the
+   **Rip?** column by default — untick any you don't want. Or right-click one or
+   more highlighted rows for **Rip only these** / include / exclude. Start rips
+   whatever's ticked (all ticked = the whole disc).
+5. Click **Start rip**. Progress shows an overall bar plus the current task.
 5. When it finishes, the status line reports a fidelity verdict and the results
    pane shows a verification banner (see below). Files land under your output
    folder (see Settings).
@@ -190,6 +194,15 @@ named from the album artist/title you type.
   stays a single fast pass. It's **on by default** (2) — raise it for a badly
   scratched disc, or set it to *Off* to accept the first read even when a track
   can't be verified.
+- **Also re-read offset-variant (partially accurate) tracks** — **off by
+  default.** An "offset-variant" match (the `~` in the results) confirms the
+  audio matches a *shifted* pressing in AccurateRip, but it does **not** prove
+  the read is repeatable — the same track can offset-variant-match two rips with
+  slightly different audio. When this is on, those tracks get the same secure
+  re-read as an AccurateRip miss (above), so an unstable one settles on a
+  stable, repeatable result. It costs extra time on discs with offset-variant
+  tracks (many compilations and remasters), which is why it's off by default;
+  turn it on when you want maximum reproducibility.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
   the CUETools Database, alongside AccurateRip. A network check, off by default.
   Its checksum is now confirmed on real hardware, so a match reads as *verified*

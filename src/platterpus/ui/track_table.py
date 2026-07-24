@@ -28,13 +28,16 @@ from PySide6.QtCore import (
     QAbstractTableModel,
     QModelIndex,
     QPersistentModelIndex,
+    QPoint,
     Qt,
+    Signal,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFormLayout,
     QHeaderView,
     QLineEdit,
+    QMenu,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -62,15 +65,16 @@ class AlbumMetadata:
     year: str = ""
 
 
-# Column layout. Defined once so the model + view + tests share it. Status is
-# LAST so the existing column indices (and every test/consumer that uses them)
-# stay put.
-_COLUMNS: list[str] = ["#", "Title", "Artist", "Length", "Status"]
-_COL_NUMBER: int = 0
-_COL_TITLE: int = 1
-_COL_ARTIST: int = 2
-_COL_LENGTH: int = 3
-_COL_STATUS: int = 4
+# Column layout. Defined once so the model + view + tests share it. The leading
+# "Rip?" column is a per-track checkbox (which tracks to rip → cyanrip `-l`);
+# Status stays LAST.
+_COLUMNS: list[str] = ["Rip?", "#", "Title", "Artist", "Length", "Status"]
+_COL_RIP: int = 0
+_COL_NUMBER: int = 1
+_COL_TITLE: int = 2
+_COL_ARTIST: int = 3
+_COL_LENGTH: int = 4
+_COL_STATUS: int = 5
 _EDITABLE_COLS: set[int] = {_COL_TITLE, _COL_ARTIST}
 
 # Per-track live rip status, shown in the Status column as it advances. Symbol
@@ -101,20 +105,82 @@ class TrackTableModel(QAbstractTableModel):
     TrackSummary is frozen, so edits go through dataclasses.replace.
     """
 
+    # Emitted whenever the "Rip?" checkbox selection changes: (selected, total).
+    # The main window uses it to reflect "Rip N of M" and block a zero-selection
+    # start. Defined at class scope so it's a real Qt signal on the model.
+    selection_changed = Signal(int, int)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._tracks: list[TrackSummary] = []
         # Live per-track rip status keyed by 1-based track number; absent = pending.
         self._status: dict[int, str] = {}
+        # Which tracks the user wants ripped, keyed by 1-based track number.
+        # Every track starts ticked (the common "rip the whole disc" case);
+        # unticking a row drops it from the rip (cyanrip `-l`). A number absent
+        # from this map is treated as selected (so a freshly-set list is all-on).
+        self._selected: dict[int, bool] = {}
 
     # --- Public surface ---
 
     def set_tracks(self, tracks: Sequence[TrackSummary]) -> None:
-        """Replace the current track list. Resets the view (and rip status)."""
+        """Replace the current track list. Resets the view, rip status, and
+        selection (every track ticked)."""
         self.beginResetModel()
         self._tracks = list(tracks)
         self._status = {}
+        self._selected = {t.number: True for t in self._tracks}
         self.endResetModel()
+        self.selection_changed.emit(self.selected_count(), len(self._tracks))
+
+    # --- Rip selection ("Rip?" checkboxes) ---
+
+    def _is_selected(self, track_number: int) -> bool:
+        """True if `track_number` is ticked (absent = ticked by default)."""
+        return self._selected.get(track_number, True)
+
+    def selected_track_numbers(self) -> list[int]:
+        """The 1-based track numbers currently ticked, in track order."""
+        return [t.number for t in self._tracks if self._is_selected(t.number)]
+
+    def selected_count(self) -> int:
+        """How many tracks are ticked."""
+        return sum(1 for t in self._tracks if self._is_selected(t.number))
+
+    def set_all_selected(self, selected: bool) -> None:
+        """Tick (or untick) every track at once."""
+        if not self._tracks:
+            return
+        self._selected = {t.number: selected for t in self._tracks}
+        self._emit_selection_column_changed()
+
+    def set_only_selected(self, track_numbers: Sequence[int]) -> None:
+        """Tick exactly `track_numbers` (a set) and untick the rest.
+
+        Backs the right-click "Rip only these" action: the highlighted rows
+        become the whole rip selection.
+        """
+        if not self._tracks:
+            return
+        wanted = set(track_numbers)
+        self._selected = {t.number: (t.number in wanted) for t in self._tracks}
+        self._emit_selection_column_changed()
+
+    def set_selected(self, track_numbers: Sequence[int], selected: bool) -> None:
+        """Tick or untick a specific set of tracks, leaving the others as-is."""
+        if not self._tracks:
+            return
+        for n in track_numbers:
+            self._selected[n] = selected
+        self._emit_selection_column_changed()
+
+    def _emit_selection_column_changed(self) -> None:
+        """Repaint the whole Rip? column and announce the new count."""
+        if self._tracks:
+            top = self.index(0, _COL_RIP)
+            bottom = self.index(len(self._tracks) - 1, _COL_RIP)
+            self.dataChanged.emit(top, bottom, [Qt.ItemDataRole.CheckStateRole])
+        self.selection_changed.emit(self.selected_count(), len(self._tracks))
 
     def set_track_status(self, track_number: int, status: str) -> None:
         """Set the live rip status for a 1-based `track_number` and refresh its
@@ -182,13 +248,24 @@ class TrackTableModel(QAbstractTableModel):
     ) -> object:
         if not index.isValid():
             return None
+        col = index.column()
+        # The Rip? column is a checkbox — its state lives in CheckStateRole, and
+        # it shows no text (DisplayRole falls through to None below).
+        if col == _COL_RIP and role == Qt.ItemDataRole.CheckStateRole:
+            track = self._tracks[index.row()]
+            return (
+                Qt.CheckState.Checked
+                if self._is_selected(track.number)
+                else Qt.CheckState.Unchecked
+            )
         if role not in (
             Qt.ItemDataRole.DisplayRole,
             Qt.ItemDataRole.EditRole,
         ):
             return None
         track = self._tracks[index.row()]
-        col = index.column()
+        if col == _COL_RIP:
+            return None  # checkbox only — no text beside it
         if col == _COL_NUMBER:
             return str(track.number)
         if col == _COL_TITLE:
@@ -209,9 +286,18 @@ class TrackTableModel(QAbstractTableModel):
         value: object,
         role: int = Qt.ItemDataRole.EditRole,
     ) -> bool:
-        if role != Qt.ItemDataRole.EditRole or not index.isValid():
+        if not index.isValid():
             return False
         col = index.column()
+        # Toggling the Rip? checkbox (Qt sends CheckStateRole with a CheckState).
+        if col == _COL_RIP and role == Qt.ItemDataRole.CheckStateRole:
+            track = self._tracks[index.row()]
+            self._selected[track.number] = Qt.CheckState(value) == Qt.CheckState.Checked
+            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+            self.selection_changed.emit(self.selected_count(), len(self._tracks))
+            return True
+        if role != Qt.ItemDataRole.EditRole:
+            return False
         if col not in _EDITABLE_COLS:
             return False
         text = str(value) if value is not None else ""
@@ -226,13 +312,23 @@ class TrackTableModel(QAbstractTableModel):
 
     def flags(self, index: _Index) -> Qt.ItemFlag:
         base = super().flags(index)
-        if index.column() in _EDITABLE_COLS:
+        col = index.column()
+        if col == _COL_RIP:
+            # A user-checkable cell — the checkbox toggles the track's rip
+            # selection. Still selectable/enabled so keyboard Space toggles it.
+            return base | Qt.ItemFlag.ItemIsUserCheckable
+        if col in _EDITABLE_COLS:
             return base | Qt.ItemFlag.ItemIsEditable
         return base
 
 
 class TrackTable(QWidget):
     """Composite widget: album-level fields + track table."""
+
+    # Re-emitted from the model: (selected, total) whenever the Rip? checkboxes
+    # change. The main window connects this to reflect "Rip N of M" on the Start
+    # button and to block a start when nothing's ticked.
+    selection_changed = Signal(int, int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -301,6 +397,13 @@ class TrackTable(QWidget):
                 else QHeaderView.ResizeMode.ResizeToContents
             )
             header.setSectionResizeMode(col, mode)
+        # Right-click a row (or several highlighted rows) for quick rip-selection
+        # actions — the second half of the "checkbox column + right-click" model.
+        self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._view.customContextMenuRequested.connect(self._show_track_menu)
+        # Surface the model's selection changes as our own signal so the main
+        # window can watch one object (the widget), not the inner model.
+        self._model.selection_changed.connect(self.selection_changed)
         root.addWidget(self._view, stretch=1)
 
     # --- Public surface -----------------------------------------------------
@@ -394,8 +497,54 @@ class TrackTable(QWidget):
         """Return the user's current track edits."""
         return self._model.tracks()
 
+    def selected_track_numbers(self) -> list[int]:
+        """The 1-based track numbers the user ticked in the Rip? column.
+
+        The main window passes this to the rip as ``only_tracks``. When every
+        track is ticked it returns them all; the caller treats "all ticked" as
+        "rip the whole disc" (empty ``-l``).
+        """
+        return self._model.selected_track_numbers()
+
+    def all_tracks_selected(self) -> bool:
+        """True when every track is ticked (the whole-disc case)."""
+        return self._model.selected_count() == len(self._model.tracks())
+
+    def _highlighted_track_numbers(self) -> list[int]:
+        """1-based track numbers of the rows the user has highlighted (selected
+        in the view), for the right-click actions. Row index == number - 1."""
+        rows = {idx.row() for idx in self._view.selectionModel().selectedRows()}
+        tracks = self._model.tracks()
+        return [tracks[r].number for r in sorted(rows) if 0 <= r < len(tracks)]
+
+    def _show_track_menu(self, pos: QPoint) -> None:
+        """Right-click menu: quick rip-selection actions on the highlighted rows.
+
+        These just set the Rip? checkboxes (the single source of truth for what
+        Start rips) — nothing rips immediately. "Rip only these" is the headline:
+        tick just the highlighted rows and untick the rest.
+        """
+        if not self._model.tracks():
+            return
+        highlighted = self._highlighted_track_numbers()
+        menu = QMenu(self._view)
+        if highlighted:
+            only = menu.addAction("Rip only these")
+            only.triggered.connect(lambda: self._model.set_only_selected(highlighted))
+            inc = menu.addAction("Include these in the rip")
+            inc.triggered.connect(lambda: self._model.set_selected(highlighted, True))
+            exc = menu.addAction("Exclude these from the rip")
+            exc.triggered.connect(lambda: self._model.set_selected(highlighted, False))
+            menu.addSeparator()
+        all_on = menu.addAction("Select all")
+        all_on.triggered.connect(lambda: self._model.set_all_selected(True))
+        all_off = menu.addAction("Select none")
+        all_off.triggered.connect(lambda: self._model.set_all_selected(False))
+        menu.exec(self._view.viewport().mapToGlobal(pos))
+
     def validate(self) -> tuple[bool, str]:
-        """Validate that nothing required is blank.
+        """Validate that nothing required is blank and at least one track is
+        selected.
 
         Returns (True, "") when everything's filled in; (False, message)
         with the first failure when not. The main window uses this
@@ -411,4 +560,8 @@ class TrackTable(QWidget):
         for track in tracks:
             if not track.title.strip():
                 return False, f"Track {track.number} is missing a title."
+        # At least one track must be ticked in the Rip? column, or there's
+        # nothing to rip.
+        if self._model.selected_count() == 0:
+            return False, "No tracks selected to rip (tick at least one in Rip?)."
         return True, ""
