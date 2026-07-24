@@ -194,6 +194,15 @@ named from the album artist/title you type.
   stays a single fast pass. It's **on by default** (2) — raise it for a badly
   scratched disc, or set it to *Off* to accept the first read even when a track
   can't be verified.
+- **Also re-read offset-variant (partially accurate) tracks** — **off by
+  default.** An "offset-variant" match (the `~` in the results) confirms the
+  audio matches a *shifted* pressing in AccurateRip, but it does **not** prove
+  the read is repeatable — the same track can offset-variant-match two rips with
+  slightly different audio. When this is on, those tracks get the same secure
+  re-read as an AccurateRip miss (above), so an unstable one settles on a
+  stable, repeatable result. It costs extra time on discs with offset-variant
+  tracks (many compilations and remasters), which is why it's off by default;
+  turn it on when you want maximum reproducibility.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
   the CUETools Database, alongside AccurateRip. A network check, off by default.
   Its checksum is now confirmed on real hardware, so a match reads as *verified*

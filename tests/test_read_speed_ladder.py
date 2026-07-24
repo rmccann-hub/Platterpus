@@ -202,9 +202,35 @@ def test_tracks_failing_accuraterip_flags_only_unproven() -> None:
     assert tracks_failing_accuraterip(log) == [2]
 
 
+def test_tracks_failing_accuraterip_include_offset_variant() -> None:
+    """With include_offset_variant, an offset-variant-only track is also flagged
+    for re-read (the opt-in reproducibility setting); an exact match still isn't.
+
+    Real-hardware finding (2026-07-23): an offset-variant match confirms a
+    pressing but doesn't prove the read is reproducible.
+    """
+    from platterpus.parsers.rip_log import AccurateRipResult
+
+    matched = AccurateRipResult(version=1, confidence=200)
+    offset = AccurateRipResult(version=450, confidence=200)
+    log = _Log(
+        tracks=(
+            _Track(number=1, accuraterip_v1=matched),  # exact → still proven
+            _Track(number=2),  # no match → always re-read
+            _Track(number=3, accuraterip_offset=offset),  # offset-variant
+            _Track(number=4, status="data track (skipped)"),  # data → skip
+        )
+    )
+    # Default (off): offset-variant track 3 is treated as proven → only 2.
+    assert tracks_failing_accuraterip(log) == [2]
+    # Opt-in (on): offset-variant track 3 joins the re-read list; exact 1 doesn't.
+    assert tracks_failing_accuraterip(log, include_offset_variant=True) == [2, 3]
+
+
 def test_tracks_failing_accuraterip_never_raises_on_junk() -> None:
     assert tracks_failing_accuraterip(object()) == []
     assert tracks_failing_accuraterip(None) == []
+    assert tracks_failing_accuraterip(object(), include_offset_variant=True) == []
 
 
 def test_disc_in_accuraterip_true_when_any_track_matched() -> None:

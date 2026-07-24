@@ -25,6 +25,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   explains it the way the User Guide does. A new test ties tooltip coverage to
   the guide-currency classification: a setting documented in the guide must also
   carry a tooltip on its control (and vice versa), so the two can't drift apart.
+- **Opt-in: also re-read offset-variant (partially accurate) tracks** (Settings,
+  off by default). An offset-variant AccurateRip match confirms a pressing but
+  does **not** prove the read is reproducible — real hardware showed a track
+  offset-variant-matching two rips with *different* audio each time. When on,
+  those tracks get the same secure `-Z` re-read as an AccurateRip miss, so an
+  unstable one converges on a stable, repeatable read. Off keeps today's fast
+  path (offset-variant accepted on the first read); it only costs time on discs
+  that actually have offset-variant tracks. See PLANNING KDD-27.
 
 ### Fixed
 - **"Open rip folder" now works during a rip and after a cancel/partial rip.**

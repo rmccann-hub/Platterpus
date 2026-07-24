@@ -703,6 +703,7 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
         "max_retries": "_max_retries_spin",
         "force_overread": "_force_overread_check",
         "secure_rerip_matches": "_secure_rerip_spin",
+        "rerip_offset_variant": "_rerip_offset_variant_check",
         "read_speed_mode": "_read_speed_mode_combo",
         "read_speed": "_read_speed_spin",
         "ctdb_verify_after_rip": "_ctdb_verify_check",
@@ -735,3 +736,17 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
     for field, attr in field_to_widget.items():
         tip = getattr(dialog, attr).toolTip()
         assert tip and tip.strip(), f"setting {field} ({attr}) has no tooltip"
+
+
+def test_rerip_offset_variant_round_trips(qapp: QApplication) -> None:
+    """The opt-in 'also re-read offset-variant tracks' setting is off by default
+    and survives Settings → to_config."""
+    dialog = SettingsDialog(Config())
+    assert dialog._rerip_offset_variant_check.isChecked() is False
+    assert dialog.to_config().rerip_offset_variant is False
+
+    dialog._rerip_offset_variant_check.setChecked(True)
+    assert dialog.to_config().rerip_offset_variant is True
+
+    dialog2 = SettingsDialog(Config(rerip_offset_variant=True))
+    assert dialog2._rerip_offset_variant_check.isChecked() is True

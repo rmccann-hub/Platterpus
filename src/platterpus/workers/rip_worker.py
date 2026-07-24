@@ -97,6 +97,12 @@ class RipParameters:
     # "Rip?" checkboxes). Empty = rip the whole disc (the common case); a
     # non-empty tuple becomes cyanrip's `-l` so only those tracks are read.
     only_tracks: tuple[int, ...] = ()
+    # Opt-in (Settings): in dynamic secure-rerip mode, also re-read tracks that
+    # only got an offset-variant ("partially accurate") AccurateRip match, until
+    # `-Z` reads agree — so an offset-variant track with an unstable read
+    # converges on a reproducible one. Off by default (an offset-variant match is
+    # accepted on the fast read, as before). Real-hardware finding, 2026-07-23.
+    rerip_offset_variant: bool = False
 
 
 # Human-readable phase descriptions for the status line. Without these
@@ -830,7 +836,16 @@ class RipWorker(QObject):
                 # the real dynamic case and still re-rips just those.)
                 self._disc_in_accuraterip = disc_in_accuraterip(parsed_log)
                 if self._disc_in_accuraterip:
-                    to_fix = tracks_failing_accuraterip(parsed_log)
+                    # With rerip_offset_variant on, an offset-variant ("partially
+                    # accurate") match is NOT treated as proven and is re-read too,
+                    # so a track that offset-variant-matches with an unstable read
+                    # converges on a reproducible one (real-hardware finding,
+                    # 2026-07-23). Off by default → today's behaviour (offset-variant
+                    # accepted on the fast read).
+                    to_fix = tracks_failing_accuraterip(
+                        parsed_log,
+                        include_offset_variant=self._params.rerip_offset_variant,
+                    )
                 else:
                     to_fix = []
                     self._secure_rerip_skipped_reason = "disc_not_in_accuraterip"

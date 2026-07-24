@@ -446,6 +446,25 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Max reads to confirm a shaky track:", self._secure_rerip_spin)
 
+        # Re-read offset-variant tracks too (opt-in, off by default). An
+        # offset-variant ("partially accurate") match is normally accepted on the
+        # fast read; this makes such tracks get the same secure re-read so an
+        # unstable one converges on a reproducible read.
+        self._rerip_offset_variant_check: QCheckBox = QCheckBox(
+            "Also re-read offset-variant (partially accurate) tracks", self
+        )
+        self._rerip_offset_variant_check.setChecked(config.rerip_offset_variant)
+        self._rerip_offset_variant_check.setToolTip(
+            "Off by default. An offset-variant (“partially accurate”) match "
+            "confirms a pressing but does NOT prove the read is reproducible — the "
+            "same track can offset-variant-match two rips with different audio. "
+            "When on, those tracks get the same secure re-read (cyanrip's -Z) as an "
+            "AccurateRip miss, until reads agree, so the result is stable and "
+            "repeatable. Costs extra time on discs with offset-variant tracks "
+            "(compilations, remasters); leave off for the fast path."
+        )
+        form.addRow("", self._rerip_offset_variant_check)
+
         # --- Adaptive read-speed ladder (headline, 0.4.6) ---
         # "Adaptive ladder" (default): rip fast, and only if a disc reads with
         # errors, re-rip it slower (and, at the floor, harder). "Fixed speed"
@@ -651,6 +670,7 @@ class SettingsDialog(CenteredDialog):
             # Dynamic secure re-rip is the behaviour now, not a UI toggle — carry
             # the stored value through unchanged (a power user can flip it in TOML).
             secure_rerip_dynamic=self._config.secure_rerip_dynamic,
+            rerip_offset_variant=self._rerip_offset_variant_check.isChecked(),
             read_speed_mode=self._read_speed_mode_combo.currentData(),
             read_speed=self._read_speed_spin.value(),
             ctdb_verify_after_rip=self._ctdb_verify_check.isChecked(),

@@ -227,6 +227,17 @@ class Config:
     # a power user can force `-Z` on *every* track by hand-editing this to false.
     secure_rerip_dynamic: bool = True
 
+    # Re-read offset-variant tracks too (opt-in, default off). Normally an
+    # offset-variant ("partially accurate") AccurateRip match is accepted on the
+    # fast first read. When True, such tracks are ALSO secure-re-ripped (`-Z`)
+    # until reads agree — an offset-variant match confirms a pressing but does not
+    # prove the read is reproducible (real hardware showed a track
+    # offset-variant-matching two rips with different audio each time,
+    # 2026-07-23). Costs extra read time on offset-variant discs (compilations,
+    # remasters), which is why it's off by default; turn it on for maximum
+    # reproducibility. No effect unless a disc actually has offset-variant tracks.
+    rerip_offset_variant: bool = False
+
     # --- Adaptive read-speed ladder (headline, 0.4.6) ---
     # How the read speed is chosen for a rip:
     #   "auto_ladder" (default) — start at the drive's max speed; on a pass with
