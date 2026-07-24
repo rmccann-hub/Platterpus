@@ -281,6 +281,29 @@ class CyanripImpl(RipBackend):
         # VBR MP3 + FLAC master), so this isn't consumed for the rip today.
         return frozenset({"flac", "wav", "mp3", "wavpack"})
 
+    def supports_cache_analysis(self) -> bool:
+        # cyanrip prints no cache line, but its read engine IS libcdio-paranoia —
+        # the same code the standalone `cd-paranoia -A` self-test exercises. So we
+        # CAN measure this drive's cache behaviour honestly (KDD-29), even though
+        # we can't auto-detect the offset (find_offset stays unimplemented below).
+        return True
+
+    def analyze_drive(self, device: str) -> bool | None:
+        """Measure whether ``device`` defeats its audio cache, via cd-paranoia.
+
+        Delegates to the ``cache_probe`` adapter (``cd-paranoia -A``), whose read
+        engine is the same libcdio-paranoia cyanrip uses — so its verdict speaks
+        for cyanrip's own reads (KDD-25/KDD-29). Returns True (cache defeated /
+        absent), False (explicitly cannot be defeated), or None (couldn't tell —
+        rendered "(unknown)", never forged). Never raises: a missing cd-paranoia
+        or a probe error is a None verdict, not a crash. Runs off the GUI thread
+        (the setup worker calls it); the probe is timeout-bounded, and cd-paranoia
+        is already in the force-stop reader list so a wedged probe is killable.
+        """
+        from platterpus.adapters import cache_probe
+
+        return cache_probe.probe_cache_defeat(device).defeat
+
     # NOTE: `find_offset` is deliberately NOT implemented. cyanrip has no
     # AccurateRip offset-finder — its ``-f`` is *force-overread*, not a detector —
     # so there is nothing to run. An earlier version ran ``cyanrip -f`` and

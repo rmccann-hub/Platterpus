@@ -54,6 +54,7 @@ def _setup(tmp_path: Path, runner: _FakeRunner) -> HostSetup:
         os_release=_fedora(tmp_path),
         cyanrip_path=tmp_path / "cyanrip",
         flac_path=tmp_path / "flac",
+        cdparanoia_path=tmp_path / "cd-paranoia",
     )
 
 
@@ -88,6 +89,7 @@ def test_fresh_system_runs_all_steps(tmp_path: Path) -> None:
         "tools",
         "cyanrip",
         "export",
+        "cache_tool",
     ]
     assert all(r.status is StepStatus.RAN for r in results)
     # The actual install/create/export commands were issued.
@@ -98,6 +100,10 @@ def test_fresh_system_runs_all_steps(tmp_path: Path) -> None:
     assert any("sudo dnf install -y flac" in c for c in flat)
     assert any("sudo dnf install -y cyanrip" in c for c in flat)
     assert any("distrobox-export --bin /usr/bin/cyanrip" in c for c in flat)
+    # The optional cache-probe step installs cd-paranoia (by the file it
+    # provides, so dnf resolves the package) and exports it (KDD-29).
+    assert any("sudo dnf install -y /usr/bin/cd-paranoia" in c for c in flat)
+    assert any("distrobox-export --bin /usr/bin/cd-paranoia" in c for c in flat)
 
 
 def test_host_root_installs_use_pkexec_not_sudo(tmp_path: Path) -> None:
@@ -156,7 +162,11 @@ def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> Non
     no ping, and RUNNING never lands in the returned results."""
     runner = _FakeRunner()
     _container_ready(runner)
-    runner.paths = {tmp_path / "cyanrip", tmp_path / "flac"}
+    runner.paths = {
+        tmp_path / "cyanrip",
+        tmp_path / "flac",
+        tmp_path / "cd-paranoia",
+    }
     emitted: list = []
     results = _setup(tmp_path, runner).run(progress=emitted.append)
 
@@ -175,7 +185,11 @@ def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> Non
 def test_fully_set_up_system_is_all_done(tmp_path: Path) -> None:
     runner = _FakeRunner()
     _container_ready(runner)
-    runner.paths = {tmp_path / "cyanrip", tmp_path / "flac"}
+    runner.paths = {
+        tmp_path / "cyanrip",
+        tmp_path / "flac",
+        tmp_path / "cd-paranoia",
+    }
 
     results = _setup(tmp_path, runner).run()
 
@@ -295,6 +309,8 @@ def test_is_ready_requires_cyanrip_and_flac_exported(tmp_path: Path) -> None:
     assert setup.is_ready() is False
     runner.paths = {tmp_path / "cyanrip"}
     assert setup.is_ready() is False  # cyanrip alone isn't enough — flac too
+    # cd-paranoia is deliberately absent: it's optional (the cache probe), so
+    # readiness must NOT depend on it — cyanrip + flac alone means "ready to rip".
     runner.paths = {tmp_path / "cyanrip", tmp_path / "flac"}
     assert setup.is_ready() is True
 
@@ -311,6 +327,7 @@ def test_cyanrip_step_ordered_between_tools_and_export(tmp_path: Path) -> None:
         "tools",
         "cyanrip",
         "export",
+        "cache_tool",  # optional cache probe, deliberately last (KDD-29)
     )
 
 

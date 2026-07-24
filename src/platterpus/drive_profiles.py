@@ -64,6 +64,13 @@ class OffsetSource(StrEnum):
     WHIPPER_CONF = "whipper_conf"
     # looked up by model in the AccurateRip list — reliable, but not probed here
     ACCURATERIP_LIST = "accuraterip_list"
+    # empirically confirmed on THIS drive by a rip that MATCHED AccurateRip at
+    # this offset (KDD-31). This is the honest, equal-or-stronger analogue of
+    # EAC's Key-Disc offset check: a global-consensus match is what proves the
+    # offset is right on the user's actual unit — stronger than one key disc,
+    # because every AccurateRip-matching rip re-confirms it. Independent of the
+    # list lookup, so when the two agree `reconcile_offset` promotes to CONFIRMED.
+    ACCURATERIP_CONFIRMED = "accuraterip_confirmed"
     # the user typed it (the --offset override path)
     MANUAL = "manual"
     # the value two INDEPENDENT sources agree on — the only path to HIGH
@@ -124,6 +131,10 @@ _SOURCE_CONFIDENCE: dict[OffsetSource, Confidence] = {
     OffsetSource.WHIPPER_CONF: Confidence.MEDIUM,
     OffsetSource.MANUAL: Confidence.MEDIUM,
     OffsetSource.ACCURATERIP_LIST: Confidence.MEDIUM,
+    # A single AccurateRip-matching rip is MEDIUM on its own; it earns HIGH only
+    # by AGREEING with an independent source (the list) via reconcile_offset —
+    # same "HIGH is earned by agreement, never granted alone" rule as the rest.
+    OffsetSource.ACCURATERIP_CONFIRMED: Confidence.MEDIUM,
     OffsetSource.CONFIRMED: Confidence.HIGH,
     OffsetSource.UNKNOWN: Confidence.LOW,
 }
@@ -144,6 +155,7 @@ _SOURCE_LABEL: dict[OffsetSource, str] = {
     OffsetSource.OFFSET_FIND: "measured once on this drive",
     OffsetSource.WHIPPER_CONF: "from whipper.conf",
     OffsetSource.ACCURATERIP_LIST: "from the AccurateRip list",
+    OffsetSource.ACCURATERIP_CONFIRMED: "confirmed by an AccurateRip-matching rip",
     OffsetSource.MANUAL: "entered by hand",
     OffsetSource.CONFIRMED: "confirmed — two independent sources agree",
     OffsetSource.UNKNOWN: "from an unknown source",

@@ -40,21 +40,21 @@ All dependencies, with last upstream release date and replacement plan. Reviewed
 | wavpack (standalone) | **Not a dependency yet — future enhancement.** ffmpeg already produces lossless `.wv` with text tags; the standalone `wavpack` tool would only be needed to embed cover art *inside* the `.wv` (APEv2 binary tag), which ffmpeg's WavPack muxer can't do. If/when that lands it routes through the dependency subsystem like the others. The album-folder `cover.<ext>` is the cover image for WavPack today. | n/a | Active (WavPack project) | — |
 | libdiscid | (not installed) | n/a | **Not needed on host** — cyanrip computes the disc ID; the GUI never calls libdiscid (KDD-06, confirmed T32 2026-05-29) | — |
 | MusicBrainz Picard | Flathub via `.flatpakref` URL (see install_command in `deps/registry.py`) | latest | Active | — |
+| cd-paranoia (drive cache probe, KDD-29) | Distrobox container `ripping`, host-exported to `~/.local/bin/cd-paranoia` (installed by the setup wizard's final, **non-blocking** step via `dnf install /usr/bin/cd-paranoia`, which resolves whichever package provides it — libcdio on Fedora). **Optional.** Probed by `check_cdparanoia`. | any (`-A` self-test exists in every release) | Active (libcdio project; GPL — subprocess, no linking) | — (libcdio's own cdparanoia; it shares the read engine cyanrip links, so its `-A` cache self-test speaks for cyanrip's reads) |
 
-**Cache-defeat note on the cyanrip row above:** cyanrip's engine,
-**libcdio-paranoia**, *attempts* cache defeat on every rip (readahead
-cache-exhaustion reads plus FUA where the drive advertises support) — this
-comes bundled inside cyanrip itself, so it adds no dependency of its own.
-It is **best-effort and drive-dependent**; nothing confirms at runtime that
-defeat actually happened on a given drive, so we report the EAC-equivalent
-field as `(unknown)`, never a measured `Yes` (PLANNING.md KDD-25). There is
-**no standalone `cd-paranoia`/`cdparanoia` CLI tool in our dependency table**
-today — libcdio-paranoia is only ever used as a library linked *inside*
-cyanrip, never invoked by us directly. Adding the standalone `cd-paranoia -A`
-tool (which could give a real *measured* cache-defeat verdict) would be a new
-row here plus explicit deviation-policy sign-off ("adding a dependency not
-listed in DEPENDENCIES.md" is must-ask territory) and hardware validation
-before the result could be trusted — deferred, not rejected.
+**Cache-defeat note on the cyanrip row above (updated 2026-07-24, KDD-29):**
+cyanrip's engine, **libcdio-paranoia**, *attempts* cache defeat on every rip
+(readahead cache-exhaustion reads plus FUA where the drive advertises support) —
+this comes bundled inside cyanrip itself. It is **best-effort and
+drive-dependent**; nothing in cyanrip's own output confirms defeat happened, so
+that field alone would read `(unknown)` (PLANNING.md KDD-25). We now **measure**
+the verdict with the standalone **`cd-paranoia -A`** self-test — libcdio's own
+copy of that same engine (the `cd-paranoia` dependency row above) — invoked via
+Set up drive → Analyse cache and recorded per drive. This is the maintainer-approved
+new dependency (deviation-policy sign-off given 2026-07-24). The honesty rule from
+KDD-25 still holds: an inconclusive probe keeps `(unknown)`, never a forged `Yes`.
+The exact `-A` verdict wording is hardware-tuned against the first real capture
+(KDD-29); until then the parser stays conservative.
 
 ## System dependencies (build/runtime requirements inside the Distrobox container) — HISTORICAL (whipper-era)
 
@@ -106,4 +106,4 @@ A retirement review is recorded inline below as a dated bullet so future-you can
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.8.*

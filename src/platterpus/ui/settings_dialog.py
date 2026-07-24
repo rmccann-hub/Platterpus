@@ -465,6 +465,27 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("", self._rerip_offset_variant_check)
 
+        # EAC-style Test & Copy: read EVERY track (at least) twice and confirm
+        # the two reads agree, not just the marginal ones. Checked flips the
+        # dynamic fast-path OFF (secure_rerip_dynamic=False) so `-Z` runs on the
+        # whole disc; unchecked is the default fast path (verify only tracks that
+        # didn't match AccurateRip). The converged CRC appears as a Test/Copy CRC
+        # pair in the EAC-compatible log (KDD-30).
+        self._verify_every_track_check: QCheckBox = QCheckBox(
+            "Verify every track with a second read (EAC-style Test && Copy)", self
+        )
+        self._verify_every_track_check.setChecked(not config.secure_rerip_dynamic)
+        self._verify_every_track_check.setToolTip(
+            "Off by default. Normally Platterpus rips fast and only re-reads a "
+            "track that didn't match AccurateRip. When on, EVERY track is read at "
+            "least twice and kept only once the reads agree — EAC's Test & Copy "
+            "guarantee for the whole disc, shown as a matching Test/Copy CRC pair "
+            "in the EAC-compatible log. Needs “Max reads” at 2 or more (a second "
+            "read is what there is to compare). Slower — it double-reads clean "
+            "tracks too; leave off for the fast path."
+        )
+        form.addRow("", self._verify_every_track_check)
+
         # --- Adaptive read-speed ladder (headline, 0.4.6) ---
         # "Adaptive ladder" (default): rip fast, and only if a disc reads with
         # errors, re-rip it slower (and, at the floor, harder). "Fixed speed"
@@ -667,9 +688,10 @@ class SettingsDialog(CenteredDialog):
             max_retries=self._max_retries_spin.value(),
             force_overread=self._force_overread_check.isChecked(),
             secure_rerip_matches=self._secure_rerip_spin.value(),
+            # Checked = verify every track (whole-disc Test & Copy) = dynamic OFF.
             # Dynamic secure re-rip is the behaviour now, not a UI toggle — carry
             # the stored value through unchanged (a power user can flip it in TOML).
-            secure_rerip_dynamic=self._config.secure_rerip_dynamic,
+            secure_rerip_dynamic=not self._verify_every_track_check.isChecked(),
             rerip_offset_variant=self._rerip_offset_variant_check.isChecked(),
             read_speed_mode=self._read_speed_mode_combo.currentData(),
             read_speed=self._read_speed_spin.value(),
