@@ -142,6 +142,17 @@ fi
 # --- Build the AppImage ----------------------------------------------------
 echo "[2/3] Building AppImage via python-appimage…"
 
+# Pin the bundled CPython version. Without an explicit --python-version,
+# python-appimage grabs the NEWEST CPython base image it can find — which in
+# July 2026 became a 3.15 *beta* that no PySide6 wheel supports yet, aborting the
+# release build with "No matching distribution found for PySide6" (v0.5.7
+# release attempt, 2026-07-24). Pinning a stable, PySide6-supported interpreter
+# makes the bundled Python deterministic and immune to a new upstream beta
+# appearing. 3.12 is mature and fully covered by our PySide6 pin; override via
+# PLATTERPUS_PYTHON_VERSION if a future bump is wanted.
+PLATTERPUS_PYTHON_VERSION="${PLATTERPUS_PYTHON_VERSION:-3.12}"
+echo "Bundling CPython $PLATTERPUS_PYTHON_VERSION (python-appimage base)."
+
 # Tell pip where to find the locally-built platterpus wheel. python-appimage
 # installs each requirements.txt line from a temporary directory, so a
 # relative `--find-links .` in the recipe can't work; PIP_FIND_LINKS is a pip
@@ -187,10 +198,13 @@ if [ -n "${PLATTERPUS_BASE_IMAGE:-}" ]; then
         exit 1
     fi
     echo "Using pre-downloaded base image: $PLATTERPUS_BASE_IMAGE"
+    # A pre-downloaded base image already fixes the interpreter version, so
+    # --python-version is neither needed nor passed here.
     python3 -m python_appimage build app "$RECIPE_DIR" \
         --base-image "$PLATTERPUS_BASE_IMAGE"
 else
-    python3 -m python_appimage build app "$RECIPE_DIR"
+    python3 -m python_appimage build app "$RECIPE_DIR" \
+        --python-version "$PLATTERPUS_PYTHON_VERSION"
 fi
 
 # python-appimage emits the AppImage at the current directory, named after
