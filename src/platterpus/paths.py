@@ -78,3 +78,13 @@ CYANRIP_BINARY_DEFAULT: Path = Path.home() / ".local" / "bin" / "cyanrip"
 # didn't self-verify (cyanrip) and the CTDB audio cross-check can decode.
 # Same `distrobox-export` route as whipper/cyanrip.
 FLAC_BINARY_DEFAULT: Path = Path.home() / ".local" / "bin" / "flac"
+
+# Default location of the host-exported `cd-paranoia` binary (libcdio's, NOT
+# Xiph's cdparanoia — it shares the libcdio-paranoia engine cyanrip reads with,
+# so its cache self-test speaks for cyanrip's own reads). Used only by the
+# optional cache-defeat probe (`cd-paranoia -A`, KDD-25/KDD-29): it measures
+# whether this drive returns cached audio on a re-read, so the EAC-layout log's
+# "Defeat audio cache" line can carry a *measured* Yes/No instead of "(unknown)".
+# Same `distrobox-export` route as cyanrip/flac — it touches the drive, so it
+# runs inside the `ripping` container against the mapped device (Critical Rule #3).
+CDPARANOIA_BINARY_DEFAULT: Path = Path.home() / ".local" / "bin" / "cd-paranoia"

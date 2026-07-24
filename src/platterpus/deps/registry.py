@@ -24,6 +24,7 @@ from enum import Enum
 
 from platterpus.deps.checks import (
     ProbeResult,
+    check_cdparanoia,
     check_cyanrip,
     check_ffmpeg,
     check_flac,
@@ -31,7 +32,7 @@ from platterpus.deps.checks import (
     check_picard_flatpak,
     check_python_pkg,
 )
-from platterpus.paths import CYANRIP_BINARY_DEFAULT
+from platterpus.paths import CDPARANOIA_BINARY_DEFAULT, CYANRIP_BINARY_DEFAULT
 
 
 class Tier(Enum):
@@ -110,6 +111,10 @@ def _probe_musicbrainzngs() -> ProbeResult:
 
 def _probe_flac() -> ProbeResult:
     return check_flac()
+
+
+def _probe_cdparanoia() -> ProbeResult:
+    return check_cdparanoia(CDPARANOIA_BINARY_DEFAULT)
 
 
 def _probe_ffmpeg() -> ProbeResult:
@@ -229,5 +234,25 @@ SPECS: list[DependencySpec] = [
             "cyanrip is installed (cyanrip is built on FFmpeg)."
         ),
         optional=True,  # absent only disables non-FLAC output (FLAC unaffected)
+    ),
+    DependencySpec(
+        dep_id="cdparanoia",
+        display_name="cd-paranoia (drive cache probe)",
+        probe=_probe_cdparanoia,
+        # Any version can run `-A`; libcdio's cd-paranoia reports "release 10.x".
+        min_version=(0, 0, 0),
+        tier=Tier.MANUAL,
+        install_command=None,
+        search_string="install cd-paranoia libcdio-utils Bazzite Fedora Distrobox",
+        description=(
+            "Optional. libcdio's cd-paranoia — the same read engine cyanrip uses. "
+            "Its `-A` self-test measures whether this drive defeats its audio "
+            "cache, so the EAC-compatible log's 'Defeat audio cache' line can "
+            "carry a measured Yes/No instead of '(unknown)' (KDD-29). Absent only "
+            "means that verdict stays unmeasured; ripping is unaffected. Installed "
+            "into the container + exported by the one-time setup wizard."
+        ),
+        optional=True,  # absent only leaves the cache verdict unmeasured
+        from_setup_wizard=True,
     ),
 ]

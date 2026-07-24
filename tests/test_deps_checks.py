@@ -18,6 +18,7 @@ import pytest
 from platterpus.deps import checks
 from platterpus.deps.checks import (
     ProbeResult,
+    check_cdparanoia,
     check_cyanrip,
     check_ffmpeg,
     check_flac,
@@ -87,6 +88,45 @@ def test_probe_timeout_budgets_for_cold_container() -> None:
     regardless, so the larger ceiling only bites a cold-start or a wedged tool.
     """
     assert checks._PROBE_TIMEOUT_S >= 45.0
+
+
+# --- check_cdparanoia (KDD-29) ---
+
+
+def test_check_cdparanoia_missing_when_binary_absent(tmp_path: Path) -> None:
+    probe = check_cdparanoia(tmp_path / "does-not-exist")
+    assert probe.present is False
+    assert probe.version is None
+
+
+def test_check_cdparanoia_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    binary = tmp_path / "cd-paranoia"
+    binary.write_text("#!/bin/sh\necho 'cdda paranoia III release 10.2'\n")
+    binary.chmod(0o755)
+    monkeypatch.setattr(
+        checks.subprocess,
+        "run",
+        lambda *a, **kw: _fake_run(stdout="cdda paranoia III release 10.2\n"),
+    )
+    probe = check_cdparanoia(binary)
+    assert probe.present is True
+    assert probe.location == str(binary)
+
+
+def test_check_cdparanoia_timeout_is_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    binary = tmp_path / "cd-paranoia"
+    binary.write_text("#!/bin/sh\nsleep 99\n")
+    binary.chmod(0o755)
+
+    def boom(*a: Any, **kw: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd="cd-paranoia", timeout=60)
+
+    monkeypatch.setattr(checks.subprocess, "run", boom)
+    assert check_cdparanoia(binary).present is False
 
 
 # --- check_metaflac ---

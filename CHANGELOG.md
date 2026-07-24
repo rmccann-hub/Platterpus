@@ -12,6 +12,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Measured cache-defeat verdict (Set up drive → Analyse cache).** cyanrip
+  reports no drive-cache line, so the EAC-compatible log's "Defeat audio cache"
+  has read "(unknown)". Platterpus can now *measure* it honestly with
+  `cd-paranoia -A` — libcdio's own copy of cyanrip's read engine, so its cache
+  self-test speaks for the actual rip's reads. The Set up drive wizard offers an
+  "Analyse cache" action (a disc in the drive is needed); the measured Yes/No is
+  recorded per drive, shown in the disc panel's new "Cache defeat" row, and
+  folded into the EAC-compatible log + JSON report — so the log carries a
+  measured verdict instead of "(unknown)". Never fabricated: an inconclusive
+  probe stays "(unknown)". This is the equal-or-stronger, honestly-labelled
+  analogue of EAC's cache field (same principle as the log checksum). `cd-paranoia`
+  is a new optional dependency (installed + exported by the setup wizard as a
+  final, non-blocking step); absent, ripping is unaffected and the verdict stays
+  unmeasured. See PLANNING KDD-29.
 - **The EAC-layout companion log now carries its own integrity checksum.** The
   optional `<name> (EAC-compatible).log` ends with a Platterpus checksum line —
   a plain SHA-256 of every byte above it — that is *at least as strong as EAC's*

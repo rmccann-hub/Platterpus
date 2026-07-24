@@ -999,6 +999,12 @@ class RipMixin(MainWindowShared):
                     rip_log = parse_cyanrip_log(text)
                 else:
                     rip_log = parse_rip_log(text)
+                # cyanrip's log has no cache line, so its parsed
+                # ``defeat_audio_cache`` is None. If we've MEASURED this drive's
+                # cache-defeat verdict (cd-paranoia -A, stored in the drive
+                # profile — KDD-29), fold it in so the EAC-compatible log and the
+                # JSON report show the real Yes/No instead of "(unknown)".
+                rip_log = self._inject_measured_cache_defeat(rip_log)
                 self._rip_progress.set_rip_log(rip_log)
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
@@ -1879,6 +1885,40 @@ class RipMixin(MainWindowShared):
         return build_debug_log(
             buffer.lines_excluding(others), truncated=buffer.truncated
         )
+
+    def _inject_measured_cache_defeat(self, rip_log: RipLog) -> RipLog:
+        """Fold a MEASURED cache-defeat verdict into a parsed ``RipLog``.
+
+        cyanrip reports no cache line, so ``ripping_info.defeat_audio_cache`` is
+        parsed as None. When the selected drive has a *measured* verdict recorded
+        (the cd-paranoia ``-A`` probe, stored per drive — KDD-25/KDD-29), inject it
+        so the EAC-compatible log and JSON report carry the real Yes/No, honestly
+        sourced from our own measurement. Only fills a *missing* value — a log
+        that already carried the fact is left exactly as parsed (never overwrite
+        real data). Best-effort and never raises: any failure leaves ``rip_log``
+        untouched, so the log still renders "(unknown)" rather than crashing the
+        finish handler.
+        """
+        try:
+            from dataclasses import replace
+
+            info = getattr(rip_log, "ripping_info", None)
+            if info is None or info.defeat_audio_cache is not None:
+                return rip_log  # nothing to fill, or the log already had it
+            drive = self._drive_picker.current_drive()
+            if drive is None:
+                return rip_log
+            fingerprint, _serial, _wwn = self._fingerprint_for(drive)
+            profile = self._drive_profiles.get(fingerprint)
+            if profile is None or profile.cache_defeat is None:
+                return rip_log
+            return replace(
+                rip_log,
+                ripping_info=replace(info, defeat_audio_cache=profile.cache_defeat),
+            )
+        except Exception:  # noqa: BLE001 — enrichment must never break finish
+            log.warning("could not inject measured cache-defeat verdict", exc_info=True)
+            return rip_log
 
     def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:
         """Write an EAC-layout companion log beside ``log_file`` (best-effort).

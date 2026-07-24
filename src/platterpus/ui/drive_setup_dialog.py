@@ -88,6 +88,11 @@ class DriveSetupDialog(CenteredDialog):
         # the offset comes from the AccurateRip drive list (pre-filled below) or
         # manual entry. Honest UI: never present a non-working path as working.
         self._can_detect: bool = backend.supports_offset_detection()
+        # Whether this backend can MEASURE the drive's audio-cache behaviour
+        # (cd-paranoia -A for cyanrip — KDD-29). Distinct from offset detection:
+        # cyanrip can do this even though it can't auto-detect the offset, so the
+        # calibration action is offered when EITHER capability is present.
+        self._can_analyze: bool = backend.supports_cache_analysis()
         self._device: str = device
         self._known_offset: int | None = known_offset
         self._thread: QThread | None = None
@@ -112,6 +117,20 @@ class DriveSetupDialog(CenteredDialog):
                 "cyanrip on every rip.\n\n"
                 "Insert a popular commercial CD — one likely to be in the "
                 "AccurateRip database — then click Detect. This can take a minute."
+            )
+        elif self._can_analyze:
+            # cyanrip: no offset finder, but we CAN measure the audio cache with
+            # cd-paranoia -A (KDD-29). Offer that as its own action; the offset
+            # still comes from the AccurateRip list / manual entry below.
+            intro_text = (
+                "The read offset is what makes a rip bit-perfect. Platterpus "
+                "applies it to cyanrip on every rip; it comes from the AccurateRip "
+                "drive list (pre-filled below when your drive is recognised) or "
+                "you can enter it by hand.\n\n"
+                "You can also measure this drive's audio-cache behaviour, which "
+                "confirms re-reads reach the disc (not a stale cache). Insert any "
+                "audio CD and click Analyse cache — the measured Yes/No is saved "
+                "and recorded in the drive's EAC-compatible log."
             )
         else:
             # cyanrip can't measure the offset from a disc, so we don't pretend
@@ -162,8 +181,11 @@ class DriveSetupDialog(CenteredDialog):
         # offset comes from the AccurateRip list / manual entry below instead).
         self._detect_button: QPushButton | None = None
         self._progress: QProgressBar | None = None
-        if self._can_detect:
-            self._detect_button = QPushButton("&Detect", self)
+        if self._can_detect or self._can_analyze:
+            # "Detect" when there's a real offset finder (offset + cache);
+            # "Analyse cache" when only the cache probe runs (cyanrip).
+            label = "&Detect" if self._can_detect else "Analy&se cache"
+            self._detect_button = QPushButton(label, self)
             self._detect_button.clicked.connect(self._on_detect_clicked)
             root.addWidget(self._detect_button)
 
@@ -283,14 +305,17 @@ class DriveSetupDialog(CenteredDialog):
         announce(self._status_label, f"Drive setup: {outcome} {_format_result(result)}")
         if self._detect_button is not None:
             self._detect_button.setEnabled(True)
-            self._detect_button.setText("Re-detect")
+            self._detect_button.setText(
+                "Re-detect" if self._can_detect else "Re-analyse cache"
+            )
         self._set_manual_controls_enabled(True)
         self._worker = None
         self._thread = None
-        # Tell the main window to persist this measured offset and record it in
-        # the drive profile. Only when we actually got an offset; a failed
-        # detect has nothing to record.
-        if result.offset is not None:
+        # Tell the main window to persist what we measured and record it in the
+        # drive profile. Fire when EITHER a read offset OR a cache verdict came
+        # back — a cache-only run (cyanrip) still has a fact worth recording; only
+        # a run that produced neither has nothing to persist.
+        if result.offset is not None or result.can_defeat_cache is not None:
             self.detection_recorded.emit(result)
 
     def _set_manual_controls_enabled(self, enabled: bool) -> None:
@@ -352,8 +377,11 @@ def _format_result(result: DriveSetupResult) -> str:
         lines.append(
             f"✓ Read offset: {result.offset:+d} samples — saved to Platterpus settings."
         )
-    else:
-        lines.append(f"✗ Read offset: {result.offset_error or 'not detected'}")
+    elif result.offset_error is not None:
+        # An offset finder ran and failed. (A cache-only run leaves offset_error
+        # None — "not attempted" — so we omit the offset line entirely instead of
+        # printing a misleading ✗ for something the user didn't ask to detect.)
+        lines.append(f"✗ Read offset: {result.offset_error}")
 
     if result.can_defeat_cache is True:
         lines.append(

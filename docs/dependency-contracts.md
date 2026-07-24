@@ -149,17 +149,40 @@ duration; cyanrip prints **no cache line at all**, so there is no `cache`
 field to parse (see the cache-handling note below; this corrects an earlier
 version of this doc that implied one).
 
-**Cache handling — attempted, not asserted.** cyanrip has no cache-defeat
-flag and emits no cache-defeat verdict in its log. Its engine,
-**libcdio-paranoia**, *attempts* cache defeat on every rip — readahead
-cache-exhaustion reads, plus FUA (Force Unit Access) where the drive
-advertises support — but this is best-effort and drive-dependent, with no
-runtime signal confirming success on a given drive. We report this honestly
-as "(unknown)" rather than a measured value (`eac_log_export.py`'s
-`Defeat audio cache` line never renders a fabricated `Yes`); the correctness
-guarantee instead comes from AccurateRip/CTDB consensus plus `-Z N` secure
-re-reads, which would catch a cache-served stale read the same way they catch
-any other discrepancy. See PLANNING.md KDD-25.
+**Cache handling — attempted by cyanrip, measured by `cd-paranoia -A` (KDD-29).**
+cyanrip has no cache-defeat flag and emits no cache-defeat verdict in its log.
+Its engine, **libcdio-paranoia**, *attempts* cache defeat on every rip (readahead
+cache-exhaustion reads, plus FUA where the drive advertises support) — best-effort
+and drive-dependent, with no runtime signal in cyanrip's output. So cyanrip's log
+alone yields `(unknown)`. We now obtain a *measured* verdict separately with the
+standalone **`cd-paranoia -A`** self-test (see the cd-paranoia contract below) and
+fold it into `RippingInfo.defeat_audio_cache`. The honesty rule is unchanged
+(PLANNING.md KDD-25): `eac_log_export.py`'s `Defeat audio cache` line renders the
+measured `Yes`/`No` when we have one, and `(unknown)` otherwise — **never a
+fabricated `Yes`**. The independent correctness guarantee (AccurateRip/CTDB
+consensus + `-Z N` secure re-reads) still stands on its own.
+
+### `cd-paranoia` — drive cache-defeat probe (optional; KDD-29)
+
+Adapter: `adapters/cache_probe.py`. Routed like cyanrip — the host-exported
+`~/.local/bin/cd-paranoia` (libcdio's build, the same read engine cyanrip links),
+run inside the `ripping` container against the mapped device (Critical Rule #3).
+
+| Invocation | Meaning |
+|---|---|
+| `cd-paranoia -A -d <device>` | **Analyze-drive**: run the drive's cache/timing self-test and print a report; extract no audio. `-d` targets the specific drive (never the wrong one on a multi-drive rig). A blank device omits `-d`. Needs an audio disc in the drive. |
+| `cd-paranoia --version` | Presence/version probe (`check_cdparanoia`). |
+
+Output parsing (`parse_cache_analysis`) is **best-effort and never raises**
+(parser-grade): it returns `defeat=True` only on a clear "cache managed / no
+cache / drive tests OK" signal, `defeat=False` only on an explicit "cannot defeat
+cache", and **`None` (unknown) otherwise** — the honesty gate, never a guessed
+`Yes`. A reported cache size (sectors) is recorded as evidence. The exact signal
+phrases are centralized constants, **hardware-tuned** against the first real `-A`
+capture on the BDR-209D (until confirmed, the parser stays conservative). The
+probe is timeout-bounded (a wedged drive can't hang the worker) and `cd-paranoia`
+is already in the force-stop reader-name list (`drive_control.py`), so a hung
+probe is killable via Cancel.
 
 **Flags that exist upstream but are intentionally not passed:** cyanrip's
 `-E` (force de-emphasis) exists in its CLI but Platterpus never passes it —
@@ -296,4 +319,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.5.6.*
+*Last updated for Platterpus v0.5.7.*

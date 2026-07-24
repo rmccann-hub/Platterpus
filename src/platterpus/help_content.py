@@ -271,6 +271,15 @@ identical drives are connected, or the recorded offset disagrees with the
 offset that will be applied, a warning appears there so a wrong offset can't
 pass unnoticed.
 
+The wizard can also **Analyse cache**: with an audio CD in the drive, it measures
+whether your drive returns *cached* audio on a re-read. Defeating that cache is
+what makes a re-read actually reach the disc — the guarantee behind bit-perfect
+verification. The measured Yes/No is saved per drive, shown in the disc panel's
+**Cache defeat** line, and recorded in the EAC-compatible log. If the drive can't
+give a clear answer it stays "not measured" — Platterpus never claims a result it
+didn't measure. (This uses `cd-paranoia`, installed for you by *Set up Platterpus*;
+without it, ripping is unaffected — only this verdict stays unmeasured.)
+
 ## Troubleshooting
 
 - **Disc not detected, or the first scan failed** → click **Rescan disc**

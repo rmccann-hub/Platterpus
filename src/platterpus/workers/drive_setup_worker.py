@@ -104,28 +104,35 @@ class DriveSetupWorker(QObject):
         except NotImplementedError:
             analyze_error = "This backend can't analyze the drive cache."
 
-        self.status.emit(
-            "Detecting read offset… this can take a minute (needs a CD "
-            "that's in the AccurateRip database)."
-        )
         offset: int | None = None
         offset_error: str | None = None
-        if self._cancelled:
-            # Don't kick off the long offset search if we're already closing.
-            self.finished.emit(
-                DriveSetupResult(
-                    can_defeat_cache=can_defeat,
-                    analyze_error=analyze_error,
-                )
+        # Only run the offset finder when the backend actually has one. cyanrip
+        # can measure the cache (above) but has no trusted offset detector
+        # (find_offset stays unimplemented) — attempting it would just report a
+        # spurious "can't auto-detect" line on what the user asked to be a cache
+        # analysis. When there's no finder we leave offset/offset_error both None
+        # ("not attempted"), and the dialog omits the offset line entirely.
+        if self._backend.supports_offset_detection():
+            self.status.emit(
+                "Detecting read offset… this can take a minute (needs a CD "
+                "that's in the AccurateRip database)."
             )
-            return
-        try:
-            offset = self._backend.find_offset(self._device)
-        except RipError as exc:
-            log.warning("offset find failed: %s", exc)
-            offset_error = str(exc)
-        except NotImplementedError:
-            offset_error = "This backend can't auto-detect the read offset."
+            if self._cancelled:
+                # Don't kick off the long offset search if we're already closing.
+                self.finished.emit(
+                    DriveSetupResult(
+                        can_defeat_cache=can_defeat,
+                        analyze_error=analyze_error,
+                    )
+                )
+                return
+            try:
+                offset = self._backend.find_offset(self._device)
+            except RipError as exc:
+                log.warning("offset find failed: %s", exc)
+                offset_error = str(exc)
+            except NotImplementedError:
+                offset_error = "This backend can't auto-detect the read offset."
 
         self.finished.emit(
             DriveSetupResult(
