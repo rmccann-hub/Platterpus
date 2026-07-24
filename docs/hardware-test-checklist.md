@@ -30,17 +30,30 @@
 
 ## Part 0 — Setup (about 5 minutes)
 
-### 0.1 — [ ] Install and launch
+### 0.1 — [ ] Update your existing install (do **not** uninstall)
+
+**Update in place — that's the right path for this sheet.** Do *not* uninstall
+first: test 13 checks that your existing settings and drive profile survive the
+upgrade, and a clean install would destroy the very state it validates. (A full
+uninstall → reinstall belongs to the separate clean-cycle acceptance run in
+[`test-plan.md`](test-plan.md) Part A, which tests the *first-run* experience.)
+
+**Preferred — the in-app updater** (this also tests the updater itself):
+*Help → Check for updates…* → let it download, verify, and install → accept the
+restart it offers.
+
+**Or by hand**, if you'd rather drop the file in yourself:
 
 ```sh
 chmod +x platterpus-x86_64.AppImage
 ./platterpus-x86_64.AppImage --version
 ```
 
-- Expected: prints `platterpus 0.5.8 (<build>)`.
-- Then launch it normally: `./platterpus-x86_64.AppImage`
+- Expected either way: `platterpus 0.5.8 (<build>)`.
+- Expected: your output folder, templates, and read offset are all still set —
+  nothing reset by the update.
 
-**Result:** ☐ PASS ☐ FAIL — version shown: ____________
+**Result:** ☐ PASS ☐ FAIL — updated via: ☐ in-app ☐ by hand — version: ____________
 
 ### 0.2 — [ ] Doctor (no CD needed)
 
@@ -320,14 +333,20 @@ head -n -1 *"(EAC-compatible).log" | sha256sum
 
 ### 13 — [ ] Upgrading over an existing setup
 
-**Why:** you already have a v0.5.7 config and a drive profile on disk.
+**Why:** you already had a v0.5.7 config and a drive profile on disk, and you
+updated in place at step 0.1 — this confirms nothing was lost. (This is the test
+that a clean reinstall would have made impossible, which is why step 0.1 says
+don't uninstall.)
 
-- Expected: after installing v0.5.8 over it, your existing settings (output folder,
-  templates, offset) are all intact — nothing reset.
-- Expected: your drive's recorded offset is still there.
+- Expected: your existing settings (output folder, working folder, templates,
+  library folder, read offset) are all intact — nothing reset to defaults.
+- Expected: your drive's recorded offset **and** its provenance/trust line survived.
+- Expected: the new settings appear at their defaults (verify-every-track **off**,
+  offset-variant re-read **off**) rather than switched on behind your back.
 
 ```sh
 ls -l ~/.config/platterpus/config.toml ~/.config/platterpus/drive_profiles.json
+grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
 **Result:** ☐ PASS ☐ FAIL — anything reset? ____________
