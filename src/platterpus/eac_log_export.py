@@ -302,14 +302,56 @@ def _track_block(track: TrackResult) -> list[str]:
         out.append(f"     Extraction speed {track.extraction_speed:.1f} X")
     if track.extraction_quality is not None:
         out.append(f"     Track quality {track.extraction_quality:.1f} %")
-    if track.test_crc:
-        out.append(f"     Test CRC {track.test_crc.upper()}")
-    if track.copy_crc:
-        out.append(f"     Copy CRC {track.copy_crc.upper()}")
+    out.extend(_crc_lines(track))
     out.append(f"     {_accuraterip_line(track)}")
     if track.status:
         out.append(f"     {_status_line(track.status)}")
     out.append("")
+    return out
+
+
+def _crc_lines(track: TrackResult) -> list[str]:
+    """The per-track CRC lines, in EAC's Test/Copy shape when we earned it.
+
+    EAC's secure mode prints a **Test CRC** and a **Copy CRC** — two full read
+    passes whose match is the proof the extraction is reproducible. cyanrip's
+    equivalent is ``-Z N`` (re-rip a track until N reads' checksums agree): a
+    track that *converged* was read at least twice and produced the identical
+    CRC each time — the same two-reads-agree guarantee, by a cheaper mechanism.
+
+    So when a track was verified by ≥2 agreeing reads we render the CRC as an
+    EAC-style **Test CRC == Copy CRC** pair (they are provably equal — that IS
+    what convergence means) plus an honest note naming how it was confirmed. A
+    single-read track (``-Z`` off, or a clean track on the dynamic fast path)
+    gets only a Copy CRC — we never fabricate a second "test" read that didn't
+    happen. A backend that natively reports a distinct ``test_crc`` (whipper's
+    dual read) is rendered as-is.
+    """
+    out: list[str] = []
+    # Native dual-read backend (whipper): show whatever it actually reported.
+    if track.test_crc:
+        out.append(f"     Test CRC {track.test_crc.upper()}")
+        if track.copy_crc:
+            out.append(f"     Copy CRC {track.copy_crc.upper()}")
+        return out
+    if not track.copy_crc:
+        return out
+    crc = track.copy_crc.upper()
+    reads = track.rip_count if track.rip_count and track.rip_count >= 1 else 1
+    verified = track.secure_rerip_converged is True or reads >= 2
+    if verified:
+        # ≥2 reads agreed → the CRC is both the test-read's and the copy-read's
+        # result. Render the EAC Test/Copy pair + an honest provenance note.
+        note = (
+            f"  (Test and Copy CRC identical — confirmed across {reads} secure "
+            "re-reads)"
+            if reads >= 2
+            else "  (Test and Copy CRC identical — reads converged)"
+        )
+        out.append(f"     Test CRC {crc}")
+        out.append(f"     Copy CRC {crc}{note}")
+    else:
+        out.append(f"     Copy CRC {crc}")
     return out
 
 

@@ -283,6 +283,57 @@ def test_verify_never_raises_on_garbage() -> None:
         assert verify_eac_style_log_checksum(junk) in (True, False, None)
 
 
+# --- Test & Copy CRC pair (KDD-30) ------------------------------------------
+
+
+def _rip_log(track: TrackResult) -> RipLog:
+    return RipLog(log_creator="cyanrip 0.9.3", tracks=(track,))
+
+
+def test_converged_track_renders_test_and_copy_pair() -> None:
+    """A track confirmed by ≥2 agreeing secure re-reads gets an EAC-style
+    Test CRC == Copy CRC pair, with an honest 'how' note."""
+    text = render_eac_style_log(
+        _rip_log(
+            TrackResult(
+                number=1, copy_crc="a1b2c3d4", rip_count=2, secure_rerip_converged=True
+            )
+        )
+    )
+    assert "Test CRC A1B2C3D4" in text
+    assert "Copy CRC A1B2C3D4" in text
+    # Honest about the mechanism — not a claim of two literal EAC passes.
+    assert "confirmed across 2 secure re-reads" in text
+
+
+def test_single_read_track_has_no_fabricated_test_crc() -> None:
+    """A single-read track (no -Z, or a clean track on the fast path) shows only
+    a Copy CRC — we never invent a second 'test' read that didn't happen."""
+    text = render_eac_style_log(_rip_log(TrackResult(number=1, copy_crc="deadbeef")))
+    assert "Copy CRC DEADBEEF" in text
+    assert "Test CRC" not in text
+
+
+def test_converged_flag_alone_renders_the_pair() -> None:
+    # secure_rerip_converged True is enough even if the rip count wasn't parsed.
+    text = render_eac_style_log(
+        _rip_log(
+            TrackResult(number=1, copy_crc="cafebabe", secure_rerip_converged=True)
+        )
+    )
+    assert "Test CRC CAFEBABE" in text and "Copy CRC CAFEBABE" in text
+
+
+def test_native_dual_read_crc_is_rendered_as_is() -> None:
+    # A backend that reports a genuinely distinct test_crc (whipper) is shown
+    # verbatim, not synthesized.
+    text = render_eac_style_log(
+        _rip_log(TrackResult(number=1, test_crc="11111111", copy_crc="22222222"))
+    )
+    assert "Test CRC 11111111" in text
+    assert "Copy CRC 22222222" in text
+
+
 # --- CLI: scripts/render_eac_log.py ---------------------------------------
 
 

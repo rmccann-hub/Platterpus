@@ -12,6 +12,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **EAC-style Test & Copy verification.** cyanrip's secure re-read (`-Z N`,
+  "re-rip until N reads' checksums agree") is the two-reads-agree guarantee EAC's
+  Test & Copy provides. The EAC-compatible log now renders a track confirmed by
+  ≥2 agreeing reads as a matching **Test CRC** / **Copy CRC** pair (with an honest
+  note naming how it was confirmed); a single-read track still shows only a Copy
+  CRC — no fabricated second read. A new Settings toggle, **"Verify every track
+  with a second read (EAC-style Test & Copy)"** (off by default), reads *every*
+  track at least twice for a whole-disc Test & Copy, instead of only re-reading
+  tracks that missed AccurateRip. See PLANNING KDD-30.
 - **Measured cache-defeat verdict (Set up drive → Analyse cache).** cyanrip
   reports no drive-cache line, so the EAC-compatible log's "Defeat audio cache"
   has read "(unknown)". Platterpus can now *measure* it honestly with

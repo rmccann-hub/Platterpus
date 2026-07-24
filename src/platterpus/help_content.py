@@ -203,6 +203,16 @@ named from the album artist/title you type.
   stable, repeatable result. It costs extra time on discs with offset-variant
   tracks (many compilations and remasters), which is why it's off by default;
   turn it on when you want maximum reproducibility.
+- **Verify every track with a second read (EAC-style Test & Copy)** — **off by
+  default.** Normally Platterpus rips fast and only re-reads tracks that didn't
+  match AccurateRip. Turn this on to read *every* track at least twice and keep
+  it only once the two reads agree — the same guarantee Exact Audio Copy's "Test
+  & Copy" gives (two independent reads produce the identical audio), for the
+  whole disc. When a track is confirmed this way, the EAC-compatible log shows a
+  matching **Test CRC** and **Copy CRC** pair for it. It needs *Max reads* set to
+  2 or more (a second read is what there is to compare), and it's slower because
+  it double-reads clean tracks too — so it's off by default; turn it on for a
+  maximum-assurance archival rip.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
   the CUETools Database, alongside AccurateRip. A network check, off by default.
   Its checksum is now confirmed on real hardware, so a match reads as *verified*
