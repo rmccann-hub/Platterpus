@@ -246,23 +246,36 @@ def disc_in_accuraterip(rip_log: object) -> bool:
         return False
 
 
-def tracks_failing_accuraterip(rip_log: object) -> list[int]:
+def tracks_failing_accuraterip(
+    rip_log: object, *, include_offset_variant: bool = False
+) -> list[int]:
     """Track numbers NOT proven by AccurateRip after a pass.
 
-    A track is "proven" if either AccurateRip v1/v2 matched, OR the offset-variant
-    matched (a stable read of a differently-offset pressing — still bit-perfect for
-    that pressing). Everything else — a track that didn't match the DB at all — is
-    returned. In *dynamic* secure-rerip mode these are exactly the tracks worth a
-    targeted `-Z` re-rip: a track that matched the database on the fast first read
-    is already proven, so re-reading it is wasted time. Data tracks are skipped.
-    Pure, sorted, deduped, never raises.
+    A track is "proven" if AccurateRip v1/v2 matched. By default an offset-variant
+    match (a differently-offset pressing) also counts as proven and is skipped —
+    the fast first read is kept. In *dynamic* secure-rerip mode these are the
+    tracks worth a targeted `-Z` re-rip: a track that matched the database on the
+    fast first read is treated as proven, so re-reading it is normally wasted time.
+
+    When ``include_offset_variant`` is True, an offset-variant-only match is NOT
+    treated as proven and IS returned for re-read. This is the opt-in
+    "re-read offset-variant tracks until they stabilize" behaviour: an
+    offset-variant match confirms *a* pressing but does NOT prove the read is
+    reproducible — real hardware showed a track offset-variant-matching two rips
+    with *different* full-track audio each time (2026-07-23). Re-reading until
+    ``-Z`` reads agree yields a stable, reproducible read for such a track.
+
+    Everything that didn't match the DB at all is always returned. Data tracks are
+    skipped. Pure, sorted, deduped, never raises.
     """
     try:
         numbers: list[int] = []
         for track in getattr(rip_log, "tracks", ()) or ():
             if track_accuraterip_verified(track):
                 continue
-            if accuraterip_is_match(getattr(track, "accuraterip_offset", None)):
+            if not include_offset_variant and accuraterip_is_match(
+                getattr(track, "accuraterip_offset", None)
+            ):
                 continue
             if "data track" in (getattr(track, "status", "") or "").lower():
                 continue

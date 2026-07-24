@@ -53,6 +53,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "force_overread": "Overread",
     "secure_rerip_matches": "Max reads to confirm a shaky track",
     "secure_rerip_dynamic": "Max reads to confirm a shaky track",
+    "rerip_offset_variant": "re-read offset-variant",
     "read_speed_mode": "Read speed",
     "read_speed": "Read speed",
     "ctdb_verify_after_rip": "Verify with CTDB",

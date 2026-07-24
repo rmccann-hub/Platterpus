@@ -292,6 +292,7 @@ _BAD_VALUES: dict[str, object] = {
     "appimage_integration_prompted": "yes",
     "debug_logging": "yes",
     "secure_rerip_dynamic": "yes",
+    "rerip_offset_variant": "yes",
     "ctdb_verify_after_rip": "yes",
     "verify_flac_after_rip": "yes",
     "recompress_flac_after_rip": "yes",
