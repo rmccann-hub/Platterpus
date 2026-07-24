@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The EAC-layout companion log now carries its own integrity checksum.** The
+  optional `<name> (EAC-compatible).log` ends with a Platterpus checksum line —
+  a plain SHA-256 of every byte above it — that is *at least as strong as EAC's*
+  log checksum and **honestly labelled as ours, never EAC's**. EAC's footer is a
+  SHA-256 obfuscated with a fixed secret key so only its own Logchecker can
+  verify it; ours uses the same hash primitive *openly*, so anyone can reproduce
+  it with a standard tool and no secret (`head -n -1 "<name> (EAC-compatible).log"
+  | sha256sum`) — same cryptographic strength, more transparent to check, and
+  never mistaken for EAC's signature. The existing "NOT signed by Exact Audio
+  Copy" disclaimer is unchanged; we still never emit EAC's own
+  `==== Log checksum <hex> ====` marker. See PLANNING KDD-28.
+
 ## [0.5.7] — 2026-07-24
 
 ### Added

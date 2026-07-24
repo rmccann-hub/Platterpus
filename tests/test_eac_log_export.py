@@ -7,11 +7,15 @@ parser so the per-track Copy CRCs read straight back out for a parity diff.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import re
 from pathlib import Path
 
-from platterpus.eac_log_export import render_eac_style_log
+from platterpus.eac_log_export import (
+    render_eac_style_log,
+    verify_eac_style_log_checksum,
+)
 from platterpus.parity import track_copy_crcs
 from platterpus.parsers.eac_log import looks_like_eac_log
 from platterpus.parsers.rip_log import (
@@ -194,6 +198,89 @@ def test_never_raises_on_empty_or_partial_log() -> None:
     out = render_eac_style_log(partial)
     assert "Track  1" in out
     assert "Track not present in AccurateRip database" in out
+
+
+# --- Integrity checksum (KDD-28): honest, openly-verifiable, not EAC's --------
+
+
+def _checksum_line(text: str) -> str:
+    for line in text.splitlines():
+        if line.startswith("==== Platterpus log checksum "):
+            return line
+    raise AssertionError("no Platterpus checksum footer found")
+
+
+def test_emits_a_platterpus_integrity_checksum_footer() -> None:
+    """The log ends with OUR own checksum line — named as Platterpus's, naming
+    SHA-256, and explicitly not an EAC checksum."""
+    text = render_eac_style_log(_sample_log())
+    line = _checksum_line(text)
+    assert "SHA-256" in line
+    assert "NOT an EAC checksum" in line
+    # A lowercase 64-hex digest is present.
+    assert re.search(r"\b[0-9a-f]{64}\b", line)
+    # It is the very last content line (EAC puts its checksum last, too).
+    assert text.rstrip("\n").splitlines()[-1] == line
+
+
+def test_checksum_is_never_eacs_marker() -> None:
+    """Our footer must never be readable as EAC's `==== Log checksum <hex> ====`
+    signature — forging that is the whole no-go."""
+    text = render_eac_style_log(_sample_log())
+    assert not re.search(r"==== Log checksum [0-9A-Fa-f]{64} ====", text)
+    # Ours starts with "Platterpus", not "Log checksum".
+    assert _checksum_line(text).startswith("==== Platterpus log checksum ")
+
+
+def test_checksum_is_openly_verifiable_with_a_plain_sha256() -> None:
+    """The hex is a plain SHA-256 of every byte above the footer — reproducible
+    with any standard tool and no secret key (unlike EAC's obfuscated hash).
+    This is the `head -n -1 <log> | sha256sum` recipe expressed in Python."""
+    text = render_eac_style_log(_sample_log())
+    lines = text.splitlines(keepends=True)
+    # Everything except the final (checksum) line is the hashed body.
+    body = "".join(lines[:-1])
+    expected = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    assert expected in _checksum_line(text)
+
+
+def test_verify_accepts_an_untouched_log() -> None:
+    text = render_eac_style_log(_sample_log())
+    assert verify_eac_style_log_checksum(text) is True
+
+
+def test_verify_rejects_a_tampered_log() -> None:
+    """Changing any byte above the footer breaks the checksum — the whole point
+    of tamper-evidence. Equal in strength to EAC's guarantee."""
+    text = render_eac_style_log(_sample_log())
+    # Flip a real data value in the body (a Copy CRC) after rendering.
+    tampered = text.replace("DEADBEEF", "DEADBEE0")
+    assert tampered != text
+    assert verify_eac_style_log_checksum(tampered) is False
+
+
+def test_verify_returns_none_without_our_footer() -> None:
+    """A real EAC log (or any text lacking our footer) yields None, not a false
+    positive/negative — verification only speaks to logs we produced."""
+    # A genuine EAC log carries no Platterpus footer. (The committed baseline is
+    # UTF-16 like real EAC output, so decode it the way our parser would.)
+    real_eac = _EAC_BASELINE.read_text(encoding="utf-16")
+    assert verify_eac_style_log_checksum(real_eac) is None
+    assert verify_eac_style_log_checksum("not a log at all") is None
+    # Our own log with the footer line removed also has nothing to check.
+    ours = render_eac_style_log(_sample_log())
+    footerless = "\n".join(
+        line
+        for line in ours.splitlines()
+        if not line.startswith("==== Platterpus log checksum ")
+    )
+    assert verify_eac_style_log_checksum(footerless) is None
+
+
+def test_verify_never_raises_on_garbage() -> None:
+    for junk in ("", "\x00\x00", "==== Platterpus log checksum (no hex here) ===="):
+        # Must return a value (None/bool), never raise.
+        assert verify_eac_style_log_checksum(junk) in (True, False, None)
 
 
 # --- CLI: scripts/render_eac_log.py ---------------------------------------

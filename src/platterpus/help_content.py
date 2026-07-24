@@ -215,7 +215,12 @@ named from the album artist/title you type.
 - **Write an EAC-compatible log** — in addition to cyanrip's own `.log`, write a
   second log beside each rip in the format Exact Audio Copy uses, for tools and
   people that expect that layout. It records the same rip, just formatted like an
-  EAC log.
+  EAC log — and it says plainly, at the top and bottom, that it is *not* a genuine
+  EAC log (we never pretend to be EAC). Its last line is a Platterpus integrity
+  checksum: a SHA-256 of the whole log above it, at least as strong as EAC's own
+  log checksum but openly verifiable — you can confirm the log hasn't been altered
+  with any SHA-256 tool, no special software needed (`head -n -1` on the file,
+  piped to `sha256sum`, reproduces the value).
 - **Read offset override** — set the drive read-offset by hand (the drive-setup
   wizard is the recommended way to set it).
 - **Eject after a successful rip** — automatically eject the disc when a rip

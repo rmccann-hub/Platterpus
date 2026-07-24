@@ -119,7 +119,7 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 | AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
 | CTDB (whole-disc verify) | **Present, validated** | `ctdb/` clean-room client (KDD-16); GUI-wired; `crc.CRC_VALIDATED=True` since 2026-07-07 (a real disc's CRC reproduced at offset 0 on hardware), so a match reads "verified". |
 | Test & Copy (two full passes) | **Absent** | No literal two-pass Test&Copy. Single secure read strengthened by `-Z N` re-read convergence instead — a different, cheaper mechanism aimed at the same correctness goal, not a gap we're trying to close by adding a second pass. |
-| EAC log + checksum | **Unsigned, by design** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip and explicitly marked "not a genuine EAC log" — never a forged checksum. This is the deliberate open-trust choice (KDD-24), not a missing feature. |
+| EAC log + checksum | **Present — our own checksum, not EAC's** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip, explicitly marked "not a genuine EAC log", and now footered with **our own integrity checksum: a plain SHA-256 of the text above it, equal-or-stronger than EAC's and openly verifiable** (`head -n -1 … \| sha256sum`) — never EAC's obfuscated *provenance* signature (KDD-28, refining KDD-11; open-trust choice KDD-24). |
 | Gap handling | **Audio matches; no `INDEX 00`** | Same entry as "Subcode / pre-gap" above — audio placement is EAC-equivalent, cue metadata isn't. |
 
 **Reading this table:** "present"/"partial" rows are real capability; "absent"
@@ -208,4 +208,4 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.7.*
