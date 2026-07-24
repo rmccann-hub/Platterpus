@@ -978,6 +978,25 @@ Third of the four EAC gaps. EAC's **Key Disc** offset finder rips a disc whose o
 
 **Deferred (honest scope line):** a from-scratch empirical finder for a drive *absent* from the AccurateRip list. That belongs with the heavier ripper-engine work — see `docs/cyanrip-soft-fork.md` / `docs/upstream-pr-roadmap.md`; if we build an AR-CRC primitive for a fork, the finder rides on it. Recorded as future work, not a silent omission.
 
+### KDD-32 — INDEX 00 pre-gap + the cyanrip soft-fork as the committed upstream-fix mechanism (decided 2026-07-24)
+
+Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need to start thinking about forking cyanrip for this and other issues that are upstream and we need to fix."* This elevates the soft-fork from *prepared-but-unexecuted research* (`docs/cyanrip-soft-fork.md`, `docs/upstream-pr-roadmap.md`, `scripts/cyanrip/`) to the **decided delivery mechanism** for the fixes Platterpus needs that live in cyanrip.
+
+**Why INDEX 00 is a fork problem, not a Platterpus one.** Platterpus only *consumes* cyanrip's `.cue`; it never post-processes it. So INDEX 00 pre-gap markers appear the moment the `~/.local/bin/cyanrip` we run emits them — there is essentially no Platterpus code to write. The blocker is purely *which cyanrip we build*:
+- The deployed COPR package is the **2-year-old v0.9.3.1 tag**, which emits only `INDEX 01`.
+- cyanrip **`master` already** synthesises a track-1 pregap from the TOC and its `cue_writer.c` emits `INDEX 00`/`PREGAP`/`INDEX 01` (source-confirmed 2026-07-07; it also merged PR #127, cdrdao TOC support).
+- The exact-pregap + true-HTOA accuracy layer is **PR #115** (UltraFuzzy, open, subchannel-Q via MMC), still mid-revision.
+
+**Decision.** Adopt the soft-fork's **`platterpus` integration branch** (`master` + our rebased topic branches) as the cyanrip the `ripping` container builds and exports — replacing the stale tagged package. That single change (build cyanrip from source at a pinned commit, `host_setup.py` §4 of the soft-fork doc) delivers INDEX 00 from `master` for free, and carries **PR #115** as a topic branch until it lands upstream, delivering exact pregaps + HTOA. The **real, accepted cost** is a new maintenance commitment: building cyanrip from source in the container and rebuilding on rebase, with the built commit recorded in the rip report's build-info. This is the trade the maintainer signed off on.
+
+**The fork's target set (this KDD makes it the standing plan, PR-first — the fork is the staging area/fallback, never the goal):**
+1. **`fix/meta-colon`** ⭐ — the `-a`/`-t` colon-parsing bug (removes our U+2236 workaround). Verified patch + ASan/UBSan proof ready.
+2. **`feat/encoder-opts`** — libavcodec encoder-options dictionary (`-O key=value`) so FLAC compression et al. are reachable.
+3. **`feat/pregap` (carry PR #115)** — subchannel pre-gap / INDEX 00 / HTOA. We do **not** open a rival PR; we help land #115 (hardware-test on the BDR-209D, review) and carry it on the integration branch meanwhile — the INDEX-00 driver for this KDD.
+4. **Future rider — AccurateRip-CRC primitive** for the from-scratch offset finder deferred in **KDD-31**: if/when we build an AR-CRC calculator, it can live as a cyanrip patch (or a Platterpus module) and the finder rides on it. Recorded so the deferral has a home.
+
+**Execution is out-of-session by necessity** (already documented in the soft-fork doc §0): this cloud session is scoped to `rmccann-hub/platterpus` (cross-owner `add_repo`/GitHub token can't reach `cyanreg/cyanrip`), has no C toolchain, and no disc — so forking, building, PR #115 testing, and the container build-from-source all happen in a repo-seeded Claude session or on the Bazzite rig. The Platterpus side stays unchanged until the container runs a cyanrip that emits INDEX 00 (then it "just works", and each landed patch retires its Platterpus-side workaround behind a version guard — soft-fork doc §5).
+
 ---
 
 *Last updated for Platterpus v0.5.7.*

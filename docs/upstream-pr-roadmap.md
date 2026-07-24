@@ -1,5 +1,15 @@
 # Upstream-PR roadmap (contributor instructions)
 
+> **Update (2026-07-24, KDD-32 — fork is now the committed INDEX-00 mechanism):**
+> the maintainer directed that the soft-fork be the path for the upstream fixes
+> Platterpus needs, with the **EAC INDEX-00 pre-gap gap** as the driver. Order 1
+> below (support cyanrip **PR #115**) is unchanged as the *action*, but the fork
+> is no longer merely "prepared": the `ripping` container will **build cyanrip
+> from the `platterpus` integration branch** (`master` + our topic branches)
+> instead of the 2-year-old v0.9.3.1 COPR tag — which alone yields INDEX-00 cue
+> metadata (`master` already emits it) and carries PR #115 for exact pregaps +
+> HTOA. See PLANNING **KDD-32** and [`cyanrip-soft-fork.md` §3.1 + §4](cyanrip-soft-fork.md).
+
 > **Update (2026-07-08, soft-fork decision):** two prepared, higher-readiness
 > cyanrip contributions now exist *alongside* this ranked list — the `-a`/`-t`
 > **meta-colon parsing fix** (⭐ do first; verified patch + ASan/UBSan proof)
@@ -355,4 +365,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.7.*

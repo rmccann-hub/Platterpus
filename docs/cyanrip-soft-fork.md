@@ -274,6 +274,59 @@ out.
 
 ---
 
+## 3.1 Contribution 3 — subchannel pre-gap / INDEX 00 / HTOA (carry PR #115) ⭐ INDEX-00 driver
+
+**Why it's here (KDD-32):** this is the fix that turns the soft-fork from
+"prepared" into "we actually build it" — it's the mechanism for the EAC INDEX-00
+pre-gap gap. Unlike Contributions 1–2 (patches we author), this one is a PR that
+**already exists upstream** and we *carry + help land*, never re-author.
+
+### What's actually needed vs. already present
+
+Source-confirmed (2026-07-07, and re-verified 2026-07-21 that #115 is still open):
+- **cyanrip `master` already emits INDEX 00.** It synthesises a track-1 pregap
+  from the TOC and `cue_writer.c` writes `INDEX 00`/`PREGAP`/`INDEX 01`; it also
+  merged PR #127 (cdrdao TOC support). So **most INDEX-00 cue metadata comes for
+  free** the moment the container builds `master` instead of the 2-year-old
+  v0.9.3.1 tag. *First step is empirical: build master, rip a disc with a known
+  pregap, and read what its `.cue` actually contains before assuming a gap.*
+- **The accuracy layer is PR #115** (UltraFuzzy, `github.com/cyanreg/cyanrip`,
+  **open**): adds `src/pregap.c` (+`pregap.h`), reading Subchannel-Q via MMC —
+  the exact pregaps + true HTOA the TOC can't give — wired in by a one-line
+  call-site swap (`cdio_get_track_pregap_lsn` → `cyanrip_get_track_pregap_lsn`).
+  cyanreg is actively reviewing it (asked for an osx/mmc platform-file split);
+  known blockers are a leftover `// remove after testing` `assert.h` block and a
+  macOS private-libcdio-struct hack wanting `cdio_get_device_fd()`.
+
+### The plan (PR-first; carry as a topic branch until it lands)
+
+1. **Do NOT open a rival PR.** The highest-value action is to **engage #115**:
+   build it in the `ripping` container, real-hardware smoke-rip a **known-pregap**
+   disc (and an HTOA disc if available) on the BDR-209D, and post the build +
+   test result on the PR — genuinely wanted signal for an actively-reviewed but
+   slow PR. Capture **log + per-track CRCs only, never audio** (Critical rule #8).
+2. **Carry it on `feat/pregap`** = a topic branch tracking PR #115's head
+   (`git fetch upstream pull/115/head:feat/pregap`), rebased onto `master` and
+   folded into the `platterpus` integration branch (§1). That is how we ship
+   exact pregaps/HTOA *before* #115 merges upstream.
+3. If a blocker is trivial (the `assert.h` leftover), offer it as a
+   suggestion/commit **against #115's branch**, coordinated with UltraFuzzy — not
+   a competing PR (§5 discipline).
+4. When #115 merges upstream: drop `feat/pregap`, fast-forward `master`, rebuild
+   (§5). Our fork carries nothing for it thereafter.
+
+### Platterpus-side
+
+**Essentially nothing to build.** Platterpus consumes cyanrip's `.cue` verbatim
+(surfaced via the *View cue* button; the EAC-parity check reads Copy CRCs from
+logs, not the cue), so INDEX 00 appears automatically once the built cyanrip
+emits it. The only Platterpus change is upstream of this doc: `host_setup.py`
+building cyanrip from the pinned integration-branch commit instead of the COPR
+package (§4 below) — the one real new maintenance commitment (KDD-32). The
+Platterpus-side **cdrdao fallback** (a `read-toc` adapter, `upstream-pr-roadmap.md`)
+stays the no-upstream-dependency backup **only if #115 stalls indefinitely** —
+it duplicates #115 and adds a dependency, so it is not the first move.
+
 ## 4. Building & consuming the fork in the `ripping` container
 
 The point of the soft fork: get a fix **without waiting for a cyanrip release**
@@ -314,4 +367,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.7.*
