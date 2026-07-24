@@ -367,4 +367,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.5.7.*
+*Last updated for Platterpus v0.5.8.*
