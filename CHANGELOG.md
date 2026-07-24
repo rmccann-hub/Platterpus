@@ -37,6 +37,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   that actually have offset-variant tracks. See PLANNING KDD-27.
 
 ### Fixed
+- **AppImage build pins the bundled CPython version.** `python-appimage` was
+  grabbing the newest CPython base image, which had become a 3.15 *beta* that no
+  PySide6 wheel supports — the release build aborted with "No matching
+  distribution found for PySide6". The build now pins a stable, PySide6-supported
+  interpreter (3.12, overridable via `PLATTERPUS_PYTHON_VERSION`), so a new
+  upstream Python beta can't break the build.
 - **"Open rip folder" now works during a rip and after a cancel/partial rip.**
   Previously the button only became usable once a rip *finished successfully*;
   a cancelled or failed rip left `set_log_path(None)`, which disabled the

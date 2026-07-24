@@ -157,6 +157,21 @@ def test_build_script_embeds_zsync_update_information() -> None:
     assert "/.appimagetool*/AppRun" in script
 
 
+def test_build_script_pins_the_bundled_python_version() -> None:
+    """REGRESSION (v0.5.7 release attempt, 2026-07-24): without an explicit
+    --python-version, python-appimage grabbed the newest CPython base image,
+    which had become a 3.15 *beta* that no PySide6 wheel supports — the release
+    build aborted with "No matching distribution found for PySide6". The build
+    must pin a stable interpreter version so a new upstream beta can't break it.
+    """
+    script = (BUILD_DIR / "build_appimage.sh").read_text(encoding="utf-8")
+    # A concrete default pin is set…
+    assert "PLATTERPUS_PYTHON_VERSION" in script
+    assert ':-3.12}"' in script or ":-3.12}'" in script
+    # …and it's actually passed to the (default, non-base-image) build call.
+    assert '--python-version "$PLATTERPUS_PYTHON_VERSION"' in script
+
+
 def test_release_workflow_ships_the_zsync_file() -> None:
     """release.yml installs zsyncmake (so the .zsync is produced) and uploads
     it in BOTH the create and re-upload branches, and the checksum step runs
