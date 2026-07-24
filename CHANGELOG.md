@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.7] — 2026-07-24
+
 ### Added
 - **Choose which tracks to rip.** The track table has a leading **Rip?**
   checkbox column (every track ticked by default), and right-clicking one or
@@ -2947,7 +2949,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
 [0.5.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.4.24...v0.5.0
@@ -3000,4 +3003,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.6.*
+*Last updated for Platterpus v0.5.7.*
