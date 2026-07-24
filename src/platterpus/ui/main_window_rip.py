@@ -1013,6 +1013,11 @@ class RipMixin(MainWindowShared):
                 if success:
                     status = fidelity_summary(rip_log)
                     self._rip_progress.set_status(status)
+                    # A rip that MATCHED AccurateRip confirms the applied read
+                    # offset is correct on THIS drive (KDD-31 — our equal-or-
+                    # stronger analogue of EAC's Key-Disc offset check). Record
+                    # that so the offset's provenance is promoted to CONFIRMED.
+                    self._confirm_offset_from_accuraterip(rip_log)
                 # Write the machine-readable JSON rip report beside the log
                 # (the "two outputs every time" rule, docs/ux-design-principles
                 # #2). Kept for the CTDB handler to re-write with the CTDB
@@ -1885,6 +1890,41 @@ class RipMixin(MainWindowShared):
         return build_debug_log(
             buffer.lines_excluding(others), truncated=buffer.truncated
         )
+
+    def _confirm_offset_from_accuraterip(self, rip_log: object) -> None:
+        """Promote the applied read offset to CONFIRMED when a rip matched AR.
+
+        The honest, equal-or-stronger analogue of EAC's Key-Disc offset finder
+        (KDD-31): if ≥1 track verified against the AccurateRip global consensus,
+        the offset that produced it is empirically correct on *this* drive — a
+        stronger confirmation than one key disc, and it re-earns itself on every
+        matching rip. We record it as an independent ``ACCURATERIP_CONFIRMED``
+        fact; when it agrees with the drive-list value already stored,
+        ``reconcile_offset`` promotes the offset to CONFIRMED/HIGH. Only records
+        a real match and only when an offset override is actually applied (so the
+        recorded value is the one the rip used). Best-effort, never raises — a
+        provenance touch-up must never break the finish handler.
+        """
+        try:
+            from platterpus.drive_profiles import OffsetSource
+            from platterpus.parsers.rip_log import track_accuraterip_verified
+
+            if not self._config.override_read_offset:
+                return  # no explicit offset applied → nothing to attribute
+            tracks = getattr(rip_log, "tracks", ()) or ()
+            if not any(track_accuraterip_verified(t) for t in tracks):
+                return  # nothing matched AccurateRip → no confirmation to record
+            drive = self._drive_picker.current_drive()
+            if drive is None:
+                return
+            self._record_drive_fact(
+                drive,
+                offset_value=self._config.read_offset,
+                source=OffsetSource.ACCURATERIP_CONFIRMED,
+            )
+            self._refresh_drive_profile_display()
+        except Exception:  # noqa: BLE001 — provenance is a courtesy, never load-bearing
+            log.warning("could not confirm offset from AccurateRip", exc_info=True)
 
     def _inject_measured_cache_defeat(self, rip_log: RipLog) -> RipLog:
         """Fold a MEASURED cache-defeat verdict into a parsed ``RipLog``.

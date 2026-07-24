@@ -275,11 +275,13 @@ hand. The value is saved to the app's own settings and applied to every rip
 (cyanrip's read-offset option). Do this once per drive.
 
 The disc panel shows a **Read offset** line for the selected drive telling you
-*where* the offset came from and how confident we are — measured on your drive
-(high), looked up from the AccurateRip list (medium), or entered by hand. If two
-identical drives are connected, or the recorded offset disagrees with the
-offset that will be applied, a warning appears there so a wrong offset can't
-pass unnoticed.
+*where* the offset came from and how confident we are — looked up from the
+AccurateRip list, entered by hand, or **confirmed by an AccurateRip-matching
+rip on your own drive** (the strongest: when a rip matches AccurateRip, the
+offset it used is proven correct on your unit, and the line reads "confirmed —
+two independent sources agree"). If two identical drives are connected, or the
+recorded offset disagrees with the offset that will be applied, a warning
+appears there so a wrong offset can't pass unnoticed.
 
 The wizard can also **Analyse cache**: with an audio CD in the drive, it measures
 whether your drive returns *cached* audio on a re-read. Defeating that cache is

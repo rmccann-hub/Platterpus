@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **Read offset auto-confirmed on your drive by AccurateRip.** When a rip
+  matches the AccurateRip global consensus, the read offset it used is proven
+  correct on *your* actual drive — so Platterpus now records that and promotes
+  the offset's provenance to **confirmed** (the disc panel's Read-offset line
+  shows "confirmed — two independent sources agree"). This is the honest,
+  equal-or-stronger analogue of EAC's Key-Disc offset check: stronger because it
+  re-confirms on every matching rip, not just once against one disc. Only a real
+  match records it, and only when an explicit offset is applied. See PLANNING
+  KDD-31. (A from-scratch offset *finder* for drives not in the AccurateRip list
+  remains future work — see the cyanrip soft-fork roadmap.)
 - **EAC-style Test & Copy verification.** cyanrip's secure re-read (`-Z N`,
   "re-rip until N reads' checksums agree") is the two-reads-agree guarantee EAC's
   Test & Copy provides. The EAC-compatible log now renders a track confirmed by

@@ -192,6 +192,25 @@ def test_reconcile_two_independent_sources_agreeing_is_confirmed_high() -> None:
     assert merged.confidence is Confidence.HIGH
 
 
+def test_reconcile_accuraterip_confirmed_agreeing_with_list_is_high() -> None:
+    # KDD-31: a rip that matched AccurateRip records ACCURATERIP_CONFIRMED; when
+    # it agrees with the drive-list value it promotes the offset to CONFIRMED/HIGH
+    # (an independent empirical corroboration on the user's own unit).
+    listed = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=667)
+    confirmed = _rec(OffsetSource.ACCURATERIP_CONFIRMED, Confidence.MEDIUM, value=667)
+    merged = reconcile_offset(listed, confirmed)
+    assert merged.value == 667
+    assert merged.source is OffsetSource.CONFIRMED
+    assert merged.confidence is Confidence.HIGH
+
+
+def test_accuraterip_confirmed_is_medium_alone_and_has_a_label() -> None:
+    from platterpus.drive_profiles import confidence_for, describe_source
+
+    assert confidence_for(OffsetSource.ACCURATERIP_CONFIRMED) is Confidence.MEDIUM
+    assert "accuraterip" in describe_source(OffsetSource.ACCURATERIP_CONFIRMED).lower()
+
+
 def test_reconcile_manual_disagreeing_wins_but_stays_medium() -> None:
     listed = _rec(OffsetSource.ACCURATERIP_LIST, Confidence.MEDIUM, value=667)
     manual = _rec(OffsetSource.MANUAL, Confidence.MEDIUM, value=6)

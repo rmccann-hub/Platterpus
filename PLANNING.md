@@ -965,6 +965,19 @@ Second of the "all four EAC gaps, honestly not-EAC" push. EAC's secure mode does
 
 No new parser work — `rip_count` and `secure_rerip_converged` were already parsed (KDD-27 era). Purely a rendering + one-checkbox change, so it's the cheapest of the four gaps.
 
+### KDD-31 — Read offset: confirm on the user's unit via AccurateRip, not a from-scratch Key-Disc finder (decided 2026-07-24)
+
+Third of the four EAC gaps. EAC's **Key Disc** offset finder rips a disc whose offset is known to AccurateRip and derives the drive's read offset from the match. Two honest observations shaped the decision:
+
+1. **The offset is already correct for listed drives.** Platterpus fills the offset from the bundled AccurateRip drive-model list (auto-applied, healed on disagreement — see `main_window_rip`), verified +667 on the BDR-209D. A from-scratch finder mainly helps drives *not* in that list.
+2. **A from-scratch finder is a heavy, hardware-gated lift with no in-tree primitive.** It needs an AccurateRip **CRC calculator** (we have none — cyanrip computes AR matches itself; our `ctdb/crc.py` is a different algorithm), raw-PCM extraction, and per-offset CRC search against the AR DB. Big, and it partly duplicates what cyanrip already does.
+
+**Decision: ship the equal-or-stronger *confirmation*, defer the from-scratch finder.** The point of an offset finder is a *trustworthy* offset; a rip that matches the AccurateRip **global consensus** is exactly that proof, on the user's own unit — and *stronger* than a one-shot Key-Disc check because it re-earns itself on every matching rip. So:
+- New provenance source **`OffsetSource.ACCURATERIP_CONFIRMED`** (MEDIUM alone — HIGH is still earned only by agreement). After a successful rip with ≥1 AccurateRip-verified track (the shared `track_accuraterip_verified` rule) and an offset override applied, `_confirm_offset_from_accuraterip` records the applied offset under this source. When it agrees with the stored `ACCURATERIP_LIST` value, `reconcile_offset` promotes to **CONFIRMED/HIGH** — the disc panel's trust line then reads "confirmed — two independent sources agree". Best-effort, never raises; records only a real match, never for a CD-R/unlisted disc, never without an applied offset.
+- This reuses the whole drive-profile agreement model (KDD-23) — no new storage, no new UI surface, just a new source + one post-rip hook.
+
+**Deferred (honest scope line):** a from-scratch empirical finder for a drive *absent* from the AccurateRip list. That belongs with the heavier ripper-engine work — see `docs/cyanrip-soft-fork.md` / `docs/upstream-pr-roadmap.md`; if we build an AR-CRC primitive for a fork, the finder rides on it. Recorded as future work, not a silent omission.
+
 ---
 
 *Last updated for Platterpus v0.5.7.*
