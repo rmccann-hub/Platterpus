@@ -257,15 +257,24 @@ def test_secure_rerip_editable(qapp: QApplication) -> None:
     assert dialog._secure_rerip_spin.isEnabled() is True
 
 
-def test_secure_rerip_dynamic_has_no_checkbox_but_round_trips(
+def test_verify_every_track_checkbox_drives_secure_rerip_dynamic(
     qapp: QApplication,
 ) -> None:
-    # Dynamic is the behaviour now, not a UI toggle — there's no checkbox…
+    # The "Verify every track (Test & Copy)" checkbox is the inverse of the
+    # dynamic fast-path flag (KDD-30): checked = verify all = dynamic OFF.
+    # Default config is dynamic (fast) → checkbox unchecked.
+    default_dialog = SettingsDialog(Config())
+    assert default_dialog._verify_every_track_check.isChecked() is False
+    assert default_dialog.to_config().secure_rerip_dynamic is True
+
+    # A config with dynamic OFF (verify every track) shows the box checked…
     dialog = SettingsDialog(Config(secure_rerip_dynamic=False))
-    assert not hasattr(dialog, "_secure_rerip_dynamic_check")
-    # …and the stored value is carried through to_config() unchanged.
+    assert dialog._verify_every_track_check.isChecked() is True
     assert dialog.to_config().secure_rerip_dynamic is False
-    assert SettingsDialog(Config()).to_config().secure_rerip_dynamic is True
+
+    # …and toggling the box flips the stored flag back.
+    dialog._verify_every_track_check.setChecked(False)
+    assert dialog.to_config().secure_rerip_dynamic is True
 
 
 def test_goal_combo_reflects_the_incoming_config(qapp: QApplication) -> None:
@@ -704,6 +713,7 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
         "force_overread": "_force_overread_check",
         "secure_rerip_matches": "_secure_rerip_spin",
         "rerip_offset_variant": "_rerip_offset_variant_check",
+        "secure_rerip_dynamic": "_verify_every_track_check",
         "read_speed_mode": "_read_speed_mode_combo",
         "read_speed": "_read_speed_spin",
         "ctdb_verify_after_rip": "_ctdb_verify_check",
@@ -715,9 +725,9 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
         "rip_goal": "_goal_combo",
     }
     # Guide-documented fields that share another setting's single control (no
-    # dedicated widget of their own): dynamic secure-rerip is folded into the
-    # "Max reads to confirm a shaky track" control.
-    no_dedicated_widget: set[str] = {"secure_rerip_dynamic"}
+    # dedicated widget of their own). Empty since secure_rerip_dynamic got its
+    # own "Verify every track" checkbox (KDD-30); kept as the seam.
+    no_dedicated_widget: set[str] = set()
 
     documented = set(_GUIDE_KEYWORDS)
     covered = set(field_to_widget) | no_dedicated_widget

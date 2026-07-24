@@ -5,6 +5,11 @@
 > in CI** — they need a real CD + drive, a desktop session, or a maintainer
 > credential.
 >
+> **Just want to test the release that's in your hand?** Use
+> [`hardware-test-checklist.md`](hardware-test-checklist.md) — the fillable,
+> every-step-written-out run sheet for the *current* release (updated each cycle).
+> This document is the full reference behind it.
+>
 > Two halves, in order of how you'll use them:
 > - **Parts 0–D + Reporting** — the end-to-end *release/acceptance run*: a clean
 >   uninstall → fresh install → rip → verify cycle, the **EAC output-parity**
@@ -750,4 +755,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.8.*

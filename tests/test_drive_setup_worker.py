@@ -20,12 +20,20 @@ class _FakeBackend(RipBackend):
         cache: bool | None = True,
         offset_exc: Exception | None = None,
         analyze_exc: Exception | None = None,
+        supports_offset: bool = True,
     ) -> None:
         self._offset = offset
         self._cache = cache
         self._offset_exc = offset_exc
         self._analyze_exc = analyze_exc
+        # A backend that actually returns an offset from find_offset must declare
+        # it can (the worker only calls find_offset when this is True — cyanrip,
+        # by contrast, can analyze the cache but not detect the offset).
+        self._supports_offset = supports_offset
         self.devices: list[str] = []
+
+    def supports_offset_detection(self) -> bool:  # type: ignore[override]
+        return self._supports_offset
 
     # Abstract members we don't exercise here:
     def list_drives(self):  # type: ignore[override]
@@ -101,14 +109,30 @@ def test_worker_records_analyze_failure_but_keeps_offset(
 
 
 def test_worker_handles_unsupported_backend(qapp: QApplication) -> None:
-    backend = _FakeBackend(
-        offset_exc=NotImplementedError(), analyze_exc=NotImplementedError()
-    )
+    # A backend that supports neither: offset detection is off (so the finder is
+    # never attempted — offset_error stays None, "not attempted"), and cache
+    # analysis raises NotImplementedError (caught → analyze_error set).
+    backend = _FakeBackend(supports_offset=False, analyze_exc=NotImplementedError())
     result = _run(DriveSetupWorker(backend, ""))
 
     assert result.offset is None
+    assert result.offset_error is None  # not attempted (no finder)
     assert result.can_defeat_cache is None
-    assert result.offset_error and result.analyze_error
+    assert result.analyze_error  # cache analysis reported unsupported
+
+
+def test_worker_skips_offset_when_backend_cant_detect(qapp: QApplication) -> None:
+    # The cyanrip path: it can MEASURE the cache but has no offset finder. The
+    # worker must record the cache verdict and NOT attempt (or fabricate) an
+    # offset — offset stays None with no error (not attempted), so the dialog
+    # omits the offset line and only the cache verdict shows.
+    backend = _FakeBackend(supports_offset=False, cache=True)
+    result = _run(DriveSetupWorker(backend, "/dev/sr0"))
+
+    assert result.can_defeat_cache is True
+    assert result.offset is None
+    assert result.offset_error is None  # finder never ran
+    assert backend.devices == ["/dev/sr0"]  # only analyze touched the drive
 
 
 def test_cancel_sets_flag_and_calls_backend(qapp: QApplication) -> None:

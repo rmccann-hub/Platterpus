@@ -334,9 +334,23 @@ class RipBackend(ABC):
         Returns True/False when the backend determines the cache can / cannot
         be defeated, or None if it ran but couldn't classify. Raises
         :class:`RipError` if no disc is present (it needs one to test).
-        cyanrip has no cache-analysis command, so it leaves this unimplemented.
+        cyanrip has no cache line in its own log, but it CAN measure this via the
+        libcdio ``cd-paranoia -A`` self-test (same read engine) — see
+        ``CyanripBackend.analyze_drive`` / ``adapters/cache_probe.py`` (KDD-29).
         """
         raise NotImplementedError
+
+    def supports_cache_analysis(self) -> bool:
+        """Whether this backend can MEASURE the drive's audio-cache behaviour.
+
+        Distinct from :meth:`supports_offset_detection` — a backend may be able
+        to measure the cache verdict (``analyze_drive``) even when it can't
+        auto-detect the read offset. Drives the setup wizard: when True, the
+        wizard offers a cache-analysis action even for a backend whose offset
+        finder is disabled. Default **False**; cyanrip overrides to True because
+        the libcdio ``cd-paranoia -A`` probe speaks for its own read engine.
+        """
+        return False
 
     def supports_offset_detection(self) -> bool:
         """Whether this backend can genuinely MEASURE a drive's read offset.

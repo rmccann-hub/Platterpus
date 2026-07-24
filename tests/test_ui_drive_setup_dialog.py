@@ -34,10 +34,23 @@ class _StubBackend(RipBackend):
 
 
 class _NonDetectingBackend(_StubBackend):
-    """Mirrors cyanrip: no on-disc offset detection (inherits the ABC default)."""
+    """A backend that can do NEITHER offset detection nor cache analysis."""
 
     def supports_offset_detection(self) -> bool:  # type: ignore[override]
         return False
+
+    def supports_cache_analysis(self) -> bool:  # type: ignore[override]
+        return False
+
+
+class _CacheOnlyBackend(_StubBackend):
+    """Mirrors cyanrip: can MEASURE the cache but has no offset finder (KDD-29)."""
+
+    def supports_offset_detection(self) -> bool:  # type: ignore[override]
+        return False
+
+    def supports_cache_analysis(self) -> bool:  # type: ignore[override]
+        return True
 
 
 def _dialog(qapp: QApplication) -> DriveSetupDialog:
@@ -190,6 +203,59 @@ def test_format_result_negative_offset_signed() -> None:
     text = _format_result(DriveSetupResult(offset=-582, can_defeat_cache=False))
     assert "-582 samples" in text
     assert "doesn't cache audio" in text
+
+
+# --- Cache-only (cyanrip) analyze path (KDD-29) ------------------------------
+
+
+def test_cache_only_backend_shows_analyse_button(qapp: QApplication) -> None:
+    """cyanrip can't detect the offset but CAN measure the cache — so the dialog
+    offers an "Analyse cache" action even though offset detection is off."""
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
+    assert dialog._can_detect is False
+    assert dialog._can_analyze is True
+    assert dialog._detect_button is not None
+    # Labelled as a cache analysis, not "Detect" (which implies offset finding).
+    assert "cache" in dialog._detect_button.text().lower()
+
+
+def test_on_finished_emits_for_cache_only_result(qapp: QApplication) -> None:
+    """A cache-only run (no offset) must still record its verdict, and the button
+    re-labels to "Re-analyse cache"."""
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
+    captured: list[DriveSetupResult] = []
+    dialog.detection_recorded.connect(captured.append)
+
+    dialog._on_finished(
+        DriveSetupResult(offset=None, offset_error=None, can_defeat_cache=True)
+    )
+
+    assert len(captured) == 1  # recorded even with no offset
+    assert captured[0].can_defeat_cache is True
+    assert dialog._detect_button.text() == "Re-analyse cache"
+
+
+def test_no_emit_when_nothing_measured(qapp: QApplication) -> None:
+    """A run that produced neither an offset nor a cache verdict has nothing to
+    persist — the recorder signal must not fire."""
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
+    captured: list[DriveSetupResult] = []
+    dialog.detection_recorded.connect(captured.append)
+
+    dialog._on_finished(
+        DriveSetupResult(offset=None, can_defeat_cache=None, analyze_error="no disc")
+    )
+    assert captured == []
+
+
+def test_format_result_omits_offset_line_for_cache_only() -> None:
+    """A cache-only result (offset None, offset_error None = not attempted) must
+    NOT print a misleading ✗ offset line — only the cache verdict shows."""
+    text = _format_result(
+        DriveSetupResult(offset=None, offset_error=None, can_defeat_cache=True)
+    )
+    assert "Read offset" not in text
+    assert "cache" in text.lower()
 
 
 # --- Keyboard reachability + announcements (a11y gap #4) ---------------------

@@ -203,6 +203,16 @@ named from the album artist/title you type.
   stable, repeatable result. It costs extra time on discs with offset-variant
   tracks (many compilations and remasters), which is why it's off by default;
   turn it on when you want maximum reproducibility.
+- **Verify every track with a second read (EAC-style Test & Copy)** — **off by
+  default.** Normally Platterpus rips fast and only re-reads tracks that didn't
+  match AccurateRip. Turn this on to read *every* track at least twice and keep
+  it only once the two reads agree — the same guarantee Exact Audio Copy's "Test
+  & Copy" gives (two independent reads produce the identical audio), for the
+  whole disc. When a track is confirmed this way, the EAC-compatible log shows a
+  matching **Test CRC** and **Copy CRC** pair for it. It needs *Max reads* set to
+  2 or more (a second read is what there is to compare), and it's slower because
+  it double-reads clean tracks too — so it's off by default; turn it on for a
+  maximum-assurance archival rip.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
   the CUETools Database, alongside AccurateRip. A network check, off by default.
   Its checksum is now confirmed on real hardware, so a match reads as *verified*
@@ -215,7 +225,12 @@ named from the album artist/title you type.
 - **Write an EAC-compatible log** — in addition to cyanrip's own `.log`, write a
   second log beside each rip in the format Exact Audio Copy uses, for tools and
   people that expect that layout. It records the same rip, just formatted like an
-  EAC log.
+  EAC log — and it says plainly, at the top and bottom, that it is *not* a genuine
+  EAC log (we never pretend to be EAC). Its last line is a Platterpus integrity
+  checksum: a SHA-256 of the whole log above it, at least as strong as EAC's own
+  log checksum but openly verifiable — you can confirm the log hasn't been altered
+  with any SHA-256 tool, no special software needed (`head -n -1` on the file,
+  piped to `sha256sum`, reproduces the value).
 - **Read offset override** — set the drive read-offset by hand (the drive-setup
   wizard is the recommended way to set it).
 - **Eject after a successful rip** — automatically eject the disc when a rip
@@ -260,11 +275,22 @@ hand. The value is saved to the app's own settings and applied to every rip
 (cyanrip's read-offset option). Do this once per drive.
 
 The disc panel shows a **Read offset** line for the selected drive telling you
-*where* the offset came from and how confident we are — measured on your drive
-(high), looked up from the AccurateRip list (medium), or entered by hand. If two
-identical drives are connected, or the recorded offset disagrees with the
-offset that will be applied, a warning appears there so a wrong offset can't
-pass unnoticed.
+*where* the offset came from and how confident we are — looked up from the
+AccurateRip list, entered by hand, or **confirmed by an AccurateRip-matching
+rip on your own drive** (the strongest: when a rip matches AccurateRip, the
+offset it used is proven correct on your unit, and the line reads "confirmed —
+two independent sources agree"). If two identical drives are connected, or the
+recorded offset disagrees with the offset that will be applied, a warning
+appears there so a wrong offset can't pass unnoticed.
+
+The wizard can also **Analyse cache**: with an audio CD in the drive, it measures
+whether your drive returns *cached* audio on a re-read. Defeating that cache is
+what makes a re-read actually reach the disc — the guarantee behind bit-perfect
+verification. The measured Yes/No is saved per drive, shown in the disc panel's
+**Cache defeat** line, and recorded in the EAC-compatible log. If the drive can't
+give a clear answer it stays "not measured" — Platterpus never claims a result it
+didn't measure. (This uses `cd-paranoia`, installed for you by *Set up Platterpus*;
+without it, ripping is unaffected — only this verdict stays unmeasured.)
 
 ## Troubleshooting
 

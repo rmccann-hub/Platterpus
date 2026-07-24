@@ -403,6 +403,9 @@ class DriveMixin(MainWindowShared):
         self._disc_info_panel.set_drive_offset_provenance(
             _format_offset_provenance(existing, warnings)
         )
+        # The measured cache-defeat verdict (cd-paranoia -A, recorded per drive —
+        # KDD-29). Drive-derived like the offset, so it's refreshed here too.
+        self._disc_info_panel.set_drive_cache_defeat(_format_cache_defeat(existing))
 
     # --- Slots: drive-access diagnostics -----------------------------------
 
@@ -484,3 +487,17 @@ def _format_offset_provenance(
         symbol = "⚠" if severity == SEVERITY_WARN else "ⓘ"
         lines.append(f"{symbol} {message}")
     return "\n".join(lines)
+
+
+def _format_cache_defeat(profile: DriveProfile | None) -> str:
+    """Build the disc-info panel's cache-defeat trust line from the profile.
+
+    Effect-first and honest about the measurement state: a measured Yes/No names
+    that it was measured (cd-paranoia); an unmeasured drive says so plainly rather
+    than implying a verdict. Pure; safe to call with no profile.
+    """
+    if profile is None or profile.cache_defeat is None:
+        return "not measured yet — Set up drive → Analyse cache"
+    if profile.cache_defeat:
+        return "Yes — cache defeated on re-read (measured, cd-paranoia)"
+    return "No — drive returns cached audio on re-read (measured, cd-paranoia)"

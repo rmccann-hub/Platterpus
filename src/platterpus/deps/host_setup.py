@@ -33,6 +33,7 @@ from platterpus.deps.step_engine import (
     StepStatus,
 )
 from platterpus.paths import (
+    CDPARANOIA_BINARY_DEFAULT,
     CYANRIP_BINARY_DEFAULT,
     FLAC_BINARY_DEFAULT,
 )
@@ -156,6 +157,7 @@ class HostSetup:
     os_release: Path = _OS_RELEASE
     cyanrip_path: Path = CYANRIP_BINARY_DEFAULT
     flac_path: Path = FLAC_BINARY_DEFAULT
+    cdparanoia_path: Path = CDPARANOIA_BINARY_DEFAULT
     # Privilege escalation for host-root installs. "pkexec" (the default)
     # shows a graphical polkit prompt — correct for a GUI with no TTY. On
     # Bazzite/Silverblue distrobox+podman are preinstalled, so these steps
@@ -175,6 +177,13 @@ class HostSetup:
             "tools",
             "cyanrip",
             "export",
+            # OPTIONAL, and deliberately LAST: the cd-paranoia cache probe
+            # (KDD-29). It is NOT part of is_ready() (which gates on cyanrip +
+            # flac), so even if this step fails to find a package the ripper is
+            # still fully set up — the wizard reports success and only this one
+            # row shows a ✗. Absent cd-paranoia just leaves the cache verdict
+            # unmeasured.
+            "cache_tool",
         )
 
     # --- State probes (each "is this step already done?") ---
@@ -215,6 +224,9 @@ class HostSetup:
 
     def flac_exported(self) -> bool:
         return self.runner.exists(self.flac_path)
+
+    def cdparanoia_exported(self) -> bool:
+        return self.runner.exists(self.cdparanoia_path)
 
     def _export_done(self) -> bool:
         """The export step is satisfied when every required binary is on host.
@@ -314,6 +326,34 @@ class HostSetup:
                 ]
                 for b in binaries
             ]
+        if step_id == "cache_tool":
+            # Install cd-paranoia into the (Fedora) container and export it. We
+            # install by the FILE it provides (`/usr/bin/cd-paranoia`) rather than
+            # a package name, so dnf resolves whichever package ships it (libcdio
+            # on Fedora) without us hardcoding a name that could differ. Container
+            # is always fedora-toolbox, so dnf is correct regardless of host distro.
+            return [
+                [
+                    "distrobox",
+                    "enter",
+                    self.container,
+                    "--",
+                    "sudo",
+                    "dnf",
+                    "install",
+                    "-y",
+                    "/usr/bin/cd-paranoia",
+                ],
+                [
+                    "distrobox",
+                    "enter",
+                    self.container,
+                    "--",
+                    "distrobox-export",
+                    "--bin",
+                    "/usr/bin/cd-paranoia",
+                ],
+            ]
         raise ValueError(f"unknown step: {step_id}")  # pragma: no cover
 
     def _is_done(self, step_id: str) -> bool:
@@ -324,6 +364,7 @@ class HostSetup:
             "tools": self.flac_in_container,
             "cyanrip": self.cyanrip_in_container,
             "export": self._export_done,
+            "cache_tool": self.cdparanoia_exported,
         }[step_id]()
 
     _TITLES: dict[str, str] = field(
@@ -334,6 +375,7 @@ class HostSetup:
             "tools": "flac + metaflac (in container)",
             "cyanrip": "cyanrip ripper (in container)",
             "export": "Export tools to ~/.local/bin",
+            "cache_tool": "cd-paranoia cache probe (optional)",
         },
         init=False,
     )

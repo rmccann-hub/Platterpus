@@ -76,6 +76,48 @@ def _impl() -> CyanripImpl:
     return CyanripImpl(binary_path="cyanrip")
 
 
+# --- cache analysis (KDD-29) ----------------------------------------------
+
+
+def test_supports_cache_analysis_but_not_offset_detection() -> None:
+    impl = _impl()
+    # cyanrip CAN measure the cache (cd-paranoia -A) but has no trusted offset
+    # finder — the two capabilities are independent.
+    assert impl.supports_cache_analysis() is True
+    assert impl.supports_offset_detection() is False
+
+
+def test_analyze_drive_delegates_to_cache_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from platterpus.adapters import cache_probe
+
+    captured: list[str] = []
+
+    def fake_probe(device: str, **kw):  # type: ignore[no-untyped-def]
+        captured.append(device)
+        return cache_probe.CacheProbeResult(defeat=True, cache_sectors=1024)
+
+    monkeypatch.setattr(cache_probe, "probe_cache_defeat", fake_probe)
+    assert _impl().analyze_drive("/dev/sr0") is True
+    assert captured == ["/dev/sr0"]  # device forwarded to the probe
+
+
+def test_analyze_drive_returns_none_when_probe_inconclusive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from platterpus.adapters import cache_probe
+
+    monkeypatch.setattr(
+        cache_probe,
+        "probe_cache_defeat",
+        lambda device, **kw: cache_probe.CacheProbeResult(defeat=None),
+    )
+    # Honest: an inconclusive probe yields None (rendered "(unknown)"), never a
+    # fabricated verdict.
+    assert _impl().analyze_drive("/dev/sr0") is None
+
+
 # --- rip argv builder -----------------------------------------------------
 
 

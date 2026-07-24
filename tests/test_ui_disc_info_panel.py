@@ -135,6 +135,30 @@ def test_set_drive_clears_disc_fields(qapp: QApplication) -> None:
     assert panel._mb_match_value.text() == "—"
 
 
+# --- Cache-defeat verdict (KDD-29) ---------------------------------------
+
+
+def test_set_drive_cache_defeat_shows_verdict(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_drive_cache_defeat("Yes — cache defeated on re-read (measured)")
+    assert "Yes" in panel._cache_value.text()
+
+
+def test_cache_defeat_row_is_copy_selectable_and_named(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    assert panel._cache_value.accessibleName()  # named for screen readers
+    # blank text falls back to the placeholder, never an empty label
+    panel.set_drive_cache_defeat("")
+    assert panel._cache_value.text() == "—"
+
+
+def test_drive_change_clears_stale_cache_verdict(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel.set_drive_cache_defeat("Yes — measured")
+    panel.set_drive("/dev/sr1")  # a new drive: the old verdict must not linger
+    assert panel._cache_value.text() == "—"
+
+
 # --- Disc info -----------------------------------------------------------
 
 

@@ -106,6 +106,31 @@ def check_cyanrip(binary_path: Path) -> ProbeResult:
     )
 
 
+def check_cdparanoia(binary_path: Path) -> ProbeResult:
+    """Probe the host-exported ``cd-paranoia`` binary (libcdio's, KDD-29).
+
+    Optional — used only by the cache-defeat probe. Routes through the same
+    ``~/.local/bin`` host-export as cyanrip (Critical Rule #3), so we accept the
+    path explicitly rather than relying on PATH. cd-paranoia prints its version
+    banner on ``--version``; a missing binary or a non-zero run is reported as
+    absent (which the wizard resolves by re-running host setup).
+    """
+    if not binary_path.exists():
+        return ProbeResult(present=False, version=None, location=str(binary_path))
+
+    ran, output, _ = _run_version_command([str(binary_path), "--version"])
+    if not ran:
+        return ProbeResult(present=False, version=None, location=str(binary_path))
+
+    version = parse_version(output)
+    return ProbeResult(
+        present=True,
+        version=version,
+        location=str(binary_path),
+        raw_output=output.strip()[:200],
+    )
+
+
 def check_metaflac(binary_name: str = "metaflac") -> ProbeResult:
     """Probe `metaflac`, expected on PATH (via the same Distrobox export route
     as the ripper)."""

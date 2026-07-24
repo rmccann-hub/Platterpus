@@ -17,6 +17,7 @@ To keep the docs efficient and stop the same rule from sprawling across files (a
 | Layered design, patterns, engineering lessons, extension recipes, packaging/release/security | `docs/architecture.md` |
 | Testing strategy, taxonomy, institutional rules | `docs/testing.md` |
 | Manual & release testing (acceptance run + gated cases + tester matrices) | `docs/test-plan.md` |
+| The current release's fillable hardware run sheet | `docs/hardware-test-checklist.md` |
 | Dependency pins, dates, licenses, retirement log | `DEPENDENCIES.md` |
 | User-facing changes | `CHANGELOG.md` |
 | Active task queue | `TASKS.md` |
@@ -49,6 +50,7 @@ These two files, together with the top-level `CLAUDE.md`, `PLANNING.md`, `TASKS.
 | [`architecture.md`](architecture.md) | **Architecture & contributor guide** — the layered design and dependency direction; the core patterns *with the why and the hard-won lessons* (adapter layer, the never-block-the-GUI-thread discipline + worker mechanics, subprocess rules, never-raise parsers, the dependency subsystem, the MainWindow mixin decomposition, error/logging); step-by-step **extension recipes**; the testing contract; packaging/building/releasing; security & licensing hygiene; and the architectural future-directions horizon. **Start here to extend the program.** (Absorbed the former `best-practices.md`.) |
 | [`testing.md`](testing.md) | **Testing strategy & standards** — the trophy + a real-hardware gate, the five-tier case taxonomy (easy/medium/hard/edge/unexpected), when to use property-based / golden / fault-injection / mutation testing, the institutional rules (every bug gets a regression test; parsers never raise; coverage gate ratchets up), and a Definition of Done. Portable to sibling projects. |
 | [`test-plan.md`](test-plan.md) | **Manual & release testing** — the end-to-end clean-cycle acceptance run (uninstall → fresh install → drive setup → rip → verify), the **EAC output-parity** check (with the per-track CRC baseline), the **Linux-distro** + **problem-permutation** matrices for onboarding testers, *and* the deep single-feature gated cases, Tests 1–14 (CTDB verify CRC, the drive-setup wizard screens, GUI screenshot, Picard UX, the cyanrip parity record + `-Z` convergence, multi-format proof, read-effort/CD-Extra/companion-log cases). Run one at a time and record results. (Absorbed the former `release-testing.md`.) |
+| [`hardware-test-checklist.md`](hardware-test-checklist.md) | **The fillable run sheet for the current release's hardware test** on the Bazzite + BDR-209D rig — every step written out and copy-pasteable, grouped as: setup → this release's new features → previously-untested shipped features → never-tested-before risk areas (missing optional dep, probe cancel, settings persistence, contradictory settings, upgrade-over-existing) → a quick regression sweep → the INDEX-00 / cyanrip-build test last (it swaps the ripper binary). Updated in place each cycle; `test-plan.md` stays the full reference. |
 | [`appimage-testing.md`](appimage-testing.md) | How the AppImage is built (on every push to `main`, on demand for any branch, and at release) and how to test it in each case — including branches with no published release yet. |
 | [`log-format-comparison.md`](log-format-comparison.md) | Side-by-side comparison of cyanrip's rip log against EAC's, anchoring [PLANNING.md KDD-11](../PLANNING.md). The hand-authored EAC log at `tests/fixtures/rip_log_eac_reference.log` is the comparison's data. |
 | [`dependency-contracts.md`](dependency-contracts.md) | **Dependency contracts** — the single reference for the exact arguments/flags/syntax Platterpus passes each external tool (cyanrip, flac, metaflac, ffmpeg, musicbrainzngs, CAA, CTDB, drive/reader control) and the output shape it parses back. The code-side counterpart to the "validate every input and every dependency output" rule; keep it in step with the adapters. |
@@ -100,4 +102,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.8.*

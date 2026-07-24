@@ -110,16 +110,16 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 
 | Vector | Status | Rationale |
 |---|---|---|
-| Read offset | **Present** | Per-drive offset applied via cyanrip `-s`; correct on the BDR-209D (+667), confirmed byte-identical on 12/14 tracks. |
-| Cache defeat | **Attempted, not measured** | libcdio-paranoia attempts cache defeat (readahead exhaustion + FUA where supported); cyanrip emits no verdict. Reported `(unknown)` by design, never forged. See PLANNING.md KDD-25. |
+| Read offset | **Present + auto-confirmed (KDD-31)** | Per-drive offset applied via cyanrip `-s`; correct on the BDR-209D (+667), confirmed byte-identical on 12/14 tracks. A rip that matches the AccurateRip global consensus now records the offset as `ACCURATERIP_CONFIRMED` and promotes its provenance to CONFIRMED/HIGH on the user's own unit — the equal-or-stronger analogue of EAC's Key-Disc check (re-confirms every matching rip). A from-scratch finder for drives *absent* from the AR list is deferred to the soft-fork roadmap. |
+| Cache defeat | **Measured (KDD-29)** | libcdio-paranoia attempts cache defeat every rip; cyanrip emits no verdict, so we **measure** it with `cd-paranoia -A` (libcdio's copy of that same engine) via Set up drive → Analyse cache, recorded per drive and folded into the EAC-compatible log. Still `(unknown)` (never forged) when the probe is inconclusive — the KDD-25 honesty rule holds. Hardware-tuned on the BDR-209D. |
 | Overread (into lead-in/lead-out) | **Present (opt-in)** | Surfaced 2026-07-21 as the Settings "Overread" toggle → cyanrip `-O`, off by default (EAC's baseline setting is "overread: No", and that's how the 12/14 parity proof matched). Flag-letter corrected the same day: this row previously said `-x`, which does not exist in cyanrip — `-O` verified against 0.9.3.1 + master. |
 | Subcode / pre-gap / `INDEX 00` | **Absent** | cyanrip performs no subchannel pre-gap detection on this path, so no `INDEX 00` cue metadata is emitted. The underlying *audio* is unaffected (append/merge-to-previous matches EAC) — this is a cue-metadata gap only. See "Pre-gaps" above. |
 | HTOA (hidden track one audio) | **Absent — explicit scope note** | Not pursued: HTOA discs are rare in practice, and neither backend gives us a clean, low-effort path to it. Out of scope rather than a tracked gap; see `TASKS.md` "Out of scope." |
 | Pre-emphasis | **Flag-only, intentionally unused** | cyanrip's `-E` (de-emphasis) flag exists but is deliberately not passed — Platterpus preserves pre-emphasis-encoded discs as-is (an archival choice: don't alter samples) rather than actively de-emphasizing. See `docs/dependency-contracts.md`. |
 | AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
 | CTDB (whole-disc verify) | **Present, validated** | `ctdb/` clean-room client (KDD-16); GUI-wired; `crc.CRC_VALIDATED=True` since 2026-07-07 (a real disc's CRC reproduced at offset 0 on hardware), so a match reads "verified". |
-| Test & Copy (two full passes) | **Absent** | No literal two-pass Test&Copy. Single secure read strengthened by `-Z N` re-read convergence instead — a different, cheaper mechanism aimed at the same correctness goal, not a gap we're trying to close by adding a second pass. |
-| EAC log + checksum | **Unsigned, by design** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip and explicitly marked "not a genuine EAC log" — never a forged checksum. This is the deliberate open-trust choice (KDD-24), not a missing feature. |
+| Test & Copy (two full passes) | **Present via `-Z` convergence (KDD-30)** | No literal two-labeled-pass mode, but `-Z N` (re-rip until N reads' checksums agree) is the same two-reads-agree guarantee. A converged track renders as an EAC-style **Test CRC == Copy CRC** pair in the EAC-compatible log; the Settings toggle "Verify every track with a second read" runs it whole-disc. Single-read tracks show only a Copy CRC — never a fabricated test read. |
+| EAC log + checksum | **Present — our own checksum, not EAC's** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip, explicitly marked "not a genuine EAC log", and now footered with **our own integrity checksum: a plain SHA-256 of the text above it, equal-or-stronger than EAC's and openly verifiable** (`head -n -1 … \| sha256sum`) — never EAC's obfuscated *provenance* signature (KDD-28, refining KDD-11; open-trust choice KDD-24). |
 | Gap handling | **Audio matches; no `INDEX 00`** | Same entry as "Subcode / pre-gap" above — audio placement is EAC-equivalent, cue metadata isn't. |
 
 **Reading this table:** "present"/"partial" rows are real capability; "absent"
@@ -208,4 +208,4 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.8.*

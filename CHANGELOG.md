@@ -11,6 +11,57 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.8] — 2026-07-24
+
+*The EAC-parity release: each remaining gap closed with equal-or-stronger rigor,
+honestly labelled as Platterpus's own — never forged to look like EAC.*
+
+### Added
+- **Read offset auto-confirmed on your drive by AccurateRip.** When a rip
+  matches the AccurateRip global consensus, the read offset it used is proven
+  correct on *your* actual drive — so Platterpus now records that and promotes
+  the offset's provenance to **confirmed** (the disc panel's Read-offset line
+  shows "confirmed — two independent sources agree"). This is the honest,
+  equal-or-stronger analogue of EAC's Key-Disc offset check: stronger because it
+  re-confirms on every matching rip, not just once against one disc. Only a real
+  match records it, and only when an explicit offset is applied. See PLANNING
+  KDD-31. (A from-scratch offset *finder* for drives not in the AccurateRip list
+  remains future work — see the cyanrip soft-fork roadmap.)
+- **EAC-style Test & Copy verification.** cyanrip's secure re-read (`-Z N`,
+  "re-rip until N reads' checksums agree") is the two-reads-agree guarantee EAC's
+  Test & Copy provides. The EAC-compatible log now renders a track confirmed by
+  ≥2 agreeing reads as a matching **Test CRC** / **Copy CRC** pair (with an honest
+  note naming how it was confirmed); a single-read track still shows only a Copy
+  CRC — no fabricated second read. A new Settings toggle, **"Verify every track
+  with a second read (EAC-style Test & Copy)"** (off by default), reads *every*
+  track at least twice for a whole-disc Test & Copy, instead of only re-reading
+  tracks that missed AccurateRip. See PLANNING KDD-30.
+- **Measured cache-defeat verdict (Set up drive → Analyse cache).** cyanrip
+  reports no drive-cache line, so the EAC-compatible log's "Defeat audio cache"
+  has read "(unknown)". Platterpus can now *measure* it honestly with
+  `cd-paranoia -A` — libcdio's own copy of cyanrip's read engine, so its cache
+  self-test speaks for the actual rip's reads. The Set up drive wizard offers an
+  "Analyse cache" action (a disc in the drive is needed); the measured Yes/No is
+  recorded per drive, shown in the disc panel's new "Cache defeat" row, and
+  folded into the EAC-compatible log + JSON report — so the log carries a
+  measured verdict instead of "(unknown)". Never fabricated: an inconclusive
+  probe stays "(unknown)". This is the equal-or-stronger, honestly-labelled
+  analogue of EAC's cache field (same principle as the log checksum). `cd-paranoia`
+  is a new optional dependency (installed + exported by the setup wizard as a
+  final, non-blocking step); absent, ripping is unaffected and the verdict stays
+  unmeasured. See PLANNING KDD-29.
+- **The EAC-layout companion log now carries its own integrity checksum.** The
+  optional `<name> (EAC-compatible).log` ends with a Platterpus checksum line —
+  a plain SHA-256 of every byte above it — that is *at least as strong as EAC's*
+  log checksum and **honestly labelled as ours, never EAC's**. EAC's footer is a
+  SHA-256 obfuscated with a fixed secret key so only its own Logchecker can
+  verify it; ours uses the same hash primitive *openly*, so anyone can reproduce
+  it with a standard tool and no secret (`head -n -1 "<name> (EAC-compatible).log"
+  | sha256sum`) — same cryptographic strength, more transparent to check, and
+  never mistaken for EAC's signature. The existing "NOT signed by Exact Audio
+  Copy" disclaimer is unchanged; we still never emit EAC's own
+  `==== Log checksum <hex> ====` marker. See PLANNING KDD-28.
+
 ## [0.5.7] — 2026-07-24
 
 ### Added
@@ -2955,7 +3006,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...HEAD
+[0.5.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.0...v0.5.5
@@ -3009,4 +3061,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.7.*
+*Last updated for Platterpus v0.5.8.*

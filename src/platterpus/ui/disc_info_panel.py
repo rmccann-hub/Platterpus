@@ -99,6 +99,15 @@ class DiscInfoPanel(QWidget):
             _PLACEHOLDER, "Read offset provenance"
         )
         self._offset_value.setWordWrap(True)
+        # Cache-defeat verdict: whether this drive's audio cache is defeated
+        # (so re-reads reach the disc, not a stale cache), MEASURED by the
+        # cd-paranoia -A probe and recorded per drive (KDD-29). Drive-derived
+        # like the offset line, and shown as the same trust-line style. It's the
+        # measured fact behind the EAC-compatible log's "Defeat audio cache".
+        self._cache_value: QLabel = self._value_label(
+            _PLACEHOLDER, "Audio cache-defeat verdict"
+        )
+        self._cache_value.setWordWrap(True)
 
         form = QFormLayout(self)
         form.addRow("Drive:", self._drive_value)
@@ -107,6 +116,7 @@ class DiscInfoPanel(QWidget):
         form.addRow("MusicBrainz match:", self._mb_match_value)
         form.addRow("AccurateRip:", self._accuraterip_value)
         form.addRow("Read offset:", self._offset_value)
+        form.addRow("Cache defeat:", self._cache_value)
 
     # --- Drive selection -----------------------------------------------------
 
@@ -137,6 +147,18 @@ class DiscInfoPanel(QWidget):
         # here too so a stale value never lingers under a freshly-picked drive;
         # the main window repopulates it from the drive profile right after.
         self._offset_value.setText(_PLACEHOLDER)
+        # Same story for the cache-defeat row (drive-derived; repopulated from
+        # the drive profile right after a drive change).
+        self._cache_value.setText(_PLACEHOLDER)
+
+    def set_drive_cache_defeat(self, text: str) -> None:
+        """Show the selected drive's MEASURED cache-defeat verdict.
+
+        `text` is ready-to-display (e.g. "Yes — measured (cd-paranoia)" or
+        "not measured yet"). Pushed by the main window from the drive profile;
+        this stays a pure view. Mirrors :meth:`set_drive_offset_provenance`.
+        """
+        self._cache_value.setText(text or _PLACEHOLDER)
 
     def set_drive_offset_provenance(self, text: str) -> None:
         """Show where the selected drive's read offset came from + how sure.

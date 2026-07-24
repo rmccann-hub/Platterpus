@@ -999,6 +999,12 @@ class RipMixin(MainWindowShared):
                     rip_log = parse_cyanrip_log(text)
                 else:
                     rip_log = parse_rip_log(text)
+                # cyanrip's log has no cache line, so its parsed
+                # ``defeat_audio_cache`` is None. If we've MEASURED this drive's
+                # cache-defeat verdict (cd-paranoia -A, stored in the drive
+                # profile — KDD-29), fold it in so the EAC-compatible log and the
+                # JSON report show the real Yes/No instead of "(unknown)".
+                rip_log = self._inject_measured_cache_defeat(rip_log)
                 self._rip_progress.set_rip_log(rip_log)
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
@@ -1007,6 +1013,11 @@ class RipMixin(MainWindowShared):
                 if success:
                     status = fidelity_summary(rip_log)
                     self._rip_progress.set_status(status)
+                    # A rip that MATCHED AccurateRip confirms the applied read
+                    # offset is correct on THIS drive (KDD-31 — our equal-or-
+                    # stronger analogue of EAC's Key-Disc offset check). Record
+                    # that so the offset's provenance is promoted to CONFIRMED.
+                    self._confirm_offset_from_accuraterip(rip_log)
                 # Write the machine-readable JSON rip report beside the log
                 # (the "two outputs every time" rule, docs/ux-design-principles
                 # #2). Kept for the CTDB handler to re-write with the CTDB
@@ -1879,6 +1890,75 @@ class RipMixin(MainWindowShared):
         return build_debug_log(
             buffer.lines_excluding(others), truncated=buffer.truncated
         )
+
+    def _confirm_offset_from_accuraterip(self, rip_log: object) -> None:
+        """Promote the applied read offset to CONFIRMED when a rip matched AR.
+
+        The honest, equal-or-stronger analogue of EAC's Key-Disc offset finder
+        (KDD-31): if ≥1 track verified against the AccurateRip global consensus,
+        the offset that produced it is empirically correct on *this* drive — a
+        stronger confirmation than one key disc, and it re-earns itself on every
+        matching rip. We record it as an independent ``ACCURATERIP_CONFIRMED``
+        fact; when it agrees with the drive-list value already stored,
+        ``reconcile_offset`` promotes the offset to CONFIRMED/HIGH. Only records
+        a real match and only when an offset override is actually applied (so the
+        recorded value is the one the rip used). Best-effort, never raises — a
+        provenance touch-up must never break the finish handler.
+        """
+        try:
+            from platterpus.drive_profiles import OffsetSource
+            from platterpus.parsers.rip_log import track_accuraterip_verified
+
+            if not self._config.override_read_offset:
+                return  # no explicit offset applied → nothing to attribute
+            tracks = getattr(rip_log, "tracks", ()) or ()
+            if not any(track_accuraterip_verified(t) for t in tracks):
+                return  # nothing matched AccurateRip → no confirmation to record
+            drive = self._drive_picker.current_drive()
+            if drive is None:
+                return
+            self._record_drive_fact(
+                drive,
+                offset_value=self._config.read_offset,
+                source=OffsetSource.ACCURATERIP_CONFIRMED,
+            )
+            self._refresh_drive_profile_display()
+        except Exception:  # noqa: BLE001 — provenance is a courtesy, never load-bearing
+            log.warning("could not confirm offset from AccurateRip", exc_info=True)
+
+    def _inject_measured_cache_defeat(self, rip_log: RipLog) -> RipLog:
+        """Fold a MEASURED cache-defeat verdict into a parsed ``RipLog``.
+
+        cyanrip reports no cache line, so ``ripping_info.defeat_audio_cache`` is
+        parsed as None. When the selected drive has a *measured* verdict recorded
+        (the cd-paranoia ``-A`` probe, stored per drive — KDD-25/KDD-29), inject it
+        so the EAC-compatible log and JSON report carry the real Yes/No, honestly
+        sourced from our own measurement. Only fills a *missing* value — a log
+        that already carried the fact is left exactly as parsed (never overwrite
+        real data). Best-effort and never raises: any failure leaves ``rip_log``
+        untouched, so the log still renders "(unknown)" rather than crashing the
+        finish handler.
+        """
+        try:
+            from dataclasses import replace
+
+            info = getattr(rip_log, "ripping_info", None)
+            if info is None or info.defeat_audio_cache is not None:
+                return rip_log  # nothing to fill, or the log already had it
+            drive = self._drive_picker.current_drive()
+            if drive is None:
+                return rip_log
+            fingerprint, _serial, _wwn = self._fingerprint_for(drive)
+            profile = self._drive_profiles.get(fingerprint)
+            if profile is None or profile.cache_defeat is None:
+                return rip_log
+            return replace(
+                rip_log,
+                ripping_info=replace(info, defeat_audio_cache=profile.cache_defeat),
+            )
+        except Exception:  # noqa: BLE001 — enrichment must never break finish
+            log.warning("could not inject measured cache-defeat verdict", exc_info=True)
+            return rip_log
 
     def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:
         """Write an EAC-layout companion log beside ``log_file`` (best-effort).
