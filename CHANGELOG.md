@@ -11,6 +11,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+*All five found by the first v0.5.8 hardware run (Bazzite + BDR-209D, 2026-07-26).*
+- **The cache-defeat probe timed out before it could finish.** The budget was 90
+  seconds; `cd-paranoia -A` needs minutes on a real drive (a seven-point seek/read
+  timing sweep — one seek measured 3.7 s — then the full cache-behaviour analysis),
+  so the app reported an honest but useless "could not be determined" for a drive
+  whose analysis actually succeeds. Raised to 10 minutes, and the reference drive's
+  real `-A` output is now a committed test fixture.
+- **An inconclusive cache result now says *why*.** "cd-paranoia isn't installed",
+  "the analysis ran too long", and "it ran but didn't report a verdict we
+  recognise" were all shown as the same undiagnosable "could not be determined";
+  each now names the actual problem and what to do. When the verdict is unknown the
+  captured output is written to the log, so the next occurrence diagnoses itself.
+- **"Finished with issues." after a *successful* cache analysis.** The wizard's
+  success test was "did we get a read offset", and cyanrip has no offset finder —
+  so every cyanrip cache-only run, including a perfect measurement, announced a
+  failure (screen readers heard it too). It now reports on what actually ran.
+- **The EAC-compatible log wrongly said offset-variant tracks weren't in
+  AccurateRip.** A track matching only the +450 offset-variant pressing fell
+  through to "Track not present in AccurateRip database" — factually false (the
+  real rip's tracks 3 and 5 matched at confidence 200) and contradicting both the
+  verdict banner and the JSON report built from the same data. It now reports
+  "matched an offset-variant pressing — partially accurate", the same wording every
+  other surface uses, and still never claims an exact match.
+- **`Overread into Lead-In and Lead-Out` rendered "(unknown)"** even though cyanrip
+  states the mode outright; the log parser never read that line. Now parsed — and
+  keyed on the *mode* line, not the frame count, which is printed identically
+  whether overread is on or off.
+- **A drive whose cache can't be defeated was described reassuringly.** That result
+  means re-reads may not reach the disc — the one genuinely worrying outcome — but
+  it read "this drive doesn't cache audio, so Platterpus doesn't need to read around
+  a cache". It now warns, and explains that AccurateRip/CTDB still prove the audio.
+
 ## [0.5.8] — 2026-07-24
 
 *The EAC-parity release: each remaining gap closed with equal-or-stronger rigor,

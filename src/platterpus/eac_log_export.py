@@ -367,6 +367,26 @@ def _accuraterip_line(track: TrackResult) -> str:
             assert isinstance(ar, AccurateRipResult)
             crc = f"  [{ar.local_crc}]" if ar.local_crc else ""
             return f"Accurately ripped (confidence {ar.confidence}){crc}  (AR v{ar.version})"
+    # No exact match — but cyanrip may still have matched the **+450 offset-variant
+    # pressing**, in which case the track IS in AccurateRip and "not present" would
+    # be factually FALSE. Real-hardware bug (2026-07-26, tracks 3 & 5 of the Police
+    # "Classics" rip): cyanrip logged "Accurip 450: … matches Accurip DB, confidence
+    # 200" and our own verdict banner said "matched an offset-variant pressing", yet
+    # this log claimed the tracks weren't in the database at all — three surfaces
+    # disagreeing about the same parsed RipLog.
+    #
+    # Reuse the project's ONE wording for this state ("offset-variant … partially
+    # accurate", as in verdict.py and the results table) so no surface invents its
+    # own phrasing. It never claims a plain match — offset-variant is deliberately
+    # NOT "verified" (see accuraterip_is_match's callers and KDD-27).
+    offset_variant = track.accuraterip_offset
+    if accuraterip_is_match(offset_variant):
+        assert isinstance(offset_variant, AccurateRipResult)
+        crc = f"  [{offset_variant.local_crc}]" if offset_variant.local_crc else ""
+        return (
+            "Matched an offset-variant pressing — partially accurate "
+            f"(confidence {offset_variant.confidence}){crc}  (AR +450)"
+        )
     return "Track not present in AccurateRip database"
 
 

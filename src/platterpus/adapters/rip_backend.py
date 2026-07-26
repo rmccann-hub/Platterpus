@@ -340,6 +340,17 @@ class RipBackend(ABC):
         """
         raise NotImplementedError
 
+    def cache_analysis_detail(self) -> str:
+        """Why the last :meth:`analyze_drive` returned ``None``, for the user.
+
+        Returns ``""`` when the last analysis produced a verdict (or never ran).
+        This is a *companion* to ``analyze_drive`` rather than a change to its
+        ``bool | None`` contract, so a backend that doesn't implement cache analysis
+        needs no change at all. Read it immediately after ``analyze_drive`` on the
+        same thread (one setup run happens at a time).
+        """
+        return ""
+
     def supports_cache_analysis(self) -> bool:
         """Whether this backend can MEASURE the drive's audio-cache behaviour.
 

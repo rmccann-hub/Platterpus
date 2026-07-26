@@ -12,9 +12,12 @@ host-exported binary (Critical Rule #3).
 **Implemented:** the rip argv builder, version, a backend-independent drive
 scan, and `disc_info` via ``-I -N`` (parsed by `parsers/cyanrip_info.py` — the
 DiscID/CDDB ID are computed locally from the TOC, so identification needs no
-network). **Not** implemented: `find_offset`/`analyze_drive` — cyanrip has no
-offset-finder or cache-analysis command, so both inherit ``NotImplementedError``
-(the read offset comes from the AccurateRip drive-model list + manual entry).
+network), plus `analyze_drive` — cyanrip itself has no cache-analysis command, but
+its read engine IS libcdio-paranoia, so we measure the cache verdict with the
+standalone ``cd-paranoia -A`` via `adapters/cache_probe.py` (KDD-29). **Not**
+implemented: `find_offset` — cyanrip has no trusted offset-finder, so it inherits
+``NotImplementedError`` (the read offset comes from the AccurateRip drive-model
+list + manual entry, and is re-confirmed by an AccurateRip-matching rip, KDD-31).
 
 cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
@@ -302,7 +305,19 @@ class CyanripImpl(RipBackend):
         """
         from platterpus.adapters import cache_probe
 
-        return cache_probe.probe_cache_defeat(device).defeat
+        result = cache_probe.probe_cache_defeat(device)
+        # Keep WHY an unknown verdict happened so the wizard can tell the user
+        # which problem it was (missing tool / timeout / unrecognised report)
+        # instead of one undiagnosable "could not be determined". Stored rather
+        # than returned so `analyze_drive`'s `bool | None` ABC contract is
+        # untouched; read back via `cache_analysis_detail()` on the same worker
+        # thread, and only one setup run happens at a time.
+        self._cache_detail: str = cache_probe.describe(result)
+        return result.defeat
+
+    def cache_analysis_detail(self) -> str:
+        """Why the last :meth:`analyze_drive` returned ``None`` (``""`` if it didn't)."""
+        return getattr(self, "_cache_detail", "")
 
     # NOTE: `find_offset` is deliberately NOT implemented. cyanrip has no
     # AccurateRip offset-finder — its ``-f`` is *force-overread*, not a detector —

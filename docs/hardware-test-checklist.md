@@ -16,6 +16,30 @@
 >
 > **Never commit audio** — logs, `.cue`, `.platterpus.json`, and CRCs only
 > (Critical rule #8).
+>
+> ### ⛔ Before you start: make sure **Overread is OFF**
+>
+> *Settings → untick **Overread**.* On the BDR-209D it hangs the drive on the last
+> track's lead-out — it did exactly that on the 2026-07-26 run (stalled at 99.76% of
+> track 14 → force-stop). A force-stopped rip writes **no `.cue`**, which silently
+> makes test 17 unanswerable and leaves the last track missing from every artifact.
+> Test 15 has its own deliberate overread stall at the end; leave it off until then.
+>
+> ### Run 1 results (2026-07-26) — what's already done
+>
+> | Test | Result |
+> |---|---|
+> | 0.3 wizard installs `cd-paranoia` | ✅ PASS — `dnf install /usr/bin/cd-paranoia` + export both worked |
+> | ⭐ 1 `cd-paranoia -A` capture | ✅ captured → committed as a test fixture |
+> | 2 cache verdict in the app | ❌ was a **90 s timeout in our code** — fixed (now 10 min); **re-run** |
+> | 3 log checksum | ✅ PASS — recomputed independently + tamper detected |
+> | 4 Test & Copy | ⏳ re-run (rip was interrupted) |
+> | 5 offset auto-confirm | ⏳ re-run (rip was interrupted) |
+> | 15 cancel/force-stop recovery | ✅ PASS — force-stop worked, all buttons stayed live |
+> | ⭐ 17 INDEX 00 | ⏳ **still unanswered** — no `.cue` was written |
+>
+> Five defects that run exposed are fixed (CHANGELOG `[Unreleased]`). **Re-run 2, 4,
+> 5, then 17, with Overread OFF**, and carry on from test 6.
 
 **Tester:** ____________  **Date:** ____________  **App version:** ____________
 
