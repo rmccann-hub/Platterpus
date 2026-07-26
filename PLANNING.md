@@ -966,6 +966,8 @@ Second of the "all four EAC gaps, honestly not-EAC" push. EAC's secure mode does
 
 No new parser work — `rip_count` and `secure_rerip_converged` were already parsed (KDD-27 era). Purely a rendering + one-checkbox change, so it's the cheapest of the four gaps.
 
+**Amended 2026-07-26 (second v0.5.9 hardware run).** "Rendering only" was true of the *log*, but not of the *data reaching* it: the album's whole-disc `.log` records the **first** read pass, so a track the per-track auto-fix later re-read and swapped in parsed as `secure_rerip_converged=None` and rendered a lone `Copy CRC` — the Test & Copy proof we had actually earned was dropped on exactly the tracks that needed it. `main_window_rip._apply_auto_fix_convergence` now folds the auto-fix's per-track result into the parsed `RipLog` before the report and the EAC-layout log are written (fill-only, same shape as `_inject_measured_cache_defeat`). The honesty gate is that **only a track that both converged *and* was swapped in** may be marked: a converged re-read that never replaced the album's file leaves the shipped bytes single-read, and must be described as such. Generalized lesson — same as the incomplete-rip banner in v0.5.9 — *when the app learns a fact after the ripper's log is written, the renderer must be told; a log is only as honest as the data it is handed.*
+
 ### KDD-31 — Read offset: confirm on the user's unit via AccurateRip, not a from-scratch Key-Disc finder (decided 2026-07-24)
 
 Third of the four EAC gaps. EAC's **Key Disc** offset finder rips a disc whose offset is known to AccurateRip and derives the drive's read offset from the match. Two honest observations shaped the decision:
@@ -984,7 +986,7 @@ Third of the four EAC gaps. EAC's **Key Disc** offset finder rips a disc whose o
 Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need to start thinking about forking cyanrip for this and other issues that are upstream and we need to fix."* This elevates the soft-fork from *prepared-but-unexecuted research* (`docs/cyanrip-soft-fork.md`, `docs/upstream-pr-roadmap.md`, `scripts/cyanrip/`) to the **decided delivery mechanism** for the fixes Platterpus needs that live in cyanrip.
 
 **Why INDEX 00 is a fork problem, not a Platterpus one.** Platterpus only *consumes* cyanrip's `.cue`; it never post-processes it. So INDEX 00 pre-gap markers appear the moment the `~/.local/bin/cyanrip` we run emits them — there is essentially no Platterpus code to write. The blocker is purely *which cyanrip we build*:
-- The deployed COPR package is the **2-year-old v0.9.3.1 tag**, which emits only `INDEX 01`.
+- The deployed COPR package is the **2-year-old v0.9.3.1 tag**, which emits only `INDEX 01`. **Hardware-confirmed 2026-07-26:** `grep -nE "INDEX|PREGAP"` on a 14-track rip's `.cue` returned 14 lines, every one `INDEX 01 00:00:00` — no `PREGAP`, no `INDEX 00`. The gap is real on the deployed binary, so the build-from-source step below is required, not speculative.
 - cyanrip **`master` already** synthesises a track-1 pregap from the TOC and its `cue_writer.c` emits `INDEX 00`/`PREGAP`/`INDEX 01` (source-confirmed 2026-07-07; it also merged PR #127, cdrdao TOC support).
 - The exact-pregap + true-HTOA accuracy layer is **PR #115** (UltraFuzzy, open, subchannel-Q via MMC), still mid-revision.
 
@@ -1000,4 +1002,4 @@ Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need t
 
 ---
 
-*Last updated for Platterpus v0.5.9.*
+*Last updated for Platterpus v0.5.10.*

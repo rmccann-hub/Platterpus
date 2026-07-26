@@ -11,6 +11,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.10] — 2026-07-26
+
+*Both fixes come from the **second hardware run**, and both are the same shape as
+v0.5.9's worst defect: Platterpus learned something after cyanrip wrote its log and
+never told the renderer. One added proof we had earned; one added a caveat we had
+measured.*
+
+### Fixed
+- **A re-ripped track's Test & Copy proof never reached the log.** Found by the
+  second v0.5.9 hardware run: the album's whole-disc `.log` records only the
+  *first* read pass, so a track the per-track auto-fix re-read with `-Z N` — whose
+  re-reads *agreed*, which is exactly EAC's Test & Copy evidence — was still
+  rendered with a lone `Copy CRC`, and the JSON report's per-track record
+  contradicted its own `read_speed.retried_tracks` entry that said
+  `converged: true`. The auto-fix's result is now folded back into the parsed log,
+  so the Test/Copy pair appears where it was earned. Only a track that both
+  converged *and* was swapped in is marked — a re-read that never made it into the
+  album leaves the shipped single-read bytes described as exactly that.
+- **A track whose re-reads disagreed no longer reads as clean in the log.** The
+  same run's track 3 was re-read and *no two reads agreed*, yet its EAC-compatible
+  log block was indistinguishable from a clean track's — cyanrip's own health line
+  says "No errors occurred" even then, so the durable text artifact was more
+  reassuring than the warning the app had already shown on screen. Such a track now
+  carries an explicit *"re-reads did NOT agree — this read is not confirmed
+  reproducible"* note on its CRC line, plus a whole-disc `Read stability :` line
+  naming the affected tracks. Measured only: a track nobody re-read is unchanged.
+
+### Changed
+- `docs/log-format-comparison.md`: the cache-defeat row still described the field
+  as permanently `(unknown)` (KDD-25) — superseded by the measured verdict
+  (KDD-29) — and the CRC row predated the Test & Copy rendering. Both corrected.
+
 ## [0.5.9] — 2026-07-26
 
 *Everything in this release was found by the **first hardware run of v0.5.8**. Eight
@@ -3057,7 +3089,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...HEAD
+[0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...v0.5.7
@@ -3113,4 +3146,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.9.*
+*Last updated for Platterpus v0.5.10.*
