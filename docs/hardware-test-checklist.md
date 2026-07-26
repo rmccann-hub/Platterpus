@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.8
+# Hardware test checklist — v0.5.9
 
 > **What this is.** The fillable run sheet for *this release's* hardware test on the
 > Bazzite + Pioneer BDR-209D rig. Every step is written out — copy-paste the
@@ -16,6 +16,36 @@
 >
 > **Never commit audio** — logs, `.cue`, `.platterpus.json`, and CRCs only
 > (Critical rule #8).
+>
+> ### ⛔ Before you start: make sure **Overread is OFF**
+>
+> *Settings → untick **Overread**.* On the BDR-209D it hangs the drive on the last
+> track's lead-out — it did exactly that on the 2026-07-26 run (stalled at 99.76% of
+> track 14 → force-stop). A force-stopped rip writes **no `.cue`**, which silently
+> makes test 17 unanswerable and leaves the last track missing from every artifact.
+> Test 15 has its own deliberate overread stall at the end; leave it off until then.
+>
+> ### Run 1 results (2026-07-26) — what's already done
+>
+> | Test | Result |
+> |---|---|
+> | 0.3 wizard installs `cd-paranoia` | ✅ PASS — `dnf install /usr/bin/cd-paranoia` + export both worked |
+> | ⭐ 1 `cd-paranoia -A` capture | ✅ captured → committed as a test fixture |
+> | 2 cache verdict in the app | ❌ was a **90 s timeout in our code** — fixed (now 10 min); **re-run** |
+> | 3 log checksum | ✅ PASS — recomputed independently + tamper detected |
+> | 4 Test & Copy | ⏳ re-run (rip was interrupted) |
+> | 5 offset auto-confirm | ⏳ re-run (rip was interrupted) |
+> | 15 cancel/force-stop recovery | ✅ PASS — force-stop worked, all buttons stayed live |
+> | ⭐ 17 INDEX 00 | ⏳ **still unanswered** — no `.cue` was written |
+>
+> **Eight** defects that run exposed are fixed in **v0.5.9** (see its CHANGELOG
+> section) — including one that mattered a lot: an interrupted rip used to produce a
+> checksum-attested log that read as a *complete* one. **Update to v0.5.9, then
+> re-run 2, 4, 5 and 17 with Overread OFF**, and carry on from test 6.
+>
+> Test 2 should now read **"Yes — cache defeated on re-read (measured, cd-paranoia)"**;
+> your own raw `-A` output already proves that's the correct answer, so anything else
+> is a new finding worth reporting.
 
 **Tester:** ____________  **Date:** ____________  **App version:** ____________
 
@@ -49,7 +79,7 @@ chmod +x platterpus-x86_64.AppImage
 ./platterpus-x86_64.AppImage --version
 ```
 
-- Expected either way: `platterpus 0.5.8 (<build>)`.
+- Expected either way: `platterpus 0.5.9 (<build>)`.
 - Expected: your output folder, templates, and read offset are all still set —
   nothing reset by the update.
 
@@ -389,7 +419,7 @@ Rip a mainstream CD with defaults (after undoing the test-11 settings).
 - [ ] *Help → User Guide* mentions the new **Analyse cache** and
       **Verify every track** settings
 - [ ] Hovering **every** Settings control shows a tooltip
-- [ ] *Help → About* shows version 0.5.8 and correct Qt/Python info
+- [ ] *Help → About* shows version 0.5.9 and correct Qt/Python info
 - [ ] Disc-panel values can be selected and copied with the mouse
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
@@ -463,4 +493,4 @@ Unexpected:      <anything surprising, even if it passed>
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.9.*

@@ -202,7 +202,37 @@ def test_format_result_offset_failure() -> None:
 def test_format_result_negative_offset_signed() -> None:
     text = _format_result(DriveSetupResult(offset=-582, can_defeat_cache=False))
     assert "-582 samples" in text
-    assert "doesn't cache audio" in text
+
+
+def test_undefeatable_cache_is_reported_as_a_warning_not_reassurance() -> None:
+    """REGRESSION (2026-07-26): can_defeat_cache is "do re-reads reach the disc?",
+    so False is the DANGEROUS outcome — but the wording read "this drive doesn't
+    cache audio, so Platterpus doesn't need to read around a cache", presenting the
+    one genuinely worrying result as fine. It must warn instead."""
+    text = _format_result(DriveSetupResult(can_defeat_cache=False))
+    assert "⚠" in text
+    assert "CACHED audio" in text
+    assert "doesn't cache audio" not in text  # the old, inverted reassurance
+    # …and it must not leave the user thinking the rip is worthless either.
+    assert "AccurateRip" in text
+
+
+def test_defeated_cache_does_not_claim_the_drive_caches() -> None:
+    """True means re-reads reach the disc (cache flushed OR absent) — it must not
+    assert "this drive caches audio", which we didn't establish."""
+    text = _format_result(DriveSetupResult(can_defeat_cache=True))
+    assert "re-reads reach the disc" in text
+    assert "this drive caches audio" not in text
+
+
+def test_cache_only_success_is_not_finished_with_issues(qapp: QApplication) -> None:
+    """REGRESSION (real hardware, 2026-07-26): a perfect cache measurement on
+    cyanrip announced "Finished with issues." because `ok` meant "got an offset"
+    and cyanrip never has one. Guard it at the exact widget the user read."""
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
+    dialog._on_finished(DriveSetupResult(can_defeat_cache=True))
+    assert dialog._status_label.text() == "Done."
+    assert "Finished with issues" not in dialog._status_label.text()
 
 
 # --- Cache-only (cyanrip) analyze path (KDD-29) ------------------------------

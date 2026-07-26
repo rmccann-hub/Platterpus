@@ -55,6 +55,28 @@ _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)")
 _DRIVE = re.compile(r"^(?:Drive used|Device model):\s+(?P<drive>.+?)\s*$")
 # "Offset:         +667 samples" (sign printed explicitly by cyanrip).
 _OFFSET = re.compile(r"^Offset:\s+(?P<sign>[+-])(?P<value>\d+)\s+samples")
+# "Overread mode:  read in lead-in/lead-out"              → cyanrip `-O` ON  → EAC "Yes"
+# "Overread mode:  fill with silence in lead-in/lead-out" → default (no -O)  → EAC "No"
+#
+# THIS line — not the neighbouring "Overread:  +2 frames" — is the one that says
+# whether the drive actually read the disc's outermost samples. The frame COUNT is
+# derived from the read offset and is printed IDENTICALLY in both modes: verified
+# against two real logs (the committed overread-OFF reference in
+# `output_reference/cyanrip_flac/` says "+2 frames / fill with silence…" while the
+# 2026-07-26 overread-ON hardware rip says "+2 frames / read in lead-in/lead-out").
+# Keying on the count would therefore report Yes for every rip — worse than the
+# "(unknown)" this replaces, which is why the mode line is the only discriminator.
+#
+# **"Under"read, not just "Over"read.** cyanrip switches the label to
+# "Underread mode:" whenever the frame count is negative — and the sign comes
+# straight from the read offset (`cyanrip_log.c` picks the label on
+# `over_under_read_frames < 0`; `cyanrip_main.c` sets that to
+# `sign(offset) * ceil(|offset| / 588)`). So a drive with a NEGATIVE read offset
+# prints "Underread mode:" and an `^Overread mode:`-only pattern silently misses
+# it — the field would fall back to "(unknown)" for exactly those drives. The
+# *value* strings are identical in both cases (cyanrip keys them only on whether
+# it reads the lead-in/lead-out), so one pattern with both labels is enough.
+_OVERREAD_MODE = re.compile(r"^(?:Over|Under)read mode:\s+(?P<mode>.+?)\s*$")
 # "DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-" (MusicBrainz Disc ID) and
 # "CDDB ID:        E20DFE0E" (freedb/CDDB Disc ID). Both are TOC-derived, so
 # they identify the SAME physical disc across re-rips — the key the re-rip
@@ -132,6 +154,28 @@ _LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d+(?:\.\d+)?)\s+dBFS")
 _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 
 
+def _parse_overread_mode(mode: str) -> bool | None:
+    """Map cyanrip's "Overread mode:" text to EAC's Yes/No, or None if unrecognised.
+
+    EAC's archival field is *"Overread into Lead-In and Lead-Out"* — i.e. did the
+    drive actually read the disc's outermost samples? cyanrip states this directly:
+
+      * ``read in lead-in/lead-out``              → it read them        → **True**
+      * ``fill with silence in lead-in/lead-out`` → padded, didn't read → **False**
+
+    Both phrasings are confirmed against real logs (see ``_OVERREAD_MODE``). Anything
+    else returns ``None`` so the field renders "(unknown)" rather than a guess — a
+    wrong "No" would misreport an archival fact just as badly as a wrong "Yes".
+    """
+    text = mode.strip().casefold()
+    if "silence" in text:
+        # Padded rather than read: cyanrip's conservative default (no `-O`).
+        return False
+    if "read in" in text:
+        return True
+    return None
+
+
 def looks_like_cyanrip_log(text: str) -> bool:
     """True if `text` is cyanrip output (vs whipper's YAML-ish log).
 
@@ -154,6 +198,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
     creation_date = ""
     drive = ""
     read_offset: int | None = None
+    overread_lead_out: bool | None = None
     speed_changeable: bool | None = None
     disc_id = ""
     cddb_id = ""
@@ -213,6 +258,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if match:
             value = int(match.group("value"))
             read_offset = -value if match.group("sign") == "-" else value
+            continue
+
+        match = _OVERREAD_MODE.match(line)
+        if match:
+            overread_lead_out = _parse_overread_mode(match.group("mode"))
             continue
 
         match = _DISC_ID.match(line)
@@ -421,6 +471,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             drive=drive,
             extraction_engine=log_creator,
             read_offset_correction=read_offset,
+            overread_lead_out=overread_lead_out,
             speed_changeable=speed_changeable,
         ),
         tracks=tuple(tracks),

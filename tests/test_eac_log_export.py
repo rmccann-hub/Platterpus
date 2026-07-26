@@ -379,3 +379,130 @@ def test_cli_refuses_a_real_eac_log(capsys) -> None:
 def test_cli_missing_file_returns_2(tmp_path: Path) -> None:
     cli = _load_cli()
     assert cli.main([str(tmp_path / "nope.log")]) == 2
+
+
+# --- Offset-variant AccurateRip (real-hardware regression, 2026-07-26) --------
+
+
+def _offset_variant_track() -> TrackResult:
+    """Tracks 3 & 5 of the Police "Classics" rip: no exact AR match, but a
+    confidence-200 match against the +450 offset-variant pressing."""
+    return TrackResult(
+        number=3,
+        copy_crc="52dfdf7d",
+        accuraterip_v1=AccurateRipResult(
+            version=1, result="not found", confidence=None
+        ),
+        accuraterip_v2=AccurateRipResult(
+            version=2, result="not found", confidence=None
+        ),
+        accuraterip_offset=AccurateRipResult(
+            version=1,
+            result="matches Accurip DB, confidence 200, track is partially accurately ripped",
+            confidence=200,
+            local_crc="BF62B1DA",
+        ),
+    )
+
+
+def test_offset_variant_is_not_reported_as_absent_from_the_database() -> None:
+    """REGRESSION: the renderer only looked at AR v2/v1, so an offset-variant match
+    fell through to "Track not present in AccurateRip database" — factually FALSE
+    (the track IS in the DB at confidence 200) and contradicting both the GUI
+    verdict banner and the JSON report built from the same parsed RipLog."""
+    text = render_eac_style_log(_rip_log(_offset_variant_track()))
+    assert "not present in AccurateRip database" not in text
+    assert "offset-variant" in text
+    assert "partially accurate" in text
+    assert "confidence 200" in text
+    assert "BF62B1DA" in text  # the matched CRC is evidence, so it's shown
+
+
+def test_offset_variant_never_claims_a_plain_accurate_rip() -> None:
+    """It must not over-claim either: offset-variant is deliberately NOT "verified"
+    (KDD-27), so the exact-match wording must be absent."""
+    text = render_eac_style_log(_rip_log(_offset_variant_track()))
+    assert "Accurately ripped (confidence" not in text
+
+
+def test_a_genuinely_absent_track_still_says_not_present() -> None:
+    # The fallback must survive: no exact match AND no offset-variant match.
+    text = render_eac_style_log(
+        _rip_log(
+            TrackResult(
+                number=1,
+                copy_crc="deadbeef",
+                accuraterip_v1=AccurateRipResult(
+                    version=1, result="not found", confidence=None
+                ),
+            )
+        )
+    )
+    assert "Track not present in AccurateRip database" in text
+
+
+def test_overread_renders_yes_when_the_log_reported_it() -> None:
+    """REGRESSION: rendered "(unknown)" while cyanrip had stated the mode outright."""
+    log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        ripping_info=RippingInfo(overread_lead_out=True),
+        tracks=(TrackResult(number=1, copy_crc="aa"),),
+    )
+    assert "Overread into Lead-In and Lead-Out          : Yes" in render_eac_style_log(
+        log
+    )
+
+
+# --- Incomplete-rip notice (real-hardware regression, 2026-07-26) ------------
+
+
+def test_interrupted_rip_is_declared_not_silently_complete() -> None:
+    """REGRESSION: a force-stopped 14-track rip rendered as 13 tidy "Copy OK"
+    blocks with an empty conclusive section and a VALID integrity checksum — a
+    self-attested archival record that read as a clean, complete rip of a 13-track
+    disc. The app knew the outcome (the JSON report said "cancelled"); the log
+    simply wasn't told."""
+    log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=tuple(TrackResult(number=n, copy_crc=f"{n:08x}") for n in range(1, 14)),
+    )
+    text = render_eac_style_log(log, outcome_status="cancelled", disc_track_total=14)
+    assert "INCOMPLETE RIP (cancelled)" in text
+    assert "13 of 14 disc tracks" in text
+    assert "remaining 1 track(s) were never extracted" in text
+    # The notice sits ABOVE the checksum, so it's covered by it and can't be
+    # stripped without breaking verification.
+    assert verify_eac_style_log_checksum(text) is True
+    body = text.split("==== Platterpus log checksum")[0]
+    assert "INCOMPLETE RIP" in body
+
+
+def test_successful_rip_gets_no_incomplete_banner() -> None:
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+    assert "INCOMPLETE" not in render_eac_style_log(
+        log, outcome_status="success", disc_track_total=1
+    )
+
+
+def test_unknown_outcome_renders_no_banner() -> None:
+    """Old callers (and the render_eac_log.py CLI) pass no outcome — they must
+    behave exactly as before rather than gaining a guessed banner."""
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+    assert "INCOMPLETE" not in render_eac_style_log(log)
+
+
+def test_absent_conclusive_report_is_stated_without_inventing_a_cause() -> None:
+    """An empty conclusive section is itself a fact. But this also fires for a
+    successful-but-trimmed log, so it must NOT assert that the ripper was stopped —
+    that cause belongs to the INCOMPLETE banner, which only appears when the
+    caller actually told us the outcome."""
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+    text = render_eac_style_log(log)  # no health_status, no accuraterip_summary
+    assert "Conclusive status report : absent" in text
+    assert "stopped" not in text.lower()
+
+
+def test_conclusive_report_is_rendered_normally_when_present() -> None:
+    text = render_eac_style_log(_sample_log())
+    assert "Conclusive status report : absent" not in text
+    assert "Health status" in text
