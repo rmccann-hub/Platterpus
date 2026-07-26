@@ -383,15 +383,24 @@ def _format_result(result: DriveSetupResult) -> str:
         # printing a misleading ✗ for something the user didn't ask to detect.)
         lines.append(f"✗ Read offset: {result.offset_error}")
 
+    # NB the polarity: can_defeat_cache is "are re-reads reaching the disc?", NOT
+    # "does this drive have a cache". True is the GOOD outcome and False is the
+    # dangerous one. The earlier wording had these effectively inverted — it
+    # greeted False ("the cache can't be defeated") with the reassuring "doesn't
+    # need to read around a cache", presenting the one genuinely worrying result
+    # as fine. Keep each branch saying what was actually measured.
     if result.can_defeat_cache is True:
         lines.append(
-            "✓ Audio cache: this drive caches audio, so Platterpus will read "
-            "around the cache to keep rips bit-perfect (saved)."
+            "✓ Audio cache: re-reads reach the disc, not a stale cache — so a "
+            "re-read really re-reads, which is what makes verification meaningful "
+            "(measured and saved)."
         )
     elif result.can_defeat_cache is False:
         lines.append(
-            "• Audio cache: this drive doesn't cache audio, so Platterpus "
-            "doesn't need to read around a cache (saved)."
+            "⚠ Audio cache: this drive returns CACHED audio on a re-read and the "
+            "cache could not be defeated. Re-reads may not reach the disc, so a "
+            "track that fails verification might not improve on a retry. "
+            "AccurateRip/CTDB still prove the audio (measured and saved)."
         )
     else:
         lines.append(

@@ -36,12 +36,14 @@ Boundaries
   (and, on a wedged drive, hit its timeout); the caller invokes it from a worker.
   The ``runner`` is injectable so tests never touch a real drive.
 
-Hardware note (KDD-29): the exact wording ``cd-paranoia -A`` prints for the cache
-verdict is confirmed against the first real capture on the BDR-209D and any
-divergent build; until a phrase is seen on hardware the parser stays conservative
-(``unknown``) rather than guess a ``Yes``. The signal tables below are the single
-place to adjust when a new real capture arrives — add the phrase, add a fixture
-line to the regression test.
+Hardware status (KDD-29): **validated on the BDR-209D, 2026-07-26.** The real
+``-A`` output is committed at ``tests/fixtures/cdparanoia_A_bdr209d.txt`` and pinned
+by a test; on it this parser returns ``defeat=True, cache_sectors=140``. The signal
+tables below remain the single place to adjust when a *different* drive or build
+words its report differently — add the phrase, add a fixture line. An unrecognised
+report still degrades to ``unknown`` rather than guessing, and now also **logs what
+the tool actually said**, so a new wording arrives in the next bug report without
+anyone having to run the CLI by hand.
 """
 
 from __future__ import annotations
@@ -61,11 +63,20 @@ log = logging.getLogger(__name__)
 # Injectable so tests never shell out to a real cd-paranoia / real drive.
 Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 
-# The probe reads the disc, so it is slower than a version check but must still
-# be bounded — a wedged drive must not hang the worker forever. If it does hang,
-# the force-stop path already lists ``cd-paranoia`` in its reader names, so a
-# Cancel/force-stop reaches it.
-_PROBE_TIMEOUT_S: float = 90.0
+# The probe must be bounded — a wedged drive must not hang the worker forever. If
+# it does hang, the force-stop path already lists ``cd-paranoia`` in its reader
+# names, so a Cancel/force-stop reaches it.
+#
+# REGRESSION (real hardware, 2026-07-26, BDR-209D): this was 90 s, and ``-A``
+# **timed out** — the app reported an honest but useless "could not be determined"
+# for a drive whose cache analysis actually succeeds. ``-A`` is inherently slow: it
+# runs a seek/read timing sweep at seven points across the disc (one seek alone
+# measured 3692 ms on this drive) and *then* a full cache-behaviour analysis
+# (readahead, tail rollbehind, granularity, backseek flush). Minutes, not seconds.
+# Budget generously — the probe is off the GUI thread, cancellable, and only ever
+# runs when the user explicitly asks for it, so a long ceiling costs nothing and
+# only ever bites a genuinely wedged drive.
+_PROBE_TIMEOUT_S: float = 600.0
 
 # --- Cache-verdict signal tables (KDD-29: hardware-tuned) -------------------
 #
@@ -74,22 +85,30 @@ _PROBE_TIMEOUT_S: float = 90.0
 # place, so a hardware-tuning pass is an edit to these tuples + a fixture line —
 # never a change to the logic. All matched case-insensitively.
 #
-# "Defeat is in effect" — the drive's cache is being managed (cdparanoia flushes
-# it with overlapping reads) OR there is no cache to defeat. Either way a re-read
-# hits the medium, which is the whole point. cyanrip's engine does the same, so a
-# positive here speaks for the rip.
+# "Defeat is in effect" — the drive's cache is flushed between reads (so a re-read
+# reaches the medium) or there is no cache to defeat. cyanrip's engine is the same
+# libcdio-paranoia, so a positive here speaks for the actual rip.
+#
+# The first two are CONFIRMED against real BDR-209D output
+# (``tests/fixtures/cdparanoia_A_bdr209d.txt``, captured 2026-07-26) — the backseek
+# line is cdparanoia's *specific* statement that cache defeat works, so it leads;
+# "Drive tests OK with Paranoia." is its overall pass. The rest are defensive
+# variants for other builds/drives, kept because a drive we haven't seen may word
+# it differently — an unmatched report still degrades to "unknown", never a guess.
 _DEFEAT_SIGNALS: tuple[str, ...] = (
+    r"backseek flushes the cache",  # ← the authoritative positive (confirmed)
+    r"drive tests? ok",  # cdparanoia's overall verdict (confirmed)
     r"cache management",  # cdparanoia announces it will manage the cache
-    r"cache[- ]defeat",  # "cache-defeat capable", "cache defeat enabled"
-    r"drive is caching[^.]*\bwill\b",  # "…caching; cdparanoia will compensate"
+    r"cache[- ]defeat(?:s|ed|able)?\b",  # "cache-defeat capable", "defeats cache"
     r"does not cache",  # no cache to defeat
-    r"no\b[^.\n]*\bcache",  # "no read cache", "no audio cache"
-    r"drive tests? ok",  # analysis passed cleanly with paranoia
 )
 
 # "Caches and cannot be defeated" — the dangerous case EAC's field warns about.
-# Only an explicit negative sets False; anything unclear stays unknown.
+# Only an EXPLICIT negative sets False; anything unclear stays unknown. Note the
+# asymmetry is deliberate: a wrong "No" misinforms the user just as badly as a
+# forged "Yes", so these stay narrow and literal rather than clever.
 _CACHE_UNBEATABLE_SIGNALS: tuple[str, ...] = (
+    r"backseek does(?:n't| not) flush the cache",  # the backseek line's negative
     r"cannot\b[^.\n]*\bcache",  # "cannot defeat cache"
     r"cache\b[^.\n]*cannot be (defeated|managed|flushed)",
     r"unable to (defeat|manage|flush)[^.\n]*cache",
@@ -164,18 +183,70 @@ def parse_cache_analysis(output: str) -> CacheProbeResult:
             defeat: bool | None = False
         elif _any_match(_DEFEAT_SIGNALS, text):
             defeat = True
+        elif sectors == 0:
+            # A measured cache of zero sectors means there is no audio cache to
+            # defeat, so a re-read necessarily reaches the medium. This is a
+            # *data-driven* positive (not a phrase guess) and so is safe to trust
+            # even on a build whose wording we don't recognise.
+            defeat = True
         else:
             defeat = None
 
-        return CacheProbeResult(
+        result = CacheProbeResult(
             defeat=defeat,
             cache_sectors=sectors,
             analyzed=analyzed,
             raw_output=text.strip()[:2000],
         )
+        if defeat is None and analyzed:
+            # DIAGNOSABILITY (real-hardware lesson, 2026-07-26): an inconclusive
+            # verdict used to leave no trace of *why*, so the only way to find out
+            # was to ask the user to run the CLI by hand. Log what the tool actually
+            # said, so the next occurrence is self-diagnosing from the log file
+            # alone — and so a new drive's wording can be added to the tables above.
+            log.warning(
+                "cd-paranoia -A ran but matched no known cache verdict; "
+                "recording (unknown). Raw output follows:\n%s",
+                result.raw_output,
+            )
+        return result
     except Exception:  # noqa: BLE001 — a parser must never crash a caller
         log.exception("cd-paranoia -A parse failed; treating as unknown")
         return CacheProbeResult()
+
+
+def describe(result: CacheProbeResult) -> str:
+    """A user-facing reason the verdict is unknown; ``""`` when one was determined.
+
+    Real-hardware lesson (2026-07-26): the dialog showed the same
+    "could not be determined" whether cd-paranoia was missing, timed out, or simply
+    said something we don't recognise — three different problems with three
+    different fixes, and the user could act on none of them. The adapter already
+    knows which happened, so it words it here (one place, testable, no Qt).
+    """
+    if result.defeat is not None:
+        return ""
+    if result.error:
+        low = result.error.casefold()
+        if "not installed" in low:
+            return (
+                "cd-paranoia isn't installed, so the cache couldn't be measured. "
+                "Run Tools → Set up Platterpus… to install it, then try again."
+            )
+        if "timed out" in low:
+            return (
+                "the cache analysis ran too long and was stopped. It reads the disc "
+                "at several points, so it needs a few minutes — make sure a disc is "
+                "in the drive and nothing else is using it, then try again."
+            )
+        return f"the cache analysis couldn't run: {result.error}."
+    if result.analyzed:
+        return (
+            "cd-paranoia ran but didn't report a cache verdict we recognise, so it "
+            "was recorded as unknown rather than guessed. Its full output is in the "
+            "log file if you want to send it in."
+        )
+    return "the cache analysis produced no output."
 
 
 def _any_match(patterns: tuple[str, ...], text: str) -> bool:

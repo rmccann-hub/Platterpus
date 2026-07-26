@@ -45,8 +45,21 @@ class DriveSetupResult:
 
     @property
     def ok(self) -> bool:
-        """True when we got a usable read offset (the key archival value)."""
-        return self.offset is not None
+        """True when every step that actually RAN produced a value (and one did).
+
+        A step the backend *can't* do is not a failure. cyanrip has no offset
+        finder, so a cache-only run leaves ``offset`` and ``offset_error`` both
+        None ("not attempted") and should succeed on the cache verdict alone.
+
+        REGRESSION (real hardware, 2026-07-26): this was ``offset is not None``,
+        so **every** cyanrip run reported "Finished with issues." — including a
+        perfect cache measurement — because a cyanrip offset is always None. The
+        dialog (and the screen-reader announcement) called a success a failure.
+        """
+        offset_failed = self.offset is None and self.offset_error is not None
+        cache_failed = self.can_defeat_cache is None and self.analyze_error is not None
+        got_something = self.offset is not None or self.can_defeat_cache is not None
+        return got_something and not offset_failed and not cache_failed
 
 
 class DriveSetupWorker(QObject):
@@ -98,6 +111,14 @@ class DriveSetupWorker(QObject):
         analyze_error: str | None = None
         try:
             can_defeat = self._backend.analyze_drive(self._device)
+            if can_defeat is None:
+                # It ran but couldn't decide. Ask the backend WHY, so the dialog
+                # can name the actual problem (tool missing / timed out /
+                # unrecognised report) rather than one blank "could not be
+                # determined" the user can't act on.
+                analyze_error = self._backend.cache_analysis_detail() or None
+                if analyze_error:
+                    log.info("cache analysis inconclusive: %s", analyze_error)
         except RipError as exc:
             log.warning("drive analyze failed: %s", exc)
             analyze_error = str(exc)

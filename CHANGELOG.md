@@ -11,6 +11,57 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.9] — 2026-07-26
+
+*Everything in this release was found by the **first hardware run of v0.5.8**. Eight
+defects, three of them honesty defects — a log that said tracks weren't in
+AccurateRip when they were, a warning phrased as reassurance, and an interrupted rip
+attested as complete. The v0.5.8 features work; these are the rough edges only real
+hardware could expose.*
+
+### Fixed
+*All found by the first v0.5.8 hardware run (Bazzite + BDR-209D, 2026-07-26).*
+- **The cache-defeat probe timed out before it could finish.** The budget was 90
+  seconds; `cd-paranoia -A` needs minutes on a real drive (a seven-point seek/read
+  timing sweep — one seek measured 3.7 s — then the full cache-behaviour analysis),
+  so the app reported an honest but useless "could not be determined" for a drive
+  whose analysis actually succeeds. Raised to 10 minutes, and the reference drive's
+  real `-A` output is now a committed test fixture.
+- **An inconclusive cache result now says *why*.** "cd-paranoia isn't installed",
+  "the analysis ran too long", and "it ran but didn't report a verdict we
+  recognise" were all shown as the same undiagnosable "could not be determined";
+  each now names the actual problem and what to do. When the verdict is unknown the
+  captured output is written to the log, so the next occurrence diagnoses itself.
+- **"Finished with issues." after a *successful* cache analysis.** The wizard's
+  success test was "did we get a read offset", and cyanrip has no offset finder —
+  so every cyanrip cache-only run, including a perfect measurement, announced a
+  failure (screen readers heard it too). It now reports on what actually ran.
+- **The EAC-compatible log wrongly said offset-variant tracks weren't in
+  AccurateRip.** A track matching only the +450 offset-variant pressing fell
+  through to "Track not present in AccurateRip database" — factually false (the
+  real rip's tracks 3 and 5 matched at confidence 200) and contradicting both the
+  verdict banner and the JSON report built from the same data. It now reports
+  "matched an offset-variant pressing — partially accurate", the same wording every
+  other surface uses, and still never claims an exact match.
+- **`Overread into Lead-In and Lead-Out` rendered "(unknown)"** even though cyanrip
+  states the mode outright; the log parser never read that line. Now parsed — and
+  keyed on the *mode* line, not the frame count, which is printed identically
+  whether overread is on or off.
+- **A drive whose cache can't be defeated was described reassuringly.** That result
+  means re-reads may not reach the disc — the one genuinely worrying outcome — but
+  it read "this drive doesn't cache audio, so Platterpus doesn't need to read around
+  a cache". It now warns, and explains that AccurateRip/CTDB still prove the audio.
+- **An interrupted rip produced a log that read as a complete one.** A
+  force-stopped 14-track rip rendered as 13 tidy "Copy OK" blocks with an empty
+  conclusive section and a *valid* integrity checksum — a self-attested archival
+  record of a clean, complete 13-track rip that never happened. The log now carries
+  an `*** INCOMPLETE RIP (cancelled) — this log covers 13 of 14 disc tracks ***`
+  banner (above the checksum, so it can't be stripped without breaking it), and an
+  absent end-of-rip summary is stated rather than left silently blank.
+- **Overread was still missed on negative-offset drives.** cyanrip labels the line
+  `Underread mode:` when the read offset is negative, so the fix above would have
+  kept reporting "(unknown)" for exactly those drives. Both labels are now matched.
+
 ## [0.5.8] — 2026-07-24
 
 *The EAC-parity release: each remaining gap closed with equal-or-stronger rigor,
@@ -3006,7 +3057,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...HEAD
+[0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
@@ -3061,4 +3113,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.9.*

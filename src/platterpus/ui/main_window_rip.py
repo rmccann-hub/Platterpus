@@ -1985,11 +1985,21 @@ class RipMixin(MainWindowShared):
             wanted = ["flac", "metaflac"]
             if getattr(self._config, "output_format", "flac") != "flac":
                 wanted.append("ffmpeg")
+            # Tell the renderer the rip's OUTCOME and the disc's true track total,
+            # so an interrupted rip can't produce a checksum-attested log that
+            # reads as a clean, complete one (real-hardware finding, 2026-07-26: a
+            # force-stopped 14-track rip rendered as 13 tidy "Copy OK" blocks).
+            # Both come from state we already recorded — `_last_outcome.status`
+            # (the same value the JSON report carries) and the scanned TOC's track
+            # count — so nothing here is invented.
+            outcome = getattr(self, "_last_outcome", None)
             text = render_eac_style_log(
                 rip_log,
                 platterpus_version=__version__,
                 build_fingerprint=build_info.build_fingerprint(),
                 encoder_versions=build_info.encoder_versions(dep_report, wanted),
+                outcome_status=str(getattr(outcome, "status", "") or ""),
+                disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
             )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")

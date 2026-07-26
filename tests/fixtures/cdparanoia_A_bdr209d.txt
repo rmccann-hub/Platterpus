@@ -1,0 +1,44 @@
+cdparanoia III release 10.2 libcdio 2.1.0
+(C) 2001 Monty <monty@xiph.org> and Xiphophorus
+(C) 2004, 2005, 2008 Rocky Bernstein <rocky@gnu.org>
+(C) 2014 Robert Kausch <robert.kausch@freac.org>
+
+Report bugs to bug-libcdio@gnu.org
+
+Using cdda library version: 10.2+2.0.2 x86_64-redhat-linux-gnu
+Using paranoia library version: 10.2+2.0.2 x86_64-redhat-linux-gnu
+Checking /dev/sr0 for cdrom...
+                CDROM sensed: PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+
+Verifying drive can read CDDA...
+        Expected command set reads OK.
+
+Attempting to determine drive endianness from data.......
+        Data appears to be coming back Little Endian.
+        certainty: 100%
+
+Attempting to set cdrom to full speed...
+        drive returned OK.
+
+=================== Checking drive cache/timing behavior ===================
+
+Seek/read timing:
+        [59:29.27]:   97ms seek, 1.50ms/sec read [8.9x]
+        [50:00.00]: 3692ms seek, 1.08ms/sec read [12.4x]
+        [40:00.00]:   61ms seek, 1.16ms/sec read [11.5x]
+        [30:00.00]:   58ms seek, 1.28ms/sec read [10.4x]
+        [20:00.00]:   69ms seek, 1.45ms/sec read [9.2x]
+        [10:00.00]:   67ms seek, 1.71ms/sec read [7.8x]
+        [00:00.00]:   67ms seek, 2.19ms/sec read [6.1x]
+
+Analyzing cache behavior...
+        Approximate random access cache size: 140 sector(s)
+        Drive cache tests as contiguous
+        Drive readahead past read cursor: 116 sector(s)
+        Cache tail rollbehind: 112 sector(s)
+        Cache tail granularity: 0 sector(s)
+                Cache read speed: 0.09ms/sector [144x]
+                Access speed after backseek: 2.21ms/sector [6x]
+        Backseek flushes the cache as expected
+
+Drive tests OK with Paranoia.

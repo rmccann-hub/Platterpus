@@ -105,7 +105,13 @@ def test_worker_records_analyze_failure_but_keeps_offset(
     assert result.offset == 667
     assert result.can_defeat_cache is None
     assert "cache" in (result.analyze_error or "")
-    assert result.ok is True  # the read offset is the key value
+    # `ok` now means "every step that RAN produced a value". A step that was
+    # ATTEMPTED and failed is an issue worth surfacing, so this is False even
+    # though the offset half worked — the dialog still shows both lines, so the
+    # user sees exactly which half succeeded. (Was True when `ok` meant only
+    # "got an offset"; that definition also mislabelled every successful
+    # cyanrip cache-only run as "Finished with issues." — see the ok docstring.)
+    assert result.ok is False
 
 
 def test_worker_handles_unsupported_backend(qapp: QApplication) -> None:
