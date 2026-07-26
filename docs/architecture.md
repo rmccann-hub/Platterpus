@@ -496,6 +496,25 @@ finishes — the re-writes coalesce onto a debounce timer
 so a coalesced write is never lossy. QA / re-verification / repair tooling
 consume the JSON; humans read the log.
 
+**Facts the app learns *after* the ripper's log is written must be folded in
+before rendering.** The backend's `.log` is a snapshot of one rip pass, but
+Platterpus keeps learning after it: a measured cache-defeat verdict lives in the
+drive profile, a cancelled rip's real status lives in the worker outcome, and the
+per-track auto-fix re-reads tracks *after* the whole-disc log exists. Each of
+those was, at some point, a shipped honesty bug — a log that said "(unknown)"
+about something we knew, one that read as complete when it wasn't, one that
+dropped a Test & Copy proof we had earned. So `_on_rip_finished` runs the parsed
+`RipLog` through small **fill-only enrichers** (`_inject_measured_cache_defeat`,
+`_apply_auto_fix_convergence`) *before* the report and the EAC-layout log are
+written, and passes late-known context (`outcome_status`, `disc_track_total`) into
+the renderer. The contract for any new one: `dataclasses.replace` onto a frozen
+copy, **only fill a missing value** (never overwrite what the log itself said),
+never raise (a provenance touch-up must not abort the post-rip chain), and only
+assert what the *shipped bytes* earned — e.g. a converged re-read that never
+replaced the album's file proves nothing about the file that's still there. When
+you add a post-rip fact, ask *which renderings need telling?* — the answer is
+usually all of them, and the bug is always the one you forgot.
+
 **Parity vs EAC** is measured, not claimed: `platterpus.parity` /
 `scripts/eac_parity.py` compare a rip log's per-track Copy CRC against the
 committed EAC baseline in `output_reference/` (format auto-detected, EAC's UTF-16
@@ -709,4 +728,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.10.*
