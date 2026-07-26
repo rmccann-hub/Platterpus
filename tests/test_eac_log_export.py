@@ -451,3 +451,58 @@ def test_overread_renders_yes_when_the_log_reported_it() -> None:
     assert "Overread into Lead-In and Lead-Out          : Yes" in render_eac_style_log(
         log
     )
+
+
+# --- Incomplete-rip notice (real-hardware regression, 2026-07-26) ------------
+
+
+def test_interrupted_rip_is_declared_not_silently_complete() -> None:
+    """REGRESSION: a force-stopped 14-track rip rendered as 13 tidy "Copy OK"
+    blocks with an empty conclusive section and a VALID integrity checksum — a
+    self-attested archival record that read as a clean, complete rip of a 13-track
+    disc. The app knew the outcome (the JSON report said "cancelled"); the log
+    simply wasn't told."""
+    log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=tuple(TrackResult(number=n, copy_crc=f"{n:08x}") for n in range(1, 14)),
+    )
+    text = render_eac_style_log(log, outcome_status="cancelled", disc_track_total=14)
+    assert "INCOMPLETE RIP (cancelled)" in text
+    assert "13 of 14 disc tracks" in text
+    assert "remaining 1 track(s) were never extracted" in text
+    # The notice sits ABOVE the checksum, so it's covered by it and can't be
+    # stripped without breaking verification.
+    assert verify_eac_style_log_checksum(text) is True
+    body = text.split("==== Platterpus log checksum")[0]
+    assert "INCOMPLETE RIP" in body
+
+
+def test_successful_rip_gets_no_incomplete_banner() -> None:
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+    assert "INCOMPLETE" not in render_eac_style_log(
+        log, outcome_status="success", disc_track_total=1
+    )
+
+
+def test_unknown_outcome_renders_no_banner() -> None:
+    """Old callers (and the render_eac_log.py CLI) pass no outcome — they must
+    behave exactly as before rather than gaining a guessed banner."""
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+    assert "INCOMPLETE" not in render_eac_style_log(log)
+
+
+def test_absent_conclusive_report_is_stated_without_inventing_a_cause() -> None:
+    """An empty conclusive section is itself a fact. But this also fires for a
+    successful-but-trimmed log, so it must NOT assert that the ripper was stopped —
+    that cause belongs to the INCOMPLETE banner, which only appears when the
+    caller actually told us the outcome."""
+    log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+    text = render_eac_style_log(log)  # no health_status, no accuraterip_summary
+    assert "Conclusive status report : absent" in text
+    assert "stopped" not in text.lower()
+
+
+def test_conclusive_report_is_rendered_normally_when_present() -> None:
+    text = render_eac_style_log(_sample_log())
+    assert "Conclusive status report : absent" not in text
+    assert "Health status" in text

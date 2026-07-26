@@ -43,6 +43,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   means re-reads may not reach the disc — the one genuinely worrying outcome — but
   it read "this drive doesn't cache audio, so Platterpus doesn't need to read around
   a cache". It now warns, and explains that AccurateRip/CTDB still prove the audio.
+- **An interrupted rip produced a log that read as a complete one.** A
+  force-stopped 14-track rip rendered as 13 tidy "Copy OK" blocks with an empty
+  conclusive section and a *valid* integrity checksum — a self-attested archival
+  record of a clean, complete 13-track rip that never happened. The log now carries
+  an `*** INCOMPLETE RIP (cancelled) — this log covers 13 of 14 disc tracks ***`
+  banner (above the checksum, so it can't be stripped without breaking it), and an
+  absent end-of-rip summary is stated rather than left silently blank.
+- **Overread was still missed on negative-offset drives.** cyanrip labels the line
+  `Underread mode:` when the read offset is negative, so the fix above would have
+  kept reporting "(unknown)" for exactly those drives. Both labels are now matched.
 
 ## [0.5.8] — 2026-07-24
 

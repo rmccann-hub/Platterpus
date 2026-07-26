@@ -66,7 +66,17 @@ _OFFSET = re.compile(r"^Offset:\s+(?P<sign>[+-])(?P<value>\d+)\s+samples")
 # 2026-07-26 overread-ON hardware rip says "+2 frames / read in lead-in/lead-out").
 # Keying on the count would therefore report Yes for every rip — worse than the
 # "(unknown)" this replaces, which is why the mode line is the only discriminator.
-_OVERREAD_MODE = re.compile(r"^Overread mode:\s+(?P<mode>.+?)\s*$")
+#
+# **"Under"read, not just "Over"read.** cyanrip switches the label to
+# "Underread mode:" whenever the frame count is negative — and the sign comes
+# straight from the read offset (`cyanrip_log.c` picks the label on
+# `over_under_read_frames < 0`; `cyanrip_main.c` sets that to
+# `sign(offset) * ceil(|offset| / 588)`). So a drive with a NEGATIVE read offset
+# prints "Underread mode:" and an `^Overread mode:`-only pattern silently misses
+# it — the field would fall back to "(unknown)" for exactly those drives. The
+# *value* strings are identical in both cases (cyanrip keys them only on whether
+# it reads the lead-in/lead-out), so one pattern with both labels is enough.
+_OVERREAD_MODE = re.compile(r"^(?:Over|Under)read mode:\s+(?P<mode>.+?)\s*$")
 # "DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-" (MusicBrainz Disc ID) and
 # "CDDB ID:        E20DFE0E" (freedb/CDDB Disc ID). Both are TOC-derived, so
 # they identify the SAME physical disc across re-rips — the key the re-rip

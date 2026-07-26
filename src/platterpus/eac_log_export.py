@@ -141,6 +141,8 @@ def render_eac_style_log(
     platterpus_version: str = "",
     build_fingerprint: str = "",
     encoder_versions: dict[str, str] | None = None,
+    outcome_status: str = "",
+    disc_track_total: int | None = None,
 ) -> str:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``.
 
@@ -171,6 +173,8 @@ def render_eac_style_log(
             platterpus_version=platterpus_version,
             build_fingerprint=build_fingerprint,
             encoder_versions=encoder_versions or {},
+            outcome_status=outcome_status,
+            disc_track_total=disc_track_total,
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -187,6 +191,8 @@ def _render(
     platterpus_version: str,
     build_fingerprint: str,
     encoder_versions: dict[str, str],
+    outcome_status: str = "",
+    disc_track_total: int | None = None,
 ) -> str:
     info = rip_log.ripping_info
     source = rip_log.log_creator or "an unknown backend"
@@ -208,6 +214,16 @@ def _render(
             "",
         ]
     )
+    # INCOMPLETE-RIP NOTICE (real-hardware finding, 2026-07-26). A force-stopped
+    # rip previously rendered as 13 consecutive "Copy OK" blocks with an empty
+    # conclusive report — a checksum-attested document that read as a *clean,
+    # complete* rip of a 13-track disc, when the disc had 14 and the ripper was
+    # stopped mid-track-14. The app knew (the JSON report recorded
+    # status "cancelled"); the log just wasn't told. Say it outright, from
+    # measured counts only, and place it ABOVE the checksum footer so the notice
+    # is covered by the SHA-256 and cannot be stripped without breaking it.
+    lines.extend(_incomplete_notice(rip_log, outcome_status, disc_track_total))
+
     if rip_log.creation_date:
         lines.append(f"Rip date : {rip_log.creation_date}")
         lines.append("")
@@ -248,6 +264,18 @@ def _render(
         lines.append(f"AccurateRip summary : {rip_log.accuraterip_summary}")
     if rip_log.health_status:
         lines.append(f"Health status       : {rip_log.health_status}")
+    if not rip_log.accuraterip_summary and not rip_log.health_status:
+        # Say the section is missing rather than rendering a silently empty one —
+        # an absent conclusive report is itself a fact worth recording. Deliberately
+        # states only WHAT is absent, never WHY: this also fires for a successful
+        # rip whose log simply lacked those lines (a hand-trimmed log, a different
+        # backend's format, the render_eac_log.py CLI), so asserting "the ripper was
+        # stopped" would be inventing a cause we didn't measure. The
+        # INCOMPLETE RIP banner above carries the cause when the caller knows it.
+        lines.append(
+            "Conclusive status report : absent — this log carries no end-of-rip "
+            "summary (no AccurateRip total, no health line)"
+        )
     lines.append("")
     # Deliberately NOT a real "==== Log checksum <hex> ====": that is EAC's
     # signature, and signing our output as EAC would be forgery.
@@ -258,6 +286,35 @@ def _render(
     # hash strength to EAC's log checksum, but verifiable with a standard tool and
     # no secret key.
     return _finalize(body)
+
+
+def _incomplete_notice(
+    rip_log: RipLog, outcome_status: str, disc_track_total: int | None
+) -> list[str]:
+    """A conspicuous banner when this log does NOT cover a complete rip.
+
+    Rendered only when the caller actually tells us the outcome was not a success
+    (``outcome_status`` is the rip report's own status, e.g. ``"cancelled"`` /
+    ``"failed"``). Every number in it is measured — the track count is
+    ``len(rip_log.tracks)`` and the disc total is what the TOC reported — so the
+    never-invent rule holds. An unknown outcome renders nothing, exactly as before.
+    """
+    status = (outcome_status or "").strip()
+    if not status or status.casefold() in {"success", "ok", "completed"}:
+        return []
+    ripped = len(rip_log.tracks)
+    of_total = f" of {disc_track_total}" if disc_track_total else ""
+    missing = ""
+    if disc_track_total and disc_track_total > ripped:
+        missing = (
+            f" The remaining {disc_track_total - ripped} track(s) were never "
+            "extracted and are absent below."
+        )
+    return [
+        f"*** INCOMPLETE RIP ({status}) — this log covers {ripped}{of_total} "
+        f"disc tracks.{missing} ***",
+        "",
+    ]
 
 
 def _provenance_lines(

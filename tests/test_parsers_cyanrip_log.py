@@ -457,3 +457,16 @@ def test_overread_frame_count_alone_is_not_a_verdict() -> None:
 def test_unrecognised_overread_mode_stays_unknown() -> None:
     text = "cyanrip 0.9.3 (release)\nOverread mode:  something we have never seen\n"
     assert parse_cyanrip_log(text).ripping_info.overread_lead_out is None
+
+
+def test_parses_underread_mode_for_negative_offset_drives() -> None:
+    """cyanrip switches the label to "Underread mode:" whenever the frame count is
+    negative, and that sign comes from the READ OFFSET — so a drive with a negative
+    offset prints "Underread". An `^Overread mode:`-only pattern silently missed
+    those drives, sending the field back to "(unknown)" for exactly them. The mode
+    VALUES are identical in both cases, so the mapping is unchanged."""
+    for label in ("Overread", "Underread"):
+        read = f"cyanrip 0.9.3 (release)\n{label} mode:  read in lead-in/lead-out\n"
+        silence = f"cyanrip 0.9.3 (release)\n{label} mode:  fill with silence in lead-in/lead-out\n"
+        assert parse_cyanrip_log(read).ripping_info.overread_lead_out is True, label
+        assert parse_cyanrip_log(silence).ripping_info.overread_lead_out is False, label
