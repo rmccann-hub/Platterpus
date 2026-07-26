@@ -276,6 +276,7 @@ def _render(
             "Conclusive status report : absent — this log carries no end-of-rip "
             "summary (no AccurateRip total, no health line)"
         )
+    lines.extend(_read_stability_line(rip_log))
     lines.append("")
     # Deliberately NOT a real "==== Log checksum <hex> ====": that is EAC's
     # signature, and signing our output as EAC would be forgery.
@@ -286,6 +287,35 @@ def _render(
     # hash strength to EAC's log checksum, but verifiable with a standard tool and
     # no secret key.
     return _finalize(body)
+
+
+def _read_stability_line(rip_log: RipLog) -> list[str]:
+    """A whole-disc read-stability line when any track's re-reads disagreed.
+
+    The backend's own health line reports *unrecoverable read errors*, and it
+    stays "No errors occurred" even when a track never read the same way twice
+    (real-hardware finding, 2026-07-01) — so a log carrying only that line lets a
+    genuinely unreproducible track pass as clean. This adds the fact the app
+    already knows and already warns about on screen, so the durable text artifact
+    says it too: the summary a human reads must not be more reassuring than the
+    verdict the app gave.
+
+    Measured only — it names the tracks whose ``secure_rerip_converged`` is
+    explicitly ``False``. No such track (or a log that never recorded the field)
+    renders nothing, so a clean rip's conclusive report is unchanged.
+    """
+    unstable = [
+        track.number
+        for track in rip_log.tracks
+        if track.secure_rerip_converged is False
+    ]
+    if not unstable:
+        return []
+    listed = ", ".join(str(number) for number in sorted(unstable))
+    return [
+        f"Read stability      : track(s) {listed} did not read identically across "
+        "re-reads — not confirmed reproducible"
+    ]
 
 
 def _incomplete_notice(
@@ -408,7 +438,20 @@ def _crc_lines(track: TrackResult) -> list[str]:
         out.append(f"     Test CRC {crc}")
         out.append(f"     Copy CRC {crc}{note}")
     else:
-        out.append(f"     Copy CRC {crc}")
+        # An explicit ``False`` is a MEASURED negative, not an absence: this track
+        # WAS read more than once and the reads *disagreed*, so the shipped bytes
+        # are a single read that nothing corroborates. EAC signals this with
+        # suspicious positions / a reduced track quality; we have no equivalent
+        # number, so say it in words rather than let a bare CRC imply confidence
+        # we don't have (real-hardware finding, 2026-07-26 — track 3 of the Police
+        # disc read differently on every attempt yet rendered indistinguishably
+        # from a clean track). ``None`` (never re-read) stays a plain Copy CRC.
+        caveat = (
+            "  (re-reads did NOT agree — this read is not confirmed reproducible)"
+            if track.secure_rerip_converged is False
+            else ""
+        )
+        out.append(f"     Copy CRC {crc}{caveat}")
     return out
 
 

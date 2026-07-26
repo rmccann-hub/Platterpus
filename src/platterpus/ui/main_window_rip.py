@@ -1005,6 +1005,11 @@ class RipMixin(MainWindowShared):
                 # profile — KDD-29), fold it in so the EAC-compatible log and the
                 # JSON report show the real Yes/No instead of "(unknown)".
                 rip_log = self._inject_measured_cache_defeat(rip_log)
+                # The whole-disc log records the FIRST pass only, so a track the
+                # per-track auto-fix re-read and swapped in looks single-read here.
+                # Fold that convergence back in so the Test & Copy pair is earned
+                # where it was actually earned (KDD-30).
+                rip_log = self._apply_auto_fix_convergence(rip_log)
                 self._rip_progress.set_rip_log(rip_log)
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
@@ -1958,6 +1963,67 @@ class RipMixin(MainWindowShared):
             )
         except Exception:  # noqa: BLE001 — enrichment must never break finish
             log.warning("could not inject measured cache-defeat verdict", exc_info=True)
+            return rip_log
+
+    def _apply_auto_fix_convergence(self, rip_log: RipLog) -> RipLog:
+        """Fold the per-track auto-fix's convergence into the parsed ``RipLog``.
+
+        The album's whole-disc ``.log`` records the **first** read pass. When the
+        auto-fix afterwards re-ripped a track with ``-Z N`` and those re-reads
+        *agreed*, the converged read is the file now on disk — but the first-pass
+        log can't say so, so the parsed track still carries
+        ``secure_rerip_converged=None``. Both downstream renderings then
+        *under-report* the read effort: the EAC-compatible log prints a lone
+        ``Copy CRC`` for a track whose CRC two independent reads provably agreed
+        on (that agreement IS the Test & Copy evidence — KDD-30), and the JSON
+        report's per-track record contradicts its own ``read_speed.retried_tracks``
+        entry. Real-hardware finding, 2026-07-26 (track 5 of the Police disc).
+
+        The auto-fix's **negative** result is folded in the same way, because it
+        is equally measured: a track it re-read where no two reads agreed is a
+        track whose shipped bytes nothing corroborates, and the log must not let
+        it pass as clean (cyanrip's own health line stays "No errors occurred"
+        for it). So:
+
+        * converged **and** swapped in → ``True`` (the shipped file *is* the
+          corroborated read);
+        * re-read but never converged → ``False`` (measured non-reproducibility);
+        * converged but **not** swapped in → left unknown. The shipped bytes are
+          still the first pass, so neither claim is earned — under-claim in both
+          directions rather than guess.
+
+        Fill-only (an explicit parsed value is never overwritten) and
+        best-effort — never raises, because a provenance touch-up must not abort
+        the post-rip chain.
+        """
+        try:
+            from dataclasses import replace
+
+            # `_last_retried_tracks` is the worker's own record of what it
+            # re-ripped (mirrored into the report as read_speed.retried_tracks).
+            verdicts: dict[int, bool] = {}
+            for entry in getattr(self, "_last_retried_tracks", []) or []:
+                number = entry.get("track")
+                if not isinstance(number, int):
+                    continue
+                if entry.get("converged"):
+                    # Only a re-read that actually replaced the album's file
+                    # proves anything about the file that's there now.
+                    if entry.get("replaced"):
+                        verdicts[number] = True
+                else:
+                    verdicts[number] = False
+            if not verdicts:
+                return rip_log
+            tracks = tuple(
+                replace(track, secure_rerip_converged=verdicts[track.number])
+                if track.number in verdicts and track.secure_rerip_converged is None
+                else track
+                for track in rip_log.tracks
+            )
+            return replace(rip_log, tracks=tracks)
+        except Exception:  # noqa: BLE001 — enrichment must never break finish
+            log.warning("could not apply auto-fix convergence", exc_info=True)
             return rip_log
 
     def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:

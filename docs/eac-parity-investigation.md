@@ -118,7 +118,7 @@ Scoring Platterpus/cyanrip against that full list, one row per vector:
 | Pre-emphasis | **Flag-only, intentionally unused** | cyanrip's `-E` (de-emphasis) flag exists but is deliberately not passed — Platterpus preserves pre-emphasis-encoded discs as-is (an archival choice: don't alter samples) rather than actively de-emphasizing. See `docs/dependency-contracts.md`. |
 | AccurateRip v1/v2 | **Present** | Queried every rip; v1+v2 confidence parsed and rendered (KDD-12). |
 | CTDB (whole-disc verify) | **Present, validated** | `ctdb/` clean-room client (KDD-16); GUI-wired; `crc.CRC_VALIDATED=True` since 2026-07-07 (a real disc's CRC reproduced at offset 0 on hardware), so a match reads "verified". |
-| Test & Copy (two full passes) | **Present via `-Z` convergence (KDD-30)** | No literal two-labeled-pass mode, but `-Z N` (re-rip until N reads' checksums agree) is the same two-reads-agree guarantee. A converged track renders as an EAC-style **Test CRC == Copy CRC** pair in the EAC-compatible log; the Settings toggle "Verify every track with a second read" runs it whole-disc. Single-read tracks show only a Copy CRC — never a fabricated test read. |
+| Test & Copy (two full passes) | **Present via `-Z` convergence (KDD-30)** | No literal two-labeled-pass mode, but `-Z N` (re-rip until N reads' checksums agree) is the same two-reads-agree guarantee. A converged track renders as an EAC-style **Test CRC == Copy CRC** pair in the EAC-compatible log; the Settings toggle "Verify every track with a second read" runs it whole-disc. Single-read tracks show only a Copy CRC — never a fabricated test read. Includes tracks the per-track auto-fix re-read *after* the whole-disc log was written: its convergence is folded back into the parsed log (`_apply_auto_fix_convergence`), but only when the converged read was actually swapped into the album (hardware-found 2026-07-26). |
 | EAC log + checksum | **Present — our own checksum, not EAC's** | We render an EAC-*layout* log (`eac_log_export.py`) attributed to Platterpus/cyanrip, explicitly marked "not a genuine EAC log", and now footered with **our own integrity checksum: a plain SHA-256 of the text above it, equal-or-stronger than EAC's and openly verifiable** (`head -n -1 … \| sha256sum`) — never EAC's obfuscated *provenance* signature (KDD-28, refining KDD-11; open-trust choice KDD-24). |
 | Gap handling | **Audio matches; no `INDEX 00`** | Same entry as "Subcode / pre-gap" above — audio placement is EAC-equivalent, cue metadata isn't. |
 
@@ -208,4 +208,4 @@ a burnable disc image; revisit with KDD-18 (ripper-engine strategy).
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.10.*
