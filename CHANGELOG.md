@@ -11,8 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.9] — 2026-07-26
+
+*Everything in this release was found by the **first hardware run of v0.5.8**. Eight
+defects, three of them honesty defects — a log that said tracks weren't in
+AccurateRip when they were, a warning phrased as reassurance, and an interrupted rip
+attested as complete. The v0.5.8 features work; these are the rough edges only real
+hardware could expose.*
+
 ### Fixed
-*All five found by the first v0.5.8 hardware run (Bazzite + BDR-209D, 2026-07-26).*
+*All found by the first v0.5.8 hardware run (Bazzite + BDR-209D, 2026-07-26).*
 - **The cache-defeat probe timed out before it could finish.** The budget was 90
   seconds; `cd-paranoia -A` needs minutes on a real drive (a seven-point seek/read
   timing sweep — one seek measured 3.7 s — then the full cache-behaviour analysis),
@@ -3049,7 +3057,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...HEAD
+[0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.5...v0.5.6
@@ -3104,4 +3113,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.9.*

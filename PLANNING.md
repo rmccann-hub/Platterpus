@@ -1000,4 +1000,4 @@ Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need t
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.9.*
