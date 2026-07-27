@@ -508,12 +508,23 @@ dropped a Test & Copy proof we had earned. So `_on_rip_finished` runs the parsed
 `_apply_auto_fix_convergence`) *before* the report and the EAC-layout log are
 written, and passes late-known context (`outcome_status`, `disc_track_total`) into
 the renderer. The contract for any new one: `dataclasses.replace` onto a frozen
-copy, **only fill a missing value** (never overwrite what the log itself said),
-never raise (a provenance touch-up must not abort the post-rip chain), and only
-assert what the *shipped bytes* earned — e.g. a converged re-read that never
+copy, never raise (a provenance touch-up must not abort the post-rip chain), and
+only assert what the *shipped bytes* earned — e.g. a converged re-read that never
 replaced the album's file proves nothing about the file that's still there. When
 you add a post-rip fact, ask *which renderings need telling?* — the answer is
 usually all of them, and the bug is always the one you forgot.
+
+Two of these enrichers *fill* a missing value and must never overwrite what the
+log itself said (`_inject_measured_cache_defeat`). One deliberately **replaces**:
+when the per-track auto-fix swaps a re-read into the album, the first-pass record
+describes bytes that no longer exist, so `_apply_auto_fix_results` folds the
+*re-rip's own* parsed record over it (`_merge_shipped_track` — a pure module
+function naming every field explicitly, so the rule reads line by line and the
+type checker verifies each one). The distinction is the question *whose read is
+this record about?* — fill when the log simply didn't know a fact, replace when
+the log is describing the wrong bytes. Even then: identity fields never move, and
+a field the re-rip's log didn't report can't erase a real one, because deleting a
+known fact is worse than the stale value you're fixing.
 
 **Parity vs EAC** is measured, not claimed: `platterpus.parity` /
 `scripts/eac_parity.py` compare a rip log's per-track Copy CRC against the
@@ -728,4 +739,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.5.10.*
+*Last updated for Platterpus v0.5.11.*

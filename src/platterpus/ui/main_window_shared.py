@@ -207,6 +207,7 @@ class MainWindowShared(_SeamBase):
     _last_speed_attempts: list
     _last_unstable_tracks: list
     _last_retried_tracks: list
+    _last_swapped_tracks: dict
     _last_eta_trace: list
     # Rip time-windows for per-report debug-log filtering.
     _rip_epoch_start: float | None

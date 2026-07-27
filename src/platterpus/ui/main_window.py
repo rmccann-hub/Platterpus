@@ -363,6 +363,10 @@ class MainWindow(
         # Per-track auto-fix history for the just-finished rip (which unstable
         # tracks were re-ripped alone, whether they converged, whether swapped in).
         self._last_retried_tracks: list = []
+        # Parsed records of the re-rips SWAPPED INTO the album on the
+        # just-finished rip, keyed by track number — the shipped files' own
+        # reads, which the whole-disc first-pass log cannot describe.
+        self._last_swapped_tracks: dict = {}
         # The just-finished rip's ETA trace (PC clock + cyanrip's ETA + our ETA +
         # read speed) — recorded in the report "for posterity" / future modelling.
         self._last_eta_trace: list = []
