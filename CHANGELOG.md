@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.11] — 2026-07-26
+
+*One fix, from the third hardware run: v0.5.10 completed half of a fix and the other
+half turned a missing proof into a false one.*
+
+### Fixed
+- **A re-ripped track's CRC named the file it wasn't.** Found by the third hardware
+  run, and the more serious half of the v0.5.10 fix: when the auto-fix re-reads a
+  track and swaps the improved copy into the album, the album's whole-disc `.log`
+  still describes the *first* pass — so the EAC-compatible log and the JSON report
+  printed the **discarded** read's Copy CRC beside the shipped file's name (track 3
+  showed `52DFDF7D`; the file on disk was `3D8FCF0C`), and v0.5.10's new
+  Test-and-Copy note decorated that wrong CRC with a convergence proof. The same
+  applied to the per-track AccurateRip verdict, which is a statement about specific
+  bytes. Platterpus now keeps the re-rip's own parsed record and folds its measured
+  fields — CRC, AccurateRip results, read counts, status — over the first pass, so
+  every surface describes the audio actually on disk. Identity fields never move,
+  and a field the re-rip's log didn't report can't erase a real one. cyanrip's log
+  already carried a written swap addendum saying exactly this; our own renderings
+  now agree with it.
+
 ## [0.5.10] — 2026-07-26
 
 *Both fixes come from the **second hardware run**, and both are the same shape as
@@ -3089,7 +3110,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...HEAD
+[0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.7...v0.5.8
@@ -3146,4 +3168,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.10.*
+*Last updated for Platterpus v0.5.11.*

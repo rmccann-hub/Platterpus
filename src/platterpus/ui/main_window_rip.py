@@ -38,7 +38,7 @@ import threading
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QDialog, QMessageBox
@@ -69,7 +69,7 @@ from platterpus.adapters.transcode import (
 from platterpus.drive_profiles import OffsetSource
 from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
-from platterpus.parsers.rip_log import RipLog, parse_rip_log
+from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
 from platterpus.paths import LOG_PATH
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
@@ -146,6 +146,66 @@ def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> b
         or ":" in (track.isrc or "")
         for track in metadata.tracks
     )
+
+
+# Field-preserving merge below: one TypeVar so the "keep what we had" rule is
+# checked against each field's real type instead of collapsing to Any.
+_T = TypeVar("_T")
+
+
+def _reported(new: _T, current: _T) -> _T:
+    """``new`` when the re-rip's log actually reported it, else ``current``.
+
+    The re-rip log is external output, so a field it didn't print parses as None /
+    empty. Letting that overwrite a real first-pass value would *delete* known
+    facts about the shipped file — worse than the stale value we're fixing. So an
+    unreported field keeps what we had.
+    """
+    return current if new is None or new == "" or new == {} else new
+
+
+def _merge_shipped_track(
+    track: TrackResult, shipped: TrackResult | None, verdicts: dict[int, bool]
+) -> TrackResult:
+    """One track's first-pass record, corrected to describe the shipped file.
+
+    Pure and module-level so the merge rule is readable and directly testable
+    (same reason ``_format_cache_defeat`` lives outside its mixin). ``shipped`` is
+    the re-rip's parsed record for this track, or None when nothing was swapped in.
+
+    Every field is named explicitly rather than looped over: this is the rule that
+    decides what a CRC and an AccurateRip verdict are *about*, so it should be
+    readable line by line — and naming them lets the type checker verify each one,
+    which a ``**dict`` splat cannot. ``number`` and ``filename`` are deliberately
+    absent: the re-rip ran in a throwaway directory under the same track number,
+    so its identity fields are either irrelevant or wrong.
+    """
+    from dataclasses import replace
+
+    if shipped is not None:
+        track = replace(
+            track,
+            copy_crc=_reported(shipped.copy_crc, track.copy_crc),
+            test_crc=_reported(shipped.test_crc, track.test_crc),
+            status=_reported(shipped.status, track.status),
+            accuraterip_v1=_reported(shipped.accuraterip_v1, track.accuraterip_v1),
+            accuraterip_v2=_reported(shipped.accuraterip_v2, track.accuraterip_v2),
+            accuraterip_offset=_reported(
+                shipped.accuraterip_offset, track.accuraterip_offset
+            ),
+            rip_count=_reported(shipped.rip_count, track.rip_count),
+            peak_level=_reported(shipped.peak_level, track.peak_level),
+            extraction_quality=_reported(
+                shipped.extraction_quality, track.extraction_quality
+            ),
+            replaygain=_reported(shipped.replaygain, track.replaygain),
+        )
+    verdict = verdicts.get(track.number)
+    if verdict is not None:
+        # The convergence verdict is ours, from the auto-fix history — it wins
+        # over whatever the re-rip's own log did or didn't say.
+        track = replace(track, secure_rerip_converged=verdict)
+    return track
 
 
 class RipMixin(MainWindowShared):
@@ -913,6 +973,12 @@ class RipMixin(MainWindowShared):
         # The per-track auto-fix history (which unstable tracks were re-ripped and
         # whether the re-read converged / replaced the original).
         self._last_retried_tracks = getattr(self._rip_worker, "retried_tracks", [])
+        # The parsed record of each re-rip that was swapped into the album — the
+        # SHIPPED file's own read. Captured here (worker still alive) because the
+        # whole-disc log only knows the first pass.
+        self._last_swapped_tracks = getattr(
+            self._rip_worker, "swapped_track_records", {}
+        )
         # The "for posterity" ETA trace (PC clock + cyanrip's ETA + our ETA),
         # captured while the worker is alive; folded into the report below.
         self._last_eta_trace = getattr(self._rip_worker, "eta_trace", [])
@@ -1006,10 +1072,11 @@ class RipMixin(MainWindowShared):
                 # JSON report show the real Yes/No instead of "(unknown)".
                 rip_log = self._inject_measured_cache_defeat(rip_log)
                 # The whole-disc log records the FIRST pass only, so a track the
-                # per-track auto-fix re-read and swapped in looks single-read here.
-                # Fold that convergence back in so the Test & Copy pair is earned
-                # where it was actually earned (KDD-30).
-                rip_log = self._apply_auto_fix_convergence(rip_log)
+                # per-track auto-fix re-read and swapped in is still described by
+                # the read we THREW AWAY. Fold the shipped read's own record (and
+                # its convergence) in, so every surface below describes the audio
+                # actually on disk (KDD-30).
+                rip_log = self._apply_auto_fix_results(rip_log)
                 self._rip_progress.set_rip_log(rip_log)
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
@@ -1965,36 +2032,40 @@ class RipMixin(MainWindowShared):
             log.warning("could not inject measured cache-defeat verdict", exc_info=True)
             return rip_log
 
-    def _apply_auto_fix_convergence(self, rip_log: RipLog) -> RipLog:
-        """Fold the per-track auto-fix's convergence into the parsed ``RipLog``.
+    def _apply_auto_fix_results(self, rip_log: RipLog) -> RipLog:
+        """Make the parsed ``RipLog`` describe the files actually on disk.
 
         The album's whole-disc ``.log`` records the **first** read pass. When the
-        auto-fix afterwards re-ripped a track with ``-Z N`` and those re-reads
-        *agreed*, the converged read is the file now on disk — but the first-pass
-        log can't say so, so the parsed track still carries
-        ``secure_rerip_converged=None``. Both downstream renderings then
-        *under-report* the read effort: the EAC-compatible log prints a lone
-        ``Copy CRC`` for a track whose CRC two independent reads provably agreed
-        on (that agreement IS the Test & Copy evidence — KDD-30), and the JSON
-        report's per-track record contradicts its own ``read_speed.retried_tracks``
-        entry. Real-hardware finding, 2026-07-26 (track 5 of the Police disc).
+        auto-fix afterwards re-rips a track and swaps the improved read into the
+        album, that first-pass record is describing bytes that no longer exist —
+        so anything rendered from it is about the *discarded* read. Real-hardware
+        bug, 2026-07-26 (tracks 3 and 5 of the Police disc): the EAC-compatible
+        log and the JSON report both printed the first pass's CRC beside the
+        shipped file's name. cyanrip's own log carries a written addendum saying
+        the shipped CRC supersedes it; our own renderings had no such mechanism.
 
-        The auto-fix's **negative** result is folded in the same way, because it
-        is equally measured: a track it re-read where no two reads agreed is a
-        track whose shipped bytes nothing corroborates, and the log must not let
-        it pass as clean (cyanrip's own health line stays "No errors occurred"
-        for it). So:
+        Two distinct facts therefore get folded in, both measured:
 
-        * converged **and** swapped in → ``True`` (the shipped file *is* the
-          corroborated read);
-        * re-read but never converged → ``False`` (measured non-reproducibility);
-        * converged but **not** swapped in → left unknown. The shipped bytes are
-          still the first pass, so neither claim is earned — under-claim in both
-          directions rather than guess.
+        1. **The shipped read itself.** For every track the auto-fix swapped in we
+           kept the *re-rip's* parsed record, and its measured fields — CRC,
+           AccurateRip results, read counts, status — replace the first pass's.
+           Identity fields (track number, filename) stay as the album knows them:
+           the re-rip ran in a throwaway directory, and it is the same track.
+        2. **Whether the re-reads agreed.** ``-Z N`` convergence is the same
+           two-reads-agree proof EAC prints as a Test/Copy pair (KDD-30), and the
+           first-pass log cannot know it:
 
-        Fill-only (an explicit parsed value is never overwritten) and
-        best-effort — never raises, because a provenance touch-up must not abort
-        the post-rip chain.
+           * converged **and** swapped in → ``True`` (the shipped file *is* the
+             corroborated read);
+           * re-read but never converged → ``False`` (measured non-reproducibility
+             — the log must not let it pass as clean, since cyanrip's health line
+             stays "No errors occurred" for it);
+           * converged but **not** swapped in → left unknown. The shipped bytes
+             are still the first pass, so neither claim is earned — under-claim in
+             both directions rather than guess.
+
+        Best-effort — never raises, because an enrichment must not abort the
+        post-rip chain.
         """
         try:
             from dataclasses import replace
@@ -2013,17 +2084,22 @@ class RipMixin(MainWindowShared):
                         verdicts[number] = True
                 else:
                     verdicts[number] = False
-            if not verdicts:
+            # The worker keeps these parser-agnostically (its own log handling is
+            # typed `object`), but both parsers produce TrackResult and the merge
+            # only ever reads TrackResult fields — so narrow here, where the values
+            # are used, rather than weakening the merge rule's signature to `object`.
+            shipped: dict[int, TrackResult] = (
+                getattr(self, "_last_swapped_tracks", {}) or {}
+            )
+            if not verdicts and not shipped:
                 return rip_log
             tracks = tuple(
-                replace(track, secure_rerip_converged=verdicts[track.number])
-                if track.number in verdicts and track.secure_rerip_converged is None
-                else track
+                _merge_shipped_track(track, shipped.get(track.number), verdicts)
                 for track in rip_log.tracks
             )
             return replace(rip_log, tracks=tracks)
         except Exception:  # noqa: BLE001 — enrichment must never break finish
-            log.warning("could not apply auto-fix convergence", exc_info=True)
+            log.warning("could not apply auto-fix results", exc_info=True)
             return rip_log
 
     def _write_eac_log(self, rip_log: RipLog, log_file: Path) -> None:
