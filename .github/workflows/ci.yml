@@ -136,12 +136,24 @@ jobs:
           # Match the marker only as its own (optionally indented) line, never a
           # prose mention — otherwise a commit that *documents* the marker opts
           # itself out. The marker is a deliberate standalone line.
-          if git log --format='%B' "$base..$head" \
-              | grep -qiE '^[[:space:]]*\[skip changelog\][[:space:]]*$'; then
+          #
+          # NB both greps below read from a HERE-STRING, never a pipe. Under
+          # `set -o pipefail`, `producer | grep -q` is a race: `grep -q` exits the
+          # instant it matches, the producer then dies of SIGPIPE (141), and
+          # pipefail reports the whole *pipeline* as failed — so a match reads as
+          # "no match". It only bites once the producer has more to write than the
+          # pipe buffer swallows before grep exits, i.e. on a long commit range or
+          # a big diff: exactly when these checks matter most. That silently ate a
+          # legitimate `[skip changelog]` opt-out (2026-07-27, PR #99), and the
+          # CHANGELOG.md check below had the same latent bug — it could have failed
+          # a PR that *did* update the changelog. A here-string has no producer
+          # process, so there is nothing to signal.
+          messages="$(git log --format='%B' "$base..$head")"
+          if grep -qiE '^[[:space:]]*\[skip changelog\][[:space:]]*$' <<<"$messages"; then
             echo "Opt-out via commit message; skipping."; exit 0
           fi
           # The check: was CHANGELOG.md touched anywhere in the range?
-          if git diff --name-only "$base" "$head" | grep -qx 'CHANGELOG.md'; then
+          if grep -qx 'CHANGELOG.md' <<<"$(git diff --name-only "$base" "$head")"; then
             echo "CHANGELOG.md updated. ✅"
           else
             echo "::error::No CHANGELOG.md entry for this change. Add a bullet to the [Unreleased] section in the same commit (CLAUDE.md Critical Rule #7), or put a '[skip changelog]' line of its own in the commit message for a pure historical-record commit."

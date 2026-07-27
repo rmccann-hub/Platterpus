@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **CI's changelog gate could fail a change that satisfied it.** Both of the gate's
+  checks piped a producer into `grep -q` under `set -o pipefail`: `grep -q` exits the
+  moment it matches, the producer then dies of SIGPIPE, and pipefail reports the
+  pipeline as *failed* — so a match read as "no match". It only bites once the
+  producer outruns the pipe buffer, i.e. on a long commit range or a big diff, which
+  is exactly when these checks matter. It silently ate a legitimate
+  `[skip changelog]` opt-out (PR #99), and the `CHANGELOG.md`-was-touched check had
+  the same latent bug in the opposite direction — it could have failed a PR that
+  *did* update the changelog. Both now read from a here-string, which has no producer
+  process to signal. (`media-guard` and `tests-touched` were already safe: they
+  capture grep's full output rather than short-circuiting.)
+
 ## [0.5.11] — 2026-07-26
 
 *One fix, from the third hardware run: v0.5.10 completed half of a fix and the other
