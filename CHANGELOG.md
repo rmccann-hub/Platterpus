@@ -11,7 +11,37 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.12] — 2026-07-27
+
+*The EAC-compatible log, checked against a real EAC log of the same disc rather
+than an idea of the format — plus the fitness test and CI-gate fix from the same
+batch.*
+
 ### Added
+- **The EAC-compatible log now really looks like an EAC log.** Checked against a
+  genuine Exact Audio Copy V1.8 log of the same disc on the same drive, not
+  against an idea of the format. New: the **`TOC of the extracted CD` table**,
+  derived from the per-track sectors cyanrip reports and **byte-identical** to
+  EAC's — values and column alignment both; the **`Artist / Album`** disc line;
+  the full archival header (`Read mode`, `Utilize accurate stream`,
+  `Make use of C2 pointers`, `Fill up missing offset samples with silence`,
+  `Delete leading and trailing silent blocks`, `Null samples used in CRC
+  calculations`, `Used interface`, `Gap handling`); the output-format block; and
+  the end-of-rip **status report in EAC's own wording** (`N track(s) accurately
+  ripped` … `End of status report`) in place of our own phrasing.
+  Rows cyanrip genuinely doesn't report say `(not reported by cyanrip)` — never
+  a guess, never a silent omission. The attribution header and checksum footer
+  stay deliberately un-EAC-like: layout is parity, provenance would be forgery.
+- **Accuracy versus EAC is determinable from the two logs alone.** Pinned as a
+  test: `parity.compare_logs` reads a real EAC log and ours and pairs all 14
+  tracks with no other input. Doing so surfaced a real result — with v0.5.11
+  reporting the *shipped* read, the reference rip now matches EAC on **13 of 14
+  tracks** (was 12); the auto-fix's re-read of track 5 converged on exactly the
+  bytes EAC got. Only track 3, which has never read the same way twice on this
+  drive, still differs.
+- The parser now captures the disc's album/artist, cyanrip's `C2 errors:` and
+  `Paranoia level:` lines, and each track's start/end/pre-gap sectors — the data
+  behind the rows above.
 - **A fitness test that guards the "surfaces disagree" bug class.**
   `tests/test_surface_consistency.py` renders one `RipLog` through the
   EAC-compatible log, the JSON report and the verdict banner, then asserts they
@@ -3135,7 +3165,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...HEAD
+[0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
@@ -3193,4 +3224,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.11.*
+*Last updated for Platterpus v0.5.12.*
