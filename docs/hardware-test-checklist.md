@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.10
+# Hardware test checklist — v0.5.11
 
 > **What's left to do**, in the order that takes the fewest rips. Everything already
 > proven is recorded below and removed from the steps. Test numbers are the stable
@@ -10,7 +10,7 @@
 >
 > **Never send audio** — logs, `.cue`, `.platterpus.json` and CRCs only.
 
-**Date:** ____________  **App version after update:** 0.5.10
+**Date:** ____________  **App version after update:** 0.5.11
 
 ---
 
@@ -43,9 +43,9 @@ Tracks 3 and 5 are this disc's known problem children.
 |---|---|---|
 | 1 | `B0D122E7` | AR v2, confidence 200 |
 | 2 | `985AAE32` | AR v2, confidence 200 |
-| **3** | **varies** | run 1 `52DFDF7D`, run 2 `3D8FCF0C` — **never read the same way twice**; offset-variant match only |
+| **3** | **varies** | run 1 `52DFDF7D`, run 2 `3D8FCF0C`, run 3 first-pass `52DFDF7D` → shipped `3D8FCF0C` — **never reliably the same twice**; offset-variant match only |
 | 4 | `60D796AE` | AR v2, confidence 200 |
-| **5** | `E0036697` | offset-variant match; converged on re-read in run 2, so it *should* now be stable |
+| **5** | `E0036697` | offset-variant match; the shipped CRC has been `E0036697` on all three runs (its *first* pass varies — run 3 read `6902BCF0` before the re-rip fixed it) |
 | 6 | `B32769D6` | AR v2, confidence 200 |
 | 7 | `CCBFF669` | AR v2, confidence 200 |
 | 8 | `D723C1B0` | AR v2, confidence 200 |
@@ -74,16 +74,17 @@ failure. CTDB will say **no match** for the same reason.
 | 14 · full rip end-to-end | ✅ **run 2** | 14/14 tracks, 0 ripping errors, FLAC verify 14/14, art embedded, all four files written |
 | 15 · force-stop + recovery | ✅ run 1 | drive killed and ejected; Open folder / View log worked after |
 | ⭐ 17 · INDEX 00 | ✅ **answered run 2** | 14 × `INDEX 01`, no `PREGAP` → the gap is real on 0.9.3, so Part 8 below is required |
-| 4a · Test & Copy CRCs | ❌ **failed run 2** → fixed in 0.5.10 | re-tested as step 1 below |
+| 4a · Test & Copy CRCs | ❌ **failed run 2** (proof missing) → ❌ **failed run 3** (proof present, wrong CRC) → fixed in 0.5.11 | re-tested as step 1 below |
+| 14 · full rip end-to-end | ✅ again **run 3** | 14/14, 0 errors, both problem tracks converged for the first time (`unresolved: false`) |
 
 ---
 
 ## 0 — Setup (1 minute)
 
-### 0.1 — [ ] Update to v0.5.10
+### 0.1 — [ ] Update to v0.5.11
 
 *Help → Check for updates…* → download → verify → accept the restart.
-Confirm *Help → About* says **0.5.10**. (No reinstall — your config carries over.)
+Confirm *Help → About* says **0.5.11**. (No reinstall — your config carries over.)
 
 ### 0.2 — [ ] Leave your settings exactly as they are
 
@@ -97,38 +98,46 @@ Confirmed from your last screenshot, and all correct for this run:
 
 ---
 
-## 1 — [ ] The two new fixes (one rip of the Police disc)
+## 1 — [ ] Re-check the CRCs (one rip of the Police disc)
 
-Rip it with the settings above; let it finish. Both fixes are about **what the log
-admits** — run 2 proved the app *knew* these things and the log didn't say them.
+**What your 0.5.10 rip found — a real bug, now fixed.** Both v0.5.10 fixes fired:
+tracks 3 and 5 rendered as EAC `Test CRC` == `Copy CRC` pairs. But the CRC in each
+pair was the **first read pass's**, not the file's. This time the auto-fix converged
+*and* swapped in **both** tracks, and each re-read produced different audio — so the
+log paired a convergence proof with bytes that had been thrown away:
+
+| Track | 0.5.10 log said | file on disk actually was |
+|---|---|---|
+| 3 | `52DFDF7D` | `3D8FCF0C` |
+| 5 | `6902BCF0` | `E0036697` |
+
+cyanrip's own `.log` was right — it appends a swap addendum naming the shipped CRC.
+Our EAC log and JSON report had no such mechanism, so they described the discarded
+read. v0.5.11 folds the swapped-in read's own record (CRC **and** its AccurateRip
+result) over the first pass. Same rip, same settings — just check the numbers now:
 
 ```sh
 cd "<album folder>"
-grep -nE "Test CRC|not confirmed reproducible|Read stability" *"(EAC-compatible).log"
+grep -nE "Test CRC|Copy CRC|not confirmed reproducible|Read stability" *"(EAC-compatible).log"
+tail -8 *.log        # cyanrip's swap addendum — the CRCs must agree with the above
 ```
 
-Expected — three new lines that didn't exist in run 2:
-
-- **Track 5:** a `Test CRC E0036697` line matching its Copy CRC, with a
-  *"reads converged"* note. It was re-read and the reads agreed, which is exactly
-  EAC's Test & Copy proof; run 2 silently dropped it.
-- **Track 3:** `(re-reads did NOT agree — this read is not confirmed reproducible)`
-  on its Copy CRC line.
-- **Near the bottom:** `Read stability      : track(s) 3 did not read identically
-  across re-reads — not confirmed reproducible`
-- **The other 12 tracks: unchanged** — plain `Copy CRC`, no caveat, no Test CRC. We
-  only say what was measured.
-
-Then confirm the checksum still covers the new lines:
+- Expected: for any re-ripped track, the `Test CRC`/`Copy CRC` pair **equals the CRC
+  in cyanrip's addendum**. That agreement is the whole fix — the two files can no
+  longer disagree about what's on disk.
+- Expected: the 12 untouched tracks still match the table above exactly.
+- Expected: if a track's re-reads *didn't* agree this time, it carries
+  `(re-reads did NOT agree — this read is not confirmed reproducible)` and a
+  whole-disc `Read stability :` line. If both converge again, neither appears —
+  that's correct, not a miss.
 
 ```sh
 head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 ```
 
 **Result:** ☐ PASS ☐ FAIL
-Track 5 Test CRC present: ☐ yes ☐ no · Track 3 caveat present: ☐ yes ☐ no
-`Read stability` line present: ☐ yes ☐ no · Checksum matched: ☐ yes ☐ no
-Track 3's CRC this time: ____________ (expected to differ from both earlier runs)
+Addendum CRCs match the EAC log: ☐ yes ☐ no · Checksum matched: ☐ yes ☐ no
+Track 3 CRC: ____________ · Track 5 CRC: ____________
 
 ---
 
@@ -285,7 +294,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged from before the update:
+Expected, unchanged from before the v0.5.10 → v0.5.11 update:
 
 - `output_dir = "/home/rmccann/Music/rips"` · working dir `~/.cache/platterpus`
 - `read_offset = 667` and *"Apply this read offset to rips"* still ticked
@@ -300,7 +309,7 @@ Expected, unchanged from before the update:
 
 - [ ] *Help → User Guide* mentions **Analyse cache** and **Verify every track**
 - [ ] Every Settings control shows a tooltip on hover
-- [ ] *Help → About* shows **0.5.10** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → About* shows **0.5.11** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
 - [ ] Disc-panel values can be selected and copied with the mouse
 
@@ -345,8 +354,7 @@ grep -nE "INDEX|PREGAP" "<new album folder>"/*.cue
 - Then do **one more normal rip** of the Police disc and confirm you still get
   **12/14 exact AccurateRip matches** against the CRC table above — we changed
   rippers, so this is the safety check.
-- If the build fails, send me the error and stop there. Nothing else depends on it,
-  and the dependency list above is my best guess at what Fedora needs.
+- If the build fails, send me the error and stop there. Nothing else depends on it.
 
 Commit built: `git -C ~/cyanrip-master rev-parse --short HEAD` → ____________
 cyanrip version reported: ____________
@@ -366,4 +374,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.10.*
+*Last updated for Platterpus v0.5.11.*

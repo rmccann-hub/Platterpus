@@ -423,6 +423,13 @@ class RipWorker(QObject):
         # GUI folds this into the report and results pane. Empty when nothing was
         # re-ripped.
         self._retried_tracks: list[dict] = []
+        # The PARSED per-track record of every re-rip we actually swapped into the
+        # album, keyed by track number. This is the shipped file's own read — its
+        # CRC and AccurateRip results — which the whole-disc first-pass log cannot
+        # know (real-hardware bug, 2026-07-26: the log kept describing the
+        # DISCARDED bytes). The GUI folds these over the parsed log before any
+        # rendering, so every surface describes the audio actually on disk.
+        self._swapped_track_records: dict[int, object] = {}
         # Why the dynamic secure re-rip did or didn't run (report's
         # read_speed.secure_rerip), so "why wasn't my shaky track re-ripped?" is
         # answerable from the JSON. `mode` is dynamic / uniform / off; `engaged`
@@ -634,6 +641,18 @@ class RipWorker(QObject):
         FLAC replaced the original. The GUI folds this into the report + results
         pane. Empty when no track was re-ripped."""
         return list(self._retried_tracks)
+
+    @property
+    def swapped_track_records(self) -> dict[int, object]:
+        """Parsed per-track records of the re-rips actually swapped into the album.
+
+        Keyed by track number; each value is the ``TrackResult`` from the *re-rip's*
+        own log, i.e. the read that produced the file now on disk. The whole-disc
+        log records only the first pass, so without this the report and the
+        EAC-layout log describe the discarded bytes — a CRC that doesn't match the
+        file it names (real-hardware bug, 2026-07-26). Empty when nothing was
+        swapped."""
+        return dict(self._swapped_track_records)
 
     @property
     def eta_trace(self) -> list[dict]:
@@ -1217,6 +1236,10 @@ class RipWorker(QObject):
                         swapped.append(
                             (number, getattr(track, "filename", "") or "", new_crc)
                         )
+                        # Keep the re-rip's parsed record: it is the SHIPPED file's
+                        # read, so it — not the first pass — is what the report and
+                        # the EAC-layout log must describe.
+                        self._swapped_track_records[number] = track
                 self._retried_tracks.append(
                     {
                         "track": number,
