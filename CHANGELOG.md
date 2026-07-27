@@ -11,6 +11,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **A fitness test that guards the "surfaces disagree" bug class.**
+  `tests/test_surface_consistency.py` renders one `RipLog` through the
+  EAC-compatible log, the JSON report and the verdict banner, then asserts they
+  agree: identical per-track CRCs, one answer to "how many tracks are proven",
+  offset-variant tracks never called absent *or* exact, a non-reproducible track
+  flagged everywhere, and an interrupted rip declared in the durable log. Four of
+  the last week's defects were one bug — a fact reaching some surfaces and not
+  others — and each was invisible to unit tests because every surface was correct
+  by its own lights. Each assertion is mutation-checked against the defect it
+  exists for.
+
 ### Fixed
 - **CI's changelog gate could fail a change that satisfied it.** Both of the gate's
   checks piped a producer into `grep -q` under `set -o pipefail`: `grep -q` exits the
