@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.13
+# Hardware test checklist — v0.5.14
 
 > **Only what still needs testing.** Anything that has passed is gone from this sheet —
 > the record of what passed and when lives in `docs/session-log.md`. Test numbers are
@@ -57,7 +57,8 @@ best-possible result for this disc — not a failure.
 
 Expected CTDB: **match, confidence 1** (`our_crc` = `matched_crc` = `5DA89FCD`).
 
-**Two expected changes in wording this release, so they don't read as regressions:**
+**Two expected changes in wording since your last run (v0.5.12), so they don't read as
+regressions:**
 
 * CTDB's no-match line now says *"no match at the standard alignment"* and explains
   that CTDB also holds offset-shifted pressings. It no longer says your rip differs
@@ -68,10 +69,10 @@ Expected CTDB: **match, confidence 1** (`our_crc` = `matched_crc` = `5DA89FCD`).
 
 ---
 
-## 0 — [ ] Update to v0.5.13
+## 0 — [ ] Update to v0.5.14
 
 *Help → Check for updates…* → download → verify → restart. *Help → About* says
-**0.5.13**. Nothing else to set up — your settings are already right (see above).
+**0.5.14**. Nothing else to set up — your settings are already right (see above).
 
 ---
 
@@ -381,7 +382,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.12 → v0.5.13: `output_dir =
+Expected, unchanged across v0.5.12 → v0.5.14: `output_dir =
 "/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
 with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
 independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
@@ -466,4 +467,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.14.*

@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.14] — 2026-07-28
+
 ### Fixed
 - **The results pane and disc panel drew their text over each other in a
   non-maximised window.** Two labels were never told to word-wrap, and an
@@ -3403,6 +3405,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
@@ -3462,4 +3465,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.14.*
