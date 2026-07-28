@@ -63,6 +63,12 @@ green on all ten checks at the time.*
   pass was interrupted. (The audio was unaffected — the re-rip works in a temp
   directory and only swaps on success.) The report now carries an explicit
   `interrupted` flag.
+- **The output-format block still spoke for cyanrip on other rippers' logs.** The
+  three archival-header rows were gated on the backend; this block sat one lower and
+  told a whipper rip that "cyanrip encodes in-process via libavcodec". Same gate now.
+- **The backend gate was a substring test**, so `not-cyanrip 1.0` and
+  `whipper (cyanrip-compatible)` inherited cyanrip's asserted behaviour. It anchors
+  to the start of the creator string now.
 - The parser property test could not reach any of the new branches, so their
   never-raises guarantee was untested; the corpus now includes them, plus a
   4400-digit sector and inverted `Start`/`End` geometry.

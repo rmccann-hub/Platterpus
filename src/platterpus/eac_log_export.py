@@ -292,7 +292,7 @@ def _render(
     #     it reproduced a real EAC log's CRCs exactly on 12 of 14 tracks of the
     #     reference disc, which is empirical proof the definitions agree;
     #   • interface — cyanrip reaches the drive through libcdio-paranoia.
-    cyanrip = "cyanrip" in (rip_log.log_creator or "").casefold()
+    cyanrip = _is_cyanrip(rip_log)
     lines.append(
         "Delete leading and trailing silent blocks   : "
         + ("No" if cyanrip else _UNREPORTED)
@@ -310,7 +310,7 @@ def _render(
         f"{info.gap_detection or _UNREPORTED}"
     )
     lines.append("")
-    lines.extend(_output_format_block())
+    lines.extend(_output_format_block(cyanrip))
     lines.extend(_toc_block(rip_log, disc_track_total))
 
     # --- Per-track blocks ---
@@ -375,6 +375,18 @@ def _eac_date(raw: str) -> str:
     return raw
 
 
+def _is_cyanrip(rip_log: RipLog) -> bool:
+    """Was this log written by cyanrip?
+
+    Gates every row asserted from the ripper's *behaviour* rather than from the
+    log's contents. `startswith`, not a substring test: cyanrip's banner is
+    "cyanrip <version>", while a substring would let "not-cyanrip 1.0" or
+    "whipper (cyanrip-compatible)" inherit assertions that are not true of them
+    (review finding, 2026-07-28).
+    """
+    return (rip_log.log_creator or "").casefold().startswith("cyanrip")
+
+
 def _read_mode(info: RippingInfo) -> str:
     """EAC's Read mode row. "Secure" is earned, not assumed.
 
@@ -416,13 +428,28 @@ def _fill_with_silence(info: RippingInfo) -> str:
     return _UNREPORTED
 
 
-def _output_format_block() -> list[str]:
+def _output_format_block(cyanrip: bool) -> list[str]:
     """EAC's output-format block, in EAC's rows.
 
     EAC shells out to a command-line encoder and prints the executable path plus
     its argument string. cyanrip encodes in-process through libavcodec, so there
     is no command line to print — that row says so rather than inventing one.
     """
+    if not cyanrip:
+        # Every row below states something about cyanrip's encoder. For a log
+        # another ripper wrote we know none of it — and claiming "cyanrip
+        # encodes in-process" about a whipper rip is the same leak the header
+        # rows were just hardened against (review finding, 2026-07-28).
+        return [
+            f"Used output format              : {_UNREPORTED}",
+            f"Selected bitrate                : {_UNREPORTED}",
+            f"Quality                         : {_UNREPORTED}",
+            f"Add ID3 tag                     : {_UNREPORTED}",
+            f"Command line compressor         : {_UNREPORTED}",
+            f"Additional command line options : {_UNREPORTED}",
+            "",
+            "",
+        ]
     return [
         "Used output format              : FLAC",
         # EAC prints an encoder bitrate/quality pair here. FLAC is lossless, so
