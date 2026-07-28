@@ -25,9 +25,11 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.tool_paths import resolve_tool
+
 log = logging.getLogger(__name__)
 
-_FLAC_BINARY: str = "flac"
+_FLAC_BINARY: str = resolve_tool("flac")
 
 # `-8` is flac's maximum compression *preset* (a.k.a. `--best` /
 # `--compression-level-8`); per the xiph spec it expands to

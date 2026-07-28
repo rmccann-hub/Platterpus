@@ -99,6 +99,32 @@ class RippingInfo:
     # (real-hardware finding, 2026-07-01: the BDR-209D reports unchangeable).
     # True = a speed was set or reported "changeable"; None = unknown/whipper log.
     speed_changeable: bool | None = None
+    # --- fields EAC prints in its archival header, which cyanrip also reports
+    # under different names. Captured so the EAC-layout export can fill EAC's
+    # own rows from measured data instead of omitting them (2026-07-27).
+    #
+    # The disc's artist and title, for EAC's "Artist / Album" header line.
+    album: str = ""
+    album_artist: str = ""
+    # cyanrip's "C2 errors:" line → EAC's "Make use of C2 pointers". True only
+    # when C2 is actually in use; False when the drive doesn't support it (the
+    # BDR-209D reports "unsupported by drive"); None when unreported.
+    c2_pointers: bool | None = None
+    # cyanrip's "Paranoia level:" → EAC's "Read mode" (Secure vs Burst). Kept as
+    # the raw level text so the renderer decides the wording, not the parser.
+    paranoia_level: str = ""
+    # cyanrip's "Overread mode:" text verbatim (e.g. "fill with silence in
+    # lead-in/lead-out"). EAC asks two INDEPENDENT questions — whether it
+    # overread, and whether it padded missing offset samples with silence — and
+    # this one line answers both. Deriving the second as the complement of the
+    # first happened to work for cyanrip and is not generally true, so the text
+    # is kept (review finding, 2026-07-28).
+    overread_mode: str = ""
+    # cyanrip's "Outputs:" row (e.g. "flac", or "flac,mp3"). EAC's "Used output
+    # format" was hardcoded to FLAC, which is a false statement in a
+    # checksum-attested document for a WavPack/MP3/WAV rip — Platterpus supports
+    # all four (review finding, 2026-07-28).
+    output_formats: str = ""
 
 
 @dataclass(frozen=True)
@@ -153,6 +179,16 @@ class TrackResult:
     # JSON report is the only machine-readable record of what was tagged without
     # re-reading every file. Empty for whipper logs / when not present.
     replaygain: dict[str, str] = field(default_factory=dict)
+    # --- absolute disc geometry, for EAC's "TOC of the extracted CD" table.
+    # cyanrip prints these per track as "Start LSN:" / "End LSN:" / "Pregap LSN:"
+    # (LSN == sector). EAC's Start and Length columns are derived from them
+    # exactly — verified against a real EAC log of the same disc (2026-07-27).
+    # None when the log didn't report them (whipper, or a partial log).
+    start_sector: int | None = None
+    end_sector: int | None = None
+    # Sectors of pre-gap before this track, for EAC's "Pre-gap length" line.
+    # cyanrip prints "Pregap LSN: none" when there is none.
+    pregap_sectors: int | None = None
 
 
 @dataclass(frozen=True)

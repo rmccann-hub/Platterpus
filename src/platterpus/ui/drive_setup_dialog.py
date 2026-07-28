@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.rip_backend import RipBackend
+from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
 from platterpus.workers import start_worker_thread
@@ -239,8 +240,12 @@ class DriveSetupDialog(CenteredDialog):
         # The plain QLabel beside it isn't a buddy, so name the spin box for
         # screen readers explicitly.
         self._offset_spin.setAccessibleName("Read offset in samples")
-        # AccurateRip offsets sit well within ±2000 samples in practice.
-        self._offset_spin.setRange(-2000, 2000)
+        # Read the SAME bounds the pure validator enforces, rather than the
+        # hardcoded ±2000 this used to carry — a widget range that disagrees
+        # with the validator is a second, silently-different rule for the same
+        # field (audit finding, 2026-07-28). Real AccurateRip offsets sit well
+        # inside this range; the bound is a sanity cap, not a claim about drives.
+        self._offset_spin.setRange(OFFSET_MIN, OFFSET_MAX)
         # Prefill with the model-looked-up offset when we have one (the
         # primary path); otherwise fall back to the currently-configured
         # value passed in.

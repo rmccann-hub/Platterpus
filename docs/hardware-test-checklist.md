@@ -1,10 +1,10 @@
-# Hardware test checklist — v0.5.11
+# Hardware test checklist — v0.5.12
 
-> **Only what still needs testing.** Anything that passed is gone from this sheet —
+> **Only what still needs testing.** Anything that has passed is gone from this sheet —
 > the record of what passed and when lives in `docs/session-log.md`. Test numbers are
 > the stable IDs from the original sheet, so the gaps are deliberate.
 >
-> Rig details, tool versions and expected values are pre-filled from your last three
+> Rig details, tool versions and expected values are pre-filled from your last four
 > runs. You tick boxes and note anything that **differs** from what's printed.
 >
 > **Never send audio** — logs, `.cue`, `.platterpus.json` and CRCs only.
@@ -39,75 +39,64 @@ Expected Copy CRCs — the 12 stable tracks should reproduce exactly:
 | `6F6E4A5F` | `3A33519F` | `56BFC63D` | `D78CEAEF` | `DA6A4DAF` | `787BA2D6` |
 
 **Tracks 3 and 5** are the disc's problem children and get re-read automatically.
-Track 5's *shipped* CRC has been `E0036697` on all three runs; track 3's has varied
+Track 5's *shipped* CRC has been `E0036697` on all four runs; track 3's has varied
 (`52DFDF7D`, `3D8FCF0C`). Expected verdict: **amber**, 12/14 exact + 2
-offset-variant — correct, not a failure. CTDB says **no match** for the same reason.
+offset-variant — correct, not a failure.
+
+**Two expected changes in wording this release, so they don't read as regressions:**
+
+* CTDB's no-match line now says *"no match at the standard alignment"* and explains
+  that CTDB also holds offset-shifted pressings. It no longer says your rip differs
+  from the database — we only ever tested one of ~11,759 valid alignments, so that
+  claim was more than the check could support.
+* Settings and the User Guide now say CTDB verification is **on by default**. It
+  always was; both places said it was off.
 
 ---
 
-## 0 — [ ] Update to v0.5.11
+## 0 — [ ] Update to v0.5.12
 
 *Help → Check for updates…* → download → verify → restart. *Help → About* says
-**0.5.11**. Nothing else to set up — your settings are already right (see above).
+**0.5.12**. Nothing else to set up — your settings are already right (see above).
 
 ---
 
-## 1 — [ ] The CRC fix (one rip of the Police disc) — **failed twice, retest**
+## A — The v0.5.12 audit fixes
 
-Your v0.5.10 rip paired a "reads converged" proof with the CRC of the read that was
-**thrown away**: the log said track 3 = `52DFDF7D` and track 5 = `6902BCF0`, while
-the files on disk were `3D8FCF0C` and `E0036697`. cyanrip's own log had it right in
-its swap addendum; our EAC log and JSON didn't. v0.5.11 makes the swapped-in read's
-own record — CRC *and* AccurateRip result — the one every surface reports.
+*Eight reviewers went over the whole app. These are the fixes that can only be proven
+on your rig. Test A1 is the important one.*
 
-Rip the disc, let it finish, then:
+### A1 — [ ] ⭐ A track that never reads the same way twice must not show a Test CRC
 
-```sh
-cd "<album folder>"
-grep -nE "Test CRC|Copy CRC|not confirmed reproducible|Read stability" *"(EAC-compatible).log"
-tail -8 *.log        # cyanrip's swap addendum
-```
+**This is the headline fix and your disc is the perfect case for it.** Track 3 has
+failed to reproduce on three of four runs. Until now, a track whose re-reads
+*disagreed* still printed a `Test CRC == Copy CRC` pair — the EAC symbol for
+"two independent reads agreed" — because the code counted *how many passes cyanrip
+took* rather than *how many agreed*. The same checksum-signed document then said, a
+few lines further down, that the reads had not agreed.
 
-- Expected: for every re-ripped track, the `Test CRC`/`Copy CRC` pair **equals the
-  CRC in cyanrip's addendum**. That agreement is the whole fix — the two files can no
-  longer disagree about what's on disk.
-- Expected: the 12 untouched tracks match the table above exactly.
-- Expected: if a track's re-reads *didn't* agree this time, it carries `(re-reads did
-  NOT agree — this read is not confirmed reproducible)` plus a whole-disc
-  `Read stability :` line. If both converge again, neither appears — that's correct.
+Rip the Police disc once, then in the album folder:
 
 ```sh
-head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
+grep -nE "Test CRC|Copy CRC|Read stability|not confirmed reproducible" *"(EAC-compatible).log"
 ```
 
-**Result:** ☐ PASS ☐ FAIL — addendum CRCs match the EAC log: ☐ yes ☐ no ·
-checksum matched: ☐ yes ☐ no
-Track 3: ____________ · Track 5: ____________
+- If a track is listed under `Read stability … not confirmed reproducible`, it must
+  have **only a Copy CRC**, tagged `(re-reads did NOT agree …)`. **No `Test CRC` line
+  for that track** — that is the whole fix.
+- Tracks that converged keep their `Test CRC` + `Copy CRC` pair.
+- If *no* track appears under `Read stability` this run, the fix wasn't exercised —
+  say so and it stays on the sheet.
 
----
+**Result:** ☐ PASS ☐ FAIL ☐ not exercised — track(s) flagged: ______ · any Test CRC on
+a flagged track: ☐ y ☐ n
 
-## 2 — [ ] Test 7: offset-variant re-read, across two rips
+### A2 — [ ] ⭐ An interrupted rip must admit it — *now actually wired*
 
-Step 1 gave you rip A. Rip the same disc again (rip B), then:
-
-```sh
-./platterpus-x86_64.AppImage --compare "<A>.platterpus.json" "<B>.platterpus.json"
-```
-
-- Expected: **track 5 byte-identical** between A and B — that's the point of the
-  offset-variant re-read setting.
-- Expected: **track 3 may still differ.** Three runs have failed to read it the same
-  way twice; that's the disc. If it *is* identical, say so — genuine win.
-- Expected: tracks 3 and 5 take noticeably longer than the rest.
-
-**Result:** ☐ PASS ☐ FAIL — identical: ____ / 14 · track 5: ☐ y ☐ n · track 3: ☐ y ☐ n
-
----
-
-## 3 — [ ] Test 18: an interrupted rip must admit it
-
-Shipped in v0.5.9, never exercised. This was run 1's worst bug — a force-stopped rip
-produced a checksum-signed log that read as a *complete* rip.
+Was test 18. It has been on this sheet since v0.5.9 and it has **never worked**: the
+banner's renderer was correct, but the code that hands it the rip's outcome read a
+dictionary the wrong way and always passed an empty status. Four releases shipped it
+broken. It is fixed and pinned by a test that goes through the real write path.
 
 1. Start a rip, let two or three tracks finish, then **Cancel**.
 2. In that album's folder:
@@ -126,9 +115,125 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 
 **Result:** ☐ PASS ☐ FAIL — banner said: ____________ · checksum: ☐ y ☐ n
 
+### A3 — [ ] Quitting during the securing pass is now recorded in the log too
+
+Run 4 found this by accident: closing the window mid-re-rip reported a clean success.
+The JSON report was fixed to record it; the *durable* log — the artifact a stranger
+reads years later — still said nothing, so the archival record was the more
+reassuring of the two. Both now carry it.
+
+1. Start a rip of the Police disc. When the status says it is re-ripping tracks 3 & 5,
+   **close the window**.
+2. Then:
+
+```sh
+grep -nE "securing pass was INTERRUPTED" *"(EAC-compatible).log"
+python3 -c "import glob,json;print(json.load(open(glob.glob('*.platterpus.json')[0]))['read_speed'])"
+```
+
+- Expected in the log: `Secure re-read      : the securing pass was INTERRUPTED
+  before it finished — any track it had not yet re-read carries only its first read`
+- Expected in the JSON: `secure_rerip.interrupted` is `true` and agrees with it.
+- Expected: all 14 tracks present and playable regardless.
+
+**Result:** ☐ PASS ☐ FAIL — notes: ____________
+
+### A4 — [ ] The progress bar reaches 100%
+
+On the only supported backend the Overall bar always froze at **95%** under a status
+line reading "Done" — the last 5% was reserved for a phase cyanrip never emits.
+
+- After any successful rip: Overall bar is at **100%**.
+- After a **cancelled** rip: it stays where it stopped. That's correct — it's the truth.
+
+**Result:** ☐ PASS ☐ FAIL — success: ____% · cancelled: ____%
+
+### A5 — [ ] The desktop notification says what the window says
+
+Start a rip of the Police disc, switch to another window, and let it finish.
+
+- Expected: the notification text **matches the final status line** in Platterpus. If
+  the window warns that a track didn't read reproducibly, the notification must say
+  so too. It used to send the reassuring summary captured a few seconds earlier.
+
+**Result:** ☐ PASS ☐ FAIL — notification said: ____________
+
+### A6 — [ ] Your own `cover.jpg` survives a re-rip
+
+Cover art is embedded but not saved by default, and the scratch file it wrote for
+`metaflac` reused the name `cover.jpg` and then deleted it — so the default setting
+destroyed a cover you had put in the folder yourself.
+
+1. Put any JPEG named `cover.jpg` into an already-ripped album folder.
+2. Re-rip that disc and choose **Replace** when asked about the existing folder.
+3. Expected: your `cover.jpg` is **still there, unchanged**, and no stray
+   `.platterpus-cover-tmp*` file is left behind.
+
+**Result:** ☐ PASS ☐ FAIL — cover survived: ☐ y ☐ n · stray temp file: ☐ y ☐ n
+
+### A7 — [ ] A bad read offset is refused, visibly
+
+*Tools → Set up drive…* → type an offset far outside the sane range (the box now
+allows ±5000, matching the validator — it used to allow ±2000 while the validator
+allowed ±5000). Try to save something absurd if the box lets you, e.g. by
+hand-editing `~/.config/platterpus/config.toml` to `read_offset = 999999` and
+relaunching.
+
+- Expected: a clear message naming the allowed range; **+667 is still in effect
+  afterwards**. It must never silently accept a bad value and reset it to 0 on the
+  *next* launch — that would rip the following session at the wrong offset.
+
+**Result:** ☐ PASS ☐ FAIL — offset after the attempt: ____________
+
+### A8 — [ ] Uninstall removes `cd-paranoia` too
+
+*Tools → Uninstall Platterpus…* → **tick the host-exports item, untick everything
+else** (you don't want a real uninstall) → run it. Then:
+
+```sh
+ls ~/.local/bin/ | grep -E "cyanrip|metaflac|flac|cd-paranoia"
+```
+
+- Expected: **all four gone**. `cd-paranoia` was being orphaned — the exact repeat of
+  the `flac` bug from earlier.
+- Re-run *Tools → Set up Platterpus…* afterwards to put them back.
+
+**Result:** ☐ PASS ☐ FAIL — left behind: ____________
+
+### A9 — [ ] Launched from the desktop icon, the app still finds its tools
+
+A GUI started from a **desktop icon** does not inherit a login shell's `PATH`, and
+`~/.local/bin` — where the container's tools are exported — is exactly what goes
+missing. The wizard would report a tool installed while the dependency probe reported
+it missing.
+
+1. Launch Platterpus from the **application menu / desktop icon**, not a terminal.
+2. *Tools → Check dependencies*. Expected: cyanrip, metaflac, flac, ffmpeg and
+   cd-paranoia all **found**.
+3. Rip a disc and confirm CTDB verification runs (it decodes with the host `flac`).
+
+**Result:** ☐ PASS ☐ FAIL — any reported missing: ____________
+
 ---
 
-## 4 — [ ] Test 6: per-track "Rip?" selection
+## B — Carried over (still never exercised on hardware)
+
+### 2 — [ ] Test 7: offset-variant re-read, across two rips
+
+Test A1 gave you rip A. Rip the same disc again (rip B), then:
+
+```sh
+./platterpus-x86_64.AppImage --compare "<A>.platterpus.json" "<B>.platterpus.json"
+```
+
+- Expected: **track 5 byte-identical** between A and B — that's the point of the
+  offset-variant re-read setting.
+- Expected: **track 3 may still differ.** Four runs have failed to read it the same
+  way twice; that's the disc. If it *is* identical, say so — genuine win.
+
+**Result:** ☐ PASS ☐ FAIL — identical: ____ / 14 · track 5: ☐ y ☐ n · track 3: ☐ y ☐ n
+
+### 4 — [ ] Test 6: per-track "Rip?" selection
 
 1. Insert a CD, let it identify. The grid has a leading **Rip?** column, all ticked.
 2. Untick two tracks → **Start rip**. Expected: only ticked tracks ripped, filenames
@@ -140,9 +245,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
----
-
-## 5 — [ ] Test 4b: whole-disc Test & Copy
+### 5 — [ ] Test 4b: whole-disc Test & Copy
 
 *Settings* → tick **"Verify every track with a second read (EAC-style Test & Copy)"**
 → OK (max reads is already 2, which is what it needs). Re-rip a disc.
@@ -151,16 +254,16 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -c "Test CRC" *"(EAC-compatible).log"
 ```
 
-- Expected: **14** — a Test CRC for every track, each equal to its Copy CRC
-- Expected: noticeably slower than step 1 (everything read twice)
+- Expected: **14** on a disc that reads cleanly — a Test CRC for every track, each
+  equal to its Copy CRC.
+- On the Police disc, expect **12**: tracks 3 and 5 may legitimately fail to converge,
+  and after the A1 fix a non-converging track correctly gets **no** Test CRC. That is
+  a pass, not a failure — note which tracks are missing.
+- Expected: noticeably slower than A1 (everything read twice).
 
 Untick it again afterwards.
 
-**Result:** ☐ PASS ☐ FAIL — Test CRC count: ____ / 14
-
----
-
-## 6 — Risk areas (only test 12 needs a full rip)
+**Result:** ☐ PASS ☐ FAIL — Test CRC count: ____ / 14 · missing: ____________
 
 ### 8 — [ ] The app is fine without cd-paranoia
 
@@ -190,7 +293,7 @@ mv ~/.local/bin/cd-paranoia ~/.local/bin/cd-paranoia.bak
 
 ### 10 — [ ] Settings persist across a restart
 
-Turn **both** new toggles on → OK → fully quit → relaunch → reopen Settings.
+Turn **both** toggles on → OK → fully quit → relaunch → reopen Settings.
 
 ```sh
 grep -E "secure_rerip_dynamic|rerip_offset_variant" ~/.config/platterpus/config.toml
@@ -229,28 +332,38 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.10 → v0.5.11: `output_dir =
+Expected, unchanged across v0.5.11 → v0.5.12: `output_dir =
 "/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
 with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
 independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
 
+> One deliberate change to watch for: an output or library folder that is **not
+> mounted** at launch is now a *warning*, not an error. It used to be an error, and
+> an error-level field gets reset to its default on load — so a rip library on a NAS
+> or a removable disk that happened to be unmounted was silently retargeted to
+> `~/Music/rips` and the library folder cleared. If you use a removable library
+> folder, unmount it, relaunch, and confirm your path is **still in the config**.
+
 **Result:** ☐ PASS ☐ FAIL — anything reset? ____________
 
----
+### 16 — [ ] UI spot-check
 
-## 7 — [ ] Test 16: UI spot-check
-
-- [ ] *Help → User Guide* mentions **Analyse cache** and **Verify every track**
-- [ ] Every Settings control shows a tooltip on hover
-- [ ] *Help → About* shows **0.5.11** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → User Guide* mentions **Analyse cache** and **Verify every track**, and
+      says CTDB verification is **on by default**
+- [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says
+      "on by default"
+- [ ] *Help → About* shows **0.5.12** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
 - [ ] Disc-panel values can be selected and copied with the mouse
+- [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and
+      no longer offers to "switch to the cyanrip backend in Settings" (there is no
+      such setting — cyanrip is the only backend)
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
 ---
 
-## 8 — [ ] Required: build cyanrip `master` for INDEX 00
+## C — [ ] Required, and do it LAST: build cyanrip `master` for INDEX 00
 
 Your cyanrip 0.9.3 writes only `INDEX 01` (confirmed run 2). Upstream `master`
 already synthesises the track-1 pre-gap and writes `INDEX 00`/`PREGAP`. **Do this
@@ -297,11 +410,11 @@ cyanrip version reported: ____________
 
 1. `~/.local/share/platterpus/log.txt`
 2. One album's `.log`, `(EAC-compatible).log`, `.cue`, `.platterpus.json`
-3. The `--compare` output from step 2
+3. The `--compare` output from test 2
 4. This sheet, filled in
 
 Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.11.*
+*Last updated for Platterpus v0.5.12.*

@@ -14,6 +14,10 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+
+# The one canonical window teardown (see its docstring — a second copy of it
+# is how CI segfaulted on 2026-07-28).
+from conftest import stop_window_threads
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
@@ -165,37 +169,10 @@ def teardown_threads(qapp: QApplication):
     yield factory
 
     for window in created:
-        # Quit the MB worker thread so it doesn't leak between tests.
-        if window._mb_thread.isRunning():
-            window._mb_thread.quit()
-            window._mb_thread.wait(2000)
-        # Join a launch dependency-check thread too — destroying a window with
-        # a running QThread aborts the process. quit() here is delivered to the
-        # thread's own loop directly (not via the queued finished→quit), so it
-        # works even when the test never pumped the GUI event loop.
-        if (
-            window._dep_check_thread is not None
-            and window._dep_check_thread.isRunning()
-        ):
-            window._dep_check_thread.quit()
-            window._dep_check_thread.wait(2000)
-        # Same for a disc-info probe thread (drive-change flow).
-        if (
-            window._disc_info_thread is not None
-            and window._disc_info_thread.isRunning()
-        ):
-            window._disc_info_thread.quit()
-            window._disc_info_thread.wait(2000)
-        # …and a launch drive-list probe thread.
-        if (
-            window._drive_list_thread is not None
-            and window._drive_list_thread.isRunning()
-        ):
-            window._drive_list_thread.quit()
-            window._drive_list_thread.wait(2000)
-        # The post-rip CTDB and FLAC-verify steps run on daemon threads (die
-        # with the process, guard their emits) — not joined here, like the
-        # cover-art thread. Tests that start one join it themselves.
+        # The joins live in `conftest.stop_window_threads` — one copy, because a
+        # second one is a second chance to forget a thread, and forgetting one
+        # segfaults the process during a later test's GC (2026-07-28).
+        stop_window_threads(window)
         window.deleteLater()
 
 

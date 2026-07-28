@@ -19,6 +19,7 @@ Hypothesis docs: https://hypothesis.readthedocs.io/
 
 from __future__ import annotations
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -54,6 +55,30 @@ _FRAGMENTS = st.sampled_from(
         "Disc duration: 01:02:08.026, 16 audio tracks",
         "Disc duration: ?, audio tracks",  # no number
         "Tracks:",
+        # --- v0.5.12 EAC-layout fields. Without these the fuzzer cannot steer
+        # into the new branches at all: st.text() will never emit "Start LSN:"
+        # by chance, so the never-raises property was silently not covering them
+        # (review finding, 2026-07-28). Each shape includes a hostile variant.
+        "Album:          Every Breath You Take: The Classics",
+        "Album:          ",  # padded, value-less — must not become " "
+        "Album artist:   The Police",
+        "C2 errors:      unsupported by drive",
+        "C2 errors:      supported by drive",  # capability, NOT use
+        "C2 errors:      ",
+        "Paranoia level: max",
+        "Paranoia level: none",
+        "Paranoia level: wibble",  # unrecognised → must not become "Secure"
+        "    Start LSN:   0 (with offset: 1)",
+        "    End LSN:     14486 (with offset: 14488)",
+        "    Start LSN:   99999999999999999999999999",  # huge but parseable
+        "    End LSN:     " + "9" * 4400,  # over CPython's int() digit ceiling
+        "    Start LSN:   500",
+        "    End LSN:     4",  # end < start — inverted geometry
+        "    Pregap LSN:  none",
+        "    Pregap LSN:  150",
+        "Gaps:",
+        "    None signalled",
+        "Overread mode:  fill with silence in lead-in/lead-out",
         "  1:",
         "    Peak level: 0.9",
         "    Peak level: not-a-float",  # bad float
@@ -244,3 +269,43 @@ def test_concatenated_drive_blocks_count(n: int) -> None:
     block = "drive: /dev/sr0, vendor: ACME, model: X, release: 1.0\n"
     drives = parse_drive_list(block * n)
     assert len(drives) == n
+
+
+# --- CPython's int() digit ceiling: a boundary, so tested as one -------------
+#
+# `int(str)` refuses more than 4300 digits (CPython >= 3.11), which made every
+# unguarded numeric field in the cyanrip parser a never-raises hole — seven of
+# them, all demonstrated raising (review finding, 2026-07-28). Hypothesis cannot
+# find this unaided: a 4301-digit run never appears by chance in `st.text()`.
+# Steering the fuzzer at it DID work, but cost 2m14s per run to rediscover one
+# deterministic boundary — so it is pinned explicitly instead: cheaper, and it
+# names the exact field that regressed when it fails.
+_OVER_THE_DIGIT_LIMIT = "9" * 4301
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"Offset:         +{_OVER_THE_DIGIT_LIMIT} samples",
+        f"Track {_OVER_THE_DIGIT_LIMIT} ripped and encoded successfully!",
+        f"Ripping errors: {_OVER_THE_DIGIT_LIMIT}",
+        f"    READ:          {_OVER_THE_DIGIT_LIMIT}",
+        f"    Start LSN:   {_OVER_THE_DIGIT_LIMIT}",
+        f"    End LSN:     {_OVER_THE_DIGIT_LIMIT}",
+        f"    Pregap LSN:  {_OVER_THE_DIGIT_LIMIT}",
+        f"  EAC CRC32:     A1B2C3D4 (after {_OVER_THE_DIGIT_LIMIT} rips)",
+        f"  Accurip v1:  1234 (accurately ripped, confidence {_OVER_THE_DIGIT_LIMIT})",
+        f"  Accurip 450: BF62 (matches Accurip DB, confidence {_OVER_THE_DIGIT_LIMIT})",
+    ],
+)
+def test_an_absurdly_long_number_never_raises(line: str) -> None:
+    """Every numeric field degrades to unknown instead of raising."""
+    text = "\n".join(
+        [
+            "cyanrip 0.9.3",
+            "Paranoia status counts:",
+            "Track 1 ripped and encoded successfully!",
+            line,
+        ]
+    )
+    parse_cyanrip_log(text)  # must not raise

@@ -59,9 +59,61 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
     import sys
 
     status = int(session.exitstatus)
+    # Print the terminal summary OURSELVES before the hard exit. Without this the
+    # `os._exit` below skipped it entirely — a red CI run produced only progress
+    # dots, with no failing test names and no tracebacks, and `--durations` was
+    # silently useless. Diagnosability is the whole point of a test run
+    # (audit finding, 2026-07-28), and the summary is cheap to emit here.
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is not None:
+        try:
+            reporter.write_line("")
+            reporter.summary_failures()
+            reporter.summary_errors()
+            reporter.short_test_summary()
+            reporter.summary_stats()
+        except Exception:  # noqa: BLE001 — reporting must never change the status
+            log_ = __import__("logging").getLogger(__name__)
+            log_.exception("could not print the pytest summary")
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(status)
+
+
+def stop_window_threads(window: object) -> None:
+    """Join every QThread a MainWindow owns, before it is destroyed.
+
+    **Destroying a QWidget while a QThread it owns is still running aborts the
+    process** — a mid-run SIGSEGV during a later test's garbage collection, with
+    a traceback pointing at whatever innocent test happened to trigger the GC.
+    That is exactly what happened on 2026-07-28: a new test file grew its own
+    window fixture that called `deleteLater()` without joining anything, every
+    window it made left `_mb_thread` running, and CI segfaulted inside
+    `test_ui_auto_center.py` — a file that had nothing to do with it.
+
+    So the joins live here, in one place, and every window fixture calls this.
+    A second copy of this logic is a second chance to forget a thread.
+
+    `quit()` is delivered to each thread's own event loop directly (not via a
+    queued `finished` → `quit`), so it works even when the test never pumped the
+    GUI event loop. Read via `getattr` so a window that never created a given
+    thread — or a future one that renames it — degrades to "nothing to join"
+    rather than raising during teardown.
+
+    Deliberately NOT joined: the post-rip CTDB / FLAC-verify / cover-art steps
+    run on **daemon** threads that die with the process and guard their emits.
+    A test that starts one joins it itself.
+    """
+    for name in (
+        "_mb_thread",
+        "_dep_check_thread",
+        "_disc_info_thread",
+        "_drive_list_thread",
+    ):
+        thread = getattr(window, name, None)
+        if thread is not None and thread.isRunning():
+            thread.quit()
+            thread.wait(2000)
 
 
 # Hold the QApplication in a module global so it is NEVER garbage-collected —

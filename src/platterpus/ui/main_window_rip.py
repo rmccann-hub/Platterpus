@@ -841,7 +841,10 @@ class RipMixin(MainWindowShared):
         """
         from PySide6.QtWidgets import QSystemTrayIcon
 
-        existing = getattr(self, "_tray_icon", None)
+        # Declared on the shared seam (`main_window_shared`), so read it as an
+        # attribute — a `getattr` here returned `Any` and silently defeated the
+        # return-type check on this very method.
+        existing = self._tray_icon
         if existing is not None:
             return existing
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -1114,6 +1117,15 @@ class RipMixin(MainWindowShared):
                 # watching the live log still sees that a disc needed a slow
                 # re-read, or (loudly) that it never read clean at the floor.
                 self._append_read_speed_summary()
+                # The overall bar is driven from per-track progress, which caps
+                # at 95% by design (the last 5% was reserved for a whipper-only
+                # "length" phase that cyanrip never emits). On the sole supported
+                # backend it therefore froze at 95% under a status line reading
+                # "Done" — the textbook "works but feels broken" (audit finding,
+                # 2026-07-28). Only on success: a cancelled or failed rip SHOULD
+                # leave the bar where it stopped, because that is the truth.
+                if success:
+                    self._rip_progress.set_progress(100.0, 100.0)
             except OSError as exc:
                 log.warning("could not read rip log %s: %s", log_file, exc)
             except Exception:  # noqa: BLE001 — GUI-thread finish handler: a
@@ -1131,10 +1143,15 @@ class RipMixin(MainWindowShared):
             self._write_minimal_failure_report(params)
 
         # Desktop notification so an unattended rip announces itself even when
-        # Platterpus isn't the focused window. `status` now holds the final,
-        # user-facing summary (the fidelity line on success, the failure hint
-        # otherwise). Best-effort; a user cancel is not announced (see helper).
-        self._notify_rip_complete(success, status)
+        # Platterpus isn't the focused window. Read the status back off the
+        # widget rather than using the local `status`: that local was assigned
+        # before `_append_read_speed_summary()` ran, so the notification — whose
+        # entire audience is the user who walked away — said "all tracks ripped
+        # cleanly" while the window said a track never read reproducibly (audit
+        # finding, 2026-07-28). Best-effort; a user cancel is not announced.
+        self._notify_rip_complete(
+            success, self._rip_progress.current_status() or status
+        )
 
         # Post-rip processing: unknown-mode tagging + backend-independent
         # cover art. Both shell out to metaflac on the SAME FLAC files, so
@@ -1536,6 +1553,15 @@ class RipMixin(MainWindowShared):
                         )
                     except Exception:  # noqa: BLE001 — extra art must never crash
                         log.exception("additional cover art fetch failed")
+                # Same generation guard the transcode step below carries: the
+                # cover fetch is the SLOWEST post-rip step (a Cover Art Archive
+                # HTTP GET with a 30 s timeout), so it is the one most likely to
+                # land after the user has already started the next rip — and
+                # `_on_cover_art_done` writes straight into whatever album's
+                # report is current, naming a release that album never used
+                # (audit finding, 2026-07-28).
+                if self._rip_generation != gen:
+                    return  # a newer rip started — this result is for the old album
                 try:
                     self.cover_art_done.emit(art_result)
                 except RuntimeError:  # window destroyed — nothing to update
@@ -1550,6 +1576,8 @@ class RipMixin(MainWindowShared):
                 except Exception:  # noqa: BLE001 — must never crash the GUI
                     log.exception("FLAC re-compress failed unexpectedly")
                     result = RecompressResult(error="failed unexpectedly")
+                if self._rip_generation != gen:
+                    return  # a newer rip started — this result is for the old album
                 try:
                     self.flac_recompress_done.emit(result)
                 except RuntimeError:  # window destroyed — nothing to update
@@ -2134,14 +2162,28 @@ class RipMixin(MainWindowShared):
             # Both come from state we already recorded — `_last_outcome.status`
             # (the same value the JSON report carries) and the scanned TOC's track
             # count — so nothing here is invented.
+            # `_last_outcome` is the DICT that `rip_report.build_outcome()`
+            # returns — a dict does not expose its keys as attributes, so the
+            # `getattr(outcome, "status", "")` this used to do always yielded the
+            # default and the INCOMPLETE RIP banner could never render on a real
+            # rip (audit finding, 2026-07-28 — the feature shipped broken in
+            # v0.5.11). Subscript it, and guard the type so a future shape change
+            # degrades to "no banner" instead of raising in the finish path.
             outcome = getattr(self, "_last_outcome", None)
+            outcome_status = (
+                str(outcome.get("status") or "") if isinstance(outcome, dict) else ""
+            )
             text = render_eac_style_log(
                 rip_log,
                 platterpus_version=__version__,
                 build_fingerprint=build_info.build_fingerprint(),
                 encoder_versions=build_info.encoder_versions(dep_report, wanted),
-                outcome_status=str(getattr(outcome, "status", "") or ""),
+                outcome_status=outcome_status,
                 disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
+                # An interrupted securing pass reached the JSON report and not
+                # the durable log, so the archival artifact was the more
+                # reassuring of the two (audit finding, 2026-07-28).
+                secure_rerip=getattr(self, "_last_secure_rerip", None),
             )
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
@@ -2344,6 +2386,9 @@ class RipMixin(MainWindowShared):
             log.warning("%s", message)
             self._rip_progress.set_status(message)
             self._rip_progress.append_log_line(message)
+            self._rip_progress.downgrade_verdict(
+                f"track{plural} {listed} did not read reproducibly"
+            )
 
     def _schedule_rip_report_write(self) -> None:
         """Coalesce a rip-report re-write onto the debounce timer.
@@ -2467,6 +2512,12 @@ class RipMixin(MainWindowShared):
         if result.failures:
             log.warning("%s", message)
             self._rip_progress.set_status(message)
+            # The verdict banner was set from the AccurateRip parse minutes ago
+            # and knows nothing about this. A green "Bit-perfect" headline over a
+            # master that will not decode is the worst thing this screen can say.
+            self._rip_progress.downgrade_verdict(
+                f"{len(result.failures)} FLAC master(s) failed the decode check"
+            )
         else:
             log.info("%s", message)
         self._rip_progress.append_log_line(message)
@@ -2604,6 +2655,19 @@ class RipMixin(MainWindowShared):
                 "(lossy — decodability + completeness, not bit-identity)."
             )
         if result.mismatches or result.failures:
+            log.warning("%s", message)
+            self._rip_progress.set_status(message)
+            # Only a LOSSLESS mismatch contradicts the trust headline; a lossy
+            # MP3 that differs from its master is expected by definition.
+            if result.mismatches and result.lossless:
+                self._rip_progress.downgrade_verdict(
+                    f"{len(result.mismatches)} derived {fmt} file(s) are not "
+                    "bit-identical to the FLAC master"
+                )
+        elif not result.complete:
+            # An incomplete transcode used to appear ONLY in the scrolling log
+            # pane: a user who chose MP3 for their phone and got 9 of 14 found
+            # out by scrolling (audit finding, 2026-07-28).
             log.warning("%s", message)
             self._rip_progress.set_status(message)
         else:

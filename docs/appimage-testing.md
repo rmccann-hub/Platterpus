@@ -60,6 +60,7 @@ A branch won't have a published AppImage. Two ways to get one:
 
 `install.sh`, `install-appimage.sh`, and `uninstall.sh` are guarded by smoke
 tests (`tests/test_install_script.py`, `tests/test_install_appimage_script.py`,
+`tests/test_uninstall_script.py`; `setup-host.sh` has its own,
 `tests/test_setup_host_script.py`) that check syntax, `--help`, and `--dry-run`
 behaviour, and exercise an install→uninstall round-trip against a sandboxed
 `HOME`. Run them with `pytest`. The full host-stack bootstrap (Distrobox +
@@ -67,4 +68,4 @@ cyanrip) still needs a real-hardware confirmation — CI only dry-run-tests it.
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.12.*

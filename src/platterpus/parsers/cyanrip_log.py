@@ -38,6 +38,7 @@ text — it degrades to empty fields (institutional rule, docs/testing.md).
 
 from __future__ import annotations
 
+import logging
 import re
 
 from platterpus.parsers.rip_log import (
@@ -46,6 +47,8 @@ from platterpus.parsers.rip_log import (
     RippingInfo,
     TrackResult,
 )
+
+log = logging.getLogger(__name__)
 
 # First meaningful line of any cyanrip log/output: "cyanrip 0.9.3.1 (tag)".
 _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)")
@@ -81,6 +84,33 @@ _OVERREAD_MODE = re.compile(r"^(?:Over|Under)read mode:\s+(?P<mode>.+?)\s*$")
 # "CDDB ID:        E20DFE0E" (freedb/CDDB Disc ID). Both are TOC-derived, so
 # they identify the SAME physical disc across re-rips — the key the re-rip
 # comparison uses. Values are opaque tokens (no spaces), so \S+ is exact.
+# EAC prints the disc as "Artist / Album" under its date line; cyanrip reports
+# the same two facts as separate start-report rows.
+_ALBUM = re.compile(r"^Album:\s+(?P<value>.+?)\s*$")
+_ALBUM_ARTIST = re.compile(r"^Album artist:\s+(?P<value>.+?)\s*$")
+# "C2 errors:      unsupported by drive" (BDR-209D) / "... enabled" etc. EAC's
+# "Make use of C2 pointers" row. Only an explicit positive counts as Yes — an
+# unsupported or unrecognised value is No/unknown, never an invented Yes.
+_C2 = re.compile(r"^C2 errors:\s+(?P<text>.+?)\s*$")
+# "Paranoia level: max" → EAC's "Read mode" (Secure vs Burst).
+_PARANOIA_LEVEL = re.compile(r"^Paranoia level:\s+(?P<text>.+?)\s*$")
+# cyanrip's "Gaps:" section, whose single indented line answers EAC's
+# "Gap handling" row ("None signalled" on the reference disc). The row was
+# rendering "(not reported)" although the ripper does report it (review
+# finding, 2026-07-28).
+_GAPS_HEADER = re.compile(r"^Gaps:\s*$")
+_GAPS_VALUE = re.compile(r"^\s+(?P<value>\S.*?)\s*$")
+# Platterpus's own swap addendum, appended after cyanrip's output when the
+# per-track auto-fix replaced a track's file. Its text states that these CRCs
+# are the SHIPPED file's and supersede the values above — so a re-parse must
+# honour it, or anything reading the saved log back (parity.track_copy_crcs,
+# the --compare path, a third-party tool) gets CRCs describing bytes that are
+# not on disk (review finding, 2026-07-28). The GUI never hit this because it
+# patches from live worker state; a re-parse from disk did.
+_ADDENDUM_CRC = re.compile(
+    r"^\s+Track (?P<number>\d+) \(.*\): CRC (?P<crc>[0-9A-Fa-f]{8})\s*$"
+)
+_OUTPUTS = re.compile(r"^Outputs:\s+(?P<value>.+?)\s*$")
 _DISC_ID = re.compile(r"^DiscID:\s+(?P<value>\S+)")
 _CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)")
 # "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
@@ -105,6 +135,35 @@ _SECURE_DONE_FAIL = re.compile(r"^Done;\s+\(no matches found\b")
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
 _TOTAL_TIME = re.compile(r"^Total time:\s+(?P<time>\d{1,2}:\d{2}:\d{2}(?:\.\d+)?)")
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
+# Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
+# is derived from exactly these (its Start and Length columns reproduce
+# bit-for-bit — verified against a real EAC log of the same disc). The
+# "(with offset: N)" suffix is deliberately IGNORED: EAC's TOC reports the disc's
+# own geometry, not the offset-shifted read window.
+_START_LSN = re.compile(r"^\s+Start LSN:\s+(?P<value>\d+)")
+_END_LSN = re.compile(r"^\s+End LSN:\s+(?P<value>\d+)")
+# Anchored like its two siblings — NOT to end-of-line. cyanrip prints a
+# "(with offset: N)" suffix on some geometry rows, and a `$` here would drop a
+# real pre-gap value the moment it gained one (review finding, 2026-07-28).
+_PREGAP_LSN = re.compile(r"^\s+Pregap LSN:\s+(?P<value>\d+|none)\b")
+
+
+def _int_or_none(raw: str) -> int | None:
+    """``int(raw)`` or None — never raises.
+
+    CPython 3.11+ refuses to convert a string of more than 4300 digits, so a
+    corrupt log with a long digit run would otherwise raise ValueError straight
+    out of the parser, which must never happen (parsers return a best-effort
+    dataclass on ANY input). Non-numeric text can't reach here through the
+    regexes, but the guard is cheap and the rule is absolute.
+    """
+    try:
+        return int(raw)
+    except ValueError:
+        log.warning("cyanrip log: unusable integer %r; recording as unknown", raw[:32])
+        return None
+
+
 # "  EAC CRC32:     A1B2C3D4" with an optional "(after N rips)" suffix — the
 # rip-pass count for the track (1 if absent; higher means -Z secure re-reads).
 _EAC_CRC = re.compile(
@@ -200,6 +259,15 @@ def parse_cyanrip_log(text: str) -> RipLog:
     read_offset: int | None = None
     overread_lead_out: bool | None = None
     speed_changeable: bool | None = None
+    album = ""
+    album_artist = ""
+    c2_pointers: bool | None = None
+    paranoia_level = ""
+    overread_mode = ""
+    gap_detection = ""
+    output_formats = ""
+    shipped_crcs: dict[int, str] = {}
+    expect_gaps = False
     disc_id = ""
     cddb_id = ""
     accuraterip_summary = ""
@@ -238,6 +306,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 accuraterip_offset=current["offset"],
                 rip_count=current["rip_count"],
                 secure_rerip_converged=current["secure_rerip_converged"],
+                start_sector=current["start_sector"],
+                end_sector=current["end_sector"],
+                pregap_sectors=current["pregap_sectors"],
                 replaygain=dict(current["replaygain"]),
             )
         )
@@ -251,18 +322,81 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _DRIVE.match(line)
         if match:
-            drive = match.group("drive")
+            drive = match.group("drive").strip()
             continue
 
         match = _OFFSET.match(line)
         if match:
-            value = int(match.group("value"))
+            value = _int_or_none(match.group("value")) or 0
             read_offset = -value if match.group("sign") == "-" else value
             continue
 
         match = _OVERREAD_MODE.match(line)
         if match:
             overread_lead_out = _parse_overread_mode(match.group("mode"))
+            overread_mode = match.group("mode").strip()
+            continue
+
+        match = _ALBUM.match(line)
+        if match and current is None:
+            # `.strip()`: a padded, value-less row backtracks into capturing a
+            # single space, which would render the disc line as " / ".
+            album = match.group("value").strip()
+            continue
+
+        match = _ALBUM_ARTIST.match(line)
+        if match and current is None:
+            album_artist = match.group("value").strip()
+            continue
+
+        match = _C2.match(line)
+        if match:
+            # BUG-8: a distinct local, never `text` — that is the function's own
+            # parameter (the whole log). Reassigning it is the trap the _SPEED_CAP
+            # handler below already carries a warning about; this branch
+            # reintroduced it and the review caught it (2026-07-28).
+            c2_text = match.group("text").casefold()
+            # cyanrip's line reports what the DRIVE CAN DO, not what the rip did:
+            # its format string is "C2 errors:      %s by drive". So "unsupported"
+            # proves C2 was not used (the drive cannot), while "supported" says
+            # only that it was available — EAC's row asks whether C2 was *used*,
+            # which cyanrip never states. Claiming Yes from a capability line
+            # would be exactly the invented rip fact the export forbids, so an
+            # affirmative capability leaves the answer unknown.
+            if "unsupported" in c2_text or "not supported" in c2_text:
+                c2_pointers = False
+            elif "disabled" in c2_text or "off" in c2_text:
+                c2_pointers = False
+            else:
+                c2_pointers = None
+            continue
+
+        match = _PARANOIA_LEVEL.match(line)
+        if match:
+            paranoia_level = match.group("text").strip()
+            continue
+
+        if expect_gaps:
+            expect_gaps = False
+            match = _GAPS_VALUE.match(line)
+            if match and current is None:
+                gap_detection = match.group("value")
+                continue
+
+        if _GAPS_HEADER.match(line) and current is None:
+            expect_gaps = True
+            continue
+
+        match = _ADDENDUM_CRC.match(line)
+        if match:
+            number = _int_or_none(match.group("number"))
+            if number is not None:
+                shipped_crcs[number] = match.group("crc").upper()
+            continue
+
+        match = _OUTPUTS.match(line)
+        if match and current is None:
+            output_formats = match.group("value").strip()
             continue
 
         match = _DISC_ID.match(line)
@@ -301,7 +435,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if in_paranoia:
             match = _PARANOIA_LINE.match(line)
             if match:
-                paranoia_counts[match.group("key")] = int(match.group("count"))
+                paranoia_counts[match.group("key")] = (
+                    _int_or_none(match.group("count")) or 0
+                )
                 continue
             in_paranoia = False  # block ended; fall through to other handlers
 
@@ -356,7 +492,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             else:
                 status = "ripped with errors"
             current = {
-                "number": int(match.group("number")),
+                "number": _int_or_none(match.group("number")) or 0,
                 "filename": "",
                 "pre_emphasis": None,
                 "copy_crc": "",
@@ -369,6 +505,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 # consume it so the next track starts fresh (None if -Z was off).
                 "secure_rerip_converged": pending_converged,
                 "replaygain": {},
+                "start_sector": None,
+                "end_sector": None,
+                "pregap_sectors": None,
             }
             pending_converged = None
             expect_filename = False
@@ -391,6 +530,24 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current["replaygain"][match.group("key")] = match.group("val")
                 continue
 
+            match = _START_LSN.match(line)
+            if match:
+                current["start_sector"] = _int_or_none(match.group("value"))
+                continue
+
+            match = _END_LSN.match(line)
+            if match:
+                current["end_sector"] = _int_or_none(match.group("value"))
+                continue
+
+            match = _PREGAP_LSN.match(line)
+            if match:
+                raw = match.group("value")
+                # "none" is a real answer (no pre-gap), recorded as 0 rather than
+                # None so "measured: none" is distinguishable from "not reported".
+                current["pregap_sectors"] = 0 if raw == "none" else _int_or_none(raw)
+                continue
+
             match = _PREEMPHASIS.match(line)
             if match:
                 current["pre_emphasis"] = not match.group("text").startswith("none")
@@ -401,7 +558,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current["copy_crc"] = match.group("crc").upper()
                 rips = match.group("rips")
                 if rips is not None:
-                    current["rip_count"] = int(rips)
+                    current["rip_count"] = _int_or_none(rips)
                 continue
 
             match = _ACCURIP_TRACK.match(line)
@@ -409,9 +566,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 result_text = match.group("result") or ""
                 conf_match = _ACCURIP_CONFIDENCE.search(result_text)
                 ar = AccurateRipResult(
-                    version=int(match.group("version")),
+                    version=_int_or_none(match.group("version")) or 0,
                     result=result_text,
-                    confidence=int(conf_match.group("value")) if conf_match else None,
+                    confidence=_int_or_none(conf_match.group("value"))
+                    if conf_match
+                    else None,
                     local_crc=match.group("crc").upper(),
                 )
                 current[f"v{ar.version}"] = ar
@@ -427,7 +586,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current["offset"] = AccurateRipResult(
                     version=450,
                     result=result_text,
-                    confidence=int(conf_match.group("value")) if conf_match else None,
+                    confidence=_int_or_none(conf_match.group("value"))
+                    if conf_match
+                    else None,
                     local_crc=match.group("crc").upper(),
                 )
                 continue
@@ -450,7 +611,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _RIP_ERRORS.match(line)
         if match:
-            count = int(match.group("count"))
+            count = _int_or_none(match.group("count")) or 0
             # Same phrasing as whipper's healthy verdict so downstream
             # string checks treat both backends alike.
             health_status = (
@@ -460,10 +621,19 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _FINISHED_AT.match(line)
         if match:
-            creation_date = match.group("when")
+            creation_date = match.group("when").strip()
             continue
 
     flush()
+    # Apply the swap addendum last, over the finished track list: it is the only
+    # statement in the file about which bytes actually shipped.
+    if shipped_crcs:
+        from dataclasses import replace as _replace
+
+        tracks = [
+            _replace(tr, copy_crc=shipped_crcs.get(tr.number, tr.copy_crc))
+            for tr in tracks
+        ]
     return RipLog(
         log_creator=log_creator,
         creation_date=creation_date,
@@ -473,6 +643,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
             read_offset_correction=read_offset,
             overread_lead_out=overread_lead_out,
             speed_changeable=speed_changeable,
+            album=album,
+            album_artist=album_artist,
+            c2_pointers=c2_pointers,
+            paranoia_level=paranoia_level,
+            overread_mode=overread_mode,
+            gap_detection=gap_detection,
+            output_formats=output_formats,
         ),
         tracks=tuple(tracks),
         accuraterip_summary=accuraterip_summary,

@@ -50,6 +50,7 @@ import re
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RipLog,
+    RippingInfo,
     TrackResult,
     accuraterip_is_match,
 )
@@ -143,6 +144,7 @@ def render_eac_style_log(
     encoder_versions: dict[str, str] | None = None,
     outcome_status: str = "",
     disc_track_total: int | None = None,
+    secure_rerip: dict | None = None,
 ) -> str:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``.
 
@@ -155,6 +157,11 @@ def render_eac_style_log(
     * ``encoder_versions`` — ``{dep_id: version}`` for the FLAC encoder
       (``flac``/``metaflac``) and, when a derived format was produced,
       ``ffmpeg``; from :func:`platterpus.build_info.encoder_versions`.
+    * ``secure_rerip`` — :attr:`RipWorker.secure_rerip_report`. Only its
+      ``interrupted`` flag is read: an auto-fix securing pass cut short (the app
+      was closed mid-pass) is a fact the JSON report carried and the durable log
+      did not, so the archival artifact was the more reassuring of the two —
+      the exact asymmetry this module exists to prevent (audit, 2026-07-28).
 
     The honesty gate still holds: any value not supplied is **omitted, never
     invented**, the cyanrip source line is left exactly as parsed, and EAC's own
@@ -175,6 +182,7 @@ def render_eac_style_log(
             encoder_versions=encoder_versions or {},
             outcome_status=outcome_status,
             disc_track_total=disc_track_total,
+            secure_rerip=secure_rerip or {},
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -193,12 +201,30 @@ def _render(
     encoder_versions: dict[str, str],
     outcome_status: str = "",
     disc_track_total: int | None = None,
+    secure_rerip: dict | None = None,
 ) -> str:
+    """Build the log body in **EAC's own section order and row layout**.
+
+    Every row EAC prints appears here in EAC's position, spelling and column
+    alignment, so the two logs can be read (and diffed) side by side. Each row is
+    filled one of three ways, and never any other:
+
+    * **measured** — we have the fact, so the row reads exactly as EAC's would;
+    * **derived** — the fact follows necessarily from something measured (EAC's
+      TOC table is computed from the per-track sectors cyanrip reports, and
+      reproduces a real EAC log of the same disc bit-for-bit);
+    * **labelled** — cyanrip doesn't report it, so the row says
+      ``(not reported by cyanrip)`` rather than guessing. A row is never
+      silently omitted and never invented: an EAC value we cannot stand behind
+      would make the whole document untrustworthy, which is the opposite of
+      the point.
+
+    The two things that stay deliberately un-EAC-like are the attribution header
+    and the checksum footer — those are *provenance*, and copying them would be
+    forgery rather than parity (KDD-11/13/28).
+    """
     info = rip_log.ripping_info
     source = rip_log.log_creator or "an unknown backend"
-    # Attribution header. Software provenance lines are appended only for values
-    # actually supplied (the "never invent a log line" rule) and sit between the
-    # cyanrip source line and the not-an-EAC-log disclaimer.
     lines: list[str] = [
         _BANNER,
         f"  Rendered from a rip by {source}.",
@@ -209,74 +235,109 @@ def _render(
     lines.extend(
         [
             "  This is NOT a genuine EAC log, carries no EAC log checksum, and must",
-            "  not be presented as an EAC rip. It mirrors EAC's layout only so the",
-            "  per-track Copy CRCs can be compared against a real EAC log.",
+            "  not be presented as an EAC rip. It mirrors EAC's layout — section",
+            "  order, row wording and column alignment — so the two can be compared",
+            "  directly. Rows the ripper does not report say so instead of guessing.",
             "",
         ]
     )
     # INCOMPLETE-RIP NOTICE (real-hardware finding, 2026-07-26). A force-stopped
-    # rip previously rendered as 13 consecutive "Copy OK" blocks with an empty
+    # rip previously rendered as consecutive "Copy OK" blocks with an empty
     # conclusive report — a checksum-attested document that read as a *clean,
-    # complete* rip of a 13-track disc, when the disc had 14 and the ripper was
-    # stopped mid-track-14. The app knew (the JSON report recorded
-    # status "cancelled"); the log just wasn't told. Say it outright, from
+    # complete* rip. The app knew; the log just wasn't told. Say it outright, from
     # measured counts only, and place it ABOVE the checksum footer so the notice
     # is covered by the SHA-256 and cannot be stripped without breaking it.
     lines.extend(_incomplete_notice(rip_log, outcome_status, disc_track_total))
 
     if rip_log.creation_date:
-        lines.append(f"Rip date : {rip_log.creation_date}")
+        # EAC: "EAC extraction logfile from 11. June 2026, 20:01". We keep our own
+        # wording (naming EAC as the producer would be the forgery) but the same
+        # position and the same "<date>" shape.
+        lines.append(f"Extraction logfile from {_eac_date(rip_log.creation_date)}")
         lines.append("")
 
-    # --- Drive / read settings (EAC's archival block) ---
-    if info.drive:
-        lines.append(f"Used drive  : {info.drive}")
-        lines.append("")
-    # NB: "Read mode" and "Make use of C2 pointers" are deliberately NOT
-    # emitted. EAC prints them, but our RippingInfo has no field behind them —
-    # cyanrip doesn't report either — so hardcoding "Secure" / "No" would be
-    # inventing rip facts (the same "never invent a log line" rule the banner
-    # states). We render only fields we actually parsed; "Defeat audio cache"
-    # renders "(unknown)" when unreported rather than a fabricated value (#32).
-    lines.append(f"Defeat audio cache      : {_yes_no(info.defeat_audio_cache)}")
-    lines.append("")
-    if info.read_offset_correction is not None:
+    # EAC's disc line: "The Police / Every Breath You Take: The Classics".
+    if info.album_artist or info.album:
         lines.append(
-            f"Read offset correction                      : "
-            f"{info.read_offset_correction}"
+            " / ".join(_real_colons(x) for x in (info.album_artist, info.album) if x)
         )
+        lines.append("")
+
+    # --- Drive / read settings (EAC's archival header) ---
+    lines.append(f"Used drive  : {info.drive or _UNREPORTED}")
+    lines.append("")
+    lines.append(f"Read mode               : {_read_mode(info)}")
+    lines.append(f"Utilize accurate stream : {_UNREPORTED}")
+    lines.append(f"Defeat audio cache      : {_yes_no(info.defeat_audio_cache)}")
+    # Not `_yes_no`: its "(unknown)" means "we haven't measured this yet" (as for
+    # the cache verdict, which a probe can still fill in). C2 is different — the
+    # value simply isn't in cyanrip's log — so it takes the not-reported wording,
+    # keeping the two kinds of absence distinguishable to a reader.
+    lines.append(
+        "Make use of C2 pointers : "
+        + (_UNREPORTED if info.c2_pointers is None else _yes_no(info.c2_pointers))
+    )
+    lines.append("")
+    lines.append(
+        "Read offset correction                      : "
+        + (
+            str(info.read_offset_correction)
+            if info.read_offset_correction is not None
+            else _UNREPORTED
+        )
+    )
     lines.append(
         f"Overread into Lead-In and Lead-Out          : {_yes_no(info.overread_lead_out)}"
     )
-    if info.gap_detection:
-        lines.append(
-            f"Gap handling                                : {info.gap_detection}"
-        )
+    lines.append(
+        f"Fill up missing offset samples with silence : {_fill_with_silence(info)}"
+    )
+    # The next three rows are asserted from how the ripper BEHAVES rather than
+    # from anything in this particular log — so they may only be asserted when we
+    # know which ripper wrote it. Rendering a whipper (or hand-edited) log through
+    # this exporter must not inherit cyanrip's properties (review finding,
+    # 2026-07-28); it gets the honest label instead.
+    #   • silent blocks — cyanrip writes what it reads, it never trims;
+    #   • null samples — cyanrip's per-track CRC is the EAC-compatible CRC32, and
+    #     it reproduced a real EAC log's CRCs exactly on 12 of 14 tracks of the
+    #     reference disc, which is empirical proof the definitions agree;
+    #   • interface — cyanrip reaches the drive through libcdio-paranoia.
+    cyanrip = _is_cyanrip(rip_log)
+    lines.append(
+        "Delete leading and trailing silent blocks   : "
+        + ("No" if cyanrip else _UNREPORTED)
+    )
+    lines.append(
+        "Null samples used in CRC calculations       : "
+        + ("Yes" if cyanrip else _UNREPORTED)
+    )
+    lines.append(
+        "Used interface                              : "
+        + ("Native Linux SCSI/MMC (libcdio-paranoia)" if cyanrip else _UNREPORTED)
+    )
+    lines.append(
+        f"Gap handling                                : "
+        f"{info.gap_detection or _UNREPORTED}"
+    )
     lines.append("")
+    lines.extend(_output_format_block(cyanrip, info))
+    lines.extend(_toc_block(rip_log, disc_track_total))
 
     # --- Per-track blocks ---
     for track in rip_log.tracks:
         lines.extend(_track_block(track))
 
-    # --- Conclusive report ---
+    # --- Conclusive report, in EAC's own wording ---
     lines.append("")
-    if rip_log.accuraterip_summary:
-        lines.append(f"AccurateRip summary : {rip_log.accuraterip_summary}")
-    if rip_log.health_status:
-        lines.append(f"Health status       : {rip_log.health_status}")
-    if not rip_log.accuraterip_summary and not rip_log.health_status:
-        # Say the section is missing rather than rendering a silently empty one —
-        # an absent conclusive report is itself a fact worth recording. Deliberately
-        # states only WHAT is absent, never WHY: this also fires for a successful
-        # rip whose log simply lacked those lines (a hand-trimmed log, a different
-        # backend's format, the render_eac_log.py CLI), so asserting "the ripper was
-        # stopped" would be inventing a cause we didn't measure. The
-        # INCOMPLETE RIP banner above carries the cause when the caller knows it.
-        lines.append(
-            "Conclusive status report : absent — this log carries no end-of-rip "
-            "summary (no AccurateRip total, no health line)"
+    # The read-stability caveat is part of the status report, so it goes BEFORE
+    # the "End of status report" terminator — in EAC everything after that line
+    # is a plugin section (review finding, 2026-07-28).
+    lines.extend(
+        _status_report(
+            rip_log,
+            _read_stability_line(rip_log) + _interrupted_securing_line(secure_rerip),
         )
-    lines.extend(_read_stability_line(rip_log))
+    )
     lines.append("")
     # Deliberately NOT a real "==== Log checksum <hex> ====": that is EAC's
     # signature, and signing our output as EAC would be forgery.
@@ -287,6 +348,291 @@ def _render(
     # hash strength to EAC's log checksum, but verifiable with a standard tool and
     # no secret key.
     return _finalize(body)
+
+
+# The one wording for "EAC prints a value here and cyanrip doesn't report it".
+# A single constant so no row invents its own phrasing, and so a reader can grep
+# the log for everything we couldn't fill.
+_UNREPORTED = "(not reported by the ripper)"
+
+# The TOC's columns are too narrow for the sentence above, so an unmeasured cell
+# gets this instead. Same rule: name the gap, never compute a value from nothing.
+_UNMEASURED = "  ?"
+
+
+def _real_colons(text: str) -> str:
+    """Undo cyanrip's U+2236 stand-in for ':' in displayed text.
+
+    cyanrip substitutes the RATIO lookalike when sanitising tag values (its
+    colon-parsing bug — see docs/cyanrip-soft-fork.md), so a title like
+    "Every Breath You Take: The Classics" reaches us as "…∶ The Classics". That
+    is an artefact of the workaround, not a fact about the disc, and a real EAC
+    log shows the true colon — so the EAC-layout export shows it too. Only the
+    *rendering* is corrected; on-disk filenames keep whatever cyanrip wrote.
+    """
+    return text.replace("\u2236", ":")
+
+
+def _eac_date(raw: str) -> str:
+    """cyanrip's ISO timestamp in EAC's "11. June 2026, 20:01" shape.
+
+    Best-effort: anything that doesn't parse is passed through unchanged rather
+    than dropped, so an unexpected format degrades to the raw value.
+    """
+    from datetime import datetime
+
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            when = datetime.strptime(raw.strip()[:19], fmt)
+        except ValueError:
+            continue
+        return f"{when.day}. {when:%B %Y}, {when:%H:%M}"
+    return raw
+
+
+def _is_cyanrip(rip_log: RipLog) -> bool:
+    """Was this log written by cyanrip?
+
+    Gates every row asserted from the ripper's *behaviour* rather than from the
+    log's contents. `startswith`, not a substring test: cyanrip's banner is
+    "cyanrip <version>", while a substring would let "not-cyanrip 1.0" or
+    "whipper (cyanrip-compatible)" inherit assertions that are not true of them
+    (review finding, 2026-07-28).
+    """
+    return (rip_log.log_creator or "").casefold().startswith("cyanrip")
+
+
+def _read_mode(info: RippingInfo) -> str:
+    """EAC's Read mode row. "Secure" is earned, not assumed.
+
+    EAC's choice is Secure vs Burst: whether the reader re-reads and verifies, or
+    streams once. cyanrip drives libcdio-paranoia, so a rip with a reported
+    paranoia level *is* the secure mode by that definition — the row then reads
+    exactly as EAC's does. With no level reported we say so rather than assume.
+    """
+    level = (info.paranoia_level or "").strip().casefold()
+    if not level:
+        return _UNREPORTED
+    if level in {"none", "disabled", "off", "0"}:
+        return "Burst"
+    # Allow-list, not a default: an unrecognised level is unknown, not Secure.
+    # The original code returned "Secure" for anything it didn't recognise, which
+    # is precisely the assumption the docstring promises not to make (review
+    # finding, 2026-07-28).
+    if level in {"max", "full", "high", "medium", "low", "overlap", "1", "2", "3"}:
+        return "Secure"
+    return _UNREPORTED
+
+
+def _fill_with_silence(info: RippingInfo) -> str:
+    """EAC's "Fill up missing offset samples with silence" row.
+
+    Applying a read offset leaves samples missing at one end of the disc; the
+    question is whether they're padded with silence or the read is extended into
+    the lead-in/lead-out. cyanrip states its choice in the overread *mode* line,
+    which the parser keeps — so this is measured, not assumed.
+    """
+    mode = (info.overread_mode or "").casefold()
+    if "silence" in mode:
+        return "Yes"
+    if "lead-in" in mode or "lead-out" in mode:
+        return "No"  # it read the real samples instead of padding
+    # No mode text: EAC's two checkboxes are INDEPENDENT questions, so the
+    # overread flag alone cannot answer this one (review finding, 2026-07-28 —
+    # deriving it as the flag's complement only happened to work for cyanrip).
+    return _UNREPORTED
+
+
+def _output_format_block(cyanrip: bool, info: RippingInfo) -> list[str]:
+    """EAC's output-format block, in EAC's rows.
+
+    EAC shells out to a command-line encoder and prints the executable path plus
+    its argument string. cyanrip encodes in-process through libavcodec, so there
+    is no command line to print — that row says so rather than inventing one.
+    """
+    if not cyanrip:
+        # Every row below states something about cyanrip's encoder. For a log
+        # another ripper wrote we know none of it — and claiming "cyanrip
+        # encodes in-process" about a whipper rip is the same leak the header
+        # rows were just hardened against (review finding, 2026-07-28).
+        return [
+            f"Used output format              : {_UNREPORTED}",
+            f"Selected bitrate                : {_UNREPORTED}",
+            f"Quality                         : {_UNREPORTED}",
+            f"Add ID3 tag                     : {_UNREPORTED}",
+            f"Command line compressor         : {_UNREPORTED}",
+            f"Additional command line options : {_UNREPORTED}",
+            "",
+            "",
+        ]
+    # The format cyanrip reports it wrote, not a hardcoded "FLAC": Platterpus
+    # also produces MP3, WavPack and WAV, and naming the wrong one in a
+    # checksum-attested log is a false claim (review finding, 2026-07-28).
+    fmt = (info.output_formats or "").strip()
+    lossless = fmt.casefold() in {"", "flac", "wavpack", "wv", "wav"}
+    quality_note = (
+        "(n/a — lossless)" if lossless else "(set by the encoder; see the rip report)"
+    )
+    return [
+        f"Used output format              : {fmt.upper() if fmt else _UNREPORTED}",
+        # EAC prints an encoder bitrate/quality pair here. FLAC is lossless, so
+        # "bitrate" is not a setting that exists for it — say that rather than
+        # print a number EAC's readers would compare against a lossy one.
+        f"Selected bitrate                : {quality_note}",
+        f"Quality                         : {quality_note}",
+        # cyanrip writes Vorbis comments, never ID3, so this is a measured No.
+        "Add ID3 tag                     : No",
+        # NOT the `flac` binary's version: that comes from the launch-time
+        # dependency probe and describes a tool on the host, while the audio was
+        # encoded in-process by cyanrip's libavcodec. Naming it here would credit
+        # the wrong encoder — and contradict the very next row (review finding,
+        # 2026-07-28). The FLAC encoder that DID run is named in the attribution
+        # header instead.
+        "Command line compressor         : (none — cyanrip encodes in-process "
+        "via libavcodec)",
+        "Additional command line options : (none — no external compressor is invoked)",
+        "",
+        "",
+    ]
+
+
+def _pregap_line(track: TrackResult) -> list[str]:
+    """EAC's per-track "Pre-gap length" row, when the disc actually has one.
+
+    EAC prints ``     Pre-gap length  0:00:02.00`` (H:MM:SS.FF) and omits the row
+    entirely for a track with no pre-gap — so a measured zero renders nothing,
+    exactly as EAC does. ``None`` means the ripper never reported it, which also
+    renders nothing: this row's absence is EAC-normal and carries no claim.
+    """
+    sectors = track.pregap_sectors
+    if not isinstance(sectors, int) or sectors <= 0:
+        return []
+    seconds, frames = divmod(sectors, 75)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    return [
+        f"     Pre-gap length  {hours}:{minutes:02d}:{seconds:02d}.{frames:02d}",
+        "",
+    ]
+
+
+def _msf(sectors: int) -> str:
+    """Sector count → EAC's ``M:SS.FF`` (75 sectors == 1 second == 75 frames)."""
+    return f"{sectors // 75 // 60}:{sectors // 75 % 60:02d}.{sectors % 75:02d}"
+
+
+def _toc_block(rip_log: RipLog, disc_track_total: int | None = None) -> list[str]:
+    """EAC's "TOC of the extracted CD" table, derived from the per-track sectors.
+
+    EAC's Start and Length columns are pure functions of the disc geometry that
+    cyanrip already reports as each track's Start/End LSN, so this table is
+    *derived*, not approximated: run against a real EAC log of the reference
+    disc it reproduces every row exactly (verified 2026-07-27).
+
+    Rendered only when every track carries its sectors — a partial table would
+    invite the reader to trust a gap. Column widths match EAC's byte for byte.
+    """
+    tracks = rip_log.tracks
+    if not tracks or all(
+        t.start_sector is None or t.end_sector is None for t in tracks
+    ):
+        return []  # nothing measured at all — no table to draw
+    # EAC always prints the WHOLE disc's TOC. Platterpus can rip a subset (the
+    # per-track "Rip?" column → cyanrip -l), and a 4-row table under EAC's header
+    # would read as a 4-track disc. Say which it is (review finding, 2026-07-28).
+    header = "TOC of the extracted CD"
+    if disc_track_total and disc_track_total > len(tracks):
+        header += (
+            f"  (partial — {len(tracks)} of {disc_track_total} disc tracks "
+            "were selected for this rip)"
+        )
+    out = [
+        header,
+        "",
+        "     Track |   Start  |  Length  | Start sector | End sector ",
+        "    ---------------------------------------------------------",
+    ]
+    for track in tracks:
+        number = f"{track.number:>5}" if isinstance(track.number, int) else "    ?"
+        start, end = track.start_sector, track.end_sector
+        if start is None or end is None or end < start:
+            # A data track carries no LSN lines, and a garbled log can invert
+            # them. Keep the row — dropping it would silently renumber the disc —
+            # but say the geometry is unknown rather than print a computed
+            # nonsense duration (review finding, 2026-07-28).
+            out.append(
+                f"    {number}  | {_UNMEASURED:>8} | {_UNMEASURED:>8} | "
+                f"{_UNMEASURED:>9}    | {_UNMEASURED:>8}   "
+            )
+            continue
+        out.append(
+            f"    {number}  | {_msf(start):>8} | "
+            f"{_msf(end - start + 1):>8} | {start:>9}    | {end:>8}   "
+        )
+    out.append("")
+    out.append("")
+    return out
+
+
+def _status_report(rip_log: RipLog, extra: list[str] | None = None) -> list[str]:
+    """EAC's end-of-rip status report, in EAC's own wording and order.
+
+    EAC closes with per-count lines ("13 track(s) accurately ripped"), a verdict
+    sentence, the error summary, and "End of status report". We use the same
+    sentences because they mean the same thing about the same measurements — the
+    counts come from the shared AccurateRip predicate every other surface uses,
+    so this can't disagree with the verdict banner.
+    """
+    from platterpus.verdict import accuraterip_counts
+
+    total, verified, partial = accuraterip_counts(rip_log)
+    out: list[str] = []
+    if total:
+        unverified = total - verified
+        if verified:
+            out.append(f"{verified:2} track(s) accurately ripped")
+        if unverified:
+            out.append(f"{unverified:2} track(s) could not be verified as accurate")
+        if partial:
+            # The per-track blocks say "Matched an offset-variant pressing"; the
+            # summary used to discard that and report only the bare failure,
+            # leaving it strictly less informative than the body above it.
+            out.append(
+                f"{partial:2} track(s) matched only an offset-variant pressing "
+                "(partially accurate)"
+            )
+        out.append("")
+        # `accuraterip_counts` only counts tracks that produced *some* result, so
+        # a track that failed outright is invisible to `unverified`. Compare
+        # against the real track count before announcing a clean sweep, or a rip
+        # with a dead track reads as "All tracks accurately ripped" (review
+        # finding, 2026-07-28).
+        clean_sweep = not unverified and total >= len(rip_log.tracks)
+        out.append(
+            "All tracks accurately ripped"
+            if clean_sweep
+            else "Some tracks could not be verified as accurate"
+        )
+        out.append("")
+    if rip_log.health_status:
+        out.append(rip_log.health_status)
+        out.append("")
+    if not total and not rip_log.health_status:
+        # An absent conclusive report is itself a fact worth recording. States only
+        # WHAT is absent, never WHY — this also fires for a successful rip whose log
+        # simply lacked those lines (a hand-trimmed log, another backend's format,
+        # the render_eac_log.py CLI), so asserting a cause would invent one. The
+        # INCOMPLETE RIP banner carries the cause when the caller knows it.
+        out.append(
+            "Conclusive status report : absent — this log carries no end-of-rip "
+            "summary (no AccurateRip total, no health line)"
+        )
+        out.append("")
+    if extra:
+        out.extend(extra)
+        out.append("")
+    out.append("End of status report")
+    return out
 
 
 def _read_stability_line(rip_log: RipLog) -> list[str]:
@@ -311,10 +657,37 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     ]
     if not unstable:
         return []
-    listed = ", ".join(str(number) for number in sorted(unstable))
+    # Sort on a total order that tolerates a malformed number: mixing str/int/None
+    # in `sorted()` raises TypeError, and one bad track would take the whole log
+    # down to the stub (review finding, 2026-07-28).
+    listed = ", ".join(
+        str(number)
+        for number in sorted(unstable, key=lambda n: (not isinstance(n, int), str(n)))
+    )
     return [
         f"Read stability      : track(s) {listed} did not read identically across "
         "re-reads — not confirmed reproducible"
+    ]
+
+
+def _interrupted_securing_line(secure_rerip: dict | None) -> list[str]:
+    """A line when the auto-fix securing pass started and never finished.
+
+    Run 4 on the reference rig: the pass launched, the window was closed 26
+    minutes in, and the drive was killed. The audio was fine (the re-rip works in
+    a temp directory and only swaps on success), but the record implied a
+    securing pass that completed. The fix recorded ``interrupted`` — in the JSON
+    report only, so the *durable* artifact, the one a stranger reads years later,
+    still said nothing (audit finding, 2026-07-28).
+
+    Reads defensively: this comes from worker state, and a wrong shape must cost
+    a line, not the whole log.
+    """
+    if not isinstance(secure_rerip, dict) or not secure_rerip.get("interrupted"):
+        return []
+    return [
+        "Secure re-read      : the securing pass was INTERRUPTED before it "
+        "finished — any track it had not yet re-read carries only its first read"
     ]
 
 
@@ -379,16 +752,56 @@ def _provenance_lines(
 
 def _track_block(track: TrackResult) -> list[str]:
     """The per-track section, matching EAC's shape (only real fields rendered)."""
-    out: list[str] = [f"Track  {track.number}", ""]
+    # EAC writes "Track" + one space + the number right-aligned to width 2, so a
+    # single-digit track reads "Track  1" and a double-digit one "Track 14". A
+    # non-int number falls back to str() rather than raising on the format spec.
+    numbered = (
+        f"{track.number:>2}" if isinstance(track.number, int) else str(track.number)
+    )
+    out: list[str] = [f"Track {numbered}", ""]
     if track.filename:
+        # NOT _real_colons: this row names a path a reader may go and open. The
+        # disc *title* gets the true colon back because that is a fact about the
+        # disc; a filename is a fact about the filesystem, and cyanrip wrote the
+        # U+2236 form there. Rewriting it would print a path that does not exist
+        # (review finding, 2026-07-28 — the helper's own docstring said as much).
         out.append(f"     Filename {track.filename}")
         out.append("")
-    if track.peak_level is not None:
-        out.append(f"     Peak level {track.peak_level * 100:.1f} %")
-    if track.extraction_speed is not None:
-        out.append(f"     Extraction speed {track.extraction_speed:.1f} X")
-    if track.extraction_quality is not None:
-        out.append(f"     Track quality {track.extraction_quality:.1f} %")
+    out.extend(_pregap_line(track))
+    # EAC prints these three for every track. Dropping them when unfillable
+    # contradicted this module's own rule — "a row is never silently omitted and
+    # never invented" — 56 times in one 14-track log (review finding,
+    # 2026-07-28). Label them instead, exactly as the header block does.
+    #
+    # None of the three is derivable from cyanrip: EAC's Peak level is the
+    # SAMPLE peak while cyanrip reports only a true (oversampled) peak — a
+    # different quantity, and provably so, since cyanrip's exceeds 100% on this
+    # disc; there is no per-track extraction speed or wall-clock in its output;
+    # and Track quality is an EAC-proprietary metric with no cyanrip analogue.
+    out.append(
+        "     Peak level "
+        + (
+            f"{track.peak_level * 100:.1f} %"
+            if track.peak_level is not None
+            else _UNREPORTED
+        )
+    )
+    out.append(
+        "     Extraction speed "
+        + (
+            f"{track.extraction_speed:.1f} X"
+            if track.extraction_speed is not None
+            else _UNREPORTED
+        )
+    )
+    out.append(
+        "     Track quality "
+        + (
+            f"{track.extraction_quality:.1f} %"
+            if track.extraction_quality is not None
+            else _UNREPORTED
+        )
+    )
     out.extend(_crc_lines(track))
     out.append(f"     {_accuraterip_line(track)}")
     if track.status:
@@ -425,7 +838,19 @@ def _crc_lines(track: TrackResult) -> list[str]:
         return out
     crc = track.copy_crc.upper()
     reads = track.rip_count if track.rip_count and track.rip_count >= 1 else 1
-    verified = track.secure_rerip_converged is True or reads >= 2
+    # `reads` is cyanrip's "(after N rips)" — how many passes it TOOK, not how
+    # many AGREED. When `-Z` exhausts its repeat limit without two reads ever
+    # matching, cyanrip prints both "no matches found, but hit repeat limit"
+    # (→ converged False) and "(after 5 rips)" (→ reads 5). A bare `or reads >= 2`
+    # therefore short-circuited the measured negative and rendered a Test/Copy
+    # pair for precisely the tracks that failed to reproduce — the same
+    # SHA-256-attested document then asserted both that the reads were identical
+    # and, in the status report, that they were not. A measured `False` must win;
+    # only an UNMEASURED track (None) may infer convergence from the pass count.
+    # (Audit finding, 2026-07-28.)
+    verified = track.secure_rerip_converged is True or (
+        track.secure_rerip_converged is None and reads >= 2
+    )
     if verified:
         # ≥2 reads agreed → the CRC is both the test-read's and the copy-read's
         # result. Render the EAC Test/Copy pair + an honest provenance note.
@@ -487,6 +912,16 @@ def _accuraterip_line(track: TrackResult) -> str:
             "Matched an offset-variant pressing — partially accurate "
             f"(confidence {offset_variant.confidence}){crc}  (AR +450)"
         )
+    # A track with an AR result that simply didn't match is NOT absent from the
+    # database — cyanrip logs "disc found in database" alongside a per-track
+    # "not found, either a new pressing, or bad rip". Saying "not present" there
+    # is a false claim, and EAC has its own wording for exactly this state
+    # (review finding, 2026-07-28). Only a track with no AR data at all gets
+    # "not present".
+    for ar in (track.accuraterip_v2, track.accuraterip_v1, track.accuraterip_offset):
+        if ar is not None and ar.local_crc:
+            crc = f"  [{ar.local_crc}]" if ar.local_crc else ""
+            return f"Cannot be verified as accurate{crc}  (AR v{ar.version})"
     return "Track not present in AccurateRip database"
 
 

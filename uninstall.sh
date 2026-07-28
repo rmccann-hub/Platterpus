@@ -310,11 +310,13 @@ else
     skipped "$WHIPPER_CONF_DIR"
 fi
 
-# Host-exported binaries from Distrobox. Must match what setup-host.sh exported
-# (cyanrip, metaflac AND flac); `flac` was missing, so its wrapper was orphaned.
-# `whipper` stays for a pre-KDD-18 install that may still have it exported.
-if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac, flac and cyanrip wrappers at ~/.local/bin/?"; then
-    for bin in whipper metaflac flac cyanrip; do
+# Host-exported binaries from Distrobox. Must match what setup-host.sh and the
+# in-app host-setup wizard exported: cyanrip, metaflac, flac AND cd-paranoia
+# (the optional cache-probe tool, KDD-29). `flac` was missing once and its
+# wrapper was orphaned; `cd-paranoia` then repeated it. `whipper` stays for a
+# pre-KDD-18 install that may still have it exported.
+if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac, flac, cyanrip and cd-paranoia wrappers at ~/.local/bin/?"; then
+    for bin in whipper metaflac flac cyanrip cd-paranoia; do
         target="$HOME/.local/bin/$bin"
         if [ -f "$target" ]; then
             run rm -f "$target"
@@ -324,7 +326,7 @@ if [ "$REMOVE_EXPORTS" -eq 1 ] || prompt "Remove host-exported whipper, metaflac
         fi
     done
 else
-    skipped "host-exported whipper, metaflac, flac and cyanrip"
+    skipped "host-exported whipper, metaflac, flac, cyanrip and cd-paranoia"
 fi
 
 # Music files — opt-in only, never via --full.

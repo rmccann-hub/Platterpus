@@ -638,6 +638,11 @@ def test_dynamic_mode_ripps_fast_then_secures_only_unverified_track(
         "engaged": True,
         "disc_in_accuraterip": True,
         "skipped_reason": None,
+        # The securing pass ran to completion and recorded every track's outcome.
+        # `True` here would mean it was cut short (app shutdown, cancel, a re-rip
+        # that produced no log) — the state run 4 hit on real hardware, where an
+        # engaged pass left an empty `retried_tracks` and said nothing about it.
+        "interrupted": False,
     }
 
 
@@ -697,6 +702,8 @@ def test_dynamic_mode_skips_rerip_when_disc_not_in_accuraterip(
         "engaged": False,
         "disc_in_accuraterip": False,
         "skipped_reason": "disc_not_in_accuraterip",
+        # Never started, so it cannot have been interrupted.
+        "interrupted": False,
     }
 
 

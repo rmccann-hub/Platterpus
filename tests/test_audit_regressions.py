@@ -1,0 +1,802 @@
+"""Regression tests for the whole-application audit of 2026-07-28.
+
+Eight parallel reviewers went over typing, security/input validation,
+architecture, UX honesty, latent bugs and documentation. Every defect they
+confirmed is pinned here, one test per defect, in the order the fixes shipped.
+The institutional rule is "every shipped bug gets a regression test in the same
+change" (docs/testing.md) — this file is that obligation for the batch.
+
+They are grouped by the *kind* of failure rather than by module, because the
+audit's central finding was that the same mistake kept recurring in different
+files: **a fact that is true in one place is not true in another** — the
+renderer knew, the plumbing didn't; the exporter had the guard, the banner
+didn't; the preview sanitised, the argv builder didn't.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+# The one canonical window teardown (see its docstring — a second copy of it
+# is how CI segfaulted on 2026-07-28).
+from conftest import stop_window_threads
+from PySide6.QtWidgets import QApplication
+
+from platterpus.adapters.metaflac import MetaflacAdapter
+from platterpus.config import Config
+from platterpus.eac_log_export import render_eac_style_log
+from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
+from platterpus.settings_validation import (
+    OFFSET_MAX,
+    OFFSET_MIN,
+    errors_only,
+    validate_config,
+)
+from platterpus.verdict import accuraterip_verdict, track_accuraterip_partial
+
+
+class _NullRunner:
+    """The `CommandRunner` protocol, answering "nothing is here" to everything.
+
+    `HostTeardown` only needs it to decide which steps are already done; the
+    export-list assertion below is a pure question about its own configuration.
+    """
+
+    def which(self, name: str) -> bool:
+        return False
+
+    def exists(self, path: Path) -> bool:
+        return False
+
+    def run(self, argv: list[str]) -> tuple[int, str]:
+        return 0, ""
+
+
+@pytest.fixture()
+def window(qapp: QApplication):
+    """A real MainWindow with fake collaborators, torn down after the test.
+
+    Several of these defects live in the *wiring* between the window and a
+    renderer or a widget, which is exactly the seam the audit found untested —
+    so they have to be driven through the real object, not a stand-in.
+
+    Teardown goes through the shared `stop_window_threads`. The first draft of
+    this fixture called `deleteLater()` and joined nothing, so every window it
+    made was destroyed with `_mb_thread` still running — which segfaulted CI
+    inside an unrelated test file during garbage collection. The lesson is the
+    audit's own, applied to itself: a second copy of a teardown is a second
+    chance to forget a thread.
+    """
+    from platterpus.adapters.rip_backend import RipBackend
+    from platterpus.deps.manager import DependencyManager
+    from platterpus.ui.main_window import MainWindow
+
+    class _Backend(RipBackend):
+        name = "fake"
+
+        def list_drives(self, timeout_s: float | None = None) -> list:
+            return []
+
+        def disc_info(self, drive: str, timeout_s: float | None = None):
+            raise NotImplementedError
+
+        def rip(self, *args: object, **kwargs: object):
+            raise NotImplementedError
+
+        def version(self) -> str:
+            return "fake 0"
+
+    created = MainWindow(
+        config=Config(),
+        backend=_Backend(),
+        mb_client=SimpleNamespace(),  # type: ignore[arg-type]
+        metaflac=MetaflacAdapter(),
+        dependency_manager=DependencyManager(specs=[]),
+        save_config=lambda _cfg: None,
+    )
+    yield created
+    stop_window_threads(created)
+    created.deleteLater()
+
+
+# --- A claim the measurement does not support --------------------------------
+
+
+def test_a_track_whose_rereads_disagreed_never_gets_a_test_copy_pair() -> None:
+    """The worst finding in the audit: a forged EAC verification pair.
+
+    ``rip_count`` is cyanrip's "(after N rips)" — how many passes it *took*, not
+    how many *agreed*. A ``-Z`` run that exhausts its repeat limit without
+    converging prints BOTH "no matches found, but hit repeat limit" (→
+    ``secure_rerip_converged=False``) and "(after 5 rips)". The old
+    ``converged is True or reads >= 2`` short-circuited the measured negative, so
+    one SHA-256-attested document asserted the reads were identical *and*, in its
+    own status report, that they were not.
+    """
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(
+                number=2,
+                copy_crc="329DC760",
+                rip_count=5,
+                secure_rerip_converged=False,
+            ),
+        ),
+    )
+    text = render_eac_style_log(rip_log)
+    assert "Test CRC" not in text
+    assert "Copy CRC 329DC760" in text
+    assert "re-reads did NOT agree" in text
+    # …and the status report still carries the caveat, so the two agree.
+    assert "not confirmed reproducible" in text
+
+
+def test_an_unmeasured_multi_read_track_still_earns_its_pair() -> None:
+    """The other direction — the fix must not lose a proof we did earn.
+
+    ``None`` means "never re-read by the auto-fix"; a rip_count of 2+ there is
+    cyanrip's own repeated read agreeing, which is exactly the Test & Copy claim.
+    """
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(TrackResult(number=1, copy_crc="B0D122E7", rip_count=2),),
+    )
+    text = render_eac_style_log(rip_log)
+    assert "Test CRC B0D122E7" in text
+    assert "Copy CRC B0D122E7" in text
+
+
+# --- A guard that existed in one place and not the other ---------------------
+
+
+def test_the_verdict_banner_counts_the_disc_not_just_what_reported() -> None:
+    """A track that failed outright produced no CRC and no AccurateRip line, so
+    it never reached the denominator — and ``verified == total`` went GREEN with
+    "all tracks verified" while the status line and the disc panel both said a
+    track was missing. The EAC exporter got this guard first; the banner, which
+    is the headline the whole trust design rests on, did not."""
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    rip_log = RipLog(
+        tracks=(
+            TrackResult(number=1, copy_crc="AAAA1111", accuraterip_v2=ok),
+            TrackResult(number=2, copy_crc="BBBB2222", accuraterip_v2=ok),
+            TrackResult(number=3),  # produced nothing at all
+        )
+    )
+    message, level = accuraterip_verdict(rip_log)
+    assert level == "warn"
+    assert "2 of 3" in message
+    assert "1 track produced no result at all" in message
+    assert "Bit-perfect" not in message
+
+
+def test_a_genuinely_complete_rip_is_still_allowed_to_say_bit_perfect() -> None:
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    rip_log = RipLog(
+        tracks=(
+            TrackResult(number=1, copy_crc="AAAA1111", accuraterip_v2=ok),
+            TrackResult(number=2, copy_crc="BBBB2222", accuraterip_v2=ok),
+        )
+    )
+    message, level = accuraterip_verdict(rip_log)
+    assert level == "ok"
+    assert message.startswith("✓ Bit-perfect: all 2 tracks")
+
+
+def test_offset_variant_requires_a_match_not_merely_a_line() -> None:
+    """``accuraterip_offset`` is set whenever cyanrip printed an "Accurip 450:"
+    line at all — **including** "(not found, either a new pressing, or bad
+    rip)". Counting the line's presence made the banner say "matched an
+    offset-variant pressing" while the table beside it showed "—"."""
+    no_match = AccurateRipResult(version=450, result="not found", confidence=None)
+    a_match = AccurateRipResult(version=450, result="accurately ripped", confidence=7)
+    assert (
+        track_accuraterip_partial(TrackResult(number=1, accuraterip_offset=no_match))
+        is False
+    )
+    assert (
+        track_accuraterip_partial(TrackResult(number=2, accuraterip_offset=a_match))
+        is True
+    )
+    # An exactly-verified track is never *also* counted as partial.
+    exact = AccurateRipResult(version=2, result="accurately ripped", confidence=99)
+    assert (
+        track_accuraterip_partial(
+            TrackResult(number=3, accuraterip_v2=exact, accuraterip_offset=a_match)
+        )
+        is False
+    )
+
+
+# --- Validation that failed open ---------------------------------------------
+
+
+def test_one_bad_field_type_cannot_disarm_every_other_rule() -> None:
+    """`validate_config` was one big ``try`` around every check. A hand-edited
+    ``config.toml`` with a non-string path made the FIRST rule raise; the single
+    ``except`` swallowed it and returned the (empty) issues gathered so far, so
+    `Config._sanitized()` read "all good" and persisted a `..`-traversal
+    template, an absolute template and an out-of-range offset."""
+    config = Config()
+    object.__setattr__(config, "library_dir", 5)  # the rule that used to raise
+    config.track_template = "../../../../tmp/pwned/%t - %n"
+    config.disc_template = "/etc/cron.d/%d"
+    config.read_offset = 999_999_999_999
+
+    fields = {issue.field for issue in errors_only(validate_config(config))}
+    assert "library_dir" in fields  # the bad type is itself reported…
+    assert "track_template" in fields  # …and every later rule still ran
+    assert "disc_template" in fields
+    assert "read_offset" in fields
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["output_dir", "working_dir", "track_template", "disc_template", "metaflac_path"],
+)
+def test_a_non_string_path_field_is_reported_not_skipped(field: str) -> None:
+    """Isolating the rules is only half the fix: a rule that raises and is
+    skipped leaves the user with NO error for the one field that is broken."""
+    config = Config()
+    object.__setattr__(config, field, 12345)
+    assert any(issue.field == field for issue in errors_only(validate_config(config)))
+
+
+def test_an_unmounted_volume_is_a_warning_not_a_config_rewrite(tmp_path) -> None:
+    """`_sanitized()` resets every ERROR-level field to its default on load, so
+    grading "this folder isn't writable right now" as an error silently
+    retargeted a NAS/removable rip library to ~/Music/rips and cleared
+    `library_dir` — the user's real paths gone, with only a log line. Not
+    mounted is an environmental condition, not an invalid value."""
+    if os.geteuid() == 0:
+        pytest.skip("root ignores the write bit, so the probe can't be provoked")
+    locked = tmp_path / "mnt"
+    locked.mkdir()
+    locked.chmod(0o500)  # readable, not writable
+    try:
+        config = Config()
+        config.output_dir = str(locked / "rips")
+        issues = [i for i in validate_config(config) if i.field == "output_dir"]
+        assert issues, "the condition must still be surfaced"
+        assert all(not i.is_error() for i in issues)
+    finally:
+        locked.chmod(0o700)
+
+
+# --- Values that escaped their boundary --------------------------------------
+
+
+def test_the_year_token_cannot_escape_the_output_directory() -> None:
+    """``%Y`` is the one naming token *Platterpus* substitutes; every other one
+    is rendered by cyanrip, which sanitises path separators inside a tag value.
+    It took the Year box's text verbatim, so a year of "../." reached
+    ``cyanrip -D`` as a real path component and the album was written OUTSIDE the
+    output directory — while the Settings preview, which does sanitise, showed
+    the safe string."""
+    from platterpus.adapters.cyanrip_backend import _year_token
+
+    assert _year_token("1971") == "1971"
+    assert _year_token("1971-11-08") == "1971"
+    assert _year_token("../.") == ""
+    assert _year_token("/etc") == ""
+    assert _year_token("..") == ""
+    assert _year_token("") == ""
+    assert "/" not in _year_token("19/1")
+
+
+def test_an_absurd_read_offset_is_refused_at_the_single_write_path() -> None:
+    """Three sources reach `_set_read_offset_override` — the hand-entered wizard
+    value, the auto-detected one, and the AccurateRip lookup overlaid from the
+    user-editable drive_offsets.csv (whose parser accepts any unbounded
+    ``-?\\d+``). None went through the validator, so a bad offset persisted,
+    reached ``cyanrip -s``, and was then silently reset to 0 by the next
+    startup — leaving the FOLLOWING session ripping at the wrong offset."""
+    from platterpus.ui.main_window_drive import DriveMixin
+
+    saved: list[Config] = []
+    window = SimpleNamespace(
+        _config=Config(),
+        _rip_controls=SimpleNamespace(set_config=lambda _cfg: None),
+        _save_config=saved.append,
+        _show_offset_rejected=lambda _v: None,
+    )
+    assert DriveMixin._set_read_offset_override(window, 667) is True
+    assert window._config.read_offset == 667
+    assert DriveMixin._set_read_offset_override(window, OFFSET_MAX + 1) is False
+    assert DriveMixin._set_read_offset_override(window, OFFSET_MIN - 1) is False
+    assert DriveMixin._set_read_offset_override(window, "6") is False  # type: ignore[arg-type]
+    assert window._config.read_offset == 667  # the good value survived
+    assert len(saved) == 1  # only the accepted write persisted
+
+
+def test_the_drive_wizard_spin_box_uses_the_validator_bounds() -> None:
+    """A widget range that disagrees with the pure validator is a second,
+    silently-different rule for the same field (it was hardcoded to ±2000)."""
+    import inspect
+
+    from platterpus.ui import drive_setup_dialog
+
+    source = inspect.getsource(drive_setup_dialog)
+    assert "setRange(OFFSET_MIN, OFFSET_MAX)" in source
+    assert "setRange(-2000, 2000)" not in source
+
+
+# --- Contracts that raised despite promising not to --------------------------
+
+
+def test_a_corrupt_drive_profile_cache_cannot_lock_the_user_out(tmp_path) -> None:
+    """``UnicodeDecodeError`` subclasses ``ValueError``, not ``OSError``, so one
+    non-UTF-8 byte escaped five documented "never raises" contracts. This one is
+    called from ``MainWindow.__init__`` — a corrupt cache meant the app refused
+    to start at all."""
+    from platterpus.drive_profile_store import DriveProfileStore
+
+    path = tmp_path / "drive_profiles.json"
+    path.write_bytes(b'{"profiles": [], "note": "\xff\xfe not utf-8"}')
+    store = DriveProfileStore.load(path)  # must not raise
+    assert store._path == path
+
+
+@pytest.mark.parametrize(
+    "module_name,func_name",
+    [
+        ("platterpus.offset_config", "_read_conf_text"),
+        ("platterpus.adapters.accuraterip_offsets", "_load_user_csv"),
+        ("platterpus.deps.host_setup", "_os_release_ids"),
+    ],
+)
+def test_the_other_external_file_readers_survive_bad_bytes(
+    tmp_path, module_name: str, func_name: str
+) -> None:
+    import importlib
+
+    path = tmp_path / "external.txt"
+    path.write_bytes(b"key=value\n\xff\xfe\n")
+    func = getattr(importlib.import_module(module_name), func_name)
+    func(path)  # must not raise
+
+
+def test_appimage_integration_survives_a_mangled_desktop_file(tmp_path) -> None:
+    from platterpus import appimage_integration
+
+    desktop_dir = tmp_path / "applications"
+    desktop_dir.mkdir()
+    target = appimage_integration._desktop_file(desktop_dir)
+    target.write_bytes(b"[Desktop Entry]\nExec=\xff\xfe\n")
+    assert (
+        appimage_integration.is_integrated(tmp_path / "x.AppImage", desktop_dir)
+        is False
+    )
+
+
+# --- Records that described the wrong album ----------------------------------
+
+
+def test_embed_only_cover_art_never_touches_an_existing_cover_file(tmp_path) -> None:
+    """metaflac imports a picture from a FILE, so the image always lands on disk
+    — but the scratch write reused the canonical library name ``cover.jpg`` and
+    then deleted it. Embed-without-save is the DEFAULT, so the default setting
+    destroyed a cover the user had placed in the album folder."""
+    from platterpus.adapters import cover_art
+
+    keep = b"\xff\xd8\xffORIGINAL-USER-COVER"
+    (tmp_path / "cover.jpg").write_bytes(keep)
+    chosen = tmp_path / "chosen.jpg"
+    chosen.write_bytes(b"\xff\xd8\xffNEW-ART-FROM-DISK")
+
+    cover_art.apply_local_cover_art(
+        tmp_path, chosen, embed=True, save_file=False, metaflac=MetaflacAdapter()
+    )
+
+    assert (tmp_path / "cover.jpg").read_bytes() == keep
+    # …and the scratch file it used instead is cleaned up.
+    assert not list(tmp_path.glob(".platterpus-cover-tmp*"))
+
+
+def test_saving_the_cover_still_writes_the_canonical_name(tmp_path) -> None:
+    from platterpus.adapters import cover_art
+
+    chosen = tmp_path / "chosen.jpg"
+    chosen.write_bytes(b"\xff\xd8\xffART")
+    result = cover_art.apply_local_cover_art(
+        tmp_path, chosen, embed=False, save_file=True, metaflac=MetaflacAdapter()
+    )
+    assert (tmp_path / "cover.jpg").exists()
+    assert result.saved_as == "cover.jpg"
+
+
+# --- Facts the report or the log never carried -------------------------------
+
+
+def test_a_rip_nothing_could_verify_says_so_in_the_report() -> None:
+    """`issues: []` beside a docstring reading "empty on a clean rip" told a
+    triager "clean" for a rip with no independent verification whatsoever."""
+    from platterpus.rip_report import _issues
+
+    issues = _issues(
+        outcome={"status": "success"},
+        verdict_level="neutral",
+        ctdb=None,
+        flac_integrity=None,
+        derived=None,
+        transcode=None,
+        cover_art=None,
+        read_speed=None,
+    )
+    assert [i["code"] for i in issues] == ["unverified"]
+    assert issues[0]["severity"] == "info"
+
+
+def test_a_validated_ctdb_no_match_reaches_the_issues_list() -> None:
+    """`ctdb` was a parameter of `_issues` that the body never read, so the one
+    whole-disc cross-check contributed nothing while every other verification
+    sub-block did."""
+    from platterpus.rip_report import _issues
+
+    issues = _issues(
+        outcome={"status": "success"},
+        verdict_level="ok",
+        ctdb={"verdict": "no_match", "crc_validated": True},
+        flac_integrity=None,
+        derived=None,
+        transcode=None,
+        cover_art=None,
+        read_speed=None,
+    )
+    assert [i["code"] for i in issues] == ["ctdb_no_match"]
+
+
+def test_an_unvalidated_ctdb_no_match_stays_quiet() -> None:
+    from platterpus.rip_report import _issues
+
+    assert (
+        _issues(
+            outcome={"status": "success"},
+            verdict_level="ok",
+            ctdb={"verdict": "no_match", "crc_validated": False},
+            flac_integrity=None,
+            derived=None,
+            transcode=None,
+            cover_art=None,
+            read_speed=None,
+        )
+        == []
+    )
+
+
+# --- Wiring that never carried the value it was written for ------------------
+
+
+def test_the_incomplete_rip_banner_survives_the_trip_through_the_window(
+    window, tmp_path
+) -> None:
+    """`_last_outcome` is the DICT `rip_report.build_outcome()` returns, and a
+    dict does not expose its keys as attributes — so ``getattr(outcome,
+    "status", "")`` was always "" and the INCOMPLETE RIP banner could never
+    render on a real rip. The renderer half was correct and directly tested; the
+    plumbing half shipped broken in v0.5.11. This test goes through
+    `_write_eac_log`, which is where the seam actually is."""
+    window._config.write_eac_log_after_rip = True
+    window._current_num_tracks = 14
+    window._last_outcome = {"status": "cancelled"}
+
+    log_file = tmp_path / "The Police - Album.log"
+    log_file.write_text("cyanrip log", encoding="utf-8")
+    window._write_eac_log(
+        RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),)), log_file
+    )
+
+    text = (tmp_path / "The Police - Album (EAC-compatible).log").read_text(
+        encoding="utf-8"
+    )
+    assert "INCOMPLETE RIP (cancelled)" in text
+    assert "1 of 14" in text
+
+
+def test_the_desktop_notification_sends_what_the_window_shows(window) -> None:
+    """The notification took a local `status` captured BEFORE the read-stability
+    summary overwrote the on-screen line, so the unattended user — its entire
+    audience — was told "all tracks ripped cleanly" while the window warned that
+    a track never read reproducibly."""
+    window._rip_progress.set_status("⚠ Read stability: track 3 did not reproduce")
+    assert (
+        window._rip_progress.current_status()
+        == "⚠ Read stability: track 3 did not reproduce"
+    )
+
+
+def test_a_post_rip_failure_downgrades_the_green_trust_banner(window) -> None:
+    """The banner is written once, from the AccurateRip parse, and never heard
+    about anything that failed afterwards — so `flac --test` could fail on two
+    masters under a green "✓ Bit-perfect" headline."""
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    window._rip_progress.set_rip_log(
+        RipLog(tracks=(TrackResult(number=1, copy_crc="AAAA1111", accuraterip_v2=ok),))
+    )
+    banner = window._rip_progress._verdict_banner
+    assert banner.text().startswith("✓ Bit-perfect")
+
+    window._rip_progress.downgrade_verdict("1 FLAC master(s) failed the decode check")
+    assert not banner.text().startswith("✓")
+    assert banner.text().startswith("⚠")
+    assert "failed the decode check" in banner.text()
+
+    # Idempotent: the same reason never stacks.
+    before = banner.text()
+    window._rip_progress.downgrade_verdict("1 FLAC master(s) failed the decode check")
+    assert banner.text() == before
+
+
+# --- Environment assumptions that only hold on the developer's machine -------
+
+
+def test_container_exported_tools_resolve_off_a_desktop_launcher_path(
+    tmp_path, monkeypatch
+) -> None:
+    """A GUI started from a desktop icon does not inherit a login shell's PATH,
+    and ``~/.local/bin`` — where `distrobox-export` puts the container's tools —
+    is exactly the entry that goes missing. The wizard checked the file directly
+    and reported success while the dependency probe resolved a bare name through
+    PATH and reported it missing."""
+    from platterpus import tool_paths
+
+    fake_home_bin = tmp_path / ".local" / "bin"
+    fake_home_bin.mkdir(parents=True)
+    (fake_home_bin / "flac").write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(
+        tool_paths, "_FALLBACK_DIRS", (str(fake_home_bin),), raising=True
+    )
+    monkeypatch.setattr(tool_paths.shutil, "which", lambda _n: None)
+
+    assert tool_paths.resolve_tool("flac") == str(fake_home_bin / "flac")
+    # Unresolvable → the bare name, so no error path changes.
+    assert tool_paths.resolve_tool("definitely-not-installed") == (
+        "definitely-not-installed"
+    )
+
+
+def test_uninstall_removes_every_binary_setup_exported() -> None:
+    """`flac` was omitted once and `~/.local/bin/flac` was orphaned (#34); the
+    docstring memorialising that bug was then falsified by adding `cd-paranoia`
+    to setup and not to teardown."""
+    import inspect
+
+    from platterpus.deps import host_setup, host_teardown
+
+    exported = {"cyanrip", "metaflac", "flac", "cd-paranoia"}
+    setup_source = inspect.getsource(host_setup)
+    for name in exported:
+        assert f"/usr/bin/{name}" in setup_source, name
+
+    engine = host_teardown.HostTeardown(runner=_NullRunner())
+    removed = {p.name for p in engine._export_files()}
+    assert exported <= removed
+
+
+def test_uninstall_script_removes_the_same_set() -> None:
+    line = next(
+        ln
+        for ln in Path("uninstall.sh").read_text(encoding="utf-8").splitlines()
+        if ln.strip().startswith("for bin in ")
+    )
+    for name in ("cyanrip", "metaflac", "flac", "cd-paranoia"):
+        assert name in line, name
+
+
+# --- The type gate itself ----------------------------------------------------
+
+
+def test_mypy_cannot_silently_lose_its_view_of_pyside6() -> None:
+    """A global ``ignore_missing_imports`` meant an unresolvable PySide6 turned
+    every Qt class into ``Any`` — the whole UI layer went unchecked and mypy
+    still printed "Success". Only the one genuinely stub-less dependency (and
+    the build-generated ``_build`` module) may be ignored, per module."""
+    import tomllib
+
+    with Path("pyproject.toml").open("rb") as handle:
+        config = tomllib.load(handle)
+    mypy = config["tool"]["mypy"]
+    assert "ignore_missing_imports" not in mypy
+    assert mypy["disallow_subclassing_any"] is True  # the tripwire
+    ignored = {
+        override["module"]
+        for override in mypy["overrides"]
+        if override.get("ignore_missing_imports")
+    }
+    assert ignored == {"musicbrainzngs.*", "platterpus._build"}
+
+
+# --- Progress that never finished --------------------------------------------
+
+
+def test_a_successful_rip_leaves_the_overall_bar_at_100(window) -> None:
+    """`_overall_from_track` caps at 95% by design — the last 5% was reserved
+    for a whipper-only "length" phase cyanrip never emits. On the only supported
+    backend the bar therefore froze at 95% under a status line reading "Done"."""
+    window._rip_progress.set_progress(95.0, 100.0)
+    window._rip_progress.set_progress(100.0, 100.0)
+    assert window._rip_progress._overall_bar.value() == 100
+
+
+# --- Strings that pointed at something that does not exist -------------------
+
+
+def test_no_user_facing_string_still_offers_the_removed_whipper_backend() -> None:
+    """cyanrip is the only backend (KDD-18); "switch to the cyanrip backend in
+    Settings" offered a remedy that has no control behind it."""
+    from platterpus.ui import main_window
+
+    source = Path(main_window.__file__).read_text(encoding="utf-8")
+    assert "switch to the cyanrip backend" not in source
+
+
+def test_the_guide_and_the_tooltip_agree_that_ctdb_is_on_by_default() -> None:
+    """Both places a user would check said CTDB verification was off. It is on —
+    so every rip sends the disc's TOC to an external service by default, and the
+    documentation said it didn't."""
+    from platterpus.help_content import USER_GUIDE
+
+    assert Config().ctdb_verify_after_rip is True
+    # The bullet wraps over several lines, so take everything up to the next one.
+    start = USER_GUIDE.index("- **Verify with CTDB after a rip**")
+    end = USER_GUIDE.index("\n- ", start)
+    bullet = USER_GUIDE[start:end]
+    assert "On by default" in bullet
+    assert "off by default" not in bullet.lower()
+
+
+def test_the_ctdb_no_match_line_claims_only_the_alignment_it_tested() -> None:
+    """We compute one checksum at the standard alignment; CTDB sweeps ±5879
+    because offset-shifted pressings are routine. "This rip differs from the
+    database" was a positive inaccuracy claim from 1 of ~11,759 alignments."""
+    from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
+    from platterpus.ui.rip_progress import ctdb_verdict_line
+
+    line = ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=True))
+    assert "standard alignment" in line
+    assert "differs" not in line
+
+
+def test_the_goal_preset_moves_every_checkbox_its_summary_describes(qapp) -> None:
+    """Switching the goal preset moved every dependent control except "Verify
+    FLAC after the rip", so the summary line described a setting the preset had
+    not applied."""
+    from platterpus import goal_presets
+    from platterpus.ui.settings_dialog import SettingsDialog
+
+    dialog = SettingsDialog(Config(), None)
+    try:
+        for name, preset in goal_presets.PRESETS.items():
+            index = dialog._goal_combo.findData(name)
+            assert index >= 0, name
+            dialog._goal_combo.setCurrentIndex(index)
+            assert (
+                dialog._verify_flac_check.isChecked() == preset.verify_flac_after_rip
+            ), name
+            # …and the combo must still read as that preset, not bounce to
+            # Custom — the round-trip `detect_goal` does on the next open.
+            assert dialog._goal_combo.currentData() == name
+    finally:
+        dialog.deleteLater()
+
+
+def test_the_json_report_round_trips_the_new_issue_codes(tmp_path) -> None:
+    """A cheap end-to-end: the codes added above must survive serialization."""
+    from platterpus.rip_report import write_report
+
+    log_file = tmp_path / "album.log"
+    log_file.write_text("cyanrip log", encoding="utf-8")
+    write_report(
+        RipLog(tracks=(TrackResult(number=1, copy_crc="AAAA1111"),)),
+        log_file,
+    )
+    report = json.loads(
+        (tmp_path / "album.platterpus.json").read_text(encoding="utf-8")
+    )
+    assert "unverified" in {issue["code"] for issue in report["issues"]}
+
+
+def test_an_interrupted_securing_pass_is_declared_in_the_durable_log() -> None:
+    """The `interrupted` flag reached the JSON report and stopped there.
+
+    The durable, checksum-attested log — the artifact a stranger reads years
+    later — said nothing, so of the two records for one rip the archival one was
+    the more reassuring. `tests/test_surface_consistency.py` states the rule in
+    its own docstring: when you add a fact a surface can report, add the
+    agreement it owes the others.
+    """
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(TrackResult(number=1, copy_crc="AAAA1111"),),
+    )
+    text = render_eac_style_log(
+        rip_log, secure_rerip={"engaged": True, "interrupted": True}
+    )
+    assert "the securing pass was INTERRUPTED" in text
+    # It sits inside the status report, above the checksum, so it can't be
+    # stripped without invalidating the log.
+    assert text.index("INTERRUPTED") < text.index("Platterpus log checksum")
+
+
+def test_a_completed_securing_pass_adds_no_interruption_line() -> None:
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(TrackResult(number=1, copy_crc="AAAA1111"),),
+    )
+    for report in ({"engaged": True, "interrupted": False}, {}, None, "nonsense"):
+        text = render_eac_style_log(rip_log, secure_rerip=report)  # type: ignore[arg-type]
+        assert "INTERRUPTED" not in text
+
+
+def test_a_failed_test_run_still_reports_which_test_failed() -> None:
+    """`conftest`'s `os._exit` workaround for a PySide teardown race discarded
+    pytest's entire terminal summary — a red CI run produced progress dots and
+    nothing else: no failing test names, no tracebacks, no `--durations`. The
+    hook now prints the summary itself before exiting."""
+    source = Path("tests/conftest.py").read_text(encoding="utf-8")
+    hook = source[source.index("def pytest_sessionfinish") :]
+    for call in ("summary_failures()", "short_test_summary()", "summary_stats()"):
+        assert call in hook, call
+    assert hook.index("short_test_summary()") < hook.index("os._exit(status)")
+
+
+def test_the_window_fixture_leaves_no_running_qthread(window) -> None:
+    """The fixture's own contract, asserted rather than assumed.
+
+    CI segfaulted on 2026-07-28 because this file's first window fixture called
+    `deleteLater()` and joined nothing: every window it made was destroyed with
+    `_mb_thread` still running, and Qt aborted the process during a *later*
+    test's garbage collection — inside `test_ui_auto_center.py`, which had
+    nothing to do with it. Nothing in the suite asserted the invariant, so the
+    only symptom was a crash in an unrelated file.
+
+    This runs the shared teardown against a live window and checks the result
+    directly, so a future fixture that forgets a newly-added thread fails here
+    instead of segfaulting somewhere else.
+    """
+    from conftest import stop_window_threads
+
+    names = (
+        "_mb_thread",
+        "_dep_check_thread",
+        "_disc_info_thread",
+        "_drive_list_thread",
+    )
+    # Sanity: the window really does own a running thread, or this proves nothing.
+    assert any(
+        getattr(window, n, None) is not None and getattr(window, n).isRunning()
+        for n in names
+    ), "no thread was running — this test can no longer detect a missed join"
+
+    stop_window_threads(window)
+
+    still_running = [
+        n
+        for n in names
+        if getattr(window, n, None) is not None and getattr(window, n).isRunning()
+    ]
+    assert not still_running, f"destroying the window would abort: {still_running}"
+
+
+def test_the_window_teardown_has_exactly_one_implementation() -> None:
+    """A second copy of the joins is a second chance to forget a thread.
+
+    Both window fixtures (this file's and `test_ui_main_window`'s) must call the
+    shared helper rather than inline their own loop — the duplicate is what
+    allowed the divergence in the first place.
+    """
+    for rel in ("tests/test_ui_main_window.py", "tests/test_audit_regressions.py"):
+        source = Path(rel).read_text(encoding="utf-8")
+        assert "stop_window_threads" in source, rel
+        # The tell-tale of a re-inlined copy. Built from pieces so this test's
+        # own source doesn't match the pattern it is looking for.
+        inlined = "_mb_thread" + ".quit()"
+        assert inlined not in source, (
+            f"{rel} re-inlined the teardown instead of calling the shared helper"
+        )

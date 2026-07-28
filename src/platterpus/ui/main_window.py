@@ -838,8 +838,8 @@ class MainWindow(
         if self._scan_force_stopped:
             self._scan_force_stopped = False
             self._disc_info_panel.set_disc_info_error(
-                "Stopped the scan and freed the drive. Click “Rescan disc” to try "
-                "again, or switch to the cyanrip backend in Settings."
+                "Stopped the scan and freed the drive. The disc is still in "
+                "the tray — click “Rescan disc” to try again."
             )
             return
         if "timed out" in message:

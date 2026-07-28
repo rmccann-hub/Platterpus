@@ -544,7 +544,9 @@ class SettingsDialog(CenteredDialog):
             "is a network lookup and decodes the FLACs locally (needs `flac`). "
             "The CRC algorithm is confirmed on real hardware, so a match reads "
             "as verified — it can only ever under-claim, never fabricate a "
-            "'verified'. Off by default."
+            "'verified'. On by default (every rip runs the full verification "
+            "suite). This is a network lookup that sends the disc's table of "
+            "contents to CTDB — turn it off if you would rather not."
         )
         form.addRow("CTDB:", self._ctdb_verify_check)
 
@@ -865,6 +867,10 @@ class SettingsDialog(CenteredDialog):
         self._format_combo.currentIndexChanged.connect(self._on_dependent_changed)
         self._ctdb_verify_check.toggled.connect(self._on_dependent_changed)
         self._recompress_flac_check.toggled.connect(self._on_dependent_changed)
+        # Same omission in the other direction: editing this box by hand did not
+        # flip the combo to Custom, so the label kept claiming a preset the
+        # config no longer matched.
+        self._verify_flac_check.toggled.connect(self._on_dependent_changed)
         self._secure_rerip_spin.valueChanged.connect(self._on_dependent_changed)
         self._read_speed_mode_combo.currentIndexChanged.connect(
             self._on_dependent_changed
@@ -886,6 +892,14 @@ class SettingsDialog(CenteredDialog):
             if fmt_index >= 0:
                 self._format_combo.setCurrentIndex(fmt_index)
             self._ctdb_verify_check.setChecked(preset.ctdb_verify_after_rip)
+            # `verify_flac_after_rip` is one of the SIX fields a preset defines
+            # and `goal_presets.detect_goal` compares — but it was the one this
+            # handler never set. Picking "Archival exact" therefore left it
+            # untouched, and the next time Settings opened, detect_goal saw a
+            # config that didn't match any preset and silently reported
+            # "Custom" (audit, 2026-07-28). The list here must stay in step with
+            # GoalPreset's fields; that is why the dead `apply_preset` existed.
+            self._verify_flac_check.setChecked(preset.verify_flac_after_rip)
             self._recompress_flac_check.setChecked(preset.recompress_flac_after_rip)
             self._secure_rerip_spin.setValue(preset.secure_rerip_matches)
             mode_index = self._read_speed_mode_combo.findData(preset.read_speed_mode)

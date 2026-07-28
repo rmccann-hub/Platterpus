@@ -165,7 +165,7 @@ class DependencyMixin(MainWindowShared):
         from platterpus.deps.manager import DependencyManager
 
         return DependencyManager(
-            specs=self._dependency_manager._specs,  # type: ignore[attr-defined]
+            specs=self._dependency_manager._specs,
         )
 
     def _apply_dependency_report(

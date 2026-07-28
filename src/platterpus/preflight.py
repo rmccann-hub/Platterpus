@@ -518,7 +518,7 @@ def check_cover_art_archive(
 ) -> CheckResult:
     """Prove the host can reach the Cover Art Archive (embedded cover art)."""
     try:
-        with opener(url, timeout=10) as resp:  # type: ignore[call-arg]
+        with opener(url, timeout=10) as resp:
             code = getattr(resp, "status", 200)
         return CheckResult(
             "Cover Art Archive reachable", Status.OK, f"reachable (HTTP {code})"
