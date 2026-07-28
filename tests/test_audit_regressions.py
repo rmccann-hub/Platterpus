@@ -21,6 +21,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
+# The one canonical window teardown (see its docstring — a second copy of it
+# is how CI segfaulted on 2026-07-28).
+from conftest import stop_window_threads
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.metaflac import MetaflacAdapter
@@ -60,6 +64,13 @@ def window(qapp: QApplication):
     Several of these defects live in the *wiring* between the window and a
     renderer or a widget, which is exactly the seam the audit found untested —
     so they have to be driven through the real object, not a stand-in.
+
+    Teardown goes through the shared `stop_window_threads`. The first draft of
+    this fixture called `deleteLater()` and joined nothing, so every window it
+    made was destroyed with `_mb_thread` still running — which segfaulted CI
+    inside an unrelated test file during garbage collection. The lesson is the
+    audit's own, applied to itself: a second copy of a teardown is a second
+    chance to forget a thread.
     """
     from platterpus.adapters.rip_backend import RipBackend
     from platterpus.deps.manager import DependencyManager
@@ -89,7 +100,7 @@ def window(qapp: QApplication):
         save_config=lambda _cfg: None,
     )
     yield created
-    created.close()
+    stop_window_threads(created)
     created.deleteLater()
 
 
@@ -733,3 +744,59 @@ def test_a_failed_test_run_still_reports_which_test_failed() -> None:
     for call in ("summary_failures()", "short_test_summary()", "summary_stats()"):
         assert call in hook, call
     assert hook.index("short_test_summary()") < hook.index("os._exit(status)")
+
+
+def test_the_window_fixture_leaves_no_running_qthread(window) -> None:
+    """The fixture's own contract, asserted rather than assumed.
+
+    CI segfaulted on 2026-07-28 because this file's first window fixture called
+    `deleteLater()` and joined nothing: every window it made was destroyed with
+    `_mb_thread` still running, and Qt aborted the process during a *later*
+    test's garbage collection — inside `test_ui_auto_center.py`, which had
+    nothing to do with it. Nothing in the suite asserted the invariant, so the
+    only symptom was a crash in an unrelated file.
+
+    This runs the shared teardown against a live window and checks the result
+    directly, so a future fixture that forgets a newly-added thread fails here
+    instead of segfaulting somewhere else.
+    """
+    from conftest import stop_window_threads
+
+    names = (
+        "_mb_thread",
+        "_dep_check_thread",
+        "_disc_info_thread",
+        "_drive_list_thread",
+    )
+    # Sanity: the window really does own a running thread, or this proves nothing.
+    assert any(
+        getattr(window, n, None) is not None and getattr(window, n).isRunning()
+        for n in names
+    ), "no thread was running — this test can no longer detect a missed join"
+
+    stop_window_threads(window)
+
+    still_running = [
+        n
+        for n in names
+        if getattr(window, n, None) is not None and getattr(window, n).isRunning()
+    ]
+    assert not still_running, f"destroying the window would abort: {still_running}"
+
+
+def test_the_window_teardown_has_exactly_one_implementation() -> None:
+    """A second copy of the joins is a second chance to forget a thread.
+
+    Both window fixtures (this file's and `test_ui_main_window`'s) must call the
+    shared helper rather than inline their own loop — the duplicate is what
+    allowed the divergence in the first place.
+    """
+    for rel in ("tests/test_ui_main_window.py", "tests/test_audit_regressions.py"):
+        source = Path(rel).read_text(encoding="utf-8")
+        assert "stop_window_threads" in source, rel
+        # The tell-tale of a re-inlined copy. Built from pieces so this test's
+        # own source doesn't match the pattern it is looking for.
+        inlined = "_mb_thread" + ".quit()"
+        assert inlined not in source, (
+            f"{rel} re-inlined the teardown instead of calling the shared helper"
+        )

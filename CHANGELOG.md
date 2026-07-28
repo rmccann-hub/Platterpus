@@ -87,6 +87,10 @@ documentation) run across eight parallel reviewers, 2026-07-28.*
 - **A failing test run printed no failure names and no tracebacks.** The PySide
   teardown workaround in `conftest` hard-exits at session finish, which discarded
   pytest's entire terminal summary; it now prints it first.
+- **The window teardown used in tests now lives in one place** (`conftest.stop_window_threads`).
+  A second copy had diverged and stopped joining the MusicBrainz worker thread, so
+  windows were destroyed with a QThread still running — which aborts the process
+  during a later test's garbage collection, in an unrelated file.
 
 ### Changed
 - **CTDB's "no match" no longer claims your rip differs from the database.** We test
