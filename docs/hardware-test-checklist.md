@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.13
+# Hardware test checklist — v0.5.14
 
 > **Only what still needs testing.** Anything that has passed is gone from this sheet —
 > the record of what passed and when lives in `docs/session-log.md`. Test numbers are
@@ -57,7 +57,8 @@ best-possible result for this disc — not a failure.
 
 Expected CTDB: **match, confidence 1** (`our_crc` = `matched_crc` = `5DA89FCD`).
 
-**Two expected changes in wording this release, so they don't read as regressions:**
+**Two expected changes in wording since your last run (v0.5.12), so they don't read as
+regressions:**
 
 * CTDB's no-match line now says *"no match at the standard alignment"* and explains
   that CTDB also holds offset-shifted pressings. It no longer says your rip differs
@@ -68,10 +69,10 @@ Expected CTDB: **match, confidence 1** (`our_crc` = `matched_crc` = `5DA89FCD`).
 
 ---
 
-## 0 — [ ] Update to v0.5.13
+## 0 — [ ] Update to v0.5.14
 
 *Help → Check for updates…* → download → verify → restart. *Help → About* says
-**0.5.13**. Nothing else to set up — your settings are already right (see above).
+**0.5.14**. Nothing else to set up — your settings are already right (see above).
 
 ---
 
@@ -177,19 +178,35 @@ Start a rip of the Police disc, switch to another window, and let it finish.
 
 **Result:** ☐ PASS ☐ FAIL — appeared at all: ☐ y ☐ n · notification said: ____________
 
-### A5b — [ ] Do the CTDB and loudness lines overlap the results table?
+### A5b — [ ] ⭐ The results pane and disc panel no longer overlap when the window is small
 
-In the run-5 screenshot the green *"CTDB: Verified (confidence 1)"* line and the album
-loudness line appear to be drawn **on top of** the AccurateRip table's first row rather
-than above and below it. I could not tell from a static capture whether that is real or
-a compositing artifact.
+**This was real, and it is fixed.** Your report — *"looked good when the window was
+maximized, but when smaller was all over the place"* — was the missing piece. Two labels
+were never told to word-wrap, and an un-wrapped label reports its **whole single line**
+as its minimum width, a minimum that propagates up to the window. Measured on the real
+widgets: a genuine end-of-rip status line demanded **906 px** of minimum width against
+366 px for the idle text, and the disc panel's values pushed its minimum from 208 px to
+**575 px**. Narrower than that, the layout physically could not fit its children, so it
+drew them outside their rows — the CTDB and loudness lines landed on the AccurateRip
+table. Maximised there was room, which is exactly why it hid for so long.
 
-- Resize the window taller after a rip finishes. Does the overlap persist, or was it
-  just the pane being squeezed?
-- If it persists, a screenshot of the results pane at a larger window size is enough
-  for me to fix it.
+Both panes now stay at their short-text minimum no matter what they are handed.
 
-**Result:** ☐ no overlap ☐ overlaps, fixed by resizing ☐ overlaps at any size
+1. After a rip finishes, **un-maximise** the window and drag it as narrow and as short
+   as it will go — narrower than feels reasonable.
+2. Watch the results pane (AccurateRip table, CTDB line, loudness line) and the disc
+   panel above it.
+
+- Expected: text **re-flows onto more lines**; nothing is painted over anything else,
+  at any window size.
+- Expected: the window will still refuse to go *absurdly* narrow — that is the table
+  and the buttons, not this bug. The test is overlap, not minimum size.
+- The disc IDs (`MusicBrainz ID`, `CDDB ID`) are single unbroken tokens, so they must
+  still appear **on one line**, never hyphenated or split. If an ID is chopped in half,
+  that is a new bug — tell me.
+
+**Result:** ☐ PASS ☐ FAIL — overlap at any size: ☐ y ☐ n · an ID split across lines:
+☐ y ☐ n
 
 ### A6 — [ ] Your own `cover.jpg` survives a re-rip
 
@@ -365,7 +382,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.12 → v0.5.13: `output_dir =
+Expected, unchanged across v0.5.12 → v0.5.14: `output_dir =
 "/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
 with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
 independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
@@ -385,9 +402,11 @@ independent sources agree"* trust line, and the cache-defeat **Yes** measurement
       says CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says
       "on by default"
-- [ ] *Help → About* shows **0.5.13** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → About* shows **0.5.14** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
-- [ ] Disc-panel values can be selected and copied with the mouse
+- [ ] Disc-panel values can be selected and copied with the mouse — worth a second
+      look this release, since those are the labels A5b changed. Selecting a
+      MusicBrainz ID and pasting it must still give you the whole ID.
 - [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and
       no longer offers to "switch to the cyanrip backend in Settings" (there is no
       such setting — cyanrip is the only backend)
@@ -450,4 +469,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.14.*

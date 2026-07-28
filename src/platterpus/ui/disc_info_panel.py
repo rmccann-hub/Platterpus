@@ -269,6 +269,20 @@ class DiscInfoPanel(QWidget):
         (ux-design-principles.md #10).
         """
         label = QLabel(text)
+        # Word-wrapped, because these labels hold *dynamic* values and an
+        # un-wrapped QLabel's minimum width is its whole single line — a minimum
+        # that propagates all the way up to the window. With the values a real
+        # post-rip panel shows ("+667 — confirmed — two independent sources
+        # agree (high confidence)", an album title with year and label), this
+        # panel's minimum width went from 208 px to 575 px, so the window could
+        # not be made narrow without the layout overflowing and text landing on
+        # top of other text (real-hardware report, 2026-07-28; the results pane
+        # had the same defect via its status line).
+        #
+        # Wrapping does not spoil the IDs: a disc ID is a single token with no
+        # spaces, so it still reserves its own width and is never broken across
+        # lines — only genuine sentences wrap, which is what we want.
+        label.setWordWrap(True)
         # Selecting with the mouse + Ctrl+C is the easiest way to grab
         # a disc ID into something else (Picard, a web search).
         label.setTextInteractionFlags(

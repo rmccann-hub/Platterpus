@@ -11,6 +11,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.14] — 2026-07-28
+
+### Fixed
+- **The results pane and disc panel drew their text over each other in a
+  non-maximised window.** Two labels were never told to word-wrap, and an
+  un-wrapped `QLabel`'s minimum width is the width of its entire single line —
+  a minimum that propagates all the way up to the window. Measured: a real
+  end-of-rip status line demanded **906 px** of minimum width against 366 px
+  for the idle text, and the disc panel's value labels pushed its minimum from
+  208 px to **575 px** once they held real post-rip values. Below those widths
+  the layout physically could not comply, so the contents overflowed their
+  viewport and the CTDB and loudness lines were painted on top of the
+  AccurateRip table. Maximised it looked correct, which is why it survived this
+  long. Both labels now wrap, so the panes shrink with the window; disc IDs are
+  single tokens with no spaces, so they still reserve their own width and are
+  never broken across lines. Found on real hardware, 2026-07-28.
+
 ## [0.5.13] — 2026-07-28
 
 ### Fixed
@@ -3388,6 +3405,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
@@ -3447,4 +3465,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.14.*

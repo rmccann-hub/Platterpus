@@ -455,3 +455,65 @@ def test_offset_guard_warning_is_announced(qapp: QApplication, monkeypatch) -> N
     panel.set_drive_offset_provenance("⚠ two identical drives share this profile")
 
     assert heard == ["⚠ two identical drives share this profile"]
+
+
+# --- Layout: a long value must not set the panel's minimum width --------------
+#
+# Same real-hardware report as the results pane (2026-07-28): the window looked
+# right maximised and fell apart when made smaller. Every *value* label here is
+# populated at runtime, and some of those values are sentences — "+667 —
+# confirmed — two independent sources agree (high confidence)", an album title
+# with its year and label. Un-wrapped, each one's whole line became the panel's
+# minimum width: 208 px empty, 575 px once a real rip had filled it in.
+#
+# Pinned as an invariant, not a pixel count: a longer value must not widen the
+# panel. Field-*name* labels ("Drive:", "CDDB disc ID:") are fixed short captions
+# and stay un-wrapped by design.
+
+
+# A wrapped label's minimum width is its longest *word*, which is irreducible —
+# a word cannot be broken. So the invariant under test is specifically that the
+# *number* of words does not matter: same vocabulary, ten times the sentence.
+_WORDS: str = "confirmed by two sources at offset plus six six seven "
+
+
+def test_sentence_length_does_not_widen_the_panel(qapp: QApplication) -> None:
+    panel = DiscInfoPanel()
+    panel._offset_value.setText(_WORDS)
+    narrow = panel.minimumSizeHint().width()
+
+    panel._offset_value.setText(_WORDS * 10)
+    wide = panel.minimumSizeHint().width()
+
+    assert wide == narrow, (
+        "a value's length is driving the panel's minimum width "
+        f"({narrow} px → {wide} px), which stops the window being resized "
+        "narrower and makes the layout overflow onto its neighbours."
+    )
+
+
+def test_a_long_album_title_does_not_widen_the_panel(qapp: QApplication) -> None:
+    """The MusicBrainz match line carries arbitrary user data — the worst case."""
+    panel = DiscInfoPanel()
+    panel._mb_match_value.setText(_WORDS)
+    narrow = panel.minimumSizeHint().width()
+
+    panel._mb_match_value.setText(_WORDS * 10)
+    assert panel.minimumSizeHint().width() == narrow
+
+
+def test_every_value_label_wraps(qapp: QApplication) -> None:
+    """One helper builds them all, so the rule holds by construction."""
+    panel = DiscInfoPanel()
+    values = [
+        panel._drive_value,
+        panel._mb_id_value,
+        panel._cddb_id_value,
+        panel._mb_match_value,
+        panel._accuraterip_value,
+        panel._offset_value,
+        panel._cache_value,
+    ]
+    assert all(label.wordWrap() for label in values), (
+        "a value label was built without word wrap — see _value_label()"
+    )

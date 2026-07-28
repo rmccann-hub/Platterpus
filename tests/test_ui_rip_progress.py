@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.parsers.rip_log import (
@@ -1182,3 +1182,67 @@ def test_comparison_banner_is_announced(qapp: QApplication, monkeypatch) -> None
 
     assert len(heard) == 1
     assert "previous rip" in heard[0]
+
+
+# --- Layout: a sentence's length must not set the pane's minimum width -------
+#
+# Real-hardware report, 2026-07-28: "it looked good when the window was
+# maximized, but when smaller was all over the place" — the CTDB and album
+# loudness lines were drawn on top of the AccurateRip table.
+#
+# Cause: `_status_label` was the one label in this pane without word wrap, and an
+# un-wrapped QLabel's minimum width is the width of its entire single line. That
+# minimum propagates up to the window, so the pane refused to be narrower than
+# the longest status it had ever displayed (906 px, against 366 px for "Idle.").
+# Below that width the layout could not comply and the contents overflowed.
+#
+# These tests pin the *invariant* rather than a pixel number, so they hold
+# regardless of platform font metrics: **making the text longer must not make the
+# pane's minimum width larger.**
+
+_LONG_STATUS: str = (
+    "00:54:33 · Done — all 14 tracks ripped cleanly, no read errors. "
+    "AccurateRip: 13/14 verified. 1 track partially accurate (offset-variant "
+    "match). Read stability: track 5 needed heavy re-reading and may not be "
+    "reproducible; re-rip to confirm. See the report for the full breakdown."
+)
+
+# A wrapped label's minimum width is its longest *word*, which is irreducible.
+# So the invariant is that the *number* of words is what must not matter: same
+# vocabulary, ten times the sentence.
+_STATUS_WORDS: str = "done all tracks ripped cleanly with no read errors at all "
+
+
+def test_a_long_status_does_not_widen_the_pane(qapp: QApplication) -> None:
+    pane = RipProgress()
+    pane.set_status(_STATUS_WORDS)
+    narrow = pane.minimumSizeHint().width()
+
+    pane.set_status(_STATUS_WORDS * 10)
+    wide = pane.minimumSizeHint().width()
+
+    assert wide == narrow, (
+        "the status line's length is driving the pane's minimum width "
+        f"({narrow} px → {wide} px). An un-wrapped QLabel reports its whole "
+        "line as its minimum, which stops the window being resized narrower "
+        "and makes the layout overflow onto its neighbours."
+    )
+
+
+def test_every_message_label_in_the_pane_wraps(qapp: QApplication) -> None:
+    """The general rule, so a new label can't reintroduce the bug.
+
+    Any label that holds a *sentence* must wrap. Short fixed captions (the
+    "Overall" bar label) are exempt — they are a couple of words and never grow.
+    """
+    pane = RipProgress()
+    pane.set_status(_LONG_STATUS)
+    unwrapped = [
+        label.text()
+        for label in pane.findChildren(QLabel)
+        if not label.wordWrap() and len(label.text()) > 24
+    ]
+    assert not unwrapped, (
+        f"these labels hold a sentence but do not word-wrap: {unwrapped}. "
+        "Call setWordWrap(True) — see the comment on _status_label."
+    )

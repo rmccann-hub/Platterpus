@@ -459,122 +459,43 @@ anything, not because they are wrong.
   `compute_digests` into dozens of later tests and produced the crash that
   finally made this visible.
 
-### 5.x — Test the wiring, at the call site (added 2026-07-28)
+### 5.v — A layout is only tested if something is *constrained* (added 2026-07-28)
 
-The 2026-07-28 whole-application audit found the **same test-shaped hole** behind
-four of the five recent escapes, and behind one feature that shipped broken for
-four consecutive releases:
+The results pane and the disc panel drew their text on top of each other in any
+non-maximised window, and it shipped through five hardware runs, an
+eight-reviewer whole-application audit, and every UI test we had. The cause was
+two `QLabel`s without `setWordWrap(True)`: an un-wrapped label reports its whole
+single line as its minimum width, that minimum propagates to the window, and
+below it the layout draws children outside their rows (see
+[architecture.md §3.9](architecture.md)).
 
-> A test that hands a fact to a renderer proves the renderer honours it. It proves
-> **nothing** about whether anything ever *tells* it.
+**Why the suite could not see it.** Every existing test asserted on *content* —
+this label says that string, this row appears — and content is correct at any
+width. Nothing asserted on a *constraint*. A widget under no size pressure never
+exhibits a size-pressure bug, and the offscreen platform gives every widget all
+the room it asks for.
 
-The pure case: `render_eac_style_log(rip_log, outcome_status="cancelled")` was
-called directly by two tests, both green, both correct. The production call site
-read `_last_outcome` — a **dict** — with `getattr(outcome, "status", "")`, which
-always returned `""`, so the `*** INCOMPLETE RIP ***` banner could not render on
-any real rip. `mypy` could not catch it either: `getattr(x, "literal", default)`
-is typed `Any`. Four releases claimed a fix that had never once executed.
+So, for any pane whose text is generated at runtime:
 
-So, as a rule:
+* **Assert on `minimumSizeHint()`, not on appearance.** It needs no shown window,
+  no screenshot, and no event loop — the whole check is three lines.
+* **State the invariant so it survives a font change.** Assert *the same
+  vocabulary repeated N times does not change the minimum width*. Do not assert
+  an absolute pixel value, and do not assert equality against the short-text
+  minimum: a wrapped label's minimum is its longest single **word**, which is
+  irreducible and font-dependent. (The first version of these tests failed at
+  219 vs 188 px for exactly this reason.)
+* **Add the fitness test, not just the case.** Walk `findChildren(QLabel)` and
+  fail on any un-wrapped label holding a long dynamic string. The specific case
+  proves the bug is gone; the fitness test is what stops the *next* label from
+  reintroducing it — the same "make the omission fail a test" discipline as the
+  settings and report completeness meta-tests (§5, rule 6).
+* **Verify non-vacuity by reverting the fix.** These four tests were confirmed to
+  fail at 3389 px and 3359 px against the un-wrapped code before being kept.
 
-- **A regression test for a wiring bug goes through the production entry point**
-  (`window._write_eac_log`, not `render_eac_style_log`). If the entry point is
-  awkward to drive, that awkwardness is the finding — fix the seam.
-- **Where a value's type is known, read the attribute.** A `getattr` with a
-  default is an assertion-free cast: it silently absorbs a shape change and
-  defeats every type check downstream. Where the shape genuinely is external
-  (a `Signal(object)` payload), `isinstance`-narrow at entry — that narrows for
-  mypy *and* is a real runtime guard (`_on_derived_verified` is the pattern).
-- **A guard added in one place is a bug report about every other place.** The
-  clean-sweep denominator and the offset-variant predicate were each fixed once,
-  in the EAC exporter, and left wrong in the verdict banner, the status line, the
-  disc panel and the JSON report. When you add a guard, grep for the predicate and
-  fix every site — or better, move it into one shared function and delete the
-  copies. `tests/test_surface_consistency.py` exists to make that failure loud.
-- **Prefer a positive anchor to a bare negative.** `assert "Test CRC" not in text`
-  passes just as happily against a renderer that produced nothing at all — and
-  `render_eac_style_log`'s blanket `except` means a broken render degrades to a
-  (validly-checksummed) stub. Pair each `not in` with something that must be there.
-
-### 5.y — Fail open is worse than fail loud (added 2026-07-28)
-
-A broad `try` around a whole function turns "this crashed" into "this found
-nothing", and the two are indistinguishable to the caller. `validate_config()` was
-one `try` around every rule: a single non-string field made the first rule raise,
-the catch-all returned the issues collected so far — an empty list — and the
-config layer read that as "valid" and persisted a `..`-traversal template.
-
-- **Isolate each unit of work** so a crash costs only that unit's findings, and
-  **log which one failed** by name.
-- **Type-check before you parse.** A validator that skips the one field that is
-  actually broken has failed at its only job.
-- Never-raises and fail-open are *not* the same contract. Never-raises means the
-  caller keeps running; it does not license reporting success.
-
-### 5.z — Diagnosability is part of the suite (added 2026-07-28)
-
-`conftest.py` hard-exits at session finish to dodge a PySide teardown race. That
-workaround was discarding pytest's **entire terminal summary**: a red CI run
-produced progress dots and nothing else — no failing test names, no tracebacks, no
-`--durations`. It was invisible because the suite was green. The hook now prints
-the summary itself before exiting; if you touch that hook, keep it that way.
-
-
-### 5.w — The suite leaks Qt objects, and a forced `gc.collect()` detonates it
-
-**Known, pre-existing, and measured (2026-07-28). Read this before adding a
-`gc.collect()` to any test, and before "fixing" the teardown story piecemeal.**
-
-The finding, in one line: **`deleteLater()` is a no-op in this suite**, and any
-forced full collection walks the resulting graph and segfaults.
-
-The measurements, all on Python 3.11 + PySide6 6.11.1:
-
-| What was run | Result |
-|---|---|
-| `origin/main`, unmodified (it has one `gc.collect()`) | **5/5 runs SIGSEGV** |
-| This branch, `gc.collect()` removed | 6/6 clean, then 6/6 SIGSEGV — *not* stable |
-| This branch + a forced `gc.collect()` re-added | **6/6 SIGSEGV** |
-| …plus an autouse `DeferredDelete` drain | **5/5 SIGSEGV** — the drain does not fix it |
-
-Why `deleteLater()` does nothing here: it posts a `DeferredDelete` event and
-hands ownership to Qt, and Qt delivers that event only when the event loop that
-posted it exits, or when someone asks for it **by type**. This suite runs no
-event loop; `processEvents()` does not qualify and neither does a bare
-`sendPostedEvents()` (both measured). So every window a fixture "deletes" stays
-alive, pinned, with an event queued against it, for the whole process.
-
-Compounding it: `MainWindow.__init__` schedules its first-run prompt with the
-two-argument `QTimer.singleShot(0, self._maybe_offer_first_run_setup)`, whose
-bound method holds a **strong reference to the window** — so the windows cannot
-be freed even in principle. The comment claiming that timer "never fires in
-tests" is wrong; a zero-timer fires on any `processEvents()`, and the suite makes
-about twenty-two.
-
-**Why the obvious fixes were tried and reverted.** Switching that timer to the
-three-argument (context-object) form is correct in isolation and *made things
-worse*: it removes the pin, so objects that were merely leaking became genuinely
-collectable, and the crash moved to a `checksums.py` worker thread with the
-cyclic GC firing on it mid-`rglob`. Same for draining `DeferredDelete`. Both
-convert a benign leak into a live use-after-free, because the *rest* of the
-teardown story is not ready for objects to actually die. **Unpinning must come
-after the teardown is fixed, not before** — and both changes are reverted for
-that reason, not because they were wrong.
-
-**What this means for you:**
-
-* **Do not add a `gc.collect()` to a test.** There is currently none in the
-  suite, and that is load-bearing. If you need to prove an object was released,
-  prove it by refcount-deterministic destruction instead (see
-  `tests/test_ui_auto_center.py`, which asserts exactly that property with no
-  collection at all).
-* **Do not add a `DeferredDelete` drain or unpin the first-run timer on its own.**
-  Measured: each makes the crash more frequent, not less.
-* The real fix is a coordinated one — join every worker (QThread *and*
-  `threading.Thread`) at test boundaries, route the ~13 hand-rolled
-  `processEvents` pump loops through `process_until` (which pauses the cyclic GC
-  for exactly this reason), then drain and unpin. Expect that to surface latent
-  `~MainWindow` bugs, because that path has effectively never executed under test.
+Generalised: *"it looks right on my screen"* is not coverage. Anywhere the
+program's output size is data-dependent — a label, a column, a dialog, a
+tooltip — the test worth writing constrains it and asserts it copes.
 
 
 ## 6. Definition of Done (testing) — paste into every PR
@@ -643,4 +564,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.14.*
