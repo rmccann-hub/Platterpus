@@ -1595,7 +1595,24 @@ def test_checksums_skipped_when_post_rip_work_never_settles(
             window._checksums_thread.join(timeout=5)
         qapp.processEvents()
     finally:
+        # ORDER MATTERS, and getting it wrong used to segfault the whole suite.
+        # The digest worker reads `_CHECKSUM_SETTLE_TIMEOUT_S` and resolves
+        # `checksums.compute_digests` at CALL time, on its own thread. Undoing
+        # the monkeypatches while it was still running therefore handed it the
+        # real 120-second settle bound and the real `compute_digests`, so it
+        # kept walking a `tmp_path` that pytest had already removed — for two
+        # minutes, across dozens of later tests, until some other test's event
+        # pump delivered a queued signal to the by-then-destroyed window.
+        # So: release the stand-in first, then WAIT for the worker to actually
+        # exit, and only then restore the module globals it reads.
         release.set()  # let the stand-in post-rip thread finish
+        if window._checksums_thread is not None:
+            window._checksums_thread.join(timeout=10)
+            assert not window._checksums_thread.is_alive(), (
+                "the digest worker outlived the test; undoing the monkeypatch "
+                "now would let it run the real 120s settle path"
+            )
+        never_settles.join(timeout=10)
         monkeypatch.undo()
 
     assert computed == []  # never hashed the unsettled (mid-rewrite) files
