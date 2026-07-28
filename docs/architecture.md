@@ -406,6 +406,39 @@ Rules when adding one:
   prominent buttons carry unique `&`-mnemonics per window
   (`tests/test_ui_accessibility.py` pins the uniqueness).
 
+### 3.9 A label showing dynamic text must wrap (or it dictates the window's minimum width)
+
+**Every `QLabel` that displays a value or a message the program generates at
+runtime gets `setWordWrap(True)`.** This is not cosmetic. An un-wrapped label
+reports its *entire single line* as its `minimumSizeHint`, a minimum that
+propagates up through every containing layout to the window — so the longest
+string that label is ever handed becomes a width the user cannot resize below.
+Once the window is smaller than that unsatisfiable minimum, the layout draws its
+children **outside their allotted rows**, and text lands on top of other text.
+
+This shipped (fixed in v0.5.14). Measured on the real widgets: the results
+pane's status label took `RipProgress`'s minimum width from **366 px to 906 px**
+the moment it held a genuine end-of-rip status, and `DiscInfoPanel`'s value
+labels took its minimum from **208 px to 575 px** with real post-rip values —
+so the CTDB and loudness lines were painted over the AccurateRip table. It was
+invisible maximised, which is why five hardware runs and a whole-application
+audit all missed it.
+
+- **Wrap dynamic text; leave fixed captions alone.** A field *name*
+  ("MusicBrainz ID") is short, never changes, and its width *is* the column, so
+  it stays un-wrapped on purpose. The rule is about text whose length the code
+  does not control.
+- **Wrapping does not break identifiers.** A disc ID or a CRC is a single token
+  with no spaces; Qt still reserves its full width and never splits it. Only
+  genuine sentences re-flow.
+- **Test the invariant, not the pixels.** Assert that *the same vocabulary
+  repeated N times does not change* `minimumSizeHint().width()` — a wrapped
+  label's minimum is its longest single **word**, which is irreducible and
+  font-dependent, so an exact-pixel expectation is not portable across CI fonts.
+  Each pane also carries a fitness test walking `findChildren(QLabel)` and
+  failing on any un-wrapped label holding a long dynamic string, so a new label
+  cannot reintroduce this silently. No window needs to be shown for either.
+
 ## 4. Extension points — how to add things
 
 > The goal: a contributor who has never spoken to the author can add a
@@ -751,4 +784,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.14.*
