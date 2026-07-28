@@ -185,7 +185,7 @@ def test_does_not_fabricate_read_mode_or_c2_pointers() -> None:
     facts. The maintainer's later direction — match EAC's layout as closely as
     the data allows, and label what we can't fill — changes the remedy, not the
     rule: the rows now appear in EAC's position, and an unreported value reads
-    ``(not reported by cyanrip)``. What must never happen is the invented value,
+    ``(not reported by the ripper)``. What must never happen is the invented value,
     so that is what this pins.
 
     The values themselves are real when cyanrip does report them: see
@@ -195,8 +195,8 @@ def test_does_not_fabricate_read_mode_or_c2_pointers() -> None:
     """
     # A log with neither fact reported (this fixture has no paranoia/C2 lines).
     text = render_eac_style_log(_sample_log())
-    assert "Read mode               : (not reported by cyanrip)" in text
-    assert "Make use of C2 pointers : (not reported by cyanrip)" in text
+    assert "Read mode               : (not reported by the ripper)" in text
+    assert "Make use of C2 pointers : (not reported by the ripper)" in text
     # The invented values the original regression was about:
     assert "Read mode               : Secure" not in text
     assert "Make use of C2 pointers : No" not in text

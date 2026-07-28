@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.11
+# Hardware test checklist — v0.5.12
 
 > **Only what still needs testing.** Anything that passed is gone from this sheet —
 > the record of what passed and when lives in `docs/session-log.md`. Test numbers are
@@ -52,37 +52,64 @@ offset-variant — correct, not a failure. CTDB says **no match** for the same r
 
 ---
 
-## 1 — [ ] The CRC fix (one rip of the Police disc) — **failed twice, retest**
+## 1 — [ ] The EAC log itself (one rip of the Police disc)
 
-Your v0.5.10 rip paired a "reads converged" proof with the CRC of the read that was
-**thrown away**: the log said track 3 = `52DFDF7D` and track 5 = `6902BCF0`, while
-the files on disk were `3D8FCF0C` and `E0036697`. cyanrip's own log had it right in
-its swap addendum; our EAC log and JSON didn't. v0.5.11 makes the swapped-in read's
-own record — CRC *and* AccurateRip result — the one every surface reports.
+**Your run-4 result (v0.5.11):** the checksum verified (`02a7c5a8…`, I reproduced it),
+all 14 tracks present, 12/14 exact + tracks 3 & 5 offset-variant as always, and the
+CRCs were the shipped ones. **But the CRC fix was never exercised** — no track was
+re-ripped, because you closed the window ~26 minutes into the securing pass. So step 1
+is still owed, and v0.5.12 changes what you're checking.
 
-Rip the disc, let it finish, then:
+v0.5.12 rebuilds this log to match a real EAC log row for row. Rip the disc, let it
+finish (the securing pass on tracks 3 & 5 can take ~25 min — leave it), then:
 
 ```sh
 cd "<album folder>"
-grep -nE "Test CRC|Copy CRC|not confirmed reproducible|Read stability" *"(EAC-compatible).log"
-tail -8 *.log        # cyanrip's swap addendum
+diff <(sed -n '/TOC of the extracted CD/,/^Track  1$/p' *"(EAC-compatible).log") /dev/null | head -25
+grep -nE "^Track |Pre-gap|Read mode|C2 pointers|Command line compressor|track\(s\)" *"(EAC-compatible).log"
+tail -8 *.log          # cyanrip's swap addendum, if any track was re-read
 ```
 
-- Expected: for every re-ripped track, the `Test CRC`/`Copy CRC` pair **equals the
-  CRC in cyanrip's addendum**. That agreement is the whole fix — the two files can no
-  longer disagree about what's on disk.
-- Expected: the 12 untouched tracks match the table above exactly.
-- Expected: if a track's re-reads *didn't* agree this time, it carries `(re-reads did
-  NOT agree — this read is not confirmed reproducible)` plus a whole-disc
-  `Read stability :` line. If both converge again, neither appears — that's correct.
+- Expected: a **`TOC of the extracted CD`** table — 14 rows, start/length/sectors.
+  This is new, and it is byte-identical to what EAC prints for this disc.
+- Expected: `Track  1` … `Track  9`, then **`Track 10`**–`Track 14` (EAC's alignment).
+- Expected: `Read mode : Secure`, `Make use of C2 pointers : No`,
+  `Command line compressor : (none — cyanrip encodes in-process via libavcodec)`.
+- Expected: rows we can't fill say **`(not reported by the ripper)`** — that's the
+  honest label, not a bug.
+- Expected: if a track *was* re-read and swapped in, its `Test CRC`/`Copy CRC` pair
+  **equals the CRC in cyanrip's addendum**. If nothing was re-read, there is no
+  Test CRC at all — also correct.
 
 ```sh
 head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 ```
 
-**Result:** ☐ PASS ☐ FAIL — addendum CRCs match the EAC log: ☐ yes ☐ no ·
-checksum matched: ☐ yes ☐ no
-Track 3: ____________ · Track 5: ____________
+**Result:** ☐ PASS ☐ FAIL — TOC present: ☐ y ☐ n · `Track 10` aligned: ☐ y ☐ n ·
+addendum CRCs match: ☐ y ☐ n ☐ n/a · checksum matched: ☐ y ☐ n
+
+---
+
+## 1b — [ ] NEW: quit during the securing pass (what run 4 accidentally found)
+
+Closing the window mid-re-rip reported the rip as a **clean success** with no hint
+that the securing pass was cut short. Your audio was fine — the re-rip works in a
+temp folder and only swaps on success — but the record didn't say what happened.
+
+1. Start a rip of the Police disc. When the status says it is re-ripping tracks 3 & 5,
+   **close the window**.
+2. Then:
+
+```sh
+grep -nE "INCOMPLETE|securing|interrupted" *"(EAC-compatible).log"
+python3 -c "import json;d=json.load(open([f for f in __import__('glob').glob('*.platterpus.json')][0]));print(d['read_speed'])"
+```
+
+- Expected: the report does **not** claim a securing pass that didn't finish —
+  `secure_rerip.engaged` and `retried_tracks` must agree with each other.
+- Expected: all 14 tracks are present and playable regardless.
+
+**Result:** ☐ PASS ☐ FAIL — notes: ____________
 
 ---
 
@@ -229,7 +256,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.10 → v0.5.11: `output_dir =
+Expected, unchanged across v0.5.11 → v0.5.12: `output_dir =
 "/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
 with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
 independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
@@ -242,7 +269,7 @@ independent sources agree"* trust line, and the cache-defeat **Yes** measurement
 
 - [ ] *Help → User Guide* mentions **Analyse cache** and **Verify every track**
 - [ ] Every Settings control shows a tooltip on hover
-- [ ] *Help → About* shows **0.5.11** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → About* shows **0.5.12** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
 - [ ] Disc-panel values can be selected and copied with the mouse
 

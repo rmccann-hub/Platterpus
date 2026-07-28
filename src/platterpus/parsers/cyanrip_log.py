@@ -38,6 +38,7 @@ text — it degrades to empty fields (institutional rule, docs/testing.md).
 
 from __future__ import annotations
 
+import logging
 import re
 
 from platterpus.parsers.rip_log import (
@@ -46,6 +47,8 @@ from platterpus.parsers.rip_log import (
     RippingInfo,
     TrackResult,
 )
+
+log = logging.getLogger(__name__)
 
 # First meaningful line of any cyanrip log/output: "cyanrip 0.9.3.1 (tag)".
 _HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)")
@@ -122,7 +125,28 @@ _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
 # own geometry, not the offset-shifted read window.
 _START_LSN = re.compile(r"^\s+Start LSN:\s+(?P<value>\d+)")
 _END_LSN = re.compile(r"^\s+End LSN:\s+(?P<value>\d+)")
-_PREGAP_LSN = re.compile(r"^\s+Pregap LSN:\s+(?P<value>\d+|none)\s*$")
+# Anchored like its two siblings — NOT to end-of-line. cyanrip prints a
+# "(with offset: N)" suffix on some geometry rows, and a `$` here would drop a
+# real pre-gap value the moment it gained one (review finding, 2026-07-28).
+_PREGAP_LSN = re.compile(r"^\s+Pregap LSN:\s+(?P<value>\d+|none)\b")
+
+
+def _int_or_none(raw: str) -> int | None:
+    """``int(raw)`` or None — never raises.
+
+    CPython 3.11+ refuses to convert a string of more than 4300 digits, so a
+    corrupt log with a long digit run would otherwise raise ValueError straight
+    out of the parser, which must never happen (parsers return a best-effort
+    dataclass on ANY input). Non-numeric text can't reach here through the
+    regexes, but the guard is cheap and the rule is absolute.
+    """
+    try:
+        return int(raw)
+    except ValueError:
+        log.warning("cyanrip log: unusable integer %r; recording as unknown", raw[:32])
+        return None
+
+
 # "  EAC CRC32:     A1B2C3D4" with an optional "(after N rips)" suffix — the
 # rip-pass count for the track (1 if absent; higher means -Z secure re-reads).
 _EAC_CRC = re.compile(
@@ -292,22 +316,36 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _ALBUM.match(line)
         if match and current is None:
-            album = match.group("value")
+            # `.strip()`: a padded, value-less row backtracks into capturing a
+            # single space, which would render the disc line as " / ".
+            album = match.group("value").strip()
             continue
 
         match = _ALBUM_ARTIST.match(line)
         if match and current is None:
-            album_artist = match.group("value")
+            album_artist = match.group("value").strip()
             continue
 
         match = _C2.match(line)
         if match:
-            text = match.group("text").casefold()
-            # Only an explicit positive is Yes. "unsupported by drive",
-            # "disabled", or anything unrecognised is No — never an invented Yes.
-            c2_pointers = "enabled" in text or "supported" in text.replace(
-                "unsupported", ""
-            )
+            # BUG-8: a distinct local, never `text` — that is the function's own
+            # parameter (the whole log). Reassigning it is the trap the _SPEED_CAP
+            # handler below already carries a warning about; this branch
+            # reintroduced it and the review caught it (2026-07-28).
+            c2_text = match.group("text").casefold()
+            # cyanrip's line reports what the DRIVE CAN DO, not what the rip did:
+            # its format string is "C2 errors:      %s by drive". So "unsupported"
+            # proves C2 was not used (the drive cannot), while "supported" says
+            # only that it was available — EAC's row asks whether C2 was *used*,
+            # which cyanrip never states. Claiming Yes from a capability line
+            # would be exactly the invented rip fact the export forbids, so an
+            # affirmative capability leaves the answer unknown.
+            if "unsupported" in c2_text or "not supported" in c2_text:
+                c2_pointers = False
+            elif "disabled" in c2_text or "off" in c2_text:
+                c2_pointers = False
+            else:
+                c2_pointers = None
             continue
 
         match = _PARANOIA_LEVEL.match(line)
@@ -446,12 +484,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
             match = _START_LSN.match(line)
             if match:
-                current["start_sector"] = int(match.group("value"))
+                current["start_sector"] = _int_or_none(match.group("value"))
                 continue
 
             match = _END_LSN.match(line)
             if match:
-                current["end_sector"] = int(match.group("value"))
+                current["end_sector"] = _int_or_none(match.group("value"))
                 continue
 
             match = _PREGAP_LSN.match(line)
@@ -459,7 +497,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 raw = match.group("value")
                 # "none" is a real answer (no pre-gap), recorded as 0 rather than
                 # None so "measured: none" is distinguishable from "not reported".
-                current["pregap_sectors"] = 0 if raw == "none" else int(raw)
+                current["pregap_sectors"] = 0 if raw == "none" else _int_or_none(raw)
                 continue
 
             match = _PREEMPHASIS.match(line)

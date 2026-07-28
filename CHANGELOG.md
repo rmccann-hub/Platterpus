@@ -11,6 +11,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Fixed
+*Found by an adversarial review of the v0.5.12 EAC-layout work — five independent
+reviewers, each finding then handed to a separate verifier told to refute it. CI was
+green on all ten checks at the time.*
+- **`Make use of C2 pointers` could claim C2 was used when it only was available.**
+  cyanrip's line reports what the *drive* can do ("%s by drive"); EAC's row asks what
+  the *rip* did. "unsupported" still earns a truthful `No`; an affirmative capability
+  is now unknown rather than a fabricated `Yes`.
+- **`Command line compressor` named the `flac` binary, which did not encode the
+  audio** — that version comes from the host dependency probe, while cyanrip encodes
+  in-process via libavcodec. It contradicted the very next row.
+- **The `Filename` row rewrote cyanrip's U+2236 colon**, printing a path that does not
+  exist on disk. The disc *title* still shows the real colon (a fact about the disc);
+  the filename now shows what is actually on the filesystem.
+- **`Track 10`–`Track 14` were mis-aligned** (`Track  14`); EAC right-aligns to width 2.
+- **Rows asserted from cyanrip's behaviour** (`Delete leading and trailing silent
+  blocks`, `Null samples used in CRC calculations`, `Used interface`) were rendered
+  over logs cyanrip didn't write. They are now gated on the actual backend.
+- **`Read mode` defaulted to `Secure` for any paranoia level it didn't recognise** —
+  now an allow-list, unknown otherwise.
+- **The read-stability caveat printed *after* `End of status report`**, which in EAC
+  terminates the report. It now sits inside it.
+- **Both status counts are padded to width 2**, as EAC does.
+- **A single track without sector data deleted the entire TOC table** (a CD-Extra data
+  track would do it). Unmeasured cells are now marked; the other rows survive.
+- **A track with no number collapsed the whole log to the stub** via a format spec.
+- **The parser could raise `ValueError`** on a >4300-digit sector number, violating the
+  never-raises rule; and the new C2 branch reassigned the function's own `text`
+  parameter — the exact trap a comment 25 lines below warns against.
+- **`Pre-gap length` is now rendered** from the sector data the parser captures (the
+  field was added and never read).
+- The unfillable-row label reads `(not reported by the ripper)`; it named cyanrip
+  even on logs cyanrip didn't write.
+
 ## [0.5.12] — 2026-07-27
 
 *The EAC-compatible log, checked against a real EAC log of the same disc rather

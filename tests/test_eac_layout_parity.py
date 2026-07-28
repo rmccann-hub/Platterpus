@@ -135,8 +135,8 @@ def test_unreportable_rows_are_labelled_never_guessed() -> None:
     tell which values were real. One constant wording makes the gaps greppable.
     """
     text = _rendered()
-    assert "Utilize accurate stream : (not reported by cyanrip)" in text
-    assert text.count("(not reported by cyanrip)") >= 1
+    assert "Utilize accurate stream : (not reported by the ripper)" in text
+    assert text.count("(not reported by the ripper)") >= 1
 
 
 def test_the_status_report_uses_eac_s_own_wording() -> None:
@@ -201,3 +201,85 @@ def test_the_shipped_rip_matches_eac_on_every_track_but_the_unstable_one() -> No
         "expected only the known-unstable track 3 to differ from the EAC rip; "
         f"got {differing}"
     )
+
+
+# --- regressions from the 2026-07-28 adversarial review ----------------------
+
+
+def test_track_header_is_right_aligned_like_eac() -> None:
+    """EAC writes "Track  1" but "Track 14" — one space plus width-2."""
+    text = _rendered()
+    assert "\nTrack  1\n" in text
+    assert "\nTrack 14\n" in text
+    assert "Track  14" not in text
+
+
+def test_the_compressor_row_does_not_credit_a_binary_that_did_not_run() -> None:
+    """The audio is encoded in-process by libavcodec, not by the flac binary.
+
+    Naming `flac <version>` there described a tool merely installed on the host,
+    and contradicted the very next row.
+    """
+    text = _rendered()
+    assert "Command line compressor         : (none" in text
+    assert "Command line compressor         : flac" not in text
+
+
+def test_c2_capability_is_not_reported_as_c2_use() -> None:
+    """cyanrip's "C2 errors: %s by drive" states what the DRIVE can do.
+
+    "unsupported" proves C2 was not used, so "No" is earned. An affirmative
+    capability says nothing about whether the rip used it, so it must stay
+    unknown rather than become EAC's "Yes".
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log as _parse
+
+    def c2_of(line: str) -> bool | None:
+        return _parse(f"cyanrip 0.9.3\n{line}\n").ripping_info.c2_pointers
+
+    assert c2_of("C2 errors:      unsupported by drive") is False
+    assert c2_of("C2 errors:      supported by drive") is None
+    assert c2_of("C2 errors:      disabled") is False
+
+
+def test_rows_asserted_from_cyanrip_behaviour_are_not_asserted_for_others() -> None:
+    """A log some other ripper wrote must not inherit cyanrip's properties."""
+    from platterpus.parsers.rip_log import RipLog as _RipLog
+
+    text = render_eac_style_log(_RipLog(log_creator="whipper 0.7.4"))
+    for row in (
+        "Delete leading and trailing silent blocks   : ",
+        "Null samples used in CRC calculations       : ",
+        "Used interface                              : ",
+    ):
+        line = next(x for x in text.splitlines() if x.startswith(row))
+        assert line.endswith("(not reported by the ripper)"), line
+
+
+def test_one_unmeasured_track_does_not_delete_the_whole_toc() -> None:
+    """A data track has no sectors; that must not remove the other 13 rows."""
+    from platterpus.parsers.rip_log import RipLog as _RipLog
+    from platterpus.parsers.rip_log import TrackResult as _Track
+
+    rip_log = _RipLog(
+        tracks=(
+            _Track(number=1, copy_crc="AAAA0001", start_sector=0, end_sector=14486),
+            _Track(number=2, copy_crc="BBBB0002"),  # data track: no geometry
+        )
+    )
+    text = render_eac_style_log(rip_log)
+    assert "TOC of the extracted CD" in text
+    assert "0:00.00" in text  # track 1 still measured
+    assert "?" in text  # track 2 named, not silently dropped
+
+
+def test_renderer_survives_a_track_with_no_number() -> None:
+    """A format spec on None used to collapse the whole log to the stub."""
+    from platterpus.parsers.rip_log import RipLog as _RipLog
+    from platterpus.parsers.rip_log import TrackResult as _Track
+
+    rip_log = _RipLog(
+        tracks=(_Track(number=None, copy_crc="AAAA0001", start_sector=0, end_sector=9),)  # type: ignore[arg-type]
+    )
+    text = render_eac_style_log(rip_log)
+    assert "log could not be rendered" not in text
