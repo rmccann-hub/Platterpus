@@ -11,7 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.13] — 2026-07-28
+
 ### Fixed
+- **The desktop "rip complete" notification never fired.** v0.5.12 replaced a
+  `getattr(self, "_tray_icon", None)` with a plain attribute read to satisfy the type
+  checker, and declared the attribute on the window's typing seam — but that seam's
+  declarations live under `if TYPE_CHECKING`, so they inform mypy and create nothing
+  at runtime. The read came before the only assignment, so every completed rip raised
+  `AttributeError` and the notification was silently swallowed as best-effort. Found
+  in the log of a real 14-track rip. A type-only declaration is not an initialisation.
 - **The test suite could segfault at any point, and had been able to for most of
   the project's life.** Measured: unmodified `main` died with SIGSEGV on 5 runs out
   of 5. `deleteLater()` never executes in a suite that runs no event loop, so Qt
@@ -3378,7 +3387,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
@@ -3437,4 +3447,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.12.*
+*Last updated for Platterpus v0.5.13.*
