@@ -402,9 +402,11 @@ independent sources agree"* trust line, and the cache-defeat **Yes** measurement
       says CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says
       "on by default"
-- [ ] *Help → About* shows **0.5.13** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → About* shows **0.5.14** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
-- [ ] Disc-panel values can be selected and copied with the mouse
+- [ ] Disc-panel values can be selected and copied with the mouse — worth a second
+      look this release, since those are the labels A5b changed. Selecting a
+      MusicBrainz ID and pasting it must still give you the whole ID.
 - [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and
       no longer offers to "switch to the cyanrip backend in Settings" (there is no
       such setting — cyanrip is the only backend)
