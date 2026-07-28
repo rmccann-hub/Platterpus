@@ -46,6 +46,26 @@ green on all ten checks at the time.*
   field was added and never read).
 - The unfillable-row label reads `(not reported by the ripper)`; it named cyanrip
   even on logs cyanrip didn't write.
+- **`Fill up missing offset samples with silence` was derived as the complement of
+  the overread flag.** Those are two independent EAC checkboxes; the trick only
+  happened to work for cyanrip. It now reads cyanrip's actual overread *mode* text.
+- **`Gap handling` said `(not reported)` although cyanrip reports it** — its `Gaps:`
+  section is now parsed (`None signalled` on the reference disc).
+- **`All tracks accurately ripped` could be announced with a track missing.** The
+  count only sees tracks that produced *some* result, so a track that failed outright
+  was invisible to it.
+- **A selective rip presented a partial table as the disc's TOC.** With per-track
+  selection a 4-row table appeared under EAC's header, where EAC always prints the
+  whole disc. It is now labelled `(partial — N of M disc tracks …)`.
+- **A securing pass cut short left no trace.** Found by hardware run 4: closing the
+  window 26 minutes into the `-Z` re-read of tracks 3 and 5 produced
+  `secure_rerip.engaged: true` with an empty `retried_tracks` and nothing saying the
+  pass was interrupted. (The audio was unaffected — the re-rip works in a temp
+  directory and only swaps on success.) The report now carries an explicit
+  `interrupted` flag.
+- The parser property test could not reach any of the new branches, so their
+  never-raises guarantee was untested; the corpus now includes them, plus a
+  4400-digit sector and inverted `Start`/`End` geometry.
 
 ## [0.5.12] — 2026-07-27
 

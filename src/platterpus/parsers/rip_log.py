@@ -113,6 +113,13 @@ class RippingInfo:
     # cyanrip's "Paranoia level:" → EAC's "Read mode" (Secure vs Burst). Kept as
     # the raw level text so the renderer decides the wording, not the parser.
     paranoia_level: str = ""
+    # cyanrip's "Overread mode:" text verbatim (e.g. "fill with silence in
+    # lead-in/lead-out"). EAC asks two INDEPENDENT questions — whether it
+    # overread, and whether it padded missing offset samples with silence — and
+    # this one line answers both. Deriving the second as the complement of the
+    # first happened to work for cyanrip and is not generally true, so the text
+    # is kept (review finding, 2026-07-28).
+    overread_mode: str = ""
 
 
 @dataclass(frozen=True)

@@ -311,7 +311,7 @@ def _render(
     )
     lines.append("")
     lines.extend(_output_format_block())
-    lines.extend(_toc_block(rip_log))
+    lines.extend(_toc_block(rip_log, disc_track_total))
 
     # --- Per-track blocks ---
     for track in rip_log.tracks:
@@ -405,10 +405,14 @@ def _fill_with_silence(info: RippingInfo) -> str:
     the lead-in/lead-out. cyanrip states its choice in the overread *mode* line,
     which the parser keeps — so this is measured, not assumed.
     """
-    if info.overread_lead_out is True:
-        return "No"  # it read the real samples instead of padding
-    if info.overread_lead_out is False:
+    mode = (info.overread_mode or "").casefold()
+    if "silence" in mode:
         return "Yes"
+    if "lead-in" in mode or "lead-out" in mode:
+        return "No"  # it read the real samples instead of padding
+    # No mode text: EAC's two checkboxes are INDEPENDENT questions, so the
+    # overread flag alone cannot answer this one (review finding, 2026-07-28 —
+    # deriving it as the flag's complement only happened to work for cyanrip).
     return _UNREPORTED
 
 
@@ -467,7 +471,7 @@ def _msf(sectors: int) -> str:
     return f"{sectors // 75 // 60}:{sectors // 75 % 60:02d}.{sectors % 75:02d}"
 
 
-def _toc_block(rip_log: RipLog) -> list[str]:
+def _toc_block(rip_log: RipLog, disc_track_total: int | None = None) -> list[str]:
     """EAC's "TOC of the extracted CD" table, derived from the per-track sectors.
 
     EAC's Start and Length columns are pure functions of the disc geometry that
@@ -483,8 +487,17 @@ def _toc_block(rip_log: RipLog) -> list[str]:
         t.start_sector is None or t.end_sector is None for t in tracks
     ):
         return []  # nothing measured at all — no table to draw
+    # EAC always prints the WHOLE disc's TOC. Platterpus can rip a subset (the
+    # per-track "Rip?" column → cyanrip -l), and a 4-row table under EAC's header
+    # would read as a 4-track disc. Say which it is (review finding, 2026-07-28).
+    header = "TOC of the extracted CD"
+    if disc_track_total and disc_track_total > len(tracks):
+        header += (
+            f"  (partial — {len(tracks)} of {disc_track_total} disc tracks "
+            "were selected for this rip)"
+        )
     out = [
-        "TOC of the extracted CD",
+        header,
         "",
         "     Track |   Start  |  Length  | Start sector | End sector ",
         "    ---------------------------------------------------------",
@@ -531,9 +544,15 @@ def _status_report(rip_log: RipLog, extra: list[str] | None = None) -> list[str]
         if unverified:
             out.append(f"{unverified:2} track(s) could not be verified as accurate")
         out.append("")
+        # `accuraterip_counts` only counts tracks that produced *some* result, so
+        # a track that failed outright is invisible to `unverified`. Compare
+        # against the real track count before announcing a clean sweep, or a rip
+        # with a dead track reads as "All tracks accurately ripped" (review
+        # finding, 2026-07-28).
+        clean_sweep = not unverified and total >= len(rip_log.tracks)
         out.append(
             "All tracks accurately ripped"
-            if not unverified
+            if clean_sweep
             else "Some tracks could not be verified as accurate"
         )
         out.append("")

@@ -203,3 +203,33 @@ def test_a_clean_rip_gains_no_read_stability_line() -> None:
     text = render_eac_style_log(_log())
     assert "Read stability" not in text
     assert "not confirmed reproducible" not in text
+
+
+# --- an interrupted securing pass must be recorded (real-hardware, 2026-07-28) --
+
+
+def test_secure_rerip_report_marks_an_interrupted_pass() -> None:
+    """Closing the app mid-securing produced a report that implied a clean pass.
+
+    Run 4 on the reference rig: the auto-fix launched `cyanrip -Z 2 -l 3,5`, the
+    window was closed 26 minutes in, the drive was killed — and the JSON recorded
+    `secure_rerip.engaged: true` with an EMPTY `retried_tracks` and nothing
+    anywhere saying the pass was cut short. The audio was fine (the re-rip works
+    in a temp directory and only swaps on success), but the record implied a
+    securing pass that never finished.
+    """
+    from platterpus.workers.rip_worker import RipWorker
+
+    worker = RipWorker.__new__(RipWorker)  # no Qt, no thread — state only
+    worker._secure_rerip_mode = "dynamic"
+    worker._secure_rerip_engaged = True
+    worker._disc_in_accuraterip = True
+    worker._secure_rerip_skipped_reason = None
+
+    # Mid-pass: the flag is up.
+    worker._secure_rerip_interrupted = True
+    assert worker.secure_rerip_report["interrupted"] is True
+
+    # Completed: the pass recorded its per-track outcomes and lowered the flag.
+    worker._secure_rerip_interrupted = False
+    assert worker.secure_rerip_report["interrupted"] is False

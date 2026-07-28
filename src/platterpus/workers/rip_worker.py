@@ -440,6 +440,15 @@ class RipWorker(QObject):
         # targeted re-rip can't converge on a consensus). Set in start_rip.
         self._secure_rerip_mode: str = "off"
         self._secure_rerip_engaged: bool = False
+        # Set the moment the securing pass actually starts, and cleared when it
+        # finishes recording its per-track results. If it is still True at the
+        # end, the pass was cut short (app shutdown, cancel, a re-rip that never
+        # produced a log) — real-hardware finding 2026-07-28, where closing the
+        # window mid-securing produced `engaged: true` with an EMPTY
+        # `retried_tracks` and no other trace. The audio is unaffected (the
+        # re-rip works in a temp dir and only swaps on success), but the record
+        # must not imply a securing pass that did not complete.
+        self._secure_rerip_interrupted: bool = False
         self._disc_in_accuraterip: bool | None = None
         self._secure_rerip_skipped_reason: str | None = None
 
@@ -674,6 +683,7 @@ class RipWorker(QObject):
             "engaged": self._secure_rerip_engaged,
             "disc_in_accuraterip": self._disc_in_accuraterip,
             "skipped_reason": self._secure_rerip_skipped_reason,
+            "interrupted": self._secure_rerip_interrupted,
         }
 
     # --- Slots ---
@@ -1199,6 +1209,7 @@ class RipWorker(QObject):
             f"{why} (the rest of the album is kept as-is)"
         )
         tmp_root: Path | None = None
+        self._secure_rerip_interrupted = True
         try:
             tmp_root = Path(tempfile.mkdtemp(prefix="platterpus-refix-"))
             # Never send -S: the speed lever is unreliable / aborts on some drives,
@@ -1254,6 +1265,9 @@ class RipWorker(QObject):
             # the -Z path narrows its set). A converged read — even one that still
             # doesn't match the DB (a rare pressing) — is the best possible and is
             # NOT called unstable.
+            # Every requested track now has a recorded outcome, so the pass ran
+            # to completion — whatever its verdicts were.
+            self._secure_rerip_interrupted = False
             self._last_unstable_tracks = [t for t in tracks if t not in fixed]
             if fixed:
                 names = ", ".join(str(n) for n in fixed)

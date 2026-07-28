@@ -94,6 +94,12 @@ _ALBUM_ARTIST = re.compile(r"^Album artist:\s+(?P<value>.+?)\s*$")
 _C2 = re.compile(r"^C2 errors:\s+(?P<text>.+?)\s*$")
 # "Paranoia level: max" → EAC's "Read mode" (Secure vs Burst).
 _PARANOIA_LEVEL = re.compile(r"^Paranoia level:\s+(?P<text>.+?)\s*$")
+# cyanrip's "Gaps:" section, whose single indented line answers EAC's
+# "Gap handling" row ("None signalled" on the reference disc). The row was
+# rendering "(not reported)" although the ripper does report it (review
+# finding, 2026-07-28).
+_GAPS_HEADER = re.compile(r"^Gaps:\s*$")
+_GAPS_VALUE = re.compile(r"^\s+(?P<value>\S.*?)\s*$")
 _DISC_ID = re.compile(r"^DiscID:\s+(?P<value>\S+)")
 _CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)")
 # "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
@@ -246,6 +252,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
     album_artist = ""
     c2_pointers: bool | None = None
     paranoia_level = ""
+    overread_mode = ""
+    gap_detection = ""
+    expect_gaps = False
     disc_id = ""
     cddb_id = ""
     accuraterip_summary = ""
@@ -312,6 +321,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         match = _OVERREAD_MODE.match(line)
         if match:
             overread_lead_out = _parse_overread_mode(match.group("mode"))
+            overread_mode = match.group("mode").strip()
             continue
 
         match = _ALBUM.match(line)
@@ -351,6 +361,17 @@ def parse_cyanrip_log(text: str) -> RipLog:
         match = _PARANOIA_LEVEL.match(line)
         if match:
             paranoia_level = match.group("text")
+            continue
+
+        if expect_gaps:
+            expect_gaps = False
+            match = _GAPS_VALUE.match(line)
+            if match and current is None:
+                gap_detection = match.group("value")
+                continue
+
+        if _GAPS_HEADER.match(line) and current is None:
+            expect_gaps = True
             continue
 
         match = _DISC_ID.match(line)
@@ -586,6 +607,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
             album_artist=album_artist,
             c2_pointers=c2_pointers,
             paranoia_level=paranoia_level,
+            overread_mode=overread_mode,
+            gap_detection=gap_detection,
         ),
         tracks=tuple(tracks),
         accuraterip_summary=accuraterip_summary,

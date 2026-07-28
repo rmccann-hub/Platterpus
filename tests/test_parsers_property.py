@@ -54,6 +54,30 @@ _FRAGMENTS = st.sampled_from(
         "Disc duration: 01:02:08.026, 16 audio tracks",
         "Disc duration: ?, audio tracks",  # no number
         "Tracks:",
+        # --- v0.5.12 EAC-layout fields. Without these the fuzzer cannot steer
+        # into the new branches at all: st.text() will never emit "Start LSN:"
+        # by chance, so the never-raises property was silently not covering them
+        # (review finding, 2026-07-28). Each shape includes a hostile variant.
+        "Album:          Every Breath You Take: The Classics",
+        "Album:          ",  # padded, value-less — must not become " "
+        "Album artist:   The Police",
+        "C2 errors:      unsupported by drive",
+        "C2 errors:      supported by drive",  # capability, NOT use
+        "C2 errors:      ",
+        "Paranoia level: max",
+        "Paranoia level: none",
+        "Paranoia level: wibble",  # unrecognised → must not become "Secure"
+        "    Start LSN:   0 (with offset: 1)",
+        "    End LSN:     14486 (with offset: 14488)",
+        "    Start LSN:   99999999999999999999999999",  # huge but parseable
+        "    End LSN:     " + "9" * 4400,  # over CPython's int() digit ceiling
+        "    Start LSN:   500",
+        "    End LSN:     4",  # end < start — inverted geometry
+        "    Pregap LSN:  none",
+        "    Pregap LSN:  150",
+        "Gaps:",
+        "    None signalled",
+        "Overread mode:  fill with silence in lead-in/lead-out",
         "  1:",
         "    Peak level: 0.9",
         "    Peak level: not-a-float",  # bad float
