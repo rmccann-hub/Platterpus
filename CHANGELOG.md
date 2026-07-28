@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The desktop "rip complete" notification never fired.** v0.5.12 replaced a
+  `getattr(self, "_tray_icon", None)` with a plain attribute read to satisfy the type
+  checker, and declared the attribute on the window's typing seam — but that seam's
+  declarations live under `if TYPE_CHECKING`, so they inform mypy and create nothing
+  at runtime. The read came before the only assignment, so every completed rip raised
+  `AttributeError` and the notification was silently swallowed as best-effort. Found
+  in the log of a real 14-track rip. A type-only declaration is not an initialisation.
 - **The test suite could segfault at any point, and had been able to for most of
   the project's life.** Measured: unmodified `main` died with SIGSEGV on 5 runs out
   of 5. `deleteLater()` never executes in a suite that runs no event loop, so Qt
