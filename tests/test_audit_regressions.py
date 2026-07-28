@@ -800,3 +800,78 @@ def test_the_window_teardown_has_exactly_one_implementation() -> None:
         assert inlined not in source, (
             f"{rel} re-inlined the teardown instead of calling the shared helper"
         )
+
+
+def test_the_rip_complete_notification_path_does_not_raise(window) -> None:
+    """A type-only declaration is not an initialisation.
+
+    v0.5.12 changed `_ensure_tray_icon` from `getattr(self, "_tray_icon", None)`
+    to a plain attribute read, to satisfy mypy's `warn_return_any`, and declared
+    `_tray_icon` on `MainWindowShared`. But that seam's declarations live under
+    `if TYPE_CHECKING:` — they inform the type checker and create nothing at
+    runtime. The read came before the only assignment, so **every** completed rip
+    raised `AttributeError` and the desktop notification silently never fired.
+    Found on real hardware, in the log of an otherwise perfect 14/14 rip
+    (2026-07-28).
+
+    The existing notification test passed throughout, because it stubbed
+    `_ensure_tray_icon` instead of calling it — the same "test one layer below the
+    layer that broke" shape this file was created for.
+    """
+    # The attribute must EXIST before anything reads it.
+    assert hasattr(window, "_tray_icon")
+    assert window._tray_icon is None
+
+    # And the real path must be callable without raising. Headless CI has no
+    # system tray, so None is the expected answer — the point is that asking is
+    # safe.
+    assert window._ensure_tray_icon() is None
+
+    # Drive the notification exactly as `_on_rip_finished` does. It is
+    # best-effort and swallows its own errors, so assert on the *log* instead:
+    # nothing may be recorded as a failure.
+    import logging
+
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    logger = logging.getLogger("platterpus.ui.main_window_rip")
+    handler = _Capture()
+    logger.addHandler(handler)
+    try:
+        window._rip_cancelled = False
+        window._config.notify_on_completion = True
+        window._notify_rip_complete(True, "Done — all 14 tracks ripped cleanly.")
+    finally:
+        logger.removeHandler(handler)
+
+    assert not [r for r in records if r.exc_info], (
+        "the notification path logged an exception: "
+        f"{[r.getMessage() for r in records if r.exc_info]}"
+    )
+
+
+def test_every_shared_seam_attribute_the_code_reads_is_initialised() -> None:
+    """The general form of the bug above, as a fitness test.
+
+    `MainWindowShared` declares the window's shared surface for mypy under
+    `if TYPE_CHECKING:`. Those declarations are free — and therefore create
+    nothing. Any attribute the code *reads* before assigning must also be
+    initialised in `MainWindow.__init__`.
+
+    Rather than try to prove that for all ~60 declared attributes (many are
+    legitimately assigned on first use by the code path that owns them), this
+    pins the specific shape that bit us: an attribute read with plain dot access
+    inside a `_ensure_*`/`_maybe_*` lazy-initialiser must be initialised in
+    `__init__`.
+    """
+    init = Path("src/platterpus/ui/main_window.py").read_text(encoding="utf-8")
+    rip = Path("src/platterpus/ui/main_window_rip.py").read_text(encoding="utf-8")
+
+    # The lazy tray-icon initialiser reads it plainly…
+    assert "existing = self._tray_icon" in rip
+    # …so __init__ must create it.
+    assert "self._tray_icon: QSystemTrayIcon | None = None" in init

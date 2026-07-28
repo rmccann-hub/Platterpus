@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QSplitter,
+    QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
 )
@@ -400,6 +401,16 @@ class MainWindow(
         # verify daemons capture it and drop their result if a newer rip has begun
         # since, so a previous album's late verify can't contaminate this one.
         self._rip_generation: int = 0
+        # The system-tray icon for the rip-complete notification, created lazily
+        # by `_ensure_tray_icon`. Initialised HERE, at runtime, and not only
+        # declared on `MainWindowShared`: that seam's declarations live under
+        # `if TYPE_CHECKING`, so they inform mypy and create nothing. v0.5.12
+        # replaced a `getattr(self, "_tray_icon", None)` with a plain attribute
+        # read to satisfy the type checker, and the read came *before* the only
+        # assignment — so every completed rip raised AttributeError and the
+        # desktop notification silently never fired (real-hardware finding,
+        # 2026-07-28). A type-only declaration is not an initialisation.
+        self._tray_icon: QSystemTrayIcon | None = None
         # Auto-move to the library (Settings "Move finished rips to", "" = off).
         # A finished rip may only move once EVERY post-rip worker has settled
         # (nothing may verify/hash a file mid-move), so the move is armed as a
