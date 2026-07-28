@@ -183,6 +183,23 @@ class RipProgress(QWidget):
         # The status label names the current operation; the task bar
         # tracks that one operation's 0-100% (it resets read→verify→encode).
         self._status_label: QLabel = QLabel("Idle.", self)
+        # Word-wrapped, like every other label in this pane — and this one is the
+        # reason the rule matters. An un-wrapped QLabel's minimum width is the
+        # width of its whole single line, and that minimum propagates up: a real
+        # end-of-rip status ("… Done — all 14 tracks ripped cleanly, no read
+        # errors. AccurateRip: 13/14 verified. 1 track partially accurate
+        # (offset-variant match).") demanded **906 px**, against 366 px for the
+        # idle text. So the entire results pane refused to be narrower than the
+        # longest status it had ever shown. Maximised it looked right; make the
+        # window smaller and the layout could not comply, so the contents
+        # overflowed their viewport and the CTDB and loudness lines were drawn
+        # over the AccurateRip table (real-hardware report, 2026-07-28).
+        #
+        # Wrapping trades width for height, which is the correct trade for a
+        # sentence: it costs a second line on a narrow window instead of making
+        # the whole pane unusable there. `tests/test_ui_rip_progress.py` pins the
+        # pane's minimum width against the longest status we can produce.
+        self._status_label.setWordWrap(True)
         root.addWidget(self._status_label)
 
         # --- Stall notice (GUI-side liveness watchdog) ---
