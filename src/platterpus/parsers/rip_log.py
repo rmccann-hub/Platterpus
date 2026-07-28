@@ -120,6 +120,11 @@ class RippingInfo:
     # first happened to work for cyanrip and is not generally true, so the text
     # is kept (review finding, 2026-07-28).
     overread_mode: str = ""
+    # cyanrip's "Outputs:" row (e.g. "flac", or "flac,mp3"). EAC's "Used output
+    # format" was hardcoded to FLAC, which is a false statement in a
+    # checksum-attested document for a WavPack/MP3/WAV rip — Platterpus supports
+    # all four (review finding, 2026-07-28).
+    output_formats: str = ""
 
 
 @dataclass(frozen=True)

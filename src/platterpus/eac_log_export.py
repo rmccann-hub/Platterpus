@@ -256,9 +256,8 @@ def _render(
         lines.append("")
 
     # --- Drive / read settings (EAC's archival header) ---
-    if info.drive:
-        lines.append(f"Used drive  : {info.drive}")
-        lines.append("")
+    lines.append(f"Used drive  : {info.drive or _UNREPORTED}")
+    lines.append("")
     lines.append(f"Read mode               : {_read_mode(info)}")
     lines.append(f"Utilize accurate stream : {_UNREPORTED}")
     lines.append(f"Defeat audio cache      : {_yes_no(info.defeat_audio_cache)}")
@@ -271,11 +270,14 @@ def _render(
         + (_UNREPORTED if info.c2_pointers is None else _yes_no(info.c2_pointers))
     )
     lines.append("")
-    if info.read_offset_correction is not None:
-        lines.append(
-            f"Read offset correction                      : "
-            f"{info.read_offset_correction}"
+    lines.append(
+        "Read offset correction                      : "
+        + (
+            str(info.read_offset_correction)
+            if info.read_offset_correction is not None
+            else _UNREPORTED
         )
+    )
     lines.append(
         f"Overread into Lead-In and Lead-Out          : {_yes_no(info.overread_lead_out)}"
     )
@@ -310,7 +312,7 @@ def _render(
         f"{info.gap_detection or _UNREPORTED}"
     )
     lines.append("")
-    lines.extend(_output_format_block(cyanrip))
+    lines.extend(_output_format_block(cyanrip, info))
     lines.extend(_toc_block(rip_log, disc_track_total))
 
     # --- Per-track blocks ---
@@ -428,7 +430,7 @@ def _fill_with_silence(info: RippingInfo) -> str:
     return _UNREPORTED
 
 
-def _output_format_block(cyanrip: bool) -> list[str]:
+def _output_format_block(cyanrip: bool, info: RippingInfo) -> list[str]:
     """EAC's output-format block, in EAC's rows.
 
     EAC shells out to a command-line encoder and prints the executable path plus
@@ -450,13 +452,21 @@ def _output_format_block(cyanrip: bool) -> list[str]:
             "",
             "",
         ]
+    # The format cyanrip reports it wrote, not a hardcoded "FLAC": Platterpus
+    # also produces MP3, WavPack and WAV, and naming the wrong one in a
+    # checksum-attested log is a false claim (review finding, 2026-07-28).
+    fmt = (info.output_formats or "").strip()
+    lossless = fmt.casefold() in {"", "flac", "wavpack", "wv", "wav"}
+    quality_note = (
+        "(n/a — lossless)" if lossless else "(set by the encoder; see the rip report)"
+    )
     return [
-        "Used output format              : FLAC",
+        f"Used output format              : {fmt.upper() if fmt else _UNREPORTED}",
         # EAC prints an encoder bitrate/quality pair here. FLAC is lossless, so
         # "bitrate" is not a setting that exists for it — say that rather than
         # print a number EAC's readers would compare against a lossy one.
-        "Selected bitrate                : (n/a — FLAC is lossless)",
-        "Quality                         : (n/a — FLAC is lossless)",
+        f"Selected bitrate                : {quality_note}",
+        f"Quality                         : {quality_note}",
         # cyanrip writes Vorbis comments, never ID3, so this is a measured No.
         "Add ID3 tag                     : No",
         # NOT the `flac` binary's version: that comes from the launch-time
@@ -562,7 +572,7 @@ def _status_report(rip_log: RipLog, extra: list[str] | None = None) -> list[str]
     """
     from platterpus.verdict import accuraterip_counts
 
-    total, verified, _partial = accuraterip_counts(rip_log)
+    total, verified, partial = accuraterip_counts(rip_log)
     out: list[str] = []
     if total:
         unverified = total - verified
@@ -570,6 +580,14 @@ def _status_report(rip_log: RipLog, extra: list[str] | None = None) -> list[str]
             out.append(f"{verified:2} track(s) accurately ripped")
         if unverified:
             out.append(f"{unverified:2} track(s) could not be verified as accurate")
+        if partial:
+            # The per-track blocks say "Matched an offset-variant pressing"; the
+            # summary used to discard that and report only the bare failure,
+            # leaving it strictly less informative than the body above it.
+            out.append(
+                f"{partial:2} track(s) matched only an offset-variant pressing "
+                "(partially accurate)"
+            )
         out.append("")
         # `accuraterip_counts` only counts tracks that produced *some* result, so
         # a track that failed outright is invisible to `unverified`. Compare
@@ -626,7 +644,13 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     ]
     if not unstable:
         return []
-    listed = ", ".join(str(number) for number in sorted(unstable))
+    # Sort on a total order that tolerates a malformed number: mixing str/int/None
+    # in `sorted()` raises TypeError, and one bad track would take the whole log
+    # down to the stub (review finding, 2026-07-28).
+    listed = ", ".join(
+        str(number)
+        for number in sorted(unstable, key=lambda n: (not isinstance(n, int), str(n)))
+    )
     return [
         f"Read stability      : track(s) {listed} did not read identically across "
         "re-reads — not confirmed reproducible"
@@ -710,12 +734,40 @@ def _track_block(track: TrackResult) -> list[str]:
         out.append(f"     Filename {track.filename}")
         out.append("")
     out.extend(_pregap_line(track))
-    if track.peak_level is not None:
-        out.append(f"     Peak level {track.peak_level * 100:.1f} %")
-    if track.extraction_speed is not None:
-        out.append(f"     Extraction speed {track.extraction_speed:.1f} X")
-    if track.extraction_quality is not None:
-        out.append(f"     Track quality {track.extraction_quality:.1f} %")
+    # EAC prints these three for every track. Dropping them when unfillable
+    # contradicted this module's own rule — "a row is never silently omitted and
+    # never invented" — 56 times in one 14-track log (review finding,
+    # 2026-07-28). Label them instead, exactly as the header block does.
+    #
+    # None of the three is derivable from cyanrip: EAC's Peak level is the
+    # SAMPLE peak while cyanrip reports only a true (oversampled) peak — a
+    # different quantity, and provably so, since cyanrip's exceeds 100% on this
+    # disc; there is no per-track extraction speed or wall-clock in its output;
+    # and Track quality is an EAC-proprietary metric with no cyanrip analogue.
+    out.append(
+        "     Peak level "
+        + (
+            f"{track.peak_level * 100:.1f} %"
+            if track.peak_level is not None
+            else _UNREPORTED
+        )
+    )
+    out.append(
+        "     Extraction speed "
+        + (
+            f"{track.extraction_speed:.1f} X"
+            if track.extraction_speed is not None
+            else _UNREPORTED
+        )
+    )
+    out.append(
+        "     Track quality "
+        + (
+            f"{track.extraction_quality:.1f} %"
+            if track.extraction_quality is not None
+            else _UNREPORTED
+        )
+    )
     out.extend(_crc_lines(track))
     out.append(f"     {_accuraterip_line(track)}")
     if track.status:
@@ -814,6 +866,16 @@ def _accuraterip_line(track: TrackResult) -> str:
             "Matched an offset-variant pressing — partially accurate "
             f"(confidence {offset_variant.confidence}){crc}  (AR +450)"
         )
+    # A track with an AR result that simply didn't match is NOT absent from the
+    # database — cyanrip logs "disc found in database" alongside a per-track
+    # "not found, either a new pressing, or bad rip". Saying "not present" there
+    # is a false claim, and EAC has its own wording for exactly this state
+    # (review finding, 2026-07-28). Only a track with no AR data at all gets
+    # "not present".
+    for ar in (track.accuraterip_v2, track.accuraterip_v1, track.accuraterip_offset):
+        if ar is not None and ar.local_crc:
+            crc = f"  [{ar.local_crc}]" if ar.local_crc else ""
+            return f"Cannot be verified as accurate{crc}  (AR v{ar.version})"
     return "Track not present in AccurateRip database"
 
 

@@ -100,6 +100,17 @@ _PARANOIA_LEVEL = re.compile(r"^Paranoia level:\s+(?P<text>.+?)\s*$")
 # finding, 2026-07-28).
 _GAPS_HEADER = re.compile(r"^Gaps:\s*$")
 _GAPS_VALUE = re.compile(r"^\s+(?P<value>\S.*?)\s*$")
+# Platterpus's own swap addendum, appended after cyanrip's output when the
+# per-track auto-fix replaced a track's file. Its text states that these CRCs
+# are the SHIPPED file's and supersede the values above — so a re-parse must
+# honour it, or anything reading the saved log back (parity.track_copy_crcs,
+# the --compare path, a third-party tool) gets CRCs describing bytes that are
+# not on disk (review finding, 2026-07-28). The GUI never hit this because it
+# patches from live worker state; a re-parse from disk did.
+_ADDENDUM_CRC = re.compile(
+    r"^\s+Track (?P<number>\d+) \(.*\): CRC (?P<crc>[0-9A-Fa-f]{8})\s*$"
+)
+_OUTPUTS = re.compile(r"^Outputs:\s+(?P<value>.+?)\s*$")
 _DISC_ID = re.compile(r"^DiscID:\s+(?P<value>\S+)")
 _CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)")
 # "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
@@ -254,6 +265,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
     paranoia_level = ""
     overread_mode = ""
     gap_detection = ""
+    output_formats = ""
+    shipped_crcs: dict[int, str] = {}
     expect_gaps = False
     disc_id = ""
     cddb_id = ""
@@ -309,12 +322,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _DRIVE.match(line)
         if match:
-            drive = match.group("drive")
+            drive = match.group("drive").strip()
             continue
 
         match = _OFFSET.match(line)
         if match:
-            value = int(match.group("value"))
+            value = _int_or_none(match.group("value")) or 0
             read_offset = -value if match.group("sign") == "-" else value
             continue
 
@@ -360,7 +373,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _PARANOIA_LEVEL.match(line)
         if match:
-            paranoia_level = match.group("text")
+            paranoia_level = match.group("text").strip()
             continue
 
         if expect_gaps:
@@ -372,6 +385,18 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         if _GAPS_HEADER.match(line) and current is None:
             expect_gaps = True
+            continue
+
+        match = _ADDENDUM_CRC.match(line)
+        if match:
+            number = _int_or_none(match.group("number"))
+            if number is not None:
+                shipped_crcs[number] = match.group("crc").upper()
+            continue
+
+        match = _OUTPUTS.match(line)
+        if match and current is None:
+            output_formats = match.group("value").strip()
             continue
 
         match = _DISC_ID.match(line)
@@ -410,7 +435,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if in_paranoia:
             match = _PARANOIA_LINE.match(line)
             if match:
-                paranoia_counts[match.group("key")] = int(match.group("count"))
+                paranoia_counts[match.group("key")] = (
+                    _int_or_none(match.group("count")) or 0
+                )
                 continue
             in_paranoia = False  # block ended; fall through to other handlers
 
@@ -465,7 +492,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             else:
                 status = "ripped with errors"
             current = {
-                "number": int(match.group("number")),
+                "number": _int_or_none(match.group("number")) or 0,
                 "filename": "",
                 "pre_emphasis": None,
                 "copy_crc": "",
@@ -531,7 +558,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current["copy_crc"] = match.group("crc").upper()
                 rips = match.group("rips")
                 if rips is not None:
-                    current["rip_count"] = int(rips)
+                    current["rip_count"] = _int_or_none(rips)
                 continue
 
             match = _ACCURIP_TRACK.match(line)
@@ -539,9 +566,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 result_text = match.group("result") or ""
                 conf_match = _ACCURIP_CONFIDENCE.search(result_text)
                 ar = AccurateRipResult(
-                    version=int(match.group("version")),
+                    version=_int_or_none(match.group("version")) or 0,
                     result=result_text,
-                    confidence=int(conf_match.group("value")) if conf_match else None,
+                    confidence=_int_or_none(conf_match.group("value"))
+                    if conf_match
+                    else None,
                     local_crc=match.group("crc").upper(),
                 )
                 current[f"v{ar.version}"] = ar
@@ -557,7 +586,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current["offset"] = AccurateRipResult(
                     version=450,
                     result=result_text,
-                    confidence=int(conf_match.group("value")) if conf_match else None,
+                    confidence=_int_or_none(conf_match.group("value"))
+                    if conf_match
+                    else None,
                     local_crc=match.group("crc").upper(),
                 )
                 continue
@@ -580,7 +611,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _RIP_ERRORS.match(line)
         if match:
-            count = int(match.group("count"))
+            count = _int_or_none(match.group("count")) or 0
             # Same phrasing as whipper's healthy verdict so downstream
             # string checks treat both backends alike.
             health_status = (
@@ -590,10 +621,19 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
         match = _FINISHED_AT.match(line)
         if match:
-            creation_date = match.group("when")
+            creation_date = match.group("when").strip()
             continue
 
     flush()
+    # Apply the swap addendum last, over the finished track list: it is the only
+    # statement in the file about which bytes actually shipped.
+    if shipped_crcs:
+        from dataclasses import replace as _replace
+
+        tracks = [
+            _replace(tr, copy_crc=shipped_crcs.get(tr.number, tr.copy_crc))
+            for tr in tracks
+        ]
     return RipLog(
         log_creator=log_creator,
         creation_date=creation_date,
@@ -609,6 +649,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
             paranoia_level=paranoia_level,
             overread_mode=overread_mode,
             gap_detection=gap_detection,
+            output_formats=output_formats,
         ),
         tracks=tuple(tracks),
         accuraterip_summary=accuraterip_summary,

@@ -11,8 +11,6 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-## [Unreleased]
-
 ### Fixed
 *Found by an adversarial review of the v0.5.12 EAC-layout work — five independent
 reviewers, each finding then handed to a separate verifier told to refute it. CI was
@@ -69,6 +67,22 @@ green on all ten checks at the time.*
 - **The backend gate was a substring test**, so `not-cyanrip 1.0` and
   `whipper (cyanrip-compatible)` inherited cyanrip's asserted behaviour. It anchors
   to the start of the creator string now.
+- **Seven more `int()` call sites could raise straight out of the parser** — every
+  numeric cyanrip field except the three sector ones (read offset, paranoia counts,
+  track number, rip count, both AccurateRip confidences, error count). CPython refuses
+  a >4300-digit conversion, so a corrupt log crashed the parse. All now degrade to
+  unknown with a logged warning, and the boundary is pinned per-field.
+- **A saved log re-parsed to the DISCARDED CRCs.** Platterpus appends a swap addendum
+  when the auto-fix replaces a track's file, and its own text says those CRCs
+  supersede — but nothing read it back, so `parity.track_copy_crcs` (and the
+  `--compare` path, and any third-party tool) got CRCs describing bytes that are not
+  on disk. The GUI never hit this because it patches from live worker state. The
+  parser now honours the addendum.
+- **`_read_stability_line` crashed the whole log to a stub** on a mix of `str`/`None`
+  track numbers (`sorted()` over incomparable types) — one bad track took the document
+  with it.
+- Padded, value-less `Device model:` / `Ripping finished at` / `Paranoia level:` rows
+  captured a lone space, rendering an empty row instead of the honest label.
 - The parser property test could not reach any of the new branches, so their
   never-raises guarantee was untested; the corpus now includes them, plus a
   4400-digit sector and inverted `Start`/`End` geometry.

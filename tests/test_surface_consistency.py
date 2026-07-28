@@ -249,7 +249,10 @@ def test_an_offset_variant_track_is_never_called_absent_or_exact() -> None:
     assert variants, "scenario must contain offset-variant tracks"
 
     assert "not present in AccurateRip" not in text
-    assert text.count("offset-variant") == len(variants)
+    # Per-track lines only: the status report now also carries an
+    # offset-variant count line, which is a summary, not a track.
+    per_track = [x for x in text.splitlines() if x.startswith("     Matched an offset")]
+    assert len(per_track) == len(variants)
     for track in variants:
         entry = next(t for t in report["tracks"] if t["number"] == track.number)
         assert entry["accuraterip_verified"] is False, (
