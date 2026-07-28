@@ -504,18 +504,30 @@ per-track auto-fix re-reads tracks *after* the whole-disc log exists. Each of
 those was, at some point, a shipped honesty bug — a log that said "(unknown)"
 about something we knew, one that read as complete when it wasn't, one that
 dropped a Test & Copy proof we had earned. So `_on_rip_finished` runs the parsed
-`RipLog` through small **fill-only enrichers** (`_inject_measured_cache_defeat`,
-`_apply_auto_fix_convergence`) *before* the report and the EAC-layout log are
-written, and passes late-known context (`outcome_status`, `disc_track_total`) into
-the renderer. The contract for any new one: `dataclasses.replace` onto a frozen
+`RipLog` through small **enrichers** (`_inject_measured_cache_defeat`,
+`_apply_auto_fix_results`) *before* the report and the EAC-layout log are
+written, and passes late-known context (`outcome_status`, `disc_track_total`,
+`secure_rerip`) into the renderer. The contract for any new one: `dataclasses.replace` onto a frozen
 copy, never raise (a provenance touch-up must not abort the post-rip chain), and
 only assert what the *shipped bytes* earned — e.g. a converged re-read that never
 replaced the album's file proves nothing about the file that's still there. When
 you add a post-rip fact, ask *which renderings need telling?* — the answer is
 usually all of them, and the bug is always the one you forgot.
 
-Two of these enrichers *fill* a missing value and must never overwrite what the
-log itself said (`_inject_measured_cache_defeat`). One deliberately **replaces**:
+> **This is not hypothetical, and the trap has a specific shape.** The 2026-07-28
+> audit found the `outcome_status` wiring had *never* worked: `_last_outcome` is a
+> dict, the call site read it with `getattr`, and the INCOMPLETE RIP banner
+> therefore could not render on any real rip — through four releases, with a green
+> test suite, because the regression test called `render_eac_style_log` directly
+> with `outcome_status="cancelled"` instead of going through `_write_eac_log`. A
+> test that passes the fact in by hand proves the renderer honours it; it proves
+> nothing about whether anything ever *tells* it. **Test the wiring, at the call
+> site.** The same audit found `interrupted` reaching the JSON report and not the
+> log — the "which renderings need telling?" question, answered incompletely.
+
+Of the two, one *fills* a missing value and must never overwrite what the log
+itself said (`_inject_measured_cache_defeat`). The other deliberately
+**replaces**:
 when the per-track auto-fix swaps a re-read into the album, the first-pass record
 describes bytes that no longer exist, so `_apply_auto_fix_results` folds the
 *re-rip's own* parsed record over it (`_merge_shipped_track` — a pure module
@@ -739,4 +751,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.5.11.*
+*Last updated for Platterpus v0.5.13.*

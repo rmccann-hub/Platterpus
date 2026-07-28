@@ -314,6 +314,67 @@ tiers. "I added a happy-path test" is not done.
       the discipline is *don't trust a human to remember; make the omission fail a
       test*.
 
+### 5.x — Test the wiring, at the call site (added 2026-07-28)
+
+The 2026-07-28 whole-application audit found the **same test-shaped hole** behind
+four of the five recent escapes, and behind one feature that shipped broken for
+four consecutive releases:
+
+> A test that hands a fact to a renderer proves the renderer honours it. It proves
+> **nothing** about whether anything ever *tells* it.
+
+The pure case: `render_eac_style_log(rip_log, outcome_status="cancelled")` was
+called directly by two tests, both green, both correct. The production call site
+read `_last_outcome` — a **dict** — with `getattr(outcome, "status", "")`, which
+always returned `""`, so the `*** INCOMPLETE RIP ***` banner could not render on
+any real rip. `mypy` could not catch it either: `getattr(x, "literal", default)`
+is typed `Any`. Four releases claimed a fix that had never once executed.
+
+So, as a rule:
+
+- **A regression test for a wiring bug goes through the production entry point**
+  (`window._write_eac_log`, not `render_eac_style_log`). If the entry point is
+  awkward to drive, that awkwardness is the finding — fix the seam.
+- **Where a value's type is known, read the attribute.** A `getattr` with a
+  default is an assertion-free cast: it silently absorbs a shape change and
+  defeats every type check downstream. Where the shape genuinely is external
+  (a `Signal(object)` payload), `isinstance`-narrow at entry — that narrows for
+  mypy *and* is a real runtime guard (`_on_derived_verified` is the pattern).
+- **A guard added in one place is a bug report about every other place.** The
+  clean-sweep denominator and the offset-variant predicate were each fixed once,
+  in the EAC exporter, and left wrong in the verdict banner, the status line, the
+  disc panel and the JSON report. When you add a guard, grep for the predicate and
+  fix every site — or better, move it into one shared function and delete the
+  copies. `tests/test_surface_consistency.py` exists to make that failure loud.
+- **Prefer a positive anchor to a bare negative.** `assert "Test CRC" not in text`
+  passes just as happily against a renderer that produced nothing at all — and
+  `render_eac_style_log`'s blanket `except` means a broken render degrades to a
+  (validly-checksummed) stub. Pair each `not in` with something that must be there.
+
+### 5.y — Fail open is worse than fail loud (added 2026-07-28)
+
+A broad `try` around a whole function turns "this crashed" into "this found
+nothing", and the two are indistinguishable to the caller. `validate_config()` was
+one `try` around every rule: a single non-string field made the first rule raise,
+the catch-all returned the issues collected so far — an empty list — and the
+config layer read that as "valid" and persisted a `..`-traversal template.
+
+- **Isolate each unit of work** so a crash costs only that unit's findings, and
+  **log which one failed** by name.
+- **Type-check before you parse.** A validator that skips the one field that is
+  actually broken has failed at its only job.
+- Never-raises and fail-open are *not* the same contract. Never-raises means the
+  caller keeps running; it does not license reporting success.
+
+### 5.z — Diagnosability is part of the suite (added 2026-07-28)
+
+`conftest.py` hard-exits at session finish to dodge a PySide teardown race. That
+workaround was discarding pytest's **entire terminal summary**: a red CI run
+produced progress dots and nothing else — no failing test names, no tracebacks, no
+`--durations`. It was invisible because the suite was green. The hook now prints
+the summary itself before exiting; if you touch that hook, keep it that way.
+
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -380,4 +441,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.13.*

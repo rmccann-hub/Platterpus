@@ -56,6 +56,10 @@ Platterpus/
 │   ├── cyanrip-soft-fork.md             # soft-fork runbook (proof harness: scripts/cyanrip/verify-meta-colon.c)
 │   ├── github-workflow-sop.md           # generic GitHub SOP (CLAUDE.md wins where they differ)
 │   ├── session-log.md                   # chronological session history (newest first)
+│   ├── hardware-test-checklist.md       # the current release's fillable hardware run sheet
+│   ├── manual-ctdb-repair.md            # the documented manual CUETools/ctdb-cli repair path (KDD-14 "D")
+│   ├── release-signing.md               # the out-of-CI minisign signing ritual (KDD-26)
+│   ├── audit-2026-07-21.md              # dated repo audit record
 │   ├── archive/                         # retired investigations + external reference (see archive/README.md)
 │   │   ├── README.md                    # index + graduation notes for the archived material
 │   │   ├── ecosystem-audit-2026-06.md   # whipper-stalled / cyanrip-successor audit (KDD-18)
@@ -88,6 +92,7 @@ Platterpus/
 │                                        #   (per-track CRCs prove bit-perfection; never commit audio — see its README)
 │
 ├── build/                               # everything related to producing the AppImage
+│   ├── lock-requirements.sh             # writes the hash-pinned requirements.lock (run in the release env)
 │   ├── build_appimage.sh                # one-shot build script (calls python-appimage)
 │   ├── make_icon.py                     # regenerate the committed app icon (needs an SVG rasterizer — rsvg-convert/Inkscape/ImageMagick/cairosvg; NOT Pillow)
 │   └── python-appimage/
@@ -129,6 +134,7 @@ Platterpus/
         ├── goal_presets.py              # rip goal presets (Fast verified / Archival exact / Portable)
         ├── settings_validation.py       # pure Settings/Config input validation (type/range/charset/format)
         ├── verdict.py                   # the single pure AccurateRip trust verdict (shared by every surface)
+        ├── tool_paths.py                # resolve an external tool off PATH (~/.local/bin distrobox exports)
         ├── read_speed_ladder.py         # adaptive read-speed ladder decision logic (pure, never-raises)
         ├── rip_report.py                # machine-readable `.platterpus.json` rip report (pure, never-raises)
         ├── rip_timing.py                # wall-clock rip timing + realtime multiplier (cyanrip ETA ignored)
@@ -260,6 +266,8 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`naming.py`** — file-naming presets (the `%`-token path templates for the rip's folder+file layout) plus a pure `render_preview()` so the Settings dialog shows the exact filename before the user commits.
 - **`goal_presets.py`** — the three rip "goal" presets (Fast verified / Archival exact / Portable); each just bundles existing `Config` fields (progressive disclosure — the rip still reads the individual fields, presets are never a new code path).
 - **`settings_validation.py`** — the pure validator for Settings/Config inputs (type, range, character set, format) — the "validate every input" boundary; returns a list of `ValidationIssue`, no Qt and no persistence, so tests assert against it directly (Code conventions).
+- **`update_signing.py`** — ed25519 (minisign-format) verification of a release's signature, used **fail-closed** by `update_install.py`: a present-but-invalid signature aborts the update (KDD-26). Dormant until `PUBLIC_KEY_B64` is baked in; until then the gate is SHA-256 only, which `SECURITY.md` states plainly.
+- **`tool_paths.py`** — one search order for every external binary: `PATH`, then `~/.local/bin` (where `distrobox-export` puts the container's tools), then the usual system directories, then the bare name. A GUI launched from a desktop icon does not inherit a login shell's `PATH`, so without this the wizard could report a tool installed while the dependency probe reported it missing.
 - **`verdict.py`** — the single, pure, Qt-free AccurateRip "is this rip trustworthy?" whole-disc verdict, so every surface (results-pane banner, JSON report) shares one definition; builds on `parsers/rip_log.track_accuraterip_verified` (confidence ≥ 1).
 - **`read_speed_ladder.py`** — the pure decision logic for the adaptive read-speed ladder: start fast, slow down / re-read harder (down to cyanrip `-Z`) only when a disc needs it — quality only goes up. No Qt, no subprocess, never raises.
 - **`rip_report.py`** — builds the machine-readable `<name>.platterpus.json` rip report (drive/rip settings, per-track CRCs + AccurateRip, the shared verdict, CTDB, checksums, embedded log). Pure and never-raises; reuses `verdict`.
@@ -272,6 +280,7 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`atomic_write.py`** — durable atomic file writes (temp → fsync → replace → fsync-dir), the one shared implementation behind every small state file (`config.py`, `drive_profile_store.py`, `rip_report.py`) so "crash-safe" also means "power-loss-safe".
 - **`build_info.py`** — build + runtime environment facts (build fingerprint, platform) for the JSON report's `environment` block; tiny and Qt-free so `rip_report` can import it without PySide6.
 - **`rip_compare.py`** — compares two `.platterpus.json` reports of the same disc ("you've ripped this before"): which tracks are byte-identical, which differ, and which rip is the better master. Pure; powers the post-rip banner and the CLI. The prior-report scan covers the output root plus any extra roots (the auto-move library folder).
+- **`adapters/cache_probe.py`** — the `cd-paranoia -A` cache-defeat probe (KDD-29): builds the argv, runs it off the GUI thread with a generous timeout (the analysis takes minutes, not seconds), and parses the verdict into a measured `Yes`/`No` — or leaves it honestly `(unknown)` when inconclusive.
 - **`library_move.py`** — moves a finished rip's album folder into the user's library folder (Settings "Move finished rips to"; the caller gates it on post-rip settlement). Pure, never raises, returns a `MoveResult`; never overwrites (collisions get a "(N)" sibling) and refuses self-nesting/workspace-root moves.
 - **`cli_compare.py`** — terminal glue for `--compare` / `--assemble-best-of`; printing + exit codes only, all logic (and tests) in `rip_compare`.
 - **`drive_media.py`** — optical-media presence polling (disc inserted/removed) so a freshly-inserted disc is picked up automatically after an eject/cancel; decision logic split from the probe so it's testable without a drive.
@@ -968,7 +977,7 @@ No new parser work — `rip_count` and `secure_rerip_converged` were already par
 
 **Amended again 2026-07-26 (third run, v0.5.10) — the deeper half.** The first amendment folded in the *convergence* fact but not the *CRC*, and the third run exposed why that was half a fix: when a re-rip produces **different** audio and is swapped in, the first-pass record describes bytes that no longer exist. Both the EAC-layout log and the JSON report printed the discarded read's CRC beside the shipped file's name (track 3: log `52DFDF7D`, file `3D8FCF0C`), and the new Test-and-Copy note then attached a convergence *proof* to the wrong value — a regression the amendment itself introduced. The same reasoning applies to the per-track AccurateRip verdict: it is a claim about specific bytes, so after a swap it must be the swapped-in read's. The worker therefore keeps each swapped track's **parsed re-rip record** (`swapped_track_records`) and `_merge_shipped_track` folds its measured fields over the first pass — identity fields (`number`, `filename`) deliberately excluded, and an unreported field never allowed to erase a real one (deleting a known fact is worse than the stale value being fixed). Note the shape of the near-miss: cyanrip's `.log` had carried a correct written **swap addendum** since the auto-fix shipped; our own renderings simply didn't implement the same supersession. *When one output already documents a correction, the others owe the same correction — a prose addendum in one file is a design note, not a fix.*
 
-**Amended 2026-07-26 (second v0.5.9 hardware run).** "Rendering only" was true of the *log*, but not of the *data reaching* it: the album's whole-disc `.log` records the **first** read pass, so a track the per-track auto-fix later re-read and swapped in parsed as `secure_rerip_converged=None` and rendered a lone `Copy CRC` — the Test & Copy proof we had actually earned was dropped on exactly the tracks that needed it. `main_window_rip._apply_auto_fix_convergence` now folds the auto-fix's per-track result into the parsed `RipLog` before the report and the EAC-layout log are written (fill-only, same shape as `_inject_measured_cache_defeat`). The honesty gate is that **only a track that both converged *and* was swapped in** may be marked: a converged re-read that never replaced the album's file leaves the shipped bytes single-read, and must be described as such. Generalized lesson — same as the incomplete-rip banner in v0.5.9 — *when the app learns a fact after the ripper's log is written, the renderer must be told; a log is only as honest as the data it is handed.*
+**Amended 2026-07-26 (second v0.5.9 hardware run).** "Rendering only" was true of the *log*, but not of the *data reaching* it: the album's whole-disc `.log` records the **first** read pass, so a track the per-track auto-fix later re-read and swapped in parsed as `secure_rerip_converged=None` and rendered a lone `Copy CRC` — the Test & Copy proof we had actually earned was dropped on exactly the tracks that needed it. `main_window_rip._apply_auto_fix_results` now folds the auto-fix's per-track result into the parsed `RipLog` before the report and the EAC-layout log are written (fill-only, same shape as `_inject_measured_cache_defeat`). The honesty gate is that **only a track that both converged *and* was swapped in** may be marked: a converged re-read that never replaced the album's file leaves the shipped bytes single-read, and must be described as such. Generalized lesson — same as the incomplete-rip banner in v0.5.9 — *when the app learns a fact after the ripper's log is written, the renderer must be told; a log is only as honest as the data it is handed.*
 
 ### KDD-31 — Read offset: confirm on the user's unit via AccurateRip, not a from-scratch Key-Disc finder (decided 2026-07-24)
 
@@ -1004,4 +1013,4 @@ Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need t
 
 ---
 
-*Last updated for Platterpus v0.5.11.*
+*Last updated for Platterpus v0.5.13.*

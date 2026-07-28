@@ -401,9 +401,19 @@ AccurateRip/CTDB external verification catches a cache-served stale read the
 same way it catches any other read discrepancy, by disagreeing with a trusted
 external checksum rather than by asserting an unverifiable drive-behavior
 fact. A *measured* verdict (`cd-paranoia -A`, the standalone cdparanoia tool's
-own cache-defeat self-test) is deferred, not rejected — it would add a new
+own cache-defeat self-test) was deferred, not rejected — it would add a new
 host-tool dependency, which needs a `DEPENDENCIES.md` entry, deviation-policy
 sign-off, and hardware validation before it could be trusted (KDD-25).
+
+> **Superseded 2026-07-24 — see PLANNING.md KDD-29.** Every one of those
+> preconditions was met and the feature **shipped in v0.5.8**: the `cd-paranoia`
+> row is in `DEPENDENCIES.md`, the maintainer signed off, and the verdict was
+> hardware-validated on the BDR-209D on 2026-07-26 (fixture:
+> `tests/fixtures/cdparanoia_A_bdr209d.txt`). *Set up drive → Analyse cache*
+> now measures the drive's real behaviour via `adapters/cache_probe.py` and
+> renders a measured `Yes`/`No`. What survives from KDD-25 is the rule it was
+> protecting, not its conclusion: an **inconclusive** probe still renders
+> `(unknown)`, never a fabricated `Yes`.
 
 **Two more notes from cross-checking that doc against our own decisions:**
 
@@ -479,4 +489,4 @@ lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metafla
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.13.*

@@ -277,14 +277,19 @@ metaflac --version
 
 ### Step 4 — Export the binaries to your host
 
-Still inside the container, export both binaries:
+Still inside the container, export the binaries. **Export all four** — the
+in-app wizard and `setup-host.sh` do, and each one is load-bearing:
 
 ```bash
-distrobox-export --bin /usr/bin/cyanrip
-distrobox-export --bin /usr/bin/metaflac
+distrobox-export --bin /usr/bin/cyanrip       # the ripper
+distrobox-export --bin /usr/bin/metaflac      # tag + cover-art writing
+distrobox-export --bin /usr/bin/flac          # decodes audio for the CTDB check
+distrobox-export --bin /usr/bin/cd-paranoia   # measures your drive's cache defeat
 ```
 
-This creates wrapper scripts at `~/.local/bin/cyanrip` and `~/.local/bin/metaflac` on the **host** (not in the container). Those wrappers transparently enter the container when called, so from the host's perspective cyanrip looks like a regular installed program.
+This creates wrapper scripts at `~/.local/bin/<name>` on the **host** (not in the container). Those wrappers transparently enter the container when called, so from the host's perspective cyanrip looks like a regular installed program.
+
+Skipping `flac` is the easy mistake: CTDB verification is **on by default** and decodes your audio with the host `flac`, so without the export that check silently degrades. `cd-paranoia` is optional — without it the cache-defeat verdict stays honestly "(unknown)".
 
 Now leave the container:
 
@@ -565,7 +570,7 @@ See [TASKS.md](TASKS.md) under "EAC bit-perfect parity gaps" for the history.
 
 When you launch Platterpus for the first time:
 
-1. **Dependency check.** The GUI verifies cyanrip, metaflac, and Picard are reachable. If anything's missing, it pops a dialog with one of three resolutions:
+1. **Dependency check.** The GUI verifies all seven of its dependencies are reachable — cyanrip, metaflac, flac, ffmpeg, cd-paranoia, Picard, and the `musicbrainzngs` library. If anything's missing, it pops a dialog with one of three resolutions:
    - **Auto-install** (Picard): one OK and it runs `flatpak install --user`.
    - **Pending installs:** a checklist for items that need batching or confirmation.
    - **Manual install:** a copyable search string for anything that needs root (or a reboot) to install.
@@ -781,7 +786,7 @@ sudo dnf system-upgrade reboot   # inside the container only
 
 ## Uninstalling
 
-**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac commands (and any leftover whipper export from an older install), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `./platterpus-x86_64.AppImage --uninstall` (or `platterpus --uninstall` on a pipx install).
+**Easiest — no terminal:** open the app and use **Tools → Uninstall Platterpus…**, or click the **Uninstall Platterpus** entry the AppImage adds to your application menu (under System). It removes everything the app installed — shortcuts, the cyanrip/metaflac/flac/cd-paranoia commands (and any leftover whipper export from an older install), the `ripping` container, optionally the AppImage file itself, and the app's own settings and logs (including the stored read offset) — with a confirmation first and per-item checkboxes. **Never touched:** your music, and Distrobox/podman themselves (any other containers you have keep working). The same uninstaller can be launched from a terminal with `./platterpus-x86_64.AppImage --uninstall` (or `platterpus --uninstall` on a pipx install).
 
 **Script alternative** (source checkouts, or if you prefer the terminal): the [`uninstall.sh`](uninstall.sh) script tears everything down in layers, safest-first — it also covers the dev `.venv/`, which the in-app uninstaller doesn't (a packaged app doesn't know your checkout's location). It **never** removes your ripped music or a source checkout without an explicit flag.
 
@@ -804,7 +809,8 @@ To remove the host stack fully by hand instead:
 
 ```bash
 distrobox rm ripping            # remove the container
-rm ~/.local/bin/cyanrip ~/.local/bin/metaflac   # host exports
+rm -f ~/.local/bin/cyanrip ~/.local/bin/metaflac \
+      ~/.local/bin/flac ~/.local/bin/cd-paranoia   # host exports (all four)
 rm -f ~/.local/bin/whipper      # leftover from an older whipper install, if present
 rm -rf ~/.config/platterpus ~/.local/share/platterpus
 rm -rf ~/.config/whipper        # legacy whipper config, if present
@@ -824,7 +830,9 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 | `~/.config/whipper/whipper.conf` | Legacy offset reference only — cyanrip does not use it. Kept so an upgrading user can see their old offset. |
 | `~/.local/share/platterpus/log.txt` | GUI log file. Check here when something goes sideways. |
 | `~/Music/rips/` *(default)* | Where rips land, under `Artist/Album/`. Configurable in Settings. |
-| `…/Artist/Album/` | The rip itself: the FLAC tracks **plus** the `.log`, `.cue`, and other sidecar files cyanrip writes next to them. |
+| `…/Artist/Album/` | The rip itself: the FLAC tracks **plus** the sidecars — cyanrip's own `.log` and `.cue`, Platterpus's `<Album>.platterpus.json` report, the optional `<Album> (EAC-compatible).log`, and any saved `cover.<ext>` / `back.<ext>` / `booklet-NN.<ext>` artwork. |
+| `~/.config/platterpus/drive_profiles.json` | The per-drive trust ledger (KDD-23): your drive's fingerprint, its read offset and where that value came from, and the measured cache-defeat verdict. |
+| `~/.local/bin/` | The four host-exported wrappers — `cyanrip`, `metaflac`, `flac`, `cd-paranoia` — each of which transparently enters the `ripping` container. |
 
 ---
 
@@ -833,7 +841,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-25)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-32)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 
@@ -866,4 +874,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.13.*
