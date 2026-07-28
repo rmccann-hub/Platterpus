@@ -87,10 +87,27 @@ documentation) run across eight parallel reviewers, 2026-07-28.*
 - **A failing test run printed no failure names and no tracebacks.** The PySide
   teardown workaround in `conftest` hard-exits at session finish, which discarded
   pytest's entire terminal summary; it now prints it first.
-- **The window teardown used in tests now lives in one place** (`conftest.stop_window_threads`).
-  A second copy had diverged and stopped joining the MusicBrainz worker thread, so
-  windows were destroyed with a QThread still running — which aborts the process
-  during a later test's garbage collection, in an unrelated file.
+- **The dialog auto-centring filter no longer keeps a registry of dialogs.** It tracked
+  which dialogs it had already placed in a `weakref.WeakSet`, which measures the wrong
+  lifetime: a weakref is attached to the *Python wrapper*, so the entry disappeared when
+  Python stopped referencing the dialog — not when Qt destroyed it. Whenever the C++ side
+  went first (a parent deletion, `deleteLater()`), the entry silently persisted for a
+  dialog that no longer existed, which is the stale-bookkeeping failure the WeakSet had
+  been introduced to fix. The mark now lives on the dialog itself as a Qt dynamic
+  property, so it is born and destroyed with the thing it describes and there is no
+  registry to go stale, nothing to invalidate, and no address to be recycled.
+- **The main window's first-run prompt was scheduled with a timer that outlived the
+  window.** `QTimer.singleShot(0, self._maybe_offer_first_run_setup)` keeps the callback
+  alive independently of the window, so the window can never be freed until it fires —
+  and if the window's C++ side goes first, the timer fires anyway, against freed memory.
+  It now passes the window as the timer's context object, which ties the callback to the
+  window's lifetime. The comment claiming it "never fires in tests" was false: a
+  zero-timer fires on any `processEvents()`, of which the suite makes about twenty-two.
+- **The window teardown used in tests now lives in one place** (`conftest.stop_window_threads`)
+  and joins all seven of the window's QThreads, not four. A second copy had diverged and
+  stopped joining the MusicBrainz worker thread, so windows were destroyed with a QThread
+  still running — which aborts the process during a later test's garbage collection, in
+  an unrelated file.
 
 ### Changed
 - **CTDB's "no match" no longer claims your rip differs from the database.** We test

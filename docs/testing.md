@@ -375,6 +375,63 @@ produced progress dots and nothing else — no failing test names, no tracebacks
 the summary itself before exiting; if you touch that hook, keep it that way.
 
 
+### 5.w — The suite leaks Qt objects, and a forced `gc.collect()` detonates it
+
+**Known, pre-existing, and measured (2026-07-28). Read this before adding a
+`gc.collect()` to any test, and before "fixing" the teardown story piecemeal.**
+
+The finding, in one line: **`deleteLater()` is a no-op in this suite**, and any
+forced full collection walks the resulting graph and segfaults.
+
+The measurements, all on Python 3.11 + PySide6 6.11.1:
+
+| What was run | Result |
+|---|---|
+| `origin/main`, unmodified (it has one `gc.collect()`) | **5/5 runs SIGSEGV** |
+| This branch, `gc.collect()` removed | 6/6 clean, then 6/6 SIGSEGV — *not* stable |
+| This branch + a forced `gc.collect()` re-added | **6/6 SIGSEGV** |
+| …plus an autouse `DeferredDelete` drain | **5/5 SIGSEGV** — the drain does not fix it |
+
+Why `deleteLater()` does nothing here: it posts a `DeferredDelete` event and
+hands ownership to Qt, and Qt delivers that event only when the event loop that
+posted it exits, or when someone asks for it **by type**. This suite runs no
+event loop; `processEvents()` does not qualify and neither does a bare
+`sendPostedEvents()` (both measured). So every window a fixture "deletes" stays
+alive, pinned, with an event queued against it, for the whole process.
+
+Compounding it: `MainWindow.__init__` schedules its first-run prompt with the
+two-argument `QTimer.singleShot(0, self._maybe_offer_first_run_setup)`, whose
+bound method holds a **strong reference to the window** — so the windows cannot
+be freed even in principle. The comment claiming that timer "never fires in
+tests" is wrong; a zero-timer fires on any `processEvents()`, and the suite makes
+about twenty-two.
+
+**Why the obvious fixes were tried and reverted.** Switching that timer to the
+three-argument (context-object) form is correct in isolation and *made things
+worse*: it removes the pin, so objects that were merely leaking became genuinely
+collectable, and the crash moved to a `checksums.py` worker thread with the
+cyclic GC firing on it mid-`rglob`. Same for draining `DeferredDelete`. Both
+convert a benign leak into a live use-after-free, because the *rest* of the
+teardown story is not ready for objects to actually die. **Unpinning must come
+after the teardown is fixed, not before** — and both changes are reverted for
+that reason, not because they were wrong.
+
+**What this means for you:**
+
+* **Do not add a `gc.collect()` to a test.** There is currently none in the
+  suite, and that is load-bearing. If you need to prove an object was released,
+  prove it by refcount-deterministic destruction instead (see
+  `tests/test_ui_auto_center.py`, which asserts exactly that property with no
+  collection at all).
+* **Do not add a `DeferredDelete` drain or unpin the first-run timer on its own.**
+  Measured: each makes the crash more frequent, not less.
+* The real fix is a coordinated one — join every worker (QThread *and*
+  `threading.Thread`) at test boundaries, route the ~13 hand-rolled
+  `processEvents` pump loops through `process_until` (which pauses the cyclic GC
+  for exactly this reason), then drain and unpin. Expect that to surface latent
+  `~MainWindow` bugs, because that path has effectively never executed under test.
+
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
