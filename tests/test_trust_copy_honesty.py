@@ -37,7 +37,7 @@ def test_user_guide_has_no_stale_experimental_ctdb_caveat() -> None:
     match can only show amber."""
     assert "experimental" not in USER_GUIDE.lower()
     # The CTDB result section should say a match is verified / hardware-confirmed.
-    assert "hardware-confirmed" in USER_GUIDE
+    assert "confirmed correct on real hardware" in USER_GUIDE
 
 
 def test_user_guide_does_not_overclaim_reread_convergence() -> None:

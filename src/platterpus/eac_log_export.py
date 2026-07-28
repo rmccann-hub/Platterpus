@@ -144,6 +144,7 @@ def render_eac_style_log(
     encoder_versions: dict[str, str] | None = None,
     outcome_status: str = "",
     disc_track_total: int | None = None,
+    secure_rerip: dict | None = None,
 ) -> str:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``.
 
@@ -156,6 +157,11 @@ def render_eac_style_log(
     * ``encoder_versions`` — ``{dep_id: version}`` for the FLAC encoder
       (``flac``/``metaflac``) and, when a derived format was produced,
       ``ffmpeg``; from :func:`platterpus.build_info.encoder_versions`.
+    * ``secure_rerip`` — :attr:`RipWorker.secure_rerip_report`. Only its
+      ``interrupted`` flag is read: an auto-fix securing pass cut short (the app
+      was closed mid-pass) is a fact the JSON report carried and the durable log
+      did not, so the archival artifact was the more reassuring of the two —
+      the exact asymmetry this module exists to prevent (audit, 2026-07-28).
 
     The honesty gate still holds: any value not supplied is **omitted, never
     invented**, the cyanrip source line is left exactly as parsed, and EAC's own
@@ -176,6 +182,7 @@ def render_eac_style_log(
             encoder_versions=encoder_versions or {},
             outcome_status=outcome_status,
             disc_track_total=disc_track_total,
+            secure_rerip=secure_rerip or {},
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -194,6 +201,7 @@ def _render(
     encoder_versions: dict[str, str],
     outcome_status: str = "",
     disc_track_total: int | None = None,
+    secure_rerip: dict | None = None,
 ) -> str:
     """Build the log body in **EAC's own section order and row layout**.
 
@@ -324,7 +332,12 @@ def _render(
     # The read-stability caveat is part of the status report, so it goes BEFORE
     # the "End of status report" terminator — in EAC everything after that line
     # is a plugin section (review finding, 2026-07-28).
-    lines.extend(_status_report(rip_log, _read_stability_line(rip_log)))
+    lines.extend(
+        _status_report(
+            rip_log,
+            _read_stability_line(rip_log) + _interrupted_securing_line(secure_rerip),
+        )
+    )
     lines.append("")
     # Deliberately NOT a real "==== Log checksum <hex> ====": that is EAC's
     # signature, and signing our output as EAC would be forgery.
@@ -657,6 +670,27 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     ]
 
 
+def _interrupted_securing_line(secure_rerip: dict | None) -> list[str]:
+    """A line when the auto-fix securing pass started and never finished.
+
+    Run 4 on the reference rig: the pass launched, the window was closed 26
+    minutes in, and the drive was killed. The audio was fine (the re-rip works in
+    a temp directory and only swaps on success), but the record implied a
+    securing pass that completed. The fix recorded ``interrupted`` — in the JSON
+    report only, so the *durable* artifact, the one a stranger reads years later,
+    still said nothing (audit finding, 2026-07-28).
+
+    Reads defensively: this comes from worker state, and a wrong shape must cost
+    a line, not the whole log.
+    """
+    if not isinstance(secure_rerip, dict) or not secure_rerip.get("interrupted"):
+        return []
+    return [
+        "Secure re-read      : the securing pass was INTERRUPTED before it "
+        "finished — any track it had not yet re-read carries only its first read"
+    ]
+
+
 def _incomplete_notice(
     rip_log: RipLog, outcome_status: str, disc_track_total: int | None
 ) -> list[str]:
@@ -804,7 +838,19 @@ def _crc_lines(track: TrackResult) -> list[str]:
         return out
     crc = track.copy_crc.upper()
     reads = track.rip_count if track.rip_count and track.rip_count >= 1 else 1
-    verified = track.secure_rerip_converged is True or reads >= 2
+    # `reads` is cyanrip's "(after N rips)" — how many passes it TOOK, not how
+    # many AGREED. When `-Z` exhausts its repeat limit without two reads ever
+    # matching, cyanrip prints both "no matches found, but hit repeat limit"
+    # (→ converged False) and "(after 5 rips)" (→ reads 5). A bare `or reads >= 2`
+    # therefore short-circuited the measured negative and rendered a Test/Copy
+    # pair for precisely the tracks that failed to reproduce — the same
+    # SHA-256-attested document then asserted both that the reads were identical
+    # and, in the status report, that they were not. A measured `False` must win;
+    # only an UNMEASURED track (None) may infer convergence from the pass count.
+    # (Audit finding, 2026-07-28.)
+    verified = track.secure_rerip_converged is True or (
+        track.secure_rerip_converged is None and reads >= 2
+    )
     if verified:
         # ≥2 reads agreed → the CRC is both the test-read's and the copy-read's
         # result. Render the EAC Test/Copy pair + an honest provenance note.

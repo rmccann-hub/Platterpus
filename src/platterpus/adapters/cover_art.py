@@ -101,7 +101,26 @@ def _default_fetcher(url: str) -> bytes:
     with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
         # Read one byte past the cap so the caller can tell "at the cap"
         # from "over the cap".
-        return response.read(_MAX_BYTES + 1)
+        body: bytes = response.read(_MAX_BYTES + 1)
+    return body
+
+
+def _image_name(extension: str, *, save_file: bool) -> str:
+    """The on-disk name for the cover image we are about to write.
+
+    ``metaflac --import-picture-from`` reads from a *file*, so the image always
+    lands on disk even when the user only asked to embed it. That scratch write
+    used to reuse the canonical library name ``cover.<ext>`` and then delete it
+    — so the DEFAULT setting (embed, don't save) silently destroyed a
+    ``cover.jpg`` the user had put in the album folder themselves, or one a
+    previous save-enabled rip had left there. Re-ripping into an existing folder
+    ("Replace") is a real path to that (audit finding, 2026-07-28).
+
+    So the canonical name is used only when we actually intend to keep the file;
+    otherwise we write a clearly-temporary sibling that is safe to delete. The
+    leading dot keeps it out of the way in a file manager if a crash orphans it.
+    """
+    return f"cover{extension}" if save_file else f".platterpus-cover-tmp{extension}"
 
 
 def image_extension(data: bytes) -> str:
@@ -284,7 +303,7 @@ def apply_local_cover_art(
     result.reason = "ok"
     result.bytes = len(data)
     result.format = extension.lstrip(".")
-    target = rip_dir / f"cover{extension}"
+    target = rip_dir / _image_name(extension, save_file=save_file)
     try:
         target.write_bytes(data)
     except OSError as exc:
@@ -383,7 +402,7 @@ def apply_cover_art(
     # first; when only embedding was requested it's removed afterwards.
     extension = image_extension(data) or ".jpg"
     result.format = extension.lstrip(".")
-    image_path = rip_dir / f"cover{extension}"
+    image_path = rip_dir / _image_name(extension, save_file=save_file)
     try:
         image_path.write_bytes(data)
     except OSError as exc:

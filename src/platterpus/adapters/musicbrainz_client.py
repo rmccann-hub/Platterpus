@@ -351,9 +351,20 @@ def _first_medium_track_count(media: list) -> int | None:
 
 
 def _first_medium_format(media: list) -> str:
+    """The first medium's format ("CD", "Digital Media", …), or "".
+
+    MusicBrainz JSON is the untrusted boundary of an unmaintained adapter
+    (Critical rule #1), so the value is coerced rather than trusted: this is
+    declared to return ``str`` and used as one, and MB is free to send back a
+    number or a null.
+    """
     if not media:
         return ""
-    return media[0].get("format", "")
+    first = media[0]
+    if not isinstance(first, dict):
+        return ""
+    value = first.get("format")
+    return value if isinstance(value, str) else ""
 
 
 def _disc_numbering(media: list) -> tuple[int, int]:

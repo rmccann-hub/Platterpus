@@ -14,7 +14,43 @@ the per-track checkmarks can never diverge.
 
 from __future__ import annotations
 
-from platterpus.parsers.rip_log import track_accuraterip_verified
+from platterpus.parsers.rip_log import accuraterip_is_match, track_accuraterip_verified
+
+
+def _audio_tracks(rip_log: object) -> list[object]:
+    """Tracks AccurateRip has *anything* to say about (a Copy CRC or any result).
+
+    Split out because the verdict needs both this list and the log's full track
+    list: a track that failed outright produces neither a CRC nor an AR line, so
+    it is invisible here — and comparing the two is what stops a dead track from
+    being silently dropped from the denominator (audit finding, 2026-07-28).
+    """
+    tracks = getattr(rip_log, "tracks", ()) or ()
+    return [
+        t
+        for t in tracks
+        if getattr(t, "copy_crc", "")
+        or getattr(t, "accuraterip_v1", None) is not None
+        or getattr(t, "accuraterip_v2", None) is not None
+        or getattr(t, "accuraterip_offset", None) is not None
+    ]
+
+
+def track_accuraterip_partial(track: object) -> bool:
+    """True when a track matched ONLY the +450-frame offset-variant pressing.
+
+    The single definition, because three surfaces used to compute it three ways.
+    An ``accuraterip_offset`` *attribute* is set whenever cyanrip printed an
+    "Accurip 450:" line at all — **including** ``(not found, either a new
+    pressing, or bad rip)``. Counting the line's presence therefore reported a
+    partial match for a track that matched nothing, so the banner said "matched
+    an offset-variant pressing" while the table beside it said "—" (audit
+    finding, 2026-07-28). A partial is a *match* (confidence ≥ 1) at the variant
+    offset and no exact match. Reads via ``getattr``; never raises.
+    """
+    if track_accuraterip_verified(track):
+        return False
+    return accuraterip_is_match(getattr(track, "accuraterip_offset", None))
 
 
 def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
@@ -27,24 +63,16 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     :func:`accuraterip_verdict` and :func:`reconcile_ar_ctdb` read, so the
     banner, the JSON, and the reconciliation line can never disagree on the
     tally. Pure; reads via ``getattr`` and never raises.
+
+    Note the denominator: ``total_audio`` can be **smaller** than the log's track
+    count when a track failed outright. Callers that render a "clean sweep"
+    headline must compare it against ``len(rip_log.tracks)`` themselves — or use
+    :func:`accuraterip_verdict`, which already does.
     """
-    tracks = getattr(rip_log, "tracks", ()) or ()
-    audio = [
-        t
-        for t in tracks
-        if getattr(t, "copy_crc", "")
-        or getattr(t, "accuraterip_v1", None) is not None
-        or getattr(t, "accuraterip_v2", None) is not None
-        or getattr(t, "accuraterip_offset", None) is not None
-    ]
+    audio = _audio_tracks(rip_log)
     total = len(audio)
     verified = sum(1 for t in audio if track_accuraterip_verified(t))
-    partial = sum(
-        1
-        for t in audio
-        if not track_accuraterip_verified(t)
-        and getattr(t, "accuraterip_offset", None) is not None
-    )
+    partial = sum(1 for t in audio if track_accuraterip_partial(t))
     return total, verified, partial
 
 
@@ -64,15 +92,22 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
     total, verified, partial = accuraterip_counts(rip_log)
     if total == 0:
         return "", "neutral"
-    tracks = getattr(rip_log, "tracks", ()) or ()
-    audio = [
-        t
-        for t in tracks
-        if getattr(t, "copy_crc", "")
-        or getattr(t, "accuraterip_v1", None) is not None
-        or getattr(t, "accuraterip_v2", None) is not None
-        or getattr(t, "accuraterip_offset", None) is not None
-    ]
+    audio = _audio_tracks(rip_log)
+    # A track that failed outright produces no CRC and no AccurateRip line, so it
+    # never reaches `total` — meaning `verified == total` could fire while a
+    # track was missing entirely, and the trust headline went GREEN over a rip
+    # the status line and the disc panel both called incomplete. The denominator
+    # has to be the disc's real track count before anything says "all"
+    # (audit finding, 2026-07-28; the EAC exporter got this guard first).
+    missing = max(0, len(getattr(rip_log, "tracks", ()) or ()) - total)
+    if verified == total and missing:
+        noun = "track" if missing == 1 else "tracks"
+        return (
+            f"⚠ {verified} of {total + missing} tracks verified against "
+            f"AccurateRip — {missing} {noun} produced no result at all "
+            "(see the table)",
+            "warn",
+        )
     if verified == total:
         # Only count confidences of ACTUAL matches (>= 1, same as
         # accuraterip_is_match). A track can be verified on its v2 while its v1

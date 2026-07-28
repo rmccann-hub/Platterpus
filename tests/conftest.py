@@ -59,6 +59,22 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
     import sys
 
     status = int(session.exitstatus)
+    # Print the terminal summary OURSELVES before the hard exit. Without this the
+    # `os._exit` below skipped it entirely — a red CI run produced only progress
+    # dots, with no failing test names and no tracebacks, and `--durations` was
+    # silently useless. Diagnosability is the whole point of a test run
+    # (audit finding, 2026-07-28), and the summary is cheap to emit here.
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is not None:
+        try:
+            reporter.write_line("")
+            reporter.summary_failures()
+            reporter.summary_errors()
+            reporter.short_test_summary()
+            reporter.summary_stats()
+        except Exception:  # noqa: BLE001 — reporting must never change the status
+            log_ = __import__("logging").getLogger(__name__)
+            log_.exception("could not print the pytest summary")
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(status)

@@ -46,6 +46,7 @@ from platterpus.deps.step_engine import (
 )
 from platterpus.paths import (
     APP_NAME,
+    CDPARANOIA_BINARY_DEFAULT,
     CONFIG_DIR,
     CYANRIP_BINARY_DEFAULT,
     FLAC_BINARY_DEFAULT,
@@ -149,16 +150,23 @@ class HostTeardown:
     def _export_files(self) -> list[Path]:
         """The host-exported wrappers distrobox-export wrote.
 
-        Must mirror the setup export step exactly (host_setup exports cyanrip,
-        metaflac AND flac): a missing entry here leaves a wrapper behind after
-        uninstall. `flac` was omitted, so `~/.local/bin/flac` was orphaned (#34).
-        `whipper` stays for the legacy path (a pre-KDD-18 install may still have
-        it exported)."""
+        Must mirror the setup export step exactly: `host_setup` exports
+        cyanrip, metaflac, flac **and** cd-paranoia (its optional `cache_tool`
+        step, KDD-29). A missing entry here leaves a wrapper behind after
+        uninstall — `flac` was omitted once and `~/.local/bin/flac` was orphaned
+        (#34), then `cd-paranoia` was added to setup and not to this list,
+        repeating the exact bug this docstring memorialises (audit finding,
+        2026-07-28). `whipper` stays for the legacy path (a pre-KDD-18 install
+        may still have it exported).
+
+        If you add an export to `host_setup`, add it here in the same commit.
+        """
         return [
             self.bin_dir / WHIPPER_BINARY_DEFAULT.name,
             self.bin_dir / "metaflac",
             self.bin_dir / CYANRIP_BINARY_DEFAULT.name,
             self.bin_dir / FLAC_BINARY_DEFAULT.name,
+            self.bin_dir / CDPARANOIA_BINARY_DEFAULT.name,
         ]
 
     def _tree_targets(self, step_id: str) -> list[Path]:
@@ -198,7 +206,10 @@ class HostTeardown:
     _TITLES: dict[str, str] = field(
         default_factory=lambda: {
             "shortcuts": "Menu + desktop shortcuts",
-            "exports": "cyanrip/metaflac (+ any legacy whipper) in ~/.local/bin",
+            "exports": (
+                "cyanrip/metaflac/flac/cd-paranoia "
+                "(+ any legacy whipper) in ~/.local/bin"
+            ),
             "container": f"'{DEFAULT_CONTAINER}' container (ripping tools inside it)",
             "whipper_config": "legacy whipper.conf (drive calibration)",
             "appimage": "The AppImage file itself",

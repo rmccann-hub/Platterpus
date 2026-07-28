@@ -93,7 +93,9 @@ enabled=1
 def _os_release_ids(os_release: Path) -> str:
     """Return a lowercase "ID ID_LIKE" string from os-release, or ""."""
     try:
-        text = os_release.read_text(encoding="utf-8")
+        # errors="replace" — /etc/os-release is not ours; a stray byte must give
+        # "unknown distro", not a UnicodeDecodeError past the OSError guard.
+        text = os_release.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return ""
     fields: dict[str, str] = {}

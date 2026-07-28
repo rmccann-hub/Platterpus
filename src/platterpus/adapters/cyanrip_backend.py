@@ -203,7 +203,7 @@ class CyanripImpl(RipBackend):
         # the GUI fetched) BEFORE the template reaches cyanrip — otherwise the
         # folder would literally contain "%Y". Empty when there's no year (the
         # token then vanishes, same as cyanrip's own {date} on a dateless disc).
-        year = ((metadata.year if metadata else "") or "")[:4]
+        year = _year_token(metadata.year if metadata else "")
         dir_part, _, file_part = track_template.rpartition("/")
         if dir_part:
             argv += ["-D", scheme_from_template(dir_part, year=year)]
@@ -494,6 +494,32 @@ _TOKEN_MAP: dict[str, str] = {
     "%y": "{date}",
     "%N": "{disc}",
 }
+
+
+def _year_token(raw: str) -> str:
+    """The leading run of digits (max 4) from a release date — nothing else.
+
+    ``%Y`` is the only naming token **Platterpus** substitutes; every other one
+    is rendered by cyanrip, which sanitises path-illegal characters inside a tag
+    value. So this token was the single hole in that guarantee: it was formerly
+    ``(metadata.year or "")[:4]``, i.e. whatever the user typed in the Year box
+    above the track table, verbatim. A year of ``../.`` therefore reached
+    ``cyanrip -D`` as a real path component and the album was written **outside**
+    the output directory — while the Settings preview, which *does* sanitise,
+    showed the safe string. Preview and reality disagreed in the dangerous
+    direction (audit finding, 2026-07-28).
+
+    A year is digits. Taking only the leading digits keeps every real input
+    working (``1971``, ``1971-11-08`` → ``1971``) and makes escape impossible by
+    construction rather than by blocklist. A date that starts with anything else
+    yields ``""``, which is exactly how a dateless disc already behaved.
+    """
+    digits: list[str] = []
+    for ch in (raw or "").strip():
+        if not ch.isdigit() or len(digits) == 4:
+            break
+        digits.append(ch)
+    return "".join(digits)
 
 
 def scheme_from_template(template: str, *, year: str = "") -> str:

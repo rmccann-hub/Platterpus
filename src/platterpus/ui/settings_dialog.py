@@ -544,7 +544,9 @@ class SettingsDialog(CenteredDialog):
             "is a network lookup and decodes the FLACs locally (needs `flac`). "
             "The CRC algorithm is confirmed on real hardware, so a match reads "
             "as verified — it can only ever under-claim, never fabricate a "
-            "'verified'. Off by default."
+            "'verified'. On by default (every rip runs the full verification "
+            "suite). This is a network lookup that sends the disc's table of "
+            "contents to CTDB — turn it off if you would rather not."
         )
         form.addRow("CTDB:", self._ctdb_verify_check)
 

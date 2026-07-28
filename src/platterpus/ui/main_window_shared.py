@@ -76,7 +76,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from PySide6.QtCore import QThread, QTimer, Signal
-    from PySide6.QtWidgets import QProgressDialog, QSplitter
+    from PySide6.QtWidgets import QProgressDialog, QSplitter, QSystemTrayIcon
 
     # At type-check time the seam IS a QWidget (the concrete window is one), so
     # mypy resolves the Qt methods a mixin calls on ``self`` and accepts ``self``
@@ -238,6 +238,12 @@ class MainWindowShared(_SeamBase):
     # ``isinstance``-narrows, so it carries the concrete type.
     _last_rip_error: str | None
     _last_outcome: dict | None
+    # The system-tray icon, created lazily by `_ensure_tray_icon` for the
+    # rip-complete notification. Declared here (not only assigned in the
+    # mixin) because this module is the single source of truth for the
+    # shared surface — a `getattr` read of an undeclared attribute was
+    # exactly the untyped hole the audit flagged.
+    _tray_icon: QSystemTrayIcon | None
     _last_disc: dict | None
     _last_read_offset_effective: int | None
     _last_secure_rerip: object | None
@@ -301,7 +307,7 @@ class MainWindowShared(_SeamBase):
         def run_dependency_check_async(self, show_summary: bool = ...) -> None: ...
 
         # Defined in DriveMixin (main_window_drive.py):
-        def _set_read_offset_override(self, value: int) -> None: ...
+        def _set_read_offset_override(self, value: int) -> bool: ...
         def _refresh_drive_profile_display(self) -> None: ...
         def _record_drive_fact(
             self,

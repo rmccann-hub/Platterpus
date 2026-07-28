@@ -24,6 +24,88 @@ documentation) run across eight parallel reviewers, 2026-07-28.*
   checkbox**, so the summary line described a setting the preset had not applied.
 - **Six user-facing strings in `drive_access.py` still said "whipper"** — the backend
   was removed in v0.4.x (KDD-18). They now say cyanrip.
+- **The EAC-layout log forged a `Test CRC == Copy CRC` pair for a track whose
+  re-reads explicitly *disagreed*.** `rip_count` is how many passes cyanrip *took*,
+  not how many *agreed*; a `-Z` run that hits its repeat limit prints both "no
+  matches found" and "(after 5 rips)", and `or reads >= 2` short-circuited the
+  measured negative. One SHA-256-attested document asserted the reads were
+  identical *and*, in its own status report, that they were not.
+- **The `*** INCOMPLETE RIP ***` banner has never rendered in the shipped app.**
+  `_last_outcome` is a dict and the call site read it with `getattr`, so the status
+  was always empty — the v0.5.9 "an interrupted rip declares itself" fix was live
+  only in the renderer, never through the wiring. Its regression test now goes
+  through `_write_eac_log`, which is where the seam actually is.
+- **An interrupted securing pass reached the JSON report but not the durable log**,
+  so of the two records for one rip the archival one was the more reassuring.
+- **The green "Bit-perfect" banner dropped failed tracks from its denominator.** A
+  track that produced nothing at all was invisible to the count, so the trust
+  headline read "all N tracks verified" beside a status line saying one was missing.
+- **"Matched an offset-variant pressing" was counted from the presence of an
+  `Accurip 450:` line**, including "(not found)" — so the banner claimed a partial
+  match while the table beside it showed "—". One shared predicate now decides it.
+- **The verdict banner never heard about post-rip failures.** A FLAC master that
+  fails `flac --test`, a lossless derived file that isn't bit-identical, or read
+  instability that survived the auto-fix now downgrade the banner instead of leaving
+  a green headline over a broken result.
+- **`validate_config()` failed open**: one non-string field made the first rule raise
+  and the single catch-all swallowed it, returning an empty issue list — which
+  `Config._sanitized()` read as "valid" and used to persist a `..`-traversal
+  template, an absolute template and an out-of-range offset. Each rule is now
+  isolated, and the path/template/tool-path validators type-check before parsing.
+- **`%Y` could escape the output directory.** It is the one naming token Platterpus
+  substitutes rather than cyanrip, and it took the Year box's text verbatim, so a
+  year of `../.` wrote the album outside the output folder — while the Settings
+  preview, which does sanitise, showed the safe string.
+- **The read offset reached `cyanrip -s` from three paths that never validated it**
+  (wizard entry, auto-detect, and the user-editable `drive_offsets.csv`). It is now
+  bounds-checked at the single write path, with a visible message on refusal, and
+  the wizard's spin box reads the validator's bounds instead of its own.
+- **Five reads of external files could raise `UnicodeDecodeError`** — a `ValueError`,
+  so every `except OSError` guard missed it. One is `DriveProfileStore.load`, called
+  from `MainWindow.__init__`: a corrupt cache locked the user out of the app.
+- **Embed-only cover art destroyed an existing `cover.jpg`.** metaflac imports a
+  picture from a file, and the scratch write reused the canonical library name and
+  then deleted it — on the *default* setting.
+- **A slow cover-art fetch could write album A's result into album B's report.** Two
+  of the three post-rip emits lacked the generation guard the third had.
+- **An unmounted volume silently rewrote your settings.** "This folder isn't writable
+  right now" was graded an error, and `_sanitized()` resets error-level fields on
+  load — so a NAS or removable rip library that wasn't mounted at launch was
+  retargeted to `~/Music/rips` and the library folder cleared. It is now a warning.
+- **`uninstall` orphaned `~/.local/bin/cd-paranoia`** — the exact repeat of the
+  `flac` bug (#34) that the teardown docstring memorialises.
+- **The overall progress bar froze at 95% on every successful rip.** The last 5% was
+  reserved for a whipper-only phase cyanrip never emits.
+- **The desktop notification sent a stale summary** — the one captured before the
+  read-stability warning overwrote the on-screen line, so the unattended user was
+  told "all tracks ripped cleanly" while the window said otherwise.
+- **`issues: []` read as "clean" for a rip nothing could verify.** A CTDB no-match and
+  a rip with no AccurateRip match at all now say so; `_issues` was accepting the CTDB
+  block and never reading it.
+- **A failing test run printed no failure names and no tracebacks.** The PySide
+  teardown workaround in `conftest` hard-exits at session finish, which discarded
+  pytest's entire terminal summary; it now prints it first.
+
+### Changed
+- **CTDB's "no match" no longer claims your rip differs from the database.** We test
+  one alignment; CTDB itself sweeps ±5879 samples because offset-shifted pressings
+  are routine, so the old wording was a positive inaccuracy claim drawn from 1 of
+  ~11,759 valid alignments. Both the results pane and the verdict message now say
+  what was actually measured.
+- **Settings and the User Guide said CTDB verification was off by default. It is on**
+  — so every rip sends the disc's table of contents to an external service, and the
+  two places a user would check to find that out both said it didn't.
+- Three stale or impossible strings: a scan error offered "switch to the cyanrip
+  backend in Settings" (there is no such setting — cyanrip is the only backend), the
+  uninstall dialog labelled the legacy `whipper.conf` as "your drive calibration"
+  (the real offset lives in Platterpus's own config), and the guide described the
+  *Archival exact* goal as adding CTDB verification the other preset already does.
+- `mypy` no longer ignores missing imports globally. That flag let the type gate
+  collapse silently — an unresolvable PySide6 turned every Qt class into `Any` while
+  mypy still printed "Success". Only `musicbrainzngs` and the build-generated
+  `platterpus._build` are exempt now, per module, and six zero-cost strictness flags
+  are enabled (`disallow_subclassing_any` is the tripwire that makes the collapse
+  fail loudly).
 
 *Found by an adversarial review of the v0.5.12 EAC-layout work — five independent
 reviewers, each finding then handed to a separate verifier told to refute it. CI was

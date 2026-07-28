@@ -159,7 +159,11 @@ class DriveProfileStore:
         if path is None:
             path = _default_path()
         try:
-            text = path.read_text(encoding="utf-8")
+            # errors="replace": a non-UTF-8 byte raises UnicodeDecodeError, which
+            # is a ValueError — NOT an OSError — so it sailed past the guards below
+            # and out of a method documented "NEVER raises", taking startup with it.
+            # A mangled character then fails json.loads, which IS handled.
+            text = path.read_text(encoding="utf-8", errors="replace")
         except FileNotFoundError:
             return cls(path=path)
         except OSError as exc:
