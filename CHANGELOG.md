@@ -11,6 +11,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The test suite could segfault at any point, and had been able to for most of
+  the project's life.** Measured: unmodified `main` died with SIGSEGV on 5 runs out
+  of 5. `deleteLater()` never executes in a suite that runs no event loop, so Qt
+  objects accumulated; post-rip work runs on daemon threads; and a cyclic garbage
+  collection can begin on *any* thread, so whichever thread was inside the
+  collector when the GUI thread destroyed a widget was the one that died — which is
+  why the traceback always named an unrelated file. The cyclic collector is now
+  paused for the duration of each test and runs at one deterministic point on the
+  main thread after every worker has been joined; the window teardown covers all
+  seven Qt worker threads and all nine daemon threads instead of four and none; and
+  a new fitness test forces a full collection every run so this cannot silently
+  return. No shipped code path is affected — this is test infrastructure — but it
+  made CI unreliable and it was hiding behind whichever test happened to trigger a
+  collection.
+
+
 ## [0.5.12] — 2026-07-28
 
 ### Fixed

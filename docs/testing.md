@@ -375,6 +375,151 @@ produced progress dots and nothing else — no failing test names, no tracebacks
 the summary itself before exiting; if you touch that hook, keep it that way.
 
 
+### 5.w — Cyclic GC is paused during a test, and why that is load-bearing
+
+**Fixed 2026-07-28, after being latent for most of the project's life. Read this
+before touching `tests/conftest.py`'s fixture order, and before adding a
+`gc.collect()` anywhere.**
+
+**The symptom.** The suite died with SIGSEGV, intermittently on CI and *5 runs
+out of 5* locally on a 4-core Python 3.11 box. The traceback always pointed at
+an innocent bystander — a dialog test that happened to call `gc.collect()`, a
+`pathlib.rglob` inside a checksums worker — never at anything related to the
+actual defect.
+
+**The mechanism.** Three things compounded:
+
+1. **`deleteLater()` does nothing here.** It posts a `DeferredDelete` event and
+   hands ownership to Qt, and Qt delivers that event only when the event loop
+   that posted it exits, or when it is requested *by type*. This suite runs no
+   event loop; `processEvents()` does not qualify and neither does a bare
+   `sendPostedEvents()`. So windows accumulated, pinned, for the whole process.
+2. **Post-rip work runs on daemon `threading.Thread`s** — hashing, verification,
+   transcoding, the library move. Daemon means "don't hold up interpreter exit",
+   not "safe to abandon".
+3. **A cyclic collection can begin on any thread** that trips the allocation
+   threshold. Whichever thread is inside the collector when the GUI thread
+   destroys a widget is the one that dies. On CPython ≤ 3.11 a collection can
+   even start part-way through a C-extension allocation, which is why the 3.11
+   CI leg failed while 3.12+ passed.
+
+**The fix, in `tests/conftest.py`** — and note it generalises a guard the
+codebase had already reached for twice locally (`process_until` pauses the
+collector around its pump; the e2e rip fixture pauses it for a whole test):
+
+* `_cyclic_gc_paused_during_each_test` disables the **cyclic** collector for the
+  duration of every test and does a cheap generation-0 collect at teardown.
+  Reference counting is untouched, so nearly everything is still freed the
+  instant it goes out of scope; only cycle *detection* is deferred to a
+  deterministic point on the main thread.
+* `stop_window_threads` joins **all seven** QThread slots and **all nine** daemon
+  thread slots a window owns. It previously joined four and no daemons.
+* `_join_leaked_worker_threads` is the backstop for plain `threading.Thread`,
+  mirroring the existing one for `QThread`.
+
+**Fixture order is part of the fix.** Autouse fixtures tear down in reverse
+setup order, so the GC fixture is declared **first** in order to tear down
+**last** — after the join fixtures have stopped every worker. That is the one
+moment when no other thread can be inside the collector. Move it and the bug
+comes back.
+
+**The detector: `tests/test_qt_teardown_fitness.py`.** It forces a full
+all-generations collection every run and asserts no worker thread survived. It
+exists so this can never silently regress, and **it must not be deleted or
+skipped to make CI green** — a suite that stays up only because nothing looks at
+its garbage is not passing, it is not looking.
+
+| Measurement | Result |
+|---|---|
+| Before the fix, detector present | **3 crashes / 3 runs** |
+| Before the fix, `origin/main` unmodified | **5 crashes / 5 runs** |
+| After, randomized order, no coverage | **0 / 10** |
+| After, randomized order, under `--cov` | **0 / 8** |
+
+**Two "obvious" fixes that made it worse, recorded so nobody re-tries them in
+isolation.** Draining `DeferredDelete` after each test, and switching
+`MainWindow`'s first-run `QTimer.singleShot` to the context-object form, are both
+*correct in themselves* — and each, applied alone, moved the crash rather than
+removing it. Both unpin objects that were merely leaking, making them genuinely
+collectable before the teardown story was ready for them to die. Unpinning is
+safe only once the workers are reliably joined and the collector is controlled,
+which is now true; they remain unapplied because they are no longer needed to fix
+anything, not because they are wrong.
+
+**What this means for you:**
+
+* Don't add a `gc.collect()` to a test. The one full collection lives in the
+  detector, at a point where workers are provably stopped. If you need to prove
+  an object was released, prove it by refcount-deterministic destruction (see
+  `tests/test_ui_auto_center.py`).
+* If you add a worker thread to `MainWindow`, add its attribute name to
+  `stop_window_threads` in the same change.
+* If a test monkeypatches something a worker reads, **join the worker before
+  undoing the patch.** A test doing this backwards is what leaked a 120-second
+  `compute_digests` into dozens of later tests and produced the crash that
+  finally made this visible.
+
+### 5.x — Test the wiring, at the call site (added 2026-07-28)
+
+The 2026-07-28 whole-application audit found the **same test-shaped hole** behind
+four of the five recent escapes, and behind one feature that shipped broken for
+four consecutive releases:
+
+> A test that hands a fact to a renderer proves the renderer honours it. It proves
+> **nothing** about whether anything ever *tells* it.
+
+The pure case: `render_eac_style_log(rip_log, outcome_status="cancelled")` was
+called directly by two tests, both green, both correct. The production call site
+read `_last_outcome` — a **dict** — with `getattr(outcome, "status", "")`, which
+always returned `""`, so the `*** INCOMPLETE RIP ***` banner could not render on
+any real rip. `mypy` could not catch it either: `getattr(x, "literal", default)`
+is typed `Any`. Four releases claimed a fix that had never once executed.
+
+So, as a rule:
+
+- **A regression test for a wiring bug goes through the production entry point**
+  (`window._write_eac_log`, not `render_eac_style_log`). If the entry point is
+  awkward to drive, that awkwardness is the finding — fix the seam.
+- **Where a value's type is known, read the attribute.** A `getattr` with a
+  default is an assertion-free cast: it silently absorbs a shape change and
+  defeats every type check downstream. Where the shape genuinely is external
+  (a `Signal(object)` payload), `isinstance`-narrow at entry — that narrows for
+  mypy *and* is a real runtime guard (`_on_derived_verified` is the pattern).
+- **A guard added in one place is a bug report about every other place.** The
+  clean-sweep denominator and the offset-variant predicate were each fixed once,
+  in the EAC exporter, and left wrong in the verdict banner, the status line, the
+  disc panel and the JSON report. When you add a guard, grep for the predicate and
+  fix every site — or better, move it into one shared function and delete the
+  copies. `tests/test_surface_consistency.py` exists to make that failure loud.
+- **Prefer a positive anchor to a bare negative.** `assert "Test CRC" not in text`
+  passes just as happily against a renderer that produced nothing at all — and
+  `render_eac_style_log`'s blanket `except` means a broken render degrades to a
+  (validly-checksummed) stub. Pair each `not in` with something that must be there.
+
+### 5.y — Fail open is worse than fail loud (added 2026-07-28)
+
+A broad `try` around a whole function turns "this crashed" into "this found
+nothing", and the two are indistinguishable to the caller. `validate_config()` was
+one `try` around every rule: a single non-string field made the first rule raise,
+the catch-all returned the issues collected so far — an empty list — and the
+config layer read that as "valid" and persisted a `..`-traversal template.
+
+- **Isolate each unit of work** so a crash costs only that unit's findings, and
+  **log which one failed** by name.
+- **Type-check before you parse.** A validator that skips the one field that is
+  actually broken has failed at its only job.
+- Never-raises and fail-open are *not* the same contract. Never-raises means the
+  caller keeps running; it does not license reporting success.
+
+### 5.z — Diagnosability is part of the suite (added 2026-07-28)
+
+`conftest.py` hard-exits at session finish to dodge a PySide teardown race. That
+workaround was discarding pytest's **entire terminal summary**: a red CI run
+produced progress dots and nothing else — no failing test names, no tracebacks, no
+`--durations`. It was invisible because the suite was green. The hook now prints
+the summary itself before exiting; if you touch that hook, keep it that way.
+
+
 ### 5.w — The suite leaks Qt objects, and a forced `gc.collect()` detonates it
 
 **Known, pre-existing, and measured (2026-07-28). Read this before adding a
