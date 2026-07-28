@@ -5,12 +5,12 @@ nothing. This module explains *why* in actionable terms — most often
 "you're not in the `cdrom` group" with the exact command to fix it.
 
 Why checking the host is correct: the GUI runs on the host, and the
-AppImage inherits the host user's permissions. whipper runs inside the
+AppImage inherits the host user's permissions. cyanrip runs inside the
 Distrobox `ripping` container, but distrobox runs as the *same* user and
 passes `/dev` through, so the host user's group membership is the gate.
-Probing the device node here therefore reflects what whipper will see.
+Probing the device node here therefore reflects what cyanrip will see.
 
-Pure stdlib, no whipper call — fast and safe to run anytime. The public
+Pure stdlib, no ripper call — fast and safe to run anytime. The public
 function takes injectable probes so it's testable without real hardware.
 """
 
@@ -135,16 +135,16 @@ def diagnose_drive_access(
         )
 
     if any(is_readable(node) for node in nodes):
-        # The node is accessible to us, yet whipper still listed nothing —
+        # The node is accessible to us, yet cyanrip still listed nothing —
         # so it's not a host permission problem. Point at the next suspects.
         return DriveAccessDiagnosis(
             severity=SEVERITY_OK,
             summary="The optical drive is accessible.",
             detail=(
                 f"Found {', '.join(nodes)} and your user can read it, so this "
-                "isn't a host permission problem. If whipper still lists no "
+                "isn't a host permission problem. If cyanrip still lists no "
                 "drive, the cause is likely the Distrobox 'ripping' container "
-                "not seeing the device, or whipper itself — run Tools → Check "
+                "not seeing the device, or cyanrip itself — run Tools → Check "
                 "dependencies, and confirm the container can reach the drive."
             ),
             devices=tuple(nodes),

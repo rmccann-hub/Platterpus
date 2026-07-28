@@ -12,6 +12,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+*Found by a whole-application audit (typing, security, architecture, UX honesty,
+documentation) run across eight parallel reviewers, 2026-07-28.*
+- **External tools were resolved through `PATH` alone, so a desktop-launched GUI
+  could not find its own container-exported binaries.** `flac`, `metaflac`, `ffmpeg`
+  and `sox` now resolve via a shared `tool_paths.resolve_tool()` that falls back to
+  `~/.local/bin` (where `distrobox-export` puts them) before giving up. A GUI started
+  from a desktop icon does not inherit a login shell's `PATH`; the wizard would report
+  the tool installed while the dependency probe reported it missing.
+- **Switching the Settings goal preset did not move the "Verify FLAC after the rip"
+  checkbox**, so the summary line described a setting the preset had not applied.
+- **Six user-facing strings in `drive_access.py` still said "whipper"** — the backend
+  was removed in v0.4.x (KDD-18). They now say cyanrip.
+
 *Found by an adversarial review of the v0.5.12 EAC-layout work — five independent
 reviewers, each finding then handed to a separate verifier told to refute it. CI was
 green on all ten checks at the time.*

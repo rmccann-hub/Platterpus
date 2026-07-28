@@ -22,9 +22,11 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.tool_paths import resolve_tool
+
 log = logging.getLogger(__name__)
 
-_FLAC_BINARY: str = "flac"
+_FLAC_BINARY: str = resolve_tool("flac")
 # A decode-test is fast, but bound it so one wedged file can't hang the thread.
 _TEST_TIMEOUT_S: float = 120.0
 

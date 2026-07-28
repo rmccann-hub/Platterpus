@@ -41,9 +41,11 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.tool_paths import resolve_tool
+
 log = logging.getLogger(__name__)
 
-_FFMPEG_BINARY: str = "ffmpeg"
+_FFMPEG_BINARY: str = resolve_tool("ffmpeg")
 # A full-album decode is slower than a single track; bound it so one wedged file
 # can't hang the verify thread forever.
 _DECODE_TIMEOUT_S: float = 600.0

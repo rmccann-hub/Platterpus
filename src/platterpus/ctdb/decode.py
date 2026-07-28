@@ -44,7 +44,15 @@ def _which(name: str) -> str | None:
     found = shutil.which(name)
     if found:
         return found
-    for candidate in (f"/usr/bin/{name}", f"/usr/local/bin/{name}", f"/bin/{name}"):
+    # ~/.local/bin FIRST: that is where distrobox-export puts the container's
+    # flac/metaflac, and it was the one directory this list omitted (audit,
+    # 2026-07-28) — so a desktop-launched AppImage decided they were missing.
+    for candidate in (
+        str(Path.home() / ".local" / "bin" / name),
+        f"/usr/bin/{name}",
+        f"/usr/local/bin/{name}",
+        f"/bin/{name}",
+    ):
         if Path(candidate).exists():
             return candidate
     return None
