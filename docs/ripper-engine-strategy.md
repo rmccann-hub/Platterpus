@@ -489,4 +489,4 @@ lowest-obligation route, and it's how we already use cyanrip/ffmpeg/flac/metafla
 
 ---
 
-*Last updated for Platterpus v0.5.12.*
+*Last updated for Platterpus v0.5.13.*

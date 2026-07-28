@@ -68,4 +68,4 @@ cyanrip) still needs a real-hardware confirmation — CI only dry-run-tests it.
 
 ---
 
-*Last updated for Platterpus v0.5.12.*
+*Last updated for Platterpus v0.5.13.*
