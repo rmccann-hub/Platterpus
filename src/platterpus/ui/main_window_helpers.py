@@ -313,10 +313,17 @@ def _partial_accurate_clause(rip_log: object) -> str:
     but it's honestly distinct from a plain exact match — so the user
     understands why, say, "12/14 verified" isn't "14/14" without it reading as a
     bad rip. Empty when there were none (the common case). Never raises.
+
+    Uses the shared :func:`~platterpus.verdict.track_accuraterip_partial`, which
+    requires an actual *match* at the variant offset. Counting the mere presence
+    of the "Accurip 450:" line (as this did) reported a partial for a track whose
+    variant lookup said "not found" (audit finding, 2026-07-28).
     """
+    from platterpus.verdict import track_accuraterip_partial
+
     count = 0
     for track in getattr(rip_log, "tracks", ()) or ():
-        if getattr(track, "accuraterip_offset", None) is not None:
+        if track_accuraterip_partial(track):
             count += 1
     if count == 0:
         return ""

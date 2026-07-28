@@ -764,12 +764,16 @@ def test_ctdb_verdict_line_no_match_unvalidated_does_not_blame_the_rip() -> None
     assert "KDD-16" in line
 
 
-def test_ctdb_verdict_line_no_match_validated_can_state_it_differs() -> None:
-    # Once the CRC algorithm IS validated, a NO_MATCH legitimately means the rip
-    # differs from the database — the honesty guard only muzzles the unvalidated
-    # case, it doesn't lose the real signal.
+def test_ctdb_verdict_line_no_match_is_scoped_to_the_tested_alignment() -> None:
+    # A validated NO_MATCH is a real signal and must still be shown — but the
+    # line may only claim what was measured. We test ONE alignment; CTDB also
+    # holds offset-shifted pressings (crc.CTDB_OFFSET_RANGE), so "this rip
+    # differs from the database" was a conclusion the check cannot support
+    # (audit finding, 2026-07-28).
     line = ctdb_verdict_line(CtdbVerifyResult(Verdict.NO_MATCH, crc_validated=True))
-    assert "differs" in line
+    assert "no match at the standard alignment" in line
+    assert "AccurateRip is the per-track authority" in line
+    assert "differs" not in line
 
 
 def test_ctdb_verdict_line_other_verdicts() -> None:

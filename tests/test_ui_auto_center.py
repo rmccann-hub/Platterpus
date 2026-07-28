@@ -2,54 +2,139 @@
 
 from __future__ import annotations
 
+import pytest
 from PySide6.QtCore import QEvent, QRect
-from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QWidget
 
-from platterpus.ui.dialogs.auto_center import DialogCenterFilter
+from platterpus.ui.dialogs import auto_center
+from platterpus.ui.dialogs.auto_center import (
+    DialogCenterFilter,
+    has_been_centered,
+    mark_as_centered,
+)
 from platterpus.ui.dialogs.centering import CenteredDialog, _clamp_to
 
 
-def test_filter_marks_plain_dialog_seen_on_show(qapp: QApplication) -> None:
-    # A plain QDialog (e.g. QMessageBox is one) gets centred — and recorded — on
-    # its first Show, and only once. BUG-10: _seen now tracks the objects (a
-    # WeakSet), not id() ints, so a reused id can't cause a false "already seen".
+@pytest.fixture
+def centered_ids(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Record which dialogs the filter actually placed, without holding them.
+
+    The filter's real job (moving a window) is invisible to a headless test, so
+    we spy on the one call that does it. We record `id()` rather than the widget
+    itself **on purpose**: keeping a reference would keep the dialog alive, and
+    the BUG-10 test below depends on each dialog really being freed.
+    """
+    seen: list[int] = []
+    monkeypatch.setattr(auto_center, "center_on_anchor", lambda w: seen.append(id(w)))
+    return seen
+
+
+def test_filter_centres_a_plain_dialog_once_on_its_first_show(
+    qapp: QApplication, centered_ids: list[int]
+) -> None:
+    # A plain QDialog (a QMessageBox is one) is centred on its first Show and
+    # marked, so a second Show leaves it exactly where the user left it.
     f = DialogCenterFilter()
     box = QMessageBox()
+    assert not has_been_centered(box)
+
     f.eventFilter(box, QEvent(QEvent.Type.Show))
-    assert box in f._seen
-    # A second show is a no-op (already seen) — must not raise.
+    assert has_been_centered(box)
+    assert centered_ids == [id(box)]
+
     f.eventFilter(box, QEvent(QEvent.Type.Show))
+    assert centered_ids == [id(box)]  # still once — not re-centred
 
 
-def test_filter_skips_centered_dialog(qapp: QApplication) -> None:
-    # CenteredDialog self-centres, so the filter must not also handle it.
+def test_filter_skips_centered_dialog(
+    qapp: QApplication, centered_ids: list[int]
+) -> None:
+    # CenteredDialog self-centres, so the filter must not also handle it — and
+    # must not mark it either (the mark means "*we* placed this one").
     f = DialogCenterFilter()
     dlg = CenteredDialog()
     f.eventFilter(dlg, QEvent(QEvent.Type.Show))
-    assert dlg not in f._seen
+    assert not has_been_centered(dlg)
+    assert centered_ids == []
 
 
-def test_filter_ignores_non_show_events(qapp: QApplication) -> None:
+def test_filter_ignores_non_show_events(
+    qapp: QApplication, centered_ids: list[int]
+) -> None:
     f = DialogCenterFilter()
     box = QMessageBox()
     f.eventFilter(box, QEvent(QEvent.Type.Hide))
-    assert box not in f._seen
+    assert not has_been_centered(box)
+    assert centered_ids == []
 
 
-def test_filter_forgets_a_destroyed_dialog(qapp: QApplication) -> None:
-    """BUG-10: the WeakSet drops an entry once the dialog is gone, so a later
-    dialog that happens to reuse the freed id() is NOT wrongly skipped (the old
-    id()-in-a-plain-set could match a stale id and leave a dialog un-centred)."""
-    import gc
+def test_a_new_dialog_is_centred_even_when_it_reuses_a_freed_id(
+    qapp: QApplication, centered_ids: list[int]
+) -> None:
+    """BUG-10, asserted the way the bug actually happened.
 
+    Dialogs are transient, and CPython hands a freed address straight to the next
+    object: created and dropped in a loop, every one of these message boxes lands
+    on the *same* `id()`. The original filter kept a `set` of ids, so it centred
+    the first box and silently skipped the other 49 — the exact "prompt opened on
+    the wrong monitor" bug this filter exists to prevent.
+
+    The mark now lives on the dialog (a Qt dynamic property), so it dies with the
+    dialog and a recycled address means nothing. No `gc.collect()` is needed —
+    and none is wanted: forcing a collection here detonates every deferred cycle
+    in the whole suite at one point, which is its own crash hazard under the
+    headless `offscreen` platform (docs/testing.md).
+    """
+    f = DialogCenterFilter()
+    ids: list[int] = []
+    for _ in range(50):
+        box = QMessageBox()
+        ids.append(id(box))
+        f.eventFilter(box, QEvent(QEvent.Type.Show))
+        del box  # freed by refcount, right here — no collection required
+
+    # Sanity: if ids were NOT recycled this test would prove nothing, so say so
+    # rather than passing vacuously.
+    assert len(set(ids)) < 50, "no id was reused — this can no longer detect BUG-10"
+    assert len(centered_ids) == 50
+
+
+def test_the_filter_keeps_no_registry_of_dialogs(qapp: QApplication) -> None:
+    """The design property behind the BUG-10 fix, asserted directly.
+
+    The filter is installed on the QApplication for the whole session. If it
+    holds a container of dialogs (or of their ids), that container is both a
+    staleness hazard and something that grows all session. It must stay empty of
+    per-dialog state; the mark belongs on the dialog.
+    """
     f = DialogCenterFilter()
     box = QMessageBox()
     f.eventFilter(box, QEvent(QEvent.Type.Show))
-    assert len(f._seen) == 1
-    del box
-    gc.collect()
-    # The weakref entry is gone, so nothing stale lingers to shadow a new dialog.
-    assert len(f._seen) == 0
+    # PySide pre-populates a couple of SignalInstance attributes; none of them —
+    # nor anything a future change adds — may be a dialog or a collection.
+    for name, value in vars(f).items():
+        assert value is not box, name
+        assert not isinstance(value, (set, frozenset, dict, list, tuple)), name
+
+
+def test_a_dialog_whose_c_object_is_gone_is_treated_as_handled(
+    qapp: QApplication,
+) -> None:
+    """A PySide wrapper can outlive its C++ object, and touching one raises
+    RuntimeError. Centring is cosmetic and runs inside Qt's event delivery, so
+    the mark helpers must swallow that — and a widget that no longer exists is
+    "nothing left to place", i.e. already handled.
+
+    The half-dead widget is made the way it happens for real: Qt deletes a
+    parented child's C++ object along with its parent, while Python still holds
+    the child's wrapper.
+    """
+    parent = QWidget()
+    dlg = QDialog(parent)
+    del parent  # Python owned the parent → Qt deletes the child's C++ side
+
+    assert has_been_centered(dlg) is True
+    mark_as_centered(dlg)  # must not raise either
 
 
 def test_filter_never_consumes_event(qapp: QApplication) -> None:

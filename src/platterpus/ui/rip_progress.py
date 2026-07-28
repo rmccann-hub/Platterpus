@@ -155,6 +155,14 @@ class RipProgress(QWidget):
         self._announced_status_key: str = ""
         self._announced_ctdb_text: str = ""
         self._announced_stall_text: str = ""
+        # The last status text WITHOUT the timestamp prefix, so the desktop
+        # notification can send whatever the window is actually showing.
+        self._last_status_text: str = ""
+        # Post-rip checks that contradict the verdict banner (see
+        # `downgrade_verdict`). Kept alongside the banner's original wording so
+        # each downgrade appends rather than overwrites.
+        self._verdict_base_message: str = ""
+        self._verdict_downgrades: list[str] = []
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -406,6 +414,9 @@ class RipProgress(QWidget):
         self._announced_status_key = ""
         self._announced_ctdb_text = ""
         self._announced_stall_text = ""
+        self._last_status_text = ""
+        self._verdict_base_message = ""
+        self._verdict_downgrades = []
 
     def begin_rip(self, rip_dir: Path | None, live_log: Path | None) -> None:
         """At rip START, make the in-progress rip reachable immediately.
@@ -475,16 +486,61 @@ class RipProgress(QWidget):
         # changes. The raw text redraws constantly ("… 27%", "… 28%", ETA
         # ticks); announcing every redraw would drown the reader, so the
         # percent/ETA tail after the "…" is not part of the dedup key.
+        self._last_status_text = text
         key = status_phase_key(text)
         if key and key != self._announced_status_key:
             self._announced_status_key = key
             announce(self._status_label, key)
+
+    def current_status(self) -> str:
+        """The most recent status text (no timestamp prefix), or "".
+
+        The desktop notification needs this. It used to be sent the local
+        ``status`` variable captured in ``_on_rip_finished``, which is assigned
+        *before* the read-speed/stability summary overwrites the on-screen line
+        — so the unattended user, the notification's entire audience, was told
+        "all tracks ripped cleanly" while the window said a track never read
+        reproducibly (audit finding, 2026-07-28).
+        """
+        return self._last_status_text
+
+    def downgrade_verdict(self, reason: str) -> None:
+        """Recolour the trust banner to amber and append ``reason``.
+
+        The banner is set once, from the AccurateRip parse, and then never hears
+        about anything that fails afterwards — a FLAC master that won't decode,
+        a lossless derived file that doesn't match, read instability that
+        survived the auto-fix. A green "Bit-perfect" headline above a status line
+        reporting a failed integrity check is the single worst thing this screen
+        can show, because the banner is the at-a-glance trust object the whole
+        design rests on. Anything that discovers a problem after the fact calls
+        this (audit finding, 2026-07-28).
+
+        Idempotent per reason: the same reason is never appended twice, so a
+        re-run of a post-rip check can't stack duplicates.
+        """
+        if not reason or reason in self._verdict_downgrades:
+            return
+        self._verdict_downgrades.append(reason)
+        base = self._verdict_base_message or self._verdict_banner.text()
+        if not self._verdict_base_message:
+            self._verdict_base_message = base
+        # Drop a leading "✓" — the tick is a claim this text no longer supports.
+        headline = base.lstrip("✓ ").strip() if base.startswith("✓") else base
+        text = f"⚠ {headline} — " + "; ".join(self._verdict_downgrades)
+        self._verdict_banner.setText(text)
+        self._verdict_banner.setStyleSheet(_banner_style("warn"))
+        self._verdict_banner.setVisible(True)
+        announce(self._verdict_banner, text)
 
     def set_rip_log(self, rip_log: RipLog) -> None:
         """Populate the AccurateRip table + verdict banner from a parsed log."""
         # Kept so the async CTDB verdict can reconcile itself against AccurateRip.
         self._last_rip_log = rip_log
         message, level = accuraterip_verdict(rip_log)
+        # A fresh verdict supersedes any earlier downgrades — but re-apply them
+        # below if they were recorded before the log was parsed.
+        self._verdict_base_message = message
         if message:
             self._verdict_banner.setText(message)
             self._verdict_banner.setStyleSheet(_banner_style(level))
@@ -735,7 +791,18 @@ def ctdb_verdict_line(result: CtdbVerifyResult) -> str:
         # this against an AccurateRip-verified rip). Mirror the MATCH path, which
         # already spells itself out as experimental until validated.
         if result.crc_validated:
-            return "CTDB: no match — this rip differs from the database entries"
+            # We compute ONE checksum, at the standard alignment. CTDB itself
+            # sweeps ±5879 samples because offset-shifted pressings are routine
+            # (see ctdb/crc.py CTDB_OFFSET_RANGE), and our sweep lives only in
+            # `--ctdb-calibrate`. So "differs from the database" was a positive
+            # inaccuracy claim derived from testing 1 of ~11,759 valid
+            # alignments (audit finding, 2026-07-28). Say what we measured.
+            return (
+                "CTDB: no match at the standard alignment — CTDB also holds "
+                "offset-shifted pressings and this check only tests the "
+                "standard one, so it isn’t evidence your rip is wrong. "
+                "AccurateRip is the per-track authority."
+            )
         return (
             "CTDB: not confirmed — the CRC check is still experimental (pending "
             "hardware validation, KDD-16); a non-match here doesn’t mean your "

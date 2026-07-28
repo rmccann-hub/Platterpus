@@ -173,3 +173,51 @@ def test_docs_changed_since_last_release_are_stamped_current() -> None:
         "commit as the change (docs/README.md → 'Doc version stamps'): "
         + ", ".join(offenders)
     )
+
+
+# --- The KDD range, mechanically ---------------------------------------------
+#
+# `README.md` and `docs/README.md` each describe `PLANNING.md` as holding
+# "KDD-01 through KDD-NN". That NN has now drifted THREE times (v23-vs-v25 is
+# called out in CLAUDE.md itself; docs/session-log.md records an earlier
+# 19→21 catch; the 2026-07-28 audit found it stuck at 25 against an actual 32).
+# Prose conventions have failed at this repeatedly, so it is a test now.
+
+_KDD_HEADING: re.Pattern[str] = re.compile(r"^### KDD-(\d+)", re.MULTILINE)
+# Matches "KDD-01 through KDD-25" and "KDD-01 … KDD-25" alike.
+_KDD_RANGE: re.Pattern[str] = re.compile(r"KDD-0*1\s*(?:through|…|-|–|to)\s*KDD-(\d+)")
+
+
+def test_every_documented_kdd_range_ends_at_the_last_real_kdd() -> None:
+    planning = (_REPO_ROOT / "PLANNING.md").read_text(encoding="utf-8")
+    numbers = [int(n) for n in _KDD_HEADING.findall(planning)]
+    assert numbers, "PLANNING.md has no `### KDD-NN` headings — did the format change?"
+    highest = max(numbers)
+
+    stale: list[str] = []
+    for path in sorted(_REPO_ROOT.rglob("*.md")):
+        # The session log and the archive are dated HISTORY: an entry recording
+        # "the range was KDD-01 … KDD-19 at the time" is correct, not drift.
+        # Only living docs — the ones a contributor is told to trust — are held
+        # to the current range.
+        if ".git" in path.parts or path.name == "session-log.md":
+            continue
+        if "archive" in path.parts:
+            continue
+        for claimed in _KDD_RANGE.findall(path.read_text(encoding="utf-8")):
+            if int(claimed) != highest:
+                stale.append(
+                    f"{path.relative_to(_REPO_ROOT)} says the range ends at "
+                    f"KDD-{claimed}; PLANNING.md's last is KDD-{highest}"
+                )
+    assert not stale, "Stale KDD ranges:\n  " + "\n  ".join(stale)
+
+
+def test_the_kdd_numbers_are_a_gapless_unique_sequence() -> None:
+    """A duplicate or a skipped number would make every cross-reference
+    ambiguous — the decision log is cited by number from six other docs."""
+    planning = (_REPO_ROOT / "PLANNING.md").read_text(encoding="utf-8")
+    numbers = [int(n) for n in _KDD_HEADING.findall(planning)]
+    assert numbers == sorted(numbers), "KDD headings are out of order"
+    assert len(set(numbers)) == len(numbers), "a KDD number is used twice"
+    assert numbers == list(range(1, max(numbers) + 1)), "a KDD number is missing"

@@ -54,6 +54,7 @@ from platterpus.drive_profiles import (
     reconcile_offset,
 )
 from platterpus.offset_config import is_offset_configured, read_drive_offsets
+from platterpus.settings_validation import OFFSET_MAX, OFFSET_MIN
 from platterpus.ui.drive_setup_dialog import DriveSetupDialog
 from platterpus.ui.main_window_shared import MainWindowShared
 
@@ -175,14 +176,53 @@ class DriveMixin(MainWindowShared):
         )
         self._refresh_drive_profile_display()
 
-    def _set_read_offset_override(self, value: int) -> None:
+    def _set_read_offset_override(self, value: int) -> bool:
         """Persist `value` as the GUI's `--offset` override and push it into the
         rip controls. This is the single place that records "the offset is now
-        configured" (so whipper.conf is never hand-authored, KDD-15)."""
+        configured" (so whipper.conf is never hand-authored, KDD-15).
+
+        Returns True when the value was accepted. It is validated here against
+        the *same* bounds the Settings dialog enforces
+        (:data:`settings_validation.OFFSET_MIN` / ``OFFSET_MAX``) because this
+        method — not Settings — is the write path for all three offset sources:
+        the hand-entered wizard value, the auto-detected one, and the
+        AccurateRip lookup overlaid from the user-editable
+        ``drive_offsets.csv`` (whose parser accepts any ``-?\\d+``, unbounded).
+        None of them went through the validator, so an absurd offset could be
+        persisted, reach ``cyanrip -s``, and then be silently reset to 0 by the
+        next startup's ``_sanitized()`` — leaving the *following* session
+        ripping at the wrong offset with only a log line. Refusing it at the one
+        write path fixes all three (audit finding, 2026-07-28).
+        """
+        if not isinstance(value, int) or isinstance(value, bool):
+            log.error("refusing a non-integer read offset: %r", value)
+            return False
+        if value < OFFSET_MIN or value > OFFSET_MAX:
+            log.error(
+                "refusing an out-of-range read offset %r (allowed %d..%d)",
+                value,
+                OFFSET_MIN,
+                OFFSET_MAX,
+            )
+            self._show_offset_rejected(value)
+            return False
         self._config.read_offset = value
         self._config.override_read_offset = True
         self._rip_controls.set_config(self._config)
         self._save_config(self._config)
+        return True
+
+    def _show_offset_rejected(self, value: int) -> None:
+        """Tell the user why an offset was refused — never fail silently."""
+        QMessageBox.warning(
+            self,
+            "Read offset out of range",
+            f"A read offset of {value:+d} samples is outside the allowed range "
+            f"({OFFSET_MIN:+d} to {OFFSET_MAX:+d}), so it was not saved.\n\n"
+            "Real drive offsets are small — the AccurateRip database's values "
+            "all sit within a few hundred samples of zero. Check the value and "
+            "try again, or run Tools → Set up drive… to detect it.",
+        )
 
     def _auto_apply_known_offset(self) -> bool:
         """If the selected drive's offset is known (AccurateRip list), apply it

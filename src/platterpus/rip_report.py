@@ -806,7 +806,12 @@ def _issues(
 
     One severity-tagged list a triager opens first, instead of cross-reading five
     sub-blocks. Reads the SERIALIZED dicts (not the raw results) so it can never
-    disagree with what the report shows. Empty on a clean rip. Pure; never raises.
+    disagree with what the report shows. Pure; never raises.
+
+    Empty means "nothing to flag" — which is **not** the same as "verified". A
+    rip nothing could be checked against (no AccurateRip match at all) now says
+    so explicitly at ``info`` severity, because an empty list read as a clean
+    bill of health for a rip that had never been corroborated.
     """
     issues: list[dict] = []
 
@@ -831,6 +836,41 @@ def _issues(
             "not every track verified exactly against AccurateRip — "
             "see verdict and the per-track table",
         )
+    elif verdict_level == "neutral":
+        # "neutral" means NOTHING matched AccurateRip — a CD-R, an obscure
+        # pressing, an unreachable database, or a wrong read offset. The rip may
+        # be perfect, but it is not independently verified, and an empty issues
+        # list beside a docstring reading "empty on a clean rip" told a triager
+        # the opposite (audit finding, 2026-07-28). Informational, not a warning:
+        # we are recording an absence of evidence, not evidence of a fault.
+        add(
+            "info",
+            "unverified",
+            "no track matched AccurateRip — this rip is not independently "
+            "verified (an unsubmitted pressing, an unreachable database, or a "
+            "wrong read offset all look like this)",
+        )
+
+    # CTDB is the whole-disc cross-check. Every other verification sub-block
+    # contributes an issue; this one was passed in and then never read, so a
+    # validated no-match — which CTDB's own wording calls "this rip differs from
+    # the database" — reached the report and left `issues` empty.
+    if ctdb:
+        ctdb_verdict = ctdb.get("verdict")
+        if ctdb_verdict == "no_match" and ctdb.get("crc_validated"):
+            add(
+                "warning",
+                "ctdb_no_match",
+                "the whole-disc CTDB checksum matched no database entry at the "
+                "standard alignment — AccurateRip is the per-track authority, "
+                "and an offset-shifted pressing looks like this too",
+            )
+        elif ctdb_verdict == "error":
+            add(
+                "info",
+                "ctdb_unavailable",
+                ctdb.get("message") or "the CTDB check could not be completed",
+            )
 
     if read_speed and read_speed.get("unresolved"):
         unstable = read_speed.get("unstable_tracks") or []

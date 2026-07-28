@@ -178,14 +178,28 @@ def test_never_raises_with_provenance_on_partial_log() -> None:
 
 
 def test_does_not_fabricate_read_mode_or_c2_pointers() -> None:
-    """Regression (#32): RippingInfo has no field for EAC's "Read mode" or "Make
-    use of C2 pointers", and cyanrip doesn't report them — so the export must not
-    hardcode "Secure"/"No". Inventing rip facts would violate the same
-    never-invent-a-log-line rule the banner states."""
+    """Regression (#32), restated for the EAC-layout export (2026-07-27).
+
+    Originally this asserted the rows were *absent*, because the parser had no
+    field behind them and a hardcoded "Secure"/"No" would have been invented rip
+    facts. The maintainer's later direction — match EAC's layout as closely as
+    the data allows, and label what we can't fill — changes the remedy, not the
+    rule: the rows now appear in EAC's position, and an unreported value reads
+    ``(not reported by the ripper)``. What must never happen is the invented value,
+    so that is what this pins.
+
+    The values themselves are real when cyanrip does report them: see
+    ``tests/test_eac_layout_parity.py``, where C2 renders "No" from cyanrip's
+    "C2 errors: unsupported by drive" and Read mode renders "Secure" from its
+    paranoia level.
+    """
+    # A log with neither fact reported (this fixture has no paranoia/C2 lines).
     text = render_eac_style_log(_sample_log())
-    assert "Read mode" not in text
-    assert "C2 pointers" not in text
-    assert "Secure" not in text
+    assert "Read mode               : (not reported by the ripper)" in text
+    assert "Make use of C2 pointers : (not reported by the ripper)" in text
+    # The invented values the original regression was about:
+    assert "Read mode               : Secure" not in text
+    assert "Make use of C2 pointers : No" not in text
 
 
 def test_never_raises_on_empty_or_partial_log() -> None:
@@ -503,6 +517,13 @@ def test_absent_conclusive_report_is_stated_without_inventing_a_cause() -> None:
 
 
 def test_conclusive_report_is_rendered_normally_when_present() -> None:
+    """A log that HAS an end-of-rip summary renders it, in EAC's own wording.
+
+    The "absent" line is reserved for a log that genuinely carries no summary;
+    the wording moved from our own "Health status :" row to EAC's bare sentences
+    when the export was aligned to EAC's layout (2026-07-27).
+    """
     text = render_eac_style_log(_sample_log())
     assert "Conclusive status report : absent" not in text
-    assert "Health status" in text
+    assert "No errors occurred" in text
+    assert "End of status report" in text

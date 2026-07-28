@@ -257,7 +257,7 @@ compatible with our GPL-3.0 GUI. This is *exactly how whipper obtained gaps.*
 
 ---
 
-## Order 4 — C2 error pointers (and the cache-defeat verdict line)
+## Order 4 — C2 per-sector error counts *(the cache-defeat half shipped in v0.5.8 — KDD-29 — and needed no upstream change)*
 
 - **Gap:** report EAC-style C2 status/counts. libcdio-paranoia deliberately
   *ignores* C2, even though libcdio's own MMC layer can already read it.
@@ -365,4 +365,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.12.*

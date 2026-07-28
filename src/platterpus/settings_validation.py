@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -113,99 +114,136 @@ def validate_config(config: Config) -> list[ValidationIssue]:
     input it was meant to catch (it would take the Settings dialog down). Any
     unexpected failure is logged and treated as "no issue for that check" so the
     rest still run.
+
+    **Each rule is isolated.** This used to be one big ``try`` around every
+    check, which failed *open*: a hand-edited ``config.toml`` with, say, an
+    integer where ``output_dir`` belongs made the very first rule raise, and the
+    single ``except`` then swallowed it and returned the issues gathered so far
+    — an empty list. The dialog read that as "everything is valid" and happily
+    saved the rest of a corrupt file. One bad field must never disable the other
+    twenty-odd rules (audit finding, 2026-07-28).
     """
     issues: list[ValidationIssue] = []
-    try:
-        issues += _validate_dir("output_dir", config.output_dir, "Output directory")
-        issues += _validate_dir("working_dir", config.working_dir, "Working directory")
-        # The library folder is OPTIONAL — empty means "leave rips in the
-        # output directory" (the feature is off), so only a non-empty value
-        # goes through the directory rules.
-        if (config.library_dir or "").strip():
-            issues += _validate_dir("library_dir", config.library_dir, "Library folder")
-        elif _has_control_char(config.library_dir or ""):
-            # A control char hiding in "whitespace" must still be rejected —
-            # the strip() above would otherwise let it persist to config.toml.
-            issues.append(
-                ValidationIssue(
-                    "library_dir", "Library folder contains an illegal character."
-                )
-            )
 
-        for field_name, label in (
-            ("track_template", "Track template"),
-            ("disc_template", "Disc template"),
-            ("track_template_unknown", "Track template (unknown)"),
-            ("disc_template_unknown", "Disc template (unknown)"),
-        ):
-            issues += _validate_template(field_name, getattr(config, field_name), label)
+    def run(
+        rule: str, check: Callable[..., list[ValidationIssue]], *args: object
+    ) -> None:
+        """Run one rule; a crash in it costs only that rule's findings."""
+        try:
+            issues.extend(check(*args))
+        except Exception:  # noqa: BLE001 — a validator must never crash the dialog
+            log.exception("settings validation rule %r raised; skipping it", rule)
 
-        issues += _validate_tool_path("metaflac_path", config.metaflac_path, "metaflac")
+    run(
+        "output_dir", _validate_dir, "output_dir", config.output_dir, "Output directory"
+    )
+    run(
+        "working_dir",
+        _validate_dir,
+        "working_dir",
+        config.working_dir,
+        "Working directory",
+    )
+    # The library folder is OPTIONAL — empty means "leave rips in the output
+    # directory" (the feature is off), so only a non-empty value goes through
+    # the directory rules. A control char hiding in "whitespace" must still be
+    # rejected — the strip() would otherwise let it persist to config.toml.
+    run("library_dir", _validate_library_dir, config.library_dir)
 
-        issues += _validate_int(
-            "read_offset", config.read_offset, OFFSET_MIN, OFFSET_MAX, "Read offset"
+    for field_name, label in (
+        ("track_template", "Track template"),
+        ("disc_template", "Disc template"),
+        ("track_template_unknown", "Track template (unknown)"),
+        ("disc_template_unknown", "Disc template (unknown)"),
+    ):
+        run(
+            field_name,
+            _validate_template,
+            field_name,
+            getattr(config, field_name),
+            label,
         )
-        issues += _validate_int(
-            "max_retries",
-            config.max_retries,
-            MAX_RETRIES_MIN,
-            MAX_RETRIES_MAX,
-            "Max retries",
-        )
-        issues += _validate_int(
+
+    run(
+        "metaflac_path",
+        _validate_tool_path,
+        "metaflac_path",
+        config.metaflac_path,
+        "metaflac",
+    )
+
+    for field_name, low, high, label in (
+        ("read_offset", OFFSET_MIN, OFFSET_MAX, "Read offset"),
+        ("max_retries", MAX_RETRIES_MIN, MAX_RETRIES_MAX, "Max retries"),
+        (
             "secure_rerip_matches",
-            config.secure_rerip_matches,
             SECURE_REREP_MIN,
             SECURE_REREP_MAX,
             "Max reads to confirm a shaky track",
-        )
-        issues += _validate_int(
-            "read_speed",
-            config.read_speed,
-            READ_SPEED_MIN,
-            READ_SPEED_MAX,
-            "Fixed read speed",
-        )
-        issues += _validate_int(
-            "mp3_vbr_quality",
-            config.mp3_vbr_quality,
-            MP3_QUALITY_MIN,
-            MP3_QUALITY_MAX,
-            "MP3 VBR quality",
+        ),
+        ("read_speed", READ_SPEED_MIN, READ_SPEED_MAX, "Fixed read speed"),
+        ("mp3_vbr_quality", MP3_QUALITY_MIN, MP3_QUALITY_MAX, "MP3 VBR quality"),
+    ):
+        run(
+            field_name,
+            _validate_int,
+            field_name,
+            getattr(config, field_name),
+            low,
+            high,
+            label,
         )
 
-        issues += _validate_choice(
-            "output_format",
-            config.output_format,
-            _ALLOWED_OUTPUT_FORMATS,
-            "Output format",
-        )
-        issues += _validate_choice(
-            "cover_art", config.cover_art, _ALLOWED_COVER_ART, "Cover art"
-        )
-        issues += _validate_choice(
-            "read_speed_mode",
-            config.read_speed_mode,
-            _ALLOWED_READ_SPEED_MODES,
-            "Read speed mode",
-        )
-        issues += _validate_choice(
-            "rip_goal", config.rip_goal, _allowed_goals(), "Goal"
+    for field_name, allowed, label in (
+        ("output_format", _ALLOWED_OUTPUT_FORMATS, "Output format"),
+        ("cover_art", _ALLOWED_COVER_ART, "Cover art"),
+        ("read_speed_mode", _ALLOWED_READ_SPEED_MODES, "Read speed mode"),
+        ("rip_goal", _allowed_goals(), "Goal"),
+    ):
+        run(
+            field_name,
+            _validate_choice,
+            field_name,
+            getattr(config, field_name),
+            allowed,
+            label,
         )
 
-        # Every remaining field is a boolean toggle or bookkeeping value. We
-        # validate their TYPE too (a hand-edited config.toml could put a string
-        # where a bool/int belongs) so "cover completely" is literal — every
-        # Config field has a rule (the completeness meta-test enforces this).
-        for field_name in _BOOL_FIELDS:
-            issues += _validate_bool(field_name, getattr(config, field_name))
-        issues += _validate_str(
-            "integration_declined_path", config.integration_declined_path
-        )
-        issues += _validate_plain_int("schema_version", config.schema_version)
-    except Exception:  # noqa: BLE001 — a validator must never crash the dialog
-        log.exception("settings validation raised; returning partial results")
+    # Every remaining field is a boolean toggle or bookkeeping value. We validate
+    # their TYPE too (a hand-edited config.toml could put a string where a
+    # bool/int belongs) so "cover completely" is literal — every Config field has
+    # a rule (the completeness meta-test enforces this).
+    for field_name in _BOOL_FIELDS:
+        run(field_name, _validate_bool, field_name, getattr(config, field_name))
+    run(
+        "integration_declined_path",
+        _validate_str,
+        "integration_declined_path",
+        config.integration_declined_path,
+    )
+    run(
+        "schema_version",
+        _validate_plain_int,
+        "schema_version",
+        config.schema_version,
+    )
     return issues
+
+
+def _validate_library_dir(value: object) -> list[ValidationIssue]:
+    """The optional library folder: full directory rules only when it's set."""
+    text = value if isinstance(value, str) else ""
+    if text.strip():
+        return _validate_dir("library_dir", text, "Library folder")
+    if _has_control_char(text):
+        return [
+            ValidationIssue(
+                "library_dir", "Library folder contains an illegal character."
+            )
+        ]
+    if not isinstance(value, str):
+        return [ValidationIssue("library_dir", "Library folder must be text.")]
+    return []
 
 
 # The boolean toggles — validated for type so a corrupt config.toml (a string
@@ -287,14 +325,31 @@ def log_issues(issues: list[ValidationIssue]) -> None:
 # --- Per-field validators ----------------------------------------------------
 
 
-def _validate_dir(field: str, value: str, label: str) -> list[ValidationIssue]:
+def _validate_dir(field: str, value: object, label: str) -> list[ValidationIssue]:
     """A rip output/working directory: absolute, legal, and writable-or-creatable.
 
     We don't require the folder to *exist* (the rip creates it) — but we do
-    require that it *could* be created: an absolute path whose nearest existing
+    check that it *could* be created: an absolute path whose nearest existing
     ancestor is a writable directory. The writability probe is best-effort; if
-    we genuinely can't tell, we don't manufacture an error.
+    we genuinely can't tell, we don't manufacture an issue.
+
+    **Writability is a WARNING, not an error**, while shape (absolute, no
+    control chars, no ``..``) is an error. The distinction matters because
+    :meth:`Config._sanitized` resets every *error*-level field to its default on
+    load: a rip library on a NAS or a removable disk that simply wasn't mounted
+    at launch was therefore silently retargeted to ``~/Music/rips``, the library
+    folder was silently cleared (turning auto-move off), and the next save
+    persisted that — the user's real paths gone, with only a log line. "The
+    volume isn't mounted right now" is an environmental condition, not an
+    invalid value; it deserves a visible warning, not a rewrite of the config
+    (audit finding, 2026-07-28).
     """
+    # Type first. A hand-edited config.toml can put an integer or a list where a
+    # path belongs; without this guard the rule raised, the caller swallowed it,
+    # and the user was shown NO error for the one field that was actually broken
+    # (audit finding, 2026-07-28 — the "fails open" half of the same bug).
+    if not isinstance(value, str):
+        return [ValidationIssue(field, f"{label} must be text (a folder path).")]
     raw = value or ""
     # Check for control characters on the RAW value, BEFORE stripping. Python's
     # str.strip() classifies the C0 "information separators" \x1c–\x1f (and
@@ -326,7 +381,13 @@ def _validate_dir(field: str, value: str, label: str) -> list[ValidationIssue]:
                     )
                 ]
             if not os.access(path, os.W_OK):
-                return [ValidationIssue(field, f"{label} isn’t writable: {text}")]
+                return [
+                    ValidationIssue(
+                        field,
+                        f"{label} isn’t writable right now: {text}",
+                        SEVERITY_WARNING,
+                    )
+                ]
             return []
         # Doesn't exist yet — walk up to the nearest existing ancestor and make
         # sure the rip could create the folder there.
@@ -337,7 +398,10 @@ def _validate_dir(field: str, value: str, label: str) -> list[ValidationIssue]:
             return [
                 ValidationIssue(
                     field,
-                    f"{label} can’t be created — “{ancestor}” isn’t writable.",
+                    f"{label} can’t be created right now — “{ancestor}” isn’t "
+                    "writable. If this is a removable disk or a network share, "
+                    "mount it before ripping.",
+                    SEVERITY_WARNING,
                 )
             ]
     except OSError:
@@ -348,7 +412,7 @@ def _validate_dir(field: str, value: str, label: str) -> list[ValidationIssue]:
     return []
 
 
-def _validate_template(field: str, value: str, label: str) -> list[ValidationIssue]:
+def _validate_template(field: str, value: object, label: str) -> list[ValidationIssue]:
     """A naming template: non-empty, relative, legal chars, known tokens, renders.
 
     The template nests folders with its own ``/`` separators, so a leading ``/``
@@ -358,6 +422,8 @@ def _validate_template(field: str, value: str, label: str) -> list[ValidationIss
     """
     from platterpus import naming
 
+    if not isinstance(value, str):  # see _validate_dir — type before content
+        return [ValidationIssue(field, f"{label} must be text.")]
     issues: list[ValidationIssue] = []
     text = value or ""
     if not text.strip():
@@ -471,7 +537,7 @@ def cross_fs_hazards(template: str) -> list[str]:
     return hazards
 
 
-def _validate_tool_path(field: str, value: str, tool: str) -> list[ValidationIssue]:
+def _validate_tool_path(field: str, value: object, tool: str) -> list[ValidationIssue]:
     """A dependency binary override (e.g. metaflac): valid *format*.
 
     We validate what the user typed, not whether the tool is installed —
@@ -483,6 +549,8 @@ def _validate_tool_path(field: str, value: str, tool: str) -> list[ValidationIss
       * a bare command name → accepted as-is (resolved on PATH at run time; the
         dependency subsystem is the authority on whether it's actually present).
     """
+    if not isinstance(value, str):  # see _validate_dir — type before content
+        return [ValidationIssue(field, f"The {tool} path must be text.")]
     text = (value or "").strip()
     if not text:
         return [

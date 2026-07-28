@@ -75,8 +75,10 @@ A track counts as "verified" only when AccurateRip reports a **confidence of 1
 or more** (how many submitted rips share its checksum) — the app never calls a
 track verified on a guess. If you enabled **Verify with CTDB**, its result
 appears just below, marked the same way by symbol and text: a CTDB match shows
-green (verified — its checksum is hardware-confirmed, the same standing as an
-AccurateRip match), and no match shows amber.
+green (verified — our CTDB checksum has been confirmed correct on real hardware).
+It is a *whole-disc* check, so AccurateRip stays the per-track authority. No
+match shows grey — "couldn't confirm", not "failed": CTDB also holds
+offset-shifted pressings, and this check only tests the standard alignment.
 
 Alongside the rip, two records are saved next to your music: the backend's
 human-readable **`.log`**, and a **`.platterpus.json`** report with the same
@@ -145,8 +147,8 @@ named from the album artist/title you type.
 ## Settings (Tools → Settings)
 
 - **Goal** — pick what you want the rip to be and the format/verification/quality
-  options snap to good values for it: *Fast verified* (lossless, AccurateRip-
-  checked — the recommended default), *Archival exact* (also CTDB-verify and
+  options snap to good values for it: *Fast verified* (lossless, fully verified
+  — the recommended default), *Archival exact* (the same checks, plus the
   smallest lossless files), or *Portable* (an MP3 copy for phones). You can still
   tweak any individual option below — that switches the Goal to *Custom*.
 - **Output format** — *FLAC* (the lossless archival master, always produced),
@@ -214,10 +216,11 @@ named from the album artist/title you type.
   it double-reads clean tracks too — so it's off by default; turn it on for a
   maximum-assurance archival rip.
 - **Verify with CTDB after a rip** — a second, whole-disc verification against
-  the CUETools Database, alongside AccurateRip. A network check, off by default.
-  Its checksum is now confirmed on real hardware, so a match reads as *verified*
-  — the same bar as AccurateRip; a non-match can only ever under-claim, never
-  falsely say "verified".
+  the CUETools Database, alongside AccurateRip. **On by default**, and it is a
+  network lookup: every rip sends the disc's table of contents to CTDB. Turn it
+  off if you would rather not. Its checksum is confirmed on real hardware, so a
+  match reads as *verified*; a non-match can only ever under-claim, never falsely
+  say "verified".
 - **Verify FLACs after a rip** — decode each FLAC back and check it against its
   stored checksum (on by default). (**Re-compress FLACs** is shown but disabled:
   cyanrip already encodes FLAC at maximum compression, so there's nothing to

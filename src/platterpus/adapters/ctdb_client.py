@@ -111,7 +111,7 @@ def _default_fetcher(url: str) -> bytes:
         # valid TLS cert — see CTDB_SCHEME), so a MITM or a misbehaving server
         # could otherwise return a multi-GB body and exhaust memory before the
         # XML parse. A CTDB lookup response is a few KB; 8 MiB is generous.
-        data = response.read(_MAX_RESPONSE_BYTES + 1)
+        data: bytes = response.read(_MAX_RESPONSE_BYTES + 1)
     if len(data) > _MAX_RESPONSE_BYTES:
         raise CtdbLookupError(
             f"CTDB response exceeded {_MAX_RESPONSE_BYTES} bytes — refusing it"

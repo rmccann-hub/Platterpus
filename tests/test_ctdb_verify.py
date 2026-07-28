@@ -214,14 +214,25 @@ def test_no_match_message_does_not_blame_the_rip_while_unvalidated(monkeypatch) 
     assert "this rip differs" not in res.message
 
 
-def test_no_match_states_rip_differs_now_that_algorithm_is_validated() -> None:
-    # Shipped state (KDD-16 gate PASSED): with the CRC algorithm hardware-
-    # validated, a NO_MATCH legitimately means the rip differs from the database.
+def test_no_match_is_scoped_to_the_alignment_we_actually_tested() -> None:
+    """A validated no-match must not be stated as "your rip differs".
+
+    We compute ONE checksum, at the standard alignment; CTDB itself sweeps
+    ±5879 samples because offset-shifted pressings are routine (see
+    ``ctdb/crc.py`` ``CTDB_OFFSET_RANGE``), and our sweep lives only in
+    ``--ctdb-calibrate``. Asserting the audio differs from the database was
+    therefore a positive inaccuracy claim derived from testing 1 of ~11,759
+    valid alignments — the same false-alarm shape KDD-16 was written for
+    (audit finding, 2026-07-28).
+    """
     entry = CtdbEntry(crc=0xDEADBEEF, confidence=1347)
     client = _FakeClient(CtdbLookupResult(entries=(entry,)))
     res = verify_rip(_FLACS, client, decoder=_decoder, samples_probe=_probe)
     assert res.crc_validated is True
-    assert "this rip differs" in res.message
+    assert "at the standard alignment" in res.message
+    assert "offset-shifted pressings" in res.message
+    # The claim we must never make again.
+    assert "this rip differs from the database" not in res.message
 
 
 def test_lookup_error_is_a_verdict_not_a_raise() -> None:

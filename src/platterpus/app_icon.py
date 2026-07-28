@@ -64,7 +64,7 @@ def logo_pixmap(size: int = 96) -> object | None:
         icon = app_icon()
         if icon is None:
             return None
-        pixmap = icon.pixmap(QSize(size, size))  # type: ignore[attr-defined]
+        pixmap = icon.pixmap(QSize(size, size))
         return None if pixmap.isNull() else pixmap
     except Exception:  # noqa: BLE001 — a missing logo must never break a dialog
         log.debug("could not build logo pixmap", exc_info=True)

@@ -45,9 +45,11 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.tool_paths import resolve_tool
+
 log = logging.getLogger(__name__)
 
-_FFMPEG_BINARY: str = "ffmpeg"
+_FFMPEG_BINARY: str = resolve_tool("ffmpeg")
 # Formats this adapter knows how to produce, mapped to their file extension.
 # Anything else (e.g. "flac") is a no-op — the rip already produced the FLAC,
 # there's nothing to transcode. Note WavPack's extension is ".wv", not

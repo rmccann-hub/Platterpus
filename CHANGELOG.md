@@ -11,6 +11,244 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.12] — 2026-07-28
+
+### Fixed
+*Found by a whole-application audit (typing, security, architecture, UX honesty,
+documentation) run across eight parallel reviewers, 2026-07-28.*
+- **External tools were resolved through `PATH` alone, so a desktop-launched GUI
+  could not find its own container-exported binaries.** `flac`, `metaflac`, `ffmpeg`
+  and `sox` now resolve via a shared `tool_paths.resolve_tool()` that falls back to
+  `~/.local/bin` (where `distrobox-export` puts them) before giving up. A GUI started
+  from a desktop icon does not inherit a login shell's `PATH`; the wizard would report
+  the tool installed while the dependency probe reported it missing.
+- **Switching the Settings goal preset did not move the "Verify FLAC after the rip"
+  checkbox**, so the summary line described a setting the preset had not applied.
+- **Six user-facing strings in `drive_access.py` still said "whipper"** — the backend
+  was removed in v0.4.x (KDD-18). They now say cyanrip.
+- **The EAC-layout log forged a `Test CRC == Copy CRC` pair for a track whose
+  re-reads explicitly *disagreed*.** `rip_count` is how many passes cyanrip *took*,
+  not how many *agreed*; a `-Z` run that hits its repeat limit prints both "no
+  matches found" and "(after 5 rips)", and `or reads >= 2` short-circuited the
+  measured negative. One SHA-256-attested document asserted the reads were
+  identical *and*, in its own status report, that they were not.
+- **The `*** INCOMPLETE RIP ***` banner has never rendered in the shipped app.**
+  `_last_outcome` is a dict and the call site read it with `getattr`, so the status
+  was always empty — the v0.5.9 "an interrupted rip declares itself" fix was live
+  only in the renderer, never through the wiring. Its regression test now goes
+  through `_write_eac_log`, which is where the seam actually is.
+- **An interrupted securing pass reached the JSON report but not the durable log**,
+  so of the two records for one rip the archival one was the more reassuring.
+- **The green "Bit-perfect" banner dropped failed tracks from its denominator.** A
+  track that produced nothing at all was invisible to the count, so the trust
+  headline read "all N tracks verified" beside a status line saying one was missing.
+- **"Matched an offset-variant pressing" was counted from the presence of an
+  `Accurip 450:` line**, including "(not found)" — so the banner claimed a partial
+  match while the table beside it showed "—". One shared predicate now decides it.
+- **The verdict banner never heard about post-rip failures.** A FLAC master that
+  fails `flac --test`, a lossless derived file that isn't bit-identical, or read
+  instability that survived the auto-fix now downgrade the banner instead of leaving
+  a green headline over a broken result.
+- **`validate_config()` failed open**: one non-string field made the first rule raise
+  and the single catch-all swallowed it, returning an empty issue list — which
+  `Config._sanitized()` read as "valid" and used to persist a `..`-traversal
+  template, an absolute template and an out-of-range offset. Each rule is now
+  isolated, and the path/template/tool-path validators type-check before parsing.
+- **`%Y` could escape the output directory.** It is the one naming token Platterpus
+  substitutes rather than cyanrip, and it took the Year box's text verbatim, so a
+  year of `../.` wrote the album outside the output folder — while the Settings
+  preview, which does sanitise, showed the safe string.
+- **The read offset reached `cyanrip -s` from three paths that never validated it**
+  (wizard entry, auto-detect, and the user-editable `drive_offsets.csv`). It is now
+  bounds-checked at the single write path, with a visible message on refusal, and
+  the wizard's spin box reads the validator's bounds instead of its own.
+- **Five reads of external files could raise `UnicodeDecodeError`** — a `ValueError`,
+  so every `except OSError` guard missed it. One is `DriveProfileStore.load`, called
+  from `MainWindow.__init__`: a corrupt cache locked the user out of the app.
+- **Embed-only cover art destroyed an existing `cover.jpg`.** metaflac imports a
+  picture from a file, and the scratch write reused the canonical library name and
+  then deleted it — on the *default* setting.
+- **A slow cover-art fetch could write album A's result into album B's report.** Two
+  of the three post-rip emits lacked the generation guard the third had.
+- **An unmounted volume silently rewrote your settings.** "This folder isn't writable
+  right now" was graded an error, and `_sanitized()` resets error-level fields on
+  load — so a NAS or removable rip library that wasn't mounted at launch was
+  retargeted to `~/Music/rips` and the library folder cleared. It is now a warning.
+- **`uninstall` orphaned `~/.local/bin/cd-paranoia`** — the exact repeat of the
+  `flac` bug (#34) that the teardown docstring memorialises.
+- **The overall progress bar froze at 95% on every successful rip.** The last 5% was
+  reserved for a whipper-only phase cyanrip never emits.
+- **The desktop notification sent a stale summary** — the one captured before the
+  read-stability warning overwrote the on-screen line, so the unattended user was
+  told "all tracks ripped cleanly" while the window said otherwise.
+- **`issues: []` read as "clean" for a rip nothing could verify.** A CTDB no-match and
+  a rip with no AccurateRip match at all now say so; `_issues` was accepting the CTDB
+  block and never reading it.
+- **A failing test run printed no failure names and no tracebacks.** The PySide
+  teardown workaround in `conftest` hard-exits at session finish, which discarded
+  pytest's entire terminal summary; it now prints it first.
+- **The dialog auto-centring filter no longer keeps a registry of dialogs.** It tracked
+  which dialogs it had already placed in a `weakref.WeakSet`, which measures the wrong
+  lifetime: a weakref is attached to the *Python wrapper*, so the entry disappeared when
+  Python stopped referencing the dialog — not when Qt destroyed it. Whenever the C++ side
+  went first (a parent deletion, `deleteLater()`), the entry silently persisted for a
+  dialog that no longer existed, which is the stale-bookkeeping failure the WeakSet had
+  been introduced to fix. The mark now lives on the dialog itself as a Qt dynamic
+  property, so it is born and destroyed with the thing it describes and there is no
+  registry to go stale, nothing to invalidate, and no address to be recycled.
+- **The main window's first-run prompt was scheduled with a timer that outlived the
+  window.** `QTimer.singleShot(0, self._maybe_offer_first_run_setup)` keeps the callback
+  alive independently of the window, so the window can never be freed until it fires —
+  and if the window's C++ side goes first, the timer fires anyway, against freed memory.
+  It now passes the window as the timer's context object, which ties the callback to the
+  window's lifetime. The comment claiming it "never fires in tests" was false: a
+  zero-timer fires on any `processEvents()`, of which the suite makes about twenty-two.
+- **The window teardown used in tests now lives in one place** (`conftest.stop_window_threads`)
+  and joins all seven of the window's QThreads, not four. A second copy had diverged and
+  stopped joining the MusicBrainz worker thread, so windows were destroyed with a QThread
+  still running — which aborts the process during a later test's garbage collection, in
+  an unrelated file.
+
+### Changed
+- **CTDB's "no match" no longer claims your rip differs from the database.** We test
+  one alignment; CTDB itself sweeps ±5879 samples because offset-shifted pressings
+  are routine, so the old wording was a positive inaccuracy claim drawn from 1 of
+  ~11,759 valid alignments. Both the results pane and the verdict message now say
+  what was actually measured.
+- **Settings and the User Guide said CTDB verification was off by default. It is on**
+  — so every rip sends the disc's table of contents to an external service, and the
+  two places a user would check to find that out both said it didn't.
+- Three stale or impossible strings: a scan error offered "switch to the cyanrip
+  backend in Settings" (there is no such setting — cyanrip is the only backend), the
+  uninstall dialog labelled the legacy `whipper.conf` as "your drive calibration"
+  (the real offset lives in Platterpus's own config), and the guide described the
+  *Archival exact* goal as adding CTDB verification the other preset already does.
+- `mypy` no longer ignores missing imports globally. That flag let the type gate
+  collapse silently — an unresolvable PySide6 turned every Qt class into `Any` while
+  mypy still printed "Success". Only `musicbrainzngs` and the build-generated
+  `platterpus._build` are exempt now, per module, and six zero-cost strictness flags
+  are enabled (`disallow_subclassing_any` is the tripwire that makes the collapse
+  fail loudly).
+
+*Found by an adversarial review of the v0.5.12 EAC-layout work — five independent
+reviewers, each finding then handed to a separate verifier told to refute it. CI was
+green on all ten checks at the time.*
+- **`Make use of C2 pointers` could claim C2 was used when it only was available.**
+  cyanrip's line reports what the *drive* can do ("%s by drive"); EAC's row asks what
+  the *rip* did. "unsupported" still earns a truthful `No`; an affirmative capability
+  is now unknown rather than a fabricated `Yes`.
+- **`Command line compressor` named the `flac` binary, which did not encode the
+  audio** — that version comes from the host dependency probe, while cyanrip encodes
+  in-process via libavcodec. It contradicted the very next row.
+- **The `Filename` row rewrote cyanrip's U+2236 colon**, printing a path that does not
+  exist on disk. The disc *title* still shows the real colon (a fact about the disc);
+  the filename now shows what is actually on the filesystem.
+- **`Track 10`–`Track 14` were mis-aligned** (`Track  14`); EAC right-aligns to width 2.
+- **Rows asserted from cyanrip's behaviour** (`Delete leading and trailing silent
+  blocks`, `Null samples used in CRC calculations`, `Used interface`) were rendered
+  over logs cyanrip didn't write. They are now gated on the actual backend.
+- **`Read mode` defaulted to `Secure` for any paranoia level it didn't recognise** —
+  now an allow-list, unknown otherwise.
+- **The read-stability caveat printed *after* `End of status report`**, which in EAC
+  terminates the report. It now sits inside it.
+- **Both status counts are padded to width 2**, as EAC does.
+- **A single track without sector data deleted the entire TOC table** (a CD-Extra data
+  track would do it). Unmeasured cells are now marked; the other rows survive.
+- **A track with no number collapsed the whole log to the stub** via a format spec.
+- **The parser could raise `ValueError`** on a >4300-digit sector number, violating the
+  never-raises rule; and the new C2 branch reassigned the function's own `text`
+  parameter — the exact trap a comment 25 lines below warns against.
+- **`Pre-gap length` is now rendered** from the sector data the parser captures (the
+  field was added and never read).
+- The unfillable-row label reads `(not reported by the ripper)`; it named cyanrip
+  even on logs cyanrip didn't write.
+- **`Fill up missing offset samples with silence` was derived as the complement of
+  the overread flag.** Those are two independent EAC checkboxes; the trick only
+  happened to work for cyanrip. It now reads cyanrip's actual overread *mode* text.
+- **`Gap handling` said `(not reported)` although cyanrip reports it** — its `Gaps:`
+  section is now parsed (`None signalled` on the reference disc).
+- **`All tracks accurately ripped` could be announced with a track missing.** The
+  count only sees tracks that produced *some* result, so a track that failed outright
+  was invisible to it.
+- **A selective rip presented a partial table as the disc's TOC.** With per-track
+  selection a 4-row table appeared under EAC's header, where EAC always prints the
+  whole disc. It is now labelled `(partial — N of M disc tracks …)`.
+- **A securing pass cut short left no trace.** Found by hardware run 4: closing the
+  window 26 minutes into the `-Z` re-read of tracks 3 and 5 produced
+  `secure_rerip.engaged: true` with an empty `retried_tracks` and nothing saying the
+  pass was interrupted. (The audio was unaffected — the re-rip works in a temp
+  directory and only swaps on success.) The report now carries an explicit
+  `interrupted` flag.
+- **The output-format block still spoke for cyanrip on other rippers' logs.** The
+  three archival-header rows were gated on the backend; this block sat one lower and
+  told a whipper rip that "cyanrip encodes in-process via libavcodec". Same gate now.
+- **The backend gate was a substring test**, so `not-cyanrip 1.0` and
+  `whipper (cyanrip-compatible)` inherited cyanrip's asserted behaviour. It anchors
+  to the start of the creator string now.
+- **Seven more `int()` call sites could raise straight out of the parser** — every
+  numeric cyanrip field except the three sector ones (read offset, paranoia counts,
+  track number, rip count, both AccurateRip confidences, error count). CPython refuses
+  a >4300-digit conversion, so a corrupt log crashed the parse. All now degrade to
+  unknown with a logged warning, and the boundary is pinned per-field.
+- **A saved log re-parsed to the DISCARDED CRCs.** Platterpus appends a swap addendum
+  when the auto-fix replaces a track's file, and its own text says those CRCs
+  supersede — but nothing read it back, so `parity.track_copy_crcs` (and the
+  `--compare` path, and any third-party tool) got CRCs describing bytes that are not
+  on disk. The GUI never hit this because it patches from live worker state. The
+  parser now honours the addendum.
+- **`_read_stability_line` crashed the whole log to a stub** on a mix of `str`/`None`
+  track numbers (`sorted()` over incomparable types) — one bad track took the document
+  with it.
+- Padded, value-less `Device model:` / `Ripping finished at` / `Paranoia level:` rows
+  captured a lone space, rendering an empty row instead of the honest label.
+- The parser property test could not reach any of the new branches, so their
+  never-raises guarantee was untested; the corpus now includes them, plus a
+  4400-digit sector and inverted `Start`/`End` geometry.
+
+*The EAC-layout work below was prepared as v0.5.12 on 2026-07-27 and never
+tagged; the audit batch above landed in the same release, so both ship together
+here.*
+
+*The EAC-compatible log, checked against a real EAC log of the same disc rather
+than an idea of the format — plus the fitness test and CI-gate fix from the same
+batch.*
+
+### Added
+- **The EAC-compatible log now really looks like an EAC log.** Checked against a
+  genuine Exact Audio Copy V1.8 log of the same disc on the same drive, not
+  against an idea of the format. New: the **`TOC of the extracted CD` table**,
+  derived from the per-track sectors cyanrip reports and **byte-identical** to
+  EAC's — values and column alignment both; the **`Artist / Album`** disc line;
+  the full archival header (`Read mode`, `Utilize accurate stream`,
+  `Make use of C2 pointers`, `Fill up missing offset samples with silence`,
+  `Delete leading and trailing silent blocks`, `Null samples used in CRC
+  calculations`, `Used interface`, `Gap handling`); the output-format block; and
+  the end-of-rip **status report in EAC's own wording** (`N track(s) accurately
+  ripped` … `End of status report`) in place of our own phrasing.
+  Rows cyanrip genuinely doesn't report say `(not reported by cyanrip)` — never
+  a guess, never a silent omission. The attribution header and checksum footer
+  stay deliberately un-EAC-like: layout is parity, provenance would be forgery.
+- **Accuracy versus EAC is determinable from the two logs alone.** Pinned as a
+  test: `parity.compare_logs` reads a real EAC log and ours and pairs all 14
+  tracks with no other input. Doing so surfaced a real result — with v0.5.11
+  reporting the *shipped* read, the reference rip now matches EAC on **13 of 14
+  tracks** (was 12); the auto-fix's re-read of track 5 converged on exactly the
+  bytes EAC got. Only track 3, which has never read the same way twice on this
+  drive, still differs.
+- The parser now captures the disc's album/artist, cyanrip's `C2 errors:` and
+  `Paranoia level:` lines, and each track's start/end/pre-gap sectors — the data
+  behind the rows above.
+- **A fitness test that guards the "surfaces disagree" bug class.**
+  `tests/test_surface_consistency.py` renders one `RipLog` through the
+  EAC-compatible log, the JSON report and the verdict banner, then asserts they
+  agree: identical per-track CRCs, one answer to "how many tracks are proven",
+  offset-variant tracks never called absent *or* exact, a non-reproducible track
+  flagged everywhere, and an interrupted rip declared in the durable log. Four of
+  the last week's defects were one bug — a fact reaching some surfaces and not
+  others — and each was invisible to unit tests because every surface was correct
+  by its own lights. Each assertion is mutation-checked against the defect it
+  exists for.
+
 ### Fixed
 - **CI's changelog gate could fail a change that satisfied it.** Both of the gate's
   checks piped a producer into `grep -q` under `set -o pipefail`: `grep -q` exits the
@@ -3123,7 +3361,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...HEAD
+[0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.8...v0.5.9
@@ -3181,4 +3420,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.11.*
+*Last updated for Platterpus v0.5.12.*

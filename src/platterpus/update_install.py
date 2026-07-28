@@ -76,7 +76,10 @@ def asset_url(version: str) -> str:
 def _default_open(url: str) -> http.client.HTTPResponse:
     """Open a streaming HTTP response (callers read() it in chunks)."""
     request = urllib.request.Request(url, headers={"User-Agent": "platterpus"})
-    return urllib.request.urlopen(request, timeout=_TIMEOUT_S)
+    response: http.client.HTTPResponse = urllib.request.urlopen(
+        request, timeout=_TIMEOUT_S
+    )
+    return response
 
 
 def download_and_install(

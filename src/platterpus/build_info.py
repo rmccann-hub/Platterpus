@@ -35,7 +35,7 @@ def build_fingerprint() -> str:
     file, so the import fails and we fall back to the sentinel. Never raises.
     """
     try:
-        from platterpus._build import BUILD_FINGERPRINT  # type: ignore[import]
+        from platterpus._build import BUILD_FINGERPRINT
     except Exception:  # noqa: BLE001 — any import trouble → treat as unstamped
         return SOURCE_FINGERPRINT
     return str(BUILD_FINGERPRINT) or SOURCE_FINGERPRINT

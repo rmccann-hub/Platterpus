@@ -55,7 +55,7 @@ rule #3). Argv is built in `adapters/cyanrip_backend.py::_build_rip_argv`.
 | `-Z <int>` | re-rip a track until N reads' checksums agree | only when `secure_rerip_matches > 0`; the user's number is the ceiling (dynamic mode applies it only to AccurateRip-failing tracks) |
 | `-O` | overread into the lead-in/lead-out (upstream help: "may freeze if unsupported by drive") | only when the Settings "Overread" toggle (`force_overread`) is on — off by default, matching EAC's baseline "overread: No". **Flag verified against 0.9.3.1 + master (2026-07-21); the previously-documented `-x` does not exist in cyanrip.** **⚠ CONFIRMED to hang the Pioneer BDR-209D (real-hardware finding, 2026-07-22): 13 of 14 tracks ripped perfectly, then the drive hung ~23 min reading the last track's lead-out with the progress bar frozen near 100 %, exactly the upstream-warned failure. Overread should stay OFF on this drive; the GUI default is off.** |
 | `-S <int>` | cap read speed (× multiplier) | only when a positive fixed speed is requested. **⚠ ABORTS the rip (`EINVAL`) on a drive that reports speed as "unchangeable"** (the Pioneer BDR-209D does) — so the ladder parses `speed_changeable` and never sends `-S` to a speed-locked drive (real-hardware finding, 2026-07-01) |
-| `-l <n,n,…>` | rip only these 1-based track numbers | the per-track auto-fix re-rip (cheap targeted re-read); empty = whole disc |
+| `-l <n,n,…>` | rip only these 1-based track numbers | **two producers:** the user's per-track "Rip?" checkboxes (a deliberate partial rip, since v0.5.7) and the per-track auto-fix re-rip (a cheap targeted re-read). Empty = whole disc, which is also what "every track ticked" sends. |
 | `-N` | disable cyanrip's own MusicBrainz lookup | **always** (Critical rule #5 — the GUI feeds tags via `-a`/`-t`, so cyanrip stays offline and never shows its interactive prompt) |
 | `-a <k=v:k=v…>` | album-level tags | from the GUI's fetched+edited metadata |
 | `-t <n=k=v:…>` | per-track tags (1-based) | from the GUI's metadata |
@@ -144,10 +144,15 @@ confidence N)`, `Accurip 450:` → the offset-variant match, `(after N rips)` �
 → `secure_rerip_converged`), the AccurateRip summary, album loudness, and the
 `Log FUN512:` signature. cyanrip writes its own `.log` + `.cue` at the end; a
 **cancelled** rip writes neither. **Note:** the banner block yields `drive`,
-`read_offset`, `disc_id`, `cddb_id`, `speed_changeable`, and the disc
-duration; cyanrip prints **no cache line at all**, so there is no `cache`
-field to parse (see the cache-handling note below; this corrects an earlier
-version of this doc that implied one).
+`read_offset`, `disc_id`, `cddb_id`, `speed_changeable`, the disc duration,
+and — added with the v0.5.12 EAC-layout work — `album`, `album_artist`,
+`c2_pointers` (from `C2 errors:`; a *drive capability*, not a statement that
+C2 was used), `paranoia_level`, `overread_mode`, `gap_detection` (the `Gaps:`
+block) and `output_formats`. Per-track, the parser also yields `start_sector`
+/ `end_sector` (`Start LSN:` / `End LSN:`, which build the EAC-layout TOC
+table) and `pregap_sectors` (`Pregap LSN:`). cyanrip prints **no cache line at
+all**, so there is no `cache` field to parse (see the cache-handling note
+below; this corrects an earlier version of this doc that implied one).
 
 **Cache handling — attempted by cyanrip, measured by `cd-paranoia -A` (KDD-29).**
 cyanrip has no cache-defeat flag and emits no cache-defeat verdict in its log.
@@ -319,4 +324,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.12.*

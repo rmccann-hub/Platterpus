@@ -60,7 +60,7 @@ def _default_fetch(url: str) -> str:
         url, headers={"Accept": "application/vnd.github+json"}
     )
     with urllib.request.urlopen(request, timeout=_TIMEOUT_S) as response:
-        data = response.read(_MAX_BODY_BYTES + 1)
+        data: bytes = response.read(_MAX_BODY_BYTES + 1)
     if len(data) > _MAX_BODY_BYTES:
         raise ValueError(
             f"update check response exceeded {_MAX_BODY_BYTES} bytes — refusing it"

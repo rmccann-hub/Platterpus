@@ -167,7 +167,10 @@ def is_integrated(appimage: Path, desktop_dir: Path = DESKTOP_DIR) -> bool:
     """
     target = _desktop_file(desktop_dir)
     try:
-        text = target.read_text(encoding="utf-8")
+        # errors="replace" — a mangled byte in someone else's .desktop file must
+        # yield "not integrated", not a UnicodeDecodeError (a ValueError, which
+        # the OSError guard would miss).
+        text = target.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
     # Exec is written quoted+escaped ('Exec="<path>" %U'); match that exact form.

@@ -49,7 +49,10 @@ def _read_conf_text(conf_path: Path) -> str | None:
     one is worth a log line.
     """
     try:
-        return conf_path.read_text(encoding="utf-8")
+        # errors="replace" — UnicodeDecodeError is a ValueError, so the OSError
+        # guard below would not have caught a non-UTF-8 byte in whipper.conf.
+        # The line parser already ignores anything it does not recognise.
+        return conf_path.read_text(encoding="utf-8", errors="replace")
     except FileNotFoundError:
         return None
     except OSError as exc:  # unreadable file — treat as "not configured"

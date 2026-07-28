@@ -21,7 +21,10 @@ The brief promises "EAC-equivalent archival quality" — so the rip log should b
 | Extraction engine | (implicit in EAC binary) | (implicit — cyanrip drives libcdio-paranoia) | cyanrip is built on FFmpeg + libcdio-paranoia; it doesn't print the engine versions in the log. Minor parity gap vs whipper (which named them). |
 | Read mode | `Read mode : Secure` | (implicit — cyanrip always reads with paranoia) | EAC offers Burst mode; cyanrip doesn't. Not a gap for archival. |
 | Read offset correction | `Read offset correction : 667` | `Offset:         +667 samples` | Equivalent. cyanrip applies the offset itself (no whipper >587 cd-paranoia bug), and prints the sign explicitly. |
-| C2 pointers | `Make use of C2 pointers : No` | (not exposed) | Neither the Linux libcdio-paranoia stack nor the tested BDR-209D uses C2 — see `docs/ripper-engine-strategy.md §8`. Not actionable here. |
+| C2 pointers | `Make use of C2 pointers : No` | `C2 errors: <text> by drive` | **Parsed since v0.5.12** (`_C2` → `RippingInfo.c2_pointers`). Note the two lines ask different questions: cyanrip reports what the *drive can do*, EAC's row what the *rip did* — so `unsupported`/`disabled` renders a truthful `No` and an affirmative capability renders as unknown rather than a fabricated `Yes`. Per-sector C2 *counts* remain unexposed — see `docs/ripper-engine-strategy.md §8`. |
+| Gap detection | (not in EAC log) | `Gaps:` block | **cyanrip extra**, parsed to `RippingInfo.gap_detection`. |
+| Per-track pre-gap | `Pre-gap length  0:00:02.00` | `Pregap LSN: N` | Parsed to `TrackResult.pregap_sectors` and rendered in the EAC-layout export. |
+| Per-track sector range | (implicit in the TOC table) | `Start LSN:` / `End LSN:` | Parsed to `TrackResult.start_sector`/`end_sector`; they build the EAC-layout TOC table. |
 | Cache defeat | `Defeat audio cache : Yes/No` | (no equivalent line) | **No cyanrip equivalent.** cyanrip prints no cache line at all; libcdio-paranoia *attempts* cache defeat (readahead exhaustion + FUA where supported) but never asserts success. Our EAC-style log export therefore renders `(unknown)` rather than a fabricated `Yes` — but the field is no longer *usually* unknown: **KDD-29** measures the drive's real cache-defeat behaviour with `cd-paranoia -A` and folds that verdict in, so a probed drive renders a measured `Yes`/`No` (hardware-confirmed `Yes` on the BDR-209D, 2026-07-26). KDD-25's "always unknown" position is superseded; the never-fabricate rule it was protecting is not. |
 | Paranoia status counts | (not in EAC log) | `Paranoia status counts:` block (`SKIP: N`, `READ_ERROR: N`, …) | **cyanrip extra.** A per-status tally of how hard paranoia had to work — a useful marginal-disc signal EAC doesn't surface. |
 | Disc audio duration | (implicit) | `Total time:     00:59:42.354` | cyanrip records the disc's audio length; Platterpus uses it for the honest realtime multiplier. |
@@ -82,4 +85,4 @@ If a future cyanrip version changes its log format, update both this document an
 
 ---
 
-*Last updated for Platterpus v0.5.11.*
+*Last updated for Platterpus v0.5.12.*

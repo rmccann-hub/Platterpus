@@ -213,7 +213,10 @@ def _load_user_csv(path: Path) -> dict[str, int]:
     raising — a broken row must never break drive setup.
     """
     try:
-        text = path.read_text(encoding="utf-8")
+        # errors="replace" — the CSV is user-edited, so a file saved in Latin-1
+        # is entirely plausible; a bad byte must skip a row, not break drive setup
+        # (UnicodeDecodeError is a ValueError and slips past the OSError guard).
+        text = path.read_text(encoding="utf-8", errors="replace")
     except FileNotFoundError:
         return {}
     except OSError as exc:

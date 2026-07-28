@@ -203,3 +203,75 @@ def test_a_clean_rip_gains_no_read_stability_line() -> None:
     text = render_eac_style_log(_log())
     assert "Read stability" not in text
     assert "not confirmed reproducible" not in text
+
+
+# --- an interrupted securing pass must be recorded (real-hardware, 2026-07-28) --
+
+
+def test_secure_rerip_report_marks_an_interrupted_pass() -> None:
+    """Closing the app mid-securing produced a report that implied a clean pass.
+
+    Run 4 on the reference rig: the auto-fix launched `cyanrip -Z 2 -l 3,5`, the
+    window was closed 26 minutes in, the drive was killed — and the JSON recorded
+    `secure_rerip.engaged: true` with an EMPTY `retried_tracks` and nothing
+    anywhere saying the pass was cut short. The audio was fine (the re-rip works
+    in a temp directory and only swaps on success), but the record implied a
+    securing pass that never finished.
+    """
+    from platterpus.workers.rip_worker import RipWorker
+
+    worker = RipWorker.__new__(RipWorker)  # no Qt, no thread — state only
+    worker._secure_rerip_mode = "dynamic"
+    worker._secure_rerip_engaged = True
+    worker._disc_in_accuraterip = True
+    worker._secure_rerip_skipped_reason = None
+
+    # Mid-pass: the flag is up.
+    worker._secure_rerip_interrupted = True
+    assert worker.secure_rerip_report["interrupted"] is True
+
+    # Completed: the pass recorded its per-track outcomes and lowered the flag.
+    worker._secure_rerip_interrupted = False
+    assert worker.secure_rerip_report["interrupted"] is False
+
+
+def test_a_saved_log_reparses_to_the_shipped_crcs_not_the_discarded_ones() -> None:
+    """The swap addendum must survive a round-trip through the file.
+
+    The GUI patches the CRCs from live worker state, so it never hit this — but
+    anything re-reading the saved `.log` from disk (parity.track_copy_crcs, the
+    `--compare` path, a third-party tool) got the FIRST pass's CRCs, describing
+    bytes that are not on disk. Our own addendum says in words that its values
+    supersede; the parser now honours that (review finding, 2026-07-28).
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log_text = "\n".join(
+        [
+            "cyanrip 0.9.3",
+            "Track 3 ripped and encoded successfully!",
+            "  EAC CRC32:     52DFDF7D",
+            "Track 5 ripped and encoded successfully!",
+            "  EAC CRC32:     6902BCF0",
+            "Ripping errors: 0",
+            "",
+            "=" * 72,
+            "[Platterpus auto-fix addendum]",
+            "Each CRC below is the SHIPPED file's and supersedes the",
+            "value recorded for that track above.",
+            "  Track 3 (The Police/03 - Message in a Bottle.flac): CRC 3D8FCF0C",
+            "  Track 5 (The Police/05 - Don't Stand So Close to Me.flac): CRC E0036697",
+            "=" * 72,
+            "",
+        ]
+    )
+    by_number = {t.number: t.copy_crc for t in parse_cyanrip_log(log_text).tracks}
+    assert by_number[3] == "3D8FCF0C"
+    assert by_number[5] == "E0036697"
+
+
+def test_a_log_with_no_addendum_is_unchanged_by_the_addendum_pass() -> None:
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    text = "cyanrip 0.9.3\nTrack 1 ripped and encoded successfully!\n  EAC CRC32:     B0D122E7\n"
+    assert parse_cyanrip_log(text).tracks[0].copy_crc == "B0D122E7"

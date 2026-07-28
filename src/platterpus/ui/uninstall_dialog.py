@@ -97,7 +97,7 @@ class UninstallDialog(CenteredDialog):
         root.addWidget(self._container_check)
 
         self._whipper_conf_check: QCheckBox = QCheckBox(
-            "Remove whipper.conf (your drive calibration)", self
+            "Remove the legacy whipper.conf (not used by Platterpus)", self
         )
         self._whipper_conf_check.setChecked(True)
         root.addWidget(self._whipper_conf_check)

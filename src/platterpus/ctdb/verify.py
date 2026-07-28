@@ -188,7 +188,10 @@ def _match_verdict(result: CtdbLookupResult, our_crc: int) -> CtdbVerifyResult:
     if crc_mod.CRC_VALIDATED:
         message = (
             f"disc is in CTDB but our CRC didn't match any of the {n} "
-            "entries — this rip differs from the database."
+            "entries at the standard alignment. CTDB also holds offset-shifted "
+            "pressings, which this check does not sweep, so a non-match here is "
+            "not evidence the rip is wrong — AccurateRip is the per-track "
+            "authority."
         )
     else:
         message = (
