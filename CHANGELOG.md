@@ -11,7 +11,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-## [0.5.13] — 2026-07-28
+## [0.5.12] — 2026-07-28
 
 ### Fixed
 *Found by a whole-application audit (typing, security, architecture, UX honesty,
@@ -184,7 +184,9 @@ green on all ten checks at the time.*
   never-raises guarantee was untested; the corpus now includes them, plus a
   4400-digit sector and inverted `Start`/`End` geometry.
 
-## [0.5.12] — 2026-07-27
+*The EAC-layout work below was prepared as v0.5.12 on 2026-07-27 and never
+tagged; the audit batch above landed in the same release, so both ship together
+here.*
 
 *The EAC-compatible log, checked against a real EAC log of the same disc rather
 than an idea of the format — plus the fitness test and CI-gate fix from the same
@@ -3338,8 +3340,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
-[0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...HEAD
 [0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.9...v0.5.10
@@ -3398,4 +3399,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.12.*

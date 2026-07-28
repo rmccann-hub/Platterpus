@@ -1013,4 +1013,4 @@ Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need t
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.12.*

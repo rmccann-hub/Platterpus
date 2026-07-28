@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.13
+# Hardware test checklist — v0.5.12
 
 > **Only what still needs testing.** Anything that has passed is gone from this sheet —
 > the record of what passed and when lives in `docs/session-log.md`. Test numbers are
@@ -54,14 +54,14 @@ offset-variant — correct, not a failure.
 
 ---
 
-## 0 — [ ] Update to v0.5.13
+## 0 — [ ] Update to v0.5.12
 
 *Help → Check for updates…* → download → verify → restart. *Help → About* says
-**0.5.13**. Nothing else to set up — your settings are already right (see above).
+**0.5.12**. Nothing else to set up — your settings are already right (see above).
 
 ---
 
-## A — The v0.5.13 audit fixes
+## A — The v0.5.12 audit fixes
 
 *Eight reviewers went over the whole app. These are the fixes that can only be proven
 on your rig. Test A1 is the important one.*
@@ -118,7 +118,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 ### A3 — [ ] Quitting during the securing pass is now recorded in the log too
 
 Run 4 found this by accident: closing the window mid-re-rip reported a clean success.
-v0.5.12 recorded it in the JSON report; the *durable* log — the artifact a stranger
+The JSON report was fixed to record it; the *durable* log — the artifact a stranger
 reads years later — still said nothing, so the archival record was the more
 reassuring of the two. Both now carry it.
 
@@ -332,7 +332,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.12 → v0.5.13: `output_dir =
+Expected, unchanged across v0.5.11 → v0.5.12: `output_dir =
 "/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
 with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
 independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
@@ -352,7 +352,7 @@ independent sources agree"* trust line, and the cache-defeat **Yes** measurement
       says CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says
       "on by default"
-- [ ] *Help → About* shows **0.5.13** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → About* shows **0.5.12** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
 - [ ] Disc-panel values can be selected and copied with the mouse
 - [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and
@@ -417,4 +417,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.12.*
