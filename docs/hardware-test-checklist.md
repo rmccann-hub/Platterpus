@@ -177,19 +177,35 @@ Start a rip of the Police disc, switch to another window, and let it finish.
 
 **Result:** ☐ PASS ☐ FAIL — appeared at all: ☐ y ☐ n · notification said: ____________
 
-### A5b — [ ] Do the CTDB and loudness lines overlap the results table?
+### A5b — [ ] ⭐ The results pane and disc panel no longer overlap when the window is small
 
-In the run-5 screenshot the green *"CTDB: Verified (confidence 1)"* line and the album
-loudness line appear to be drawn **on top of** the AccurateRip table's first row rather
-than above and below it. I could not tell from a static capture whether that is real or
-a compositing artifact.
+**This was real, and it is fixed.** Your report — *"looked good when the window was
+maximized, but when smaller was all over the place"* — was the missing piece. Two labels
+were never told to word-wrap, and an un-wrapped label reports its **whole single line**
+as its minimum width, a minimum that propagates up to the window. Measured on the real
+widgets: a genuine end-of-rip status line demanded **906 px** of minimum width against
+366 px for the idle text, and the disc panel's values pushed its minimum from 208 px to
+**575 px**. Narrower than that, the layout physically could not fit its children, so it
+drew them outside their rows — the CTDB and loudness lines landed on the AccurateRip
+table. Maximised there was room, which is exactly why it hid for so long.
 
-- Resize the window taller after a rip finishes. Does the overlap persist, or was it
-  just the pane being squeezed?
-- If it persists, a screenshot of the results pane at a larger window size is enough
-  for me to fix it.
+Both panes now stay at their short-text minimum no matter what they are handed.
 
-**Result:** ☐ no overlap ☐ overlaps, fixed by resizing ☐ overlaps at any size
+1. After a rip finishes, **un-maximise** the window and drag it as narrow and as short
+   as it will go — narrower than feels reasonable.
+2. Watch the results pane (AccurateRip table, CTDB line, loudness line) and the disc
+   panel above it.
+
+- Expected: text **re-flows onto more lines**; nothing is painted over anything else,
+  at any window size.
+- Expected: the window will still refuse to go *absurdly* narrow — that is the table
+  and the buttons, not this bug. The test is overlap, not minimum size.
+- The disc IDs (`MusicBrainz ID`, `CDDB ID`) are single unbroken tokens, so they must
+  still appear **on one line**, never hyphenated or split. If an ID is chopped in half,
+  that is a new bug — tell me.
+
+**Result:** ☐ PASS ☐ FAIL — overlap at any size: ☐ y ☐ n · an ID split across lines:
+☐ y ☐ n
 
 ### A6 — [ ] Your own `cover.jpg` survives a re-rip
 
