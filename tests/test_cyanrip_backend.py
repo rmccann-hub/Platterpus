@@ -623,3 +623,43 @@ def test_rip_argv_passes_overread_when_enabled() -> None:
     )
     assert "-O" in argv
     assert "-x" not in argv
+
+
+def test_cancel_setup_is_overridden_not_inherited_as_a_no_op() -> None:
+    """Regression: this backend inherited the ABC's no-op `cancel_setup`.
+
+    `RipBackend.cancel_setup` is a deliberately *concrete* no-op, which is right for
+    a backend with nothing to cancel — and a trap for one that spins the disc. This
+    backend runs `cd-paranoia -A` with a 600 s ceiling and never overrode it, so
+    `DriveSetupWorker.cancel()` reduced to setting a flag that `run()` only reads
+    *between* steps. Closing the drive-setup dialog therefore left the drive
+    reading, and the physical eject button is ignored while a read holds the device.
+
+    Asserting the method is *overridden* (not merely present) is the whole point: it
+    is present either way, so `hasattr` would pass against the bug.
+    """
+    from platterpus.adapters.rip_backend import RipBackend
+
+    assert (
+        CyanripImpl.cancel_setup is not RipBackend.cancel_setup  # type: ignore[comparison-overlap]
+    ), (
+        "CyanripImpl inherits RipBackend.cancel_setup, which does nothing. This "
+        "backend starts a 600 s disc-spinning cd-paranoia probe, so cancellation "
+        "must be implemented — override it (delegating to "
+        "cache_probe.cancel_active_probe) or the dialog's cancel is a lie."
+    )
+
+
+def test_cancel_setup_reaches_the_cache_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """And the override is wired to the thing that is actually running."""
+    from platterpus.adapters import cache_probe
+
+    calls: list[int] = []
+    monkeypatch.setattr(cache_probe, "cancel_active_probe", lambda: calls.append(1))
+
+    CyanripImpl(binary_path="/nonexistent/cyanrip").cancel_setup()
+
+    assert calls == [1], (
+        "cancel_setup() did not call cache_probe.cancel_active_probe(), so the "
+        "running cd-paranoia is never signalled."
+    )

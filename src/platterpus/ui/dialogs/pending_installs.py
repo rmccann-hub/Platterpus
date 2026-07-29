@@ -26,6 +26,7 @@ import logging
 from collections.abc import Callable, Iterable
 
 from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialogButtonBox,
@@ -368,6 +369,39 @@ class PendingInstallsDialog(CenteredDialog):
         self._install_worker = None
         self._install_thread = None
         self.show_close_button()
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 — Qt API
+        """Never let this dialog be destroyed with its QThread still running.
+
+        `reject()` refuses to close while an install is active and the Close button
+        only appears once the loop has finished, so the *user* cannot reach this with
+        a live thread. But those guards cover user intent, not object lifetime: this
+        dialog is parented to the main window, `_install_thread` is parented to the
+        dialog, and a destruction that comes from **above** — the window closing, an
+        app quit that unwinds normally — runs `~QThread()` on a running thread, which
+        Qt treats as fatal (CLAUDE.md rule 9). Nothing stopped it; the audit found no
+        teardown path here at all (2026-07-29).
+
+        `stop_thread` is the one safe way to do it: it waits briefly and otherwise
+        **abandons** the thread, retaining the reference and registering it in the
+        abandoned count — which is what makes the process's exit take the
+        `hard_exit` path instead of aborting.
+
+        **Honest limitation:** the install itself cannot be interrupted. The work is
+        an injected `InstallOne` callable that owns its own subprocess, so the dialog
+        has no handle to kill — a `cancel()` here could only set a flag the blocked
+        `flatpak install` never reads, which CLAUDE.md rule 9 forbids shipping. So
+        the thread is abandoned rather than stopped, the install completes or dies
+        with the process, and this docstring says so instead of pretending otherwise.
+        """
+        from platterpus.workers import stop_thread
+
+        if self._install_thread is not None:
+            log.info("pending-installs dialog closing with an install in flight")
+            stop_thread(self._install_thread, self._install_worker)
+            self._install_worker = None
+            self._install_thread = None
+        super().closeEvent(event)
 
     @staticmethod
     def _declined(item: MissingItem) -> InstallResult:

@@ -42,9 +42,17 @@ from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 
-# Injection seams so the tests can observe the flush-then-exit ordering without
+# Injection seam so the tests can observe the flush-then-exit ordering without
 # actually killing the test runner. Module-level rather than parameters because
 # callers should not have to know this is testable.
+#
+# **A seam nobody uses is not a safety feature.** This existed, and was documented
+# as the way to test the exit, and no test ever patched it — so the real
+# ``os._exit`` was live in the whole suite. A test that drove the update-relaunch
+# path called it, pytest vanished at 76% with status 0, and CI read that as green
+# (2026-07-29). The suite now patches this from an *autouse* fixture
+# (``tests/conftest.py``, ``hard_exit_calls``) so no test has to know it exists,
+# and the stand-in **raises** rather than returning — see below.
 _exit_fn: Callable[[int], None] = os._exit
 
 
@@ -87,8 +95,12 @@ def exit_without_teardown(code: int, reason: str) -> None:
     log.info("exiting without teardown (%s); exit code %d", reason, code)
     flush_logs()
     _exit_fn(code)
-    # Unreachable with the real os._exit; reached only when a test injects a
-    # recording stub, in which case falling through is correct.
+    # Unreachable with the real ``os._exit``, which never returns. The test
+    # stand-in therefore never returns either — it raises — because a stub that
+    # falls through would let callers run code that production can never reach, and
+    # the caller here is the update-relaunch path whose whole point is that nothing
+    # after it happens. (An earlier version of this comment said falling through
+    # was "correct"; it is a fidelity gap, not a convenience.)
 
 
 def exit_now_if_threads_abandoned(code: int) -> None:

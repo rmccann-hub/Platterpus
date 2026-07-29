@@ -311,12 +311,41 @@ jobs:
       # in docs/testing.md), so the retry-on-abort wrapper that masked it is gone.
       # `timeout-minutes` is a cheap backstop: if a future regression hangs the
       # suite, the job fails in minutes instead of burning the 6-hour default.
+      # NOTE: no `-q` here. `addopts` in pyproject.toml already passes one, and a
+      # second took verbosity to -2, which suppresses pytest's `N passed` summary
+      # line. That mattered more than it looks: the summary is the only
+      # human-visible proof in the log that the run *reached the end*, so its
+      # absence looked normal and hid a run that died at 76% (2026-07-29).
       - name: Run tests (with coverage gate)
         env:
           QT_QPA_PLATFORM: offscreen
         timeout-minutes: 15
         run: >-
-          pytest -q
+          pytest
           --cov=platterpus
           --cov-report=term-missing
           --cov-fail-under=91
+
+      # The exit code above is NOT sufficient on its own. conftest.py ends the
+      # session with `os._exit(status)` (to dodge a PySide teardown abort), so any
+      # `os._exit(0)` reached from product code mid-run is indistinguishable from
+      # success: status 0, no summary, no coverage report, and `--cov-fail-under`
+      # never evaluated. That exact thing happened — a test drove the
+      # update-relaunch path into the real `os._exit`, the suite stopped at 76%,
+      # and this job went green (2026-07-29).
+      #
+      # A truncated run cannot detect itself, so the check has to live outside it:
+      # `pytest_sessionfinish` writes this file as its very last act, and a run
+      # that vanished simply never wrote it.
+      - name: Confirm the suite actually finished
+        run: |
+          if [ ! -f .pytest-session-complete ]; then
+            echo "::error::The pytest session never reached session-finish."
+            echo "Something ended the process mid-run — most likely product code"
+            echo "calling os._exit (see platterpus.hard_exit and the autouse"
+            echo "hard_exit_calls fixture in tests/conftest.py). The exit status"
+            echo "of the step above is meaningless: results were never tallied and"
+            echo "the coverage gate never ran."
+            exit 1
+          fi
+          echo "Session completed; recorded exit status: $(cat .pytest-session-complete)"

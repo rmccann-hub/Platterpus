@@ -11,6 +11,7 @@ whipper binary.
 
 from __future__ import annotations
 
+import subprocess
 import time
 from collections.abc import Iterable
 from pathlib import Path
@@ -41,22 +42,50 @@ from platterpus.workers.rip_worker import (
 
 
 class _FakeHandle:
-    """Implements the RipHandle interface for the worker to consume."""
+    """Implements the RipHandle interface for the worker to consume.
+
+    **`wait()` honours its timeout.** It used to accept the argument and return the
+    exit code anyway, which made this fake incapable of the failure it was standing
+    in for: the real `wait()` on an undrained pipe blocks forever, and a fake that
+    always returns instantly means no test can ever see that (`docs/testing.md`
+    §5.t). `never_exits=True` makes it behave like the real thing does when the
+    ripper is blocked writing to a full pipe.
+    """
 
     def __init__(
         self,
         lines: Iterable[str] = (),
         exit_code: int = 0,
+        *,
+        never_exits: bool = False,
+        cancel_returns: int | None = -15,
     ) -> None:
         self._lines: list[str] = list(lines)
         self._exit_code: int = exit_code
+        self._never_exits: bool = never_exits
+        self._cancel_returns: int | None = cancel_returns
         self.cancel_calls: int = 0
         self.terminate_calls: int = 0
+        # Every timeout the worker asked us to wait for, so a test can assert the
+        # wait was *bounded* rather than merely that it returned.
+        self.wait_timeouts: list[float | None] = []
 
     def log_lines(self) -> Iterable[str]:
         yield from self._lines
 
     def wait(self, timeout: float | None = None) -> int:
+        self.wait_timeouts.append(timeout)
+        if self._never_exits:
+            if timeout is None:
+                # The bug, made loud instead of infinite: an unbounded wait here is
+                # what hung the rip worker's thread forever. Failing fast is the
+                # only way a test can tell the difference.
+                raise AssertionError(
+                    "wait() was called with NO timeout while the ripper is still "
+                    "running and its pipe is undrained — this is the deadlock. "
+                    "Use RipWorker._reap_ripper, which bounds the wait."
+                )
+            raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=timeout)
         return self._exit_code
 
     def terminate(self) -> None:
@@ -64,9 +93,11 @@ class _FakeHandle:
         # here so a wedged drive can't freeze the window.
         self.terminate_calls += 1
 
-    def cancel(self, term_timeout: float = 5.0) -> int:
+    def cancel(
+        self, term_timeout: float = 5.0, kill_timeout: float = 5.0
+    ) -> int | None:
         self.cancel_calls += 1
-        return -15
+        return self._cancel_returns
 
 
 class _FakeBackend(RipBackend):
@@ -1579,8 +1610,18 @@ def test_cancel_before_start_stops_the_subprocess_once_it_exists(
 
     # The subprocess was terminated (non-blocking SIGTERM), not the blocking
     # cancel() — a GUI-thread cancel must never wait.
-    assert handle.terminate_calls == 1
-    assert handle.cancel_calls == 0
+    #
+    # `>= 1`, not `== 1`: `_reap_ripper` re-sends SIGTERM before waiting, so a
+    # cancelled rip now terminates twice (the startup-window re-check, then the
+    # reap). That is deliberate — SIGTERM is idempotent and free, and it makes the
+    # reap correct on its own rather than only when the caller remembered to
+    # terminate first. The exact count was never what this test was about; the two
+    # claims that matter are "it *was* stopped" and "no blocking call on this path".
+    assert handle.terminate_calls >= 1
+    assert handle.cancel_calls == 0, (
+        "the blocking cancel() ran on a path that must stay non-blocking — it is "
+        "only reached when a bounded wait has already timed out."
+    )
 
 
 def test_cancel_after_start_forwards_to_handle(
@@ -1597,6 +1638,75 @@ def test_cancel_after_start_forwards_to_handle(
     worker.cancel()  # handle exists now → forwarded (non-blocking terminate)
     assert handle.terminate_calls == 1
     assert handle.cancel_calls == 0
+
+
+def test_a_ripper_that_will_not_exit_is_reaped_instead_of_waited_on_forever(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Regression: the rip worker used to end with a bare `self._handle.wait()`.
+
+    The read loop does not always run to EOF — on cancel it `break`s — so the
+    ripper's stdout pipe stops being drained while the ripper may still be writing.
+    A pipe holds ~64 KiB; once full the child blocks in `write()`, never exits, and
+    an unbounded `wait()` never returns. It waits on the rip worker's own thread,
+    so that thread never finishes and gets abandoned at shutdown.
+
+    `never_exits=True` is the fake being honest about that: it raises if asked to
+    wait with no timeout at all, and otherwise times out the way the real call
+    would. The worker must bound the wait and then escalate.
+    """
+    handle = _FakeHandle(lines=["one", "two"], exit_code=0, never_exits=True)
+    backend = _FakeBackend(handle=handle)
+    worker = RipWorker(backend, _params(tmp_path))
+
+    with caplog.at_level("WARNING"):
+        worker.start_rip()  # must return, not hang
+
+    # Bounded: a real timeout was passed, not None.
+    assert handle.wait_timeouts, "wait() was never called"
+    assert all(t is not None for t in handle.wait_timeouts), (
+        f"wait() was called with no timeout: {handle.wait_timeouts}. That is the "
+        "deadlock — an undrained pipe means the child never exits."
+    )
+    # Escalated to the SIGTERM→SIGKILL group kill, which is what actually ends the
+    # writer and so what actually breaks the deadlock.
+    assert handle.cancel_calls == 1, (
+        "the wait timed out but RipHandle.cancel() was not called, so nothing "
+        "escalated — the ripper keeps holding the drive."
+    )
+    # And it said so, loudly enough to appear in a bug report.
+    assert any("escalating to SIGTERM/SIGKILL" in r.message for r in caplog.records), (
+        f"no diagnostic logged; records were {[r.message for r in caplog.records]}"
+    )
+
+
+def test_a_ripper_that_survives_sigkill_is_reported_not_hung(
+    qapp: QApplication, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The new state the fix creates: `cancel()` can now return None.
+
+    A reader wedged in a drive ioctl sits in uninterruptible sleep where not even
+    SIGKILL lands, so the escalation itself can fail to reap. That must be a logged,
+    unsuccessful rip — never a hang, and never a silent success.
+    """
+    handle = _FakeHandle(
+        lines=["one"], exit_code=0, never_exits=True, cancel_returns=None
+    )
+    backend = _FakeBackend(handle=handle)
+    worker = RipWorker(backend, _params(tmp_path))
+    sigs = _Signals()
+    sigs.attach(worker)
+
+    with caplog.at_level("ERROR"):
+        worker.start_rip()
+
+    assert handle.cancel_calls == 1
+    assert sigs.finished, "the worker never reported a result"
+    assert sigs.finished[-1][0] is False, (
+        "an unreapable ripper was reported as a SUCCESSFUL rip — exit code None "
+        "must never compare equal to 0."
+    )
+    assert any("even after SIGKILL" in r.message for r in caplog.records)
 
 
 def test_cancellation_makes_finished_report_false(

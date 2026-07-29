@@ -13,6 +13,7 @@ real display.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 # Set before any Qt import. Subsequent imports of QtGui/QtWidgets
 # inherit this platform choice; widgets are created in-memory and
@@ -21,6 +22,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QApplication, QMessageBox
+
+from platterpus import hard_exit
 
 # --- Defuse the PySide interpreter-shutdown abort -------------------------
 #
@@ -35,6 +38,32 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 # pytest computed, including the coverage gate) and does NOT mask a *mid-run*
 # abort (that kills the process before sessionfinish, so this never fires —
 # which is why the per-test QThread-join backstop below is still essential).
+
+
+# The file the session-completion guard writes. Absent ⇒ this run never reached
+# session finish, so its exit status means nothing. See `pytest_sessionstart`.
+SESSION_COMPLETE_SENTINEL: Path = (
+    Path(__file__).resolve().parents[1] / ".pytest-session-complete"
+)
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Clear the completion sentinel so a stale one can't vouch for this run.
+
+    **Why a sentinel exists at all.** `pytest_sessionfinish` below deliberately
+    ends the process with `os._exit(status)`, so the only thing distinguishing "the
+    suite finished and passed" from "something called `os._exit(0)` halfway
+    through" is *whether we got here at all* — the exit code is `0` either way.
+    That is not a hypothetical: a product `os._exit(0)` reachable from one test
+    truncated the run at 76% and **CI marked the job green**, with no summary line,
+    no coverage report, and `--cov-fail-under` never evaluated (2026-07-29).
+
+    A truncated run cannot be caught from inside itself — the process is simply
+    gone — so the check has to be an artefact something *else* verifies. CI does
+    (`.github/workflows/ci.yml`, the "confirm the suite actually finished" step);
+    locally, `test -f .pytest-session-complete` after a run does the same job.
+    """
+    SESSION_COMPLETE_SENTINEL.unlink(missing_ok=True)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -77,7 +106,65 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201
             log_.exception("could not print the pytest summary")
     sys.stdout.flush()
     sys.stderr.flush()
+    # Vouch for this run: we reached session finish, so `status` is a real verdict
+    # (results final, coverage gate applied) rather than a process that vanished.
+    # Written LAST, immediately before the exit, so it cannot be created by a run
+    # that dies in between. See `pytest_sessionstart` for why this is needed.
+    try:
+        SESSION_COMPLETE_SENTINEL.write_text(f"{status}\n", encoding="utf-8")
+    except OSError:  # read-only checkout: better to exit than to fail here
+        pass
     os._exit(status)
+
+
+class HardExitCalled(BaseException):
+    """Raised in place of `os._exit` when product code asks to leave the process.
+
+    Derived from `BaseException`, not `Exception`, deliberately: `os._exit` cannot
+    be caught, so a stand-in that an `except Exception:` somewhere could swallow
+    would be *more* forgiving than the real thing — the exact asymmetry
+    `test_harness_fidelity.py` exists to police.
+    """
+
+    def __init__(self, code: int) -> None:
+        super().__init__(f"hard exit requested with code {code}")
+        self.code: int = code
+
+
+@pytest.fixture(autouse=True)
+def hard_exit_calls(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Replace the real `os._exit` for the duration of every test.
+
+    **This is the fixture whose absence broke the suite silently.**
+    `hard_exit._exit_fn` exists precisely so tests can observe the exit without
+    dying — the module even documents it as "reached only when a test injects a
+    recording stub" — and no test ever injected one. So the *real* `os._exit` was
+    live in every test, and `test_update_install_success_offers_restart` (which
+    drives the update-relaunch path) called it: pytest vanished at 76% with status
+    0, and CI called that green. The gap between "there is a seam" and "the seam is
+    used" was five releases wide and cost a false green build.
+
+    Autouse rather than opt-in because the failure mode is *silent*: an opt-in
+    fixture protects only the tests whose authors already knew about the hazard,
+    and the test that needed it did not.
+
+    **It raises rather than returning**, because `os._exit` never returns. A
+    recording stub that falls through lets test code execute a path production can
+    never reach — a stand-in kinder than reality. Tests that expect the exit assert
+    with `pytest.raises(HardExitCalled)`; ones that don't get a loud failure
+    instead of a dead process.
+
+    Yields the list of exit codes requested, for tests that want to assert on it
+    without catching.
+    """
+    codes: list[int] = []
+
+    def _record_then_stop(code: int) -> None:
+        codes.append(int(code))
+        raise HardExitCalled(int(code))
+
+    monkeypatch.setattr(hard_exit, "_exit_fn", _record_then_stop)
+    return codes
 
 
 def stop_window_threads(window: object) -> None:

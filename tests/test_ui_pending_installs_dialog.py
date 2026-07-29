@@ -469,3 +469,61 @@ def test_install_row_updates_are_announced_by_display_name(
     assert heard[0] == f"Installing {name}…"
     assert heard[1] == f"{name}: OK"
     assert heard[2].startswith(f"{name}: FAILED")
+
+
+def test_destroying_the_dialog_mid_install_does_not_destroy_a_running_qthread(
+    qapp: QApplication, process_until
+) -> None:
+    """Regression: this dialog had no teardown path for its worker thread at all.
+
+    `reject()` refuses to close mid-install and Close only appears once the loop
+    finishes, so no *user* action could reach a live thread. But those guard intent,
+    not lifetime: the dialog is parented to the main window and `_install_thread` is
+    parented to the dialog, so a destruction coming from above — the window closing,
+    a normal app-quit unwind — runs `~QThread()` on a running thread, which Qt
+    treats as fatal (CLAUDE.md rule 9). Found by audit, 2026-07-29, with nothing
+    stopping it.
+
+    `closeEvent` now routes through `stop_thread`, which abandons rather than
+    destroys: the reference is retained and the thread is registered in the
+    abandoned count, so process exit takes the `hard_exit` path instead of aborting.
+    """
+    import threading
+
+    from platterpus.workers import abandoned_thread_count
+
+    release = threading.Event()
+
+    def slow_install(item: MissingItem) -> InstallResult:
+        release.wait(5.0)
+        return _ok(item)
+
+    dialog = PendingInstallsDialog([_item("a")], install_one=slow_install)
+    dialog._install_button.click()
+    assert process_until(lambda: dialog._install_active, timeout=2.0)
+    thread = dialog._install_thread
+    assert thread is not None and thread.isRunning(), "no live thread to test with"
+
+    abandoned_before = abandoned_thread_count()
+
+    # What a parent-driven teardown looks like. The bug is that this used to leave
+    # `_install_thread` running and referenced only by a dying QObject tree.
+    dialog.close()
+
+    # The dialog no longer holds the thread, so nothing can drop it on the floor…
+    assert dialog._install_thread is None, (
+        "closeEvent left the thread reference on the dialog; when the dialog is "
+        "destroyed, ~QThread() runs on a live thread and Qt aborts."
+    )
+    # …and because the worker cannot be interrupted (an injected installer owns its
+    # own subprocess), it must have been ABANDONED — retained deliberately, and
+    # counted, so exit skips teardown rather than aborting.
+    if thread.isRunning():
+        assert abandoned_thread_count() > abandoned_before, (
+            "a still-running thread was neither stopped nor registered as "
+            "abandoned. Interpreter shutdown will clear the module globals, drop "
+            "the last reference, and abort (the v0.5.8 crash)."
+        )
+
+    release.set()
+    process_until(lambda: not thread.isRunning(), timeout=6.0)
