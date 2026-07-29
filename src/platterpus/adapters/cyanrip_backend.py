@@ -319,6 +319,24 @@ class CyanripImpl(RipBackend):
         """Why the last :meth:`analyze_drive` returned ``None`` (``""`` if it didn't)."""
         return getattr(self, "_cache_detail", "")
 
+    def cancel_setup(self) -> None:
+        """Stop an in-progress :meth:`analyze_drive`. Non-blocking (GUI thread).
+
+        This override is the fix for a three-way documentation lie: the base class's
+        ``cancel_setup`` is a concrete **no-op**, this backend never overrode it,
+        and yet ``DriveSetupWorker.cancel`` called it while both that worker's
+        docstring and ``drive_setup_dialog`` claimed it "SIGTERM/SIGKILLs the
+        subprocess". So closing the drive-setup dialog left ``cd-paranoia -A``
+        running — up to its 600 s ceiling — with the disc spinning and the drive's
+        physical eject button ignored, because a read holds the device.
+
+        There is nothing to cancel for :meth:`find_offset` (deliberately
+        unimplemented on this backend), so the cache probe is the whole surface.
+        """
+        from platterpus.adapters import cache_probe
+
+        cache_probe.cancel_active_probe()
+
     # NOTE: `find_offset` is deliberately NOT implemented. cyanrip has no
     # AccurateRip offset-finder — its ``-f`` is *force-overread*, not a detector —
     # so there is nothing to run. An earlier version ran ``cyanrip -f`` and

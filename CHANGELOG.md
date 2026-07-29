@@ -15,6 +15,48 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
      link is already in place at the bottom of this file). -->
 
 ### Fixed
+- **Cancelling or force-stopping a rip could hang the app forever on a full pipe.**
+  The rip worker ended with an unbounded `wait()` on the ripper, and the loop that
+  drains the ripper's output does *not* always run to the end — on cancel it stops
+  early. A pipe holds about 64 KiB; once it is full the ripper blocks trying to
+  write to it, so it never exits, so the wait never returns. It was waiting on the
+  rip worker's own thread, so that thread never finished either and got abandoned at
+  shutdown. Python's own documentation warns about exactly this combination. The wait
+  is now bounded and escalates to a SIGTERM-then-SIGKILL of the whole process group,
+  which ends the writer and so actually breaks the deadlock rather than just timing
+  out of it.
+- **The escalation that was supposed to stop a ripper ignoring SIGTERM did not
+  exist.** `RipHandle.cancel()` implemented it fully and was called from **nowhere**
+  in the codebase, while the cancel path's own documentation pointed at it as the
+  thing that would kill a stubborn rip. Now wired in. Its final wait is bounded too,
+  because SIGKILL does not land on a process stuck in a drive ioctl — an unreapable
+  ripper is reported and logged instead of blocking a thread for good.
+- **Closing the drive-setup dialog left `cd-paranoia` reading the disc.** "Cancel"
+  called a hook that is a deliberate no-op on the base class and which the cyanrip
+  backend never overrode, so cancelling set a flag that the blocked call never reads
+  — and the flag is only checked *between* the wizard's two steps, one of which can
+  run for ten minutes. The disc kept spinning with the drive's physical eject button
+  ignored, because a read holds the device. Three separate comments claimed this
+  already killed the subprocess. It does now: the probe runs in its own process
+  group and is killed on cancel, including when the cancel arrives during startup,
+  and a probe that times out is killed instead of left running.
+- **The pending-installs dialog had no teardown for its worker thread.** The dialog
+  refuses to close mid-install, so no user action could reach a live thread — but
+  that guards intent, not object lifetime: the thread is parented to the dialog and
+  the dialog to the main window, so a close coming from *above* destroyed a running
+  `QThread`, which Qt treats as fatal. It now goes through the shared stop path,
+  which abandons the thread safely and counts it, so exit skips teardown instead of
+  aborting. The install itself still cannot be interrupted — the work is an injected
+  callable that owns its own subprocess — and that limitation is now written down
+  rather than papered over with a cancel that would do nothing.
+- **The "Set up drive" dialog clipped its own text when made smaller.** Its minimum
+  size was a hand-picked 460×320, which is 185 px shorter than the content actually
+  needs: measured at 440×300 the intro label was **73 px short**, so the explanation
+  of what a read offset *is* was simply not drawn (and with a known offset shown,
+  three labels were clipped). The minimum is now derived from the laid-out content,
+  so the dialog refuses to be shrunk into clipping. A scroll area — the fix used for
+  the results pane — would have been wrong here: the results box is already a scroll
+  area, so it would have become *nested*, which is the bug v0.5.16 removed.
 - **The test suite had been reporting a green build while running only 76% of
   itself.** `conftest` ends the session with `os._exit(status)` on purpose (it
   dodges a PySide global-teardown abort), which makes *any* mid-run `os._exit(0)`

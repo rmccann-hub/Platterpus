@@ -688,6 +688,45 @@ Proven by reverting, per §5.s: with the fixture removed, the guard test fails *
 the process dies at status 0 with the sentinel absent — so both halves fire.
 
 
+### 5.p — A documented capability is not a capability (added 2026-07-29)
+
+One audit turned up four instances of the same shape in one pass, which is what makes
+it a rule rather than four bugs:
+
+| what the docs said | what the code did |
+|---|---|
+| `RipWorker.cancel` — "the force-stop timer escalates to a SIGKILL" | `RipHandle.cancel()` was called from **nowhere**; the escalation did not exist |
+| `drive_setup_dialog` — "cancel_setup SIGTERM/SIGKILLs the subprocess" | resolved to the ABC's concrete **no-op**; the backend never overrode it |
+| `cache_probe` — "the probe is off the GUI thread, **cancellable**" | `subprocess.run` hides the child; there was nothing to signal |
+| `hard_exit._exit_fn` — "reached only when a test injects a recording stub" | no test ever injected one, so the real `os._exit` was live in the suite |
+
+Every one of them read as *covered* in review, because a reviewer checking "is
+cancellation handled?" finds a `cancel()` method, a docstring describing signals, and
+a plausible mechanism. The prose was doing the reassuring; nothing was doing the work.
+
+Three checks, cheap enough to be habitual:
+
+1. **Grep for a call site before believing a method works.** A fully-implemented,
+   well-documented, never-called method is dead code that reads as a feature. Where a
+   method is load-bearing for safety, pin the wiring with a test (§5.x) —
+   `test_rip_handle_cancel_is_actually_called_from_the_product` is the model.
+2. **Check reachability, not presence.** That wiring test's first version only asserted
+   a call site *existed somewhere in `src/`*, and it passed against a reverted tree —
+   the call still sat inside a helper nothing called any more. A call site in dead code
+   is dead code. This is the same "mentioning is not stopping" trap as §5.t, hit a
+   second time in the same session, which is why it now gets its own line.
+3. **Treat a concrete no-op default on an ABC as a hazard.** It is right for a
+   subclass with nothing to do and a trap for one that does: the subclass inherits
+   "handled" for free and no abstract-method error ever fires. If a hook can be
+   load-bearing for *some* backends, test that the shipped one overrides it — asserting
+   `hasattr` is worthless, since the method is present either way. Compare the
+   functions: `Sub.hook is not Base.hook`.
+
+Corollary on wording: when a docstring describes a mechanism, it is a claim about code
+that exists **now**. If you are writing the intention ahead of the implementation, say
+so in the docstring, or don't write it yet.
+
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

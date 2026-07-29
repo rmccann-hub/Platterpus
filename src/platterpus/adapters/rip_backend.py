@@ -203,12 +203,23 @@ class RipHandle:
             return
         _kill_group(self._process, signal.SIGTERM)
 
-    def cancel(self, term_timeout: float = 5.0) -> int:
+    def cancel(
+        self, term_timeout: float = 5.0, kill_timeout: float = 5.0
+    ) -> int | None:
         """Cancel the rip. SIGTERM first, then SIGKILL after the timeout.
 
-        Blocks for up to ``term_timeout`` — so it MUST NOT be called on the GUI
-        thread (use :meth:`terminate` there). Returns the eventual exit code.
-        Safe to call multiple times.
+        Blocks for up to ``term_timeout + kill_timeout`` — so it MUST NOT be called
+        on the GUI thread (use :meth:`terminate` there). Safe to call repeatedly.
+
+        Returns the exit code, or **``None`` if the process could not be reaped**
+        even after SIGKILL. That return is not paranoia: a reader wedged in a drive
+        ioctl sits in uninterruptible sleep (``D`` state) where *no* signal,
+        SIGKILL included, can land, and this project has hit wedged drives on real
+        hardware repeatedly. The previous version ended with a bare
+        ``self._process.wait()``, which in that state blocks forever — on the rip
+        worker's thread, which then never finishes, which then gets abandoned at
+        shutdown. Returning ``None`` lets the caller log it and move on with the
+        process leaked rather than the app hanging.
         """
         if self._process.returncode is not None:
             return self._process.returncode
@@ -221,8 +232,18 @@ class RipHandle:
                 "ripper did not exit %.1fs after SIGTERM — sending SIGKILL",
                 term_timeout,
             )
-            _kill_group(self._process, signal.SIGKILL)
-            return self._process.wait()
+        _kill_group(self._process, signal.SIGKILL)
+        try:
+            return self._process.wait(timeout=kill_timeout)
+        except subprocess.TimeoutExpired:
+            log.error(
+                "ripper survived SIGKILL for %.1fs — it is almost certainly "
+                "blocked in an uninterruptible drive ioctl (D state). Abandoning "
+                "the reap; the process will be cleaned up by the OS when the "
+                "ioctl returns or the drive is reset.",
+                kill_timeout,
+            )
+            return None
 
     @property
     def returncode(self) -> int | None:
@@ -405,4 +426,13 @@ class RipBackend(ABC):
         host-setup wizard can stop a slow, disc-spinning detection process when
         the user closes the dialog — otherwise it keeps the optical drive busy
         long after the GUI is done with it.
+
+        **A concrete no-op default is a trap, and it caught us.** A backend that
+        *does* spin the disc inherits "cancel works" for free and nobody notices:
+        the cyanrip backend ran a 600 s ``cd-paranoia -A`` and never overrode this,
+        so the dialog's cancel silently did nothing for as long as the feature
+        existed, while three separate docstrings said otherwise (fixed 2026-07-29).
+        The default is still right for a backend with nothing to cancel — but if
+        your backend starts a long-running process here, **overriding this is not
+        optional**, and ``test_cyanrip_backend`` enforces that for the shipped one.
         """

@@ -49,6 +49,21 @@ from platterpus.workers.drive_setup_worker import (
 
 log = logging.getLogger(__name__)
 
+# Layout bounds for the content-derived minimum size (see
+# `DriveSetupDialog._apply_content_derived_minimum_size`). Named rather than inline
+# because each one encodes a decision, not a magic number.
+#
+# The results box is the dialog's ONLY scroll surface, so it is the widget allowed to
+# shrink when the user makes the window smaller — enough to stay usable, no more.
+_RESULTS_MIN_HEIGHT_PX: int = 60
+# A floor under the width so a very short intro can't yield a comically narrow
+# dialog; the measured content width is 494, so this only ever binds in odd cases.
+_DIALOG_MIN_WIDTH_PX: int = 460
+# A ceiling on the *minimum* height, so a long known-offset line can never demand a
+# dialog taller than a modest laptop screen. Past this the results box scrolls, which
+# is what it is for.
+_DIALOG_MAX_MIN_HEIGHT_PX: int = 620
+
 
 class DriveSetupDialog(CenteredDialog):
     """Modal-ish dialog that calibrates one drive via the backend's commands."""
@@ -105,8 +120,15 @@ class DriveSetupDialog(CenteredDialog):
         self.setWindowTitle("Set up drive")
         # Open at a readable size (the default was cramped — labels and the
         # detection output were clipped and unscrollable). Resizable.
-        self.resize(560, 420)
-        self.setMinimumSize(460, 320)
+        #
+        # The minimum is NOT set here any more. It used to be a hand-picked
+        # `setMinimumSize(460, 320)`, which was 185 px shorter than the content
+        # actually needs, so the dialog could be shrunk until its own explanation of
+        # what a read offset *is* was clipped away. It is now derived from the laid-out
+        # content at the end of `__init__` — see
+        # `_apply_content_derived_minimum_size`, which explains why measuring beats
+        # guessing here and why a scroll area would be the wrong fix.
+        self.resize(560, 460)
 
         root = QVBoxLayout(self)
 
@@ -269,6 +291,52 @@ class DriveSetupDialog(CenteredDialog):
         self._button_box.accepted.connect(self.accept)
         root.addWidget(self._button_box)
 
+        self._apply_content_derived_minimum_size(root)
+
+    def _apply_content_derived_minimum_size(self, root: QVBoxLayout) -> None:
+        """Stop the dialog being shrunk to a size that clips its own text.
+
+        **The measured bug (2026-07-29).** `setMinimumSize(460, 320)` above was a
+        hand-picked guess, and it was too small: laid out at 438 px wide this
+        dialog's content needs ~505 px of height, so anywhere below that the wrapped
+        labels were clipped. At 440×300 the intro label was **73 px short** — the
+        last two lines of the explanation of what a read offset *is* simply were not
+        drawn. Nothing overlapped (unlike the rip pane), because `_results_label` has
+        `stretch=1` and absorbed the squeeze until it had nothing left to give; after
+        that the fixed labels took it.
+
+        The cause is the same under-reporting as the rip pane (`architecture.md`
+        §3.9): a word-wrapped `QLabel`'s `minimumSizeHint` height is **one line**
+        while its `heightForWidth` is three or four, so the layout's own minimum is a
+        large underestimate — measured 314×285 against a real need of 494×505.
+
+        **Why a minimum size rather than a scroll area.** Wrapping the whole dialog
+        in a `QScrollArea` is what the rip pane does, and here it would be the
+        v0.5.15 mistake repeated: `_results_label` is a `QPlainTextEdit`, which *is*
+        a scroll area, so it would become nested — and a nested scroll surface with
+        nothing left to scroll swallows the wheel instead of passing it up. The rip
+        pane needs a scroll area because it competes for space with a track table and
+        can legitimately be tall; a modal dialog has no such pressure, so the honest
+        fix is to refuse to be smaller than its content. One scroll surface
+        (`_results_label`), never nested.
+
+        `sizeHint()` is used rather than `minimumSizeHint()` precisely because it
+        resolves wrapped labels at the hinted width instead of collapsing them to one
+        line. `_results_label` gets a small minimum of its own so it stays the widget
+        that yields when the user *shrinks* the dialog — the labels can't.
+        """
+        # The scroll surface is allowed to get small; the prose is not.
+        self._results_label.setMinimumHeight(_RESULTS_MIN_HEIGHT_PX)
+        root.activate()  # resolve heightForWidth before reading the hint
+        hint = self.sizeHint()
+        # Cap the height so an unusually long known-offset line can never demand a
+        # dialog taller than a modest laptop screen; past the cap `_results_label`
+        # (the one scroll surface) absorbs the rest, which is what it is for.
+        self.setMinimumSize(
+            max(hint.width(), _DIALOG_MIN_WIDTH_PX),
+            min(hint.height(), _DIALOG_MAX_MIN_HEIGHT_PX),
+        )
+
     # --- Detection flow -----------------------------------------------------
 
     def _on_detect_clicked(self) -> None:
@@ -352,10 +420,18 @@ class DriveSetupDialog(CenteredDialog):
         this, closing mid-detection destroys a still-running QThread (Qt
         aborts the process) and leaves the ripper spinning the drive.
         """
-        # cancel_setup SIGTERM/SIGKILLs the subprocess so run() returns promptly;
-        # stop_thread waits briefly for that and detaches if the kill is slow,
-        # so closing the dialog never blocks the GUI thread nor destroys a
+        # cancel_setup() SIGKILLs the cd-paranoia process group so run() returns
+        # promptly; stop_thread waits briefly for that and ABANDONS the thread
+        # (retaining the reference — Qt has no "detach") if the kill is slow, so
+        # closing the dialog never blocks the GUI thread nor destroys a
         # still-running QThread.
+        #
+        # This comment used to describe that kill as already happening. It was not:
+        # `cancel_setup` resolved to the ABC's concrete no-op because the cyanrip
+        # backend never overrode it, so this dialog closed while cd-paranoia kept
+        # the disc spinning for up to 600 s. Fixed 2026-07-29 by implementing the
+        # override — the comment is now true, but it was aspirational for a while,
+        # which is precisely how a false promise survives review.
         from platterpus.workers import stop_thread
 
         stop_thread(self._thread, self._worker)

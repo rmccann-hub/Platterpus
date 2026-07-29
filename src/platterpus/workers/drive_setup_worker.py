@@ -83,13 +83,20 @@ class DriveSetupWorker(QObject):
 
     @Slot()
     def cancel(self) -> None:
-        """Request cancellation and terminate the running ripper process.
+        """Request cancellation and kill the running detection subprocess.
 
-        Thread-safe: called from the GUI thread. Terminating the subprocess
-        unblocks `run()` (which is waiting on it) so the QThread can finish
-        and be torn down cleanly — without this the dialog's QThread is
-        destroyed mid-run and Qt aborts the whole app, and the orphaned
-        ripper keeps the optical drive spinning.
+        Thread-safe and non-blocking: called from the GUI thread. Killing the
+        subprocess unblocks `run()` (which is waiting on it) so the QThread can
+        finish and be torn down cleanly — without this the dialog's QThread is
+        destroyed mid-run and Qt aborts the whole app, and the orphaned reader keeps
+        the optical drive spinning.
+
+        The flag alone is **not** cancellation: `run()` only reads it *between* its
+        two steps, and a step is a `cd-paranoia -A` that can run for ten minutes. So
+        the kill is the part that matters, and for a long time it did not happen —
+        `RipBackend.cancel_setup` is a concrete no-op on the ABC and no backend
+        overrode it, making this method a flag-setter wearing a killer's docstring
+        (audit, 2026-07-29). `CyanripBackend.cancel_setup` now implements it.
         """
         self._cancelled = True
         try:
