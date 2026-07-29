@@ -559,11 +559,21 @@ class MainWindow(
         """Tear down worker threads cleanly on window close.
 
         Every worker thread is stopped via ``stop_thread``, which cancels + waits
-        briefly + DETACHES a still-running thread instead of blocking the GUI
+        briefly + **abandons** a still-running thread instead of blocking the GUI
         thread on a wedged subprocess or destroying a live QThread (a hard abort
         that could happen when a bounded wait timed out against a much longer
-        subprocess timeout — disc probe up to 120s vs the old 3s wait)."""
-        from platterpus.workers import stop_thread
+        subprocess timeout — disc probe up to 120s vs the old 3s wait).
+
+        All of the stops share ONE ``ShutdownDeadline``. That is deliberate: there
+        are six of them, so a per-worker timeout long enough to cover a cold
+        container exec (measured at 3.45s) would let close freeze the window for
+        the sum of them. The budget bounds the whole teardown instead, and workers
+        that run out of it are abandoned — which is safe, because
+        ``hard_exit`` stops interpreter shutdown from destroying a live QThread."""
+        from platterpus.workers import ShutdownDeadline, stop_thread
+
+        # One budget for the whole close, not one per worker — see the docstring.
+        deadline = ShutdownDeadline()
 
         # Disarm the auto-force-stop so it can't fire into a torn-down window.
         self._force_stop_timer.stop()
@@ -572,13 +582,13 @@ class MainWindow(
         # directory (safe default); moving during teardown would race close.
         self._library_move_timer.stop()
         self._pending_library_move = None
-        stop_thread(self._mb_thread)  # persistent worker; idle loop quits fast
-        stop_thread(self._update_thread)  # short HTTP release check
+        stop_thread(self._mb_thread, deadline=deadline)  # idle loop quits fast
+        stop_thread(self._update_thread, deadline=deadline)  # short HTTP check
         # In-flight update download: cancel polls between 1 MiB chunks.
-        stop_thread(self._install_thread, self._install_worker, wait_ms=5000)
-        stop_thread(self._dep_check_thread)  # bounded container probe
-        stop_thread(self._disc_info_thread)  # can be mid-read
-        stop_thread(self._drive_list_thread)
+        stop_thread(self._install_thread, self._install_worker, deadline=deadline)
+        stop_thread(self._dep_check_thread, deadline=deadline)  # container probe
+        stop_thread(self._disc_info_thread, deadline=deadline)  # can be mid-read
+        stop_thread(self._drive_list_thread, deadline=deadline)
         # The post-rip CTDB verify runs on a DAEMON thread (not a QThread), so
         # it's intentionally not joined here — it dies with the process and
         # guards its own emit. Joining it would risk blocking close on a long

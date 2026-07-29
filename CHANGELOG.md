@@ -33,6 +33,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   they cannot drift apart the way they had.
 
 ### Changed
+- **Worker shutdown now shares one 10-second budget instead of giving each worker
+  its own timeout.** The old per-worker wait was 2000 ms, which could not cover a
+  cold container exec (measured at 3.45 s), so workers that were about to finish
+  got abandoned anyway. The obvious repair — raise the per-worker timeout — would
+  have been worse here: `closeEvent` stops six workers, so a 10 s wait each is up
+  to a **60 s frozen window** on close. `ShutdownDeadline` bounds the whole
+  teardown at 10 s and hands each worker whatever is left; when the budget runs
+  out the remaining workers are abandoned immediately, which is now safe. The
+  single-attempt default rose 2000 ms → 4000 ms so a cold exec is covered when
+  there is budget for it. All timeouts are named constants.
+
 - Thread handling no longer says **"detaching"**. Qt has no detach operation —
   there is no API that severs Python ownership from C++ lifetime — and the word
   made a fatal pattern look like a supported one. It now says "abandoning", and

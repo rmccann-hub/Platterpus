@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import QApplication
 
@@ -45,7 +47,7 @@ def test_stop_thread_none_is_a_noop() -> None:
 
 
 def test_stop_thread_cancels_worker_and_returns_when_thread_stops() -> None:
-    """A thread that stops within the wait is joined, not detached; the worker's
+    """A thread that stops within the wait is joined, not abandoned; the worker's
     cancel() is called first."""
     cancelled: list[bool] = []
     worker = type("W", (), {"cancel": lambda self: cancelled.append(True)})()
@@ -59,7 +61,7 @@ def test_stop_thread_cancels_worker_and_returns_when_thread_stops() -> None:
     assert not thread.parent_cleared  # stopped cleanly → not abandoned
 
 
-def test_stop_thread_detaches_a_stuck_thread_instead_of_blocking() -> None:
+def test_stop_thread_abandons_a_stuck_thread_instead_of_blocking() -> None:
     """Regression: a thread still running after the brief wait (a step in flight
     quit() can't interrupt) is DETACHED — never blocked-on longer, never
     destroyed while running."""
@@ -118,3 +120,71 @@ def test_extra_quit_signal_also_stops_the_thread(
     start_worker_thread(worker, thread, on_started, also_quit_on=[worker.failed])
 
     assert process_until(lambda: not thread.isRunning())
+
+
+# --- Shared shutdown budget ---------------------------------------------------
+# The crash brief advised raising the per-worker stop timeout to 10 s. That would
+# be wrong here: `MainWindow.closeEvent` makes six `stop_thread` calls, so a 10 s
+# wait each is up to a 60 s frozen window on close — the failure this project
+# guards hardest against. The budget is shared instead, and these pin that.
+
+
+def test_the_shutdown_budget_is_shared_not_per_worker() -> None:
+    """A deadline hands out the REMAINING time, so N workers can't cost N × T."""
+    from platterpus.workers import ShutdownDeadline
+
+    deadline = ShutdownDeadline(budget_ms=500)
+    first = deadline.remaining_ms()
+    assert 0 < first <= 500
+
+    # Spend some of it, as a slow worker would.
+    time.sleep(0.2)
+    second = deadline.remaining_ms()
+    assert second < first, (
+        f"the deadline did not shrink ({first} → {second}); every worker would "
+        "get the full budget and close could freeze for the sum of them"
+    )
+    assert second <= 300
+
+
+def test_an_exhausted_budget_reports_zero_not_a_negative_wait() -> None:
+    """QThread.wait() must never be handed a negative number.
+
+    Qt treats a negative wait as "wait forever", so an overrun budget that
+    returned -1 would freeze the window indefinitely — the exact opposite of the
+    intent. Zero is correct: wait(0) still truthfully reports whether the thread
+    already finished.
+    """
+    from platterpus.workers import ShutdownDeadline
+
+    deadline = ShutdownDeadline(budget_ms=0)
+    time.sleep(0.01)
+    assert deadline.remaining_ms() == 0
+
+
+def test_stop_thread_prefers_the_shared_deadline_over_a_per_call_wait() -> None:
+    """When both are given the deadline wins — it is the stronger guarantee."""
+    from platterpus.workers import ShutdownDeadline, stop_thread
+
+    waits: list[int] = []
+
+    class _RecordingThread:
+        def isRunning(self) -> bool:
+            return True
+
+        def quit(self) -> None:
+            pass
+
+        def wait(self, ms: int) -> bool:
+            waits.append(ms)
+            return True  # "stopped", so nothing is abandoned
+
+        def objectName(self) -> str:
+            return "recorder"
+
+    deadline = ShutdownDeadline(budget_ms=250)
+    stop_thread(_RecordingThread(), None, wait_ms=99_999, deadline=deadline)  # type: ignore[arg-type]  # a minimal stand-in, not a real QThread
+    assert waits and waits[0] <= 250, (
+        f"stop_thread waited {waits} — it used the per-call wait_ms instead of "
+        "the shared budget, so a long-running close could still freeze"
+    )
