@@ -11,6 +11,128 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **The two tools that gate CI are now pinned to the minor they were measured
+  against.** `ruff format` and `mypy --strict` change what they accept between
+  minor releases, so the previous wide ranges (`ruff>=0.15,<1`,
+  `mypy>=1.13,<3`) meant a routine upstream release could turn CI red with zero
+  change to our code — reading as a code problem, not a dependency one — and let
+  a local checkout and CI resolve different versions and disagree about a green
+  build. Bumping either is now a deliberate commit that re-runs the gate.
+  Non-gating tools (`pytest`, `hypothesis`, `pytest-cov`) stay loose.
+
+### Fixed
+- **Cancelling a rip and then quitting within five seconds left the drive
+  reading, with no way to recover.** On Cancel the host-side wrapper dies at once
+  but podman does not forward the signal into the container, so the only thing
+  that kills the in-container reader is a five-second rescue timer — and
+  `closeEvent` disarmed that timer *before* the shutdown drive-stop ran, while the
+  shutdown stop itself gave up whenever the rip already looked finished. Quitting
+  inside that window therefore left the reader ripping, and the drive's physical
+  eject button is ignored while a read holds the device, so there was no in-app
+  *or* hardware recovery. This was the 2026-07-01 real-user bug reachable through
+  a different door. The shutdown stop now also fires when a force-stop is still
+  pending, and the timer is disarmed only after it has been consulted.
+- **Pressing Force stop was permanently recorded as a rip *failure*.** Only the
+  Cancel button marked the rip cancelled, so using Force stop on its own (it is
+  enabled for the whole rip) produced "Rip failed.", an `outcome.status` of
+  `failed` in the JSON report, an `*** INCOMPLETE RIP (failed) ***` banner in the
+  checksum-signed log, **and** a failure notification — recording the user's own
+  deliberate choice as a malfunction. It is now recorded as a cancellation.
+
+- **Closing the window during a rip aborted the process.** A threading audit found
+  that `closeEvent` stopped six worker threads and not the rip thread — it
+  cancelled the rip *worker* and freed the drive, but `_rip_thread` is parented to
+  the window, so `~QMainWindow` destroyed a live `QThread`. The usual safety net
+  does not apply here either: `worker.finished → thread.quit` is a **queued**
+  connection to the GUI thread, so once `app.exec()` has returned that `quit()` is
+  never delivered and even a cleanly-finished worker leaves its thread spinning.
+  Reproduced to exit 134. The test suite could not have caught it — its own window
+  fixture stops the rip thread, silently compensating for the gap — so the
+  regression test asserts on `closeEvent` itself.
+- **`--uninstall` could abort the same way.** That path returned from `main()`
+  without the abandoned-thread check, and its worker shells out to podman/dnf with
+  a cancel flag that is only polled *between* steps (a step's timeout is 1800 s),
+  so closing mid-teardown reliably abandons a running thread.
+- **The hard exit had started firing on every quit.** One call site abandons a
+  thread unconditionally (a rescan superseding an in-flight disc probe waits 0 ms)
+  and the retention list was append-only, so a single mid-probe rescan latched the
+  count for the rest of the session — turning "skip teardown only when it is
+  unsafe" into "never run teardown", and `atexit` never ran. Finished entries are
+  now pruned, so only a genuinely-live thread forces the hard exit.
+
+- **The app aborted with `SIGABRT` when it exited while a worker thread was still
+  blocked in a container call** — reliably during the update-relaunch, which
+  tears the process down with background work in flight. A worker inside
+  `subprocess.communicate()` never returns to its event loop, so `QThread.quit()`
+  cannot reach it; `stop_thread` gives up after a short wait and abandons the
+  thread, keeping a reference so the garbage collector can't destroy a running
+  `QThread`. That retention was already there when it crashed — and it is not
+  enough, because it lives in a **module global, and CPython clears module
+  globals during interpreter shutdown**. The last reference dropped at exit,
+  `~QThread()` ran on a running thread, and Qt called `qFatal()`. Reproduced: a
+  child process that abandons a running thread and then exits normally dies with
+  **134 (SIGABRT)**, logging `QThread: Destroyed while thread 'DiscInfoWorker' is
+  still running` — the exact line from the crash report. Both exit paths now
+  bypass interpreter teardown when a thread was abandoned still-running: they
+  flush the log explicitly (`os._exit` skips flushing, which would truncate the
+  log a bug report depends on) and leave immediately. A clean shutdown is
+  unchanged and still unwinds normally.
+- The relaunch and normal-exit paths share one guard (`platterpus.hard_exit`), so
+  they cannot drift apart the way they had.
+
+### Changed
+- **Worker shutdown now shares one 10-second budget instead of giving each worker
+  its own timeout.** The old per-worker wait was 2000 ms, which could not cover a
+  cold container exec (measured at 3.45 s), so workers that were about to finish
+  got abandoned anyway. The obvious repair — raise the per-worker timeout — would
+  have been worse here: `closeEvent` stops six workers, so a 10 s wait each is up
+  to a **60 s frozen window** on close. `ShutdownDeadline` bounds the whole
+  teardown at 10 s and hands each worker whatever is left; when the budget runs
+  out the remaining workers are abandoned immediately, which is now safe. The
+  single-attempt default rose 2000 ms → 4000 ms so a cold exec is covered when
+  there is budget for it. All timeouts are named constants.
+
+- Thread handling no longer says **"detaching"**. Qt has no detach operation —
+  there is no API that severs Python ownership from C++ lifetime — and the word
+  made a fatal pattern look like a supported one. It now says "abandoning", and
+  the log line states the consequence: the reference is retained and process exit
+  must bypass teardown. A test keeps the word out of the code and the log
+  messages (while still allowing the comment that explains why it is banned).
+
+## [0.5.16] — 2026-07-29
+
+### Changed
+- **The results pane is now three bands instead of one long column, so it never
+  shows two scrollbars at once.** v0.5.15 stopped the pane painting text over
+  itself by putting everything inside a scroll area — and the table and the live
+  console are themselves scrollable, so inside it they became *nested* scroll
+  surfaces: two vertical scrollbars 15 px apart (measured at x=911 and x=926 on a
+  940×400 pane), with the wheel acting on whichever one the pointer happened to be
+  over. The maintainer's report was exact: "difficult to use together".
+
+  The obvious repair — turn the inner scrollbar off and size the table to its
+  content — was measured and rejected: **a nested scroll area that has nothing
+  left to scroll does not pass the wheel on to its parent**, so it trades a
+  visible scrollbar for a *dead wheel zone* over the biggest widget in the pane,
+  which feels more broken rather than less.
+
+  So the pane no longer nests anything. A **fixed header** keeps the progress
+  bars, the status line and the trust verdict permanently on screen; a
+  **QTabWidget** holds *Tracks* (the per-track table), *Details* (the CTDB
+  verdict, the AccurateRip reconciliation and album loudness) and *Live log*; and
+  the four output buttons stay pinned at the bottom. Because only one tab is
+  visible, there is at most one scrollbar and it can never be nested — measured
+  at every size from 1900×980 down to 940×300, on every tab, with zero
+  overlapping widgets, so the v0.5.15 fix is preserved rather than traded away.
+
+  Two things keep the tabs from hiding anything. The pane **follows the rip**: the
+  live console is shown while ripping and the per-track results come to the front
+  when the log lands (unless there are no tracks, in which case the log stays —
+  it is the only thing that can explain why). And the **Details tab label carries
+  a ⚠** whenever a caveat is sitting behind it, so a warning can never wait
+  silently for a click. Alt+T / Alt+D / Alt+L switch tabs.
+
 ## [0.5.15] — 2026-07-29
 
 ### Fixed
@@ -3439,6 +3561,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
@@ -3500,4 +3623,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.15.*
+*Last updated for Platterpus v0.5.16.*

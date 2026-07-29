@@ -59,6 +59,32 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
 
 8. **No copyrighted media in the repo — ever, not even temporarily.** This repository is public. Never `git add`/commit a music file or any other copyrighted media — **no `.flac`, `.wav`, `.mp3`, `.m4a`, `.aac`, `.ogg`, `.opus`, `.wv`, `.ape`, `.aiff`, `.dsf`, etc.** — and this includes *temporary* files dropped in for testing. Owning the disc does not grant redistribution rights, and a public commit (and git history) is redistribution. **How we test with real audio instead:** work on it **outside the repo** — the session scratchpad or a `/tmp` dir — and delete it when done; the durable proof we commit is the **text** artifact (EAC/whipper/cyanrip **logs** + per-track **CRCs**), never the audio (the CRCs prove bit-perfection without it — see `output_reference/README.md`). `.gitignore` denies audio extensions as a backstop, but the rule is the line of defense, not the backstop. If a test genuinely needs real PCM, use a **short, self-generated or CC0/public-domain** sample, never a commercial track. Same bite as the rules above: institutional, non-negotiable.
 
+9. **Qt / PySide6 threading rules.** Every one of these was paid for with a crash or a freeze; none is theoretical.
+   - **NEVER drop the last Python reference to a running `QThread`.** In PySide6 that invokes `~QThread()`, which Qt treats as fatal (`qFatal` → `SIGABRT`). If a thread cannot be stopped, **abandon** it: keep the reference in a module-level list and leak it deliberately.
+   - **Retaining a reference does NOT make process exit safe.** The retention list is a *module global*, and CPython clears module globals during interpreter shutdown — so the last reference drops there and the abort happens anyway. Any exit path that can run with a live abandoned thread must bypass teardown (`platterpus.hard_exit`), and must flush the log first because `os._exit` does not. This is the v0.5.8 crash, and the retention was already in place when it happened.
+   - **NEVER say "detach".** Qt has no detach operation — there is no API that severs Python ownership from C++ lifetime — and the word is what made a fatal pattern look supported. Say "abandon", and retain the reference.
+   - **`quit()` only reaches a thread sitting in its event loop.** A thread blocked in `subprocess.communicate()`, a socket read, or a long C call will never see it. Every worker that blocks MUST expose a `cancel()` that interrupts the block by killing the child process. **A `cancel()` that only sets a flag the blocked call never checks is a false promise — do not ship one, and do not document one as working.**
+   - **`worker.finished → thread.quit` is a QUEUED connection to the GUI thread.** Once `app.exec()` has returned it is never delivered, so a worker that finished *cleanly* still leaves its thread spinning. Never rely on it as the only stop mechanism.
+   - **Shutdown order is: `cancel()` every worker, THEN `quit()`, THEN wait.**
+   - **Bound the whole shutdown, not each worker.** A per-worker timeout long enough to cover a cold container exec (measured at 3.45 s) multiplies by the number of workers — six of them at 10 s each is a 60-second frozen window. Share one `ShutdownDeadline`; workers that run out of budget are abandoned, which is safe once exit bypasses teardown. Never hand `QThread.wait()` a negative number: Qt reads it as *wait forever*.
+   - **Only the GUI thread touches widgets.** Workers communicate via signals.
+   - **Every `QThread` slot the window declares must be stopped in `closeEvent`.** `tests/test_harness_fidelity.py` enforces this, and enforces that the *test harness* never cleans up a thread production leaves running — a fixture that tidies up for the product hides the bug (it hid one for five releases).
+
+10. **Typing is strict, and the standard is stricter than the checker.** `mypy` is configured `--strict`-equivalent with a shrinking per-module opt-out list in `pyproject.toml`; retire one opt-out per commit, never add one. Beyond what mypy can see: `from __future__ import annotations` in every module; every parameter and return annotated including `-> None`; every class attribute annotated including instance attrs set in `__init__`; `X | None` never `Optional[X]`; no untyped dict as a pseudo-struct (use a `TypedDict` or a dataclass); PySide6 `Signal` payload types named in the class body — `Signal(object)  # list[DriveDescriptor]` — because Qt's queued connections force `object` and the comment is the only remaining type information. **No bare `Any`**, and no bare `# type: ignore`: always `# type: ignore[code]  # reason`. **Do not weaken a type to make a checker pass.**
+
+11. **A tool that gates CI must not float.** `ruff format` and `mypy --strict` change what they accept between minor releases, so a wide version range means a routine upstream release turns CI red with zero change to our code — and it reads as a code problem. `ruff` and `mypy` are pinned to the minor they were measured against; bumping one is a deliberate commit that re-runs the gate. Non-gating tools stay loose. And when you quote a number out of a tool, **record the tool version beside it** — `--strict`'s flag set is version-dependent, so "132 errors" without "mypy 2.3.0" is not reproducible.
+
+## How to stop shipping the next one (read before calling a fix done)
+
+Three consecutive releases each fixed a real bug and introduced the next. These questions are cheap and would have caught all three; answer them **in the commit message**, not in your head. Full reasoning in `docs/testing.md` §5.t and §5.s.
+
+- **Did I reproduce the symptom, or only explain it?** A mechanism that plausibly accounts for a report is not the mechanism. v0.5.14 shipped a confident diagnosis of the wrong axis and cost a release. Ten minutes with a probe beats an hour of reasoning.
+- **What new state does this fix create, and what tests *that*?** A scroll area creates nesting. A guard creates a precondition. An `os._exit` creates a skipped-teardown path. The fix's own failure modes need their own tests.
+- **Would this test fail if I reverted the fix?** Check by actually reverting it. This has caught a vacuous detector here **twice** — including one whose first version passed against the very bug it was written for, because it looked for a *mention* of a thread rather than a *call* that stops it.
+- **Can this check be satisfied by finding nothing?** Then give it a floor: "examined ≥ N", "found ≥ 2 to compare". A detector that cannot fail is decoration.
+- **What does my stand-in do that the real thing does not?** For every fixture, fake, stub and helper. Either delete the difference or pin it — a harness that is safer than the product makes the product's gap invisible.
+- **Is the user's symptom gone, or just the mechanism I named?** Those are different claims. Where only hardware can settle it, say so plainly instead of implying the suite proved it.
+
 ## Deviation policy
 
 When in doubt during any session, stop and ask the user before doing the following:
@@ -221,4 +247,4 @@ Chronological session notes — what was built, decided, and learned each sessio
 
 ---
 
-*Last updated for Platterpus v0.5.5.*
+*Last updated for Platterpus v0.5.16.*

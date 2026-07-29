@@ -49,12 +49,23 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# A tool that GATES ci must not float. `ruff format` and `mypy --strict` both
+# change what they accept between minor releases, so a wide range means a routine
+# upstream release can turn CI red with **zero change to our code** — and the
+# failure looks like a code problem, not a dependency one. Worse, local and CI
+# then resolve different versions and disagree about a green build.
+#
+# So the two gating tools are pinned to the minor they were measured against, and
+# bumping them is a deliberate commit that re-runs the gate. The non-gating tools
+# stay loose: a pytest or hypothesis bump cannot silently redefine "correct".
+# (Found while auditing why so much had got through the gates, 2026-07-29.)
 dev = [
     "pytest>=8,<10",
-    "ruff>=0.15,<1",
     "pytest-cov>=5",      # coverage measurement + the CI --cov-fail-under gate
     "hypothesis>=6",      # property-based tests (tests/test_parsers_property.py)
-    "mypy>=1.13,<3",      # static type-checking (the CI `typecheck` job)
+    # --- gating: pinned to the measured minor, bump deliberately ---
+    "ruff>=0.15.22,<0.16",  # `lint` + `format --check`; 0.16 may reformat
+    "mypy>=2.3,<2.4",       # `typecheck`; the strict flag set is version-dependent
 ]
 
 [project.scripts]
@@ -144,6 +155,44 @@ strict_equality = true
 extra_checks = true
 warn_unused_ignores = true
 warn_return_any = true
+# The last two `--strict` flags, both measured at 0 new errors once the one
+# implicit re-export in `adapters/rip_backend.py` was made explicit.
+no_implicit_reexport = true
+check_untyped_defs = true
+# The 13th and last strict flag. Enabled globally with a shrinking list of
+# per-module opt-outs below, so the gate ratchets instead of needing one enormous
+# diff. A typing census (2026-07-29) measured 131 violations, and 107 of them are
+# a SINGLE under-modelled data structure: the `.platterpus.json` report shape,
+# written by `rip_report` and read back by `rip_compare` with no shared type.
+disallow_any_generics = true
+
+# --- disallow_any_generics ratchet -------------------------------------------
+# Modules that still carry bare `dict` / `list` / `Popen`. **Retire one opt-out
+# per commit until this list is empty, then delete the whole block.** The count
+# beside each is what a 2026-07-29 census measured, so progress is checkable.
+#
+# Deliberately NOT a blanket `dict[str, object]` widening: that was measured and
+# leaves 9 residual narrowing/invariance errors, because reading values back out
+# of `dict[str, object]` needs narrowing at every site. The report wants a real
+# TypedDict — which is also what the project's own typing standard asks for.
+[[tool.mypy.overrides]]
+module = [
+    "platterpus.rip_report",                  # 67 — the .platterpus.json shape
+    "platterpus.rip_compare",                 # 18 — reads that same shape
+    "platterpus.adapters.musicbrainz_client", # 10 — genuine raw-JSON boundary
+    "platterpus.ui.main_window_shared",       #  9 — shared-surface report attrs
+    "platterpus.ui.main_window",              #  6
+    "platterpus.workers.rip_worker",          #  5
+    "platterpus.build_info",                  #  4
+    "platterpus.eac_log_export",              #  3
+    "platterpus.read_speed_ladder",           #  2
+    "platterpus.config",                      #  2
+    "platterpus.ui.main_window_rip",          #  2
+    "platterpus.parsers.cyanrip_log",         #  1
+    "platterpus.adapters.derived_verify",     #  1
+    "platterpus.drive_profile_store",         #  1
+]
+disallow_any_generics = false
 
 [[tool.mypy.overrides]]
 module = "musicbrainzngs.*"

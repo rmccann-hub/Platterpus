@@ -11,24 +11,125 @@ parsing and subprocess handling lives in `adapters/` and `parsers/`.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable, Iterable
 
 from PySide6.QtCore import QObject, QThread, SignalInstance
 
 log = logging.getLogger(__name__)
 
-# Threads we detached because they wouldn't stop promptly on close. Held so the
-# garbage collector can't destroy a still-running QThread (a hard SIGABRT) — each
-# reaps itself via its own finished→quit→deleteLater once its blocked step
-# finally returns. (Module-scoped on purpose: it must outlive the widget.)
+# How long a single stop attempt waits before abandoning the thread.
+#
+# 2000 ms was the old value and it could not cover a **cold** distrobox/podman
+# exec, measured at 3.45 s in the v0.5.8 crash — so a worker that was about to
+# finish got abandoned anyway. 4 s clears that measurement with margin.
+DEFAULT_STOP_WAIT_MS: int = 4_000
+
+# The total budget for stopping EVERY worker on one shutdown.
+#
+# This is the constant that matters, and it is why the crash brief's advice —
+# "raise the per-worker timeout to 10 s" — is not what we did. `closeEvent` makes
+# six `stop_thread` calls; a 10 s wait on each is up to a **60 s frozen window**
+# on close, and a GUI that stops responding is the failure this project guards
+# hardest against (CLAUDE.md, "Never block the GUI thread"). So the budget is
+# shared: the *whole* teardown gets 10 s, and each worker gets whatever is left.
+# The pathological case degrades to "the last workers are abandoned immediately",
+# which is exactly right — abandoning is safe now that exit bypasses teardown.
+WORKER_SHUTDOWN_BUDGET_MS: int = 10_000
+
+
+class ShutdownDeadline:
+    """A shared wall-clock budget for stopping several workers in sequence.
+
+    Hand the same instance to every ``stop_thread`` call on one shutdown path and
+    the total wait is bounded by the budget rather than by (number of workers ×
+    per-worker timeout). Uses a monotonic clock so a system clock adjustment
+    mid-shutdown cannot extend or collapse the budget.
+    """
+
+    def __init__(self, budget_ms: int = WORKER_SHUTDOWN_BUDGET_MS) -> None:
+        self._budget_ms: int = budget_ms
+        self._started: float = time.monotonic()
+
+    def remaining_ms(self) -> int:
+        """Milliseconds left in the budget; never negative.
+
+        Zero means "don't wait at all" — ``QThread.wait(0)`` still reports
+        truthfully whether the thread has already finished, so a worker that
+        stopped on its own is still detected rather than needlessly abandoned.
+        """
+        spent_ms = (time.monotonic() - self._started) * 1000.0
+        return max(0, int(self._budget_ms - spent_ms))
+
+
+# Threads we abandoned because they wouldn't stop promptly on close.
+#
+# **This list keeps them alive for the rest of the process; it does NOT make
+# exiting safe.** It stops the *garbage collector* destroying a running QThread
+# mid-session (which Qt treats as fatal), and each entry reaps itself via its own
+# finished→quit→deleteLater once its blocked step finally returns. But it is a
+# **module global**, and CPython clears module globals during interpreter
+# shutdown — so if the process exits while an entry is still running, the last
+# reference drops there, `~QThread()` runs on a running thread, and Qt calls
+# qFatal() → SIGABRT.
+#
+# That is the v0.5.8 crash, reproduced: a child process that abandons a running
+# QThread and then returns from main() exits **134 (SIGABRT)** with
+# `QThread: Destroyed while thread 'DiscInfoWorker' is still running`. The
+# retention was already here when it crashed; retention alone was never the fix.
+#
+# So `abandoned_thread_count()` exists, and every exit path that can run while an
+# entry is live MUST hard-exit instead of unwinding — see
+# `platterpus.hard_exit.exit_without_teardown`. Never "just drop the reference",
+# and never assume this list protects process exit.
+# (Module-scoped on purpose: it must outlive the widget that owned the thread.)
 _abandoned_threads: list[QThread] = []
+
+
+def _prune_finished_abandoned_threads() -> None:
+    """Drop entries whose thread has since finished.
+
+    The list was append-only, and one call site abandons unconditionally
+    (`main_window` supersedes an in-flight disc probe with `wait_ms=0`). So a
+    single mid-probe rescan latched the count at ≥1 for the whole session and
+    made the hard exit fire on *every* subsequent quit — turning "skip teardown
+    only when it is unsafe" into "never run teardown", so `atexit` never ran.
+    Found by a threading audit, 2026-07-29.
+
+    Dropping the reference is safe **only** once the thread has finished: that is
+    the entire point of retaining it. `start_worker_thread` wires
+    `finished → deleteLater`, so Qt owns the deletion by then.
+    """
+    still_running: list[QThread] = []
+    for thread in _abandoned_threads:
+        try:
+            if thread.isRunning():
+                still_running.append(thread)
+        except RuntimeError:
+            # The C++ object is already gone (deleteLater ran): nothing left to
+            # retain, and asking again would raise the same way.
+            continue
+    _abandoned_threads[:] = still_running
+
+
+def abandoned_thread_count() -> int:
+    """How many abandoned worker threads are **still running**.
+
+    Non-zero means **interpreter shutdown is unsafe**: see the note on
+    `_abandoned_threads`. Exit paths use this to decide whether they must bypass
+    teardown rather than unwind through it. Finished entries are pruned first, so
+    a session that abandoned a thread which later completed still exits normally.
+    """
+    _prune_finished_abandoned_threads()
+    return len(_abandoned_threads)
 
 
 def stop_thread(
     thread: QThread | None,
     worker: object | None = None,
     *,
-    wait_ms: int = 2000,
+    wait_ms: int | None = None,
+    deadline: ShutdownDeadline | None = None,
 ) -> None:
     """Stop a one-shot worker thread on close WITHOUT a GUI-thread freeze or a
     destroyed-while-running abort.
@@ -41,14 +142,39 @@ def stop_thread(
 
     So: cancel the worker (if it exposes ``cancel()``), ask the thread to quit,
     and wait only briefly. If it's still running after ``wait_ms`` (a step is in
-    flight), DETACH it — reparent to ``None`` and keep a reference in
+    flight), **abandon** it — reparent to ``None`` and keep a reference in
     ``_abandoned_threads`` — rather than block longer or let the caller's
-    destruction take it down. The detached thread finishes its current step and
+    destruction take it down. The abandoned thread finishes its current step and
     reaps itself. Best-effort; never raises. Safe when ``thread`` is ``None`` or
     already stopped.
+
+    **"Abandon", never "detach".** Qt has no detach operation: there is no API
+    that severs Python ownership from C++ lifetime, and the word invited exactly
+    the mistake of dropping the reference. We keep the reference.
+
+    **Abandoning does not make process exit safe** — see the note on
+    ``_abandoned_threads``. A caller that abandons a thread and then lets the
+    interpreter shut down will abort. Exit paths must consult
+    ``abandoned_thread_count()`` and hard-exit; that is not this function's job,
+    because it is also called mid-session (dialog close), where unwinding is
+    fine.
+
+    ``wait_ms`` overrides the per-call wait; ``deadline`` shares one budget across
+    a whole shutdown (pass the *same* ``ShutdownDeadline`` to every call on that
+    path). Give at most one — a deadline wins if both are supplied, because the
+    shared budget is the stronger guarantee. With neither, the wait is
+    ``DEFAULT_STOP_WAIT_MS``.
     """
     if thread is None:
         return
+    # Resolve the wait once, so the log line below reports the number actually
+    # used rather than the caller's request.
+    if deadline is not None:
+        effective_wait_ms = deadline.remaining_ms()
+    elif wait_ms is not None:
+        effective_wait_ms = wait_ms
+    else:
+        effective_wait_ms = DEFAULT_STOP_WAIT_MS
     if worker is not None:
         cancel = getattr(worker, "cancel", None)
         if callable(cancel):
@@ -60,14 +186,15 @@ def stop_thread(
         if not thread.isRunning():
             return
         thread.quit()
-        if thread.wait(wait_ms):
+        if thread.wait(effective_wait_ms):
             return
         # Still running — a step can't be interrupted by quit(). Abandon it so we
         # neither block the GUI thread longer nor destroy a live QThread.
         log.warning(
-            "worker thread %s did not stop within %dms — detaching it",
+            "worker thread %s did not stop within %dms — abandoning it "
+            "(reference retained; process exit must now bypass teardown)",
             thread.objectName() or type(thread).__name__,
-            wait_ms,
+            effective_wait_ms,
         )
         thread.setParent(None)
         _abandoned_threads.append(thread)
