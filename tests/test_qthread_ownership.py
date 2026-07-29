@@ -1,0 +1,527 @@
+"""Every class that creates a `QThread` must stop it on teardown. All of them.
+
+**Why this exists as a sweep rather than a per-class test.** Destroying a
+`QWidget` while a `QThread` it owns is still running is fatal — Qt calls
+`qFatal()` → `SIGABRT`. The codebase knows this; `CLAUDE.md` rule 9 is most of a
+page about it, and `test_harness_fidelity.py` enforces it thoroughly **for
+`MainWindow`**. Nine classes create threads. One was checked.
+
+The one that wasn't: `PendingInstallsDialog` had **no teardown path at all** — the
+thread was parented to the dialog, the dialog to the main window, so a close
+arriving from above ran `~QThread()` on a live thread. It survived review because
+the dialog *does* refuse to close mid-install, which reads as "handled" until you
+notice that guards user intent and not object lifetime. It was found by an audit
+(2026-07-29), and an audit is a person remembering to look.
+
+So this generalises the `MainWindow` rule to **every** `QThread` owner, present and
+future. A new dialog that spawns a worker is covered the day it is written, without
+anyone remembering to add a test for it.
+
+Two details that matter, both learned the hard way in this repo:
+
+* **It resolves through the MRO**, not per-file. `MainWindow` creates its threads in
+  one module and stops some of them in a mixin in another, so a file-scoped check
+  would report false failures. Importing the class and walking `type.__mro__` gets
+  this right for free, and keeps working when the mixins are reorganised.
+* **It checks the stop is *reachable* from a teardown hook**, not merely present
+  somewhere in the class. A `stop_thread` call inside a helper nothing calls is
+  dead code that looks like a fix — the same "mentioning is not stopping" trap that
+  produced a vacuous detector twice in one session (`docs/testing.md` §5.t, §5.p).
+"""
+
+from __future__ import annotations
+
+import ast
+import importlib
+import inspect
+import textwrap
+from pathlib import Path
+
+REPO_ROOT: Path = Path(__file__).resolve().parents[1]
+SRC_ROOT: Path = REPO_ROOT / "src" / "platterpus"
+
+# Qt's own teardown entry points for a widget/dialog. A thread must be stopped from
+# one of these, or from something one of them calls.
+_TEARDOWN_HOOKS: frozenset[str] = frozenset(
+    {"closeEvent", "reject", "accept", "done", "hideEvent"}
+)
+
+# `QThread()` assigned to a plain local inside a docstring example or a factory is
+# not an ownership claim — only `self.<attr> = QThread(...)` is, because that is what
+# ties the thread's lifetime to a Python object that can be destroyed.
+_MIN_EXPECTED_OWNERS: int = 5
+
+
+def _thread_attributes_created_in(source: str) -> set[str]:
+    """Attribute names assigned a freshly-constructed `QThread` in `source`."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Assign):
+            continue
+        value = node.value
+        if not isinstance(value, ast.Call):
+            continue
+        callee = value.func
+        name = (
+            callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", "")
+        )
+        if name != "QThread":
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                if target.value.id == "self":
+                    found.add(target.attr)
+    return found
+
+
+def _qthread_owners() -> dict[str, set[str]]:
+    """Map ``module:ClassName`` → the thread attributes that class constructs.
+
+    Walks the real source tree rather than a hand-maintained list, which is the
+    whole point: a class added next month is covered without anyone updating a
+    fixture.
+    """
+    owners: dict[str, set[str]] = {}
+    for path in sorted(SRC_ROOT.rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        if "QThread(" not in text:
+            continue
+        tree = ast.parse(text)
+        module = (
+            path.relative_to(SRC_ROOT.parent)
+            .with_suffix("")
+            .as_posix()
+            .replace("/", ".")
+        )
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            attrs = _thread_attributes_created_in(ast.unparse(node))
+            if attrs:
+                owners[f"{module}:{node.name}"] = attrs
+    return owners
+
+
+def _class_bases() -> dict[str, list[str]]:
+    """``ClassName`` → the base-class names it declares, read from source.
+
+    Read via AST rather than by importing everything, so discovering the class graph
+    has no import side effects and no ordering surprises.
+    """
+    bases: dict[str, list[str]] = {}
+    for path in sorted(SRC_ROOT.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ClassDef):
+                bases[node.name] = [
+                    base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")
+                    for base in node.bases
+                ]
+    return bases
+
+
+def _subclasses_of(name: str, bases: dict[str, list[str]]) -> set[str]:
+    """Every class in `src/` that inherits `name`, transitively."""
+    found: set[str] = set()
+    frontier = {name}
+    while frontier:
+        current = frontier.pop()
+        for child, parents in bases.items():
+            if current in parents and child not in found:
+                found.add(child)
+                frontier.add(child)
+    return found
+
+
+def _method_sources(cls: type) -> dict[str, str]:
+    """Every method the class resolves, across its MRO, dedented and parseable.
+
+    MRO-wide because a mixin may declare the teardown that stops a thread the
+    concrete class created — exactly how `MainWindow` and `RipMixin` are split.
+    Nearest definition wins, matching Python's own attribute lookup.
+    """
+    sources: dict[str, str] = {}
+    for klass in cls.__mro__:
+        if klass.__module__.startswith(("PySide6", "builtins", "shiboken")):
+            continue  # Qt's C++ classes have no Python source
+        for name, member in vars(klass).items():
+            if name in sources or not callable(member):
+                continue
+            try:
+                sources[name] = textwrap.dedent(inspect.getsource(member))
+            except (OSError, TypeError):
+                continue  # C-level or dynamically created — nothing to read
+    return sources
+
+
+def _attrs_passed_to_stop_thread(source: str) -> set[str]:
+    """`self.<attr>` names handed to `stop_thread(...)` — the call, not a mention."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        callee = node.func
+        name = (
+            callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", "")
+        )
+        if name != "stop_thread":
+            continue
+        for arg in node.args:
+            if isinstance(arg, ast.Attribute):
+                found.add(arg.attr)
+    return found
+
+
+def _functions_called_in(source: str) -> set[str]:
+    """Names of everything invoked in `source`, for one-level reachability."""
+    called: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call):
+            callee = node.func
+            name = (
+                callee.id
+                if isinstance(callee, ast.Name)
+                else getattr(callee, "attr", "")
+            )
+            if name:
+                called.add(name)
+    return called
+
+
+def _stopped_reachably(cls: type) -> set[str]:
+    """Thread attributes stopped from a teardown hook, or from something one calls.
+
+    One level of indirection is deliberate and sufficient for the real shapes here
+    (`closeEvent` → `_stop_detection` → `stop_thread`). It is *not* "anywhere in the
+    class": a `stop_thread` call in an orphaned helper must not count, or the check
+    passes on dead code.
+    """
+    sources = _method_sources(cls)
+    reachable_methods: set[str] = set()
+    for hook in _TEARDOWN_HOOKS & sources.keys():
+        reachable_methods.add(hook)
+        reachable_methods |= _functions_called_in(sources[hook]) & sources.keys()
+
+    stopped: set[str] = set()
+    for method in reachable_methods:
+        stopped |= _attrs_passed_to_stop_thread(sources[method])
+    return stopped
+
+
+def _import_class(qualified: str) -> type | None:
+    module_name, class_name = qualified.split(":")
+    return getattr(importlib.import_module(module_name), class_name, None)
+
+
+def _responsible_classes(qualified: str, bases: dict[str, list[str]]) -> list[type]:
+    """The class(es) that must stop the threads `qualified` creates.
+
+    **A mixin is not a standalone owner.** `MainWindow` is deliberately split into
+    mixins (`CLAUDE.md` → *Modules*), so `RipMixin` constructs `_rip_thread` while
+    `MainWindow.closeEvent` stops it. Blaming the mixin would be a false positive,
+    and — worse — "fixing" it by giving the mixin its own `closeEvent` would break
+    the concrete class's teardown. So responsibility resolves *downward*: a class
+    that declares a teardown hook answers for itself; one that doesn't is a mixin,
+    and its concrete subclasses answer for it.
+    """
+    cls = _import_class(qualified)
+    if cls is None:
+        return []
+    if _TEARDOWN_HOOKS & _method_sources(cls).keys():
+        return [cls]
+    _, class_name = qualified.split(":")
+    concrete: list[type] = []
+    for child_name in sorted(_subclasses_of(class_name, bases)):
+        child = getattr(importlib.import_module(cls.__module__), child_name, None)
+        if child is None:
+            # Declared in a sibling module; find it via the real subclass graph.
+            child = next(
+                (c for c in _all_subclasses(cls) if c.__name__ == child_name), None
+            )
+        if child is not None and _TEARDOWN_HOOKS & _method_sources(child).keys():
+            concrete.append(child)
+    return concrete
+
+
+def _all_subclasses(cls: type) -> set[type]:
+    out: set[type] = set()
+    for sub in cls.__subclasses__():
+        out.add(sub)
+        out |= _all_subclasses(sub)
+    return out
+
+
+def test_every_qthread_owner_stops_its_threads_on_teardown() -> None:
+    """The sweep. A new thread-spawning dialog is covered the day it is written."""
+    # Import the UI package so the real subclass graph is populated before we ask
+    # which concrete class answers for a mixin.
+    importlib.import_module("platterpus.ui.main_window")
+
+    owners = _qthread_owners()
+    bases = _class_bases()
+    assert len(owners) >= _MIN_EXPECTED_OWNERS, (
+        f"only found {len(owners)} QThread-owning classes ({sorted(owners)}), which "
+        "is fewer than this codebase has. The detection walk has gone stale — a "
+        "sweep that finds nothing passes for the wrong reason."
+    )
+
+    failures: list[str] = []
+    for qualified, created in sorted(owners.items()):
+        responsible = _responsible_classes(qualified, bases)
+        if not responsible:
+            failures.append(
+                f"{qualified} creates {sorted(created)} and neither it nor any "
+                "concrete subclass defines a teardown hook"
+            )
+            continue
+        for cls in responsible:
+            forgotten = sorted(created - _stopped_reachably(cls))
+            if forgotten:
+                hooks = sorted(_TEARDOWN_HOOKS & _method_sources(cls).keys())
+                failures.append(
+                    f"{qualified} creates {forgotten}, and {cls.__name__} (which "
+                    f"answers for it) does not reachably stop_thread() them "
+                    f"from {hooks}"
+                )
+
+    assert not failures, (
+        "QThread(s) can be destroyed while still running — Qt treats that as fatal "
+        "(qFatal → SIGABRT), so this aborts the whole app for a user who closes a "
+        "window at the wrong moment:\n  " + "\n  ".join(failures) + "\n\n"
+        "Fix: stop each one from closeEvent/reject (or a helper they call) via "
+        "platterpus.workers.stop_thread, which waits briefly and otherwise ABANDONS "
+        "the thread — retaining the reference and registering it so process exit "
+        "takes the hard_exit path instead of aborting. See CLAUDE.md rule 9."
+    )
+
+
+def test_every_qthread_owner_is_answered_for_by_something_with_a_teardown_hook() -> (
+    None
+):
+    """Stated separately because "no hook anywhere" and "hook that forgets one" differ.
+
+    "No hook anywhere" is the `PendingInstallsDialog` shape: nothing to review,
+    nothing to get visibly wrong, and the crash only arrives when something *else*
+    destroys the object. The sweep above catches it too, but its message would talk
+    about a forgotten attribute rather than the actual problem.
+    """
+    importlib.import_module("platterpus.ui.main_window")
+    bases = _class_bases()
+
+    unanswered = [
+        qualified
+        for qualified in sorted(_qthread_owners())
+        if not _responsible_classes(qualified, bases)
+    ]
+    assert not unanswered, (
+        f"these classes create a QThread and nothing answers for stopping it: "
+        f"{unanswered}. Refusing to close while busy is not a substitute — that "
+        "guards user intent, not object lifetime, and a parent being destroyed does "
+        "not ask."
+    )
+
+
+# --- Cancellation: a flag-only cancel must be justified, not just shipped -------
+
+# Names that actually interrupt a blocked call. A `cancel()` whose body reaches none
+# of these cannot stop a thread sitting in `communicate()` or a socket read — it can
+# only set a variable and hope somebody polls it.
+_INTERRUPTING_CALLS: frozenset[str] = frozenset(
+    {
+        "terminate",
+        "kill",
+        "killpg",
+        "send_signal",
+        "cancel",  # e.g. RipHandle.cancel — SIGTERM then SIGKILL
+        "cancel_setup",
+        "cancel_active_probe",
+    }
+)
+
+# Workers whose `cancel()` deliberately only sets a flag, each with the reason it is
+# acceptable. **This allowlist is the point of the test**: CLAUDE.md rule 9 forbids
+# shipping a flag-only cancel, and the honest exception is a step loop that genuinely
+# polls the flag often enough to matter. Adding an entry here is a deliberate act that
+# forces the author to write down why — which is exactly what did NOT happen for
+# `DriveSetupWorker`, whose flag-only cancel wore a killer's docstring for as long as
+# it existed (audit, 2026-07-29).
+_FLAG_ONLY_CANCELS: dict[str, str] = {
+    "HostSetupWorker": (
+        "Honoured BETWEEN steps, and that is the right call rather than a gap: a "
+        "step is a package install, and killing a half-done `dnf install` leaves the "
+        "host worse off than waiting does. Documented as boundary-only in the class "
+        "docstring, so it makes no promise it doesn't keep. A step can run for "
+        "1800 s, so shutdown may abandon this thread — safe, because exit bypasses "
+        "interpreter teardown (platterpus.hard_exit)."
+    ),
+    "UpdateInstallWorker": (
+        "The blocking work is a chunked HTTP download whose loop tests the flag at "
+        "the top of every iteration (update_install.download_and_install, verified "
+        "2026-07-29), so the flag IS the interrupt — there is no long uninterruptible "
+        "call to signal, and the worker raises out within one chunk read."
+    ),
+}
+
+
+def _worker_cancel_methods() -> dict[str, str]:
+    """``ClassName`` → source of its `cancel` method, for every worker in `src/`."""
+    found: dict[str, str] = {}
+    for path in sorted((SRC_ROOT / "workers").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == "cancel":
+                    found[node.name] = ast.unparse(item)
+    return found
+
+
+def test_a_flag_only_cancel_is_either_justified_or_not_shipped() -> None:
+    """CLAUDE.md rule 9, made executable rather than merely written down.
+
+    "A `cancel()` that only sets a flag the blocked call never checks is a false
+    promise" is a rule the codebase broke three separate ways in one audit, because a
+    rule in a document is only as good as the next person's memory of it. This turns
+    it into a build failure with a forced justification: interrupt the block, or add
+    an allowlist entry saying why a flag suffices.
+    """
+    cancels = _worker_cancel_methods()
+    assert len(cancels) >= 3, (
+        f"found only {len(cancels)} worker cancel() methods ({sorted(cancels)}) — "
+        "the walk has gone stale and this check is passing by finding nothing."
+    )
+
+    interrupting: list[str] = []
+    unjustified: list[str] = []
+    for class_name, source in sorted(cancels.items()):
+        if _functions_called_in(source) & _INTERRUPTING_CALLS:
+            interrupting.append(class_name)
+        elif class_name not in _FLAG_ONLY_CANCELS:
+            unjustified.append(class_name)
+
+    # Floor: if NOTHING classified as interrupting, the classifier is broken and the
+    # "unjustified" list would be meaningless (everything would look flag-only).
+    assert interrupting, (
+        "no worker cancel() was recognised as interrupting a blocked call, so the "
+        f"call-name table is out of date. Known names: {sorted(_INTERRUPTING_CALLS)}"
+    )
+
+    assert not unjustified, (
+        f"these workers' cancel() only set a flag: {unjustified}. A thread blocked in "
+        "subprocess.communicate(), a socket read, or a long C call never sees it, so "
+        "cancelling does nothing and shutdown abandons the thread. Either interrupt "
+        "the block (kill the child process — see RipWorker.cancel / "
+        "DriveSetupWorker.cancel), or add an entry to _FLAG_ONLY_CANCELS in this file "
+        "stating why a flag is genuinely enough. Do not document one as working."
+    )
+
+
+def test_the_flag_only_allowlist_has_no_stale_entries() -> None:
+    """An allowlist that outlives its reason quietly permits the next mistake.
+
+    If a worker on the list is deleted or gains a real interrupt, its entry must go —
+    otherwise the list slowly becomes a blanket exemption nobody re-reads.
+    """
+    cancels = _worker_cancel_methods()
+    stale: list[str] = []
+    for class_name in sorted(_FLAG_ONLY_CANCELS):
+        if class_name not in cancels:
+            stale.append(f"{class_name} (no longer defines cancel())")
+        elif _functions_called_in(cancels[class_name]) & _INTERRUPTING_CALLS:
+            stale.append(
+                f"{class_name} (now interrupts the block — exemption unneeded)"
+            )
+    assert not stale, (
+        f"stale _FLAG_ONLY_CANCELS entries: {stale}. Remove them so the list keeps "
+        "meaning something."
+    )
+
+
+# Workers that expose no `cancel()` at all. CLAUDE.md rule 9 says every worker that
+# blocks must have one, and these five do block — a container exec (measured 3.45 s
+# cold), a `/dev` + `/sys` sweep, binary probes, and two network calls that a stalled
+# connection can hold open for a long time. `stop_thread` therefore has nothing to
+# call for them: it quits the event loop they are not sitting in, waits out its share
+# of the shutdown budget, and ABANDONS the thread.
+#
+# That is *bounded and non-fatal* — abandonment retains the reference and registers
+# the thread, so exit takes the `platterpus.hard_exit` path instead of aborting — but
+# it is not the same as cancelling. Closing this properly means giving `run_capture`
+# a killable child the way `cache_probe` now has (Popen + start_new_session, so a
+# killpg reaches the podman/in-container tree) and threading a cancel through.
+#
+# **This list is a RATCHET: it may shrink, never grow.** Same discipline as the mypy
+# per-module opt-outs in `pyproject.toml` (CLAUDE.md rule 10) — a known gap that is
+# written down, counted, and closed one entry at a time, rather than a blanket
+# exemption nobody re-reads.
+_WORKERS_WITHOUT_CANCEL: frozenset[str] = frozenset(
+    {
+        "DependencyCheckWorker",
+        "DiscInfoWorker",
+        "DriveListWorker",
+        "MusicBrainzWorker",
+        "UpdateCheckWorker",
+    }
+)
+
+
+def _qobject_worker_classes() -> dict[str, set[str]]:
+    """``ClassName`` → its method names, for every QObject worker in `src/workers`."""
+    workers: dict[str, set[str]] = {}
+    for path in sorted((SRC_ROOT / "workers").rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ClassDef) and any(
+                getattr(base, "id", getattr(base, "attr", "")) == "QObject"
+                for base in node.bases
+            ):
+                workers[node.name] = {
+                    item.name for item in node.body if isinstance(item, ast.FunctionDef)
+                }
+    return workers
+
+
+def test_a_new_blocking_worker_cannot_ship_without_a_cancel() -> None:
+    """The ratchet. New workers must be cancellable; the known five may only shrink.
+
+    The point is asymmetry: this test is *satisfied* by today's code, so it does not
+    block work, but it fails the moment someone adds a sixth un-cancellable worker.
+    That is the difference between a documented gap and a spreading one.
+    """
+    workers = _qobject_worker_classes()
+    assert len(workers) >= 6, (
+        f"found only {len(workers)} QObject workers ({sorted(workers)}) — the walk "
+        "has gone stale and this is passing by finding nothing."
+    )
+
+    without = {name for name, methods in workers.items() if "cancel" not in methods}
+    new = sorted(without - _WORKERS_WITHOUT_CANCEL)
+    assert not new, (
+        f"these workers block but expose no cancel(): {new}. `stop_thread` then has "
+        "nothing to call — `quit()` never reaches a thread blocked in a subprocess or "
+        "socket read — so closing the window waits out the shutdown budget and "
+        "abandons the thread. Give it a cancel() that kills the child process (see "
+        "RipWorker.cancel, DriveSetupWorker.cancel, or cache_probe.cancel_active_probe "
+        "for the killable-subprocess pattern). Do NOT add it to "
+        "_WORKERS_WITHOUT_CANCEL — that list only shrinks."
+    )
+
+
+def test_the_no_cancel_ratchet_only_shrinks() -> None:
+    """A ratchet that can be widened is a comment. This is the part with teeth."""
+    workers = _qobject_worker_classes()
+    assert len(_WORKERS_WITHOUT_CANCEL) <= 5, (
+        f"_WORKERS_WITHOUT_CANCEL has grown to {len(_WORKERS_WITHOUT_CANCEL)}. It was "
+        "5 when written (2026-07-29) and may only get smaller — fix the worker "
+        "instead of widening the exemption."
+    )
+    retired = sorted(
+        name
+        for name in _WORKERS_WITHOUT_CANCEL
+        if name in workers and "cancel" in workers[name]
+    )
+    assert not retired, (
+        f"{retired} now define cancel() — remove them from _WORKERS_WITHOUT_CANCEL and "
+        "lower the bound above, so the ratchet keeps ratcheting."
+    )
+    gone = sorted(name for name in _WORKERS_WITHOUT_CANCEL if name not in workers)
+    assert not gone, f"{gone} no longer exist — drop them from the list."
