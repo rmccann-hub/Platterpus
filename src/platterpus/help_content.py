@@ -46,15 +46,28 @@ You don't interact with the container directly — the GUI handles it.
    **Rip?** column by default — untick any you don't want. Or right-click one or
    more highlighted rows for **Rip only these** / include / exclude. Start rips
    whatever's ticked (all ticked = the whole disc).
-5. Click **Start rip**. Progress shows an overall bar plus the current task.
-5. When it finishes, the status line reports a fidelity verdict and the results
-   pane shows a verification banner (see below). Files land under your output
+5. Click **Start rip**. Progress shows an overall bar plus the current task, and
+   the **Live log** tab comes forward so you can watch it work.
+6. When it finishes, the status line reports a fidelity verdict, the verification
+   banner appears (see below), and the **Tracks** tab comes forward with the
+   per-track results. Files land under your output
    folder (see Settings).
 
 ## Understanding the results — is my rip trustworthy?
 
-After a rip, a bold **verification banner** sits above the per-track table and
-tells you at a glance whether the rip can be trusted:
+After a rip, a bold **verification banner** sits above the results and tells you
+at a glance whether the rip can be trusted. It stays put — it is never scrolled
+away or tucked behind a tab, so the answer to "is this rip good?" is always on
+screen. Below it, three tabs hold the detail:
+
+- **Tracks** — the per-track table, shown automatically when a rip finishes.
+- **Details** — the CTDB result, why CTDB and AccurateRip can look like they
+  disagree, and album loudness. When there is something in here worth reading,
+  the tab label itself shows a **⚠** so you don't have to go looking.
+- **Live log** — the ripper's own output, shown automatically *while* a rip runs.
+
+Alt+T / Alt+D / Alt+L switch between them, as do the arrow keys once the tab
+strip has focus.
 
 - 🟢 **Green — "Bit-perfect: all N tracks verified against AccurateRip"** —
   every track's audio matches the shared AccurateRip database. This is the
@@ -74,8 +87,9 @@ tells you at a glance whether the rip can be trusted:
 A track counts as "verified" only when AccurateRip reports a **confidence of 1
 or more** (how many submitted rips share its checksum) — the app never calls a
 track verified on a guess. If you enabled **Verify with CTDB**, its result
-appears just below, marked the same way by symbol and text: a CTDB match shows
-green (verified — our CTDB checksum has been confirmed correct on real hardware).
+appears on the **Details** tab, marked the same way by symbol and text: a CTDB
+match shows green — verified, because our CTDB checksum has been
+confirmed correct on real hardware.
 It is a *whole-disc* check, so AccurateRip stays the per-track authority. No
 match shows grey — "couldn't confirm", not "failed": CTDB also holds
 offset-shifted pressings, and this check only tests the standard alignment.

@@ -11,6 +11,39 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.16] — 2026-07-29
+
+### Changed
+- **The results pane is now three bands instead of one long column, so it never
+  shows two scrollbars at once.** v0.5.15 stopped the pane painting text over
+  itself by putting everything inside a scroll area — and the table and the live
+  console are themselves scrollable, so inside it they became *nested* scroll
+  surfaces: two vertical scrollbars 15 px apart (measured at x=911 and x=926 on a
+  940×400 pane), with the wheel acting on whichever one the pointer happened to be
+  over. The maintainer's report was exact: "difficult to use together".
+
+  The obvious repair — turn the inner scrollbar off and size the table to its
+  content — was measured and rejected: **a nested scroll area that has nothing
+  left to scroll does not pass the wheel on to its parent**, so it trades a
+  visible scrollbar for a *dead wheel zone* over the biggest widget in the pane,
+  which feels more broken rather than less.
+
+  So the pane no longer nests anything. A **fixed header** keeps the progress
+  bars, the status line and the trust verdict permanently on screen; a
+  **QTabWidget** holds *Tracks* (the per-track table), *Details* (the CTDB
+  verdict, the AccurateRip reconciliation and album loudness) and *Live log*; and
+  the four output buttons stay pinned at the bottom. Because only one tab is
+  visible, there is at most one scrollbar and it can never be nested — measured
+  at every size from 1900×980 down to 940×300, on every tab, with zero
+  overlapping widgets, so the v0.5.15 fix is preserved rather than traded away.
+
+  Two things keep the tabs from hiding anything. The pane **follows the rip**: the
+  live console is shown while ripping and the per-track results come to the front
+  when the log lands (unless there are no tracks, in which case the log stays —
+  it is the only thing that can explain why). And the **Details tab label carries
+  a ⚠** whenever a caveat is sitting behind it, so a warning can never wait
+  silently for a click. Alt+T / Alt+D / Alt+L switch tabs.
+
 ## [0.5.15] — 2026-07-29
 
 ### Fixed
@@ -3439,6 +3472,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
@@ -3500,4 +3534,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.15.*
+*Last updated for Platterpus v0.5.16.*

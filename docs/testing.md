@@ -513,6 +513,21 @@ Generalised: *"it looks right on my screen"* is not coverage, and neither is
 — a label, a column, a dialog, a tooltip — the test worth writing squeezes it and
 asserts it copes.
 
+3. **Nested scroll surfaces (v0.5.16).** The v0.5.15 scroll area made the table
+   and the console *nested* scroll areas — two scrollbars 15 px apart, the wheel
+   landing on whichever was under the pointer. And the obvious repair is a trap:
+   **a nested scroll area with nothing left to scroll does not pass the wheel to
+   its parent**, so turning the inner bar off buys a dead wheel zone. Fixed
+   structurally, with tabs, so only one scroll surface is ever visible.
+
+   The tests for it are *structural*, not cosmetic, and that is the transferable
+   part: `len(live_scrollbars) <= 1` on every tab at every size, and
+   `nested_scroll_areas() == []`. Both carry a **vacuity floor** — the first
+   asserts it saw at least one scrollbar somewhere (otherwise "at most one" is
+   trivially true), the second asserts it found at least two scroll areas to
+   compare (otherwise there is nothing it could detect). Confirmed non-vacuous by
+   re-introducing the nesting: the detector named all three offenders.
+
 **A related trap from the same session: a feature with no trace cannot be
 tested, or even confirmed.** Whether the desktop completion notification fired
 was unanswerable from `log.txt` — the success path logged nothing and the failure
@@ -589,4 +604,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.5.15.*
+*Last updated for Platterpus v0.5.16.*

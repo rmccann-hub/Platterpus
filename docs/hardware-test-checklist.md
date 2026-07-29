@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.15
+# Hardware test checklist — v0.5.16
 
 > **Only what still needs testing.** Anything that has passed is gone from this sheet —
 > the record of what passed and when lives in `docs/session-log.md`. Test numbers are
@@ -85,10 +85,10 @@ regressions:**
 
 ---
 
-## 0 — [ ] Update to v0.5.15
+## 0 — [ ] Update to v0.5.16
 
 *Help → Check for updates…* → download → verify → restart. *Help → About* says
-**0.5.15**. Nothing else to set up — your settings are already right (see above).
+**0.5.16**. Nothing else to set up — your settings are already right (see above).
 
 ---
 
@@ -186,45 +186,54 @@ grep -n "completion notification" ~/.local/share/platterpus/log.txt
 
 **Result:** ☐ PASS ☐ FAIL — log line said: ____________ · toast seen: ☐ y ☐ n
 
-### A5b — [ ] ⭐⭐ The results pane no longer paints text over itself — *second attempt*
+### A5b — [x] ✅ RETIRED — the overlap is fixed, you confirmed it on v0.5.15
 
-**You were right that v0.5.14 didn't fix it, and it's worth saying why.** v0.5.14 fixed a
-real problem on the *horizontal* axis (a label made its whole line the pane's minimum
-width, so the window refused to **narrow**). Your symptom was on the *vertical* axis, and
-wrapping a label actually adds a line of height — so that release slightly worsened the
-thing it was credited with fixing. The clue was in your first report and I read past it:
-you said *smaller*, not *narrower*.
+*"All works"* — the text no longer paints over itself. Nothing to re-test.
 
-**What it actually is.** A Qt vertical layout given less height than its contents need
-does **not** clip and does **not** scroll — it overflows, and overflowing means widgets
-are positioned on top of each other. On top of that the pane under-reported its own
-needs (a wrapped label claims one line of height while drawing three), so it asked for
-326 px and then used ~405 px. That gap is what landed the verdict banner on the log box
-and the CTDB line on the AccurateRip table's first row — which is exactly what your
-screenshot shows.
+### A5c — [ ] ⭐ One scrollbar, and the mouse wheel does the obvious thing
 
-This time it was reproduced first: a probe fed the real pane your real rip log, laid it
-out at your window size, and found the same two collisions before anything was changed.
-The results pane now scrolls, so "not enough room" becomes a scrollbar instead of a
-collision — **measured at zero overlaps from 620 px of height down to 200 px**, where the
-old code broke below 326 px.
+**Your v0.5.15 report:** *"the 2 scroll bars in the lower right are difficult to use
+together."* Fair — and the fix caused it. Putting the whole pane in a scroll area made the
+table and the console *nested* scroll surfaces: two scrollbars 15 px apart, with the wheel
+acting on whichever one the pointer happened to be over.
 
-1. After a rip finishes, **un-maximise** the window and drag it short — much shorter than
-   feels reasonable — and narrow too.
-2. Watch the block below the progress bars: verdict banner, live log, AccurateRip table,
-   CTDB line, loudness line.
+The tidy-looking repair turned out to be a trap. Turning the table's own scrollbar off does
+give one bar — but a nested scroll area that has nothing left to scroll **doesn't pass the
+wheel on to its parent** (measured), so the wheel over the table would have done *nothing
+at all*. That's worse than two bars, so it was thrown out.
 
-- Expected: **a scrollbar appears** on the right of that block, and you scroll to see the
-  rest. Nothing is drawn on top of anything else at any size.
-- Expected: text still re-flows onto more lines as you narrow it.
-- The disc IDs (`MusicBrainz ID`, `CDDB ID`) must still sit **on one line** — your last
-  screenshot confirmed this is fine, so it only matters if something changed.
-- If you *still* see overlap, the most useful thing is a screenshot plus roughly how tall
-  the window was — that tells me whether the scroll area is being bypassed or whether a
-  different pane is at fault. The disc panel was measured clean, so my next suspect would
-  be the track table.
+**What v0.5.16 does instead.** The results block is now three parts: a fixed strip at the
+top (progress bars, status line, and the trust verdict) that never scrolls and never
+hides, then three tabs — **Tracks**, **Details**, **Live log** — and the buttons pinned at
+the bottom. Only one tab shows at a time, so there is at most one scrollbar and it is
+never nested inside another.
 
-**Result:** ☐ PASS ☐ FAIL — scrollbar appeared: ☐ y ☐ n · overlap at any size: ☐ y ☐ n
+You don't need a full rip for this — tick two tracks in the **Rip?** column and rip those.
+
+1. While it rips: the **Live log** tab should be showing, on its own, without you clicking.
+2. When it finishes: it should switch itself to **Tracks**.
+3. Resize the window small and large. On each tab, spin the mouse wheel over the middle of
+   the content.
+
+- Expected: **never two scrollbars at once.** At most one, on the right of whichever tab
+  you're looking at.
+- Expected: the wheel scrolls **that tab's content**, every time, with no dead spots — this
+  is the bit I could not fully prove off-hardware, so it is the single most useful thing
+  you can tell me.
+- Expected: the verdict line and status stay visible whichever tab you're on.
+- Expected: `Alt+T` / `Alt+D` / `Alt+L` jump to Tracks / Details / Live log.
+- Expected: when there's a CTDB caveat, the **Details** tab label shows a **⚠** — so you
+  can see there's something in there without opening it. (Your disc produces one: CTDB
+  won't match while track 3 is misbehaving.)
+
+**Result:** ☐ PASS ☐ FAIL — two bars at once anywhere: ☐ y ☐ n · a dead wheel spot:
+☐ y ☐ n · tabs switched themselves: ☐ y ☐ n · ⚠ on Details: ☐ y ☐ n
+
+> **Say so if you don't like it.** Tabs are a bigger change to how the app looks than a
+> layout fix, and it is a judgement call: it buys one predictable scrollbar and costs you
+> seeing the table and the CTDB note at the same time. If you'd rather have everything on
+> one page and put up with a scrollbar, that's a legitimate preference and I'll do it
+> differently — the measurements just rule out doing it the way it was.
 
 ### A6 — [ ] Your own `cover.jpg` survives a re-rip
 
@@ -400,7 +409,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.12 → v0.5.15: `output_dir =
+Expected, unchanged across v0.5.12 → v0.5.16: `output_dir =
 "/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
 with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
 independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
@@ -420,7 +429,7 @@ independent sources agree"* trust line, and the cache-defeat **Yes** measurement
       says CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says
       "on by default"
-- [ ] *Help → About* shows **0.5.15** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → About* shows **0.5.16** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
 - [ ] Disc-panel values can be selected and copied with the mouse — worth a second
       look this release, since those are the labels A5b changed. Selecting a
@@ -487,4 +496,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.15.*
+*Last updated for Platterpus v0.5.16.*

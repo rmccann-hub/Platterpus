@@ -406,7 +406,7 @@ Rules when adding one:
   prominent buttons carry unique `&`-mnemonics per window
   (`tests/test_ui_accessibility.py` pins the uniqueness).
 
-### 3.9 A pane of variable-length text needs a scroll area, and its labels must wrap
+### 3.9 Variable-length panes: wrap the labels, give it one scroll surface, and never nest two
 
 Two distinct failure modes, one root cause: **a widget whose content length is
 data-dependent will demand more room than the window has, and Qt's response to
@@ -429,20 +429,61 @@ with a real rip log at 940 px wide: minimum height reported **326 px**, height
 actually allocated **~405 px** — and below 326 px the verdict banner was drawn
 across the live-log box and the CTDB line across the AccurateRip table.
 
-**So: any pane whose text length depends on the data goes inside a
-`QScrollArea`** (`setWidgetResizable(True)`, `QFrame.Shape.NoFrame`). That
-converts "not enough room" from a paint collision into a scrollbar, and keeps the
-pane's own minimum small so a long report never dictates a tall window.
+**So: any pane whose text length depends on the data needs a scroll surface**
+(`QScrollArea`, `setWidgetResizable(True)`, `QFrame.Shape.NoFrame`). That converts
+"not enough room" from a paint collision into a scrollbar, and keeps the pane's
+own minimum small so a long report never dictates a tall window.
 
 > **Rejected alternative, so nobody re-derives it:** teaching every wrapped label
 > to report its true height-for-width *does* remove the overlap — and drives
 > `RipProgress`'s minimum height to **1418 px**, demanding a window taller than
-> most screens. Measured before choosing. The scroll area is the fix; honest
-> label heights are not.
+> most screens. Measured before choosing.
 
 A pane whose minimum is already honest needs no scroll area — `DiscInfoPanel` is
 a grid of short values and was measured clean at every size down to 300×80. Don't
 add one reflexively; measure.
+
+#### The corollary: **never nest one scroll surface inside another**
+
+Wrapping the whole of `RipProgress` in one scroll area fixed the overlap and
+immediately caused the next complaint, because a `QTableWidget` and a
+`QPlainTextEdit` *are* scroll areas: inside the outer one they became nested, and
+the pane showed **two vertical scrollbars 15 px apart** (measured at x=911 and
+x=926 on a 940×400 pane) with the wheel acting on whichever the pointer was over.
+
+The repair that looks obvious does not work. Sizing the table to its content and
+setting `ScrollBarAlwaysOff` removes the second bar — and **a nested scroll area
+with nothing left to scroll does not pass the wheel on to its parent** (measured:
+an exhausted inner area left the outer one at 0; overriding `wheelEvent` to
+`ignore()` did not help, because `QAbstractScrollArea` handles the wheel in
+`viewportEvent` on the *viewport*). So you trade a visible scrollbar for a **dead
+wheel zone** over the biggest widget in the pane, which reads as more broken, not
+less.
+
+The structural answer, and the shape `RipProgress` now has:
+
+| band | contains | scrolls? |
+| --- | --- | --- |
+| **header** | progress bars, status line, the trust verdict, warnings | no — fixed, always on screen |
+| **body** | a `QTabWidget`: *Tracks* (table), *Details* (a scroll area of prose), *Live log* (console) | one tab visible ⇒ at most one scroll surface, never nested |
+| **footer** | the output buttons | no |
+
+Rules when you extend it:
+
+- **Put a new scrollable widget in its own tab, or in the fixed header if it
+  cannot scroll.** Never inside another scroll area.
+- **A tab must not become where warnings hide.** Anything behind an unopened tab
+  is invisible, so mark the *tab label* — `_refresh_details_tab_marker` puts a ⚠
+  on "Details" whenever a caveat lands there. Mark warnings only; marking neutral
+  information trains the user to ignore the marker.
+- **The tabs follow the task.** `begin_rip` shows the console, `set_rip_log`
+  brings the results forward. A tab the user has to go and find is worse than a
+  cramped column.
+- **`isHidden()`, not `isVisible()`, when you ask "is this widget switched off?"**
+  A widget in a background tab is not *visible* even while it holds text, so
+  `isVisible()` answers a different question than you meant. (The same
+  distinction silently cost 18 px in the table's content-height formula, where
+  `horizontalHeader().isVisible()` is False before the widget is shown.)
 
 #### The horizontal half: an un-wrapped label dictates the minimum width
 
@@ -828,4 +869,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.5.15.*
+*Last updated for Platterpus v0.5.16.*
