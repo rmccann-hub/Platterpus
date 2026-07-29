@@ -25,12 +25,14 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -164,7 +166,52 @@ class RipProgress(QWidget):
         self._verdict_base_message: str = ""
         self._verdict_downgrades: list[str] = []
 
-        root = QVBoxLayout(self)
+        # --- Everything below lives inside a scroll area ---------------------
+        # This pane is a *variable-length report*: how tall it needs to be depends
+        # on the rip. Two long warnings and a CTDB explanation can each wrap onto
+        # two or three lines, and those lines are not optional — they're the
+        # trust story.
+        #
+        # A QVBoxLayout given less height than its children's minimums does NOT
+        # clip and does NOT scroll: it **overflows by letting the children's
+        # rectangles collide**, and colliding rectangles paint over each other.
+        # That is the "text on top of other text" a real-hardware session
+        # reported (2026-07-28). Measured on the real widgets with a real rip
+        # log: at 940 px wide this pane reported a minimum height of 326 px while
+        # the height it actually allocated was ~405 px — because a word-wrapped
+        # QLabel's *minimumSizeHint* is one line, while its *heightForWidth* is
+        # two or three. Below 326 px the deficit became visible: the verdict
+        # banner was drawn across the live-log box and the CTDB line across the
+        # AccurateRip table's first row. Maximised there was slack, so it looked
+        # correct — which is why it survived five hardware runs and an
+        # eight-reviewer audit.
+        #
+        # A scroll area is the fix because it converts "not enough room" from a
+        # paint collision into a scrollbar. The rejected alternative was making
+        # every wrapped label report its true height-for-width: it does remove
+        # the overlap, but it drives this pane's minimum height to **1418 px**,
+        # i.e. it demands a window taller than most screens. Measured, both of
+        # them, before choosing — see docs/testing.md §5.v.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self._scroll_area: QScrollArea = QScrollArea(self)
+        # Resizable so the content's *width* tracks the viewport: that is what
+        # makes the wrapped labels re-flow instead of demanding a horizontal
+        # scrollbar. Height is free to exceed the viewport — that's the point.
+        self._scroll_area.setWidgetResizable(True)
+        # No frame: this is an internal scrolling mechanism, not a visible box.
+        # A sunken border here would read as a widget the user should interact
+        # with, which it isn't.
+        self._scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget(self._scroll_area)
+        self._scroll_area.setWidget(content)
+        outer.addWidget(self._scroll_area)
+
+        # `root` is the content layout from here on. Children are constructed with
+        # `self` as their parent for readability, then re-parented to `content` by
+        # `addWidget` — so `window._rip_progress._status_label` and
+        # `findChildren()` keep working exactly as before.
+        root = QVBoxLayout(content)
         root.setContentsMargins(0, 0, 0, 0)
 
         # --- Overall progress (whole rip) ---

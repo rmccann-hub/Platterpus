@@ -815,7 +815,18 @@ class RipMixin(MainWindowShared):
         so a missing tray / notification daemon degrades to a silent no-op and a
         courtesy notification can never crash the finish handler.
         """
-        if not self._config.notify_on_completion or self._rip_cancelled:
+        # Every branch below logs its outcome at INFO, and that is deliberate.
+        # A toast is gone in eight seconds and nobody can prove afterwards
+        # whether it appeared: the maintainer's first test of the v0.5.13 fix was
+        # inconclusive purely because they were away from the screen when the rip
+        # finished, and the log had nothing to say either way. A courtesy feature
+        # still has to be *diagnosable* — "did it fire?" must be answerable from
+        # log.txt alone, exactly like every other outcome we record.
+        if not self._config.notify_on_completion:
+            log.info("completion notification skipped: turned off in Settings")
+            return
+        if self._rip_cancelled:
+            log.info("completion notification skipped: the rip was cancelled")
             return
         try:
             from PySide6.QtWidgets import QSystemTrayIcon
@@ -824,12 +835,19 @@ class RipMixin(MainWindowShared):
 
             title, body = build_completion_message(success, self._rip_cancelled, detail)
             icon = self._ensure_tray_icon()
-            if icon is not None:
-                icon.showMessage(
-                    title, body, QSystemTrayIcon.MessageIcon.Information, 8000
+            if icon is None:
+                log.info(
+                    "completion notification skipped: this desktop reports no "
+                    "usable system tray, so there is nowhere to post it"
                 )
+                return
+            icon.showMessage(title, body, QSystemTrayIcon.MessageIcon.Information, 8000)
+            log.info("completion notification posted: %s — %s", title, body)
         except Exception:  # noqa: BLE001 — a courtesy notification is never load-bearing
-            log.debug("completion notification failed (best-effort)", exc_info=True)
+            # Kept at exception level (not debug): the v0.5.12 regression that
+            # killed notifications outright hid in a swallowed AttributeError,
+            # and a swallow nobody can see is how that shipped.
+            log.exception("completion notification failed (best-effort)")
 
     def _ensure_tray_icon(self) -> QSystemTrayIcon | None:
         """Return the shared QSystemTrayIcon used for notifications, or None.
