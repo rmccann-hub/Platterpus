@@ -17,11 +17,38 @@ from PySide6.QtCore import QObject, QThread, SignalInstance
 
 log = logging.getLogger(__name__)
 
-# Threads we detached because they wouldn't stop promptly on close. Held so the
-# garbage collector can't destroy a still-running QThread (a hard SIGABRT) — each
-# reaps itself via its own finished→quit→deleteLater once its blocked step
-# finally returns. (Module-scoped on purpose: it must outlive the widget.)
+# Threads we abandoned because they wouldn't stop promptly on close.
+#
+# **This list keeps them alive for the rest of the process; it does NOT make
+# exiting safe.** It stops the *garbage collector* destroying a running QThread
+# mid-session (which Qt treats as fatal), and each entry reaps itself via its own
+# finished→quit→deleteLater once its blocked step finally returns. But it is a
+# **module global**, and CPython clears module globals during interpreter
+# shutdown — so if the process exits while an entry is still running, the last
+# reference drops there, `~QThread()` runs on a running thread, and Qt calls
+# qFatal() → SIGABRT.
+#
+# That is the v0.5.8 crash, reproduced: a child process that abandons a running
+# QThread and then returns from main() exits **134 (SIGABRT)** with
+# `QThread: Destroyed while thread 'DiscInfoWorker' is still running`. The
+# retention was already here when it crashed; retention alone was never the fix.
+#
+# So `abandoned_thread_count()` exists, and every exit path that can run while an
+# entry is live MUST hard-exit instead of unwinding — see
+# `platterpus.hard_exit.exit_without_teardown`. Never "just drop the reference",
+# and never assume this list protects process exit.
+# (Module-scoped on purpose: it must outlive the widget that owned the thread.)
 _abandoned_threads: list[QThread] = []
+
+
+def abandoned_thread_count() -> int:
+    """How many worker threads were abandoned still-running.
+
+    Non-zero means **interpreter shutdown is unsafe**: see the note on
+    `_abandoned_threads`. Exit paths use this to decide whether they must bypass
+    teardown rather than unwind through it.
+    """
+    return len(_abandoned_threads)
 
 
 def stop_thread(
@@ -41,11 +68,22 @@ def stop_thread(
 
     So: cancel the worker (if it exposes ``cancel()``), ask the thread to quit,
     and wait only briefly. If it's still running after ``wait_ms`` (a step is in
-    flight), DETACH it — reparent to ``None`` and keep a reference in
+    flight), **abandon** it — reparent to ``None`` and keep a reference in
     ``_abandoned_threads`` — rather than block longer or let the caller's
-    destruction take it down. The detached thread finishes its current step and
+    destruction take it down. The abandoned thread finishes its current step and
     reaps itself. Best-effort; never raises. Safe when ``thread`` is ``None`` or
     already stopped.
+
+    **"Abandon", never "detach".** Qt has no detach operation: there is no API
+    that severs Python ownership from C++ lifetime, and the word invited exactly
+    the mistake of dropping the reference. We keep the reference.
+
+    **Abandoning does not make process exit safe** — see the note on
+    ``_abandoned_threads``. A caller that abandons a thread and then lets the
+    interpreter shut down will abort. Exit paths must consult
+    ``abandoned_thread_count()`` and hard-exit; that is not this function's job,
+    because it is also called mid-session (dialog close), where unwinding is
+    fine.
     """
     if thread is None:
         return
@@ -65,7 +103,8 @@ def stop_thread(
         # Still running — a step can't be interrupted by quit(). Abandon it so we
         # neither block the GUI thread longer nor destroy a live QThread.
         log.warning(
-            "worker thread %s did not stop within %dms — detaching it",
+            "worker thread %s did not stop within %dms — abandoning it "
+            "(reference retained; process exit must now bypass teardown)",
             thread.objectName() or type(thread).__name__,
             wait_ms,
         )

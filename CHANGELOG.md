@@ -11,6 +11,35 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The app aborted with `SIGABRT` when it exited while a worker thread was still
+  blocked in a container call** — reliably during the update-relaunch, which
+  tears the process down with background work in flight. A worker inside
+  `subprocess.communicate()` never returns to its event loop, so `QThread.quit()`
+  cannot reach it; `stop_thread` gives up after a short wait and abandons the
+  thread, keeping a reference so the garbage collector can't destroy a running
+  `QThread`. That retention was already there when it crashed — and it is not
+  enough, because it lives in a **module global, and CPython clears module
+  globals during interpreter shutdown**. The last reference dropped at exit,
+  `~QThread()` ran on a running thread, and Qt called `qFatal()`. Reproduced: a
+  child process that abandons a running thread and then exits normally dies with
+  **134 (SIGABRT)**, logging `QThread: Destroyed while thread 'DiscInfoWorker' is
+  still running` — the exact line from the crash report. Both exit paths now
+  bypass interpreter teardown when a thread was abandoned still-running: they
+  flush the log explicitly (`os._exit` skips flushing, which would truncate the
+  log a bug report depends on) and leave immediately. A clean shutdown is
+  unchanged and still unwinds normally.
+- The relaunch and normal-exit paths share one guard (`platterpus.hard_exit`), so
+  they cannot drift apart the way they had.
+
+### Changed
+- Thread handling no longer says **"detaching"**. Qt has no detach operation —
+  there is no API that severs Python ownership from C++ lifetime — and the word
+  made a fatal pattern look like a supported one. It now says "abandoning", and
+  the log line states the consequence: the reference is retained and process exit
+  must bypass teardown. A test keeps the word out of the code and the log
+  messages (while still allowing the comment that explains why it is banned).
+
 ## [0.5.16] — 2026-07-29
 
 ### Changed

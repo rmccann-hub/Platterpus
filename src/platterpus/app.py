@@ -25,7 +25,7 @@ import traceback
 from pathlib import Path
 from typing import cast
 
-from platterpus import __version__
+from platterpus import __version__, hard_exit
 from platterpus.build_info import build_fingerprint
 
 log = logging.getLogger(__name__)
@@ -328,7 +328,14 @@ def main(argv: list[str] | None = None) -> int:
         _show_fatal_dialog("Platterpus — startup failed", exc)
         return 1
 
-    return int(app.exec())
+    status = int(app.exec())
+    # If any worker thread had to be abandoned still-running, returning from here
+    # would let interpreter shutdown clear `workers._abandoned_threads`, drop the
+    # last reference to a live QThread, and abort with SIGABRT (the v0.5.8 crash —
+    # see `hard_exit`). In that case leave the process immediately instead, after
+    # flushing the log. A clean shutdown is unaffected and unwinds normally.
+    hard_exit.exit_now_if_threads_abandoned(status)
+    return status
 
 
 if __name__ == "__main__":

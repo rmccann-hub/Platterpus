@@ -31,6 +31,7 @@ from pathlib import Path
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QMessageBox
 
+from platterpus import hard_exit
 from platterpus.ui.main_window_shared import MainWindowShared
 
 log = logging.getLogger(__name__)
@@ -367,4 +368,16 @@ class UpdateMixin(MainWindowShared):
                     "menu or ~/Applications.",
                 )
                 return  # leave this window open so the user isn't left with nothing
+            # The new process now owns everything; this one is being replaced, so a
+            # graceful Qt teardown buys nothing and is the only thing that can
+            # abort. `self.close()` runs closeEvent (which stops the workers it
+            # can and abandons the ones blocked in a container exec), and then we
+            # leave immediately rather than letting `app.exec()` return and
+            # interpreter shutdown destroy a live QThread — the v0.5.8 SIGABRT.
+            # See `platterpus.hard_exit` for the full mechanism.
+            #
+            # closeEvent still runs first, deliberately: it is what stops the
+            # in-container reader and flushes the rip state. We skip *teardown*,
+            # not *shutdown*.
             self.close()
+            hard_exit.exit_without_teardown(0, "relaunching into the updated version")
