@@ -25,7 +25,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from platterpus.parsers.cd_info import DiscInfo
+# Re-exported deliberately (`as DiscInfo`): the UI imports DiscInfo from this
+# module because the backend ABC is the seam it depends on, not the parser.
+# The explicit form is what makes that legal under `no_implicit_reexport`.
+from platterpus.parsers.cd_info import DiscInfo as DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 
 log = logging.getLogger(__name__)
