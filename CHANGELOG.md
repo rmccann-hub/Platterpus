@@ -11,6 +11,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.15] — 2026-07-29
+
+### Fixed
+- **The results pane really does stop drawing its text on top of itself now.**
+  v0.5.14 claimed this and did not deliver it: it fixed a genuine problem on the
+  *horizontal* axis (an un-wrapped label made its whole line the pane's minimum
+  width, so the window refused to narrow) but the reported symptom was on the
+  *vertical* axis, and wrapping a label slightly increases vertical demand — so
+  the release marginally worsened the thing it was credited with fixing. The real
+  mechanism, reproduced with the real hardware rip log before anything was
+  changed: a `QVBoxLayout` given less height than its children need does not clip
+  and does not scroll — it **overflows, and the children's rectangles collide**.
+  Compounding it, the pane under-reported what it needed (a word-wrapped label's
+  minimum height is *one line* while the height it draws is two or three), so it
+  claimed a 326 px minimum and then allocated ~405 px. Below that the verdict
+  banner was painted across the live-log box and the CTDB line across the
+  AccurateRip table's first row — exactly what the screenshot showed. The pane's
+  contents now live in a scroll area, so "not enough room" becomes a scrollbar
+  instead of a collision: measured at zero overlapping widgets from 620 px down
+  to 200 px of height, where the old code overlapped below 326 px. The rejected
+  alternative (teaching every label to report its true height) also removed the
+  overlap but drove the pane's minimum height to 1418 px — a window taller than
+  most screens.
+
+### Changed
+- **The desktop completion notification now records what it did.** Whether it
+  fired was unanswerable from `log.txt`: the success path logged nothing and the
+  failure path logged at `debug`, so the first hardware test of the v0.5.13 fix
+  was inconclusive purely because the maintainer stepped away while the toast was
+  on screen. Every outcome is now an `INFO` line — posted (with the text), or
+  skipped and why (turned off in Settings, rip cancelled, or no usable system
+  tray) — and a genuine failure is logged with its traceback rather than
+  swallowed at debug level. A courtesy feature still has to be diagnosable.
+
 ## [0.5.14] — 2026-07-28
 
 ### Fixed
@@ -3405,6 +3439,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.11...v0.5.12
@@ -3465,4 +3500,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.14.*
+*Last updated for Platterpus v0.5.15.*

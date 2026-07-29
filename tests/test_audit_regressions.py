@@ -854,6 +854,53 @@ def test_the_rip_complete_notification_path_does_not_raise(window) -> None:
     )
 
 
+def test_every_notification_outcome_is_recorded_in_the_log(window) -> None:
+    """ "Did the notification fire?" must be answerable from log.txt alone.
+
+    A desktop toast lives for eight seconds and leaves no trace. The first
+    hardware test of the v0.5.13 notification fix was inconclusive for exactly
+    that reason — the maintainer was away from the screen when the rip finished,
+    and the log recorded nothing either way, so a shipped fix could not be
+    confirmed or refuted. Every branch of `_notify_rip_complete` therefore states
+    its outcome at INFO: posted, or skipped and why.
+    """
+    import logging
+
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    logger = logging.getLogger("platterpus.ui.main_window_rip")
+    handler = _Capture()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    def messages_for(cancelled: bool, enabled: bool) -> list[str]:
+        records.clear()
+        window._rip_cancelled = cancelled
+        window._config.notify_on_completion = enabled
+        window._notify_rip_complete(True, "Done — all 14 tracks ripped cleanly.")
+        return [r.getMessage() for r in records]
+
+    try:
+        # Turned off in Settings, and cancelled, are both legitimate reasons to
+        # stay silent on screen — but not reasons to stay silent in the log.
+        assert any("turned off in Settings" in m for m in messages_for(False, False))
+        assert any("cancelled" in m for m in messages_for(True, True))
+
+        # The real path. Headless CI has no system tray, so the honest outcome
+        # there is the "nowhere to post it" branch; on a desktop it is "posted".
+        # Either is fine — what must never happen is nothing at all.
+        said = messages_for(False, True)
+        assert any(("posted" in m) or ("no usable system tray" in m) for m in said), (
+            f"the notification path recorded no outcome at all: {said}"
+        )
+    finally:
+        logger.removeHandler(handler)
+
+
 def test_every_shared_seam_attribute_the_code_reads_is_initialised() -> None:
     """The general form of the bug above, as a fitness test.
 

@@ -461,41 +461,66 @@ anything, not because they are wrong.
 
 ### 5.v — A layout is only tested if something is *constrained* (added 2026-07-28)
 
-The results pane and the disc panel drew their text on top of each other in any
-non-maximised window, and it shipped through five hardware runs, an
-eight-reviewer whole-application audit, and every UI test we had. The cause was
-two `QLabel`s without `setWordWrap(True)`: an un-wrapped label reports its whole
-single line as its minimum width, that minimum propagates to the window, and
-below it the layout draws children outside their rows (see
-[architecture.md §3.9](architecture.md)).
+The results pane drew its text on top of itself in any non-maximised window, and
+it shipped through five hardware runs, an eight-reviewer whole-application audit,
+and every UI test we had. Two mechanisms, one lesson — both explained in full in
+[architecture.md §3.9](architecture.md):
 
-**Why the suite could not see it.** Every existing test asserted on *content* —
-this label says that string, this row appears — and content is correct at any
-width. Nothing asserted on a *constraint*. A widget under no size pressure never
-exhibits a size-pressure bug, and the offscreen platform gives every widget all
-the room it asks for.
+1. **Vertical (the one the user actually saw).** A `QVBoxLayout` with less height
+   than its children's minimums does not clip and does not scroll — it
+   **overflows, and sibling rectangles collide**. Compounded by a pane that
+   under-reports: a wrapped `QLabel`'s `minimumSizeHint` height is one line while
+   its `heightForWidth` is two or three, so the pane claimed 326 px and allocated
+   ~405 px. Fixed with a `QScrollArea` (v0.5.15).
+2. **Horizontal.** An un-wrapped `QLabel` makes its whole single line the pane's
+   minimum width, so the window refuses to narrow. Fixed with `setWordWrap`
+   (v0.5.14) — and note this was *reported as the fix for the overlap and was
+   not*. A stuck minimum width cannot by itself paint text over text.
+
+**Why the suite could not see either.** Every existing test asserted on
+*content* — this label says that string, this row appears — and content is
+correct at every size. Nothing asserted on a *constraint*. A widget under no size
+pressure cannot exhibit a size-pressure bug, and the offscreen platform hands
+every widget all the room it asks for.
 
 So, for any pane whose text is generated at runtime:
 
-* **Assert on `minimumSizeHint()`, not on appearance.** It needs no shown window,
-  no screenshot, and no event loop — the whole check is three lines.
-* **State the invariant so it survives a font change.** Assert *the same
-  vocabulary repeated N times does not change the minimum width*. Do not assert
-  an absolute pixel value, and do not assert equality against the short-text
-  minimum: a wrapped label's minimum is its longest single **word**, which is
-  irreducible and font-dependent. (The first version of these tests failed at
-  219 vs 188 px for exactly this reason.)
-* **Add the fitness test, not just the case.** Walk `findChildren(QLabel)` and
-  fail on any un-wrapped label holding a long dynamic string. The specific case
-  proves the bug is gone; the fitness test is what stops the *next* label from
-  reintroducing it — the same "make the omission fail a test" discipline as the
-  settings and report completeness meta-tests (§5, rule 6).
-* **Verify non-vacuity by reverting the fix.** These four tests were confirmed to
-  fail at 3389 px and 3359 px against the un-wrapped code before being kept.
+* **Constrain it, then assert.** `resize()` to a deliberately absurd size and
+  assert on geometry — no shown window and no screenshot needed, just
+  `layout().activate()`.
+* **The vertical invariant is "no two siblings intersect".** That *is* the
+  definition of text-over-text and it is exactly checkable: walk every visible
+  leaf widget, group by parent, compare geometries pairwise.
+* **The horizontal invariant must be font-metric independent.** Assert *the same
+  vocabulary repeated N times does not change `minimumSizeHint().width()`*. Never
+  an absolute pixel value, and never equality against the short-text minimum: a
+  wrapped label's minimum is its longest single **word**, which is irreducible
+  and font-dependent. (The first draft failed at 219 vs 188 px for this reason.)
+* **Make the detector prove it can still see the bug — this one nearly shipped
+  blind.** The first overlap detector walked `pane.layout()`. After the fix that
+  layout holds a *single* item (the scroll area), so it compared one widget
+  against nothing and reported "no overlaps" for a pane that was still broken.
+  The kept version returns how many widgets it examined and **asserts that count
+  is >= 8**, so a structural refactor fails the test loudly instead of quietly
+  emptying it. *Any* detector that a "found nothing" result would satisfy needs a
+  floor like this.
+* **Verify non-vacuity by reverting the fix.** Every test here was confirmed to
+  fail against the broken code first — the overlap tests naming the same two
+  widget pairs the user's screenshot showed.
 
-Generalised: *"it looks right on my screen"* is not coverage. Anywhere the
-program's output size is data-dependent — a label, a column, a dialog, a
-tooltip — the test worth writing constrains it and asserts it copes.
+Generalised: *"it looks right on my screen"* is not coverage, and neither is
+*"the strings are correct"*. Anywhere the program's output size is data-dependent
+— a label, a column, a dialog, a tooltip — the test worth writing squeezes it and
+asserts it copes.
+
+**A related trap from the same session: a feature with no trace cannot be
+tested, or even confirmed.** Whether the desktop completion notification fired
+was unanswerable from `log.txt` — the success path logged nothing and the failure
+path logged at `debug`. So a shipped fix had no way to be verified on hardware:
+the maintainer stepped away, and the eight-second toast was simply gone. Anything
+whose only evidence is transient (a toast, a flash, a colour) must **record its
+outcome, including why it was skipped**, or neither a test nor a bug report can
+reach it.
 
 
 ## 6. Definition of Done (testing) — paste into every PR
@@ -564,4 +589,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.5.14.*
+*Last updated for Platterpus v0.5.15.*
