@@ -634,6 +634,59 @@ Corollary for anyone reading numbers out of a tool: **record the version beside
 the number.** A typing census that says "132 errors" without saying "mypy 2.3.0"
 is not reproducible, because `--strict`'s flag set is version-dependent.
 
+A related trap that cost a real false-green build: **check *which* binary the gate
+ran.** `mypy` on `PATH` here was a stale global 1.19.1 while the pin is `>=2.3,<2.4`,
+so a bare `mypy` invocation silently measured against the wrong tool and produced
+118 phantom import errors. Invoke gating tools as `python -m <tool>` from the
+activated venv, and if a number surprises you, print `--version` before believing it.
+
+### 5.q — An exit code is only a verdict if the run reached the end (added 2026-07-29)
+
+**The worst build outcome is not red. It is green-and-wrong**, and this project
+shipped one: CI's `test` job on PR #105 exited **0** having run **76%** of the
+suite. No summary line, no coverage report, `--cov-fail-under` never evaluated,
+~500 tests never executed, and a genuinely failing test swallowed — all behind a
+green tick that a merge was performed on.
+
+The mechanism is worth understanding because it generalises past this repo.
+`tests/conftest.py` deliberately ends the session with `os._exit(status)` (to dodge
+a PySide global-teardown abort). Its comment claimed it could not mask a mid-run
+abort, and that was true for a *signal* — but not for a mid-run **`os._exit(0)`**,
+which is byte-identical to success from the outside. Product code supplies exactly
+such a call: `platterpus.hard_exit` exists to leave the process without teardown,
+and a test drove the update-relaunch path straight into it.
+
+Three durable rules come out of it:
+
+1. **A run must prove it finished, and the proof cannot come from inside the run.**
+   A truncated process cannot report on itself — it is gone. So
+   `pytest_sessionfinish` writes `.pytest-session-complete` as its very last act,
+   `pytest_sessionstart` deletes any stale copy (a leftover from yesterday would
+   vouch for today), and **CI fails the job when the file is missing**. Any harness
+   that hard-exits, forks, or `execv`s needs an equivalent liveness artefact.
+2. **A seam nobody uses is not a safety feature.** `hard_exit._exit_fn` was built
+   as the injection point for exactly this and documented as "reached only when a
+   test injects a recording stub" — and no test ever injected one, so the real
+   `os._exit` was live in every test for five releases. Injection seams belong in
+   an **autouse** fixture: the failure mode is silent, so an opt-in seam protects
+   only the tests whose authors already knew about the hazard, and the test that
+   needed it did not.
+3. **Match the stand-in's control flow, not just its signature.** `os._exit` never
+   returns, so the stand-in raises (from `BaseException`, so no stray
+   `except Exception:` can swallow what the real thing cannot be caught at all).
+   A recorder that *returns* lets tests execute code production can never reach —
+   §5.t's rule applied to control flow rather than to cleanup.
+
+And a diagnosability note that is really part of the same bug: CI passed `-q` on
+top of the `-q` already in `addopts`, taking verbosity to `-2`, which **suppresses
+pytest's `N passed` summary**. That summary is the only human-visible proof in a log
+that the run reached the end, so its absence looked normal and nobody read the
+truncation. Never double `-q`; if a log has no summary line, treat that as a
+finding, not as formatting.
+
+Proven by reverting, per §5.s: with the fixture removed, the guard test fails **and**
+the process dies at status 0 with the sentinel absent — so both halves fire.
+
 
 ## 6. Definition of Done (testing) — paste into every PR
 
@@ -701,4 +754,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.5.16.*
+*Last updated for Platterpus v0.5.17.*

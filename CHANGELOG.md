@@ -11,6 +11,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+<!-- Rolled up under a dated `## [0.5.17]` heading at release time (the compare
+     link is already in place at the bottom of this file). -->
+
+### Fixed
+- **The test suite had been reporting a green build while running only 76% of
+  itself.** `conftest` ends the session with `os._exit(status)` on purpose (it
+  dodges a PySide global-teardown abort), which makes *any* mid-run `os._exit(0)`
+  indistinguishable from success — same exit code, no summary line, no coverage
+  report, `--cov-fail-under` never evaluated. Product code supplies exactly such a
+  call: `platterpus.hard_exit` leaves the process without teardown, and a test that
+  drives the update-relaunch path called it for real. So the run stopped partway,
+  **~500 tests never executed**, and CI marked the job ✅ — which is what the
+  previous release was merged on. Found by noticing a captured run had no summary
+  line, then confirming the same truncation in the CI log.
+
+  Three things now have to hold for a build to be green. The injection seam that
+  existed for this (`hard_exit._exit_fn`, documented as the way to test the exit and
+  never once used) is patched from an **autouse** fixture, so no test has to know
+  the hazard exists; the stand-in **raises** instead of returning, because
+  `os._exit` never returns and a stub that falls through lets tests run code
+  production cannot reach; and the session now writes a completion sentinel as its
+  last act which **CI verifies**, because a truncated run cannot report on itself.
+  Reverting the fixture reproduces the original failure exactly: a failing test
+  swallowed, exit status 0, sentinel absent.
+- **A second update-relaunch test had never run at all** — it sat after the one
+  that killed the session, so it was silently skipped every time. It passes now
+  that the suite reaches it.
+- **CI suppressed pytest's `N passed` summary** by passing `-q` on top of the `-q`
+  already in `addopts` (verbosity `-2`). That line is the only human-visible proof
+  in a log that a run reached the end, so its absence looked normal and hid the
+  truncation above.
+
 ### Changed
 - **The two tools that gate CI are now pinned to the minor they were measured
   against.** `ruff format` and `mypy --strict` change what they accept between
@@ -3561,6 +3593,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...v0.5.14
@@ -3623,4 +3656,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.16.*
+*Last updated for Platterpus v0.5.17.*

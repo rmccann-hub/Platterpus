@@ -247,4 +247,4 @@ Chronological session notes — what was built, decided, and learned each sessio
 
 ---
 
-*Last updated for Platterpus v0.5.16.*
+*Last updated for Platterpus v0.5.17.*

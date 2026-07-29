@@ -17,7 +17,7 @@ import pytest
 
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
-from conftest import stop_window_threads
+from conftest import HardExitCalled, stop_window_threads
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
@@ -2553,7 +2553,16 @@ def test_update_install_success_offers_restart(
     # so it can be a BOUND METHOD queued to the GUI thread, not a worker-thread
     # closure (the "Not Responding" freeze fix, 2026-06-27).
     window._install_dialog = _FakeDialog()
-    window._on_update_install_finished(True, str(new_path))
+    # The handler ends by leaving the process without interpreter teardown (the
+    # v0.5.8 SIGABRT fix — a relaunch can be holding a QThread blocked in a
+    # container exec). In production that is `os._exit`; under test the conftest
+    # `hard_exit_calls` fixture swaps in a stand-in that raises instead, because
+    # os._exit never returns and letting the test fall through would exercise a
+    # path production cannot reach. Asserting on it here is also the point: the
+    # relaunch MUST skip teardown, and that is a behaviour worth pinning.
+    with pytest.raises(HardExitCalled) as exit_info:
+        window._on_update_install_finished(True, str(new_path))
+    assert exit_info.value.code == 0  # a relaunch is a success, not a failure
 
     assert integrated == [new_path]  # menu entry repointed at the new file
     assert launched == [[str(new_path)]]  # new version started
@@ -2692,7 +2701,12 @@ def test_update_relaunch_passes_scrubbed_env_and_new_session(
             pass
 
     window._install_dialog = _FakeDialog()
-    window._on_update_install_finished(True, str(new_path))
+    # Ends by leaving the process without teardown — see the sibling relaunch test.
+    # This test never ran before the `hard_exit_calls` fixture existed: the earlier
+    # relaunch test called the real `os._exit(0)` first and took the whole session
+    # with it, so everything after it was silently skipped while CI reported green.
+    with pytest.raises(HardExitCalled):
+        window._on_update_install_finished(True, str(new_path))
 
     assert len(calls) == 1
     kw = calls[0]["kw"]
