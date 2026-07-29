@@ -575,9 +575,13 @@ class MainWindow(
         # One budget for the whole close, not one per worker — see the docstring.
         deadline = ShutdownDeadline()
 
-        # Disarm the auto-force-stop so it can't fire into a torn-down window.
-        self._force_stop_timer.stop()
-        self._rip_liveness_timer.stop()  # disarm the stall watchdog too
+        # NB: the auto-force-stop timer is disarmed LATER, after
+        # `_stop_rip_on_shutdown()` has had a chance to read it — that pending
+        # rescue is the only signal that a cancelled rip's in-container reader may
+        # still be running. Disarming it here (as this did) meant a Quit within
+        # five seconds of Cancel left the drive reading with nothing left to stop
+        # it. See `_stop_rip_on_shutdown`.
+        self._rip_liveness_timer.stop()  # disarm the stall watchdog
         # Disarm a pending library move — the folder simply stays in the output
         # directory (safe default); moving during teardown would race close.
         self._library_move_timer.stop()
@@ -615,6 +619,10 @@ class MainWindow(
         # never caught it because `tests/conftest.py`'s window fixture stops
         # `_rip_thread` itself, silently compensating for this gap.
         stop_thread(self._rip_thread, self._rip_worker, deadline=deadline)
+        # Now it is safe to disarm: the reader has been dealt with synchronously
+        # above, so the timer has nothing left to rescue and must not fire into a
+        # torn-down window.
+        self._force_stop_timer.stop()
         # Flush any debounced rip-report write so closing mid-verify never loses
         # the last result that had been queued for serialization.
         self._flush_rip_report()

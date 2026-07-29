@@ -12,6 +12,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Cancelling a rip and then quitting within five seconds left the drive
+  reading, with no way to recover.** On Cancel the host-side wrapper dies at once
+  but podman does not forward the signal into the container, so the only thing
+  that kills the in-container reader is a five-second rescue timer — and
+  `closeEvent` disarmed that timer *before* the shutdown drive-stop ran, while the
+  shutdown stop itself gave up whenever the rip already looked finished. Quitting
+  inside that window therefore left the reader ripping, and the drive's physical
+  eject button is ignored while a read holds the device, so there was no in-app
+  *or* hardware recovery. This was the 2026-07-01 real-user bug reachable through
+  a different door. The shutdown stop now also fires when a force-stop is still
+  pending, and the timer is disarmed only after it has been consulted.
+- **Pressing Force stop was permanently recorded as a rip *failure*.** Only the
+  Cancel button marked the rip cancelled, so using Force stop on its own (it is
+  enabled for the whole rip) produced "Rip failed.", an `outcome.status` of
+  `failed` in the JSON report, an `*** INCOMPLETE RIP (failed) ***` banner in the
+  checksum-signed log, **and** a failure notification — recording the user's own
+  deliberate choice as a malfunction. It is now recorded as a cancellation.
+
 - **Closing the window during a rip aborted the process.** A threading audit found
   that `closeEvent` stopped six worker threads and not the rip thread — it
   cancelled the rip *worker* and freed the drive, but `_rip_thread` is parented to

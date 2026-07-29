@@ -696,6 +696,15 @@ class RipMixin(MainWindowShared):
         first. See drive_control for the (user-approved) Rule #3 exception.
         """
         self._force_stop_done = True
+        # Force stop is the user deliberately stopping the rip, so record it as a
+        # CANCELLATION. Without this, only `_on_rip_cancel` set the flag, so
+        # pressing Force stop on its own (the button is enabled for the whole rip)
+        # produced status "Rip failed.", an `outcome.status = "failed"` in the JSON
+        # report, an `*** INCOMPLETE RIP (failed) ***` banner in the durable log,
+        # AND a failure notification — permanently recording a user's own choice as
+        # a malfunction. Found by a rip-path audit, 2026-07-29; the honesty rule
+        # this breaks is the same one the rest of the reporting code is built on.
+        self._rip_cancelled = True
         device = self._drive_picker.current_device() or ""
         log.info(
             "force-stopping drive (%s trigger), device=%s",
@@ -767,9 +776,28 @@ class RipMixin(MainWindowShared):
         set) so a normal close never touches the drive. Does NOT eject — closing
         the app shouldn't pop the tray; it just has to stop the reader.
         """
-        if self._rip_thread is None:
+        # A rip in flight is the obvious case, but not the only one. On Cancel the
+        # host wrapper dies immediately (podman does not forward the signal into
+        # the container), so the pipe EOFs, `_on_rip_finished` clears
+        # `_rip_thread`, and the *only* thing left that would kill the in-container
+        # reader is the 5-second `_force_stop_timer` rescue. Quit inside that
+        # window and the old guard returned here, leaving the reader ripping with
+        # no in-app recovery — and the drive's physical eject button is ignored
+        # while a read holds the device, so no hardware recovery either. That is
+        # the 2026-07-01 real-user bug reachable through a different door (found by
+        # a rip-path audit, 2026-07-29). So: also stop when a force-stop is still
+        # pending. `closeEvent` disarms that timer, which is why it must disarm it
+        # AFTER calling us, not before.
+        force_stop_pending = self._force_stop_timer.isActive()
+        if self._rip_thread is None and not force_stop_pending:
             return
-        log.info("window closing during a rip — stopping the in-container reader")
+        log.info(
+            "window closing with the drive possibly still reading "
+            "(rip in flight: %s, force-stop pending: %s) — stopping the "
+            "in-container reader",
+            self._rip_thread is not None,
+            force_stop_pending,
+        )
         if self._rip_worker is not None:
             # Host-side: set the cancel flag + killpg the wrapper group.
             self._rip_worker.cancel()

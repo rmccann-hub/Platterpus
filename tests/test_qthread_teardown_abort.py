@@ -311,3 +311,63 @@ def test_a_finished_abandoned_thread_stops_forcing_a_hard_exit() -> None:
         )
     finally:
         workers._abandoned_threads[:] = original
+
+
+# --- Rip-path audit findings, 2026-07-29 --------------------------------------
+
+
+def test_quitting_just_after_cancel_still_stops_the_container_reader() -> None:
+    """Cancel then Quit within 5 s must not leave the drive reading.
+
+    On Cancel the host wrapper dies at once (podman does not forward the signal
+    into the container), so the pipe EOFs, `_on_rip_finished` clears
+    `_rip_thread`, and the only thing left that would kill the in-container reader
+    is the five-second force-stop rescue. `closeEvent` used to disarm that timer
+    *before* `_stop_rip_on_shutdown` ran, and that method returned early when
+    `_rip_thread is None` — so quitting inside the window left the reader ripping
+    with no in-app recovery, and the physical eject button is ignored while a read
+    holds the device.
+
+    Two properties, both read from the source because the behaviour needs a live
+    drive to exercise: the shutdown stop must consider a *pending* force-stop, and
+    `closeEvent` must disarm the timer only after consulting it.
+    """
+    import inspect
+
+    from platterpus.ui.main_window import MainWindow
+    from platterpus.ui.main_window_rip import RipMixin
+
+    shutdown = inspect.getsource(RipMixin._stop_rip_on_shutdown)
+    assert "_force_stop_timer.isActive()" in shutdown, (
+        "_stop_rip_on_shutdown only checks _rip_thread, so a cancelled rip whose "
+        "container reader is still alive is skipped entirely"
+    )
+
+    close = inspect.getsource(MainWindow.closeEvent)
+    stop_call = close.index("_stop_rip_on_shutdown")
+    disarm = close.index("_force_stop_timer.stop()")
+    assert disarm > stop_call, (
+        "closeEvent disarms the force-stop timer BEFORE _stop_rip_on_shutdown "
+        "reads it, so the one signal that the drive may still be reading is "
+        "destroyed before it can be acted on"
+    )
+
+
+def test_force_stop_is_recorded_as_a_cancellation_not_a_failure() -> None:
+    """Force stop is the user's own choice; the record must not call it a failure.
+
+    Only `_on_rip_cancel` set `_rip_cancelled`, so pressing Force stop on its own
+    — the button is enabled for the whole rip — produced "Rip failed.", an
+    `outcome.status` of "failed" in the JSON report, an
+    `*** INCOMPLETE RIP (failed) ***` banner in the checksum-signed log, and a
+    failure notification.
+    """
+    import inspect
+
+    from platterpus.ui.main_window_rip import RipMixin
+
+    source = inspect.getsource(RipMixin._do_force_stop)
+    assert "_rip_cancelled = True" in source, (
+        "_do_force_stop does not mark the rip cancelled, so a deliberate user "
+        "stop is permanently recorded as a rip failure in the report and the log"
+    )
