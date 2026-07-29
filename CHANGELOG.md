@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **The two tools that gate CI are now pinned to the minor they were measured
+  against.** `ruff format` and `mypy --strict` change what they accept between
+  minor releases, so the previous wide ranges (`ruff>=0.15,<1`,
+  `mypy>=1.13,<3`) meant a routine upstream release could turn CI red with zero
+  change to our code — reading as a code problem, not a dependency one — and let
+  a local checkout and CI resolve different versions and disagree about a green
+  build. Bumping either is now a deliberate commit that re-runs the gate.
+  Non-gating tools (`pytest`, `hypothesis`, `pytest-cov`) stay loose.
+
 ### Fixed
 - **Cancelling a rip and then quitting within five seconds left the drive
   reading, with no way to recover.** On Cancel the host-side wrapper dies at once

@@ -538,6 +538,103 @@ outcome, including why it was skipped**, or neither a test nor a bug report can
 reach it.
 
 
+### 5.t — Harness fidelity: a stand-in must not be better than the real thing (added 2026-07-29)
+
+**The single most expensive failure class in this project's history**, and the one
+ordinary tests cannot see by construction: *something that stood in for the real
+thing behaved better than the real thing, so the suite was green while the product
+was broken.* A test cannot notice that its own scaffolding is holding the product
+up.
+
+The case that named the rule: `MainWindow.closeEvent` never stopped the rip
+`QThread`, so closing the window mid-rip destroyed a running thread and aborted
+the process. It shipped for **five releases**. No test could have caught it,
+because `tests/conftest.py`'s `stop_window_threads` — which every window fixture
+calls — stopped `_rip_thread` itself. The harness quietly did the product's job.
+
+Four shapes of the same mistake, all of which have actually bitten here:
+
+| The stand-in | What it hid | Found by |
+|---|---|---|
+| A fixture that **cleans up** more than production does | the mid-rip abort (5 releases) | an audit, not a test |
+| A test that **stubs the method under test** (`_ensure_tray_icon`) | the notification never fired (1 release) | a real-hardware log |
+| A detector that can be **satisfied by finding nothing** | a broken pane reported as fixed | reverting the fix |
+| An assertion on **content, never on constraint** | text painted over text | a user's screenshot |
+
+So, the obligations:
+
+* **Anything the harness tidies up, production must tidy up too.** Enforced
+  executably by `tests/test_harness_fidelity.py`, which compares
+  `stop_window_threads`'s thread list against what `closeEvent` actually passes to
+  `stop_thread` and fails when the harness covers more. The harness may cover
+  *fewer* things (it often builds a partial object); the asymmetry that kills is
+  the harness covering for the product. **A deliberate asymmetry must be
+  commented with its reason** — the daemon post-rip threads are joined by the
+  harness and deliberately not by production, and that exemption is written down
+  in both places.
+* **Never stub the thing you are testing.** If a test replaces
+  `_ensure_tray_icon`, it proves the caller calls *something*, not that the
+  feature works. Drive the real path and assert no exception was logged (§5.x).
+* **Every detector needs a vacuity floor.** Assert on the size of the search
+  space, not only on the result: "examined ≥ N widgets", "found ≥ 2 scroll areas
+  to compare", "saw ≥ 1 scrollbar somewhere". A check that a "found nothing"
+  result would satisfy is not a check.
+* **Prove non-vacuity by reverting the fix.** Not optional, and not a formality —
+  it has caught a vacuous detector on this file *twice*, including the harness
+  guard above, whose first version collected every mention of `self._rip_thread`
+  and so passed against the exact bug it was written for (`_stop_rip_on_shutdown`
+  *mentions* the thread in a guard clause without stopping it). Mentioning is not
+  stopping. If reverting the fix leaves the suite green, the test is decoration.
+* **Ask what the stand-in does that the real thing does not** — for every fixture,
+  fake, stub and helper you add. Then either delete the difference or pin it.
+
+### 5.s — A fix is a change, and changes have their own failure modes (added 2026-07-29)
+
+Three consecutive releases each fixed a real bug and each introduced the next one:
+
+* **v0.5.14** fixed a genuine minimum-*width* problem and was shipped as the fix
+  for overlapping text, which was a *height* problem — and wrapping a label adds
+  height, so it marginally worsened the symptom it was credited with fixing.
+* **v0.5.15** fixed the overlap with a scroll area, which made the table and the
+  console *nested* scroll surfaces — two scrollbars 15 px apart.
+* **v0.5.16**'s hard-exit guard was correct, and its precondition drifted within
+  the same session: one call site abandons a thread unconditionally and the
+  retention list was append-only, so the guard began firing on *every* quit and
+  `atexit` stopped running.
+
+So, before calling a fix done, answer three questions in the commit message:
+
+1. **Did I reproduce the symptom, or only explain it?** A mechanism that
+   plausibly accounts for a report is not the mechanism. v0.5.14 cost a release
+   to this. Ten minutes with a probe beats a confident diagnosis.
+2. **What new state does this fix create, and what tests that?** A scroll area
+   creates nesting. A guard creates a precondition. An `os._exit` creates a
+   skipped-teardown path. Each is new behaviour and needs its own test — the
+   *fix's* failure modes, not just the bug's.
+3. **Is the reported symptom actually gone, or just the mechanism I named?**
+   "The tests are green" and "the user's problem is solved" are different claims.
+   Where only hardware can settle it, say so explicitly rather than implying the
+   suite proved it.
+
+### 5.r — A gating tool must not float (added 2026-07-29)
+
+`ruff format` and `mypy --strict` change what they accept between minor releases.
+A wide version range on a **gating** job means a routine upstream release turns CI
+red with *zero* change to our code — and the failure reads as a code problem, so
+the first hour goes into the wrong place. It also lets local and CI resolve
+different versions and disagree about a green build, which is how a whole session
+can be spent trusting the wrong numbers.
+
+So: the two tools that gate (`ruff`, `mypy`) are pinned to the minor they were
+measured against, and bumping one is a deliberate commit that re-runs the gate.
+Non-gating tools (`pytest`, `hypothesis`, `pytest-cov`) stay loose — they cannot
+silently redefine "correct".
+
+Corollary for anyone reading numbers out of a tool: **record the version beside
+the number.** A typing census that says "132 errors" without saying "mypy 2.3.0"
+is not reproducible, because `--strict`'s flag set is version-dependent.
+
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
