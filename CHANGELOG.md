@@ -11,8 +11,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
-<!-- Rolled up under a dated `## [0.5.17]` heading at release time (the compare
-     link is already in place at the bottom of this file). -->
+## [0.5.17] — 2026-07-29
 
 ### Fixed
 - **Cancelling or force-stopping a rip could hang the app forever on a full pipe.**
