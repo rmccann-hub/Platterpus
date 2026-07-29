@@ -11,6 +11,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The thread-safety rules are now swept across the whole codebase instead of being
+  enforced for one class.** Every rule that mattered this cycle existed in writing and
+  was checked in exactly one place: `MainWindow`. Nine classes create worker threads;
+  one was tested. The dialog that turned out to have no teardown at all was found by a
+  person reading code, which is not a control. Four new sweeps derive their targets
+  from the source tree, so a class added next month is covered the day it is written:
+  - **every `QThread` owner must stop its threads from a teardown hook** — resolved
+    through the MRO (so a mixin creating a thread that the concrete window stops is
+    correctly attributed) and requiring the stop to be *reachable* from `closeEvent`
+    or `reject`, not merely present somewhere in the class;
+  - **a `cancel()` that only sets a flag must be justified in an allowlist**, turning
+    "do not ship a flag-only cancel" from a written rule into a build failure with a
+    forced written reason. Two entries qualify today and both say why;
+  - **a ratchet on the five workers that expose no `cancel()` at all** — it may shrink,
+    never grow, so the known gap cannot spread to a sixth worker.
+
+  Verified the way the rest of this cycle was: reverting each fix makes the
+  corresponding sweep fail and name the exact class and attribute.
+
+### Fixed
+- **`stop_thread` had nothing to cancel for five of the nine workers**, which is now
+  recorded and bounded rather than unnoticed. `quit()` cannot reach a thread blocked in
+  a subprocess or socket read, so closing the window waits out the shutdown budget and
+  abandons those threads. That is safe — abandonment retains the reference and makes
+  exit skip interpreter teardown — but it is not cancellation, and closing it properly
+  needs the killable-child treatment the cache probe now has.
+
 ## [0.5.17] — 2026-07-29
 
 ### Fixed

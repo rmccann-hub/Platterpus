@@ -727,6 +727,46 @@ that exists **now**. If you are writing the intention ahead of the implementatio
 so in the docstring, or don't write it yet.
 
 
+### 5.o — Enforce a rule across the codebase, not at the place it was learned (added 2026-07-29)
+
+Every rule this project broke in one cycle was **already written down, and already
+enforced — in exactly one place.** `CLAUDE.md` rule 9 is most of a page on not
+destroying a live `QThread`, and `test_harness_fidelity.py` checks it thoroughly for
+`MainWindow`. Nine classes create threads. One was checked. The dialog with no teardown
+at all was found by a person reading code, months later.
+
+That is the predictable shape: a bug is fixed where it was found, a test is added for
+*that* instance, and the rule is written in prose for everywhere else. Prose does not
+run in CI. The next instance is then a fresh discovery rather than a caught regression.
+
+So when a bug turns out to be an instance of a rule, ask: **what is the whole set this
+rule applies to, and can the test enumerate it from the source rather than from my
+memory?** A sweep that derives its own targets covers code that does not exist yet,
+which is the only kind of coverage that survives contact with a future contributor.
+
+Three shapes that work here, all in `tests/test_qthread_ownership.py`:
+
+- **Derive the population, don't list it.** Walk the AST for `self.x = QThread(...)`
+  rather than hand-maintaining a list of classes. Then give it a floor
+  (`>= _MIN_EXPECTED_OWNERS`) so a broken walk fails loudly instead of finding nothing
+  (§5.t). Resolve through the real MRO when responsibility is split across mixins —
+  a file-scoped check produces false failures, and "fixing" those by giving a mixin its
+  own `closeEvent` would break the concrete class's teardown.
+- **Make the exception explicit and reasoned.** A flag-only `cancel()` is sometimes
+  genuinely right (a chunked download that polls per chunk; a step loop where killing
+  a half-done `dnf install` is worse than waiting). Encode that as an allowlist keyed
+  by class with the reason as its value, plus a staleness check that fails when an
+  entry stops being needed. The forced justification is the feature — it is exactly
+  what did not happen for the cancel that wore a killer's docstring for five releases.
+- **Ratchet a gap you are not closing today.** Five workers expose no `cancel()` at
+  all. Pinning that as a frozen set with an upper bound means the known gap is written
+  down, counted, and can only shrink — the same discipline as the mypy per-module
+  opt-outs (`CLAUDE.md` rule 10). A tracked gap is honest; an untracked one spreads.
+
+The test that only covers the instance you just fixed is the cheapest test to write and
+the one most likely to let the same bug back in somewhere else.
+
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
