@@ -406,23 +406,67 @@ Rules when adding one:
   prominent buttons carry unique `&`-mnemonics per window
   (`tests/test_ui_accessibility.py` pins the uniqueness).
 
-### 3.9 A label showing dynamic text must wrap (or it dictates the window's minimum width)
+### 3.9 A pane of variable-length text needs a scroll area, and its labels must wrap
+
+Two distinct failure modes, one root cause: **a widget whose content length is
+data-dependent will demand more room than the window has, and Qt's response to
+"not enough room" is not what you would hope.** Both shipped (fixed in v0.5.14
+and v0.5.15) and both were invisible on a maximised window.
+
+#### The vertical half: a layout that runs out of room *overlaps*
+
+**A `QVBoxLayout` given less height than its children's minimums does not clip
+and does not scroll — it overflows, and overflowing means sibling rectangles
+collide and paint over each other.** That is what "the text is on top of other
+text" actually is.
+
+Worse, the pane can under-report what it needs, so this can happen even at the
+pane's own stated minimum: **a word-wrapped `QLabel`'s `minimumSizeHint()` height
+is one line, while its `heightForWidth()` is two or three.** The layout computes
+the pane minimum from the one-line figures, then allocates using
+height-for-width, and the difference is the overlap. Measured on `RipProgress`
+with a real rip log at 940 px wide: minimum height reported **326 px**, height
+actually allocated **~405 px** — and below 326 px the verdict banner was drawn
+across the live-log box and the CTDB line across the AccurateRip table.
+
+**So: any pane whose text length depends on the data goes inside a
+`QScrollArea`** (`setWidgetResizable(True)`, `QFrame.Shape.NoFrame`). That
+converts "not enough room" from a paint collision into a scrollbar, and keeps the
+pane's own minimum small so a long report never dictates a tall window.
+
+> **Rejected alternative, so nobody re-derives it:** teaching every wrapped label
+> to report its true height-for-width *does* remove the overlap — and drives
+> `RipProgress`'s minimum height to **1418 px**, demanding a window taller than
+> most screens. Measured before choosing. The scroll area is the fix; honest
+> label heights are not.
+
+A pane whose minimum is already honest needs no scroll area — `DiscInfoPanel` is
+a grid of short values and was measured clean at every size down to 300×80. Don't
+add one reflexively; measure.
+
+#### The horizontal half: an un-wrapped label dictates the minimum width
 
 **Every `QLabel` that displays a value or a message the program generates at
 runtime gets `setWordWrap(True)`.** This is not cosmetic. An un-wrapped label
 reports its *entire single line* as its `minimumSizeHint`, a minimum that
 propagates up through every containing layout to the window — so the longest
-string that label is ever handed becomes a width the user cannot resize below.
-Once the window is smaller than that unsatisfiable minimum, the layout draws its
-children **outside their allotted rows**, and text lands on top of other text.
+string that label is ever handed becomes **a width the user cannot resize below**.
 
-This shipped (fixed in v0.5.14). Measured on the real widgets: the results
-pane's status label took `RipProgress`'s minimum width from **366 px to 906 px**
-the moment it held a genuine end-of-rip status, and `DiscInfoPanel`'s value
-labels took its minimum from **208 px to 575 px** with real post-rip values —
-so the CTDB and loudness lines were painted over the AccurateRip table. It was
-invisible maximised, which is why five hardware runs and a whole-application
-audit all missed it.
+This shipped (fixed in v0.5.14). Measured on the real widgets: the results pane's
+status label took `RipProgress`'s minimum width from **366 px to 906 px** the
+moment it held a genuine end-of-rip status, and `DiscInfoPanel`'s value labels
+took its minimum from **208 px to 575 px** with real post-rip values.
+
+> **A correction worth keeping, because the mistake is instructive.** v0.5.14
+> fixed this and was reported as the fix for the overlapping text — it was not.
+> A stuck minimum *width* makes the window refuse to narrow; it does not by
+> itself put text on top of text. That was the vertical mechanism above, and
+> wrapping a label slightly *increases* vertical demand (a second line), so the
+> width fix marginally worsened the symptom it was credited with fixing. The two
+> are complementary — wrapping is what lets the scrolled content re-flow narrow
+> instead of growing a horizontal scrollbar — but they are different bugs on
+> different axes. **Reproduce the symptom before believing a diagnosis**; the
+> tell here was that the report said *smaller*, not *narrower*.
 
 - **Wrap dynamic text; leave fixed captions alone.** A field *name*
   ("MusicBrainz ID") is short, never changes, and its width *is* the column, so
@@ -784,4 +828,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.5.14.*
+*Last updated for Platterpus v0.5.15.*

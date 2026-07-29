@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.14
+# Hardware test checklist — v0.5.15
 
 > **Only what still needs testing.** Anything that has passed is gone from this sheet —
 > the record of what passed and when lives in `docs/session-log.md`. Test numbers are
@@ -7,9 +7,12 @@
 > Rig details, tool versions and expected values are pre-filled from your last five
 > runs. You tick boxes and note anything that **differs** from what's printed.
 >
-> **Run 5 (v0.5.12, 2026-07-28) hit full EAC parity: 14/14 tracks byte-identical to the
-> genuine EAC rip of this disc, and CTDB matched for the first time.** The reference
-> table below is updated to that run — it is now the best-known-good baseline.
+> **Run 5 (v0.5.12) hit full EAC parity: 14/14 tracks byte-identical to the genuine EAC
+> rip, and CTDB matched for the first time** — still the high-water mark, and the CRC
+> table below is that run. **Run 6 (v0.5.14) came in at 13/14**, the one difference being
+> track 3, which had also differed on runs 1–4; see the note below the table. Run 6 also
+> *proved* the headline read-stability fix (retired test A1) and left the notification
+> test inconclusive, which is why A5 now reads the log instead of your memory.
 >
 > **Never send audio** — logs, `.cue`, `.platterpus.json` and CRCs only.
 
@@ -42,20 +45,33 @@ Expected Copy CRCs — **all 14, from the run-5 baseline that matched EAC exactl
 |---|---|---|---|---|---|---|
 | `D723C1B0` | `6F6E4A5F` | `3A33519F` | `56BFC63D` | `D78CEAEF` | `DA6A4DAF` | `787BA2D6` |
 
-**Track 3 is no longer a problem child.** It had produced a different CRC on every
-earlier run (`52DFDF7D`, `3D8FCF0C`); on run 5 it read cleanly on the *first pass* as
-`59D352DD` with an exact AccurateRip match at confidence 200 — and that value agrees
-with the genuine EAC rip. If it differs again, that is the disc/drive, not the app.
+**Track 3 is a problem child again — and that is the disc, not the app.** Run 5 was the
+one run where it read cleanly (`59D352DD`, matching EAC). On run 6 it went back to
+disagreeing with itself: `1AC787A1`, AccurateRip v1/v2 both "not found", `Accurip 450`
+matching at confidence 200, and the re-reads did not agree. Its history is now
+`52DFDF7D` / `3D8FCF0C` / `59D352DD` / `1AC787A1` — four values across six runs, which is
+the signature of a marginal disc surface. **Expect this track to vary.** What matters is
+that the app *says so* (run 6 proved it does — see retired test A1), not that the value
+is stable.
 
 **Track 5 is a genuine offset-variant pressing.** Its AccurateRip v1 and v2 both say
 "not found", while `Accurip 450` matches at confidence 200 — i.e. the audio is right,
 the pressing is shifted. Its shipped CRC has been `E0036697` on all five runs, and it
 matches EAC. It gets re-read automatically (3 passes on run 5) and converges.
 
-Expected verdict: **amber**, 13/14 exact + 1 offset-variant. That is the correct and
-best-possible result for this disc — not a failure.
+Expected verdict: **amber**. Best case is 13/14 exact + 1 offset-variant (run 5); when
+track 3 misbehaves it is 12/14 exact + 2 offset-variant (run 6). Both are the correct
+reading of what the drive returned — neither is a failure of the app.
 
-Expected CTDB: **match, confidence 1** (`our_crc` = `matched_crc` = `5DA89FCD`).
+Expected CTDB: **it depends on track 3, and that is consistent, not flaky.** CTDB checks
+one CRC over the *whole disc*, so a single differing track changes it. Run 5 (track 3
+clean) matched at confidence 1 (`our_crc` = `matched_crc` = `5DA89FCD`); run 6 (track 3
+divergent) returned no match at the standard alignment, and the app explained the two
+findings are the same one rather than a contradiction. Either outcome is expected.
+
+**EAC parity: 13/14 on run 6**, verified with the project's own `parity.compare_logs`
+against the committed baseline — the single mismatch is track 3. Run 5's 14/14 remains the
+high-water mark.
 
 **Two expected changes in wording since your last run (v0.5.12), so they don't read as
 regressions:**
@@ -69,10 +85,10 @@ regressions:**
 
 ---
 
-## 0 — [ ] Update to v0.5.14
+## 0 — [ ] Update to v0.5.15
 
 *Help → Check for updates…* → download → verify → restart. *Help → About* says
-**0.5.14**. Nothing else to set up — your settings are already right (see above).
+**0.5.15**. Nothing else to set up — your settings are already right (see above).
 
 ---
 
@@ -81,41 +97,22 @@ regressions:**
 *Eight reviewers went over the whole app. These are the fixes that can only be proven
 on your rig. Test A1 is the important one.*
 
-### A1 — [ ] ⭐ A track that never reads the same way twice must not show a Test CRC
+### A1 — [x] ✅ RETIRED — proven on run 6 (v0.5.14)
 
-**This is the headline fix and your disc is the perfect case for it.** Track 3 has
-failed to reproduce on three of four runs. Until now, a track whose re-reads
-*disagreed* still printed a `Test CRC == Copy CRC` pair — the EAC symbol for
-"two independent reads agreed" — because the code counted *how many passes cyanrip
-took* rather than *how many agreed*. The same checksum-signed document then said, a
-few lines further down, that the reads had not agreed.
+**The headline fix is confirmed on your hardware.** Track 3 finally failed to converge
+again on run 6, which is exactly the negative case that had never come up before, and the
+log did the right thing:
 
-Rip the Police disc once, then in the album folder:
-
-```sh
-grep -nE "Test CRC|Copy CRC|Read stability|not confirmed reproducible" *"(EAC-compatible).log"
+```
+Copy CRC 1AC787A1  (re-reads did NOT agree — this read is not confirmed reproducible)
+Read stability      : track(s) 3 did not read identically across re-reads — not confirmed reproducible
 ```
 
-- If a track is listed under `Read stability … not confirmed reproducible`, it must
-  have **only a Copy CRC**, tagged `(re-reads did NOT agree …)`. **No `Test CRC` line
-  for that track** — that is the whole fix.
-- Tracks that converged keep their `Test CRC` + `Copy CRC` pair.
-- If *no* track appears under `Read stability` this run, the fix wasn't exercised —
-  say so and it stays on the sheet.
-
-**Run 5 (v0.5.12): NOT EXERCISED.** Every re-read converged — track 5 was re-read three
-times and agreed, so its `Test CRC`/`Copy CRC` pair is legitimately earned, and track 3
-read cleanly on the first pass. The fix's *negative* case never came up, so it is still
-unproven on hardware and stays here.
-
-Because the disc has stopped misbehaving, the cheapest way to reach the negative case is
-to make a read genuinely marginal: try the rip with a **fingerprint or a smudge** on the
-disc surface over tracks 3–5 (wipe it afterwards), or with the drive under load. If it
-still converges every time, that is a good problem and we can retire this test as
-un-provable on this disc.
-
-**Result:** ☐ PASS ☐ FAIL ☐ not exercised — track(s) flagged: ______ · any Test CRC on
-a flagged track: ☐ y ☐ n
+**No `Test CRC` line for track 3** — so the log no longer forges the EAC "two reads
+agreed" symbol for a read that didn't. Track 5, which *did* converge, correctly kept its
+pair (`Test CRC E0036697` / `Copy CRC E0036697`, "confirmed across 3 secure re-reads"), so
+the fix distinguishes the two cases rather than just suppressing the line. Nothing to
+re-test.
 
 ### A2 — [ ] ⭐ An interrupted rip must admit it — *now actually wired*
 
@@ -164,49 +161,70 @@ python3 -c "import glob,json;print(json.load(open(glob.glob('*.platterpus.json')
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
-### A5 — [ ] The desktop notification says what the window says
+### A5 — [ ] The desktop notification — and now the log can answer for it
 
-Start a rip of the Police disc, switch to another window, and let it finish.
+Run 6 left this **inconclusive**, and that was a gap in the app, not in your testing: you
+were gaming and then at dinner, the toast lives for eight seconds, and `log.txt` recorded
+nothing either way — so a shipped fix had no way to be confirmed. v0.5.15 fixes the
+diagnosability: every outcome is now written to the log.
 
-- Expected: a notification **appears at all**. On v0.5.12 it never did: your run-5 log
-  carries `AttributeError: 'MainWindow' object has no attribute '_tray_icon'` at the
-  moment the rip finished, swallowed because notifications are best-effort. That was a
-  v0.5.12 regression — a type-checker-only declaration that nothing created at runtime
-  — and it is fixed in v0.5.13. **This is the main reason to install this release.**
-- Expected: the text **matches the final status line** in Platterpus. If the window
-  warns that a track didn't read reproducibly, the notification must say so too.
+Start a rip, go do something else, and afterwards:
 
-**Result:** ☐ PASS ☐ FAIL — appeared at all: ☐ y ☐ n · notification said: ____________
+```sh
+grep -n "completion notification" ~/.local/share/platterpus/log.txt
+```
 
-### A5b — [ ] ⭐ The results pane and disc panel no longer overlap when the window is small
+- Expected: exactly one line per rip. Either `completion notification posted: <title> —
+  <body>`, or a skip that says why (`turned off in Settings`, `the rip was cancelled`,
+  `no usable system tray`).
+- If it says **posted** and you *did* see a toast: PASS, and the text should match the
+  final status line in the window.
+- If it says **posted** and you saw nothing, that is a KDE/notification-daemon issue
+  rather than ours — still worth telling me, since we could fall back to another method.
+- If it says **no usable system tray**, that is the interesting one: your desktop is
+  refusing us a tray icon, and the notification needs a different mechanism.
 
-**This was real, and it is fixed.** Your report — *"looked good when the window was
-maximized, but when smaller was all over the place"* — was the missing piece. Two labels
-were never told to word-wrap, and an un-wrapped label reports its **whole single line**
-as its minimum width, a minimum that propagates up to the window. Measured on the real
-widgets: a genuine end-of-rip status line demanded **906 px** of minimum width against
-366 px for the idle text, and the disc panel's values pushed its minimum from 208 px to
-**575 px**. Narrower than that, the layout physically could not fit its children, so it
-drew them outside their rows — the CTDB and loudness lines landed on the AccurateRip
-table. Maximised there was room, which is exactly why it hid for so long.
+**Result:** ☐ PASS ☐ FAIL — log line said: ____________ · toast seen: ☐ y ☐ n
 
-Both panes now stay at their short-text minimum no matter what they are handed.
+### A5b — [ ] ⭐⭐ The results pane no longer paints text over itself — *second attempt*
 
-1. After a rip finishes, **un-maximise** the window and drag it as narrow and as short
-   as it will go — narrower than feels reasonable.
-2. Watch the results pane (AccurateRip table, CTDB line, loudness line) and the disc
-   panel above it.
+**You were right that v0.5.14 didn't fix it, and it's worth saying why.** v0.5.14 fixed a
+real problem on the *horizontal* axis (a label made its whole line the pane's minimum
+width, so the window refused to **narrow**). Your symptom was on the *vertical* axis, and
+wrapping a label actually adds a line of height — so that release slightly worsened the
+thing it was credited with fixing. The clue was in your first report and I read past it:
+you said *smaller*, not *narrower*.
 
-- Expected: text **re-flows onto more lines**; nothing is painted over anything else,
-  at any window size.
-- Expected: the window will still refuse to go *absurdly* narrow — that is the table
-  and the buttons, not this bug. The test is overlap, not minimum size.
-- The disc IDs (`MusicBrainz ID`, `CDDB ID`) are single unbroken tokens, so they must
-  still appear **on one line**, never hyphenated or split. If an ID is chopped in half,
-  that is a new bug — tell me.
+**What it actually is.** A Qt vertical layout given less height than its contents need
+does **not** clip and does **not** scroll — it overflows, and overflowing means widgets
+are positioned on top of each other. On top of that the pane under-reported its own
+needs (a wrapped label claims one line of height while drawing three), so it asked for
+326 px and then used ~405 px. That gap is what landed the verdict banner on the log box
+and the CTDB line on the AccurateRip table's first row — which is exactly what your
+screenshot shows.
 
-**Result:** ☐ PASS ☐ FAIL — overlap at any size: ☐ y ☐ n · an ID split across lines:
-☐ y ☐ n
+This time it was reproduced first: a probe fed the real pane your real rip log, laid it
+out at your window size, and found the same two collisions before anything was changed.
+The results pane now scrolls, so "not enough room" becomes a scrollbar instead of a
+collision — **measured at zero overlaps from 620 px of height down to 200 px**, where the
+old code broke below 326 px.
+
+1. After a rip finishes, **un-maximise** the window and drag it short — much shorter than
+   feels reasonable — and narrow too.
+2. Watch the block below the progress bars: verdict banner, live log, AccurateRip table,
+   CTDB line, loudness line.
+
+- Expected: **a scrollbar appears** on the right of that block, and you scroll to see the
+  rest. Nothing is drawn on top of anything else at any size.
+- Expected: text still re-flows onto more lines as you narrow it.
+- The disc IDs (`MusicBrainz ID`, `CDDB ID`) must still sit **on one line** — your last
+  screenshot confirmed this is fine, so it only matters if something changed.
+- If you *still* see overlap, the most useful thing is a screenshot plus roughly how tall
+  the window was — that tells me whether the scroll area is being bypassed or whether a
+  different pane is at fault. The disc panel was measured clean, so my next suspect would
+  be the track table.
+
+**Result:** ☐ PASS ☐ FAIL — scrollbar appeared: ☐ y ☐ n · overlap at any size: ☐ y ☐ n
 
 ### A6 — [ ] Your own `cover.jpg` survives a re-rip
 
@@ -382,7 +400,7 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.12 → v0.5.14: `output_dir =
+Expected, unchanged across v0.5.12 → v0.5.15: `output_dir =
 "/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
 with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
 independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
@@ -402,7 +420,7 @@ independent sources agree"* trust line, and the cache-defeat **Yes** measurement
       says CTDB verification is **on by default**
 - [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says
       "on by default"
-- [ ] *Help → About* shows **0.5.14** and correct Qt/Python info (Qt 6.11.1, Python
+- [ ] *Help → About* shows **0.5.15** and correct Qt/Python info (Qt 6.11.1, Python
       3.12.13)
 - [ ] Disc-panel values can be selected and copied with the mouse — worth a second
       look this release, since those are the labels A5b changed. Selecting a
@@ -469,4 +487,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.14.*
+*Last updated for Platterpus v0.5.15.*

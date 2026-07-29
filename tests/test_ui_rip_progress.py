@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication, QLabel, QWidget
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.parsers.rip_log import (
@@ -1245,4 +1245,163 @@ def test_every_message_label_in_the_pane_wraps(qapp: QApplication) -> None:
     assert not unwrapped, (
         f"these labels hold a sentence but do not word-wrap: {unwrapped}. "
         "Call setWordWrap(True) — see the comment on _status_label."
+    )
+
+
+# --- Vertical overflow: the pane must never paint over itself ----------------
+# The width tests above fixed a real problem but not the one the user saw. The
+# reported symptom — "looked good when the window was maximized, but when
+# smaller was all over the place" — is a *vertical* deficit, and it needs its own
+# invariant, because a QVBoxLayout with less height than its children's minimums
+# does not clip and does not scroll: it overflows, and overflowing means the
+# children's rectangles collide and paint over each other.
+#
+# Measured on the real widgets with the real hardware rip log: this pane
+# reported a minimum height of 326 px while the height it actually allocated at
+# 940 px wide was ~405 px, because a word-wrapped QLabel's *minimumSizeHint* is
+# one line while its *heightForWidth* is two or three. Below 326 px the verdict
+# banner was drawn across the live-log box and the CTDB line across the
+# AccurateRip table's first row (hardware report, 2026-07-28).
+
+
+def _overlapping_sibling_pairs(root: QWidget) -> tuple[list[str], int]:
+    """Return (descriptions of overlapping sibling pairs, widgets examined).
+
+    Compares only true siblings — a container legitimately contains its
+    children, so parent/child intersection is not a defect. The widget count is
+    returned so the caller can prove the walk actually looked at something: the
+    first version of this detector walked the pane's own layout, which after the
+    fix holds a single item (the scroll area), and it therefore reported "no
+    overlaps" for a pane that was still broken. A detector that cannot fail is
+    worse than no detector.
+    """
+    by_parent: dict[QWidget, list[QWidget]] = {}
+    examined = 0
+    for widget in root.findChildren(QWidget):
+        if widget.layout() is not None or not widget.isVisibleTo(root):
+            continue  # containers position children; invisible ones paint nothing
+        examined += 1
+        by_parent.setdefault(widget.parentWidget(), []).append(widget)
+
+    clashes: list[str] = []
+    for siblings in by_parent.values():
+        for i in range(len(siblings)):
+            for j in range(i + 1, len(siblings)):
+                first, second = siblings[i].geometry(), siblings[j].geometry()
+                if first.intersects(second):
+                    clashes.append(
+                        f"{type(siblings[i]).__name__}"
+                        f"({siblings[i].accessibleName() or '?'}) "
+                        f"y{first.top()}..{first.bottom()} overlaps "
+                        f"{type(siblings[j]).__name__}"
+                        f"({siblings[j].accessibleName() or '?'}) "
+                        f"y{second.top()}..{second.bottom()}"
+                    )
+    return clashes, examined
+
+
+def _populate_like_a_finished_rip(pane: RipProgress) -> None:
+    """Drive the pane into the state the hardware screenshot showed.
+
+    Every long string here is one the user actually had on screen — a partially
+    accurate disc with an unstable track, which is what makes three separate
+    multi-line warnings visible at once.
+    """
+    pane.set_status(
+        "20:04:22 · ⚠ Read stability: track 3 still didn't read identically even "
+        "after an automatic re-rip — kept the best read, which may not be "
+        "bit-perfect. Clean the disc and try again for a verified copy. See the "
+        "report."
+    )
+    pane.set_progress(100.0, 100.0)
+    pane.append_log_line("Cover art: embedded in 14 track(s).")
+    pane.append_log_line("FLAC verify: all 14 file(s) decode cleanly.")
+    pane._verdict_banner.setText(
+        "⚠ 12 of 14 tracks verified exactly against AccurateRip; the other 2 "
+        "matched an offset-variant pressing (partially accurate — see the "
+        "table) — this rip is very likely a good copy."
+    )
+    pane._verdict_banner.setVisible(True)
+    pane._read_effort_label.setText(
+        "⚠ Track(s) 3, 5 needed heavy re-reading; the read may not be "
+        "reproducible; re-rip to confirm."
+    )
+    pane._read_effort_label.setVisible(True)
+    pane._ctdb_label.setText(
+        "CTDB: no match at the standard alignment — CTDB also holds "
+        "offset-shifted pressings and this check only tests the standard one."
+    )
+    pane._ctdb_label.setVisible(True)
+    pane._ctdb_reconcile_label.setText(
+        "Why this and AccurateRip seem to disagree: 2 track(s) matched only an "
+        "offset-variant pressing, so the whole-disc CTDB CRC won't match the "
+        "database's — this is the SAME finding as Accurip 450 above, not a "
+        "separate problem."
+    )
+    pane._ctdb_reconcile_label.setVisible(True)
+    pane._loudness_label.setText(
+        "Album loudness: -13.9 LUFS integrated, range 8.9 LU, true peak "
+        "0.8 dBFS · 2/2 tracks ripped partially accurately"
+    )
+    pane._loudness_label.setVisible(True)
+    pane._ar_table.setRowCount(14)
+
+
+def test_the_pane_never_paints_its_children_over_each_other(
+    qapp: QApplication,
+) -> None:
+    """The invariant that actually describes the reported bug.
+
+    Not "does it look right" — that needs a screen. Two sibling widgets whose
+    rectangles intersect is text drawn on top of text, and that is checkable
+    with no window shown and no screenshot.
+    """
+    pane = RipProgress()
+    _populate_like_a_finished_rip(pane)
+
+    # 200 px is deliberately absurd. The pane must degrade to a scrollbar, not
+    # to a collision, at any size a window manager can impose.
+    for height in (620, 420, 320, 260, 200):
+        pane.resize(940, height)
+        pane.show()
+        qapp.processEvents()
+        pane.layout().activate()
+        qapp.processEvents()
+
+        clashes, examined = _overlapping_sibling_pairs(pane)
+        assert examined >= 8, (
+            f"the overlap detector only examined {examined} widgets, so it "
+            "cannot see this bug — the pane's structure changed and this test "
+            "has gone vacuous. Fix the walk, don't delete the test."
+        )
+        assert not clashes, (
+            f"at 940x{height} the pane paints children on top of each other:\n  "
+            + "\n  ".join(clashes)
+            + "\nA QVBoxLayout given less height than its children need "
+            "overflows rather than scrolling. Keep the content inside the "
+            "scroll area."
+        )
+    pane.hide()
+
+
+def test_the_pane_can_be_made_short_without_a_fight(qapp: QApplication) -> None:
+    """A tall report must not impose a tall window.
+
+    The rejected alternative fix — teaching every wrapped label to report its
+    true height-for-width — removed the overlap but drove this pane's minimum
+    height to 1418 px, i.e. it demanded a window taller than most screens. The
+    scroll area is what keeps "the report is long" from meaning "the window must
+    be huge", so pin that the minimum stays small.
+    """
+    pane = RipProgress()
+    _populate_like_a_finished_rip(pane)
+    pane.resize(940, 620)
+    pane.show()
+    qapp.processEvents()
+
+    minimum = pane.minimumSizeHint().height()
+    pane.hide()
+    assert minimum <= 200, (
+        f"the pane demands at least {minimum} px of height. A variable-length "
+        "report must scroll, not dictate the window size."
     )
