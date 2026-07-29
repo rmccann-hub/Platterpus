@@ -1,12 +1,27 @@
 """Rip progress widget — live status pane + AccurateRip results.
 
-Three panes stacked vertically:
+Three bands, top to bottom:
 
-  Status line + QProgressBar
-  Live rip-tool stdout (read-only QPlainTextEdit)
-  Verification verdict banner (bold, colour-coded at-a-glance trust headline)
-  AccurateRip results table (populated when the rip log lands)
-  CTDB verdict line (second, TOC-keyed verification path)
+  **header** (fixed, never scrolls, never hidden)
+      Overall progress bar · status line + task progress bar · stall notice ·
+      the verdict banner (the bold, colour-coded at-a-glance trust headline) ·
+      the read-effort and re-rip-comparison warnings
+  **body** (a QTabWidget — exactly one scroll surface visible at a time)
+      "Tracks"   the per-track AccurateRip results table
+      "Details"  the CTDB verdict, the AccurateRip reconciliation, and album
+                 loudness — marked with a ⚠ in the tab label when it holds a
+                 caveat, so nothing hides behind an unopened tab
+      "Live log" the ripper's own output, a read-only console
+  **footer** (fixed)
+      View log · View report · View cue · Open rip folder
+
+*Why tabs rather than one column:* stacking all of it vertically caused two
+shipped bugs in successive releases — text painted over text when the window was
+short (a QVBoxLayout overflows rather than clipping), and then, once that was
+fixed with a scroll area, two nested scrollbars 15 px apart. A nested scroll
+surface that has nothing left to scroll does not even pass the wheel on to its
+parent, so the pane must never contain one. The band structure is what
+guarantees that. The full reasoning and the measurements are in ``__init__``.
 
 The "View log" / "View report" buttons open the file in an in-app read-only
 viewer (avoiding the "Open With" chooser a .log/.platterpus.json triggers on a
@@ -35,6 +50,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -93,6 +109,22 @@ _AR_COL_EAC: int = 5
 # colour alone — the trust-first UX rule).
 _EAC_VERIFIED: str = "✓"
 _EAC_PARTIAL: str = "~"
+
+# Tab order in the pane's body. Named rather than inlined because three separate
+# methods switch between them and an off-by-one here would silently show the
+# wrong tab at the end of a rip.
+_TAB_TRACKS: int = 0
+_TAB_DETAILS: int = 1
+_TAB_LOG: int = 2
+
+# Base labels for the tabs. `_refresh_details_tab_marker` prepends a warning
+# glyph to the Details label when that tab is holding a caveat, so a user who
+# never opens it can still SEE that there is something in there — the tab must
+# not become a place where warnings go to hide (docs/ux-design-principles.md:
+# status is conveyed by symbol + text, never by absence).
+_TAB_LABEL_TRACKS: str = "&Tracks"
+_TAB_LABEL_DETAILS: str = "&Details"
+_TAB_LABEL_LOG: str = "Live &log"
 
 
 # Hook so tests can intercept the "open file" action without launching
@@ -166,52 +198,50 @@ class RipProgress(QWidget):
         self._verdict_base_message: str = ""
         self._verdict_downgrades: list[str] = []
 
-        # --- Everything below lives inside a scroll area ---------------------
-        # This pane is a *variable-length report*: how tall it needs to be depends
-        # on the rip. Two long warnings and a CTDB explanation can each wrap onto
-        # two or three lines, and those lines are not optional — they're the
-        # trust story.
+        # --- Why this pane is built in three bands ---------------------------
+        # This pane has to show five different things: live progress, a live
+        # console, a trust verdict, per-track results, and three explanatory
+        # paragraphs. That is more than fits in a small window, and the two
+        # releases before this one were both consequences of trying to stack it
+        # all in one column:
         #
-        # A QVBoxLayout given less height than its children's minimums does NOT
-        # clip and does NOT scroll: it **overflows by letting the children's
-        # rectangles collide**, and colliding rectangles paint over each other.
-        # That is the "text on top of other text" a real-hardware session
-        # reported (2026-07-28). Measured on the real widgets with a real rip
-        # log: at 940 px wide this pane reported a minimum height of 326 px while
-        # the height it actually allocated was ~405 px — because a word-wrapped
-        # QLabel's *minimumSizeHint* is one line, while its *heightForWidth* is
-        # two or three. Below 326 px the deficit became visible: the verdict
-        # banner was drawn across the live-log box and the CTDB line across the
-        # AccurateRip table's first row. Maximised there was slack, so it looked
-        # correct — which is why it survived five hardware runs and an
-        # eight-reviewer audit.
+        #   v0.5.15 — a QVBoxLayout given less height than its children's
+        #   minimums does NOT clip and does NOT scroll: it **overflows, and the
+        #   children's rectangles collide**, painting text over text. Measured at
+        #   940 px wide: the pane claimed a 326 px minimum height while
+        #   allocating ~405 px, because a word-wrapped QLabel's minimumSizeHint
+        #   is one line while its heightForWidth is two or three. Fixed by
+        #   wrapping everything in one QScrollArea.
         #
-        # A scroll area is the fix because it converts "not enough room" from a
-        # paint collision into a scrollbar. The rejected alternative was making
-        # every wrapped label report its true height-for-width: it does remove
-        # the overlap, but it drives this pane's minimum height to **1418 px**,
-        # i.e. it demands a window taller than most screens. Measured, both of
-        # them, before choosing — see docs/testing.md §5.v.
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        self._scroll_area: QScrollArea = QScrollArea(self)
-        # Resizable so the content's *width* tracks the viewport: that is what
-        # makes the wrapped labels re-flow instead of demanding a horizontal
-        # scrollbar. Height is free to exceed the viewport — that's the point.
-        self._scroll_area.setWidgetResizable(True)
-        # No frame: this is an internal scrolling mechanism, not a visible box.
-        # A sunken border here would read as a widget the user should interact
-        # with, which it isn't.
-        self._scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        content = QWidget(self._scroll_area)
-        self._scroll_area.setWidget(content)
-        outer.addWidget(self._scroll_area)
-
-        # `root` is the content layout from here on. Children are constructed with
-        # `self` as their parent for readability, then re-parented to `content` by
-        # `addWidget` — so `window._rip_progress._status_label` and
-        # `findChildren()` keep working exactly as before.
-        root = QVBoxLayout(content)
+        #   …which introduced the problem this layout solves. The table and the
+        #   console are themselves scrollable, so inside that outer scroll area
+        #   they became **nested** scroll surfaces: two vertical scrollbars 15 px
+        #   apart (measured at x=911 and x=926 on a 940x400 pane), and the wheel
+        #   acting on whichever happened to be under the pointer. The maintainer's
+        #   report was exact: "difficult to use together".
+        #
+        # The trap that rules out the obvious repair: **a nested scroll area that
+        # has nothing left to scroll does not pass the wheel on to its parent**
+        # (measured — an exhausted inner QScrollArea left the outer one at 0). So
+        # merely turning the table's own scrollbar off trades a visible scrollbar
+        # for a *dead wheel zone* over the biggest widget in the pane, which feels
+        # more broken, not less.
+        #
+        # Hence: never nest a scroll surface inside another one. The pane is three
+        # bands —
+        #
+        #   header  (fixed)  progress bars, the status line, the verdict headline
+        #                    — what you glance at; never scrolled, never hidden
+        #   tabs             one scroll surface per tab, and only one tab visible,
+        #                    so there is never more than one scrollbar and never a
+        #                    nested one
+        #   footer  (fixed)  the four output buttons
+        #
+        # Measured against the same probes: at most ONE live scrollbar at every
+        # size from 1900x980 down to 940x240, zero nested scroll areas, and zero
+        # overlapping siblings — so the v0.5.15 fix is preserved rather than
+        # traded away. See docs/architecture.md §3.9 and docs/testing.md §5.v.
+        root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
 
         # --- Overall progress (whole rip) ---
@@ -270,20 +300,6 @@ class RipProgress(QWidget):
         self._progress_bar.setTextVisible(True)
         root.addWidget(self._progress_bar)
 
-        # --- Live rip-tool stdout ---
-        self._log_view: QPlainTextEdit = QPlainTextEdit(self)
-        self._log_view.setReadOnly(True)
-        # Cap at a reasonable scrollback so a long rip doesn't blow up
-        # memory; the ripper emits thousands of lines per rip.
-        self._log_view.setMaximumBlockCount(10_000)
-        # A small minimum so this scroll area can be dragged down by the
-        # splitter. Without it the panel's minimum height ≈ the whole window
-        # at the default size, leaving no slack to redistribute — the splitter
-        # handles showed the resize cursor but wouldn't move until the window
-        # was maximized (real-user report, 0.4.4). It scrolls, so 64px is fine.
-        self._log_view.setMinimumHeight(64)
-        root.addWidget(self._log_view, stretch=1)
-
         # --- Verification verdict banner (at-a-glance trust) ---
         # A single bold, colour-coded headline above the per-track table so the
         # user sees "is this rip trustworthy?" without reading every row. Green
@@ -317,6 +333,24 @@ class RipProgress(QWidget):
         self._comparison_label.setVisible(False)
         root.addWidget(self._comparison_label)
 
+        # --- The tabbed body: one scroll surface per tab, never nested --------
+        # Everything below the headline goes into tabs. The point is not
+        # tidiness, it is that **only one tab is visible at a time**, so the pane
+        # can never show two scrollbars and can never nest one inside another
+        # (see the band comment at the top of __init__ for the measurements).
+        #
+        # The order is the order you need them in: the per-track table is what
+        # you read when a rip finishes and is therefore first and default; the
+        # supporting explanations sit behind it; the live console is last because
+        # it matters *during* a rip, and `begin_rip`/`set_rip_log` switch to the
+        # right one at the right moment so you never have to click to see what is
+        # happening now.
+        self._tabs: QTabWidget = QTabWidget(self)
+        # Document mode: this is an interior grouping, not a top-level notebook,
+        # so the heavier framed-tab look would read as a separate window.
+        self._tabs.setDocumentMode(True)
+        root.addWidget(self._tabs, stretch=1)
+
         # --- AccurateRip results table ---
         self._ar_table: QTableWidget = QTableWidget(0, len(_AR_COLUMNS), self)
         self._ar_table.setHorizontalHeaderLabels(_AR_COLUMNS)
@@ -336,22 +370,45 @@ class RipProgress(QWidget):
             _AR_COL_EAC,
         ):
             header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
-        # Same reasoning as the log view: a small minimum so the splitter can
-        # shrink this table and free up drag slack at the default window size.
+        # A small minimum so the splitter can shrink this tab and free up drag
+        # slack at the default window size. Without it the pane's minimum height
+        # ≈ the whole window, leaving nothing to redistribute — the splitter
+        # handles showed the resize cursor but wouldn't move until the window was
+        # maximized (real-user report, 0.4.4). The table scrolls, so 64 px is fine.
         self._ar_table.setMinimumHeight(64)
-        root.addWidget(self._ar_table, stretch=1)
+        self._tabs.addTab(self._ar_table, _TAB_LABEL_TRACKS)
+
+        # --- The "Details" tab: the supporting explanations -------------------
+        # The three explanatory paragraphs are the *evidence* behind the headline
+        # rather than the headline itself, so they live one tab away — but they are
+        # long, wrap to several lines each, and are exactly what overflowed the
+        # pane in the first place. So this tab is a scroll area: it is the one
+        # place a variable-length block of prose can grow without pushing anything
+        # else off the layout, and because only one tab is visible its scrollbar
+        # is never a second one.
+        self._details_area: QScrollArea = QScrollArea(self._tabs)
+        # Resizable so the content's *width* tracks the viewport — that is what
+        # makes the wrapped labels re-flow instead of demanding a horizontal
+        # scrollbar. Height is free to exceed the viewport; that is the point.
+        self._details_area.setWidgetResizable(True)
+        self._details_area.setFrameShape(QFrame.Shape.NoFrame)
+        details_content = QWidget(self._details_area)
+        self._details_area.setWidget(details_content)
+        details = QVBoxLayout(details_content)
+        details.setContentsMargins(4, 4, 4, 4)
+        self._tabs.addTab(self._details_area, _TAB_LABEL_DETAILS)
 
         # --- CTDB verdict line (second, TOC-keyed verification path) ---
-        # Sits directly under the AccurateRip table — a one-liner that only
-        # appears when a CTDB verify ran (it's an opt-in, post-rip network
-        # check). The audio-CRC algorithm is now hardware-validated (KDD-16,
-        # crc.CRC_VALIDATED True), so a match renders green "verified"; the
-        # "experimental" wording remains only as a defensive fallback should the
-        # gate ever be re-opened (set_ctdb_result reads the flag live).
+        # A one-liner that only appears when a CTDB verify ran (it's an opt-in,
+        # post-rip network check). The audio-CRC algorithm is now
+        # hardware-validated (KDD-16, crc.CRC_VALIDATED True), so a match renders
+        # green "verified"; the "experimental" wording remains only as a defensive
+        # fallback should the gate ever be re-opened (set_ctdb_result reads the
+        # flag live).
         self._ctdb_label: QLabel = QLabel("", self)
         self._ctdb_label.setWordWrap(True)
         self._ctdb_label.setVisible(False)
-        root.addWidget(self._ctdb_label)
+        details.addWidget(self._ctdb_label)
 
         # --- CTDB ↔ AccurateRip reconciliation ---
         # A neutral one-liner explaining why a CTDB "no match" and an AccurateRip
@@ -363,7 +420,7 @@ class RipProgress(QWidget):
         self._ctdb_reconcile_label.setWordWrap(True)
         self._ctdb_reconcile_label.setVisible(False)
         self._ctdb_reconcile_label.setStyleSheet("QLabel { color: palette(mid); }")
-        root.addWidget(self._ctdb_reconcile_label)
+        details.addWidget(self._ctdb_reconcile_label)
 
         # --- Album loudness + partial-accurate footnote ---
         # A neutral one-liner surfacing two facts cyanrip already computed and
@@ -376,7 +433,24 @@ class RipProgress(QWidget):
         self._loudness_label.setWordWrap(True)
         self._loudness_label.setVisible(False)
         self._loudness_label.setStyleSheet("QLabel { color: palette(mid); }")
-        root.addWidget(self._loudness_label)
+        details.addWidget(self._loudness_label)
+        # Soak up the leftover height so the paragraphs sit at the top of the tab
+        # instead of being spread down it.
+        details.addStretch(1)
+
+        # --- The "Live log" tab: the rip tool's own output ---------------------
+        # A console, and treated as one: it keeps its own scrollbar because that
+        # is what a console is, and as the whole content of its tab that
+        # scrollbar is unambiguous — the wheel over it can only mean "scroll the
+        # log".
+        self._log_view: QPlainTextEdit = QPlainTextEdit(self)
+        self._log_view.setReadOnly(True)
+        # Cap the scrollback so a long rip doesn't blow up memory; the ripper
+        # emits thousands of lines per rip.
+        self._log_view.setMaximumBlockCount(10_000)
+        # Same splitter-slack reasoning as the table above.
+        self._log_view.setMinimumHeight(64)
+        self._tabs.addTab(self._log_view, _TAB_LABEL_LOG)
 
         # --- Post-rip output buttons ---
         # Three complementary outputs land beside the FLACs every rip (the
@@ -437,6 +511,18 @@ class RipProgress(QWidget):
         )
         self._view_cue_button.setAccessibleName("Open the disc's cue sheet")
         self._open_folder_button.setAccessibleName("Open the folder containing the rip")
+        # The tab strip is now the way to reach two thirds of this pane, so it has
+        # to be as reachable as the buttons: each tab carries an Alt+<letter>
+        # mnemonic (in its label), the strip is in the tab order, and the widget
+        # itself is named so a screen reader says what the grouping *is* rather
+        # than just "tab bar". Ctrl+Tab / arrow keys move between tabs for free.
+        self._tabs.setAccessibleName("Rip results, details, and live log")
+        self._tabs.setTabToolTip(_TAB_TRACKS, "Per-track AccurateRip results")
+        self._tabs.setTabToolTip(
+            _TAB_DETAILS,
+            "CTDB verification, read-effort caveats, and album loudness",
+        )
+        self._tabs.setTabToolTip(_TAB_LOG, "Live output from the ripper")
 
     # --- Public surface -----------------------------------------------------
 
@@ -481,6 +567,37 @@ class RipProgress(QWidget):
         self._last_status_text = ""
         self._verdict_base_message = ""
         self._verdict_downgrades = []
+        # The Details tab is empty again, so drop any warning marker from its
+        # label — a stale ⚠ on an empty tab would send the user looking for a
+        # caveat that no longer exists.
+        self._refresh_details_tab_marker()
+
+    def _refresh_details_tab_marker(self) -> None:
+        """Mark the Details tab when it is holding something the user should see.
+
+        A tab is a good way to keep the pane to one scroll surface and a bad way
+        to store warnings: anything behind it is invisible until clicked. So the
+        tab label itself carries the signal — a ⚠ appears the moment any caveat
+        lands in there, which keeps the "you can see there is a problem without
+        opening anything" property the single-column layout had for free.
+
+        Only the *warning* surfaces count. The loudness footnote is neutral
+        information and marking the tab for it would train the user to ignore
+        the marker, which is the failure mode this is meant to avoid.
+        """
+        # `isHidden()`, NOT `isVisible()`. A widget in a background tab is not
+        # visible even when it is holding text, so `isVisible()` would only ever
+        # mark the tab while you were already looking at it — useless. `isHidden()`
+        # asks the question we actually mean: "has this label been switched off?".
+        # (Same distinction cost 18 px in the table-height formula; it is worth
+        # knowing once.)
+        has_warning = any(
+            not label.isHidden() and bool(label.text())
+            for label in (self._ctdb_label, self._ctdb_reconcile_label)
+        )
+        label = f"⚠ {_TAB_LABEL_DETAILS}" if has_warning else _TAB_LABEL_DETAILS
+        if self._tabs.tabText(_TAB_DETAILS) != label:
+            self._tabs.setTabText(_TAB_DETAILS, label)
 
     def begin_rip(self, rip_dir: Path | None, live_log: Path | None) -> None:
         """At rip START, make the in-progress rip reachable immediately.
@@ -498,6 +615,11 @@ class RipProgress(QWidget):
         self._live_log_path = live_log
         self._open_folder_button.setEnabled(rip_dir is not None)
         self._view_log_button.setEnabled(live_log is not None)
+        # Show the live console for the duration of the rip. During a rip the
+        # console is the interesting tab and the results table is empty, so
+        # landing on anything else would mean the user has to click to watch
+        # their own rip. `set_rip_log` switches back to Tracks at the end.
+        self._tabs.setCurrentIndex(_TAB_LOG)
 
     def set_stall_notice(self, text: str | None) -> None:
         """Show (``text``) or hide (``None``) the stall banner.
@@ -660,6 +782,13 @@ class RipProgress(QWidget):
         self._loudness_label.setText(summary)
         self._loudness_label.setVisible(bool(summary))
 
+        # The rip is over, so the per-track results are what matters now — switch
+        # away from the live console the user was watching. Only when there is
+        # actually a table to show: an empty result set would swap a console with
+        # useful output for a blank grid.
+        if self._ar_table.rowCount():
+            self._tabs.setCurrentIndex(_TAB_TRACKS)
+
     def set_comparison(self, comparison: object) -> None:
         """Show the re-rip comparison banner from a RipComparison.
 
@@ -682,6 +811,7 @@ class RipProgress(QWidget):
         """Show an in-progress CTDB line (e.g. 'Verifying against CTDB…')."""
         self._ctdb_label.setText(text)
         self._ctdb_label.setVisible(True)
+        self._refresh_details_tab_marker()
         self._announce_ctdb(text)
 
     def set_ctdb_result(self, result: CtdbVerifyResult) -> None:
@@ -712,6 +842,10 @@ class RipProgress(QWidget):
         else:
             self._ctdb_reconcile_label.clear()
             self._ctdb_reconcile_label.setVisible(False)
+        # The Details tab now holds a verdict the user has not seen — put the
+        # marker on its label so they know to look, rather than discovering it
+        # only if they happen to click.
+        self._refresh_details_tab_marker()
 
     def set_log_path(self, path: Path | None) -> None:
         """Enable the post-rip output buttons from the rip log's path.

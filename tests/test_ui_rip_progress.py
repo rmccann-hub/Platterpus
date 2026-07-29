@@ -1350,11 +1350,15 @@ def _populate_like_a_finished_rip(pane: RipProgress) -> None:
 def test_the_pane_never_paints_its_children_over_each_other(
     qapp: QApplication,
 ) -> None:
-    """The invariant that actually describes the reported bug.
+    """The invariant that actually describes the v0.5.15 bug.
 
     Not "does it look right" — that needs a screen. Two sibling widgets whose
     rectangles intersect is text drawn on top of text, and that is checkable
     with no window shown and no screenshot.
+
+    Every tab is made current in turn, because widgets in a background tab are
+    not visible and are therefore (correctly) skipped by the detector — checking
+    only the default tab would leave two thirds of the pane unexamined.
     """
     pane = RipProgress()
     _populate_like_a_finished_rip(pane)
@@ -1365,33 +1369,41 @@ def test_the_pane_never_paints_its_children_over_each_other(
         pane.resize(940, height)
         pane.show()
         qapp.processEvents()
-        pane.layout().activate()
-        qapp.processEvents()
+        for index in range(pane._tabs.count()):
+            pane._tabs.setCurrentIndex(index)
+            qapp.processEvents()
+            pane.layout().activate()
+            qapp.processEvents()
 
-        clashes, examined = _overlapping_sibling_pairs(pane)
-        assert examined >= 8, (
-            f"the overlap detector only examined {examined} widgets, so it "
-            "cannot see this bug — the pane's structure changed and this test "
-            "has gone vacuous. Fix the walk, don't delete the test."
-        )
-        assert not clashes, (
-            f"at 940x{height} the pane paints children on top of each other:\n  "
-            + "\n  ".join(clashes)
-            + "\nA QVBoxLayout given less height than its children need "
-            "overflows rather than scrolling. Keep the content inside the "
-            "scroll area."
-        )
+            clashes, examined = _overlapping_sibling_pairs(pane)
+            tab = pane._tabs.tabText(index)
+            assert examined >= 8, (
+                f"the overlap detector only examined {examined} widgets on the "
+                f"{tab!r} tab, so it cannot see this bug — the pane's structure "
+                "changed and this test has gone vacuous. Fix the walk, don't "
+                "delete the test."
+            )
+            assert not clashes, (
+                f"at 940x{height} on the {tab!r} tab the pane paints children on "
+                "top of each other:\n  " + "\n  ".join(clashes)
+            )
     pane.hide()
 
 
 def test_the_pane_can_be_made_short_without_a_fight(qapp: QApplication) -> None:
     """A tall report must not impose a tall window.
 
-    The rejected alternative fix — teaching every wrapped label to report its
+    One rejected fix for the overlap — teaching every wrapped label to report its
     true height-for-width — removed the overlap but drove this pane's minimum
-    height to 1418 px, i.e. it demanded a window taller than most screens. The
-    scroll area is what keeps "the report is long" from meaning "the window must
-    be huge", so pin that the minimum stays small.
+    height to 1418 px, i.e. it demanded a window taller than most screens. So pin
+    that the minimum stays modest.
+
+    The bound is 260 px rather than the 200 px of v0.5.15 because the fixed
+    header now deliberately holds the trust headline and the read-effort warning:
+    those two are the "is this rip good?" answer and they are never scrolled away
+    or hidden behind a tab, which costs about 45 px of guaranteed height. That is
+    a considered trade, not drift — if this number needs to grow again, check
+    that whatever is being added really belongs in the *fixed* band.
     """
     pane = RipProgress()
     _populate_like_a_finished_rip(pane)
@@ -1401,7 +1413,211 @@ def test_the_pane_can_be_made_short_without_a_fight(qapp: QApplication) -> None:
 
     minimum = pane.minimumSizeHint().height()
     pane.hide()
-    assert minimum <= 200, (
+    assert minimum <= 260, (
         f"the pane demands at least {minimum} px of height. A variable-length "
         "report must scroll, not dictate the window size."
+    )
+
+
+# --- One scroll surface, never nested ----------------------------------------
+# The v0.5.15 scroll area fixed the overlap and created a new complaint: "the 2
+# scroll bars in the lower right are difficult to use together". Measured on the
+# real widget, a 940x400 pane had two vertical scrollbars 15 px apart (x=911 and
+# x=926), the inner one nested inside the outer one's scrolled content.
+#
+# Nesting is the specific defect, not the count: a nested scroll area steals the
+# wheel, and — measured — one that has nothing left to scroll does not even pass
+# the wheel on to its parent, so "just turn the inner scrollbar off" trades a
+# visible bar for a dead wheel zone. These tests pin the structural property that
+# rules both out.
+
+
+def _live_scrollbars(pane: QWidget) -> list[str]:
+    """Scrollbars that are visible AND have somewhere to scroll."""
+    from PySide6.QtWidgets import QAbstractScrollArea, QScrollBar
+
+    out: list[str] = []
+    for bar in pane.findChildren(QScrollBar):
+        if not (bar.isVisible() and bar.maximum() > bar.minimum()):
+            continue
+        owner: QWidget | None = bar.parentWidget()
+        while owner is not None and not isinstance(owner, QAbstractScrollArea):
+            owner = owner.parentWidget()
+        name = type(owner).__name__ if owner is not None else "?"
+        out.append(f"{name}@x{bar.mapTo(pane, bar.rect().topLeft()).x()}")
+    return out
+
+
+def _nested_scroll_areas(pane: QWidget) -> list[str]:
+    """Scroll areas living inside another scroll area's scrolled content.
+
+    A QHeaderView is a QAbstractScrollArea and is always inside its table; that
+    is Qt's own construction, not a nesting mistake, so it is excluded.
+    """
+    from PySide6.QtWidgets import QAbstractScrollArea, QHeaderView
+
+    out: list[str] = []
+    for inner in pane.findChildren(QAbstractScrollArea):
+        if isinstance(inner, QHeaderView):
+            continue
+        parent: QWidget | None = inner.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QAbstractScrollArea) and parent is not inner:
+                if not isinstance(parent, QHeaderView):
+                    out.append(f"{type(inner).__name__} inside {type(parent).__name__}")
+                break
+            parent = parent.parentWidget()
+    return out
+
+
+def test_the_pane_never_shows_two_scrollbars_at_once(qapp: QApplication) -> None:
+    """At most one scrollbar, on any tab, at any size.
+
+    This is the maintainer's complaint stated as a checkable property. It is
+    measured with a realistic console (hundreds of lines) because a six-line log
+    has nothing to scroll and would make the test pass for the wrong reason.
+    """
+    pane = RipProgress()
+    _populate_like_a_finished_rip(pane)
+    for i in range(400):
+        pane.append_log_line(f"log line {i}: realistic post-rip console volume")
+
+    seen_any = 0
+    for width, height in ((1900, 980), (940, 700), (940, 500), (940, 400), (940, 300)):
+        pane.resize(width, height)
+        pane.show()
+        qapp.processEvents()
+        for index in range(pane._tabs.count()):
+            pane._tabs.setCurrentIndex(index)
+            qapp.processEvents()
+            pane.layout().activate()
+            qapp.processEvents()
+            bars = _live_scrollbars(pane)
+            seen_any += len(bars)
+            assert len(bars) <= 1, (
+                f"at {width}x{height} the {pane._tabs.tabText(index)!r} tab shows "
+                f"{len(bars)} scrollbars at once: {bars}. Two scroll surfaces in "
+                "one view are what the maintainer reported as 'difficult to use "
+                "together'."
+            )
+    pane.hide()
+    # Vacuity floor: "at most one" is trivially true if the walk never finds a
+    # scrollbar at all. It must find some — the console alone has 400 lines.
+    assert seen_any > 0, (
+        "the walk found no live scrollbars anywhere, so 'at most one' proves "
+        "nothing — either the detector broke or the content stopped scrolling."
+    )
+
+
+def test_no_scroll_surface_is_nested_inside_another(qapp: QApplication) -> None:
+    """The structural rule, which is stronger than counting bars.
+
+    A nested scroll area is the real defect: the wheel lands on whichever surface
+    the pointer happens to be over, and an inner one with nothing left to scroll
+    swallows the wheel entirely instead of passing it outwards (measured). So no
+    scroll area in this pane may contain another.
+    """
+    pane = RipProgress()
+    _populate_like_a_finished_rip(pane)
+    pane.resize(940, 400)
+    pane.show()
+    qapp.processEvents()
+
+    nested = _nested_scroll_areas(pane)
+    # Guard against the walk finding nothing because the pane stopped having
+    # scroll areas at all — then this test would pass vacuously forever.
+    from PySide6.QtWidgets import QAbstractScrollArea
+
+    total = [
+        w
+        for w in pane.findChildren(QAbstractScrollArea)
+        if type(w).__name__ != "QHeaderView"
+    ]
+    pane.hide()
+    assert len(total) >= 2, (
+        f"only {len(total)} scroll area(s) found, so this test cannot detect "
+        "nesting any more — the pane's structure changed. Fix the walk."
+    )
+    assert not nested, "these scroll surfaces are nested inside another: " + ", ".join(
+        nested
+    )
+
+
+def test_the_live_log_is_shown_during_a_rip_and_results_at_the_end(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The tabs must follow the rip, so the user never clicks to see 'now'.
+
+    A tab that has to be found is worse than a cramped column, so the pane
+    switches itself: the console while ripping, the per-track results when the
+    log lands.
+    """
+    pane = RipProgress()
+    pane.clear()
+    pane.begin_rip(tmp_path, tmp_path / "log.txt")
+    qapp.processEvents()
+    assert pane._tabs.currentWidget() is pane._log_view, (
+        "during a rip the live console should be showing, not an empty table"
+    )
+
+    pane.set_rip_log(
+        RipLog(
+            log_creator="cyanrip 0.9.3",
+            tracks=(_track(1),),
+        )
+    )
+    qapp.processEvents()
+    assert pane._tabs.currentWidget() is pane._ar_table, (
+        "when the rip log lands the per-track results should come to the front"
+    )
+
+
+def test_an_empty_result_set_does_not_swap_away_from_the_log(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Don't replace a console that has output with a blank grid.
+
+    If the rip produced no per-track rows, the log is the only thing that can
+    explain why — so switching to an empty table would hide the evidence.
+    """
+    pane = RipProgress()
+    pane.clear()
+    pane.begin_rip(tmp_path, tmp_path / "log.txt")
+    pane.append_log_line("cyanrip: could not read the disc")
+    qapp.processEvents()
+
+    pane.set_rip_log(RipLog(log_creator="cyanrip 0.9.3", tracks=()))
+    qapp.processEvents()
+    assert pane._tabs.currentWidget() is pane._log_view, (
+        "with no tracks to show, the pane should stay on the log"
+    )
+
+
+def test_a_caveat_in_the_details_tab_is_marked_on_the_tab_label(
+    qapp: QApplication,
+) -> None:
+    """A tab must not be a place where warnings go to hide.
+
+    The single-column layout showed every caveat whether you wanted it or not.
+    Tabs buy one scroll surface at the cost of that, so the tab label carries a
+    marker the moment something lands behind it — otherwise the user has to click
+    a tab to discover they should have clicked it.
+    """
+    pane = RipProgress()
+    plain = pane._tabs.tabText(1)
+    assert "⚠" not in plain, "a fresh pane has no caveats, so no marker"
+
+    pane.set_ctdb_status("Verifying against CTDB…")
+    qapp.processEvents()
+    marked = pane._tabs.tabText(1)
+    assert "⚠" in marked, (
+        f"the Details tab holds a CTDB line but its label is {marked!r} — a user "
+        "who never opens the tab has no way to know there is something in it"
+    )
+
+    pane.clear()
+    qapp.processEvents()
+    assert "⚠" not in pane._tabs.tabText(1), (
+        "clearing the pane must drop the marker, or it points at a caveat that "
+        "no longer exists"
     )
