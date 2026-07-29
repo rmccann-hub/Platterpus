@@ -86,13 +86,41 @@ class ShutdownDeadline:
 _abandoned_threads: list[QThread] = []
 
 
+def _prune_finished_abandoned_threads() -> None:
+    """Drop entries whose thread has since finished.
+
+    The list was append-only, and one call site abandons unconditionally
+    (`main_window` supersedes an in-flight disc probe with `wait_ms=0`). So a
+    single mid-probe rescan latched the count at ≥1 for the whole session and
+    made the hard exit fire on *every* subsequent quit — turning "skip teardown
+    only when it is unsafe" into "never run teardown", so `atexit` never ran.
+    Found by a threading audit, 2026-07-29.
+
+    Dropping the reference is safe **only** once the thread has finished: that is
+    the entire point of retaining it. `start_worker_thread` wires
+    `finished → deleteLater`, so Qt owns the deletion by then.
+    """
+    still_running: list[QThread] = []
+    for thread in _abandoned_threads:
+        try:
+            if thread.isRunning():
+                still_running.append(thread)
+        except RuntimeError:
+            # The C++ object is already gone (deleteLater ran): nothing left to
+            # retain, and asking again would raise the same way.
+            continue
+    _abandoned_threads[:] = still_running
+
+
 def abandoned_thread_count() -> int:
-    """How many worker threads were abandoned still-running.
+    """How many abandoned worker threads are **still running**.
 
     Non-zero means **interpreter shutdown is unsafe**: see the note on
     `_abandoned_threads`. Exit paths use this to decide whether they must bypass
-    teardown rather than unwind through it.
+    teardown rather than unwind through it. Finished entries are pruned first, so
+    a session that abandoned a thread which later completed still exits normally.
     """
+    _prune_finished_abandoned_threads()
     return len(_abandoned_threads)
 
 

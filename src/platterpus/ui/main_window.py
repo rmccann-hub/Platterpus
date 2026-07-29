@@ -601,6 +601,20 @@ class MainWindow(
         # (the app is exiting, so a daemon thread would be killed mid-kill — see
         # its docstring). This is the "exit = force stop" contract, done right.
         self._stop_rip_on_shutdown()
+        # …and then stop the rip THREAD, which nothing used to do.
+        #
+        # `_stop_rip_on_shutdown` cancels the *worker* and frees the drive, but
+        # `_rip_thread` is parented to this window, so leaving it running means
+        # `~QMainWindow` deletes a live QThread → qFatal → SIGABRT. And the usual
+        # safety net does not apply: `worker.finished → thread.quit` is a QUEUED
+        # connection whose receiver lives on the GUI thread, so once `app.exec()`
+        # has returned that `quit()` is never delivered — a worker that finished
+        # *cleanly* still leaves its thread spinning in its own event loop.
+        # Closing the window mid-rip therefore aborted deterministically. Found by
+        # a threading audit (2026-07-29) and reproduced to exit 134; the tests
+        # never caught it because `tests/conftest.py`'s window fixture stops
+        # `_rip_thread` itself, silently compensating for this gap.
+        stop_thread(self._rip_thread, self._rip_worker, deadline=deadline)
         # Flush any debounced rip-report write so closing mid-verify never loses
         # the last result that had been queued for serialization.
         self._flush_rip_report()

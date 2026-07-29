@@ -12,6 +12,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Closing the window during a rip aborted the process.** A threading audit found
+  that `closeEvent` stopped six worker threads and not the rip thread — it
+  cancelled the rip *worker* and freed the drive, but `_rip_thread` is parented to
+  the window, so `~QMainWindow` destroyed a live `QThread`. The usual safety net
+  does not apply here either: `worker.finished → thread.quit` is a **queued**
+  connection to the GUI thread, so once `app.exec()` has returned that `quit()` is
+  never delivered and even a cleanly-finished worker leaves its thread spinning.
+  Reproduced to exit 134. The test suite could not have caught it — its own window
+  fixture stops the rip thread, silently compensating for the gap — so the
+  regression test asserts on `closeEvent` itself.
+- **`--uninstall` could abort the same way.** That path returned from `main()`
+  without the abandoned-thread check, and its worker shells out to podman/dnf with
+  a cancel flag that is only polled *between* steps (a step's timeout is 1800 s),
+  so closing mid-teardown reliably abandons a running thread.
+- **The hard exit had started firing on every quit.** One call site abandons a
+  thread unconditionally (a rescan superseding an in-flight disc probe waits 0 ms)
+  and the retention list was append-only, so a single mid-probe rescan latched the
+  count for the rest of the session — turning "skip teardown only when it is
+  unsafe" into "never run teardown", and `atexit` never ran. Finished entries are
+  now pruned, so only a genuinely-live thread forces the hard exit.
+
 - **The app aborted with `SIGABRT` when it exited while a worker thread was still
   blocked in a container call** — reliably during the update-relaunch, which
   tears the process down with background work in flight. A worker inside

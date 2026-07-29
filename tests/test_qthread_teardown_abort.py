@@ -219,3 +219,95 @@ def test_the_word_detach_is_gone_from_thread_handling() -> None:
         "a log message still says 'detach' — that wording is what made the code "
         f"look like it was doing something safe: {in_messages}"
     )
+
+
+# --- Findings from the 2026-07-29 threading audit ------------------------------
+
+
+def test_close_event_stops_the_rip_thread() -> None:
+    """`closeEvent` must stop `_rip_thread`, not only cancel the rip worker.
+
+    The audit's critical finding, reproduced to exit 134 before the fix: the rip
+    QThread is parented to the window, so leaving it running means `~QMainWindow`
+    destroys a live QThread. The usual net does not catch it either —
+    `worker.finished → thread.quit` is a *queued* connection to the GUI thread, so
+    once `app.exec()` has returned that `quit()` is never delivered and even a
+    cleanly-finished worker leaves its thread spinning.
+
+    Asserted against the **source of closeEvent**, deliberately. The obvious
+    behavioural test would build a window and close it — but `tests/conftest.py`'s
+    window fixture stops `_rip_thread` itself, which is exactly why the real gap
+    went unnoticed for so long. A test that inherits that helper cannot see this.
+    """
+    import inspect
+
+    from platterpus.ui.main_window import MainWindow
+
+    source = inspect.getsource(MainWindow.closeEvent)
+    assert "_rip_thread" in source, (
+        "closeEvent does not stop _rip_thread. Closing the window mid-rip will "
+        "destroy a running QThread and abort. Note the test-suite's "
+        "stop_window_threads helper stops it for tests, so no window fixture "
+        "will reveal this — that is why this test reads the source."
+    )
+
+
+def test_the_uninstall_path_checks_before_returning() -> None:
+    """`--uninstall` must not return into interpreter shutdown unguarded.
+
+    Its worker shells out to podman/dnf with an 1800 s step timeout and a cancel
+    flag that is only polled *between* steps, so closing mid-teardown reliably
+    abandons a running thread — the v0.5.8 mechanism on a path the first fix did
+    not cover.
+    """
+    import inspect
+
+    from platterpus import app as app_module
+
+    source = inspect.getsource(app_module.main)
+    uninstall_block = source.split("if args.uninstall:", 1)
+    assert len(uninstall_block) == 2, "the --uninstall branch moved; update this test"
+    # Only look at the branch itself, up to the next top-level statement.
+    branch = uninstall_block[1].split("\n    # Bringing up the adapters", 1)[0]
+    assert "exit_now_if_threads_abandoned" in branch, (
+        "the --uninstall branch returns from main() without the abandoned-thread "
+        "check, so a mid-teardown close will abort at interpreter shutdown"
+    )
+
+
+def test_a_finished_abandoned_thread_stops_forcing_a_hard_exit() -> None:
+    """The retention list must not latch, or os._exit becomes the normal exit.
+
+    One call site abandons unconditionally (a rescan superseding an in-flight disc
+    probe waits 0 ms), and the list was append-only — so a single mid-probe rescan
+    made every later quit skip teardown for the rest of the session, and `atexit`
+    never ran. Pruning finished entries restores "skip teardown only when it is
+    genuinely unsafe".
+    """
+    from platterpus import workers
+
+    class _FinishedThread:
+        """Stands in for an abandoned thread whose blocked step has returned."""
+
+        def isRunning(self) -> bool:
+            return False
+
+    class _RunningThread:
+        def isRunning(self) -> bool:
+            return True
+
+    original = list(workers._abandoned_threads)
+    try:
+        workers._abandoned_threads[:] = [_FinishedThread()]  # type: ignore[list-item]  # minimal stand-in, not a real QThread
+        assert workers.abandoned_thread_count() == 0, (
+            "a finished abandoned thread still counts, so the hard exit fires on "
+            "every quit for the rest of the session"
+        )
+
+        workers._abandoned_threads[:] = [_FinishedThread(), _RunningThread()]  # type: ignore[list-item]  # as above
+        assert workers.abandoned_thread_count() == 1, (
+            "pruning dropped a thread that is still RUNNING — that reference is "
+            "the only thing stopping Qt destroying it"
+        )
+    finally:
+        workers._abandoned_threads[:] = original
