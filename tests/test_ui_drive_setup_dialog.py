@@ -6,6 +6,7 @@ its `_on_finished` slot directly to verify result rendering.
 
 from __future__ import annotations
 
+import pytest
 from PySide6.QtWidgets import QApplication
 
 from platterpus.adapters.rip_backend import RipBackend
@@ -328,3 +329,145 @@ def test_save_offset_confirmation_is_announced(qapp: QApplication, monkeypatch) 
 
     assert len(heard) == 1
     assert "+667" in heard[0]
+
+
+# --- Layout: text must never be clipped ------------------------------------
+#
+# Regression for the measured clipping (2026-07-29). `setMinimumSize(460, 320)` was a
+# hand-picked guess 185 px shorter than the content needs, so shrinking the dialog cut
+# off its own explanation of what a read offset IS — the intro label was 73 px short at
+# 440x300. Nothing overlapped, because `_results_label` has stretch=1 and absorbed the
+# squeeze until it had nothing left; then the fixed prose took it.
+
+
+def _clipped_labels(dialog: DriveSetupDialog) -> list[str]:
+    """Every visible label whose text needs more room than it was given.
+
+    A word-wrapped label's `heightForWidth` is the truth; its `minimumSizeHint`
+    height is one line, which is exactly why the layout under-reported and the
+    hand-picked minimum looked adequate.
+    """
+    from PySide6.QtWidgets import QLabel
+
+    bad: list[str] = []
+    for label in dialog.findChildren(QLabel):
+        if label.isHidden() or not label.text():
+            continue
+        if label.wordWrap():
+            needed = label.heightForWidth(label.width())
+        else:
+            needed = label.sizeHint().height()
+            if label.sizeHint().width() > label.width() + 1:
+                bad.append(f"{label.text()[:40]!r} clipped horizontally")
+        if needed > label.height() + 1:
+            bad.append(
+                f"{label.text()[:40]!r} short by {needed - label.height()}px "
+                f"(has {label.height()}, needs {needed} at width {label.width()})"
+            )
+    return bad
+
+
+@pytest.mark.parametrize("known_offset", [None, 667])
+def test_the_dialog_cannot_be_shrunk_until_its_text_is_clipped(
+    qapp: QApplication, known_offset: int | None
+) -> None:
+    """Both configurations, several sizes, no clipped prose.
+
+    Parametrised over `known_offset` because the known-offset banner is an extra
+    wrapped label — it made the deficit worse (3 clipped labels at 440x300 vs 2), and
+    a test that only covered one shape would have missed the bigger case.
+    """
+    dialog = DriveSetupDialog(
+        _CacheOnlyBackend(),
+        "/dev/sr0",
+        known_offset=known_offset,
+        drive_label="PIONEER BD-RW BDR-209D",
+    )
+    dialog.show()
+
+    examined = 0
+    for width, height in ((760, 620), (560, 520), (460, 420), (440, 360), (440, 300)):
+        dialog.resize(width, height)
+        qapp.processEvents()
+        clipped = _clipped_labels(dialog)
+        examined += 1
+        assert not clipped, (
+            f"asked for {width}x{height} (became "
+            f"{dialog.width()}x{dialog.height()}) and text is clipped: {clipped}"
+        )
+    # Floor: "no clipping" is trivially true if we never actually laid anything out.
+    assert examined == 5
+    from PySide6.QtWidgets import QLabel
+
+    assert len([lbl for lbl in dialog.findChildren(QLabel) if lbl.text()]) >= 3, (
+        "found fewer than three labels with text — the dialog was not built, so "
+        "this check passed by finding nothing."
+    )
+
+
+@pytest.mark.parametrize("known_offset", [None, 667])
+def test_the_minimum_size_is_derived_from_the_content_not_hardcoded(
+    qapp: QApplication, known_offset: int | None
+) -> None:
+    """The mechanism, pinned separately from the symptom.
+
+    The symptom test above would also pass if someone hardcoded a large enough
+    minimum — which would then rot the moment the intro text changes. This asserts
+    the minimum actually tracks the laid-out content, and that it is big enough to
+    show it.
+    """
+    dialog = DriveSetupDialog(
+        _CacheOnlyBackend(),
+        "/dev/sr0",
+        known_offset=known_offset,
+        drive_label="PIONEER BD-RW BDR-209D",
+    )
+    dialog.show()
+
+    minimum = dialog.minimumSize()
+    hint = dialog.sizeHint()
+    assert minimum.height() >= min(hint.height(), 620), (
+        f"minimum height {minimum.height()} is below what the content needs "
+        f"({hint.height()}), so the dialog can still be shrunk into clipping."
+    )
+    # It really is enforced, not merely stored: a smaller resize must be refused.
+    dialog.resize(300, 200)
+    qapp.processEvents()
+    assert dialog.height() >= minimum.height()
+    assert dialog.width() >= minimum.width()
+    # And the results box — the one scroll surface — is what yields instead.
+    assert dialog._results_label.minimumHeight() < minimum.height()
+
+
+def test_the_dialog_has_exactly_one_scroll_surface(qapp: QApplication) -> None:
+    """Never nest a scroll surface (`architecture.md` §3.9).
+
+    `_results_label` is a `QPlainTextEdit`, i.e. already a scroll area. Fixing the
+    clipping by wrapping the dialog in a `QScrollArea` — the rip pane's fix — would
+    nest them, and a nested scroll area with nothing left to scroll swallows the
+    wheel rather than passing it up. That is the v0.5.15 bug; this guard stops it
+    being reintroduced here by someone reaching for the familiar fix.
+    """
+    from PySide6.QtWidgets import QAbstractScrollArea
+
+    # Bind the dialog to a local: an inline temporary is collected mid-test and the
+    # findChildren below then raises on a deleted C++ object.
+    dialog = DriveSetupDialog(_CacheOnlyBackend(), "/dev/sr0")
+    dialog.show()
+
+    surfaces: list[QAbstractScrollArea] = list(dialog.findChildren(QAbstractScrollArea))
+    if isinstance(dialog, QAbstractScrollArea):
+        surfaces.append(dialog)
+    assert surfaces, "found no scroll areas at all — this check would pass vacuously"
+    nested = [
+        f"{type(inner).__name__} inside {type(outer).__name__}"
+        for outer in surfaces
+        for inner in outer.findChildren(QAbstractScrollArea)
+        if inner is not outer and inner in surfaces
+    ]
+    assert not nested, f"nested scroll surfaces: {nested}"
+    # And exactly one, so a future "just add a QScrollArea" cannot slip in unnoticed.
+    assert len(surfaces) == 1, (
+        f"expected one scroll surface (the results box); found {len(surfaces)}: "
+        f"{[type(s).__name__ for s in surfaces]}"
+    )

@@ -634,6 +634,98 @@ Corollary for anyone reading numbers out of a tool: **record the version beside
 the number.** A typing census that says "132 errors" without saying "mypy 2.3.0"
 is not reproducible, because `--strict`'s flag set is version-dependent.
 
+A related trap that cost a real false-green build: **check *which* binary the gate
+ran.** `mypy` on `PATH` here was a stale global 1.19.1 while the pin is `>=2.3,<2.4`,
+so a bare `mypy` invocation silently measured against the wrong tool and produced
+118 phantom import errors. Invoke gating tools as `python -m <tool>` from the
+activated venv, and if a number surprises you, print `--version` before believing it.
+
+### 5.q — An exit code is only a verdict if the run reached the end (added 2026-07-29)
+
+**The worst build outcome is not red. It is green-and-wrong**, and this project
+shipped one: CI's `test` job on PR #105 exited **0** having run **76%** of the
+suite. No summary line, no coverage report, `--cov-fail-under` never evaluated,
+~500 tests never executed, and a genuinely failing test swallowed — all behind a
+green tick that a merge was performed on.
+
+The mechanism is worth understanding because it generalises past this repo.
+`tests/conftest.py` deliberately ends the session with `os._exit(status)` (to dodge
+a PySide global-teardown abort). Its comment claimed it could not mask a mid-run
+abort, and that was true for a *signal* — but not for a mid-run **`os._exit(0)`**,
+which is byte-identical to success from the outside. Product code supplies exactly
+such a call: `platterpus.hard_exit` exists to leave the process without teardown,
+and a test drove the update-relaunch path straight into it.
+
+Three durable rules come out of it:
+
+1. **A run must prove it finished, and the proof cannot come from inside the run.**
+   A truncated process cannot report on itself — it is gone. So
+   `pytest_sessionfinish` writes `.pytest-session-complete` as its very last act,
+   `pytest_sessionstart` deletes any stale copy (a leftover from yesterday would
+   vouch for today), and **CI fails the job when the file is missing**. Any harness
+   that hard-exits, forks, or `execv`s needs an equivalent liveness artefact.
+2. **A seam nobody uses is not a safety feature.** `hard_exit._exit_fn` was built
+   as the injection point for exactly this and documented as "reached only when a
+   test injects a recording stub" — and no test ever injected one, so the real
+   `os._exit` was live in every test for five releases. Injection seams belong in
+   an **autouse** fixture: the failure mode is silent, so an opt-in seam protects
+   only the tests whose authors already knew about the hazard, and the test that
+   needed it did not.
+3. **Match the stand-in's control flow, not just its signature.** `os._exit` never
+   returns, so the stand-in raises (from `BaseException`, so no stray
+   `except Exception:` can swallow what the real thing cannot be caught at all).
+   A recorder that *returns* lets tests execute code production can never reach —
+   §5.t's rule applied to control flow rather than to cleanup.
+
+And a diagnosability note that is really part of the same bug: CI passed `-q` on
+top of the `-q` already in `addopts`, taking verbosity to `-2`, which **suppresses
+pytest's `N passed` summary**. That summary is the only human-visible proof in a log
+that the run reached the end, so its absence looked normal and nobody read the
+truncation. Never double `-q`; if a log has no summary line, treat that as a
+finding, not as formatting.
+
+Proven by reverting, per §5.s: with the fixture removed, the guard test fails **and**
+the process dies at status 0 with the sentinel absent — so both halves fire.
+
+
+### 5.p — A documented capability is not a capability (added 2026-07-29)
+
+One audit turned up four instances of the same shape in one pass, which is what makes
+it a rule rather than four bugs:
+
+| what the docs said | what the code did |
+|---|---|
+| `RipWorker.cancel` — "the force-stop timer escalates to a SIGKILL" | `RipHandle.cancel()` was called from **nowhere**; the escalation did not exist |
+| `drive_setup_dialog` — "cancel_setup SIGTERM/SIGKILLs the subprocess" | resolved to the ABC's concrete **no-op**; the backend never overrode it |
+| `cache_probe` — "the probe is off the GUI thread, **cancellable**" | `subprocess.run` hides the child; there was nothing to signal |
+| `hard_exit._exit_fn` — "reached only when a test injects a recording stub" | no test ever injected one, so the real `os._exit` was live in the suite |
+
+Every one of them read as *covered* in review, because a reviewer checking "is
+cancellation handled?" finds a `cancel()` method, a docstring describing signals, and
+a plausible mechanism. The prose was doing the reassuring; nothing was doing the work.
+
+Three checks, cheap enough to be habitual:
+
+1. **Grep for a call site before believing a method works.** A fully-implemented,
+   well-documented, never-called method is dead code that reads as a feature. Where a
+   method is load-bearing for safety, pin the wiring with a test (§5.x) —
+   `test_rip_handle_cancel_is_actually_called_from_the_product` is the model.
+2. **Check reachability, not presence.** That wiring test's first version only asserted
+   a call site *existed somewhere in `src/`*, and it passed against a reverted tree —
+   the call still sat inside a helper nothing called any more. A call site in dead code
+   is dead code. This is the same "mentioning is not stopping" trap as §5.t, hit a
+   second time in the same session, which is why it now gets its own line.
+3. **Treat a concrete no-op default on an ABC as a hazard.** It is right for a
+   subclass with nothing to do and a trap for one that does: the subclass inherits
+   "handled" for free and no abstract-method error ever fires. If a hook can be
+   load-bearing for *some* backends, test that the shipped one overrides it — asserting
+   `hasattr` is worthless, since the method is present either way. Compare the
+   functions: `Sub.hook is not Base.hook`.
+
+Corollary on wording: when a docstring describes a mechanism, it is a claim about code
+that exists **now**. If you are writing the intention ahead of the implementation, say
+so in the docstring, or don't write it yet.
+
 
 ## 6. Definition of Done (testing) — paste into every PR
 
@@ -701,4 +793,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.5.16.*
+*Last updated for Platterpus v0.5.17.*

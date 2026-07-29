@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -235,6 +236,20 @@ _ETA_STALL_THRESHOLD_S: float = 180.0
 # contradict each other on screen (real-user report). It's always the last
 # field, so match to end of line.
 _CYANRIP_ETA_CLAUSE = re.compile(r",\s*ETA\s*-.*$")
+
+# How long to wait for the ripper to exit on its own once we have stopped reading
+# its output, before escalating to the SIGTERM→SIGKILL group kill.
+#
+# Generous on purpose: a *normal* finish reaches this having already closed stdout,
+# so it returns instantly; the wait only elapses on the abnormal paths (cancel, a
+# stream error), where the alternative was hanging forever. cyanrip's own shutdown
+# after a SIGTERM includes flushing and closing the current FLAC, which on a slow
+# target filesystem is seconds, not milliseconds.
+_RIPPER_EXIT_GRACE_S: float = 15.0
+# Handed to RipHandle.cancel() for the escalation itself: SIGTERM, wait, SIGKILL,
+# wait. Bounded at both steps so a wedged drive cannot make the reap unbounded.
+_RIPPER_TERM_GRACE_S: float = 5.0
+_RIPPER_KILL_GRACE_S: float = 5.0
 
 
 def _coarsen_eta_seconds(seconds: float) -> int:
@@ -1083,10 +1098,68 @@ class RipWorker(QObject):
             self.error.emit(f"rip stream error: {exc}")
             return None
 
-        exit_code = self._handle.wait()
+        exit_code = self._reap_ripper()
         success = (exit_code == 0) and not self._cancelled
         log_path = self._find_log_path(out_dir, since=self._rip_started_at)
         return success, str(log_path) if log_path else ""
+
+    def _reap_ripper(self) -> int | None:
+        """Reap the ripper process, bounded. Returns its exit code, or ``None``.
+
+        **This replaced a bare ``self._handle.wait()``, which was a textbook
+        pipe deadlock.** The read loop above does not always run to EOF: on cancel
+        it `break`s, and on a stream error it bails out. Either way the ripper's
+        stdout pipe stops being drained while the ripper may still be writing to it.
+        A pipe holds ~64 KiB; once it is full the child blocks in ``write()``, so it
+        never exits, so an unbounded ``wait()`` never returns — and it is waiting on
+        the rip worker's own thread, which then never finishes, which then gets
+        abandoned at shutdown. Python's own docs warn about exactly this shape
+        (``Popen.wait`` + a live ``PIPE``); we had it.
+
+        The escalation is ``RipHandle.cancel()``, which sends SIGTERM then SIGKILL
+        to the process *group*. That method already existed, fully implemented and
+        documented — and was **called from nowhere in the codebase**, so the
+        escalation the cancel path's docstring promised did not exist. It does now,
+        and this is the only correct place for it: it blocks, so it must run off the
+        GUI thread, and this method always does.
+
+        SIGKILL ends the writer, which is what unblocks the pipe — so the deadlock
+        is broken by the escalation, not merely timed out of. ``None`` comes back
+        only when even SIGKILL could not reap it (a reader wedged in an
+        uninterruptible drive ioctl), and the caller treats that as "not a clean
+        exit" rather than hanging.
+        """
+        handle = self._handle
+        if handle is None:  # pragma: no cover — callers hold a handle
+            return None
+        # Cancel already sends a non-blocking SIGTERM, but a `break` can also come
+        # from the startup-window race; asking again is free and idempotent, and it
+        # guarantees the process has been told to stop before we start waiting.
+        if self._cancelled:
+            try:
+                handle.terminate()
+            except Exception:  # noqa: BLE001 — best-effort, must not mask the reap
+                log.exception("terminate() before reap raised; ignored")
+        try:
+            return handle.wait(timeout=_RIPPER_EXIT_GRACE_S)
+        except subprocess.TimeoutExpired:
+            log.warning(
+                "ripper still running %.1fs after we stopped reading its output — "
+                "escalating to SIGTERM/SIGKILL on the process group. Its stdout "
+                "pipe is no longer drained, so it may be blocked writing to a full "
+                "pipe rather than doing work.",
+                _RIPPER_EXIT_GRACE_S,
+            )
+        exit_code = handle.cancel(
+            term_timeout=_RIPPER_TERM_GRACE_S, kill_timeout=_RIPPER_KILL_GRACE_S
+        )
+        if exit_code is None:
+            log.error(
+                "could not reap the ripper even after SIGKILL; treating the rip as "
+                "not cleanly finished. The drive may still be held — a force stop "
+                "or a drive reset is the remaining recovery."
+            )
+        return exit_code
 
     def _write_incremental_report(self, out_dir: Path) -> None:
         """Snapshot a PARTIAL ``.platterpus.json`` after a track completes.
@@ -1393,11 +1466,17 @@ class RipWorker(QObject):
 
         Sets the cancel flag (read by the worker's iteration loop) and sends a
         non-blocking SIGTERM via ``terminate()`` — it never waits, so a wedged
-        drive can't freeze the caller. The worker's own ``wait()`` (on the worker
-        thread) reaps the terminated process; if the ripper ignores SIGTERM, the
-        GUI's force-stop timer escalates to a SIGKILL off the GUI thread. Both the
-        flag write and ``terminate()`` are thread-safe (atomic bool; subprocess
-        signalling is), so this is safe to call from the GUI thread.
+        drive can't freeze the caller. Both the flag write and ``terminate()`` are
+        thread-safe (atomic bool; subprocess signalling is), so this is safe to call
+        from the GUI thread.
+
+        Reaping happens on the worker thread in :meth:`_reap_ripper`, which is
+        bounded and escalates to SIGKILL on the process group. An earlier version of
+        this docstring said the *GUI's force-stop timer* provided that escalation.
+        It does not: ``drive_control`` kills whatever holds the **device**, which is
+        a different and coarser thing, and the process-group escalation it described
+        (``RipHandle.cancel``) was called from nowhere. Fixed 2026-07-29 — the claim
+        is now true, but it was documentation describing an intention.
         """
         self._cancelled = True
         if self._handle is not None:

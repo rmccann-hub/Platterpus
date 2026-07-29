@@ -40,6 +40,9 @@ env/
 # pytest / coverage
 .pytest_cache/
 .coverage
+# Written by conftest's pytest_sessionfinish as proof the run reached the end.
+# Absent ⇒ the process died mid-run and its exit status means nothing.
+.pytest-session-complete
 htmlcov/
 
 # Editor / IDE

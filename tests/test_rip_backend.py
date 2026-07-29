@@ -92,6 +92,126 @@ def test_rip_handle_cancel_on_already_exited_process_is_safe(
     assert killed == []  # nothing signalled — it had already exited
 
 
+def test_rip_handle_cancel_gives_up_instead_of_waiting_forever_after_sigkill(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Regression: `cancel()` used to end with a bare, unbounded `wait()`.
+
+    SIGKILL is unblockable *unless* the target is in uninterruptible sleep — which
+    is exactly where a reader wedged in a drive ioctl sits, and this project has met
+    wedged drives on real hardware more than once. In that state the old final
+    `self._process.wait()` blocks forever, on the rip worker's thread, which then
+    never finishes and gets abandoned at shutdown.
+
+    So the post-SIGKILL wait is bounded too, and an unreapable process returns
+    `None` — a value the caller can log and route around.
+    """
+    sent: list[int] = []
+    monkeypatch.setattr(rip_backend.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(rip_backend.os, "killpg", lambda pgid, sig: sent.append(sig))
+
+    class _UnreapableFakePopen(_FakePopen):
+        """Never reaped, no matter what is sent — a `D`-state process."""
+
+        def wait(self, timeout: float | None = None) -> int:
+            assert timeout is not None, (
+                "cancel() waited with NO timeout after SIGKILL — that is the hang. "
+                "A D-state process is never reaped and this blocks forever."
+            )
+            raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=timeout)
+
+    handle = RipHandle(process=_UnreapableFakePopen(argv=[]))  # type: ignore[arg-type]
+
+    with caplog.at_level("ERROR"):
+        code = handle.cancel(term_timeout=0.01, kill_timeout=0.01)
+
+    # It escalated all the way, then gave up rather than blocking.
+    assert sent == [signal.SIGTERM, signal.SIGKILL]
+    assert code is None, (
+        "an unreapable process must report None, not a fake exit code — a caller "
+        "comparing to 0 would otherwise call this a successful rip."
+    )
+    assert any("survived SIGKILL" in r.message for r in caplog.records), (
+        "gave up silently; a leaked ripper still holding the drive must be in the log"
+    )
+
+
+def test_rip_handle_cancel_is_actually_called_from_the_product() -> None:
+    """`cancel()` was fully implemented, documented — and called from nowhere.
+
+    A method like this is worse than a missing one: `RipWorker.cancel`'s docstring
+    described the SIGTERM→SIGKILL escalation as the thing that would stop a ripper
+    ignoring SIGTERM, so the gap read as covered in review. It was dead code for as
+    long as it existed (found by audit, 2026-07-29).
+
+    This is `docs/testing.md` §5.x — test the wiring at the call site — applied to a
+    method rather than a signal. Deliberately a source-level check: the deadlock it
+    resolves only reproduces with a real full pipe, so behaviour tests use a fake
+    handle and cannot prove the *real* `RipHandle.cancel` is reachable.
+
+    **It checks reachability, not merely presence.** The first version asserted only
+    that a `<handle>.cancel(...)` call existed somewhere in `src/`, and it passed
+    against a deliberately reverted tree — because the call still sat there inside a
+    helper that nothing called any more. A call site in dead code is dead code; that
+    is the same "mentioning is not stopping" trap `test_harness_fidelity.py` was
+    written for, hit a second time. So the enclosing function must itself be called.
+    """
+    import ast
+    from pathlib import Path
+
+    src = Path(rip_backend.__file__).resolve().parents[1]
+    # name -> where a `<...handle...>.cancel(...)` call sits inside it
+    call_sites: dict[str, str] = {}
+    # Every function name invoked anywhere in src/, so we can ask whether the
+    # function holding the call site is itself reachable.
+    invoked: set[str] = set()
+
+    for path in src.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        # Record the enclosing function of every rip-handle `.cancel(...)` call.
+        for func in ast.walk(tree):
+            if not isinstance(func, ast.FunctionDef):
+                continue
+            for node in ast.walk(func):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "cancel"
+                    # Narrow to the rip handle specifically — plenty of unrelated
+                    # objects have a `cancel`, and counting those would let this
+                    # pass on the strength of something else entirely.
+                    and "handle" in ast.unparse(node.func.value).lower()
+                    # Not the definition's own file: `RipHandle.cancel` calling
+                    # itself recursively would not make it reachable.
+                    and path.name != "rip_backend.py"
+                ):
+                    call_sites[func.name] = f"{path.relative_to(src)}:{node.lineno}"
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                target = node.func
+                name = (
+                    target.id
+                    if isinstance(target, ast.Name)
+                    else getattr(target, "attr", "")
+                )
+                if name:
+                    invoked.add(name)
+
+    assert call_sites, (
+        "no code in src/ calls <rip handle>.cancel(). The SIGTERM→SIGKILL "
+        "escalation is implemented and documented but unreachable, so a ripper "
+        "that ignores SIGTERM is never killed and the drive keeps spinning. Wire "
+        "it in (RipWorker._reap_ripper) or delete the method — do not leave a "
+        "documented promise that no code keeps."
+    )
+    reachable = {name: where for name, where in call_sites.items() if name in invoked}
+    assert reachable, (
+        "<rip handle>.cancel() is called only from function(s) that nothing else "
+        f"calls: {call_sites}. The escalation is unreachable in practice, which is "
+        "the original bug wearing a helper's clothes."
+    )
+
+
 def test_rip_handle_returncode_passthrough() -> None:
     fake = _FakePopen(argv=[])
     fake.returncode = 7
