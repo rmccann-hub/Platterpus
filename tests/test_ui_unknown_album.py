@@ -78,8 +78,16 @@ class _FakeMetaflac(MetaflacAdapter):
 
 
 def test_apply_placeholder_tags_writes_track_nn(tmp_path: Path) -> None:
+    """Realistic filenames on purpose: `NN - Title.flac`, as cyanrip writes them.
+
+    This fixture used to be `track1.flac`, `track2.flac`, … — names no rip ever
+    produces. That made the list position and the track number agree by
+    construction, which is exactly why the positional-mapping bug looked correct
+    here for as long as it existed (docs/testing.md §5.t: a stand-in must not be
+    tidier than the real thing).
+    """
     metaflac = _FakeMetaflac()
-    files = [tmp_path / f"track{i}.flac" for i in range(1, 4)]
+    files = [tmp_path / f"{i:02d} - Track {i:02d}.flac" for i in range(1, 4)]
 
     apply_placeholder_tags(metaflac, files)
 
@@ -97,8 +105,12 @@ def test_apply_placeholder_tags_writes_track_nn(tmp_path: Path) -> None:
 
 def test_apply_placeholder_tags_returns_successes(tmp_path: Path) -> None:
     metaflac = _FakeMetaflac()
-    files = [tmp_path / "a.flac", tmp_path / "b.flac", tmp_path / "c.flac"]
-    metaflac.fail_for(files[1])  # b.flac will fail
+    files = [
+        tmp_path / "01 - Track 01.flac",
+        tmp_path / "02 - Track 02.flac",
+        tmp_path / "03 - Track 03.flac",
+    ]
+    metaflac.fail_for(files[1])  # track 02 will fail
 
     succeeded = apply_placeholder_tags(metaflac, files)
 
@@ -221,3 +233,77 @@ def test_launch_picard_detaches_into_a_new_session(
     monkeypatch.setattr(unknown_module.subprocess, "Popen", _FakePopen)
     assert launch_picard_for(tmp_path) is True
     assert captured["kwargs"].get("start_new_session") is True
+
+
+# --- Track-number mapping (audit, 2026-07-29) --------------------------------
+
+
+def test_tags_follow_the_track_number_not_the_file_position(tmp_path: Path) -> None:
+    """Regression: deselecting a track shifted every tag by one.
+
+    The Rip? column lets the user untick tracks, so the files on disk are NOT
+    necessarily `01, 02, 03…`. The old code used `enumerate(flac_files, start=1)` as
+    the track number, so with track 1 deselected the file `02 - …` was written
+    track 1's title and `TRACKNUMBER=01`, `03 - …` got track 2's, and so on —
+    **every tag on the archival master silently wrong**, while the UI reported
+    success and the log said nothing.
+
+    A wrong TRACKNUMBER is worse than a missing one: nothing downstream can tell it
+    from a correct one.
+    """
+    metaflac = _FakeMetaflac()
+    # Track 1 was deselected, so the rip starts at 02.
+    files = [tmp_path / "02 - Track 02.flac", tmp_path / "03 - Track 03.flac"]
+    album = AlbumMetadata(artist="Some Artist", title="Some Album", year="")
+    tracks = [
+        TrackSummary(number=1, title="First", artist_credit=""),
+        TrackSummary(number=2, title="Second", artist_credit=""),
+        TrackSummary(number=3, title="Third", artist_credit=""),
+    ]
+
+    apply_track_tags(metaflac, files, album, tracks)
+
+    written = {path.name: tags for path, tags in metaflac.calls}
+    assert written["02 - Track 02.flac"]["TRACKNUMBER"] == "02"
+    assert written["02 - Track 02.flac"]["TITLE"] == "Second", (
+        "the file for track 2 was tagged with another track's title — the "
+        "positional mapping is back."
+    )
+    assert written["03 - Track 03.flac"]["TRACKNUMBER"] == "03"
+    assert written["03 - Track 03.flac"]["TITLE"] == "Third"
+
+
+def test_placeholder_tags_follow_the_track_number_too(tmp_path: Path) -> None:
+    """The same bug lived in the no-edits path; fixing one and not the other would
+    leave it reachable for every user who never touches the track table."""
+    metaflac = _FakeMetaflac()
+    files = [tmp_path / "05 - Track 05.flac", tmp_path / "06 - Track 06.flac"]
+
+    apply_placeholder_tags(metaflac, files)
+
+    written = {path.name: tags for path, tags in metaflac.calls}
+    assert written["05 - Track 05.flac"]["TRACKNUMBER"] == "05"
+    assert written["05 - Track 05.flac"]["TITLE"] == "Track 05"
+    assert written["06 - Track 06.flac"]["TRACKNUMBER"] == "06"
+
+
+def test_a_file_with_no_track_number_is_skipped_and_logged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Skipping beats guessing.
+
+    If the name carries no number there is nothing to key on, and inventing one
+    would write a confidently wrong TRACKNUMBER. The file is left untagged and the
+    reason goes to the log, so the outcome is visible rather than silently wrong.
+    """
+    metaflac = _FakeMetaflac()
+    files = [tmp_path / "bonus material.flac", tmp_path / "01 - Track 01.flac"]
+
+    with caplog.at_level("WARNING"):
+        succeeded = apply_placeholder_tags(metaflac, files)
+
+    assert [p.name for p in succeeded] == ["01 - Track 01.flac"]
+    assert len(metaflac.calls) == 1, "the un-numbered file was tagged anyway"
+    assert "does not start with a track number" in " ".join(
+        r.getMessage() for r in caplog.records
+    ), "skipped silently — the user has an untagged file and no explanation"

@@ -30,6 +30,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   of a ten-minute probe, so the trap is now written down next to the setting.
 
 ### Fixed
+- **Deselecting a track wrote every tag onto the wrong file.** The unknown-disc
+  tagger took each track's number from the file's *position* in the list rather than
+  from the file itself. That is only the same thing when every track was ripped — and
+  the Rip? column exists precisely so it isn't. Untick track 1 and the file `02 - …`
+  was written track 1's title and `TRACKNUMBER=01`, `03 - …` got track 2's, and so on
+  down the disc: **every tag on the archival master silently off by one**, with the UI
+  reporting success and nothing in the log. Both tagging paths (edited and
+  placeholder) took the number from the filename now, and a file whose name carries no
+  number is skipped with a logged reason rather than guessed at — a wrong track number
+  is indistinguishable from a right one to everything downstream, so it is worse than
+  a missing one. The tests that should have caught this used filenames no rip ever
+  produces (`a.flac`, `track1.flac`), which made position and track number agree by
+  construction.
+- **A rip that finished but whose log couldn't be found ran every post-rip step over
+  the entire music library.** The album folder is derived from the log's location, and
+  when there was no log the code fell back to the configured *output root*. Each step
+  then walks that recursively — so tagging, colon-restore, FLAC recompression, MP3/WAV
+  derivation and the checksum manifest all applied to every album previously ripped,
+  and the report hashed the lot. Reachable in practice: the log is located by
+  modification time, so a clock adjustment during a long rip loses it. Those steps are
+  now skipped with a clear explanation, and the disc still ejects if that was
+  requested.
 - **A failed disc read was reported as "this disc isn't in MusicBrainz", with nothing
   in the log.** The disc probe threw away cyanrip's exit code *and* its error text, so
   a permission problem on the drive, a dead `ripping` container or a broken host
