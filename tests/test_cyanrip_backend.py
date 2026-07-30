@@ -57,10 +57,11 @@ def test_restore_substituted_colons_noop_without_lookalike() -> None:
 def _patch_run(monkeypatch, *, stdout: str = "", stderr: str = "", raises=None):
     """Stub the subprocess.run that cyanrip's info/version probes use.
 
-    cyanrip's `_run` now delegates to the shared `run_capture` helper, which
-    lives in `whipper_backend` — so the call resolves `subprocess.run` through
-    THAT module, and the patch must target it there (docs/testing.md §8: move
-    the monkeypatch target to where the code now lives).
+    cyanrip's `_run` delegates to the shared `run_capture` helper in
+    `rip_backend`, which itself now runs the child through a `KillableCommand` so
+    the GUI can signal it. So the seam is that command's `run`, not
+    `subprocess.run` (docs/testing.md §8: move the monkeypatch target to where the
+    code now lives — this is the second such move for this helper).
     """
     import platterpus.adapters.rip_backend as mod
 
@@ -69,7 +70,7 @@ def _patch_run(monkeypatch, *, stdout: str = "", stderr: str = "", raises=None):
             raise raises
         return SimpleNamespace(returncode=0, stdout=stdout, stderr=stderr)
 
-    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.INFO_PROBE, "run", fake_run)
 
 
 def _impl() -> CyanripImpl:
@@ -522,7 +523,7 @@ def test_disc_info_runs_info_only_offline(monkeypatch: pytest.MonkeyPatch) -> No
             stderr="",
         )
 
-    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.INFO_PROBE, "run", fake_run)
     info = _impl().disc_info("/dev/sr0")
 
     argv = seen[0]
@@ -663,3 +664,74 @@ def test_cancel_setup_reaches_the_cache_probe(monkeypatch: pytest.MonkeyPatch) -
         "cancel_setup() did not call cache_probe.cancel_active_probe(), so the "
         "running cd-paranoia is never signalled."
     )
+
+
+# --- Failure diagnosability (audit, 2026-07-29) ------------------------------
+
+
+def test_a_failed_disc_probe_raises_instead_of_looking_like_an_unknown_disc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: the single worst diagnostic hole in the app.
+
+    `_run` discarded the exit code, so a non-zero `cyanrip -I` — permission denied
+    on the device, a dead `ripping` container, a broken host export — produced an
+    EMPTY `DiscInfo`. That is indistinguishable from a real disc MusicBrainz has
+    never seen, so the GUI announced "not in MusicBrainz" and offered an
+    unknown-album rip, while the log contained nothing at all. The user is told the
+    wrong thing about the wrong subsystem and their bug report has no evidence.
+    """
+    from types import SimpleNamespace
+
+    import platterpus.adapters.rip_backend as mod
+
+    monkeypatch.setattr(
+        mod.INFO_PROBE,
+        "run",
+        lambda *a, **k: SimpleNamespace(
+            returncode=1,
+            stdout="",
+            stderr="cyanrip: unable to open device: Permission denied\n",
+        ),
+    )
+
+    with pytest.raises(RipError) as info:
+        _impl().disc_info("/dev/sr0")
+
+    # The user-facing message carries cyanrip's OWN words, not a generic failure.
+    assert "Permission denied" in str(info.value), (
+        f"the error dropped the tool's explanation: {info.value!r}. A message that "
+        "does not say what the tool said is barely better than swallowing it."
+    )
+
+
+def test_a_failed_probe_logs_the_tools_own_output(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The other half: it must land in the LOG, which is what a bug report carries.
+
+    Uses the version probe (non-strict) precisely to prove the logging happens even
+    where the failure is tolerated — swallowing quietly is the behaviour being fixed,
+    and a lenient caller is where that is easiest to reintroduce.
+    """
+    from types import SimpleNamespace
+
+    import platterpus.adapters.rip_backend as mod
+
+    monkeypatch.setattr(
+        mod.INFO_PROBE,
+        "run",
+        lambda *a, **k: SimpleNamespace(
+            returncode=127, stdout="", stderr="cannot connect to Podman\n"
+        ),
+    )
+
+    with caplog.at_level("WARNING"):
+        _impl().version()  # tolerated: returns whatever it got
+
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "cannot connect to Podman" in messages, (
+        "a non-zero cyanrip exit left nothing in the log. The convention is to "
+        f"capture a dependency's output and log it. Records were: {messages!r}"
+    )
+    assert "exited 127" in messages

@@ -26,6 +26,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
+from platterpus.report_types import EnvironmentBlock
 from platterpus.verdict import accuraterip_verdict
 
 log = logging.getLogger(__name__)
@@ -138,7 +139,7 @@ def build_report(
     outcome: dict | None = None,
     settings: dict | None = None,
     disc: dict | None = None,
-    environment: dict | None = None,
+    environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
 ) -> dict:
@@ -430,7 +431,7 @@ def _build(
     outcome: dict | None = None,
     settings: dict | None = None,
     disc: dict | None = None,
-    environment: dict | None = None,
+    environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
 ) -> dict:
@@ -983,7 +984,7 @@ def write_report(
     outcome: dict | None = None,
     settings: dict | None = None,
     disc: dict | None = None,
-    environment: dict | None = None,
+    environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
 ) -> Path | None:

@@ -50,7 +50,7 @@ def test_check_cyanrip_parses_version(
     binary.chmod(0o755)
 
     monkeypatch.setattr(
-        checks.subprocess,
+        checks.VERSION_PROBE,
         "run",
         lambda *a, **kw: _fake_run(stdout="cyanrip 0.9.3\n"),
     )
@@ -69,7 +69,7 @@ def test_check_cyanrip_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     def boom(*a: Any, **kw: Any) -> Any:
         raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=10)
 
-    monkeypatch.setattr(checks.subprocess, "run", boom)
+    monkeypatch.setattr(checks.VERSION_PROBE, "run", boom)
 
     probe = check_cyanrip(binary)
     assert probe.present is False
@@ -106,7 +106,7 @@ def test_check_cdparanoia_present(
     binary.write_text("#!/bin/sh\necho 'cdda paranoia III release 10.2'\n")
     binary.chmod(0o755)
     monkeypatch.setattr(
-        checks.subprocess,
+        checks.VERSION_PROBE,
         "run",
         lambda *a, **kw: _fake_run(stdout="cdda paranoia III release 10.2\n"),
     )
@@ -125,7 +125,7 @@ def test_check_cdparanoia_timeout_is_absent(
     def boom(*a: Any, **kw: Any) -> Any:
         raise subprocess.TimeoutExpired(cmd="cd-paranoia", timeout=60)
 
-    monkeypatch.setattr(checks.subprocess, "run", boom)
+    monkeypatch.setattr(checks.VERSION_PROBE, "run", boom)
     assert check_cdparanoia(binary).present is False
 
 
@@ -138,7 +138,7 @@ def test_check_metaflac_absent(monkeypatch: pytest.MonkeyPatch) -> None:
     def not_found(*a: Any, **kw: Any) -> Any:
         raise FileNotFoundError
 
-    monkeypatch.setattr(checks.subprocess, "run", not_found)
+    monkeypatch.setattr(checks.VERSION_PROBE, "run", not_found)
 
     probe = check_metaflac()
     assert probe.present is False
@@ -147,7 +147,7 @@ def test_check_metaflac_absent(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_check_metaflac_present(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/metaflac")
     monkeypatch.setattr(
-        checks.subprocess,
+        checks.VERSION_PROBE,
         "run",
         lambda *a, **kw: _fake_run(stdout="metaflac 1.4.3\n"),
     )
@@ -167,7 +167,7 @@ def test_check_flac_absent(monkeypatch: pytest.MonkeyPatch) -> None:
     def not_found(*a: Any, **kw: Any) -> Any:
         raise FileNotFoundError
 
-    monkeypatch.setattr(checks.subprocess, "run", not_found)
+    monkeypatch.setattr(checks.VERSION_PROBE, "run", not_found)
 
     probe = check_flac()
     assert probe.present is False
@@ -176,7 +176,7 @@ def test_check_flac_absent(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_check_flac_present(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/flac")
     monkeypatch.setattr(
-        checks.subprocess,
+        checks.VERSION_PROBE,
         "run",
         lambda *a, **kw: _fake_run(stdout="flac 1.4.3\n"),
     )
@@ -196,7 +196,7 @@ def test_check_ffmpeg_absent(monkeypatch: pytest.MonkeyPatch) -> None:
     def not_found(*a: Any, **kw: Any) -> Any:
         raise FileNotFoundError
 
-    monkeypatch.setattr(checks.subprocess, "run", not_found)
+    monkeypatch.setattr(checks.VERSION_PROBE, "run", not_found)
 
     probe = check_ffmpeg()
     assert probe.present is False
@@ -212,7 +212,7 @@ def test_check_ffmpeg_present(monkeypatch: pytest.MonkeyPatch) -> None:
         # ffmpeg prints its banner to the version flag.
         return _fake_run(stdout="ffmpeg version 6.1.1-3ubuntu5 Copyright (c)\n")
 
-    monkeypatch.setattr(checks.subprocess, "run", fake_run)
+    monkeypatch.setattr(checks.VERSION_PROBE, "run", fake_run)
 
     probe = check_ffmpeg()
     assert probe.present is True
@@ -233,7 +233,7 @@ def test_check_picard_flatpak_present(monkeypatch: pytest.MonkeyPatch) -> None:
         "Version: 2.11.0\n"
     )
     monkeypatch.setattr(
-        checks.subprocess, "run", lambda *a, **kw: _fake_run(stdout=output)
+        checks.VERSION_PROBE, "run", lambda *a, **kw: _fake_run(stdout=output)
     )
 
     probe = check_picard_flatpak()
@@ -247,7 +247,7 @@ def test_check_picard_flatpak_not_installed(
     monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/flatpak")
     # `flatpak info` for a missing app prints to stderr without "Version:".
     monkeypatch.setattr(
-        checks.subprocess,
+        checks.VERSION_PROBE,
         "run",
         lambda *a, **kw: _fake_run(
             stdout="",

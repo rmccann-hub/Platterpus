@@ -21,7 +21,16 @@ class _FakeManager:
         self._report = report
         self._raises = raises
 
-    def check_all(self) -> object:
+    def check_all(self, cancelled: object = None) -> object:
+        """Mirrors the real signature, INCLUDING the `cancelled` callback.
+
+        A fake whose signature has drifted from the real one is the §5.t hazard in
+        its smallest form: it does not make the product look safer, it makes the
+        test fail for a reason unrelated to the product. Accepting and ignoring the
+        kwarg is right here — the cancel behaviour has its own tests against the
+        real manager, and this fake exists only to hand back a canned report.
+        """
+        self.cancelled_callback = cancelled
         if self._raises is not None:
             raise self._raises
         return self._report

@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import threading
 import traceback
 from pathlib import Path
 from typing import cast
@@ -73,11 +74,36 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
     to come up, this is best-effort and may no-op.
     """
     try:
+        from PySide6.QtCore import QThread
         from PySide6.QtWidgets import QApplication, QMessageBox
 
         from platterpus.paths import LOG_PATH
 
-        if QApplication.instance() is None:
+        app = QApplication.instance()
+        if app is None:
+            return
+        # Only the GUI thread may touch widgets. An exception escaping a slot that
+        # runs on a worker QThread invokes `sys.excepthook` **on that worker thread**
+        # (verified by probe), so without this guard the crash handler would build a
+        # QMessageBox and enter a nested event loop off the GUI thread — undefined
+        # behaviour, and `exec()` may never return, in which case the worker's
+        # `finished` never fires and its thread is abandoned at shutdown. A crash
+        # handler that is unsafe exactly when it is needed is worse than none, so off
+        # the GUI thread we log and return; the traceback is already in the log via
+        # the caller (audit, 2026-07-29).
+        if QThread.currentThread() is not app.thread():
+            # Log the PYTHON thread name, not the QThread object. `logging` formats
+            # lazily, so a Qt wrapper handed in as a `%s` arg is formatted whenever a
+            # handler gets to it — by which time the C++ object may be destroyed, and
+            # `str()` on a dead shiboken wrapper RAISES inside logging. A crash
+            # handler whose own log call can throw is not a crash handler. The name is
+            # also what a reader actually wants ("post-rip-hash", not an address).
+            log.error(
+                "fatal error on non-GUI thread %r — logged only, no dialog: %s: %s",
+                threading.current_thread().name,
+                type(exc).__name__,
+                exc,
+            )
             return
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Critical)
@@ -107,6 +133,33 @@ def _install_excepthook() -> None:
         _show_fatal_dialog("Platterpus — error", exc_value)
 
     sys.excepthook = hook
+
+    # `sys.excepthook` does NOT cover plain `threading.Thread`s: CPython routes
+    # those to `threading.excepthook`, whose default writes to stderr and returns.
+    # An AppImage launched from the applications menu has no attached stderr, so
+    # every exception from the fire-and-forget post-rip daemon threads went
+    # **nowhere** — not the log, not the report, not the screen. The user saw a step
+    # silently never complete and filed a bug report with no evidence it ever ran
+    # (audit, 2026-07-29). No dialog here: these are worker threads, so showing one
+    # would be the wrong-thread hazard `_show_fatal_dialog` now guards against.
+    def thread_hook(args: threading.ExceptHookArgs) -> None:
+        if issubclass(args.exc_type, SystemExit):
+            return  # a thread exiting deliberately is not a crash
+        thread_name = getattr(args.thread, "name", "(unknown)")
+        # `exc_value` is Optional in the stubs and genuinely can be None during
+        # interpreter shutdown; narrow rather than widen the log call's type.
+        if args.exc_value is None:
+            log.error(
+                "uncaught exception on thread %s (no exception object)", thread_name
+            )
+            return
+        log.error(
+            "uncaught exception on thread %s",
+            thread_name,
+            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+        )
+
+    threading.excepthook = thread_hook
 
 
 def main(argv: list[str] | None = None) -> int:

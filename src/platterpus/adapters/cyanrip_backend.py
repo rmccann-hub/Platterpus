@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 
 from platterpus.adapters.rip_backend import (
     RipBackend,
+    RipError,
     RipHandle,
     RipMetadata,
     run_capture,
@@ -104,14 +105,32 @@ class CyanripImpl(RipBackend):
         host-side MusicBrainz lookup with the returned disc ID, exactly as
         it does for whipper (Critical Rule #5).
 
-        A failed run (no disc, bad device) prints an error instead of the
-        report; the parser degrades to an empty DiscInfo, which the GUI
-        already treats as "unknown disc".
+        A failed run (no disc, bad device, dead container) now **raises**
+        :class:`RipError` rather than degrading to an empty ``DiscInfo``. It used to
+        degrade, and that was wrong in a way that actively misled: an empty
+        ``DiscInfo`` is indistinguishable from a real disc MusicBrainz has never
+        seen, so the GUI announced *"not in MusicBrainz"* and offered an
+        unknown-album rip when the real problem was, say, the user's account not
+        being in the `cdrom` group — with nothing in the log to say otherwise.
+        Raising routes it to the disc-probe failure handler, which has specific,
+        actionable text for each case.
+
+        **Hardware-gated caveat:** this assumes `cyanrip -I -N` exits 0 for every
+        disc the app should treat as readable. If a real disc is found that reports
+        useful info on a *non-zero* exit, the fix is to keep the raise for empty
+        output only — not to go back to swallowing the code. See the hardware round
+        in TASKS.md.
         """
         args = ["-I", "-N"]
         if drive:
             args += ["-d", drive]
-        out = self._run(args)
+        # strict=True: a failed probe must NOT degrade to an empty DiscInfo. That
+        # path is indistinguishable from "a real disc that MusicBrainz doesn't know",
+        # so the GUI told the user the disc wasn't in MusicBrainz when the actual
+        # problem was e.g. their account not being in the `cdrom` group. Raising
+        # routes it to `_on_disc_info_failed`, which already has specific, actionable
+        # messaging for exactly this.
+        out = self._run(args, strict=True)
         return parse_cyanrip_info(out)
 
     # --- Rip ---
@@ -349,14 +368,45 @@ class CyanripImpl(RipBackend):
     # read offset"; the offset comes from the bundled AccurateRip drive-model list
     # + manual entry instead.
 
-    def _run(self, args: list[str], timeout: float = _INFO_TIMEOUT_S) -> str:
-        # cyanrip's info/version probes share whipper's run-capture core; only
-        # the timeout (longer here), the tool name, and closing stdin differ.
-        # cyanrip never needs the exit code (its parsers degrade on bad output),
-        # so we keep just the combined stdout+stderr.
-        _rc, combined = run_capture(
+    def _run(
+        self, args: list[str], timeout: float = _INFO_TIMEOUT_S, *, strict: bool = False
+    ) -> str:
+        """Run a cyanrip info/version probe and return its combined output.
+
+        **The exit code and the error text used to be discarded entirely**, and that
+        was the single worst diagnostic hole in the app (audit, 2026-07-29): a
+        non-zero `cyanrip -I` — permission denied on the device, a dead `ripping`
+        container, a broken host export — produced an empty ``DiscInfo``, which the
+        GUI renders as *"this disc isn't in MusicBrainz"* and follows with the
+        unknown-album dialog. The user is told the wrong thing about the wrong
+        subsystem, and **nothing is written to the log**, so a bug report contains no
+        evidence at all. That directly violates the project's own convention: capture
+        a dependency's stderr/stdout and log it, never swallow it.
+
+        So a non-zero exit is now always logged with the tool's own words. ``strict``
+        additionally raises :class:`RipError`, which is what a caller wants when
+        degrading silently would mislead — the disc probe — while the version probe
+        stays lenient because a version banner on stderr is normal for some builds.
+        """
+        rc, combined = run_capture(
             "cyanrip", self._binary, args, timeout=timeout, stdin_devnull=True
         )
+        if rc != 0:
+            # Truncated: cyanrip can dump a lot on a bad disc, and the log is a
+            # rotating file a bug report has to stay readable.
+            detail = combined.strip()[:600] or "(no output)"
+            log.warning(
+                "cyanrip exited %d for args %s — its output was: %s",
+                rc,
+                " ".join(args),
+                detail,
+            )
+            if strict:
+                raise RipError(
+                    f"cyanrip failed (exit {rc}). It said: {detail.splitlines()[0]}"
+                    if detail != "(no output)"
+                    else f"cyanrip failed (exit {rc}) with no output"
+                )
         return combined
 
 

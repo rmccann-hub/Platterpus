@@ -20,8 +20,28 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from platterpus.deps.version import parse_version
+from platterpus.killable import KillableCommand
 
 log = logging.getLogger(__name__)
+
+# Version probes shell out, and the FIRST one of a session starts the Distrobox
+# container — tens of seconds cold. `DependencyCheckWorker` blocks in there with no
+# way for `QThread.quit()` to reach it, so closing the window mid-check used to wait
+# out the shutdown budget and abandon the thread. Routing through a killable command
+# makes that worker's `cancel()` real rather than a flag nothing reads.
+VERSION_PROBE: KillableCommand = KillableCommand("dependency version probe")
+
+
+def cancel_version_probes() -> None:
+    """Stop an in-flight version probe. Thread-safe, non-blocking (GUI thread).
+
+    Only the *current* probe is killed. `check_all` runs the specs in sequence, so
+    the worker's own cancel flag stops the loop starting the next one — the kill and
+    the flag are complementary, and neither alone is enough: the flag cannot
+    interrupt a blocked call, and the kill cannot stop the next iteration.
+    """
+    VERSION_PROBE.cancel()
+
 
 # Probes that shell out should never hang the GUI (they run off-thread, but a
 # tight cap also forces a wrong answer). `cyanrip --version` returns in
@@ -66,12 +86,7 @@ def _run_version_command(
     """
     resolved = shutil.which(argv[0]) or argv[0]
     try:
-        proc = subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            timeout=_PROBE_TIMEOUT_S,
-        )
+        proc = VERSION_PROBE.run(argv, timeout=_PROBE_TIMEOUT_S, stdin_devnull=True)
     except FileNotFoundError:
         log.debug("probe: %s not found on PATH", argv[0])
         return False, "", None

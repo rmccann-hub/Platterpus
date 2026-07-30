@@ -166,15 +166,54 @@ check_untyped_defs = true
 # written by `rip_report` and read back by `rip_compare` with no shared type.
 disallow_any_generics = true
 
+# --- warn_unreachable: deliberately OFF, and this is the reasoning -----------
+# Measured 2026-07-29 (mypy 2.3.0): enabling it produces 5 errors, and **all five
+# are false positives**. It is not left off out of laziness — one of them is a trap.
+#
+#   * `workers/drive_setup_worker.py` — the mid-run `if self._cancelled:` check.
+#     mypy narrows the flag to False from the early-return above it, because mypy
+#     reasons single-threaded. But `cancel()` sets that flag FROM ANOTHER THREAD.
+#     "Cleaning up" this unreachable code would delete a real cancel checkpoint in
+#     front of a ten-minute probe — exactly the Critical-rule-#9 hazard.
+#   * `rip_compare.py` ×3 — `if not isinstance(report, dict)` guards. Production
+#     never reaches them because `load_report` already narrowed; three tests reach
+#     them deliberately with `# type: ignore[arg-type]` to prove the never-raises
+#     contract. That is the project's own parser discipline colliding with static
+#     reachability, and the tests are right.
+#   * `ui/dialogs/centering.py` — a `screen is None` guard mypy thinks is dead
+#     because the PySide6 stubs type `primaryScreen()` non-optional. It genuinely
+#     returns None headless.
+#
+# So: do not enable this expecting a cleanup, and do not paper over it with five
+# `# type: ignore` comments — the flag is asking a single-threaded question about
+# concurrent code and about guards that only tests are meant to reach.
+
 # --- disallow_any_generics ratchet -------------------------------------------
 # Modules that still carry bare `dict` / `list` / `Popen`. **Retire one opt-out
 # per commit until this list is empty, then delete the whole block.** The count
-# beside each is what a 2026-07-29 census measured, so progress is checkable.
+# beside each is what a 2026-07-29 census measured (mypy 2.3.0 — the version
+# matters, `--strict`'s flag set moves between minors), so progress is checkable.
+# Started at 14 modules / 131 errors.
 #
-# Deliberately NOT a blanket `dict[str, object]` widening: that was measured and
-# leaves 9 residual narrowing/invariance errors, because reading values back out
-# of `dict[str, object]` needs narrowing at every site. The report wants a real
-# TypedDict — which is also what the project's own typing standard asks for.
+# Deliberately NOT a blanket `dict[str, object]` widening. Re-measured 2026-07-29:
+# applied to `rip_report` + `rip_compare` it leaves **8** residual
+# narrowing/invariance errors (an earlier note here said 9 — corrected); applied to
+# all 14 modules it leaves **50**. Reading values back out of `dict[str, object]`
+# needs narrowing at every site, so the widening trades one error class for another.
+# The report wants a real TypedDict, which is also what the project's own typing
+# standard asks for — see `platterpus.report_types`.
+#
+# Two facts that shape every remaining entry, both verified rather than assumed:
+#   * a TypedDict is NOT assignable to `dict[str, object]`; `Mapping[str, object]`
+#     accepts it. So read-only consumers take `Mapping`, producers take the
+#     TypedDict itself.
+#   * the `x or {}` idiom breaks `.get()` on a TypedDict. Every site needs
+#     `x.get(k) if x else None` instead — and each one was a small lie about what
+#     the callee accepted even before the types said so.
+#
+# `rip_compare` is deliberately NOT typed as `RipReport`: it reads arbitrary JSON
+# from disk, possibly written by an older or newer Platterpus, so `dict[str, object]`
+# plus the existing isinstance narrowing is the honest shape there.
 [[tool.mypy.overrides]]
 module = [
     "platterpus.rip_report",                  # 67 — the .platterpus.json shape
@@ -183,14 +222,10 @@ module = [
     "platterpus.ui.main_window_shared",       #  9 — shared-surface report attrs
     "platterpus.ui.main_window",              #  6
     "platterpus.workers.rip_worker",          #  5
-    "platterpus.build_info",                  #  4
-    "platterpus.eac_log_export",              #  3
     "platterpus.read_speed_ladder",           #  2
     "platterpus.config",                      #  2
     "platterpus.ui.main_window_rip",          #  2
     "platterpus.parsers.cyanrip_log",         #  1
-    "platterpus.adapters.derived_verify",     #  1
-    "platterpus.drive_profile_store",         #  1
 ]
 disallow_any_generics = false
 

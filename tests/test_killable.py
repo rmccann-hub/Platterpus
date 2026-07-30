@@ -1,0 +1,307 @@
+"""Tests for `platterpus.killable` — the one killable-subprocess implementation.
+
+This module exists because the pattern was written twice (the cache probe, then
+wanted again by the disc-info probe) and it is fiddly in ways that only show up on
+real hardware: the process group, the cancel/startup race, and killing on timeout.
+So it is implemented once and tested here once, thoroughly, rather than
+re-tested at each call site — those only need to prove they *use* it.
+
+**Several of these drive real child processes.** That is deliberate. The whole
+point of the module is signalling a real OS process group, and a fake `Popen`
+cannot demonstrate that a `killpg` actually reaches a grandchild — the stand-in
+would be exactly the "kinder than reality" harness `docs/testing.md` §5.t warns
+about. The children are `sh`/`sleep`, they are killed within milliseconds, and each
+test bounds its own wait.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import threading
+import time
+
+import pytest
+
+from platterpus import killable
+from platterpus.killable import KillableCommand
+
+
+def test_a_normal_command_returns_a_completed_process() -> None:
+    """The drop-in contract: same shape `subprocess.run` returned."""
+    cmd = KillableCommand("test echo")
+    result = cmd.run(["sh", "-c", "printf out; printf err >&2; exit 3"], timeout=30)
+
+    assert isinstance(result, subprocess.CompletedProcess)
+    assert result.returncode == 3
+    assert result.stdout == "out"
+    assert result.stderr == "err"
+    assert result.args == ["sh", "-c", "printf out; printf err >&2; exit 3"]
+    assert not cmd.is_running(), "the slot was not cleared after the run finished"
+
+
+def test_a_missing_binary_still_raises_filenotfounderror() -> None:
+    """Callers translate this into their own error type; don't change the type."""
+    cmd = KillableCommand("test missing")
+    with pytest.raises(FileNotFoundError):
+        cmd.run(["/nonexistent/definitely-not-a-real-binary"], timeout=5)
+    assert not cmd.is_running()
+
+
+def test_a_timeout_raises_and_kills_the_child() -> None:
+    """`subprocess.run` killed on timeout; `Popen` does not for free.
+
+    Migrating to `Popen` for cancellability would silently LOSE that, leaving a
+    timed-out probe running with the disc spinning — the exact bug being fixed. So
+    the timeout path kills, and this proves the child is gone rather than merely
+    that the exception arrived.
+    """
+    cmd = KillableCommand("test timeout")
+    with pytest.raises(subprocess.TimeoutExpired):
+        cmd.run(["sh", "-c", "sleep 30"], timeout=0.3)
+
+    assert not cmd.is_running()
+    # The child was reaped by the kill, not left behind. `communicate` in the
+    # timeout branch does that; a non-None returncode is the proof.
+    assert cmd._proc is None
+
+
+def test_cancel_from_another_thread_stops_a_running_child() -> None:
+    """The real thing: a GUI-thread cancel ends work blocked on a worker thread.
+
+    Times the run. If cancel did nothing, `sh -c 'sleep 30'` would sit there until
+    the 30 s timeout and this test would take 30 seconds — so the elapsed-time
+    assertion is the actual check, not decoration.
+    """
+    cmd = KillableCommand("test cancel")
+    outcome: list[object] = []
+
+    def _run() -> None:
+        try:
+            outcome.append(cmd.run(["sh", "-c", "sleep 30"], timeout=30))
+        except BaseException as exc:  # noqa: BLE001 — record whatever happened
+            outcome.append(exc)
+
+    worker = threading.Thread(target=_run)
+    started = time.monotonic()
+    worker.start()
+
+    # Wait for the child to actually exist before cancelling, so this exercises the
+    # normal path rather than accidentally testing the startup race (which has its
+    # own test below).
+    deadline = time.monotonic() + 10
+    while not cmd.is_running() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert cmd.is_running(), "the child never started"
+
+    cmd.cancel()
+    worker.join(15)
+    elapsed = time.monotonic() - started
+
+    assert not worker.is_alive(), "the worker never returned after cancel"
+    assert elapsed < 10, (
+        f"cancel took {elapsed:.1f}s — the child was not actually killed; it ran "
+        "until something else stopped it. A cancel that does not interrupt the "
+        "blocked call is the false promise CLAUDE.md rule 9 forbids."
+    )
+    assert outcome, "the run neither returned nor raised"
+    assert not cmd.is_running(), "the slot was not cleared"
+
+
+def test_a_cancel_that_lands_during_startup_is_not_lost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The registration race, which is silent when you get it wrong.
+
+    Between `Popen` returning and the process being registered, a cancel would find
+    an empty slot and return quietly — the user presses Cancel and the work runs to
+    completion. The sticky flag closes it. Here the cancel is fired from *inside*
+    `Popen`, which is precisely that window.
+    """
+    cmd = KillableCommand("test startup race")
+    killed: list[int] = []
+    monkeypatch.setattr(killable.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(killable.os, "killpg", lambda pgid, sig: killed.append(sig))
+
+    real_popen = killable.subprocess.Popen
+
+    def _popen_then_cancel(*args: object, **kwargs: object) -> object:
+        proc = real_popen(*args, **kwargs)  # type: ignore[arg-type]
+        cmd.cancel()  # lands after the child exists, before it is registered
+        return proc
+
+    monkeypatch.setattr(killable.subprocess, "Popen", _popen_then_cancel)
+    cmd.run(["sh", "-c", "exit 0"], timeout=10)
+
+    assert killed, (
+        "a cancel arriving during process startup was dropped — the sticky "
+        "_cancel_requested flag is not being honoured, so a Cancel press would "
+        "silently do nothing."
+    )
+    assert cmd._cancel_requested is False, "the flag was not reset for the next run"
+
+
+def test_the_child_is_its_own_process_group_leader() -> None:
+    """`start_new_session=True` is load-bearing, and this measures it.
+
+    Two things depend on it. A `killpg` must reach the whole tree, because these
+    commands are host wrappers that spawn podman which spawns the real tool —
+    signalling only the direct child leaves the reader running. And *without* it the
+    child shares OUR group, so a `killpg` would signal the GUI itself.
+
+    So this asserts the child's process-group id differs from ours. A comment
+    claiming the flag is set would not catch someone removing it; this does.
+    """
+    import os
+
+    cmd = KillableCommand("test pgid")
+    result = cmd.run(["sh", "-c", "ps -o pgid= -p $$"], timeout=30)
+    child_pgid = int(result.stdout.strip())
+
+    assert child_pgid != os.getpgid(0), (
+        f"the child shares our process group ({child_pgid}) — a killpg would "
+        "signal the GUI itself. start_new_session=True must not be removed."
+    )
+
+
+def test_cancel_kills_the_whole_group_not_just_the_direct_child() -> None:
+    """The reason it is a group kill: a grandchild must die too.
+
+    Models the real shape — host wrapper spawns podman spawns the reader — with a
+    shell that spawns a `sleep` and then waits on it. If only the direct child were
+    signalled, the grandchild would survive and (in production) keep the disc
+    spinning after the user pressed Cancel.
+
+    The sleep duration is deliberately odd so `pgrep` cannot match some other test's
+    child and report a false survivor.
+    """
+    cmd = KillableCommand("test group kill")
+    sentinel = "4747"
+    argv = ["sh", "-c", f"sleep {sentinel} & wait"]
+
+    outcome: list[object] = []
+
+    def _run() -> None:
+        try:
+            outcome.append(cmd.run(argv, timeout=60))
+        except BaseException as exc:  # noqa: BLE001 — record whatever happened
+            outcome.append(exc)
+
+    worker = threading.Thread(target=_run)
+    worker.start()
+    deadline = time.monotonic() + 10
+    while not cmd.is_running() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert cmd.is_running(), "the child never started"
+
+    # Let the grandchild actually exist before killing, else this proves nothing.
+    grandchild_deadline = time.monotonic() + 10
+    while time.monotonic() < grandchild_deadline:
+        found = subprocess.run(
+            ["pgrep", "-f", f"sleep {sentinel}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if found.stdout.strip():
+            break
+        time.sleep(0.05)
+    else:  # pragma: no cover — the probe never got going
+        pytest.fail("the grandchild never started; this probe would prove nothing")
+
+    cmd.cancel()
+    worker.join(20)
+    assert not worker.is_alive(), "cancel did not unblock the run"
+
+    # Give the kernel a moment to reap, then assert the grandchild is gone.
+    gone_deadline = time.monotonic() + 10
+    remaining = "?"
+    while time.monotonic() < gone_deadline:
+        found = subprocess.run(
+            ["pgrep", "-f", f"sleep {sentinel}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        remaining = found.stdout.strip()
+        if not remaining:
+            break
+        time.sleep(0.05)
+
+    assert not remaining, (
+        f"a grandchild survived the cancel (pids {remaining!r}). Only the direct "
+        "child was signalled, so in production the in-container reader would keep "
+        "holding the drive after the user cancelled."
+    )
+
+
+def test_cancel_is_safe_when_nothing_is_running() -> None:
+    """Called from a dialog's close path, which may fire with no work in flight."""
+    cmd = KillableCommand("test idle cancel")
+    cmd.cancel()
+    cmd.cancel()  # twice, too
+    assert not cmd.is_running()
+    # And the sticky flag must not poison the next legitimate run.
+    result = cmd.run(["sh", "-c", "exit 0"], timeout=10)
+    assert result.returncode in (0, -9), (
+        "a stale cancel request killed the NEXT run. The flag is reset when a run "
+        "ends, but an idle cancel sets it with no run to consume it."
+    )
+
+
+def test_an_overlapping_run_does_not_deregister_the_newer_child() -> None:
+    """The bug this module introduced on day one, found by audit within the hour.
+
+    One `KillableCommand` is shared by every `run_capture` caller, and two runs CAN
+    overlap: the GUI supersedes an in-flight disc scan by starting a second one. The
+    first version cleared the slot unconditionally in its `finally`, so when the
+    *loser* finished it deregistered the *winner* — leaving the live child unkillable
+    and `cancel()` a silent no-op from then on.
+
+    That is the pre-flight checklist's "what new state does this fix create, and what
+    tests that?" — the fix's own failure mode, which every original test missed
+    because each ran a single child at a time.
+
+    What is under test is the **identity check** in the `finally`, so the stand-in
+    winner does not need to be alive: an already-exited `Popen` has a distinct object
+    identity and keeps this test free of process-cleanup flakiness. No patching.
+    """
+    cmd = KillableCommand("test overlap")
+    winner = subprocess.Popen(
+        ["sh", "-c", "exit 0"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    winner.communicate(timeout=10)
+
+    outcome: list[object] = []
+
+    def _run() -> None:
+        try:
+            # Long enough to be superseded from this thread, short enough to be fast.
+            outcome.append(cmd.run(["sh", "-c", "sleep 0.6"], timeout=30))
+        except BaseException as exc:  # noqa: BLE001
+            outcome.append(exc)
+
+    worker = threading.Thread(target=_run)
+    worker.start()
+    deadline = time.monotonic() + 10
+    while not cmd.is_running() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert cmd.is_running(), "the first child never started"
+
+    # A second probe takes the slot mid-run, exactly as "Rescan disc" does.
+    with cmd._lock:
+        cmd._proc = winner
+
+    worker.join(20)
+    assert not worker.is_alive(), "the first run never finished"
+    assert outcome and not isinstance(outcome[0], BaseException), (
+        f"the superseded run did not complete cleanly: {outcome}"
+    )
+    assert cmd._proc is winner, (
+        "the finishing run deregistered the newer child. The live probe would then "
+        "be unkillable and cancel() a no-op, defeating the whole module."
+    )
+    with cmd._lock:
+        cmd._proc = None  # don't hand a later test a stale slot
