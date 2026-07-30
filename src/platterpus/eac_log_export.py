@@ -274,6 +274,16 @@ def _render(
     # the cache verdict, which a probe can still fill in). C2 is different — the
     # value simply isn't in cyanrip's log — so it takes the not-reported wording,
     # keeping the two kinds of absence distinguishable to a reader.
+    #
+    # **Deliberately NOT asserted as "No" for cyanrip**, though an EAC logchecker
+    # weighs this row heavily and a survey of libcdio-paranoia says it never uses C2
+    # error pointers. That survey is a secondary source; this project does not print
+    # a value into an archival log on the strength of one. The silent-blocks and
+    # null-samples rows below ARE asserted because each has direct evidence behind it
+    # (cyanrip writes what it reads; its CRCs matched a real EAC log on 12 of 14
+    # tracks of the reference disc). C2 has no such evidence yet — see TASKS.md for
+    # what would earn it: read libcdio's source, or measure it. Attempted and reverted
+    # 2026-07-29; the test that stopped it is doing its job.
     lines.append(
         "Make use of C2 pointers : "
         + (_UNREPORTED if info.c2_pointers is None else _yes_no(info.c2_pointers))
@@ -316,9 +326,17 @@ def _render(
         "Used interface                              : "
         + ("Native Linux SCSI/MMC (libcdio-paranoia)" if cyanrip else _UNREPORTED)
     )
+    # cyanrip merges each pregap into the PREVIOUS track by default and Platterpus
+    # never passes `-p` to change that (docs/dependency-contracts.md), which is
+    # exactly EAC's "Appended to previous track". The behaviour was already right;
+    # the log simply didn't say so in EAC's vocabulary, leaving a reader (or a
+    # comparison against a real EAC log) unable to tell that it matched.
     lines.append(
-        f"Gap handling                                : "
-        f"{info.gap_detection or _UNREPORTED}"
+        "Gap handling                                : "
+        + (
+            info.gap_detection
+            or ("Appended to previous track" if cyanrip else _UNREPORTED)
+        )
     )
     lines.append("")
     lines.extend(_output_format_block(cyanrip, info))

@@ -496,4 +496,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.17.*
+*Last updated for Platterpus v0.5.18.*
