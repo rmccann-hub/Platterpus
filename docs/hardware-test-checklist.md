@@ -1,22 +1,21 @@
-# Hardware test checklist — v0.5.16
+# Hardware test checklist — v0.5.18
 
-> **Only what still needs testing.** Anything that has passed is gone from this sheet —
-> the record of what passed and when lives in `docs/session-log.md`. Test numbers are
-> the stable IDs from the original sheet, so the gaps are deliberate.
+> **Everything that still needs testing, in one place.** Anything that has already passed
+> is gone from this sheet — the record of what passed and when lives in
+> `docs/session-log.md`. Test IDs are stable across releases, so the gaps are deliberate.
 >
-> Rig details, tool versions and expected values are pre-filled from your last five
-> runs. You tick boxes and note anything that **differs** from what's printed.
+> Rig details, tool versions and expected values are pre-filled from your last six runs.
+> You tick boxes and note anything that **differs** from what's printed.
 >
-> **Run 5 (v0.5.12) hit full EAC parity: 14/14 tracks byte-identical to the genuine EAC
-> rip, and CTDB matched for the first time** — still the high-water mark, and the CRC
-> table below is that run. **Run 6 (v0.5.14) came in at 13/14**, the one difference being
-> track 3, which had also differed on runs 1–4; see the note below the table. Run 6 also
-> *proved* the headline read-stability fix (retired test A1) and left the notification
-> test inconclusive, which is why A5 now reads the log instead of your memory.
+> **Three releases have landed since your last run (v0.5.14):** v0.5.16 (results-pane
+> tabs), v0.5.17 (the QThread crash + four cancels that didn't work), and v0.5.18
+> (silent failures, and tags being written to the wrong files). **Sections A and D are
+> new and are where the value is** — they cover fixes that *cannot* be proven off
+> hardware, plus one question whose answer unblocks the worst bug still open.
 >
 > **Never send audio** — logs, `.cue`, `.platterpus.json` and CRCs only.
 
-**Date:** ____________
+**Date:** ____________  ·  **App version tested:** ____________
 
 ---
 
@@ -45,81 +44,294 @@ Expected Copy CRCs — **all 14, from the run-5 baseline that matched EAC exactl
 |---|---|---|---|---|---|---|
 | `D723C1B0` | `6F6E4A5F` | `3A33519F` | `56BFC63D` | `D78CEAEF` | `DA6A4DAF` | `787BA2D6` |
 
-**Track 3 is a problem child again — and that is the disc, not the app.** Run 5 was the
-one run where it read cleanly (`59D352DD`, matching EAC). On run 6 it went back to
-disagreeing with itself: `1AC787A1`, AccurateRip v1/v2 both "not found", `Accurip 450`
-matching at confidence 200, and the re-reads did not agree. Its history is now
-`52DFDF7D` / `3D8FCF0C` / `59D352DD` / `1AC787A1` — four values across six runs, which is
-the signature of a marginal disc surface. **Expect this track to vary.** What matters is
-that the app *says so* (run 6 proved it does — see retired test A1), not that the value
-is stable.
+**Track 3 is a problem child — and that is the disc, not the app.** Its history is
+`52DFDF7D` / `3D8FCF0C` / `59D352DD` / `1AC787A1` across six runs: the signature of a
+marginal surface. **Expect it to vary.** What matters is that the app *says so*, not that
+the value is stable.
 
-**Track 5 is a genuine offset-variant pressing.** Its AccurateRip v1 and v2 both say
-"not found", while `Accurip 450` matches at confidence 200 — i.e. the audio is right,
-the pressing is shifted. Its shipped CRC has been `E0036697` on all five runs, and it
-matches EAC. It gets re-read automatically (3 passes on run 5) and converges.
+**Track 5 is a genuine offset-variant pressing.** AccurateRip v1 and v2 both say "not
+found" while `Accurip 450` matches at confidence 200 — the audio is right, the pressing is
+shifted. Its shipped CRC has been `E0036697` on every run and matches EAC.
 
-Expected verdict: **amber**. Best case is 13/14 exact + 1 offset-variant (run 5); when
-track 3 misbehaves it is 12/14 exact + 2 offset-variant (run 6). Both are the correct
-reading of what the drive returned — neither is a failure of the app.
+Expected verdict: **amber**. Best case 13/14 exact + 1 offset-variant (run 5); when track 3
+misbehaves, 12/14 + 2. Both are correct readings of what the drive returned.
 
-Expected CTDB: **it depends on track 3, and that is consistent, not flaky.** CTDB checks
-one CRC over the *whole disc*, so a single differing track changes it. Run 5 (track 3
-clean) matched at confidence 1 (`our_crc` = `matched_crc` = `5DA89FCD`); run 6 (track 3
-divergent) returned no match at the standard alignment, and the app explained the two
-findings are the same one rather than a contradiction. Either outcome is expected.
+Expected CTDB: **depends on track 3, and that is consistent rather than flaky.** CTDB is
+one CRC over the whole disc, so one differing track changes it. Either outcome is expected.
 
-**EAC parity: 13/14 on run 6**, verified with the project's own `parity.compare_logs`
-against the committed baseline — the single mismatch is track 3. Run 5's 14/14 remains the
-high-water mark.
+### Wording changes since your last run — so they don't read as regressions
 
-**Two expected changes in wording since your last run (v0.5.12), so they don't read as
-regressions:**
-
-* CTDB's no-match line now says *"no match at the standard alignment"* and explains
-  that CTDB also holds offset-shifted pressings. It no longer says your rip differs
-  from the database — we only ever tested one of ~11,759 valid alignments, so that
-  claim was more than the check could support.
-* Settings and the User Guide now say CTDB verification is **on by default**. It
-  always was; both places said it was off.
+* The results block is now three tabs (**Tracks** / **Details** / **Live log**) with a
+  fixed strip on top. See B5c.
+* The EAC-compatible log's gap row now reads **`Gap handling : Appended to previous
+  track`** instead of echoing cyanrip's own phrasing. The *behaviour* never changed — the
+  log just now says it in EAC's vocabulary. See A19.
+* A disc that can't be read now reports **the actual error**, not "not in MusicBrainz". See
+  A17 — this one is worth reading before you start.
 
 ---
 
-## 0 — [ ] Update to v0.5.16
+## 0 — [ ] Update to v0.5.18
 
-*Help → Check for updates…* → download → verify → restart. *Help → About* says
-**0.5.16**. Nothing else to set up — your settings are already right (see above).
+*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.5.18**.
+Nothing else to set up — your settings are already right (see above).
+
+**Result:** ☐ PASS ☐ FAIL — version shown: ____________
 
 ---
 
-## A — Still-unproven fixes
+## A — ⭐ New in v0.5.17 / v0.5.18 — only your rig can prove these
 
-*Eight reviewers went over the whole app. These are the fixes that can only be proven
-on your rig. Test A1 is the important one.*
+*Twelve findings were fixed across these two releases, most of them found by audits rather
+than by anything going visibly wrong. The suite proves the mechanisms fire; it cannot prove
+the drive stops or that the right bytes got the right tags. **A10 and A11 are the two that
+matter most.***
 
-### A1 — [x] ✅ RETIRED — proven on run 6 (v0.5.14)
+### A10 — [ ] ⭐⭐ Tags must land on the right files when you deselect tracks
 
-**The headline fix is confirmed on your hardware.** Track 3 finally failed to converge
-again on run 6, which is exactly the negative case that had never come up before, and the
-log did the right thing:
+**This is the most serious bug fixed in v0.5.18, and it was silent.** For unknown discs
+(no MusicBrainz match) the tagger keyed each track on the file's *position in the folder*
+rather than on its track number. Those are the same thing only when every track is ripped
+— and the **Rip?** column exists so they aren't. Untick track 1 and the file `02 - …` was
+written track 1's title and `TRACKNUMBER=01`, `03 - …` got track 2's, and so on down the
+disc. **Every tag on the archival master off by one**, with the window reporting success
+and nothing in the log.
 
+You need a disc MusicBrainz does *not* know for this — a CD-R, a promo, an obscure
+pressing. If you don't have one, say so and I'll suggest another way to force unknown mode.
+
+1. Insert the unknown disc. When it offers **Rip as unknown album**, accept.
+2. In the track table, **untick tracks 1 and 2**. Type distinctive titles into the rows
+   you *are* ripping — e.g. track 3 → `THREE`, track 4 → `FOUR`.
+3. Rip. Then in the album folder:
+
+```sh
+for f in *.flac; do
+  printf '%s -> ' "$f"
+  metaflac --show-tag=TRACKNUMBER --show-tag=TITLE "$f" | tr '\n' ' '
+  echo
+done
 ```
-Copy CRC 1AC787A1  (re-reads did NOT agree — this read is not confirmed reproducible)
-Read stability      : track(s) 3 did not read identically across re-reads — not confirmed reproducible
+
+- Expected: `03 - ….flac` has **`TRACKNUMBER=03`** and **`TITLE=THREE`**. `04 - ….flac`
+  has `TRACKNUMBER=04` / `TITLE=FOUR`.
+- **The bug looked like:** `03 - ….flac` carrying `TRACKNUMBER=01` and the title you typed
+  for track 1's row.
+- Also expected: no file is left untagged, and `log.txt` has no "does not start with a
+  track number" warnings.
+
+**Result:** ☐ PASS ☐ FAIL — first file's number/title: ____________ · any off-by-one:
+☐ y ☐ n
+
+### A11 — [ ] ⭐⭐ Cancel, then quit within five seconds — the drive must stop
+
+**The one with no recovery.** On Cancel, the host-side wrapper dies immediately, but podman
+does not forward the signal into the container — so the only thing that kills the
+in-container reader is a five-second rescue timer. `closeEvent` disarmed that timer
+*before* the shutdown drive-stop ran, and the shutdown stop gave up whenever the rip
+already looked finished. Quitting inside that window left the reader ripping — and **the
+drive's physical eject button is ignored while a read holds the device**, so there was
+neither an in-app nor a hardware way out.
+
+1. Start a rip of the Police disc. Let two or three tracks finish.
+2. Press **Cancel**, and then **quit the app within about three seconds** (window ✕ or
+   *File → Quit* — deliberately inside the five-second window).
+3. Watch and listen to the drive.
+
+- Expected: the drive spins down within a few seconds and the tray **opens on the first
+  press** of the eject button.
+- Expected: the app exits without a crash dialog, and `log.txt`'s last lines mention
+  stopping the rip / freeing the drive.
+- **The bug looked like:** the drive keeps spinning after the app is gone, and the eject
+  button does nothing until you `eject /dev/sr0` or reboot.
+
+```sh
+tail -40 ~/.local/share/platterpus/log.txt
+ps aux | grep -E "cyanrip|cd-paranoia" | grep -v grep    # expect: nothing
 ```
 
-**No `Test CRC` line for track 3** — so the log no longer forges the EAC "two reads
-agreed" symbol for a read that didn't. Track 5, which *did* converge, correctly kept its
-pair (`Test CRC E0036697` / `Copy CRC E0036697`, "confirmed across 3 secure re-reads"), so
-the fix distinguishes the two cases rather than just suppressing the line. Nothing to
-re-test.
+**Result:** ☐ PASS ☐ FAIL — drive spun down: ☐ y ☐ n · eject worked first press:
+☐ y ☐ n · leftover process: ____________
 
-### A2 — [ ] ⭐ An interrupted rip must admit it — *now actually wired*
+### A12 — [ ] Force stop is recorded as *cancelled*, not as a failure
 
-Was test 18. It has been on this sheet since v0.5.9 and it has **never worked**: the
-banner's renderer was correct, but the code that hands it the rip's outcome read a
-dictionary the wrong way and always passed an empty status. Four releases shipped it
-broken. It is fixed and pinned by a test that goes through the real write path.
+Only the Cancel button marked a rip cancelled. Using **Force stop** on its own (it is
+enabled for the whole rip) therefore produced "Rip failed.", an `outcome.status` of
+`failed` in the JSON, an `*** INCOMPLETE RIP (failed) ***` banner in the signed log, **and**
+a failure notification — recording your own deliberate choice as a malfunction.
+
+1. Start a rip. After a couple of tracks, press **Force stop** (not Cancel).
+2. Then:
+
+```sh
+python3 -c "import glob,json;d=json.load(open(glob.glob('*.platterpus.json')[0]));print(d['outcome'])"
+head -20 *"(EAC-compatible).log" | grep -i incomplete
+```
+
+- Expected: `outcome.status` is **`cancelled`**, the banner says
+  `*** INCOMPLETE RIP (cancelled) …`, and the window says cancelled rather than failed.
+
+**Result:** ☐ PASS ☐ FAIL — status was: ____________
+
+### A13 — [ ] Closing the window mid-rip must not crash the app
+
+`closeEvent` stopped six worker threads and **not the rip thread**. Because that thread is
+owned by the window, destroying the window destroyed a running thread, which Qt treats as
+fatal — reproduced to exit 134. No test could catch it because the test suite's own fixture
+was quietly stopping the thread that production didn't.
+
+1. Start a rip. Let one track finish.
+2. **Close the window** (✕) while it is actively ripping.
+
+- Expected: the app closes cleanly. **No** crash dialog, no "Platterpus quit unexpectedly",
+  no KDE crash reporter.
+- Expected: the drive stops (same as A11).
+
+```sh
+grep -iE "abort|SIGABRT|Destroyed while thread" ~/.local/share/platterpus/log.txt | tail
+journalctl --user -b --since "10 min ago" | grep -i platterpus | tail
+```
+
+**Result:** ☐ PASS ☐ FAIL — crash dialog: ☐ y ☐ n · anything in journalctl:
+____________
+
+### A14 — [ ] Cancelling the cache probe must actually stop the disc
+
+`Analyse cache` runs `cd-paranoia -A`, which can take **minutes** and spins the disc the
+whole time. Closing the dialog called a cancel hook that was a **no-op** — a do-nothing
+default on the base class that this backend never overrode — so the flag was set and the
+probe carried on to its 600-second ceiling. Three separate comments in the code claimed it
+killed the process.
+
+1. Disc in. *Tools → Set up drive…* → **Analyse cache**.
+2. Wait ~15 seconds so it is genuinely reading, then **close the dialog**.
+
+- Expected: the dialog closes immediately, the app stays responsive, and **the disc spins
+  down within a few seconds**.
+- Expected in the log: `cancelling` / `SIGKILL to the process group` for the probe.
+- **The bug looked like:** the dialog closes but the drive keeps grinding for minutes.
+
+```sh
+ps aux | grep cd-paranoia | grep -v grep     # expect: nothing
+grep -i "cache probe" ~/.local/share/platterpus/log.txt | tail
+```
+
+**Result:** ☐ PASS ☐ FAIL — spin-down seconds: ______ · leftover process: ☐ y ☐ n
+
+### A15 — [ ] Quitting during the startup dependency check should be prompt
+
+The launch dependency probe enters the container, which on a cold start takes tens of
+seconds. Its cancel existed but **nothing called it** (the teardown omitted one argument),
+so quitting in that window waited out the shutdown budget — roughly a ten-second "Not
+Responding" window — and then abandoned the thread.
+
+1. Make the container cold: `podman stop ripping` (or reboot).
+2. Launch Platterpus and **quit within the first couple of seconds**, while it is still
+   probing.
+
+- Expected: it exits within about a second. No greyed-out "Not Responding" window.
+
+**Result:** ☐ PASS ☐ FAIL — roughly how long to exit: ______ s
+
+### A16 — [ ] "Rescan disc" mid-scan must stop the old reader
+
+Superseding an in-flight disc scan left the previous reader running *and* — because both
+probes were tracked in one slot — made the new one unkillable, whichever finished last
+clearing the other's registration.
+
+1. Insert a disc and, while it is still scanning, press **Rescan disc**. Do it two or
+   three times in quick succession.
+
+- Expected: no pile-up of readers, the panel settles on one correct result, the app stays
+  responsive.
+
+```sh
+ps aux | grep cyanrip | grep -v grep     # expect: at most one, and it goes away
+```
+
+**Result:** ☐ PASS ☐ FAIL — max concurrent cyanrip seen: ______
+
+### A17 — [ ] ⭐ A disc that can't be read must say *why*
+
+**The worst diagnostic hole in the app.** The disc probe discarded cyanrip's exit code
+*and* its error text. A permission problem on the drive, a dead container, a broken host
+export — all produced an empty disc, which is indistinguishable from a real disc
+MusicBrainz has never heard of. So the app announced **"not in MusicBrainz"** and offered
+an unknown-album rip, and **nothing was written to the log**: a bug report contained no
+evidence at all.
+
+Force a real failure. Easiest is to remove your read permission on the device:
+
+```sh
+sudo chmod o-r /dev/sr0     # and confirm you are not in a group that still grants it
+```
+
+1. With a **known-good disc** in the drive (the Police disc), press **Rescan disc**.
+2. Then restore: `sudo chmod o+r /dev/sr0` (or reboot).
+
+- Expected: a message about **not being able to read the disc / a permissions problem**,
+  quoting what cyanrip actually said.
+- Expected: **NOT** "this disc isn't in MusicBrainz", and **no** unknown-album offer.
+- Expected in the log: a `cyanrip exited <n>` line carrying the tool's own error text.
+
+```sh
+grep -nE "cyanrip exited|Permission denied" ~/.local/share/platterpus/log.txt | tail
+```
+
+> ⚠️ **The one regression risk in this release.** The probe now treats *any* non-zero exit
+> as a failure. If a disc you consider perfectly readable starts reporting an error, that is
+> the thing to tell me immediately — it means cyanrip exits non-zero in a case we should
+> tolerate, and the fix is to narrow the check rather than go back to swallowing it.
+
+**Result:** ☐ PASS ☐ FAIL — message said: ____________ · log line present: ☐ y ☐ n
+· any *good* disc now failing: ☐ y ☐ n
+
+### A18 — [ ] "Set up drive" must not clip its own text when the window is small
+
+Its minimum size was a hand-picked guess 185 px shorter than the content needs. Measured at
+440×300, the intro label was **73 px short** — the last lines of the explanation of what a
+read offset *is* simply weren't drawn.
+
+1. *Tools → Set up drive…*
+2. Try to make the dialog as small as it will go. Drag every edge.
+
+- Expected: it **refuses** to shrink past the point where text would be cut off.
+- Expected: every paragraph fully readable at the smallest size it allows; the
+  accuraterip.com link visible and clickable.
+- Expected: at most **one** scrollbar, in the results box — never two.
+
+**Result:** ☐ PASS ☐ FAIL — any clipped text: ☐ y ☐ n · smallest size reached:
+________×________
+
+### A19 — [ ] The EAC log's gap row now speaks EAC's vocabulary
+
+cyanrip has always merged pregaps into the previous track, and Platterpus never passes the
+flag that would change that — which is exactly EAC's "Appended to previous track". The log
+simply never said so in EAC's words, which made a side-by-side comparison against a real
+EAC log harder than it needed to be.
+
+```sh
+grep -n "Gap handling" *"(EAC-compatible).log"
+```
+
+- Expected: `Gap handling                                : Appended to previous track`
+- Expected: `Make use of C2 pointers : (not reported by the ripper)` — **unchanged, and
+  deliberately so.** I tried to assert `No` here on the strength of a survey saying
+  libcdio never uses C2 pointers, and a test that exists to stop exactly that blocked it.
+  It was right: the rows we *do* assert each have direct evidence behind them, and a
+  second-hand summary isn't that. See section D.
+
+**Result:** ☐ PASS ☐ FAIL — gap row said: ____________
+
+---
+
+## B — Still unproven from earlier releases
+
+### B2 — [ ] ⭐ An interrupted rip must admit it
+
+On this sheet since v0.5.9 and it has **never worked**: the banner's renderer was correct,
+but the code handing it the rip's outcome read a dictionary the wrong way and always passed
+an empty status. Four releases shipped it broken.
 
 1. Start a rip, let two or three tracks finish, then **Cancel**.
 2. In that album's folder:
@@ -129,24 +341,21 @@ head -20 *"(EAC-compatible).log"
 head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 ```
 
-- Expected near the top: `*** INCOMPLETE RIP (cancelled) — this log covers N of 14
-  disc tracks. The remaining M track(s) were never extracted and are absent
-  below. ***`
+- Expected near the top: `*** INCOMPLETE RIP (cancelled) — this log covers N of 14 disc
+  tracks. The remaining M track(s) were never extracted and are absent below. ***`
 - Expected near the bottom: `Conclusive status report : absent`
-- Expected: the checksum still verifies — the banner sits **inside** it, so it can't
-  be quietly deleted.
+- Expected: the checksum still verifies — the banner sits **inside** it, so it can't be
+  quietly deleted.
 
 **Result:** ☐ PASS ☐ FAIL — banner said: ____________ · checksum: ☐ y ☐ n
 
-### A3 — [ ] Quitting during the securing pass is now recorded in the log too
+### B3 — [ ] Quitting during the securing pass is recorded in the log too
 
-Run 4 found this by accident: closing the window mid-re-rip reported a clean success.
-The JSON report was fixed to record it; the *durable* log — the artifact a stranger
-reads years later — still said nothing, so the archival record was the more
-reassuring of the two. Both now carry it.
+Run 4 found this by accident: closing the window mid-re-rip reported a clean success. The
+JSON report was fixed; the *durable* log — the artifact a stranger reads years later —
+still said nothing, so the archival record was the more reassuring of the two.
 
-1. Start a rip of the Police disc. When the status says it is re-ripping tracks 3 & 5,
-   **close the window**.
+1. Start a rip. When the status says it is re-ripping tracks 3 & 5, **close the window**.
 2. Then:
 
 ```sh
@@ -154,19 +363,18 @@ grep -nE "securing pass was INTERRUPTED" *"(EAC-compatible).log"
 python3 -c "import glob,json;print(json.load(open(glob.glob('*.platterpus.json')[0]))['read_speed'])"
 ```
 
-- Expected in the log: `Secure re-read      : the securing pass was INTERRUPTED
-  before it finished — any track it had not yet re-read carries only its first read`
-- Expected in the JSON: `secure_rerip.interrupted` is `true` and agrees with it.
+- Expected in the log: `Secure re-read      : the securing pass was INTERRUPTED before it
+  finished — any track it had not yet re-read carries only its first read`
+- Expected in the JSON: `secure_rerip.interrupted` is `true` and agrees.
 - Expected: all 14 tracks present and playable regardless.
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
-### A5 — [ ] The desktop notification — and now the log can answer for it
+### B5 — [ ] The desktop notification — the log can now answer for it
 
-Run 6 left this **inconclusive**, and that was a gap in the app, not in your testing: you
-were gaming and then at dinner, the toast lives for eight seconds, and `log.txt` recorded
-nothing either way — so a shipped fix had no way to be confirmed. v0.5.15 fixes the
-diagnosability: every outcome is now written to the log.
+Run 6 left this **inconclusive**, and that was a gap in the app: the toast lives eight
+seconds and `log.txt` recorded nothing either way, so a shipped fix had no way to be
+confirmed. Every outcome is now logged.
 
 Start a rip, go do something else, and afterwards:
 
@@ -174,201 +382,183 @@ Start a rip, go do something else, and afterwards:
 grep -n "completion notification" ~/.local/share/platterpus/log.txt
 ```
 
-- Expected: exactly one line per rip. Either `completion notification posted: <title> —
-  <body>`, or a skip that says why (`turned off in Settings`, `the rip was cancelled`,
-  `no usable system tray`).
-- If it says **posted** and you *did* see a toast: PASS, and the text should match the
-  final status line in the window.
-- If it says **posted** and you saw nothing, that is a KDE/notification-daemon issue
-  rather than ours — still worth telling me, since we could fall back to another method.
-- If it says **no usable system tray**, that is the interesting one: your desktop is
-  refusing us a tray icon, and the notification needs a different mechanism.
+- Expected: exactly one line per rip — either `completion notification posted: <title> —
+  <body>`, or a skip that says why (`turned off in Settings`, `the rip was cancelled`, `no
+  usable system tray`).
+- **posted** + you saw a toast → PASS, and the text should match the window's final status.
+- **posted** + no toast → a KDE/notification-daemon issue rather than ours; still tell me.
+- **no usable system tray** → the interesting one: your desktop is refusing us a tray icon
+  and the notification needs a different mechanism.
 
 **Result:** ☐ PASS ☐ FAIL — log line said: ____________ · toast seen: ☐ y ☐ n
 
-### A5b — [x] ✅ RETIRED — the overlap is fixed, you confirmed it on v0.5.15
-
-*"All works"* — the text no longer paints over itself. Nothing to re-test.
-
-### A5c — [ ] ⭐ One scrollbar, and the mouse wheel does the obvious thing
+### B5c — [ ] ⭐ One scrollbar, and the mouse wheel does the obvious thing
 
 **Your v0.5.15 report:** *"the 2 scroll bars in the lower right are difficult to use
 together."* Fair — and the fix caused it. Putting the whole pane in a scroll area made the
-table and the console *nested* scroll surfaces: two scrollbars 15 px apart, with the wheel
-acting on whichever one the pointer happened to be over.
+table and the console *nested* scroll surfaces.
 
-The tidy-looking repair turned out to be a trap. Turning the table's own scrollbar off does
-give one bar — but a nested scroll area that has nothing left to scroll **doesn't pass the
-wheel on to its parent** (measured), so the wheel over the table would have done *nothing
-at all*. That's worse than two bars, so it was thrown out.
+The tidy repair was a trap: turning the table's own scrollbar off gives one bar, but a
+nested scroll area with nothing left to scroll **doesn't pass the wheel to its parent**
+(measured), so the wheel over the table would have done nothing at all.
 
-**What v0.5.16 does instead.** The results block is now three parts: a fixed strip at the
-top (progress bars, status line, and the trust verdict) that never scrolls and never
-hides, then three tabs — **Tracks**, **Details**, **Live log** — and the buttons pinned at
-the bottom. Only one tab shows at a time, so there is at most one scrollbar and it is
-never nested inside another.
+**What ships instead:** a fixed strip on top (progress bars, status, trust verdict) that
+never scrolls and never hides, then three tabs — **Tracks**, **Details**, **Live log** —
+with the buttons pinned at the bottom. One tab at a time, so at most one scrollbar, never
+nested.
 
-You don't need a full rip for this — tick two tracks in the **Rip?** column and rip those.
+You don't need a full rip — tick two tracks in **Rip?** and rip those.
 
-1. While it rips: the **Live log** tab should be showing, on its own, without you clicking.
+1. While it rips: **Live log** should be showing, on its own, without you clicking.
 2. When it finishes: it should switch itself to **Tracks**.
-3. Resize the window small and large. On each tab, spin the mouse wheel over the middle of
-   the content.
+3. Resize small and large. On each tab, spin the wheel over the middle of the content.
 
-- Expected: **never two scrollbars at once.** At most one, on the right of whichever tab
-  you're looking at.
-- Expected: the wheel scrolls **that tab's content**, every time, with no dead spots — this
-  is the bit I could not fully prove off-hardware, so it is the single most useful thing
-  you can tell me.
-- Expected: the verdict line and status stay visible whichever tab you're on.
+- Expected: **never two scrollbars at once.**
+- Expected: the wheel scrolls that tab's content **every time, with no dead spots** — the
+  bit I could not fully prove off-hardware, so the single most useful thing you can report.
+- Expected: verdict and status stay visible whichever tab you're on.
 - Expected: `Alt+T` / `Alt+D` / `Alt+L` jump to Tracks / Details / Live log.
-- Expected: when there's a CTDB caveat, the **Details** tab label shows a **⚠** — so you
-  can see there's something in there without opening it. (Your disc produces one: CTDB
-  won't match while track 3 is misbehaving.)
+- Expected: with a CTDB caveat, the **Details** tab label shows a **⚠**. (Your disc
+  produces one while track 3 misbehaves.)
 
-**Result:** ☐ PASS ☐ FAIL — two bars at once anywhere: ☐ y ☐ n · a dead wheel spot:
-☐ y ☐ n · tabs switched themselves: ☐ y ☐ n · ⚠ on Details: ☐ y ☐ n
+**Result:** ☐ PASS ☐ FAIL — two bars anywhere: ☐ y ☐ n · dead wheel spot: ☐ y ☐ n ·
+tabs switched themselves: ☐ y ☐ n · ⚠ on Details: ☐ y ☐ n
 
-> **Say so if you don't like it.** Tabs are a bigger change to how the app looks than a
-> layout fix, and it is a judgement call: it buys one predictable scrollbar and costs you
-> seeing the table and the CTDB note at the same time. If you'd rather have everything on
-> one page and put up with a scrollbar, that's a legitimate preference and I'll do it
-> differently — the measurements just rule out doing it the way it was.
+> **Say so if you don't like it.** Tabs are a bigger change than a layout fix, and it's a
+> judgement call: one predictable scrollbar, at the cost of seeing the table and the CTDB
+> note together. If you'd rather have one page and put up with a scrollbar, that's
+> legitimate and I'll do it differently — the measurements only rule out the old way.
 
-### A6 — [ ] Your own `cover.jpg` survives a re-rip
+### B6 — [ ] Your own `cover.jpg` survives a re-rip
 
-Cover art is embedded but not saved by default, and the scratch file it wrote for
-`metaflac` reused the name `cover.jpg` and then deleted it — so the default setting
-destroyed a cover you had put in the folder yourself.
+The scratch file written for `metaflac` reused the name `cover.jpg` and then deleted it —
+so the default setting destroyed a cover you had put there yourself.
 
 1. Put any JPEG named `cover.jpg` into an already-ripped album folder.
-2. Re-rip that disc and choose **Replace** when asked about the existing folder.
-3. Expected: your `cover.jpg` is **still there, unchanged**, and no stray
-   `.platterpus-cover-tmp*` file is left behind.
+2. Re-rip that disc, choose **Replace** when asked about the existing folder.
+
+- Expected: your `cover.jpg` **still there, unchanged**, and no stray
+  `.platterpus-cover-tmp*` left behind.
 
 **Result:** ☐ PASS ☐ FAIL — cover survived: ☐ y ☐ n · stray temp file: ☐ y ☐ n
 
-### A7 — [ ] A bad read offset is refused, visibly
+### B7 — [ ] A bad read offset is refused, visibly
 
-*Tools → Set up drive…* → type an offset far outside the sane range (the box now
-allows ±5000, matching the validator — it used to allow ±2000 while the validator
-allowed ±5000). Try to save something absurd if the box lets you, e.g. by
-hand-editing `~/.config/platterpus/config.toml` to `read_offset = 999999` and
-relaunching.
+*Tools → Set up drive…* → try an offset far outside the sane range. Then try to force one
+past the widget by hand-editing `~/.config/platterpus/config.toml` to
+`read_offset = 999999` and relaunching.
 
-- Expected: a clear message naming the allowed range; **+667 is still in effect
-  afterwards**. It must never silently accept a bad value and reset it to 0 on the
-  *next* launch — that would rip the following session at the wrong offset.
+- Expected: a clear message naming the allowed range; **+667 still in effect afterwards**.
+  It must never silently accept a bad value and reset to 0 on the *next* launch — that
+  would rip the following session at the wrong offset.
 
 **Result:** ☐ PASS ☐ FAIL — offset after the attempt: ____________
 
-### A8 — [ ] Uninstall removes `cd-paranoia` too
+### B8 — [ ] Uninstall removes `cd-paranoia` too
 
-*Tools → Uninstall Platterpus…* → **tick the host-exports item, untick everything
-else** (you don't want a real uninstall) → run it. Then:
+*Tools → Uninstall Platterpus…* → **tick the host-exports item, untick everything else** →
+run.
 
 ```sh
 ls ~/.local/bin/ | grep -E "cyanrip|metaflac|flac|cd-paranoia"
 ```
 
-- Expected: **all four gone**. `cd-paranoia` was being orphaned — the exact repeat of
-  the `flac` bug from earlier.
+- Expected: **all four gone.** `cd-paranoia` was being orphaned — the exact repeat of the
+  `flac` bug from earlier.
 - Re-run *Tools → Set up Platterpus…* afterwards to put them back.
 
 **Result:** ☐ PASS ☐ FAIL — left behind: ____________
 
-### A9 — [ ] Launched from the desktop icon, the app still finds its tools
+### B9 — [ ] Launched from the desktop icon, the app still finds its tools
 
-A GUI started from a **desktop icon** does not inherit a login shell's `PATH`, and
-`~/.local/bin` — where the container's tools are exported — is exactly what goes
-missing. The wizard would report a tool installed while the dependency probe reported
-it missing.
+A GUI started from a desktop icon does not inherit a login shell's `PATH`, and
+`~/.local/bin` — where the container's tools are exported — is exactly what goes missing.
 
-1. Launch Platterpus from the **application menu / desktop icon**, not a terminal.
-2. *Tools → Check dependencies*. Expected: cyanrip, metaflac, flac, ffmpeg and
-   cd-paranoia all **found**.
+1. Launch from the **application menu / desktop icon**, not a terminal.
+2. *Tools → Check dependencies*. Expected: cyanrip, metaflac, flac, ffmpeg and cd-paranoia
+   all **found**.
 3. Rip a disc and confirm CTDB verification runs (it decodes with the host `flac`).
 
 **Result:** ☐ PASS ☐ FAIL — any reported missing: ____________
 
 ---
 
-## B — Carried over (still never exercised on hardware)
+## C — Carried over (still never exercised on hardware)
 
-### 2 — [ ] Test 7: offset-variant re-read, across two rips
+### C2 — [ ] Offset-variant re-read, across two rips
 
-Test A1 gave you rip A. Rip the same disc again (rip B), then:
+Rip the same disc twice (A then B), then:
 
 ```sh
 ./platterpus-x86_64.AppImage --compare "<A>.platterpus.json" "<B>.platterpus.json"
 ```
 
-- Expected: **track 5 byte-identical** between A and B — that's the point of the
-  offset-variant re-read setting.
-- Expected: **track 3 may still differ.** Four runs have failed to read it the same
-  way twice; that's the disc. If it *is* identical, say so — genuine win.
+- Expected: **track 5 byte-identical** between A and B — the point of the offset-variant
+  re-read setting.
+- Expected: **track 3 may still differ.** If it *is* identical, say so — genuine win.
 
 **Result:** ☐ PASS ☐ FAIL — identical: ____ / 14 · track 5: ☐ y ☐ n · track 3: ☐ y ☐ n
 
-### 4 — [ ] Test 6: per-track "Rip?" selection
+### C4 — [ ] Per-track "Rip?" selection
 
 1. Insert a CD, let it identify. The grid has a leading **Rip?** column, all ticked.
-2. Untick two tracks → **Start rip**. Expected: only ticked tracks ripped, filenames
-   keep their **original** numbers (`03 - …`, not renumbered 1..N).
-3. Untick **everything** → **Start rip**. Expected: a clear message blocks it — no
-   rip, no crash.
-4. Highlight 2–3 rows → **right-click**. Expected: *Rip only these* / include /
-   exclude / select all / none, each working.
+2. Untick two tracks → **Start rip**. Expected: only ticked tracks ripped, filenames keep
+   their **original** numbers (`03 - …`, not renumbered 1..N).
+3. Untick **everything** → **Start rip**. Expected: a clear message blocks it — no rip, no
+   crash.
+4. Highlight 2–3 rows → **right-click**. Expected: *Rip only these* / include / exclude /
+   select all / none, each working.
+
+> Do **A10** as well if you have an unknown disc — same selection feature, but A10 is where
+> the silent tag bug lived.
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
-### 5 — [ ] Test 4b: whole-disc Test & Copy
+### C5 — [ ] Whole-disc Test & Copy
 
-*Settings* → tick **"Verify every track with a second read (EAC-style Test & Copy)"**
-→ OK (max reads is already 2, which is what it needs). Re-rip a disc.
+*Settings* → tick **"Verify every track with a second read (EAC-style Test & Copy)"** → OK.
+Re-rip.
 
 ```sh
 grep -c "Test CRC" *"(EAC-compatible).log"
 ```
 
-- Expected: **14** on a disc that reads cleanly — a Test CRC for every track, each
-  equal to its Copy CRC.
-- On the Police disc, expect **12**: tracks 3 and 5 may legitimately fail to converge,
-  and after the A1 fix a non-converging track correctly gets **no** Test CRC. That is
-  a pass, not a failure — note which tracks are missing.
-- Expected: noticeably slower than A1 (everything read twice).
+- Expected: **14** on a clean disc.
+- On the Police disc, expect **12**: tracks 3 and 5 may legitimately fail to converge, and
+  a non-converging track correctly gets **no** Test CRC. That is a pass — note which are
+  missing.
+- Expected: noticeably slower (everything read twice).
 
-Untick it again afterwards.
+Untick it afterwards.
 
 **Result:** ☐ PASS ☐ FAIL — Test CRC count: ____ / 14 · missing: ____________
 
-### 8 — [ ] The app is fine without cd-paranoia
+### C8 — [ ] The app is fine without cd-paranoia
 
 ```sh
 mv ~/.local/bin/cd-paranoia ~/.local/bin/cd-paranoia.bak
 ```
 
-1. Relaunch. *Set up drive* → **Analyse cache**. Expected: it says **cd-paranoia
-   isn't installed** and points you at *Tools → Set up Platterpus…* — not a vague
-   "could not be determined".
-2. Rip a CD → works as before. **Cache defeat** keeps saying **Yes** because your
-   drive's verdict is saved *per drive* and isn't re-probed — correct, it really was
-   measured. What must never happen is a `Yes` on a drive that was never probed.
-3. `./platterpus-x86_64.AppImage --doctor` → **WARN** (optional tool missing), not FAIL.
+1. Relaunch. *Set up drive* → **Analyse cache**. Expected: it says **cd-paranoia isn't
+   installed** and points at *Tools → Set up Platterpus…* — not a vague "could not be
+   determined".
+2. Rip a CD → works. **Cache defeat** keeps saying **Yes** because your drive's verdict is
+   saved *per drive* and isn't re-probed — correct, it really was measured. What must never
+   happen is a `Yes` on a drive that was never probed.
+3. `./platterpus-x86_64.AppImage --doctor` → **WARN**, not FAIL.
 4. Restore: `mv ~/.local/bin/cd-paranoia.bak ~/.local/bin/cd-paranoia`
 
 **Result:** ☐ PASS ☐ FAIL — message said: ____________
 
-### 9 — [ ] Cache probe: no disc, and cancel mid-probe
+### C9 — [ ] Cache probe: no disc, and cancel mid-probe
 
 1. **Empty drive** → **Analyse cache** → expected: a clear message, no hang, no crash.
-2. Disc in, start **Analyse cache**, then **close the dialog while it runs**. Expected:
-   closes cleanly, app stays responsive, drive spins down within a few seconds, no
-   crash. (The probe runs for minutes, so there's a wide window.)
+2. Disc in, start **Analyse cache**, then **close the dialog while it runs** — see A14,
+   which is the same action with the fix now in place.
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
-### 10 — [ ] Settings persist across a restart
+### C10 — [ ] Settings persist across a restart
 
 Turn **both** toggles on → OK → fully quit → relaunch → reopen Settings.
 
@@ -376,26 +566,26 @@ Turn **both** toggles on → OK → fully quit → relaunch → reopen Settings.
 grep -E "secure_rerip_dynamic|rerip_offset_variant" ~/.config/platterpus/config.toml
 ```
 
-- Expected: `secure_rerip_dynamic = false` (verify-every-track **ON** — stored
-  inverted) and `rerip_offset_variant = true`
+- Expected: `secure_rerip_dynamic = false` (verify-every-track **ON** — stored inverted)
+  and `rerip_offset_variant = true`
 
 **Result:** ☐ PASS ☐ FAIL — values: ____________
 
-### 11 — [ ] Contradictory settings degrade sensibly
+### C11 — [ ] Contradictory settings degrade sensibly
 
 **"Verify every track"** ON *and* **"Max reads"** = **Off (0)** → rip a CD.
 
-- Expected: completes normally; one Copy CRC per track, no fabricated Test CRC, no
+- Expected: completes normally; one Copy CRC per track, **no fabricated Test CRC**, no
   crash. (No second read exists to compare, so there must be no Test CRC.)
 
 Put **Max reads** back to 2 afterwards.
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
-### 12 — [ ] Log checksum survives the library auto-move
+### C12 — [ ] Log checksum survives the library auto-move
 
-Set **"Move finished rips to"** (currently empty) to a library folder, rip a CD so it
-auto-moves, then in the *new* location:
+Set **"Move finished rips to"** to a library folder, rip a CD so it auto-moves, then in the
+*new* location:
 
 ```sh
 head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
@@ -403,85 +593,114 @@ head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
 
 **Result:** ☐ PASS ☐ FAIL — matched: ☐ yes ☐ no
 
-### 13 — [ ] Nothing was lost in the update
+### C13 — [ ] Nothing was lost in the update
 
 ```sh
 grep -E "output_dir|read_offset|library_dir" ~/.config/platterpus/config.toml
 ```
 
-Expected, unchanged across v0.5.12 → v0.5.16: `output_dir =
-"/home/rmccann/Music/rips"`, working dir `~/.cache/platterpus`, `read_offset = 667`
-with "Apply this read offset to rips" ticked, the drive's *"confirmed — two
-independent sources agree"* trust line, and the cache-defeat **Yes** measurement.
+Expected, unchanged across v0.5.12 → v0.5.18: `output_dir = "/home/rmccann/Music/rips"`,
+working dir `~/.cache/platterpus`, `read_offset = 667` with "Apply this read offset to
+rips" ticked, the drive's *"confirmed — two independent sources agree"* trust line, and the
+cache-defeat **Yes** measurement.
 
-> One deliberate change to watch for: an output or library folder that is **not
-> mounted** at launch is now a *warning*, not an error. It used to be an error, and
-> an error-level field gets reset to its default on load — so a rip library on a NAS
-> or a removable disk that happened to be unmounted was silently retargeted to
-> `~/Music/rips` and the library folder cleared. If you use a removable library
-> folder, unmount it, relaunch, and confirm your path is **still in the config**.
+> One deliberate change to watch for: an output or library folder that is **not mounted**
+> at launch is a *warning*, not an error. It used to be an error, and an error-level field
+> gets reset to its default on load — so a rip library on a NAS or removable disk that
+> happened to be unmounted was silently retargeted to `~/Music/rips`. If you use a
+> removable library folder, unmount it, relaunch, and confirm your path is **still in the
+> config**.
 
 **Result:** ☐ PASS ☐ FAIL — anything reset? ____________
 
-### 16 — [ ] UI spot-check
+### C16 — [ ] UI spot-check
 
-- [ ] *Help → User Guide* mentions **Analyse cache** and **Verify every track**, and
-      says CTDB verification is **on by default**
-- [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says
-      "on by default"
-- [ ] *Help → About* shows **0.5.16** and correct Qt/Python info (Qt 6.11.1, Python
-      3.12.13)
-- [ ] Disc-panel values can be selected and copied with the mouse — worth a second
-      look this release, since those are the labels A5b changed. Selecting a
-      MusicBrainz ID and pasting it must still give you the whole ID.
-- [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and
-      no longer offers to "switch to the cyanrip backend in Settings" (there is no
-      such setting — cyanrip is the only backend)
+- [ ] *Help → User Guide* mentions **Analyse cache** and **Verify every track**, and says
+      CTDB verification is **on by default**
+- [ ] Every Settings control shows a tooltip on hover; the CTDB tooltip also says "on by
+      default"
+- [ ] *Help → About* shows **0.5.18** and correct Qt/Python info
+- [ ] Disc-panel values can be selected and copied with the mouse. Selecting a MusicBrainz
+      ID and pasting must still give the whole ID.
+- [ ] Force-stop a disc scan: the message says *"click Rescan disc to try again"* and does
+      not offer to "switch to the cyanrip backend in Settings" (there is no such setting)
 
 **Result:** ☐ PASS ☐ FAIL — notes: ____________
 
 ---
 
-## C — [ ] Required, and do it LAST: build cyanrip `master` for INDEX 00
+## D — ⭐ One question that unblocks the worst bug still open
 
-Your cyanrip 0.9.3 writes only `INDEX 01` (confirmed run 2). Upstream `master`
-already synthesises the track-1 pre-gap and writes `INDEX 00`/`PREGAP`. **Do this
-last — it replaces the cyanrip binary**, so every result above would otherwise be on
-a different ripper.
+**Not a pass/fail test — a fact I need.** This is the highest-value thing in the whole
+sheet.
 
-```sh
-distrobox enter ripping
-git clone https://github.com/cyanreg/cyanrip ~/cyanrip-master
-cd ~/cyanrip-master
-meson setup build          # read this output — see the note below
-ninja -C build
-build/src/cyanrip -V
-exit
-```
+### D1 — [ ] Does cyanrip print AccurateRip lines when ripping a SUBSET of tracks?
 
-**Build dependencies:** I haven't verified a Fedora package list, so I'm not giving
-you one to paste blindly. `meson setup build` names exactly what's missing, one at a
-time — `sudo dnf install -y <name>-devel` and re-run (plus `meson ninja-build gcc
-git` if the tools themselves are absent). cyanrip's README lists its dependencies if
-a name doesn't map cleanly.
+**Why it matters.** When the auto-fix re-rips a single bad track, it swaps the new read's
+CRC into the report — but keeps the **first pass's** AccurateRip result if the re-rip's log
+didn't print one. If that happens, a track can be reported **"AccurateRip verified"** while
+the bytes actually shipped were never checked against AccurateRip at all. The banner, the
+JSON report, the track table and the EAC log would all assert a verification that never
+happened.
 
-Then rip a disc **with a pre-gap** and check:
+That is precisely the class of bug the project has a standing rule against, and I will not
+guess at the fix: the correct behaviour depends entirely on whether cyanrip emits those
+lines under `-l`, and guessing wrong makes a correctness bug worse rather than better.
+
+Run this by hand — **no GUI involved**, one track only, into a scratch folder:
 
 ```sh
-grep -nE "INDEX|PREGAP" "<new album folder>"/*.cue
+mkdir -p /tmp/ar-probe && cd /tmp/ar-probe
+~/.local/bin/cyanrip -d /dev/sr0 -l 3 -o flac -s 667 2>&1 | tee subset.txt
+grep -inE "accurip|accuraterip" subset.txt
 ```
 
-- If `INDEX 00` appears, keep the build:
-  `distrobox enter ripping -- distrobox-export --bin ~/cyanrip-master/build/src/cyanrip`
-- Then one more normal rip of the Police disc — confirm you still get **12/14 exact
-  AccurateRip matches** against the CRC table above. We changed rippers, so this is
-  the safety check.
-- If the build fails, send the error and stop there. Nothing else depends on it.
+Then the same for the whole disc, for comparison:
 
-Commit built: `git -C ~/cyanrip-master rev-parse --short HEAD` → ____________
-cyanrip version reported: ____________
+```sh
+mkdir -p /tmp/ar-probe-full && cd /tmp/ar-probe-full
+~/.local/bin/cyanrip -d /dev/sr0 -o flac -s 667 2>&1 | tee full.txt
+grep -inE "accurip|accuraterip" full.txt
+```
 
-**Result:** ☐ PASS ☐ FAIL — INDEX 00: ☐ yes ☐ no · 12/14 still exact: ☐ y ☐ n
+**What I need back:** the `grep` output from both, or "no matches" if that's the answer.
+Just those few lines — **not** the FLACs. Delete both scratch folders afterwards.
+
+- If the subset rip **does** print Accurip lines → the fix is straightforward and I'll
+  make the merge use them.
+- If it **doesn't** → the fix has to drop the stale verdict and mark the track
+  "not verified", which is a bigger UX change and needs your sign-off.
+
+**Result:** subset printed Accurip lines: ☐ y ☐ n — paste the lines: ____________
+
+### D2 — [ ] (Optional) Anything that would settle the C2-pointers row
+
+Low priority, and only if you're curious. EAC logcheckers weight `Make use of C2 pointers`
+heavily, and asserting `No` would remove our last big "unknown" — but I need real evidence,
+not a survey. If `cd-paranoia -A -d /dev/sr0` output mentions C2 at all, that line is
+useful; otherwise leave it.
+
+**Result:** any C2 mention in the probe output: ☐ y ☐ n — text: ____________
+
+---
+
+## E — [ ] Required, and do it LAST: build cyanrip `master` for INDEX 00
+
+Unchanged from the previous sheet. Do this after everything above, because it changes the
+binary everything else was tested against.
+
+**Result:** ☐ PASS ☐ FAIL — notes: ____________
+
+---
+
+## Priority, if you only have an hour
+
+1. **A10** — tags on the right files (silent data corruption)
+2. **A11** — cancel-then-quit, drive must stop (no recovery when it fails)
+3. **D1** — the Accurip question (unblocks the worst open bug)
+4. **A17** — a failed disc read says why (and the one regression risk this release)
+5. **A13** — closing mid-rip doesn't crash
+6. **B5c** — the wheel behaviour I couldn't prove off-hardware
 
 ---
 
@@ -489,8 +708,9 @@ cyanrip version reported: ____________
 
 1. `~/.local/share/platterpus/log.txt`
 2. One album's `.log`, `(EAC-compatible).log`, `.cue`, `.platterpus.json`
-3. The `--compare` output from test 2
-4. This sheet, filled in
+3. The `--compare` output from C2
+4. The `grep` output from **D1** — the single most useful item
+5. This sheet, filled in
 
 Plus anything surprising, even on a test that passed.
 
