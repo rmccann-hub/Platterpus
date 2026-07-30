@@ -11,6 +11,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- **The hardware run sheet now carries *every* outstanding hardware test, not just the
+  newest release's.** Three releases (v0.5.16–v0.5.18) landed between rig sessions, so a
+  sheet scoped to one release left the older unproven items to be reconstructed from the
+  session log by hand. `docs/hardware-test-checklist.md` is now grouped by *why a test is
+  still open* — this release's new fixes (§A), shipped-but-never-proven from earlier
+  releases (§B), never-exercised-on-hardware areas (§C), by-hand probes that answer an
+  open design question (§D), and the ripper-swapping build test last (§E) — with test IDs
+  stable across releases and retired once they pass, so the numbering gaps are the record
+  of what the rig has already settled. Each of the ten new §A items names the release it
+  came from and the failure it would expose, §A19 warns which log-wording changes are
+  intentional so they don't read as regressions, and §A17 flags the one behaviour change
+  this release that could plausibly regress a working setup.
+
 ## [0.5.18] — 2026-07-29
 
 ### Changed
