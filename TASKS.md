@@ -483,6 +483,84 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
+### P1 — Open findings from the 2026-07-29 audits (three parallel read-only passes)
+
+Recorded with the mechanism and a concrete failure scenario each, severity-ordered.
+Everything above P1 severity in these passes was **fixed in v0.5.18**; this is what
+remains. None of these is speculative — each was traced to a file:line.
+
+- **[ ] A swapped-in re-rip keeps the FIRST pass's AccurateRip verdict → a track can be
+      reported "AccurateRip verified" when the shipped bytes were never checked.**
+      `parsers/cyanrip_log.py` replaces `copy_crc` with the swap-addendum CRC but leaves
+      `accuraterip_v1/v2` as parsed from the first pass, and `main_window_rip`'s merge
+      deliberately keeps the first-pass AR block when the re-rip's log printed none.
+      Scenario: auto-fix re-rips track 3 with `-l 3 -Z 4`, converges, and the re-rip log
+      carries no `Accurip` lines (partial-disc rip, or the container's AR lookup failed)
+      → `copy_crc` is the new bytes, the AR block is the old bytes, `accuraterip_verified`
+      is True, and the banner / JSON / per-track table / EAC log all assert a
+      verification that never happened. **This is the worst finding of the three passes**
+      — it is the exact class KDD-30 exists to prevent. Hardware-gated on one question:
+      does cyanrip emit `Accurip` lines under `-l`? Answer that first, then fix.
+- **[ ] `_auto_force_stop` fires after EVERY cancel, and can force-kill and eject the
+      WRONG drive.** `_on_rip_cancel` arms a 5 s timer; `_on_rip_finished` never disarms
+      it. So 5 s after any cancel it runs even though cyanrip already exited on SIGTERM:
+      it clobbers the real "Rip cancelled" status, ejects unconditionally, and because
+      nothing holds the device any more `fuser -k` returns non-zero and the code falls
+      through to a **broad, non-device-scoped `pkill -KILL cyanrip`** — reintroducing the
+      cross-drive kill that #23 removed. Worse, `_do_force_stop` reads the drive picker's
+      *current* device at fire time, so cancelling on `sr0` and switching to `sr1` within
+      5 s force-kills and ejects `sr1`. Fix: disarm in `_on_rip_finished`, and capture
+      the device when arming rather than when firing.
+- **[ ] Stale files in the album folder contaminate the next rip's verification.**
+      The CTDB, FLAC-verify and derived-verify workers glob `*.flac` in the album folder.
+      Scenario: cancel a rip (partial + one truncated FLAC), fix a track title, re-rip →
+      "Replace" writes new filenames beside the old. CTDB then builds its TOC from 2N
+      files (spurious "not in database"), FLAC verify decodes the truncated leftover
+      (a ⚠ FAILED and a downgraded verdict on a clean rip), derived-verify's expected
+      count doubles, and the checksum manifest records files this rip never wrote.
+- **[ ] Closing the window during a rip can freeze it for up to ~100 s.**
+      `_stop_rip_on_shutdown` calls `drive_control.free_drive()` **synchronously on the
+      GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
+      worst case. It also runs *before* the rip thread's own stop, so it eats the whole
+      shared shutdown budget and guarantees the rip thread is abandoned.
+- **[ ] Abandoned `in_progress` reports are treated as legitimate priors.**
+      `rip_compare.find_prior_report` filters on `same_disc` only, never on
+      `outcome.status`. Closing mid-rip leaves the worker's `in_progress` snapshot on
+      disk forever, and a later re-rip compares against it and warns about "tracks the
+      previous rip didn't have" on a clean rip.
+- **[ ] Tagging failures are invisible.** `apply_track_tags` logs per-file
+      `MetaflacError` at WARNING and returns the successes; the caller discards the
+      result. There is no signal, no status line, and no report field. Scenario: the disk
+      fills during the metaflac pass → every FLAC ships untagged, the UI says Done.
+- **[ ] No SIGTERM/SIGINT handler.** `closeEvent` is the only thing that stops the
+      in-container reader, so a session logout or `kill <pid>` during a rip leaves cyanrip
+      ripping with the drive's eject button ignored — the 2026-07-01 bug through a third
+      door.
+- **[ ] `_launch_post_rip_daemon` doesn't guard `compute()`.** An escape kills the daemon
+      silently, emits no signal, and `_post_rip_work_settled` then reads the dead thread
+      as "settled", so the library move proceeds as if the check had passed. (The
+      `threading.excepthook` added in v0.5.18 means it is at least *logged* now.)
+- **[ ] `--doctor` can report a false PASS on its most important check.** `preflight`
+      treats any non-raising `backend.version()` as OK and prints the first output line
+      as "the version". With the v0.5.18 non-zero-exit logging this is now visible in the
+      log, but the check itself should fail on a non-zero exit.
+- **[ ] Version probes ignore the exit code.** `_run_version_command` returns
+      `ran_ok=True` for any completed run, so error text containing any `N.N` (a podman
+      version, a `libcdio.so.19.0` path) can parse as *the tool's* version and clear the
+      minimum, making the dep report claim a broken tool is installed.
+- **[ ] Lower-severity swallowed detail:** `cover_art` collapses every failure reason
+      (including `network`) into "none found for this release", so an offline user is told
+      the release has no art; `ctdb/decode.py` discards `metaflac`'s stderr from its
+      `RuntimeError`; `transcode.py` records a missing temp file as a failure with no log
+      line at all.
+- **[ ] Earn the `Make use of C2 pointers : No` row.** EAC logcheckers weight this
+      heavily and a survey says libcdio-paranoia never uses C2 pointers — but that is a
+      secondary source, and `test_does_not_fabricate_read_mode_or_c2_pointers` correctly
+      blocked asserting it (attempted and reverted, 2026-07-29). Read libcdio's source
+      or measure it, then assert with the evidence recorded beside the assertion. See
+      [`docs/eac-tracker-requirements-2026-07.md`](docs/eac-tracker-requirements-2026-07.md)
+      for the other ranked log-quality rows.
+
 ### P1 — Thread-cancellation follow-ups (opened 2026-07-29, from the v0.5.17 audit)
 
 - **[ ] Give `run_capture` a killable child so the five no-cancel workers can actually cancel.** `DependencyCheckWorker`, `DiscInfoWorker`, `DriveListWorker`, `MusicBrainzWorker` and `UpdateCheckWorker` expose **no `cancel()` at all**, so `stop_thread` has nothing to call: `quit()` never reaches a thread blocked in a subprocess or socket read, and closing the window waits out its share of the shutdown budget and then **abandons** the thread. That is bounded and non-fatal — abandonment retains the reference and makes exit bypass interpreter teardown (`platterpus.hard_exit`) — but it is not cancellation, and a stalled network or cold container is exactly when a user closes the window.
@@ -526,4 +604,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.5.17.*
+*Last updated for Platterpus v0.5.18.*

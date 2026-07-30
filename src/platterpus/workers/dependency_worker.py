@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from platterpus.deps.checks import cancel_version_probes
+
 if TYPE_CHECKING:
     from platterpus.deps.manager import DependencyManager
 
@@ -42,12 +44,35 @@ class DependencyCheckWorker(QObject):
     ) -> None:
         super().__init__(parent)
         self._manager = manager
+        # Set from the GUI thread. Plain bool assignment is atomic under the GIL.
+        self._cancelled: bool = False
+
+    @Slot()
+    def cancel(self) -> None:
+        """Stop the dependency check. Thread-safe, non-blocking.
+
+        Two halves, both needed. The flag stops `check_all` starting the next spec;
+        killing the running version probe interrupts the one already in flight —
+        and that is the part that matters, because the **first** probe of a session
+        starts the Distrobox container and can block for tens of seconds where
+        `QThread.quit()` cannot reach it. A flag alone would be the false promise
+        CLAUDE.md rule 9 forbids; a kill alone would let the loop march on to the
+        next dependency.
+        """
+        self._cancelled = True
+        cancel_version_probes()
 
     @Slot()
     def run(self) -> None:
         try:
-            report = self._manager.check_all()
+            report = self._manager.check_all(cancelled=lambda: self._cancelled)
         except Exception:  # noqa: BLE001 — a worker must always finish
             log.exception("dependency check crashed")
             report = None
+        # A cancelled check yields the partial report; don't announce it as a
+        # finished result, or the GUI would render "these deps are missing" from a
+        # list we stopped building. The window is closing in this case anyway.
+        if self._cancelled:
+            log.info("dependency check cancelled; not emitting a partial report")
+            return
         self.finished.emit(report)

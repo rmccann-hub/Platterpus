@@ -47,11 +47,19 @@ mechanics). The full text of both corrections lives in PLANNING.md
 
 ### The constraint
 
-Gazelle trackers (RED/OPS) accept **only EAC or XLD logs** (whipper ≥ 0.7.3
-also clears the *identity* gate per the finding above, but still cannot clear
-RED's checksum requirement — see Part A's first section). A cyanrip log —
-even with a valid AccurateRip result and cyanrip's own FUN512 checksum — is
-**not** accepted. So "make the CD-archiving community fully trust our rips"
+Gazelle trackers (RED/OPS) accept **only EAC or XLD logs** — plus whipper
+≥ 0.7.3 at OPS. A cyanrip log — even with a valid AccurateRip result and
+cyanrip's own FUN512 checksum — is **not** accepted.
+
+> **Correction (2026-07-29):** an earlier version of this paragraph said whipper
+> "still cannot clear RED's checksum requirement." That is wrong. OPS's checker
+> validates whipper's checksum, which is a **plain SHA-256 of every line but the
+> last** (`OPSnet/Logchecker`, `src/Check/Checksum/Whipper.php`) — the same scheme
+> Platterpus's own footer uses. The checksum wall is cleared there; what excludes
+> cyanrip is *identity*, checked before any quality line is read, and Redacted's
+> rules listing only EAC and XLD is a policy limit rather than a technical one.
+> Details and the full requirement-by-requirement comparison:
+> [`eac-tracker-requirements-2026-07.md`](eac-tracker-requirements-2026-07.md). So "make the CD-archiving community fully trust our rips"
 splits into two very different audiences:
 
 - **AccurateRip + CTDB** = the *open*, tool-agnostic trust system. Anyone can
@@ -222,4 +230,4 @@ samples** and bring the track back to the consensus. We already do CTDB
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.5.18.*

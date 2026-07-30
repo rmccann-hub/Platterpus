@@ -333,7 +333,13 @@ _INTERRUPTING_CALLS: frozenset[str] = frozenset(
         "send_signal",
         "cancel",  # e.g. RipHandle.cancel — SIGTERM then SIGKILL
         "cancel_setup",
+        # Module-level entry points onto a `killable.KillableCommand`, which SIGKILLs
+        # the running child's process group. Named individually rather than matched
+        # by prefix so adding a new one is a deliberate act — a `cancel_*` wildcard
+        # would silently bless a function that does nothing.
         "cancel_active_probe",
+        "cancel_info_probe",
+        "cancel_version_probes",
     }
 )
 
@@ -456,9 +462,15 @@ def test_the_flag_only_allowlist_has_no_stale_entries() -> None:
 # exemption nobody re-reads.
 _WORKERS_WITHOUT_CANCEL: frozenset[str] = frozenset(
     {
-        "DependencyCheckWorker",
-        "DiscInfoWorker",
+        # Pure filesystem: globs /dev/sr* and reads sysfs. No subprocess, no
+        # socket, nothing that blocks measurably — so there is nothing a cancel
+        # could interrupt, and adding one would be ceremony. This entry is
+        # permanent-by-nature rather than debt.
         "DriveListWorker",
+        # Network via urllib/musicbrainzngs. NOT fixable by the killable-subprocess
+        # route the other two took — there is no child process, so interrupting it
+        # means closing the socket out from under the request. Real debt, and a
+        # different mechanism; see TASKS.md.
         "MusicBrainzWorker",
         "UpdateCheckWorker",
     }
@@ -509,10 +521,11 @@ def test_a_new_blocking_worker_cannot_ship_without_a_cancel() -> None:
 def test_the_no_cancel_ratchet_only_shrinks() -> None:
     """A ratchet that can be widened is a comment. This is the part with teeth."""
     workers = _qobject_worker_classes()
-    assert len(_WORKERS_WITHOUT_CANCEL) <= 5, (
+    assert len(_WORKERS_WITHOUT_CANCEL) <= 3, (
         f"_WORKERS_WITHOUT_CANCEL has grown to {len(_WORKERS_WITHOUT_CANCEL)}. It was "
-        "5 when written (2026-07-29) and may only get smaller — fix the worker "
-        "instead of widening the exemption."
+        "5 when written (2026-07-29), came down to 3 the same day when "
+        "DiscInfoWorker and DependencyCheckWorker gained real cancels, and may only "
+        "get smaller — fix the worker instead of widening the exemption."
     )
     retired = sorted(
         name
@@ -525,3 +538,80 @@ def test_the_no_cancel_ratchet_only_shrinks() -> None:
     )
     gone = sorted(name for name in _WORKERS_WITHOUT_CANCEL if name not in workers)
     assert not gone, f"{gone} no longer exist — drop them from the list."
+
+
+def test_every_worker_cancel_is_actually_invoked_at_a_stop_site() -> None:
+    """A `cancel()` nothing calls is dead code that reads as a safety feature.
+
+    **This test exists because the sweep above had the same blind spot as the bug it
+    was written for.** It checks that a worker's `cancel()` exists and that it
+    interrupts a blocked call — and says nothing about whether anything *calls* it.
+    So `DiscInfoWorker.cancel` and `DependencyCheckWorker.cancel` were written,
+    documented, covered by the flag-only guard... and invoked from nowhere, because
+    the two `stop_thread(...)` call sites omitted the worker argument. Found by audit
+    within the hour, which is luck, not process (2026-07-29).
+
+    `stop_thread(thread, worker)` is the only route by which a worker's `cancel()`
+    runs during teardown — `stop_thread` calls it via `getattr`, so passing only the
+    thread silently skips it. This asserts that every worker class with a `cancel()`
+    is passed to `stop_thread` somewhere in `src/`, by matching the *attribute name*
+    of the second positional argument against the worker's own slot name.
+
+    `docs/testing.md` §5.p, rule 1: grep for a call site before believing a method
+    works — including one you wrote ten minutes ago.
+    """
+    importlib.import_module("platterpus.ui.main_window")
+
+    cancels = _worker_cancel_methods()
+    assert cancels, "no worker cancel() methods found — the walk has gone stale"
+
+    # Worker attribute names handed to stop_thread as the SECOND positional arg.
+    passed: set[str] = set()
+    for path in sorted(SRC_ROOT.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            callee = node.func
+            name = (
+                callee.id
+                if isinstance(callee, ast.Name)
+                else getattr(callee, "attr", "")
+            )
+            if name != "stop_thread" or len(node.args) < 2:
+                continue
+            second = node.args[1]
+            if isinstance(second, ast.Attribute):
+                passed.add(second.attr)
+
+    assert passed, (
+        "no stop_thread(...) call in src/ passes a worker at all, so no worker's "
+        "cancel() can ever run during teardown."
+    )
+
+    # Map each cancel-bearing worker class to the attribute name(s) it is stored in,
+    # read from the declared slots rather than guessed from the class name.
+    slot_types: dict[str, str] = {}
+    for path in sorted(SRC_ROOT.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                annotation = ast.unparse(node.annotation)
+                for worker_name in cancels:
+                    if worker_name in annotation:
+                        slot_types[node.target.id] = worker_name
+
+    uninvoked = sorted(
+        {
+            worker
+            for slot, worker in slot_types.items()
+            # `RipWorker.cancel` is invoked directly from the Cancel button, not via
+            # stop_thread, and has its own reachability test in test_rip_backend.py.
+            if worker != "RipWorker" and slot not in passed
+        }
+    )
+    assert not uninvoked, (
+        f"these workers implement cancel() but are never passed to stop_thread: "
+        f"{uninvoked}. `stop_thread(thread)` without the worker silently skips the "
+        "cancel, so closing the window waits out the shutdown budget and abandons a "
+        "thread still blocked in a container exec — and the cancel() is dead code "
+        "that reads, in review, as though the hazard were handled."
+    )

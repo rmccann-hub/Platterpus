@@ -590,8 +590,15 @@ class MainWindow(
         stop_thread(self._update_thread, deadline=deadline)  # short HTTP check
         # In-flight update download: cancel polls between 1 MiB chunks.
         stop_thread(self._install_thread, self._install_worker, deadline=deadline)
-        stop_thread(self._dep_check_thread, deadline=deadline)  # container probe
-        stop_thread(self._disc_info_thread, deadline=deadline)  # can be mid-read
+        # Both of these block in a CONTAINER EXEC (60 s / 120 s ceilings) that
+        # `QThread.quit()` cannot reach, so the worker MUST be passed: that is what
+        # lets `stop_thread` call `cancel()` and kill the child. Omitting it — which
+        # is how these two lines read for one commit — turns a prompt close into a
+        # ~10-second "Not Responding" window followed by an abandoned thread, and
+        # makes the workers' `cancel()` dead code (CLAUDE.md rule 9: grep for a call
+        # site before believing a cancel works — including your own, same day).
+        stop_thread(self._dep_check_thread, self._dep_check_worker, deadline=deadline)
+        stop_thread(self._disc_info_thread, self._disc_info_worker, deadline=deadline)
         stop_thread(self._drive_list_thread, deadline=deadline)
         # The post-rip CTDB verify runs on a DAEMON thread (not a QThread), so
         # it's intentionally not joined here — it dies with the process and
@@ -809,8 +816,17 @@ class MainWindow(
         # can't tell two probes of one drive apart) can't clobber the new probe's
         # state, then stop it WITHOUT blocking the GUI thread: quit() can't
         # interrupt a mid-read subprocess, so the old 2s wait was a dead stutter
-        # on every rescan and risked destroying a running thread. stop_thread
-        # detaches it instead; its disconnected result is simply ignored.
+        # on every rescan and risked destroying a running thread. `stop_thread`
+        # ABANDONS it instead (retaining the reference — Qt has no "detach"), and
+        # its disconnected result is simply ignored.
+        #
+        # **The worker is passed**, which is the part that changed: `cancel()` kills
+        # the superseded probe's child. Without it the old reader kept the drive busy
+        # while the new probe contended for it — and, worse, two children ended up
+        # inside the shared `INFO_PROBE` slot at once, so whichever finished LAST
+        # deregistered the other and left it unkillable (audit, 2026-07-29).
+        # `killable` also guards that race directly, but not overlapping in the first
+        # place is the real fix; the guard is the belt.
         if self._disc_info_thread is not None and self._disc_info_thread.isRunning():
             if self._disc_info_worker is not None:
                 try:
@@ -818,7 +834,7 @@ class MainWindow(
                     self._disc_info_worker.failed.disconnect(self._on_disc_info_failed)
                 except (RuntimeError, TypeError):
                     pass  # already disconnected / never connected
-            stop_thread(self._disc_info_thread, wait_ms=0)
+            stop_thread(self._disc_info_thread, self._disc_info_worker, wait_ms=0)
 
         # A scan can wedge the drive (a stuck in-container TOC reader), so make
         # Force-stop available for the duration and clear any prior stop flag.

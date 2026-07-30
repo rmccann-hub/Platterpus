@@ -11,6 +11,83 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.18] — 2026-07-29
+
+### Changed
+- **The rip report's JSON shape is now described in one place instead of implied by
+  four modules.** `platterpus.report_types` names all 33 blocks as `TypedDict`s,
+  derived from what the code actually writes rather than from a guess, so a
+  contributor can see the wire format without reading the serialiser. Four of the
+  fourteen modules on the strict-typing ratchet are retired by it (14 → 10). Purely
+  descriptive: the emitted JSON is unchanged and 222 report/compare tests pass
+  untouched.
+- **Three `x or {}` fallbacks removed** where the empty dict was never a valid value
+  of the thing it stood in for. Harmless while the type was a bare `dict`, a type
+  error once the shape had a name, and a small lie about what the callee accepted
+  either way.
+- **`mypy --warn-unreachable` is documented as deliberately off, with the reasoning.**
+  It reports five "unreachable" blocks and all five are false positives — one of them
+  a cancel checkpoint that only looks dead because mypy reasons single-threaded while
+  the flag is set from another thread. Deleting it would remove a real cancel in front
+  of a ten-minute probe, so the trap is now written down next to the setting.
+
+### Fixed
+- **Deselecting a track wrote every tag onto the wrong file.** The unknown-disc
+  tagger took each track's number from the file's *position* in the list rather than
+  from the file itself. That is only the same thing when every track was ripped — and
+  the Rip? column exists precisely so it isn't. Untick track 1 and the file `02 - …`
+  was written track 1's title and `TRACKNUMBER=01`, `03 - …` got track 2's, and so on
+  down the disc: **every tag on the archival master silently off by one**, with the UI
+  reporting success and nothing in the log. Both tagging paths (edited and
+  placeholder) took the number from the filename now, and a file whose name carries no
+  number is skipped with a logged reason rather than guessed at — a wrong track number
+  is indistinguishable from a right one to everything downstream, so it is worse than
+  a missing one. The tests that should have caught this used filenames no rip ever
+  produces (`a.flac`, `track1.flac`), which made position and track number agree by
+  construction.
+- **A rip that finished but whose log couldn't be found ran every post-rip step over
+  the entire music library.** The album folder is derived from the log's location, and
+  when there was no log the code fell back to the configured *output root*. Each step
+  then walks that recursively — so tagging, colon-restore, FLAC recompression, MP3/WAV
+  derivation and the checksum manifest all applied to every album previously ripped,
+  and the report hashed the lot. Reachable in practice: the log is located by
+  modification time, so a clock adjustment during a long rip loses it. Those steps are
+  now skipped with a clear explanation, and the disc still ejects if that was
+  requested.
+- **A failed disc read was reported as "this disc isn't in MusicBrainz", with nothing
+  in the log.** The disc probe threw away cyanrip's exit code *and* its error text, so
+  a permission problem on the drive, a dead `ripping` container or a broken host
+  export all produced an empty disc — which is indistinguishable from a real disc
+  MusicBrainz has never seen. The app then offered an unknown-album rip while the
+  actual cause (e.g. the user's account not being in the `cdrom` group) went
+  unmentioned anywhere, so a bug report carried no evidence at all. A failed probe now
+  reports the failure, quoting the tool's own words, and every non-zero exit is
+  written to the log.
+- **Exceptions on the background threads that do the post-rip work went nowhere.**
+  Only `sys.excepthook` was installed, which does not cover plain threads — those go
+  to `threading.excepthook`, whose default writes to a stderr an AppImage launched
+  from the applications menu does not have. So a failure in hashing, verifying,
+  transcoding or moving was invisible: not the log, not the report, not the screen.
+  The user saw a step silently never finish.
+- **The crash dialog could itself crash or hang the app.** An error escaping a
+  background task raises on *that* thread, and the handler built a message box there
+  — which Qt forbids for widgets, and which can block forever, stranding the thread.
+  It now logs instead of drawing when it is not on the GUI thread. (A crash handler
+  that is unsafe exactly when it is needed is worse than not having one.)
+- **Closing the window during the startup dependency check or a disc scan waited it
+  out instead of stopping it.** Both block inside a container call that cannot be
+  interrupted by the usual means, and both had a working stop that **nothing called**
+  — the teardown omitted one argument, which is all it takes for a cancel to become
+  dead code. Closing is now prompt, and a test enforces that every worker's stop is
+  actually invoked, not merely present.
+- **Cancelling the "Set up drive" wizard or a disc scan now really stops the drive.**
+  The machinery for killing a probe mid-flight is in one place instead of two, which
+  also fixed a defect the duplication had hidden: superseding a disc scan (the
+  "Rescan disc" button) left the previous reader running *and* made the new one
+  unkillable, because both were tracked in the same slot and whichever finished last
+  cleared it.
+
+
 ### Added
 - **The thread-safety rules are now swept across the whole codebase instead of being
   enforced for one class.** Every rule that mattered this cycle existed in writing and
@@ -3662,6 +3739,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
 [0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.14...v0.5.15
@@ -3725,4 +3803,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.17.*
+*Last updated for Platterpus v0.5.18.*

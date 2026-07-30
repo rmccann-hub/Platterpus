@@ -1208,12 +1208,36 @@ class RipMixin(MainWindowShared):
         # on a 16-track album it would otherwise freeze the window for 15-30s
         # right when the rip finishes (CLAUDE.md "never block the GUI thread";
         # docs/architecture.md §3.2). Only on a successful rip.
-        if success and params is not None:
-            # The album folder the ripper just wrote: the .log lands next to the
-            # FLACs, so its parent is that folder (fall back to the output root
-            # if somehow no log). Computed once here — every post-rip step below
-            # scopes to it (TD-5: this used to be recomputed 5×).
-            rip_dir = Path(log_path).parent if log_path else params.output_dir
+        # The album folder the ripper just wrote: the .log lands next to the FLACs,
+        # so its parent is that folder. Computed once — every post-rip step below
+        # scopes to it (TD-5: this used to be recomputed 5×).
+        #
+        # **No log means no known album folder, and there is NO safe fallback.** This
+        # used to fall back to `params.output_dir`, which is the configured output
+        # ROOT — the whole music library. Every step below walks `rip_dir`
+        # recursively, so that pointed tagging, colon-restore, recompress, transcode
+        # and the checksum manifest at every album the user had ever ripped: MP3s
+        # derived from the entire library, and a report that hashed it. The
+        # library-move step already refused this case, which is evidence the hazard
+        # was understood and simply not applied to its five siblings (audit,
+        # 2026-07-29).
+        #
+        # It is reachable: `_find_log_path` filters by wall-clock mtime, so a backward
+        # clock step (NTP) during a long rip drops the log it just wrote.
+        rip_dir = Path(log_path).parent if log_path else None
+        if success and params is not None and rip_dir is None:
+            log.error(
+                "rip reported success but no .log was found, so the album folder is "
+                "unknown — skipping every post-rip step. Refusing to scope them to "
+                "the output root (%s): that would sweep the whole library.",
+                params.output_dir,
+            )
+            self._rip_progress.set_status(
+                "Rip finished, but Platterpus could not find the rip log, so the "
+                "post-rip checks were skipped. Your audio is in the output folder; "
+                "see the log for details."
+            )
+        if success and params is not None and rip_dir is not None:
             # Tagging — only when the rip we started was unknown-mode (an
             # identified disc is tagged by cyanrip itself, fed the GUI's -a/-t
             # tags). Scoping to `rip_dir` (not the configured output root) is what

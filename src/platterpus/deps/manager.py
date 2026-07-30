@@ -21,6 +21,7 @@ rule requires be centralized — stays here.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from platterpus.deps.registry import SPECS, DependencySpec
@@ -75,10 +76,31 @@ class DependencyManager:
         """
         self._specs = specs if specs is not None else SPECS
 
-    def check_all(self) -> DependencyReport:
-        """Probe every registered dependency. Pure check — no installs."""
+    def check_all(
+        self, cancelled: Callable[[], bool] | None = None
+    ) -> DependencyReport:
+        """Probe every registered dependency. Pure check — no installs.
+
+        ``cancelled`` is polled **between** specs. That is complementary to, not a
+        substitute for, killing the running probe: the flag cannot interrupt a probe
+        already blocked in a container exec, and killing the child cannot stop the
+        loop from starting the next one. Both are needed for a cancel to be prompt
+        (see `deps.checks.cancel_version_probes`), and either alone is the false
+        promise CLAUDE.md rule 9 forbids.
+
+        A cancelled check returns the report built **so far** rather than raising:
+        the caller shows partial dependency state, which is more useful than
+        nothing and is honest about being incomplete.
+        """
         report = DependencyReport()
         for spec in self._specs:
+            if cancelled is not None and cancelled():
+                log.info(
+                    "dependency check cancelled after %d of %d specs",
+                    len(report.ok) + len(report.missing),
+                    len(self._specs),
+                )
+                return report
             probe = spec.probe()
             log.debug(
                 "probe %s: present=%s version=%s",

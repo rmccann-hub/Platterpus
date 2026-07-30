@@ -25,6 +25,7 @@ finishes, and optionally invokes Picard.
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -117,8 +118,19 @@ def apply_placeholder_tags(
     because partial placeholders are still better than no tags at all.
     """
     succeeded: list[Path] = []
-    for index, flac_path in enumerate(flac_files, start=1):
-        number = f"{index:02d}"
+    for flac_path in flac_files:
+        # From the FILENAME, not the list position — see `_leading_track_number` and
+        # the note in `apply_track_tags`. Same off-by-one lived here: with track 1
+        # deselected, `02 - …` was tagged `Track 01` / `TRACKNUMBER=01`.
+        number_from_name = _leading_track_number(flac_path)
+        if number_from_name is None:
+            log.warning(
+                "skipping placeholder tags for %s — its name does not start with a "
+                "track number, so we cannot tell which track it is",
+                flac_path.name,
+            )
+            continue
+        number = f"{number_from_name:02d}"
         tags = {
             "TITLE": f"Track {number}",
             "ARTIST": "Unknown Artist",
@@ -131,6 +143,26 @@ def apply_placeholder_tags(
         except MetaflacError as exc:
             log.warning("placeholder tag write failed for %s: %s", flac_path, exc)
     return succeeded
+
+
+# cyanrip names unknown-disc files from the `## - Track NN` template, so the file's
+# own name carries its track number. Anchored and bounded: a stray leading digit run
+# in some other naming scheme must not be mistaken for a track number.
+_LEADING_TRACK_NUMBER = re.compile(r"^(?P<number>\d{1,3})\b")
+
+
+def _leading_track_number(path: Path) -> int | None:
+    """The track number a rip filename starts with, or None if it doesn't.
+
+    Returning None rather than a guess is deliberate: the caller skips the file and
+    says so, because a *wrong* TRACKNUMBER on an archival master is worse than a
+    missing one — it is indistinguishable from a correct one to every later reader.
+    """
+    match = _LEADING_TRACK_NUMBER.match(path.stem)
+    if match is None:
+        return None
+    number = int(match.group("number"))
+    return number if number > 0 else None
 
 
 def apply_track_tags(
@@ -165,9 +197,29 @@ def apply_track_tags(
     by_number = {track.number: track for track in tracks}
 
     succeeded: list[Path] = []
-    for index, flac_path in enumerate(flac_files, start=1):
-        number = f"{index:02d}"
-        track = by_number.get(index)
+    for flac_path in flac_files:
+        # Take the track number from the FILENAME, not from the file's position in
+        # the list. Both agree only when every track was ripped — and the Rip?
+        # column lets the user deselect tracks, so they routinely do not.
+        #
+        # The bug this replaces: `enumerate(flac_files, start=1)` used the position
+        # as the track number. Untick track 1, and the files are `02 - …` onward, so
+        # the file for track 2 was written track 1's title and `TRACKNUMBER=01`, the
+        # file for track 3 got track 2's, and so on — **every tag on the archival
+        # master silently off by one**, with the UI reporting success (audit,
+        # 2026-07-29).
+        number_from_name = _leading_track_number(flac_path)
+        if number_from_name is None:
+            # Nothing to key on. Tagging with a guessed number is worse than
+            # skipping: a wrong TRACKNUMBER is indistinguishable from a real one.
+            log.warning(
+                "skipping tags for %s — its name does not start with a track "
+                "number, so we cannot tell which track it is",
+                flac_path.name,
+            )
+            continue
+        number = f"{number_from_name:02d}"
+        track = by_number.get(number_from_name)
         title = (track.title or "").strip() if track else ""
         artist = (track.artist_credit or "").strip() if track else ""
         tags = {

@@ -5273,3 +5273,59 @@ def test_liveness_watchdog_no_op_when_no_rip(teardown_threads) -> None:
     window._last_rip_signal_at = time.monotonic() - 600
     window._check_rip_liveness()
     assert window._rip_progress._stall_label.isVisibleTo(window._rip_progress) is False
+
+
+def test_a_rip_with_no_log_never_scopes_post_rip_work_to_the_output_root(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """Regression: the fallback pointed every post-rip step at the whole library.
+
+    `rip_dir` was `Path(log_path).parent if log_path else params.output_dir` — and
+    `output_dir` is the configured output ROOT, not one album. Every step below walks
+    it recursively, so a missing log meant tagging, colon-restore, recompress,
+    transcode and the checksum manifest all ran over **every album the user had ever
+    ripped**: MP3s derived from the entire library, and a report that hashed it.
+
+    Reachable, not theoretical: `_find_log_path` filters by wall-clock mtime, so a
+    backward NTP step during a long rip drops the log it just wrote. The
+    library-move step already refused this exact case, which is what makes the other
+    five an oversight rather than a design choice.
+
+    Asserts on the *sweeping* steps specifically — a guard that merely returned early
+    would also skip auto-eject, which is about the drive, not the files.
+    """
+    window = teardown_threads()
+    swept: list[Path] = []
+    # Every post-rip entry point that walks a directory tree.
+    for name in (
+        "_start_post_rip_pipeline",
+        "_start_checksums",
+        "_maybe_schedule_library_move",
+    ):
+        if hasattr(window, name):
+            monkeypatch.setattr(
+                window, name, lambda *a, **k: swept.append(Path("CALLED"))
+            )
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    # `_on_rip_finished` reads `self._active_rip_params` — setting anything else
+    # leaves the post-rip block unreached and makes this test pass by doing nothing.
+    # (It did exactly that on the first attempt; caught by reverting the fix.)
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="",
+        output_dir=tmp_path,  # the LIBRARY ROOT — must never be swept
+        track_template="",
+        disc_template="",
+        unknown=True,
+    )
+    assert window._active_rip_params is not None
+
+    # success=True with an EMPTY log path — the exact reachable state.
+    window._on_rip_finished(True, "")
+
+    assert not swept, (
+        "a post-rip step ran with no known album folder, so it was scoped to the "
+        f"output root {tmp_path} — the whole library. Steps called: {len(swept)}"
+    )

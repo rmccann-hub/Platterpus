@@ -28,6 +28,7 @@ from pathlib import Path
 # Re-exported deliberately (`as DiscInfo`): the UI imports DiscInfo from this
 # module because the backend ABC is the seam it depends on, not the parser.
 # The explicit form is what makes that legal under `no_implicit_reexport`.
+from platterpus.killable import KillableCommand
 from platterpus.parsers.cd_info import DiscInfo as DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
 
@@ -75,6 +76,23 @@ class RipError(Exception):
         self.output: str = output
 
 
+# The single in-flight info/version probe, so the GUI can stop one. A module-level
+# slot rather than a per-call object because only one such probe is ever in flight
+# (the disc-info worker is superseded, not parallelised) and `cancel()` must be
+# reachable from the GUI thread without plumbing a handle through every caller.
+INFO_PROBE: KillableCommand = KillableCommand("ripper info probe")
+
+
+def cancel_info_probe() -> None:
+    """Stop an in-flight :func:`run_capture`. Thread-safe, non-blocking.
+
+    Exposed so a worker's ``cancel()`` can be real. `DiscInfoWorker` blocks inside
+    `run_capture` for up to 120 s on a cold container, where `QThread.quit()`
+    cannot reach it — so without this, cancelling was a flag nothing read.
+    """
+    INFO_PROBE.cancel()
+
+
 def run_capture(
     tool_name: str,
     binary: str,
@@ -96,17 +114,18 @@ def run_capture(
     messages), and ``stdin_devnull`` (cyanrip reads stdin and must have it
     closed; a tool that inherits stdin passes False, matching
     ``subprocess.run``'s default of ``stdin=None``).
+
+    **Runs through :class:`platterpus.killable.KillableCommand` rather than
+    ``subprocess.run``,** so the child can be killed by
+    :func:`cancel_info_probe`. `subprocess.run` builds the `Popen` internally and
+    never hands it out, which left every worker built on this with nothing to
+    signal — the disc-info probe enters the container and can sit there for two
+    minutes. The exceptions raised are unchanged, so callers are unaffected.
     """
     argv: list[str] = [binary, *args]
     log.debug("%s: %s", tool_name, " ".join(argv))
     try:
-        proc = subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL if stdin_devnull else None,
-        )
+        proc = INFO_PROBE.run(argv, timeout=timeout, stdin_devnull=stdin_devnull)
     except FileNotFoundError as exc:
         raise RipError(f"{tool_name} binary not found at {binary}") from exc
     except subprocess.TimeoutExpired as exc:

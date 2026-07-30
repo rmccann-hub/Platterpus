@@ -8,6 +8,8 @@ crashes.
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from platterpus import __version__
@@ -284,3 +286,92 @@ def test_assemble_best_of_flag_routes_to_cli(monkeypatch: pytest.MonkeyPatch) ->
     rc = app_module.main(["--assemble-best-of", "Best", "a.json", "b.json"])
     assert rc == 0
     assert [str(p) for p in seen["args"]] == ["Best", "a.json", "b.json"]
+
+
+# --- Crash-handler safety (audit, 2026-07-29) --------------------------------
+
+
+def test_thread_exceptions_are_logged_not_lost(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Regression: exceptions on a plain `threading.Thread` went NOWHERE.
+
+    `sys.excepthook` does not cover `threading.Thread` — CPython routes those to
+    `threading.excepthook`, whose default writes to stderr and returns. An AppImage
+    launched from the applications menu has no attached stderr, so every failure in
+    the fire-and-forget post-rip daemon threads was invisible: not the log, not the
+    report, not the screen. The user saw a step silently never finish and filed a bug
+    report containing no evidence it had ever run.
+    """
+    import threading
+
+    from platterpus.app import _install_excepthook
+
+    original_sys, original_thread = sys.excepthook, threading.excepthook
+    try:
+        _install_excepthook()
+
+        def _boom() -> None:
+            raise ValueError("post-rip step blew up")
+
+        worker = threading.Thread(target=_boom, name="post-rip-probe")
+        with caplog.at_level("ERROR"):
+            worker.start()
+            worker.join(10)
+        assert not worker.is_alive()
+    finally:
+        sys.excepthook, threading.excepthook = original_sys, original_thread
+
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "post-rip-probe" in messages, (
+        f"the thread's failure never reached the log. Records: {messages!r}"
+    )
+    assert any(r.exc_info for r in caplog.records), (
+        "logged without exc_info, so the traceback — the only actionable part — is "
+        "still lost."
+    )
+
+
+def test_the_fatal_dialog_refuses_to_build_widgets_off_the_gui_thread(
+    qapp: object, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A crash handler that is unsafe exactly when it is needed is worse than none.
+
+    An exception escaping a slot on a worker QThread invokes `sys.excepthook` **on
+    that worker thread**, so `_show_fatal_dialog` would construct a QMessageBox and
+    enter a nested event loop off the GUI thread — which Qt forbids for widgets. Two
+    failure modes: undefined behaviour on a real platform, and `exec()` never
+    returning, so the worker's `finished` never fires and its thread is abandoned.
+
+    Runs the handler on a real worker thread and asserts it logs instead of drawing.
+    """
+    import threading
+
+    from platterpus.app import _show_fatal_dialog
+
+    def _call_off_thread() -> None:
+        _show_fatal_dialog("test", RuntimeError("from a worker thread"))
+
+    worker = threading.Thread(target=_call_off_thread, name="off-gui-probe")
+    with caplog.at_level("ERROR"):
+        worker.start()
+        worker.join(10)
+
+    assert not worker.is_alive(), (
+        "the handler never returned — it most likely entered QMessageBox.exec() off "
+        "the GUI thread, which is the hang this guard exists to prevent."
+    )
+    # `getMessage()` formats lazily, so this assertion doubles as a check that the
+    # handler's own log call is safe to format LATER: an earlier version passed the
+    # live QThread as a `%s` arg and this line raised
+    # "libshiboken: Internal C++ object already deleted" once the worker had exited.
+    # A crash handler whose log call can itself throw is not a crash handler.
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "non-GUI thread" in messages, (
+        "the off-thread call was not recognised and logged; it either drew a widget "
+        f"off the GUI thread or reported nothing. Records: {messages!r}"
+    )
+    assert "off-gui-probe" in messages, (
+        "the log line does not name the thread, so a reader cannot tell which "
+        f"background task failed. Records: {messages!r}"
+    )

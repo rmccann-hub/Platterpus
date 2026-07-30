@@ -21,6 +21,8 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
+from platterpus.report_types import DependencyEntry, EnvironmentBlock
+
 # The sentinel used when no build stamp is present (source/editable installs).
 # A report always carries a fingerprint string — a real one or this — so a
 # consumer never has to handle a missing field.
@@ -61,7 +63,7 @@ def install_channel() -> str:
     return "source"
 
 
-def environment_report() -> dict:
+def environment_report() -> EnvironmentBlock:
     """The report's ``environment`` block: Python / OS / PySide6 / channel.
 
     Reads the live interpreter + platform, so it isn't *pure* — but it's
@@ -73,7 +75,7 @@ def environment_report() -> dict:
     """
     import platform
 
-    env: dict = {
+    env: EnvironmentBlock = {
         "python": None,
         "platform": None,
         "pyside6": None,
@@ -106,7 +108,7 @@ def _format_version(version: object) -> str | None:
     return str(version)
 
 
-def dependency_summary(report: object) -> dict:
+def dependency_summary(report: object) -> dict[str, DependencyEntry]:
     """Summarize a ``DependencyReport`` for ``environment.dependencies``.
 
     Returns ``{dep_id: {present, version, location, min_version_met}}`` for every
@@ -115,7 +117,7 @@ def dependency_summary(report: object) -> dict:
     path: re-probing enters the Distrobox container and would freeze the GUI).
     Pure and never raises: it only reads the pre-computed report via ``getattr``.
     """
-    summary: dict = {}
+    summary: dict[str, DependencyEntry] = {}
     for spec in getattr(report, "ok", []) or []:
         dep_id = getattr(spec, "dep_id", None)
         if dep_id is None:
@@ -161,7 +163,8 @@ def encoder_versions(report: object, dep_ids: Iterable[str]) -> dict[str, str]:
     summary = dependency_summary(report) if report is not None else {}
     result: dict[str, str] = {}
     for dep_id in dep_ids:
-        version = (summary.get(dep_id) or {}).get("version")
+        entry = summary.get(dep_id)
+        version = entry.get("version") if entry else None
         if version:
             result[dep_id] = str(version)
     return result

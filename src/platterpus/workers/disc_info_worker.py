@@ -23,7 +23,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.adapters.rip_backend import RipBackend, RipError
+from platterpus.adapters.rip_backend import RipBackend, RipError, cancel_info_probe
 
 log = logging.getLogger(__name__)
 
@@ -40,12 +40,35 @@ class DiscInfoWorker(QObject):
         super().__init__(parent)
         self._backend = backend
         self._device = device
+        # Set from the GUI thread. Plain bool assignment is atomic under the GIL.
+        self._cancelled: bool = False
+
+    @Slot()
+    def cancel(self) -> None:
+        """Kill the in-flight disc-info probe. Thread-safe, non-blocking.
+
+        This worker blocks inside a container exec (`cyanrip -I`) for up to 120 s on
+        a cold container, and `QThread.quit()` cannot reach a thread that is not in
+        its event loop. So a flag alone would be a false promise (CLAUDE.md rule 9):
+        the kill is the part that makes closing the window prompt instead of waiting
+        out the shutdown budget and abandoning this thread.
+
+        The flag is still worth setting — it suppresses the `failed` signal for a
+        probe the user deliberately stopped, so cancelling a rescan does not raise a
+        spurious "disc_info failed" in the UI.
+        """
+        self._cancelled = True
+        cancel_info_probe()
 
     @Slot()
     def run(self) -> None:
         try:
             info = self._backend.disc_info(self._device)
         except RipError as exc:
+            if self._cancelled:
+                # We killed it. Not a failure worth telling the user about.
+                log.info("disc_info cancelled for %s", self._device)
+                return
             log.warning("disc_info failed: %s", exc)
             self.failed.emit(self._device, str(exc))
             return

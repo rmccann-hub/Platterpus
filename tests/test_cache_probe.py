@@ -9,10 +9,10 @@ and the requested device.
 
 from __future__ import annotations
 
-import signal
 import subprocess
 from pathlib import Path
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -24,6 +24,7 @@ from platterpus.adapters.cache_probe import (
     parse_cache_analysis,
     probe_cache_defeat,
 )
+from platterpus.killable import KillableCommand
 
 # --- argv construction ------------------------------------------------------
 
@@ -234,166 +235,59 @@ def test_describe_never_raises(text: str) -> None:
 # `RipBackend.cancel_setup`, a concrete no-op the cyanrip backend never overrode,
 # so the disc kept spinning for up to the 600 s ceiling with the physical eject
 # button ignored (a read holds the device).
+#
+# The MECHANISM — process group, cancel/startup race, kill-on-timeout — now lives in
+# `platterpus.killable` and is tested thoroughly in `tests/test_killable.py`,
+# including against real child processes. Re-testing it here would be duplication
+# that drifts. What this module still owes is proof that it *delegates*: that the
+# probe really is routed through a killable command, and that the module-level
+# cancel entry point reaches it.
 
 
-def test_the_probe_runs_the_child_in_its_own_process_group() -> None:
-    """`start_new_session=True` is load-bearing, not cosmetic.
+def test_the_probe_runs_through_a_killable_command() -> None:
+    """The probe must not go back to `subprocess.run`.
 
-    Cancellation signals the process GROUP, because the host wrapper spawns podman
-    which spawns the actual reader — signalling only the parent leaves the disc
-    spinning. If the child is *not* a group leader it shares OUR group, and the
-    `killpg` in `cancel_active_probe` would signal the GUI itself. So this asserts
-    the flag rather than trusting it.
+    `subprocess.run` builds the `Popen` internally and never hands it out, so a
+    probe using it cannot be stopped — which is the original bug. Asserting on the
+    *type* of the slot pins the delegation without re-testing the mechanism.
     """
-    import inspect
-
-    source = inspect.getsource(cache_probe._default_runner)
-    assert "start_new_session=True" in source, (
-        "the cache probe's child is not started in a new session, so it shares the "
-        "GUI's process group — cancelling it would killpg our own process."
+    assert isinstance(cache_probe._PROBE, KillableCommand), (
+        "the cache probe is no longer routed through a KillableCommand, so nothing "
+        "can signal the running cd-paranoia and cancelling the dialog is a no-op."
     )
 
 
-def test_cancel_kills_the_live_probe_process_group(monkeypatch, caplog) -> None:
-    """The real thing: a cancel while a probe is running kills its group.
+def test_cancel_active_probe_cancels_that_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The module-level entry point is wired to the module's own command.
 
-    Drives the actual `_default_runner` against a child that would otherwise
-    outlive the test, and cancels it from another thread the way the GUI does.
+    Cheap, and it catches the copy-paste failure where a second command object is
+    introduced and `cancel_active_probe` keeps cancelling the first one — which
+    would look completely correct in review and cancel nothing.
     """
-    import threading
-
-    killed: list[tuple[int, int]] = []
-    monkeypatch.setattr(cache_probe.os, "getpgid", lambda pid: pid)
-    monkeypatch.setattr(
-        cache_probe.os, "killpg", lambda pgid, sig: killed.append((pgid, sig))
-    )
-
-    started = threading.Event()
-    release = threading.Event()
-
-    class _FakePopen:
-        """A child that stays 'running' until the test lets it finish."""
-
-        def __init__(self, *args: object, **kwargs: object) -> None:
-            self.pid = 4242
-            self.returncode: int | None = None
-            self.kwargs = kwargs
-
-        def poll(self) -> int | None:
-            return self.returncode
-
-        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
-            started.set()
-            release.wait(10)
-            self.returncode = -9
-            return ("", "")
-
-        def kill(self) -> None:  # pragma: no cover — group kill succeeds here
-            self.returncode = -9
-
-    monkeypatch.setattr(cache_probe.subprocess, "Popen", _FakePopen)
-
-    result: list[subprocess.CompletedProcess[str]] = []
-
-    def _run() -> None:
-        result.append(cache_probe._default_runner(["cd-paranoia", "-A"]))
-
-    worker = threading.Thread(target=_run)
-    worker.start()
-    assert started.wait(10), "the probe never started"
-
-    with caplog.at_level("INFO"):
-        cache_probe.cancel_active_probe()  # what the GUI thread calls
-
-    release.set()
-    worker.join(10)
-    assert not worker.is_alive()
-
-    assert killed == [(4242, signal.SIGKILL)], (
-        f"cancel did not SIGKILL the probe's process group; sent {killed}. A flag "
-        "the blocked call never checks is not cancellation."
-    )
-    assert any("cancelling cd-paranoia" in r.message for r in caplog.records)
-    # And the registry is clean, so the next probe isn't pre-cancelled.
-    assert cache_probe._active_proc is None
-    assert cache_probe._cancel_requested is False
+    calls: list[int] = []
+    monkeypatch.setattr(cache_probe._PROBE, "cancel", lambda: calls.append(1))
+    cache_probe.cancel_active_probe()
+    assert calls == [1]
 
 
-def test_a_cancel_during_startup_is_not_lost(monkeypatch) -> None:
-    """The registration race: cancel between `Popen` and registration.
+def test_a_timed_out_probe_still_reports_an_honest_unknown_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The policy this module owns: a timeout is "unknown", never a forged verdict.
 
-    Without the sticky flag the cancel finds `_active_proc is None`, returns
-    quietly, and the probe runs to completion — a cancel the user pressed that did
-    nothing. The runner re-checks the flag right after registering.
+    The killable command kills the child on timeout (proved in test_killable); what
+    matters *here* is that `probe_cache_defeat` turns the raised `TimeoutExpired`
+    into `defeat=None` with an error, so the UI says "could not be determined"
+    rather than inventing a Yes or No about a drive it never measured.
     """
-    killed: list[int] = []
-    monkeypatch.setattr(cache_probe.os, "getpgid", lambda pid: pid)
-    monkeypatch.setattr(cache_probe.os, "killpg", lambda pgid, sig: killed.append(sig))
 
-    class _FakePopen:
-        def __init__(self, *args: object, **kwargs: object) -> None:
-            self.pid = 99
-            self.returncode: int | None = None
-            # Cancel lands here — after the process exists, before it is registered.
-            cache_probe.cancel_active_probe()
+    def _timeout(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd="cd-paranoia", timeout=1)
 
-        def poll(self) -> int | None:
-            return self.returncode
+    result = probe_cache_defeat("/dev/sr0", runner=_timeout)
 
-        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
-            self.returncode = -9
-            return ("", "")
-
-        def kill(self) -> None:  # pragma: no cover
-            self.returncode = -9
-
-    monkeypatch.setattr(cache_probe.subprocess, "Popen", _FakePopen)
-    cache_probe._default_runner(["cd-paranoia", "-A"])
-
-    assert killed == [signal.SIGKILL], (
-        "a cancel that arrived during process startup was dropped — the sticky "
-        f"_cancel_requested flag is not being honoured. Sent: {killed}"
-    )
-    assert cache_probe._cancel_requested is False  # reset for the next probe
-
-
-def test_a_timed_out_probe_is_killed_rather_than_left_spinning(monkeypatch) -> None:
-    """`subprocess.run` killed the child on timeout; `Popen` does not for free.
-
-    Swapping to `Popen` for cancellability would otherwise have LOST that
-    behaviour — a timed-out probe left running, disc spinning, which is exactly the
-    bug being fixed. The new state a fix creates needs its own test.
-    """
-    killed: list[int] = []
-    monkeypatch.setattr(cache_probe.os, "getpgid", lambda pid: pid)
-    monkeypatch.setattr(cache_probe.os, "killpg", lambda pgid, sig: killed.append(sig))
-
-    class _TimingOutPopen:
-        def __init__(self, *args: object, **kwargs: object) -> None:
-            self.pid = 7
-            self.returncode: int | None = None
-            self._calls = 0
-
-        def poll(self) -> int | None:
-            return self.returncode
-
-        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
-            self._calls += 1
-            if self._calls == 1:
-                raise subprocess.TimeoutExpired(cmd="cd-paranoia", timeout=timeout)
-            self.returncode = -9  # reaped after the kill
-            return ("", "")
-
-        def kill(self) -> None:  # pragma: no cover
-            self.returncode = -9
-
-    monkeypatch.setattr(cache_probe.subprocess, "Popen", _TimingOutPopen)
-
-    # probe_cache_defeat turns this into an honest "timed out" unknown verdict.
-    result = probe_cache_defeat("/dev/sr0")
-
-    assert killed == [signal.SIGKILL], (
-        f"a timed-out probe was not killed; sent {killed}. It keeps the disc "
-        "spinning and holds the device against the eject button."
-    )
-    assert result.defeat is None and result.error == "timed out"
+    assert result.defeat is None, "a timed-out probe must not produce a verdict"
+    assert result.error == "timed out"
+    assert result.analyzed is True  # it ran; it just didn't finish
