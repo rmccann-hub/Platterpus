@@ -49,15 +49,13 @@ anyone having to run the CLI by hand.
 from __future__ import annotations
 
 import logging
-import os
 import re
-import signal
 import subprocess
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.killable import KillableCommand
 from platterpus.paths import CDPARANOIA_BINARY_DEFAULT
 
 log = logging.getLogger(__name__)
@@ -81,10 +79,6 @@ Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 # 2026-07-29), and only ever runs when the user explicitly asks for it, so a long
 # ceiling costs nothing and only ever bites a genuinely wedged drive.
 _PROBE_TIMEOUT_S: float = 600.0
-# How long to wait for a killed probe to be reaped before giving up on it. Short:
-# SIGKILL has already been sent, so anything still alive is stuck in an
-# uninterruptible drive ioctl and no amount of waiting helps.
-_PROBE_REAP_S: float = 5.0
 
 # --- Cache-verdict signal tables (KDD-29: hardware-tuned) -------------------
 #
@@ -274,101 +268,30 @@ def _any_match(patterns: tuple[str, ...], text: str) -> bool:
 # (audit, 2026-07-29). CLAUDE.md rule 9: a `cancel()` that only sets a flag the
 # blocked call never checks is a false promise — do not ship one.
 #
-# Making it real needs a handle on the live child, which `subprocess.run` hides,
-# so the default runner now uses `Popen` and registers it here.
-_active_lock: threading.Lock = threading.Lock()
-_active_proc: subprocess.Popen[str] | None = None
-# Sticky, so a cancel that lands in the window between `Popen` and registration is
-# not lost — the runner checks it immediately after registering.
-_cancel_requested: bool = False
+# Making it real needs a handle on the live child, which `subprocess.run` hides.
+# That machinery — Popen, a thread-safe registry, `start_new_session` so a killpg
+# reaches the podman/in-container tree instead of the GUI, the cancel/startup race,
+# and killing on timeout — was first written *here*, then wanted again by the
+# disc-info probe. It now lives once in `platterpus.killable`; this module keeps
+# only the policy that is specific to the cache probe (which binary, which timeout).
+_PROBE: KillableCommand = KillableCommand("cache probe (cd-paranoia -A)")
 
 
 def cancel_active_probe() -> None:
     """Kill the running ``cd-paranoia -A``, if any. Thread-safe, non-blocking.
 
     Called from the **GUI thread** when the user closes the drive-setup dialog, so
-    it must not wait for anything (CLAUDE.md never-block rule).
-
-    **SIGKILL, not SIGTERM.** A polite SIGTERM would need a grace period and then an
-    escalation to be reliable, and waiting is exactly what this cannot do. There is
-    nothing to flush — ``-A`` is a read-only timing measurement that writes no files
-    — so a hard kill costs nothing and is the only thing that reliably returns the
-    drive. It also matches how ``drive_control``'s force-stop already treats
-    ``cd-paranoia``: as a reader to kill, not to negotiate with.
-
-    Signals the process **group**, because the host wrapper spawns podman which
-    spawns the in-container reader; signalling only the parent leaves the disc
-    spinning. Safe to call when no probe is running, and safe to call twice.
+    it must not wait for anything (CLAUDE.md never-block rule). See
+    `platterpus.killable` for why the signal is SIGKILL rather than SIGTERM and why
+    it goes to the process group.
     """
-    global _cancel_requested
-    with _active_lock:
-        _cancel_requested = True
-        proc = _active_proc
-    if proc is None:
-        return
-    log.info("cache probe: cancelling cd-paranoia (SIGKILL to its process group)")
-    _kill_probe_group(proc)
-
-
-def _kill_probe_group(proc: subprocess.Popen[str]) -> None:
-    """SIGKILL the child's whole process group, falling back to the child alone."""
-    if proc.poll() is not None:
-        return  # already gone
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-    except (ProcessLookupError, PermissionError, OSError):
-        try:
-            proc.kill()
-        except (ProcessLookupError, OSError):
-            pass
+    _PROBE.cancel()
 
 
 def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
     """Run cd-paranoia, capturing text output; no stdin (can't block on a TTY),
-    bounded by a timeout so a wedged drive can't hang the worker forever.
-
-    Uses ``Popen`` rather than ``subprocess.run`` for one reason: ``run`` gives the
-    caller no handle, so there is nothing for :func:`cancel_active_probe` to kill.
-    ``start_new_session=True`` is **load-bearing, not cosmetic** — it makes the child
-    its own process-group leader, so a ``killpg`` reaches the podman/in-container
-    reader tree. Without it the child shares *our* group and ``killpg`` would signal
-    the GUI itself.
-    """
-    global _active_proc, _cancel_requested
-    proc = subprocess.Popen(  # noqa: S603 — our own resolved binary
-        argv,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
-    with _active_lock:
-        _active_proc = proc
-        cancelled_during_startup = _cancel_requested
-    # Close the registration race: a cancel between Popen and the line above would
-    # otherwise find `_active_proc is None` and be silently dropped.
-    if cancelled_during_startup:
-        _kill_probe_group(proc)
-    try:
-        stdout, stderr = proc.communicate(timeout=_PROBE_TIMEOUT_S)
-    except subprocess.TimeoutExpired:
-        # `subprocess.run` kills the child on timeout; do the same, group-wide, so
-        # a timed-out probe doesn't leave the disc spinning. Then re-raise so
-        # `probe_cache_defeat` reports the timeout exactly as before.
-        _kill_probe_group(proc)
-        try:
-            proc.communicate(timeout=_PROBE_REAP_S)
-        except subprocess.TimeoutExpired:
-            log.error("cache probe: cd-paranoia unreapable after SIGKILL; leaked")
-        raise
-    finally:
-        with _active_lock:
-            _active_proc = None
-            _cancel_requested = False
-    return subprocess.CompletedProcess(
-        args=argv, returncode=proc.returncode, stdout=stdout, stderr=stderr
-    )
+    bounded by a timeout so a wedged drive can't hang the worker forever."""
+    return _PROBE.run(argv, timeout=_PROBE_TIMEOUT_S)
 
 
 def probe_cache_defeat(

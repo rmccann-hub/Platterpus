@@ -11,6 +11,41 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A failed disc read was reported as "this disc isn't in MusicBrainz", with nothing
+  in the log.** The disc probe threw away cyanrip's exit code *and* its error text, so
+  a permission problem on the drive, a dead `ripping` container or a broken host
+  export all produced an empty disc — which is indistinguishable from a real disc
+  MusicBrainz has never seen. The app then offered an unknown-album rip while the
+  actual cause (e.g. the user's account not being in the `cdrom` group) went
+  unmentioned anywhere, so a bug report carried no evidence at all. A failed probe now
+  reports the failure, quoting the tool's own words, and every non-zero exit is
+  written to the log.
+- **Exceptions on the background threads that do the post-rip work went nowhere.**
+  Only `sys.excepthook` was installed, which does not cover plain threads — those go
+  to `threading.excepthook`, whose default writes to a stderr an AppImage launched
+  from the applications menu does not have. So a failure in hashing, verifying,
+  transcoding or moving was invisible: not the log, not the report, not the screen.
+  The user saw a step silently never finish.
+- **The crash dialog could itself crash or hang the app.** An error escaping a
+  background task raises on *that* thread, and the handler built a message box there
+  — which Qt forbids for widgets, and which can block forever, stranding the thread.
+  It now logs instead of drawing when it is not on the GUI thread. (A crash handler
+  that is unsafe exactly when it is needed is worse than not having one.)
+- **Closing the window during the startup dependency check or a disc scan waited it
+  out instead of stopping it.** Both block inside a container call that cannot be
+  interrupted by the usual means, and both had a working stop that **nothing called**
+  — the teardown omitted one argument, which is all it takes for a cancel to become
+  dead code. Closing is now prompt, and a test enforces that every worker's stop is
+  actually invoked, not merely present.
+- **Cancelling the "Set up drive" wizard or a disc scan now really stops the drive.**
+  The machinery for killing a probe mid-flight is in one place instead of two, which
+  also fixed a defect the duplication had hidden: superseding a disc scan (the
+  "Rescan disc" button) left the previous reader running *and* made the new one
+  unkillable, because both were tracked in the same slot and whichever finished last
+  cleared it.
+
+
 ### Added
 - **The thread-safety rules are now swept across the whole codebase instead of being
   enforced for one class.** Every rule that mattered this cycle existed in writing and

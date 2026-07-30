@@ -228,7 +228,7 @@ def test_run_capture_returns_rc_and_combined_output(
     from types import SimpleNamespace
 
     monkeypatch.setattr(
-        rip_backend.subprocess,
+        rip_backend.INFO_PROBE,
         "run",
         lambda *a, **k: SimpleNamespace(returncode=0, stdout="out\n", stderr="err\n"),
     )
@@ -243,7 +243,10 @@ def test_run_capture_missing_binary_raises_riperror(
     def _boom(*a: Any, **k: Any) -> Any:
         raise FileNotFoundError("nope")
 
-    monkeypatch.setattr(rip_backend.subprocess, "run", _boom)
+    # `run_capture` no longer calls `subprocess.run`: it goes through the shared
+    # `KillableCommand` so the child can be signalled (docs/testing.md §8 — move the
+    # patch target to where the code now lives). The seam is the command's `run`.
+    monkeypatch.setattr(rip_backend.INFO_PROBE, "run", _boom)
     with pytest.raises(RipError) as info:
         run_capture("cyanrip", "/x/cyanrip", ["-V"], timeout=5)
     assert "binary not found" in str(info.value)
@@ -253,7 +256,7 @@ def test_run_capture_timeout_raises_riperror(monkeypatch: pytest.MonkeyPatch) ->
     def _timeout(*a: Any, **k: Any) -> Any:
         raise subprocess.TimeoutExpired(cmd="cyanrip", timeout=5)
 
-    monkeypatch.setattr(rip_backend.subprocess, "run", _timeout)
+    monkeypatch.setattr(rip_backend.INFO_PROBE, "run", _timeout)
     with pytest.raises(RipError) as info:
         run_capture("cyanrip", "/x/cyanrip", ["-V"], timeout=5)
     assert "timed out" in str(info.value)
