@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **The rip report's JSON shape is now described in one place instead of implied by
+  four modules.** `platterpus.report_types` names all 33 blocks as `TypedDict`s,
+  derived from what the code actually writes rather than from a guess, so a
+  contributor can see the wire format without reading the serialiser. Four of the
+  fourteen modules on the strict-typing ratchet are retired by it (14 → 10). Purely
+  descriptive: the emitted JSON is unchanged and 222 report/compare tests pass
+  untouched.
+- **Three `x or {}` fallbacks removed** where the empty dict was never a valid value
+  of the thing it stood in for. Harmless while the type was a bare `dict`, a type
+  error once the shape had a name, and a small lie about what the callee accepted
+  either way.
+- **`mypy --warn-unreachable` is documented as deliberately off, with the reasoning.**
+  It reports five "unreachable" blocks and all five are false positives — one of them
+  a cancel checkpoint that only looks dead because mypy reasons single-threaded while
+  the flag is set from another thread. Deleting it would remove a real cancel in front
+  of a ten-minute probe, so the trap is now written down next to the setting.
+
 ### Fixed
 - **A failed disc read was reported as "this disc isn't in MusicBrainz", with nothing
   in the log.** The disc probe threw away cyanrip's exit code *and* its error text, so

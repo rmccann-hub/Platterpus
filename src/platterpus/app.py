@@ -92,9 +92,15 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
         # the GUI thread we log and return; the traceback is already in the log via
         # the caller (audit, 2026-07-29).
         if QThread.currentThread() is not app.thread():
+            # Log the PYTHON thread name, not the QThread object. `logging` formats
+            # lazily, so a Qt wrapper handed in as a `%s` arg is formatted whenever a
+            # handler gets to it — by which time the C++ object may be destroyed, and
+            # `str()` on a dead shiboken wrapper RAISES inside logging. A crash
+            # handler whose own log call can throw is not a crash handler. The name is
+            # also what a reader actually wants ("post-rip-hash", not an address).
             log.error(
-                "fatal error on a non-GUI thread (%s) — logged only, no dialog: %s: %s",
-                QThread.currentThread(),
+                "fatal error on non-GUI thread %r — logged only, no dialog: %s: %s",
+                threading.current_thread().name,
                 type(exc).__name__,
                 exc,
             )

@@ -215,7 +215,7 @@ class DriveProfileStore:
         log.debug("drive profiles saved to %s", path)
 
 
-def _migrate(raw: dict) -> dict:
+def _migrate(raw: dict[str, object]) -> dict[str, object]:
     """Upgrade an older on-disk shape to the current one. Returns `raw`.
 
     A stub today (there is only v1), but the seam exists from day one — schema
@@ -227,8 +227,15 @@ def _migrate(raw: dict) -> dict:
     treated as the current version rather than crashing GUI startup — the same
     "corrupt cache must never block a rip" tolerance load() promises.
     """
+    # `raw` is untrusted on-disk JSON, so the value can be any type. Narrow to the
+    # things `int()` actually accepts rather than annotating the parameter loosely —
+    # the point of typing this function is to say "arbitrary mapping in", and that
+    # obligation is to check here, not to widen there.
+    declared = raw.get("schema_version", SCHEMA_VERSION)
     try:
-        version = int(raw.get("schema_version", SCHEMA_VERSION))
+        if not isinstance(declared, (int, float, str)):
+            raise TypeError(f"schema_version is a {type(declared).__name__}")
+        version = int(declared)
     except (TypeError, ValueError):
         log.warning("drive_profiles.json has a non-numeric schema_version; ignoring it")
         return raw

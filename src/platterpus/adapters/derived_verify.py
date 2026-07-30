@@ -105,7 +105,7 @@ class DerivedVerifyResult:
         return self.ran and not self.failures and not self.mismatches and self.complete
 
 
-def _kill_and_reap(proc: subprocess.Popen) -> None:
+def _kill_and_reap(proc: subprocess.Popen[bytes]) -> None:
     """Kill a decode subprocess AND wait for it, so we never leave a zombie.
 
     ``kill()`` alone only sends the signal; without a ``wait()`` the child stays

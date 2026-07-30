@@ -361,8 +361,17 @@ def test_the_fatal_dialog_refuses_to_build_widgets_off_the_gui_thread(
         "the handler never returned — it most likely entered QMessageBox.exec() off "
         "the GUI thread, which is the hang this guard exists to prevent."
     )
+    # `getMessage()` formats lazily, so this assertion doubles as a check that the
+    # handler's own log call is safe to format LATER: an earlier version passed the
+    # live QThread as a `%s` arg and this line raised
+    # "libshiboken: Internal C++ object already deleted" once the worker had exited.
+    # A crash handler whose log call can itself throw is not a crash handler.
     messages = " ".join(r.getMessage() for r in caplog.records)
     assert "non-GUI thread" in messages, (
         "the off-thread call was not recognised and logged; it either drew a widget "
         f"off the GUI thread or reported nothing. Records: {messages!r}"
+    )
+    assert "off-gui-probe" in messages, (
+        "the log line does not name the thread, so a reader cannot tell which "
+        f"background task failed. Records: {messages!r}"
     )

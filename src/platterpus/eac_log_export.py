@@ -54,6 +54,7 @@ from platterpus.parsers.rip_log import (
     TrackResult,
     accuraterip_is_match,
 )
+from platterpus.report_types import SecureReripBlock
 
 log = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ def render_eac_style_log(
     encoder_versions: dict[str, str] | None = None,
     outcome_status: str = "",
     disc_track_total: int | None = None,
-    secure_rerip: dict | None = None,
+    secure_rerip: SecureReripBlock | None = None,
 ) -> str:
     """Return an EAC-layout, clearly-attributed text rendering of ``rip_log``.
 
@@ -182,7 +183,7 @@ def render_eac_style_log(
             encoder_versions=encoder_versions or {},
             outcome_status=outcome_status,
             disc_track_total=disc_track_total,
-            secure_rerip=secure_rerip or {},
+            secure_rerip=secure_rerip,
         )
     except Exception:  # noqa: BLE001 — a formatter must never crash a caller
         log.exception("EAC-style log render failed; emitting minimal stub")
@@ -201,7 +202,7 @@ def _render(
     encoder_versions: dict[str, str],
     outcome_status: str = "",
     disc_track_total: int | None = None,
-    secure_rerip: dict | None = None,
+    secure_rerip: SecureReripBlock | None = None,
 ) -> str:
     """Build the log body in **EAC's own section order and row layout**.
 
@@ -670,7 +671,7 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     ]
 
 
-def _interrupted_securing_line(secure_rerip: dict | None) -> list[str]:
+def _interrupted_securing_line(secure_rerip: SecureReripBlock | None) -> list[str]:
     """A line when the auto-fix securing pass started and never finished.
 
     Run 4 on the reference rig: the pass launched, the window was closed 26
