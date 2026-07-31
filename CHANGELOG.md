@@ -11,6 +11,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- `docs/hardware-test-checklist.md` A22 said an AccurateRip cell has "at most three distinct
+  readings". It has **five** (`OK (N)`, `offset-variant match (N)`, `in DB, no match`,
+  `not in DB`, `—`) plus a verbatim fallback for a state we don't classify. The sheet now
+  tabulates all of them, so an unfamiliar-but-correct cell can't be reported as a failure —
+  which is the specific way a too-tight expectation wastes a hardware run.
+
+
 ## [0.5.20] — 2026-07-31
 
 ### Added
