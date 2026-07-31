@@ -76,6 +76,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   (re-reporting the same failure returns early as a duplicate). The outcome is the one thing this
   screen exists to prevent: a green "✓ Bit-perfect" over a master that will not decode. There is
   now one renderer that reads both inputs every time.
+- **`tests/test_regex_bounded_time.py` was timing 3 of 98 patterns and reporting a full sweep.**
+  Any pattern whose single `.search` came in under the 200 µs noise floor was skipped — which is
+  nearly all of them, since a fast pattern costs ~1 µs. It now times a repeated batch, so every
+  pattern gets a real per-search figure, and a skip is a failure rather than a shrug. Two floors
+  make that stick: every collected pattern must be measured, and the detector must still separate
+  a known-quadratic pattern from a linear one (a threshold that flags everything is as useless as
+  one that flags nothing, and only the pair rules out both).
 
 ### Changed
 - `parsers/cyanrip_log.py` now routes every integer conversion through the shared
