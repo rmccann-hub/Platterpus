@@ -85,6 +85,7 @@ from platterpus.ui.unknown_album import (
     apply_track_tags,
     launch_picard_for,
 )
+from platterpus.verdict import expected_track_total
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_worker import verify_rip_dir
 from platterpus.workers.derived_verify_worker import (
@@ -174,6 +175,45 @@ def _reported(new: _T, current: _T) -> _T:
     return current if new is None or new == "" or new == {} else new
 
 
+def _verified_by_this_read(new: _T, current: _T, *, track: int, field: str) -> _T:
+    """A verification claim the SHIPPED read must earn for itself. No fallback.
+
+    This is the sibling of :func:`_reported` and it deliberately does the opposite
+    thing, because a *description* and a *claim of proof* fail in opposite
+    directions.
+
+    `_reported` keeps the first pass's value when the re-rip didn't print one, on
+    the reasoning that discarding a known fact is worse than keeping a stale one.
+    That reasoning holds for a descriptive field. It **inverts** for an
+    AccurateRip result, because an AccurateRip verdict is not a description of a
+    track — it is the assertion *"a shared database confirmed these exact bytes"*.
+    The first pass's verdict confirmed the bytes we THREW AWAY. Carrying it onto
+    the replacement means the banner, the JSON report, the per-track table and the
+    EAC log all state a verification that never happened for the audio on disk.
+
+    So an unreported verification becomes **unknown**, not inherited. Unknown is
+    honest and the UI already renders it ("not in DB" / no checkmark); a stale
+    "verified" is the single worst thing this program can say, and it is the exact
+    class of failure KDD-30 exists to prevent.
+
+    Dropping a value is a fact worth recording, so it is logged: a track that
+    silently lost its verdict would otherwise look like a disc that AccurateRip
+    simply doesn't know.
+    """
+    if new is None or new == "" or new == {}:
+        if current is not None and current != "" and current != {}:
+            log.info(
+                "track %d: dropping the first pass's %s — its file was replaced by "
+                "a re-rip whose log reported no %s, so the shipped bytes were never "
+                "checked against AccurateRip and must not inherit that verdict",
+                track,
+                field,
+                field,
+            )
+        return new
+    return new
+
+
 def _merge_shipped_track(
     track: TrackResult, shipped: TrackResult | None, verdicts: dict[int, bool]
 ) -> TrackResult:
@@ -196,12 +236,39 @@ def _merge_shipped_track(
         track = replace(
             track,
             copy_crc=_reported(shipped.copy_crc, track.copy_crc),
-            test_crc=_reported(shipped.test_crc, track.test_crc),
             status=_reported(shipped.status, track.status),
-            accuraterip_v1=_reported(shipped.accuraterip_v1, track.accuraterip_v1),
-            accuraterip_v2=_reported(shipped.accuraterip_v2, track.accuraterip_v2),
-            accuraterip_offset=_reported(
-                shipped.accuraterip_offset, track.accuraterip_offset
+            # NOT `_reported`: see `_verified_by_this_read`. These three are
+            # claims that a shared database confirmed specific bytes, and the
+            # bytes the first pass confirmed were discarded. Inheriting them let a
+            # re-ripped track read "AccurateRip verified" when the audio actually
+            # shipped had never been checked at all.
+            accuraterip_v1=_verified_by_this_read(
+                shipped.accuraterip_v1,
+                track.accuraterip_v1,
+                track=track.number,
+                field="AccurateRip v1 result",
+            ),
+            accuraterip_v2=_verified_by_this_read(
+                shipped.accuraterip_v2,
+                track.accuraterip_v2,
+                track=track.number,
+                field="AccurateRip v2 result",
+            ),
+            accuraterip_offset=_verified_by_this_read(
+                shipped.accuraterip_offset,
+                track.accuraterip_offset,
+                track=track.number,
+                field="AccurateRip offset-variant result",
+            ),
+            # `test_crc` is the other proof-shaped field: it is half of a
+            # two-reads-agree pair, and pairing the first pass's Test CRC with the
+            # replacement's Copy CRC would render a convergence that never
+            # happened. Same rule, same reason.
+            test_crc=_verified_by_this_read(
+                shipped.test_crc,
+                track.test_crc,
+                track=track.number,
+                field="Test CRC",
             ),
             rip_count=_reported(shipped.rip_count, track.rip_count),
             peak_level=_reported(shipped.peak_level, track.peak_level),
@@ -1181,21 +1248,40 @@ class RipMixin(MainWindowShared):
                 # "all N tracks verified" went green over 2 of 14 (found on the
                 # rig, 2026-07-30). Same two values the EAC exporter is given.
                 finished_outcome = getattr(self, "_last_outcome", None)
+                finished_status = (
+                    str(finished_outcome.get("status") or "")
+                    if isinstance(finished_outcome, dict)
+                    else ""
+                )
+                # ONE number, handed to EVERY surface. `_current_num_tracks` is
+                # always the DISC's count, so on its own it made a *deliberate*
+                # partial rip (the Rip? column exists for exactly that) report "12
+                # tracks were never ripped" — the user's own choice rendered as a
+                # fault. `expected_track_total` folds in the selection, and the
+                # reason it is computed here rather than inside each renderer is
+                # that this bug has shipped four times by being fixed one renderer
+                # at a time (audit finding, 2026-07-30).
+                expected_total = expected_track_total(
+                    getattr(self, "_current_num_tracks", 0) or None,
+                    getattr(params, "only_tracks", ()) if params is not None else (),
+                )
+                # The report is re-written later (after CTDB, after the library
+                # move) by which point `_active_rip_params` is cleared, so snapshot
+                # the number rather than recomputing it from state that has moved.
+                self._last_expected_track_total = expected_total
                 self._rip_progress.set_rip_log(
                     rip_log,
-                    disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
-                    outcome_status=(
-                        str(finished_outcome.get("status") or "")
-                        if isinstance(finished_outcome, dict)
-                        else ""
-                    ),
+                    disc_track_total=expected_total,
+                    outcome_status=finished_status,
                 )
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
                 # the old misleading static "verified during rip".
                 self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
-                    status = fidelity_summary(rip_log)
+                    status = fidelity_summary(
+                        rip_log, expected_track_total=expected_total
+                    )
                     self._rip_progress.set_status(status)
                     # A rip that MATCHED AccurateRip confirms the applied read
                     # offset is correct on THIS drive (KDD-31 — our equal-or-
@@ -2389,7 +2475,7 @@ class RipMixin(MainWindowShared):
             outcome=getattr(self, "_last_outcome", None),
             # The disc's own track count, so the JSON's verdict and the window's
             # agree about the denominator on a rip that stopped early.
-            disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
+            disc_track_total=getattr(self, "_last_expected_track_total", None),
             settings=rip_report.build_settings(
                 self._config,
                 read_offset_effective=getattr(

@@ -14,6 +14,8 @@ the per-track checkmarks can never diverge.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from platterpus.parsers.rip_log import accuraterip_is_match, track_accuraterip_verified
 
 
@@ -74,6 +76,44 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     verified = sum(1 for t in audio if track_accuraterip_verified(t))
     partial = sum(1 for t in audio if track_accuraterip_partial(t))
     return total, verified, partial
+
+
+def expected_track_total(
+    disc_track_total: int | None, only_tracks: Sequence[int] | None
+) -> int | None:
+    """How many tracks this rip was **asked** to produce. The missing concept.
+
+    This tiny function exists because the same bug has now shipped four times
+    (v0.5.9, twice in v0.5.12, and again in this cycle), and every fix corrected
+    one surface instead of naming the thing they disagreed about. There are three
+    defensible meanings of "how many tracks should there be", and code that says
+    `total` picks one by accident:
+
+    * **the disc's** track count — right for "did we get the whole disc?";
+    * **the logged** track count — what a parsed log happens to contain, which
+      shrinks when a rip stops early (that is the bug fixed a few hours ago);
+    * **the requested** count — the disc's, unless the user deselected tracks in
+      the Rip? column, in which case it is what they asked for.
+
+    The last one is what a completeness verdict actually needs, and getting it
+    wrong is visible in *both* directions. Using the logged count let a cancelled
+    2-of-14 rip call itself "Bit-perfect: all 2 tracks". Then using the disc count
+    made a **deliberate** 2-of-14 rip — the Rip? column exists precisely so that is
+    possible — warn that "12 tracks were never ripped", which is not a fault, it is
+    the user's own choice reported as a failure. Both readings are wrong; neither is
+    fixed by patching one renderer.
+
+    ``only_tracks`` is ``RipParameters.only_tracks``: empty means "all of them".
+    Returns ``None`` when the disc total is unknown, which callers already treat as
+    "fall back to whatever the log contains".
+    """
+    if only_tracks:
+        # A deliberate subset. The user asked for these, so these are all there
+        # should be — a complete rip of a selection is COMPLETE.
+        return len(only_tracks)
+    if disc_track_total and disc_track_total > 0:
+        return disc_track_total
+    return None
 
 
 def _shortfall_phrase(never_ripped: int, no_result: int, outcome_status: str) -> str:

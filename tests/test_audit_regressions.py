@@ -37,7 +37,11 @@ from platterpus.settings_validation import (
     errors_only,
     validate_config,
 )
-from platterpus.verdict import accuraterip_verdict, track_accuraterip_partial
+from platterpus.verdict import (
+    accuraterip_verdict,
+    expected_track_total,
+    track_accuraterip_partial,
+)
 
 
 class _NullRunner:
@@ -1002,3 +1006,71 @@ def test_every_shared_seam_attribute_the_code_reads_is_initialised() -> None:
     assert "existing = self._tray_icon" in rip
     # …so __init__ must create it.
     assert "self._tray_icon: QSystemTrayIcon | None = None" in init
+
+
+# --- the concept whose absence caused four repeats of one bug ---------------
+
+
+def test_a_deliberate_partial_rip_is_complete_not_a_warning() -> None:
+    """The false alarm the *previous* fix introduced, hours after shipping.
+
+    Fixing the cancelled-rip verdict meant handing it the disc's track count. But
+    the Rip? column exists so a user can deliberately rip a subset — and against
+    the disc's count, a successful, intentional 2-of-14 rip then read
+    "⚠ 2 of 14 tracks verified — 12 tracks were never ripped". The user's own
+    choice, reported as a fault.
+
+    `expected_track_total` is the missing concept: the number the rip was ASKED
+    for. A complete rip of a selection is COMPLETE.
+    """
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    rip_log = RipLog(
+        tracks=(
+            TrackResult(number=1, copy_crc="B0D122E7", accuraterip_v2=ok),
+            TrackResult(number=2, copy_crc="985AAE32", accuraterip_v2=ok),
+        )
+    )
+    # The user ticked only tracks 1 and 2 of a 14-track disc.
+    expected = expected_track_total(14, (1, 2))
+    assert expected == 2, "a deliberate selection is what the rip was asked for"
+
+    message, level = accuraterip_verdict(
+        rip_log, disc_track_total=expected, outcome_status="success"
+    )
+    assert level == "ok", "a complete rip of a selection is not a warning"
+    assert "never ripped" not in message
+    assert "Bit-perfect: all 2 tracks" in message
+
+
+def test_a_cancelled_subset_rip_still_warns_about_what_it_missed() -> None:
+    """The other side, so the fix is not simply 'never warn about a subset'.
+
+    Ask for four tracks, get two because you cancelled: that IS incomplete, and it
+    must still say so — measured against the four requested, not the fourteen on
+    the disc.
+    """
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    rip_log = RipLog(
+        tracks=(
+            TrackResult(number=1, copy_crc="B0D122E7", accuraterip_v2=ok),
+            TrackResult(number=2, copy_crc="985AAE32", accuraterip_v2=ok),
+        )
+    )
+    expected = expected_track_total(14, (1, 2, 3, 4))
+    assert expected == 4
+
+    message, level = accuraterip_verdict(
+        rip_log, disc_track_total=expected, outcome_status="cancelled"
+    )
+    assert level == "warn"
+    assert "2 of 4" in message, "measured against what was REQUESTED, not the disc"
+    assert "cancelled" in message
+
+
+def test_expected_track_total_falls_back_to_the_disc_then_to_unknown() -> None:
+    """No selection → the disc. No disc count either → unknown, which callers
+    already handle by falling back to the log's own count."""
+    assert expected_track_total(14, ()) == 14
+    assert expected_track_total(14, None) == 14
+    assert expected_track_total(None, ()) is None
+    assert expected_track_total(0, ()) is None

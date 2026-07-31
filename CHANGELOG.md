@@ -12,6 +12,78 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A re-ripped track could report "AccurateRip verified" for bytes AccurateRip never
+  saw.** When the auto-fix re-rips a bad track and swaps the better read into the album,
+  every measured field is meant to come from the *shipped* read. The merge used a fallback:
+  if the re-rip's log printed no AccurateRip line, the **first pass's** result was kept — and
+  the first pass confirmed the bytes that were thrown away. Since that field is exactly what
+  `track_accuraterip_verified` reads, the trust banner, the JSON report, the per-track table
+  and the EAC log would all assert a verification that never happened for the audio on disk.
+  The distinction now has a name in the code: a *description* may fall back to the first pass
+  (losing a known fact is worse than a stale one), but a *claim of proof* may not — an
+  unreported verification becomes **unknown**, and the drop is logged so a track does not
+  silently lose its verdict. The Test CRC gets the same treatment, since pairing the first
+  pass's with the replacement's Copy CRC renders a two-reads-agree convergence that never
+  occurred. This was the worst finding of three audit passes and the exact class KDD-30 exists
+  to prevent.
+- **A deliberate partial rip was reported as a failure — a false alarm introduced by the fix
+  above it.** Giving the trust verdict the disc's track count fixed the cancelled-rip case and
+  immediately broke the intentional one: the Rip? column exists so a user can rip a subset, and
+  a successful, deliberate 2-of-14 rip then read *"⚠ 2 of 14 tracks verified — 12 tracks were
+  never ripped"* — the user's own choice rendered as a fault. The root cause was that "how many
+  tracks should there be" had **three** defensible meanings (the disc's, the log's, the
+  requested) and no name, so each of four fixes picked one and a different surface then
+  disagreed. `verdict.expected_track_total` names it, and one number is now computed once and
+  handed to every surface.
+- **The same fix had reached three render surfaces out of four.** Six lines after the trust
+  banner was given the disc count and the outcome, `fidelity_summary` — which feeds both the
+  status line and the desktop notification — was still called with neither, so it kept
+  computing the old wrong denominator. It now takes the same expected-track count. The audit
+  that found this also found the project's own cross-surface consistency test was missing two
+  of the four surfaces its docstring names.
+- **The dependency report could claim a broken tool was installed — at a version read out of
+  its own error message.** A version probe counted as successful the moment the command
+  *finished*, whatever it finished with, and the version parser then took the first `N.N` it
+  found anywhere in the output. Numbers in error text are plentiful and belong to other
+  programs: a broken `cd-paranoia` saying `libcdio.so.19.0: cannot open shared object file`
+  was reported as "cd-paranoia 19.0", and a dead `ripping` container quoting podman's own
+  version was reported as that being cyanrip's — which also cleared the minimum-version
+  floor, so nothing flagged it and the setup wizard that would fix it was never offered. A
+  probe now counts only if the tool **exits 0** (every dependency's version flag was checked
+  against upstream source and does exit 0; the rare non-zero-on-`--version` convention gets
+  an explicit per-tool allow-list with its evidence recorded, never a blanket accept). A
+  rejected probe logs the exit code and the tool's own captured output, so a bug report says
+  *why* the tool was called absent. A probe cancelled mid-flight (SIGKILL → negative exit
+  code) is likewise no longer readable as a version answer.
+- **A rip you abandoned halfway became "your previous rip", and made a perfect re-rip look
+  wrong.** Closing the window mid-rip leaves the worker's incremental snapshot in the album
+  folder forever, stamped `outcome.status: "in_progress"` because nothing ever finalised it.
+  The prior-rip scan filtered on the disc ID alone and never looked at that status, and the
+  snapshot is re-written after every track so it carries the *newest* timestamp in the
+  library — so it beat the user's real earlier rip, and the next clean rip of that disc was
+  diffed against three tracks and warned "this rip has track(s) 4…14 the previous rip
+  didn't" on a rip that was in fact flawless. Every report is now classified from its own
+  outcome: an abandoned `in_progress` snapshot is never chosen as a baseline (and the skip
+  is logged, so "why no comparison banner?" is answerable from the log file), while a
+  **cancelled or failed** prior is genuine data and is still used — its tracks are real
+  reads with real CRCs — but it loses to any complete rip of the same disc however old, and
+  when it is used the headline says so in track counts instead of claiming a whole-disc
+  match. A track the stopped-short side never reached is no longer reported as a change in
+  either direction. Reports written before the `outcome` block existed still count as
+  finished rips, so nothing in an older library is thrown away.
+- **`--doctor` could report a PASS on the one check that matters most.** The backend-routing
+  check — the only thing that proves the host → Distrobox → cyanrip chain is alive — treated
+  *any* string `cyanrip -V` came back with as a pass, and printed that string as "the
+  version". So a dead `ripping` container, a missing podman or an unexported binary passed
+  the check with its own error message displayed where the version belongs, and a ripper that
+  printed nothing passed with the literal "(no version output)" as its version — with
+  `--doctor` exiting 0 on an environment that cannot rip. A pass now means cyanrip *answered
+  with a version*: the probe must exit 0 (`version()` runs `-V` strictly, so a non-zero exit
+  becomes an error carrying cyanrip's own words — this is visible only inside the adapter)
+  **and** its output must contain a recognisable version, judged by the same version parser
+  the dependency probe already uses. A failure quotes what the tool actually said and names
+  which link of the chain is broken. A working cyanrip is unaffected, including a cold
+  container whose startup chatter arrives *before* the banner.
 - **The post-cancel drive rescue could force-kill and eject the WRONG drive.** Cancelling a
   rip arms a five-second rescue in case the in-container reader keeps spinning — and that
   rescue asked the drive picker for its *current* device when it **fired**, not when it was

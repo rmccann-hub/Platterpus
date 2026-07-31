@@ -273,6 +273,10 @@ class MainWindow(
         # Auto-escalation: after Cancel, if the in-container reader keeps the
         # drive spinning, force-stop it once the countdown elapses. Guard so
         # we force-stop at most once per cancel.
+        # How many tracks the finished rip was ASKED to produce, snapshotted at
+        # finish because the debounced report re-writes happen after the rip params
+        # are cleared. See `platterpus.verdict.expected_track_total`.
+        self._last_expected_track_total: int | None = None
         self._force_stop_done: bool = False
         # The device the pending rescue is FOR, captured when the timer is armed.
         # It must not be read at fire time: `_do_force_stop` used to ask the drive
