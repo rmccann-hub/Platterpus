@@ -43,6 +43,23 @@ here specifically, and ``_IGNORED_DISC_LINES`` for the rows we skip on purpose.
 The section-scoped parsing (the ``Gaps:`` two-liner, ``Paranoia status counts:``,
 ``Album Loudness Summary:``, the per-track block) stays as explicit control flow,
 because those blocks change what the FOLLOWING lines mean.
+
+**Forward compatibility with the maintainer's cyanrip fork (2026-07-31).** Some
+lines below exist only in a *future* cyanrip — the ones
+``docs/cyanrip-improvements-wanted.md`` asks upstream for (a per-track sample
+peak, a per-track elapsed/speed, the ``-Z`` convergence verdict written into the
+log file, and a C2 line that states *use* rather than *capability*). They are
+parsed here **before** they exist, on purpose and under one hard rule:
+
+    *absent means absent.* A field no ripper reported stays ``None``, and every
+    surface then renders exactly what it renders today.
+
+That rule is not tidiness — AppImage users run the **deployed cyanrip 0.9.3**,
+which will never print these lines, so one build has to be correct against both.
+Each fork-only pattern is marked ``FORK-ONLY`` with the shape it expects, and
+every one of them has a test proving today's real logs are unchanged. The one
+line in this group that cyanrip 0.9.3 *does* already print is
+``Appended:  N frames of silence``, which we simply discarded until now.
 """
 
 from __future__ import annotations
@@ -58,6 +75,15 @@ from platterpus.parsers.rip_log import (
     RippingInfo,
     TrackResult,
 )
+
+# THE shared "int() that cannot raise" guard. This module used to carry a private
+# copy (`_int_or_none`) — it was the module the hole was found in, and the fix was
+# applied here and then centralised in `safe_int` for every other parser. Keeping
+# a second implementation alive meant the one place the rule was learned was the
+# one place that did not follow it, and its warnings could not name the field.
+# See safe_int.py's docstring for why the guard exists at all (CPython refuses a
+# digit run longer than 4300 characters, and a `\d+` group is unbounded).
+from platterpus.safe_int import int_or_none
 
 log = logging.getLogger(__name__)
 
@@ -159,22 +185,6 @@ _END_LSN = re.compile(r"^\s+End LSN:\s+(?P<value>\d+)")
 _PREGAP_LSN = re.compile(r"^\s+Pregap LSN:\s+(?P<value>\d+|none)\b")
 
 
-def _int_or_none(raw: str) -> int | None:
-    """``int(raw)`` or None — never raises.
-
-    CPython 3.11+ refuses to convert a string of more than 4300 digits, so a
-    corrupt log with a long digit run would otherwise raise ValueError straight
-    out of the parser, which must never happen (parsers return a best-effort
-    dataclass on ANY input). Non-numeric text can't reach here through the
-    regexes, but the guard is cheap and the rule is absolute.
-    """
-    try:
-        return int(raw)
-    except ValueError:
-        log.warning("cyanrip log: unusable integer %r; recording as unknown", raw[:32])
-        return None
-
-
 # "  EAC CRC32:     A1B2C3D4" with an optional "(after N rips)" suffix — the
 # rip-pass count for the track (1 if absent; higher means -Z secure re-reads).
 _EAC_CRC = re.compile(
@@ -223,6 +233,105 @@ _LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d+(?:\.\d+)?)\s+dBFS")
 # cyanrip's own log signature, the last line: "Log FUN512: <base64>".
 _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 
+# ---------------------------------------------------------------------------
+# Lines a FORK of cyanrip will print, parsed before they exist
+# ---------------------------------------------------------------------------
+# Read the "Forward compatibility" paragraph in this module's docstring first.
+# Every pattern in this block is bounded (`\d{1,N}`, never `\d+`): an unbounded
+# group is both a ReDoS shape (tests/test_regex_bounded_time.py) and the way an
+# over-4300-digit run reaches a conversion at all.
+#
+# --- 1. the per-track SAMPLE peak (docs/cyanrip-improvements-wanted.md §2.1) ---
+#
+# THE TRAP THIS BLOCK EXISTS TO AVOID. EAC's per-track `Peak level` row is the
+# **sample** peak as a percentage of full scale, and it *cannot exceed 100 %*.
+# cyanrip already prints a **true** (4x-oversampled) peak — `True peak:` /
+# `Peak: 0.3 dBFS` — which is a DIFFERENT quantity that legitimately goes over
+# full scale: all fourteen tracks of the committed reference disc do
+# (`REPLAYGAIN_TRACK_PEAK` 1.008499–1.097464, i.e. 100.8 %–109.7 %). So the true
+# peak must NEVER reach `TrackResult.peak_level`; rendering it would print a wrong
+# number into EAC's row where today we honestly print "(not reported by the
+# ripper)". Only a line that says **sample** peak is accepted, and even then a
+# value above full scale is refused (see `_sample_peak_fraction`).
+#
+# FORK-ONLY. Two shapes are accepted because cyanrip's own log has both styles and
+# the upstream print site is UNREAD (the doc says so explicitly):
+#   inline —   "  Sample peak:  -0.5 dBFS"     (the shape §2.1 proposes)
+#   header —   "  Sample peak:" / "    Peak:  -0.5 dBFS"  (how `True peak:`
+#              is already printed, so arguably the likelier of the two)
+# The unit is REQUIRED. A bare "Sample peak: 0.942" is refused rather than guessed
+# at, because dBFS and a linear fraction are indistinguishable in that range and an
+# archival peak read in the wrong unit is worse than a labelled gap.
+_SAMPLE_PEAK = re.compile(
+    r"^\s+Sample peak:\s+(?P<value>-?\d{1,6}(?:\.\d{1,6})?)\s*(?P<unit>dBFS|%)"
+)
+# The sub-header form of both peaks. Captured together so the ONE piece of state
+# it arms ("which peak does the next `Peak:` line report?") cannot get out of sync:
+# a `True peak:` header must actively DISARM sample-peak capture, or the existing
+# true peak would silently land in EAC's sample-peak row — the exact bug above.
+_PEAK_KIND_HEADER = re.compile(r"^\s+(?P<kind>True|Sample) peak:\s*$")
+
+# --- 2. the per-track extraction speed / elapsed (§2.3) ----------------------
+#
+# FORK-ONLY. EAC prints a per-track `Extraction speed` as a multiple of 1x read
+# speed ("1.6 X"); cyanrip prints no per-track timing at all today, which is 14
+# labelled cells on a 14-track disc. §2.3's upstream change is "stamp a monotonic
+# clock per track and print the elapsed, optionally with the derived speed", so
+# BOTH halves are read: the speed multiple fills EAC's row directly, the elapsed
+# is recorded on its own field.
+#
+# `^\s+` matters: cyanrip's *disc* banner already has a column-0 "Speed:" row
+# (the drive's speed-changeability), and `_SPEED_CAP` claims that one. These two
+# cannot collide because this pattern requires indentation and that one forbids it.
+_TRACK_SPEED = re.compile(
+    r"^\s+(?:Extraction speed|Rip speed|Read speed|Speed):\s+"
+    # `[xX]\b` so "1.6x" and "1.6 X" both match while "1.6xyz" does not.
+    r"(?P<value>\d{1,6}(?:\.\d{1,3})?)\s?[xX]\b"
+)
+# The elapsed wall-clock. cyanrip's own duration style is a clock ("00:03:13.180"
+# in the committed logs, "03:51.44" in older output), so both an optional-hours
+# clock and a plain seconds form are accepted. NOT routed through
+# `rip_timing.parse_hms_to_seconds`: that helper requires exactly HH:MM:SS and
+# would silently drop the MM:SS form cyanrip also prints.
+_TRACK_ELAPSED_CLOCK = re.compile(
+    r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
+    r"(?:(?P<h>\d{1,3}):)?(?P<m>\d{1,3}):(?P<s>\d{1,2}(?:\.\d{1,6})?)\s*$"
+)
+_TRACK_ELAPSED_SECONDS = re.compile(
+    r"^\s+(?:Elapsed(?: time)?|Rip time|Extraction time|Time taken):\s+"
+    r"(?P<s>\d{1,7}(?:\.\d{1,6})?)\s*(?:s|sec|secs|seconds)\b"
+)
+
+# --- 3. the -Z convergence verdict, written into the LOG FILE (§2.4) ---------
+#
+# FORK-ONLY. Today the verdict is a stdout-only "Done; (…)" line (that is §2.4's
+# whole finding), so a log re-read from disk loses the strongest evidence in the
+# rip: cyanrip's health line still says "No errors occurred" for a track that
+# never read the same way twice, and its "(after N rips)" suffix does not say
+# whether any two of those reads AGREED.
+#
+# INDENTATION IS THE DISCRIMINATOR, and it is load-bearing. The stdout verdict is
+# printed at column 0 *before* the "Track N ripped…" opener, so the loop buffers it
+# for the NEXT track. A verdict written by `cyanrip_log_track_end()` lands INSIDE
+# the per-track block, indented like "  EAC CRC32:", and belongs to the track
+# already open. Both forms coexist unambiguously because of that one difference —
+# and the column-0 path is untouched, so today's behaviour is bit-identical.
+_TRACK_SECURE_VERDICT = re.compile(r"^\s+Secure re-?read(?:s)?:\s+(?P<text>\S.*?)\s*$")
+# The cheapest thing upstream could do: route the EXISTING string through
+# `cyanrip_log()`, so the same text arrives indented instead of on stdout.
+_TRACK_SECURE_DONE = re.compile(r"^\s+Done;\s+\((?P<text>[^)]*)\)")
+
+# --- 4. "Appended: N frames of silence" — ALREADY PRINTED by cyanrip 0.9.3 ---
+#
+# Not fork-only: this is in both committed reference logs (track 14 of each), and
+# the parser's own enumerable check flagged it as the best line we still discarded.
+# It names the track whose FINAL FRAMES ARE FABRICATED SILENCE rather than disc
+# audio — a direct archival-fidelity statement, and the per-track consequence of
+# overread being off (the disc's outermost samples were padded, not read).
+_APPENDED_SILENCE = re.compile(
+    r"^\s+Appended:\s+(?P<frames>\d{1,9})\s+frames? of silence"
+)
+
 
 def _parse_overread_mode(mode: str) -> bool | None:
     """Map cyanrip's "Overread mode:" text to EAC's Yes/No, or None if unrecognised.
@@ -243,6 +352,141 @@ def _parse_overread_mode(mode: str) -> bool | None:
         return False
     if "read in" in text:
         return True
+    return None
+
+
+def _float_or_none(raw: str) -> float | None:
+    """``float(raw)`` or None — never raises.
+
+    The float sibling of :func:`platterpus.safe_int.int_or_none`, kept local
+    because it has exactly one caller family (the peak / speed / elapsed values
+    below) and `safe_int` is the *integer* guard the whole codebase routes
+    through. Same contract: unusable text becomes "unknown" and says so in the
+    log, rather than raising out of a parser that promises it never will. Only
+    ``ValueError`` is possible from the bounded regexes that feed it, but
+    ``TypeError`` is caught too so the function is total for any caller.
+    """
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        log.warning(
+            "cyanrip log: unusable number %r; recording as unknown", str(raw)[:32]
+        )
+        return None
+
+
+def _sample_peak_fraction(value: str, unit: str) -> float | None:
+    """A reported sample peak as a linear fraction of full scale, or None.
+
+    ``TrackResult.peak_level`` is a linear fraction (0.0–1.0) because that is what
+    ``eac_log_export._track_block`` renders as ``peak_level * 100:.1f %`` — EAC's
+    own unit for the row.
+
+    **The refusal is the point.** EAC's ``Peak level`` is a percentage of full
+    scale, so it cannot exceed 100 %. A value above full scale therefore is not a
+    sample peak — overwhelmingly likely cyanrip's *true* peak, which exceeds it on
+    every track of the reference disc — and putting it in EAC's row would print a
+    wrong number where today we print an honest "(not reported by the ripper)".
+    So an over-scale value is dropped to None *and logged*, which keeps the
+    labelled cell rather than inventing a plausible-looking one.
+
+    A note for whoever lands the upstream patch: 0 dBFS is exactly 100 %, and
+    docs/cyanrip-improvements-wanted.md §2.1 warns that cyanrip's currently-dead
+    ``ebu_sample_peak`` field probably reads a zero-initialised ``0.0`` — which
+    would render as a *plausible* 100.0 %. This function cannot tell that apart
+    from a genuinely clipped track, so the filter edit and the print MUST land
+    together upstream. Parsing cannot save us from a ripper that prints a zero.
+    """
+    number = _float_or_none(value)
+    if number is None:
+        return None
+    if unit == "%":
+        fraction = number / 100.0
+    else:
+        # dBFS. Checked BEFORE the exponentiation, which both keeps the refusal
+        # exact (> 0 dBFS is > full scale) and avoids an OverflowError on an
+        # absurd positive exponent.
+        if number > 0.0:
+            log.warning(
+                "cyanrip log: sample peak %s dBFS is above full scale, so it is "
+                "not a sample peak (EAC's Peak level cannot exceed 100%%); "
+                "recording as unreported",
+                value,
+            )
+            return None
+        fraction = 10.0 ** (number / 20.0)
+    if not 0.0 <= fraction <= 1.0:
+        log.warning(
+            "cyanrip log: sample peak %s %s is outside 0–100%% of full scale; "
+            "recording as unreported",
+            value,
+            unit,
+        )
+        return None
+    return fraction
+
+
+# Phrases that decide a secure-re-read verdict, in the order they MUST be tested.
+# Order is load-bearing: every negative phrasing contains a positive substring
+# ("did NOT converge" contains "converge"; "no matches found" contains "matches"),
+# so a positive-first check would read every failure as a success — the one
+# direction this project must never get wrong (it would render an EAC-style
+# Test/Copy CRC pair for a track whose reads disagreed).
+_SECURE_NOT_ATTEMPTED: tuple[str, ...] = (
+    "not attempted",
+    "not requested",
+    "not enabled",
+    "not run",
+    "disabled",
+    "n/a",
+)
+_SECURE_DID_NOT_CONVERGE: tuple[str, ...] = (
+    "no match",
+    "not converge",
+    "did not",
+    "never agreed",
+    "repeat limit",
+    "gave up",
+    "failed",
+)
+_SECURE_CONVERGED: tuple[str, ...] = (
+    "converged",
+    "out of",
+    "matches",
+    "agreed",
+    "identical",
+)
+
+
+def _parse_secure_verdict(text: str) -> bool | None:
+    """Map a secure-re-read verdict line to True / False / None.
+
+    THREE states, not two, and the middle one is why this exists:
+
+    * **converged** → ``True``. Two or more reads produced the same checksum, which
+      is EAC's "Test CRC == Copy CRC" guarantee by a cheaper mechanism.
+    * **did NOT converge** → ``False``. The re-read limit was reached with no two
+      reads agreeing. cyanrip's own health line still says "No errors occurred"
+      here, so without this the log cannot tell a non-converging track from a clean
+      one (real-hardware finding, 2026-07-01).
+    * **not attempted / unrecognised** → ``None``, i.e. no verdict. The caller
+      leaves the field alone, so an unfamiliar future wording can never *erase* a
+      verdict we already measured, and never invents one.
+
+    Free text on purpose: the upstream wording is unread (§2.4), so the sense is
+    matched rather than an exact string — the same approach ``_parse_overread_mode``
+    takes for a line whose phrasing has already changed once.
+    """
+    lowered = text.strip().casefold()
+    if not lowered:
+        return None
+    if any(phrase in lowered for phrase in _SECURE_NOT_ATTEMPTED):
+        return None
+    if any(phrase in lowered for phrase in _SECURE_DID_NOT_CONVERGE):
+        return False
+    if any(phrase in lowered for phrase in _SECURE_CONVERGED):
+        return True
+    log.debug("cyanrip log: unrecognised secure re-read verdict %r", text[:80])
     return None
 
 
@@ -344,6 +588,12 @@ class _TrackAcc:
     end_sector: int | None = None
     pregap_sectors: int | None = None
     replaygain: dict[str, str] = field(default_factory=dict)
+    # The three new per-track facts. All default to None — "the ripper did not say"
+    # — which is what the deployed cyanrip 0.9.3 leaves them at for the first two.
+    peak_level: float | None = None
+    extraction_speed: float | None = None
+    extraction_elapsed_seconds: float | None = None
+    appended_silence_frames: int | None = None
 
 
 # A handler takes the accumulator and the successful match, records the fact, and
@@ -387,7 +637,7 @@ def _take_drive(disc: _Disc, match: re.Match[str]) -> bool:
 
 def _take_offset(disc: _Disc, match: re.Match[str]) -> bool:
     """Signed read offset in samples — cyanrip prints the sign separately."""
-    value = _int_or_none(match.group("value")) or 0
+    value = int_or_none(match.group("value"), field="cyanrip read offset") or 0
     disc.read_offset = -value if match.group("sign") == "-" else value
     return True
 
@@ -419,12 +669,29 @@ def _take_c2(disc: _Disc, match: re.Match[str]) -> bool:
     was available — EAC's row asks whether C2 was *used*, which cyanrip never
     states. Claiming Yes from a capability line would be exactly the invented rip
     fact the export forbids, so an affirmative capability leaves the answer
-    unknown rather than becoming a Yes.
+    unknown rather than becoming a Yes. That distinction is the whole reason the
+    row is honest, and `tests/test_eac_layout_parity.py` pins it.
+
+    **FORK-ONLY addition (§2.5).** The upstream ask is one printf: say whether C2
+    was *used*, not only whether the drive supports it — "supported by drive, not
+    used". That wording answers EAC's actual question, so it maps to a truthful
+    ``False``. The bare "supported by drive" mapping is deliberately UNCHANGED
+    (still ``None``).
+
+    Note there is no affirmative branch, on purpose. libcdio-paranoia never
+    consumes C2 pointers, so a "used" line would contradict the engine, and
+    "not used" contains the substring "used" — a positive check would have to be
+    ordered after every negative one and would earn us nothing but a way to
+    fabricate EAC's "Yes".
     """
     text = match.group("text").casefold()
     if "unsupported" in text or "not supported" in text:
         disc.c2_pointers = False
     elif "disabled" in text or "off" in text:
+        disc.c2_pointers = False
+    elif "not used" in text or "unused" in text or "never used" in text:
+        # A statement about the RIP, not the drive: C2 was available and the
+        # reader did not use it, which is exactly EAC's "No".
         disc.c2_pointers = False
     else:
         disc.c2_pointers = None
@@ -438,7 +705,9 @@ def _take_paranoia_level(disc: _Disc, match: re.Match[str]) -> bool:
 
 def _take_addendum_crc(disc: _Disc, match: re.Match[str]) -> bool:
     """A shipped-file CRC from Platterpus's swap addendum (supersedes the block)."""
-    number = _int_or_none(match.group("number"))
+    number = int_or_none(
+        match.group("number"), field="cyanrip swap-addendum track number"
+    )
     if number is not None:
         disc.shipped_crcs[number] = match.group("crc").upper()
     return True
@@ -497,7 +766,7 @@ def _take_partial_total(disc: _Disc, match: re.Match[str]) -> bool:
 
 
 def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
-    count = _int_or_none(match.group("count")) or 0
+    count = int_or_none(match.group("count"), field="cyanrip ripping-error count") or 0
     # Same phrasing as whipper's healthy verdict so downstream string checks
     # treat both backends alike.
     disc.health_status = (
@@ -594,6 +863,19 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_eac_crc", _EAC_CRC),
     ("track_accurip", _ACCURIP_TRACK),
     ("track_accurip_offset", _ACCURIP_OFFSET),
+    # Already printed by cyanrip 0.9.3 and parsed since 2026-07-31 — it moved out
+    # of the "skimmed" residue this listing exists to expose, so the test that
+    # walks the real logs now requires it to be recognised.
+    ("track_appended_silence", _APPENDED_SILENCE),
+    # FORK-ONLY (see the pattern block). Listed so the enumeration stays complete;
+    # they match nothing in the committed 0.9.3 logs, which is exactly the point.
+    ("track_peak_kind_header", _PEAK_KIND_HEADER),
+    ("track_sample_peak", _SAMPLE_PEAK),
+    ("track_extraction_speed", _TRACK_SPEED),
+    ("track_elapsed_clock", _TRACK_ELAPSED_CLOCK),
+    ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
+    ("track_secure_verdict", _TRACK_SECURE_VERDICT),
+    ("track_secure_verdict_done", _TRACK_SECURE_DONE),
 )
 
 # Lines cyanrip prints at the top level that we KNOWINGLY do not parse. This is
@@ -610,6 +892,14 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # (anything but "all" means the album on disk is incomplete), `Frame retries:`
 # (a rip-effort setting EAC reports as part of its read mode) and `Album Art:`
 # (the north star includes cover art).
+#
+# NOTE for whoever graduates one of those: the sibling candidate flagged in the
+# same pass, per-track `Appended:  N frames of silence`, has now BEEN graduated
+# (2026-07-31) — but it never appeared in this list, because it is *indented*.
+# Indented rows are not allow-listed here; they live in the "skimmed" residue that
+# `test_indented_lines_report_what_the_parser_reads_and_what_it_skims` prints, and
+# graduating one means adding it to `_INDENTED_LINE_PATTERNS` and to that test's
+# `must_read` set. Two different enumerations, one habit: write the decision down.
 _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     # The device node we ripped from. The GUI already knows which device it
     # asked for, and EAC has no equivalent field.
@@ -707,6 +997,13 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # just BEFORE that track's "Track N ripped…" opener, so we buffer it here and
     # attach it when the track block opens. None = no verdict seen (no -Z).
     pending_converged: bool | None = None
+    # Which peak the NEXT indented "Peak:  N dBFS" line reports: "true", "sample",
+    # or "" for no header seen. cyanrip prints its peaks as a sub-header plus a
+    # value line, and a FORK adding the sample peak is likely to do the same — so
+    # this one flag is what stops the existing TRUE peak (which legitimately
+    # exceeds full scale) from landing in EAC's sample-peak row. See
+    # `_PEAK_KIND_HEADER` and `_sample_peak_fraction`.
+    pending_peak_kind = ""
     # Evidence for the debug line at the end: top-level rows nothing claimed.
     # A bounded sample plus a full count, so a corrupt or enormous input cannot
     # turn diagnostics into unbounded memory use.
@@ -737,6 +1034,12 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 end_sector=current.end_sector,
                 pregap_sectors=current.pregap_sectors,
                 replaygain=dict(current.replaygain),
+                # None for every track of a cyanrip 0.9.3 log except
+                # `appended_silence_frames` on a track that ends in padding.
+                peak_level=current.peak_level,
+                extraction_speed=current.extraction_speed,
+                extraction_elapsed_seconds=current.extraction_elapsed_seconds,
+                appended_silence_frames=current.appended_silence_frames,
             )
         )
         current = None
@@ -779,7 +1082,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
             match = _PARANOIA_LINE.match(line)
             if match:
                 disc.paranoia_counts[match.group("key")] = (
-                    _int_or_none(match.group("count")) or 0
+                    int_or_none(
+                        match.group("count"),
+                        field=f"cyanrip paranoia count {match.group('key')}",
+                    )
+                    or 0
                 )
                 continue
             in_paranoia = False  # block ended; fall through to other handlers
@@ -790,6 +1097,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if _ALBUM_LOUDNESS_HEADER.match(line):
             flush()
             in_album_loudness = True
+            # Defensive: a track whose "Sample peak:" header had no value line must
+            # not let the ALBUM's true peak be recorded as a sample peak.
+            pending_peak_kind = ""
             continue
         if in_album_loudness:
             # The block has sub-headers ("Integrated loudness:", "Loudness
@@ -808,8 +1118,27 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 continue
             m_pk = _LOUDNESS_PEAK.match(line)
             if m_pk:
-                disc.album_loudness["true_peak_dbfs"] = m_pk.group("v")
+                # cyanrip 0.9.3 prints only the TRUE peak here, so the key is
+                # unchanged unless a fork's "Sample peak:" header armed the flag —
+                # in which case recording it as `true_peak_dbfs` would quietly
+                # replace one loudness quantity with a different one.
+                key = (
+                    "sample_peak_dbfs"
+                    if pending_peak_kind == "sample"
+                    else "true_peak_dbfs"
+                )
+                disc.album_loudness[key] = m_pk.group("v")
+                pending_peak_kind = ""
                 continue
+
+        # Which peak the next "Peak:" value line reports (FORK-ONLY for "Sample";
+        # "True" is cyanrip 0.9.3's own sub-header and its only job here is to
+        # DISARM sample capture). Handled once, outside both the album block and
+        # the per-track block, because the state is the same state for both.
+        peak_kind = _PEAK_KIND_HEADER.match(line)
+        if peak_kind:
+            pending_peak_kind = peak_kind.group("kind").casefold()
+            continue
 
         # cyanrip's own log signature — the last line of a complete log.
         if _apply_line_rules(_RULES_BEFORE_TRACKS, line, disc, in_track=in_track):
@@ -834,7 +1163,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
             else:
                 status = "ripped with errors"
             current = _TrackAcc(
-                number=_int_or_none(match.group("number")) or 0,
+                number=int_or_none(match.group("number"), field="cyanrip track number")
+                or 0,
                 status=status,
                 # The verdict buffered from this track's "Done; (…)" line above;
                 # consumed so the next track starts fresh (None if -Z was off).
@@ -842,6 +1172,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
             )
             pending_converged = None
             expect_filename = False
+            # A new track's peaks are its own: a dangling header from the previous
+            # block must not decide what this track's first "Peak:" line means.
+            pending_peak_kind = ""
             continue
 
         if current is not None:
@@ -863,12 +1196,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
 
             match = _START_LSN.match(line)
             if match:
-                current.start_sector = _int_or_none(match.group("value"))
+                current.start_sector = int_or_none(
+                    match.group("value"), field="cyanrip Start LSN"
+                )
                 continue
 
             match = _END_LSN.match(line)
             if match:
-                current.end_sector = _int_or_none(match.group("value"))
+                current.end_sector = int_or_none(
+                    match.group("value"), field="cyanrip End LSN"
+                )
                 continue
 
             match = _PREGAP_LSN.match(line)
@@ -876,7 +1213,95 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 raw = match.group("value")
                 # "none" is a real answer (no pre-gap), recorded as 0 rather than
                 # None so "measured: none" is distinguishable from "not reported".
-                current.pregap_sectors = 0 if raw == "none" else _int_or_none(raw)
+                current.pregap_sectors = (
+                    0 if raw == "none" else int_or_none(raw, field="cyanrip Pregap LSN")
+                )
+                continue
+
+            # "Appended:    2 frames of silence" — cyanrip 0.9.3 DOES print this,
+            # in the same Properties block as the LSNs above, on a track whose
+            # final frames were padded instead of read. Parsed since 2026-07-31;
+            # surfaced by eac_log_export's status report, because it is a statement
+            # about the archived audio's fidelity, not a rip *setting*.
+            match = _APPENDED_SILENCE.match(line)
+            if match:
+                current.appended_silence_frames = int_or_none(
+                    match.group("frames"), field="cyanrip appended silence frames"
+                )
+                continue
+
+            # --- the FORK-ONLY per-track rows ------------------------------------
+            # Not one of these patterns matches a line in a cyanrip 0.9.3 log
+            # (proved against the committed real logs), so every `if` below is dead
+            # code today and every field stays None. That is the
+            # forward-compatibility contract, not an oversight.
+
+            # The SAMPLE peak, inline form ("Sample peak:  -0.5 dBFS").
+            match = _SAMPLE_PEAK.match(line)
+            if match:
+                current.peak_level = _sample_peak_fraction(
+                    match.group("value"), match.group("unit")
+                )
+                continue
+
+            # The SAMPLE peak, header form: a "Peak:" value line, but ONLY when a
+            # "Sample peak:" header armed it. Without that guard this would capture
+            # cyanrip's existing TRUE peak — a different quantity that exceeds full
+            # scale on all fourteen reference tracks — and print it as EAC's
+            # percentage-of-full-scale `Peak level`.
+            match = _LOUDNESS_PEAK.match(line)
+            if match and pending_peak_kind == "sample":
+                current.peak_level = _sample_peak_fraction(match.group("v"), "dBFS")
+                pending_peak_kind = ""
+                continue
+
+            # The per-track read speed, as a multiple of 1x — EAC's own unit.
+            match = _TRACK_SPEED.match(line)
+            if match:
+                current.extraction_speed = _float_or_none(match.group("value"))
+                continue
+
+            # The per-track elapsed wall-clock, in either shape cyanrip writes
+            # durations. Recorded as seconds; deliberately NOT converted into a
+            # speed multiple (see eac_log_export._track_block for why deriving one
+            # would be a guess about what the interval includes).
+            match = _TRACK_ELAPSED_CLOCK.match(line)
+            if match:
+                hours = int_or_none(match.group("h") or "0", field="cyanrip elapsed h")
+                minutes = int_or_none(match.group("m"), field="cyanrip elapsed m")
+                seconds = _float_or_none(match.group("s"))
+                if hours is not None and minutes is not None and seconds is not None:
+                    current.extraction_elapsed_seconds = (
+                        hours * 3600 + minutes * 60 + seconds
+                    )
+                continue
+            match = _TRACK_ELAPSED_SECONDS.match(line)
+            if match:
+                current.extraction_elapsed_seconds = _float_or_none(match.group("s"))
+                continue
+
+            # The -Z convergence verdict as a durable per-track log line, in either
+            # the labelled form or the existing "Done; (…)" text routed through the
+            # log. INDENTED only — the column-0 stdout form is buffered for the NEXT
+            # track further up, and that path is untouched.
+            verdict_text: str | None = None
+            match = _TRACK_SECURE_VERDICT.match(line)
+            if match:
+                verdict_text = match.group("text")
+            else:
+                match = _TRACK_SECURE_DONE.match(line)
+                if match:
+                    verdict_text = match.group("text")
+            if verdict_text is not None:
+                verdict = _parse_secure_verdict(verdict_text)
+                # Only a recognised verdict is recorded. "not attempted" and an
+                # unfamiliar wording both mean "no verdict here", and neither may
+                # ERASE one already measured — including the GUI's own auto-fix
+                # verdict, which overrides this field afterwards
+                # (`ui/main_window_rip._merge_shipped_track`) and must stay the
+                # last word.
+                if verdict is not None:
+                    current.secure_rerip_converged = verdict
                 continue
 
             match = _PREEMPHASIS.match(line)
@@ -889,18 +1314,24 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.copy_crc = match.group("crc").upper()
                 rips = match.group("rips")
                 if rips is not None:
-                    current.rip_count = _int_or_none(rips)
+                    current.rip_count = int_or_none(rips, field="cyanrip rip count")
                 continue
 
             match = _ACCURIP_TRACK.match(line)
             if match:
                 result_text = match.group("result") or ""
                 conf_match = _ACCURIP_CONFIDENCE.search(result_text)
-                version = _int_or_none(match.group("version")) or 0
+                version = (
+                    int_or_none(match.group("version"), field="cyanrip Accurip version")
+                    or 0
+                )
                 ar = AccurateRipResult(
                     version=version,
                     result=result_text,
-                    confidence=_int_or_none(conf_match.group("value"))
+                    confidence=int_or_none(
+                        conf_match.group("value"),
+                        field="cyanrip Accurip confidence",
+                    )
                     if conf_match
                     else None,
                     local_crc=match.group("crc").upper(),
@@ -924,7 +1355,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.accuraterip_offset = AccurateRipResult(
                     version=450,
                     result=result_text,
-                    confidence=_int_or_none(conf_match.group("value"))
+                    confidence=int_or_none(
+                        conf_match.group("value"),
+                        field="cyanrip Accurip 450 confidence",
+                    )
                     if conf_match
                     else None,
                     local_crc=match.group("crc").upper(),

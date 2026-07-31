@@ -207,4 +207,4 @@ only EAC and XLD — a policy limit, not a technical one.
 [eacguide.github.io](https://eacguide.github.io/) ·
 [arg274/cambia](https://github.com/arg274/cambia)
 
-*Last updated for Platterpus v0.5.19.*
+*Last updated for Platterpus v0.5.20.*

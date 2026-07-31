@@ -1873,3 +1873,71 @@ def test_incremental_report_snapshot_skipped_before_any_log(
     # No side_effect → no .log is ever written; must not raise, no report appears.
     worker.start_rip()
     assert not list(tmp_path.rglob("*.platterpus.json"))
+
+
+# --- the rip-aborting never-raises hole (audit, 2026-07-31) ------------------
+
+
+def test_a_corrupt_progress_line_never_raises_and_never_ends_the_rip(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The worst instance of the 4300-digit `int()` hole, because of WHERE it was.
+
+    v0.5.19 closed this class in eight parsers, where a raise degrades a field to
+    "unknown". It missed `_progress_for`, where the consequence is different in
+    kind: it is called from the stdout read loop, inside a `try` whose handler
+    terminates the child and emits an error. **One corrupt line ended the rip.**
+
+    It was invisible to the new structural sweep for one reason — that sweep's
+    module roster is hand-maintained and nobody had added this file.
+
+    Every shape below made the real `_progress_for` raise before the fix:
+    `ValueError` from `int()` on the track/total/percent groups, and — the quieter
+    one — `float()` returning `inf` rather than raising, which then blew up as
+    `OverflowError` inside `int()` on the GUI thread.
+
+    Built with the real constructor, not `__new__`: `_progress_for` reads
+    attributes (`_track_ms_total` among them) that only `__init__` sets, so a
+    hand-populated stand-in would have been a *different* object testing a
+    *different* method — and it duly failed on an attribute the bug never touched
+    (`docs/testing.md` §5.t — "what does my stand-in do that the real thing does
+    not?").
+    """
+    worker = RipWorker(_FakeBackend(handle=_FakeHandle([], 0)), _params(tmp_path))
+
+    huge = "9" * 5000
+    lines = [
+        f"Ripping and encoding track {huge}, progress - 42.37%",
+        f"Ripping and encoding track 3, progress - {huge}%",
+        f"Disc tracks:    {huge}",
+        f"Track {huge} ripped and encoded successfully!",
+        f"Reading track {huge} of 14 ... 50 %",
+        f"Reading track 1 of {huge} ... 50 %",
+        f"Reading TOC {huge} %",
+        f"Getting length of audio track ({huge} of 14)",
+    ]
+    for line in lines:
+        # The contract is "never raises". Any return value is acceptable.
+        result = worker._progress_for(line)
+        assert result is None or isinstance(result, tuple), line
+
+
+def test_a_progress_bar_never_receives_a_value_it_cannot_display() -> None:
+    """The second half, on the GUI thread.
+
+    `float()` does not raise on a long digit run — it returns `inf`. That reached
+    `set_progress`, where `int(inf)` raises `OverflowError` inside a queued slot,
+    producing a crash dialog over a progress bar. `nan` did the same with
+    `ValueError`.
+    """
+    from platterpus.ui.rip_progress import _bar_value
+
+    assert _bar_value(float("inf")) == 0
+    assert _bar_value(float("-inf")) == 0
+    assert _bar_value(float("nan")) == 0
+    # And it still does its ordinary job, so the guard is not a mute button.
+    assert _bar_value(0.0) == 0
+    assert _bar_value(42.7) == 42
+    assert _bar_value(100.0) == 100
+    assert _bar_value(-5.0) == 0, "clamped, not negative"
+    assert _bar_value(150.0) == 100, "clamped, not out of range"

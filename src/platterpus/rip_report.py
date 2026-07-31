@@ -113,7 +113,21 @@ def _atomic_write_text(target: Path, text: str) -> None:
 # consumer can trip over — every reader iterates `issues` — whereas a new
 # top-level or `verification` key changes a key set that consumers and tests pin
 # exactly. Bump the version for a shape change, not for a new value in one.
-REPORT_SCHEMA_VERSION: int = 9
+# v10 (0.5.20): five per-track facts the parser already read and this file
+# dropped, so the JSON stops being less complete than the human-readable log it
+# sits beside:
+#   * `appended_silence_frames` — frames of *fabricated silence* the ripper
+#     appended because it could not read that far. The important one: deployed
+#     cyanrip 0.9.3 prints it (last track, overread off) and both committed
+#     reference rips contain it, so this was a live omission, not fork
+#     preparation. It reached the EAC-layout log and never the machine record.
+#   * `start_sector` / `end_sector` / `pregap_sectors` — absolute disc geometry.
+#     EAC's "TOC of the extracted CD" is derived from these exactly; without
+#     them the JSON could not rebuild a table the `.log` already shows.
+#   * `extraction_elapsed_seconds` — fork-only, None on 0.9.3. Serialized now so
+#     the fork's output lands in the report the day the fork ships, rather than
+#     being parsed into a field nothing writes down.
+REPORT_SCHEMA_VERSION: int = 10
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -635,6 +649,32 @@ def _track(track: object) -> dict:
         "extraction_quality": getattr(track, "extraction_quality", None),
         "pre_emphasis": getattr(track, "pre_emphasis", None),
         "peak_level": getattr(track, "peak_level", None),
+        # v10. Five facts the parser has been reading and the machine record
+        # dropped — the JSON is meant to be the one file that explains a rip, so
+        # a field that reaches the human-readable EAC log and not this file is a
+        # hole in that promise.
+        #
+        # How long extraction took (seconds). Fork-only — deployed cyanrip 0.9.3
+        # does not print it, so it stays None there. Deliberately NOT converted
+        # into `extraction_speed`: what the fork's interval covers is unknown,
+        # and a derived multiple would be a guess wearing EAC's label.
+        "extraction_elapsed_seconds": getattr(
+            track, "extraction_elapsed_seconds", None
+        ),
+        # Frames of SILENCE the ripper appended because it could not read the
+        # disc that far. This one is NOT fork-only — 0.9.3 prints it, on the last
+        # track, whenever overread is off, and both committed reference rips
+        # contain it. It says the track's final frames are fabricated rather than
+        # disc audio, which is the most archival-relevant per-track fact we hold,
+        # and it reached the EAC-layout log but never the JSON.
+        "appended_silence_frames": getattr(track, "appended_silence_frames", None),
+        # Absolute disc geometry (sectors). EAC's "TOC of the extracted CD" is
+        # derived from these exactly, so without them the JSON could not
+        # reconstruct a table the .log already shows. `pregap_sectors` is 0 vs
+        # None in the usual sense: measured-none vs not-reported.
+        "start_sector": getattr(track, "start_sector", None),
+        "end_sector": getattr(track, "end_sector", None),
+        "pregap_sectors": getattr(track, "pregap_sectors", None),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),

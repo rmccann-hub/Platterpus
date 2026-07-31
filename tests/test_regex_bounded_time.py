@@ -55,6 +55,17 @@ _MAX_GROWTH = 8.0
 # above the ~1 us floor of a `re.search` on a short string.
 _NOISE_FLOOR_S = 200e-6
 
+# How many times a single search may be repeated to lift its total above the
+# noise floor. Repetition is what makes this sweep actually examine anything: a
+# single `.search` on a fast pattern costs ~1 us, which is *under* the floor, so
+# the first version of this test skipped it — and skipped 88 of the 90 patterns
+# for the same reason while still reporting itself as a full sweep. Timing a
+# batch instead gives every pattern a real per-search figure. The cap bounds the
+# cost for the fastest patterns; a slow pattern clears the floor on the first
+# repeat and never escalates, so the expensive case is cheap and vice versa.
+_MAX_REPEATS = 4096
+_REPEAT_STEP = 8
+
 # Filler characters, chosen to exercise the shapes that actually backtrack:
 # digit runs (unbounded `\d+`), whitespace runs (`\s*` chains), word runs
 # (lazy `.+?`), and a couple of structural characters that appear in the log and
@@ -97,30 +108,32 @@ def _compiled_patterns() -> list[tuple[str, str]]:
     return found
 
 
-def _worst_growth(pattern: str) -> tuple[float, str, float]:
-    """Return the worst (growth_ratio, fill, large_seconds) over the fills.
+def _seconds_per_search(compiled: re.Pattern[str], text: str) -> float:
+    """Cost of one ``.search``, averaged over enough repeats to beat clock noise.
 
     Timed with ``.search`` because that is how these patterns are used on
     subprocess output and file rows — ``.match`` would anchor away the backtracking
     that ``.search`` has to do at every start position.
     """
+    repeats = 1
+    while True:
+        start = time.perf_counter()
+        for _ in range(repeats):
+            compiled.search(text)
+        elapsed = time.perf_counter() - start
+        if elapsed >= _NOISE_FLOOR_S or repeats >= _MAX_REPEATS:
+            return elapsed / repeats
+        repeats *= _REPEAT_STEP
+
+
+def _worst_growth(pattern: str) -> tuple[float, str, float]:
+    """Return the worst (growth_ratio, fill, large_seconds) over the fills."""
     compiled = re.compile(pattern)
     worst = (0.0, "", 0.0)
     for fill in _FILLS:
-        small_text = fill * _SMALL
-        large_text = fill * _LARGE
-
-        start = time.perf_counter()
-        compiled.search(small_text)
-        small = time.perf_counter() - start
-
-        start = time.perf_counter()
-        compiled.search(large_text)
-        large = time.perf_counter() - start
-
-        if large < _NOISE_FLOOR_S:
-            continue  # too fast to say anything about
-        ratio = large / max(small, 1e-9)
+        small = _seconds_per_search(compiled, fill * _SMALL)
+        large = _seconds_per_search(compiled, fill * _LARGE)
+        ratio = large / max(small, 1e-12)
         if ratio > worst[0]:
             worst = (ratio, fill, large)
     return worst
@@ -143,10 +156,25 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
     )
 
     suspects: list[tuple[str, str, float, str]] = []
+    measured = 0
     for location, pattern in patterns:
         ratio, fill, _ = _worst_growth(pattern)
+        if ratio > 0.0:
+            measured += 1
         if ratio > _MAX_GROWTH:
             suspects.append((location, pattern, ratio, fill))
+
+    # The floor that matters. Counting *collected* patterns above only proves the
+    # `ast` walk still works; it says nothing about whether any of them were
+    # timed, and the first version of this sweep collected 90 and timed 2 — every
+    # other pattern fell under the noise floor and was silently skipped, so the
+    # check reported a clean sweep after examining 2% of it. Repetition (see
+    # `_seconds_per_search`) is what closed that, and this is the assertion that
+    # keeps it closed: a skip is now a failure, not a shrug.
+    assert measured == len(patterns), (
+        f"timed only {measured} of {len(patterns)} patterns — the rest produced no "
+        "usable measurement, so this sweep is passing by not looking"
+    )
 
     # Re-measure the suspects. Only a pattern that is slow twice is a finding.
     confirmed: list[str] = []
@@ -168,6 +196,40 @@ def test_every_compiled_regex_in_src_is_roughly_linear() -> None:
         "Fix by bounding a quantifier (`\\d{1,4}` rather than `\\d+`) or by "
         "replacing the pattern with string operations — `rpartition` did it for "
         "the CSV row that prompted this test."
+    )
+
+
+def test_the_sweep_can_still_tell_a_quadratic_pattern_from_a_linear_one() -> None:
+    """Prove the detector detects — on both sides.
+
+    The sweep above reports "no super-linear patterns", and that sentence reads
+    the same whether the codebase is clean or the measurement broke. Everything it
+    depends on is fragile in the quiet direction: a clock that returns the same
+    value twice, a repeat loop the optimiser hoists, a growth threshold set too
+    high. So this test hands ``_worst_growth`` two patterns whose answers are known
+    and requires it to separate them.
+
+    The quadratic one is the pattern that prompted this whole file —
+    ``adapters/accuraterip_offsets._CSV_LINE`` as it was before the fix, whose
+    ``.+?`` followed by ``\\s*,`` backtracks over every start position. The linear
+    one is a bounded literal search, which must **not** trip the threshold: a
+    detector that flags everything is as useless as one that flags nothing, and
+    only the pair rules out both.
+    """
+    quadratic = r"^\s*(?P<name>.+?)\s*,\s*(?P<offset>-?\d+)\s*$"
+    quad_ratio, _, quad_large_s = _worst_growth(quadratic)
+    assert quad_ratio > _MAX_GROWTH, (
+        f"the known-quadratic CSV row measured only {quad_ratio:.1f}x growth "
+        f"({quad_large_s * 1000:.3f} ms at {_LARGE} chars) — under the "
+        f"{_MAX_GROWTH}x threshold, so the sweep above would have passed it. The "
+        "timing machinery is broken, and every 'clean' result it gives is worthless."
+    )
+
+    linear = r"Ripping track (?P<track>\d{1,3}) of (?P<total>\d{1,3})"
+    lin_ratio, lin_fill, _ = _worst_growth(linear)
+    assert lin_ratio <= _MAX_GROWTH, (
+        f"a bounded linear pattern measured {lin_ratio:.1f}x growth on "
+        f"{lin_fill!r} — the threshold is too tight and the sweep will cry wolf"
     )
 
 

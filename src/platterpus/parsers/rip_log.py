@@ -191,6 +191,26 @@ class TrackResult:
     # Sectors of pre-gap before this track, for EAC's "Pre-gap length" line.
     # cyanrip prints "Pregap LSN: none" when there is none.
     pregap_sectors: int | None = None
+    # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
+    # parsers/cyanrip_log.py, and docs/cyanrip-improvements-wanted.md §2.1/§2.3).
+    # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and
+    # every surface must behave exactly as it does today — that is the whole
+    # contract: ONE Platterpus build reads both the deployed ripper and the fork.
+    #
+    # How long the ripper spent extracting this track, in seconds. NOT the same
+    # thing as `extraction_speed` (a multiple of 1x read speed): a wall-clock
+    # elapsed is what cyanrip is most likely to print, and the speed multiple is
+    # what EAC's row wants. We deliberately do NOT derive one from the other —
+    # see `_track_block` in eac_log_export for why that would be a guess.
+    extraction_elapsed_seconds: float | None = None
+    # Frames of SILENCE the ripper appended to this track because it could not
+    # read the disc that far ("Appended:    2 frames of silence"). cyanrip 0.9.3
+    # DOES print this — on the last track, when overread is off — and we simply
+    # discarded it until 2026-07-31. It is an archival-fidelity statement of the
+    # first order: those final frames are fabricated, not disc audio. 0 and None
+    # are different answers ("measured: none" vs "not reported"), as everywhere
+    # else in this dataclass.
+    appended_silence_frames: int | None = None
 
 
 @dataclass(frozen=True)

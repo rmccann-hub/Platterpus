@@ -1,17 +1,31 @@
-# Hardware test checklist — v0.5.18
+# Hardware test checklist — v0.5.20
 
 > **Everything that still needs testing, in one place.** Anything that has already passed
 > is gone from this sheet — the record of what passed and when lives in
 > `docs/session-log.md`. Test IDs are stable across releases, so the gaps are deliberate.
+> **Six sections retired since the last sheet** (A10, A19, B2, D1, D2 and D1's original
+> probe): all answered by your 2026-07-30 run.
 >
 > Rig details, tool versions and expected values are pre-filled from your last six runs.
 > You tick boxes and note anything that **differs** from what's printed.
 >
-> **Three releases have landed since your last run (v0.5.14):** v0.5.16 (results-pane
-> tabs), v0.5.17 (the QThread crash + four cancels that didn't work), and v0.5.18
-> (silent failures, and tags being written to the wrong files). **Sections A and D are
-> new and are where the value is** — they cover fixes that *cannot* be proven off
-> hardware, plus one question whose answer unblocks the worst bug still open.
+> **Two releases since your last run:** v0.5.19 (nine audit findings — leftover files being
+> edited, a silent tagging failure, a path-escape, and eight parsers that could raise) and
+> v0.5.20 (a rip-aborting bug *introduced by* v0.5.19's own blind spot, plus a false
+> "Bit-perfect" the trust banner could show).
+>
+> **Where the value is this round.** §A20–A24 are new and cover things the suite genuinely
+> cannot prove: whether a *contaminated album folder* is handled correctly (A20 — the
+> highest-value test on this sheet, and the one that needs the most setup), and whether the
+> honest-verdict work reads honestly on real output (A22, A23). **A11 is a re-run** — the
+> log now says what it didn't say last time. §D1b is still the one open question.
+>
+> **One thing you cannot test by hand, so it's stated rather than listed.** v0.5.20 fixed a
+> bug where a single malformed line of cyanrip output would have *aborted a rip in
+> progress*. Provoking it needs a corrupt ripper, so there is no §A entry — the proof is
+> that eight conversion sites are now guarded and eight regexes bounded, revert-proven. If
+> a rip ever dies with `rip stream error:` in the status line, that is this bug's signature
+> and I want the log immediately.
 >
 > **Never send audio** — logs, `.cue`, `.platterpus.json` and CRCs only.
 
@@ -63,90 +77,42 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
 
 * The results block is now three tabs (**Tracks** / **Details** / **Live log**) with a
   fixed strip on top. See B5c.
-* The EAC-compatible log's gap row now reads **`Gap handling : Appended to previous
-  track`** instead of echoing cyanrip's own phrasing. The *behaviour* never changed — the
-  log just now says it in EAC's vocabulary. See A19.
-* A disc that can't be read now reports **the actual error**, not "not in MusicBrainz". See
-  A17 — this one is worth reading before you start.
+* The EAC-compatible log's gap row reads **`Gap handling : Appended to previous track`** —
+  EAC's own vocabulary rather than an echo of cyanrip's phrasing. The *behaviour* never
+  changed. (Your last run failed this and you were right to send it; fixed in v0.5.19.)
+* A disc that can't be read reports **the actual error**, not "not in MusicBrainz". See
+  A17 — worth reading before you start.
+* **An AccurateRip cell can now say `in DB, no match`** where it used to say something
+  closer to "not found". Those are different facts and the cell now distinguishes them. See
+  A22 — and note this may well be what track 3 shows.
+* **A "Done." can now be amber.** If a post-rip step fails (tagging, a FLAC decode check),
+  the trust banner is downgraded and says which. Previously it could stay green. See A23.
+* The `.platterpus.json` report is **schema v10** and carries five more per-track fields.
+  See A24 — this one is a two-minute file check, not a rip.
 
 ---
 
-## 0 — [ ] Update to v0.5.18
+## 0 — [ ] Update to v0.5.20
 
-*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.5.18**.
+*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.5.20**.
 Nothing else to set up — your settings are already right (see above).
 
 **Result:** ☐ PASS ☐ FAIL — version shown: ____________
 
 ---
 
-## A — ⭐ New in v0.5.17 / v0.5.18 — only your rig can prove these
+## A — ⭐ New in v0.5.19 / v0.5.20 — only your rig can prove these
 
-*Twelve findings were fixed across these two releases, most of them found by audits rather
-than by anything going visibly wrong. The suite proves the mechanisms fire; it cannot prove
-the drive stops or that the right bytes got the right tags. **A10 and A11 are the two that
-matter most.***
+*Eleven findings were fixed across these two releases, all found by audits rather than by
+anything going visibly wrong — which is exactly why they need a rig: the suite proves each
+mechanism fires, and cannot prove the drive stops, that the right bytes got the right tags,
+or that a verdict reads honestly to a person.*
 
-### A10 — [x] ⭐⭐ Tags must land on the right files when you deselect tracks — **PASSED 2026-07-30**
+***A20 is the one to do if you do only one.*** It is the ugliest bug of the batch (this
+album's metadata, cover art and library transcodes being written into a *previous* rip's
+leftover files) and it is the only one that needs a deliberately messy folder to see.
 
-> **Answered from your run.** 16-track CD-R, tracks 1–2 unticked, 3–16 ripped. The `.cue`
-> pairs every typed title with its own track number — `TRACK 03` → `"three3"`, `TRACK 04`
-> → `"four4"`, `TRACK 05` → `"five5"` / `PERFORMER "if madrid - ft. nelly"` — and Picard
-> reads the same titles back out of the FLAC tags themselves. Under the old bug `TRACK 03`
-> would have carried track 1's row ("Track 01"), and it doesn't. **The off-by-one is gone.**
->
-> Your `metaflac` loop printed an error rather than tags because the `cd` failed first:
-> the path has a space in it, so it needs quoting. **One self-contained command, no `cd`:**
->
-> ```sh
-> find ~/Music/rips -name '*.flac' -newermt '-1 day' -print0 | sort -z | while IFS= read -r -d '' f; do
->   printf '%s -> ' "$(basename "$f")"
->   metaflac --show-tag=TRACKNUMBER --show-tag=TITLE "$f" | tr '\n' ' '
->   echo
-> done
-> ```
->
-> Worth running once to confirm `TRACKNUMBER` too — the `.cue` proves the *title* pairing
-> and Picard proves the tags exist, but only `metaflac` shows the number stored in the
-> file. Not urgent; the failure mode is already ruled out by the cue.
-
-**Original test, kept for the record:**
-
-**This is the most serious bug fixed in v0.5.18, and it was silent.** For unknown discs
-(no MusicBrainz match) the tagger keyed each track on the file's *position in the folder*
-rather than on its track number. Those are the same thing only when every track is ripped
-— and the **Rip?** column exists so they aren't. Untick track 1 and the file `02 - …` was
-written track 1's title and `TRACKNUMBER=01`, `03 - …` got track 2's, and so on down the
-disc. **Every tag on the archival master off by one**, with the window reporting success
-and nothing in the log.
-
-You need a disc MusicBrainz does *not* know for this — a CD-R, a promo, an obscure
-pressing. If you don't have one, say so and I'll suggest another way to force unknown mode.
-
-1. Insert the unknown disc. When it offers **Rip as unknown album**, accept.
-2. In the track table, **untick tracks 1 and 2**. Type distinctive titles into the rows
-   you *are* ripping — e.g. track 3 → `THREE`, track 4 → `FOUR`.
-3. Rip. Then in the album folder:
-
-```sh
-for f in *.flac; do
-  printf '%s -> ' "$f"
-  metaflac --show-tag=TRACKNUMBER --show-tag=TITLE "$f" | tr '\n' ' '
-  echo
-done
-```
-
-- Expected: `03 - ….flac` has **`TRACKNUMBER=03`** and **`TITLE=THREE`**. `04 - ….flac`
-  has `TRACKNUMBER=04` / `TITLE=FOUR`.
-- **The bug looked like:** `03 - ….flac` carrying `TRACKNUMBER=01` and the title you typed
-  for track 1's row.
-- Also expected: no file is left untagged, and `log.txt` has no "does not start with a
-  track number" warnings.
-
-**Result:** ☐ PASS ☐ FAIL — first file's number/title: ____________ · any off-by-one:
-☐ y ☐ n
-
-### A11 — [~] ⭐⭐ Cancel, then quit within five seconds — **PARTIAL PASS 2026-07-30**
+### A11 — [~] ⭐⭐ RE-RUN on v0.5.20: cancel, then quit within five seconds — **PARTIAL PASS 2026-07-30**
 
 > **The critical criterion passed.** The drive stopped and the tray opened — no held device,
 > no crash, and the log shows the rescue path working end to end:
@@ -354,87 +320,193 @@ read offset *is* simply weren't drawn.
 **Result:** ☐ PASS ☐ FAIL — any clipped text: ☐ y ☐ n · smallest size reached:
 ________×________
 
-### A19 — [x] The EAC log's gap row — **your run FAILED it, and you were right to send it**
+### A20 — [ ] ⭐⭐⭐ A contaminated album folder — the worst bug of the batch
 
-**Both expectations I wrote here were wrong.** Your log settled both, and one of them was
-a real bug.
+**Do this one first if you do only one.** It is the highest-value test on this sheet and the
+only one that needs a deliberately messy folder to see.
 
-**The gap row.** I told you to expect `Appended to previous track`. Your log said
-`Gap handling : None signalled` — cyanrip's own phrasing, not EAC's. The v0.5.18 change
-only took effect when cyanrip printed *nothing*, and cyanrip always prints the block, so
-the fix was unreachable on real output. Its test couldn't see that because the fixture
-handed the renderer EAC's phrase as *input* — a string cyanrip never emits. Fixed
-properly on the branch; the row now reads EAC's own wording for the not-detected case:
+**What was wrong.** Six post-rip steps walked the album folder with a plain "every `.flac`
+in here" scan instead of "the files *this* rip wrote": unknown-mode tagging, the
+colon-restore pass, the FLAC re-compress, the transcode to your chosen format, and **both**
+cover-art embed loops. So when a folder held files from an *earlier* rip, this disc's
+metadata was written into them, they were re-compressed, they were **transcoded into your
+library**, this album's cover was embedded in them, and the count reported back to you
+("embedded in N tracks") was inflated by the leftovers.
 
-```
-Gap handling                                : Not detected, thus appended to previous track
-```
+**The sequence is completely ordinary, which is the point.** Cancel a rip → partial files
+remain → fix a track title → re-rip and choose *Replace*. The corrected title produces a
+*different filename*, so the new file lands **beside** the old one rather than over it.
 
-That is EAC's verbatim string (confirmed against a real EAC 1.1 log), and it will
-**deliberately differ** from your EAC baseline for the Police disc, which says
-`Appended to previous track`. That difference is true and worth seeing — see D3 below.
+1. Start a rip of the Police disc. Let **3 or 4 tracks** finish, then **Cancel**.
+2. Confirm the partial files are still there, and note **exactly** what is in the folder:
+   ```sh
+   ls -la ~/Music/*Police*/            # or wherever it landed
+   ```
+3. Now change a track title in the track table — pick track 2 and add a suffix, e.g.
+   `Every Breath You Take (test)`. This is what makes the new filename differ.
+4. Rip **again**, to the same folder, choosing **Replace** when asked.
+5. When it finishes, look at the folder and at what the app told you.
 
-**The C2 row.** I told you it would stay `(not reported by the ripper)`. It doesn't — your
-log says **`Make use of C2 pointers : No`**, because cyanrip's header prints `C2 errors:
-unsupported by drive` and we parse it. So the row I described as an open unknown is
-already filled, on first-party evidence from the tool doing the read. That is exactly the
-standard the test was defending, and the drive supplied it. Nothing to do.
-
-**Nothing to re-run** — this section is answered. When you next generate an EAC log on
-v0.5.19, a one-line confirmation is enough:
+- Expected: the leftover files from step 1 are **still there, untouched** — same mtimes,
+  same tags, no cover art added, and *not* transcoded into your library.
+- Expected: the cover-art message counts **only this rip's tracks** (14, not 17 or 18).
+- Expected: if you chose MP3/WavPack, your library gained **14** derived files, not more.
+- Expected: `~/.local/share/platterpus/log.txt` shows the steps using the rip's own file
+  list. If it had to fall back to scanning the folder it says so at **WARNING** — that
+  fallback is deliberate (an *older* rip's folder still gets art and tags), so a warning
+  here is information, not a failure.
 
 ```sh
-grep -n "Gap handling" *"(EAC-compatible).log"
+ls -la --time-style=full-iso ~/Music/*Police*/
+# "embedded in N track(s)" is the count to check; "falling back to a folder" is the
+# deliberate degradation, logged at WARNING. Both strings are the real wording.
+grep -iE "embedded in|falling back to a folder" ~/.local/share/platterpus/log.txt | tail -20
+# Did anything from step 1 get this album's tags?
+metaflac --show-tag=TITLE ~/Music/*Police*/*.flac
 ```
 
-**Result:** x FAIL as shipped (gap row) — fixed on branch · C2 row already correct
+**The bug looked like:** the old partial files gained this album's tags and cover, appeared
+in your library as MP3s, and the app said "embedded in 17 track(s)".
 
----
+**Result:** ☐ PASS ☐ FAIL — leftovers untouched: ☐ y ☐ n · cover count reported:
+________ · extra files in library: ☐ y ☐ n · fallback WARNING seen: ☐ y ☐ n
+
+### A21 — [ ] A tagging failure must not be reported as "Done."
+
+Every FLAC could ship **completely untagged** under a window saying "Done." — the tagging
+pass logged each per-file failure and returned the list of files that succeeded, and the
+caller **threw that return value away**. Nothing else in the program ever learned: no
+signal, no status line, no report field. The scenario is ordinary — the disk fills during
+the tagging pass, or `metaflac` goes missing mid-album.
+
+Easiest way to provoke it is to take `metaflac` away *after* the rip's read finishes:
+
+1. Start a rip. Wait until the status line moves past the reading phase into
+   encoding/tagging.
+2. Immediately make `metaflac` unavailable:
+   ```sh
+   sudo mv "$(command -v metaflac)" /tmp/metaflac.hidden     # host copy
+   # or, if yours is the container export:
+   mv ~/.local/bin/metaflac /tmp/metaflac.hidden
+   ```
+3. Let the rip finish. **Put it back afterwards** (`mv /tmp/metaflac.hidden …`).
+
+- Expected: the status line says tags could **not** be written, and how many files.
+- Expected: the trust banner turns **amber** and mentions the tagging failure — not a green
+  "✓ Bit-perfect" (that is A23's fix doing its job here).
+- Expected: `.platterpus.json` → `issues` contains a `tagging_failed` entry.
+- Expected: the app does **not** crash, and the FLAC files themselves are intact.
+
+*If the timing is too fiddly, skip it — the mechanism has a regression test. What only your
+rig can show is whether the message is legible and lands where you'd look.*
+
+**Result:** ☐ SKIPPED ☐ PASS ☐ FAIL — status line said: ____________ · banner amber:
+☐ y ☐ n · `tagging_failed` in JSON: ☐ y ☐ n
+
+### A22 — [ ] ⭐ "In the database, but nothing matched" must read as its own answer
+
+Your own words last round: *"Grey — 'no tracks matched the database' … we need to be able to
+confidently be the gold standard first-burn proof as well."* This is the cell that was
+conflating two genuinely different facts:
+
+* **not in the database** — nobody has submitted this disc. Says nothing about your rip.
+* **in the database, and your CRC does not match any submission** — that is a real
+  disagreement and deserves to look different.
+
+**Track 3 is the likely one to show it**, given its history (`52DFDF7D` / `3D8FCF0C` /
+`59D352DD` / `1AC787A1` across six runs). Track 5 should keep reading as the
+offset-variant match it is, which is a *third* distinct state.
+
+1. Rip the Police disc normally, all 14 tracks.
+2. Read the **Tracks** tab's AccurateRip columns carefully, and hover each interesting cell.
+
+**The five readings a cell can legitimately show**, so you can tell a wrong one from an
+unfamiliar one:
+
+| Cell text | Means |
+|---|---|
+| `OK (N)` | matched the database at confidence N |
+| `offset-variant match (N)` | matched the +450 shifted pressing — audio is right |
+| `in DB, no match` | the disc **is** in the database and your CRC matched nothing |
+| `not in DB` | nobody submitted this disc. Says nothing about your rip |
+| `—` | no data for this track |
+
+- Expected: whichever appear are distinguishable at a glance, and **`in DB, no match` and
+  `not in DB` never read as the same thing** — that conflation is what was fixed.
+- Expected: the **tooltip** on each cell explains it, and says the same thing as the cell
+  text. Both are generated from one shared classifier (`_ar_state`), so a disagreement
+  between a cell and its tooltip is a bug — worth reporting even if both are plausible.
+- A sixth possibility exists and would be interesting: an **unrecognised** result is shown
+  **verbatim** rather than guessed at. If you see raw cyanrip wording in a cell, send it —
+  it means a state we don't classify yet.
+- Expected: track 5 does **not** read as alarming — it is a shifted pressing, not a bad rip.
+- Expected: whatever the cells say, the headline verdict is consistent with them.
+
+**This is a judgement call as much as a test.** If a cell is *technically* right but reads
+as scarier or vaguer than the truth warrants, say so — that is the finding.
+
+**Result:** ☐ PASS ☐ FAIL — track 3 cell read: ____________ · track 5 cell read:
+____________ · tooltip agreed with cell: ☐ y ☐ n · anything misleading: ____________
+
+### A23 — [ ] A green "Bit-perfect" must never sit above a failed check
+
+The trust banner is one sentence built from two things: the AccurateRip verdict, and any
+post-rip step that failed afterwards. It was assembled in **two** places, so whichever ran
+last won — and a fresh verdict could restore a green "✓ Bit-perfect" over a FLAC master that
+had already failed its decode check. (Reachable only in a re-rip ordering today, but the
+comment in the code claimed it was handled and it was not.)
+
+The simplest provocation is A21's (a tagging failure). If you'd rather not fiddle with
+`metaflac`, this is also observable on any rip where **track 3 misbehaves**:
+
+1. Rip normally. If track 3 comes back unstable, watch the banner through the whole
+   post-rip sequence (verify → transcode → library move), not just at the moment it appears.
+
+- Expected: the banner **never goes back to green** once it has reported a problem.
+- Expected: when it is amber it says *why*, and all reasons are listed, not just the latest.
+- Expected: the banner and the status line never contradict each other.
+
+**Result:** ☐ PASS ☐ FAIL — banner ever reverted to green: ☐ y ☐ n · reasons listed:
+____________
+
+### A24 — [ ] Two-minute file check: the report's new fields (no rip needed)
+
+Schema **v10** adds five per-track fields that were being parsed and thrown away. One of
+them is archivally significant and **is already true of your existing rips**:
+`appended_silence_frames` names the track whose *final frames are fabricated silence rather
+than disc audio* — the per-track consequence of overread being off. It is on **track 14** of
+both committed reference rips, and should be on track 14 of yours.
+
+Run this against **any** `.platterpus.json` from a v0.5.20 rip:
+
+```sh
+python3 - "$HOME"/Music/*Police*/*.platterpus.json <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+print("schema:", d["schema_version"])
+for t in d["tracks"]:
+    print(t["number"],
+          "silence:", t["appended_silence_frames"],
+          "start:", t["start_sector"], "end:", t["end_sector"],
+          "pregap:", t["pregap_sectors"],
+          "elapsed:", t["extraction_elapsed_seconds"])
+PY
+```
+
+- Expected: `schema: 10`.
+- Expected: **track 14** has a small non-null `silence:` (2 on the reference rips); every
+  other track is `None`.
+- Expected: `start`/`end` are real ascending sector numbers; `pregap` is `0` on this disc.
+- Expected: `elapsed:` is `None` on **every** track — that field is fork-only and deployed
+  cyanrip 0.9.3 does not print it. `None` here is the correct answer, not a gap.
+
+*If `silence:` is null on all 14 tracks, tell me — it would mean this disc's last track
+genuinely read to the end, which is interesting, or that the line moved.*
+
+**Result:** ☐ PASS ☐ FAIL — schema: ______ · track 14 silence: ______ · elapsed all null:
+☐ y ☐ n
 
 ## B — Still unproven from earlier releases
-
-### B2 — [x] ⭐ An interrupted rip must admit it — **PASSED 2026-07-30**
-
-> **Broken for four releases, working now.** Your cancelled Police rip's EAC log carries it,
-> at the top, inside the checksum:
->
-> ```
-> *** INCOMPLETE RIP (cancelled) — this log covers 2 of 14 disc tracks. The remaining
-> 12 track(s) were never extracted and are absent below. ***
-> ```
->
-> Correct count, correct reason, correct wording. The `.platterpus.json` agrees —
-> `outcome.status: "cancelled"`. Nothing to re-run.
->
-> One thing still worth a single command next time you have a cancelled rip, because it's the
-> half your run didn't cover — that the banner is *inside* the signed region and so can't be
-> quietly deleted:
->
-> ```sh
-> head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the log's last line
-> ```
-
-**Original test, kept for the record:**
-
-On this sheet since v0.5.9 and it has **never worked**: the banner's renderer was correct,
-but the code handing it the rip's outcome read a dictionary the wrong way and always passed
-an empty status. Four releases shipped it broken.
-
-1. Start a rip, let two or three tracks finish, then **Cancel**.
-2. In that album's folder:
-
-```sh
-head -20 *"(EAC-compatible).log"
-head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the last line
-```
-
-- Expected near the top: `*** INCOMPLETE RIP (cancelled) — this log covers N of 14 disc
-  tracks. The remaining M track(s) were never extracted and are absent below. ***`
-- Expected near the bottom: `Conclusive status report : absent`
-- Expected: the checksum still verifies — the banner sits **inside** it, so it can't be
-  quietly deleted.
-
-**Result:** ☐ PASS ☐ FAIL — banner said: ____________ · checksum: ☐ y ☐ n
 
 ### B3 — [ ] Quitting during the securing pass is recorded in the log too
 
@@ -721,31 +793,6 @@ cache-defeat **Yes** measurement.
 **Not a pass/fail test — a fact I need.** This is the highest-value thing in the whole
 sheet.
 
-### D1 — [x] Does cyanrip print AccurateRip lines when ripping a SUBSET of tracks? — **YES, answered 2026-07-30**
-
-> **You answered this without running the probe.** Your A10 rip *was* a subset rip
-> (`Tracks to rip: 3, 4, …, 16`), and its log carries the AccurateRip block for every
-> track:
->
-> ```
-> AccurateRip:    not found          ← disc-level lookup ran
->   Accurip:      not found          ← and per track, under -l
->     Accurip v1:  9321BBF1
->     Accurip v2:  42F2D73C
->     Accurip 450: 69535AA2
-> ```
->
-> So the machinery is not disabled by `-l`: cyanrip performs the lookup and prints the
-> per-track result and all three local CRCs. **Task #55 takes the straightforward path** —
-> the re-rip's own AccurateRip lines exist and can replace the first pass's, instead of the
-> bigger "drop the verdict and mark the track unverified" UX change. No sign-off needed.
->
-> **One narrow thing left, and it's small.** Your disc isn't in AccurateRip, so what we saw
-> printed was `not found`. What that can't show is a *positive match with a confidence*
-> under `-l`. It's the same code path and I'd be surprised if it differed, but "I'd be
-> surprised" is not evidence, so before I ship the #55 fix: **one subset rip of the Police
-> disc** (which IS in the database) — see **D1b**.
-
 ### D1b — [ ] ⭐ The small follow-up: a subset rip of a disc that IS in AccurateRip
 
 Two minutes of clicking, no shell needed. Police disc in, **untick tracks 1 and 2**,
@@ -762,51 +809,6 @@ grep -A3 -i "accurip" *"Every Breath"*/*.log | head -40
   the bigger fix after all. Tell me either way.
 
 **Result:** ☐ confidence reported ☐ all "not found" — paste one track's block: ____________
-
-### D1 — original probe (no longer needed, kept for the record)
-
-**Why it matters.** When the auto-fix re-rips a single bad track, it swaps the new read's
-CRC into the report — but keeps the **first pass's** AccurateRip result if the re-rip's log
-didn't print one. If that happens, a track can be reported **"AccurateRip verified"** while
-the bytes actually shipped were never checked against AccurateRip at all. The banner, the
-JSON report, the track table and the EAC log would all assert a verification that never
-happened.
-
-That is precisely the class of bug the project has a standing rule against, and I will not
-guess at the fix: the correct behaviour depends entirely on whether cyanrip emits those
-lines under `-l`, and guessing wrong makes a correctness bug worse rather than better.
-
-Run this by hand — **no GUI involved**, one track only, into a scratch folder:
-
-```sh
-mkdir -p /tmp/ar-probe && cd /tmp/ar-probe
-~/.local/bin/cyanrip -d /dev/sr0 -l 3 -o flac -s 667 2>&1 | tee subset.txt
-grep -inE "accurip|accuraterip" subset.txt
-```
-
-Then the same for the whole disc, for comparison:
-
-```sh
-mkdir -p /tmp/ar-probe-full && cd /tmp/ar-probe-full
-~/.local/bin/cyanrip -d /dev/sr0 -o flac -s 667 2>&1 | tee full.txt
-grep -inE "accurip|accuraterip" full.txt
-```
-
-**What I need back:** the `grep` output from both, or "no matches" if that's the answer.
-Just those few lines — **not** the FLACs. Delete both scratch folders afterwards.
-
-- If the subset rip **does** print Accurip lines → the fix is straightforward and I'll
-  make the merge use them.
-- If it **doesn't** → the fix has to drop the stale verdict and mark the track
-  "not verified", which is a bigger UX change and needs your sign-off.
-
-**Result:** subset printed Accurip lines: ☐ y ☐ n — paste the lines: ____________
-
-### D2 — [x] Anything that would settle the C2-pointers row — **settled, nothing to run**
-
-Your rip log's header answers it: `C2 errors: unsupported by drive`. cyanrip states the
-drive's C2 capability itself, we parse it, and the EAC log now says `No`. First-party
-evidence from the tool doing the read — better than the survey I was refused for. Done.
 
 ### D3 — [ ] ⭐ Nothing to run — but the most interesting thing your run surfaced
 
@@ -862,15 +864,20 @@ binary everything else was tested against.
 
 ## Priority, if you only have an hour
 
-**Updated 2026-07-30 after your first batch.** A10, A19, D1 and D2 are answered — A10
-passed, A19 found a real bug, D1 and D2 came free with your log.
+**Updated 2026-07-31 for v0.5.20.** A10, A19, B2, D1 and D2 are answered and retired — A10
+and B2 passed, A19 found a real bug (fixed), D1 and D2 came free with your log.
 
-1. **A11** — cancel-then-quit, drive must stop (no recovery when it fails)
-2. **D1b** — one subset rip of the Police disc; the last thing gating the #55 fix
-3. **A17** — a failed disc read says why (and the one regression risk this release)
-4. **A13** — closing mid-rip doesn't crash
-5. **B5c** — the wheel behaviour I couldn't prove off-hardware
-6. **B2** — the incomplete-rip banner, broken for four releases
+1. **A20** — the contaminated album folder. The ugliest bug of the batch and the only one
+   that needs a messy folder to see. Worth the setup time even at the cost of the rest.
+2. **A24** — two minutes, no rip: the report's new fields against a file you already have.
+   Do this while a rip runs.
+3. **D1b** — one subset rip of the Police disc; still the last thing gating the #55 fix.
+4. **A11** — the re-run. The log now says `rip cancel requested` and `window close
+   requested` with timestamps, so this time the race is visible either way.
+5. **A22** — the AccurateRip cells. A judgement call, and your judgement is the instrument.
+6. **A17** — a failed disc read says why (and the one regression risk in that change).
+
+*If the hour runs out: A20 and A24 are the two that cannot be inferred from anything else.*
 
 ---
 
@@ -878,12 +885,16 @@ passed, A19 found a real bug, D1 and D2 came free with your log.
 
 1. `~/.local/share/platterpus/log.txt`
 2. One album's `.log`, `(EAC-compatible).log`, `.cue`, `.platterpus.json`
-3. The `--compare` output from C2
-4. The `grep` output from **D1** — the single most useful item
-5. This sheet, filled in
+3. **The `ls -la` and `metaflac --show-tag` output from A20** — the single most useful item
+   this round
+4. The `python3` block's output from A24
+5. The `grep` output from **D1b**
+6. The `--compare` output from C2
+7. This sheet, filled in
 
-Plus anything surprising, even on a test that passed.
+Plus anything surprising, even on a test that passed. And specifically: **any rip that dies
+with `rip stream error:`** — that is the v0.5.20 fix's signature and I want the log at once.
 
 ---
 
-*Last updated for Platterpus v0.5.19.*
+*Last updated for Platterpus v0.5.20.*
