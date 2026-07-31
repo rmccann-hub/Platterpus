@@ -1335,6 +1335,33 @@ class RipWorker(QObject):
             # (track number, filename, new CRC) for each track actually swapped —
             # used to append the log addendum so the album .log's CRCs stay honest.
             swapped: list[tuple[int, str, str]] = []
+            # A re-rip we asked for ONE track must come back describing exactly
+            # that track. This is defence against a verdict-attribution bug, not
+            # against cyanrip: the -Z verdict has already been mis-attributed once
+            # by a whole track (the fork indented its `Done;` line and every
+            # verdict shifted, 2026-07-31), and the consequence *here* is the worst
+            # one in the program — copying a read that never reproduced over audio
+            # that was fine, and recording the wrong verdict as the last word.
+            #
+            # So the swap requires positive attribution, and a surprise degrades to
+            # "don't swap" rather than to a coin flip. Hardware-gated code the
+            # suite cannot reach is exactly where a cheap guard earns its keep.
+            rerip_numbers = {
+                getattr(t, "number", None)
+                for t in getattr(rerip_log, "tracks", ()) or ()
+            }
+            unexpected = rerip_numbers - set(tracks)
+            if unexpected:
+                log.warning(
+                    "re-rip of track(s) %s returned a log describing track(s) %s — "
+                    "refusing to swap any file, because the verdict cannot be "
+                    "attributed with confidence",
+                    sorted(tracks),
+                    sorted(n for n in unexpected if n is not None),
+                )
+                # Bare return: the enclosing `try` has a `finally` that removes
+                # `tmp_root`, and every other early exit here leaves the same way.
+                return
             for track in getattr(rerip_log, "tracks", ()) or ():
                 number = getattr(track, "number", None)
                 if number not in tracks:
