@@ -564,10 +564,25 @@ def _output_format_block(cyanrip: bool, info: RippingInfo) -> list[str]:
 def _pregap_line(track: TrackResult) -> list[str]:
     """EAC's per-track "Pre-gap length" row, when the disc actually has one.
 
-    EAC prints ``     Pre-gap length  0:00:02.00`` (H:MM:SS.FF) and omits the row
-    entirely for a track with no pre-gap — so a measured zero renders nothing,
-    exactly as EAC does. ``None`` means the ripper never reported it, which also
-    renders nothing: this row's absence is EAC-normal and carries no claim.
+    EAC prints ``     Pre-gap length  0:00:02.00`` and omits the row entirely for a
+    track with no pre-gap — so a measured zero renders nothing, exactly as EAC does.
+    ``None`` means the ripper never reported it, which also renders nothing: this
+    row's absence is EAC-normal and carries no claim.
+
+    **The fractional field is HUNDREDTHS of a second, not CD frames.** That reads
+    like a detail and is not: this row is ``H:MM:SS.FF`` everywhere else in EAC's
+    log, and elsewhere ``FF`` genuinely *is* frames (see :func:`_msf`, used for the
+    TOC table, which is byte-identical to EAC's). Here it is not, and the committed
+    real EAC log proves it — one of its ten pre-gap values is ``0:00:01.96``, and 96
+    is impossible for a 0–74 frame counter. Rendering frames would have disagreed
+    with EAC on **9 of its 10 values**.
+
+    This was latent rather than wrong: cyanrip 0.9.3 reports no pre-gaps on the
+    reference disc, so the row never rendered. It goes live the moment cyanrip
+    learns to detect them (upstream PR #115 / the fork work), which is exactly when
+    a silent unit mismatch would have been hardest to spot — the row would appear,
+    look plausible, and be wrong. Found by diffing against the real EAC log
+    (2026-07-30).
     """
     sectors = track.pregap_sectors
     if not isinstance(sectors, int) or sectors <= 0:
@@ -575,8 +590,12 @@ def _pregap_line(track: TrackResult) -> list[str]:
     seconds, frames = divmod(sectors, 75)
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
+    # 75 frames per second → hundredths. Truncated, not rounded: EAC's values are
+    # truncated (a 74-frame gap is .98, never 1.00), and rounding up could print
+    # ".100" for the last frame of a second.
+    hundredths = frames * 100 // 75
     return [
-        f"     Pre-gap length  {hours}:{minutes:02d}:{seconds:02d}.{frames:02d}",
+        f"     Pre-gap length  {hours}:{minutes:02d}:{seconds:02d}.{hundredths:02d}",
         "",
     ]
 

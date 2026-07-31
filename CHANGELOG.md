@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The EAC log's `Pre-gap length` row would have disagreed with EAC on 9 of 10 values.**
+  It rendered the fractional field as CD frames. Every *other* `FF` field in an EAC log is
+  frames — the TOC table's are, and ours is byte-identical to EAC's there — but this one is
+  **truncated hundredths of a second**, and the committed real EAC log proves it: one of its
+  ten pre-gap values is `0:00:01.96`, and 96 is impossible for a 0–74 frame counter. Latent
+  rather than broken today, because cyanrip 0.9.3 detects no pre-gaps on the reference disc
+  so the row never renders — it goes live the moment cyanrip learns to (upstream PR #115),
+  which is exactly when a silent unit mismatch is hardest to spot: the row would simply
+  appear, look plausible, and be wrong. Pinned by three tests, including a sweep over every
+  sub-minute sector count proving no rendering can emit an impossible `.100`.
 - **Leftover files from an earlier rip were verified as if this rip had written them.** Cancel
   a rip (partial files, one truncated FLAC), fix a track title, re-rip and choose *Replace*:
   the corrected titles produce new filenames, so the new files land *beside* the old ones.
