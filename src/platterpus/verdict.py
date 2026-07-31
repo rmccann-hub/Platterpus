@@ -78,6 +78,83 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     return total, verified, partial
 
 
+# --- The one AccurateRip state classification --------------------------------
+#
+# Lifted here from `ui/rip_progress` (2026-07-30). Two surfaces render this fact
+# — the EAC-compatible log's per-track line and the results table's v1/v2 cells —
+# and they had *different state sets*: the log grew a fourth state ("cannot be
+# verified as accurate") in 2026-07-28 on the grounds that saying "not present in
+# the database" about a track the database DOES have is a false claim, and the
+# table never got it. So the screen made the exact claim the log fix removed.
+#
+# A cross-surface test now guards their agreement, but a test that watches two
+# copies is weaker than one definition. This is that definition: both renderers
+# ask it *which state* a track is in and only decide how to word it. The states
+# themselves therefore cannot diverge, and the test's job becomes exhaustiveness —
+# every state must be rendered distinctly by every surface — which is a stronger
+# property than agreement by coincidence.
+#
+# Plain strings rather than an Enum: they are only ever compared against these
+# constants, and a string keeps log and debugger output readable.
+AR_STATE_VERIFIED: str = "verified"  # exact checksum match, confidence >= 1
+AR_STATE_OFFSET_VARIANT: str = "offset-variant"  # matched the +450 pressing only
+AR_STATE_NO_MATCH: str = "no-match"  # in the database, our read matched nothing
+AR_STATE_ABSENT: str = "absent"  # nothing in the database to compare against
+AR_STATE_NO_DATA: str = "no-data"  # this AR version reported nothing at all
+
+# Every state the classifier can return. A renderer that handles a subset of
+# these is a renderer with a silent hole, which is precisely what happened — so
+# the set is exported for the consistency test to enumerate rather than being
+# rediscovered by reading if-chains.
+AR_STATES: frozenset[str] = frozenset(
+    {
+        AR_STATE_VERIFIED,
+        AR_STATE_OFFSET_VARIANT,
+        AR_STATE_NO_MATCH,
+        AR_STATE_ABSENT,
+        AR_STATE_NO_DATA,
+    }
+)
+
+
+def accuraterip_compared(result: object) -> bool:
+    """True when this AR result proves a database comparison actually happened.
+
+    The evidence is ``local_crc`` — the checksum *we* computed for the track and
+    sent to AccurateRip. cyanrip only prints a per-track ``Accurip v1/v2:`` (or
+    ``Accurip 450:``) line, CRC included, when the disc was **found** in the
+    database; a disc nobody has submitted produces no such line at all. So a
+    result carrying a local CRC means "the disc is there, we compared" — and a
+    non-match on top of that is the "cannot be verified" state, *not* absence.
+
+    Reads via ``getattr`` so it never raises on an unexpected shape.
+    """
+    return bool(getattr(result, "local_crc", None))
+
+
+def accuraterip_state(result: object, offset_result: object) -> str:
+    """Classify one AR column (v1 or v2) into exactly one of :data:`AR_STATES`.
+
+    ``result`` is the track's v1 or v2 result; ``offset_result`` is its +450
+    offset-variant result (cyanrip's "Accurip 450:"), shared by both columns
+    because it describes the same track. Pure and never raises.
+    """
+    # An exact match outranks everything — a real match is never downgraded.
+    if accuraterip_is_match(result):
+        return AR_STATE_VERIFIED
+    # Partially accurate: the standard checksum missed, the offset variant hit.
+    if accuraterip_is_match(offset_result):
+        return AR_STATE_OFFSET_VARIANT
+    # Nothing matched. Did we have anything to match *against*? Either result
+    # carrying our computed checksum means the disc was in the database and this
+    # read simply is not one of the stored copies.
+    if accuraterip_compared(result) or accuraterip_compared(offset_result):
+        return AR_STATE_NO_MATCH
+    if result is None:
+        return AR_STATE_NO_DATA
+    return AR_STATE_ABSENT
+
+
 def expected_track_total(
     disc_track_total: int | None, only_tracks: Sequence[int] | None
 ) -> int | None:

@@ -67,7 +67,17 @@ from platterpus.ui.accessibility import announce
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
 # home is the pure platterpus.verdict module.
-from platterpus.verdict import accuraterip_verdict, reconcile_ar_ctdb
+from platterpus.verdict import (
+    AR_STATE_ABSENT,
+    AR_STATE_NO_DATA,
+    AR_STATE_NO_MATCH,
+    AR_STATE_OFFSET_VARIANT,
+    AR_STATE_VERIFIED,
+    accuraterip_compared,
+    accuraterip_state,
+    accuraterip_verdict,
+    reconcile_ar_ctdb,
+)
 
 __all__ = [
     "RipProgress",
@@ -88,6 +98,23 @@ OFFSET_VARIANT_TOOLTIP: str = (
     "and perfectly fine. BUT if a re-rip of the same disc gives a different "
     "result here, that points to a read-stability problem on this track, not a "
     "pressing difference — re-rip to confirm."
+)
+
+# The "we compared it and nothing matched" state. This is NOT "not in the
+# database" — the disc IS there, our read just doesn't match any stored copy of
+# it — and saying "not in DB" about such a track is a factually false claim. The
+# durable EAC-compatible log already learned this (it writes "Cannot be verified
+# as accurate", review finding 2026-07-28); the on-screen table did not, and
+# collapsed the case into "not in DB" until 2026-07-31. The narrow column can
+# only carry "in DB, no match", so the nuance lives here in the tooltip.
+NO_MATCH_TOOLTIP: str = (
+    "In the database, but no match: AccurateRip has this disc, and this track's "
+    "checksum was compared against the copies other people submitted — none of "
+    'them matched. That is NOT the same as "not in the database": the track '
+    "simply cannot be verified as accurate. Innocent causes are common (an "
+    "unlisted pressing, or a drive read offset that differs from ours), but a "
+    "genuine read error looks exactly the same from here — re-rip the disc to "
+    "tell them apart, and compare the two rips."
 )
 
 log = logging.getLogger(__name__)
@@ -778,12 +805,15 @@ class RipProgress(QWidget):
             v2_item = QTableWidgetItem(
                 _ar_cell(track.accuraterip_v2, offset_result=offset)
             )
-            # When a track matched only the offset-variant pressing, explain what
-            # that means (and the re-rip caveat) right on the cell — #4 of the
-            # 2026-07-09 trust improvements.
-            if not track_accuraterip_verified(track) and accuraterip_is_match(offset):
-                v1_item.setToolTip(OFFSET_VARIANT_TOOLTIP)
-                v2_item.setToolTip(OFFSET_VARIANT_TOOLTIP)
+            # Footnote the cells that need one — the offset-variant explanation
+            # (#4 of the 2026-07-09 trust improvements) and the "in the database
+            # but nothing matched" explanation. `_ar_tooltip` reads the SAME
+            # `_ar_state` as the cell text above, so the words and their
+            # explanation can't disagree; deciding it here by hand is what let
+            # the two drift before. Qt shows no tooltip for an empty string, so
+            # an unremarkable cell needs no branch.
+            v1_item.setToolTip(_ar_tooltip(track.accuraterip_v1, offset_result=offset))
+            v2_item.setToolTip(_ar_tooltip(track.accuraterip_v2, offset_result=offset))
             eac_text, eac_tip = _eac_cell(track)
             eac_item = QTableWidgetItem(eac_text)
             eac_item.setToolTip(eac_tip)
@@ -1208,6 +1238,32 @@ def _eac_cell(track: object) -> tuple[str, str]:
     )
 
 
+# --- The AccurateRip states, decided in ONE place ---------------------------
+#
+# AccurateRip can put a track in exactly four states, and the project's dominant
+# bug shape is each render surface re-deriving them with its own if-chain (four
+# such disagreements shipped in one week — see tests/test_surface_consistency.py).
+# Naming the states, and deciding them once in `_ar_state`, means the cell text
+# and the cell tooltip cannot drift apart *within* this module; the fitness test
+# then guards the harder seam — that this module and the durable EAC-compatible
+# log (`eac_log_export._accuraterip_line`) put the same track in the same state.
+#
+# Values are plain strings, not an Enum, because they are only ever compared
+# against these constants and a string keeps the debugger/log output readable.
+# The state names and the classifier now live in `platterpus.verdict`, the module
+# whose whole purpose is "one definition of verified" — because the EAC log
+# renderer needs the identical classification and two copies is how the two
+# surfaces came to disagree. Aliased to the old private names so this file's
+# rendering code reads unchanged.
+_AR_STATE_VERIFIED = AR_STATE_VERIFIED
+_AR_STATE_OFFSET_VARIANT = AR_STATE_OFFSET_VARIANT
+_AR_STATE_NO_MATCH = AR_STATE_NO_MATCH
+_AR_STATE_ABSENT = AR_STATE_ABSENT
+_AR_STATE_NO_DATA = AR_STATE_NO_DATA
+_ar_compared = accuraterip_compared
+_ar_state = accuraterip_state
+
+
 def _ar_cell(result: object, *, offset_result: object = None) -> str:
     """Render one AccurateRip cell (v1 or v2) for a track.
 
@@ -1217,29 +1273,55 @@ def _ar_cell(result: object, *, offset_result: object = None) -> str:
     pressing shifted by the common offset — so we say "offset-variant match (N)"
     rather than leave cyanrip's alarming "not found, either a new pressing, or
     bad rip" on screen for a track that's actually fine. This mirrors the CTDB
-    honesty fix: a benign result must never read as a failure. Never raises
-    (duck-typed via ``accuraterip_is_match`` / ``getattr``).
+    honesty fix: a benign result must never read as a failure.
+
+    The cell text is short because the column is narrow; where short text cannot
+    carry the nuance (``in DB, no match``), :func:`_ar_tooltip` supplies it.
+    Never raises (duck-typed via ``accuraterip_is_match`` / ``getattr``).
     """
-    # Partially-accurate: standard v1/v2 didn't match, but the offset variant did.
-    if not accuraterip_is_match(result) and accuraterip_is_match(offset_result):
+    state = _ar_state(result, offset_result)
+    if state == _AR_STATE_VERIFIED:
+        # A genuine database match, format-agnostic across whipper's "Found,
+        # exact match" and cyanrip's "accurately ripped, confidence N".
+        return f"OK ({getattr(result, 'confidence', None)})"
+    if state == _AR_STATE_OFFSET_VARIANT:
         conf = getattr(offset_result, "confidence", None)
         return (
             f"offset-variant match ({conf})"
             if conf is not None
             else "offset-variant match"
         )
-    if result is None:
+    if state == _AR_STATE_NO_MATCH:
+        # THE FIX (2026-07-31): this used to say "not in DB" — a false claim
+        # about a disc the database demonstrably has. Keep it short enough for
+        # the column; NO_MATCH_TOOLTIP carries the rest.
+        return "in DB, no match"
+    if state == _AR_STATE_NO_DATA:
         return "—"
-    confidence = getattr(result, "confidence", None)
+    # Absent: nothing was submitted for this disc, so there was nothing to
+    # compare against. Say that plainly instead of cyanrip's alarmist "either a
+    # new pressing, or bad rip" (a not-in-DB track is not necessarily a bad rip).
     result_text = getattr(result, "result", "") or ""
-    # A genuine database match (confidence >= 1), format-agnostic across whipper's
-    # "Found, exact match" and cyanrip's "accurately ripped, confidence N".
-    if accuraterip_is_match(result):
-        return f"OK ({confidence})"
-    # Not matched and no offset match — it's simply absent from the database. Say
-    # that plainly instead of cyanrip's alarmist "either a new pressing, or bad
-    # rip" (a not-in-DB track is not necessarily a bad rip).
     lowered = result_text.lower()
     if not result_text or "not present" in lowered or "not found" in lowered:
         return "not in DB"
+    # Unrecognized wording from a future backend: show it verbatim rather than
+    # guessing, so an unexpected state is diagnosable instead of mislabelled.
+    confidence = getattr(result, "confidence", None)
     return f"{result_text} ({confidence})" if confidence is not None else result_text
+
+
+def _ar_tooltip(result: object, *, offset_result: object = None) -> str:
+    """The tooltip for one AR cell — empty when the cell text needs no footnote.
+
+    Derived from the same :func:`_ar_state` as the cell text, so a cell can never
+    show one state's words with another state's explanation. (It previously was
+    re-derived at the call site, which is the same one-fact-many-derivations
+    shape this whole module keeps getting bitten by.) Never raises.
+    """
+    state = _ar_state(result, offset_result)
+    if state == _AR_STATE_OFFSET_VARIANT:
+        return OFFSET_VARIANT_TOOLTIP
+    if state == _AR_STATE_NO_MATCH:
+        return NO_MATCH_TOOLTIP
+    return ""

@@ -816,9 +816,9 @@ they disagree in a way neither log's wording had made visible:
 | | EAC 1.8 | cyanrip 0.9.3 |
 |---|---|---|
 | `Gap handling` | `Appended to previous track` | `None signalled` |
-| Per-track `Pre-gap length` | **present, 14 tracks** | **none** |
+| Per-track `Pre-gap length` | **present, 10 of 14** | **none** |
 
-**EAC finds pregaps that cyanrip does not.** EAC runs its own gap-detection pass; cyanrip
+**EAC finds pregaps that cyanrip does not** — on ten of the fourteen tracks (3, 6, 11 and 12 have none in EAC's log either). EAC runs its own gap-detection pass; cyanrip
 reports only what the disc's TOC signalled, and on the Police disc the TOC signalled
 nothing. Both tools then append the gap to the previous track, so **your audio is
 unaffected and your CRCs are unaffected** — this is the archival *record* being less

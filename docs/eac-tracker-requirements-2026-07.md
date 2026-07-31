@@ -138,9 +138,9 @@ the same drive** shows something neither log's wording had made obvious:
 | | EAC 1.8 | cyanrip 0.9.3 |
 |---|---|---|
 | `Gap handling` | `Appended to previous track` | `Gaps: None signalled` |
-| Per-track `Pre-gap length` | present for 14 tracks | none |
+| Per-track `Pre-gap length` | present for **10 of 14** tracks (1, 2, 4, 5, 7, 8, 9, 10, 13, 14) | none |
 
-**EAC detects pregaps that cyanrip does not.** EAC runs its own gap-detection pass;
+**EAC detects pregaps that cyanrip does not.** (Ten of the fourteen; tracks 3, 6, 11 and 12 have none in EAC's log either. The committed baseline is **two concatenated EAC runs**, so a whole-file `grep -c` doubles every count — 20 pregap lines, not 20 pregaps.) EAC runs its own gap-detection pass;
 cyanrip reports what the disc's TOC signalled, and on this disc the TOC signalled
 nothing. Both tools then *append* the gap to the previous track, so **the audio is
 unaffected** — this is a completeness gap in the archival record, not a correctness one.

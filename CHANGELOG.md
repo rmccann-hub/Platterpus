@@ -12,6 +12,42 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Leftover files from an earlier rip were verified as if this rip had written them.** Cancel
+  a rip (partial files, one truncated FLAC), fix a track title, re-rip and choose *Replace*:
+  the corrected titles produce new filenames, so the new files land *beside* the old ones.
+  Every post-rip check then globbed the album folder and reported on a mixture of two rips —
+  CTDB built its disc TOC from 2N tracks and returned a spurious **"not in database"**, FLAC
+  verify decoded the abandoned truncated file and produced a **⚠ FAILED** and a downgraded
+  verdict for flawless audio, derived-verify's expected count doubled so a *complete* transcode
+  read as incomplete, and the report's SHA256 manifest fingerprinted files this rip never wrote.
+  "The files in the folder" was standing in for "the files this rip wrote", and those differ.
+  The rip's own `.log` names one file per track, so that record — not the folder listing — now
+  decides the list, via one shared `platterpus.rip_files` module all five call sites ask (the
+  three verify workers, the checksum manifest, and the `--ctdb-calibrate` diagnostic), rather
+  than five separate globs. Track order now comes from the log's numbering too, so an unpadded
+  filename template can no longer put track 10 before track 2 in the CTDB TOC. Where no usable
+  log exists (an older rip, a crash-truncated log, a folder named by hand on the CLI) it still
+  falls back to the folder scan — verifying something beats verifying nothing — but the reduced
+  confidence is logged with the reason, never silent, and any excluded leftover is logged by name
+  so a verify covering 2 of 4 files is explainable from the log file.
+- **The results table said a track was "not in DB" about a disc AccurateRip demonstrably
+  has.** The durable EAC-compatible log learned four AccurateRip states — verified,
+  offset-variant, *cannot be verified as accurate*, and genuinely absent — because calling a
+  compared-but-unmatched track "not present in the database" is a false claim. The on-screen
+  table was never told, and kept only four of its own five states, collapsing that case into
+  **"not in DB"**: for a track cyanrip compared and missed (`not found, either a new pressing,
+  or bad rip`) the log and the screen made contradictory claims about the same parsed track,
+  and the screen made the false one. The cell now reads **"in DB, no match"** with a tooltip
+  explaining that an unlisted pressing, a different drive offset and a genuine read error all
+  look alike from there — so re-rip to tell them apart. The state is decided once per cell and
+  the cell's text *and* tooltip both derive from it, replacing the third re-derivation at the
+  call site.
+- **The cross-surface consistency test was blind to the surface the bug was on.** Its docstring
+  named four render surfaces while it imported three; the results table — one of the two it
+  omitted — is exactly where the above defect lived. The table's per-track renderer is now on
+  the roster, with an explicit four-state mapping and a case table covering every state, so the
+  log and the screen must place a track in the same state or the suite goes red (the status
+  line is called out in a TODO as the remaining gap).
 - **A re-ripped track could report "AccurateRip verified" for bytes AccurateRip never
   saw.** When the auto-fix re-rips a bad track and swaps the better read into the album,
   every measured field is meant to come from the *shipped* read. The merge used a fallback:
@@ -177,7 +213,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ### Documentation
 - **A measurable archival gap against EAC is now documented instead of hidden.** Diffing
   the committed real EAC log against the cyanrip log of the same disc in the same drive
-  shows EAC detecting pregaps on fourteen tracks where cyanrip's TOC read signals none.
+  shows EAC detecting pregaps on **10 of the 14** tracks where cyanrip's TOC read signals none.
   Both tools append the gap to the previous track, so the audio and the CRCs are
   unaffected — the *record* is less complete than EAC's. This is the same capability gap as
   KDD-32 / the `INDEX 00` work, which the finding now motivates concretely, and a test pins
@@ -195,6 +231,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   came from and the failure it would expose, §A19 warns which log-wording changes are
   intentional so they don't read as regressions, and §A17 flags the one behaviour change
   this release that could plausibly regress a working setup.
+- **The changes we want in cyanrip itself now have a ranked, evidence-graded home.**
+  `docs/cyanrip-improvements-wanted.md` lists each gap in the external ripper with the
+  real log lines that prove it, whether it affects the *audio* or only the *record*
+  (every item is the record — none changes a ripped byte), the concrete upstream edit,
+  and whether it belongs in an upstream PR, a soft-fork patch, or our own code. It
+  complements rather than repeats the existing material: the roadmap owns the upstream
+  *process*, the soft-fork doc the *runbook*, `scripts/cyanrip/` the *execution*. The
+  census is derived by running the real EAC-layout exporter over the committed real
+  cyanrip log — 44 labelled cells on the 14-track reference disc — so the list cannot
+  drift from what the code actually cannot fill. Recommended first contribution: print
+  the **sample peak**, because cyanrip's own track struct already carries
+  `ebu_sample_peak` and already reads it, while its ebur128 filter is built
+  `peak=true` and FFmpeg only computes `sample_peak` under `peak=sample` — so the field
+  is dead and reads as full scale. Three items are closed rather than opened, including
+  the confirmation that `-l` subset rips do **not** disable AccurateRip. Also records
+  three corrections to our own record, the load-bearing one being that the reference EAC
+  log lists `Pre-gap length` for **ten** tracks, not fourteen (the committed baseline
+  file is two concatenated EAC logs, so a whole-file count doubles) — the finding stands,
+  the number was wrong.
 
 ## [0.5.18] — 2026-07-29
 

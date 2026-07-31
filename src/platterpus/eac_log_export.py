@@ -449,8 +449,9 @@ def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
 
     **This row will DISAGREE with a real EAC log of the same disc, and that is the
     point.** On the Police reference disc, in the same drive, EAC's log says
-    "Appended to previous track" and lists a `Pre-gap length` for fourteen tracks,
-    while cyanrip 0.9.3 says "None signalled" and finds none — so ours now reads
+    "Appended to previous track" and lists a `Pre-gap length` for **ten of its
+    fourteen** tracks, while cyanrip 0.9.3 says "None signalled" and finds none — so
+    ours now reads
     "Not detected, thus appended". The old row hid that behind cyanrip's own
     phrasing. The difference is real: cyanrip's TOC read does not see pregaps EAC
     detects, which is the same capability gap as KDD-32 / the `INDEX 00` work, and

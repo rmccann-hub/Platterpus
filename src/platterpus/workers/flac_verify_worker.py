@@ -19,6 +19,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+from platterpus import rip_files
 from platterpus.adapters.flac_verify import FlacVerifyResult, verify_flac_files
 
 log = logging.getLogger(__name__)
@@ -44,10 +45,14 @@ def verify_rip_dir(
     if wait_for is not None and wait_for.is_alive():
         wait_for.join(_SETTLE_TIMEOUT_S)
 
-    # Non-recursive: verify exactly this album's masters (direct children of the
-    # album folder), not FLACs in nested/sibling folders that aren't this rip's
-    # (#40) — matches the CTDB/derived-verify enumeration.
-    flac_paths = sorted(rip_dir.glob("*.flac"))
+    # Verify exactly the masters THIS rip wrote, taken from its own `.log` rather
+    # than from the folder listing (see `platterpus.rip_files`). This is the check
+    # a leftover hurt most: a truncated FLAC abandoned by a cancelled rip fails
+    # `flac --test`, so a clean re-rip got a ⚠ FAILED line and a downgraded
+    # verdict for audio that was never in question. rip_files falls back to the
+    # old non-recursive glob (logging that it did) when no log names the files.
+    file_set = rip_files.rip_master_files(rip_dir)
+    flac_paths = list(file_set.files)
     if not flac_paths:
         return FlacVerifyResult(error="no FLAC files found to verify")
     verify = verifier or verify_flac_files

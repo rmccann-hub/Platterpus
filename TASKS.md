@@ -561,13 +561,25 @@ remains. None of these is speculative — each was traced to a file:line.
       *current* device at fire time, so cancelling on `sr0` and switching to `sr1` within
       5 s force-kills and ejects `sr1`. Fix: disarm in `_on_rip_finished`, and capture
       the device when arming rather than when firing.
-- **[ ] Stale files in the album folder contaminate the next rip's verification.**
+- **[x] Stale files in the album folder contaminate the next rip's verification.**
       The CTDB, FLAC-verify and derived-verify workers glob `*.flac` in the album folder.
       Scenario: cancel a rip (partial + one truncated FLAC), fix a track title, re-rip →
       "Replace" writes new filenames beside the old. CTDB then builds its TOC from 2N
       files (spurious "not in database"), FLAC verify decodes the truncated leftover
       (a ⚠ FAILED and a downgraded verdict on a clean rip), derived-verify's expected
       count doubles, and the checksum manifest records files this rip never wrote.
+      *Fixed:* "which files did this rip write?" is now one shared answer —
+      `platterpus.rip_files`, which reads the rip's own `.log` (the record that defines the
+      album folder in the first place) instead of listing it. All five call sites ask it: the
+      three verify workers, `checksums.compute_digests`, and `ctdb.diagnose.find_flacs`.
+      Degrades to the old folder scan when no log names the files, but logs the downgrade and
+      names any excluded leftover. **Still open:** four sibling globs in
+      `ui/main_window_rip.py` (unknown-mode tagging, the colon-restore metaflac pass,
+      FLAC re-compress, and the transcode input) `rglob("*.flac")` the same folder and so
+      tag/rewrite/transcode a cancelled rip's leftovers too — they should call
+      `rip_files.rip_master_files`, and can pass the already-parsed `RipLog` via its
+      `rip_log=` seam. `adapters/cover_art.py` has the same issue twice: it embeds art into
+      every FLAC under the folder and reports the inflated count as "embedded in N track(s)".
 - **[ ] Closing the window during a rip can freeze it for up to ~100 s.**
       `_stop_rip_on_shutdown` calls `drive_control.free_drive()` **synchronously on the
       GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
