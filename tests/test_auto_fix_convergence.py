@@ -275,3 +275,94 @@ def test_a_log_with_no_addendum_is_unchanged_by_the_addendum_pass() -> None:
 
     text = "cyanrip 0.9.3\nTrack 1 ripped and encoded successfully!\n  EAC CRC32:     B0D122E7\n"
     assert parse_cyanrip_log(text).tracks[0].copy_crc == "B0D122E7"
+
+
+# --- the stale AccurateRip verdict (TASKS #55, the worst of the three) -------
+
+
+def test_a_replaced_track_never_inherits_the_first_passs_accuraterip_verdict() -> None:
+    """The single worst thing this program could say, and it was saying it.
+
+    When the auto-fix re-rips a track and swaps the better read into the album,
+    every measured field is supposed to come from the *shipped* read. But the merge
+    used a fallback helper: if the re-rip's log didn't print an AccurateRip line,
+    the FIRST pass's result was kept — and the first pass's result confirmed the
+    bytes that were thrown away.
+
+    The consequence is not cosmetic. `track_accuraterip_verified` reads exactly
+    these fields, so the trust banner, the JSON report, the per-track table and the
+    EAC log would all assert **"AccurateRip verified"** for audio that was never
+    checked against AccurateRip at all. That is the precise failure KDD-30 exists
+    to prevent.
+
+    Unknown is the honest answer, and the UI already renders it.
+    """
+    verified = AccurateRipResult(
+        version=2, result="accurately ripped, confidence 200", confidence=200
+    )
+    first_pass = TrackResult(
+        number=3,
+        filename="03.flac",
+        copy_crc="52DFDF7D",
+        test_crc="52DFDF7D",
+        accuraterip_v2=verified,
+    )
+    # The re-rip printed a new CRC but NO AccurateRip line — the case that bit us.
+    shipped = TrackResult(number=3, copy_crc="3D8FCF0C")
+
+    merged = _merge_shipped_track(first_pass, shipped, {3: True})
+
+    assert merged.copy_crc == "3D8FCF0C", "the shipped read's CRC still wins"
+    assert merged.accuraterip_v2 is None, (
+        "an unreported verification must become UNKNOWN, never inherit the "
+        "verdict that belonged to the discarded read"
+    )
+    # `test_crc` is typed `str` and defaults to "", so "unreported" is falsy here
+    # rather than None. What matters is that it is NOT the first pass's value:
+    # pairing that with the replacement's Copy CRC would render a two-reads-agree
+    # convergence that never happened.
+    assert not merged.test_crc, "an unreported Test CRC must stay unreported"
+    assert merged.test_crc != "52DFDF7D", (
+        "and it must specifically not be the discarded read's Test CRC"
+    )
+
+
+def test_a_replaced_track_keeps_a_verdict_the_rerip_actually_earned() -> None:
+    """The other direction, so the fix cannot be 'always discard'.
+
+    A re-rip whose log DOES carry an AccurateRip result must keep it — otherwise
+    the fix would throw away real verification and under-report every auto-fixed
+    track, which is a different bug wearing the same clothes.
+    """
+    stale = AccurateRipResult(version=2, result="not found", confidence=None)
+    earned = AccurateRipResult(
+        version=2, result="accurately ripped, confidence 12", confidence=12
+    )
+    first_pass = TrackResult(
+        number=5, filename="05.flac", copy_crc="AAAA1111", accuraterip_v2=stale
+    )
+    shipped = TrackResult(number=5, copy_crc="E0036697", accuraterip_v2=earned)
+
+    merged = _merge_shipped_track(first_pass, shipped, {5: True})
+
+    assert merged.accuraterip_v2 is earned
+    assert merged.accuraterip_v2 is not stale
+    assert merged.copy_crc == "E0036697"
+
+
+def test_an_untouched_track_keeps_everything_it_had() -> None:
+    """The guard must only apply where a swap happened.
+
+    A track the auto-fix never touched still has its first-pass verdict describing
+    its own bytes, so nothing about it may change. Without this, "don't inherit"
+    would wipe the verdict off every clean track on the disc.
+    """
+    verified = AccurateRipResult(
+        version=1, result="accurately ripped, confidence 129", confidence=129
+    )
+    track = TrackResult(
+        number=1, filename="01.flac", copy_crc="B0D122E7", accuraterip_v1=verified
+    )
+    merged = _merge_shipped_track(track, None, {})
+    assert merged is track
+    assert merged.accuraterip_v1 is verified

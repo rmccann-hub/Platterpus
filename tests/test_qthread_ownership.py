@@ -444,11 +444,19 @@ def test_the_flag_only_allowlist_has_no_stale_entries() -> None:
 
 
 # Workers that expose no `cancel()` at all. CLAUDE.md rule 9 says every worker that
-# blocks must have one, and these five do block — a container exec (measured 3.45 s
-# cold), a `/dev` + `/sys` sweep, binary probes, and two network calls that a stalled
-# connection can hold open for a long time. `stop_thread` therefore has nothing to
-# call for them: it quits the event loop they are not sitting in, waits out its share
-# of the shutdown budget, and ABANDONS the thread.
+# blocks must have one. **Three** entries remain, and only two of them block: a
+# `/dev` + `/sys` sweep that does not (see `DriveListWorker` below), and two network
+# calls that a stalled connection can hold open for a long time. For the blocking two
+# `stop_thread` has nothing to call: it quits the event loop they are not sitting in,
+# waits out its share of the shutdown budget, and ABANDONS the thread.
+#
+# (This comment said "these five do block" until 2026-07-31, describing the list as
+# it stood when written — before `DiscInfoWorker` and `DependencyCheckWorker` gained
+# real cancels the same day and came off it. The count in
+# `test_the_no_cancel_ratchet_only_shrinks` was updated then and this prose was not,
+# so the file's own header contradicted both its assertion and `DriveListWorker`'s
+# entry, which says plainly that it does not block. Re-derive a count; don't carry
+# one forward.)
 #
 # That is *bounded and non-fatal* — abandonment retains the reference and registers
 # the thread, so exit takes the `platterpus.hard_exit` path instead of aborting — but

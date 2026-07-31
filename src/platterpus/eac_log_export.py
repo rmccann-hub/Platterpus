@@ -326,17 +326,8 @@ def _render(
         "Used interface                              : "
         + ("Native Linux SCSI/MMC (libcdio-paranoia)" if cyanrip else _UNREPORTED)
     )
-    # cyanrip merges each pregap into the PREVIOUS track by default and Platterpus
-    # never passes `-p` to change that (docs/dependency-contracts.md), which is
-    # exactly EAC's "Appended to previous track". The behaviour was already right;
-    # the log simply didn't say so in EAC's vocabulary, leaving a reader (or a
-    # comparison against a real EAC log) unable to tell that it matched.
     lines.append(
-        "Gap handling                                : "
-        + (
-            info.gap_detection
-            or ("Appended to previous track" if cyanrip else _UNREPORTED)
-        )
+        "Gap handling                                : " + _gap_handling(info, cyanrip)
     )
     lines.append("")
     lines.extend(_output_format_block(cyanrip, info))
@@ -419,6 +410,61 @@ def _is_cyanrip(rip_log: RipLog) -> bool:
     (review finding, 2026-07-28).
     """
     return (rip_log.log_creator or "").casefold().startswith("cyanrip")
+
+
+# cyanrip's `Gaps:` line reporting that the disc's TOC declared no pregaps. It is
+# free text, so match the sense rather than the exact phrasing: 0.9.3 prints
+# "None signalled" and a future wording change must not silently flip the row.
+_GAP_NONE_SIGNALLED = re.compile(r"\bnone\b", re.IGNORECASE)
+
+
+def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
+    """EAC's Gap handling row — a *policy*, stated in EAC's own vocabulary.
+
+    The distinction that cost a release: cyanrip's `Gaps:` block reports what the
+    disc **signalled** ("None signalled"), while EAC's row states what the ripper
+    **did with** the gaps. Echoing cyanrip's text into this row put a detection
+    result in a policy field — two different facts — and the row then never said
+    anything an EAC log says, which is the whole point of the file.
+
+    Worse, the previous version only reached EAC's wording when
+    `info.gap_detection` was *empty*, and cyanrip always prints the block. So the
+    v0.5.18 fix was unreachable on real output and the row still read "None
+    signalled" on hardware (found on the rig, 2026-07-30). Its test could not
+    catch it because the fixture handed the function EAC's phrase as *input* — a
+    string cyanrip does not emit.
+
+    Both EAC values are used, and both halves of each are evidenced:
+
+    * "Not detected, thus appended to previous track" — when cyanrip signals none.
+      "Not detected" is cyanrip's own report; "appended to previous track" is its
+      documented default, which Platterpus never overrides (it passes no `-p` —
+      see docs/dependency-contracts.md).
+    * "Appended to previous track" — when gaps *were* signalled. Same policy, no
+      detection caveat to add.
+
+    A log from some other ripper gets `_UNREPORTED`: its gap policy is not knowable
+    from a parsed engine name, and every sibling row in this block already says so
+    rather than guess.
+
+    **This row will DISAGREE with a real EAC log of the same disc, and that is the
+    point.** On the Police reference disc, in the same drive, EAC's log says
+    "Appended to previous track" and lists a `Pre-gap length` for **ten of its
+    fourteen** tracks, while cyanrip 0.9.3 says "None signalled" and finds none — so
+    ours now reads
+    "Not detected, thus appended". The old row hid that behind cyanrip's own
+    phrasing. The difference is real: cyanrip's TOC read does not see pregaps EAC
+    detects, which is the same capability gap as KDD-32 / the `INDEX 00` work, and
+    a row that reported EAC's string regardless would have concealed our one
+    measurable archival shortfall against EAC. Honesty first, parity second — see
+    `tests/test_eac_log_export.py` for the assertion that pins this on the real
+    baseline.
+    """
+    if not cyanrip:
+        return _UNREPORTED
+    if _GAP_NONE_SIGNALLED.search(info.gap_detection or ""):
+        return "Not detected, thus appended to previous track"
+    return "Appended to previous track"
 
 
 def _read_mode(info: RippingInfo) -> str:
@@ -518,10 +564,25 @@ def _output_format_block(cyanrip: bool, info: RippingInfo) -> list[str]:
 def _pregap_line(track: TrackResult) -> list[str]:
     """EAC's per-track "Pre-gap length" row, when the disc actually has one.
 
-    EAC prints ``     Pre-gap length  0:00:02.00`` (H:MM:SS.FF) and omits the row
-    entirely for a track with no pre-gap — so a measured zero renders nothing,
-    exactly as EAC does. ``None`` means the ripper never reported it, which also
-    renders nothing: this row's absence is EAC-normal and carries no claim.
+    EAC prints ``     Pre-gap length  0:00:02.00`` and omits the row entirely for a
+    track with no pre-gap — so a measured zero renders nothing, exactly as EAC does.
+    ``None`` means the ripper never reported it, which also renders nothing: this
+    row's absence is EAC-normal and carries no claim.
+
+    **The fractional field is HUNDREDTHS of a second, not CD frames.** That reads
+    like a detail and is not: this row is ``H:MM:SS.FF`` everywhere else in EAC's
+    log, and elsewhere ``FF`` genuinely *is* frames (see :func:`_msf`, used for the
+    TOC table, which is byte-identical to EAC's). Here it is not, and the committed
+    real EAC log proves it — one of its ten pre-gap values is ``0:00:01.96``, and 96
+    is impossible for a 0–74 frame counter. Rendering frames would have disagreed
+    with EAC on **9 of its 10 values**.
+
+    This was latent rather than wrong: cyanrip 0.9.3 reports no pre-gaps on the
+    reference disc, so the row never rendered. It goes live the moment cyanrip
+    learns to detect them (upstream PR #115 / the fork work), which is exactly when
+    a silent unit mismatch would have been hardest to spot — the row would appear,
+    look plausible, and be wrong. Found by diffing against the real EAC log
+    (2026-07-30).
     """
     sectors = track.pregap_sectors
     if not isinstance(sectors, int) or sectors <= 0:
@@ -529,8 +590,12 @@ def _pregap_line(track: TrackResult) -> list[str]:
     seconds, frames = divmod(sectors, 75)
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
+    # 75 frames per second → hundredths. Truncated, not rounded: EAC's values are
+    # truncated (a 74-frame gap is .98, never 1.00), and rounding up could print
+    # ".100" for the last frame of a second.
+    hundredths = frames * 100 // 75
     return [
-        f"     Pre-gap length  {hours}:{minutes:02d}:{seconds:02d}.{frames:02d}",
+        f"     Pre-gap length  {hours}:{minutes:02d}:{seconds:02d}.{hundredths:02d}",
         "",
     ]
 

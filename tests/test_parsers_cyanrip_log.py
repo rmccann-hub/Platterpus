@@ -8,8 +8,19 @@ fixture when available. Cases follow docs/testing.md's taxonomy.
 
 from __future__ import annotations
 
+import logging
+import re
+from collections import Counter
+from pathlib import Path
+
+import pytest
+
+from platterpus.parsers import cyanrip_log
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import RipLog
+
+# The committed real-hardware logs the accountability tests at the bottom read.
+_REPO = Path(__file__).resolve().parents[1]
 
 _FULL_LOG = """\
 cyanrip 0.9.3.1 (master)
@@ -470,3 +481,308 @@ def test_parses_underread_mode_for_negative_offset_drives() -> None:
         silence = f"cyanrip 0.9.3 (release)\n{label} mode:  fill with silence in lead-in/lead-out\n"
         assert parse_cyanrip_log(read).ripping_info.overread_lead_out is True, label
         assert parse_cyanrip_log(silence).ripping_info.overread_lead_out is False, label
+
+
+# --- The recognised-line enumeration, checked against the REAL logs ----------
+# Every bug this parser ever shipped was one shape: cyanrip prints a line and we
+# silently ignore it (overread mode twice, the gap section, "Accurip 450", the
+# per-track rip count). The tables in the parser make the recognised set data;
+# these tests are the payoff — they walk the committed real logs and fail when a
+# TOP-LEVEL line matches neither the tables nor the written-down ignore list, so
+# a row a future cyanrip adds cannot slip past unnoticed the way those did.
+#
+# Scope, decided deliberately: only column-0 lines are a hard failure. Those are
+# cyanrip's structural rows (settings, section headers, the finish report) and
+# there are ~58 of them per log. The ~1,300 INDENTED lines are per-track detail
+# and tag dumps — mostly things we correctly skim — so requiring an allow-list
+# entry for each would be busywork that trains people to rubber-stamp it. They
+# get the reporting test below instead, which has its own floors.
+
+
+def _corpus_logs() -> list[Path]:
+    """The committed real cyanrip logs (`output_reference/cyanrip_*/`)."""
+    return sorted((_REPO / "output_reference").glob("cyanrip_*/*.log"))
+
+
+def _classify_top_level(line: str) -> str | None:
+    """Name of whatever recognises this top-level line, or None if nothing does."""
+    for rule in cyanrip_log._ALL_LINE_RULES:
+        if rule.pattern.match(line):
+            return rule.name
+    for name, pattern in cyanrip_log._SECTION_LINE_PATTERNS:
+        if pattern.match(line):
+            return name
+    if cyanrip_log._is_ignored_disc_line(line):
+        return "ignored"
+    return None
+
+
+def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
+    """No line pattern may hide outside the enumerable groups.
+
+    The tables are only worth having if they are exhaustive: a pattern added to
+    the loop but not listed would make the accountability test below report a
+    recognised line as unhandled (or worse, lull a reader into thinking the list
+    is the whole story). So this walks the module's own regex constants and
+    requires each to appear in a table, in the section list, or in the indented
+    list. `_ACCURIP_CONFIDENCE` is the one exception and is named explicitly: it
+    is searched inside an already-captured fragment, not matched against a line.
+    """
+    listed = (
+        {rule.pattern for rule in cyanrip_log._ALL_LINE_RULES}
+        | {pattern for _name, pattern in cyanrip_log._SECTION_LINE_PATTERNS}
+        | {pattern for _name, pattern in cyanrip_log._INDENTED_LINE_PATTERNS}
+        | {cyanrip_log._ACCURIP_CONFIDENCE}
+    )
+    module_patterns = {
+        name: value
+        for name, value in vars(cyanrip_log).items()
+        if isinstance(value, re.Pattern)
+    }
+    # Floor: if the introspection found nothing, the test proves nothing.
+    assert len(module_patterns) >= 25, module_patterns
+    missing = sorted(
+        name for name, pattern in module_patterns.items() if pattern not in listed
+    )
+    assert not missing, (
+        "these compiled patterns are not listed in any enumerable group, so the "
+        f"'what do we recognise' listing is incomplete: {missing}"
+    )
+    names = [rule.name for rule in cyanrip_log._ALL_LINE_RULES]
+    assert len(names) >= 19, names
+    assert len(set(names)) == len(names), f"duplicate rule names: {names}"
+    for rule in cyanrip_log._ALL_LINE_RULES:
+        # Anchored matching only — a floating pattern would claim a line because
+        # of something in its middle (and `.match` already implies the anchor,
+        # so an unanchored pattern here is a sign someone meant `.search`).
+        assert rule.pattern.pattern.startswith("^"), rule.name
+
+
+def test_every_top_level_line_of_the_real_cyanrip_logs_is_accounted_for() -> None:
+    """THE regression guard for this file's whole bug history.
+
+    Fails if a column-0 line in a committed real log is matched by no rule, no
+    section header, and no `_IGNORED_DISC_LINES` entry. Silencing a new upstream
+    row therefore requires writing down the decision — which is the step that
+    never happened for the overread mode, the gaps section or "Accurip 450".
+    """
+    logs = _corpus_logs()
+    assert len(logs) >= 2, f"expected the committed cyanrip logs, found {logs}"
+    total_examined = 0
+    for path in logs:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        top_level = [line for line in lines if line and not line[0].isspace()]
+        # Floor per log: a truncated or mis-globbed file must not pass by being
+        # nearly empty. The real logs carry 58 top-level lines each.
+        assert len(top_level) >= 40, f"{path.name}: only {len(top_level)} top-level"
+        unaccounted = [line for line in top_level if _classify_top_level(line) is None]
+        assert not unaccounted, (
+            f"{path.name}: cyanrip printed {len(unaccounted)} top-level line(s) this "
+            "parser recognises nothing for. Either parse them (a table rule) or "
+            "record the decision in _IGNORED_DISC_LINES with a reason:\n  "
+            + "\n  ".join(repr(line) for line in unaccounted[:20])
+        )
+        total_examined += len(top_level)
+    assert total_examined >= 100, total_examined
+
+
+def test_ignore_list_is_evidence_based_and_cannot_hide_a_parsed_row() -> None:
+    """The allow-list must stay specific, and stay honest.
+
+    Two ways an allow-list rots: it grows entries for lines nobody has ever seen
+    (speculation), or an entry gets broad enough to swallow a row we DO parse, at
+    which point the accountability test above still passes while the parse
+    quietly regresses. So: most entries must match a real committed line, and no
+    entry may match a line that a rule or section pattern claims.
+    """
+    corpus = [
+        line
+        for path in _corpus_logs()
+        for line in path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(corpus) >= 1000, len(corpus)
+    observed = sum(
+        1
+        for pattern, _reason in cyanrip_log._IGNORED_DISC_LINES
+        if any(pattern.match(line) for line in corpus)
+    )
+    assert observed >= 8, (
+        f"only {observed} of {len(cyanrip_log._IGNORED_DISC_LINES)} ignore entries "
+        "match anything in the real logs — the list is drifting into speculation"
+    )
+    for pattern, reason in cyanrip_log._IGNORED_DISC_LINES:
+        assert reason, f"{pattern.pattern}: an ignore entry needs a stated reason"
+        for rule in cyanrip_log._ALL_LINE_RULES:
+            overlap = [
+                line
+                for line in corpus
+                if pattern.match(line) and rule.pattern.match(line)
+            ]
+            assert not overlap, (
+                f"ignore entry {pattern.pattern!r} also matches lines that rule "
+                f"{rule.name!r} parses, so it can mask a real regression: "
+                f"{overlap[:3]}"
+            )
+
+
+def test_indented_lines_report_what_the_parser_reads_and_what_it_skims() -> None:
+    """Informational counterpart: what do we read INSIDE the blocks, and what not?
+
+    Deliberately not a hard failure. A rip log's indented body is per-track
+    detail and a full tag dump — hundreds of lines we are right to skim — so
+    failing on an unrecognised one would fail the build for progress spam. It
+    still needs teeth, or it would pass by finding nothing: it asserts a floor on
+    lines examined and that every load-bearing per-track row is recognised. The
+    residue is printed, so `pytest -s` (or any failure here) shows exactly which
+    lines the parser has no opinion about.
+
+    `gaps_value` is excluded from the classifier on purpose: its pattern is "any
+    indented line", meaningful only on the line after "Gaps:", so counting it
+    would mark all 1,300 indented lines as recognised and prove nothing. Track
+    FILENAME lines are likewise invisible here — they are claimed by the
+    "File(s):" lookahead in the loop, not by a pattern.
+    """
+    classifiers = [
+        (name, pattern)
+        for name, pattern in cyanrip_log._INDENTED_LINE_PATTERNS
+        if name != "gaps_value"
+    ]
+    classifiers += [(rule.name, rule.pattern) for rule in cyanrip_log._ALL_LINE_RULES]
+    recognised: Counter[str] = Counter()
+    skimmed: Counter[str] = Counter()
+    examined = 0
+    for path in _corpus_logs():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip() or not line[0].isspace():
+                continue
+            examined += 1
+            for name, pattern in classifiers:
+                if pattern.match(line):
+                    recognised[name] += 1
+                    break
+            else:
+                label = line.strip().split(":")[0][:40]
+                skimmed[label] += 1
+    print(
+        f"\nindented lines examined: {examined}; recognised: {sum(recognised.values())}"
+        f" across {len(recognised)} row types; skimmed: {sum(skimmed.values())}"
+        f" across {len(skimmed)} labels"
+    )
+    for label, count in skimmed.most_common():
+        print(f"  skimmed x{count:<4} {label}")
+    assert examined >= 1200, examined
+    # Every row that carries a trust claim or a disc fact must be recognised —
+    # this is the part that cannot be satisfied by finding nothing.
+    must_read = {
+        "track_eac_crc",
+        "track_accurip",
+        "track_accurip_offset",
+        "track_start_lsn",
+        "track_end_lsn",
+        "track_pregap_lsn",
+        "track_preemphasis",
+        "track_replaygain",
+        "track_files_header",
+        "paranoia_count",
+        "loudness_integrated",
+        "loudness_range",
+        "loudness_true_peak",
+    }
+    assert must_read <= set(recognised), sorted(must_read - set(recognised))
+    assert sum(recognised.values()) >= 400, dict(recognised)
+
+
+def test_an_unrecognised_top_level_line_is_reported_to_the_log(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The runtime half of the same idea: a strange row leaves evidence.
+
+    A user's bug report carries the log file, so when a future cyanrip prints a
+    row we do not understand, the fact should be IN that file rather than
+    inferred. Debug level, not warning: a stray line is not a rip failure, and
+    the parser must stay quiet in normal use.
+    """
+    with caplog.at_level(logging.DEBUG, logger="platterpus.parsers.cyanrip_log"):
+        parse_cyanrip_log(
+            "cyanrip 0.9.3 (release)\n"
+            "Offset:         +667 samples\n"
+            "Quantum entanglement mode: enabled\n"  # the row from the future
+            "    indented detail we correctly skim: 5\n"
+            "Ripping errors: 0\n"
+        )
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("unrecognised top-level line" in m for m in messages), messages
+    assert any("Quantum entanglement mode" in m for m in messages), messages
+    # The indented line is per-track detail: reporting it would be noise.
+    assert not any("indented detail" in m for m in messages), messages
+
+
+def test_a_known_ignored_row_is_not_reported_as_unrecognised(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The allow-list silences the debug report too, so the report stays useful.
+
+    Same list, one meaning: entries in `_IGNORED_DISC_LINES` are decisions, and a
+    decision should not keep costing a log line on every parse.
+    """
+    with caplog.at_level(logging.DEBUG, logger="platterpus.parsers.cyanrip_log"):
+        parse_cyanrip_log(
+            "cyanrip 0.9.3 (release)\n"
+            "System device:  /dev/sr0\n"
+            "HDCD decoding:  disabled\n"
+            "Tracks to rip:  all\n"
+        )
+    assert not [
+        record.getMessage()
+        for record in caplog.records
+        if "unrecognised" in record.getMessage()
+    ]
+
+
+# --- The table's own new failure modes ---------------------------------------
+# The table introduced two things the if-chain didn't have: a handler that can
+# DECLINE a line it matched, and a "disc-level rows only" flag. Both are state,
+# so both get a test (docs/testing.md §5.t — "what new state does this create?").
+
+
+def test_a_second_version_banner_does_not_overwrite_the_first() -> None:
+    """First banner wins — and a later one keeps travelling down the chain.
+
+    cyanrip stamps its version into each track's Metadata block ("comment:
+    cyanrip 0.9.3"), and a concatenated or re-ripped log can carry two banners.
+    The rule declines rather than claims, which is what the old
+    `if match and not log_creator:` did.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Offset:         +667 samples\n"
+        "cyanrip 9.9.9 (from the future)\n"
+    )
+    assert log.log_creator == "cyanrip 0.9.3"
+    assert log.ripping_info.extraction_engine == "cyanrip 0.9.3"
+
+
+def test_album_rows_inside_a_track_block_do_not_overwrite_the_disc_album() -> None:
+    """`disc_level_only` rows: the per-track tag dump must not win.
+
+    cyanrip prints "album:" / "album_artist:" inside every track's Metadata
+    block. Those are indented, but a log whose indentation is lost (a copy-paste,
+    a mangled encoding) would otherwise let the last track's tags redefine the
+    disc — and `Outputs:` the same way.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Album:          The Real Album\n"
+        "Album artist:   The Real Artist\n"
+        "Outputs:        flac\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "Album:          Not The Disc\n"
+        "Album artist:   Not The Artist\n"
+        "Outputs:        mp3\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.ripping_info.album == "The Real Album"
+    assert log.ripping_info.album_artist == "The Real Artist"
+    assert log.ripping_info.output_formats == "flac"
+    # And the track itself still parsed normally around those lines.
+    assert log.tracks[0].copy_crc == "B0D122E7"

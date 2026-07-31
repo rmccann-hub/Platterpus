@@ -19,6 +19,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from platterpus import rip_files
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbHttpImpl
 from platterpus.ctdb import crc as crc_mod
 from platterpus.ctdb import decode
@@ -32,8 +33,18 @@ Out = Callable[[str], None]
 
 
 def find_flacs(folder: Path) -> list[Path]:
-    """The album's FLACs in track order (sorted by filename)."""
-    return sorted(folder.glob("*.flac"))
+    """The album's FLACs in track order.
+
+    Asks the shared "which files did this rip write?" helper
+    (:mod:`platterpus.rip_files`) rather than listing the folder, so a folder that
+    also holds an earlier cancelled rip's files can't put 2N tracks into the disc
+    TOC — which would never match a real disc and would make a good rip look like
+    it isn't in the database. Order comes from the log's track numbering; the
+    helper falls back to the old filename-sorted glob (and logs that it did) when
+    the folder has no usable rip log, which is common here: this is the
+    ``--ctdb-calibrate`` path, aimed at any folder the maintainer names.
+    """
+    return list(rip_files.rip_master_files(folder).files)
 
 
 def run_diagnostics(

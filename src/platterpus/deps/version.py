@@ -15,11 +15,23 @@ from __future__ import annotations
 import re
 from re import Pattern
 
-# Generic semver-like matcher. Greedy on `\d+` so `0.10.0` parses to
-# (0, 10, 0) rather than (0, 1, 0). Patch is optional so "1.4" and
-# "1.4.3" both parse.
+# Generic semver-like matcher. Greedy on each component so `0.10.0` parses to
+# (0, 10, 0) rather than (0, 1, 0). Patch is optional so "1.4" and "1.4.3" both
+# parse.
+#
+# Each quantifier is BOUNDED, and that is load-bearing rather than tidy. Left
+# unbounded, this pattern is quadratic in the input length — measured at 18 ms on
+# a 2000-character run of digits and 77 ms on 4000 — because every prefix of the
+# run is a candidate `major` the engine must try and reject. The input here is a
+# **dependency tool's `--version` output**, which is external text whose length is
+# not ours to trust: a tool that dumps a binary blob or a long linker error into
+# the version probe would stall it.
+#
+# 10 digits per component comfortably covers everything real, including
+# date-stamped versions like `20260731.1` — an actual release number has never
+# needed more, and a "component" longer than that is not a version.
 DEFAULT_VERSION_PATTERN: Pattern[str] = re.compile(
-    r"(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<patch>\d+))?"
+    r"(?P<major>\d{1,10})\.(?P<minor>\d{1,10})(?:\.(?P<patch>\d{1,10}))?"
 )
 
 

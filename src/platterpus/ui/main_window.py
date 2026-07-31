@@ -105,6 +105,12 @@ class MainWindow(
     # cover-art outcome — a CoverArtResult (folded into the rip report), or a
     # bare string for back-compat. `object` so it can carry either.
     cover_art_done = Signal(object)
+    # Emitted (from the post-rip processing daemon thread; queued to the GUI
+    # thread) with a main_window_rip.TaggingResult — how the unknown-album
+    # tagging pass went. It exists because `apply_track_tags` reported per-file
+    # failures ONLY to the log file, so an album that shipped entirely untagged
+    # still ended with the window saying "Done."
+    tagging_done = Signal(object)
     # Emitted (from the post-rip CTDB-verify daemon thread; queued to the GUI
     # thread) with the CtdbVerifyResult, so the verdict renders on the GUI
     # thread.
@@ -273,7 +279,19 @@ class MainWindow(
         # Auto-escalation: after Cancel, if the in-container reader keeps the
         # drive spinning, force-stop it once the countdown elapses. Guard so
         # we force-stop at most once per cancel.
+        # How many tracks the finished rip was ASKED to produce, snapshotted at
+        # finish because the debounced report re-writes happen after the rip params
+        # are cleared. See `platterpus.verdict.expected_track_total`.
+        self._last_expected_track_total: int | None = None
         self._force_stop_done: bool = False
+        # The device the pending rescue is FOR, captured when the timer is armed.
+        # It must not be read at fire time: `_do_force_stop` used to ask the drive
+        # picker for its *current* device five seconds later, so cancelling a rip
+        # on /dev/sr0 and then selecting /dev/sr1 within the countdown made the
+        # rescue force-kill and eject **sr1** — a drive it had no business
+        # touching, possibly mid-rip in another window. Empty means "we never
+        # armed one; fall back to the picker".
+        self._force_stop_device: str = ""
         self._force_stop_timer: QTimer = QTimer(self)
         self._force_stop_timer.setSingleShot(True)
         self._force_stop_timer.timeout.connect(self._auto_force_stop)
@@ -469,6 +487,9 @@ class MainWindow(
         # Cover-art outcome lands in the rip log view (not the status line —
         # that's showing the fidelity verdict by then, which matters more).
         self.cover_art_done.connect(self._on_cover_art_done)
+        # Post-rip tagging outcome — a failure reaches the status line, the rip
+        # log view and the JSON report instead of only log.txt.
+        self.tagging_done.connect(self._on_tagging_done)
         # CTDB verdict (opt-in) lands under the AccurateRip table.
         self.ctdb_verify_done.connect(self._on_ctdb_verified)
         # FLAC encode-verify outcome (opt-in) lands in the rip log view.
@@ -571,6 +592,18 @@ class MainWindow(
         that run out of it are abandoned — which is safe, because
         ``hard_exit`` stops interpreter shutdown from destroying a live QThread."""
         from platterpus.workers import ShutdownDeadline, stop_thread
+
+        # Shutdown wrote nothing to the log until now, so a log could not answer
+        # the two questions that matter after a bad quit: did the app begin closing
+        # at all, and was a rip live when it did. The rig's A11 run turned on
+        # exactly that — the log's last line was a disc-removal repaint, which
+        # says the window was still alive but not whether close had started
+        # (rig session, 2026-07-30). One line, at the top, before anything can
+        # block or abandon.
+        log.info(
+            "window close requested; tearing down workers (rip active=%s)",
+            self._rip_worker is not None,
+        )
 
         # One budget for the whole close, not one per worker — see the docstring.
         deadline = ShutdownDeadline()

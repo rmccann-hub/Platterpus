@@ -27,6 +27,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.safe_int import int_or_none
+
 # CD-DA geometry: 75 sectors per second; each sector is 588 stereo 16-bit
 # samples (2352 bytes). The 150-sector (2-second) lead-in offset is part of
 # the absolute MSF addressing CTDB/AccurateRip use.
@@ -110,13 +112,26 @@ def parse_cue_index01_sectors(cue_text: str) -> list[int]:
     00:00:00), so callers that need cumulative offsets should prefer
     `disc_toc_from_files` which sums real track lengths. This parser is used
     for single-file-image cues and for tests.
+
+    A `.cue` is external text, so this is parser-grade: **never raises**, on any
+    input. Lines whose MSF fields can't be converted are skipped.
     """
     sectors: list[int] = []
     for line in cue_text.splitlines():
         m = _INDEX01_RE.match(line)
-        if m:
-            rel = msf_to_sectors(int(m["m"]), int(m["s"]), int(m["f"]))
-            sectors.append(rel + LEAD_IN_SECTORS)
+        if not m:
+            continue
+        # A `.cue` is external text, so this parses like one (CLAUDE.md: parsers
+        # of external output never raise). An MSF field we cannot convert skips
+        # the whole INDEX line rather than contributing a partial timestamp: a
+        # sector offset built from two of three fields is a *wrong* disc position,
+        # and the TOC it lands in is what identifies the disc to CTDB.
+        minutes = int_or_none(m["m"], field="cue INDEX 01 minutes")
+        seconds = int_or_none(m["s"], field="cue INDEX 01 seconds")
+        frames = int_or_none(m["f"], field="cue INDEX 01 frames")
+        if minutes is None or seconds is None or frames is None:
+            continue
+        sectors.append(msf_to_sectors(minutes, seconds, frames) + LEAD_IN_SECTORS)
     return sectors
 
 

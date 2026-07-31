@@ -22,6 +22,7 @@ import os
 import tomllib
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import tomli_w
 
@@ -30,6 +31,11 @@ from platterpus.paths import (
     CONFIG_DIR,
     CONFIG_PATH,
 )
+
+if TYPE_CHECKING:
+    # Type-only: settings_validation imports Config, so a runtime import here
+    # would be circular. The real import stays inside _sanitized().
+    from platterpus.settings_validation import ResetRecord
 
 # Bump this when the schema grows new keys or changes defaults that we
 # want to migrate. Migration logic lives in _migrate() below.
@@ -328,7 +334,12 @@ def load() -> Config:
 
     On first run this writes the defaults file before returning so the
     user has something to edit in Settings.
+
+    Anything this call has to reset (or discard wholesale) is recorded for
+    display — see :func:`take_load_resets`. The stash is cleared here so it
+    always describes *this* load and can't accumulate across repeated loads.
     """
+    _LOAD_RESETS.clear()
     if not CONFIG_PATH.exists():
         log.info("config file missing; creating defaults at %s", CONFIG_PATH)
         cfg = Config()
@@ -360,6 +371,23 @@ def load() -> Config:
             exc,
         )
         _backup_bad_config()
+        # This is the *loudest* case — EVERY setting just reverted — so it must be
+        # shown, not only logged. Recorded through the same channel as a per-field
+        # reset so there's one display path (and one test surface).
+        from platterpus.settings_validation import ResetRecord
+
+        _LOAD_RESETS.append(
+            ResetRecord(
+                field="(whole file)",
+                message=(
+                    f"Your settings file couldn’t be read ({exc}), so every "
+                    "setting is back to its default. The unreadable file was "
+                    f"kept as {CONFIG_PATH.with_suffix('.bad')}."
+                ),
+                old_value=str(CONFIG_PATH),
+                new_value="all defaults",
+            )
+        )
         return Config()
 
     return _sanitized(cfg)
@@ -375,6 +403,31 @@ def _backup_bad_config() -> None:
         log.exception("could not back up the unreadable config; leaving it in place")
 
 
+# Fields the most recent `load()` had to reset, waiting to be SHOWN to the user.
+#
+# Why a module-level stash rather than a return value: `load()`'s single-Config
+# return is depended on by the app, `--doctor`, preflight and a lot of tests, and
+# `Config` maps 1:1 to TOML keys (a "what got reset" field would be persisted and
+# would break the validator-completeness meta-test). So the resets are parked here
+# and collected by whichever front end is running — see `take_load_resets()`.
+_LOAD_RESETS: list[ResetRecord] = []
+
+
+def take_load_resets() -> list[ResetRecord]:
+    """Return (and clear) the fields the last :func:`load` reset to defaults.
+
+    The caller is expected to SHOW these: a reset that is only logged is the
+    "silent reset" the *validate every input* convention forbids, and for
+    ``read_offset`` it silently rips the next disc at the wrong offset. The GUI
+    surfaces them in a dialog once the window is up; ``--doctor`` prints them.
+    Consuming (rather than peeking) keeps a second front end from showing the
+    same notice twice.
+    """
+    resets = list(_LOAD_RESETS)
+    _LOAD_RESETS.clear()
+    return resets
+
+
 def _sanitized(cfg: Config) -> Config:
     """Reset any field with an ERROR-level validation issue to its default.
 
@@ -385,6 +438,14 @@ def _sanitized(cfg: Config) -> Config:
     every issue, and drop any *error*-level field back to its default so an
     invalid value can never reach the ripper. Warnings are logged only (the value
     is legal, just probably unintended). Never raises.
+
+    **Every reset is also recorded for display** (``_LOAD_RESETS``). Resetting is
+    the right safety behaviour; doing it *invisibly* was not. The hazard was
+    already written down — ``main_window_drive._set_read_offset_override``'s
+    docstring names "silently reset to 0 by the next startup's ``_sanitized()``
+    … ripping at the wrong offset with only a log line" — but was only ever
+    closed on the *write* path, so a hand-edited file still reached it
+    (audit, 2026-07-31).
     """
     try:
         from platterpus import settings_validation
@@ -399,6 +460,21 @@ def _sanitized(cfg: Config) -> Config:
         defaults = Config()
         resets = {issue.field: getattr(defaults, issue.field) for issue in errors}
         log.warning("resetting invalid config field(s) to defaults: %s", sorted(resets))
+        # One record per *field* (an error list can name a field twice); keep the
+        # first message, which is the one the validator considered decisive.
+        seen: set[str] = set()
+        for issue in errors:
+            if issue.field in seen:
+                continue
+            seen.add(issue.field)
+            _LOAD_RESETS.append(
+                settings_validation.ResetRecord(
+                    field=issue.field,
+                    message=issue.message,
+                    old_value=repr(getattr(cfg, issue.field)),
+                    new_value=repr(resets[issue.field]),
+                )
+            )
         return replace(cfg, **resets)
     except Exception:  # noqa: BLE001 — sanitisation must never crash startup
         log.exception("config sanitisation failed; using the loaded values as-is")

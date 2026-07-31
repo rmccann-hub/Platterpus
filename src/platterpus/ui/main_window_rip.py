@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
-from platterpus import drive_control
+from platterpus import drive_control, rip_files
 from platterpus.adapters import cover_art
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.flac_recompress import (
@@ -85,6 +85,7 @@ from platterpus.ui.unknown_album import (
     apply_track_tags,
     launch_picard_for,
 )
+from platterpus.verdict import expected_track_total
 from platterpus.workers import start_worker_thread
 from platterpus.workers.ctdb_worker import verify_rip_dir
 from platterpus.workers.derived_verify_worker import (
@@ -100,6 +101,16 @@ log = logging.getLogger(__name__)
 # escalate sooner.
 _FORCE_STOP_COUNTDOWN_MS: int = 5000
 
+# How long window-close may spend stopping the in-container reader, in total.
+# Chosen against what the fast path actually costs: on rootless podman the
+# in-container processes are host-visible, so the `fuser -k` that does the real
+# work is effectively instant (measured at 0.12 s on the rig — 20:50:03,949 →
+# 20:50:04,067). 5 s therefore leaves the common case untouched while capping the
+# pathological one, where every step misses and the `distrobox enter` fallback
+# would otherwise be waited out. Deliberately smaller than the worker shutdown
+# budget: this runs BEFORE the workers are stopped and must not eat their share.
+_SHUTDOWN_DRIVE_FREE_BUDGET_S: float = 5.0
+
 # How long the rip may go with NO signal from the worker (no progress line, no
 # status, no log output) before the liveness watchdog calls it a stall and shows
 # the notice. cyanrip streams several lines a second while healthy, so tens of
@@ -113,6 +124,80 @@ _RIP_STALL_THRESHOLD_S: float = 45.0
 # settle before hashing (mirrors the CTDB/FLAC-verify settle bound), so a wedged
 # post-rip step can't hang the digest thread forever.
 _CHECKSUM_SETTLE_TIMEOUT_S: float = 120.0
+
+# Guards the lazily-created ``_post_rip_failures`` record. Module-level rather
+# than per-window because the record is created by whichever post-rip daemon
+# fails FIRST, and two of them can die in the same instant — a read-modify-write
+# race there would drop one of the two failures we are adding the record to
+# capture. Held only for a dict write, so contention is nil.
+_POST_RIP_FAILURE_LOCK: threading.Lock = threading.Lock()
+
+
+@dataclass(frozen=True)
+class TaggingResult:
+    """Outcome of the post-rip unknown-album tagging pass.
+
+    Why this type exists (2026-07-31): ``apply_track_tags`` logs each per-file
+    ``MetaflacError`` at WARNING and returns the files that *succeeded* — and the
+    caller threw that return value away. So a total tagging failure (the disk
+    filled during the metaflac pass; ``metaflac`` vanished; every filename lacked
+    a leading track number) shipped a whole album of untagged FLACs while the
+    window said "Done." and the JSON report said nothing at all. This carries the
+    facts back to the GUI thread so the user and the report both learn about it.
+
+    ``attempted`` counts the masters we tried to tag; ``tagged`` how many took
+    their tags. ``failures`` are the basenames that did not (kept as names, not
+    paths, because that is what a user reads and what the report shows).
+    ``error`` is a whole-pass failure — the step raised or never ran — as opposed
+    to per-file failures.
+    """
+
+    ran: bool = False
+    attempted: int = 0
+    tagged: int = 0
+    failures: tuple[str, ...] = ()
+    error: str = ""
+
+    @property
+    def ok(self) -> bool:
+        """True when the pass ran and every file we attempted took its tags.
+
+        A pass with nothing to tag (``attempted == 0``) is *not* a failure — an
+        empty album folder is the caller's problem to report, not this pass's.
+        """
+        return not self.failures and not self.error
+
+
+def _rip_master_paths(rip_dir: Path, rip_log: object | None) -> list[Path]:
+    """The FLAC masters **this rip** wrote, for a step that is about to change them.
+
+    Every post-rip step below (tagging, colon-restore, re-compress, transcode)
+    used to answer this with ``rip_dir.rglob("*.flac")``. Unlike the verification
+    steps — which only *read* — these four **mutate or derive from** whatever they
+    find, and "the FLACs in the album folder" is not "the FLACs this rip wrote".
+    One ordinary sequence puts a stranger's file there: cancel a rip (partial
+    files remain, one of them a truncated FLAC), fix a track title, re-rip and
+    choose *Replace* — the new titles produce new filenames, so the new files land
+    *beside* the old ones. The raw glob then wrote this disc's metadata into the
+    leftover, re-compressed it, and transcoded it into the user's library.
+
+    :mod:`platterpus.rip_files` is the single shared answer to "which files are
+    mine?" (CLAUDE.md Critical rule #6): it reads the rip's own log — which names
+    one file per track — and degrades to a folder scan, logged at WARNING, when
+    there is no usable log. ``rip_log`` is the already-parsed log the finish
+    handler is holding, passed in so the log is not read a second time.
+    """
+    file_set = rip_files.rip_master_files(rip_dir, rip_log=rip_log)
+    if not file_set.files:
+        # Not an error we can act on here (every caller is best-effort), but it
+        # must never be silent: a post-rip step that quietly did nothing is
+        # indistinguishable from one that succeeded.
+        log.warning(
+            "no FLAC master from this rip could be identified in %s — the post-rip "
+            "step has nothing to work on",
+            rip_dir,
+        )
+    return list(file_set.files)
 
 
 def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> bool:
@@ -164,6 +249,45 @@ def _reported(new: _T, current: _T) -> _T:
     return current if new is None or new == "" or new == {} else new
 
 
+def _verified_by_this_read(new: _T, current: _T, *, track: int, field: str) -> _T:
+    """A verification claim the SHIPPED read must earn for itself. No fallback.
+
+    This is the sibling of :func:`_reported` and it deliberately does the opposite
+    thing, because a *description* and a *claim of proof* fail in opposite
+    directions.
+
+    `_reported` keeps the first pass's value when the re-rip didn't print one, on
+    the reasoning that discarding a known fact is worse than keeping a stale one.
+    That reasoning holds for a descriptive field. It **inverts** for an
+    AccurateRip result, because an AccurateRip verdict is not a description of a
+    track — it is the assertion *"a shared database confirmed these exact bytes"*.
+    The first pass's verdict confirmed the bytes we THREW AWAY. Carrying it onto
+    the replacement means the banner, the JSON report, the per-track table and the
+    EAC log all state a verification that never happened for the audio on disk.
+
+    So an unreported verification becomes **unknown**, not inherited. Unknown is
+    honest and the UI already renders it ("not in DB" / no checkmark); a stale
+    "verified" is the single worst thing this program can say, and it is the exact
+    class of failure KDD-30 exists to prevent.
+
+    Dropping a value is a fact worth recording, so it is logged: a track that
+    silently lost its verdict would otherwise look like a disc that AccurateRip
+    simply doesn't know.
+    """
+    if new is None or new == "" or new == {}:
+        if current is not None and current != "" and current != {}:
+            log.info(
+                "track %d: dropping the first pass's %s — its file was replaced by "
+                "a re-rip whose log reported no %s, so the shipped bytes were never "
+                "checked against AccurateRip and must not inherit that verdict",
+                track,
+                field,
+                field,
+            )
+        return new
+    return new
+
+
 def _merge_shipped_track(
     track: TrackResult, shipped: TrackResult | None, verdicts: dict[int, bool]
 ) -> TrackResult:
@@ -186,12 +310,39 @@ def _merge_shipped_track(
         track = replace(
             track,
             copy_crc=_reported(shipped.copy_crc, track.copy_crc),
-            test_crc=_reported(shipped.test_crc, track.test_crc),
             status=_reported(shipped.status, track.status),
-            accuraterip_v1=_reported(shipped.accuraterip_v1, track.accuraterip_v1),
-            accuraterip_v2=_reported(shipped.accuraterip_v2, track.accuraterip_v2),
-            accuraterip_offset=_reported(
-                shipped.accuraterip_offset, track.accuraterip_offset
+            # NOT `_reported`: see `_verified_by_this_read`. These three are
+            # claims that a shared database confirmed specific bytes, and the
+            # bytes the first pass confirmed were discarded. Inheriting them let a
+            # re-ripped track read "AccurateRip verified" when the audio actually
+            # shipped had never been checked at all.
+            accuraterip_v1=_verified_by_this_read(
+                shipped.accuraterip_v1,
+                track.accuraterip_v1,
+                track=track.number,
+                field="AccurateRip v1 result",
+            ),
+            accuraterip_v2=_verified_by_this_read(
+                shipped.accuraterip_v2,
+                track.accuraterip_v2,
+                track=track.number,
+                field="AccurateRip v2 result",
+            ),
+            accuraterip_offset=_verified_by_this_read(
+                shipped.accuraterip_offset,
+                track.accuraterip_offset,
+                track=track.number,
+                field="AccurateRip offset-variant result",
+            ),
+            # `test_crc` is the other proof-shaped field: it is half of a
+            # two-reads-agree pair, and pairing the first pass's Test CRC with the
+            # replacement's Copy CRC would render a convergence that never
+            # happened. Same rule, same reason.
+            test_crc=_verified_by_this_read(
+                shipped.test_crc,
+                track.test_crc,
+                track=track.number,
+                field="Test CRC",
             ),
             rip_count=_reported(shipped.rip_count, track.rip_count),
             peak_level=_reported(shipped.peak_level, track.peak_level),
@@ -210,6 +361,21 @@ def _merge_shipped_track(
 
 class RipMixin(MainWindowShared):
     """Start/cancel/finish a rip, plus eject, unknown-album, and cover art."""
+
+    # State only this mixin touches, so it is declared here rather than on the
+    # shared seam (``main_window_shared``), which is the map of what the window
+    # exposes to *all* its mixins. Bare annotations, like every declaration on
+    # that seam: they add no runtime attribute, so both are read with a
+    # ``getattr`` default until the first Start assigns them (the same pattern
+    # the ``_last_*`` report snapshots use).
+    #
+    # ``_last_tagging_result`` — the post-rip tagging outcome, folded into the
+    # rip report. ``_post_rip_failures`` — ``{thread attribute: error text}`` for
+    # every post-rip daemon that died instead of returning a result (see
+    # ``_record_post_rip_failure``); written from those daemon threads, read on
+    # the GUI thread.
+    _last_tagging_result: TaggingResult | None
+    _post_rip_failures: dict[str, str]
 
     # --- Slots: rip flow ----------------------------------------------------
 
@@ -389,7 +555,12 @@ class RipMixin(MainWindowShared):
         self._last_secure_rerip = None
         self._last_cover_art_result = None
         self._last_recompress_result = None
+        self._last_tagging_result = None
         self._last_rip_error = None
+        # Post-rip daemons that died instead of returning a result. Cleared per
+        # Start for the same reason as the results above: a crash recorded against
+        # the previous album must not be reported against this one.
+        self._post_rip_failures = {}
         # Rip generation, bumped every Start. Each post-rip verify daemon captures
         # the generation it launched under and drops its result if a NEWER rip has
         # started since — so a slow verify from album A (FLAC-verify waits up to
@@ -402,6 +573,7 @@ class RipMixin(MainWindowShared):
         # countdown can't fire into this fresh rip.
         self._force_stop_timer.stop()
         self._force_stop_done = False
+        self._force_stop_device = ""
 
         self._start_rip_worker(params)
 
@@ -650,8 +822,27 @@ class RipMixin(MainWindowShared):
     def _on_rip_cancel(self) -> None:
         if self._rip_worker is None:
             return
+        # Cancel is the single most consequential thing a user can press during a
+        # rip, and until now it wrote NOTHING to the log — so a report about a
+        # cancel that misbehaved (a drive left spinning, a rip recorded as failed)
+        # arrived with no record of when, or whether, it was even pressed. The
+        # rescue deadline goes in the same line so the log carries the window a
+        # reader has to reason about (rig session, 2026-07-30).
+        log.info(
+            "rip cancel requested by the user; arming the %ds force-stop rescue",
+            _FORCE_STOP_COUNTDOWN_MS // 1000,
+        )
         self._rip_cancelled = True
         self._force_stop_done = False
+        # Capture the device NOW, not when the timer fires. Prefer the drive this
+        # rip is actually using (`params.drive`) over whatever the picker happens
+        # to show — the picker is a UI control the user can change during the five
+        # seconds, and the rescue must target the drive that is still spinning.
+        # Same precedence the auto-eject path already uses.
+        active = getattr(self, "_active_rip_params", None)
+        self._force_stop_device = (
+            getattr(active, "drive", "") or self._drive_picker.current_device() or ""
+        )
         # The in-container reader can take a moment to stop; set expectations,
         # and arm the auto force-stop in case it doesn't stop on its own.
         secs = _FORCE_STOP_COUNTDOWN_MS // 1000
@@ -705,11 +896,16 @@ class RipMixin(MainWindowShared):
         # a malfunction. Found by a rip-path audit, 2026-07-29; the honesty rule
         # this breaks is the same one the rest of the reporting code is built on.
         self._rip_cancelled = True
-        device = self._drive_picker.current_device() or ""
+        # The armed device wins whenever we have one — for the auto trigger it is
+        # the whole point (see `_force_stop_device`), and for a manual press during
+        # a rip it is still the right target: "Force stop" means stop the thing
+        # that is running, not whatever the picker is now pointing at.
+        device = self._force_stop_device or self._drive_picker.current_device() or ""
         log.info(
-            "force-stopping drive (%s trigger), device=%s",
+            "force-stopping drive (%s trigger), device=%s armed=%s",
             trigger,
             device or "(default)",
+            self._force_stop_device or "(none)",
         )
         self._rip_progress.set_status(
             "Force-stopping the drive (eject + stopping the reader)…"
@@ -801,12 +997,25 @@ class RipMixin(MainWindowShared):
         if self._rip_worker is not None:
             # Host-side: set the cancel flag + killpg the wrapper group.
             self._rip_worker.cancel()
-        device = self._drive_picker.current_device() or ""
+        # The armed device, for the same reason the rescue timer captures it: the
+        # picker is a live UI control and by the time we are closing it may point
+        # at a drive that was never involved in this rip.
+        device = self._force_stop_device or self._drive_picker.current_device() or ""
         try:
             # free_drive kills the in-container reader (host pkill → fuser →
             # distrobox-enter fallback) WITHOUT ejecting. Synchronous by design
             # (see docstring); best-effort and never raises on its own.
-            drive_control.free_drive(device=device)
+            #
+            # BOUNDED. The sequence is up to seven subprocesses, each previously
+            # capped at 20 s on its own, so a wedged drive could hold the window
+            # in a closing state for over a minute — indistinguishable from a
+            # hang, and the maintainer reports freezes as bugs because they are.
+            # One shared budget caps the whole thing; a spent budget skips the
+            # remaining steps and says so in the log.
+            drive_control.free_drive(
+                device=device,
+                runner=drive_control.budgeted_runner(_SHUTDOWN_DRIVE_FREE_BUDGET_S),
+            )
         except Exception:  # noqa: BLE001 — shutdown cleanup must never crash close
             log.exception("shutdown drive-free failed; ignored")
 
@@ -1126,13 +1335,47 @@ class RipMixin(MainWindowShared):
                 # its convergence) in, so every surface below describes the audio
                 # actually on disk (KDD-30).
                 rip_log = self._apply_auto_fix_results(rip_log)
-                self._rip_progress.set_rip_log(rip_log)
+                # The disc's own track count and the rip's outcome, both already
+                # known here (`_last_outcome` is built above, at build_outcome).
+                # Without them the trust headline's denominator is the number of
+                # tracks *in the log*, which shrinks with a cancelled rip — so
+                # "all N tracks verified" went green over 2 of 14 (found on the
+                # rig, 2026-07-30). Same two values the EAC exporter is given.
+                finished_outcome = getattr(self, "_last_outcome", None)
+                finished_status = (
+                    str(finished_outcome.get("status") or "")
+                    if isinstance(finished_outcome, dict)
+                    else ""
+                )
+                # ONE number, handed to EVERY surface. `_current_num_tracks` is
+                # always the DISC's count, so on its own it made a *deliberate*
+                # partial rip (the Rip? column exists for exactly that) report "12
+                # tracks were never ripped" — the user's own choice rendered as a
+                # fault. `expected_track_total` folds in the selection, and the
+                # reason it is computed here rather than inside each renderer is
+                # that this bug has shipped four times by being fixed one renderer
+                # at a time (audit finding, 2026-07-30).
+                expected_total = expected_track_total(
+                    getattr(self, "_current_num_tracks", 0) or None,
+                    getattr(params, "only_tracks", ()) if params is not None else (),
+                )
+                # The report is re-written later (after CTDB, after the library
+                # move) by which point `_active_rip_params` is cleared, so snapshot
+                # the number rather than recomputing it from state that has moved.
+                self._last_expected_track_total = expected_total
+                self._rip_progress.set_rip_log(
+                    rip_log,
+                    disc_track_total=expected_total,
+                    outcome_status=finished_status,
+                )
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
                 # the old misleading static "verified during rip".
                 self._disc_info_panel.set_accuraterip_result(rip_log)
                 if success:
-                    status = fidelity_summary(rip_log)
+                    status = fidelity_summary(
+                        rip_log, expected_track_total=expected_total
+                    )
                     self._rip_progress.set_status(status)
                     # A rip that MATCHED AccurateRip confirms the applied read
                     # offset is correct on THIS drive (KDD-31 — our equal-or-
@@ -1328,6 +1571,13 @@ class RipMixin(MainWindowShared):
                     album_metadata=album_snapshot,
                     track_rows=tracks_snapshot,
                     local_cover_path=local_cover,
+                    # The rip's own record of which files it wrote. Already parsed
+                    # above (`self._last_rip_log`), so hand it over rather than
+                    # making each post-rip step re-read the log off disk — and so
+                    # every step scopes to the same set of files. None when the log
+                    # could not be parsed, in which case rip_files falls back to a
+                    # folder scan and says so at WARNING.
+                    rip_log=self._last_rip_log,
                 )
                 post_rip_thread = self._post_rip_thread
             else:
@@ -1430,7 +1680,8 @@ class RipMixin(MainWindowShared):
         launch_picard: bool,
         album: AlbumMetadata | None = None,
         tracks: Sequence[TrackSummary] | None = None,
-    ) -> None:
+        rip_log: object | None = None,
+    ) -> TaggingResult:
         """Tag the FLACs from the track table + optionally launch Picard.
 
         Called after an unknown-mode rip finishes. The track table holds the
@@ -1444,6 +1695,16 @@ class RipMixin(MainWindowShared):
         are omitted (a direct test/manual call), we read the table here — which
         is only safe on the GUI thread, so we assert that. Public so it can be
         exercised from tests.
+
+        ``rip_log`` is this rip's already-parsed log, used to scope the tagging to
+        the files THIS rip wrote (see :func:`_rip_master_paths`).
+
+        Returns a :class:`TaggingResult` describing what actually happened.
+        Returning it (rather than nothing) is the fix for a silent failure mode:
+        ``apply_track_tags`` reports per-file failures only to the log file, so an
+        album that shipped entirely untagged still ended with the window saying
+        "Done." The caller hands this to the GUI thread, which tells the user and
+        records it in the rip report.
         """
         if album is None or tracks is None:
             # Only reachable on a direct (test/GUI-thread) call — reading the
@@ -1455,10 +1716,23 @@ class RipMixin(MainWindowShared):
             )
             album = self._track_table.album_metadata()
             tracks = self._track_table.tracks()
-        flac_files = sorted(rip_output_dir.rglob("*.flac"))
-        apply_track_tags(self._metaflac, flac_files, album, tracks)
+        flac_files = _rip_master_paths(rip_output_dir, rip_log)
+        tagged = apply_track_tags(self._metaflac, flac_files, album, tracks)
+        # Whatever we tried to tag and did NOT get back is a failure. Deriving the
+        # failures by difference (rather than trusting a count) covers BOTH of
+        # apply_track_tags' ways of not tagging a file: a metaflac error, and a
+        # filename with no leading track number (which it skips deliberately,
+        # because guessing a TRACKNUMBER is worse than leaving it alone).
+        succeeded = set(tagged)
+        failures = tuple(p.name for p in flac_files if p not in succeeded)
         if launch_picard and flac_files:
             launch_picard_for(rip_output_dir)
+        return TaggingResult(
+            ran=True,
+            attempted=len(flac_files),
+            tagged=len(tagged),
+            failures=failures,
+        )
 
     def _metadata_has_colon(self) -> bool:
         """True if any metadata value fed to cyanrip contains a ``:``.
@@ -1497,6 +1771,7 @@ class RipMixin(MainWindowShared):
         album_metadata: AlbumMetadata | None = None,
         track_rows: Sequence[TrackSummary] | None = None,
         local_cover_path: object | None = None,
+        rip_log: object | None = None,
     ) -> None:
         """Run unknown-mode tagging, then cover art, then FLAC re-compress, then
         an optional transcode, on ONE daemon thread.
@@ -1504,6 +1779,13 @@ class RipMixin(MainWindowShared):
         ``local_cover_path`` (when set) is a user-chosen image file used as the
         front cover *instead of* fetching from the Cover Art Archive — the "load
         cover art from a file" path.
+
+        ``rip_log`` is the finish handler's already-parsed rip log. Every step
+        below mutates or derives from the album's FLACs, so each is scoped to the
+        files THIS rip wrote rather than to whatever is in the folder — see
+        :func:`_rip_master_paths` for the leftover-file hazard. Passing the parsed
+        log (instead of letting each step re-read it) means one parse, and one
+        answer every step agrees on.
 
         ``album_metadata`` / ``track_rows`` are the track-table snapshot taken on
         the GUI thread (BUG-1) and handed to the daemon's tagging step — the
@@ -1555,7 +1837,7 @@ class RipMixin(MainWindowShared):
                 )
 
                 fixed = restore_substituted_colons(
-                    self._metaflac, sorted(rip_dir.rglob("*.flac"))
+                    self._metaflac, _rip_master_paths(rip_dir, rip_log)
                 )
                 if fixed:
                     log.info("colon-restore: fixed tags in %d file(s)", fixed)
@@ -1566,14 +1848,27 @@ class RipMixin(MainWindowShared):
                 try:
                     # Pass the GUI-thread snapshot in — the daemon must not read
                     # the track-table widgets itself (BUG-1).
-                    self.run_unknown_post_processing(
+                    tag_result = self.run_unknown_post_processing(
                         rip_dir,
                         launch_picard,
                         album=album_metadata,
                         tracks=track_rows,
+                        rip_log=rip_log,
                     )
-                except Exception:  # noqa: BLE001 — tagging must never crash the GUI
+                except Exception as exc:  # noqa: BLE001 — must never crash the GUI
                     log.exception("unknown-album post-processing failed")
+                    # A crash mid-pass is still a tagging outcome the user has to
+                    # hear about: some files may carry tags, the rest do not, and
+                    # before this the whole thing vanished into the log file.
+                    tag_result = TaggingResult(
+                        ran=True, error=f"{type(exc).__name__}: {exc}"
+                    )
+                if self._rip_generation != gen:
+                    return  # a newer rip started — this result is for the old album
+                try:
+                    self.tagging_done.emit(tag_result)
+                except RuntimeError:  # window destroyed — nothing to update
+                    pass
             # 2) Cover art second, only after tagging has fully finished so the
             #    two never touch a FLAC at the same time.
             if embed or save_file:
@@ -1586,6 +1881,11 @@ class RipMixin(MainWindowShared):
                             embed=embed,
                             save_file=save_file,
                             metaflac=self._metaflac,
+                            # Scope the embed to the files THIS rip wrote, so a
+                            # leftover from an earlier rip isn't given this
+                            # album's cover (and isn't counted in "embedded in
+                            # N track(s)").
+                            rip_log=rip_log,
                         )
                     else:
                         art_result = cover_art.apply_cover_art(
@@ -1598,6 +1898,7 @@ class RipMixin(MainWindowShared):
                             # The config mode is recorded in the report so it knows
                             # art was *requested* (a plain attribute read — no Qt).
                             mode=self._config.cover_art,
+                            rip_log=rip_log,  # this rip's files only
                         )
                 except Exception:  # noqa: BLE001 — art must never crash the GUI
                     log.exception("cover art post-processing failed")
@@ -1642,7 +1943,7 @@ class RipMixin(MainWindowShared):
             #    the original untouched. Outcome reported via flac_recompress_done.
             if recompress:
                 try:
-                    result = recompress_flac_files(sorted(rip_dir.rglob("*.flac")))
+                    result = recompress_flac_files(_rip_master_paths(rip_dir, rip_log))
                 except Exception:  # noqa: BLE001 — must never crash the GUI
                     log.exception("FLAC re-compress failed unexpectedly")
                     result = RecompressResult(error="failed unexpectedly")
@@ -1659,7 +1960,7 @@ class RipMixin(MainWindowShared):
             if transcode_fmt:
                 try:
                     tresult = transcode_files(
-                        sorted(rip_dir.rglob("*.flac")),
+                        _rip_master_paths(rip_dir, rip_log),
                         fmt=transcode_fmt,
                         mp3_vbr_quality=mp3_vbr_quality,
                     )
@@ -1706,6 +2007,62 @@ class RipMixin(MainWindowShared):
         log.info("%s", message)
         self._rip_progress.append_log_line(message)
 
+    def _on_tagging_done(self, result: object) -> None:
+        """Post-rip tagging finished — surface + record it (runs on the GUI thread).
+
+        Why this slot exists (2026-07-31): ``apply_track_tags`` writes a WARNING
+        per failed file and returns the successes, and the caller discarded that
+        return value. Nothing else looked at it: no signal, no status line, no
+        report field. So the failure mode "the disk filled during the metaflac
+        pass, so every FLAC shipped untagged" ended with the window saying "Done."
+        and a rip report that mentioned tagging nowhere. This makes it visible in
+        all three places the project treats as the record — the status line, the
+        rip log view, and the JSON report.
+
+        The trust banner is downgraded too. The audio claim it makes ("these bytes
+        matched AccurateRip") is still true — untagged FLACs are still bit-perfect
+        — but a green ✓ over an album that carries none of its metadata is exactly
+        the silent-success this codebase keeps having to fix, and the north star is
+        a complete library entry, not just correct bytes.
+        """
+        if not isinstance(result, TaggingResult):
+            return
+        # Recorded even when it went fine, so the report can state positively that
+        # tagging ran (an absent field is the ambiguity `verification.gates` was
+        # invented to remove).
+        self._last_tagging_result = result
+        self._schedule_rip_report_write()
+        if result.error:
+            # A whole-pass failure: we cannot say which files got tags.
+            message = (
+                f"⚠ Tagging FAILED — the tags from the track table could not be "
+                f"written ({result.error}). The audio is unaffected; you can tag "
+                "the files with Picard."
+            )
+        elif result.failures:
+            names = ", ".join(result.failures)
+            message = (
+                f"⚠ Tagging FAILED for {len(result.failures)} of "
+                f"{result.attempted} file(s): {names}. The audio is unaffected; "
+                "see the app log for each failure."
+            )
+        else:
+            message = f"Tagging: {result.tagged} file(s) tagged from the track table."
+        if result.ok:
+            log.info("%s", message)
+        else:
+            log.warning("%s", message)
+            # Loud: the status line is the one surface a user who walked away will
+            # read, and "Done." over an untagged album is a lie of omission.
+            self._rip_progress.set_status(message)
+            failed_count = len(result.failures) or result.attempted
+            self._rip_progress.downgrade_verdict(
+                f"tags could not be written to {failed_count} file(s)"
+                if failed_count
+                else "the tagging step failed"
+            )
+        self._rip_progress.append_log_line(message)
+
     # --- Shared post-rip daemon launcher -----------------------------------
 
     def _launch_post_rip_daemon(
@@ -1733,11 +2090,32 @@ class RipMixin(MainWindowShared):
         can outlast any reasonable ``closeEvent`` wait, and destroying a running
         QThread aborts the app (docs/architecture.md §3.2). The daemon dies with
         the process and never touches a widget except through the queued signal.
+
+        ``compute`` is guarded: an exception escaping it used to kill the daemon
+        thread with no signal emitted and nothing recorded, and a dead thread reads
+        as "settled" to :meth:`_post_rip_work_settled` — so the library move went
+        ahead exactly as if the check had passed. See
+        :meth:`_record_post_rip_failure`.
         """
         gen = self._rip_generation  # drop the result if a newer rip starts
 
         def runner() -> None:
-            result = compute()
+            try:
+                result = compute()
+            except Exception as exc:  # noqa: BLE001 — see below
+                # A crashed check must not be INDISTINGUISHABLE from a passed one.
+                # Two things happen here and both matter: it is logged (so the
+                # failure is diagnosable at all), and it is *recorded on the
+                # window*, which is what lets the settlement logic — the gate in
+                # front of the library move — tell "every check finished" apart
+                # from "a check died on its way to finishing". `threading`'s
+                # default excepthook logs an escaping exception since v0.5.18, but
+                # a log line no code reads cannot change a decision.
+                log.exception("post-rip step %s failed", thread_attr)
+                self._record_post_rip_failure(
+                    thread_attr, f"{type(exc).__name__}: {exc}"
+                )
+                return
             if result is None:
                 return  # the work opted out (e.g. didn't settle) — nothing to emit
             if self._rip_generation != gen:
@@ -1751,6 +2129,26 @@ class RipMixin(MainWindowShared):
         setattr(self, thread_attr, thread)
         thread.start()
         return thread
+
+    def _record_post_rip_failure(self, step: str, detail: str) -> None:
+        """Record that a post-rip daemon died instead of producing a result.
+
+        Called from the failing daemon thread, so it must touch no widget — it only
+        writes a plain dict, which the GUI thread reads later (in
+        :meth:`_poll_library_move`). ``step`` is the thread attribute the check was
+        stored under (``"_ctdb_thread"``, ``"_checksums_thread"``, …), which is the
+        one name that identifies the check uniquely.
+
+        The dict is created on first failure rather than in ``__init__`` because
+        the failure path is (and should stay) rare; the lock is there because two
+        checks can die in the same instant and a lost record defeats the purpose.
+        """
+        with _POST_RIP_FAILURE_LOCK:
+            failures: dict[str, str] | None = getattr(self, "_post_rip_failures", None)
+            if failures is None:
+                failures = {}
+                self._post_rip_failures = failures
+            failures[step] = detail
 
     # --- Post-rip CTDB verify (opt-in, KDD-14 Phase 1) ----------------------
 
@@ -1898,6 +2296,12 @@ class RipMixin(MainWindowShared):
         verify, derived verify, checksums, the comparison scan) plus the
         debounced report timer. ``getattr`` with a default because the thread
         attributes only exist once their first launch happened this session.
+
+        Deliberately answers "is anything still touching the files?", NOT "did
+        every check pass" — a check that *crashed* is finished, and blocking the
+        move on it would strand the album in the workspace forever. What the crash
+        must not do is pass unmentioned, so the caller reads
+        :meth:`_post_rip_failure_summary` before it moves anything.
         """
         for attr in (
             "_post_rip_thread",
@@ -1912,6 +2316,24 @@ class RipMixin(MainWindowShared):
                 return False
         return not self._rip_report_timer.isActive()
 
+    def _post_rip_failure_summary(self) -> str:
+        """One line naming every post-rip check that died, or ``""`` if none did.
+
+        The readable half of :meth:`_record_post_rip_failure`: it turns the
+        ``{thread attribute: error}`` record into something a human can act on. The
+        leading ``_`` and trailing ``_thread`` are stripped because the attribute
+        name is an implementation detail — "ctdb", "checksums" is what the user
+        recognises.
+        """
+        failures: dict[str, str] = getattr(self, "_post_rip_failures", {}) or {}
+        if not failures:
+            return ""
+        named = ", ".join(
+            f"{attr.strip('_').removesuffix('_thread')} ({detail})"
+            for attr, detail in sorted(failures.items())
+        )
+        return named
+
     def _poll_library_move(self) -> None:
         """Settlement-poll slot: fire the armed library move once it's safe.
 
@@ -1922,6 +2344,12 @@ class RipMixin(MainWindowShared):
         (so the finished JSON travels WITH the folder), and hands the actual
         filesystem move to a daemon thread via the shared generation-guarded
         launcher.
+
+        A post-rip check that CRASHED still lets the move proceed — the audio is
+        fine and stranding it in the workspace would be the worse outcome — but it
+        is announced first. Before this, a crashed daemon was indistinguishable
+        from a passed one here, so the album was filed away with the user having
+        been told nothing at all (see :meth:`_record_post_rip_failure`).
         """
         pending = self._pending_library_move
         if pending is None:
@@ -1937,6 +2365,15 @@ class RipMixin(MainWindowShared):
             return  # keep polling
         self._pending_library_move = None
         self._library_move_timer.stop()
+        crashed = self._post_rip_failure_summary()
+        if crashed:
+            message = (
+                "⚠ A post-rip check did not finish, so its result is missing from "
+                f"this rip's record: {crashed}. Filing the rip anyway — the audio "
+                "itself is unaffected."
+            )
+            log.warning("%s", message)
+            self._rip_progress.append_log_line(message)
         # The debounced report write targets the CURRENT path — flush it now so
         # the complete report moves with the folder instead of being written
         # into a folder that no longer exists.
@@ -2308,6 +2745,9 @@ class RipMixin(MainWindowShared):
             derived_verify_result=getattr(self, "_last_derived_verify_result", None),
             recompress_result=getattr(self, "_last_recompress_result", None),
             cover_art_result=getattr(self, "_last_cover_art_result", None),
+            # The post-rip tagging outcome. Recorded as an `issues` entry rather
+            # than a block of its own — see rip_report._tagging.
+            tagging_result=getattr(self, "_last_tagging_result", None),
             read_speed=read_speed_ladder.attempts_to_report(
                 getattr(self, "_last_speed_attempts", []) or [],
                 getattr(self, "_last_unstable_tracks", []) or [],
@@ -2324,6 +2764,9 @@ class RipMixin(MainWindowShared):
             # re-writes); `settings`/`gates` come from the persistent config +
             # backend, so they're rebuilt here each write (pure + cheap).
             outcome=getattr(self, "_last_outcome", None),
+            # The disc's own track count, so the JSON's verdict and the window's
+            # agree about the denominator on a rip that stopped early.
+            disc_track_total=getattr(self, "_last_expected_track_total", None),
             settings=rip_report.build_settings(
                 self._config,
                 read_offset_effective=getattr(

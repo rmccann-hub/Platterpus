@@ -76,6 +76,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from platterpus.safe_int import int_or_none
+
 
 @dataclass(frozen=True)
 class RippingInfo:
@@ -417,13 +419,26 @@ def parse_rip_log(text: str) -> RipLog:
             if header:
                 if current_track is not None:
                     tracks.append(current_track.build())
-                current_track = _MutableTrack(number=int(header.group("number")))
+                # An unusable track number drops the block entirely rather than
+                # opening one under a guessed number: `TrackResult.number` is the
+                # key every consumer joins on (the verdict, the report, the
+                # per-track CRC comparison), so a fabricated number would file
+                # this track's results against a different track.
+                number = int_or_none(header.group("number"), field="rip-log track")
+                current_track = None if number is None else _MutableTrack(number=number)
                 current_ar = None
                 continue
 
             ar = _AR_HEADER.match(line)
             if ar and current_track is not None:
-                current_ar = int(ar.group("version"))
+                # Same reasoning one level down: the version keys this track's AR
+                # sub-dict, so an unusable one skips the sub-section instead of
+                # merging v1 and v2 results under a made-up key.
+                current_ar = int_or_none(
+                    ar.group("version"), field="rip-log AccurateRip version"
+                )
+                if current_ar is None:
+                    continue
                 current_track.ar[current_ar] = {}
                 continue
 

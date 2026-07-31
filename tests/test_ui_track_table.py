@@ -499,3 +499,85 @@ def test_selection_changed_signal_fires(qapp: QApplication) -> None:
     widget._model.set_all_selected(False)  # emits (0, 2)
     assert seen[-1] == (0, 2)
     assert (2, 2) in seen
+
+
+# --- Metadata that becomes a path segment (audit, 2026-07-31) ----------------
+#
+# The album artist / album title / track title / track artist are not just tags:
+# cyanrip substitutes them into the `-D`/`-F` naming schemes, so each becomes one
+# folder or file name. "." and ".." are the two segments POSIX reserves for *this*
+# and *the parent* directory, and nothing in cyanrip's sanitiser maps them — so an
+# album titled ".." wrote the rip ABOVE the output directory. The unknown-album
+# path already refused them (`main_window_helpers.safe_path_segment`); the ordinary
+# known-disc path, which reaches cyanrip verbatim, did not. This is the visible,
+# specific error at the point of entry; the rule itself is asserted against the
+# pure `settings_validation.path_segment_issue` in tests/test_settings_validation.
+
+
+def test_validate_rejects_a_path_reference_album_title(qapp: QApplication) -> None:
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._album_title_edit.setText("..")
+    ok, message = widget.validate()
+    assert ok is False
+    assert "Album title" in message
+    assert "outside your output directory" in message  # says WHY, not "invalid"
+
+
+def test_validate_rejects_a_path_reference_album_artist(qapp: QApplication) -> None:
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._album_artist_edit.setText(".")
+    ok, message = widget.validate()
+    assert ok is False
+    assert "Album artist" in message
+
+
+def test_validate_rejects_a_path_reference_track_title(qapp: QApplication) -> None:
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._model.setData(widget._model.index(1, _COL_TITLE), "..")
+    ok, message = widget.validate()
+    assert ok is False
+    assert "Track 2" in message
+
+
+def test_validate_rejects_a_path_reference_track_artist(qapp: QApplication) -> None:
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._model.setData(widget._model.index(0, _COL_ARTIST), "..")
+    ok, message = widget.validate()
+    assert ok is False
+    assert "Track 1" in message
+
+
+def test_validate_rejects_a_control_char_in_a_title(qapp: QApplication) -> None:
+    """A NUL would make `subprocess` raise mid-rip; the rest of the C0 range has
+    no business in a filename."""
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._model.setData(widget._model.index(0, _COL_TITLE), "Speak\x00to Me")
+    ok, message = widget.validate()
+    assert ok is False
+    assert "illegal character" in message
+
+
+def test_validate_still_accepts_ordinary_dotted_titles(qapp: QApplication) -> None:
+    """The guard stays narrow — "..." and a trailing dot are ordinary names on
+    the Linux target, and cyanrip owns naming (Critical rule #3)."""
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._album_title_edit.setText("...")
+    widget._model.setData(widget._model.index(0, _COL_TITLE), "..and Justice for All")
+    ok, message = widget.validate()
+    assert ok is True, message
+
+
+def test_validate_accepts_a_blank_track_artist(qapp: QApplication) -> None:
+    """An empty artist is legal (the required-field checks own blankness for the
+    album fields only) — the path guard must not turn it into an error."""
+    widget = TrackTable()
+    widget.set_release(_detail())
+    widget._model.setData(widget._model.index(0, _COL_ARTIST), "")
+    ok, message = widget.validate()
+    assert ok is True, message

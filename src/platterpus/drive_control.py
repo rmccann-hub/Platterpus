@@ -44,6 +44,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import Callable
 
 log = logging.getLogger(__name__)
@@ -99,22 +100,81 @@ def _resolve(name: str, *fallbacks: str) -> str:
     return name
 
 
-def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
-    """Run a command, swallowing its output; never inherit stdin (so a
-    `distrobox enter` can't block waiting on a TTY). Bounded by a timeout so a
-    wedged container can't hang the caller forever."""
+# Per-command ceiling for the ordinary (off-GUI-thread) callers, where blocking
+# is fine and we would rather wait than give up on a wedged drive.
+_STEP_TIMEOUT_S: float = 20.0
+
+
+def _run_bounded(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+    """Run a command with an explicit per-command timeout, swallowing its output.
+
+    Never inherits stdin, so a `distrobox enter` can't block waiting on a TTY.
+    Split out from :func:`_default_runner` purely so a caller that must bound the
+    *whole sequence* can supply a shrinking timeout — see :func:`budgeted_runner`.
+    """
     return subprocess.run(
         argv,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        timeout=20,
+        timeout=timeout,
         check=False,
         # No output is captured (all streams are DEVNULL), so text mode is a
         # no-op at runtime — but it makes the return type honestly
         # CompletedProcess[str], matching the Runner alias callers rely on.
         text=True,
     )
+
+
+def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a command, swallowing its output; bounded by the per-step ceiling."""
+    return _run_bounded(argv, _STEP_TIMEOUT_S)
+
+
+def budgeted_runner(budget_s: float) -> Runner:
+    """A Runner that bounds the WHOLE kill sequence, not each command in it.
+
+    Why this exists: the kill sequence is *up to seven* subprocesses (a `fuser`,
+    a few host `pkill`s, then a `distrobox enter` and its `pkill`s), and each was
+    independently capped at 20 s. That is fine off the GUI thread — but the
+    shutdown path runs it **on** the GUI thread deliberately (a daemon thread
+    would be killed mid-`pkill` as the interpreter exits), so the worst case was a
+    window that appeared frozen for well over a minute while closing. Capping each
+    command doesn't help; only capping the total does.
+
+    Implemented as a runner wrapper rather than a parameter threaded through the
+    three step functions, because the ``runner`` seam already exists and this way
+    the steps stay unaware of it — nothing about *what* to kill changes, only how
+    long we are willing to spend trying.
+
+    Once the budget is spent, remaining commands are **skipped, and logged as
+    skipped** — a truncated shutdown must be visible in the log rather than
+    looking like a sequence that ran and found nothing (the "no silent caps"
+    rule). A skipped command reports a non-zero code, which the callers already
+    read as "this step killed nothing", so the sequence degrades exactly as it
+    would if the command had run and matched nothing.
+    """
+    deadline = time.monotonic() + max(0.0, budget_s)
+
+    def run(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            log.warning(
+                "drive-free budget of %.1fs is spent — SKIPPING %s "
+                "(the drive may still be held; this is a bounded shutdown, "
+                "not a completed kill sequence)",
+                budget_s,
+                argv[:1],
+            )
+            return subprocess.CompletedProcess(
+                argv, returncode=124, stdout="", stderr=""
+            )
+        # Never hand a command more than the per-step ceiling even if the budget
+        # is generous: the ceiling is what keeps one wedged call from eating a
+        # whole budget that later steps still need.
+        return _run_bounded(argv, min(remaining, _STEP_TIMEOUT_S))
+
+    return run
 
 
 def _run_rc(argv: list[str], run: Runner) -> int | None:

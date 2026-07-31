@@ -1,4 +1,11 @@
-"""Property-based tests for the three whipper-output parsers.
+"""Property-based tests for the six external-output parsers.
+
+(The docstring said "the three whipper-output parsers" until 2026-07-31. It was
+written when there were three and whipper was the backend; the imports below now
+cover six — `cd_info`, `cyanrip_info`, `cyanrip_log`, `drive_list`, `eac_log` and
+`rip_log` — and cyanrip has been the sole backend since KDD-18. **The import list
+is the roster**, the way it is in `test_surface_consistency.py`: a parser absent
+from it is not fuzzed here.)
 
 These complement the example-based `test_parsers_*` files. Example tests
 prove the parsers handle the *known* shapes; these prove they uphold a
@@ -7,12 +14,20 @@ hard invariant across a huge space of *unknown* inputs:
     A parser must NEVER raise on arbitrary text — it degrades to empty /
     default values instead.
 
-That invariant is exactly what a real-hardware regression needs: whipper
-is an unmaintained tool whose output can drift, and the GUI calls these
-parsers at startup (drive list) and after a rip (log). A parser that
-throws on unexpected bytes is what makes the whole window vanish — see
-the startup-resilience fix. Hypothesis generates hundreds of adversarial
-inputs and shrinks any failure to a minimal reproducer.
+That invariant is exactly what a real-hardware regression needs: an external CLI's
+output can drift between releases, and the GUI calls these parsers at startup
+(drive list) and after a rip (log). A parser that throws on unexpected bytes is
+what makes the whole window vanish — see the startup-resilience fix. Hypothesis
+generates hundreds of adversarial inputs and shrinks any failure to a minimal
+reproducer.
+
+**What Hypothesis cannot reach, and where that lives instead.** Random text never
+produces a 4301-digit run, so the CPython integer-conversion ceiling is invisible
+to the fuzzer — every parser here passed while six of them raised on it. The
+boundary is pinned explicitly: for `cyanrip_log` in
+`test_an_absurdly_long_number_never_raises` below, and across every parser (plus a
+structural sweep for new unguarded conversions) in
+`tests/test_never_raises_contract.py`. A green run here is not the whole contract.
 
 Hypothesis docs: https://hypothesis.readthedocs.io/
 """

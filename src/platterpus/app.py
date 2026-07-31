@@ -20,13 +20,22 @@ from __future__ import annotations
 
 import argparse
 import logging
+import signal
 import sys
 import threading
 import traceback
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from platterpus import __version__, hard_exit
+
+if TYPE_CHECKING:
+    # Type-only. Qt is imported lazily inside the functions that need it, so
+    # importing it at module scope purely to annotate a signature would undo that
+    # (and `from __future__ import annotations` means these names are never
+    # evaluated at runtime).
+    from PySide6.QtCore import QCoreApplication, QTimer
+    from PySide6.QtWidgets import QWidget
 from platterpus.build_info import build_fingerprint
 
 log = logging.getLogger(__name__)
@@ -118,6 +127,110 @@ def _show_fatal_dialog(title: str, exc: BaseException) -> None:
         box.exec()
     except Exception:  # noqa: BLE001 — the crash handler must never crash
         log.exception("failed to show the fatal-error dialog")
+
+
+# How often the signal-relay timer ticks. Qt's event loop is C++ code, so a
+# pending Python signal handler is only *run* when the interpreter regains
+# control — a process sitting in `app.exec()` would otherwise ignore SIGTERM
+# until the next user interaction. A short no-op timer guarantees the handler
+# runs promptly. 200 ms is imperceptible to the user and negligible in CPU.
+_SIGNAL_POLL_MS: int = 200
+
+# Signals that mean "shut down now": a desktop-session logout or `systemctl`
+# stop sends SIGTERM, and Ctrl-C in a terminal sends SIGINT.
+_TERMINATION_SIGNALS: tuple[int, ...] = (signal.SIGTERM, signal.SIGINT)
+
+
+def _install_termination_handlers(
+    app: QCoreApplication, window: QWidget
+) -> QTimer | None:
+    """Make SIGTERM/SIGINT close the window properly instead of killing us dead.
+
+    **The bug this closes.** ``closeEvent`` was the *only* thing that stopped the
+    in-container reader. A rip runs as a host wrapper → podman → cyanrip inside
+    the container, and podman does not forward signals into the container — so a
+    session logout, a ``kill <pid>``, or Ctrl-C during a rip killed the GUI and
+    left cyanrip ripping, holding the drive. The drive ignores its own eject
+    button while a read holds the device, so the user had **no in-app and no
+    hardware** way to stop it. That is the 2026-07-01 real-user bug arriving
+    through a third door, found by a rip-path audit.
+
+    **Why a timer, and why the handler does almost nothing.** Two separate
+    hazards, both worth naming because each is easy to get wrong:
+
+    * A Python signal handler installed while Qt owns the loop does not run until
+      the interpreter next executes bytecode. Without something to yield control,
+      SIGTERM would sit pending indefinitely. The timer exists solely to give the
+      interpreter that chance — its slot does no work in the common case.
+    * A signal handler runs at an arbitrary point between bytecodes, so doing
+      real work there (touching widgets, killing subprocesses) is asking for
+      re-entrancy bugs. So the handler only records the signal number; the timer
+      slot — an ordinary, fully event-loop-safe callback — does the shutdown.
+
+    Returns the timer so the caller can keep a reference (a QTimer whose last
+    Python reference is dropped stops firing), or ``None`` when handlers cannot
+    be installed. ``signal.signal`` raises :class:`ValueError` off the main
+    thread, which is the normal case under a test runner or an embedded
+    interpreter; that is not an error and must not stop the app from starting.
+    """
+    # Written by the signal handler, read by the timer slot. A list because a
+    # handler must not rebind a module global under a lock it cannot take; append
+    # is atomic enough for a one-shot flag and needs no synchronisation.
+    from PySide6.QtCore import QTimer as _QTimer
+
+    pending: list[int] = []
+
+    def _handler(signum: int, _frame: object) -> None:
+        # Absolute minimum inside a signal handler: record and return.
+        pending.append(signum)
+
+    installed: list[int] = []
+    for sig in _TERMINATION_SIGNALS:
+        try:
+            signal.signal(sig, _handler)
+        except (ValueError, OSError) as exc:
+            # ValueError: not the main thread (test runners, embedded use).
+            # OSError: the platform refuses this signal. Neither is fatal — the
+            # app simply keeps the previous behaviour for that one signal.
+            log.warning("could not install a handler for signal %s: %s", sig, exc)
+            continue
+        installed.append(sig)
+
+    if not installed:
+        log.warning(
+            "no termination-signal handlers installed — a logout or kill during a "
+            "rip will not stop the in-container reader"
+        )
+        return None
+
+    def _drain() -> None:
+        if not pending:
+            return
+        signum = pending[0]
+        log.info(
+            "received signal %s — closing the window so the rip and the drive are "
+            "stopped, then quitting",
+            signum,
+        )
+        # `close()` runs the real `closeEvent`: it cancels every worker, stops the
+        # in-container reader within a bounded budget, and frees the drive. Going
+        # through it rather than reimplementing the teardown is the whole point —
+        # a second copy of shutdown logic is how the two paths drift apart.
+        try:
+            window.close()
+        except Exception:  # noqa: BLE001 — shutdown must not raise into the loop
+            log.exception("window.close() during signal shutdown failed; quitting")
+        # Quit regardless of whether the close was accepted: the user (or the
+        # session) asked us to terminate, and a vetoed close must not turn a
+        # logout into a window that refuses to go away.
+        app.quit()
+
+    timer = _QTimer(app)
+    timer.setInterval(_SIGNAL_POLL_MS)
+    timer.timeout.connect(_drain)
+    timer.start()
+    log.info("termination-signal handlers installed for %s", installed)
+    return timer
 
 
 def _install_excepthook() -> None:
@@ -236,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:
     # Doctor mode: a no-GUI, no-disc first-pass test of the rip environment.
     # Runs before QApplication — it's a terminal diagnostic, not a window.
     if args.doctor:
-        from platterpus import preflight
+        from platterpus import preflight, settings_validation
 
         ctx = preflight.default_context(cfg)
         color = sys.stdout.isatty()
@@ -244,6 +357,15 @@ def main(argv: list[str] | None = None) -> int:
             f"Platterpus {__version__} (build {build_fingerprint()}) preflight "
             f"— backend: {ctx.backend_name}\n"
         )
+        # Config values that failed validation were reset to defaults above. Say
+        # so *here*, on the terminal: doctor is the no-GUI front end, so a reset
+        # that only reached the log file would be the same silent reset the GUI
+        # notice exists to prevent (a reset read_offset rips at the wrong offset).
+        reset_notice = settings_validation.describe_resets(
+            config_module.take_load_resets()
+        )
+        if reset_notice:
+            print(reset_notice + "\n")
         results = preflight.run_preflight(
             ctx, on_result=lambda r: print(preflight.format_line(r, color=color))
         )
@@ -257,9 +379,21 @@ def main(argv: list[str] | None = None) -> int:
     # already-ripped folder (KDD-16 hardware validation from the AppImage). Like
     # --doctor, it's a terminal diagnostic that runs before QApplication.
     if args.ctdb_calibrate is not None:
+        from platterpus import settings_validation
         from platterpus.ctdb.diagnose import run_diagnostics
 
-        return run_diagnostics(args.ctdb_calibrate, calibrate_crc=True)
+        # Validate the CLI path at its boundary: `type=Path` constructs, it does
+        # not check. An absent folder used to be reported as "no .flac files
+        # found" (wrong subsystem), and a relative folder starting with "-"
+        # ("./-x" normalises to "-x") produced "-x/track.flac" argv entries that
+        # `flac`/`metaflac` parse as OPTIONS. Resolving makes both impossible.
+        folder, error = settings_validation.resolve_input_directory(
+            "--ctdb-calibrate folder", args.ctdb_calibrate
+        )
+        if folder is None:
+            print(f"error: {error}")
+            return 2
+        return run_diagnostics(folder, calibrate_crc=True)
 
     # Compare two rip reports of the same disc (a re-rip vs the previous one).
     # Terminal diagnostic like --doctor: no GUI, no CD.
@@ -388,7 +522,17 @@ def main(argv: list[str] | None = None) -> int:
         _show_fatal_dialog("Platterpus — startup failed", exc)
         return 1
 
+    # A logout, a `kill <pid>` or a Ctrl-C during a rip must stop the
+    # in-container reader, which until now only `closeEvent` did. The timer is
+    # retained deliberately: a QTimer whose last Python reference is dropped stops
+    # firing, and this one is the only thing that lets a pending signal handler
+    # run while Qt owns the loop.
+    _termination_timer = _install_termination_handlers(app, window)
+
     status = int(app.exec())
+    # Referenced after the loop so no linter or future refactor can decide the
+    # assignment above is dead and remove the reference that keeps it alive.
+    del _termination_timer
     # If any worker thread had to be abandoned still-running, returning from here
     # would let interpreter shutdown clear `workers._abandoned_threads`, drop the
     # last reference to a live QThread, and abort with SIGABRT (the v0.5.8 crash —

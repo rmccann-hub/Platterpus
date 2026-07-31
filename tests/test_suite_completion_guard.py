@@ -31,7 +31,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
-from conftest import SESSION_COMPLETE_SENTINEL, HardExitCalled
+from conftest import SESSION_COMPLETE_SENTINEL, HardExitCalled, pytest_sessionstart
 
 from platterpus import hard_exit
 
@@ -153,25 +153,45 @@ def test_a_run_that_calls_os_exit_midway_leaves_no_completion_sentinel(
     )
 
 
-def test_a_run_that_finishes_does_leave_a_completion_sentinel() -> None:
-    """The floor under the test above: the sentinel must be *achievable*.
+def test_session_start_clears_a_stale_sentinel() -> None:
+    """The floor under the test above: the sentinel must be *achievable*, and a
+    leftover from an earlier run must never vouch for this one.
 
-    "No sentinel" is a useless signal if a healthy run doesn't produce one either
-    — the check would fail every build and get deleted. This session is itself a
-    finishing run, so the file cannot exist *yet* (it is written at session
-    finish), but `pytest_sessionstart` must have cleared any stale copy and the
-    path must be somewhere writable.
+    This asserts the MECHANISM (`pytest_sessionstart` unlinks the file) rather than
+    the ambient fact "no sentinel exists right now". The first draft did the
+    latter, and it was wrong in a way worth recording: the sentinel path is a
+    single fixed file in the repo root, so *anything else* that finishes a pytest
+    session in the same checkout — a parallel agent, a second terminal, a child
+    run — creates it and the assertion fires for a reason that has nothing to do
+    with the property. It failed exactly that way during a concurrent session.
 
-    Asserting on a *previous* run's file would be worse than nothing: a stale
-    sentinel is exactly what `pytest_sessionstart` deletes, because a leftover
-    from yesterday would vouch for today.
+    A test that can go red for an unrelated reason is a test that eventually gets
+    deleted, and this one guards the check that stops a truncated suite reporting
+    green. So it is now hermetic: create a stale file, run the hook, assert it is
+    gone, and put it back the way it was.
     """
     assert SESSION_COMPLETE_SENTINEL.parent == REPO_ROOT, (
         "the sentinel moved out of the repo root; ci.yml looks for it there."
     )
-    assert not SESSION_COMPLETE_SENTINEL.exists(), (
-        "a completion sentinel exists while the session is still running, so "
-        "pytest_sessionstart did not clear it — a stale file from an earlier run "
-        "would vouch for this one."
-    )
     assert SESSION_COMPLETE_SENTINEL.parent.is_dir()
+
+    # Preserve whatever is really there, so this test cannot disturb the run it is
+    # part of (its own session-finish will rewrite the file afterwards).
+    existed = SESSION_COMPLETE_SENTINEL.exists()
+    previous = SESSION_COMPLETE_SENTINEL.read_text() if existed else None
+    try:
+        SESSION_COMPLETE_SENTINEL.write_text("stale from an earlier run\n")
+        assert SESSION_COMPLETE_SENTINEL.exists(), (
+            "the sentinel path must be writable, or the guard can never fire"
+        )
+        # The real hook, called directly. `session` is unused by it, so None is
+        # honest here rather than a fake that pretends to be a pytest.Session.
+        pytest_sessionstart(None)  # type: ignore[arg-type]  # hook ignores it
+        assert not SESSION_COMPLETE_SENTINEL.exists(), (
+            "pytest_sessionstart left a stale sentinel in place — a leftover from "
+            "an earlier run would then vouch for this one, and CI's 'did the suite "
+            "finish' guard would pass for a run that died midway"
+        )
+    finally:
+        if previous is not None:
+            SESSION_COMPLETE_SENTINEL.write_text(previous)

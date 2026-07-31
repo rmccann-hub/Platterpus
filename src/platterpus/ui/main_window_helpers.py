@@ -241,8 +241,16 @@ def friendly_disc_scan_error(error_text: str) -> str:
     return error_text
 
 
-def fidelity_summary(rip_log: object) -> str:
+def fidelity_summary(
+    rip_log: object, *, expected_track_total: int | None = None
+) -> str:
     """One-line rip-quality verdict for the status label.
+
+    ``expected_track_total`` is how many tracks the rip was ASKED to produce
+    (:func:`platterpus.verdict.expected_track_total` — the disc's count, or the
+    user's Rip? selection when they chose a subset). Keyword-only and defaulted so
+    every existing caller and test keeps working; supplying it is what stops this
+    line disagreeing with the trust banner beside it about how complete the rip is.
 
     whipper rips each track twice and records a Test CRC and Copy CRC; a
     match means the two independent reads were bit-identical (a secure,
@@ -260,8 +268,15 @@ def fidelity_summary(rip_log: object) -> str:
     claim a Test/Copy match a ripper didn't perform.
     """
     tracks = getattr(rip_log, "tracks", ()) or ()
-    total = len(tracks)
-    if total == 0:
+    # `expected_track_total` is the number of tracks this rip was ASKED for; the
+    # log only contains the ones it got to. Using the log's own count made a
+    # cancelled 2-of-14 rip announce "all 2 tracks ripped cleanly" — the same
+    # wrong-denominator bug the trust banner had, on the surface that also feeds
+    # the desktop notification. The banner was given this fact and this function
+    # was not, six lines apart, which is how a fix reaches three surfaces out of
+    # four (audit finding, 2026-07-30).
+    total = expected_track_total if expected_track_total else len(tracks)
+    if not tracks:
         return "Done."
     # cyanrip's verification model differs from whipper's: one EAC CRC per
     # track plus a paranoia error count, not a test+copy dual read. Word

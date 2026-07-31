@@ -11,7 +11,414 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.19] — 2026-07-31
+
+### Fixed
+- **Six post-rip steps edited files a previous rip had left behind.** The verification steps were
+  scoped to "the files THIS rip wrote" on 2026-07-30 (`rip_files.rip_master_files`); the six that
+  *mutate or derive from* what they find were not, and each still walked the album folder with
+  `rip_dir.rglob("*.flac")`: unknown-mode tagging, the KDD-22 colon-restore metaflac pass, the
+  FLAC re-compress, the transcode, and **both** cover-art embed loops (archive fetch and "cover
+  art from a file"). One ordinary sequence contaminates that folder — cancel a rip (partial files
+  remain), fix a track title, re-rip and choose *Replace*: the corrected titles produce new
+  filenames, so the new files land *beside* the old ones. This disc's metadata was then written
+  into the leftovers, they were re-compressed, they were transcoded into the user's library as
+  MP3/WavPack, this album's cover was embedded in them, and the inflated count was reported back
+  as "embedded in N track(s)". All six now go through the same shared helper, fed the finish
+  handler's already-parsed `RipLog` through a new `rip_log=` seam so the log is read once and
+  every step agrees on the same file list. Reads still degrade to a folder scan (logged at
+  WARNING) when there is no usable log, so an older rip still gets art and tags.
+- **A tagging failure was invisible: every FLAC could ship untagged under a window saying
+  "Done."** `apply_track_tags` logs each per-file `MetaflacError` at WARNING and returns the
+  files that succeeded — and the caller discarded that return value, so nothing else in the
+  program ever learned about it: no signal, no status line, no report field. The scenario is
+  ordinary (the disk fills during the metaflac pass; `metaflac` goes missing mid-album), and its
+  outcome was a complete album with no metadata at all, reported as success. The pass now returns
+  a structured result which reaches the GUI thread on a new `tagging_done` signal: the failing
+  count and filenames go to the status line and the rip log view, the trust banner stops claiming
+  ✓ (the audio *is* still bit-perfect — the banner text says so, and says the tags are missing),
+  and the JSON report carries a `tagging_failed` entry in its existing `issues` list. A whole-pass
+  crash is reported the same way instead of vanishing into `log.txt`.
+- **A post-rip check that crashed was indistinguishable from one that passed.** `compute()` inside
+  `_launch_post_rip_daemon` was unguarded, so an exception killed the daemon thread having emitted
+  no signal and recorded nothing — and `_post_rip_work_settled` reads a *dead* thread as settled,
+  so the library move filed the album away exactly as if every check had succeeded. The crash is
+  now caught, attributed to its step, logged, and recorded on the window; the settlement gate in
+  front of the library move reads that record and tells the user which check did not finish before
+  it moves anything. The move still proceeds — the audio is unaffected and stranding it in the
+  workspace would be worse — it just is not silent. (`threading.excepthook`, added in v0.5.18,
+  logged the exception; a log line no code reads cannot change a decision.)
+- **An invalid value in a hand-edited `config.toml` was reset to its default with only a log
+  line — the silent reset the project's own *validate every input* rule forbids.** Resetting is
+  right (an out-of-range value must never reach the ripper), but nothing on screen said it had
+  happened, and one instance is actively dangerous: a `read_offset` outside its bounds becomes
+  **0** while `override_read_offset` stays *on*, so the next disc is ripped at the wrong offset
+  and nothing but the log file knows. The hazard was already written down —
+  `main_window_drive._set_read_offset_override`'s docstring names "silently reset to 0 by the
+  next startup's `_sanitized()` … ripping at the wrong offset with only a log line" — but the
+  fix had been applied to the *write* path only, so a hand-edited file still walked into it.
+  Every reset is now recorded with the field, the rejected value and the substituted default,
+  and shown: a dialog once the window is up, and printed by `--doctor` (the no-GUI front end,
+  where a log-only reset is the same silence). The same channel also covers an **unreadable**
+  config — the loudest case of all, since every setting reverts at once — and says where the
+  `.bad` backup went. The message text is built by a pure function
+  (`settings_validation.describe_resets`), so it is asserted in tests rather than scraped out
+  of a widget.
+- **An album title of `..` wrote the rip outside the output directory.** cyanrip substitutes the
+  album artist / album title / track title / track artist into the `-D`/`-F` naming schemes, so
+  each becomes one folder or file name. It sanitises the characters that are *illegal* in a Linux
+  path segment (`/` → `∕`, `:` → `∶`) but nothing maps `.` and `..`, the two segments POSIX
+  reserves for *this* and *the parent* directory — so a value of `..` resolved a level above the
+  chosen folder. This is the same escape fixed for `%Y` on 2026-07-28, closed then only for the
+  one token Platterpus substitutes itself; the guard for it existed in
+  `main_window_helpers.safe_path_segment` and was wired to the *unknown-album* path alone, while
+  the ordinary known-disc path reached cyanrip verbatim. One pure check
+  (`settings_validation.path_segment_issue`) now covers both roles: the track table refuses the
+  value with a specific message before Start, and the argv builder refuses to build the rip at
+  all, so nothing can hand cyanrip a directory reference. Deliberately narrow — `...`,
+  `..and Justice for All` and a trailing dot are ordinary Linux names and still rip (Critical
+  rule #3: cyanrip owns naming). Control characters are rejected on the same boundary, where a
+  NUL previously reached `subprocess` and raised mid-rip.
+- **`--ctdb-calibrate <folder>` validated nothing.** `argparse`'s `type=Path` constructs a path;
+  it checks neither existence nor shape. A missing folder was reported as *"No .flac files found
+  in …"* — the wrong subsystem, preceded by an unrelated warning about a missing rip log — and a
+  *relative* folder named `-x` (`./-x` normalises to `-x`) made the FLACs under it come out as
+  `-x/track.flac` argv entries, which `flac` and `metaflac` parse as **options**: an argument
+  injection into a dependency, i.e. the output-validation half of the same rule. The folder is
+  now validated and resolved at the boundary, with a specific error, a non-zero exit and a log
+  line; an absolute path cannot be mistaken for an option. (`--compare` and
+  `--assemble-best-of` already reported a bad report file specifically, and are unchanged.)
+- **Eight "never raises" parsers that did.** CPython refuses to convert a decimal string of
+  more than 4300 digits, so every bare `int(match.group(…))` fed by an unbounded `\d+` is a
+  live `ValueError` — the character class proves the *characters* are digits and says nothing
+  about the *length*. This was found and fixed once, in the cyanrip-log parser, and the fix
+  plus its pinned test were scoped to that one module; **six identical holes in five other
+  modules survived it** and each carried a docstring promising it could not happen. Corrupt
+  external text would have taken down whatever called them: the drive list at startup, the
+  disc scan, or the post-rip finish handler that writes the report. Now guarded in the EAC-log
+  and whipper-log parsers (track number, AccurateRip version), the `cyanrip -I` and `cd-info`
+  track counts, the drive-list read offset, the `whipper.conf` offset scanner, and all three
+  MSF fields of the CTDB `.cue` reader — each degrading to "unknown" and logging *which* field
+  was unusable, rather than raising. The conversion now routes through one shared
+  `platterpus.safe_int.int_or_none` instead of being re-derived per call site.
+- **A dead roster in the Settings dialog that read as the authoritative one.** A private
+  `_goal_driven_widgets()` accessor, commented "the controls a goal preset drives", was called
+  from nowhere *and* already wrong — it named five of the six, omitting the FLAC-verify
+  checkbox, which is the very omission the code beside it records as a shipped bug. Removed
+  rather than repaired: a second list is the drift.
+- **A quadratic regex on user-edited text, parsed on the GUI thread before the window is
+  shown.** The drive-offset CSV row pattern was super-linear in the line length — measured
+  at **3.9 seconds** on a single 2000-character row — and that file is the documented way to
+  install the full official AccurateRip drive-offset export, loaded by `MainWindow.__init__`
+  *before the window appears*. One pathological row was a frozen startup with nothing on
+  screen to look at: the never-block-the-GUI-thread rule broken by a regex rather than by a
+  subprocess. Replaced with `rpartition(",")` — linear, fewer moving parts, and it splits on
+  the *last* comma so a drive name containing one still parses.
+- **Three more super-linear patterns bounded**, all fed external text of a length that is
+  not ours to trust: the disc track count (unbounded `\d+`, 141 ms on a 4000-digit run), the
+  generic version matcher (77 ms — it parses a dependency tool's `--version` output), and
+  cyanrip's ETA string (67 ms). A CD holds at most 99 tracks and no version component needs
+  ten digits, so the bounds lose nothing real.
+
+### Added
+- **The no-shell security guard can no longer pass by examining nothing, and covers two more
+  holes.** Its three source scans asserted "no offenders" with no floor, so a renamed package
+  or a broken glob would have turned the whole guard green while reading zero files (the
+  project's own *can this check be satisfied by finding nothing?* question, unasked here).
+  Both scans now have a floor and name what they expected to find. Two gaps closed alongside:
+  `os.exec*`/`os.spawn*` are now banned with `os.system`/`os.popen` (`os.execl("/bin/sh",
+  "sh", "-c", cmd)` is the same shell with a different name), and every `subprocess` call must
+  pass an argv **list** — a single string first argument is legal for `subprocess.run` and
+  slips past a `shell=True` check entirely, so an f-string, a `%`-format or a `" ".join(...)`
+  in the command slot is now a failing test rather than a review item. All 18 existing call
+  sites already comply; the guard is a ratchet, not a fix.
+- **A cyanrip log line we don't understand is now a failing test instead of a silent
+  omission.** Every bug this parser has ever shipped was the same shape — cyanrip prints a
+  line and we quietly ignore it (the overread mode *twice*, the gap section, the
+  `Accurip 450` offset variant, the per-track rip count) — and an if/elif chain cannot show
+  that, because "we don't handle this line" and "there is no such line" look identical in the
+  source. The disc-level rows are now ordered **tables** of (pattern → handler) entries, so
+  the recognised set is data: a new test walks the committed real logs
+  (`output_reference/cyanrip_*/`) and fails when a **column-0** line matches neither a table,
+  nor a section header, nor an explicit `_IGNORED_DISC_LINES` allow-list entry *with a written
+  reason*. 116 top-level lines are checked today, with per-log and total floors so a truncated
+  or mis-globbed corpus cannot pass by examining nothing. The parser also logs (debug,
+  bounded) any top-level line it did not claim, so a user's log file carries the evidence when
+  upstream changes its output. Indented per-track detail is *reported* rather than failed — a
+  tag dump is not a contract — but that report asserts every row carrying a trust claim (EAC
+  CRC32, both Accurip lines, the LSN geometry, pre-emphasis, ReplayGain, paranoia counts,
+  loudness) is still read. Each new check was verified by breaking what it guards: seven
+  mutations (a dropped rule, a dropped allow-list entry, an over-broad one, a speculative one,
+  an unlisted pattern, a lost per-track row, an empty corpus) all fail as they should.
+- **`tests/test_never_raises_contract.py` — the never-raises rule, swept instead of trusted.**
+  Two tests doing different jobs: a pinned-boundary behavioural table (one case per numeric
+  field, so a failure names the field) and a *structural* AST sweep that fails when any new
+  bare `int()` appears in a parser, including in a field nobody enumerated. The sweep earned
+  its keep immediately — it found the drive-list offset site that the behavioural case had
+  *missed*, because that payload's drive header didn't match the parser's regex and so never
+  reached the conversion at all. Both carry floors (modules examined, conversion sites seen,
+  and a check that the payload still trips CPython's limit) so neither can pass by finding
+  nothing.
+- **A completeness check on the Settings goal-preset wiring.** `test_goal_presets` now asserts
+  the dialog connects one control per `GoalPreset` field, which is the invariant that both
+  historical drifts violated. Verified by restoring the original omission: it fails with
+  "GoalPreset sets 6 fields … but _wire_goal_presets wires 5 controls".
+- **A sweep that catches the next one.** `tests/test_regex_bounded_time.py` times every
+  compiled pattern in `src/` at two input sizes and objects only to super-linear *growth*,
+  so a uniformly slow machine still passes and a flagged pattern is re-measured before it
+  fails. It found all four offenders above on its first run — and it is what makes this a
+  durable fix rather than four one-off ones, since the four had nothing in common except the
+  shapes that backtrack, and nobody had noticed any of them.
+
+### Changed
+- **Characterization tests for the rip mixin's cancel / force-stop / finish paths** — the
+  project's #1 bug-cluster file and, by a wide margin, its least-tested. `main_window_rip.py`
+  under `tests/test_ui_main_window.py` goes from **81% (149 statements / 44 branch partials
+  uncovered) to 96% (26 / 21)**, pinning the cancel → force-stop escalation, the synchronous
+  shutdown drive-free, the KDD-30 auto-fix merge rules (including that a swapped-in re-rip never
+  inherits the discarded read's AccurateRip verdict), the KDD-31 offset confirmation, the
+  library-move settlement gate, and every post-rip step's crash / staleness / destroyed-window
+  guard. Characterization, not aspiration: where a path looked wrong it was reported rather than
+  pinned.
+- **`parse_cyanrip_log` restructured without changing a single parsed value.** It was the
+  highest-branch function in the codebase (57 branches / 415 lines, `ruff` PLR0912) and the
+  densest source of shipped bugs of any parser; it is now 41 branches / 309 lines, with the
+  plain "Label: value" rows moved into the tables above and the *section-scoped* parsing (the
+  `Gaps:` two-liner, paranoia counts, album loudness, the per-track block and its `File(s):`
+  lookahead) deliberately left as control flow — those blocks change what the FOLLOWING lines
+  mean, and a table would hide that. The tables dispatch at exactly the four points the old
+  if-chain tested those rows, because the section flags are cleared by "a line reached this
+  block": merging them for tidiness would change parse results on odd logs. Proven neutral
+  rather than asserted — every committed real log (cyanrip, EAC and whipper) plus synthetic
+  logs for the shapes the real ones lack were dumped to JSON before and after, in two package
+  trees differing only in this file, and the two dumps are byte-identical.
+- **The in-progress track block is a typed dataclass instead of a bare `dict`.** A typo in a
+  key ("copy_crc2") was a silent no-op no type check could see — on the fields that carry the
+  bit-perfection claim. That was this module's single `disallow_any_generics` violation, so its
+  `mypy` opt-out is now **retired** (rule #10's "retire one opt-out per commit"), leaving nine.
+- **The test suite is ~16% faster** (measured 40–43 s → 33.5–35.6 s, and that saving repeats
+  on each of the four CI Python legs). Two causes, both measured rather than guessed: the
+  slowest test in the suite spent 4.02 s — 10% of the whole run — waiting out the real 4 s
+  worker-abandon timeout, which is now shortened for that one test with the branch under test
+  unchanged; and the quadratic track-count pattern above was costing the property-based
+  parser test ~2 s per run.
+- **The EAC log's `Pre-gap length` row would have disagreed with EAC on 9 of 10 values.**
+  It rendered the fractional field as CD frames. Every *other* `FF` field in an EAC log is
+  frames — the TOC table's are, and ours is byte-identical to EAC's there — but this one is
+  **truncated hundredths of a second**, and the committed real EAC log proves it: one of its
+  ten pre-gap values is `0:00:01.96`, and 96 is impossible for a 0–74 frame counter. Latent
+  rather than broken today, because cyanrip 0.9.3 detects no pre-gaps on the reference disc
+  so the row never renders — it goes live the moment cyanrip learns to (upstream PR #115),
+  which is exactly when a silent unit mismatch is hardest to spot: the row would simply
+  appear, look plausible, and be wrong. Pinned by three tests, including a sweep over every
+  sub-minute sector count proving no rendering can emit an impossible `.100`.
+- **Leftover files from an earlier rip were verified as if this rip had written them.** Cancel
+  a rip (partial files, one truncated FLAC), fix a track title, re-rip and choose *Replace*:
+  the corrected titles produce new filenames, so the new files land *beside* the old ones.
+  Every post-rip check then globbed the album folder and reported on a mixture of two rips —
+  CTDB built its disc TOC from 2N tracks and returned a spurious **"not in database"**, FLAC
+  verify decoded the abandoned truncated file and produced a **⚠ FAILED** and a downgraded
+  verdict for flawless audio, derived-verify's expected count doubled so a *complete* transcode
+  read as incomplete, and the report's SHA256 manifest fingerprinted files this rip never wrote.
+  "The files in the folder" was standing in for "the files this rip wrote", and those differ.
+  The rip's own `.log` names one file per track, so that record — not the folder listing — now
+  decides the list, via one shared `platterpus.rip_files` module all five call sites ask (the
+  three verify workers, the checksum manifest, and the `--ctdb-calibrate` diagnostic), rather
+  than five separate globs. Track order now comes from the log's numbering too, so an unpadded
+  filename template can no longer put track 10 before track 2 in the CTDB TOC. Where no usable
+  log exists (an older rip, a crash-truncated log, a folder named by hand on the CLI) it still
+  falls back to the folder scan — verifying something beats verifying nothing — but the reduced
+  confidence is logged with the reason, never silent, and any excluded leftover is logged by name
+  so a verify covering 2 of 4 files is explainable from the log file.
+- **The results table said a track was "not in DB" about a disc AccurateRip demonstrably
+  has.** The durable EAC-compatible log learned four AccurateRip states — verified,
+  offset-variant, *cannot be verified as accurate*, and genuinely absent — because calling a
+  compared-but-unmatched track "not present in the database" is a false claim. The on-screen
+  table was never told, and kept only four of its own five states, collapsing that case into
+  **"not in DB"**: for a track cyanrip compared and missed (`not found, either a new pressing,
+  or bad rip`) the log and the screen made contradictory claims about the same parsed track,
+  and the screen made the false one. The cell now reads **"in DB, no match"** with a tooltip
+  explaining that an unlisted pressing, a different drive offset and a genuine read error all
+  look alike from there — so re-rip to tell them apart. The state is decided once per cell and
+  the cell's text *and* tooltip both derive from it, replacing the third re-derivation at the
+  call site.
+- **The cross-surface consistency test was blind to the surface the bug was on.** Its docstring
+  named four render surfaces while it imported three; the results table — one of the two it
+  omitted — is exactly where the above defect lived. The table's per-track renderer is now on
+  the roster, with an explicit four-state mapping and a case table covering every state, so the
+  log and the screen must place a track in the same state or the suite goes red (the status
+  line is called out in a TODO as the remaining gap).
+- **A re-ripped track could report "AccurateRip verified" for bytes AccurateRip never
+  saw.** When the auto-fix re-rips a bad track and swaps the better read into the album,
+  every measured field is meant to come from the *shipped* read. The merge used a fallback:
+  if the re-rip's log printed no AccurateRip line, the **first pass's** result was kept — and
+  the first pass confirmed the bytes that were thrown away. Since that field is exactly what
+  `track_accuraterip_verified` reads, the trust banner, the JSON report, the per-track table
+  and the EAC log would all assert a verification that never happened for the audio on disk.
+  The distinction now has a name in the code: a *description* may fall back to the first pass
+  (losing a known fact is worse than a stale one), but a *claim of proof* may not — an
+  unreported verification becomes **unknown**, and the drop is logged so a track does not
+  silently lose its verdict. The Test CRC gets the same treatment, since pairing the first
+  pass's with the replacement's Copy CRC renders a two-reads-agree convergence that never
+  occurred. This was the worst finding of three audit passes and the exact class KDD-30 exists
+  to prevent.
+- **A deliberate partial rip was reported as a failure — a false alarm introduced by the fix
+  above it.** Giving the trust verdict the disc's track count fixed the cancelled-rip case and
+  immediately broke the intentional one: the Rip? column exists so a user can rip a subset, and
+  a successful, deliberate 2-of-14 rip then read *"⚠ 2 of 14 tracks verified — 12 tracks were
+  never ripped"* — the user's own choice rendered as a fault. The root cause was that "how many
+  tracks should there be" had **three** defensible meanings (the disc's, the log's, the
+  requested) and no name, so each of four fixes picked one and a different surface then
+  disagreed. `verdict.expected_track_total` names it, and one number is now computed once and
+  handed to every surface.
+- **The same fix had reached three render surfaces out of four.** Six lines after the trust
+  banner was given the disc count and the outcome, `fidelity_summary` — which feeds both the
+  status line and the desktop notification — was still called with neither, so it kept
+  computing the old wrong denominator. It now takes the same expected-track count. The audit
+  that found this also found the project's own cross-surface consistency test was missing two
+  of the four surfaces its docstring names.
+- **The dependency report could claim a broken tool was installed — at a version read out of
+  its own error message.** A version probe counted as successful the moment the command
+  *finished*, whatever it finished with, and the version parser then took the first `N.N` it
+  found anywhere in the output. Numbers in error text are plentiful and belong to other
+  programs: a broken `cd-paranoia` saying `libcdio.so.19.0: cannot open shared object file`
+  was reported as "cd-paranoia 19.0", and a dead `ripping` container quoting podman's own
+  version was reported as that being cyanrip's — which also cleared the minimum-version
+  floor, so nothing flagged it and the setup wizard that would fix it was never offered. A
+  probe now counts only if the tool **exits 0** (every dependency's version flag was checked
+  against upstream source and does exit 0; the rare non-zero-on-`--version` convention gets
+  an explicit per-tool allow-list with its evidence recorded, never a blanket accept). A
+  rejected probe logs the exit code and the tool's own captured output, so a bug report says
+  *why* the tool was called absent. A probe cancelled mid-flight (SIGKILL → negative exit
+  code) is likewise no longer readable as a version answer.
+- **A rip you abandoned halfway became "your previous rip", and made a perfect re-rip look
+  wrong.** Closing the window mid-rip leaves the worker's incremental snapshot in the album
+  folder forever, stamped `outcome.status: "in_progress"` because nothing ever finalised it.
+  The prior-rip scan filtered on the disc ID alone and never looked at that status, and the
+  snapshot is re-written after every track so it carries the *newest* timestamp in the
+  library — so it beat the user's real earlier rip, and the next clean rip of that disc was
+  diffed against three tracks and warned "this rip has track(s) 4…14 the previous rip
+  didn't" on a rip that was in fact flawless. Every report is now classified from its own
+  outcome: an abandoned `in_progress` snapshot is never chosen as a baseline (and the skip
+  is logged, so "why no comparison banner?" is answerable from the log file), while a
+  **cancelled or failed** prior is genuine data and is still used — its tracks are real
+  reads with real CRCs — but it loses to any complete rip of the same disc however old, and
+  when it is used the headline says so in track counts instead of claiming a whole-disc
+  match. A track the stopped-short side never reached is no longer reported as a change in
+  either direction. Reports written before the `outcome` block existed still count as
+  finished rips, so nothing in an older library is thrown away.
+- **`--doctor` could report a PASS on the one check that matters most.** The backend-routing
+  check — the only thing that proves the host → Distrobox → cyanrip chain is alive — treated
+  *any* string `cyanrip -V` came back with as a pass, and printed that string as "the
+  version". So a dead `ripping` container, a missing podman or an unexported binary passed
+  the check with its own error message displayed where the version belongs, and a ripper that
+  printed nothing passed with the literal "(no version output)" as its version — with
+  `--doctor` exiting 0 on an environment that cannot rip. A pass now means cyanrip *answered
+  with a version*: the probe must exit 0 (`version()` runs `-V` strictly, so a non-zero exit
+  becomes an error carrying cyanrip's own words — this is visible only inside the adapter)
+  **and** its output must contain a recognisable version, judged by the same version parser
+  the dependency probe already uses. A failure quotes what the tool actually said and names
+  which link of the chain is broken. A working cyanrip is unaffected, including a cold
+  container whose startup chatter arrives *before* the banner.
+- **The post-cancel drive rescue could force-kill and eject the WRONG drive.** Cancelling a
+  rip arms a five-second rescue in case the in-container reader keeps spinning — and that
+  rescue asked the drive picker for its *current* device when it **fired**, not when it was
+  armed. So cancelling on `/dev/sr0` and then selecting `/dev/sr1` inside the countdown made
+  it `fuser -k` and eject **sr1**: a drive it had no business touching, possibly one mid-rip
+  in another window. The device is now captured when the rescue is armed, preferring the drive
+  the rip is actually using over whatever the picker happens to show. The shutdown drive-free
+  had the same flaw and the same fix. (Confirmed firing on the rig — the log shows the auto
+  trigger running 5.1 s after a cancel.)
+- **Closing the window during a rip could appear frozen for over a minute.** The shutdown path
+  stops the in-container reader *synchronously on the GUI thread* — deliberately, because a
+  daemon thread would be killed mid-`pkill` as the interpreter exits — but the kill sequence is
+  up to seven subprocesses and each was capped at 20 s **independently**, so a wedged drive hit
+  the sum. One shared budget now bounds the whole sequence (5 s, chosen against the 0.12 s the
+  real fast path measured on the rig), and steps past the budget are skipped **and logged as
+  skipped**, so a truncated shutdown is visible rather than looking like a sequence that ran
+  and found nothing.
+- **A logout, `kill <pid>` or Ctrl-C during a rip left the drive held.** `closeEvent` was the
+  only thing that stopped the in-container reader, and podman does not forward signals into the
+  container — so a session logout killed the GUI and left cyanrip ripping. Because the drive
+  ignores its own eject button while a read holds the device, there was neither an in-app nor a
+  hardware way out: the 2026-07-01 real-user bug through a third door. SIGTERM and SIGINT now
+  close the window properly, going through the real `closeEvent` rather than a second copy of
+  the teardown. Two subtleties are handled and documented: a pending Python signal handler does
+  not run while Qt owns the event loop (a short relay timer gives the interpreter the chance),
+  and a signal handler must not do real work between arbitrary bytecodes (it only records the
+  signal; the timer slot does the shutdown).
+- **"No cover art for this release" was also what an offline rip was told.** Every way the
+  Cover Art Archive fetch could come back empty — a genuine 404, a timeout, a refused
+  connection, an unidentified disc, an unusable reply — collapsed into the one line *"Cover
+  art: none found for this release"*. "Nobody uploaded a cover for this disc" is final;
+  "we could not reach the archive" says nothing at all about the release, and reporting the
+  second as the first is the honesty rule inverted. Each reason now has its own sentence
+  (an offline rip reads *"could not reach the Cover Art Archive — art was not fetched, so
+  this release may still have one"*), a reason code we do not recognise names itself rather
+  than inheriting "none found", and the reason plus the fetch's own error text now also
+  reach the log file and the JSON report's `cover_art.error`.
+- **A failed `metaflac` sample-count probe threw away the only explanation it had.** The CTDB
+  verify path raised a bare `metaflac failed on 01.flac` and discarded metaflac's stderr, so
+  a corrupt stream, a missing file and a permissions problem were indistinguishable — in the
+  user-visible verdict *and* in the log. The exit code and the tool's stderr tail now travel
+  in both, as does the `flac` decoder's stderr and any unparseable probe output.
+- **A transcode that produced nothing left no log line at all.** When ffmpeg reported success
+  but wrote no output file, the file was recorded as a failure silently, so a rip that
+  derived no MP3s offered nothing to diagnose. Both branches now log — the exit code when
+  ffmpeg says it failed, and the *absence* of output when it claims success — each naming
+  the track, the target format and the fact the FLAC master is untouched.
+- **A cancelled rip called itself "✓ Bit-perfect".** Cancel after two tracks of fourteen
+  and the trust headline read *"✓ Bit-perfect: all 2 tracks verified against AccurateRip
+  (confidence 129+)"* — green, over 14% of the disc — while the EAC log written beside it
+  correctly said "covers 2 of 14 disc tracks". A 2026-07-28 fix had already made the verdict
+  compare against a denominator, but the denominator was the number of tracks *in the log*.
+  That catches a track which was ripped and failed (present, no CRC) and cannot catch one
+  that was **never ripped**, because such a track is absent from the log and shrinks both
+  sides of the comparison together. The verdict is now given the **disc's** own track count
+  — the one number a stopped rip cannot move — and the rip's outcome, so the headline reads
+  *"⚠ 2 of 14 tracks verified against AccurateRip — the rip was cancelled so 12 tracks were
+  never ripped"*. The JSON report's `verdict` block gets the same two facts, so the file and
+  the window can no longer disagree. Found on the rig, on a cancelled rip.
+- **Pressing Cancel wrote nothing to the log, and neither did quitting.** The two most
+  consequential things a user can do during a rip left no trace, so a report about a cancel
+  that misbehaved — a drive left spinning, a rip recorded as failed — arrived with no record
+  of when it was pressed, and a log could not even say whether the window had begun closing.
+  Both now log one line: the cancel names the rescue-timer deadline, and the close names
+  whether a rip was still live. Same diagnostic principle as the disc-probe fix in v0.5.18.
+- **The EAC log's `Gap handling` row never actually spoke EAC's vocabulary.** v0.5.18
+  claimed to fix this and the fix was unreachable: it only applied when cyanrip reported
+  *nothing*, and cyanrip always prints its `Gaps:` block — so on real hardware the row
+  still read `None signalled`, which is cyanrip's *detection result* sitting in a field
+  where EAC states its *policy*. Two different facts, and the row consequently said nothing
+  an EAC log says, which is the entire purpose of the file. It now renders EAC's own
+  wording — `Not detected, thus appended to previous track` when cyanrip signals none,
+  `Appended to previous track` when gaps were signalled, both verified verbatim against
+  genuine EAC logs — and a log from any other ripper gets `(not reported by the ripper)`
+  instead of leaking a parsed engine name into a policy row. Found on the rig, on the first
+  run after the release that claimed it.
+- **The test for that row could not fail.** Its fixture set `gap_detection` to EAC's phrase
+  — a string cyanrip does not emit — so the renderer was handed its expected output as
+  input and the assertion passed without the code ever producing it. The fixture now
+  carries cyanrip's real text, and the row's wording is anchored to the committed real EAC
+  log rather than to our own hand-authored one.
+
+### Changed
+- **`Make use of C2 pointers` is recorded as met where the hardware settles it.** cyanrip
+  prints `C2 errors: unsupported by drive`, the parser already mapped that to `No`, and the
+  rig's log confirms the row is filled — first-party evidence from the tool doing the read,
+  which is the standard an earlier survey-based attempt was correctly refused for. A
+  C2-*capable* drive still yields "(not reported)": cyanrip's line states what the drive
+  can do, and EAC's row asks what the rip did.
+
 ### Documentation
+- **A measurable archival gap against EAC is now documented instead of hidden.** Diffing
+  the committed real EAC log against the cyanrip log of the same disc in the same drive
+  shows EAC detecting pregaps on **10 of the 14** tracks where cyanrip's TOC read signals none.
+  Both tools append the gap to the previous track, so the audio and the CRCs are
+  unaffected — the *record* is less complete than EAC's. This is the same capability gap as
+  KDD-32 / the `INDEX 00` work, which the finding now motivates concretely, and a test pins
+  the disagreement so it cannot later be "fixed" by making our log print EAC's string
+  regardless.
 - **The hardware run sheet now carries *every* outstanding hardware test, not just the
   newest release's.** Three releases (v0.5.16–v0.5.18) landed between rig sessions, so a
   sheet scoped to one release left the older unproven items to be reconstructed from the
@@ -24,6 +431,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   came from and the failure it would expose, §A19 warns which log-wording changes are
   intentional so they don't read as regressions, and §A17 flags the one behaviour change
   this release that could plausibly regress a working setup.
+- **The changes we want in cyanrip itself now have a ranked, evidence-graded home.**
+  `docs/cyanrip-improvements-wanted.md` lists each gap in the external ripper with the
+  real log lines that prove it, whether it affects the *audio* or only the *record*
+  (every item is the record — none changes a ripped byte), the concrete upstream edit,
+  and whether it belongs in an upstream PR, a soft-fork patch, or our own code. It
+  complements rather than repeats the existing material: the roadmap owns the upstream
+  *process*, the soft-fork doc the *runbook*, `scripts/cyanrip/` the *execution*. The
+  census is derived by running the real EAC-layout exporter over the committed real
+  cyanrip log — 44 labelled cells on the 14-track reference disc — so the list cannot
+  drift from what the code actually cannot fill. Recommended first contribution: print
+  the **sample peak**, because cyanrip's own track struct already carries
+  `ebu_sample_peak` and already reads it, while its ebur128 filter is built
+  `peak=true` and FFmpeg only computes `sample_peak` under `peak=sample` — so the field
+  is dead and reads as full scale. Three items are closed rather than opened, including
+  the confirmation that `-l` subset rips do **not** disable AccurateRip. Also records
+  three corrections to our own record, the load-bearing one being that the reference EAC
+  log lists `Pre-gap length` for **ten** tracks, not fourteen (the committed baseline
+  file is two concatenated EAC logs, so a whole-file count doubles) — the finding stands,
+  the number was wrong.
 
 ## [0.5.18] — 2026-07-29
 
@@ -3753,6 +4179,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
 [0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
@@ -3817,4 +4244,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.18.*
+*Last updated for Platterpus v0.5.19.*

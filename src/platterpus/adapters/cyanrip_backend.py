@@ -286,7 +286,24 @@ class CyanripImpl(RipBackend):
     # --- Misc ---
 
     def version(self) -> str:
-        return self._run(["-V"]).strip()
+        """cyanrip's version banner, e.g. ``cyanrip 0.9.3.1 (release)``.
+
+        ``strict=True`` — a non-zero exit must NOT come back as a string. The only
+        consumer is the ``--doctor`` backend-routing check (`preflight.
+        check_backend_routing`), which treats a returned string as proof that the
+        host → Distrobox → cyanrip chain works and prints it as "the version". A
+        broken chain that exits non-zero while printing an error therefore
+        *passed* that check, which is a false PASS on the most failure-prone link
+        in the app; only the adapter can see the exit code, so only the adapter
+        can close that hole.
+
+        This cannot fail a working ripper: cyanrip's ``case 'V':`` logs the banner
+        and returns 0 (verified in its source, v0.9.3.1), so a non-zero exit here
+        came from the wrapper/container — exactly the failure the doctor exists to
+        name. The raised `RipError` carries cyanrip's own first output line, and
+        ``_run`` has already logged the full output.
+        """
+        return self._run(["-V"], strict=True).strip()
 
     def produces_max_compression_flac(self) -> bool:
         # cyanrip drives libavcodec at the maximum FLAC compression level for
@@ -385,8 +402,17 @@ class CyanripImpl(RipBackend):
 
         So a non-zero exit is now always logged with the tool's own words. ``strict``
         additionally raises :class:`RipError`, which is what a caller wants when
-        degrading silently would mislead — the disc probe — while the version probe
-        stays lenient because a version banner on stderr is normal for some builds.
+        degrading silently would mislead. **Both** of this class's probes ask for it:
+        the disc probe (an empty ``DiscInfo`` reads as "unknown disc") and the
+        version probe (a returned string reads as "the ripper works" — see
+        :meth:`version`). The lenient default remains for a caller that genuinely
+        wants best-effort text, but note that no such caller exists today, and the
+        two that did mislead the user both got here by taking it: swallowing a
+        failure is the easy mistake, so ask for ``strict=False`` by name and say why.
+
+        Note ``stderr`` is folded into the returned text by ``run_capture``, so a
+        build that prints its banner there is unaffected by the strictness — what is
+        checked is the exit *code*, not which stream spoke.
         """
         rc, combined = run_capture(
             "cyanrip", self._binary, args, timeout=timeout, stdin_devnull=True
@@ -500,6 +526,43 @@ def restore_substituted_colons(
     return changed
 
 
+def _reject_path_reference_values(meta: RipMetadata) -> None:
+    """Refuse metadata that cyanrip would turn into a ``.``/``..`` path segment.
+
+    **Output-to-dependency validation** (CLAUDE.md: check the arguments against
+    the tool's contract before invoking it). Four of these values are not only
+    tags — cyanrip substitutes them into the naming schemes we pass as ``-D`` /
+    ``-F``, so each becomes one folder or file name. cyanrip sanitises the
+    characters that are *illegal* in a Linux path segment (``/`` → ``∕``, ``:``
+    → ``∶`` — docs/dependency-contracts.md) but nothing maps ``.`` or ``..``,
+    which POSIX reserves to mean *this* and *the parent* directory. An album
+    titled ``..`` therefore made ``-D`` resolve above the output directory and
+    the rip landed outside the folder the user chose.
+
+    This is the backstop, not the user-facing check: the track table refuses
+    these values with a specific message before Start (``TrackTable.validate``).
+    Raising here rather than silently rewriting the value keeps the documented
+    contract that an unusable name **fails the rip loudly** — and matches the
+    project's refusal to re-sanitise cyanrip's names behind its back (Critical
+    rule #3). Values that aren't path-bearing (genre, barcode, ISRC…) are not
+    checked: they only ever become tags.
+    """
+    from platterpus.settings_validation import path_segment_issue
+
+    checks: list[tuple[str, str]] = [
+        ("Album artist", meta.album_artist),
+        ("Album title", meta.album_title),
+    ]
+    for track in meta.tracks:
+        checks.append((f"Track {track.number} title", track.title))
+        checks.append((f"Track {track.number} artist", track.artist))
+    for label, value in checks:
+        problem = path_segment_issue(label, value)
+        if problem:
+            log.error("refusing to start a rip: %s (value=%r)", problem, value)
+            raise RipError(problem)
+
+
 def _metadata_args(metadata: RipMetadata | None, release_id: str) -> list[str]:
     """Build the ``-a``/``-t`` arguments from the GUI's metadata.
 
@@ -511,6 +574,9 @@ def _metadata_args(metadata: RipMetadata | None, release_id: str) -> list[str]:
     args: list[str] = []
     album_pairs: list[str] = []
     meta = metadata or RipMetadata()
+    # Before anything is turned into argv: no value that becomes a path segment
+    # may be a directory reference. See _reject_path_reference_values.
+    _reject_path_reference_values(meta)
     if meta.album_title:
         album_pairs.append(f"album={_escape_meta_value(meta.album_title)}")
     if meta.album_artist:

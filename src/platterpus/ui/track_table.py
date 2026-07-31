@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.adapters.musicbrainz_client import ReleaseDetail, TrackSummary
+from platterpus.settings_validation import path_segment_issue
 
 # Qt's model/view API types every index/parent argument as this union, so our
 # QAbstractTableModel overrides must annotate it the same way or mypy flags an
@@ -549,17 +550,42 @@ class TrackTable(QWidget):
         Returns (True, "") when everything's filled in; (False, message)
         with the first failure when not. The main window uses this
         before kicking off a rip.
+
+        These fields are not just tags — cyanrip substitutes them into the rip's
+        folder and file names (``-D "{album_artist}/{album}"``,
+        ``-F "{track} - {title}"``), so they are also *path* input and get the
+        path-segment check every other path input gets. The rule already existed
+        for the unknown-album path (``main_window_helpers.safe_path_segment``
+        refuses ``.``/``..``) but had never been applied to the ordinary
+        known-disc path, where the values reach cyanrip verbatim — the same
+        one-place-only fix as the ``%Y`` traversal (audit, 2026-07-31). The check
+        itself lives in ``settings_validation.path_segment_issue`` so it is
+        asserted against a pure function, not through this widget.
         """
         if not self._album_artist_edit.text().strip():
             return False, "Album artist is required."
         if not self._album_title_edit.text().strip():
             return False, "Album title is required."
+        problem = path_segment_issue("Album artist", self._album_artist_edit.text())
+        if problem:
+            return False, problem
+        problem = path_segment_issue("Album title", self._album_title_edit.text())
+        if problem:
+            return False, problem
         tracks = self._model.tracks()
         if not tracks:
             return False, "No tracks loaded."
         for track in tracks:
             if not track.title.strip():
                 return False, f"Track {track.number} is missing a title."
+            problem = path_segment_issue(f"Track {track.number}’s title", track.title)
+            if problem:
+                return False, problem
+            problem = path_segment_issue(
+                f"Track {track.number}’s artist", track.artist_credit
+            )
+            if problem:
+                return False, problem
         # At least one track must be ticked in the Rip? column, or there's
         # nothing to rip.
         if self._model.selected_count() == 0:

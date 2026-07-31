@@ -205,6 +205,35 @@ def test_check_dependencies_probe_crash_is_caught():
     assert res.status is Status.FAIL
 
 
+# --- version_banner (the pure validator behind the routing check) ----------
+
+
+def test_version_banner_picks_the_line_with_the_version():
+    raw = "some wrapper noise\ncyanrip 0.9.3.1 (release)\nmore noise 4.2\n"
+    # The FIRST versioned line wins, so trailing noise can't shadow the banner.
+    assert preflight.version_banner(raw) == "cyanrip 0.9.3.1 (release)"
+
+
+def test_version_banner_rejects_output_with_no_version():
+    # Every one of these is a *failure* a broken host export can produce, and each
+    # was previously reported as "the version" by --doctor.
+    for junk in (
+        "",
+        "   \n\n",
+        "Error: no such container 'ripping'",
+        "cannot connect to Podman",
+        "bash: cyanrip: command not found",
+        "cyanrip",  # the name alone is not a version
+    ):
+        assert preflight.version_banner(junk) == "", junk
+
+
+def test_version_banner_never_raises_on_hostile_input():
+    # Parser-of-external-output rule: best effort, never an exception.
+    for raw in ("\x00\x01", "9" * 5000, "1.", ".1", "\n" * 100, "0.9.3"):
+        assert isinstance(preflight.version_banner(raw), str)
+
+
 # --- check_backend_routing -------------------------------------------------
 
 
@@ -239,12 +268,92 @@ def test_check_backend_routing_unexpected_error_fails():
     assert "version command failed" in res.detail
 
 
-def test_check_backend_routing_empty_version():
+def test_check_backend_routing_empty_version_is_a_blocker():
+    """Regression (the recorded `--doctor` false-PASS bug).
+
+    This test used to assert `Status.OK` with "(no version output)" printed *as
+    the version*. A ripper that runs, exits 0 and says nothing is not a working
+    ripper — and this is the one check whose whole job is proving the
+    host→container→cyanrip chain is alive (Critical rule #3). Reporting OK there
+    sends the user hunting for the fault anywhere but where it is.
+    """
     res = preflight.check_backend_routing(
-        _FakeBackend(version="   "), backend_name="cyanrip"
+        _FakeBackend(version="   "), backend_name="cyanrip", host=_FakeHost()
+    )
+    assert res.status is Status.FAIL
+    assert "no version" in res.summary
+    assert "(no output at all)" in res.detail  # the evidence is not hidden
+    assert res.hint
+
+
+def test_check_backend_routing_junk_output_is_a_blocker():
+    """The same hole with output instead of silence: a present-but-broken ripper.
+
+    `backend.version()` returning *any* non-raising string used to be a PASS, so
+    the container error below was printed as though it were cyanrip's version.
+    """
+    res = preflight.check_backend_routing(
+        _FakeBackend(version="Error: no such container 'ripping'\n"),
+        backend_name="cyanrip",
+        host=_FakeHost(),
+    )
+    assert res.status is Status.FAIL
+    assert "ran but reported no version" in res.summary
+    # cyanrip's own words survive into the report so the failure is diagnosable.
+    assert "no such container" in res.detail
+
+
+def test_check_backend_routing_nonzero_exit_is_a_blocker():
+    """The bug as reported: a non-zero exit must fail the check.
+
+    Only the adapter sees the exit code, so the adapter converts it to a
+    `RipError` (`CyanripImpl.version()` runs `-V` with `strict=True`); this is the
+    preflight half — that error is a FAIL carrying cyanrip's own message.
+    """
+    res = preflight.check_backend_routing(
+        _FakeBackend(
+            raises=RipError("cyanrip failed (exit 127). It said: podman: not found")
+        ),
+        backend_name="cyanrip",
+        host=_FakeHost(),
+    )
+    assert res.status is Status.FAIL
+    assert "exit 127" in res.detail and "podman: not found" in res.detail
+
+
+def test_check_backend_routing_accepts_the_real_cyanrip_banner():
+    """The other half of the fix: a WORKING cyanrip must still PASS.
+
+    The banner is the real one from the committed hardware reference rip
+    (`output_reference/cyanrip_flac/`), which is the same
+    "cyanrip <version> (<vcstag>)" string its `-V` prints.
+    """
+    res = preflight.check_backend_routing(
+        _FakeBackend(version="cyanrip 0.9.3 (release)\n"), backend_name="cyanrip"
     )
     assert res.status is Status.OK
-    assert "no version" in res.summary
+    assert res.summary == "cyanrip 0.9.3 (release)"
+
+
+def test_check_backend_routing_survives_cold_container_chatter():
+    """A cold Distrobox container prints its own startup noise FIRST.
+
+    `run_capture` merges stderr into stdout, so line 1 of a perfectly good probe
+    can be distrobox's chatter. The check must find the banner further down
+    instead of calling a working (just slow) ripper broken — and must report the
+    banner, not the noise.
+    """
+    res = preflight.check_backend_routing(
+        _FakeBackend(
+            version=(
+                "Starting container...                    \t [ OK ]\n"
+                "cyanrip 0.9.3.1 (release)\n"
+            )
+        ),
+        backend_name="cyanrip",
+    )
+    assert res.status is Status.OK
+    assert res.summary == "cyanrip 0.9.3.1 (release)"
 
 
 def test_check_backend_routing_with_no_host_does_not_crash():
@@ -516,6 +625,49 @@ def test_run_preflight_no_network_skips(tmp_path):
     results = preflight.run_preflight(ctx, network=False)
     network = [r for r in results if r.name in preflight._NETWORK_CHECK_NAMES]
     assert network and all(r.status is Status.SKIP for r in network)
+
+
+def test_broken_backend_version_makes_doctor_exit_nonzero(tmp_path):
+    """End-to-end half of the regression: FAIL must reach the process exit code.
+
+    A per-check FAIL is only half a fix — `--doctor` is a scriptable diagnostic,
+    so "NOT ready" has to be visible to whoever ran it. Goes through the real
+    orchestrator (`run_preflight` → `exit_code`) with a backend that answers with
+    junk, which is what a present-but-broken host export does.
+    """
+    ctx = _ctx(
+        cfg=Config(output_dir=str(tmp_path)),
+        backend=_FakeBackend(version="Error: no such container 'ripping'"),
+        backend_name="cyanrip",
+    )
+    results = preflight.run_preflight(ctx, network=False)
+    routing = [r for r in results if r.name == "cyanrip reachable"]
+    assert len(routing) == 1, (
+        f"the routing check did not run: {[r.name for r in results]}"
+    )
+    assert routing[0].status is Status.FAIL
+    assert preflight.exit_code(results) == 1
+    assert "NOT ready" in preflight.format_summary(results)
+
+
+def test_working_backend_version_keeps_doctor_exit_zero(tmp_path):
+    """The guard on the guard: the same path with a REAL banner must stay clean.
+
+    Without this, "make the check fail" could be satisfied by failing always —
+    and a doctor that always says NOT ready is worse than the false PASS it
+    replaced. Two runs to compare, so neither outcome can pass by finding nothing.
+    """
+    ctx = _ctx(
+        cfg=Config(output_dir=str(tmp_path)),
+        backend=_FakeBackend(version="cyanrip 0.9.3.1 (release)"),
+        backend_name="cyanrip",
+    )
+    results = preflight.run_preflight(ctx, network=False)
+    routing = [r for r in results if r.name == "cyanrip reachable"]
+    assert routing[0].status is Status.OK
+    assert routing[0].summary == "cyanrip 0.9.3.1 (release)"
+    # No FAIL anywhere: the drive/offset checks WARN at most on a bare CI box.
+    assert preflight.exit_code(results) == 0, preflight.format_details(results)
 
 
 def test_exit_code_and_summarize():

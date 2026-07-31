@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -259,6 +259,110 @@ def report_label(report: dict, *, fallback: str = "") -> str:
     return " · ".join(bits) if bits else fallback
 
 
+# --- Is this report a usable baseline? (`outcome.status`) --------------------
+#
+# Every report carries the PROCESS result of the rip that wrote it in
+# ``outcome.status`` (built by ``rip_report.build_outcome``): "success",
+# "cancelled", "failed" — or "in_progress".
+#
+# That last one is NOT a rip result. The rip worker re-writes the report after
+# every completed track purely for durability
+# (``rip_worker._write_incremental_report``) and stamps it "in_progress"; the GUI
+# overwrites it with the real status when the rip actually ends. So an
+# "in_progress" report still sitting on disk means the rip that wrote it never
+# ended in this program's hands — the window was closed mid-rip, the machine lost
+# power, the process was killed — and the snapshot then stays in that album folder
+# forever. Reading one back as "your previous rip of this disc" produced the bug
+# this classification exists to fix: a later clean re-rip was diffed against the
+# abandoned three-track snapshot and warned about "track(s) 4…14 the previous rip
+# didn't have" on a rip that was in fact perfect.
+OUTCOME_SUCCESS: str = "success"
+OUTCOME_CANCELLED: str = "cancelled"
+OUTCOME_FAILED: str = "failed"
+OUTCOME_IN_PROGRESS: str = "in_progress"
+
+# Three completeness classes, because each one wants a different policy.
+#
+# COMPLETE — the rip ran to the end. The ideal baseline; compared as-is.
+# PARTIAL  — a rip that really ran and really stopped short (cancelled/failed).
+#            Its tracks are genuine reads with genuine CRCs, so it is still a
+#            valid baseline *for the tracks it got* — it just carries no evidence
+#            about the ones it never reached. Used, ranked below a COMPLETE prior,
+#            and always labelled: never silently discarded (this is exactly the
+#            case the whole feature exists for — a re-rip after a cancel).
+# ABANDONED — an unfinalised mid-rip snapshot. Not a rip record at all, so it is
+#            not auto-selected as a baseline (see `find_prior_report`).
+COMPLETENESS_COMPLETE: str = "complete"
+COMPLETENESS_PARTIAL: str = "partial"
+COMPLETENESS_ABANDONED: str = "abandoned"
+
+
+def outcome_status(report: Mapping[str, object]) -> str:
+    """The report's ``outcome.status``, stripped + case-folded; ``""`` when absent.
+
+    ``""`` is a REAL, supported answer, not an error: the ``outcome`` block was
+    added in schema v7, so every older ``.platterpus.json`` still in a
+    long-standing library has no ``outcome`` at all — and this module's whole job
+    is reading files written by older versions. See
+    :func:`_completeness_from_status` for what absence is taken to mean.
+
+    Takes a ``Mapping`` (not ``dict``) so a ``report_types.RipReport`` TypedDict
+    can be passed straight in; note the deliberate absence of the ``x or {}``
+    idiom, which silently breaks ``.get()`` on a TypedDict. Pure; never raises.
+    """
+    if not isinstance(report, dict):
+        return ""
+    outcome = report.get("outcome")
+    if not isinstance(outcome, dict):
+        return ""
+    status = outcome.get("status")
+    return status.strip().casefold() if isinstance(status, str) else ""
+
+
+def _completeness_from_status(status: str) -> str:
+    """Map an ``outcome.status`` string to one of the ``COMPLETENESS_*`` classes.
+
+    The two judgement calls, both deliberate:
+
+    * **No status at all → COMPLETE.** A pre-v7 report has no ``outcome`` block,
+      and the only thing that ever wrote a full report in those versions was the
+      GUI's *rip-finished* handler — an unfinished rip left no report to find. So
+      absence means "written at the end of a rip", and treating it as unusable
+      instead would throw away every genuine prior in an older library (and break
+      the v8-prior/v9-current re-rip case this module is built around).
+    * **An unrecognised status → PARTIAL, not COMPLETE.** If a future version adds
+      another way for a rip to stop early, the conservative reading keeps its
+      tracks usable while refusing to treat them as evidence about the whole disc.
+      Guessing "complete" for an unknown status would quietly re-open this bug.
+    """
+    if status == OUTCOME_IN_PROGRESS:
+        return COMPLETENESS_ABANDONED
+    if status in ("", OUTCOME_SUCCESS):
+        return COMPLETENESS_COMPLETE
+    return COMPLETENESS_PARTIAL
+
+
+def report_completeness(report: Mapping[str, object]) -> str:
+    """Classify a report as a comparison baseline: complete / partial / abandoned.
+
+    The single public entry point for that question, so the scan
+    (:func:`find_prior_report`) and the diff (:func:`compare_reports`) can never
+    disagree about whether a report is a finished rip. Pure; never raises."""
+    return _completeness_from_status(outcome_status(report))
+
+
+def _stopped_phrase(status: str) -> str:
+    """Human clause naming *how* a rip stopped short, for a caveat sentence."""
+    if status == OUTCOME_CANCELLED:
+        return "was cancelled before it finished"
+    if status == OUTCOME_FAILED:
+        return "failed before it finished"
+    if status == OUTCOME_IN_PROGRESS:
+        return "never finished — its report is an unfinalised mid-rip snapshot"
+    # An unrecognised status: quote it rather than inventing a story about it.
+    return f"did not report success (its outcome says {status!r})"
+
+
 # --- The comparison ---------------------------------------------------------
 
 
@@ -394,6 +498,19 @@ def _compare(
             "compared positionally by track number"
         )
 
+    # How complete each side is, per its own `outcome.status`. This is what keeps
+    # a stopped-short rip from being reported as a REGRESSION: a track the
+    # incomplete side never reached is missing *by definition*, so calling it out
+    # as "a track the previous rip didn't have" describes the previous rip's
+    # cancel, not anything wrong with this one. `compare_reports` is also called
+    # straight from the CLI on two paths the user names, which is why the check
+    # lives here (in the diff) as well as in the scan — an `--compare` against an
+    # abandoned snapshot gets the caveat instead of the false warning.
+    outcome_a = outcome_status(report_a)
+    outcome_b = outcome_status(report_b)
+    a_incomplete = _completeness_from_status(outcome_a) != COMPLETENESS_COMPLETE
+    b_incomplete = _completeness_from_status(outcome_b) != COMPLETENESS_COMPLETE
+
     tracks_a = _report_tracks_by_number(report_a)
     tracks_b = _report_tracks_by_number(report_b)
     numbers = sorted(set(tracks_a) | set(tracks_b))
@@ -453,6 +570,27 @@ def _compare(
         elif crc_b is not None:
             only_b.append(number)
 
+    # Tracks present only on the side that never finished are EXPECTED, so they
+    # are dropped from the *reported* anomalies (the rows themselves keep the
+    # full truth — this only governs the warning). Reported separately from
+    # `only_a`/`only_b` rather than by not collecting them, so the caveat below
+    # can still say how many tracks the short side covered.
+    reported_only_a = [] if b_incomplete else only_a
+    reported_only_b = [] if a_incomplete else only_b
+    caveat = _incomplete_caveat(
+        a_incomplete=a_incomplete,
+        b_incomplete=b_incomplete,
+        outcome_a=outcome_a,
+        outcome_b=outcome_b,
+        count_a=len(tracks_a),
+        count_b=len(tracks_b),
+    )
+    if caveat:
+        # The GUI banner renders only `summary` (ui/rip_progress.comparison_banner_text),
+        # so a caveat that lived only in `notes` would never reach the person who
+        # needs it. It goes in both: summary for the banner, notes for the CLI.
+        notes.append(caveat)
+
     total = len(numbers)
     if total == 0:
         headline_level = "neutral"
@@ -463,19 +601,31 @@ def _compare(
         # compared — never claim an "identical" re-rip in that case.
         headline_level = "neutral"
         summary = "No tracks in common to compare between the two rips."
-    elif differing == 0 and not only_a and not only_b:
+    elif differing == 0 and not reported_only_a and not reported_only_b:
         headline_level = "ok"
-        summary = (
-            f"All {identical} track(s) are byte-for-byte identical to the previous rip."
-        )
+        if a_incomplete or b_incomplete:
+            # True and precise: every track the two rips SHARE matched, but the
+            # short side never covered the whole disc, so "identical to the
+            # previous rip" full stop would overclaim.
+            summary = (
+                f"All {identical} track(s) the two rips have in common are "
+                "byte-for-byte identical."
+            )
+        else:
+            summary = (
+                f"All {identical} track(s) are byte-for-byte identical to the "
+                "previous rip."
+            )
     else:
         # Something changed: differing content, and/or the track SET differs (a
         # dropped or added track). Both are worth surfacing, not hiding behind a
         # green "identical" verdict.
         headline_level = "warn"
         summary = _change_summary(
-            identical, differing, a_better, b_better, only_a, only_b
+            identical, differing, a_better, b_better, reported_only_a, reported_only_b
         )
+    if caveat:
+        summary = f"{summary} {caveat}"
 
     return RipComparison(
         label_a=label_a,
@@ -493,6 +643,39 @@ def _compare(
         summary=summary,
         notes=tuple(notes),
     )
+
+
+def _incomplete_caveat(
+    *,
+    a_incomplete: bool,
+    b_incomplete: bool,
+    outcome_a: str,
+    outcome_b: str,
+    count_a: int,
+    count_b: int,
+) -> str:
+    """The sentence that labels a comparison against a rip that stopped short.
+
+    A partial prior is genuinely useful — its tracks are real reads with real
+    CRCs — so it is compared rather than discarded. But comparing against it and
+    *saying nothing* would be the mirror image of the bug: the user would see a
+    green "identical" headline for a disc only a third of which was ever
+    compared. This is the caveat that keeps the result honest, and it is deliberately
+    stated in track counts (the number the user can check) rather than adjectives.
+    Returns "" when both sides finished. Pure; never raises."""
+    parts: list[str] = []
+    if a_incomplete:
+        parts.append(
+            f"Note: the previous rip {_stopped_phrase(outcome_a)}, so it covers "
+            f"{count_a} track(s) against this rip's {count_b} — the rest are absent "
+            "from it by definition, not lost by this rip."
+        )
+    if b_incomplete:
+        parts.append(
+            f"Note: this rip {_stopped_phrase(outcome_b)}, so it covers {count_b} "
+            f"track(s) against the previous rip's {count_a}."
+        )
+    return " ".join(parts)
 
 
 def _change_summary(
@@ -555,16 +738,32 @@ def find_prior_report(
     the auto-move feature relocates finished rips into; duplicates and roots
     nested in one another are deduped so nothing is scanned twice) — for
     ``*.platterpus.json`` files (one per album),
-    skips the current report, and returns the most recent one that
+    skips the current report, and returns the best one that
     :func:`same_disc` confirms is the same disc — or None if there's no match.
     Matching via :func:`same_disc` (not raw key equality) is what lets a v9
     re-rip find its v8 predecessor: they share the release id even though their
-    strongest keys differ in type. "Most recent" is by the report's
-    ``generated_at`` (falling back to file mtime). I/O, but bounded
-    (``_MAX_SCAN_REPORTS``) and fully defensive: any unreadable file is skipped
-    and the whole thing returns None rather than raising, so it's safe to call
-    from a best-effort post-rip path (off the GUI thread — a large library is
-    many small reads).
+    strongest keys differ in type.
+
+    **"Best" is completeness first, then recency** (recency is the report's
+    ``generated_at``, falling back to file mtime). Two consequences, both
+    deliberate — see the ``COMPLETENESS_*`` block for the full reasoning:
+
+    * An **abandoned** (``in_progress``) report is never selected. It is a
+      durability snapshot of a rip that never ended, not a rip record, and being
+      re-written after every track it carries a very *recent* timestamp — so
+      under a recency-only rule it would out-rank and hide the user's real prior
+      rip. It is logged when skipped rather than dropped in silence, and remains
+      reachable deliberately via ``platterpus --compare <old> <new>``, which
+      takes explicit paths and labels the result.
+    * A **partial** (cancelled/failed) prior loses to any complete prior of the
+      same disc regardless of dates, because the interesting question is "how does
+      this compare to the last time I ripped the whole disc". With no complete
+      prior it is used, and :func:`compare_reports` labels it.
+
+    I/O, but bounded (``_MAX_SCAN_REPORTS``) and fully defensive: any unreadable
+    file is skipped and the whole thing returns None rather than raising, so it's
+    safe to call from a best-effort post-rip path (off the GUI thread — a large
+    library is many small reads).
     """
     try:
         current_path = Path(current_report_path).resolve()
@@ -594,7 +793,11 @@ def find_prior_report(
         roots = [kept for kept in roots if not _is_under(kept, resolved_root)]
         roots.append(resolved_root)
 
-    best: tuple[float, Path] | None = None  # (recency epoch, path)
+    # ((completeness rank, recency epoch), path). A TUPLE key, so the ordinary
+    # ">" comparison below sorts on completeness first and only falls back to
+    # recency inside one class — a complete prior can never be shadowed by a
+    # newer stopped-short one.
+    best: tuple[tuple[int, float], Path] | None = None
     scanned = 0  # one budget across ALL roots — the cap is about total I/O
     for root in roots:
         try:
@@ -626,7 +829,26 @@ def find_prior_report(
                 other = load_report(candidate)
                 if other is None or same_disc(current_report, other) is not True:
                     continue
-                sort_key = _recency_key(other, candidate)
+                completeness = report_completeness(other)
+                if completeness == COMPLETENESS_ABANDONED:
+                    # An "in_progress" report: a rip that never ended (see the
+                    # COMPLETENESS_* block). Not a baseline — and logged, not
+                    # dropped in silence, because "why did my re-rip not get a
+                    # comparison banner?" has to be answerable from the log file.
+                    log.info(
+                        "prior-rip scan ignoring %s: its outcome is still "
+                        "'in_progress', so it is an abandoned mid-rip snapshot "
+                        "rather than a finished rip. Compare against it "
+                        "deliberately with: platterpus --compare <that file> "
+                        "<this rip's report>",
+                        candidate,
+                    )
+                    continue
+                # 1 = complete, 0 = partial: a cancelled/failed prior is real data
+                # and stays in the running, but any complete rip of the same disc
+                # outranks it however old it is.
+                rank = 1 if completeness == COMPLETENESS_COMPLETE else 0
+                sort_key = (rank, _recency_key(other, candidate))
                 if best is None or sort_key > best[0]:
                     best = (sort_key, candidate)
         except OSError:
@@ -696,6 +918,13 @@ def render_comparison(comparison: RipComparison) -> str:
     lines.append("")
     lines.append(comparison.summary)
     for note in comparison.notes:
+        # Skip a note the summary already states verbatim. The "this rip didn't
+        # finish" caveat deliberately lives in BOTH — the GUI banner renders only
+        # the summary, so it has to be there, while `notes` is the structured
+        # place a caveat belongs — and printing it twice here would just look like
+        # a bug.
+        if note in comparison.summary:
+            continue
         lines.append(f"note: {note}")
     return "\n".join(lines)
 

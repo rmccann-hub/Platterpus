@@ -21,7 +21,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from platterpus import __version__, preflight
+from platterpus import __version__, preflight, settings_validation
 from platterpus import config as config_module
 from platterpus.build_info import build_fingerprint
 
@@ -52,6 +52,12 @@ def main(argv: list[str] | None = None) -> int:
         f"Platterpus {__version__} (build {build_fingerprint()}) preflight "
         f"— backend: {ctx.backend_name}\n"
     )
+    # Same obligation as `--doctor`: any config value the load had to reset is
+    # reported on the terminal, not left in the log file (a reset `read_offset`
+    # silently rips the next disc at the wrong offset).
+    reset_notice = settings_validation.describe_resets(config_module.take_load_resets())
+    if reset_notice:
+        print(reset_notice + "\n")
     results = preflight.run_preflight(
         ctx,
         network=not args.no_network,

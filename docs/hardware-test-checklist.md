@@ -87,7 +87,30 @@ than by anything going visibly wrong. The suite proves the mechanisms fire; it c
 the drive stops or that the right bytes got the right tags. **A10 and A11 are the two that
 matter most.***
 
-### A10 — [ ] ⭐⭐ Tags must land on the right files when you deselect tracks
+### A10 — [x] ⭐⭐ Tags must land on the right files when you deselect tracks — **PASSED 2026-07-30**
+
+> **Answered from your run.** 16-track CD-R, tracks 1–2 unticked, 3–16 ripped. The `.cue`
+> pairs every typed title with its own track number — `TRACK 03` → `"three3"`, `TRACK 04`
+> → `"four4"`, `TRACK 05` → `"five5"` / `PERFORMER "if madrid - ft. nelly"` — and Picard
+> reads the same titles back out of the FLAC tags themselves. Under the old bug `TRACK 03`
+> would have carried track 1's row ("Track 01"), and it doesn't. **The off-by-one is gone.**
+>
+> Your `metaflac` loop printed an error rather than tags because the `cd` failed first:
+> the path has a space in it, so it needs quoting. **One self-contained command, no `cd`:**
+>
+> ```sh
+> find ~/Music/rips -name '*.flac' -newermt '-1 day' -print0 | sort -z | while IFS= read -r -d '' f; do
+>   printf '%s -> ' "$(basename "$f")"
+>   metaflac --show-tag=TRACKNUMBER --show-tag=TITLE "$f" | tr '\n' ' '
+>   echo
+> done
+> ```
+>
+> Worth running once to confirm `TRACKNUMBER` too — the `.cue` proves the *title* pairing
+> and Picard proves the tags exist, but only `metaflac` shows the number stored in the
+> file. Not urgent; the failure mode is already ruled out by the cue.
+
+**Original test, kept for the record:**
 
 **This is the most serious bug fixed in v0.5.18, and it was silent.** For unknown discs
 (no MusicBrainz match) the tagger keyed each track on the file's *position in the folder*
@@ -123,7 +146,35 @@ done
 **Result:** ☐ PASS ☐ FAIL — first file's number/title: ____________ · any off-by-one:
 ☐ y ☐ n
 
-### A11 — [ ] ⭐⭐ Cancel, then quit within five seconds — the drive must stop
+### A11 — [~] ⭐⭐ Cancel, then quit within five seconds — **PARTIAL PASS 2026-07-30**
+
+> **The critical criterion passed.** The drive stopped and the tray opened — no held device,
+> no crash, and the log shows the rescue path working end to end:
+>
+> ```
+> 20:49:58,811  rip finished: success=False
+> 20:50:03,949  force-stopping drive (auto trigger), device=/dev/sr0   ← +5.1s
+> 20:50:04,067  fuser -k /dev/sr0 rc=0
+> 20:50:06,789  ejected /dev/sr0                                       ← +8.0s total
+> 20:50:06,789  force_stop_drive: killed=True ejected=True
+> ```
+>
+> Your "7 or 8 seconds" matches exactly: 5 s of rescue timer, then ~2.7 s for `fuser -k` plus
+> the eject itself. **Note the app ejected the disc for you** — you didn't need the button.
+>
+> **But the specific race this test targets isn't proven, and that's my fault.** The log's
+> last line is a disc-removal repaint, which means the window was *still alive* at +8 s — so
+> either the quit landed after the rescue fired, or it didn't land inside the five-second
+> window. The log can't tell us, because **pressing Cancel logged nothing and quitting
+> logged nothing**. I asked you to check "the log's last lines mention stopping the rip" and
+> the app doesn't produce that. Both lines added on the branch — so **re-run this one on
+> v0.5.19**, where the log will say `rip cancel requested…` and `window close requested…`
+> with timestamps, and the race will be visible either way.
+>
+> Two things to do differently next time: start the clock at **Cancel**, and quit **fast** —
+> if you watched the status message first, that alone is more than three seconds.
+
+**Original test, kept for the record:**
 
 **The one with no recovery.** On Cancel, the host-side wrapper dies immediately, but podman
 does not forward the signal into the container — so the only thing that kills the
@@ -303,31 +354,67 @@ read offset *is* simply weren't drawn.
 **Result:** ☐ PASS ☐ FAIL — any clipped text: ☐ y ☐ n · smallest size reached:
 ________×________
 
-### A19 — [ ] The EAC log's gap row now speaks EAC's vocabulary
+### A19 — [x] The EAC log's gap row — **your run FAILED it, and you were right to send it**
 
-cyanrip has always merged pregaps into the previous track, and Platterpus never passes the
-flag that would change that — which is exactly EAC's "Appended to previous track". The log
-simply never said so in EAC's words, which made a side-by-side comparison against a real
-EAC log harder than it needed to be.
+**Both expectations I wrote here were wrong.** Your log settled both, and one of them was
+a real bug.
+
+**The gap row.** I told you to expect `Appended to previous track`. Your log said
+`Gap handling : None signalled` — cyanrip's own phrasing, not EAC's. The v0.5.18 change
+only took effect when cyanrip printed *nothing*, and cyanrip always prints the block, so
+the fix was unreachable on real output. Its test couldn't see that because the fixture
+handed the renderer EAC's phrase as *input* — a string cyanrip never emits. Fixed
+properly on the branch; the row now reads EAC's own wording for the not-detected case:
+
+```
+Gap handling                                : Not detected, thus appended to previous track
+```
+
+That is EAC's verbatim string (confirmed against a real EAC 1.1 log), and it will
+**deliberately differ** from your EAC baseline for the Police disc, which says
+`Appended to previous track`. That difference is true and worth seeing — see D3 below.
+
+**The C2 row.** I told you it would stay `(not reported by the ripper)`. It doesn't — your
+log says **`Make use of C2 pointers : No`**, because cyanrip's header prints `C2 errors:
+unsupported by drive` and we parse it. So the row I described as an open unknown is
+already filled, on first-party evidence from the tool doing the read. That is exactly the
+standard the test was defending, and the drive supplied it. Nothing to do.
+
+**Nothing to re-run** — this section is answered. When you next generate an EAC log on
+v0.5.19, a one-line confirmation is enough:
 
 ```sh
 grep -n "Gap handling" *"(EAC-compatible).log"
 ```
 
-- Expected: `Gap handling                                : Appended to previous track`
-- Expected: `Make use of C2 pointers : (not reported by the ripper)` — **unchanged, and
-  deliberately so.** I tried to assert `No` here on the strength of a survey saying
-  libcdio never uses C2 pointers, and a test that exists to stop exactly that blocked it.
-  It was right: the rows we *do* assert each have direct evidence behind them, and a
-  second-hand summary isn't that. See section D.
-
-**Result:** ☐ PASS ☐ FAIL — gap row said: ____________
+**Result:** x FAIL as shipped (gap row) — fixed on branch · C2 row already correct
 
 ---
 
 ## B — Still unproven from earlier releases
 
-### B2 — [ ] ⭐ An interrupted rip must admit it
+### B2 — [x] ⭐ An interrupted rip must admit it — **PASSED 2026-07-30**
+
+> **Broken for four releases, working now.** Your cancelled Police rip's EAC log carries it,
+> at the top, inside the checksum:
+>
+> ```
+> *** INCOMPLETE RIP (cancelled) — this log covers 2 of 14 disc tracks. The remaining
+> 12 track(s) were never extracted and are absent below. ***
+> ```
+>
+> Correct count, correct reason, correct wording. The `.platterpus.json` agrees —
+> `outcome.status: "cancelled"`. Nothing to re-run.
+>
+> One thing still worth a single command next time you have a cancelled rip, because it's the
+> half your run didn't cover — that the banner is *inside* the signed region and so can't be
+> quietly deleted:
+>
+> ```sh
+> head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the log's last line
+> ```
+
+**Original test, kept for the record:**
 
 On this sheet since v0.5.9 and it has **never worked**: the banner's renderer was correct,
 but the code handing it the rip's outcome read a dictionary the wrong way and always passed
@@ -634,7 +721,49 @@ cache-defeat **Yes** measurement.
 **Not a pass/fail test — a fact I need.** This is the highest-value thing in the whole
 sheet.
 
-### D1 — [ ] Does cyanrip print AccurateRip lines when ripping a SUBSET of tracks?
+### D1 — [x] Does cyanrip print AccurateRip lines when ripping a SUBSET of tracks? — **YES, answered 2026-07-30**
+
+> **You answered this without running the probe.** Your A10 rip *was* a subset rip
+> (`Tracks to rip: 3, 4, …, 16`), and its log carries the AccurateRip block for every
+> track:
+>
+> ```
+> AccurateRip:    not found          ← disc-level lookup ran
+>   Accurip:      not found          ← and per track, under -l
+>     Accurip v1:  9321BBF1
+>     Accurip v2:  42F2D73C
+>     Accurip 450: 69535AA2
+> ```
+>
+> So the machinery is not disabled by `-l`: cyanrip performs the lookup and prints the
+> per-track result and all three local CRCs. **Task #55 takes the straightforward path** —
+> the re-rip's own AccurateRip lines exist and can replace the first pass's, instead of the
+> bigger "drop the verdict and mark the track unverified" UX change. No sign-off needed.
+>
+> **One narrow thing left, and it's small.** Your disc isn't in AccurateRip, so what we saw
+> printed was `not found`. What that can't show is a *positive match with a confidence*
+> under `-l`. It's the same code path and I'd be surprised if it differed, but "I'd be
+> surprised" is not evidence, so before I ship the #55 fix: **one subset rip of the Police
+> disc** (which IS in the database) — see **D1b**.
+
+### D1b — [ ] ⭐ The small follow-up: a subset rip of a disc that IS in AccurateRip
+
+Two minutes of clicking, no shell needed. Police disc in, **untick tracks 1 and 2**,
+Start rip, let it finish, then:
+
+```sh
+grep -A3 -i "accurip" *"Every Breath"*/*.log | head -40
+```
+
+- Expected: at least one track shows a **confidence number** (e.g. `Accurip: 200`), not
+  just `not found`.
+- If instead every track says `not found` on a disc your full rips have always matched,
+  **that is the interesting answer** — it would mean `-l` breaks the lookup, and #55 needs
+  the bigger fix after all. Tell me either way.
+
+**Result:** ☐ confidence reported ☐ all "not found" — paste one track's block: ____________
+
+### D1 — original probe (no longer needed, kept for the record)
 
 **Why it matters.** When the auto-fix re-rips a single bad track, it swaps the new read's
 CRC into the report — but keeps the **first pass's** AccurateRip result if the re-rip's log
@@ -673,14 +802,52 @@ Just those few lines — **not** the FLACs. Delete both scratch folders afterwar
 
 **Result:** subset printed Accurip lines: ☐ y ☐ n — paste the lines: ____________
 
-### D2 — [ ] (Optional) Anything that would settle the C2-pointers row
+### D2 — [x] Anything that would settle the C2-pointers row — **settled, nothing to run**
 
-Low priority, and only if you're curious. EAC logcheckers weight `Make use of C2 pointers`
-heavily, and asserting `No` would remove our last big "unknown" — but I need real evidence,
-not a survey. If `cd-paranoia -A -d /dev/sr0` output mentions C2 at all, that line is
-useful; otherwise leave it.
+Your rip log's header answers it: `C2 errors: unsupported by drive`. cyanrip states the
+drive's C2 capability itself, we parse it, and the EAC log now says `No`. First-party
+evidence from the tool doing the read — better than the survey I was refused for. Done.
 
-**Result:** any C2 mention in the probe output: ☐ y ☐ n — text: ____________
+### D3 — [ ] ⭐ Nothing to run — but the most interesting thing your run surfaced
+
+Fixing the gap row made me diff your two logs of the **same disc in the same drive**, and
+they disagree in a way neither log's wording had made visible:
+
+| | EAC 1.8 | cyanrip 0.9.3 |
+|---|---|---|
+| `Gap handling` | `Appended to previous track` | `None signalled` |
+| Per-track `Pre-gap length` | **present, 10 of 14** | **none** |
+
+**EAC finds pregaps that cyanrip does not** — on ten of the fourteen tracks (3, 6, 11 and 12 have none in EAC's log either). EAC runs its own gap-detection pass; cyanrip
+reports only what the disc's TOC signalled, and on the Police disc the TOC signalled
+nothing. Both tools then append the gap to the previous track, so **your audio is
+unaffected and your CRCs are unaffected** — this is the archival *record* being less
+complete than EAC's, not the rip being wrong.
+
+This is the same gap as **part E** (build cyanrip `master` for `INDEX 00`), which is now
+much better motivated: it isn't a cosmetic cue-sheet nicety, it is the one measurable
+place our archival record is thinner than EAC's. I've pinned the disagreement with a test
+so nobody later "fixes" it by making our log print EAC's string regardless.
+
+Nothing for you to do here — just don't read the differing row as a bug when you compare.
+
+**Result:** noted ☐
+
+### D4 — [ ] Your call, not a bug: should typed titles rename the files?
+
+Your run put the right titles in the **tags** and the right titles in the **`.cue`** — but
+the files on disk are `03 - Track 03.flac`, not `03 - three3.flac`. That's how the unknown
+-disc path works today: cyanrip names files from the placeholder titles it was given, then
+Platterpus writes your typed tags over the top afterwards.
+
+Defensible either way, so it's your decision rather than something I'll just change:
+
+- **Rename to match** — "good music, good cover image, good everything" argues for it; the
+  filename is the first thing you see in a file manager.
+- **Leave placeholders** — filenames stay stable if you retag later, and renaming is one
+  more failure mode between a good rip and a written file.
+
+**Result:** ☐ rename them ☐ leave them ☐ discuss
 
 ---
 
@@ -695,12 +862,15 @@ binary everything else was tested against.
 
 ## Priority, if you only have an hour
 
-1. **A10** — tags on the right files (silent data corruption)
-2. **A11** — cancel-then-quit, drive must stop (no recovery when it fails)
-3. **D1** — the Accurip question (unblocks the worst open bug)
-4. **A17** — a failed disc read says why (and the one regression risk this release)
-5. **A13** — closing mid-rip doesn't crash
-6. **B5c** — the wheel behaviour I couldn't prove off-hardware
+**Updated 2026-07-30 after your first batch.** A10, A19, D1 and D2 are answered — A10
+passed, A19 found a real bug, D1 and D2 came free with your log.
+
+1. **A11** — cancel-then-quit, drive must stop (no recovery when it fails)
+2. **D1b** — one subset rip of the Police disc; the last thing gating the #55 fix
+3. **A17** — a failed disc read says why (and the one regression risk this release)
+4. **A13** — closing mid-rip doesn't crash
+5. **B5c** — the wheel behaviour I couldn't prove off-hardware
+6. **B2** — the incomplete-rip banner, broken for four releases
 
 ---
 
@@ -716,4 +886,4 @@ Plus anything surprising, even on a test that passed.
 
 ---
 
-*Last updated for Platterpus v0.5.18.*
+*Last updated for Platterpus v0.5.19.*

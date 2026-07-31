@@ -277,6 +277,7 @@ class MainWindowShared(_SeamBase):
     # ``Signal``-typed attribute resolve ``.emit`` / ``.connect``.
     rip_post_processing_done: Signal
     cover_art_done: Signal
+    tagging_done: Signal
     ctdb_verify_done: Signal
     flac_verify_done: Signal
     flac_recompress_done: Signal

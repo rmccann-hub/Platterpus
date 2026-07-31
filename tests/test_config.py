@@ -481,3 +481,108 @@ def test_fresh_config_defaults_enable_dynamic_secure_rerip() -> None:
     cfg = config_module.Config()
     assert cfg.secure_rerip_dynamic is True
     assert cfg.secure_rerip_matches == 2  # > 0 → dynamic path is active
+
+
+# --- Silent resets on load (audit, 2026-07-31) --------------------------------
+#
+# `_sanitized()` resets every ERROR-level field to its default so an invalid value
+# can never reach the ripper. That is right. Doing it with ONLY a log line was the
+# "silent reset" the *validate every input* convention explicitly forbids, and the
+# dangerous instance is concrete: `main_window_drive._set_read_offset_override`'s
+# docstring already named "silently reset to 0 by the next startup's `_sanitized()`
+# … ripping at the wrong offset with only a log line" — but the fix was applied on
+# the WRITE path only, so a hand-edited config.toml still walked straight into it.
+
+
+def test_an_out_of_range_read_offset_is_recorded_for_display(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dangerous case, end to end: a hand-edited offset outside its bounds is
+    reset to 0 while `override_read_offset` stays ON, so the next disc would be
+    ripped at the WRONG offset. The reset must be reported, not just logged."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        "schema_version = 8\nread_offset = 99999\noverride_read_offset = true\n",
+        encoding="utf-8",
+    )
+
+    cfg = config_module.load()
+    assert cfg.read_offset == 0  # still reset — safety is unchanged
+    assert cfg.override_read_offset is True  # …which is exactly why it must be shown
+
+    resets = config_module.take_load_resets()
+    assert [r.field for r in resets] == ["read_offset"]
+    assert resets[0].old_value == "99999"  # so the user can put it back
+    assert resets[0].new_value == "0"
+    assert "-5000" in resets[0].message  # specific, not "invalid value"
+
+
+def test_take_load_resets_is_empty_for_a_clean_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No notice for a valid file — otherwise the notice becomes noise and the
+    real one gets dismissed unread."""
+    _redirect_config(tmp_path, monkeypatch)
+    config_module.save(config_module.Config())
+    config_module.load()
+    assert config_module.take_load_resets() == []
+
+
+def test_take_load_resets_consumes_so_the_notice_shows_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text("schema_version = 8\nmax_retries = 9999\n", encoding="utf-8")
+    config_module.load()
+    assert config_module.take_load_resets()
+    assert config_module.take_load_resets() == []
+
+
+def test_load_clears_stale_resets_from_a_previous_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stash describes THIS load. A second, clean load must not still be
+    carrying the first load's resets (that would show a notice about a value the
+    user already fixed)."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text("schema_version = 8\nmax_retries = 9999\n", encoding="utf-8")
+    config_module.load()  # deliberately NOT consumed
+    config_file.write_text("schema_version = 8\nmax_retries = 5\n", encoding="utf-8")
+    config_module.load()
+    assert config_module.take_load_resets() == []
+
+
+def test_an_unreadable_config_is_recorded_for_display(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The loudest case — EVERY setting just reverted — went out with only a log
+    line too. It goes through the same channel so there is one display path."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text("this is not = = valid TOML\n", encoding="utf-8")
+
+    config_module.load()
+
+    resets = config_module.take_load_resets()
+    assert len(resets) == 1
+    assert resets[0].field == "(whole file)"
+    assert "couldn’t be read" in resets[0].message
+    assert ".bad" in resets[0].message  # tells them where their file went
+
+
+def test_a_traversal_template_reset_is_recorded_with_the_old_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A `..` template is reset (it would write outside the output directory) —
+    and the notice must carry the rejected text so the user sees what was wrong."""
+    config_file = _redirect_config(tmp_path, monkeypatch)
+    config_file.write_text(
+        'schema_version = 8\ntrack_template = "../../pwned/%t - %n"\n',
+        encoding="utf-8",
+    )
+
+    cfg = config_module.load()
+    assert ".." not in cfg.track_template
+
+    resets = config_module.take_load_resets()
+    assert [r.field for r in resets] == ["track_template"]
+    assert "../../pwned" in resets[0].old_value

@@ -25,13 +25,25 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from platterpus.safe_int import int_or_none
+
 _CDDB_DISC_ID = re.compile(r"^CDDB disc id:\s*(?P<value>\S+)\s*$")
 _MB_DISC_ID = re.compile(r"^MusicBrainz disc id\s+(?P<value>\S+)\s*$")
 _MB_URL = re.compile(r"^MusicBrainz lookup URL\s+(?P<value>\S+)\s*$")
 # "Disc duration: 01:02:08.026, 16 audio tracks". The track count lets
 # the GUI show numbered (blank) rows for a disc MusicBrainz doesn't know,
 # so the user still sees what's on the disc before an unknown-album rip.
-_NUM_TRACKS = re.compile(r"(?P<value>\d+)\s+audio\s+tracks")
+# Bounded quantifier, deliberately. An unbounded `\d+` here is quadratic on a long
+# run of digits, because every prefix of the run is a candidate the engine must
+# reject before failing the whole match:
+#
+#     500 digits → 2.26 ms · 1000 → 8.82 ms · 2000 → 35.11 ms · 4000 → 141.36 ms
+#
+# `{1,4}` is linear (4000 digits → 0.295 ms) and loses nothing: a Red Book CD holds
+# at most 99 tracks, so four digits is already two more than the format allows.
+# Parsers of external output must be bounded in time as well as never-raising —
+# this input is a subprocess's stdout, so its length is not ours to trust.
+_NUM_TRACKS = re.compile(r"(?P<value>\d{1,4})\s+audio\s+tracks")
 
 
 @dataclass(frozen=True)
@@ -77,7 +89,11 @@ def parse_cd_info(stdout: str) -> DiscInfo:
         # ("Disc duration: ..., 16 audio tracks"), not anchored.
         match = _NUM_TRACKS.search(line)
         if match:
-            num_tracks = int(match.group("value"))
+            # Keep the 0 default when the count is unusable — "we don't know how
+            # many tracks" is what 0 already means to every caller here.
+            num_tracks = (
+                int_or_none(match.group("value"), field="cd-info track count") or 0
+            )
             continue
 
     return DiscInfo(

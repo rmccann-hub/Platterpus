@@ -8,6 +8,7 @@ BDR-209D → +667) through the exact double-spaced string whipper emits.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from hypothesis import given, settings
@@ -16,6 +17,7 @@ from hypothesis import strategies as st
 from platterpus.adapters.accuraterip_offsets import (
     OffsetDatabase,
     _load_user_csv,
+    _parse_csv_row,
     normalize_drive_name,
 )
 
@@ -192,3 +194,69 @@ def test_bundled_resolves_a_spread_of_drives() -> None:
 def test_lookup_never_raises(vendor: str, model: str) -> None:
     result = _db().lookup(vendor, model)
     assert result is None or isinstance(result, int)
+
+
+# --- bounded parse time on user-edited input (perf audit, 2026-07-30) --------
+
+
+def test_a_pathological_csv_row_does_not_stall_the_loader(tmp_path: Path) -> None:
+    """A long row must parse in linear time, because this runs on the GUI thread.
+
+    `OffsetDatabase.load_default()` is called from `MainWindow.__init__` **before
+    the window is shown**, and this file is the documented way to install the full
+    official AccurateRip drive-offset export — so it is user-edited text on the
+    GUI thread. The old `^\\s*(?P<name>.+?)\\s*,\\s*(?P<offset>-?\\d+)\\s*$` was
+    quadratic in the row length (measured at 3.9 s on a 2000-character run of
+    tabs), which is this project's never-block-the-GUI-thread rule broken by a
+    regex rather than by a subprocess.
+
+    The generous ceiling is deliberate: this asserts "not stalled", not a
+    benchmark, so a slow CI machine must not fail it. The bug was three orders of
+    magnitude over.
+    """
+    csv = tmp_path / "drive_offsets.csv"
+    # 40 000 characters across a few rows, including the shapes that backtrack:
+    # interior whitespace runs, a long digit run, and a row with no comma at all.
+    rows = [
+        "PIONEER BD-RW BDR-209D, 667",
+        "A" + " " * 20_000 + "B, 6",
+        "9" * 10_000 + ", 12",
+        "no comma on this row at all" + "\t" * 10_000,
+        "ASUS DRW-24B1ST, 6",
+    ]
+    csv.write_text("\n".join(rows), encoding="utf-8")
+
+    start = time.perf_counter()
+    entries = _load_user_csv(csv)
+    elapsed = time.perf_counter() - start
+
+    assert elapsed < 1.0, (
+        f"parsing 40 000 characters of CSV took {elapsed:.2f}s — a super-linear "
+        "pattern is back, and this runs before the window is shown"
+    )
+    # And it still parses the real rows, so the speed did not come from giving up.
+    assert entries, "the loader returned nothing — it must still parse valid rows"
+    assert any("209D" in key for key in entries), entries
+
+
+def test_csv_rows_still_parse_the_awkward_but_valid_shapes() -> None:
+    """The linear replacement must accept everything the regex did.
+
+    Splitting on the LAST comma is what lets a drive name containing one still
+    parse — a real possibility in vendor strings.
+    """
+    assert _parse_csv_row("PIONEER BD-RW BDR-209D, 667") == (
+        "PIONEER BD-RW BDR-209D",
+        667,
+    )
+    assert _parse_csv_row("  ASUS DRW-24B1ST  ,  6  ") == ("ASUS DRW-24B1ST", 6)
+    assert _parse_csv_row("Some Drive, -12") == ("Some Drive", -12)
+    # A name containing a comma: split on the last one.
+    assert _parse_csv_row("Acme, Inc. DVD-RW, 30") == ("Acme, Inc. DVD-RW", 30)
+    # Unparseable shapes yield None rather than raising.
+    assert _parse_csv_row("no comma") is None
+    # A header row: the offset column is not a number, so the row does not parse.
+    # (The loader separately skips a literal "name"/"drive" first column; this
+    # asserts the parse itself refuses it, with no `or` to weaken the claim.)
+    assert _parse_csv_row("name,offset") is None
+    assert _parse_csv_row(", 5") is None, "an empty name is not a drive"

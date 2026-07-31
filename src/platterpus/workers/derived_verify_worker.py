@@ -20,6 +20,7 @@ import logging
 import threading
 from pathlib import Path
 
+from platterpus import rip_files
 from platterpus.adapters.derived_verify import (
     DerivedVerifyResult,
     PcmHasher,
@@ -45,11 +46,13 @@ def _pair_derived_with_masters(
     can't be bit-compared), and a master with no derived sibling is what makes
     ``len(pairs) < expected`` — i.e. the transcode was incomplete.
     """
-    # Non-recursive: pair this album's masters (direct children) with their
-    # sibling derived files. A recursive glob would count nested/other-album
-    # FLACs as masters and inflate `expected`, wrongly reading the transcode as
-    # incomplete (#40) — matches the CTDB/FLAC-verify enumeration.
-    masters = sorted(rip_dir.glob("*.flac"))
+    # The masters come from the rip's own record, not the folder listing (see
+    # `platterpus.rip_files`): `expected` is "one derived file per master THIS rip
+    # wrote". Counting the folder instead doubled it whenever an earlier attempt's
+    # FLACs were still there, so a complete transcode reported as incomplete.
+    # rip_files falls back to the old non-recursive glob — which also keeps
+    # nested/other-album FLACs out of the count (#40) — and logs the fallback.
+    masters = list(rip_files.rip_master_files(rip_dir).files)
     pairs: list[tuple[Path, Path]] = []
     for master in masters:
         derived = master.with_suffix(f".{ext}")

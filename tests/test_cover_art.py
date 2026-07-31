@@ -10,7 +10,10 @@ parses external input).
 
 from __future__ import annotations
 
+import email.message
 import json
+import logging
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -28,6 +31,17 @@ _GIF = b"GIF89a" + b"x" * 32
 # A MusicBrainz release id (UUID). It's URL-encoded into the CAA request path;
 # a UUID (only unreserved chars) encodes to itself, so the built URL is unchanged.
 _MBID = "12345678-90ab-cdef-1234-567890abcdef"
+
+
+def _http_error(url: str, code: int) -> urllib.error.HTTPError:
+    """The exception urllib raises for an HTTP error status.
+
+    Built here (with a real, empty ``email.message.Message`` for the headers) so
+    the 404-vs-network tests raise exactly what the real fetcher would — an
+    ``OSError`` subclass that still carries ``.code``, which is the only thing
+    that tells "the archive answered: nothing" apart from "we never got an answer".
+    """
+    return urllib.error.HTTPError(url, code, "Not Found", email.message.Message(), None)
 
 
 class _FakeMetaflac:
@@ -230,8 +244,11 @@ def test_apply_reports_when_no_art_exists(tmp_path: Path) -> None:
     album = _album(tmp_path)
     fake = _FakeMetaflac()
 
+    # A real HTTP 404 — the archive *answered* and has nothing for this release.
+    # (A plain OSError would be a network failure, which now reads differently;
+    # see test_apply_network_failure_is_not_reported_as_no_art.)
     def fetcher(url: str) -> bytes:
-        raise OSError("404")
+        raise _http_error(url, 404)
 
     result = cover_art.apply_cover_art(
         album, "mbid", embed=True, save_file=True, metaflac=fake, fetcher=fetcher
@@ -350,10 +367,8 @@ def test_apply_returns_structured_result(tmp_path: Path) -> None:
 
 
 def test_apply_result_distinguishes_404_from_network(tmp_path: Path) -> None:
-    import urllib.error
-
     def not_found(url: str) -> bytes:
-        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        raise _http_error(url, 404)
 
     r = cover_art.apply_cover_art(
         tmp_path,
@@ -377,6 +392,102 @@ def test_apply_result_distinguishes_404_from_network(tmp_path: Path) -> None:
         fetcher=down,
     )
     assert r2.found is False and r2.reason == "network"
+
+
+# --- The reason must reach the USER, not just the report (regression) --------
+
+
+def test_apply_network_failure_is_not_reported_as_no_art(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Regression (2026-07-31): every failure reason — including `network` — used
+    to collapse into "Cover art: none found for this release", so an OFFLINE user
+    was told the release has no art. Those are different facts. The message the
+    user sees must say we could not reach the archive, must NOT claim the release
+    has none, and the reason + the dependency's own error text must be in the log.
+    """
+
+    def down(url: str) -> bytes:
+        raise OSError("connection refused")
+
+    with caplog.at_level(logging.WARNING, logger="platterpus.adapters.cover_art"):
+        result = cover_art.apply_cover_art(
+            tmp_path,
+            _MBID,
+            embed=True,
+            save_file=False,
+            metaflac=_FakeMetaflac(),
+            fetcher=down,
+        )
+
+    # What the user reads: the network truth, and NOT the release-has-no-art lie.
+    assert "could not reach the Cover Art Archive" in result.message
+    assert "none found" not in result.message
+    assert "rip unaffected" in result.message  # still best-effort, still not fatal
+    # What the log gets: the machine reason code AND the tool's own error text.
+    assert "reason=network" in caplog.text
+    assert "connection refused" in caplog.text
+    # ...and the report keeps the same detail instead of swallowing it.
+    assert result.reason == "network"
+    assert "connection refused" in result.error
+
+
+def test_apply_404_still_says_the_release_has_none(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The other half of the same regression: a real 404 IS "this release has no
+    art", so that wording must survive — and must be distinguishable in the log
+    from the network case (reason=404, not reason=network)."""
+
+    def not_found(url: str) -> bytes:
+        raise _http_error(url, 404)
+
+    with caplog.at_level(logging.WARNING, logger="platterpus.adapters.cover_art"):
+        result = cover_art.apply_cover_art(
+            tmp_path,
+            _MBID,
+            embed=True,
+            save_file=False,
+            metaflac=_FakeMetaflac(),
+            fetcher=not_found,
+        )
+
+    assert "none found for this release" in result.message
+    assert "could not reach" not in result.message
+    assert "reason=404" in caplog.text
+    assert "HTTP 404" in result.error
+
+
+@pytest.mark.parametrize(
+    ("reason", "must_contain", "must_not_contain"),
+    [
+        ("404", "none found for this release", "could not reach"),
+        ("network", "could not reach the Cover Art Archive", "none found"),
+        ("no-release", "disc was not identified", "none found"),
+        ("empty", "empty image", "none found"),
+        ("oversize", "too large", "none found"),
+        ("not-image", "not a JPEG/PNG/GIF", "none found"),
+    ],
+)
+def test_no_art_message_is_distinct_per_reason(
+    reason: str, must_contain: str, must_not_contain: str
+) -> None:
+    """Each reason gets its own sentence — no two failure modes may be reported
+    with the same words, because they are not the same fact."""
+    message = cover_art.no_art_message(reason)
+    assert must_contain in message
+    assert must_not_contain not in message
+    assert "rip unaffected" in message
+
+
+def test_no_art_message_names_an_unknown_reason_instead_of_guessing() -> None:
+    """A reason added later must not silently inherit "none found" — it names the
+    code instead. Total: None/"" are answered, never raised on (best-effort path).
+    """
+    assert "wormhole" in cover_art.no_art_message("wormhole")
+    assert "none found" not in cover_art.no_art_message("wormhole")
+    assert cover_art.no_art_message(None)
+    assert cover_art.no_art_message("")
 
 
 # --- save_additional_covers (back + booklet) --------------------------------
@@ -475,3 +586,112 @@ def test_apply_local_cover_art_missing_file(tmp_path: Path) -> None:
         metaflac=_FakeMetaflac(),
     )
     assert r.found is False and r.reason == "read-failed"
+
+
+# --- Embedding is scoped to THIS rip's files (2026-07-31) -------------------
+#
+# Both embed loops used `rip_dir.rglob("*.flac")`. Embedding MUTATES every file it
+# finds, and "the FLACs in the album folder" is not "the FLACs this rip wrote":
+# cancel a rip (partial files remain), fix a track title, re-rip and choose
+# *Replace*, and the corrected titles produce NEW filenames — so the new files
+# land BESIDE the old ones. This album's cover was then written into the
+# cancelled rip's abandoned files too, and counted, so the user was told
+# "embedded in 4 track(s)" for a 2-track rip.
+
+_THIS_RIP: tuple[str, ...] = ("01 - Roxanne.flac", "02 - Message In A Bottle.flac")
+_LEFTOVERS: tuple[str, ...] = ("01 - Roxane.flac", "02 - Message In A Bottel.flac")
+
+
+def _cyanrip_log_text(names: tuple[str, ...], folder: str) -> str:
+    """A minimal but real-shaped cyanrip log naming ``names``, one per track.
+
+    Paths are written the way cyanrip writes them — relative to the configured
+    output *root*, not the album folder — so this exercises production's basename
+    mapping rather than a convenient shortcut.
+    """
+    lines = ["cyanrip 0.9.3 (release)", "Device model:   PIONEER BD-RW BDR-209D", ""]
+    for number, name in enumerate(names, start=1):
+        lines += [
+            f"Track {number} ripped and encoded successfully!",
+            "  EAC CRC32:     A1B2C3D4",
+            "  File(s):",
+            f"    {folder}/{name}",
+            "",
+        ]
+    lines += [f"Tracks ripped accurately: {len(names)}/{len(names)}", ""]
+    return "\n".join(lines)
+
+
+def _album_with_leftovers(tmp_path: Path):
+    """``(album_dir, parsed_log)`` for a folder holding two rips' worth of FLACs."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    album = tmp_path / "The Police" / "Greatest Hits"
+    album.mkdir(parents=True)
+    for name in _THIS_RIP + _LEFTOVERS:
+        (album / name).write_bytes(b"FLAC")
+    text = _cyanrip_log_text(_THIS_RIP, "The Police/Greatest Hits")
+    (album / "Greatest Hits.log").write_text(text, encoding="utf-8")
+    return album, parse_cyanrip_log(text)
+
+
+def test_apply_cover_art_embeds_only_this_rips_files(tmp_path: Path) -> None:
+    """Regression: the archive-fetch embed must skip a previous rip's leftovers —
+    and the count it reports must be this rip's, not the folder's."""
+    album, parsed = _album_with_leftovers(tmp_path)
+    fake = _FakeMetaflac()
+
+    result = cover_art.apply_cover_art(
+        album,
+        _MBID,
+        embed=True,
+        save_file=False,
+        metaflac=fake,
+        fetcher=lambda url: _JPEG,
+        rip_log=parsed,
+    )
+
+    embedded = sorted(f.name for f, _img in fake.embedded)
+    assert embedded == sorted(_THIS_RIP)
+    for leftover in _LEFTOVERS:
+        assert leftover not in embedded
+    assert result.embedded_count == 2
+    assert "embedded in 2 track(s)" in result.message
+
+
+def test_apply_local_cover_art_embeds_only_this_rips_files(tmp_path: Path) -> None:
+    """Same for the "cover art from a file" path — it has its own embed loop, and
+    a fix applied at only one of the two would leave the bug reachable."""
+    album, parsed = _album_with_leftovers(tmp_path)
+    image = tmp_path / "mine.png"
+    image.write_bytes(_PNG)
+    fake = _FakeMetaflac()
+
+    result = cover_art.apply_local_cover_art(
+        album, image, embed=True, save_file=False, metaflac=fake, rip_log=parsed
+    )
+
+    assert sorted(f.name for f, _img in fake.embedded) == sorted(_THIS_RIP)
+    assert result.embedded_count == 2
+
+
+def test_embedding_still_works_when_there_is_no_rip_log(tmp_path: Path) -> None:
+    """It degrades, it does not refuse: an older rip (or a folder a user points us
+    at by hand) has no log to read, and getting no art at all would be a worse
+    outcome than a folder scan. rip_files logs that downgrade at WARNING."""
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    for name in ("01 - A.flac", "02 - B.flac"):
+        (album / name).write_bytes(b"FLAC")
+    fake = _FakeMetaflac()
+
+    result = cover_art.apply_cover_art(
+        album,
+        _MBID,
+        embed=True,
+        save_file=False,
+        metaflac=fake,
+        fetcher=lambda url: _JPEG,
+    )
+
+    assert result.embedded_count == 2

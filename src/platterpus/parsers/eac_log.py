@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import re
 
+from platterpus.safe_int import int_or_none
+
 # "Exact Audio Copy V1.8 from ..." — the first line of any EAC log (often
 # preceded by a UTF-8 BOM, which we strip before matching).
 _EAC_BANNER = re.compile(r"^Exact Audio Copy\b", re.IGNORECASE)
@@ -54,7 +56,12 @@ def parse_eac_copy_crcs(text: str) -> dict[int, str]:
     for line in text.splitlines():
         header = _TRACK_HEADER.match(line)
         if header:
-            current = int(header.group("number"))
+            # An unusable number closes the previous track rather than keeping it
+            # open: the CRC rows that follow belong to whatever this header names,
+            # so attributing them to the *last* good track number would file one
+            # track's checksum under another's — a wrong parity verdict, which is
+            # worse than a missing one.
+            current = int_or_none(header.group("number"), field="EAC track number")
             continue
         crc = _COPY_CRC.match(line)
         if crc and current is not None:

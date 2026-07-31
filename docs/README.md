@@ -103,4 +103,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.5.18.*
+*Last updated for Platterpus v0.5.19.*

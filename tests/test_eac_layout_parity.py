@@ -22,6 +22,7 @@ document worth reading.
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -30,7 +31,7 @@ import pytest
 from platterpus.eac_log_export import render_eac_style_log
 from platterpus.parity import compare_logs
 from platterpus.parsers.cyanrip_log import parse_cyanrip_log
-from platterpus.parsers.rip_log import RipLog
+from platterpus.parsers.rip_log import RipLog, TrackResult
 
 _REPO = Path(__file__).resolve().parent.parent
 _EAC_BASELINE = (
@@ -318,3 +319,95 @@ def test_the_backend_gate_is_not_a_substring_match() -> None:
     # …while the real thing still asserts.
     real = render_eac_style_log(_RipLog(log_creator="cyanrip 0.9.3"))
     assert "Native Linux SCSI/MMC (libcdio-paranoia)" in real
+
+
+# --- the pre-gap unit, checked against EAC's real values (2026-07-30) --------
+
+
+def _eac_pregap_values() -> list[str]:
+    """The ten real `Pre-gap length` values from ONE run of the committed EAC log.
+
+    The baseline file is two concatenated EAC runs, each with its own checksum
+    footer, so it is split first — a whole-file scan doubles every count and that
+    error has already been made once in this project's notes.
+    """
+    text = _EAC_BASELINE.read_bytes().decode("utf-16")
+    first_run = text.split("Exact Audio Copy V1.8")[1]
+    return re.findall(r"Pre-gap length\s+(\d+:\d\d:\d\d\.\d\d)", first_run)
+
+
+def test_eac_pregap_fraction_is_hundredths_not_frames() -> None:
+    """Prove the unit from EAC's own output rather than from the column header.
+
+    Every other `FF` field in an EAC log is CD frames (0–74), and this one looks
+    identical — which is why our renderer used frames. It is wrong: one of EAC's
+    ten real values is `0:00:01.96`, and 96 cannot be a frame index. So the field
+    is hundredths of a second.
+
+    This is the floor for the test below: if the baseline ever loses its pre-gap
+    rows, this fails loudly instead of the next test passing vacuously.
+    """
+    values = _eac_pregap_values()
+    assert len(values) == 10, f"expected 10 pre-gap rows in one EAC run, got {values}"
+    fractions = [int(v.split(".")[1]) for v in values]
+    assert max(fractions) > 74, (
+        "no EAC value exceeds 74, so this evidence no longer distinguishes "
+        "hundredths from frames — re-derive the unit before trusting the renderer"
+    )
+    assert 96 in fractions, "the decisive value 0:00:01.96 is missing from the baseline"
+
+
+def test_our_pregap_row_renders_hundredths_so_it_can_match_eac() -> None:
+    """Our renderer must be able to produce EAC's values, including `.96`.
+
+    cyanrip 0.9.3 reports no pre-gaps on the reference disc, so this row never
+    renders today — it goes live the moment cyanrip learns to detect them (upstream
+    PR #115). That is precisely when a silent unit mismatch is hardest to catch: the
+    row would simply appear, look plausible, and be wrong on 9 of 10 values.
+    """
+    # 72 frames is 96 hundredths — the value frames-based rendering could never
+    # produce, since it would print `.72`.
+    log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(
+                number=8,
+                filename="08.flac",
+                copy_crc="D723C1B0",
+                pregap_sectors=75 + 72,  # 1 second + 72 frames
+            ),
+        ),
+    )
+    text = render_eac_style_log(log)
+    assert "     Pre-gap length  0:00:01.96" in text, (
+        "the row must render hundredths; frames would print 0:00:01.72"
+    )
+    assert "0:00:01.72" not in text
+
+
+def test_no_pregap_rendering_can_produce_an_impossible_fraction() -> None:
+    """Sweep every sub-minute sector count: the fraction must stay two digits.
+
+    A rounded conversion could emit `.100` for the last frame of a second, which is
+    not a value EAC can print and would misalign the column. Truncation cannot,
+    and this proves it across the whole range rather than at one point.
+    """
+    checked = 0
+    for sectors in range(1, 75 * 60):
+        log = RipLog(
+            log_creator="cyanrip 0.9.3",
+            tracks=(
+                TrackResult(number=1, copy_crc="AAAA1111", pregap_sectors=sectors),
+            ),
+        )
+        rows = [
+            ln
+            for ln in render_eac_style_log(log).splitlines()
+            if "Pre-gap length" in ln
+        ]
+        assert len(rows) == 1, f"{sectors} sectors produced {rows}"
+        fraction = rows[0].rsplit(".", 1)[1]
+        assert len(fraction) == 2 and fraction.isdigit(), rows[0]
+        assert int(fraction) <= 99, rows[0]
+        checked += 1
+    assert checked >= 4000, f"only swept {checked} sector counts"

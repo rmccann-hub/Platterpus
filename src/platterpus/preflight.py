@@ -52,6 +52,7 @@ from platterpus.adapters.rip_backend import (
 from platterpus.config import Config
 from platterpus.ctdb.toc import DiscToc
 from platterpus.deps.manager import DependencyManager
+from platterpus.deps.version import parse_version
 from platterpus.drive_access import SEVERITY_OK, diagnose_drive_access
 from platterpus.offset_config import WhipperConfOffset, read_drive_offsets
 
@@ -274,6 +275,47 @@ def check_dependencies(manager: DependencyManager) -> CheckResult:
     )
 
 
+def version_banner(raw: str) -> str:
+    """Return the line of a ripper's ``-V`` output that actually carries a
+    version number — or ``""`` when no line does.
+
+    **Why this isn't just "line 1".** The thing we run is the host export, a
+    wrapper that enters the Distrobox container, and a *cold* container makes
+    distrobox print its own startup chatter first. ``run_capture`` merges stderr
+    into stdout, so line 1 can be that chatter rather than
+    ``cyanrip 0.9.3 (release)``. Scanning for the line that has a version in it
+    both reports the right string *and* keeps a slow-but-working cold start from
+    being mistaken for a broken ripper.
+
+    **Why ``parse_version`` is the recogniser.** It is the dependency
+    subsystem's own version parser — the same one ``deps/checks.check_cyanrip``
+    runs over this exact ``-V`` output (Critical rule #6: one version parser, not
+    a second private regex here). So this check accepts precisely what the
+    cyanrip dependency probe accepts; the two can't disagree about whether a
+    banner is a banner.
+
+    Like every parser of external output it never raises: unrecognisable text is
+    ``""`` (a best-effort answer the caller turns into a FAIL), not an exception.
+    """
+    for line in raw.splitlines():
+        text = line.strip()
+        # `parse_version` looks for a dotted numeric token ("0.9.3"), which is
+        # what makes error chatter ("cannot connect to Podman", "command not
+        # found") distinguishable from a real banner. Verified against cyanrip's
+        # own source: `-V` prints "cyanrip <PROJECT_VERSION_STRING> (<vcstag>)",
+        # and every release since 0.5 has had a dotted version.
+        #
+        # Honest limit: chatter that happens to CONTAIN a dotted number (a podman
+        # version, a `libcdio.so.19.0` path) would satisfy this. That is why the
+        # exit code — checked in the adapter, where it is visible — is the primary
+        # guard and this is the second one; a shape check on text cannot decide
+        # whether the tool succeeded. (The same weakness in the *dependency*
+        # probes is its own open TASKS.md item, not fixed here.)
+        if text and parse_version(text) is not None:
+            return text
+    return ""
+
+
 def check_backend_routing(
     backend: RipBackend, *, backend_name: str, host: HostSetup | None = None
 ) -> CheckResult:
@@ -282,6 +324,18 @@ def check_backend_routing(
     This runs ``~/.local/bin/cyanrip -V``, which enters the Distrobox
     container — so a pass proves the whole host→container→cyanrip chain
     works. (May take a few seconds on a cold container.)
+
+    **What counts as a PASS, and why the bar moved.** A pass means cyanrip
+    *answered with a version*: the probe exited 0 — `CyanripImpl.version()` runs
+    its ``-V`` with ``strict=True``, so a non-zero exit arrives here as a
+    ``RipError`` — **and** its output contains a recognisable version. It used to
+    be "the call returned any string at all", which made this check report OK
+    while printing whatever the tool said as *the version*: a broken ripper's
+    error line, or even the literal ``"(no version output)"`` when it printed
+    nothing. That is a false PASS on the single most failure-prone link in the
+    app (Critical rule #3) — the worst possible place for one, because the user
+    then goes looking for the problem everywhere except where it is, and
+    ``--doctor`` exits 0 while the rip cannot work.
 
     On failure it drills down through the host→container→backend chain so the
     report names *which* link is broken (no Distrobox / no container / not
@@ -292,7 +346,9 @@ def check_backend_routing(
     try:
         raw = backend.version()
     except RipError as exc:
-        detail, hint = _routing_failure_diagnosis(backend_name, host, exc)
+        detail, hint = _routing_failure_diagnosis(
+            backend_name, host, f"backend error: {exc}"
+        )
         return CheckResult(
             f"{backend_name} reachable",
             Status.FAIL,
@@ -301,7 +357,9 @@ def check_backend_routing(
             hint=hint,
         )
     except Exception as exc:  # noqa: BLE001 — any failure is a routing failure
-        detail, hint = _routing_failure_diagnosis(backend_name, host, exc)
+        detail, hint = _routing_failure_diagnosis(
+            backend_name, host, f"backend error: {exc}"
+        )
         return CheckResult(
             f"{backend_name} reachable",
             Status.FAIL,
@@ -309,7 +367,27 @@ def check_backend_routing(
             detail=detail,
             hint=hint,
         )
-    version = raw.strip().splitlines()[0] if raw.strip() else "(no version output)"
+    version = version_banner(raw)
+    if not version:
+        # Ran, exited 0, but said nothing we can recognise as a version. Treated
+        # as a hard blocker on purpose: the whole job of this check is to *prove*
+        # the chain reaches cyanrip, and a wrapper that silently no-ops (or a
+        # tool that prints an error on a zero exit) looks exactly like this.
+        # "Proof" that admits any string is not proof. The raw output is quoted
+        # so the user can see what did answer — never hide the evidence.
+        snippet = raw.strip()[:300] or "(no output at all)"
+        detail, hint = _routing_failure_diagnosis(
+            backend_name,
+            host,
+            f"{backend_name} -V printed no recognisable version. It said: {snippet}",
+        )
+        return CheckResult(
+            f"{backend_name} reachable",
+            Status.FAIL,
+            f"{backend_name} ran but reported no version",
+            detail=detail,
+            hint=hint,
+        )
     return CheckResult(f"{backend_name} reachable", Status.OK, version)
 
 
@@ -361,10 +439,16 @@ def routing_drilldown(backend_name: str, host: HostSetup) -> tuple[str, str]:
 
 
 def _routing_failure_diagnosis(
-    backend_name: str, host: HostSetup | None, exc: Exception
+    backend_name: str, host: HostSetup | None, problem: str
 ) -> tuple[str, str]:
     """Build the (detail, hint) for a failed backend probe, preserving the raw
-    error so no information is hidden."""
+    error so no information is hidden.
+
+    `problem` is already-rendered text rather than an exception because not every
+    routing failure *is* an exception: a probe that exits 0 and prints no version
+    fails this check too, and it has no exception to quote (see
+    `check_backend_routing`).
+    """
     if host is None:
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.step_engine import SubprocessRunner
@@ -375,7 +459,7 @@ def _routing_failure_diagnosis(
         # unreachable — exactly the case it exists to diagnose.
         host = HostSetup(runner=SubprocessRunner())
     detail, hint = routing_drilldown(backend_name, host)
-    return (f"{detail}\n(backend error: {exc})", hint)
+    return (f"{detail}\n({problem})", hint)
 
 
 def _fmt_offset(offset: int | None) -> str:

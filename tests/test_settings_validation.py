@@ -502,3 +502,156 @@ def test_library_dir_control_char_only_is_error() -> None:
     through the 'empty means off' branch into the persisted config."""
     issues = sv.validate_config(Config(library_dir="\x1f"))
     assert any(i.field == "library_dir" and i.is_error() for i in issues)
+
+
+# --- Values that become a path SEGMENT inside a dependency --------------------
+#
+# Regression suite for the audit of 2026-07-31. `safe_path_segment` (the
+# unknown-album path) already refused "." / ".." and `_year_token` already refused
+# them for %Y — but the ordinary known-disc path fed the album artist / album
+# title / track title straight into `cyanrip -a`, which cyanrip substitutes into
+# the `-D`/`-F` naming schemes. cyanrip maps the path-ILLEGAL characters ("/",
+# ":") and nothing maps the two path-REFERENCE segments, so an album titled ".."
+# made -D resolve above the output directory.
+
+
+@pytest.mark.parametrize("value", ["..", ".", " .. ", "..  ", "  ."])
+def test_path_reference_values_are_rejected(value: str) -> None:
+    """A tag value that IS a directory reference can't be a folder name."""
+    problem = sv.path_segment_issue("Album title", value)
+    assert problem, f"{value!r} must be rejected"
+    assert "Album title" in problem  # specific: names the field
+    assert "outside" in problem  # and says WHY
+
+
+@pytest.mark.parametrize("value", ["\t.\n", "\x0b..", "..\x0c"])
+def test_path_reference_padded_with_c0_whitespace_is_rejected(value: str) -> None:
+    """The C0 characters str.strip() treats as whitespace (\\t \\n \\v \\f) are
+    rejected outright by the control-char rule — a different message, but the
+    value is still refused, which is the property that matters."""
+    assert sv.path_segment_issue("Album title", value) != ""
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "...",  # three dots is an ordinary directory name
+        "Vol. 2.",  # a trailing dot is legal on the Linux target
+        "..and Justice for All",
+        ".hidden",
+        "AC/DC",  # cyanrip maps "/" inside a value — not our job
+        "Every Breath You Take: The Classics",
+        "東京事変",
+        "",  # blank: the required-field check owns that message
+        " ",
+    ],
+)
+def test_ordinary_values_are_not_rejected(value: str) -> None:
+    """The guard must stay narrow: it is not a general-purpose sanitiser
+    (Critical rule #3 — cyanrip owns naming)."""
+    assert sv.path_segment_issue("Album title", value) == ""
+
+
+@pytest.mark.parametrize("bad", ["a\x00b", "\x00", "Album\nTwo", "x\x1fy", "a\x7fb"])
+def test_control_chars_in_a_tag_value_are_rejected(bad: str) -> None:
+    """A NUL truncates the argv string handed to the ripper (and `subprocess`
+    raises on it mid-rip); the other C0 characters have no business in a name."""
+    problem = sv.path_segment_issue("Track 1’s title", bad)
+    assert problem
+    assert "illegal character" in problem
+
+
+@given(
+    prefix=st.text(alphabet=" \t\n\r\x0b\x0c", max_size=3),
+    suffix=st.text(alphabet=" \t\n\r\x0b\x0c", max_size=3),
+    dots=st.sampled_from([".", ".."]),
+)
+@settings(max_examples=200, deadline=None)
+def test_padded_path_reference_is_always_rejected_property(
+    prefix: str, suffix: str, dots: str
+) -> None:
+    """Whitespace padding must never smuggle a "."/".." past the guard, at any
+    position — we can't see whether cyanrip trims a tag value before using it as
+    a folder name, so the guard must not depend on the answer."""
+    assert sv.path_segment_issue("Album title", prefix + dots + suffix) != ""
+
+
+# --- Config-file values that had to be reset on load --------------------------
+
+
+def test_describe_resets_is_empty_when_nothing_was_reset() -> None:
+    assert sv.describe_resets([]) == ""
+
+
+def test_describe_resets_names_the_field_the_old_and_the_new_value() -> None:
+    """The notice exists so the user can put their real value back — so it must
+    carry the message, what was on disk, and what is being used instead."""
+    text = sv.describe_resets(
+        [
+            sv.ResetRecord(
+                field="read_offset",
+                message="Read offset must be between -5000 and 5000.",
+                old_value="99999",
+                new_value="0",
+            )
+        ]
+    )
+    assert "Read offset must be between -5000 and 5000." in text
+    assert "99999" in text  # what was on disk
+    assert "0" in text  # what is being used now
+    assert "Settings" in text  # where to fix it
+
+
+# --- CLI folder arguments -----------------------------------------------------
+
+
+def test_resolve_input_directory_accepts_a_real_folder(tmp_path: Path) -> None:
+    resolved, error = sv.resolve_input_directory("--ctdb-calibrate folder", tmp_path)
+    assert error == ""
+    assert resolved == tmp_path.resolve()
+
+
+def test_resolve_input_directory_rejects_a_missing_folder(tmp_path: Path) -> None:
+    """The old behaviour reported this as "No .flac files found", i.e. the wrong
+    subsystem, plus an unrelated warning about a missing rip log."""
+    resolved, error = sv.resolve_input_directory(
+        "--ctdb-calibrate folder", tmp_path / "nope"
+    )
+    assert resolved is None
+    assert "does not exist" in error
+
+
+def test_resolve_input_directory_rejects_a_file(tmp_path: Path) -> None:
+    target = tmp_path / "report.json"
+    target.write_text("{}", encoding="utf-8")
+    resolved, error = sv.resolve_input_directory("--ctdb-calibrate folder", target)
+    assert resolved is None
+    assert "not a folder" in error
+
+
+def test_resolve_input_directory_returns_an_absolute_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A relative folder whose name starts with "-" ("./-x" normalises to "-x")
+    made the FLACs under it come out as "-x/track.flac" argv entries, which
+    `flac`/`metaflac` parse as OPTIONS. An absolute path can't: it starts "/"."""
+    dashed = tmp_path / "-x"
+    dashed.mkdir()
+    monkeypatch.chdir(tmp_path)
+    resolved, error = sv.resolve_input_directory(
+        "--ctdb-calibrate folder", Path("./-x")
+    )
+    assert error == ""
+    assert resolved is not None
+    assert resolved.is_absolute()
+    assert str(resolved).startswith("/")
+
+
+def test_resolve_input_directory_logs_the_failure(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """CLAUDE.md: an input failure must reach the log file, so a bug report
+    carries it."""
+    with caplog.at_level(logging.ERROR, logger="platterpus.settings_validation"):
+        sv.resolve_input_directory("--ctdb-calibrate folder", tmp_path / "nope")
+    assert any("does not exist" in r.message for r in caplog.records)
