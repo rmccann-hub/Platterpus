@@ -4043,7 +4043,12 @@ def test_rip_report_accumulates_verify_results_and_checksums(
     window._flush_rip_report()
 
     report = _json.loads((tmp_path / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 9
+    # Compared to the constant, not a literal: these two tests care that the
+    # window writes *the current* schema, and a bump should touch the one
+    # deliberate pin in test_rip_report.py, not every test that reads a report.
+    from platterpus.rip_report import REPORT_SCHEMA_VERSION
+
+    assert report["schema_version"] == REPORT_SCHEMA_VERSION
     assert report["checksums"] == {"01 - A.flac": "deadbeef", "01 - A.mp3": "cafe"}
     assert report["verification"]["flac_integrity"]["checked"] == 3
     assert report["verification"]["flac_integrity"]["ok"] is True
@@ -4185,7 +4190,12 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
     window._on_rip_finished(True, str(log_file))
 
     report = _json.loads((album_dir / "Album.platterpus.json").read_text())
-    assert report["schema_version"] == 9
+    # Compared to the constant, not a literal: these two tests care that the
+    # window writes *the current* schema, and a bump should touch the one
+    # deliberate pin in test_rip_report.py, not every test that reads a report.
+    from platterpus.rip_report import REPORT_SCHEMA_VERSION
+
+    assert report["schema_version"] == REPORT_SCHEMA_VERSION
     assert report["outcome"]["status"] == "success"
     assert report["settings"]["read_offset"] == {
         "configured": 667,

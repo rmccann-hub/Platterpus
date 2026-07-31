@@ -48,6 +48,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   read-stability caveat and above the integrity checksum that covers it. The per-track blocks
   stay byte-comparable with a real EAC log, which is why the line goes in the status area.
 
+### Added
+- **The JSON report now records five per-track facts the parser had been reading and the report
+  dropped** (schema **v10**). The report is meant to be the one file that explains a rip, so a
+  fact that reaches the human-readable EAC-layout `.log` and not the machine record is a hole in
+  that promise. The important one is **`appended_silence_frames`**, and it is *not* fork
+  preparation — deployed cyanrip 0.9.3 prints `Appended: N frames of silence` on the last track
+  whenever overread is off, and **both committed reference rips contain it**. It says that track's
+  final frames are *fabricated silence rather than disc audio*, which is the most
+  archival-relevant per-track statement in the log. Also added: `start_sector`, `end_sector` and
+  `pregap_sectors` (the absolute geometry EAC's "TOC of the extracted CD" is derived from — the
+  JSON previously could not rebuild a table the `.log` already showed), and the fork-only
+  `extraction_elapsed_seconds`, so the fork's output lands in the report the day it ships rather
+  than being parsed into a field nothing writes down. Every key is always present and `null` when
+  unreported, so a reader can tell "the ripper didn't say" from "this build doesn't record it".
+
 ### Fixed
 - **One corrupt line of cyanrip output could end a rip in progress.** v0.5.19 closed the
   4300-digit `int()` hole in eight parsers, where the consequence is a field degrading to
