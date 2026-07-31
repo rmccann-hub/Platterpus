@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.19] — 2026-07-31
+
 ### Fixed
 - **Six post-rip steps edited files a previous rip had left behind.** The verification steps were
   scoped to "the files THIS rip wrote" on 2026-07-30 (`rip_files.rip_master_files`); the six that
@@ -4177,6 +4179,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
 [0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.15...v0.5.16
@@ -4241,4 +4244,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.18.*
+*Last updated for Platterpus v0.5.19.*
