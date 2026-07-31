@@ -27,6 +27,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from platterpus.paths import WHIPPER_CONFIG_PATH
+from platterpus.safe_int import int_or_none
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +77,13 @@ def _iter_conf_offsets(text: str) -> Iterator[tuple[str | None, int]]:
             continue
         kv = _OFFSET_KV.match(line)
         if kv:
-            yield current_section, int(kv.group("val"))
+            # A read offset we cannot parse is not yielded at all: this generator
+            # feeds a *trust* check ("what will actually reach the ripper?"), and
+            # a placeholder value there would be worse than a silent absence —
+            # `read_drive_offsets` is documented never-raises, so degrade, skip.
+            value = int_or_none(kv.group("val"), field="whipper.conf read_offset")
+            if value is not None:
+                yield current_section, value
 
 
 def whipper_conf_has_offset(conf_path: Path = WHIPPER_CONFIG_PATH) -> bool:

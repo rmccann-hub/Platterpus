@@ -183,3 +183,80 @@ def test_free_drive_falls_back_to_container_when_host_misses() -> None:
     cmds = [os.path.basename(c[0]) for c in rec.calls]
     assert cmds == ["fuser", "pkill", "pkill", "distrobox", "distrobox"]
     assert "eject" not in cmds
+
+
+# --- the bounded shutdown budget (found on the rig, 2026-07-30) -----------
+
+
+def test_budgeted_runner_skips_remaining_steps_once_the_budget_is_spent() -> None:
+    """Window close runs the kill sequence ON the GUI thread by design, so the
+    total must be bounded — capping each of its up-to-seven subprocesses at 20 s
+    independently let a closing window sit frozen for over a minute.
+
+    `_run_bounded` is stubbed so nothing is really executed, and the clock is ours
+    so the test is deterministic and instant. The floor that stops this passing
+    vacuously: the FIRST call must be shown to dispatch. A budget that refuses
+    everything would also "skip once spent", and would be a different bug.
+    """
+    dispatched: list[list[str]] = []
+    now = [1000.0]
+    real_run = drive_control._run_bounded
+    real_clock = drive_control.time.monotonic
+
+    def stub(argv: list[str], timeout: float) -> SimpleNamespace:
+        dispatched.append(argv)
+        return SimpleNamespace(returncode=0)
+
+    drive_control._run_bounded = stub  # type: ignore[assignment]  # test double
+    drive_control.time.monotonic = lambda: now[0]  # type: ignore[assignment]  # test clock
+    try:
+        run = drive_control.budgeted_runner(5.0)
+
+        inside = run(["pkill", "-probe-a"])
+        assert dispatched == [["pkill", "-probe-a"]], (
+            "a call inside the budget must really be dispatched"
+        )
+        assert inside.returncode == 0
+
+        now[0] += 6.0  # budget spent
+        after = run(["pkill", "-probe-b"])
+    finally:
+        drive_control._run_bounded = real_run  # type: ignore[assignment]
+        drive_control.time.monotonic = real_clock  # type: ignore[assignment]
+
+    assert len(dispatched) == 1, "a step past the budget must NOT be dispatched"
+    assert after.returncode == 124, (
+        "a skipped step reports the conventional timeout code, which the callers "
+        "already read as 'this step killed nothing' — so the sequence degrades "
+        "exactly as it would have if the command had run and matched nothing"
+    )
+
+
+def test_budgeted_runner_never_exceeds_the_per_step_ceiling() -> None:
+    """A generous total budget must not let one wedged command eat the whole
+    thing — later steps still need their share."""
+    captured: list[float] = []
+    real = drive_control._run_bounded
+
+    def spy(argv: list[str], timeout: float) -> object:
+        captured.append(timeout)
+        return real(["/bin/true"], timeout)
+
+    drive_control._run_bounded = spy  # type: ignore[assignment]  # test double
+    try:
+        run = drive_control.budgeted_runner(600.0)
+        run(["/bin/true"])
+    finally:
+        drive_control._run_bounded = real  # type: ignore[assignment]
+    assert captured, "the runner must actually have dispatched something"
+    assert captured[0] <= drive_control._STEP_TIMEOUT_S
+
+
+def test_free_drive_accepts_a_budgeted_runner_and_still_kills() -> None:
+    """The budget must not change WHAT gets killed on the happy path — only how
+    long we are willing to keep trying."""
+    rec = _Recorder(returncode=0)
+    drive_control.free_drive(device="/dev/sr0", runner=rec)
+    assert any("fuser" in _base(c)[0] for c in rec.calls), (
+        "the device-scoped kill must still be the first thing tried"
+    )

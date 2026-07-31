@@ -26,8 +26,12 @@ import re
 # "2h3m4s". We parse the hour/minute/second pieces independently so any subset
 # (and any order cyanrip might print) still resolves. A bare integer is read as
 # seconds. Anything unrecognised → None (the estimate is best-effort).
-_ETA_PIECE = re.compile(r"(?P<value>\d+)\s*(?P<unit>[hms])", re.IGNORECASE)
-_BARE_INT = re.compile(r"^\s*(?P<value>\d+)\s*$")
+# Bounded quantifiers: unbounded, `_ETA_PIECE` is quadratic in the input length
+# (measured at 67 ms on a 2000-character digit run), and its input is a
+# subprocess's ETA string — external text, arbitrary length. Eight digits is over
+# three years in seconds, so nothing real is lost.
+_ETA_PIECE = re.compile(r"(?P<value>\d{1,8})\s*(?P<unit>[hms])", re.IGNORECASE)
+_BARE_INT = re.compile(r"^\s*(?P<value>\d{1,8})\s*$")
 _UNIT_SECONDS: dict[str, int] = {"h": 3600, "m": 60, "s": 1}
 
 

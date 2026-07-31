@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 from PySide6.QtWidgets import QApplication
 
+from platterpus import workers as platterpus_workers
 from platterpus.deps.checks import ProbeResult
 from platterpus.deps.registry import DependencySpec, Tier
 from platterpus.deps.resolvers import InstallResult, MissingItem
@@ -472,7 +474,7 @@ def test_install_row_updates_are_announced_by_display_name(
 
 
 def test_destroying_the_dialog_mid_install_does_not_destroy_a_running_qthread(
-    qapp: QApplication, process_until
+    qapp: QApplication, process_until, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Regression: this dialog had no teardown path for its worker thread at all.
 
@@ -488,6 +490,18 @@ def test_destroying_the_dialog_mid_install_does_not_destroy_a_running_qthread(
     destroys: the reference is retained and the thread is registered in the
     abandoned count, so process exit takes the `hard_exit` path instead of aborting.
     """
+    # Shorten the abandon wait for THIS test only. `stop_thread` reads
+    # `DEFAULT_STOP_WAIT_MS` as a module global at call time, and the injected
+    # installer below blocks for 5 s — so the wait always times out and the abandon
+    # path always runs. At the product's 4 s that made this the slowest test in the
+    # suite by 1.8x (4.02 s, ~10% of the whole run) purely waiting out a timeout.
+    #
+    # What is under test is the ABANDON BRANCH, not the duration: at 100 ms the
+    # thread is still running, so the identical branch executes and the identical
+    # assertions fire. The 4 s value itself is a shutdown-budget decision and is
+    # pinned by its own test in tests/test_workers.py, not by this one.
+    monkeypatch.setattr(platterpus_workers, "DEFAULT_STOP_WAIT_MS", 100)
+
     import threading
 
     from platterpus.workers import abandoned_thread_count

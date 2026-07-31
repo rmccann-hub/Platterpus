@@ -58,6 +58,26 @@ def _which(name: str) -> str | None:
     return None
 
 
+def _stderr_tail(stderr: str | bytes | None, lines: int = 3) -> str:
+    """The last few lines of a tool's stderr, as one loggable string.
+
+    WHY (CLAUDE.md, "validate every dependency output"): when `flac`/`metaflac`
+    fails, its stderr is the ONLY thing that says why — a missing file, a corrupt
+    stream, a permissions problem all look identical from the exit code alone. So
+    it must reach both the log and the exception message; it used to be dropped
+    outright for `metaflac`, which made a decode failure undiagnosable.
+
+    Accepts str or bytes because the two runners here differ (`flac` is run in
+    binary mode to keep the PCM on stdout intact; `metaflac` in text mode), and
+    never raises — undecodable bytes are replaced, not fatal.
+    """
+    if not stderr:
+        return ""
+    text = stderr.decode("utf-8", "replace") if isinstance(stderr, bytes) else stderr
+    tail = text.strip().splitlines()[-lines:]
+    return " / ".join(part.strip() for part in tail if part.strip())
+
+
 def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(
         argv, capture_output=True, timeout=_DECODE_TIMEOUT_S, check=False
@@ -100,8 +120,13 @@ def decode_flac_to_pcm(path: Path, runner: Runner | None = None) -> bytes:
     ]
     proc = run(argv)
     if proc.returncode != 0:
-        tail = (proc.stderr or b"").decode("utf-8", "replace").strip().splitlines()
-        raise RuntimeError(f"flac decode failed: {tail[-1] if tail else 'rc!=0'}")
+        detail = _stderr_tail(proc.stderr) or f"rc={proc.returncode}"
+        # Log as well as raise: the caller turns the exception into a one-line
+        # verdict, so without this the tool's own words never reach the log file.
+        log.warning(
+            "flac decode failed on %s (rc=%s): %s", path.name, proc.returncode, detail
+        )
+        raise RuntimeError(f"flac decode failed on {path.name}: {detail}")
     return proc.stdout or b""
 
 
@@ -124,9 +149,32 @@ def total_samples(path: Path, runner: ProbeRunner | None = None) -> int:
     run = runner or _default_probe_runner
     proc = run([metaflac, "--show-total-samples", str(path)])
     if proc.returncode != 0:
-        raise RuntimeError(f"metaflac failed on {path.name}")
+        # metaflac's stderr used to be thrown away here, so a failed sample-count
+        # probe surfaced as the bare, unactionable "metaflac failed on 01.flac".
+        # Carry the tool's own words into BOTH the log and the exception message —
+        # the caller (ctdb/verify.py) puts that message in the user-visible
+        # verdict, so this is the only route the reason has to the user.
+        detail = _stderr_tail(proc.stderr) or "no stderr output"
+        log.warning(
+            "metaflac --show-total-samples failed on %s (rc=%s): %s",
+            path.name,
+            proc.returncode,
+            detail,
+        )
+        raise RuntimeError(
+            f"metaflac failed on {path.name} (rc={proc.returncode}): {detail}"
+        )
     text = (proc.stdout or "").strip()
     try:
         return int(text)
     except ValueError as exc:
+        # A zero exit with unusable stdout is just as undiagnosable — log what we
+        # actually got (stdout AND any stderr) before turning it into a verdict.
+        stderr_detail = _stderr_tail(proc.stderr)
+        log.warning(
+            "metaflac --show-total-samples gave unparseable output for %s: %r%s",
+            path.name,
+            text,
+            f" (stderr: {stderr_detail})" if stderr_detail else "",
+        )
         raise RuntimeError(f"unparseable metaflac output: {text!r}") from exc

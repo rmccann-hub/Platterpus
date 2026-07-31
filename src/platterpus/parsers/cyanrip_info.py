@@ -33,6 +33,7 @@ from __future__ import annotations
 import re
 
 from platterpus.parsers.cd_info import DiscInfo
+from platterpus.safe_int import int_or_none
 
 # Labels are anchored at line start; the value is the first non-space run.
 # `\s+` between label and value: cyanrip pads with spaces for alignment.
@@ -77,7 +78,11 @@ def parse_cyanrip_info(stdout: str) -> DiscInfo:
 
         match = _DISC_TRACKS.match(line)
         if match:
-            num_tracks = int(match.group("value"))
+            # 0 already means "unknown track count" to every caller, so an
+            # unusable value keeps the default rather than inventing a number.
+            num_tracks = (
+                int_or_none(match.group("value"), field="cyanrip disc track count") or 0
+            )
             continue
 
         match = _DISCID.match(line)

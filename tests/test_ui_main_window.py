@@ -21,6 +21,7 @@ from conftest import HardExitCalled, stop_window_threads
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
+from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.metaflac import MetaflacAdapter
 from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
@@ -42,6 +43,7 @@ from platterpus.drive_profiles import OffsetSource, compute_fingerprint
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
+from platterpus.ui.main_window_rip import TaggingResult
 
 # --- Fakes ---------------------------------------------------------------
 
@@ -1474,9 +1476,13 @@ def test_unknown_rip_finish_runs_tag_post_processing(
     calls: list[tuple[Path, bool]] = []
     snaps: list[tuple[object, object]] = []
 
-    def _record(out, picard, album=None, tracks=None):
+    # The stand-in mirrors the real signature AND the real return type: the caller
+    # now reads the TaggingResult back (that's how a tagging failure reaches the
+    # user), so a stub returning None would test a shape the product never sees.
+    def _record(out, picard, album=None, tracks=None, rip_log=None):
         calls.append((out, picard))
         snaps.append((album, tracks))
+        return TaggingResult(ran=True, attempted=0, tagged=0)
 
     monkeypatch.setattr(window, "run_unknown_post_processing", _record)
     window._pending_picard_launch = True
@@ -1773,10 +1779,16 @@ def test_run_unknown_post_processing_uses_snapshot_not_widgets(
     track-table widgets (they aren't thread-safe on the post-rip daemon)."""
     window = teardown_threads()
     captured: dict = {}
-    monkeypatch.setattr(
-        "platterpus.ui.main_window_rip.apply_track_tags",
-        lambda mf, files, album, tracks: captured.update(album=album, tracks=tracks),
-    )
+
+    def _stub(mf, files, album, tracks):
+        captured.update(album=album, tracks=tracks)
+        # The real apply_track_tags returns the files that tagged successfully,
+        # and the caller now uses that to work out which ones did NOT. A stub
+        # returning None (what `dict.update` gives you) would make the stand-in
+        # behave in a way the product never does.
+        return list(files)
+
+    monkeypatch.setattr("platterpus.ui.main_window_rip.apply_track_tags", _stub)
 
     def boom() -> None:
         raise AssertionError("the track table was read on the snapshot path")
@@ -4502,8 +4514,6 @@ def test_flac_only_rip_does_not_start_derived_verify(
 def test_on_derived_verified_records_and_reports(
     teardown_threads, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from platterpus.adapters.derived_verify import DerivedVerifyResult
-
     window = teardown_threads()
     log_file = tmp_path / "Album.log"
     log_file.write_text("log", encoding="utf-8")
@@ -4527,8 +4537,6 @@ def test_on_derived_verified_records_and_reports(
 def test_on_derived_verified_lossless_mismatch_is_loud(teardown_threads) -> None:
     """A lossless (WavPack/WAV) file that isn't bit-identical to the master is a
     real defect → the status line is hijacked to say so."""
-    from platterpus.adapters.derived_verify import DerivedVerifyResult
-
     window = teardown_threads()
     lines: list[str] = []
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
@@ -4629,8 +4637,6 @@ def test_read_speed_summary_reports_auto_fixed_track(teardown_threads) -> None:
 def test_on_derived_verified_mp3_states_decode_clean_not_bit_identity(
     teardown_threads,
 ) -> None:
-    from platterpus.adapters.derived_verify import DerivedVerifyResult
-
     window = teardown_threads()
     lines: list[str] = []
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
@@ -5329,3 +5335,2136 @@ def test_a_rip_with_no_log_never_scopes_post_rip_work_to_the_output_root(
         "a post-rip step ran with no known album folder, so it was scoped to the "
         f"output root {tmp_path} — the whole library. Steps called: {len(swept)}"
     )
+
+
+# --- the rescue must target the drive it was armed for (rig, 2026-07-30) ----
+
+
+def test_cancel_captures_the_rip_device_so_a_later_picker_change_is_ignored(
+    teardown_threads, monkeypatch
+) -> None:
+    """The 5 s rescue read the picker's *current* device when it FIRED, not when
+    it was armed. So cancelling a rip on /dev/sr0 and then selecting /dev/sr1
+    within the countdown made the rescue force-kill and eject **sr1** — a drive it
+    had no business touching, possibly mid-rip in another window.
+
+    Confirmed live on the rig: the log shows `force-stopping drive (auto trigger)`
+    firing 5.1 s after a cancel, reading the picker at that moment.
+    """
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    # A rip is running on sr0.
+    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
+    window._on_rip_cancel()
+    try:
+        assert window._force_stop_device == "/dev/sr0", (
+            "the device must be captured when the rescue is ARMED"
+        )
+        # The user now switches the picker to a different drive, inside the window.
+        monkeypatch.setattr(
+            window._drive_picker, "current_device", lambda: "/dev/sr1", raising=False
+        )
+        window._auto_force_stop()
+        _join_force_stop(window)
+    finally:
+        window._force_stop_timer.stop()
+
+    assert len(calls) == 1
+    assert calls[0]["device"] == "/dev/sr0", (
+        "the rescue must stop the drive that was being ripped, NOT whichever "
+        "drive the picker now points at"
+    )
+
+
+def test_shutdown_drive_free_targets_the_armed_device_and_is_bounded(
+    teardown_threads, monkeypatch
+) -> None:
+    """Two properties of the shutdown drive-free, both learned the hard way.
+
+    * It must target the armed device for the same reason the rescue does.
+    * It must be BOUNDED. It runs on the GUI thread by design (a daemon thread
+      would be killed mid-`pkill` as the interpreter exits), and the kill sequence
+      is up to seven subprocesses that were each capped at 20 s independently — so
+      the worst case was a window frozen in a closing state for over a minute.
+    """
+    free_calls = _patch_free_drive(monkeypatch)
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._rip_thread = SimpleNamespace()
+    window._force_stop_device = "/dev/sr0"
+    monkeypatch.setattr(
+        window._drive_picker, "current_device", lambda: "/dev/sr1", raising=False
+    )
+
+    window._stop_rip_on_shutdown()
+
+    assert len(free_calls) == 1
+    assert free_calls[0]["device"] == "/dev/sr0"
+    assert free_calls[0].get("runner") is not None, (
+        "shutdown must pass a budgeted runner — without one the sequence is "
+        "bounded only per-command, which is what froze the close"
+    )
+
+
+# --- The config-reset notice (audit, 2026-07-31) -----------------------------
+#
+# `config.load()` resets any value that fails validation to its default so an
+# invalid value can never reach the ripper — right — but it did so with ONLY a log
+# line, which is the "silent reset" the *validate every input* convention forbids.
+# The dangerous instance was already written down in
+# `main_window_drive._set_read_offset_override`'s docstring ("silently reset to 0
+# by the next startup's `_sanitized()` … ripping at the wrong offset with only a
+# log line") and closed on the WRITE path only.
+
+
+def test_first_run_shows_the_config_reset_notice_first(
+    teardown_threads, monkeypatch
+) -> None:
+    """The notice must come before the setup offers: it changes how the user reads
+    every one of them (a reset read_offset most of all)."""
+    from platterpus import config as config_module
+    from platterpus import settings_validation as sv
+
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_host_stack_ready", lambda: True)
+    monkeypatch.setattr(
+        config_module,
+        "take_load_resets",
+        lambda: [
+            sv.ResetRecord(
+                field="read_offset",
+                message="Read offset must be between -5000 and 5000.",
+                old_value="99999",
+                new_value="0",
+            )
+        ],
+    )
+    shown: list[str] = []
+    order: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        lambda parent, title, text: (order.append("notice"), shown.append(text))[0],
+    )
+    monkeypatch.setattr(
+        window, "_maybe_offer_appimage_integration", lambda: order.append("appimage")
+    )
+    monkeypatch.setattr(
+        window, "_maybe_offer_drive_setup", lambda: order.append("drive")
+    )
+
+    window._maybe_offer_first_run_setup()
+
+    assert order[0] == "notice"
+    assert len(shown) == 1
+    assert "Read offset must be between -5000 and 5000." in shown[0]
+    assert "99999" in shown[0]  # so the user can put their real value back
+
+
+def test_no_notice_when_nothing_was_reset(teardown_threads, monkeypatch) -> None:
+    """A notice on every launch would train the user to dismiss the real one."""
+    from platterpus import config as config_module
+
+    window = teardown_threads()
+    monkeypatch.setattr(window, "_host_stack_ready", lambda: True)
+    monkeypatch.setattr(config_module, "take_load_resets", lambda: [])
+    shown: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.main_window_provision.QMessageBox.warning",
+        lambda parent, title, text: shown.append(text),
+    )
+    monkeypatch.setattr(window, "_maybe_offer_appimage_integration", lambda: None)
+    monkeypatch.setattr(window, "_maybe_offer_drive_setup", lambda: None)
+
+    window._maybe_offer_first_run_setup()
+    assert shown == []
+
+
+# --- Post-rip steps are scoped to THIS rip's files (2026-07-31) --------------
+#
+# Six sites walked the album folder with `rip_dir.rglob("*.flac")` and then
+# MUTATED or DERIVED FROM whatever they found: unknown-mode tagging, the
+# colon-restore metaflac pass, the FLAC re-compress, the transcode, and the two
+# cover-art embed loops. Unlike the verification sites (which only read), a
+# leftover from an earlier cancelled rip therefore got THIS disc's metadata
+# written into it, got re-compressed, got transcoded into the user's library, and
+# got this album's cover embedded — with the inflated count reported back to the
+# user as "embedded in N track(s)".
+#
+# The reported sequence is reproduced below: cancel a rip (partial files remain),
+# fix a track title, re-rip and choose *Replace* — the corrected titles produce
+# NEW filenames, so the new files land BESIDE the old ones instead of over them.
+
+_THIS_RIP: tuple[str, ...] = ("01 - Roxanne.flac", "02 - Message In A Bottle.flac")
+_LEFTOVERS: tuple[str, ...] = ("01 - Roxane.flac", "02 - Message In A Bottel.flac")
+
+
+def _cyanrip_log_text(names: tuple[str, ...], folder: str) -> str:
+    """A minimal but real-shaped cyanrip log naming ``names``, one per track.
+
+    Filenames are written the way cyanrip writes them — relative to the configured
+    output *root*, not to the album folder — so this exercises the same basename
+    mapping production does.
+    """
+    lines = ["cyanrip 0.9.3 (release)", "Device model:   PIONEER BD-RW BDR-209D", ""]
+    for number, name in enumerate(names, start=1):
+        lines += [
+            f"Track {number} ripped and encoded successfully!",
+            "  EAC CRC32:     A1B2C3D4",
+            "  File(s):",
+            f"    {folder}/{name}",
+            "",
+        ]
+    lines += [f"Tracks ripped accurately: {len(names)}/{len(names)}", ""]
+    return "\n".join(lines)
+
+
+def _album_with_leftovers(tmp_path: Path) -> tuple[Path, Path]:
+    """Album folder holding this rip's files AND a cancelled rip's leftovers.
+
+    Returns ``(album_dir, log_file)``. The log names only this rip's files, which
+    is the record `rip_files` reads to tell the two apart.
+    """
+    album = tmp_path / "The Police" / "Greatest Hits"
+    album.mkdir(parents=True)
+    for name in _THIS_RIP + _LEFTOVERS:
+        (album / name).write_bytes(b"FLAC")
+    log_file = album / "Greatest Hits.log"
+    log_file.write_text(
+        _cyanrip_log_text(_THIS_RIP, "The Police/Greatest Hits"), encoding="utf-8"
+    )
+    return album, log_file
+
+
+def _parsed_log(log_file: Path):
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    return parse_cyanrip_log(log_file.read_text(encoding="utf-8"))
+
+
+def test_unknown_mode_tagging_skips_a_previous_rips_leftovers(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Regression: tagging must write THIS disc's tags only to THIS rip's files.
+
+    With the raw glob, a re-rip after a cancel wrote the new album/track metadata
+    into the cancelled rip's abandoned FLACs too — silently editing files the user
+    had not asked us to touch, and reporting nothing about it.
+    """
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    fake = _CapturingMetaflac()
+    window._metaflac = fake
+    window._track_table.set_placeholder_tracks(2)
+
+    result = window.run_unknown_post_processing(
+        album, launch_picard=False, rip_log=_parsed_log(log_file)
+    )
+
+    tagged = sorted(path.name for path, _tags in fake.calls)
+    assert tagged == sorted(_THIS_RIP)
+    for leftover in _LEFTOVERS:
+        assert leftover not in tagged
+    # ...and the count reported back is this rip's, not the folder's.
+    assert result.attempted == 2 and result.tagged == 2
+
+
+def _run_post_rip(window, album: Path, log_file: Path, **kwargs) -> None:
+    """Drive one post-rip processing pass to completion (it runs on a daemon)."""
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="",
+        embed=False,
+        save_file=False,
+        rip_log=_parsed_log(log_file),
+        **kwargs,
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    assert not window._post_rip_thread.is_alive()
+
+
+def test_colon_restore_skips_a_previous_rips_leftovers(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """Regression: the KDD-22 colon-restore metaflac pass rewrites tags, so it
+    must be scoped to this rip's files like every other mutating step."""
+    from platterpus.adapters import cyanrip_backend
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    seen: list[list[Path]] = []
+    monkeypatch.setattr(
+        cyanrip_backend,
+        "restore_substituted_colons",
+        lambda mf, files: (seen.append(list(files)), 0)[1],
+    )
+    window = teardown_threads()
+
+    _run_post_rip(window, album, log_file, restore_colons=True)
+
+    assert seen, "the colon-restore step never ran"
+    assert sorted(p.name for p in seen[0]) == sorted(_THIS_RIP)
+
+
+def test_flac_recompress_skips_a_previous_rips_leftovers(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Regression: re-compress REWRITES each file it is given, so a leftover from
+    a cancelled rip was being re-encoded (and reported as re-encoded)."""
+    from platterpus.adapters.flac_recompress import RecompressResult
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    seen: list[list[Path]] = []
+    monkeypatch.setattr(
+        mwr,
+        "recompress_flac_files",
+        lambda files: (seen.append(list(files)), RecompressResult(reencoded=2))[1],
+    )
+    window = teardown_threads()
+
+    _run_post_rip(window, album, log_file, recompress=True)
+    qapp.processEvents()
+
+    assert seen, "the re-compress step never ran"
+    assert sorted(p.name for p in seen[0]) == sorted(_THIS_RIP)
+
+
+def test_transcode_skips_a_previous_rips_leftovers(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Regression: the transcode DERIVES a new library file per input, so a
+    leftover from a cancelled rip became an MP3/WavPack in the user's library."""
+    from platterpus.adapters.transcode import TranscodeResult
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    seen: list[list[Path]] = []
+    monkeypatch.setattr(
+        mwr,
+        "transcode_files",
+        lambda files, **kw: (seen.append(list(files)), TranscodeResult(transcoded=2))[
+            1
+        ],
+    )
+    window = teardown_threads()
+
+    _run_post_rip(window, album, log_file, transcode_fmt="mp3", mp3_vbr_quality=2)
+    qapp.processEvents()
+
+    assert seen, "the transcode step never ran"
+    assert sorted(p.name for p in seen[0]) == sorted(_THIS_RIP)
+
+
+def test_finish_handler_hands_the_parsed_log_to_the_post_rip_steps(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The `rip_log=` seam is actually USED by the finish handler.
+
+    Without this the four fixes above are only reachable from a test: the finish
+    handler already has the parsed RipLog in scope, and passing it is what lets
+    the post-rip steps scope themselves without re-reading the log off disk.
+    """
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=True)
+    captured: dict = {}
+
+    def _record(out, picard, album=None, tracks=None, rip_log=None):
+        captured["rip_log"] = rip_log
+        return TaggingResult(ran=True, attempted=2, tagged=2)
+
+    monkeypatch.setattr(window, "run_unknown_post_processing", _record)
+
+    window._on_rip_finished(True, str(log_file))
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+
+    passed = captured.get("rip_log")
+    assert passed is not None, "the finish handler passed no parsed log through"
+    # It is the log THIS rip wrote — it names this rip's files, not the leftovers.
+    from platterpus import rip_files as _rf
+
+    assert set(_rf.declared_names(passed)) == set(_THIS_RIP)
+
+
+# --- Tagging failures are visible (2026-07-31) -------------------------------
+#
+# `apply_track_tags` logs a per-file MetaflacError at WARNING and returns the
+# successes — and the caller discarded the return value. No signal, no status
+# line, no report field. So "the disk filled during the metaflac pass, so every
+# FLAC shipped untagged" ended with the window saying "Done."
+
+
+class _FailingMetaflac(MetaflacAdapter):
+    """A metaflac whose tag writes fail — the disk-full / missing-binary shape."""
+
+    def __init__(self, fail_names: set[str] | None = None) -> None:
+        super().__init__()
+        self.fail_names = fail_names  # None = fail everything
+        self.attempted: list[Path] = []
+
+    def write_tags(self, flac_path: Path, tags: dict[str, str]) -> None:
+        from platterpus.adapters.metaflac import MetaflacError
+
+        self.attempted.append(flac_path)
+        if self.fail_names is None or flac_path.name in self.fail_names:
+            raise MetaflacError("No space left on device")
+
+
+def test_total_tagging_failure_is_reported_not_swallowed(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Regression: when NO file could be tagged, say so — loudly.
+
+    The three surfaces that must learn about it: the status line (the one thing a
+    user who walked away reads), the trust banner (a green ✓ over an album with no
+    metadata at all is the silent success this codebase keeps having to fix), and
+    the rip log view.
+    """
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    window._metaflac = _FailingMetaflac()
+    window._track_table.set_placeholder_tracks(2)
+
+    result = window.run_unknown_post_processing(
+        album, launch_picard=False, rip_log=_parsed_log(log_file)
+    )
+
+    assert result.ran is True
+    assert result.tagged == 0 and result.attempted == 2
+    assert sorted(result.failures) == sorted(_THIS_RIP)
+    assert result.ok is False
+
+    # Now the GUI-thread slot the daemon delivers it to.
+    window._on_tagging_done(result)
+
+    status = window._rip_progress.current_status()
+    assert "Tagging FAILED" in status
+    assert "2 of 2" in status
+    assert window._last_tagging_result is result
+    # The trust banner must not stay green over an album that carries no tags.
+    assert window._rip_progress._verdict_downgrades
+
+
+def test_partial_tagging_failure_is_reported_with_the_failing_names(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """A partial failure is just as invisible as a total one, and worse to live
+    with (half the album is tagged), so it gets the same treatment."""
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    window._metaflac = _FailingMetaflac(fail_names={_THIS_RIP[1]})
+    window._track_table.set_placeholder_tracks(2)
+
+    result = window.run_unknown_post_processing(
+        album, launch_picard=False, rip_log=_parsed_log(log_file)
+    )
+    window._on_tagging_done(result)
+
+    assert result.tagged == 1 and result.failures == (_THIS_RIP[1],)
+    assert _THIS_RIP[1] in window._rip_progress.current_status()
+
+
+def test_tagging_failure_reaches_the_json_report_as_an_issue(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """...and it lands in the one machine-readable record too.
+
+    Recorded as an `issues` entry rather than a new `verification` sub-block:
+    `issues` is the report's declared home for "what went wrong" and can grow a
+    code without changing a key set consumers pin (see rip_report._tagging).
+    """
+    import json
+
+    from platterpus.parsers.rip_log import RipLog
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    window._last_rip_log = RipLog()
+    window._last_rip_log_file = log_file
+    window._on_tagging_done(
+        TaggingResult(ran=True, attempted=2, tagged=0, failures=tuple(_THIS_RIP))
+    )
+    window._flush_rip_report()
+
+    report = json.loads((album / "Greatest Hits.platterpus.json").read_text())
+    tagging_issues = [i for i in report["issues"] if i["code"] == "tagging_failed"]
+    assert tagging_issues, (
+        f"no tagging issue in {[i['code'] for i in report['issues']]}"
+    )
+    # Counted as "failed of attempted", and the failing names are spelled out —
+    # a triager must not have to open log.txt to learn which files are untagged.
+    assert "2 of 2 file(s)" in tagging_issues[0]["message"]
+    assert _THIS_RIP[0] in tagging_issues[0]["message"]
+    # The audio claim is separate from the metadata claim, and conflating them is
+    # how a triager wastes an hour.
+    assert "audio is unaffected" in tagging_issues[0]["message"]
+    assert tagging_issues[0]["severity"] == "warning"
+
+
+def test_a_clean_tagging_pass_does_not_alarm_or_add_an_issue(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The other half of the check: a successful pass must stay quiet.
+
+    Without this the fix could 'pass' by warning on every rip, which would train
+    the user to ignore the warning that matters.
+    """
+    import json
+
+    from platterpus.parsers.rip_log import RipLog
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    window._metaflac = _CapturingMetaflac()
+    window._track_table.set_placeholder_tracks(2)
+    window._last_rip_log = RipLog()
+    window._last_rip_log_file = log_file
+
+    result = window.run_unknown_post_processing(
+        album, launch_picard=False, rip_log=_parsed_log(log_file)
+    )
+    window._on_tagging_done(result)
+    window._flush_rip_report()
+
+    assert result.ok is True
+    assert "FAILED" not in window._rip_progress.current_status()
+    assert not window._rip_progress._verdict_downgrades
+    report = json.loads((album / "Greatest Hits.platterpus.json").read_text())
+    assert [i for i in report["issues"] if i["code"] == "tagging_failed"] == []
+
+
+def test_tagging_crash_mid_pass_still_reaches_the_user(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """A tagging step that RAISES is still a tagging outcome the user must hear
+    about: some files may carry tags and the rest do not. Before this it went to
+    log.txt and nowhere else."""
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    window._track_table.set_placeholder_tracks(2)
+
+    def _boom(*a, **kw):
+        raise RuntimeError("metaflac vanished")
+
+    monkeypatch.setattr(window, "run_unknown_post_processing", _boom)
+
+    window._start_post_rip_processing(
+        album,
+        tag=True,
+        launch_picard=False,
+        release_id="",
+        embed=False,
+        save_file=False,
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()  # deliver the queued tagging_done
+
+    recorded = window._last_tagging_result
+    assert recorded is not None and recorded.ran is True
+    assert "metaflac vanished" in recorded.error
+    assert "Tagging FAILED" in window._rip_progress.current_status()
+
+
+# --- A crashed post-rip check is not "settled successfully" (2026-07-31) -----
+
+
+def test_a_crashed_post_rip_check_is_recorded_not_lost(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Regression: an exception escaping `compute()` killed the daemon thread with
+    no signal emitted and nothing recorded — and `_post_rip_work_settled` reads a
+    dead thread as settled, so the library move went ahead exactly as if the check
+    had passed."""
+    window = teardown_threads()
+
+    def _boom() -> object:
+        raise RuntimeError("CTDB lookup exploded")
+
+    thread = window._launch_post_rip_daemon(
+        compute=_boom, signal=window.ctdb_verify_done, thread_attr="_ctdb_thread"
+    )
+    thread.join(timeout=10)
+    assert not thread.is_alive()
+
+    # Still "settled" — nothing is touching the files, which is what that gate is
+    # for — but the crash is no longer invisible to the code that reads it.
+    assert window._post_rip_work_settled() is True
+    summary = window._post_rip_failure_summary()
+    assert "ctdb" in summary and "CTDB lookup exploded" in summary
+
+
+def test_two_post_rip_checks_crashing_are_both_recorded(teardown_threads) -> None:
+    """The record must not be a single slot: two checks can die in one rip (a
+    vanished album folder takes out every one of them at once)."""
+    window = teardown_threads()
+    for attr, message in (
+        ("_ctdb_thread", "ctdb died"),
+        ("_checksums_thread", "hashing died"),
+    ):
+        thread = window._launch_post_rip_daemon(
+            compute=lambda m=message: (_ for _ in ()).throw(RuntimeError(m)),
+            signal=window.checksums_done,
+            thread_attr=attr,
+        )
+        thread.join(timeout=10)
+
+    summary = window._post_rip_failure_summary()
+    assert "ctdb died" in summary and "hashing died" in summary
+
+
+def test_library_move_announces_a_crashed_post_rip_check(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The settlement gate in front of the library move must SAY that a check
+    died before it files the album away. The move still happens (the audio is
+    fine and stranding it in the workspace is worse) — it just isn't silent."""
+    from platterpus import library_move as _lm
+
+    window = teardown_threads()
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    library = tmp_path / "library"
+    moved: list[tuple[Path, Path]] = []
+    monkeypatch.setattr(
+        _lm,
+        "move_album_folder",
+        lambda src, dst: moved.append((src, dst)) or SimpleNamespace(ok=True),
+    )
+    window._record_post_rip_failure("_ctdb_thread", "RuntimeError: boom")
+    window._pending_library_move = (album, library, window._rip_generation)
+
+    window._poll_library_move()
+    if window._library_move_thread is not None:
+        window._library_move_thread.join(timeout=10)
+
+    lines = window._rip_progress._log_view.toPlainText()
+    assert "post-rip check did not finish" in lines
+    assert "ctdb" in lines
+    assert moved == [(album, library)]  # the album was still filed
+
+
+def test_library_move_says_nothing_extra_when_every_check_passed(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The floor under the test above: with no crash there is no warning, so the
+    check cannot pass by warning on every rip."""
+    from platterpus import library_move as _lm
+
+    window = teardown_threads()
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    monkeypatch.setattr(
+        _lm, "move_album_folder", lambda src, dst: SimpleNamespace(ok=True)
+    )
+    window._pending_library_move = (album, tmp_path / "lib", window._rip_generation)
+
+    window._poll_library_move()
+    if window._library_move_thread is not None:
+        window._library_move_thread.join(timeout=10)
+
+    assert "did not finish" not in window._rip_progress._log_view.toPlainText()
+
+
+# =============================================================================
+# Characterization tests: cancel / force-stop / finish
+# =============================================================================
+#
+# These pin BEHAVIOUR THAT ALREADY EXISTS in the least-tested paths of the rip
+# mixin — 19% branch coverage against a project floor of 91%, and the source of
+# every recent hardware bug. They are deliberately assertions about the *observed*
+# behaviour, so a later refactor that changes one of these has to say so out loud.
+# Where a path looked wrong it was reported rather than pinned.
+
+
+def test_cancel_with_no_worker_is_a_silent_no_op(teardown_threads, monkeypatch) -> None:
+    """Cancel before any worker exists must not arm the force-stop rescue.
+
+    The rescue kills a reader and ejects a tray, so arming it with no rip in
+    flight would act on a drive nobody asked us to touch.
+    """
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    window._rip_worker = None
+
+    window._on_rip_cancel()
+
+    assert window._force_stop_timer.isActive() is False
+    assert window._rip_cancelled is False  # nothing to cancel → nothing recorded
+    assert calls == []
+
+
+def test_cancel_arms_the_rescue_and_records_the_cancellation(
+    teardown_threads, monkeypatch
+) -> None:
+    """The full cancel path: flag the cancellation (so finish says "cancelled",
+    not "failed"), tell the user what happens next, and arm the countdown."""
+    _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    cancelled: list[bool] = []
+    window._rip_worker = SimpleNamespace(cancel=lambda: cancelled.append(True))
+    window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
+    window._force_stop_done = True  # a previous rip's stale flag must be cleared
+
+    try:
+        window._on_rip_cancel()
+        assert cancelled == [True]  # the worker was actually told to stop
+        assert window._rip_cancelled is True
+        assert window._force_stop_done is False
+        assert window._force_stop_timer.isActive() is True
+        status = window._rip_progress.current_status()
+        assert "Cancelling rip" in status and "Force stop" in status
+    finally:
+        window._force_stop_timer.stop()
+
+
+def test_auto_force_stop_is_skipped_once_a_force_stop_already_happened(
+    teardown_threads, monkeypatch
+) -> None:
+    """The countdown and the button can both fire. Whichever lands first wins;
+    the second must not kill/eject a second time."""
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    window._force_stop_done = True
+
+    window._auto_force_stop()
+
+    assert calls == []
+
+
+def test_force_stop_records_the_users_choice_as_a_cancellation(
+    teardown_threads, monkeypatch
+) -> None:
+    """Regression (audit 2026-07-29): Force stop on its own — without pressing
+    Cancel first — used to leave `_rip_cancelled` False, so the user's deliberate
+    stop was recorded as a MALFUNCTION: status "Rip failed.", outcome "failed" in
+    the JSON, an INCOMPLETE RIP banner in the durable log, and a failure toast."""
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    window._rip_thread = SimpleNamespace()  # a rip is in flight
+    assert window._rip_cancelled is False
+
+    window._on_force_stop_button()
+    _join_force_stop(window)
+
+    assert window._rip_cancelled is True
+    assert len(calls) == 1
+    assert "Force-stopping" in window._rip_progress.current_status()
+
+
+def test_shutdown_drive_free_returns_early_when_nothing_is_reading(
+    teardown_threads, monkeypatch
+) -> None:
+    """A normal window close must never touch the drive — only a live rip or a
+    still-pending force-stop rescue justifies the kill."""
+    free_calls = _patch_free_drive(monkeypatch)
+    window = teardown_threads()
+    window._rip_thread = None
+    window._force_stop_timer.stop()
+
+    window._stop_rip_on_shutdown()
+
+    assert free_calls == []
+
+
+def test_shutdown_drive_free_also_runs_while_a_rescue_is_still_pending(
+    teardown_threads, monkeypatch
+) -> None:
+    """Regression (audit 2026-07-29): on Cancel the host wrapper dies at once, so
+    `_rip_thread` is already cleared and only the 5-second rescue would have
+    killed the in-container reader. Quitting inside that window left the drive
+    ripping with no in-app recovery — and the physical eject button is ignored
+    while a read holds the device, so there was no hardware recovery either."""
+    free_calls = _patch_free_drive(monkeypatch)
+    window = teardown_threads()
+    window._rip_thread = None  # the finish handler already cleared it
+    window._rip_worker = None
+    window._force_stop_timer.start(60_000)  # ...but the rescue is still armed
+
+    try:
+        window._stop_rip_on_shutdown()
+    finally:
+        window._force_stop_timer.stop()
+
+    assert len(free_calls) == 1
+
+
+def test_shutdown_drive_free_swallows_a_failing_kill(
+    teardown_threads, monkeypatch
+) -> None:
+    """Shutdown cleanup must never turn into a crash on close: the app is already
+    going away and a failed kill has nowhere to be reported."""
+    from platterpus import drive_control
+
+    def _boom(**kw):
+        raise OSError("no such process")
+
+    monkeypatch.setattr(drive_control, "free_drive", _boom)
+    window = teardown_threads()
+    window._rip_thread = SimpleNamespace()
+    window._rip_worker = None
+
+    window._stop_rip_on_shutdown()  # must not raise
+
+
+def test_rip_error_is_remembered_for_the_failure_report(teardown_threads) -> None:
+    """A hard error before any log exists is the ONLY record of why a rip failed,
+    so it is stashed for `_write_minimal_failure_report` as well as shown."""
+    window = teardown_threads()
+
+    window._on_rip_error("cyanrip: could not open /dev/sr0")
+
+    assert window._last_rip_error == "cyanrip: could not open /dev/sr0"
+    assert "could not open" in window._rip_progress.current_status()
+
+
+def test_completion_notification_is_skipped_when_turned_off(teardown_threads) -> None:
+    """The setting is honoured before anything else happens — no tray is created
+    for a user who opted out."""
+    window = teardown_threads(config=Config(notify_on_completion=False))
+
+    window._notify_rip_complete(True, "Done.")
+
+    assert window._tray_icon is None
+
+
+def test_completion_notification_is_skipped_for_a_user_cancel(
+    teardown_threads,
+) -> None:
+    """You just pressed Cancel; you do not need a toast telling you so."""
+    window = teardown_threads()
+    window._rip_cancelled = True
+
+    window._notify_rip_complete(False, "Rip cancelled by user.")
+
+    assert window._tray_icon is None
+
+
+def test_completion_notification_degrades_when_there_is_no_system_tray(
+    teardown_threads, monkeypatch
+) -> None:
+    """A desktop with no usable tray has nowhere to post the toast. That must be
+    a logged no-op, never an exception out of the finish handler."""
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    monkeypatch.setattr(
+        QSystemTrayIcon, "isSystemTrayAvailable", staticmethod(lambda: False)
+    )
+    window = teardown_threads()
+
+    window._notify_rip_complete(True, "Done.")  # must not raise
+
+    assert window._ensure_tray_icon() is None
+
+
+def test_completion_notification_posts_through_the_tray_icon(
+    teardown_threads, monkeypatch
+) -> None:
+    """The success path, and the reason it is worth a test: the notification's
+    whole audience is a user who walked away, so "did it fire?" has to be
+    answerable — v0.5.12 broke notifications inside a swallowed AttributeError."""
+    posted: list[tuple[str, str]] = []
+    window = teardown_threads()
+    monkeypatch.setattr(
+        window,
+        "_ensure_tray_icon",
+        lambda: SimpleNamespace(
+            showMessage=lambda title, body, icon, ms: posted.append((title, body))
+        ),
+    )
+
+    window._notify_rip_complete(True, "Bit-perfect: all 12 tracks verified")
+
+    assert len(posted) == 1
+    assert "12 tracks" in posted[0][1]
+
+
+def test_tray_icon_is_created_once_and_reused(teardown_threads, monkeypatch) -> None:
+    """`showMessage` needs a live tray icon, so it is cached — a second toast
+    must not add a second icon to the user's system tray."""
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    monkeypatch.setattr(
+        QSystemTrayIcon, "isSystemTrayAvailable", staticmethod(lambda: True)
+    )
+    window = teardown_threads()
+
+    first = window._ensure_tray_icon()
+    second = window._ensure_tray_icon()
+
+    assert first is not None and first is second
+
+
+def test_finish_refuses_to_run_post_rip_steps_when_the_log_is_missing(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """Regression (audit 2026-07-29): a successful rip whose `.log` could not be
+    found used to fall back to `params.output_dir` — the configured output ROOT.
+    Every post-rip step walks that folder recursively, so tagging, colon-restore,
+    re-compress, transcode and the checksum manifest were pointed at the user's
+    ENTIRE library. Reachable: `_find_log_path` filters by wall-clock mtime, so a
+    backward NTP step during a long rip drops the log it just wrote."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=True)
+    started: list[Path] = []
+    monkeypatch.setattr(
+        window,
+        "_start_post_rip_processing",
+        lambda rip_dir, **kw: started.append(rip_dir),
+    )
+
+    window._on_rip_finished(True, "")  # success, but no log path at all
+
+    assert started == [], "post-rip steps must not be scoped to the output root"
+    status = window._rip_progress.current_status()
+    assert "could not find the rip log" in status
+    assert "post-rip checks were skipped" in status
+
+
+def test_finish_survives_a_log_path_that_cannot_be_read(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The `except OSError` arm of the render block: a log path that is a
+    DIRECTORY (or has been swapped out from under us) must not abort the chain —
+    the rip state has to be cleared regardless, or shutdown treats a finished rip
+    as live and leaves the drive spinning."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    unreadable = album / "Album.log"
+    unreadable.mkdir()  # a directory where a file is expected
+
+    window._on_rip_finished(True, str(unreadable))
+
+    assert window._rip_thread is None
+    assert window._active_rip_params is None
+
+
+def test_finish_writes_a_minimal_report_for_a_failure_with_no_log(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The most-broken rips used to be the LEAST diagnosable: a hard failure
+    before any output wrote no report at all. A minimal one lands beside the
+    intended output folder carrying the outcome, settings and environment."""
+    import json
+
+    window = teardown_threads()
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    window._on_rip_error("cyanrip: device busy")
+
+    window._on_rip_finished(False, "")
+
+    report_file = tmp_path / "platterpus-rip-failure.platterpus.json"
+    assert report_file.exists()
+    report = json.loads(report_file.read_text())
+    assert report["outcome"]["status"] == "failed"
+    assert "device busy" in (report["outcome"]["failure_hint"] or "")
+
+
+def test_a_cancelled_rip_writes_no_minimal_failure_report(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The floor under the test above: a user cancel is not a failure, so it must
+    not leave a failure report behind."""
+    window = teardown_threads()
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    window._rip_cancelled = True
+
+    window._on_rip_finished(False, "")
+
+    assert not (tmp_path / "platterpus-rip-failure.platterpus.json").exists()
+    assert "cancelled" in window._rip_progress.current_status().lower()
+
+
+def test_a_manual_cover_choice_forces_an_embed_even_with_art_turned_off(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """ "Set cover art from file…" is an explicit user choice, so it is honoured
+    even when automatic cover art is off — otherwise the pick silently does
+    nothing."""
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            cover_art="",  # automatic art OFF
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    window._manual_cover_path = str(tmp_path / "mine.png")
+    kwargs: list[dict] = []
+    monkeypatch.setattr(
+        window,
+        "_start_post_rip_processing",
+        lambda rip_dir, **kw: kwargs.append(kw),
+    )
+
+    window._on_rip_finished(True, str(log_file))
+
+    assert kwargs and kwargs[0]["embed"] is True
+    assert kwargs[0]["local_cover_path"] == str(tmp_path / "mine.png")
+
+
+def test_library_move_refuses_to_relocate_the_whole_output_root(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """When the album folder could not be identified, `rip_dir` IS the output
+    root — "moving" it would relocate the user's entire workspace into the
+    library. This is the one place that hazard was already understood."""
+    window = teardown_threads(
+        config=Config(library_dir=str(tmp_path / "library"), output_dir=str(tmp_path))
+    )
+    params = _params(tmp_path, unknown=False)
+
+    window._maybe_schedule_library_move(tmp_path, params)
+
+    assert window._pending_library_move is None
+    assert window._library_move_timer.isActive() is False
+
+
+def test_library_move_poll_stops_itself_when_nothing_is_pending(
+    teardown_threads,
+) -> None:
+    """A stray poll (the timer outliving its move) must disarm rather than spin."""
+    window = teardown_threads()
+    window._pending_library_move = None
+    window._library_move_timer.start()
+
+    window._poll_library_move()
+
+    assert window._library_move_timer.isActive() is False
+
+
+def test_library_move_is_abandoned_when_a_newer_rip_starts(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """Moving album A's folder while album B's post-rip state is live would race
+    B, so a generation change abandons the move: A simply stays in the output
+    folder, which is safe and visible."""
+    from platterpus import library_move as _lm
+
+    moved: list[object] = []
+    monkeypatch.setattr(
+        _lm, "move_album_folder", lambda src, dst: moved.append((src, dst))
+    )
+    window = teardown_threads()
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    window._pending_library_move = (album, tmp_path / "lib", window._rip_generation - 1)
+    window._library_move_timer.start()
+
+    window._poll_library_move()
+
+    assert window._pending_library_move is None
+    assert window._library_move_timer.isActive() is False
+    assert moved == []
+
+
+def test_library_move_keeps_polling_while_a_check_is_still_running(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The gate's whole job: never hand a vanished path to a live verify."""
+    import threading as _threading
+
+    from platterpus import library_move as _lm
+
+    moved: list[object] = []
+    monkeypatch.setattr(
+        _lm, "move_album_folder", lambda src, dst: moved.append((src, dst))
+    )
+    window = teardown_threads()
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    release = _threading.Event()
+    busy = _threading.Thread(target=release.wait, daemon=True)
+    busy.start()
+    window._ctdb_thread = busy
+    window._pending_library_move = (album, tmp_path / "lib", window._rip_generation)
+    window._library_move_timer.start()
+
+    try:
+        window._poll_library_move()
+        assert window._pending_library_move is not None  # still armed
+        assert moved == []
+    finally:
+        release.set()
+        busy.join(timeout=5)
+        window._library_move_timer.stop()
+
+
+def test_library_move_failure_reports_without_alarming(teardown_threads) -> None:
+    """The rip already succeeded, so a failed move is news, not an emergency —
+    the album just stays where it is."""
+    window = teardown_threads()
+
+    window._on_library_moved(
+        SimpleNamespace(ok=False, destination=None, message="Permission denied")
+    )
+
+    line = window._rip_progress._log_view.toPlainText()
+    assert "Library move failed" in line and "Permission denied" in line
+
+
+def test_library_move_success_repoints_the_view_log_button(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """After the folder moves, every button that pointed into it has to follow —
+    otherwise "View log" opens a path that no longer exists."""
+    window = teardown_threads()
+    old_dir = tmp_path / "out" / "Artist" / "Album"
+    old_dir.mkdir(parents=True)
+    window._last_rip_log_file = old_dir / "Album.log"
+    new_dir = tmp_path / "library" / "Artist" / "Album"
+
+    window._on_library_moved(SimpleNamespace(ok=True, destination=new_dir, message=""))
+
+    assert window._last_rip_log_file == new_dir / "Album.log"
+    assert "filed in your library" in window._rip_progress._log_view.toPlainText()
+
+
+def test_rip_as_unknown_requires_a_drive_first(teardown_threads, monkeypatch) -> None:
+    """The unknown-album flow needs a device to rip from, so it stops with an
+    explanation instead of opening a dialog that cannot lead anywhere."""
+    from PySide6.QtWidgets import QMessageBox
+
+    warned: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        lambda *a, **k: warned.append(a[2]) or QMessageBox.StandardButton.Ok,
+    )
+    window = teardown_threads()
+    opened: list[bool] = []
+    monkeypatch.setattr(
+        window, "open_unknown_album_dialog", lambda: opened.append(True) or True
+    )
+    monkeypatch.setattr(
+        window._drive_picker, "current_device", lambda: "", raising=False
+    )
+
+    window._on_rip_as_unknown()
+
+    assert opened == []
+    assert warned and "drive" in warned[0].lower()
+
+
+def test_accepting_the_unknown_album_dialog_arms_unknown_mode(
+    teardown_threads, monkeypatch
+) -> None:
+    """Accepting the dialog is what lets Start proceed without a MusicBrainz
+    release, and it stashes the Picard preference for after the rip."""
+    from PySide6.QtWidgets import QDialog
+
+    from platterpus.ui import main_window_rip as mwr
+
+    class _Dialog:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def exec(self) -> int:
+            return QDialog.DialogCode.Accepted
+
+        def auto_launch_picard(self) -> bool:
+            return True
+
+    monkeypatch.setattr(mwr, "UnknownAlbumDialog", _Dialog)
+    window = teardown_threads()
+
+    assert window.open_unknown_album_dialog() is True
+    assert window._pending_picard_launch is True
+
+
+def test_declining_the_unknown_album_dialog_changes_nothing(
+    teardown_threads, monkeypatch
+) -> None:
+    """The floor: a cancelled dialog must not leave unknown mode armed."""
+    from PySide6.QtWidgets import QDialog
+
+    from platterpus.ui import main_window_rip as mwr
+
+    class _Dialog:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def exec(self) -> int:
+            return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(mwr, "UnknownAlbumDialog", _Dialog)
+    window = teardown_threads()
+
+    assert window.open_unknown_album_dialog() is False
+
+
+def test_measured_cache_defeat_fills_a_gap_but_never_overwrites_the_log(
+    teardown_threads, monkeypatch
+) -> None:
+    """cyanrip logs no cache line, so the parsed value is None and our own
+    measured verdict fills it. It must ONLY fill a gap — a log that carried the
+    fact is real data and is left exactly as parsed."""
+    from platterpus.drive_profiles import DriveProfile
+    from platterpus.parsers.rip_log import RipLog, RippingInfo
+
+    window = teardown_threads()
+    drive = DriveDescriptor(
+        device="/dev/sr0", vendor="PIONEER", model="BD-RW BDR-209D", release="1.34"
+    )
+    monkeypatch.setattr(
+        window._drive_picker, "current_drive", lambda: drive, raising=False
+    )
+    fingerprint = window._fingerprint_for(drive)[0]
+    # A MEASURED cache-defeat verdict on record for this exact drive (the
+    # cd-paranoia `-A` probe result, KDD-29).
+    window._drive_profiles.upsert(
+        DriveProfile(
+            fingerprint=fingerprint,
+            vendor=drive.vendor,
+            model=drive.model,
+            cache_defeat=True,
+        )
+    )
+
+    filled = window._inject_measured_cache_defeat(
+        RipLog(ripping_info=RippingInfo(defeat_audio_cache=None))
+    )
+    assert filled.ripping_info.defeat_audio_cache is True
+
+    kept = window._inject_measured_cache_defeat(
+        RipLog(ripping_info=RippingInfo(defeat_audio_cache=False))
+    )
+    assert kept.ripping_info.defeat_audio_cache is False  # never overwritten
+
+
+def test_cache_defeat_injection_is_a_no_op_with_no_drive_selected(
+    teardown_threads, monkeypatch
+) -> None:
+    """Best-effort enrichment: with no drive there is no measurement to inject,
+    and the finish handler must carry on rather than raise."""
+    from platterpus.parsers.rip_log import RipLog, RippingInfo
+
+    window = teardown_threads()
+    monkeypatch.setattr(
+        window._drive_picker, "current_drive", lambda: None, raising=False
+    )
+    original = RipLog(ripping_info=RippingInfo(defeat_audio_cache=None))
+
+    assert window._inject_measured_cache_defeat(original) is original
+
+
+def test_the_post_rip_result_handlers_ignore_a_payload_of_the_wrong_type(
+    teardown_threads,
+) -> None:
+    """Every `_on_*_done` slot is reachable from a queued `Signal(object)`, so it
+    type-checks its payload and drops anything else. Pinned because a slot that
+    trusted the payload would crash the GUI thread from a worker's mistake."""
+    window = teardown_threads()
+    for handler in (
+        window._on_checksums_done,
+        window._on_flac_verified,
+        window._on_flac_recompressed,
+        window._on_transcoded,
+        window._on_derived_verified,
+        window._on_tagging_done,
+        window._on_cover_art_done,
+    ):
+        handler(object())  # must not raise
+    # None of them recorded anything either: an unrecognised payload is dropped,
+    # not stored (a stored junk payload would reach the JSON report).
+    for attr in (
+        "_last_checksums",
+        "_last_flac_verify_result",
+        "_last_recompress_result",
+        "_last_transcode_result",
+        "_last_derived_verify_result",
+        "_last_tagging_result",
+        "_last_cover_art_result",
+    ):
+        assert getattr(window, attr, None) is None, f"{attr} stored a junk payload"
+
+
+def test_a_destroyed_window_does_not_break_a_late_post_rip_emit(
+    teardown_threads,
+) -> None:
+    """The guarded-emit contract: a daemon that finishes after the window is gone
+    swallows the RuntimeError Qt raises, because there is nothing left to update
+    and an exception on a daemon thread is a crash nobody can act on."""
+    window = teardown_threads()
+
+    class _DeadSignal:
+        def emit(self, _payload: object) -> None:
+            raise RuntimeError("Internal C++ object already deleted.")
+
+    thread = window._launch_post_rip_daemon(
+        compute=lambda: {"ok": "yes"},
+        signal=_DeadSignal(),
+        thread_attr="_checksums_thread",
+    )
+    thread.join(timeout=10)
+
+    assert not thread.is_alive()
+    assert window._post_rip_failure_summary() == ""  # a dead window is not a crash
+
+
+# --- Finish-path enrichment: making the log describe the SHIPPED bytes -------
+#
+# KDD-30. The album's whole-disc `.log` records only the FIRST read pass, so when
+# the per-track auto-fix re-rips a track and swaps the better read into the album,
+# every surface rendered from that log is describing bytes that were thrown away.
+# Real-hardware bug, 2026-07-26 (tracks 3 and 5 of the Police disc).
+
+
+def _ar(result: str, confidence: int = 10) -> AccurateRipResult:
+    return AccurateRipResult(version=2, result=result, confidence=confidence)
+
+
+def test_a_swapped_in_rerip_replaces_the_first_passs_measured_fields(
+    teardown_threads,
+) -> None:
+    """The shipped read's own CRC/status/read-count win over the discarded pass's,
+    while the album's identity fields (number, filename) stay put — the re-rip ran
+    in a throwaway directory under the same track number."""
+    window = teardown_threads()
+    first_pass = TrackResult(
+        number=3,
+        filename="03 - Walking On The Moon.flac",
+        copy_crc="DEAD0001",
+        status="suspicious",
+        rip_count=8,
+    )
+    window._last_swapped_tracks = {
+        3: TrackResult(
+            number=3,
+            filename="track03.flac",
+            copy_crc="BEEF0002",
+            status="ok",
+            rip_count=3,
+        )
+    }
+    window._last_retried_tracks = [{"track": 3, "converged": True, "replaced": True}]
+
+    merged = window._apply_auto_fix_results(RipLog(tracks=(first_pass,)))
+
+    track = merged.tracks[0]
+    assert track.copy_crc == "BEEF0002"  # the bytes on disk
+    assert track.status == "ok" and track.rip_count == 3
+    assert track.filename == "03 - Walking On The Moon.flac"  # identity kept
+    assert track.secure_rerip_converged is True
+
+
+def test_a_swapped_in_rerip_never_inherits_the_discarded_reads_verification(
+    teardown_threads,
+) -> None:
+    """The one that matters most: an AccurateRip verdict is a claim that a shared
+    database confirmed SPECIFIC BYTES. The first pass's verdict confirmed the bytes
+    we threw away, so if the re-rip's log reported none, the shipped file's verdict
+    becomes UNKNOWN — never inherited. A stale "verified" is the single worst thing
+    this program can say."""
+    window = teardown_threads()
+    first_pass = TrackResult(
+        number=5,
+        filename="05 - Roxanne.flac",
+        copy_crc="DEAD0005",
+        test_crc="DEAD0005",
+        accuraterip_v2=_ar("accurately ripped", 200),
+    )
+    # The re-rip's log reported a CRC but no AccurateRip result and no Test CRC.
+    window._last_swapped_tracks = {
+        5: TrackResult(number=5, filename="track05.flac", copy_crc="BEEF0005")
+    }
+    window._last_retried_tracks = [{"track": 5, "converged": True, "replaced": True}]
+
+    track = window._apply_auto_fix_results(RipLog(tracks=(first_pass,))).tracks[0]
+
+    assert track.copy_crc == "BEEF0005"
+    assert track.accuraterip_v2 is None, "inherited a verification it never earned"
+    assert track.test_crc in (None, ""), "half of a two-reads-agree pair, inherited"
+
+
+def test_a_field_the_rerip_did_not_report_keeps_the_first_passs_value(
+    teardown_threads,
+) -> None:
+    """The deliberate opposite rule for DESCRIPTIVE fields: an unreported field
+    parses as None, and letting that overwrite a known fact would DELETE
+    information — worse than the stale value being fixed."""
+    window = teardown_threads()
+    first_pass = TrackResult(
+        number=1,
+        filename="01 - A.flac",
+        copy_crc="DEAD",
+        peak_level=0.83,
+        extraction_quality=99.8,
+    )
+    window._last_swapped_tracks = {1: TrackResult(number=1, copy_crc="BEEF")}
+    window._last_retried_tracks = [{"track": 1, "converged": True, "replaced": True}]
+
+    track = window._apply_auto_fix_results(RipLog(tracks=(first_pass,))).tracks[0]
+
+    assert track.peak_level == 0.83 and track.extraction_quality == 99.8
+
+
+def test_a_rerip_that_never_converged_is_recorded_as_not_reproducible(
+    teardown_threads,
+) -> None:
+    """Measured non-reproducibility must be recorded as False, because cyanrip's
+    own health line stays "No errors occurred" for it — so silence would let it
+    pass as clean."""
+    window = teardown_threads()
+    window._last_retried_tracks = [{"track": 2, "converged": False, "replaced": False}]
+
+    track = window._apply_auto_fix_results(
+        RipLog(tracks=(TrackResult(number=2, filename="02 - B.flac"),))
+    ).tracks[0]
+
+    assert track.secure_rerip_converged is False
+
+
+def test_a_rerip_that_converged_but_was_not_swapped_in_claims_nothing(
+    teardown_threads,
+) -> None:
+    """Under-claim in BOTH directions: the shipped bytes are still the first pass,
+    so neither "corroborated" nor "not reproducible" has been earned."""
+    window = teardown_threads()
+    window._last_retried_tracks = [{"track": 4, "converged": True, "replaced": False}]
+
+    track = window._apply_auto_fix_results(
+        RipLog(tracks=(TrackResult(number=4, filename="04 - D.flac"),))
+    ).tracks[0]
+
+    assert track.secure_rerip_converged is None
+
+
+def test_auto_fix_enrichment_is_a_no_op_on_an_ordinary_rip(teardown_threads) -> None:
+    """The floor: with no auto-fix history the parsed log is returned untouched
+    (identity, not a rebuilt copy), so the common path costs nothing."""
+    window = teardown_threads()
+    window._last_retried_tracks = []
+    window._last_swapped_tracks = {}
+    original = RipLog(tracks=(TrackResult(number=1, filename="01 - A.flac"),))
+
+    assert window._apply_auto_fix_results(original) is original
+
+
+def test_auto_fix_enrichment_survives_a_malformed_history(teardown_threads) -> None:
+    """Best-effort: the worker's history is plain dicts, so a shape change must
+    degrade to "no enrichment" rather than abort the whole finish handler."""
+    window = teardown_threads()
+    window._last_retried_tracks = ["not a dict"]
+    window._last_swapped_tracks = {}
+    original = RipLog(tracks=(TrackResult(number=1, filename="01 - A.flac"),))
+
+    assert window._apply_auto_fix_results(original) is original  # no raise
+
+
+def test_a_non_integer_track_number_in_the_history_is_skipped(teardown_threads) -> None:
+    """The history is external-ish data (JSON round-trips through the report), so
+    a non-integer track key is ignored rather than trusted as a dict key."""
+    window = teardown_threads()
+    window._last_retried_tracks = [{"track": "3", "converged": False}]
+    window._last_swapped_tracks = {}
+    original = RipLog(tracks=(TrackResult(number=3, filename="03 - C.flac"),))
+
+    assert window._apply_auto_fix_results(original) is original
+
+
+# --- Finish-path: read-offset provenance and timing enrichment ---------------
+
+
+def test_an_accuraterip_match_confirms_the_applied_read_offset(
+    teardown_threads, monkeypatch
+) -> None:
+    """KDD-31, our honest analogue of EAC's Key-Disc offset finder: if a track
+    verified against the AccurateRip consensus, the offset that produced it is
+    empirically right on THIS drive — a stronger claim than one key disc, and it
+    re-earns itself on every matching rip."""
+    window = teardown_threads(config=Config(override_read_offset=True, read_offset=667))
+    drive = DriveDescriptor(
+        device="/dev/sr0", vendor="PIONEER", model="BD-RW BDR-209D", release="1.34"
+    )
+    monkeypatch.setattr(
+        window._drive_picker, "current_drive", lambda: drive, raising=False
+    )
+    facts: list[tuple[int, OffsetSource]] = []
+    monkeypatch.setattr(
+        window,
+        "_record_drive_fact",
+        lambda d, offset_value, source: facts.append((offset_value, source)),
+    )
+    matched = RipLog(
+        tracks=(TrackResult(number=1, accuraterip_v2=_ar("accurately ripped", 42)),)
+    )
+
+    window._confirm_offset_from_accuraterip(matched)
+
+    assert facts == [(667, OffsetSource.ACCURATERIP_CONFIRMED)]
+
+
+def test_no_offset_confirmation_without_an_accuraterip_match(
+    teardown_threads, monkeypatch
+) -> None:
+    """The floor: a disc that matched nothing proves nothing about the offset, so
+    nothing may be promoted. (A CD-R or an unsubmitted pressing looks like this.)"""
+    window = teardown_threads(config=Config(override_read_offset=True, read_offset=667))
+    facts: list[object] = []
+    monkeypatch.setattr(window, "_record_drive_fact", lambda *a, **k: facts.append(a))
+
+    window._confirm_offset_from_accuraterip(RipLog(tracks=(TrackResult(number=1),)))
+
+    assert facts == []
+
+
+def test_no_offset_confirmation_when_no_offset_override_was_applied(
+    teardown_threads, monkeypatch
+) -> None:
+    """With no explicit offset applied there is no value to attribute the match
+    to, so the promotion would be recording a number the rip never used."""
+    window = teardown_threads(config=Config(override_read_offset=False))
+    facts: list[object] = []
+    monkeypatch.setattr(window, "_record_drive_fact", lambda *a, **k: facts.append(a))
+
+    window._confirm_offset_from_accuraterip(
+        RipLog(tracks=(TrackResult(number=1, accuraterip_v2=_ar("accurately ripped")),))
+    )
+
+    assert facts == []
+
+
+def test_timing_is_enriched_with_the_realtime_multiplier(teardown_threads) -> None:
+    """The honest archival metric that replaced cyanrip's ETA (it logged "822h" on
+    a real disc): elapsed ÷ the disc's own audio length."""
+    window = teardown_threads()
+    window._last_rip_timing = {"elapsed_seconds": 600}
+
+    window._enrich_timing_with_disc_duration(SimpleNamespace(disc_duration="00:05:00"))
+
+    assert window._last_rip_timing["disc_seconds"] == 300
+    assert window._last_rip_timing["realtime_multiplier"] == 2.0
+
+
+def test_timing_enrichment_skips_an_unparseable_disc_duration(teardown_threads) -> None:
+    """Best-effort: a missing/garbled duration leaves the multiplier off rather
+    than inventing one."""
+    window = teardown_threads()
+    window._last_rip_timing = {"elapsed_seconds": 600}
+
+    window._enrich_timing_with_disc_duration(SimpleNamespace(disc_duration="???"))
+
+    assert "realtime_multiplier" not in window._last_rip_timing
+
+
+# --- The post-rip daemon's own failure and staleness guards -------------------
+#
+# Every step in `_start_post_rip_processing` carries the same three guards, and
+# each one exists because of a real bug: a best-effort try/except (a stray
+# dependency failure must not take down the app), a rip-generation check (a slow
+# step from album A must not write into album B's report), and a guarded emit (the
+# window may be gone by the time the step finishes).
+
+
+def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Cover art is the slowest, most failure-prone step (a network GET with a 30 s
+    timeout). A crash there must still produce a result the report can record."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        _ca,
+        "apply_cover_art",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("CAA exploded")),
+    )
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, cover_art="embed")
+    )
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="some-mbid",
+        embed=True,
+        save_file=False,
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    result = window._last_cover_art_result
+    assert result is not None and result.found is False
+    assert result.reason == "error"
+    assert "rip unaffected" in result.message
+
+
+def test_a_local_cover_choice_takes_the_local_path_not_the_archive(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """The user's explicit pick must win over the archive fetch — and it must be
+    the ONLY thing consulted, so an offline user's chosen image still lands."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    image = tmp_path / "mine.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
+    fetched: list[str] = []
+    monkeypatch.setattr(
+        _ca, "apply_cover_art", lambda *a, **k: fetched.append("archive")
+    )
+    window = teardown_threads(config=Config(host_setup_prompted=True))
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="",
+        embed=True,
+        save_file=False,
+        local_cover_path=str(image),
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    assert fetched == [], "the archive was consulted despite an explicit local pick"
+    result = window._last_cover_art_result
+    assert result is not None and result.mode == "local" and result.found is True
+
+
+def test_additional_art_failure_does_not_lose_the_front_cover_result(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Back-cover/booklet scans are a bonus. A failure fetching them must not
+    discard the front cover's outcome, which is the one the report needs."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        _ca,
+        "save_additional_covers",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("manifest exploded")),
+    )
+    monkeypatch.setattr(
+        _ca,
+        "apply_cover_art",
+        lambda *a, **k: _ca.CoverArtResult(
+            mode="complete", found=True, reason="ok", embedded_count=2, message="ok"
+        ),
+    )
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True, cover_art="complete", save_additional_art=True
+        )
+    )
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="some-mbid",
+        embed=True,
+        save_file=True,
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    result = window._last_cover_art_result
+    assert result is not None and result.found is True
+    assert result.additional_saved == []
+
+
+def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Regression (audit 2026-07-28): the cover fetch is the step most likely to
+    finish AFTER the user has started the next rip, and `_on_cover_art_done` writes
+    straight into whatever album's report is current — naming a release that album
+    never used."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads(config=Config(host_setup_prompted=True))
+    window._last_cover_art_result = None
+
+    def _slow(*a, **k):
+        window._rip_generation += 1  # a NEWER rip starts while the GET is in flight
+        return _ca.CoverArtResult(mode="embed", found=True, reason="ok", message="ok")
+
+    monkeypatch.setattr(_ca, "apply_cover_art", _slow)
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="some-mbid",
+        embed=True,
+        save_file=False,
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    assert window._last_cover_art_result is None
+
+
+def test_a_recompress_crash_becomes_a_reported_result(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Re-compress rewrites the archival masters, so its outcome belongs in the
+    report even (especially) when it blew up."""
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        mwr,
+        "recompress_flac_files",
+        lambda files: (_ for _ in ()).throw(RuntimeError("flac exploded")),
+    )
+    window = teardown_threads()
+
+    _run_post_rip(window, album, log_file, recompress=True)
+    qapp.processEvents()
+
+    result = window._last_recompress_result
+    assert result is not None and result.error == "failed unexpectedly"
+
+
+def test_a_transcode_crash_becomes_a_reported_result(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """The FLAC master is always kept, so a transcode crash costs the user nothing
+    — but it must still be recorded rather than leaving the report silent."""
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        mwr,
+        "transcode_files",
+        lambda files, **kw: (_ for _ in ()).throw(RuntimeError("ffmpeg exploded")),
+    )
+    window = teardown_threads()
+
+    _run_post_rip(window, album, log_file, transcode_fmt="mp3")
+    qapp.processEvents()
+
+    result = window._last_transcode_result
+    assert result is not None and result.error == "failed unexpectedly"
+
+
+def test_a_stale_recompress_or_transcode_result_is_dropped(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Same staleness rule as the cover fetch, for the two steps that run after
+    it: a result from album A must never be recorded against album B."""
+    from platterpus.adapters.flac_recompress import RecompressResult
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    window._last_recompress_result = None
+    window._last_transcode_result = None
+
+    def _slow(files):
+        window._rip_generation += 1
+        return RecompressResult(reencoded=2)
+
+    monkeypatch.setattr(mwr, "recompress_flac_files", _slow)
+    transcoded: list[object] = []
+    monkeypatch.setattr(
+        mwr, "transcode_files", lambda files, **kw: transcoded.append(files)
+    )
+
+    _run_post_rip(window, album, log_file, recompress=True, transcode_fmt="mp3")
+    qapp.processEvents()
+
+    assert window._last_recompress_result is None
+    # ...and the daemon returned at the generation check, so the LATER steps never
+    # ran against the old album's folder either.
+    assert transcoded == []
+
+
+def test_a_destroyed_window_does_not_break_a_late_post_rip_step(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """Each step's emit is wrapped because Qt raises RuntimeError once the C++
+    window is gone, and an exception on a daemon thread is a crash nobody can act
+    on. Pinned for all four steps at once."""
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+
+    class _DeadSignal:
+        def emit(self, _payload: object) -> None:
+            raise RuntimeError("Internal C++ object already deleted.")
+
+    for name in (
+        "tagging_done",
+        "cover_art_done",
+        "flac_recompress_done",
+        "transcode_done",
+    ):
+        monkeypatch.setattr(window, name, _DeadSignal(), raising=False)
+    monkeypatch.setattr(window, "run_unknown_post_processing", lambda *a, **k: None)
+
+    window._start_post_rip_processing(
+        album,
+        tag=True,
+        launch_picard=False,
+        release_id="",
+        embed=False,
+        save_file=False,
+        recompress=True,
+        transcode_fmt="mp3",
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=15)
+    assert not window._post_rip_thread.is_alive()  # it finished, it did not die
+
+
+def test_picard_is_launched_only_when_the_user_asked_and_files_exist(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The unknown-disc hand-off. Gated on files actually existing, so an empty
+    folder doesn't open Picard on nothing."""
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    launched: list[Path] = []
+    monkeypatch.setattr(
+        mwr, "launch_picard_for", lambda folder: launched.append(folder)
+    )
+    window = teardown_threads()
+    window._metaflac = _CapturingMetaflac()
+    window._track_table.set_placeholder_tracks(2)
+
+    window.run_unknown_post_processing(
+        album, launch_picard=True, rip_log=_parsed_log(log_file)
+    )
+    assert launched == [album]
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    window.run_unknown_post_processing(empty, launch_picard=True)
+    assert launched == [album]  # nothing to hand over → not launched again
+
+
+def test_the_eac_companion_log_is_only_written_when_asked_for(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Off by default, and clearly named so it can never be confused with a real
+    (signed) EAC log — KDD-11/13."""
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    log_file = album / "Album.log"
+    log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+
+    off = teardown_threads(config=Config(write_eac_log_after_rip=False))
+    off._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), log_file)
+    assert not (album / "Album (EAC-compatible).log").exists()
+
+    on = teardown_threads(config=Config(write_eac_log_after_rip=True))
+    on._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), log_file)
+    assert (album / "Album (EAC-compatible).log").exists()
+
+
+def test_the_eac_companion_log_never_breaks_the_finish_handler(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """A courtesy artifact, so an unwritable target is logged and shrugged off."""
+    window = teardown_threads(config=Config(write_eac_log_after_rip=True))
+    missing = tmp_path / "gone" / "Album.log"  # parent does not exist
+
+    window._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), missing)  # no raise
+
+    assert not missing.exists()
+
+
+# --- The result handlers' message branches ------------------------------------
+#
+# Each `_on_*_done` slot turns a result into the one sentence the user reads, and
+# the branch chosen is a claim about what was proved. Several of these wordings
+# exist because an earlier version said something it had not earned.
+
+
+def test_flac_verify_failure_is_loud_and_downgrades_the_trust_banner(
+    teardown_threads,
+) -> None:
+    """A master that will not decode is a real problem, and a green "Bit-perfect"
+    headline above it is the worst thing this screen can show (audit 2026-07-28)."""
+    from platterpus.adapters.flac_verify import FlacVerifyResult
+
+    window = teardown_threads()
+
+    window._on_flac_verified(
+        FlacVerifyResult(checked=2, failures=(Path("01 - A.flac"),))
+    )
+
+    assert "FLAC verify FAILED" in window._rip_progress.current_status()
+    assert window._rip_progress._verdict_downgrades
+
+
+def test_flac_verify_that_could_not_run_is_a_skip_not_a_failure(
+    teardown_threads,
+) -> None:
+    """ "We could not check" and "the check failed" are different facts. Reporting
+    the first as the second is the honesty rule this project is built on."""
+    from platterpus.adapters.flac_verify import FlacVerifyResult
+
+    window = teardown_threads()
+
+    window._on_flac_verified(FlacVerifyResult(error="flac is not installed"))
+
+    line = window._rip_progress._log_view.toPlainText()
+    assert "skipped" in line and "FAILED" not in line
+    assert not window._rip_progress._verdict_downgrades
+
+
+def test_a_lossy_mp3_pass_is_stated_honestly_and_never_as_bit_perfect(
+    teardown_threads,
+) -> None:
+    """Critical rule #4: MP3 is lossy by design, so its proof is decodability +
+    completeness — never bit-identity. The wording has to say which."""
+    window = teardown_threads()
+
+    window._on_derived_verified(
+        DerivedVerifyResult(fmt="mp3", checked=2, expected=2, lossless=False)
+    )
+
+    line = window._rip_progress._log_view.toPlainText()
+    assert "decode cleanly" in line and "not bit-identity" in line
+    assert not window._rip_progress._verdict_downgrades
+
+
+def test_a_lossless_derived_mismatch_downgrades_but_a_lossy_one_does_not(
+    teardown_threads,
+) -> None:
+    """A WavPack that isn't bit-identical to its master is a defect; an MP3 that
+    differs is expected by definition. Only the first may touch the banner."""
+    lossless = teardown_threads()
+    lossless._on_derived_verified(
+        DerivedVerifyResult(
+            fmt="wv",
+            checked=2,
+            expected=2,
+            lossless=True,
+            mismatches=(Path("01 - A.wv"),),
+        )
+    )
+    assert lossless._rip_progress._verdict_downgrades
+
+    lossy = teardown_threads()
+    lossy._on_derived_verified(
+        DerivedVerifyResult(
+            fmt="mp3",
+            checked=2,
+            expected=2,
+            lossless=False,
+            mismatches=(Path("01 - A.mp3"),),
+        )
+    )
+    assert not lossy._rip_progress._verdict_downgrades
+
+
+def test_an_incomplete_transcode_reaches_the_status_line(teardown_threads) -> None:
+    """Regression (audit 2026-07-28): a user who chose MP3 for their phone and got
+    9 of 14 found out only by scrolling the log pane."""
+    window = teardown_threads()
+
+    window._on_derived_verified(DerivedVerifyResult(fmt="mp3", checked=9, expected=14))
+
+    assert "only 9/14" in window._rip_progress.current_status()
+
+
+def test_a_derived_verify_that_could_not_run_keeps_the_master_claim_intact(
+    teardown_threads,
+) -> None:
+    """A skip must not be read as a derived-file failure, and must never suggest
+    the FLAC master is in doubt."""
+    window = teardown_threads()
+
+    window._on_derived_verified(DerivedVerifyResult(fmt="wv", error="wvunpack missing"))
+
+    line = window._rip_progress._log_view.toPlainText()
+    assert "skipped" in line and "FLAC master kept" in line
+    assert not window._rip_progress._verdict_downgrades
+
+
+# --- Cover art from a file: validated at pick time, not at rip end -----------
+
+
+def test_choosing_a_cover_image_validates_it_immediately(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The file is sniffed when it is PICKED, so a wrong file is caught while the
+    user is still looking at the dialog — not silently at the end of a rip."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    good = tmp_path / "art.png"
+    good.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(good), ""))
+    )
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert window._manual_cover_path == str(good)
+    assert warned == []
+    assert "art.png" in window._rip_progress.current_status()
+
+
+def test_choosing_a_non_image_is_refused_at_pick_time(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """...and a file that isn't a JPEG/PNG/GIF is refused, with nothing stored."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    bad = tmp_path / "notes.txt"
+    bad.write_bytes(b"this is not an image")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(bad), ""))
+    )
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert getattr(window, "_manual_cover_path", None) is None
+    assert warned and "JPEG" in warned[0]
+
+
+def test_an_unreadable_cover_choice_is_refused_at_pick_time(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """A path that cannot be read at all (deleted between the dialog and the read,
+    or a directory) is reported with the OS's own reason."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **k: (str(tmp_path / "gone.png"), "")),
+    )
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert getattr(window, "_manual_cover_path", None) is None
+    assert warned and "Couldn't read" in warned[0]
+
+
+def test_cancelling_the_cover_art_dialog_changes_nothing(
+    teardown_threads, monkeypatch
+) -> None:
+    """The floor under the three tests above."""
+    from PySide6.QtWidgets import QFileDialog
+
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("", ""))
+    )
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert getattr(window, "_manual_cover_path", None) is None
+
+
+# --- The finish handler's outermost guards ------------------------------------
+
+
+def test_finish_survives_a_report_write_that_raises(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The generic `except Exception` in the render block. A parser/report edge
+    must not abort the post-rip chain — that would leave the rip state uncleared,
+    so shutdown treats a finished rip as live and the drive keeps spinning."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    log_file = album / "Album.log"
+    log_file.write_text("cyanrip 0.9.3 (release)\n", encoding="utf-8")
+    monkeypatch.setattr(
+        window,
+        "_write_rip_report",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("report exploded")),
+    )
+
+    window._on_rip_finished(True, str(log_file))
+
+    assert window._rip_thread is None  # the chain still cleared the rip state
+    assert window._active_rip_params is None
+
+
+def test_a_notification_failure_never_escapes_the_finish_handler(
+    teardown_threads, monkeypatch
+) -> None:
+    """Regression (v0.5.12): notifications broke inside a swallowed
+    AttributeError. The swallow stays — a toast is never load-bearing — but it is
+    logged at exception level so the next one is findable."""
+    window = teardown_threads()
+    monkeypatch.setattr(
+        window,
+        "_ensure_tray_icon",
+        lambda: (_ for _ in ()).throw(AttributeError("no such attribute")),
+    )
+
+    window._notify_rip_complete(True, "Done.")  # must not raise
+
+
+def test_the_embedded_debug_log_excludes_other_albums_rips(teardown_threads) -> None:
+    """The report is the single self-contained per-album debug artifact, so its
+    embedded log must be THIS album's — other rips in the same session are
+    filtered out, and this rip's own window is kept."""
+    from platterpus.log_buffer import get_session_buffer
+
+    window = teardown_threads()
+    if get_session_buffer() is None:
+        assert window._build_rip_debug_log() is None  # no buffer installed → None
+        return
+    window._rip_windows = []
+    window._current_rip_window = None
+    block = window._build_rip_debug_log()
+    assert block is not None and set(block) >= {"scope", "truncated", "lines"}

@@ -21,6 +21,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from platterpus.safe_int import int_or_none
+
 # Each regex uses named groups so output drift in column order or
 # whitespace doesn't break parsing (CLAUDE.md rule).
 _DRIVE_LINE = re.compile(
@@ -100,7 +102,12 @@ def parse_drive_list(stdout: str) -> list[DriveDescriptor]:
 
         match = _READ_OFFSET.match(line)
         if match:
-            pending_offset = int(match.group("offset"))
+            # None already means "this drive reports no configured offset", which
+            # is the honest answer for a value we can't convert — the GUI then
+            # falls back to its own stored offset rather than to a bogus one.
+            pending_offset = int_or_none(
+                match.group("offset"), field="drive-list read offset"
+            )
             continue
 
         match = _CACHE_DEFEAT.match(line)

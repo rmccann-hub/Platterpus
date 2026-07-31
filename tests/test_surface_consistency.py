@@ -1,10 +1,17 @@
 """Fitness test: every surface must tell the same story about one rip.
 
-Platterpus reports a rip through four independent renderings of a single parsed
-``RipLog`` — the **EAC-compatible log** (the durable text artifact), the
+Platterpus reports a rip through several independent renderings of a single
+parsed ``RipLog`` — the **EAC-compatible log** (the durable text artifact), the
 **JSON report** (the machine record), the **verdict banner** (the trust
-headline), and the **status line**. They are written in different modules by
-different code, and nothing structural stops one from drifting.
+headline), the **results table** (the per-track grid on screen), and the
+**status line**. They are written in different modules by different code, and
+nothing structural stops one from drifting.
+
+**The roster is the point.** This file's own docstring used to name four
+surfaces while the imports covered three — and the two it left out are exactly
+where the next two defects were found (audit, 2026-07-31). A surface that is not
+imported here is not guarded here, so the import list below IS the roster, and
+anything missing from it is called out in a TODO rather than left implied.
 
 Four shipped defects in a single week were all exactly that drift:
 
@@ -51,7 +58,7 @@ from __future__ import annotations
 
 import re
 
-from platterpus.eac_log_export import render_eac_style_log
+from platterpus.eac_log_export import _accuraterip_line, render_eac_style_log
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RipLog,
@@ -60,7 +67,24 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
 )
 from platterpus.rip_report import build_report
+
+# The on-screen results table. Importing a `ui.` module here is safe and
+# deliberate: `_ar_cell` is a pure text function and `rip_progress` imports
+# cleanly with no ``QApplication`` (verified — nothing at import time touches a
+# widget), so the whole file stays Qt-free and cheap. Private names are used on
+# purpose: `_ar_cell` and `_accuraterip_line` are the two *per-track* renderers,
+# which is the level at which they can be compared at all. That they really are
+# what the user sees is pinned separately, in
+# ``test_the_per_track_log_line_is_what_the_rendered_log_actually_carries``.
+from platterpus.ui.rip_progress import _ar_cell
 from platterpus.verdict import accuraterip_counts, accuraterip_verdict
+
+# TODO(roster): `platterpus.ui.main_window_helpers.fidelity_summary` — the status
+# line — is the fifth surface and is NOT guarded here yet. It is being fixed
+# concurrently by the worker who owns `ui/main_window_rip.py`,
+# `ui/main_window_helpers.py` and `verdict.py`; adding it here at the same time
+# would collide with them. Add it (and its AccurateRip state agreement) once that
+# change has landed.
 
 # --- scenario builders (modelled on the real hardware runs) ------------------
 
@@ -334,3 +358,297 @@ def test_a_disc_absent_from_accuraterip_over_claims_nowhere() -> None:
     assert "Accurately ripped (confidence" not in text
     assert "offset-variant" not in text
     assert all(t["accuraterip_verified"] is False for t in report["tracks"])
+
+
+# --- The four AccurateRip states, and the two surfaces that must agree -------
+#
+# AccurateRip can put a track in exactly FOUR states. Both renderers below have
+# to place a given track in the same one; which words they use for it is their
+# own business (a narrow table column cannot spell out what a log line can).
+#
+# The states are defined here from the *data*, independently of either
+# implementation, so this table is a specification rather than a restatement of
+# one renderer's if-chain:
+#
+#   VERIFIED   — an exact v1/v2 checksum match (confidence >= 1).
+#   OFFSET     — no exact match, but the +450-frame offset-variant pressing
+#                matched: in the database, partially accurate.
+#   NO_MATCH   — the disc IS in the database (cyanrip printed a per-track
+#                "Accurip" line, checksum included, which it only does for a
+#                disc it found) but no stored copy matches our read. "Not in the
+#                database" is a FALSE statement about such a track.
+#   ABSENT     — nothing was submitted for this disc, so there was nothing to
+#                compare against. This is the only state "not in DB" describes.
+#
+# The bug this section exists for (2026-07-31): the EAC-compatible log grew a
+# fourth state on 2026-07-28 ("Cannot be verified as accurate") precisely because
+# calling a NO_MATCH track absent is a false claim — and the on-screen table was
+# never told, so the durable artifact and the screen made contradictory claims
+# about the same parsed track, with the screen making the false one.
+
+_STATE_VERIFIED = "VERIFIED"
+_STATE_OFFSET = "OFFSET"
+_STATE_NO_MATCH = "NO_MATCH"
+_STATE_ABSENT = "ABSENT"
+
+# Row-level precedence: what the *row* claims is its strongest statement. A row
+# can hold two different per-column states (v1 exact, v2 missed, say), and the
+# log writes ONE line per track, so comparing them needs this reduction. Ordered
+# most- to least-informative, matching the order the log line itself tries.
+_STATE_PRECEDENCE: tuple[str, ...] = (
+    _STATE_VERIFIED,
+    _STATE_OFFSET,
+    _STATE_NO_MATCH,
+    _STATE_ABSENT,
+)
+
+
+def _state_from_log_line(line: str) -> str:
+    """Classify the EAC-compatible log's per-track AccurateRip line."""
+    if line.startswith("Accurately ripped"):
+        return _STATE_VERIFIED
+    if line.startswith("Matched an offset-variant pressing"):
+        return _STATE_OFFSET
+    if line.startswith("Cannot be verified as accurate"):
+        return _STATE_NO_MATCH
+    if line.startswith("Track not present in AccurateRip database"):
+        return _STATE_ABSENT
+    # Deliberately loud: new wording must be classified on purpose, not silently
+    # bucketed into whichever state happens to match first.
+    raise AssertionError(f"unclassifiable EAC log line: {line!r}")
+
+
+def _state_from_table_cell(cell: str) -> str | None:
+    """Classify one results-table AR cell. ``None`` = this column said nothing."""
+    if cell.startswith("OK ("):
+        return _STATE_VERIFIED
+    if cell.startswith("offset-variant match"):
+        return _STATE_OFFSET
+    if cell == "in DB, no match":
+        return _STATE_NO_MATCH
+    if cell == "not in DB":
+        return _STATE_ABSENT
+    if cell == "—":
+        # An empty column claims nothing at all. At row level that is the same
+        # thing the log's "not present" says: no evidence either way.
+        return None
+    raise AssertionError(f"unclassifiable results-table AR cell: {cell!r}")
+
+
+def _state_from_table_row(track: TrackResult) -> str:
+    """Classify what the on-screen results ROW says about a track.
+
+    The table renders v1 and v2 as separate columns; the log writes one line. So
+    take the row's strongest claim — that is what a reader takes away from it.
+    """
+    offset = track.accuraterip_offset
+    cells = (
+        _ar_cell(track.accuraterip_v1, offset_result=offset),
+        _ar_cell(track.accuraterip_v2, offset_result=offset),
+    )
+    states = {s for s in (_state_from_table_cell(c) for c in cells) if s is not None}
+    for state in _STATE_PRECEDENCE:
+        if state in states:
+            return state
+    return _STATE_ABSENT  # nothing but "—": the row makes no claim
+
+
+def _ar(
+    version: int,
+    result: str,
+    confidence: int | None,
+    *,
+    local_crc: str | None = "BF62B1DA",
+) -> AccurateRipResult:
+    """One AR result. ``local_crc`` present = we computed a checksum and compared.
+
+    cyanrip's real per-track lines always carry that checksum
+    ("Accurip v2:  9ABCDEF0 (not found, either a new pressing, or bad rip)"), and
+    it only prints them for a disc it found in the database — which is what makes
+    the checksum the evidence that a comparison happened. Pass ``local_crc=None``
+    for a result that carries no comparison.
+    """
+    return AccurateRipResult(
+        version=version, result=result, confidence=confidence, local_crc=local_crc
+    )
+
+
+# cyanrip's real wording for "compared, matched nothing" — the exact string the
+# results table used to render as "not in DB".
+_CYANRIP_NO_MATCH = "not found, either a new pressing, or bad rip"
+
+# One case per state, each a TrackResult built from what a real cyanrip log
+# produces. Modelled on the Police "Classics" disc, which produced states 1-2 on
+# real hardware, and on cyanrip's own documented output for 3-4.
+AR_STATE_CASES: tuple[tuple[str, str, TrackResult], ...] = (
+    (
+        "exact match with confidence",
+        _STATE_VERIFIED,
+        TrackResult(
+            number=1,
+            filename="01.flac",
+            copy_crc="AAAA0001",
+            status="ripped successfully",
+            accuraterip_v2=_ar(2, "accurately ripped, confidence 200", 200),
+        ),
+    ),
+    (
+        "offset-variant pressing only",
+        _STATE_OFFSET,
+        TrackResult(
+            number=2,
+            filename="02.flac",
+            copy_crc="AAAA0002",
+            status="ripped successfully",
+            accuraterip_v1=_ar(1, _CYANRIP_NO_MATCH, None),
+            accuraterip_v2=_ar(2, _CYANRIP_NO_MATCH, None),
+            accuraterip_offset=_ar(
+                450, "matches Accurip DB, track is partially accurately ripped", 200
+            ),
+        ),
+    ),
+    (
+        "in the database, no stored copy matches our read",
+        _STATE_NO_MATCH,
+        TrackResult(
+            number=3,
+            filename="03.flac",
+            copy_crc="AAAA0003",
+            status="ripped successfully",
+            accuraterip_v1=_ar(1, _CYANRIP_NO_MATCH, None),
+            accuraterip_v2=_ar(2, _CYANRIP_NO_MATCH, None),
+        ),
+    ),
+    (
+        "in the database, and even the offset variant missed",
+        _STATE_NO_MATCH,
+        TrackResult(
+            number=4,
+            filename="04.flac",
+            copy_crc="AAAA0004",
+            status="ripped successfully",
+            accuraterip_offset=_ar(450, _CYANRIP_NO_MATCH, None),
+        ),
+    ),
+    (
+        "genuinely absent: nobody has submitted this disc",
+        _STATE_ABSENT,
+        TrackResult(
+            number=5,
+            filename="05.flac",
+            copy_crc="AAAA0005",
+            status="ripped successfully",
+        ),
+    ),
+)
+
+
+def test_the_state_case_table_covers_every_accuraterip_state() -> None:
+    """A floor, so the agreement test below cannot pass by examining nothing.
+
+    Four states exist; a table that quietly lost one would still be green while
+    guarding three quarters of the surface (the "can this check be satisfied by
+    finding nothing?" rule in CLAUDE.md).
+    """
+    covered = {expected for _, expected, _ in AR_STATE_CASES}
+    assert covered == {
+        _STATE_VERIFIED,
+        _STATE_OFFSET,
+        _STATE_NO_MATCH,
+        _STATE_ABSENT,
+    }, f"the case table no longer covers every AccurateRip state: {covered}"
+    assert len(AR_STATE_CASES) >= 4
+
+
+def test_the_log_and_the_results_table_agree_on_the_accuraterip_state() -> None:
+    """The agreement itself: one track, one state, two surfaces.
+
+    Neither surface has to use the other's words — the log has room for a
+    sentence, the table has room for two — but they may not place the same track
+    in different states. This is the assertion that was missing when the log
+    learned about the "in the database, no match" state and the table did not.
+    """
+    for name, expected, track in AR_STATE_CASES:
+        log_state = _state_from_log_line(_accuraterip_line(track))
+        table_state = _state_from_table_row(track)
+        assert log_state == table_state, (
+            f"{name}: the durable log puts this track in {log_state} but the "
+            f"on-screen results table puts it in {table_state} — the same parsed "
+            "track, two contradictory claims"
+        )
+        # And both must be in the state the DATA says, so an agreed-upon wrong
+        # answer can't pass either.
+        assert log_state == expected, (
+            f"{name}: expected {expected}, both surfaces say {log_state}"
+        )
+
+
+def test_no_surface_calls_a_compared_track_absent_from_the_database() -> None:
+    """The specific false claim, named. Regression for the 2026-07-31 finding.
+
+    A track cyanrip compared against the database (it printed a checksum for it)
+    is *in* that database. Saying "not in DB" — or the log's "not present" — about
+    it is factually false, whichever surface says it.
+    """
+    compared = [
+        (name, track)
+        for name, expected, track in AR_STATE_CASES
+        if expected == _STATE_NO_MATCH
+    ]
+    assert compared, "no compared-but-unmatched case left to check"
+    for name, track in compared:
+        line = _accuraterip_line(track)
+        offset = track.accuraterip_offset
+        cells = [
+            _ar_cell(track.accuraterip_v1, offset_result=offset),
+            _ar_cell(track.accuraterip_v2, offset_result=offset),
+        ]
+        assert "not present" not in line, f"{name}: the durable log claims absence"
+        for cell in cells:
+            assert cell != "not in DB", (
+                f"{name}: the results table says {cell!r} about a track the "
+                "database demonstrably has — the exact false claim the log's "
+                "fourth state was added to remove"
+            )
+
+
+def test_the_per_track_log_line_is_what_the_rendered_log_actually_carries() -> None:
+    """Pin the stand-in: `_accuraterip_line` is not a private detour.
+
+    The agreement above compares two *private* per-track renderers, which is only
+    meaningful if the log's line really reaches the durable artifact. Render the
+    whole log for each case and find the line in it — otherwise this file could
+    happily verify a function the user never sees.
+    """
+    for name, _, track in AR_STATE_CASES:
+        rip_log = RipLog(
+            log_creator="cyanrip 0.9.3",
+            ripping_info=RippingInfo(drive="PIONEER BDR-209D"),
+            tracks=(track,),
+            health_status="No errors occurred",
+        )
+        text = render_eac_style_log(rip_log)
+        assert _accuraterip_line(track) in text, (
+            f"{name}: the per-track AccurateRip line never reaches the rendered "
+            "EAC-compatible log"
+        )
+
+
+def test_every_scenario_track_lands_in_the_same_state_on_both_surfaces() -> None:
+    """The same agreement over the whole-disc scenarios, not just the case table.
+
+    Cheap breadth: the scenarios above are the real hardware runs, so any state
+    they contain that the case table forgot is still covered here.
+    """
+    examined = 0
+    for name, build in SCENARIOS.items():
+        rip_log = build()
+        for track in rip_log.tracks:
+            log_state = _state_from_log_line(_accuraterip_line(track))
+            table_state = _state_from_table_row(track)
+            assert log_state == table_state, (
+                f"{name}: track {track.number} is {log_state} in the durable log "
+                f"and {table_state} in the results table"
+            )
+            examined += 1
+    assert examined >= 12, f"only {examined} tracks examined across the scenarios"

@@ -9,6 +9,7 @@ crashes.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -375,3 +376,199 @@ def test_the_fatal_dialog_refuses_to_build_widgets_off_the_gui_thread(
         "the log line does not name the thread, so a reader cannot tell which "
         f"background task failed. Records: {messages!r}"
     )
+
+
+# --- termination signals (the 2026-07-01 bug through a third door) ----------
+
+
+def test_termination_handlers_close_the_window_and_quit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SIGTERM/SIGINT must go through the real `closeEvent`, not kill us dead.
+
+    `closeEvent` was the ONLY thing that stopped the in-container reader. podman
+    does not forward signals into the container, so a session logout or
+    `kill <pid>` during a rip left cyanrip ripping and holding the drive — and the
+    drive ignores its own eject button while a read holds the device, so there was
+    no in-app *and* no hardware way out.
+
+    The handler deliberately does almost nothing (it runs between arbitrary
+    bytecodes); the QTimer slot does the work. So this test drives the timer's
+    signal directly, which is exactly what the event loop would do.
+    """
+    import signal
+
+    from PySide6.QtWidgets import QApplication
+
+    closed: list[bool] = []
+    quit_called: list[bool] = []
+
+    class _FakeWindow:
+        def close(self) -> None:
+            closed.append(True)
+
+    # The QTimer needs a real QObject parent, so the real application object is
+    # used and its `quit` is intercepted — a fake app would not be a valid parent,
+    # and asserting on a fake whose `quit` is never reached is how this test
+    # passed while proving nothing the first time it was written.
+    qapp = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(qapp, "quit", lambda: quit_called.append(True))
+
+    # Save and restore the process-wide handlers. Leaking a SIGTERM handler into
+    # the rest of the suite would be a real bug in this test, not a detail.
+    saved = {sig: signal.getsignal(sig) for sig in app_module._TERMINATION_SIGNALS}
+    try:
+        timer = app_module._install_termination_handlers(
+            qapp,
+            _FakeWindow(),  # type: ignore[arg-type]  # only close() is used
+        )
+        assert timer is not None, "handlers must install on the main thread"
+        try:
+            # Nothing has arrived yet: a tick must NOT tear the app down.
+            timer.timeout.emit()
+            assert closed == [] and quit_called == [], (
+                "the timer ticks constantly; it must be inert until a signal lands"
+            )
+
+            # Now deliver SIGTERM the way the OS would — through the installed
+            # handler. Calling the handler directly (rather than os.kill) keeps the
+            # test from depending on signal-delivery timing.
+            handler = signal.getsignal(signal.SIGTERM)
+            assert callable(handler), "SIGTERM must have a callable handler installed"
+            handler(signal.SIGTERM, None)
+
+            timer.timeout.emit()
+            assert closed == [True], (
+                "the window must be CLOSED, so the real closeEvent stops the rip "
+                "and frees the drive — never a second copy of the teardown"
+            )
+            assert quit_called == [True], "and the app must actually exit"
+        finally:
+            timer.stop()
+    finally:
+        for sig, previous in saved.items():
+            signal.signal(sig, previous)
+
+
+def test_termination_handlers_degrade_when_signals_cannot_be_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`signal.signal` raises ValueError off the main thread — the normal case
+    under a test runner or an embedded interpreter. That must not stop the app
+    from starting; it just keeps the old behaviour for that signal."""
+    import signal as signal_module
+
+    def refuse(_sig: int, _handler: object) -> object:
+        raise ValueError("signal only works in main thread")
+
+    monkeypatch.setattr(app_module.signal, "signal", refuse)
+    result = app_module._install_termination_handlers(
+        object(),  # type: ignore[arg-type]  # never touched on this path
+        object(),  # type: ignore[arg-type]
+    )
+    assert result is None, "no handlers installed → no timer to keep alive"
+    # And the real handlers are untouched.
+    assert signal_module.getsignal(signal_module.SIGTERM) is not refuse
+
+
+# --- CLI path arguments (audit, 2026-07-31) ----------------------------------
+#
+# `argparse`'s `type=Path` constructs a Path; it validates nothing. So a folder
+# argument reached the code unchecked: a missing folder was reported as "No .flac
+# files found in …" (the wrong subsystem, preceded by an unrelated warning about a
+# missing rip log), and a relative folder named "-x" ("./-x" normalises to "-x")
+# produced "-x/track.flac" argv entries that `flac`/`metaflac` parse as OPTIONS.
+
+
+def test_ctdb_calibrate_rejects_a_missing_folder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, capsys: pytest.CaptureFixture
+) -> None:
+    """A specific error naming the folder — never the misleading "no FLACs"."""
+    import platterpus.ctdb.diagnose as diag
+
+    monkeypatch.setattr(
+        diag,
+        "run_diagnostics",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("diagnostics ran")),
+    )
+    rc = app_module.main(["--ctdb-calibrate", str(tmp_path / "not-there")])
+    assert rc == 2
+    out = capsys.readouterr().out
+    assert "does not exist" in out
+    assert "not-there" in out
+
+
+def test_ctdb_calibrate_rejects_a_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, capsys: pytest.CaptureFixture
+) -> None:
+    import platterpus.ctdb.diagnose as diag
+
+    monkeypatch.setattr(
+        diag,
+        "run_diagnostics",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("diagnostics ran")),
+    )
+    target = tmp_path / "album.flac.json"
+    target.write_text("{}", encoding="utf-8")
+    rc = app_module.main(["--ctdb-calibrate", str(target)])
+    assert rc == 2
+    assert "not a folder" in capsys.readouterr().out
+
+
+def test_ctdb_calibrate_hands_diagnostics_an_absolute_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """The dependency-argument half of the rule: an absolute path can never be
+    mistaken for an option by `flac`/`metaflac`, because it starts with "/"."""
+    import platterpus.ctdb.diagnose as diag
+
+    seen: list[object] = []
+    monkeypatch.setattr(
+        diag, "run_diagnostics", lambda folder, **k: (seen.append(folder), 0)[1]
+    )
+    dashed = tmp_path / "-x"
+    dashed.mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    rc = app_module.main(["--ctdb-calibrate", "./-x"])
+    assert rc == 0
+    assert len(seen) == 1
+    folder = seen[0]
+    assert isinstance(folder, Path)
+    assert folder.is_absolute()
+    assert str(folder).startswith("/")
+
+
+def test_doctor_prints_the_config_reset_notice(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """`--doctor` is the no-GUI front end, so a reset that only reached the log
+    file would be the same silent reset the GUI notice exists to prevent (a reset
+    `read_offset` rips the next disc at the wrong offset)."""
+    from platterpus import config as config_module
+    from platterpus import preflight
+    from platterpus import settings_validation as sv
+
+    monkeypatch.setattr(config_module, "load", lambda: config_module.Config())
+    monkeypatch.setattr(
+        config_module,
+        "take_load_resets",
+        lambda: [
+            sv.ResetRecord(
+                field="read_offset",
+                message="Read offset must be between -5000 and 5000.",
+                old_value="99999",
+                new_value="0",
+            )
+        ],
+    )
+    monkeypatch.setattr(preflight, "run_preflight", lambda ctx, **k: [])
+    monkeypatch.setattr(preflight, "format_details", lambda results: "")
+    monkeypatch.setattr(preflight, "format_summary", lambda results, **k: "ok")
+    monkeypatch.setattr(preflight, "exit_code", lambda results: 0)
+
+    rc = app_module.main(["--doctor"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Read offset must be between -5000 and 5000." in out
+    assert "99999" in out

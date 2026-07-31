@@ -21,6 +21,8 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from platterpus import rip_files
+
 # Audio extensions we fingerprint — the FLAC master plus every format the
 # transcode adapter can derive. Lower-cased; matched case-insensitively.
 _AUDIO_SUFFIXES: frozenset[str] = frozenset({".flac", ".mp3", ".wav", ".wv", ".m4a"})
@@ -42,7 +44,14 @@ def sha256_file(path: Path) -> str:
 
 
 def audio_files(rip_dir: Path) -> list[Path]:
-    """Every audio file under `rip_dir`, sorted, for a stable digest order."""
+    """Every audio file under `rip_dir`, sorted, for a stable digest order.
+
+    The unscoped folder scan. :func:`compute_digests` no longer calls this
+    directly — it asks :mod:`platterpus.rip_files` which files *this rip* wrote,
+    and that module uses a scan like this one only as its logged fallback. Kept
+    public because "everything audio under this folder" is still a useful,
+    honestly-named question for callers that mean exactly that.
+    """
     try:
         return sorted(
             p
@@ -58,6 +67,13 @@ def audio_files(rip_dir: Path) -> list[Path]:
 def compute_digests(rip_dir: Path) -> dict[str, str]:
     """Map each audio file (relative POSIX path) to its SHA256, for the report.
 
+    Scoped to the files THIS rip produced — its FLAC masters plus whatever was
+    derived from them — via :mod:`platterpus.rip_files`, not to everything audio
+    in the folder. The manifest is the report's own integrity record, so
+    fingerprinting a leftover from an earlier cancelled rip would attest to a
+    file this rip never wrote. When no rip log can scope it, rip_files falls back
+    to the full folder scan and logs that it did.
+
     Never raises: a file that can't be read maps to ``"unreadable: <error>"``
     instead of aborting the whole set. Streams each file, so it's safe on large
     albums — but it still does real disk I/O, so callers must run it OFF the GUI
@@ -65,7 +81,7 @@ def compute_digests(rip_dir: Path) -> dict[str, str]:
     derived files are included too).
     """
     digests: dict[str, str] = {}
-    for path in audio_files(rip_dir):
+    for path in rip_files.rip_audio_files(rip_dir).files:
         rel = path.relative_to(rip_dir).as_posix()
         try:
             digests[rel] = sha256_file(path)

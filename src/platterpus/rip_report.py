@@ -107,6 +107,12 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     unusually heavy re-reading (or a -Z that never converged) even when they
 #     ultimately matched AccurateRip: the earliest in-rip "this may not be
 #     reproducible" hint (see parsers.rip_log.tracks_needing_heavy_reread).
+#
+# NOT a version bump: `issues` gained a `tagging_failed` code (2026-07-31). A new
+# code inside an existing, already-declared list shape is additive in a way no
+# consumer can trip over — every reader iterates `issues` — whereas a new
+# top-level or `verification` key changes a key set that consumers and tests pin
+# exactly. Bump the version for a shape change, not for a new value in one.
 REPORT_SCHEMA_VERSION: int = 9
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
@@ -129,6 +135,7 @@ def build_report(
     derived_verify_result: object | None = None,
     recompress_result: object | None = None,
     cover_art_result: object | None = None,
+    tagging_result: object | None = None,
     read_speed: dict | None = None,
     secure_rerip: dict | None = None,
     eta_trace: list | None = None,
@@ -142,6 +149,7 @@ def build_report(
     environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
+    disc_track_total: int | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -180,6 +188,7 @@ def build_report(
             eta_trace,
             recompress_result=recompress_result,
             cover_art_result=cover_art_result,
+            tagging_result=tagging_result,
             secure_rerip=secure_rerip,
             outcome=outcome,
             settings=settings,
@@ -187,6 +196,7 @@ def build_report(
             environment=environment,
             gates=gates,
             log_parse=log_parse,
+            disc_track_total=disc_track_total,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -427,6 +437,7 @@ def _build(
     *,
     recompress_result: object | None = None,
     cover_art_result: object | None = None,
+    tagging_result: object | None = None,
     secure_rerip: dict | None = None,
     outcome: dict | None = None,
     settings: dict | None = None,
@@ -434,8 +445,20 @@ def _build(
     environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
+    disc_track_total: int | None = None,
 ) -> dict:
-    message, level = accuraterip_verdict(rip_log)
+    # The JSON's verdict must be the SAME claim the window makes, so it is given
+    # the same two extra facts: the disc's own track count (the only denominator a
+    # stopped rip cannot shrink) and the rip's outcome. Without them a cancelled
+    # 2-of-14 rip serialised `{"level": "ok", "message": "Bit-perfect: all 2
+    # tracks verified against AccurateRip"}` (found on the rig, 2026-07-30).
+    message, level = accuraterip_verdict(
+        rip_log,
+        disc_track_total=disc_track_total,
+        outcome_status=(
+            str(outcome.get("status") or "") if isinstance(outcome, dict) else ""
+        ),
+    )
     info = getattr(rip_log, "ripping_info", None)
     # Serialize the verification sub-blocks once, into locals, so both the
     # `verification` block below and the derived `issues` list read the SAME
@@ -448,6 +471,12 @@ def _build(
     recompress = _recompress(recompress_result)
     ctdb = _ctdb(ctdb_result)
     cover_art = _cover_art(cover_art_result)
+    # Tagging feeds `issues` ONLY — it deliberately gets no block of its own. The
+    # severity-tagged `issues` list is already the report's declared home for
+    # "what went wrong" (report_types.IssueBlock), and every `verification`
+    # sub-block is part of a key set consumers and tests pin exactly, so a new one
+    # would be a wire-format change for a fact that fits an existing field.
+    tagging = _tagging(tagging_result)
     read_speed_block = dict(read_speed) if read_speed else None
     if secure_rerip is not None:
         read_speed_block = read_speed_block or {}
@@ -465,6 +494,7 @@ def _build(
         derived=derived,
         transcode=transcode,
         cover_art=cover_art,
+        tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
     )
@@ -777,6 +807,34 @@ def _cover_art(result: object | None) -> dict | None:
     }
 
 
+def _tagging(result: object | None) -> dict | None:
+    """Serialize the post-rip tagging outcome for the ``issues`` derivation.
+
+    Unlike its siblings this does NOT become a report block: a tagging failure is
+    recorded as an ``issues`` entry (``tagging_failed``), because that list is the
+    report's declared home for "what went wrong" and it can grow a new code
+    without changing any key set a consumer pins. This helper exists so the issue
+    text is derived from ONE duck-typed read of the result (the house pattern),
+    not from getattr calls scattered through :func:`_issues`.
+
+    Duck-typed via ``getattr`` like every serializer here, so a partial object
+    never raises. None when tagging didn't run (an identified disc is tagged by
+    the ripper itself, so this is the common case). Never raises.
+    """
+    if result is None or not getattr(result, "ran", False):
+        return None
+    failures = [str(name) for name in (getattr(result, "failures", ()) or ())]
+    error = getattr(result, "error", "") or None
+    return {
+        "ran": True,
+        "ok": (not failures) and (error is None),
+        "attempted": getattr(result, "attempted", 0),
+        "tagged": getattr(result, "tagged", 0),
+        "failures": failures,
+        "error": error,
+    }
+
+
 def _log_parse(rip_log: object, override: dict | None) -> dict:
     """The ``log_parse`` block: did the human ``.log`` parse into real content?
 
@@ -801,6 +859,7 @@ def _issues(
     transcode: dict | None,
     cover_art: dict | None,
     read_speed: dict | None,
+    tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
@@ -935,6 +994,30 @@ def _issues(
             or "the front cover could not be fetched or embedded",
         )
 
+    # Tagging. `apply_track_tags` logged each per-file failure and returned the
+    # successes, and its caller discarded them — so an album that shipped with no
+    # tags at all produced a report that mentioned tagging nowhere and a window
+    # that said "Done." The audio is untouched either way, hence `warning` and the
+    # explicit "the audio is unaffected": this is a metadata problem, not a rip
+    # problem, and conflating the two is how a triager wastes an hour.
+    if tagging and tagging.get("ran") and not tagging.get("ok"):
+        whole_pass_error = tagging.get("error")
+        if whole_pass_error:
+            detail = f"the tagging pass failed outright ({whole_pass_error})"
+        else:
+            failed = tagging.get("failures") or []
+            attempted = tagging.get("attempted") or 0
+            detail = (
+                f"tags could not be written to {len(failed)} of {attempted} "
+                f"file(s): {', '.join(str(name) for name in failed[:10])}"
+                + (", …" if len(failed) > 10 else "")
+            )
+        add(
+            "warning",
+            "tagging_failed",
+            f"{detail} — the audio is unaffected; the files can be tagged with Picard",
+        )
+
     return issues
 
 
@@ -974,6 +1057,7 @@ def write_report(
     derived_verify_result: object | None = None,
     recompress_result: object | None = None,
     cover_art_result: object | None = None,
+    tagging_result: object | None = None,
     read_speed: dict | None = None,
     secure_rerip: dict | None = None,
     eta_trace: list | None = None,
@@ -987,6 +1071,7 @@ def write_report(
     environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
+    disc_track_total: int | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -1005,6 +1090,7 @@ def write_report(
             derived_verify_result=derived_verify_result,
             recompress_result=recompress_result,
             cover_art_result=cover_art_result,
+            tagging_result=tagging_result,
             read_speed=read_speed,
             secure_rerip=secure_rerip,
             eta_trace=eta_trace,
@@ -1018,6 +1104,7 @@ def write_report(
             environment=environment,
             gates=gates,
             log_parse=log_parse,
+            disc_track_total=disc_track_total,
         )
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is

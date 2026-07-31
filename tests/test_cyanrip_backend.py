@@ -705,14 +705,48 @@ def test_a_failed_disc_probe_raises_instead_of_looking_like_an_unknown_disc(
     )
 
 
+def test_version_raises_on_a_nonzero_exit_instead_of_returning_a_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: the `--doctor` false-PASS on its most important check.
+
+    `version()` used to run `-V` non-strict, so a broken host export (dead
+    container, missing podman, unexported binary) came back as an ordinary
+    *string* — and `preflight.check_backend_routing` treats a returned string as
+    proof the host→Distrobox→cyanrip chain works, printing that string as "the
+    version". `--doctor` then exited 0 on an environment that cannot rip. The exit
+    code is visible only in here, so the conversion to an error belongs in here.
+    """
+    from types import SimpleNamespace
+
+    import platterpus.adapters.rip_backend as mod
+
+    monkeypatch.setattr(
+        mod.INFO_PROBE,
+        "run",
+        lambda *a, **k: SimpleNamespace(
+            returncode=127,
+            stdout="",
+            stderr="Error: cannot connect to Podman socket\n",
+        ),
+    )
+
+    with pytest.raises(RipError) as info:
+        _impl().version()
+
+    # The doctor surfaces this message verbatim, so it must carry cyanrip's words.
+    assert "exit 127" in str(info.value)
+    assert "Podman" in str(info.value)
+
+
 def test_a_failed_probe_logs_the_tools_own_output(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The other half: it must land in the LOG, which is what a bug report carries.
 
-    Uses the version probe (non-strict) precisely to prove the logging happens even
-    where the failure is tolerated — swallowing quietly is the behaviour being fixed,
-    and a lenient caller is where that is easiest to reintroduce.
+    Uses the version probe, which now also *raises* (see the test above) — the
+    logging must happen regardless of what the caller does with the failure, since
+    swallowing quietly is the behaviour being fixed.
     """
     from types import SimpleNamespace
 
@@ -726,8 +760,8 @@ def test_a_failed_probe_logs_the_tools_own_output(
         ),
     )
 
-    with caplog.at_level("WARNING"):
-        _impl().version()  # tolerated: returns whatever it got
+    with caplog.at_level("WARNING"), pytest.raises(RipError):
+        _impl().version()
 
     messages = " ".join(r.getMessage() for r in caplog.records)
     assert "cannot connect to Podman" in messages, (
@@ -735,3 +769,70 @@ def test_a_failed_probe_logs_the_tools_own_output(
         f"capture a dependency's output and log it. Records were: {messages!r}"
     )
     assert "exited 127" in messages
+
+
+# --- Metadata that becomes a path segment (audit, 2026-07-31) ----------------
+#
+# cyanrip substitutes the album artist / album title / track title / track artist
+# into the naming schemes we hand it as `-D`/`-F`, so each becomes one folder or
+# file name. It maps the path-ILLEGAL characters inside a value ("/" → "∕",
+# ":" → "∶", docs/dependency-contracts.md) but nothing maps "." and "..", the two
+# segments POSIX reserves for *this* and *the parent* directory — so an album
+# titled ".." made `-D` resolve ABOVE the output directory and the rip landed
+# outside the folder the user chose. Identical to the `%Y` escape fixed on
+# 2026-07-28, which was only ever closed for the one token Platterpus substitutes
+# itself. `main_window_helpers.safe_path_segment` refuses ".."/"." for the
+# unknown-album path; the ordinary known-disc path had no such guard.
+
+
+@pytest.mark.parametrize(
+    "meta",
+    [
+        RipMetadata(album_artist="..", album_title="Album"),
+        RipMetadata(album_artist="Artist", album_title=".."),
+        RipMetadata(album_artist="Artist", album_title="."),
+        RipMetadata(album_artist="Artist", album_title=" .. "),
+        RipMetadata(album_title="Album", tracks=(TrackTag(1, ".."),)),
+        RipMetadata(album_title="Album", tracks=(TrackTag(1, "T", ".."),)),
+    ],
+)
+def test_path_reference_metadata_refuses_to_build_argv(meta: RipMetadata) -> None:
+    """The rip fails LOUDLY rather than writing outside the output directory —
+    matching the documented contract that an unusable name is never silent."""
+    with pytest.raises(RipError) as excinfo:
+        _metadata_args(meta, release_id="")
+    assert "outside your output directory" in str(excinfo.value)
+
+
+def test_path_reference_metadata_is_refused_by_the_full_argv_builder() -> None:
+    """The guard has to sit on the real rip path, not just the helper — a check
+    that only the helper's own test reaches is not protecting the rip."""
+    with pytest.raises(RipError):
+        _impl()._build_rip_argv(
+            "/dev/sr0",
+            unknown=False,
+            cover_art="embed",
+            max_retries=5,
+            read_offset_override=None,
+            track_template="%A/%d/%t - %n",
+            metadata=RipMetadata(album_artist="A", album_title=".."),
+        )
+
+
+def test_a_nul_in_metadata_is_refused_before_subprocess_sees_it() -> None:
+    """`subprocess` raises ValueError on an embedded NUL, which would surface as
+    a crash mid-rip instead of a message. Refuse it at the boundary."""
+    with pytest.raises(RipError) as excinfo:
+        _metadata_args(RipMetadata(album_title="Ab\x00cd"), release_id="")
+    assert "illegal character" in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["...", "..and Justice for All", "Vol. 2.", ".hidden", "Every Breath You Take"],
+)
+def test_ordinary_titles_still_build_argv(title: str) -> None:
+    """The guard must not become a general-purpose sanitiser — cyanrip owns
+    naming (Critical rule #3), and these are all ordinary Linux directory names."""
+    args = _metadata_args(RipMetadata(album_title=title), release_id="")
+    assert any(title in a for a in args)

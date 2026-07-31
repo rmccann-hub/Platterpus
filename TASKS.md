@@ -22,6 +22,56 @@ When a task changes status, update it here in the same commit as the code change
 
 ## P0 — v1 release
 
+### ⭐ First-rip proof — raised by the maintainer 2026-07-30, needs a decision before work starts
+
+> *"this is great for already verified things, but this is done by people running EAC, more
+> confirmation helps confidence, but we need to be able to confidently be able to be the
+> gold standard first burn proof as well. until this this will not be a serious product."*
+
+**The gap is real and correctly identified.** Every strong claim the app can make today is
+*borrowed*: AccurateRip and CTDB both answer "do other people's rips agree with yours",
+so a disc nobody has submitted — a CD-R, a promo, an obscure pressing — gets grey
+"couldn't confirm" and the user is left with a Copy CRC that only proves FLAC encoded
+whatever was read. For a first rip the app currently has no verdict of its own.
+
+**What is physically achievable, stated honestly.** With one drive and no database the
+only available evidence is **reproducibility plus error accounting**: N independent reads
+returning identical bytes, with cache defeat *measured*, at a *confirmed* offset, and zero
+uncorrected paranoia events. That is exactly what EAC's Test & Copy is, and it is a strong
+claim — but it is categorically weaker than AccurateRip in one specific way that must
+never be glossed: **it cannot detect a systematic misread**, a drive that returns the same
+wrong bytes every time. Only a *second drive* breaks that, because it is the only way to
+vary the thing being tested. Any "gold standard" wording has to respect that boundary or
+it is the same borrowed confidence in a new costume.
+
+Four candidate pieces, cheapest first. **None started — the defaults question below is the
+maintainer's call, not mine:**
+
+1. **A first-rip verdict tier.** Today "not in AccurateRip" collapses to grey. Instead
+   report what we *can* prove, as its own named tier with its own colour: reads agreed
+   (N of N), cache defeat measured, offset confirmed by two sources, paranoia counts
+   clean, C2 status. All five facts are already collected — this is presentation, and it
+   is the highest value for the least risk.
+2. **Test & Copy on by default when AccurateRip has nothing.** The behaviour change that
+   makes tier 1 mean something: if no database can vouch for the disc, earn the proof
+   locally instead of shrugging. Costs a second full read (roughly doubles rip time) on
+   exactly the discs where it matters. ***Needs sign-off: is doubling the rip time
+   acceptable for an unknown disc?***
+3. **Cross-drive verification, as an explicit feature.** Rip in drive A, rip in drive B,
+   `--compare` the reports; agreement at each drive's own offset is the strongest evidence
+   a single owner can produce, and it is the only one that survives a systematic misread.
+   `--compare` already exists; this is a guided flow plus a verdict, not new machinery.
+4. **Submit to CTDB — become the datum rather than only consuming it.** Doesn't prove
+   *this* rip, but it is what "gold standard" means socially: the next person to rip the
+   disc can verify against us. AccurateRip submission is confirmed impossible from Linux;
+   CTDB submission needs investigation (the CUETools ecosystem, `ctdb-cli` — see P1 item
+   6, which is already on the list for repair rather than submission).
+
+**Also raised by the same run, and also a decision rather than a fix:** typed titles land
+in the tags and the `.cue` but not in the **filenames** (`03 - Track 03.flac`, not
+`03 - three3.flac`) on the unknown-disc path, because cyanrip names files from the
+placeholders it was given and Platterpus tags over the top afterwards. Sheet item **D4**.
+
 ### Foundation
 
 - [x] T01 — Repo scaffolding
@@ -425,7 +475,7 @@ From the trust/quality deep audit — see [docs/archive/trust-audit-2026-07-08.m
 - **[x] `pip-audit` CI job** + **scheduled `mutmut`** + warn-only "src changed without tests" check — DONE (round 2, 2026-07-08): gating `pip-audit` job in `ci.yml` (currently clean), weekly non-blocking `mutation.yml` (`mutmut` over `parsers/`, `verdict.py`, `ctdb/crc.py`), and the advisory `tests-touched` job.
 - **[x] Known-disc re-rip overwrite confirm — DONE (2026-07-08).** A known-disc rip whose target album folder already holds audio now shows a **Replace / Rip to a new folder / Cancel** dialog instead of silently overwriting. Pure helpers (`known_album_folder` renders the disc template the way cyanrip does; `suffix_album_folder_template` / `free_album_folder_templates` land a "keep both" rip in a fresh `(N)` sibling with tags intact) + the `_confirm_known_overwrite` dialog, all tested. (Full HW verification that the computed folder exactly matches cyanrip's on a marginal-title disc is still nice-to-have; the derivation mirrors the tested naming preview and can only *miss* a collision, never invent one.)
 - **[x] Re-rip comparison + read-effort/reconciliation trust improvements — DONE (2026-07-09).** From a trust audit of a v0.4.23 re-rip that had *silently* regressed one track across rips (invisible because Platterpus is stateless per rip). New pure `rip_compare.py` diffs two `.platterpus.json` reports of the same disc (per-track byte-identity + better-master call) — surfaced via a `--compare` CLI, an off-GUI-thread results-pane banner after a rip (`find_prior_report` keyed on the new TOC-derived `musicbrainz_disc_id`/`cddb_id`, report **schema v9**), and a non-destructive `--assemble-best-of` CLI. Plus: a per-track **read-effort** warning (`heavy_reread` issue + footnote; complements — doesn't replace — the cross-rip diff, since a quietly-consistent-wrong read trips neither), an **AR↔CTDB reconciliation** line (`verdict.reconcile_ar_ctdb`), and **offset-variant explanations** (tooltip + User-Guide glossary). ~60 tests added; ruff + mypy clean. Fixed a recency-sort bug in `find_prior_report` (ISO vs `mtime:` string compare) in self-review.
-- **[~] Finish the audit's un-run categories.** **Naming-scheme cross-FS safety — DONE (audited directly 2026-07-08):** no shippable bug on the Linux target; the NTFS/exFAT-reserved-name / length / collision hazards are a *documented cross-filesystem limitation* (now in `docs/dependency-contracts.md`), and re-sanitising cyanrip's output is rejected by Critical Rule #3 — the only open item is an *optional* non-blocking Settings warning (maintainer feature call). Input-validation — **now swept (confirmed 2026-07-09):** the Settings boundary (`settings_validation`) is comprehensive (completeness meta-test), AND the **config-file surface is validated at load** — `config.load()` calls `_sanitized()`, which runs the *same* `validate_config` boundary over the loaded TOML, logs every issue, and resets any error-level field to its default (so a hand-edited config.toml can't feed an out-of-range/`..`-traversal/control-char value into a rip). The **CLI-arg** diagnostic paths (`--doctor`/`--ctdb-calibrate`/`--compare`/`--assemble-best-of`) validate/handle bad paths in their own handlers (return exit codes, never crash). **Trust-claim-rendering sweep — DONE (2026-07-08):** two-phase verify+find-more workflow confirmed all 6 initial findings (one trust-critical) and found 5 more; **11 copy defects fixed** with regression tests (`tests/test_trust_copy_honesty.py`). The trust *engine* is sound; the dishonesty was static copy that drifted (an overclaim + stale "experimental" CTDB caveats from the KDD-16 flip). See `docs/archive/trust-audit-2026-07-08.md`. **The last remainder closed 2026-07-21:** the optional cross-FS Settings warning shipped (maintainer approved it) — `settings_validation.cross_fs_hazards` warns (never blocks) on a naming template whose *literal* text is Windows/NTFS-unsafe (reserved chars/device names, trailing dots/spaces); value-driven hazards stay a documented limitation (`docs/dependency-contracts.md` — the ripper owns naming, Critical rule #3). **This audit item is now fully complete.**
+- **[~] Finish the audit's un-run categories.** **Naming-scheme cross-FS safety — DONE (audited directly 2026-07-08):** no shippable bug on the Linux target; the NTFS/exFAT-reserved-name / length / collision hazards are a *documented cross-filesystem limitation* (now in `docs/dependency-contracts.md`), and re-sanitising cyanrip's output is rejected by Critical Rule #3 — the only open item is an *optional* non-blocking Settings warning (maintainer feature call). Input-validation — **now swept (confirmed 2026-07-09):** the Settings boundary (`settings_validation`) is comprehensive (completeness meta-test), AND the **config-file surface is validated at load** — `config.load()` calls `_sanitized()`, which runs the *same* `validate_config` boundary over the loaded TOML, logs every issue, and resets any error-level field to its default (so a hand-edited config.toml can't feed an out-of-range/`..`-traversal/control-char value into a rip). The **CLI-arg** diagnostic paths (`--doctor`/`--ctdb-calibrate`/`--compare`/`--assemble-best-of`) validate/handle bad paths in their own handlers (return exit codes, never crash). **Trust-claim-rendering sweep — DONE (2026-07-08):** two-phase verify+find-more workflow confirmed all 6 initial findings (one trust-critical) and found 5 more; **11 copy defects fixed** with regression tests (`tests/test_trust_copy_honesty.py`). The trust *engine* is sound; the dishonesty was static copy that drifted (an overclaim + stale "experimental" CTDB caveats from the KDD-16 flip). See `docs/archive/trust-audit-2026-07-08.md`. **The last remainder closed 2026-07-21:** the optional cross-FS Settings warning shipped (maintainer approved it) — `settings_validation.cross_fs_hazards` warns (never blocks) on a naming template whose *literal* text is Windows/NTFS-unsafe (reserved chars/device names, trailing dots/spaces); value-driven hazards stay a documented limitation (`docs/dependency-contracts.md` — the ripper owns naming, Critical rule #3). **Corrected 2026-07-31 — the "fully complete" claim above was wrong on three counts, all fixed in that session (see CHANGELOG):** (1) the config-file reset *was* logged but never **shown**, i.e. the silent reset the rule explicitly forbids, and for `read_offset` it silently ripped the next disc at the wrong offset (the hazard was already named in `main_window_drive._set_read_offset_override` and closed on the write path only) — every reset is now recorded and surfaced (GUI dialog + `--doctor`); (2) `--ctdb-calibrate` did **not** validate its path (a missing folder reported as "no FLACs found"; a relative `./-x` produced `-x/track.flac` argv entries that `flac` parses as options) — now validated and resolved at the boundary, `--compare`/`--assemble-best-of` really were fine; (3) the *value*-driven `.`/`..` hazard was filed as a cross-FS limitation, but it is a **path traversal on the Linux target** and ours to reject, not cyanrip's to map — the known-disc path fed `..` straight into `-D` (the unknown-album path had refused it since day one), now blocked by `settings_validation.path_segment_issue` at the track table and again in the argv builder.
 
 ### P1 — Documentation backlog
 
@@ -511,48 +561,135 @@ remains. None of these is speculative — each was traced to a file:line.
       *current* device at fire time, so cancelling on `sr0` and switching to `sr1` within
       5 s force-kills and ejects `sr1`. Fix: disarm in `_on_rip_finished`, and capture
       the device when arming rather than when firing.
-- **[ ] Stale files in the album folder contaminate the next rip's verification.**
+- **[x] Stale files in the album folder contaminate the next rip's verification.**
       The CTDB, FLAC-verify and derived-verify workers glob `*.flac` in the album folder.
       Scenario: cancel a rip (partial + one truncated FLAC), fix a track title, re-rip →
       "Replace" writes new filenames beside the old. CTDB then builds its TOC from 2N
       files (spurious "not in database"), FLAC verify decodes the truncated leftover
       (a ⚠ FAILED and a downgraded verdict on a clean rip), derived-verify's expected
       count doubles, and the checksum manifest records files this rip never wrote.
+      *Fixed:* "which files did this rip write?" is now one shared answer —
+      `platterpus.rip_files`, which reads the rip's own `.log` (the record that defines the
+      album folder in the first place) instead of listing it. All five call sites ask it: the
+      three verify workers, `checksums.compute_digests`, and `ctdb.diagnose.find_flacs`.
+      Degrades to the old folder scan when no log names the files, but logs the downgrade and
+      names any excluded leftover.
+      *Closed out 2026-07-31:* the six **mutating** siblings now route through the same
+      helper — `ui/main_window_rip.py`'s unknown-mode tagging, the colon-restore metaflac
+      pass, the FLAC re-compress and the transcode input, plus **both** embed loops in
+      `adapters/cover_art.py` (archive fetch and cover-art-from-a-file). These were the worse
+      half of the bug: the verify sites only *read* a leftover, while these wrote this disc's
+      metadata into it, re-compressed it, transcoded it into the library, embedded this
+      album's cover in it, and reported the inflated count as "embedded in N track(s)".
+      `_start_post_rip_processing` takes a `rip_log=` argument and the finish handler passes
+      its already-parsed `RipLog`, so the log is read once and all six agree on one list.
+      Regression test per site, each verified by reverting the fix.
 - **[ ] Closing the window during a rip can freeze it for up to ~100 s.**
       `_stop_rip_on_shutdown` calls `drive_control.free_drive()` **synchronously on the
       GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
       worst case. It also runs *before* the rip thread's own stop, so it eats the whole
       shared shutdown budget and guarantees the rip thread is abandoned.
-- **[ ] Abandoned `in_progress` reports are treated as legitimate priors.**
+- **[x] Abandoned `in_progress` reports are treated as legitimate priors.**
       `rip_compare.find_prior_report` filters on `same_disc` only, never on
       `outcome.status`. Closing mid-rip leaves the worker's `in_progress` snapshot on
       disk forever, and a later re-rip compares against it and warns about "tracks the
       previous rip didn't have" on a clean rip.
-- **[ ] Tagging failures are invisible.** `apply_track_tags` logs per-file
+      *Fixed 2026-07-31:* `rip_compare` now classifies every report as
+      complete / partial / abandoned from its own `outcome.status`
+      (`report_completeness`). Abandoned (`in_progress`) priors are never
+      auto-selected and the skip is logged; a cancelled/failed prior is still used
+      (real CRCs — not discarded) but loses to any complete prior and is labelled,
+      and a track the short side never reached no longer warns. A report with no
+      `outcome` block at all (pre-v7) still counts as a finished rip.
+- **[x] Tagging failures are invisible.** `apply_track_tags` logs per-file
       `MetaflacError` at WARNING and returns the successes; the caller discards the
       result. There is no signal, no status line, and no report field. Scenario: the disk
       fills during the metaflac pass → every FLAC ships untagged, the UI says Done.
+      *Fixed 2026-07-31:* `run_unknown_post_processing` returns a `TaggingResult`
+      (attempted / tagged / failing basenames / whole-pass error) and the post-rip daemon
+      delivers it on a new `tagging_done` signal — the same shape as every other post-rip
+      step. The GUI slot puts the failing count and names on the status line and in the rip
+      log view, and stops the trust banner claiming ✓ (the *audio* claim is still true and
+      the text says so — an untagged album is a metadata problem, not a rip problem). The
+      failures derive by *difference* from the returned successes, which also catches
+      `apply_track_tags`' other way of not tagging a file: a name with no leading track
+      number, which it skips deliberately. In the JSON it is an `issues` entry
+      (`tagging_failed`) rather than a new `verification` sub-block — `IssueBlock` already
+      fits, and a new sub-block would change a key set consumers and tests pin exactly, so
+      the schema version is unchanged.
 - **[ ] No SIGTERM/SIGINT handler.** `closeEvent` is the only thing that stops the
       in-container reader, so a session logout or `kill <pid>` during a rip leaves cyanrip
       ripping with the drive's eject button ignored — the 2026-07-01 bug through a third
       door.
-- **[ ] `_launch_post_rip_daemon` doesn't guard `compute()`.** An escape kills the daemon
+- **[x] `_launch_post_rip_daemon` doesn't guard `compute()`.** An escape kills the daemon
       silently, emits no signal, and `_post_rip_work_settled` then reads the dead thread
       as "settled", so the library move proceeds as if the check had passed. (The
       `threading.excepthook` added in v0.5.18 means it is at least *logged* now.)
-- **[ ] `--doctor` can report a false PASS on its most important check.** `preflight`
-      treats any non-raising `backend.version()` as OK and prints the first output line
-      as "the version". With the v0.5.18 non-zero-exit logging this is now visible in the
-      log, but the check itself should fail on a non-zero exit.
-- **[ ] Version probes ignore the exit code.** `_run_version_command` returns
-      `ran_ok=True` for any completed run, so error text containing any `N.N` (a podman
-      version, a `libcdio.so.19.0` path) can parse as *the tool's* version and clear the
-      minimum, making the dep report claim a broken tool is installed.
-- **[ ] Lower-severity swallowed detail:** `cover_art` collapses every failure reason
-      (including `network`) into "none found for this release", so an offline user is told
-      the release has no art; `ctdb/decode.py` discards `metaflac`'s stderr from its
-      `RuntimeError`; `transcode.py` records a missing temp file as a failure with no log
-      line at all.
+      *Fixed 2026-07-31:* `compute()` is wrapped; a crash is logged **against its step** and
+      recorded in `_post_rip_failures` (`{thread attribute: error text}`, written under a
+      module-level lock because two checks can die in the same instant). The settlement gate
+      itself now reads that record: `_poll_library_move` calls `_post_rip_failure_summary()`
+      and tells the user which check did not finish *before* it files the album away.
+      `_post_rip_work_settled` deliberately still returns True for a crashed check — its
+      question is "is anything still touching the files?", and blocking on a crash would
+      strand the album in the workspace forever. **Left open:** a crashed CTDB check leaves
+      the "Verifying against CTDB…" status where it is, because there is no failure signal
+      for the per-step spinners; and with no library folder configured the announcement never
+      runs, so the crash is visible only in `log.txt` and the settled record.
+- **[x] `--doctor` can report a false PASS on its most important check.** Done 2026-07-31.
+      Fixed in both halves, because neither alone is enough: `CyanripImpl.version()` now runs
+      `-V` with `strict=True`, so a non-zero exit arrives as a `RipError` instead of a string
+      (the exit code is visible *only* inside the adapter — verified against cyanrip's source
+      that `case 'V':` returns 0, so this cannot fail a working ripper); and
+      `check_backend_routing` now requires a *recognisable version* in the output, via a new
+      pure `version_banner()` that reuses the dependency subsystem's own `parse_version`
+      (Critical rule #6). Empty output — previously reported as OK with the literal
+      "(no version output)" printed as the version — and error chatter are now blockers that
+      quote what the tool actually said, so `--doctor` exits non-zero. `version_banner` scans
+      for the versioned *line* rather than taking line 1, because a cold Distrobox container
+      prints its own startup chatter first (stderr is merged into stdout) — taking line 1
+      would have failed a working-but-slow cold start. +10 regression tests, incl. both
+      directions through `run_preflight`/`exit_code`.
+- **[x] Version probes ignore the exit code.** Done 2026-07-31. `_run_version_command` now
+      returns `ran_ok=False` for any exit code outside an accepted set (default `{0}`), so a
+      failed run's numbers can no longer be parsed as *the tool's* version — reproduced first:
+      with the fix reverted the cd-paranoia probe returns
+      `ProbeResult(present=True, version=(19, 0))` from a `libcdio.so.19.0` linker error, and
+      a dead-container cyanrip probe reports podman's version as cyanrip's. A rejected probe
+      logs the exit code + the tool's captured output (flattened to one bounded line), which is
+      the only place the *reason* was previously visible: nowhere. **Before making non-zero a
+      hard failure, every probed tool's version-flag exit code was checked against upstream
+      source** (all exit 0 — cyanrip `case 'V': return 0`, cd-paranoia `exit(0)` with the
+      banner on stderr, flac/metaflac/ffmpeg 0); the real non-zero-on-`--version` convention
+      (libcdio's shared `print_version()` → `exit(EXIT_INFO)` == 100, which `cd-info` and
+      `cd-drive` do but `cd-paranoia` does not) is served by an explicit `accept_exit_codes`
+      allow-list no caller needs today, so the next maintainer's fix is a per-tool code with
+      evidence rather than a relapse to "any exit code counts". Evidence table in
+      `docs/dependency-contracts.md` → *Version probes*. A cancelled probe (SIGKILL → negative
+      code) also stops reading as an answer. +7 regression tests in `tests/test_deps_checks.py`.
+- **[x] Lower-severity swallowed detail.** Done 2026-07-31, all three. `cover_art` no longer
+      collapses every failure reason into "none found for this release": a new pure
+      `no_art_message(reason)` gives each reason its own sentence (an offline user is told the
+      archive could not be reached and that the release may still have art), an unrecognised
+      reason names its own code instead of inheriting "none found", and the reason plus the
+      fetch's raw diagnostic (`_fetch_front_cover_detailed` now returns a `detail` too) land in
+      the log AND in `CoverArtResult.error`. `ctdb/decode.py` carries `metaflac`'s stderr tail
+      + exit code into both the `RuntimeError` message (which `ctdb/verify.py` turns into the
+      user-visible verdict) and the log, via a shared `_stderr_tail` helper also used for the
+      `flac` decoder and the unparseable-output path. `transcode.py` logs both failure
+      branches, worded differently: `rc != 0` names the exit code, `rc == 0` with no temp names
+      the *absence* of output. All three paths stay best-effort — nothing new raises.
+      Regression tests: `tests/test_cover_art.py`
+      (`test_apply_network_failure_is_not_reported_as_no_art`,
+      `test_apply_404_still_says_the_release_has_none`,
+      `test_no_art_message_is_distinct_per_reason`,
+      `test_no_art_message_names_an_unknown_reason_instead_of_guessing`),
+      `tests/test_ctdb_decode.py` (`test_total_samples_failure_carries_metaflac_stderr`,
+      `test_total_samples_unparseable_output_is_logged`,
+      `test_decode_failure_carries_flac_stderr`), `tests/test_transcode.py`
+      (`test_missing_temp_output_is_logged_with_the_reason`,
+      `test_nonzero_rc_failure_is_logged_with_the_exit_code`) — each verified by reverting the
+      fix and watching it fail.
 - **[ ] Earn the `Make use of C2 pointers : No` row.** EAC logcheckers weight this
       heavily and a survey says libcdio-paranoia never uses C2 pointers — but that is a
       secondary source, and `test_does_not_fabricate_read_mode_or_c2_pointers` correctly
@@ -563,9 +700,9 @@ remains. None of these is speculative — each was traced to a file:line.
 
 ### P1 — Thread-cancellation follow-ups (opened 2026-07-29, from the v0.5.17 audit)
 
-- **[ ] Give `run_capture` a killable child so the five no-cancel workers can actually cancel.** `DependencyCheckWorker`, `DiscInfoWorker`, `DriveListWorker`, `MusicBrainzWorker` and `UpdateCheckWorker` expose **no `cancel()` at all**, so `stop_thread` has nothing to call: `quit()` never reaches a thread blocked in a subprocess or socket read, and closing the window waits out its share of the shutdown budget and then **abandons** the thread. That is bounded and non-fatal — abandonment retains the reference and makes exit bypass interpreter teardown (`platterpus.hard_exit`) — but it is not cancellation, and a stalled network or cold container is exactly when a user closes the window.
-      The fix is one change in the shared helper, not five bespoke ones: port `run_capture` from `subprocess.run` (which hides the child, so there is nothing to signal) to `Popen` with **`start_new_session=True`** — load-bearing, because without it the child shares the GUI's process group and a `killpg` would signal the GUI itself — exactly as `adapters/cache_probe.py` now does, then thread a cancel through the workers.
-      **Acceptance:** each of the five gains a `cancel()` that kills its child's process group; the `_WORKERS_WITHOUT_CANCEL` ratchet in `tests/test_qthread_ownership.py` shrinks by one per worker and its upper bound comes down with it (the list may only shrink — CLAUDE.md rule 10's discipline). Deliberately its own cycle: it touches the helper every backend probe goes through, and this is the kind of change that has historically introduced the next bug when bolted onto the end of another one (`docs/testing.md` §5.s).
+- **[ ] Give `run_capture` a killable child so the remaining no-cancel workers can actually cancel.** **Two** workers block and expose **no `cancel()` at all**: `MusicBrainzWorker` and `UpdateCheckWorker`. (Count corrected 2026-07-31 — this entry said "the five" and named `DependencyCheckWorker` and `DiscInfoWorker`, both of which gained real cancels on 2026-07-29, the same day the entry was written; `DriveListWorker` is the third name still on the ratchet but does **not** block — it only globs `/dev` and reads sysfs, so it is permanent-by-nature rather than debt. Re-derive the roster from `tests/test_qthread_ownership.py::_WORKERS_WITHOUT_CANCEL` before starting.) With no `cancel()`, `stop_thread` has nothing to call: `quit()` never reaches a thread blocked in a subprocess or socket read, and closing the window waits out its share of the shutdown budget and then **abandons** the thread. That is bounded and non-fatal — abandonment retains the reference and makes exit bypass interpreter teardown (`platterpus.hard_exit`) — but it is not cancellation, and a stalled network or cold container is exactly when a user closes the window.
+      The fix is one change in the shared helper, not one per worker: port `run_capture` from `subprocess.run` (which hides the child, so there is nothing to signal) to `Popen` with **`start_new_session=True`** — load-bearing, because without it the child shares the GUI's process group and a `killpg` would signal the GUI itself — exactly as `adapters/cache_probe.py` now does, then thread a cancel through the workers. Note both remaining workers are **network**, not subprocess (urllib/musicbrainzngs), so `run_capture` alone does not reach them: there is no child process, and interrupting means closing the socket out from under the request. Different mechanism, same acceptance.
+      **Acceptance:** each gains a `cancel()` that actually interrupts its block; the `_WORKERS_WITHOUT_CANCEL` ratchet in `tests/test_qthread_ownership.py` shrinks by one per worker and its upper bound comes down with it (the list may only shrink — CLAUDE.md rule 10's discipline). Deliberately its own cycle: it touches the helper every backend probe goes through, and this is the kind of change that has historically introduced the next bug when bolted onto the end of another one (`docs/testing.md` §5.s).
 
 - **[ ] Hardware round for the v0.5.17 cancellation work.** The suite proves the mechanisms fire; only the Bazzite + BDR-209D rig with a real disc proves the **drive stops**. Watch specifically: (1) **Cancel, then quit within five seconds** — does the reader stop and does the eject button work? (2) **Force stop** mid-rip — recorded as *cancelled*, not *failed*, in the report and the signed log? (3) **"Set up drive"** at a small window size — any clipped text? (4) **Close the window mid-rip** — no abort. Flagged honestly as hardware-gated rather than implied by a green suite.
 
@@ -604,4 +741,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.5.18.*
+*Last updated for Platterpus v0.5.19.*

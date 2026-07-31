@@ -24,6 +24,7 @@ import logging
 import threading
 from pathlib import Path
 
+from platterpus import rip_files
 from platterpus.adapters.ctdb_client import CTDBClient
 from platterpus.ctdb.toc import SamplesProbe
 from platterpus.ctdb.verify import (
@@ -63,14 +64,15 @@ def verify_rip_dir(
     if wait_for is not None and wait_for.is_alive():
         wait_for.join(_SETTLE_TIMEOUT_S)
 
-    # Track order = filename order ("NN - Title.flac"), matching how the rest
-    # of the app enumerates a ripped album. NON-recursive on purpose: the CTDB
-    # TOC is exactly this disc's tracks, which sit directly in the album folder
-    # (the ripper writes the log beside them). A recursive glob would pull FLACs
-    # from a nested folder — a bonus disc, a leftover, or the whole music library
-    # if rip_dir ever fell back to the output root — into the TOC and produce a
-    # spurious "not in database" (#40).
-    flac_paths = sorted(rip_dir.glob("*.flac"))
+    # The TOC must be exactly THIS disc's tracks, so the file list comes from the
+    # rip's own record (its `.log`), not from whatever the folder holds — see
+    # `platterpus.rip_files`. A re-rip after a cancel leaves the earlier attempt's
+    # files beside the new ones, and a TOC built from both can never match the
+    # disc: CTDB then reports "not in database" for a flawless rip. rip_files
+    # falls back to the old non-recursive glob (and says so in the log) when no
+    # log names the files, which also keeps the nested-folder exclusion (#40).
+    file_set = rip_files.rip_master_files(rip_dir)
+    flac_paths = list(file_set.files)
     if not flac_paths:
         return CtdbVerifyResult(
             Verdict.LOOKUP_ERROR, message="no FLAC files found to verify"
