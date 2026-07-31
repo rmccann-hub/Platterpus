@@ -885,8 +885,8 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_9() -> None:
-    assert REPORT_SCHEMA_VERSION == 9
+def test_schema_version_is_10() -> None:
+    assert REPORT_SCHEMA_VERSION == 10
 
 
 def test_rip_block_carries_disc_ids() -> None:
@@ -950,3 +950,67 @@ def test_heavy_reread_threshold_boundary() -> None:
     # And it surfaces in the report issue only at the threshold.
     assert "heavy_reread" not in [i["code"] for i in build_report(two)["issues"]]
     assert "heavy_reread" in [i["code"] for i in build_report(three)["issues"]]
+
+
+# --- v10 (0.5.20): per-track facts the parser read and the report dropped ----
+
+
+def test_schema_version_is_10_and_the_v10_keys_are_present() -> None:
+    """The keys exist even on a log that reports none of them.
+
+    A consumer distinguishes "the ripper didn't say" from "this build doesn't
+    record it" only if the key is always present and `null` when unmeasured. The
+    whole point of adding these is that a reader can *ask*.
+    """
+    assert REPORT_SCHEMA_VERSION == 10
+    track = build_report(_sample_log())["tracks"][0]
+    for key in (
+        "extraction_elapsed_seconds",
+        "appended_silence_frames",
+        "start_sector",
+        "end_sector",
+        "pregap_sectors",
+    ):
+        assert key in track, f"v10 key {key!r} missing from the track block"
+        assert track[key] is None, f"{key!r} should be null when unreported"
+
+
+def test_the_committed_cyanrip_log_puts_its_real_geometry_in_the_report() -> None:
+    """Asserted against the real reference rip, not a fixture I wrote.
+
+    This is the check that would have caught the omission. `appended_silence_frames`
+    is the one that matters: cyanrip 0.9.3 prints `Appended: 2 frames of silence`
+    on track 14 of this very disc, meaning that track's final two frames are
+    **fabricated silence rather than disc audio** — the most archival-relevant
+    per-track fact in the log. It reached the EAC-layout log and never the JSON,
+    so the machine record of an archival rip was quietly less complete than the
+    human-readable one beside it. A fabricated fixture could not have exposed
+    that, because I would have written the fixture from the same wrong belief.
+
+    The sector geometry is asserted on track 1, whose absolute numbers are in the
+    committed log and are what EAC's "TOC of the extracted CD" is derived from.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    rip_log = parse_cyanrip_log(_CYANRIP_REFERENCE.read_text(encoding="utf-8"))
+    report = build_report(rip_log)
+    tracks = report["tracks"]
+    assert len(tracks) == 14
+
+    # Track 14 is the one with appended silence — the last track, overread off.
+    last = tracks[13]
+    assert last["appended_silence_frames"] == 2, (
+        "cyanrip logged 'Appended: 2 frames of silence' for track 14 of this "
+        "disc; the report must say so, because those frames are not disc audio"
+    )
+    # And it is genuinely per-track: no other track on this disc has any.
+    assert [t["appended_silence_frames"] for t in tracks[:13]] == [None] * 13
+
+    first = tracks[0]
+    assert first["start_sector"] == 0
+    assert first["end_sector"] == 14486
+    assert first["pregap_sectors"] == 0, "'Pregap LSN: none' is measured-zero"
+
+    # Fork-only: 0.9.3 prints no elapsed, so every track must report null rather
+    # than a zero that would read as "instant".
+    assert [t["extraction_elapsed_seconds"] for t in tracks] == [None] * 14

@@ -345,7 +345,9 @@ def _render(
     lines.extend(
         _status_report(
             rip_log,
-            _read_stability_line(rip_log) + _interrupted_securing_line(secure_rerip),
+            _read_stability_line(rip_log)
+            + _appended_silence_line(rip_log)
+            + _interrupted_securing_line(secure_rerip),
         )
     )
     lines.append("")
@@ -600,6 +602,29 @@ def _pregap_line(track: TrackResult) -> list[str]:
     ]
 
 
+def _extraction_time_line(track: TrackResult) -> list[str]:
+    """A per-track elapsed row, only when the ripper actually reported one.
+
+    Not an EAC row (EAC prints a speed, not a duration), so it is *additive*: a
+    log from the deployed cyanrip 0.9.3 — which reports no per-track timing at all
+    — renders exactly as it does today, and a diff against a real EAC log gains
+    one extra line only for rips that measured it.
+
+    Reads defensively and renders nothing for a value it cannot use: a negative or
+    non-finite elapsed is not a measurement, and this module never prints one.
+    """
+    seconds = track.extraction_elapsed_seconds
+    if not isinstance(seconds, int | float) or isinstance(seconds, bool):
+        return []
+    # `not (x >= 0)` also rejects NaN, whose every comparison is False.
+    if not seconds >= 0 or seconds in (float("inf"),):
+        return []
+    total = int(seconds)  # truncated, like every other duration in this log
+    hours, rest = divmod(total, 3600)
+    minutes, secs = divmod(rest, 60)
+    return [f"     Extraction time {hours}:{minutes:02d}:{secs:02d}"]
+
+
 def _msf(sectors: int) -> str:
     """Sector count → EAC's ``M:SS.FF`` (75 sectors == 1 second == 75 frames)."""
     return f"{sectors // 75 // 60}:{sectors // 75 % 60:02d}.{sectors % 75:02d}"
@@ -754,6 +779,50 @@ def _read_stability_line(rip_log: RipLog) -> list[str]:
     ]
 
 
+def _appended_silence_line(rip_log: RipLog) -> list[str]:
+    """A line naming any track whose final frames are silence the ripper *made up*.
+
+    cyanrip prints ``Appended:    2 frames of silence`` for a track it could not
+    read all the way to the end — the per-track consequence of overread being off,
+    since applying a read offset leaves the disc's outermost samples outside the
+    readable window and they get padded instead. **Those frames are fabricated, not
+    disc audio**, and that is an archival-fidelity fact of exactly the kind this
+    document exists to carry. cyanrip 0.9.3 has been printing it all along and we
+    discarded it until 2026-07-31; it is on track 14 of both committed reference
+    rips.
+
+    **Why here and not in the per-track block.** EAC has no such row, and the
+    per-track blocks are the part of this log that is diffed line-by-line against a
+    real EAC log — adding a row there would put a permanent, meaningless
+    disagreement into the most comparable section. The status report is where this
+    project already states per-track archival caveats that EAC expresses some other
+    way (see :func:`_read_stability_line`, same shape, same column alignment), it
+    names the tracks so nothing is lost, and it sits above the checksum footer so
+    the notice is covered by the SHA-256 and cannot be stripped silently.
+
+    Measured only: a track renders here when its count is a real number **greater
+    than zero**. A measured zero means "nothing was appended" and says nothing, and
+    ``None`` means the ripper never reported it — neither is a caveat, so a clean
+    rip's conclusive report is unchanged.
+    """
+    padded: list[str] = []
+    for track in rip_log.tracks:
+        frames = track.appended_silence_frames
+        # `isinstance` before comparing: this can arrive from a hand-edited log or
+        # a worker's state, and a `str > 0` comparison would raise TypeError and
+        # cost the whole log (the same defensiveness `_read_stability_line` needed).
+        if not isinstance(frames, int) or isinstance(frames, bool) or frames <= 0:
+            continue
+        padded.append(f"{track.number} ({frames} frame(s))")
+    if not padded:
+        return []
+    return [
+        "Appended silence    : track(s) " + ", ".join(padded) + " end in silence the "
+        "ripper appended because the drive could not read that far — those final "
+        "frames are not disc audio"
+    ]
+
+
 def _interrupted_securing_line(secure_rerip: SecureReripBlock | None) -> list[str]:
     """A line when the auto-fix securing pass started and never finished.
 
@@ -857,11 +926,20 @@ def _track_block(track: TrackResult) -> list[str]:
     # never invented" — 56 times in one 14-track log (review finding,
     # 2026-07-28). Label them instead, exactly as the header block does.
     #
-    # None of the three is derivable from cyanrip: EAC's Peak level is the
-    # SAMPLE peak while cyanrip reports only a true (oversampled) peak — a
-    # different quantity, and provably so, since cyanrip's exceeds 100% on this
-    # disc; there is no per-track extraction speed or wall-clock in its output;
-    # and Track quality is an EAC-proprietary metric with no cyanrip analogue.
+    # **Two of the three become fillable the moment the ripper reports them, and
+    # the code for that is already right here** (2026-07-31, forward-compat pass):
+    #
+    # * `Peak level` — EAC's is the **sample** peak as a percentage of full scale.
+    #   The deployed cyanrip 0.9.3 reports only a **true** (oversampled) peak, a
+    #   different quantity that provably exceeds 100 % on all fourteen tracks of
+    #   the reference disc, so the row is labelled. The parser will fill
+    #   `peak_level` from a fork's `Sample peak:` line — and refuses any value
+    #   above full scale, so this row can never print an impossible percentage.
+    # * `Extraction speed` — no per-track speed or wall-clock in 0.9.3's output;
+    #   `extraction_speed` is filled from a fork's per-track speed line.
+    # * `Track quality` — EAC-proprietary, no cyanrip analogue, and we will never
+    #   ask for one (docs/cyanrip-improvements-wanted.md §3.1). Permanently
+    #   labelled, on purpose.
     out.append(
         "     Peak level "
         + (
@@ -878,6 +956,17 @@ def _track_block(track: TrackResult) -> list[str]:
             else _UNREPORTED
         )
     )
+    # An EXTRA row, not one of EAC's — rendered only when the ripper reported a
+    # per-track elapsed time, so today's logs are unaffected.
+    #
+    # Why a row of our own rather than deriving EAC's speed from it: the speed
+    # multiple is `audio duration / elapsed`, and *what the elapsed covers* is
+    # unknown (does it include the encode? the AccurateRip lookup? a `-Z`
+    # re-read?). A number computed from an interval we cannot define is a guess
+    # wearing EAC's label — the one thing this module exists to refuse. So the
+    # measured fact is printed as itself, and EAC's row stays labelled until the
+    # ripper reports a speed. See docs/cyanrip-improvements-wanted.md §2.3.
+    out.extend(_extraction_time_line(track))
     out.append(
         "     Track quality "
         + (

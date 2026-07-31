@@ -32,6 +32,7 @@ QDesktopServices.openUrl().
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -159,6 +160,24 @@ _TAB_LABEL_LOG: str = "Live &log"
 _OpenUrlFn = Callable[[QUrl], bool]
 # Hook so tests can intercept the in-app file view without spinning a dialog.
 _ViewFileFn = Callable[[Path, str], None]
+
+
+def _bar_value(percent: float) -> int:
+    """A percentage as a safe 0-100 int for a QProgressBar. Never raises.
+
+    Pure and module-level so it is directly testable. A non-finite value becomes
+    0 rather than an exception, because the alternative is a crash dialog over a
+    progress bar; a value outside 0-100 is clamped rather than dropped, since a
+    ripper reporting 101% still means "essentially done".
+    """
+    if not math.isfinite(percent):
+        log.warning(
+            "progress value %r is not a finite number — showing 0 rather than "
+            "raising on the GUI thread",
+            percent,
+        )
+        return 0
+    return max(0, min(100, int(percent)))
 
 
 class RipProgress(QWidget):
@@ -679,9 +698,22 @@ class RipProgress(QWidget):
         separately via `set_status` (fed from the rip worker's phase
         signal), so the label stays meaningful during phases that have no
         numeric percent.
+
+        **Both values are clamped, and non-finite ones are dropped.** This is the
+        last line of defence before an `int()` that runs on the GUI thread, and
+        `int()` on a non-finite float *raises* — `OverflowError` for `inf`,
+        `ValueError` for `nan`. Either would escape a queued slot into the
+        crash-dialog handler, over a progress bar.
+
+        It is reachable from external text, which is why it is guarded rather than
+        trusted: the worker derives these from `float()` on a percentage matched
+        out of the ripper's stdout, and `float()` does *not* raise on a long digit
+        run — it quietly returns `inf`. The producing patterns are now bounded so
+        they cannot match one, but a percentage is a number arriving from another
+        process and a guard here costs two comparisons (audit, 2026-07-31).
         """
-        self._overall_bar.setValue(int(overall))
-        self._progress_bar.setValue(int(task))
+        self._overall_bar.setValue(_bar_value(overall))
+        self._progress_bar.setValue(_bar_value(task))
 
     def set_status(self, text: str) -> None:
         """Set the status label, prefixed with the wall-clock time it was set.
@@ -735,14 +767,44 @@ class RipProgress(QWidget):
         if not reason or reason in self._verdict_downgrades:
             return
         self._verdict_downgrades.append(reason)
-        base = self._verdict_base_message or self._verdict_banner.text()
         if not self._verdict_base_message:
-            self._verdict_base_message = base
-        # Drop a leading "✓" — the tick is a claim this text no longer supports.
-        headline = base.lstrip("✓ ").strip() if base.startswith("✓") else base
-        text = f"⚠ {headline} — " + "; ".join(self._verdict_downgrades)
+            self._verdict_base_message = self._verdict_banner.text()
+        self._render_verdict_banner("warn")
+
+    def _render_verdict_banner(self, level: str) -> None:
+        """Draw the banner from its two inputs: the base verdict + the downgrades.
+
+        The banner is **one sentence assembled from two pieces of state**, and it
+        used to be assembled in two places — :meth:`set_rip_log` wrote the clean
+        verdict, :meth:`downgrade_verdict` wrote verdict-plus-reasons — so which
+        one ran last decided what the user saw. ``set_rip_log`` even carried a
+        comment promising it re-applied any already-recorded downgrades; nothing
+        did. It was true only by accident, because ``set_rip_log`` happens to be
+        called exactly once per :meth:`clear` and the post-rip checks that
+        downgrade all report *after* it. One reordering — the unknown-album
+        self-heal is a single ``return`` away from ripping twice in one cycle —
+        and a recorded "FLAC master failed the decode check" would have vanished
+        under a fresh green "✓ Bit-perfect", which this screen exists to prevent.
+
+        So there is one renderer and it reads both inputs every time. That is the
+        same fix as ``expected_track_total`` and ``_ar_tooltip``: when a fact has
+        more than one surface, compute it once (audit finding, 2026-07-31).
+        """
+        base = self._verdict_base_message
+        if not base and not self._verdict_downgrades:
+            self._verdict_banner.setVisible(False)
+            return
+        if self._verdict_downgrades:
+            # Drop a leading "✓" — the tick is a claim this text no longer
+            # supports. With no base verdict at all the reasons stand alone.
+            headline = base.lstrip("✓ ").strip() if base.startswith("✓") else base
+            joined = "; ".join(self._verdict_downgrades)
+            text = f"⚠ {headline} — {joined}" if headline else f"⚠ {joined}"
+            level = "warn"
+        else:
+            text = base
         self._verdict_banner.setText(text)
-        self._verdict_banner.setStyleSheet(_banner_style("warn"))
+        self._verdict_banner.setStyleSheet(_banner_style(level))
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
 
@@ -769,18 +831,13 @@ class RipProgress(QWidget):
             disc_track_total=disc_track_total,
             outcome_status=outcome_status,
         )
-        # A fresh verdict supersedes any earlier downgrades — but re-apply them
-        # below if they were recorded before the log was parsed.
+        # The log gives the BASE verdict only. Anything already recorded by
+        # `downgrade_verdict` is still true and is re-applied by the one renderer
+        # — which is what the old comment here claimed and the old code did not
+        # do. It also announces the headline focus-safely, the one post-rip
+        # update a screen-reader user must not miss (gap #4).
         self._verdict_base_message = message
-        if message:
-            self._verdict_banner.setText(message)
-            self._verdict_banner.setStyleSheet(_banner_style(level))
-            self._verdict_banner.setVisible(True)
-            # The trust headline is the one post-rip update a screen-reader user
-            # must not miss — announce it focus-safely (gap #4).
-            announce(self._verdict_banner, message)
-        else:
-            self._verdict_banner.setVisible(False)
+        self._render_verdict_banner(level)
 
         # Read-effort early warning (per-track "hard to read"). Hidden when clean.
         effort = read_effort_summary_line(rip_log)

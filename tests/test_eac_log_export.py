@@ -620,3 +620,217 @@ def test_conclusive_report_is_rendered_normally_when_present() -> None:
     assert "Conclusive status report : absent" not in text
     assert "No errors occurred" in text
     assert "End of status report" in text
+
+
+# --- Reading a FUTURE cyanrip: the rows a fork will fill (2026-07-31) ---------
+# The renderer already had the code for two of EAC's three labelled per-track rows
+# — it was the *parser* that had nothing to put in them. These tests pin both
+# halves: the row when the value arrives, and the row (labelled, unchanged) when it
+# does not, which is what every AppImage user gets from the deployed cyanrip 0.9.3.
+
+
+def test_peak_level_row_renders_a_reported_sample_peak() -> None:
+    """EAC's own unit: a percentage of full scale, one decimal.
+
+    `peak_level` is a linear fraction, so 0.942 is EAC's "94.2 %" — the exact value
+    the real EAC 1.8 baseline prints for track 1 of the reference disc.
+    """
+    text = render_eac_style_log(_sample_log())
+    assert "     Peak level 94.2 %" in text
+    assert "     Extraction speed 1.6 X" in text
+
+
+def test_peak_level_and_speed_rows_stay_labelled_for_todays_cyanrip() -> None:
+    """The absent case, from the committed REAL cyanrip 0.9.3 log.
+
+    cyanrip 0.9.3 reports only a TRUE peak (which exceeds 100 % of full scale on
+    every track of this disc) and no per-track speed at all, so both rows must read
+    the honest label — 14 of each on a 14-track disc. A fixture we wrote could not
+    prove this; the actual bytes can.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    parsed = parse_cyanrip_log(
+        _CYANRIP_REFERENCE.read_text(encoding="utf-8", errors="replace")
+    )
+    text = render_eac_style_log(parsed)
+    peaks = [ln for ln in text.splitlines() if ln.startswith("     Peak level")]
+    speeds = [ln for ln in text.splitlines() if ln.startswith("     Extraction speed")]
+    assert len(peaks) == 14 and len(speeds) == 14
+    assert all(ln.endswith(_UNREPORTED) for ln in peaks), peaks
+    assert all(ln.endswith(_UNREPORTED) for ln in speeds), speeds
+    # No percentage may appear in the row — least of all one over 100 %, which is
+    # what cyanrip's true peak would have produced (1.029445 → "102.9 %").
+    assert not re.search(r"Peak level \d", text)
+
+
+def test_a_reported_elapsed_adds_an_extraction_time_row() -> None:
+    """An EXTRA row (EAC has none), rendered only when the ripper measured it.
+
+    Deliberately not converted into EAC's speed multiple: that would need us to know
+    what the interval covers (the encode? the AccurateRip lookup? a `-Z` re-read?),
+    and a number computed from an undefined interval is a guess wearing EAC's label.
+    """
+    log = _rip_log(
+        TrackResult(number=1, copy_crc="a1b2c3d4", extraction_elapsed_seconds=161.9)
+    )
+    text = render_eac_style_log(log)
+    assert "     Extraction time 0:02:41" in text
+    # The speed row is still honestly labelled — an elapsed is not a speed.
+    assert f"     Extraction speed {_UNREPORTED}" in text
+
+
+def test_no_extraction_time_row_when_the_ripper_did_not_measure_one() -> None:
+    """Today's behaviour, unchanged: the row simply does not exist."""
+    text = render_eac_style_log(_sample_log())
+    assert "Extraction time" not in text
+
+
+def test_an_unusable_elapsed_renders_no_row_rather_than_nonsense() -> None:
+    """A negative / NaN / non-numeric elapsed is not a measurement.
+
+    This value can arrive from a hand-edited log or a worker's state, and the module
+    never prints a value it cannot stand behind — nor lets a bad one collapse the
+    whole log to the stub (which a raise inside `_render` would).
+    """
+    for bad in (-1.0, float("nan"), float("inf"), "soon", None, True):
+        log = _rip_log(
+            TrackResult(
+                number=1,
+                copy_crc="a1b2c3d4",
+                extraction_elapsed_seconds=bad,  # type: ignore[arg-type]
+            )
+        )
+        text = render_eac_style_log(log)
+        assert "Extraction time" not in text, bad
+        assert "log could not be rendered" not in text, bad
+
+
+# --- "Appended: N frames of silence" — a fact cyanrip already reported --------
+
+
+def test_appended_silence_is_declared_in_the_status_report() -> None:
+    """The archival point: those final frames are FABRICATED, not disc audio.
+
+    cyanrip 0.9.3 has printed this all along (track 14 of both committed reference
+    rips) and we discarded it. It belongs in the status area rather than the
+    per-track block: EAC has no such row, and the per-track blocks are the section
+    diffed line-by-line against a real EAC log.
+    """
+    log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(number=1, copy_crc="AAAA0001"),
+            TrackResult(number=14, copy_crc="AAAA0014", appended_silence_frames=2),
+        ),
+    )
+    text = render_eac_style_log(log)
+    line = next(ln for ln in text.splitlines() if ln.startswith("Appended silence"))
+    assert "track(s) 14 (2 frame(s))" in line
+    assert "not disc audio" in line
+    # Aligned with its sibling caveat rows, so the status block reads as a block.
+    assert line.startswith("Appended silence    : ")
+    # Inside the status report (before its terminator), so it is part of the report
+    # rather than a trailing note — and above the checksum, so it is covered by it.
+    body = text.split("End of status report")[0]
+    assert "Appended silence" in body
+    assert verify_eac_style_log_checksum(text) is True
+
+
+def test_no_appended_silence_line_when_nothing_was_appended() -> None:
+    """A measured zero and an unreported None are both "no caveat".
+
+    `0` means the ripper appended nothing — a fact, but not a fidelity caveat — and
+    `None` means it never said. Neither may produce a line, or every clean rip would
+    gain a scary row about nothing.
+    """
+    for frames in (0, None):
+        log = RipLog(
+            log_creator="cyanrip 0.9.3",
+            tracks=(
+                TrackResult(
+                    number=1, copy_crc="AAAA0001", appended_silence_frames=frames
+                ),
+            ),
+        )
+        assert "Appended silence" not in render_eac_style_log(log), frames
+
+
+def test_appended_silence_survives_a_malformed_frame_count() -> None:
+    """A wrong shape costs the line, never the log (the never-raises contract)."""
+    log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(
+                number=1,
+                copy_crc="AAAA0001",
+                appended_silence_frames="two",  # type: ignore[arg-type]
+            ),
+        ),
+    )
+    text = render_eac_style_log(log)
+    assert "Appended silence" not in text
+    assert "log could not be rendered" not in text
+
+
+def test_the_real_reference_rip_declares_its_appended_silence() -> None:
+    """End to end on the committed real log: parse → render → the caveat appears.
+
+    Exactly one line, naming exactly track 14, because that is the only track of the
+    reference disc whose final frames were padded rather than read (overread off).
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    parsed = parse_cyanrip_log(
+        _CYANRIP_REFERENCE.read_text(encoding="utf-8", errors="replace")
+    )
+    lines = [
+        ln
+        for ln in render_eac_style_log(parsed).splitlines()
+        if ln.startswith("Appended silence")
+    ]
+    assert len(lines) == 1, lines
+    assert "track(s) 14 (2 frame(s))" in lines[0]
+
+
+# --- The -Z verdict from the log file, end to end ----------------------------
+
+
+def test_a_logged_did_not_converge_verdict_reaches_the_crc_caveat() -> None:
+    """§2.4's payoff: a re-parsed log can no longer under-claim OR over-claim.
+
+    A track whose secure re-reads never agreed must NOT be rendered as an EAC-style
+    Test/Copy pair (they were not identical), and must carry the caveat — even
+    though cyanrip's own health line says "No errors occurred" and its
+    "(after 5 rips)" suffix looks like evidence of care.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    parsed = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     B0D122E7 (after 5 rips)\n"
+        "  Secure re-read: did NOT converge (no matches found, hit repeat limit)\n"
+        "Ripping errors: 0\n"
+    )
+    text = render_eac_style_log(parsed)
+    assert "re-reads did NOT agree" in text
+    assert "Test CRC" not in text
+    assert "Read stability      : track(s) 1 did not read identically" in text
+
+
+def test_a_logged_converged_verdict_earns_the_test_and_copy_pair() -> None:
+    """The other side: a logged convergence is EAC's two-reads-agree guarantee."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    parsed = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     B0D122E7 (after 2 rips)\n"
+        "  Secure re-read: converged (2 out of 2 matches)\n"
+        "Ripping errors: 0\n"
+    )
+    text = render_eac_style_log(parsed)
+    assert "Test CRC B0D122E7" in text
+    assert "confirmed across 2 secure re-reads" in text
+    assert "did NOT agree" not in text

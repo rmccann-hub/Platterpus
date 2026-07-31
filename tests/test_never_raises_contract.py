@@ -259,6 +259,14 @@ _PARSER_MODULES: tuple[str, ...] = (
     "parity.py",
     "rip_timing.py",
     "safe_int.py",
+    # Added 2026-07-31, and it is the most important entry on this list. It is not
+    # a "parser" by filename, but `_progress_for` turns the ripper's LIVE stdout
+    # into numbers, and unlike every module above it a raise there does not
+    # degrade a field to unknown — it is called from the stdout read loop inside a
+    # `try` whose handler terminates the child and emits an error, so **one
+    # corrupt line ended the rip**. It was invisible to this sweep for exactly one
+    # reason: this roster is hand-maintained, and nobody added it.
+    "workers/rip_worker.py",
 )
 
 # Exceptions that make an `int()` call safe to leave bare inside a `try`.
@@ -338,9 +346,18 @@ def test_no_parser_converts_an_integer_without_a_guard() -> None:
 
     # Floors: a walk that examined nothing, or found no conversions at all, would
     # pass by finding nothing — the failure mode this whole file exists to stop.
-    assert examined >= 14, (
-        f"only examined {examined} parser modules — the roster has shrunk and this "
-        "check is passing vacuously."
+    assert examined == len(_PARSER_MODULES), (
+        f"examined {examined} of {len(_PARSER_MODULES)} rostered modules — one is "
+        "missing from disk, so the sweep silently skipped it."
+    )
+    # A floor tied to the roster's own length can only ever be satisfied, so it is
+    # not a floor at all — it moves whenever someone shortens the list. This is a
+    # hard minimum, chosen below today's count so a real deletion is possible but a
+    # collapse is not. The lesson is from `workers/rip_worker.py`, which was absent
+    # from the roster while carrying six live raise sites (audit, 2026-07-31).
+    assert len(_PARSER_MODULES) >= 15, (
+        f"the roster is down to {len(_PARSER_MODULES)} modules — modules that turn "
+        "external text into values have been dropped from the rule's scope."
     )
     assert guarded_seen >= 20, (
         f"only saw {guarded_seen} integer-conversion sites across {examined} "

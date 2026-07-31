@@ -220,6 +220,11 @@ class TrackBlock(TypedDict):
     extraction_quality: float | None
     pre_emphasis: bool | None
     peak_level: float | None
+    extraction_elapsed_seconds: float | None
+    appended_silence_frames: int | None
+    start_sector: int | None
+    end_sector: int | None
+    pregap_sectors: int | None
     replaygain: dict[str, str] | None
     accuraterip_verified: bool
     accuraterip: TrackAccurateRipBlock

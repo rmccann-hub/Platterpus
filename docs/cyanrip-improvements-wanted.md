@@ -176,12 +176,36 @@ against the ReplayGain 2.0 spec, and would turn a two-line uncontroversial patch
 into a semantics argument that could sink it. File it as its own issue later, if
 at all.
 
-**Platterpus side (after it is live).** Add a `Sample peak:` pattern to
-`parsers/cyanrip_log.py` and populate `TrackResult.peak_level` as a linear
-fraction (`10 ** (dbfs / 20)`), which is the unit `_track_block` already renders
-as `peak_level * 100:.1f %`. ~10 lines plus a golden-log test. Note what this
-does *not* need: the true peak we already parse stays where it is — the export
-is not missing a parser, it is correctly **refusing** a wrong number.
+**Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** The reader is
+already written and shipped, so a fork that prints this line fills EAC's row with
+no further Platterpus change. `parsers/cyanrip_log.py` accepts **two** shapes,
+because the upstream print site is unread and cyanrip's own log uses both styles:
+
+```
+    Sample peak:  -0.5 dBFS          # inline — the shape this section proposes
+    Sample peak:                     # sub-header — how `True peak:` already prints
+      Peak:       -0.5 dBFS
+```
+
+`TrackResult.peak_level` is populated as a linear fraction (`10 ** (dbfs / 20)`),
+which is the unit `_track_block` renders as `peak_level * 100:.1f %`.
+
+Three constraints the fork should know about, because Platterpus enforces them
+and will *refuse* a value rather than print a wrong one:
+
+1. **The unit is required.** A bare `Sample peak: 0.942` is refused — dBFS and a
+   linear fraction are indistinguishable in that range, and an archival peak read
+   in the wrong unit is worse than a labelled gap. Print `dBFS` or `%`.
+2. **A value above full scale is refused and logged.** EAC's row is a percentage
+   of full scale and cannot exceed 100 %.
+3. **The label decides the quantity.** A `True peak:` sub-header actively
+   *disarms* sample-peak capture, so the existing true peak can never land in
+   EAC's sample-peak row. This matters concretely: all fourteen tracks of the
+   reference disc have a true peak *over* full scale (`REPLAYGAIN_TRACK_PEAK`
+   1.008499–1.097464, i.e. 100.8 %–109.7 %). Do not rename the existing true peak
+   to `Sample peak:` — print a genuinely new value or leave the row labelled.
+
+The export is not missing a parser; it is correctly **refusing** a wrong number.
 
 ---
 
@@ -317,9 +341,35 @@ comparable to EAC's. Say the definition in the log or the number is noise.
 touches no drive behaviour, cannot affect correctness, and "how long did this
 take" is a question every user of a slow CD ripper has.
 
-**Platterpus side.** We already measure and record whole-rip elapsed ourselves
-(`rip_timing.py` → the `timing` block in `.platterpus.json`), so only the
-per-track row needs cyanrip.
+**Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** We already measure
+and record whole-rip elapsed ourselves (`rip_timing.py` → the `timing` block in
+`.platterpus.json`), so only the per-track row needs cyanrip — and the reader for
+it is shipped. `parsers/cyanrip_log.py` reads **both halves** of what §2.3
+proposes, from any of several plausible labels:
+
+```
+    Extraction speed:  1.6 X        # also: Rip speed / Read speed / Speed
+    Elapsed:           00:03:13.180 # also: Elapsed time / Rip time /
+    Elapsed:           193.18 s     #       Extraction time / Time taken
+```
+
+The speed multiple fills EAC's `Extraction speed` row directly. The elapsed gets
+its own field (`extraction_elapsed_seconds`, serialized in the JSON report from
+schema v10) and a row of its own, rendered only when measured. Clock forms with
+and without hours are both accepted, as is a plain seconds form with a unit.
+
+**We deliberately do not derive one from the other.** If the fork prints only the
+elapsed, EAC's speed row stays labelled rather than filled: what the interval
+covers (read only? read plus encode? plus the AccurateRip lookup?) is unknown, and
+a derived multiple would be a guess wearing EAC's label. If the fork can print
+the speed cheaply, print both — the elapsed is the more useful diagnostic and the
+speed is the one EAC's format actually asks for.
+
+Indentation matters and is the only thing separating this from an existing row:
+cyanrip's *disc* banner already has a column-0 `Speed:` line (the drive's
+speed-changeability, which Platterpus reads for the read-speed ladder). The
+per-track pattern requires leading whitespace and the disc one forbids it, so
+print the per-track row **indented**, inside the track block.
 
 *A workaround exists today, and it is worth knowing about but not shipping
 blind.* cyanrip writes a per-track `creation_time` tag into the Metadata block.
@@ -391,6 +441,31 @@ of shell on the rig (§5).
 **Route.** **Upstream PR** if confirmed; **closed with a note** if the line is
 already in the log file.
 
+**Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** The reader handles
+all three states the verdict has, and **indentation is the discriminator**:
+
+```
+    Secure re-read:  2 out of 2 matches          # a purpose-written row
+    Done;  (2 out of 2 matches for checksum …)   # the existing string, routed
+    Done;  (no matches found, but hit repeat limit of 5)
+```
+
+An **indented** verdict belongs to the track whose block is currently open. The
+existing **column-0** stdout form still buffers for the *next* track, exactly as
+today — so today's behaviour is bit-identical and the cheapest possible upstream
+change works: route the *existing* string through `cyanrip_log()` so the same text
+arrives indented instead of on stdout. No new wording needed.
+
+Two things to know:
+
+- **An unrecognised wording is "no opinion", never a verdict.** It can therefore
+  never erase a convergence result Platterpus already measured itself (the GUI's
+  own auto-fix history wins over anything the log says).
+- **The middle state is the whole point.** cyanrip's health line says
+  `No errors occurred` for a track that never read the same way twice, and
+  `(after N rips)` does not say whether any two of those reads *agreed*. Please
+  make the non-convergent case unambiguous in whatever wording you choose.
+
 ---
 
 ### 2.5 Say whether C2 was *used*, not only whether the drive supports it
@@ -445,8 +520,18 @@ may reasonably be declined. Cheap enough to try alongside something else, and
 this is the one item where a soft-fork-only patch would be a defensible outcome
 rather than a failure.
 
-**Platterpus side.** The parser gains one branch mapping "supported, unused" →
-`False`, which fills the row on a C2-capable drive instead of labelling it.
+**Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** The branch is
+shipped: `supported by drive, not used` (also `unused` / `never used`) maps to a
+truthful **No** for EAC's `Make use of C2 pointers`, filling the row on a
+C2-capable drive instead of labelling it.
+
+The bare `supported by drive` mapping is deliberately **unchanged** — still
+*unknown* — because that line states a drive *capability* while EAC's row asks
+what the rip *did*. That distinction is the whole reason the row is honest, and
+`tests/test_eac_layout_parity.py` pins it.
+
+There is no affirmative branch, on purpose: libcdio-paranoia never consumes C2
+pointers, so a "used" line would contradict the engine. **Do not print one.**
 
 ---
 
@@ -815,4 +900,4 @@ absence of any real `-Z` rip log in the repository.
 (the external standard these rows are measured against). PR-first, adaptable to
 the upstream maintainer's call, and we never fake provenance.*
 
-*Last updated for Platterpus v0.5.19.*
+*Last updated for Platterpus v0.5.20.*

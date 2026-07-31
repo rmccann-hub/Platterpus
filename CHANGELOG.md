@@ -11,6 +11,123 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- `docs/hardware-test-checklist.md` A22 said an AccurateRip cell has "at most three distinct
+  readings". It has **five** (`OK (N)`, `offset-variant match (N)`, `in DB, no match`,
+  `not in DB`, `—`) plus a verbatim fallback for a state we don't classify. The sheet now
+  tabulates all of them, so an unfamiliar-but-correct cell can't be reported as a failure —
+  which is the specific way a too-tight expectation wastes a hardware run.
+
+
+## [0.5.20] — 2026-07-31
+
+### Added
+- **Platterpus now reads the cyanrip lines the maintainer's fork will emit — without requiring
+  them.** AppImage users run the *deployed* cyanrip 0.9.3, which prints none of these, so the
+  whole change is written to one rule: **absent means absent.** A field no ripper reported stays
+  `None` and every surface renders exactly what it renders today; the parse of every committed
+  real log is byte-identical except for the one line below that 0.9.3 *does* print. Four new
+  rows are understood (specification: `docs/cyanrip-improvements-wanted.md`):
+  - **A per-track sample peak** (§2.1) fills EAC's `Peak level` row, in both plausible print
+    shapes (inline `Sample peak:  -0.5 dBFS`, or cyanrip's existing sub-header style). The unit
+    is required, never assumed. **cyanrip's existing `True peak:` can never reach this field** —
+    it is a different quantity that legitimately exceeds full scale (all fourteen reference
+    tracks do, 100.8 %–109.7 %), and EAC's row is a percentage of full scale that cannot exceed
+    100 %. Two independent guards enforce it: the peak's own label decides which quantity it is,
+    and any value above full scale is refused and logged rather than printed.
+  - **A per-track extraction speed and elapsed time** (§2.3). The speed multiple fills EAC's
+    `Extraction speed` row; the elapsed gets a row of its own, rendered only when measured.
+    Deliberately *not* converted into a speed — what cyanrip's interval covers is unknown, so a
+    derived number would be a guess wearing EAC's label.
+  - **The `-Z` secure-re-read verdict written into the log file** (§2.4), with all three states
+    it has: converged, did **not** converge, and not attempted. The middle one is why this
+    matters — cyanrip's health line says "No errors occurred" for a track that never read the
+    same way twice, so a log re-read from disk could not tell it from a clean one. An indented
+    verdict belongs to the open track; the existing column-0 stdout form still buffers for the
+    next track, unchanged. An unrecognised wording is *no opinion*, so it can never erase a
+    verdict already measured (the GUI's own auto-fix verdict still wins).
+  - **`C2 errors: supported by drive, not used`** (§2.5) now maps to a truthful `No` for EAC's
+    `Make use of C2 pointers`. A bare `supported by drive` still maps to *unknown*, because that
+    line states a drive **capability** and EAC's row asks what the rip **did** — the distinction
+    that keeps the row honest.
+- **`Appended: N frames of silence` is no longer discarded** — cyanrip 0.9.3 has been printing
+  it all along (track 14 of both committed reference rips) and the parser's own enumerable check
+  flagged it as the best line we still threw away. It names the track whose **final frames are
+  fabricated silence rather than disc audio** — the per-track consequence of overread being off —
+  so it becomes a per-track field and a line in the EAC-layout log's status report, beside the
+  read-stability caveat and above the integrity checksum that covers it. The per-track blocks
+  stay byte-comparable with a real EAC log, which is why the line goes in the status area.
+
+### Added
+- **The JSON report now records five per-track facts the parser had been reading and the report
+  dropped** (schema **v10**). The report is meant to be the one file that explains a rip, so a
+  fact that reaches the human-readable EAC-layout `.log` and not the machine record is a hole in
+  that promise. The important one is **`appended_silence_frames`**, and it is *not* fork
+  preparation — deployed cyanrip 0.9.3 prints `Appended: N frames of silence` on the last track
+  whenever overread is off, and **both committed reference rips contain it**. It says that track's
+  final frames are *fabricated silence rather than disc audio*, which is the most
+  archival-relevant per-track statement in the log. Also added: `start_sector`, `end_sector` and
+  `pregap_sectors` (the absolute geometry EAC's "TOC of the extracted CD" is derived from — the
+  JSON previously could not rebuild a table the `.log` already showed), and the fork-only
+  `extraction_elapsed_seconds`, so the fork's output lands in the report the day it ships rather
+  than being parsed into a field nothing writes down. Every key is always present and `null` when
+  unreported, so a reader can tell "the ripper didn't say" from "this build doesn't record it".
+
+- **`docs/cyanrip-improvements-wanted.md` described shipped work as future work** in four of its
+  five sections. §2.1, §2.3, §2.4 and §2.5 each said the Platterpus reader still had to be
+  written — it shipped in v0.5.19 — which is exactly backwards for a document whose purpose is to
+  be handed to whoever works on the fork: they would have read it as "the GUI is not ready for
+  this yet". Each now states the shipped reader, the **exact** line shapes it accepts (both peak
+  styles, all six speed/elapsed labels, all three `-Z` verdict forms), and — more useful than any
+  of that — the constraints under which Platterpus **refuses** a value rather than printing a
+  wrong one: the peak's unit is mandatory, a peak above full scale is rejected, an affirmative C2
+  line must not be printed at all, and the per-track speed row must be indented or it collides
+  with cyanrip's existing disc-level `Speed:` row.
+### Fixed
+- **One corrupt line of cyanrip output could end a rip in progress.** v0.5.19 closed the
+  4300-digit `int()` hole in eight parsers, where the consequence is a field degrading to
+  "unknown". It missed `workers/rip_worker.py`, where the consequence is different in kind:
+  `_progress_for` parses cyanrip's **live stdout** from inside the read loop, wrapped in a `try`
+  whose handler terminates the child and emits a rip error. A single unparseable progress line
+  would have killed the rip *and* the disc read, minutes in. Eight sites are now guarded and all
+  eight patterns bounded (`\d{1,4}` rather than `\d+`). The percent is worse than the integers
+  and needed its own guard: `float()` does **not** raise on a long digit run, it returns `inf`,
+  which survives every check and then raises `OverflowError` inside `int()` on the *GUI thread*,
+  in a queued slot — a crash dialog over a progress bar. Both ends are now closed, the parse
+  side and the bar itself.
+- **The reason the above was invisible: the new sweep's floor was its own roster length.**
+  `test_never_raises_contract.py` shipped with `assert examined >= 14` against a hand-maintained
+  14-module list, so it could not fail for a module nobody had added — which is exactly what a
+  floor is supposed to prevent. It now asserts every listed module was examined *and* that the
+  list has not shrunk, and `workers/rip_worker.py` is on it. It found all eight sites above
+  immediately.
+- **The trust banner was assembled in two places, so whichever ran last won.** The banner is one
+  sentence built from the AccurateRip verdict *and* the post-rip downgrade reasons ("this FLAC
+  master failed its decode check"). `set_rip_log` wrote the first, `downgrade_verdict` wrote
+  both, and `set_rip_log` carried a comment promising it re-applied any downgrade already
+  recorded — which nothing did. It was correct only by accident, because `set_rip_log` happens to
+  run exactly once per pane reset today; the unknown-album self-heal is one `return` away from
+  ripping twice in a cycle, and the dedup guard would then have made the loss permanent
+  (re-reporting the same failure returns early as a duplicate). The outcome is the one thing this
+  screen exists to prevent: a green "✓ Bit-perfect" over a master that will not decode. There is
+  now one renderer that reads both inputs every time.
+- **`tests/test_regex_bounded_time.py` was timing 3 of 98 patterns and reporting a full sweep.**
+  Any pattern whose single `.search` came in under the 200 µs noise floor was skipped — which is
+  nearly all of them, since a fast pattern costs ~1 µs. It now times a repeated batch, so every
+  pattern gets a real per-search figure, and a skip is a failure rather than a shrug. Two floors
+  make that stick: every collected pattern must be measured, and the detector must still separate
+  a known-quadratic pattern from a linear one (a threshold that flags everything is as useless as
+  one that flags nothing, and only the pair rules out both).
+
+### Changed
+- `parsers/cyanrip_log.py` now routes every integer conversion through the shared
+  `platterpus.safe_int.int_or_none` guard instead of a private copy of it. This was the module
+  the never-raises hole was found in, and the one module still not using the guard that finding
+  produced; each call site now also names its field, so an unusable value is diagnosable from a
+  bug report. With `workers/rip_worker.py` above, v0.5.19's claim that the conversion "now routes
+  through one shared guard" is finally true of the whole package — it was true of the eight sites
+  that release fixed and of nothing else.
+
 ## [0.5.19] — 2026-07-31
 
 ### Fixed
@@ -4179,6 +4296,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
 [0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
@@ -4244,4 +4362,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.19.*
+*Last updated for Platterpus v0.5.20.*
