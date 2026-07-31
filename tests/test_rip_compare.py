@@ -15,6 +15,9 @@ from pathlib import Path
 import pytest
 
 from platterpus.rip_compare import (
+    COMPLETENESS_ABANDONED,
+    COMPLETENESS_COMPLETE,
+    COMPLETENESS_PARTIAL,
     SIDE_A,
     SIDE_B,
     SIDE_EQUAL,
@@ -25,8 +28,10 @@ from platterpus.rip_compare import (
     disc_key,
     find_prior_report,
     load_report,
+    outcome_status,
     render_best_of_plan,
     render_comparison,
+    report_completeness,
 )
 
 # --- Report builders --------------------------------------------------------
@@ -64,13 +69,21 @@ def _report(
     release_id: str | None = "REL1",
     version: str = "0.4.24",
     generated_at: str = "2026-07-08T00:00:00",
+    status: str | None = None,
 ) -> dict:
+    """Build one serialized report.
+
+    ``status`` writes an ``outcome`` block with that ``outcome.status``; the
+    DEFAULT of None writes **no ``outcome`` block at all**, which is not
+    laziness — it is the pre-v7 on-disk shape this module still has to read, so
+    every legacy test below doubles as coverage of the no-outcome path.
+    """
     rip: dict = {"creation_date": generated_at}
     if disc_id is not None:
         rip["musicbrainz_disc_id"] = disc_id
     if cddb_id is not None:
         rip["cddb_id"] = cddb_id
-    return {
+    report: dict = {
         "schema_version": 9,
         "generator": {"name": "platterpus", "version": version},
         "generated_at": generated_at,
@@ -78,6 +91,13 @@ def _report(
         "disc": {"musicbrainz_release_id": release_id},
         "tracks": tracks,
     }
+    if status is not None:
+        report["outcome"] = {
+            "status": status,
+            "failure_hint": None,
+            "auto_unknown_retry": {"fired": False, "reason": None},
+        }
+    return report
 
 
 # --- disc_key precedence ----------------------------------------------------
@@ -573,3 +593,240 @@ def test_find_prior_report_dedups_nested_extra_roots(tmp_path: Path) -> None:
         current, root, extra_roots=(root / "Album", root, tmp_path)
     )
     assert found == prior
+
+
+# --- outcome.status: abandoned vs partial vs complete priors ------------------
+#
+# The bug these pin (TASKS.md, fixed 2026-07-31): the scan filtered on `same_disc`
+# only and never looked at `outcome.status`. Closing the window mid-rip leaves the
+# worker's incremental `in_progress` snapshot in the album folder forever, and it
+# carries a very recent `generated_at`, so a later clean re-rip picked it as "your
+# previous rip" and warned about "track(s) N the previous rip didn't have" on a
+# rip that was in fact perfect.
+
+
+def test_outcome_status_reads_the_block_and_tolerates_absence() -> None:
+    assert outcome_status(_report(tracks=[], status="success")) == "success"
+    assert outcome_status(_report(tracks=[], status="IN_PROGRESS ")) == "in_progress"
+    # No `outcome` block at all — the pre-v7 on-disk shape, which is a supported
+    # input, not an error. Must be "" and must not raise.
+    assert outcome_status(_report(tracks=[])) == ""
+    assert outcome_status({}) == ""
+    assert outcome_status({"outcome": None}) == ""
+    assert outcome_status({"outcome": "cancelled"}) == ""  # wrong type, not a block
+    assert outcome_status({"outcome": {"status": 7}}) == ""  # wrong type inside
+    assert outcome_status("nonsense") == ""  # type: ignore[arg-type]
+
+
+def test_report_completeness_classifies_every_status() -> None:
+    assert report_completeness(_report(tracks=[], status="success")) == (
+        COMPLETENESS_COMPLETE
+    )
+    # A report with NO outcome block predates the block; it could only have been
+    # written by the rip-finished handler, so it counts as a finished rip.
+    assert report_completeness(_report(tracks=[])) == COMPLETENESS_COMPLETE
+    assert report_completeness(_report(tracks=[], status="cancelled")) == (
+        COMPLETENESS_PARTIAL
+    )
+    assert report_completeness(_report(tracks=[], status="failed")) == (
+        COMPLETENESS_PARTIAL
+    )
+    # An unknown future status is read conservatively as partial, never complete.
+    assert report_completeness(_report(tracks=[], status="wedged")) == (
+        COMPLETENESS_PARTIAL
+    )
+    assert report_completeness(_report(tracks=[], status="in_progress")) == (
+        COMPLETENESS_ABANDONED
+    )
+
+
+def test_in_progress_prior_is_not_selected_as_a_baseline(tmp_path: Path) -> None:
+    """THE reported bug, at the scan: an abandoned mid-rip snapshot must not be
+    picked as "your previous rip" — even though it is the only same-disc report
+    in the library and its timestamp is the newest thing there."""
+    root = tmp_path / "Music"
+    current = root / "Album (2)" / "x.platterpus.json"
+    abandoned = root / "Album" / "x.platterpus.json"
+    _write_report(
+        current,
+        _report(
+            tracks=[_track(1, "AA"), _track(2, "BB"), _track(3, "CC")],
+            generated_at="2026-07-30T00:00:00",
+            status="success",
+        ),
+    )
+    _write_report(
+        abandoned,
+        _report(
+            tracks=[_track(1, "AA")],  # the window was closed after track 1
+            generated_at="2026-07-29T23:59:00",
+            status="in_progress",
+        ),
+    )
+    assert find_prior_report(current, root) is None
+
+
+def test_in_progress_prior_produces_no_missing_track_warning() -> None:
+    """THE reported symptom, at the diff: comparing a clean complete rip against
+    an `in_progress` snapshot must not warn about "tracks the previous rip
+    didn't" — those tracks are missing because that rip never finished."""
+    abandoned = _report(
+        tracks=[_track(1, "AA")], status="in_progress"
+    )  # died after track 1
+    clean = _report(
+        tracks=[_track(1, "AA"), _track(2, "BB"), _track(3, "CC")], status="success"
+    )
+    comp = compare_reports(abandoned, clean)
+    assert "the previous rip didn't" not in comp.summary
+    assert comp.headline_level == "ok"  # a clean re-rip is not a warning
+    assert comp.differing_count == 0
+    # …and it says WHY only one track was compared, in the summary (the GUI banner
+    # renders only the summary) and in the notes (the CLI renders those).
+    assert "never finished" in comp.summary
+    assert any("never finished" in note for note in comp.notes)
+    assert "1 track(s) against this rip's 3" in comp.summary
+    # The CLI prints summary + notes, so the caveat living in both must not print
+    # twice.
+    assert render_comparison(comp).count("never finished") == 1
+
+
+def test_complete_prior_wins_over_a_newer_partial_prior(tmp_path: Path) -> None:
+    """A cancelled prior is real data, but "how does this compare to the last
+    time I ripped the whole disc" is the useful question — so a complete prior
+    outranks a newer cancelled one instead of losing to it on recency."""
+    root = tmp_path / "Music"
+    current = root / "cur" / "x.platterpus.json"
+    complete = root / "full" / "x.platterpus.json"
+    cancelled = root / "stopped" / "x.platterpus.json"
+    _write_report(
+        current,
+        _report(tracks=[_track(1, "AA")], generated_at="2026-07-30T00:00:00"),
+    )
+    _write_report(
+        complete,
+        _report(
+            tracks=[_track(1, "AA"), _track(2, "BB")],
+            generated_at="2026-07-01T00:00:00",
+            status="success",
+        ),
+    )
+    _write_report(
+        cancelled,
+        _report(
+            tracks=[_track(1, "AA")],
+            generated_at="2026-07-29T00:00:00",  # newer, but stopped short
+            status="cancelled",
+        ),
+    )
+    assert find_prior_report(current, root) == complete
+
+
+def test_cancelled_prior_is_used_when_it_is_the_only_one(tmp_path: Path) -> None:
+    """The other half of the policy: a cancelled prior is NOT discarded. Its
+    tracks are genuine reads with genuine CRCs, so with no complete prior around
+    it is still the baseline — it is just labelled instead of over-claimed."""
+    root = tmp_path / "Music"
+    current = root / "cur" / "x.platterpus.json"
+    cancelled = root / "stopped" / "x.platterpus.json"
+    current_report = _report(
+        tracks=[_track(1, "AA"), _track(2, "BB"), _track(3, "CC")],
+        generated_at="2026-07-30T00:00:00",
+        status="success",
+    )
+    prior_report = _report(
+        tracks=[_track(1, "AA")],
+        generated_at="2026-07-29T00:00:00",
+        status="cancelled",
+    )
+    _write_report(current, current_report)
+    _write_report(cancelled, prior_report)
+    assert find_prior_report(current, root) == cancelled
+    comp = compare_reports(prior_report, current_report)
+    # Compared (the useful data is not thrown away)…
+    assert comp.identical_count == 1
+    # …no false alarm about the 2 tracks the cancelled rip never reached…
+    assert "the previous rip didn't" not in comp.summary
+    assert comp.headline_level == "ok"
+    # …and the headline does not claim more than it compared.
+    assert "in common" in comp.summary
+    assert "was cancelled before it finished" in comp.summary
+
+
+def test_cancelled_prior_still_surfaces_a_real_regression() -> None:
+    """Suppressing the *missing-track* warning must not suppress everything: a
+    track the cancelled prior DID get, which this rip read differently, is still
+    a warning. (Otherwise the fix would just be a mute button.)"""
+    prior = _report(
+        tracks=[_track(1, "AA", verified=True, v_conf=200)], status="cancelled"
+    )
+    current = _report(
+        tracks=[
+            _track(1, "ZZ", verified=False, offset_conf=200),
+            _track(2, "BB"),
+        ],
+        status="success",
+    )
+    comp = compare_reports(prior, current)
+    assert comp.headline_level == "warn"
+    assert comp.differing_count == 1
+    assert comp.a_better_tracks == (1,)
+    assert "the previous rip didn't" not in comp.summary  # still no false alarm
+
+
+def test_prior_with_no_outcome_block_is_a_normal_complete_prior(
+    tmp_path: Path,
+) -> None:
+    """A pre-v7 report has no `outcome` block at all. It must still be found AND
+    still be held to the full standard — a track it had that this rip lost is a
+    real regression and must warn, with no "did not finish" caveat invented for
+    it."""
+    root = tmp_path / "Music"
+    current = root / "cur" / "x.platterpus.json"
+    legacy = root / "old" / "x.platterpus.json"
+    legacy_report = _report(
+        tracks=[_track(1, "AA"), _track(2, "BB")], generated_at="2026-06-01T00:00:00"
+    )
+    current_report = _report(
+        tracks=[_track(1, "AA")], generated_at="2026-07-30T00:00:00", status="success"
+    )
+    assert "outcome" not in legacy_report  # the shape under test
+    _write_report(current, current_report)
+    _write_report(legacy, legacy_report)
+    assert find_prior_report(current, root) == legacy
+    comp = compare_reports(legacy_report, current_report)
+    assert comp.headline_level == "warn"
+    assert "not this one" in comp.summary  # the dropped track still surfaces
+    assert "did not report success" not in comp.summary
+    assert comp.notes == ()  # no caveat invented for a legacy report
+
+
+def test_cancelled_current_rip_does_not_warn_about_prior_tracks() -> None:
+    """The mirror case: when THIS rip was the one cancelled, the prior rip's
+    extra tracks are missing here by definition — so no "tracks are in the
+    previous rip but not this one" alarm, and the caveat names this side."""
+    prior = _report(
+        tracks=[_track(1, "AA"), _track(2, "BB"), _track(3, "CC")], status="success"
+    )
+    current = _report(tracks=[_track(1, "AA")], status="cancelled")
+    comp = compare_reports(prior, current)
+    assert "not this one" not in comp.summary
+    assert comp.headline_level == "ok"
+    assert "this rip was cancelled before it finished" in comp.summary
+    # The caveat names THIS side's coverage, not the other's.
+    assert "1 track(s) against the previous rip's 3" in comp.summary
+
+
+def test_in_progress_scan_skip_is_logged_not_silent(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """ "Why did my re-rip get no comparison banner?" must be answerable from the
+    log file — the skip is deliberate, so it is recorded (never silently
+    truncate, docs/testing.md)."""
+    root = tmp_path / "Music"
+    current = root / "cur" / "x.platterpus.json"
+    abandoned = root / "abandoned" / "x.platterpus.json"
+    _write_report(current, _report(tracks=[_track(1, "AA")], status="success"))
+    _write_report(abandoned, _report(tracks=[_track(1, "AA")], status="in_progress"))
+    with caplog.at_level("INFO", logger="platterpus.rip_compare"):
+        assert find_prior_report(current, root) is None
+    assert any("in_progress" in record.getMessage() for record in caplog.records)

@@ -243,6 +243,34 @@ def transcode_files(
                 transcoded=transcoded, error=f"could not run {binary}: {exc}"
             )
         if rc != 0 or not tmp.exists():
+            # Both of these used to be recorded as a bare failure with NO log line
+            # at all, so a rip that produced no MP3s left nothing behind to explain
+            # why. They are different failures and must read differently:
+            #  * rc != 0 — ffmpeg said it failed. `_default_runner` has already
+            #    logged its stderr tail (the actual reason); this line ties that to
+            #    the specific file and format.
+            #  * rc == 0 but no temp — ffmpeg claimed success and wrote nothing.
+            #    There is no stderr to quote, so the *absence* is the finding, and
+            #    it usually means a bad argv (e.g. an unknown `-f` muxer name) or a
+            #    stubbed/misbehaving runner.
+            if rc != 0:
+                log.warning(
+                    "transcode to %s failed for %s: %s exited %s (its own error "
+                    "output precedes this line); the FLAC is untouched",
+                    fmt,
+                    src.name,
+                    Path(binary).name,
+                    rc,
+                )
+            else:
+                log.warning(
+                    "transcode to %s failed for %s: %s reported success (rc=0) but "
+                    "wrote no output file (%s); the FLAC is untouched",
+                    fmt,
+                    src.name,
+                    Path(binary).name,
+                    tmp.name,
+                )
             _safe_unlink(tmp)
             failures.append(src)
             continue

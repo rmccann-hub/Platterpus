@@ -1,8 +1,11 @@
 """Tests for platterpus.deps.checks.
 
-The probes shell out to real tools, so we test by patching `shutil.which`
-and `subprocess.run` to deterministic stubs. The shape of each
-ProbeResult is what we care about — not whether whipper itself runs.
+The probes shell out to real tools, so we test by patching `shutil.which` and
+`checks.VERSION_PROBE.run` to deterministic stubs. (The probe goes through the
+killable `VERSION_PROBE`, **not** `subprocess.run` — patching the latter would
+stub something the code no longer calls, and the test would pass while proving
+nothing.) The shape of each ProbeResult is what we care about — not whether
+cyanrip itself runs.
 """
 
 from __future__ import annotations
@@ -88,6 +91,195 @@ def test_probe_timeout_budgets_for_cold_container() -> None:
     regardless, so the larger ceiling only bites a cold-start or a wedged tool.
     """
     assert checks._PROBE_TIMEOUT_S >= 45.0
+
+
+# --- exit-code handling (regression: a failed probe is not a version) -------
+#
+# The bug: `_run_version_command` reported success for any run that *finished*,
+# so the error text of a broken tool was parsed for a version. `parse_version`
+# takes the first `N.N` it finds, and error text is full of them — a podman
+# version in a Distrobox failure, a SONAME in a linker error. The dependency
+# report then claimed a broken tool was installed AND that it met its minimum
+# version, so nothing offered to fix it. These tests pin the exit code as the
+# thing that decides whether the tool answered us.
+
+
+def test_check_cdparanoia_nonzero_exit_is_absent_despite_version_like_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A linker error mentioning `libcdio.so.19.0` must not become "version 19.0".
+
+    This is the exact reported shape: the binary exists (so the `exists()` gate
+    passes), the run completes (so the old code said "ran OK"), and the only
+    numbers in the output belong to a shared library, not to cd-paranoia.
+    """
+    binary = tmp_path / "cd-paranoia"
+    binary.write_text("#!/bin/sh\nexit 127\n")
+    binary.chmod(0o755)
+    monkeypatch.setattr(
+        checks.VERSION_PROBE,
+        "run",
+        lambda *a, **kw: _fake_run(
+            stderr=(
+                "cd-paranoia: error while loading shared libraries: "
+                "libcdio.so.19.0: cannot open shared object file\n"
+            ),
+            returncode=127,
+        ),
+    )
+
+    probe = check_cdparanoia(binary)
+    assert probe.present is False
+    # The specific trap: not merely "not present" but not carrying the
+    # library's version number either — a consumer reading `version` must not
+    # find (19, 0) sitting there.
+    assert probe.version is None
+
+
+def test_check_cyanrip_nonzero_exit_is_absent_despite_podman_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Distrobox/podman failure prints podman's version — not cyanrip's.
+
+    The host export is a shell script that enters the container, so it runs and
+    prints even when the container is broken. Reporting cyanrip as present at
+    podman's version (and above cyanrip's 0.9.0 floor) is the worst outcome:
+    the setup wizard that would fix the container never gets offered.
+    """
+    binary = tmp_path / "cyanrip"
+    binary.write_text("#!/bin/sh\nexit 125\n")
+    binary.chmod(0o755)
+    monkeypatch.setattr(
+        checks.VERSION_PROBE,
+        "run",
+        lambda *a, **kw: _fake_run(
+            stderr=(
+                "Error: unable to start container ripping: "
+                "podman 4.9.4 reported: OCI runtime error\n"
+            ),
+            returncode=125,
+        ),
+    )
+
+    probe = check_cyanrip(binary)
+    assert probe.present is False
+    assert probe.version is None
+
+
+def test_check_metaflac_nonzero_exit_is_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Same rule for the PATH-resolved probes, not just the path-gated ones."""
+    monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/metaflac")
+    monkeypatch.setattr(
+        checks.VERSION_PROBE,
+        "run",
+        lambda *a, **kw: _fake_run(
+            stderr="metaflac: symbol lookup error: libFLAC.so.12.1\n", returncode=1
+        ),
+    )
+
+    probe = check_metaflac()
+    assert probe.present is False
+    assert probe.version is None
+
+
+def test_killed_probe_is_absent_not_a_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A probe WE killed must never read as an answer.
+
+    `cancel_version_probes()` SIGKILLs the child, which surfaces as a negative
+    return code with whatever the tool had already written. Partial output can
+    absolutely contain a version-like number, so the cancel path relies on the
+    same exit-code rule.
+    """
+    monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/ffmpeg")
+    monkeypatch.setattr(
+        checks.VERSION_PROBE,
+        "run",
+        lambda *a, **kw: _fake_run(stdout="ffmpeg version 6.1.1", returncode=-9),
+    )
+
+    probe = check_ffmpeg()
+    assert probe.present is False
+    assert probe.version is None
+
+
+def test_failed_probe_logs_exit_code_and_captured_output(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A failed probe must be diagnosable from the log file alone.
+
+    CLAUDE.md: when a dependency fails, capture its stderr/stdout and log it.
+    Without this, "cd-paranoia is missing" in the UI has no explanation anywhere
+    and a bug report cannot say *why* the tool was rejected.
+    """
+    monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/flac")
+    monkeypatch.setattr(
+        checks.VERSION_PROBE,
+        "run",
+        lambda *a, **kw: _fake_run(
+            stderr="flac: error while loading shared libraries: libogg.so.0\n",
+            returncode=127,
+        ),
+    )
+
+    with caplog.at_level("WARNING", logger="platterpus.deps.checks"):
+        assert check_flac().present is False
+
+    logged = caplog.text
+    assert "127" in logged  # the exit code
+    assert "libogg.so.0" in logged  # the tool's own words, not swallowed
+
+
+def test_version_probe_accepts_an_explicitly_allow_listed_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The allow-list seam works, for the day a tool needs it.
+
+    Non-zero-on-`--version` is a real upstream convention: libcdio's shared
+    `print_version()` exits `EXIT_INFO` (100). No dependency Platterpus probes
+    does that today (all were checked against upstream source), so nothing
+    passes this parameter — but the seam is tested so that a future fix is an
+    explicit per-tool allow-list rather than a relapse into accepting every
+    exit code.
+    """
+    monkeypatch.setattr(checks.shutil, "which", lambda _: "/usr/bin/cd-info")
+    monkeypatch.setattr(
+        checks.VERSION_PROBE,
+        "run",
+        # libcdio's own shape: a good banner, then exit(EXIT_INFO) == 100.
+        lambda *a, **kw: _fake_run(stdout="cd-info version 10.2\n", returncode=100),
+    )
+
+    # Not allow-listed → rejected, which is the default every real caller uses.
+    ran_default, _output, _loc = checks._run_version_command(["cd-info", "--version"])
+    assert ran_default is False
+
+    ran, output, location = checks._run_version_command(
+        ["cd-info", "--version"],
+        accept_exit_codes=frozenset({0, 100}),
+    )
+    assert ran is True
+    assert "10.2" in output
+    assert location == "/usr/bin/cd-info"
+
+
+def test_summarize_output_flattens_and_bounds_what_reaches_the_log() -> None:
+    """The log line stays one readable, bounded line.
+
+    Empty output is spelled out (a blank tail looks like a truncated log line),
+    newlines are flattened so one failure is one grep-able record, and a tool
+    that spews megabytes cannot bloat the user's log file.
+    """
+    assert checks._summarize_output("   \n\n ") == "(none)"
+    assert checks._summarize_output("first\nsecond\n") == "first | second"
+
+    summary = checks._summarize_output("x" * (checks._MAX_LOGGED_OUTPUT_CHARS + 50))
+    assert summary.endswith("(truncated)")
+    # Bounded: the payload is capped, plus the short truncation marker.
+    assert len(summary) < checks._MAX_LOGGED_OUTPUT_CHARS + 30
 
 
 # --- check_cdparanoia (KDD-29) ---

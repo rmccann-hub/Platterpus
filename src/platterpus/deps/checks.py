@@ -2,12 +2,19 @@
 
 One probe per dependency, returning a `ProbeResult`. Probes have no side
 effects — they MUST NOT install, modify, or write anything; they may
-shell out (`subprocess.run`) to ask a tool for its version.
+shell out (via `VERSION_PROBE`, a killable command) to ask a tool for its
+version.
 
-Failures (tool missing, network gone, timeout) are caught and reflected
-in the `ProbeResult`, never raised. The dependency manager classifies a
-probe with `present=False` as missing; how to resolve it is the
-registry's tier decision and the resolvers' job.
+Failures (tool missing, network gone, timeout, **a non-zero exit**) are
+caught and reflected in the `ProbeResult`, never raised. The dependency
+manager classifies a probe with `present=False` as missing; how to resolve
+it is the registry's tier decision and the resolvers' job.
+
+A tool that ran but *failed* counts as a failure, not as a version answer —
+see `_SUCCESS_EXIT_CODES`. Reporting "installed, version 19.0" because a
+linker error mentioned `libcdio.so.19.0` is worse than reporting the tool
+missing: the user is told a broken tool is fine, and the wizard that would
+have fixed it never offers.
 """
 
 from __future__ import annotations
@@ -56,6 +63,30 @@ def cancel_version_probes() -> None:
 # so the larger ceiling only ever bites a container cold-start or a wedged binary.
 _PROBE_TIMEOUT_S: float = 60.0
 
+# Which exit codes mean "the tool answered us".
+#
+# **Why this constant exists.** A probe used to count as successful the moment the
+# command *finished*, whatever it finished with. But a failing run still prints
+# something, and that something routinely contains a version-like number that
+# belongs to a completely different program: a Distrobox/podman start failure
+# prints podman's own version, and a broken binary prints
+# `libcdio.so.19.0: cannot open shared object file`. `parse_version` grabs the
+# first `N.N` it sees, so those numbers were being reported as *the tool's*
+# version — which also cleared the spec's minimum-version floor, and the
+# dependency report then told the user a demonstrably broken tool was installed
+# and current. The exit code is the one piece of evidence that distinguishes
+# "answered" from "failed while saying a number", so we now require it.
+#
+# A negative return code (killed by a signal) lands here too, which is the
+# behaviour we want: `cancel_version_probes()` SIGKILLs the child, and a probe
+# we deliberately killed part-way must never be read as a version answer.
+_SUCCESS_EXIT_CODES: frozenset[int] = frozenset({0})
+
+# How much of a failed probe's output goes into the log line. Long enough to
+# carry a linker error or a podman message, short enough that a tool spewing
+# megabytes can't bloat the user's log file.
+_MAX_LOGGED_OUTPUT_CHARS: int = 500
+
 
 @dataclass(frozen=True)
 class ProbeResult:
@@ -76,13 +107,43 @@ class ProbeResult:
 
 def _run_version_command(
     argv: list[str],
+    *,
+    accept_exit_codes: frozenset[int] = _SUCCESS_EXIT_CODES,
 ) -> tuple[bool, str, str | None]:
     """Shell out and capture stdout+stderr. Returns (ran_ok, output, location).
 
-    `location` is `argv[0]` resolved through `shutil.which` when possible
-    so the user sees the actual path the GUI is using, not the unresolved
-    name. Returns `ran_ok=False` if the command times out or the binary
-    isn't found.
+    `ran_ok` means **"this tool answered our version question"** — not merely
+    "a process started and stopped". So it is False when the binary is missing,
+    when the probe times out, *and* when the command exits with a code we don't
+    accept (see `_SUCCESS_EXIT_CODES` for why that last one matters). A caller
+    that sees `ran_ok=False` must report the dependency as absent rather than
+    parse a version out of the output — an error message's numbers are not a
+    version.
+
+    Both streams are captured together because a version banner is not reliably
+    on stdout: `cd-paranoia --version` prints its banner to **stderr** and still
+    exits 0.
+
+    A failed probe is logged with the exit code and the captured output, so a
+    user's bug report carries *why* the tool was called absent (CLAUDE.md: when
+    a dependency fails, capture its stderr/stdout and log it). It is a warning,
+    not an error, because plenty of these are expected — an optional tool that
+    isn't installed is normal.
+
+    `location` is `argv[0]` resolved through `shutil.which` when possible so the
+    user sees the actual path the GUI is using, not the unresolved name.
+
+    **`accept_exit_codes` — the allow-list seam, deliberately unused today.**
+    A non-zero exit for a version flag is a rare-but-real upstream convention:
+    libcdio's shared `print_version()` ends in `exit(EXIT_INFO)` and `EXIT_INFO`
+    is **100** (`libcdio/src/util.h`), so e.g. `cd-info --version` prints a
+    perfectly good banner and "fails" with rc=100. Every tool *Platterpus*
+    probes was checked against its own upstream source and exits 0 on its
+    version flag (evidence recorded in `docs/dependency-contracts.md` →
+    *Version probes*), so no caller passes this parameter. It exists so that the
+    day one of them changes, the fix is an explicit per-tool allow-list with the
+    evidence written down beside it — never a return to "any exit code counts",
+    which is the bug this function was fixed for.
     """
     resolved = shutil.which(argv[0]) or argv[0]
     try:
@@ -95,7 +156,32 @@ def _run_version_command(
         return False, "", resolved
 
     combined = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode not in accept_exit_codes:
+        log.warning(
+            "probe: %s exited %d — treating the tool as unavailable, NOT parsing a "
+            "version out of its error output. Captured output: %s",
+            " ".join(argv),
+            proc.returncode,
+            _summarize_output(combined),
+        )
+        return False, combined, resolved
     return True, combined, resolved
+
+
+def _summarize_output(text: str) -> str:
+    """Squash captured tool output into one truncated line fit for a log record.
+
+    Multi-line output in a single log line makes the log file hard to read (and
+    hard to grep), so newlines become ` | `. An empty capture is spelled out
+    rather than logged as nothing at all — "the tool failed and said nothing" is
+    itself a useful clue, and a blank tail would look like a truncated log line.
+    """
+    flattened = " | ".join(line.strip() for line in text.strip().splitlines() if line)
+    if not flattened:
+        return "(none)"
+    if len(flattened) > _MAX_LOGGED_OUTPUT_CHARS:
+        return flattened[:_MAX_LOGGED_OUTPUT_CHARS] + "… (truncated)"
+    return flattened
 
 
 def check_cyanrip(binary_path: Path) -> ProbeResult:
@@ -103,7 +189,14 @@ def check_cyanrip(binary_path: Path) -> ProbeResult:
 
     Ripping routes through `~/.local/bin/cyanrip` (Critical Rule #3), so we
     accept the path explicitly rather than relying on PATH alone. cyanrip
-    reports its version with `-V` (not `--version`).
+    reports its version with `-V` (not `--version`), and exits 0 doing so.
+
+    The highest-stakes case for the exit-code check: the host export is a small
+    shell script that enters the Distrobox container, so when the container is
+    gone or podman errors out, *the export still runs and still prints* — the
+    error text carries podman's version, which used to be reported as cyanrip's.
+    A non-zero exit now means absent, which is what routes the user to the setup
+    wizard that actually fixes it.
     """
     if not binary_path.exists():
         return ProbeResult(present=False, version=None, location=str(binary_path))
@@ -127,8 +220,13 @@ def check_cdparanoia(binary_path: Path) -> ProbeResult:
     Optional — used only by the cache-defeat probe. Routes through the same
     ``~/.local/bin`` host-export as cyanrip (Critical Rule #3), so we accept the
     path explicitly rather than relying on PATH. cd-paranoia prints its version
-    banner on ``--version``; a missing binary or a non-zero run is reported as
-    absent (which the wizard resolves by re-running host setup).
+    banner on ``--version`` — to **stderr**, and exits 0 (upstream
+    libcdio-paranoia ``src/cd-paranoia.c``: ``case 'V': fprintf(stderr, …);
+    exit(0);``) — so we read both streams and require a zero exit. A missing
+    binary or a non-zero run is reported as absent (which the wizard resolves by
+    re-running host setup). Beware the family resemblance: libcdio's *other*
+    tools exit 100 on ``--version``; cd-paranoia has its own ``main`` and does
+    not (see ``_run_version_command``'s allow-list note).
     """
     if not binary_path.exists():
         return ProbeResult(present=False, version=None, location=str(binary_path))
@@ -265,9 +363,11 @@ def check_picard_flatpak() -> ProbeResult:
     if not ran:
         return ProbeResult(present=False, version=None, location=None)
 
-    # `flatpak info` returns non-zero when the app isn't installed; the
-    # output then says "error: ...". A successful run includes a
-    # "Version:" line.
+    # `flatpak info` returns non-zero when the app isn't installed (that case is
+    # now caught by the exit-code check above, which is where it belongs). This
+    # stays as the belt for the opposite shape: a zero exit whose output isn't
+    # the record we expected. A real "app is installed" answer always contains a
+    # "Version:" line, and without one there is nothing trustworthy to parse.
     if "Version:" not in output:
         return ProbeResult(
             present=False, version=None, location=None, raw_output=output[:200]

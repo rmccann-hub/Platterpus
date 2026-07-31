@@ -119,7 +119,19 @@ are produced at rip time by cyanrip's own sanitiser — so this paragraph stays
 the honest record of that residual limitation.
 
 **Info / probe flags:** `-I -N` (info-only, computes DiscID/CDDB locally, no
-network — `disc_info`); `-V` (version). **cyanrip's offset-finder is
+network — `disc_info`); `-V` (version). **Both probes are strict about the exit
+code** (`CyanripImpl._run(strict=True)`): a non-zero exit is logged with
+cyanrip's own output *and* raised as `RipError`, never returned as text. `-V`
+prints `cyanrip <version> (<vcstag>)` and returns **0** on success (its
+`case 'V':` logs the banner and returns 0 — verified against 0.9.3.1), so a
+non-zero exit there came from the host export / container, not from cyanrip. The
+`--doctor` routing check additionally requires a *recognisable version* in that
+output (`preflight.version_banner`, which reuses the dependency subsystem's
+`parse_version`) — output with no version means the check FAILS, because the
+check exists to prove the chain reaches cyanrip and any-string-accepted is not
+proof. It scans for the versioned **line** rather than line 1: a cold Distrobox
+container prints its own startup chatter first, and stderr is folded into stdout
+by `run_capture`. **cyanrip's offset-finder is
 deliberately unused** — its `-f` IS a "find drive offset" mode (verified
 against 0.9.3.1 + master getopt/help, 2026-07-21: `-f  Find drive offset
 (requires a disc with an AccuRip DB entry)`), but an earlier build that ran it
@@ -294,6 +306,58 @@ per-file failure leaves the source FLAC untouched (the master is never at risk).
   code only as the defensive fallback if `crc.CRC_VALIDATED` is ever re-opened —
   the verdict can only ever under-claim, never fabricate a "verified".
 
+## Version probes — the "is it installed?" contract (`deps/checks.py`)
+
+Separate from the working invocations above: the *presence/version* probe each
+dependency answers at launch (`_run_version_command`, one call per tool). The
+contract has three parts.
+
+**1. The flag.** Not uniform, and each one is deliberate:
+
+| Tool | Probe invocation | Notes |
+|---|---|---|
+| cyanrip | `cyanrip -V` | single dash, capital V — **not** `--version` |
+| cd-paranoia | `cd-paranoia --version` | banner goes to **stderr** |
+| metaflac | `metaflac --version` | |
+| flac | `flac --version` | |
+| ffmpeg | `ffmpeg -version` | single dash, unlike the GNU tools |
+| Picard | `flatpak info --user org.musicbrainz.Picard` | not a version flag — a record lookup; must contain a `Version:` line |
+
+**2. Both streams are read.** The version banner is not reliably on stdout —
+`cd-paranoia` prints its to stderr — so stdout+stderr are concatenated before
+parsing.
+
+**3. A zero exit is required, and that is load-bearing.** The version parser
+returns the first `N.N` in the text, and *error* text is full of numbers that
+belong to other programs (podman's version in a Distrobox start failure;
+`libcdio.so.19.0` in a linker error). Accepting any completed run therefore
+reported a broken tool as installed *and* as meeting its minimum version — fixed
+2026-07-31; a non-zero exit (including a negative one, i.e. a probe we
+SIGKILLed on cancel) now means **absent**, and the exit code plus the tool's
+captured output is logged.
+
+Each tool's version-flag exit code was checked against upstream source before
+that rule was made a hard failure — the evidence, so a future maintainer doesn't
+have to re-derive it:
+
+| Tool | Exit on version flag | Source evidence |
+|---|---|---|
+| cyanrip | **0** | `src/cyanrip_main.c` (v0.9.3.1, the deployed build): `case 'V': cyanrip_log(…); return 0;` |
+| cd-paranoia | **0** | libcdio-paranoia `src/cd-paranoia.c`: `case 'V': fprintf(stderr, PARANOIA_VERSION); … exit(0);` |
+| flac | **0** | flac `src/flac/main.c` → `do_it()`: `if(option_values.show_version) { show_version(); return 0; }` |
+| metaflac | **0** | flac `src/metaflac/operations.c` → `do_operations()` prints the banner and returns success |
+| ffmpeg | **0** | FFmpeg `fftools/opt_common.c`: `show_version()` returns 0 |
+| flatpak | **0** when the app is installed | non-zero means "not installed", which is exactly the answer we want |
+
+**The near-miss worth knowing about:** libcdio's *other* tools (`cd-info`,
+`cd-drive`) print a perfectly good banner and then exit **100** — their shared
+`print_version()` ends in `exit(EXIT_INFO)`, and `EXIT_INFO` is 100
+(`libcdio/src/util.h`). `cd-paranoia` has its own `main` and does not do this,
+but the convention is real, so `_run_version_command` takes an
+`accept_exit_codes` allow-list. No caller passes it today. If a tool ever needs
+it, allow-list **that tool's** documented code and record the evidence here —
+never widen it to "any exit code", which is the bug this section exists for.
+
 ## System drive/reader control (`drive_control.py`) — force-stop / free
 
 Kill an orphaned rip that podman won't forward a signal into (see the module's
@@ -324,4 +388,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.18.*

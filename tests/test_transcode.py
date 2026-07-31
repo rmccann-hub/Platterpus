@@ -9,6 +9,7 @@ kept; the output is written atomically (sibling temp → os.replace).
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from pathlib import Path
 
@@ -178,6 +179,46 @@ def test_missing_temp_output_is_a_failure(tmp_path: Path) -> None:
     result = transcode_files([a], fmt="mp3", runner=lambda argv: 0)
     assert result.failures == (a,)
     assert not (tmp_path / "01.mp3").exists()
+
+
+def test_missing_temp_output_is_logged_with_the_reason(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Regression (2026-07-31): "ffmpeg said OK but wrote nothing" was recorded as
+    a failure with NO log line at all, so a rip that silently produced no MP3s left
+    nothing behind to diagnose. The log must name the file, the format, and the
+    *specific* oddity (rc=0 yet no output) — not just "a file failed".
+    """
+    a = _make_flac(tmp_path / "01.flac")
+
+    with caplog.at_level(logging.WARNING, logger="platterpus.adapters.transcode"):
+        result = transcode_files([a], fmt="mp3", runner=lambda argv: 0)
+
+    assert result.failures == (a,)
+    assert "01.flac" in caplog.text  # which file
+    assert "mp3" in caplog.text  # which target format
+    assert "rc=0" in caplog.text  # the specific oddity: success with no output
+    assert "wrote no output" in caplog.text
+
+
+def test_nonzero_rc_failure_is_logged_with_the_exit_code(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The sibling case must read differently: ffmpeg *said* it failed, so the log
+    names the exit code and points at the stderr the runner logged."""
+    a = _make_flac(tmp_path / "01.flac")
+
+    def runner(argv: list[str]) -> int:
+        return 3
+
+    with caplog.at_level(logging.WARNING, logger="platterpus.adapters.transcode"):
+        result = transcode_files([a], fmt="wavpack", runner=runner)
+
+    assert result.failures == (a,)
+    assert "exited 3" in caplog.text
+    assert "01.flac" in caplog.text
+    assert "wavpack" in caplog.text
+    assert "wrote no output" not in caplog.text  # a different failure, worded so
 
 
 def test_missing_binary_is_an_error_not_a_failure(tmp_path: Path) -> None:

@@ -676,7 +676,18 @@ It reads trust straight from each report's `accuraterip_verified` flag — the
 Discovery (`find_prior_report`) keys on the **TOC-derived disc IDs** now in the
 report's `rip` block (`musicbrainz_disc_id`, then `cddb_id`, then the MB
 release id) — a physical-disc key that's stable across re-rips, unlike the
-release id. Three surfaces consume it: the `--compare` CLI, the results-pane
+release id. Same disc is necessary but *not sufficient*: a candidate is also
+classified by its own `outcome.status` (`report_completeness` → complete /
+partial / abandoned), and discovery ranks **completeness before recency**. An
+`in_progress` report is the rip worker's durability snapshot of a rip that never
+ended (window closed mid-rip, power loss), so it is never auto-selected — it
+carries the newest timestamp in the library and would otherwise hide the user's
+real prior rip and warn about the tracks it never reached. A `cancelled`/`failed`
+prior *is* used — those CRCs are real reads — but only when no complete prior
+exists, and `compare_reports` then labels the result and stops counting the
+tracks the short side never got as changes. A report with **no `outcome` block**
+(pre-v7) counts as complete: in those versions only the rip-finished handler ever
+wrote one. Three surfaces consume it: the `--compare` CLI, the results-pane
 banner after a rip (discovery scans the library, so it runs **off the GUI
 thread** via `_launch_post_rip_daemon` and reports back through the queued
 `rip_comparison_done` signal — same pattern as CTDB verify), and the

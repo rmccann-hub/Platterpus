@@ -52,7 +52,11 @@ class CoverArtResult:
     True/False once art was attempted; ``reason`` is a short machine code
     (``"ok"``/``"404"``/``"network"``/``"oversize"``/``"not-image"``/
     ``"empty"``/``"write-failed"``/``"no-release"``). ``message`` is the human
-    one-liner the log view shows. Best-effort throughout: no field is required.
+    one-liner the log view shows — reason-specific, so "the release has no art"
+    and "we could not reach the archive" never read the same (see
+    :func:`no_art_message`). ``error`` carries the dependency's own diagnostic for
+    that reason (the exception text, the HTTP status) so it is never swallowed.
+    Best-effort throughout: no field is required.
     """
 
     mode: str = ""
@@ -141,19 +145,70 @@ def image_extension(data: bytes) -> str:
     return ""
 
 
+# The user-facing sentence for each way the fetch can come back empty.
+#
+# WHY this table exists (2026-07-31): every one of these used to collapse into
+# the single line "Cover art: none found for this release", which told an OFFLINE
+# user that the *release* has no art. Those are different facts — "nobody ever
+# uploaded a cover for this disc" is final, "we could not reach the archive" is
+# a temporary failure that says nothing at all about the release — and the
+# project's honesty principle forbids reporting one as the other. The wording is
+# in a plain dict (not built inline) so the report line, the log line and the
+# tests all read the exact same sentence.
+_NO_ART_MESSAGES: dict[str, str] = {
+    # The archive answered "I have nothing for this release" — the one case where
+    # "none found for this release" is the truth.
+    "404": "Cover art: none found for this release in the Cover Art Archive "
+    "(rip unaffected).",
+    # We never got an answer, so we do NOT know whether art exists. Say so.
+    "network": "Cover art: could not reach the Cover Art Archive — art was not "
+    "fetched, so this release may still have one (rip unaffected).",
+    # No release id: the disc was never identified, so there was nothing to ask
+    # about. Again not the same as "the release has no art".
+    "no-release": "Cover art: the disc was not identified, so there was no "
+    "release to look art up for (rip unaffected).",
+    # The server answered, but with something unusable. The art may well exist;
+    # what failed was this response.
+    "empty": "Cover art: the Cover Art Archive returned an empty image — art was "
+    "not applied (rip unaffected).",
+    "oversize": "Cover art: the image in the Cover Art Archive is too large to "
+    "use — art was not applied (rip unaffected).",
+    "not-image": "Cover art: the Cover Art Archive's reply was not a JPEG/PNG/GIF "
+    "image — art was not applied (rip unaffected).",
+}
+
+
+def no_art_message(reason: str | None) -> str:
+    """The user-facing one-liner for a fetch that produced no art.
+
+    Pure and total: an unknown/None ``reason`` still gets an honest sentence that
+    *names the reason code* rather than inventing a fact about the release, so a
+    reason added later can never silently regress into "none found". Never raises
+    — this is on the best-effort cover-art path, which must never break a rip.
+    """
+    known = _NO_ART_MESSAGES.get(reason or "")
+    if known:
+        return known
+    code = reason or "unknown"
+    return f"Cover art: not applied — {code} (rip unaffected)."
+
+
 def _fetch_front_cover_detailed(
     release_id: str, fetcher: Fetcher | None = None
-) -> tuple[bytes | None, str]:
-    """Fetch the front cover, returning ``(data_or_None, reason)``.
+) -> tuple[bytes | None, str, str]:
+    """Fetch the front cover, returning ``(data_or_None, reason, detail)``.
 
     Same behaviour as :func:`fetch_front_cover` but also reports WHY it came back
     empty, so the report can distinguish a genuine "not in the archive" (``404``)
     from a network problem, an oversized body, or a non-image response. ``reason``
-    is ``"ok"`` on success. Never raises.
+    is ``"ok"`` on success. ``detail`` is the raw diagnostic we got from the
+    dependency (the exception text, the HTTP status, the body size) — kept so it
+    can land in the log AND in the report's ``error`` field instead of being
+    swallowed; it is ``""`` when there is nothing extra to say. Never raises.
     """
     mbid = (release_id or "").strip()
     if not mbid:
-        return None, "no-release"
+        return None, "no-release", "no release id was chosen for this disc"
     # URL-encode the id before interpolating it into the request path. It comes
     # from a MusicBrainz response, so a value containing "/", "?" or "#" (a
     # non-UUID or a tampered response) could otherwise rewrite which resource we
@@ -166,24 +221,26 @@ def _fetch_front_cover_detailed(
     except urllib.error.HTTPError as exc:
         # A 404 (release simply has no cover) is the common, expected case —
         # distinguish it from any other HTTP status so the report can say which.
+        # Any OTHER status means the archive did not tell us about the release at
+        # all, so it is classed with the network failures, not with "no art".
         reason = "404" if exc.code == 404 else "network"
         log.info("cover art fetch for %s returned HTTP %s", mbid, exc.code)
-        return None, reason
+        return None, reason, f"HTTP {exc.code}"
     except (OSError, http.client.HTTPException, ValueError) as exc:
         # urllib.error.URLError is an OSError subclass; timeouts are too.
         # ValueError covers a malformed URL from a weird MBID.
         log.info("cover art fetch failed for %s: %s", mbid, exc)
-        return None, "network"
+        return None, "network", f"{type(exc).__name__}: {exc}"
     if not data:
         log.info("cover art for %s was empty — ignoring", mbid)
-        return None, "empty"
+        return None, "empty", "the response body was empty"
     if len(data) > _MAX_BYTES:
         log.info("cover art for %s oversized — ignoring", mbid)
-        return None, "oversize"
+        return None, "oversize", f"{len(data)} bytes exceeds the {_MAX_BYTES}-byte cap"
     if not image_extension(data):
         log.info("cover art response for %s is not a known image — ignoring", mbid)
-        return None, "not-image"
-    return data, "ok"
+        return None, "not-image", "the response is not a JPEG/PNG/GIF"
+    return data, "ok", ""
 
 
 def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes | None:
@@ -196,7 +253,7 @@ def fetch_front_cover(release_id: str, fetcher: Fetcher | None = None) -> bytes 
     :func:`_fetch_front_cover_detailed` for the reason-aware variant the report
     uses.)
     """
-    data, _reason = _fetch_front_cover_detailed(release_id, fetcher=fetcher)
+    data, _reason, _detail = _fetch_front_cover_detailed(release_id, fetcher=fetcher)
     return data
 
 
@@ -388,11 +445,25 @@ def apply_cover_art(
     a populated result.
     """
     result = CoverArtResult(mode=mode, release_id=(release_id or "").strip())
-    data, reason = _fetch_front_cover_detailed(release_id, fetcher=fetcher)
+    data, reason, detail = _fetch_front_cover_detailed(release_id, fetcher=fetcher)
     if data is None:
         result.found = False
         result.reason = reason
-        result.message = "Cover art: none found for this release (rip unaffected)."
+        # Keep the dependency's own diagnostic (exception text / HTTP status) on
+        # the result so the rip report carries it too — never swallowed.
+        result.error = detail
+        # Reason-specific wording: an offline user must NOT be told the release
+        # has no art (see _NO_ART_MESSAGES).
+        result.message = no_art_message(reason)
+        # ...and the same fact goes to the log file, with the machine-readable
+        # reason code, so a bug report explains itself without the user having to
+        # remember what the GUI said.
+        log.warning(
+            "cover art not applied for release %r: reason=%s (%s)",
+            result.release_id,
+            reason,
+            detail or "no further detail",
+        )
         return result
 
     result.found = True

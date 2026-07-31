@@ -286,7 +286,24 @@ class CyanripImpl(RipBackend):
     # --- Misc ---
 
     def version(self) -> str:
-        return self._run(["-V"]).strip()
+        """cyanrip's version banner, e.g. ``cyanrip 0.9.3.1 (release)``.
+
+        ``strict=True`` — a non-zero exit must NOT come back as a string. The only
+        consumer is the ``--doctor`` backend-routing check (`preflight.
+        check_backend_routing`), which treats a returned string as proof that the
+        host → Distrobox → cyanrip chain works and prints it as "the version". A
+        broken chain that exits non-zero while printing an error therefore
+        *passed* that check, which is a false PASS on the most failure-prone link
+        in the app; only the adapter can see the exit code, so only the adapter
+        can close that hole.
+
+        This cannot fail a working ripper: cyanrip's ``case 'V':`` logs the banner
+        and returns 0 (verified in its source, v0.9.3.1), so a non-zero exit here
+        came from the wrapper/container — exactly the failure the doctor exists to
+        name. The raised `RipError` carries cyanrip's own first output line, and
+        ``_run`` has already logged the full output.
+        """
+        return self._run(["-V"], strict=True).strip()
 
     def produces_max_compression_flac(self) -> bool:
         # cyanrip drives libavcodec at the maximum FLAC compression level for
@@ -385,8 +402,17 @@ class CyanripImpl(RipBackend):
 
         So a non-zero exit is now always logged with the tool's own words. ``strict``
         additionally raises :class:`RipError`, which is what a caller wants when
-        degrading silently would mislead — the disc probe — while the version probe
-        stays lenient because a version banner on stderr is normal for some builds.
+        degrading silently would mislead. **Both** of this class's probes ask for it:
+        the disc probe (an empty ``DiscInfo`` reads as "unknown disc") and the
+        version probe (a returned string reads as "the ripper works" — see
+        :meth:`version`). The lenient default remains for a caller that genuinely
+        wants best-effort text, but note that no such caller exists today, and the
+        two that did mislead the user both got here by taking it: swallowing a
+        failure is the easy mistake, so ask for ``strict=False`` by name and say why.
+
+        Note ``stderr`` is folded into the returned text by ``run_capture``, so a
+        build that prints its banner there is unaffected by the strictness — what is
+        checked is the exit *code*, not which stream spoke.
         """
         rc, combined = run_capture(
             "cyanrip", self._binary, args, timeout=timeout, stdin_devnull=True

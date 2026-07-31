@@ -573,11 +573,18 @@ remains. None of these is speculative — each was traced to a file:line.
       GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
       worst case. It also runs *before* the rip thread's own stop, so it eats the whole
       shared shutdown budget and guarantees the rip thread is abandoned.
-- **[ ] Abandoned `in_progress` reports are treated as legitimate priors.**
+- **[x] Abandoned `in_progress` reports are treated as legitimate priors.**
       `rip_compare.find_prior_report` filters on `same_disc` only, never on
       `outcome.status`. Closing mid-rip leaves the worker's `in_progress` snapshot on
       disk forever, and a later re-rip compares against it and warns about "tracks the
       previous rip didn't have" on a clean rip.
+      *Fixed 2026-07-31:* `rip_compare` now classifies every report as
+      complete / partial / abandoned from its own `outcome.status`
+      (`report_completeness`). Abandoned (`in_progress`) priors are never
+      auto-selected and the skip is logged; a cancelled/failed prior is still used
+      (real CRCs — not discarded) but loses to any complete prior and is labelled,
+      and a track the short side never reached no longer warns. A report with no
+      `outcome` block at all (pre-v7) still counts as a finished rip.
 - **[ ] Tagging failures are invisible.** `apply_track_tags` logs per-file
       `MetaflacError` at WARNING and returns the successes; the caller discards the
       result. There is no signal, no status line, and no report field. Scenario: the disk
@@ -590,19 +597,60 @@ remains. None of these is speculative — each was traced to a file:line.
       silently, emits no signal, and `_post_rip_work_settled` then reads the dead thread
       as "settled", so the library move proceeds as if the check had passed. (The
       `threading.excepthook` added in v0.5.18 means it is at least *logged* now.)
-- **[ ] `--doctor` can report a false PASS on its most important check.** `preflight`
-      treats any non-raising `backend.version()` as OK and prints the first output line
-      as "the version". With the v0.5.18 non-zero-exit logging this is now visible in the
-      log, but the check itself should fail on a non-zero exit.
-- **[ ] Version probes ignore the exit code.** `_run_version_command` returns
-      `ran_ok=True` for any completed run, so error text containing any `N.N` (a podman
-      version, a `libcdio.so.19.0` path) can parse as *the tool's* version and clear the
-      minimum, making the dep report claim a broken tool is installed.
-- **[ ] Lower-severity swallowed detail:** `cover_art` collapses every failure reason
-      (including `network`) into "none found for this release", so an offline user is told
-      the release has no art; `ctdb/decode.py` discards `metaflac`'s stderr from its
-      `RuntimeError`; `transcode.py` records a missing temp file as a failure with no log
-      line at all.
+- **[x] `--doctor` can report a false PASS on its most important check.** Done 2026-07-31.
+      Fixed in both halves, because neither alone is enough: `CyanripImpl.version()` now runs
+      `-V` with `strict=True`, so a non-zero exit arrives as a `RipError` instead of a string
+      (the exit code is visible *only* inside the adapter — verified against cyanrip's source
+      that `case 'V':` returns 0, so this cannot fail a working ripper); and
+      `check_backend_routing` now requires a *recognisable version* in the output, via a new
+      pure `version_banner()` that reuses the dependency subsystem's own `parse_version`
+      (Critical rule #6). Empty output — previously reported as OK with the literal
+      "(no version output)" printed as the version — and error chatter are now blockers that
+      quote what the tool actually said, so `--doctor` exits non-zero. `version_banner` scans
+      for the versioned *line* rather than taking line 1, because a cold Distrobox container
+      prints its own startup chatter first (stderr is merged into stdout) — taking line 1
+      would have failed a working-but-slow cold start. +10 regression tests, incl. both
+      directions through `run_preflight`/`exit_code`.
+- **[x] Version probes ignore the exit code.** Done 2026-07-31. `_run_version_command` now
+      returns `ran_ok=False` for any exit code outside an accepted set (default `{0}`), so a
+      failed run's numbers can no longer be parsed as *the tool's* version — reproduced first:
+      with the fix reverted the cd-paranoia probe returns
+      `ProbeResult(present=True, version=(19, 0))` from a `libcdio.so.19.0` linker error, and
+      a dead-container cyanrip probe reports podman's version as cyanrip's. A rejected probe
+      logs the exit code + the tool's captured output (flattened to one bounded line), which is
+      the only place the *reason* was previously visible: nowhere. **Before making non-zero a
+      hard failure, every probed tool's version-flag exit code was checked against upstream
+      source** (all exit 0 — cyanrip `case 'V': return 0`, cd-paranoia `exit(0)` with the
+      banner on stderr, flac/metaflac/ffmpeg 0); the real non-zero-on-`--version` convention
+      (libcdio's shared `print_version()` → `exit(EXIT_INFO)` == 100, which `cd-info` and
+      `cd-drive` do but `cd-paranoia` does not) is served by an explicit `accept_exit_codes`
+      allow-list no caller needs today, so the next maintainer's fix is a per-tool code with
+      evidence rather than a relapse to "any exit code counts". Evidence table in
+      `docs/dependency-contracts.md` → *Version probes*. A cancelled probe (SIGKILL → negative
+      code) also stops reading as an answer. +7 regression tests in `tests/test_deps_checks.py`.
+- **[x] Lower-severity swallowed detail.** Done 2026-07-31, all three. `cover_art` no longer
+      collapses every failure reason into "none found for this release": a new pure
+      `no_art_message(reason)` gives each reason its own sentence (an offline user is told the
+      archive could not be reached and that the release may still have art), an unrecognised
+      reason names its own code instead of inheriting "none found", and the reason plus the
+      fetch's raw diagnostic (`_fetch_front_cover_detailed` now returns a `detail` too) land in
+      the log AND in `CoverArtResult.error`. `ctdb/decode.py` carries `metaflac`'s stderr tail
+      + exit code into both the `RuntimeError` message (which `ctdb/verify.py` turns into the
+      user-visible verdict) and the log, via a shared `_stderr_tail` helper also used for the
+      `flac` decoder and the unparseable-output path. `transcode.py` logs both failure
+      branches, worded differently: `rc != 0` names the exit code, `rc == 0` with no temp names
+      the *absence* of output. All three paths stay best-effort — nothing new raises.
+      Regression tests: `tests/test_cover_art.py`
+      (`test_apply_network_failure_is_not_reported_as_no_art`,
+      `test_apply_404_still_says_the_release_has_none`,
+      `test_no_art_message_is_distinct_per_reason`,
+      `test_no_art_message_names_an_unknown_reason_instead_of_guessing`),
+      `tests/test_ctdb_decode.py` (`test_total_samples_failure_carries_metaflac_stderr`,
+      `test_total_samples_unparseable_output_is_logged`,
+      `test_decode_failure_carries_flac_stderr`), `tests/test_transcode.py`
+      (`test_missing_temp_output_is_logged_with_the_reason`,
+      `test_nonzero_rc_failure_is_logged_with_the_exit_code`) — each verified by reverting the
+      fix and watching it fail.
 - **[ ] Earn the `Make use of C2 pointers : No` row.** EAC logcheckers weight this
       heavily and a survey says libcdio-paranoia never uses C2 pointers — but that is a
       secondary source, and `test_does_not_fabricate_read_mode_or_c2_pointers` correctly
