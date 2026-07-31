@@ -53,11 +53,74 @@ def _shell_scripts() -> list[Path]:
     return sorted(scripts)
 
 
+# Floor for the source scans. Without one, every "assert no offenders" test below
+# passes by finding nothing — a wrong scan root, a rename of src/platterpus, or a
+# broken glob would turn the whole guard green while checking zero files. (CLAUDE.md
+# "How to stop shipping the next one": *can this check be satisfied by finding
+# nothing? Then give it a floor.*) The tree holds well over a hundred modules; 60 is
+# a deliberately loose floor that still fails instantly on an empty/wrong scan.
+_MIN_PYTHON_FILES: int = 60
+# Likewise for the call-site scan: the tool inventory in
+# docs/dependency-contracts.md alone names ~10 external tools, and the audit of
+# 2026-07-31 counted 18 subprocess call sites. A scan that finds none is broken.
+_MIN_SUBPROCESS_CALLS: int = 12
+
+# Every API that takes a command as a SHELL STRING (or re-execs through one).
+# os.system/os.popen were already covered; the exec/spawn family was not, and
+# `os.spawnl(os.P_NOWAIT, "/bin/sh", ...)` is the same hole with a different name.
+_FORBIDDEN_OS_CALLS: frozenset[str] = frozenset(
+    {"system", "popen"}
+    | {f"exec{suffix}" for suffix in ("l", "le", "lp", "lpe", "v", "ve", "vp", "vpe")}
+    | {f"spawn{suffix}" for suffix in ("l", "le", "lp", "lpe", "v", "ve", "vp", "vpe")}
+)
+
+_SUBPROCESS_CALLS: frozenset[str] = frozenset(
+    {"run", "Popen", "call", "check_call", "check_output"}
+)
+
+
+def _parsed_sources() -> list[tuple[Path, ast.Module]]:
+    """Every scanned file with its AST, with a floor so an empty scan can't pass."""
+    files = _python_files()
+    assert len(files) >= _MIN_PYTHON_FILES, (
+        f"only {len(files)} Python file(s) scanned (expected >= "
+        f"{_MIN_PYTHON_FILES}) — the scan roots {_SCAN_ROOTS} are wrong, so "
+        "every guard in this file would pass by examining nothing"
+    )
+    return [
+        (path, ast.parse(path.read_text(encoding="utf-8"), filename=str(path)))
+        for path in files
+    ]
+
+
+def _subprocess_calls() -> list[tuple[Path, ast.Call, str]]:
+    """Every `subprocess.<run|Popen|...>` call site, with a floor."""
+    found: list[tuple[Path, ast.Call, str]] = []
+    for path, tree in _parsed_sources():
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if (
+                not isinstance(func, ast.Attribute)
+                or func.attr not in _SUBPROCESS_CALLS
+            ):
+                continue
+            base = func.value
+            if isinstance(base, ast.Name) and base.id == "subprocess":
+                found.append((path, node, func.attr))
+    assert len(found) >= _MIN_SUBPROCESS_CALLS, (
+        f"only {len(found)} subprocess call site(s) found (expected >= "
+        f"{_MIN_SUBPROCESS_CALLS}) — the detector is not seeing the real call "
+        "sites, so 'no offenders' means nothing"
+    )
+    return found
+
+
 def test_no_shell_true_anywhere_in_source() -> None:
     """No call in the source may pass shell=True (argv-list calls only)."""
     offenders: list[str] = []
-    for path in _python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for path, tree in _parsed_sources():
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -73,19 +136,75 @@ def test_no_shell_true_anywhere_in_source() -> None:
 
 
 def test_source_has_no_os_system_or_popen_shell_string() -> None:
-    """os.system / os.popen take a shell STRING — never allowed."""
+    """os.system / os.popen / os.exec* / os.spawn* — never allowed.
+
+    os.system and os.popen take a shell STRING outright. The exec/spawn family
+    doesn't *have* to, but `os.execl("/bin/sh", "sh", "-c", cmd)` reintroduces
+    exactly the shell we forbid, and nothing in this codebase needs either family
+    (subprocess covers every case), so the whole surface is banned rather than
+    audited call by call.
+    """
     offenders: list[str] = []
-    for path in _python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for path, tree in _parsed_sources():
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if (
                     isinstance(node.func.value, ast.Name)
                     and node.func.value.id == "os"
-                    and node.func.attr in {"system", "popen"}
+                    and node.func.attr in _FORBIDDEN_OS_CALLS
                 ):
                     offenders.append(f"{path}:{node.lineno} (os.{node.func.attr})")
-    assert not offenders, f"os.system/os.popen found — injection risk: {offenders}"
+    assert not offenders, (
+        f"os.system/popen/exec*/spawn* found — injection risk: {offenders}"
+    )
+
+
+def test_every_subprocess_call_passes_a_list_not_a_built_string() -> None:
+    """The command must be an argv *list*, never a string built by concatenation.
+
+    `shell=False` (the default) is only half the guarantee. A single **string**
+    first argument is still legal for `subprocess.run` — POSIX then execs a file
+    whose name is that whole string — so `subprocess.run(f"cyanrip -d {device}")`
+    passes the shell=True guard while quietly depending on the string's contents.
+    An f-string, a `+`/`%` concatenation, or a `" ".join(...)` in the command slot
+    is the shape that precedes an injection bug, so it's forbidden structurally
+    rather than left to review.
+
+    Accepted: a list/tuple literal, or a Name/Attribute/Subscript/Starred/Call
+    holding one (`argv`, `self._cmd`, `_pkill_arglists()[0]`, `prefix + args`).
+    A `+` of two lists is indistinguishable from a `+` of two strings in the AST,
+    so a BinOp is allowed only for `+`; `%` and f-strings are always rejected.
+    """
+    offenders: list[str] = []
+    for path, node, attr in _subprocess_calls():
+        if not node.args:
+            # Keyword-only form, e.g. subprocess.run(args=argv). Rare; check the
+            # keyword the same way rather than silently skipping it.
+            arg = next((kw.value for kw in node.keywords if kw.arg == "args"), None)
+            if arg is None:
+                offenders.append(f"{path}:{node.lineno} subprocess.{attr} — no command")
+                continue
+        else:
+            arg = node.args[0]
+        bad_shape = (
+            isinstance(arg, ast.JoinedStr)  # f-string
+            or (isinstance(arg, ast.Constant) and isinstance(arg.value, str))
+            or (isinstance(arg, ast.BinOp) and not isinstance(arg.op, ast.Add))
+            or (
+                # "…".join(parts) / str.format(...) in the command slot
+                isinstance(arg, ast.Call)
+                and isinstance(arg.func, ast.Attribute)
+                and arg.func.attr in {"join", "format"}
+            )
+        )
+        if bad_shape:
+            offenders.append(
+                f"{path}:{node.lineno} subprocess.{attr} — command built as a "
+                f"string ({type(arg).__name__})"
+            )
+    assert not offenders, (
+        f"subprocess command must be an argv list, not a built string: {offenders}"
+    )
 
 
 def test_shell_scripts_enable_errexit() -> None:

@@ -349,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:
     # Doctor mode: a no-GUI, no-disc first-pass test of the rip environment.
     # Runs before QApplication — it's a terminal diagnostic, not a window.
     if args.doctor:
-        from platterpus import preflight
+        from platterpus import preflight, settings_validation
 
         ctx = preflight.default_context(cfg)
         color = sys.stdout.isatty()
@@ -357,6 +357,15 @@ def main(argv: list[str] | None = None) -> int:
             f"Platterpus {__version__} (build {build_fingerprint()}) preflight "
             f"— backend: {ctx.backend_name}\n"
         )
+        # Config values that failed validation were reset to defaults above. Say
+        # so *here*, on the terminal: doctor is the no-GUI front end, so a reset
+        # that only reached the log file would be the same silent reset the GUI
+        # notice exists to prevent (a reset read_offset rips at the wrong offset).
+        reset_notice = settings_validation.describe_resets(
+            config_module.take_load_resets()
+        )
+        if reset_notice:
+            print(reset_notice + "\n")
         results = preflight.run_preflight(
             ctx, on_result=lambda r: print(preflight.format_line(r, color=color))
         )
@@ -370,9 +379,21 @@ def main(argv: list[str] | None = None) -> int:
     # already-ripped folder (KDD-16 hardware validation from the AppImage). Like
     # --doctor, it's a terminal diagnostic that runs before QApplication.
     if args.ctdb_calibrate is not None:
+        from platterpus import settings_validation
         from platterpus.ctdb.diagnose import run_diagnostics
 
-        return run_diagnostics(args.ctdb_calibrate, calibrate_crc=True)
+        # Validate the CLI path at its boundary: `type=Path` constructs, it does
+        # not check. An absent folder used to be reported as "no .flac files
+        # found" (wrong subsystem), and a relative folder starting with "-"
+        # ("./-x" normalises to "-x") produced "-x/track.flac" argv entries that
+        # `flac`/`metaflac` parse as OPTIONS. Resolving makes both impossible.
+        folder, error = settings_validation.resolve_input_directory(
+            "--ctdb-calibrate folder", args.ctdb_calibrate
+        )
+        if folder is None:
+            print(f"error: {error}")
+            return 2
+        return run_diagnostics(folder, calibrate_crc=True)
 
     # Compare two rip reports of the same disc (a re-rip vs the previous one).
     # Terminal diagnostic like --doctor: no GUI, no CD.

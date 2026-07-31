@@ -225,7 +225,10 @@ module = [
     "platterpus.read_speed_ladder",           #  2
     "platterpus.config",                      #  2
     "platterpus.ui.main_window_rip",          #  2
-    "platterpus.parsers.cyanrip_log",         #  1
+    # RETIRED 2026-07-31: `platterpus.parsers.cyanrip_log` — its single bare
+    # `dict` was the in-progress track block, now the typed `_TrackAcc`
+    # dataclass, so the parser that produces the bit-perfection claim is fully
+    # checked (rule #10's "retire one opt-out per commit").
 ]
 disallow_any_generics = false
 

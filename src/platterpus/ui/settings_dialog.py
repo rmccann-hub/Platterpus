@@ -843,17 +843,16 @@ class SettingsDialog(CenteredDialog):
         self._naming_preview.setText(example)
 
     # --- Goal presets ------------------------------------------------------
-
-    # The controls a goal preset drives — editing any of them flips the goal to
-    # "Custom" (their changed-signals are wired to _on_dependent_changed).
-    def _goal_driven_widgets(self) -> list[QWidget]:
-        return [
-            self._format_combo,
-            self._ctdb_verify_check,
-            self._recompress_flac_check,
-            self._secure_rerip_spin,
-            self._read_speed_mode_combo,
-        ]
+    #
+    # `_wire_goal_presets` below is the SINGLE list of the controls a goal preset
+    # drives. There used to be a second one here — a `_goal_driven_widgets()`
+    # accessor, commented "the controls a goal preset drives", called from nowhere
+    # and already out of date: it named five of the six, omitting
+    # `_verify_flac_check`. That is the same omission the comment inside
+    # `_wire_goal_presets` records as a shipped bug, preserved in a method that
+    # read as the authoritative roster. Removed 2026-07-31 rather than repaired,
+    # because a second list is the drift; `test_goal_presets` now asserts the
+    # wiring covers every `GoalPreset` field, which is what catches the next one.
 
     def _wire_goal_presets(self) -> None:
         """Show the goal matching the incoming config, then keep combo and

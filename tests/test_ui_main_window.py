@@ -42,6 +42,7 @@ from platterpus.drive_profiles import OffsetSource, compute_fingerprint
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
+from platterpus.ui.main_window_rip import TaggingResult
 
 # --- Fakes ---------------------------------------------------------------
 
@@ -1474,9 +1475,13 @@ def test_unknown_rip_finish_runs_tag_post_processing(
     calls: list[tuple[Path, bool]] = []
     snaps: list[tuple[object, object]] = []
 
-    def _record(out, picard, album=None, tracks=None):
+    # The stand-in mirrors the real signature AND the real return type: the caller
+    # now reads the TaggingResult back (that's how a tagging failure reaches the
+    # user), so a stub returning None would test a shape the product never sees.
+    def _record(out, picard, album=None, tracks=None, rip_log=None):
         calls.append((out, picard))
         snaps.append((album, tracks))
+        return TaggingResult(ran=True, attempted=0, tagged=0)
 
     monkeypatch.setattr(window, "run_unknown_post_processing", _record)
     window._pending_picard_launch = True
@@ -1773,10 +1778,16 @@ def test_run_unknown_post_processing_uses_snapshot_not_widgets(
     track-table widgets (they aren't thread-safe on the post-rip daemon)."""
     window = teardown_threads()
     captured: dict = {}
-    monkeypatch.setattr(
-        "platterpus.ui.main_window_rip.apply_track_tags",
-        lambda mf, files, album, tracks: captured.update(album=album, tracks=tracks),
-    )
+
+    def _stub(mf, files, album, tracks):
+        captured.update(album=album, tracks=tracks)
+        # The real apply_track_tags returns the files that tagged successfully,
+        # and the caller now uses that to work out which ones did NOT. A stub
+        # returning None (what `dict.update` gives you) would make the stand-in
+        # behave in a way the product never does.
+        return list(files)
+
+    monkeypatch.setattr("platterpus.ui.main_window_rip.apply_track_tags", _stub)
 
     def boom() -> None:
         raise AssertionError("the track table was read on the snapshot path")

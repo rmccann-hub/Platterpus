@@ -526,6 +526,43 @@ def restore_substituted_colons(
     return changed
 
 
+def _reject_path_reference_values(meta: RipMetadata) -> None:
+    """Refuse metadata that cyanrip would turn into a ``.``/``..`` path segment.
+
+    **Output-to-dependency validation** (CLAUDE.md: check the arguments against
+    the tool's contract before invoking it). Four of these values are not only
+    tags — cyanrip substitutes them into the naming schemes we pass as ``-D`` /
+    ``-F``, so each becomes one folder or file name. cyanrip sanitises the
+    characters that are *illegal* in a Linux path segment (``/`` → ``∕``, ``:``
+    → ``∶`` — docs/dependency-contracts.md) but nothing maps ``.`` or ``..``,
+    which POSIX reserves to mean *this* and *the parent* directory. An album
+    titled ``..`` therefore made ``-D`` resolve above the output directory and
+    the rip landed outside the folder the user chose.
+
+    This is the backstop, not the user-facing check: the track table refuses
+    these values with a specific message before Start (``TrackTable.validate``).
+    Raising here rather than silently rewriting the value keeps the documented
+    contract that an unusable name **fails the rip loudly** — and matches the
+    project's refusal to re-sanitise cyanrip's names behind its back (Critical
+    rule #3). Values that aren't path-bearing (genre, barcode, ISRC…) are not
+    checked: they only ever become tags.
+    """
+    from platterpus.settings_validation import path_segment_issue
+
+    checks: list[tuple[str, str]] = [
+        ("Album artist", meta.album_artist),
+        ("Album title", meta.album_title),
+    ]
+    for track in meta.tracks:
+        checks.append((f"Track {track.number} title", track.title))
+        checks.append((f"Track {track.number} artist", track.artist))
+    for label, value in checks:
+        problem = path_segment_issue(label, value)
+        if problem:
+            log.error("refusing to start a rip: %s (value=%r)", problem, value)
+            raise RipError(problem)
+
+
 def _metadata_args(metadata: RipMetadata | None, release_id: str) -> list[str]:
     """Build the ``-a``/``-t`` arguments from the GUI's metadata.
 
@@ -537,6 +574,9 @@ def _metadata_args(metadata: RipMetadata | None, release_id: str) -> list[str]:
     args: list[str] = []
     album_pairs: list[str] = []
     meta = metadata or RipMetadata()
+    # Before anything is turned into argv: no value that becomes a path segment
+    # may be a directory reference. See _reject_path_reference_values.
+    _reject_path_reference_values(meta)
     if meta.album_title:
         album_pairs.append(f"album={_escape_meta_value(meta.album_title)}")
     if meta.album_artist:

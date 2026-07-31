@@ -14,6 +14,12 @@ to save while any *error* remains, and logs them — but every rule lives *here*
 so it is unit-testable without a GUI and holds equally for a config file someone
 edited by hand.
 
+Three smaller boundaries live here too, for the same reason (one home for the
+rules, all of them assertable without a GUI): :func:`path_segment_issue` for the
+metadata values a rip turns into folder/file names, :func:`describe_resets` for
+telling the user what a config load had to throw away, and
+:func:`resolve_input_directory` for a folder handed to the CLI.
+
 Two severities:
   * :data:`SEVERITY_ERROR`   — the value would break a rip or write somewhere it
     can't; the dialog blocks **OK** until it's fixed.
@@ -32,7 +38,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -304,6 +310,145 @@ def validated_field_names() -> frozenset[str]:
 def errors_only(issues: list[ValidationIssue]) -> list[ValidationIssue]:
     """The blocking subset — issues that must be fixed before saving."""
     return [i for i in issues if i.is_error()]
+
+
+# --- Values that become a path SEGMENT inside a dependency -------------------
+#
+# A tag value (album title, album artist, track title) is substituted by cyanrip
+# into one folder/file name — `-D "{album_artist}/{album}"`, `-F "{track} - {title}"`.
+# cyanrip sanitises the characters that are *illegal* in a Linux path segment (a
+# `/` inside a value becomes `∕`, a `:` becomes `∶` — see
+# docs/dependency-contracts.md), which is why the GUI deliberately does not
+# re-sanitise names (Critical rule #3: the ripper owns naming).
+#
+# But "." and ".." are not illegal characters — they are the two segments POSIX
+# reserves to mean *this directory* and *the parent directory*. Nothing maps
+# them, so an album titled ".." makes cyanrip's `-D` resolve one level ABOVE the
+# output directory and the rip lands outside the folder the user chose. This is
+# the exact bug already fixed for `%Y` (audit, 2026-07-28: a year of "../."
+# escaped the output directory) — fixed there only for the one token Platterpus
+# substitutes itself, and never generalised to the values cyanrip substitutes.
+# Enforcing a rule at the place it was learned instead of across the codebase is
+# its own documented failure mode (docs/testing.md §5.o), so the guard lives here
+# as a pure function that both the entry point (the track table) and the argv
+# builder call.
+_PATH_REFERENCE_SEGMENTS: frozenset[str] = frozenset({".", ".."})
+
+
+def path_segment_issue(label: str, value: str) -> str:
+    """``""`` if ``value`` is safe as a rip path segment, else a specific message.
+
+    Rejects only the two values that are directory *references* rather than
+    names — ``.`` and ``..`` — plus their whitespace-padded forms (we can't see
+    whether cyanrip trims a tag value before using it as a folder name, and no
+    real release is titled ``" .. "``, so trimming before the comparison costs
+    nothing and closes the guess). Everything else is left alone: a name like
+    ``"..."`` or ``"Vol. 2."`` is a perfectly ordinary directory on the Linux
+    target, and this function must not become a general-purpose sanitiser — that
+    would duplicate cyanrip's naming logic and break the Settings
+    preview↔reality round-trip (Critical rule #3).
+
+    Also rejects control characters: a NUL truncates the argv string handed to
+    the ripper (and `subprocess` raises on it mid-rip), and the other C0
+    characters have no business in a filename.
+    """
+    if _has_control_char(value):
+        return f"{label} contains an illegal character (a control character)."
+    if value.strip() in _PATH_REFERENCE_SEGMENTS:
+        return (
+            f"{label} can’t be “{value.strip()}” — the rip uses it as a folder "
+            "name, and that would write outside your output directory."
+        )
+    return ""
+
+
+# --- Config-file values that had to be reset on load -------------------------
+
+
+@dataclass(frozen=True)
+class ResetRecord:
+    """One config-file field that was invalid on load and reset to its default.
+
+    ``old_value`` is the *rendered* value that was on disk (``repr``-ed by the
+    producer, so a bad type shows as ``5`` vs ``'5'``), because the whole point
+    of showing the user this notice is that they can put their real value back.
+    """
+
+    field: str
+    message: str
+    old_value: str
+    new_value: str
+
+
+def describe_resets(records: Sequence[ResetRecord]) -> str:
+    """User-facing text for the fields a config load had to reset. ``""`` if none.
+
+    Why this exists (audit, 2026-07-31): ``Config._sanitized()`` resets every
+    error-level field to its default so an invalid value can never reach the
+    ripper — correct — but it did so with **only a log line**, which is exactly
+    the "silent reset" the *validate every input* convention forbids. The
+    dangerous case is concrete and was already written down as a hazard in
+    ``main_window_drive._set_read_offset_override`` without ever being closed on
+    the read side: a hand-edited ``read_offset`` outside its bounds becomes ``0``
+    while ``override_read_offset`` stays on, so the next disc is ripped at the
+    **wrong offset** and nothing on screen says so.
+
+    Pure and formatting-only (no Qt, no I/O) so the message is asserted in tests
+    rather than scraped out of a dialog.
+    """
+    if not records:
+        return ""
+    lines = [
+        "Some values in your settings file weren’t usable, so Platterpus is "
+        "using its defaults for them instead. Your other settings were kept.",
+        "",
+    ]
+    for record in records:
+        lines.append(f"• {record.message}")
+        lines.append(f"    was: {record.old_value}    now using: {record.new_value}")
+    lines.append("")
+    lines.append(
+        "Nothing has been written back yet — fix the value in Settings (or in "
+        "the file) to keep it. Saving Settings will overwrite the old value."
+    )
+    return "\n".join(lines)
+
+
+# --- CLI path arguments ------------------------------------------------------
+
+
+def resolve_input_directory(label: str, value: Path) -> tuple[Path | None, str]:
+    """Validate a folder given on the command line; return ``(resolved, error)``.
+
+    ``argparse``'s ``type=Path`` only *constructs* a Path — it validates nothing —
+    so a CLI folder argument was reaching the code completely unchecked. Two
+    concrete consequences, both observed:
+
+    * a folder that doesn't exist (or is a file) produced a misleading
+      *"No .flac files found in …"* plus an unrelated scary warning about a
+      missing rip log, instead of "that folder isn't there";
+    * a **relative** folder starting with ``-`` (``./-x`` normalises to ``-x``)
+      made the FLACs under it come out as ``-x/track.flac``, which ``flac`` and
+      ``metaflac`` parse as *options*, not filenames — an argument injection into
+      a dependency, i.e. the output-validation half of the rule.
+
+    Resolving to an absolute path fixes the second by construction (an absolute
+    path always starts with ``/``), and is what the caller should use from then
+    on. Returns ``(None, message)`` on failure — the CLI prints the message and
+    exits non-zero; never raises.
+    """
+    try:
+        resolved = value.expanduser().resolve()
+    except (OSError, RuntimeError) as exc:  # RuntimeError: symlink loop
+        log.error("%s %r could not be resolved: %s", label, str(value), exc)
+        return None, f"{label} could not be resolved: {value} ({exc})"
+    if not resolved.exists():
+        log.error("%s does not exist: %s", label, resolved)
+        return None, f"{label} does not exist: {resolved}"
+    if not resolved.is_dir():
+        log.error("%s is not a folder: %s", label, resolved)
+        return None, f"{label} is not a folder: {resolved}"
+    return resolved, ""
 
 
 def log_issues(issues: list[ValidationIssue]) -> None:

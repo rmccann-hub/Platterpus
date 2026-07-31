@@ -73,7 +73,10 @@ def _compiled_patterns() -> list[tuple[str, str]]:
     for path in sorted(_SRC.rglob("*.py")):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError):  # pragma: no cover - a broken file fails elsewhere
+        except (
+            OSError,
+            SyntaxError,
+        ):  # pragma: no cover - a broken file fails elsewhere
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):

@@ -36,9 +36,30 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from platterpus import rip_files
 from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
 
 log = logging.getLogger(__name__)
+
+
+def _tracks_to_embed_in(rip_dir: Path, rip_log: object | None) -> list[Path]:
+    """The FLAC masters **this rip** wrote, in track order.
+
+    Why not ``rip_dir.rglob("*.flac")`` (what this used to be): embedding art
+    *mutates* the files it finds, and "the FLACs in the folder" is not "the FLACs
+    this rip wrote". One ordinary sequence puts a stranger's file there — cancel a
+    rip (partial files remain), fix a track title, re-rip and choose *Replace*: the
+    new titles produce new filenames, so the new files land *beside* the old ones.
+    A raw glob then embedded this album's cover into the leftovers too and told the
+    user "embedded in N track(s)" with N inflated by files this rip never made.
+
+    :mod:`platterpus.rip_files` is the one shared answer to "which files are
+    mine?" (CLAUDE.md Critical rule #6) — it reads the rip's own log, and falls
+    back to a folder scan (loudly, at WARNING) when there is no usable log, so an
+    older rip or a folder a user points us at by hand still gets art. ``rip_log``
+    is an already-parsed log when the caller has one, so the log isn't re-read.
+    """
+    return list(rip_files.rip_master_files(rip_dir, rip_log=rip_log).files)
 
 
 @dataclass
@@ -329,6 +350,7 @@ def apply_local_cover_art(
     embed: bool,
     save_file: bool,
     metaflac: MetaflacAdapter,
+    rip_log: object | None = None,
 ) -> CoverArtResult:
     """Embed/save a user-supplied local image as the cover for ``rip_dir``.
 
@@ -338,6 +360,9 @@ def apply_local_cover_art(
     :func:`apply_cover_art` so the rip report gets the same structured outcome;
     ``mode`` is recorded as ``"local"`` so the report shows the art came from a
     file. Never raises — a bad/unreadable file degrades to a populated result.
+
+    ``rip_log`` is this rip's already-parsed log when the caller has one; it scopes
+    the embed to the files THIS rip wrote (see :func:`_tracks_to_embed_in`).
     """
     result = CoverArtResult(mode="local")
     try:
@@ -372,7 +397,9 @@ def apply_local_cover_art(
 
     embedded = 0
     if embed:
-        for flac_path in sorted(rip_dir.rglob("*.flac")):
+        # Scoped to this rip's own masters, never a raw folder glob — see
+        # _tracks_to_embed_in for the leftover-file hazard that motivates it.
+        for flac_path in _tracks_to_embed_in(rip_dir, rip_log):
             try:
                 metaflac.embed_picture(flac_path, target)
                 embedded += 1
@@ -433,6 +460,7 @@ def apply_cover_art(
     metaflac: MetaflacAdapter,
     fetcher: Fetcher | None = None,
     mode: str = "",
+    rip_log: object | None = None,
 ) -> CoverArtResult:
     """Fetch the front cover and embed/save it in `rip_dir`'s FLACs.
 
@@ -440,7 +468,9 @@ def apply_cover_art(
     serializes, whose ``message`` is the one-line human summary for the log view
     (this runs after the rip, so the status line already shows the fidelity
     verdict — this goes to the log instead). ``mode`` is the Config.cover_art
-    value, recorded so the report knows art was *requested*. Never raises:
+    value, recorded so the report knows art was *requested*. ``rip_log`` is this
+    rip's already-parsed log when the caller has one; it scopes the embed to the
+    files THIS rip wrote (see :func:`_tracks_to_embed_in`). Never raises:
     per-file embed failures are logged and counted, everything else degrades to
     a populated result.
     """
@@ -484,7 +514,9 @@ def apply_cover_art(
         return result
 
     embedded = 0
-    flac_files = sorted(rip_dir.rglob("*.flac"))
+    # Scoped to this rip's own masters, never a raw folder glob — see
+    # _tracks_to_embed_in for the leftover-file hazard that motivates it.
+    flac_files = _tracks_to_embed_in(rip_dir, rip_log)
     if embed:
         for flac_path in flac_files:
             try:

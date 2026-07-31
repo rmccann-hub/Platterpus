@@ -105,6 +105,12 @@ class MainWindow(
     # cover-art outcome — a CoverArtResult (folded into the rip report), or a
     # bare string for back-compat. `object` so it can carry either.
     cover_art_done = Signal(object)
+    # Emitted (from the post-rip processing daemon thread; queued to the GUI
+    # thread) with a main_window_rip.TaggingResult — how the unknown-album
+    # tagging pass went. It exists because `apply_track_tags` reported per-file
+    # failures ONLY to the log file, so an album that shipped entirely untagged
+    # still ended with the window saying "Done."
+    tagging_done = Signal(object)
     # Emitted (from the post-rip CTDB-verify daemon thread; queued to the GUI
     # thread) with the CtdbVerifyResult, so the verdict renders on the GUI
     # thread.
@@ -481,6 +487,9 @@ class MainWindow(
         # Cover-art outcome lands in the rip log view (not the status line —
         # that's showing the fidelity verdict by then, which matters more).
         self.cover_art_done.connect(self._on_cover_art_done)
+        # Post-rip tagging outcome — a failure reaches the status line, the rip
+        # log view and the JSON report instead of only log.txt.
+        self.tagging_done.connect(self._on_tagging_done)
         # CTDB verdict (opt-in) lands under the AccurateRip table.
         self.ctdb_verify_done.connect(self._on_ctdb_verified)
         # FLAC encode-verify outcome (opt-in) lands in the rip log view.

@@ -51,6 +51,10 @@ class ProvisioningMixin(MainWindowShared):
         drive-calibration offer make sense. Deferred to the event loop, so in
         tests (no exec loop) neither fires — both are unit-tested directly.
         """
+        # Anything the config load had to throw away comes first: it tells the
+        # user their settings are not what the file says, which changes how they
+        # read every offer below it (a reset read_offset in particular).
+        self._show_config_reset_notice()
         # AppImage menu integration is independent of the host/drive state —
         # offer it first (it's a no-op on source/pipx installs and when already
         # integrated), so a double-clicked AppImage becomes a real menu app.
@@ -59,6 +63,36 @@ class ProvisioningMixin(MainWindowShared):
             self._maybe_offer_host_setup()
             return
         self._maybe_offer_drive_setup()
+
+    def _show_config_reset_notice(self) -> None:
+        """Tell the user, on screen, which settings the config load had to reset.
+
+        ``config.load()`` resets any value that fails validation to its default so
+        an invalid value can never reach the ripper. That part is right; doing it
+        with **only a log line** was the "silent reset" the *validate every input*
+        convention explicitly forbids, and the dangerous instance is concrete: a
+        hand-edited ``read_offset`` outside its bounds becomes ``0`` while
+        ``override_read_offset`` stays on, so the next disc is ripped at the wrong
+        offset with nothing on screen to say so. (``main_window_drive.
+        _set_read_offset_override`` already named this hazard; it was closed on the
+        write path only — audit, 2026-07-31.)
+
+        The message text comes from ``settings_validation.describe_resets`` — a
+        pure function — so it is asserted in tests without a dialog. Runs from the
+        deferred first-run hook, so it appears over a window that is already up,
+        and never fires in tests (no event loop).
+        """
+        from platterpus import config as config_module
+        from platterpus import settings_validation
+
+        resets = config_module.take_load_resets()
+        if not resets:
+            return
+        QMessageBox.warning(
+            self,
+            "Some settings were reset",
+            settings_validation.describe_resets(resets),
+        )
 
     def _on_add_app_shortcut(self) -> None:
         """Tools → Add app shortcut: (re)create the menu entry + desktop icon.
