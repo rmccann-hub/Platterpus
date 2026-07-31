@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.20] — 2026-07-31
+
 ### Added
 - **Platterpus now reads the cyanrip lines the maintainer's fork will emit — without requiring
   them.** AppImage users run the *deployed* cyanrip 0.9.3, which prints none of these, so the
@@ -4286,6 +4288,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
 [0.5.17]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.16...v0.5.17
@@ -4351,4 +4354,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.19.*
+*Last updated for Platterpus v0.5.20.*
