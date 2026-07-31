@@ -9,6 +9,7 @@ crashes.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -468,3 +469,106 @@ def test_termination_handlers_degrade_when_signals_cannot_be_installed(
     assert result is None, "no handlers installed → no timer to keep alive"
     # And the real handlers are untouched.
     assert signal_module.getsignal(signal_module.SIGTERM) is not refuse
+
+
+# --- CLI path arguments (audit, 2026-07-31) ----------------------------------
+#
+# `argparse`'s `type=Path` constructs a Path; it validates nothing. So a folder
+# argument reached the code unchecked: a missing folder was reported as "No .flac
+# files found in …" (the wrong subsystem, preceded by an unrelated warning about a
+# missing rip log), and a relative folder named "-x" ("./-x" normalises to "-x")
+# produced "-x/track.flac" argv entries that `flac`/`metaflac` parse as OPTIONS.
+
+
+def test_ctdb_calibrate_rejects_a_missing_folder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, capsys: pytest.CaptureFixture
+) -> None:
+    """A specific error naming the folder — never the misleading "no FLACs"."""
+    import platterpus.ctdb.diagnose as diag
+
+    monkeypatch.setattr(
+        diag,
+        "run_diagnostics",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("diagnostics ran")),
+    )
+    rc = app_module.main(["--ctdb-calibrate", str(tmp_path / "not-there")])
+    assert rc == 2
+    out = capsys.readouterr().out
+    assert "does not exist" in out
+    assert "not-there" in out
+
+
+def test_ctdb_calibrate_rejects_a_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, capsys: pytest.CaptureFixture
+) -> None:
+    import platterpus.ctdb.diagnose as diag
+
+    monkeypatch.setattr(
+        diag,
+        "run_diagnostics",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("diagnostics ran")),
+    )
+    target = tmp_path / "album.flac.json"
+    target.write_text("{}", encoding="utf-8")
+    rc = app_module.main(["--ctdb-calibrate", str(target)])
+    assert rc == 2
+    assert "not a folder" in capsys.readouterr().out
+
+
+def test_ctdb_calibrate_hands_diagnostics_an_absolute_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """The dependency-argument half of the rule: an absolute path can never be
+    mistaken for an option by `flac`/`metaflac`, because it starts with "/"."""
+    import platterpus.ctdb.diagnose as diag
+
+    seen: list[object] = []
+    monkeypatch.setattr(
+        diag, "run_diagnostics", lambda folder, **k: (seen.append(folder), 0)[1]
+    )
+    dashed = tmp_path / "-x"
+    dashed.mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    rc = app_module.main(["--ctdb-calibrate", "./-x"])
+    assert rc == 0
+    assert len(seen) == 1
+    folder = seen[0]
+    assert isinstance(folder, Path)
+    assert folder.is_absolute()
+    assert str(folder).startswith("/")
+
+
+def test_doctor_prints_the_config_reset_notice(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """`--doctor` is the no-GUI front end, so a reset that only reached the log
+    file would be the same silent reset the GUI notice exists to prevent (a reset
+    `read_offset` rips the next disc at the wrong offset)."""
+    from platterpus import config as config_module
+    from platterpus import preflight
+    from platterpus import settings_validation as sv
+
+    monkeypatch.setattr(config_module, "load", lambda: config_module.Config())
+    monkeypatch.setattr(
+        config_module,
+        "take_load_resets",
+        lambda: [
+            sv.ResetRecord(
+                field="read_offset",
+                message="Read offset must be between -5000 and 5000.",
+                old_value="99999",
+                new_value="0",
+            )
+        ],
+    )
+    monkeypatch.setattr(preflight, "run_preflight", lambda ctx, **k: [])
+    monkeypatch.setattr(preflight, "format_details", lambda results: "")
+    monkeypatch.setattr(preflight, "format_summary", lambda results, **k: "ok")
+    monkeypatch.setattr(preflight, "exit_code", lambda results: 0)
+
+    rc = app_module.main(["--doctor"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Read offset must be between -5000 and 5000." in out
+    assert "99999" in out

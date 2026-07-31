@@ -12,6 +12,64 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **An invalid value in a hand-edited `config.toml` was reset to its default with only a log
+  line — the silent reset the project's own *validate every input* rule forbids.** Resetting is
+  right (an out-of-range value must never reach the ripper), but nothing on screen said it had
+  happened, and one instance is actively dangerous: a `read_offset` outside its bounds becomes
+  **0** while `override_read_offset` stays *on*, so the next disc is ripped at the wrong offset
+  and nothing but the log file knows. The hazard was already written down —
+  `main_window_drive._set_read_offset_override`'s docstring names "silently reset to 0 by the
+  next startup's `_sanitized()` … ripping at the wrong offset with only a log line" — but the
+  fix had been applied to the *write* path only, so a hand-edited file still walked into it.
+  Every reset is now recorded with the field, the rejected value and the substituted default,
+  and shown: a dialog once the window is up, and printed by `--doctor` (the no-GUI front end,
+  where a log-only reset is the same silence). The same channel also covers an **unreadable**
+  config — the loudest case of all, since every setting reverts at once — and says where the
+  `.bad` backup went. The message text is built by a pure function
+  (`settings_validation.describe_resets`), so it is asserted in tests rather than scraped out
+  of a widget.
+- **An album title of `..` wrote the rip outside the output directory.** cyanrip substitutes the
+  album artist / album title / track title / track artist into the `-D`/`-F` naming schemes, so
+  each becomes one folder or file name. It sanitises the characters that are *illegal* in a Linux
+  path segment (`/` → `∕`, `:` → `∶`) but nothing maps `.` and `..`, the two segments POSIX
+  reserves for *this* and *the parent* directory — so a value of `..` resolved a level above the
+  chosen folder. This is the same escape fixed for `%Y` on 2026-07-28, closed then only for the
+  one token Platterpus substitutes itself; the guard for it existed in
+  `main_window_helpers.safe_path_segment` and was wired to the *unknown-album* path alone, while
+  the ordinary known-disc path reached cyanrip verbatim. One pure check
+  (`settings_validation.path_segment_issue`) now covers both roles: the track table refuses the
+  value with a specific message before Start, and the argv builder refuses to build the rip at
+  all, so nothing can hand cyanrip a directory reference. Deliberately narrow — `...`,
+  `..and Justice for All` and a trailing dot are ordinary Linux names and still rip (Critical
+  rule #3: cyanrip owns naming). Control characters are rejected on the same boundary, where a
+  NUL previously reached `subprocess` and raised mid-rip.
+- **`--ctdb-calibrate <folder>` validated nothing.** `argparse`'s `type=Path` constructs a path;
+  it checks neither existence nor shape. A missing folder was reported as *"No .flac files found
+  in …"* — the wrong subsystem, preceded by an unrelated warning about a missing rip log — and a
+  *relative* folder named `-x` (`./-x` normalises to `-x`) made the FLACs under it come out as
+  `-x/track.flac` argv entries, which `flac` and `metaflac` parse as **options**: an argument
+  injection into a dependency, i.e. the output-validation half of the same rule. The folder is
+  now validated and resolved at the boundary, with a specific error, a non-zero exit and a log
+  line; an absolute path cannot be mistaken for an option. (`--compare` and
+  `--assemble-best-of` already reported a bad report file specifically, and are unchanged.)
+- **Eight "never raises" parsers that did.** CPython refuses to convert a decimal string of
+  more than 4300 digits, so every bare `int(match.group(…))` fed by an unbounded `\d+` is a
+  live `ValueError` — the character class proves the *characters* are digits and says nothing
+  about the *length*. This was found and fixed once, in the cyanrip-log parser, and the fix
+  plus its pinned test were scoped to that one module; **six identical holes in five other
+  modules survived it** and each carried a docstring promising it could not happen. Corrupt
+  external text would have taken down whatever called them: the drive list at startup, the
+  disc scan, or the post-rip finish handler that writes the report. Now guarded in the EAC-log
+  and whipper-log parsers (track number, AccurateRip version), the `cyanrip -I` and `cd-info`
+  track counts, the drive-list read offset, the `whipper.conf` offset scanner, and all three
+  MSF fields of the CTDB `.cue` reader — each degrading to "unknown" and logging *which* field
+  was unusable, rather than raising. The conversion now routes through one shared
+  `platterpus.safe_int.int_or_none` instead of being re-derived per call site.
+- **A dead roster in the Settings dialog that read as the authoritative one.** A private
+  `_goal_driven_widgets()` accessor, commented "the controls a goal preset drives", was called
+  from nowhere *and* already wrong — it named five of the six, omitting the FLAC-verify
+  checkbox, which is the very omission the code beside it records as a shipped bug. Removed
+  rather than repaired: a second list is the drift.
 - **A quadratic regex on user-edited text, parsed on the GUI thread before the window is
   shown.** The drive-offset CSV row pattern was super-linear in the line length — measured
   at **3.9 seconds** on a single 2000-character row — and that file is the documented way to
@@ -27,6 +85,48 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   ten digits, so the bounds lose nothing real.
 
 ### Added
+- **The no-shell security guard can no longer pass by examining nothing, and covers two more
+  holes.** Its three source scans asserted "no offenders" with no floor, so a renamed package
+  or a broken glob would have turned the whole guard green while reading zero files (the
+  project's own *can this check be satisfied by finding nothing?* question, unasked here).
+  Both scans now have a floor and name what they expected to find. Two gaps closed alongside:
+  `os.exec*`/`os.spawn*` are now banned with `os.system`/`os.popen` (`os.execl("/bin/sh",
+  "sh", "-c", cmd)` is the same shell with a different name), and every `subprocess` call must
+  pass an argv **list** — a single string first argument is legal for `subprocess.run` and
+  slips past a `shell=True` check entirely, so an f-string, a `%`-format or a `" ".join(...)`
+  in the command slot is now a failing test rather than a review item. All 18 existing call
+  sites already comply; the guard is a ratchet, not a fix.
+- **A cyanrip log line we don't understand is now a failing test instead of a silent
+  omission.** Every bug this parser has ever shipped was the same shape — cyanrip prints a
+  line and we quietly ignore it (the overread mode *twice*, the gap section, the
+  `Accurip 450` offset variant, the per-track rip count) — and an if/elif chain cannot show
+  that, because "we don't handle this line" and "there is no such line" look identical in the
+  source. The disc-level rows are now ordered **tables** of (pattern → handler) entries, so
+  the recognised set is data: a new test walks the committed real logs
+  (`output_reference/cyanrip_*/`) and fails when a **column-0** line matches neither a table,
+  nor a section header, nor an explicit `_IGNORED_DISC_LINES` allow-list entry *with a written
+  reason*. 116 top-level lines are checked today, with per-log and total floors so a truncated
+  or mis-globbed corpus cannot pass by examining nothing. The parser also logs (debug,
+  bounded) any top-level line it did not claim, so a user's log file carries the evidence when
+  upstream changes its output. Indented per-track detail is *reported* rather than failed — a
+  tag dump is not a contract — but that report asserts every row carrying a trust claim (EAC
+  CRC32, both Accurip lines, the LSN geometry, pre-emphasis, ReplayGain, paranoia counts,
+  loudness) is still read. Each new check was verified by breaking what it guards: seven
+  mutations (a dropped rule, a dropped allow-list entry, an over-broad one, a speculative one,
+  an unlisted pattern, a lost per-track row, an empty corpus) all fail as they should.
+- **`tests/test_never_raises_contract.py` — the never-raises rule, swept instead of trusted.**
+  Two tests doing different jobs: a pinned-boundary behavioural table (one case per numeric
+  field, so a failure names the field) and a *structural* AST sweep that fails when any new
+  bare `int()` appears in a parser, including in a field nobody enumerated. The sweep earned
+  its keep immediately — it found the drive-list offset site that the behavioural case had
+  *missed*, because that payload's drive header didn't match the parser's regex and so never
+  reached the conversion at all. Both carry floors (modules examined, conversion sites seen,
+  and a check that the payload still trips CPython's limit) so neither can pass by finding
+  nothing.
+- **A completeness check on the Settings goal-preset wiring.** `test_goal_presets` now asserts
+  the dialog connects one control per `GoalPreset` field, which is the invariant that both
+  historical drifts violated. Verified by restoring the original omission: it fails with
+  "GoalPreset sets 6 fields … but _wire_goal_presets wires 5 controls".
 - **A sweep that catches the next one.** `tests/test_regex_bounded_time.py` times every
   compiled pattern in `src/` at two input sizes and objects only to super-linear *growth*,
   so a uniformly slow machine still passes and a flagged pattern is re-measured before it
@@ -35,6 +135,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   shapes that backtrack, and nobody had noticed any of them.
 
 ### Changed
+- **`parse_cyanrip_log` restructured without changing a single parsed value.** It was the
+  highest-branch function in the codebase (57 branches / 415 lines, `ruff` PLR0912) and the
+  densest source of shipped bugs of any parser; it is now 41 branches / 309 lines, with the
+  plain "Label: value" rows moved into the tables above and the *section-scoped* parsing (the
+  `Gaps:` two-liner, paranoia counts, album loudness, the per-track block and its `File(s):`
+  lookahead) deliberately left as control flow — those blocks change what the FOLLOWING lines
+  mean, and a table would hide that. The tables dispatch at exactly the four points the old
+  if-chain tested those rows, because the section flags are cleared by "a line reached this
+  block": merging them for tidiness would change parse results on odd logs. Proven neutral
+  rather than asserted — every committed real log (cyanrip, EAC and whipper) plus synthetic
+  logs for the shapes the real ones lack were dumped to JSON before and after, in two package
+  trees differing only in this file, and the two dumps are byte-identical.
+- **The in-progress track block is a typed dataclass instead of a bare `dict`.** A typo in a
+  key ("copy_crc2") was a silent no-op no type check could see — on the fields that carry the
+  bit-perfection claim. That was this module's single `disallow_any_generics` violation, so its
+  `mypy` opt-out is now **retired** (rule #10's "retire one opt-out per commit"), leaving nine.
 - **The test suite is ~16% faster** (measured 40–43 s → 33.5–35.6 s, and that saving repeats
   on each of the four CI Python legs). Two causes, both measured rather than guessed: the
   slowest test in the suite spent 4.02 s — 10% of the whole run — waiting out the real 4 s

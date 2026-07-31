@@ -586,3 +586,112 @@ def test_apply_local_cover_art_missing_file(tmp_path: Path) -> None:
         metaflac=_FakeMetaflac(),
     )
     assert r.found is False and r.reason == "read-failed"
+
+
+# --- Embedding is scoped to THIS rip's files (2026-07-31) -------------------
+#
+# Both embed loops used `rip_dir.rglob("*.flac")`. Embedding MUTATES every file it
+# finds, and "the FLACs in the album folder" is not "the FLACs this rip wrote":
+# cancel a rip (partial files remain), fix a track title, re-rip and choose
+# *Replace*, and the corrected titles produce NEW filenames — so the new files
+# land BESIDE the old ones. This album's cover was then written into the
+# cancelled rip's abandoned files too, and counted, so the user was told
+# "embedded in 4 track(s)" for a 2-track rip.
+
+_THIS_RIP: tuple[str, ...] = ("01 - Roxanne.flac", "02 - Message In A Bottle.flac")
+_LEFTOVERS: tuple[str, ...] = ("01 - Roxane.flac", "02 - Message In A Bottel.flac")
+
+
+def _cyanrip_log_text(names: tuple[str, ...], folder: str) -> str:
+    """A minimal but real-shaped cyanrip log naming ``names``, one per track.
+
+    Paths are written the way cyanrip writes them — relative to the configured
+    output *root*, not the album folder — so this exercises production's basename
+    mapping rather than a convenient shortcut.
+    """
+    lines = ["cyanrip 0.9.3 (release)", "Device model:   PIONEER BD-RW BDR-209D", ""]
+    for number, name in enumerate(names, start=1):
+        lines += [
+            f"Track {number} ripped and encoded successfully!",
+            "  EAC CRC32:     A1B2C3D4",
+            "  File(s):",
+            f"    {folder}/{name}",
+            "",
+        ]
+    lines += [f"Tracks ripped accurately: {len(names)}/{len(names)}", ""]
+    return "\n".join(lines)
+
+
+def _album_with_leftovers(tmp_path: Path):
+    """``(album_dir, parsed_log)`` for a folder holding two rips' worth of FLACs."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    album = tmp_path / "The Police" / "Greatest Hits"
+    album.mkdir(parents=True)
+    for name in _THIS_RIP + _LEFTOVERS:
+        (album / name).write_bytes(b"FLAC")
+    text = _cyanrip_log_text(_THIS_RIP, "The Police/Greatest Hits")
+    (album / "Greatest Hits.log").write_text(text, encoding="utf-8")
+    return album, parse_cyanrip_log(text)
+
+
+def test_apply_cover_art_embeds_only_this_rips_files(tmp_path: Path) -> None:
+    """Regression: the archive-fetch embed must skip a previous rip's leftovers —
+    and the count it reports must be this rip's, not the folder's."""
+    album, parsed = _album_with_leftovers(tmp_path)
+    fake = _FakeMetaflac()
+
+    result = cover_art.apply_cover_art(
+        album,
+        _MBID,
+        embed=True,
+        save_file=False,
+        metaflac=fake,
+        fetcher=lambda url: _JPEG,
+        rip_log=parsed,
+    )
+
+    embedded = sorted(f.name for f, _img in fake.embedded)
+    assert embedded == sorted(_THIS_RIP)
+    for leftover in _LEFTOVERS:
+        assert leftover not in embedded
+    assert result.embedded_count == 2
+    assert "embedded in 2 track(s)" in result.message
+
+
+def test_apply_local_cover_art_embeds_only_this_rips_files(tmp_path: Path) -> None:
+    """Same for the "cover art from a file" path — it has its own embed loop, and
+    a fix applied at only one of the two would leave the bug reachable."""
+    album, parsed = _album_with_leftovers(tmp_path)
+    image = tmp_path / "mine.png"
+    image.write_bytes(_PNG)
+    fake = _FakeMetaflac()
+
+    result = cover_art.apply_local_cover_art(
+        album, image, embed=True, save_file=False, metaflac=fake, rip_log=parsed
+    )
+
+    assert sorted(f.name for f, _img in fake.embedded) == sorted(_THIS_RIP)
+    assert result.embedded_count == 2
+
+
+def test_embedding_still_works_when_there_is_no_rip_log(tmp_path: Path) -> None:
+    """It degrades, it does not refuse: an older rip (or a folder a user points us
+    at by hand) has no log to read, and getting no art at all would be a worse
+    outcome than a folder scan. rip_files logs that downgrade at WARNING."""
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    for name in ("01 - A.flac", "02 - B.flac"):
+        (album / name).write_bytes(b"FLAC")
+    fake = _FakeMetaflac()
+
+    result = cover_art.apply_cover_art(
+        album,
+        _MBID,
+        embed=True,
+        save_file=False,
+        metaflac=fake,
+        fetcher=lambda url: _JPEG,
+    )
+
+    assert result.embedded_count == 2

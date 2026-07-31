@@ -478,8 +478,15 @@ def _validate_dir(field: str, value: object, label: str) -> list[ValidationIssue
     ancestor is a writable directory. The writability probe is best-effort; if
     we genuinely can't tell, we don't manufacture an issue.
 
-    **Writability is a WARNING, not an error**, while shape (absolute, no
-    control chars, no ``..``) is an error. The distinction matters because
+    **Writability is a WARNING, not an error**, while shape (a string, absolute,
+    non-empty, no control chars) is an error. ``..`` is deliberately *allowed*
+    here, unlike in a naming template: a template nests **under** the output
+    directory, so a ``..`` in it escapes a boundary the user chose, whereas the
+    output directory **is** that boundary — ``/home/u/../shared/rips`` is just a
+    folder the user picked, and there is nothing for it to escape from. (This
+    docstring claimed a ``..`` check that the code has never done; corrected
+    2026-07-31 rather than adding a rule that would reject a legitimate path.)
+    The severity distinction matters because
     :meth:`Config._sanitized` resets every *error*-level field to its default on
     load: a rip library on a NAS or a removable disk that simply wasn't mounted
     at launch was therefore silently retargeted to ``~/Music/rips``, the library

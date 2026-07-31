@@ -34,6 +34,15 @@ summary work identically on both backends. Mapping notes:
 
 Like every parser of external output, this must never raise on arbitrary
 text — it degrades to empty fields (institutional rule, docs/testing.md).
+
+**How to read the code below.** The disc-level rows ("Label: value", one line,
+no surrounding state) are matched by ORDERED TABLES of (pattern → handler)
+entries, so the set of lines we understand is *data* rather than the shape of an
+if-chain — see the long comment above ``_RULES_BEFORE_GAPS`` for why that matters
+here specifically, and ``_IGNORED_DISC_LINES`` for the rows we skip on purpose.
+The section-scoped parsing (the ``Gaps:`` two-liner, ``Paranoia status counts:``,
+``Album Loudness Summary:``, the per-track block) stays as explicit control flow,
+because those blocks change what the FOLLOWING lines mean.
 """
 
 from __future__ import annotations
@@ -314,7 +323,7 @@ class _TrackAcc:
     — on the very fields that carry the bit-perfection claim. A dataclass makes
     every field a checked name and lists them in one place.
 
-    The field names match `TrackResult`'s so `_flush` is a plain copy; the two
+    The field names match `TrackResult`'s so `flush()` is a plain copy; the two
     stay separate because `TrackResult` is frozen and shared with the whipper
     parser, and only completed tracks belong in it.
     """
@@ -342,7 +351,7 @@ class _TrackAcc:
 # after all" and the line keeps travelling down the chain exactly as it did when
 # the chain was `if match and <guard>:` — the version banner uses that (a second
 # banner must not overwrite the first, and must not be swallowed either).
-_LineHandler = Callable[[_Disc, "re.Match[str]"], bool]
+_LineHandler = Callable[[_Disc, re.Match[str]], bool]
 
 
 @dataclass(frozen=True)

@@ -100,6 +100,24 @@ is always writable, and any genuinely-unwritable name (e.g. a component over the
 255-**byte** ext4 limit from a very long multibyte title) fails the rip **loudly**
 (captured stderr + log), never silently.
 
+**`.` and `..` are *ours* to reject, not cyanrip's to map** (audit, 2026-07-31).
+"Writable" was doing too much work in the paragraph above: the two segments POSIX
+reserves for *this* and *the parent* directory are not illegal **characters**, so
+nothing in cyanrip's sanitiser touches them — an album titled `..` made `-D`
+resolve one level **above** the output directory and the rip landed outside the
+folder the user chose. Identical to the `%Y` escape fixed 2026-07-28, which was
+closed only for the one token Platterpus substitutes itself. So the four
+path-bearing values we pass — `album_artist`, `album`, per-track `title` and
+`artist` — are validated **before** the argv is built:
+`settings_validation.path_segment_issue` refuses a value whose stripped form is
+`.` or `..` (and any control character), the track table shows that message
+before Start, and `cyanrip_backend._reject_path_reference_values` raises
+`RipError` rather than build the rip. Deliberately *only* those two names: `...`,
+`..and Justice for All` and a trailing dot are ordinary Linux directory names and
+are left alone, because re-sanitising cyanrip's naming is exactly what Critical
+Rule #3 forbids. Values that only ever become tags (genre, barcode, catalog
+number, ISRC, label) are not path-bearing and are not checked.
+
 **Not sanitised — a documented cross-filesystem limitation, not a silent bug**
 (naming audit, 2026-07-08). cyanrip does *not* remap the other
 Windows/NTFS/exFAT-reserved characters (`< > " \ | ? *`), the reserved device
@@ -165,6 +183,32 @@ block) and `output_formats`. Per-track, the parser also yields `start_sector`
 table) and `pregap_sectors` (`Pregap LSN:`). cyanrip prints **no cache line at
 all**, so there is no `cache` field to parse (see the cache-handling note
 below; this corrects an earlier version of this doc that implied one).
+
+**Lines cyanrip prints that we knowingly do NOT parse.** Recorded because the
+alternative is what actually kept happening: a row went unparsed by accident and
+nobody could tell the difference (the overread mode twice, the `Gaps:` block, the
+`Accurip 450` variant). The disc-level rows the parser recognises are now an
+enumerable table in `parsers/cyanrip_log.py`, and everything at column 0 that the
+table does not claim must appear in that module's `_IGNORED_DISC_LINES`
+allow-list **with a reason** — `tests/test_parsers_cyanrip_log.py` walks the
+committed real logs and fails otherwise, so a row a future cyanrip adds shows up
+as a red test rather than a silent omission. Deliberately skipped today:
+`System device:` (the device node — the GUI already knows it), `Overread:` /
+`Underread:` (the *frame count*, which is derived from the read offset and is
+printed identically whether or not the drive read the lead-in/lead-out — only
+`Overread mode:` answers EAC's question), `AccurateRip:` (whether the *disc* was
+in the database; the per-track lines and the finish summary carry the verdict) and
+the `Tracks:` / `Summary:` section markers. **Candidates that arguably should
+become `RippingInfo` / `TrackResult` fields** (each needs a new field, so it is a
+deliberate change, not a silent one): `HDCD decoding:` — an enabled HDCD decode
+*alters samples*, so it bears directly on "is this a bit-perfect copy";
+`Tracks to rip:` — anything but `all` means the album on disk is incomplete;
+`Frame retries:` — the rip-effort setting EAC reports as part of its read mode;
+`Album Art:`; `Disc tracks:` (the disc's track total, so "did we get them all?"
+is answerable from the log alone); and, per-track, `Appended:    N frames of
+silence` — printed on the last track of the reference rips, it names the track
+whose final frames are **fabricated silence rather than disc audio**, which is the
+per-track consequence of overread being off.
 
 **Cache handling — attempted by cyanrip, measured by `cd-paranoia -A` (KDD-29).**
 cyanrip has no cache-defeat flag and emits no cache-defeat verdict in its log.
