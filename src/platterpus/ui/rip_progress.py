@@ -767,14 +767,44 @@ class RipProgress(QWidget):
         if not reason or reason in self._verdict_downgrades:
             return
         self._verdict_downgrades.append(reason)
-        base = self._verdict_base_message or self._verdict_banner.text()
         if not self._verdict_base_message:
-            self._verdict_base_message = base
-        # Drop a leading "✓" — the tick is a claim this text no longer supports.
-        headline = base.lstrip("✓ ").strip() if base.startswith("✓") else base
-        text = f"⚠ {headline} — " + "; ".join(self._verdict_downgrades)
+            self._verdict_base_message = self._verdict_banner.text()
+        self._render_verdict_banner("warn")
+
+    def _render_verdict_banner(self, level: str) -> None:
+        """Draw the banner from its two inputs: the base verdict + the downgrades.
+
+        The banner is **one sentence assembled from two pieces of state**, and it
+        used to be assembled in two places — :meth:`set_rip_log` wrote the clean
+        verdict, :meth:`downgrade_verdict` wrote verdict-plus-reasons — so which
+        one ran last decided what the user saw. ``set_rip_log`` even carried a
+        comment promising it re-applied any already-recorded downgrades; nothing
+        did. It was true only by accident, because ``set_rip_log`` happens to be
+        called exactly once per :meth:`clear` and the post-rip checks that
+        downgrade all report *after* it. One reordering — the unknown-album
+        self-heal is a single ``return`` away from ripping twice in one cycle —
+        and a recorded "FLAC master failed the decode check" would have vanished
+        under a fresh green "✓ Bit-perfect", which this screen exists to prevent.
+
+        So there is one renderer and it reads both inputs every time. That is the
+        same fix as ``expected_track_total`` and ``_ar_tooltip``: when a fact has
+        more than one surface, compute it once (audit finding, 2026-07-31).
+        """
+        base = self._verdict_base_message
+        if not base and not self._verdict_downgrades:
+            self._verdict_banner.setVisible(False)
+            return
+        if self._verdict_downgrades:
+            # Drop a leading "✓" — the tick is a claim this text no longer
+            # supports. With no base verdict at all the reasons stand alone.
+            headline = base.lstrip("✓ ").strip() if base.startswith("✓") else base
+            joined = "; ".join(self._verdict_downgrades)
+            text = f"⚠ {headline} — {joined}" if headline else f"⚠ {joined}"
+            level = "warn"
+        else:
+            text = base
         self._verdict_banner.setText(text)
-        self._verdict_banner.setStyleSheet(_banner_style("warn"))
+        self._verdict_banner.setStyleSheet(_banner_style(level))
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
 
@@ -801,18 +831,13 @@ class RipProgress(QWidget):
             disc_track_total=disc_track_total,
             outcome_status=outcome_status,
         )
-        # A fresh verdict supersedes any earlier downgrades — but re-apply them
-        # below if they were recorded before the log was parsed.
+        # The log gives the BASE verdict only. Anything already recorded by
+        # `downgrade_verdict` is still true and is re-applied by the one renderer
+        # — which is what the old comment here claimed and the old code did not
+        # do. It also announces the headline focus-safely, the one post-rip
+        # update a screen-reader user must not miss (gap #4).
         self._verdict_base_message = message
-        if message:
-            self._verdict_banner.setText(message)
-            self._verdict_banner.setStyleSheet(_banner_style(level))
-            self._verdict_banner.setVisible(True)
-            # The trust headline is the one post-rip update a screen-reader user
-            # must not miss — announce it focus-safely (gap #4).
-            announce(self._verdict_banner, message)
-        else:
-            self._verdict_banner.setVisible(False)
+        self._render_verdict_banner(level)
 
         # Read-effort early warning (per-track "hard to read"). Hidden when clean.
         effort = read_effort_summary_line(rip_log)
