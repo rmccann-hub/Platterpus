@@ -326,17 +326,8 @@ def _render(
         "Used interface                              : "
         + ("Native Linux SCSI/MMC (libcdio-paranoia)" if cyanrip else _UNREPORTED)
     )
-    # cyanrip merges each pregap into the PREVIOUS track by default and Platterpus
-    # never passes `-p` to change that (docs/dependency-contracts.md), which is
-    # exactly EAC's "Appended to previous track". The behaviour was already right;
-    # the log simply didn't say so in EAC's vocabulary, leaving a reader (or a
-    # comparison against a real EAC log) unable to tell that it matched.
     lines.append(
-        "Gap handling                                : "
-        + (
-            info.gap_detection
-            or ("Appended to previous track" if cyanrip else _UNREPORTED)
-        )
+        "Gap handling                                : " + _gap_handling(info, cyanrip)
     )
     lines.append("")
     lines.extend(_output_format_block(cyanrip, info))
@@ -419,6 +410,60 @@ def _is_cyanrip(rip_log: RipLog) -> bool:
     (review finding, 2026-07-28).
     """
     return (rip_log.log_creator or "").casefold().startswith("cyanrip")
+
+
+# cyanrip's `Gaps:` line reporting that the disc's TOC declared no pregaps. It is
+# free text, so match the sense rather than the exact phrasing: 0.9.3 prints
+# "None signalled" and a future wording change must not silently flip the row.
+_GAP_NONE_SIGNALLED = re.compile(r"\bnone\b", re.IGNORECASE)
+
+
+def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
+    """EAC's Gap handling row — a *policy*, stated in EAC's own vocabulary.
+
+    The distinction that cost a release: cyanrip's `Gaps:` block reports what the
+    disc **signalled** ("None signalled"), while EAC's row states what the ripper
+    **did with** the gaps. Echoing cyanrip's text into this row put a detection
+    result in a policy field — two different facts — and the row then never said
+    anything an EAC log says, which is the whole point of the file.
+
+    Worse, the previous version only reached EAC's wording when
+    `info.gap_detection` was *empty*, and cyanrip always prints the block. So the
+    v0.5.18 fix was unreachable on real output and the row still read "None
+    signalled" on hardware (found on the rig, 2026-07-30). Its test could not
+    catch it because the fixture handed the function EAC's phrase as *input* — a
+    string cyanrip does not emit.
+
+    Both EAC values are used, and both halves of each are evidenced:
+
+    * "Not detected, thus appended to previous track" — when cyanrip signals none.
+      "Not detected" is cyanrip's own report; "appended to previous track" is its
+      documented default, which Platterpus never overrides (it passes no `-p` —
+      see docs/dependency-contracts.md).
+    * "Appended to previous track" — when gaps *were* signalled. Same policy, no
+      detection caveat to add.
+
+    A log from some other ripper gets `_UNREPORTED`: its gap policy is not knowable
+    from a parsed engine name, and every sibling row in this block already says so
+    rather than guess.
+
+    **This row will DISAGREE with a real EAC log of the same disc, and that is the
+    point.** On the Police reference disc, in the same drive, EAC's log says
+    "Appended to previous track" and lists a `Pre-gap length` for fourteen tracks,
+    while cyanrip 0.9.3 says "None signalled" and finds none — so ours now reads
+    "Not detected, thus appended". The old row hid that behind cyanrip's own
+    phrasing. The difference is real: cyanrip's TOC read does not see pregaps EAC
+    detects, which is the same capability gap as KDD-32 / the `INDEX 00` work, and
+    a row that reported EAC's string regardless would have concealed our one
+    measurable archival shortfall against EAC. Honesty first, parity second — see
+    `tests/test_eac_log_export.py` for the assertion that pins this on the real
+    baseline.
+    """
+    if not cyanrip:
+        return _UNREPORTED
+    if _GAP_NONE_SIGNALLED.search(info.gap_detection or ""):
+        return "Not detected, thus appended to previous track"
+    return "Appended to previous track"
 
 
 def _read_mode(info: RippingInfo) -> str:

@@ -10,9 +10,11 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import re
+from dataclasses import replace
 from pathlib import Path
 
 from platterpus.eac_log_export import (
+    _UNREPORTED,
     render_eac_style_log,
     verify_eac_style_log_checksum,
 )
@@ -46,7 +48,11 @@ def _sample_log() -> RipLog:
             defeat_audio_cache=True,
             read_offset_correction=667,
             overread_lead_out=False,
-            gap_detection="Appended to previous track",
+            # cyanrip's ACTUAL text, verbatim from a real 0.9.3 rip. It used to be
+            # EAC's phrase here, which meant the gap-handling row was handed its
+            # expected output as input and no test could see that the renderer
+            # never produced it (found on hardware, 2026-07-30).
+            gap_detection="None signalled",
         ),
         tracks=(
             TrackResult(
@@ -119,6 +125,93 @@ def test_renders_read_settings_block() -> None:
     assert "Read offset correction" in text and "667" in text
     assert "Defeat audio cache      : Yes" in text
     assert "PIONEER BD-RW BDR-209D" in text
+
+
+def test_gap_row_translates_cyanrips_detection_into_eacs_policy_wording() -> None:
+    """The row must say what EAC says, from what cyanrip actually prints.
+
+    cyanrip reports what the TOC *signalled*; EAC's row states the *policy*. Given
+    cyanrip's real "None signalled", the row must read EAC's own phrase for that
+    case — verified verbatim against a genuine EAC 1.1 log — and must not leak
+    cyanrip's wording, which is what shipped in v0.5.18 and was caught on the rig.
+    """
+    text = render_eac_style_log(_sample_log())
+    assert (
+        "Gap handling                                : "
+        "Not detected, thus appended to previous track" in text
+    )
+    # The leak is the failure mode, so assert on it directly: reverting the fix
+    # puts cyanrip's phrase back in this row.
+    assert "None signalled" not in text
+
+
+def test_gap_row_drops_the_not_detected_caveat_when_gaps_were_signalled() -> None:
+    """Same policy, no detection caveat — EAC's other real value for this row."""
+    log = _sample_log()
+    signalled = replace(
+        log,
+        ripping_info=replace(log.ripping_info, gap_detection="Track 2: 00:02:00"),
+    )
+    text = render_eac_style_log(signalled)
+    assert (
+        "Gap handling                                : Appended to previous track"
+        in text
+    )
+    assert "Not detected" not in text
+
+
+def test_gap_row_is_unreported_for_a_log_from_another_ripper() -> None:
+    """A non-cyanrip log's gap policy is not knowable from its parsed text.
+
+    The old code echoed whatever the field held — for a legacy whipper log that is
+    a cdrdao version string, which is an engine name in a policy field.
+    """
+    log = _sample_log()
+    other = replace(
+        log,
+        log_creator="whipper 0.10.0",
+        ripping_info=replace(
+            log.ripping_info, gap_detection="cdrdao version 1.2.4 from 2020"
+        ),
+    )
+    text = render_eac_style_log(other)
+    assert f"Gap handling                                : {_UNREPORTED}" in text
+    assert "cdrdao" not in text
+
+
+def test_gap_row_vocabulary_comes_from_a_real_eac_log_not_from_us() -> None:
+    """Anchor the row's wording to genuine EAC output, and pin the real disagreement.
+
+    Two claims, both from the committed real EAC 1.8 log of the same disc in the
+    same drive (`output_reference/EAC_flac/`) rather than from our hand-authored
+    fixture — a file we wrote is not evidence of EAC's vocabulary:
+
+    1. "Appended to previous track" is EAC's actual string, character for
+       character. (The "Not detected, thus …" variant was verified separately
+       against a public EAC 1.1 log; EAC prints it only when its gap pass finds
+       nothing, which did not happen on this disc.)
+    2. EAC **detected pregaps here and cyanrip did not** — EAC lists `Pre-gap
+       length` rows, cyanrip reports "None signalled". So our log legitimately
+       differs from EAC's on this row, and the fix must not be "make the string
+       match": that would hide a measurable archival gap (KDD-32 / `INDEX 00`).
+    """
+    eac = _EAC_BASELINE.read_bytes().decode("utf-16")
+    # The baseline is two concatenated EAC runs of the same disc (20:01 and
+    # 20:02), so expect one row per run and require them to agree.
+    gap_rows = [ln for ln in eac.splitlines() if ln.startswith("Gap handling")]
+    # Floor: a check that passes by finding nothing is decoration.
+    assert gap_rows, "the real EAC baseline must carry a Gap handling row"
+    assert all(ln.endswith(": Appended to previous track") for ln in gap_rows)
+
+    pregaps = [ln for ln in eac.splitlines() if "Pre-gap length" in ln]
+    assert len(pregaps) >= 2, "EAC must be shown detecting real pregaps on this disc"
+
+    cyanrip_log = _CYANRIP_REFERENCE.read_text(encoding="utf-8", errors="replace")
+    assert "None signalled" in cyanrip_log, (
+        "the committed cyanrip log of the SAME disc must still show it detecting "
+        "nothing — if this changes, the disagreement below has closed and the row's "
+        "reasoning needs revisiting"
+    )
 
 
 def test_records_software_provenance_when_supplied() -> None:

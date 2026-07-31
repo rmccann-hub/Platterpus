@@ -11,7 +11,41 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The EAC log's `Gap handling` row never actually spoke EAC's vocabulary.** v0.5.18
+  claimed to fix this and the fix was unreachable: it only applied when cyanrip reported
+  *nothing*, and cyanrip always prints its `Gaps:` block — so on real hardware the row
+  still read `None signalled`, which is cyanrip's *detection result* sitting in a field
+  where EAC states its *policy*. Two different facts, and the row consequently said nothing
+  an EAC log says, which is the entire purpose of the file. It now renders EAC's own
+  wording — `Not detected, thus appended to previous track` when cyanrip signals none,
+  `Appended to previous track` when gaps were signalled, both verified verbatim against
+  genuine EAC logs — and a log from any other ripper gets `(not reported by the ripper)`
+  instead of leaking a parsed engine name into a policy row. Found on the rig, on the first
+  run after the release that claimed it.
+- **The test for that row could not fail.** Its fixture set `gap_detection` to EAC's phrase
+  — a string cyanrip does not emit — so the renderer was handed its expected output as
+  input and the assertion passed without the code ever producing it. The fixture now
+  carries cyanrip's real text, and the row's wording is anchored to the committed real EAC
+  log rather than to our own hand-authored one.
+
+### Changed
+- **`Make use of C2 pointers` is recorded as met where the hardware settles it.** cyanrip
+  prints `C2 errors: unsupported by drive`, the parser already mapped that to `No`, and the
+  rig's log confirms the row is filled — first-party evidence from the tool doing the read,
+  which is the standard an earlier survey-based attempt was correctly refused for. A
+  C2-*capable* drive still yields "(not reported)": cyanrip's line states what the drive
+  can do, and EAC's row asks what the rip did.
+
 ### Documentation
+- **A measurable archival gap against EAC is now documented instead of hidden.** Diffing
+  the committed real EAC log against the cyanrip log of the same disc in the same drive
+  shows EAC detecting pregaps on fourteen tracks where cyanrip's TOC read signals none.
+  Both tools append the gap to the previous track, so the audio and the CRCs are
+  unaffected — the *record* is less complete than EAC's. This is the same capability gap as
+  KDD-32 / the `INDEX 00` work, which the finding now motivates concretely, and a test pins
+  the disagreement so it cannot later be "fixed" by making our log print EAC's string
+  regardless.
 - **The hardware run sheet now carries *every* outstanding hardware test, not just the
   newest release's.** Three releases (v0.5.16–v0.5.18) landed between rig sessions, so a
   sheet scoped to one release left the older unproven items to be reconstructed from the

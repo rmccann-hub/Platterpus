@@ -22,6 +22,56 @@ When a task changes status, update it here in the same commit as the code change
 
 ## P0 — v1 release
 
+### ⭐ First-rip proof — raised by the maintainer 2026-07-30, needs a decision before work starts
+
+> *"this is great for already verified things, but this is done by people running EAC, more
+> confirmation helps confidence, but we need to be able to confidently be able to be the
+> gold standard first burn proof as well. until this this will not be a serious product."*
+
+**The gap is real and correctly identified.** Every strong claim the app can make today is
+*borrowed*: AccurateRip and CTDB both answer "do other people's rips agree with yours",
+so a disc nobody has submitted — a CD-R, a promo, an obscure pressing — gets grey
+"couldn't confirm" and the user is left with a Copy CRC that only proves FLAC encoded
+whatever was read. For a first rip the app currently has no verdict of its own.
+
+**What is physically achievable, stated honestly.** With one drive and no database the
+only available evidence is **reproducibility plus error accounting**: N independent reads
+returning identical bytes, with cache defeat *measured*, at a *confirmed* offset, and zero
+uncorrected paranoia events. That is exactly what EAC's Test & Copy is, and it is a strong
+claim — but it is categorically weaker than AccurateRip in one specific way that must
+never be glossed: **it cannot detect a systematic misread**, a drive that returns the same
+wrong bytes every time. Only a *second drive* breaks that, because it is the only way to
+vary the thing being tested. Any "gold standard" wording has to respect that boundary or
+it is the same borrowed confidence in a new costume.
+
+Four candidate pieces, cheapest first. **None started — the defaults question below is the
+maintainer's call, not mine:**
+
+1. **A first-rip verdict tier.** Today "not in AccurateRip" collapses to grey. Instead
+   report what we *can* prove, as its own named tier with its own colour: reads agreed
+   (N of N), cache defeat measured, offset confirmed by two sources, paranoia counts
+   clean, C2 status. All five facts are already collected — this is presentation, and it
+   is the highest value for the least risk.
+2. **Test & Copy on by default when AccurateRip has nothing.** The behaviour change that
+   makes tier 1 mean something: if no database can vouch for the disc, earn the proof
+   locally instead of shrugging. Costs a second full read (roughly doubles rip time) on
+   exactly the discs where it matters. ***Needs sign-off: is doubling the rip time
+   acceptable for an unknown disc?***
+3. **Cross-drive verification, as an explicit feature.** Rip in drive A, rip in drive B,
+   `--compare` the reports; agreement at each drive's own offset is the strongest evidence
+   a single owner can produce, and it is the only one that survives a systematic misread.
+   `--compare` already exists; this is a guided flow plus a verdict, not new machinery.
+4. **Submit to CTDB — become the datum rather than only consuming it.** Doesn't prove
+   *this* rip, but it is what "gold standard" means socially: the next person to rip the
+   disc can verify against us. AccurateRip submission is confirmed impossible from Linux;
+   CTDB submission needs investigation (the CUETools ecosystem, `ctdb-cli` — see P1 item
+   6, which is already on the list for repair rather than submission).
+
+**Also raised by the same run, and also a decision rather than a fix:** typed titles land
+in the tags and the `.cue` but not in the **filenames** (`03 - Track 03.flac`, not
+`03 - three3.flac`) on the unknown-disc path, because cyanrip names files from the
+placeholders it was given and Platterpus tags over the top afterwards. Sheet item **D4**.
+
 ### Foundation
 
 - [x] T01 — Repo scaffolding

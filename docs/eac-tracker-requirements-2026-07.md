@@ -95,7 +95,7 @@ pregaps into the previous track.
 | Defeat audio cache | *measured* via `cd-paranoia -A` (KDD-29), not asserted | **met when probed** |
 | Delete silent blocks: No | asserted for cyanrip (it writes what it reads) | **met** |
 | Null samples in CRC: Yes | asserted for cyanrip (CRCs matched a real EAC log, 12/14 tracks) | **met** |
-| Gap handling | **fixed 2026-07-29** — now says "Appended to previous track" | **met** |
+| Gap handling | wording **actually** fixed 2026-07-30 (see below) — says "Not detected, thus appended to previous track" | **wording met, detection is not** |
 | Test & Copy | `-Z` convergence rendered as a Test/Copy pair | **partial** |
 | AccurateRip | parsed and rendered; `verdict.py` is the single predicate | **met** |
 | No ID3 on FLAC | Vorbis comments only | **met** |
@@ -103,22 +103,56 @@ pregaps into the previous track.
 | No normalization / compression offset | never emitted | **met** |
 | Read offset correction | `-s` applied; value printed but never asserted *correct* | **partial** |
 | Fill missing offset samples with silence | derived from overread text, else unknown | **partial** |
-| `Make use of C2 pointers` | **"(not reported)" — deliberately** (see below) | **open** |
+| `Make use of C2 pointers` | **`No`, measured** on a drive that reports C2 unsupported; "(not reported)" otherwise (see below) | **met on the rig; open in general** |
 | `Utilize accurate stream` | no equivalent | **open** |
 | Signed EAC log footer | plain SHA-256, self-labelled *not* EAC's | **by design** |
 | Recognised ripper name | never emitted (KDD-11/24/28) | **by design → score 0** |
 
-### The C2 row, and why it is still "(not reported)"
+### The C2 row — earned by the ripper, not by the survey (settled 2026-07-30)
 
 The survey says libcdio-paranoia never uses C2 error pointers, which would let this
-row be asserted `No` and remove EAC's most heavily-weighted unknown. **I changed it,
-a test stopped me, and the test was right.**
-
+row be asserted `No` and remove EAC's most heavily-weighted unknown. **I changed it on
+that basis, a test stopped me, and the test was right.**
 `test_does_not_fabricate_read_mode_or_c2_pointers` exists precisely to stop a value
-being printed into an archival log without evidence. The silent-blocks and null-samples
-rows *are* asserted because each has direct evidence behind it. A secondary source
-summarising libcdio's behaviour is not the same standard. Reverted; what would earn it
-is in §4.
+being printed into an archival log without evidence, and a secondary source summarising
+libcdio is not the standard the silent-blocks and null-samples rows are held to.
+
+**Then the rig answered it directly.** cyanrip's own header on the BDR-209D prints
+`C2 errors: unsupported by drive`, the parser maps that to `False`, and the exported log
+reads `Make use of C2 pointers : No`. That is first-party evidence from the tool doing
+the read — the standard the test was defending — so the row is now filled on this drive.
+
+The distinction the parser keeps, and that matters: cyanrip's line reports what the
+**drive can do**, not what the rip did. "unsupported" *proves* C2 was not used; a
+"supported" line would prove only that it was available, and EAC's row asks whether C2
+was *used*. So a C2-capable drive still yields "(not reported)" rather than a guess in
+either direction. The row is met where the hardware settles it, open where it doesn't.
+
+---
+
+### Pregap detection — a real archival gap, now visible in the log (found 2026-07-30)
+
+Comparing the committed real EAC 1.8 log against the cyanrip log **of the same disc in
+the same drive** shows something neither log's wording had made obvious:
+
+| | EAC 1.8 | cyanrip 0.9.3 |
+|---|---|---|
+| `Gap handling` | `Appended to previous track` | `Gaps: None signalled` |
+| Per-track `Pre-gap length` | present for 14 tracks | none |
+
+**EAC detects pregaps that cyanrip does not.** EAC runs its own gap-detection pass;
+cyanrip reports what the disc's TOC signalled, and on this disc the TOC signalled
+nothing. Both tools then *append* the gap to the previous track, so **the audio is
+unaffected** — this is a completeness gap in the archival record, not a correctness one.
+
+It is the same capability gap as KDD-32 / the `INDEX 00` work, and it is the reason the
+run sheet's cyanrip-`master` build step exists.
+
+Until 2026-07-30 our exported row echoed cyanrip's "None signalled", which hid the
+comparison entirely. It now reads EAC's own phrase for the not-detected case, so a
+side-by-side diff against a real EAC log shows the difference instead of burying it —
+and `test_gap_row_vocabulary_comes_from_a_real_eac_log_not_from_us` pins the
+disagreement so nobody later "fixes" it by making the string match.
 
 ---
 
