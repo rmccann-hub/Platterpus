@@ -1097,25 +1097,79 @@ def test_a_fork_secure_verdict_line_records_all_three_states() -> None:
     assert log.tracks[0].secure_rerip_converged is None
 
 
-def test_an_indented_done_line_belongs_to_the_track_already_open() -> None:
-    """The cheapest upstream fix: route the EXISTING "Done;" text through the log.
+def test_an_indented_done_line_still_describes_the_NEXT_track() -> None:
+    """The fixture shape this test used to have is one no cyanrip ever emits.
 
-    That lands the same string INDENTED inside the per-track block. It must attach
-    to the open track — not be buffered for the next one, which is what the
-    column-0 stdout form means (and that path is asserted unchanged below).
+    It asserted that an indented `Done;` belongs to the track already open, and it
+    passed — because it placed the line *inside* a track block, which is not where
+    cyanrip puts it. cyanrip emits `Done;` from `cyanrip_rip_track()`'s repeat
+    loop, which runs BEFORE the "Track N ripped…" opener. The maintainer's fork
+    indented the string **in place**, so it is still a pre-opener line; under the
+    old `^`-anchored rule every verdict was handed to the PREVIOUS track.
+
+    Three tracks with DIFFERING consecutive verdicts, deliberately: a one-track
+    shift is invisible on any fixture where neighbouring verdicts agree, which is
+    exactly how the old test managed to vouch for the bug.
     """
     log = parse_cyanrip_log(
-        "cyanrip 0.9.3-fork\n"
+        "cyanrip 0.9.3.1 (fork)\n"
+        "Repeating ripping (0 out of 1 matches for current checksum AAAA1111)\n"
+        "  Done; (1 out of 1 matches for current checksum AAAA1111)\n"
         "Track 1 ripped and encoded successfully!\n"
-        "  EAC CRC32:     B0D122E7 (after 5 rips)\n"
+        "  EAC CRC32:     AAAA1111 (after 2 rips)\n"
         "  Done; (no matches found, but hit repeat limit of 5)\n"
         "Track 2 ripped and encoded successfully!\n"
-        "  EAC CRC32:     985AAE32\n"
+        "  EAC CRC32:     BBBB2222 (after 5 rips)\n"
+        "  Done; (3 out of 3 matches for current checksum CCCC3333)\n"
+        "Track 3 ripped and encoded successfully!\n"
+        "  EAC CRC32:     CCCC3333 (after 3 rips)\n"
     )
     by_number = {t.number: t for t in log.tracks}
-    assert by_number[1].secure_rerip_converged is False
-    # …and it did NOT leak forward onto track 2.
-    assert by_number[2].secure_rerip_converged is None
+    # Floor: the fixture must actually contain differing verdicts, or this test
+    # cannot detect a shift and is decoration.
+    verdicts = [by_number[n].secure_rerip_converged for n in (1, 2, 3)]
+    assert len(set(verdicts)) >= 2, f"fixture cannot detect a shift: {verdicts}"
+    assert verdicts == [True, False, True], (
+        "each track must keep its OWN verdict; a one-track shift shows up here as "
+        f"[None, True, False] or [False, True, None]. Got {verdicts}"
+    )
+
+
+def test_a_zero_numerator_done_line_is_not_convergence() -> None:
+    """`0 out of N matches` is a total failure to reproduce, not a clean read.
+
+    No cyanrip is known to print it in the final verdict — the documented failure
+    form is "no matches found, but hit repeat limit of N" — but the wording is
+    demonstrably in cyanrip's vocabulary (its own `Repeating ripping (0 out of 1
+    matches …)` progress line), and a bare digit quantifier read it as verified.
+    This is a
+    pinned invariant rather than a fix for an observed bug, and is labelled as one.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3\n"
+        "Done; (0 out of 5 matches for current checksum AAAA1111)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 5 rips)\n"
+    )
+    assert log.tracks[0].secure_rerip_converged is False
+
+
+def test_an_in_block_labelled_verdict_wins_over_the_buffered_one() -> None:
+    """The fork emits both, and the labelled row is the authoritative one.
+
+    A `Done;` line's ownership is inferred from position; a labelled row inside the
+    track block states it. When the two disagree the row wins — and it must not be
+    the case that the row is simply ignored, which is what a naive "first match
+    wins" ordering would do.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3.1 (fork)\n"
+        "  Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 2 rips)\n"
+        "  Secure re-read:  converged after 2 reads\n"
+    )
+    assert log.tracks[0].secure_rerip_converged is True
 
 
 def test_a_column_zero_done_line_still_buffers_for_the_next_track() -> None:

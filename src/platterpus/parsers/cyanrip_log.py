@@ -167,8 +167,25 @@ _TRACK_START = re.compile(
 #   "Done; (no matches found, but hit repeat limit of 5)".
 # The latter is the reliable per-track read-instability signal (see
 # TrackResult.secure_rerip_converged). Absent entirely when -Z is off.
-_SECURE_DONE_MATCH = re.compile(r"^Done;\s+\(\d+\s+out of\s+\d+\s+matches\b")
-_SECURE_DONE_FAIL = re.compile(r"^Done;\s+\(no matches found\b")
+#
+# **`\s*`, not `^`, and that leading whitespace is the whole point.** These lines
+# are emitted from inside `cyanrip_rip_track()`'s repeat loop, which runs BEFORE
+# the "Track N ripped…" opener — so wherever they sit on the line, they describe
+# the track that is about to open, and they are buffered for it. The maintainer's
+# fork indented them (our own ask, and a mistaken one: see the note at
+# `_TRACK_SECURE_VERDICT`), which under an `^`-anchored pattern silently handed
+# each verdict to the PREVIOUS track instead. Anchoring on POSITION rather than
+# on indentation is what makes one build read stock, master and the fork
+# identically (audit, 2026-07-31).
+#
+# The match form requires at least ONE agreeing read. "0 out of 5 matches" is
+# not convergence, and cyanrip demonstrably has that wording in its vocabulary —
+# its `Repeating ripping (0 out of 1 matches …)` progress line uses it — so a
+# bare `\d+` here would read a total failure as a clean verdict.
+_SECURE_DONE_MATCH = re.compile(
+    r"^\s*Done;\s+\((?P<agreed>\d{1,6})\s+out of\s+(?P<total>\d{1,6})\s+matches\b"
+)
+_SECURE_DONE_FAIL = re.compile(r"^\s*Done;\s+\(no matches found\b")
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
 _TOTAL_TIME = re.compile(r"^Total time:\s+(?P<time>\d{1,2}:\d{2}:\d{2}(?:\.\d+)?)")
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
@@ -302,24 +319,33 @@ _TRACK_ELAPSED_SECONDS = re.compile(
     r"(?P<s>\d{1,7}(?:\.\d{1,6})?)\s*(?:s|sec|secs|seconds)\b"
 )
 
-# --- 3. the -Z convergence verdict, written into the LOG FILE (§2.4) ---------
+# --- 3. the -Z convergence verdict as a LABELLED per-track row (§2.4) --------
 #
-# FORK-ONLY. Today the verdict is a stdout-only "Done; (…)" line (that is §2.4's
-# whole finding), so a log re-read from disk loses the strongest evidence in the
-# rip: cyanrip's health line still says "No errors occurred" for a track that
-# never read the same way twice, and its "(after N rips)" suffix does not say
-# whether any two of those reads AGREED.
+# FORK-ONLY. A purpose-written row inside the track block, which is unambiguous
+# about which track it describes and can state all three outcomes by name.
 #
-# INDENTATION IS THE DISCRIMINATOR, and it is load-bearing. The stdout verdict is
-# printed at column 0 *before* the "Track N ripped…" opener, so the loop buffers it
-# for the NEXT track. A verdict written by `cyanrip_log_track_end()` lands INSIDE
-# the per-track block, indented like "  EAC CRC32:", and belongs to the track
-# already open. Both forms coexist unambiguously because of that one difference —
-# and the column-0 path is untouched, so today's behaviour is bit-identical.
+# **POSITION is the discriminator, never indentation.** This was got wrong once
+# and it cost a whole class of bug, so the reasoning is recorded here rather than
+# in a commit message nobody will read again:
+#
+#   * §2.4 assumed the `Done; (…)` verdict was stdout-only and absent from
+#     cyanrip's log file. **That was false at 0.9.3 and at master** —
+#     `cyanrip_log()` writes the logfile before stdout, so the line was always in
+#     the log; it was merely un-indented. The fork answered the question by
+#     reading the source (their §4).
+#   * On that false premise we asked for indentation as the signal, and defined
+#     "indented ⇒ belongs to the open track". The fork duly indented the string
+#     *in place* — still inside the pre-opener repeat loop. Indentation and
+#     position now disagreed, and every verdict shifted one track: a converged
+#     track inherited the next track's failure and vice versa, producing a false
+#     "not confirmed reproducible" AND a false "verified" in the same log.
+#
+# So `_SECURE_DONE_*` above match at any indentation and always buffer for the
+# NEXT track, because that is where cyanrip emits them from. This labelled row is
+# the only in-block source, and it wins over a buffered value for the same track
+# (it is applied after the block opens) because a row inside the block is the one
+# form whose ownership is not in question.
 _TRACK_SECURE_VERDICT = re.compile(r"^\s+Secure re-?read(?:s)?:\s+(?P<text>\S.*?)\s*$")
-# The cheapest thing upstream could do: route the EXISTING string through
-# `cyanrip_log()`, so the same text arrives indented instead of on stdout.
-_TRACK_SECURE_DONE = re.compile(r"^\s+Done;\s+\((?P<text>[^)]*)\)")
 
 # --- 4. "Appended: N frames of silence" — ALREADY PRINTED by cyanrip 0.9.3 ---
 #
@@ -880,7 +906,6 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_elapsed_clock", _TRACK_ELAPSED_CLOCK),
     ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
-    ("track_secure_verdict_done", _TRACK_SECURE_DONE),
 )
 
 # Lines cyanrip prints at the top level that we KNOWINGLY do not parse. This is
@@ -1186,8 +1211,17 @@ def parse_cyanrip_log(text: str) -> RipLog:
             continue
 
         # Secure re-read verdict for the NEXT track — buffer it (see above).
-        if _SECURE_DONE_MATCH.match(line):
-            pending_converged = True
+        # Checked at ANY indentation, because cyanrip emits these from the repeat
+        # loop that runs before the track opener regardless of how the string is
+        # formatted. The fork indents them; stock does not; both mean the same
+        # thing about the same track.
+        match = _SECURE_DONE_MATCH.match(line)
+        if match:
+            # "N out of M matches" is convergence only when N >= 1. A zero
+            # numerator is a total failure to reproduce, and reading it as
+            # "verified" is the worst direction for this field to be wrong in.
+            agreed = int_or_none(match.group("agreed"), field="cyanrip -Z agreements")
+            pending_converged = agreed is not None and agreed >= 1
             continue
         if _SECURE_DONE_FAIL.match(line):
             pending_converged = False
@@ -1328,20 +1362,15 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 current.extraction_elapsed_seconds = _float_or_none(match.group("s"))
                 continue
 
-            # The -Z convergence verdict as a durable per-track log line, in either
-            # the labelled form or the existing "Done; (…)" text routed through the
-            # log. INDENTED only — the column-0 stdout form is buffered for the NEXT
-            # track further up, and that path is untouched.
-            verdict_text: str | None = None
+            # The -Z convergence verdict as a durable, LABELLED per-track row —
+            # the only in-block form. A `Done; (…)` line is never read here, at any
+            # indentation: cyanrip emits it from the pre-opener repeat loop, so it
+            # is buffered for the NEXT track further up. An in-block arm for it
+            # used to exist and was reachable ONLY as the misattribution, because
+            # no cyanrip has ever written a `Done;` inside a track block.
             match = _TRACK_SECURE_VERDICT.match(line)
             if match:
-                verdict_text = match.group("text")
-            else:
-                match = _TRACK_SECURE_DONE.match(line)
-                if match:
-                    verdict_text = match.group("text")
-            if verdict_text is not None:
-                verdict = _parse_secure_verdict(verdict_text)
+                verdict = _parse_secure_verdict(match.group("text"))
                 # Only a recognised verdict is recorded. "not attempted" and an
                 # unfamiliar wording both mean "no verdict here", and neither may
                 # ERASE one already measured — including the GUI's own auto-fix

@@ -834,3 +834,48 @@ def test_a_logged_converged_verdict_earns_the_test_and_copy_pair() -> None:
     assert "Test CRC B0D122E7" in text
     assert "confirmed across 2 secure re-reads" in text
     assert "did NOT agree" not in text
+
+
+def test_a_non_converged_track_never_gets_the_test_and_copy_pair() -> None:
+    """The archival consequence of the verdict shift, asserted at the renderer.
+
+    EAC's `Test and Copy CRC identical` is the strongest reproducibility claim the
+    log makes, and `_track_block` earns it from `secure_rerip_converged`. With the
+    verdict shifted by one track, a track that never read the same way twice
+    carried that line while the track that DID converge carried the warning — a
+    false "verified" and a false "not reproducible" in the same attested log.
+
+    Driven from log text through the real parser, because the shift happened in
+    the parser and a hand-built `TrackResult` cannot express it.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3.1 (fork)\n"
+        "  Done; (1 out of 1 matches for current checksum AAAA1111)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 2 rips)\n"
+        "  Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     BBBB2222 (after 5 rips)\n"
+    )
+    text = render_eac_style_log(log)
+    blocks = text.split("Track  ")
+    # Floor: two track blocks to compare, or there is nothing to tell apart.
+    assert len(blocks) >= 3, f"expected 2 track blocks, split gave {len(blocks) - 1}"
+    track1, track2 = blocks[1], blocks[2]
+
+    assert "confirmed across" in track1, (
+        "track 1 converged and must carry the reproducibility claim; got:\n" + track1
+    )
+    assert "did NOT agree" not in track1
+    assert "did NOT agree" in track2, (
+        "track 2 hit the repeat limit without agreeing and must say so; got:\n" + track2
+    )
+    assert "confirmed across" not in track2, (
+        "a track whose re-reads never agreed was given EAC's strongest "
+        "reproducibility claim"
+    )
+    assert "track(s) 2 did not read identically" in text, (
+        "the status report must name track 2 alone, not track 1"
+    )

@@ -12,6 +12,36 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Every secure-re-read verdict was attributed to the wrong track on the maintainer's cyanrip
+  fork — producing a false "verified" and a false "not reproducible" in the same attested log.**
+  cyanrip emits its `Done; (N out of M matches)` verdict from inside the repeat loop, which runs
+  *before* the `Track N ripped…` opener, so the line describes the track about to open. v0.5.19
+  told the fork to **indent** that line and defined "indented ⇒ belongs to the track already
+  open". The fork indented the string *in place*, still pre-opener — so indentation and position
+  disagreed and every verdict shifted by one track. Measured on their real output: track 1
+  converged (`Secure re-read: converged after 2 reads`) and Platterpus recorded `False`, then the
+  EAC-layout log said `re-reads did NOT agree — this read is not confirmed reproducible` for it
+  while giving the *non*-converged track EAC's strongest claim, `Test and Copy CRC identical`.
+  The discriminator is now **position, never indentation**: a `Done;` line is buffered for the
+  next track at any indentation, the labelled in-block `Secure re-read:` row is the only in-block
+  source and wins, and the in-block `Done;` arm is deleted — no cyanrip has ever emitted one, so
+  it was reachable *only* as the misattribution.
+
+  **The root cause was a false belief in our own docs**, which is why they move in the same
+  change: §2.4 recorded the `-Z` verdict as stdout-only and absent from cyanrip's log file. It
+  was never absent — `cyanrip_log()` writes the logfile before stdout — so the line was always
+  there, merely un-indented, and the whole indentation scheme was built on a premise the fork
+  disproved by reading the source.
+
+  Hardened alongside, because the consequence is worse than a wrong row: the auto-fix
+  re-rip **file swap** gates on this boolean, so a shifted verdict can copy a read that never
+  reproduced over audio that was fine. The swap now refuses unless the re-rip's log describes
+  exactly the tracks that were requested, so a future attribution bug degrades to "don't swap".
+- `Done; (0 out of N matches)` no longer parses as convergence. No cyanrip is known to print it
+  as a final verdict, but the wording is demonstrably in cyanrip's vocabulary — its own
+  `Repeating ripping (0 out of 1 matches …)` progress line — and a bare digit quantifier read a
+  total failure to reproduce as a clean verdict. Pinned as an invariant, not a fix for an
+  observed bug.
 - **The EAC-layout log over-claimed every pre-gap by up to 89x, and it is a live bug on the
   cyanrip everyone is running — not a fork-only one.** cyanrip's `Pregap LSN:` row prints the
   **absolute position** where `INDEX 00` begins; Platterpus stored that number in a field called
