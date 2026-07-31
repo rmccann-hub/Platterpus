@@ -650,6 +650,16 @@ class RipMixin(MainWindowShared):
     def _on_rip_cancel(self) -> None:
         if self._rip_worker is None:
             return
+        # Cancel is the single most consequential thing a user can press during a
+        # rip, and until now it wrote NOTHING to the log — so a report about a
+        # cancel that misbehaved (a drive left spinning, a rip recorded as failed)
+        # arrived with no record of when, or whether, it was even pressed. The
+        # rescue deadline goes in the same line so the log carries the window a
+        # reader has to reason about (rig session, 2026-07-30).
+        log.info(
+            "rip cancel requested by the user; arming the %ds force-stop rescue",
+            _FORCE_STOP_COUNTDOWN_MS // 1000,
+        )
         self._rip_cancelled = True
         self._force_stop_done = False
         # The in-container reader can take a moment to stop; set expectations,
@@ -1126,7 +1136,22 @@ class RipMixin(MainWindowShared):
                 # its convergence) in, so every surface below describes the audio
                 # actually on disk (KDD-30).
                 rip_log = self._apply_auto_fix_results(rip_log)
-                self._rip_progress.set_rip_log(rip_log)
+                # The disc's own track count and the rip's outcome, both already
+                # known here (`_last_outcome` is built above, at build_outcome).
+                # Without them the trust headline's denominator is the number of
+                # tracks *in the log*, which shrinks with a cancelled rip — so
+                # "all N tracks verified" went green over 2 of 14 (found on the
+                # rig, 2026-07-30). Same two values the EAC exporter is given.
+                finished_outcome = getattr(self, "_last_outcome", None)
+                self._rip_progress.set_rip_log(
+                    rip_log,
+                    disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
+                    outcome_status=(
+                        str(finished_outcome.get("status") or "")
+                        if isinstance(finished_outcome, dict)
+                        else ""
+                    ),
+                )
                 # Replace the disc panel's blank AccurateRip field with the
                 # real outcome (e.g. "not in database" for a CD-R) instead of
                 # the old misleading static "verified during rip".
@@ -2324,6 +2349,9 @@ class RipMixin(MainWindowShared):
             # re-writes); `settings`/`gates` come from the persistent config +
             # backend, so they're rebuilt here each write (pure + cheap).
             outcome=getattr(self, "_last_outcome", None),
+            # The disc's own track count, so the JSON's verdict and the window's
+            # agree about the denominator on a rip that stopped early.
+            disc_track_total=getattr(self, "_current_num_tracks", 0) or None,
             settings=rip_report.build_settings(
                 self._config,
                 read_offset_effective=getattr(

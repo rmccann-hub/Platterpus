@@ -572,6 +572,18 @@ class MainWindow(
         ``hard_exit`` stops interpreter shutdown from destroying a live QThread."""
         from platterpus.workers import ShutdownDeadline, stop_thread
 
+        # Shutdown wrote nothing to the log until now, so a log could not answer
+        # the two questions that matter after a bad quit: did the app begin closing
+        # at all, and was a rip live when it did. The rig's A11 run turned on
+        # exactly that — the log's last line was a disc-removal repaint, which
+        # says the window was still alive but not whether close had started
+        # (rig session, 2026-07-30). One line, at the top, before anything can
+        # block or abandon.
+        log.info(
+            "window close requested; tearing down workers (rip active=%s)",
+            self._rip_worker is not None,
+        )
+
         # One budget for the whole close, not one per worker — see the docstring.
         deadline = ShutdownDeadline()
 

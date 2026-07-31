@@ -142,6 +142,7 @@ def build_report(
     environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
+    disc_track_total: int | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -187,6 +188,7 @@ def build_report(
             environment=environment,
             gates=gates,
             log_parse=log_parse,
+            disc_track_total=disc_track_total,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -434,8 +436,20 @@ def _build(
     environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
+    disc_track_total: int | None = None,
 ) -> dict:
-    message, level = accuraterip_verdict(rip_log)
+    # The JSON's verdict must be the SAME claim the window makes, so it is given
+    # the same two extra facts: the disc's own track count (the only denominator a
+    # stopped rip cannot shrink) and the rip's outcome. Without them a cancelled
+    # 2-of-14 rip serialised `{"level": "ok", "message": "Bit-perfect: all 2
+    # tracks verified against AccurateRip"}` (found on the rig, 2026-07-30).
+    message, level = accuraterip_verdict(
+        rip_log,
+        disc_track_total=disc_track_total,
+        outcome_status=(
+            str(outcome.get("status") or "") if isinstance(outcome, dict) else ""
+        ),
+    )
     info = getattr(rip_log, "ripping_info", None)
     # Serialize the verification sub-blocks once, into locals, so both the
     # `verification` block below and the derived `issues` list read the SAME
@@ -987,6 +1001,7 @@ def write_report(
     environment: EnvironmentBlock | None = None,
     gates: dict | None = None,
     log_parse: dict | None = None,
+    disc_track_total: int | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -1018,6 +1033,7 @@ def write_report(
             environment=environment,
             gates=gates,
             log_parse=log_parse,
+            disc_track_total=disc_track_total,
         )
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is

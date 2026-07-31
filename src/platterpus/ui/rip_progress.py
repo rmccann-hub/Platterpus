@@ -719,11 +719,29 @@ class RipProgress(QWidget):
         self._verdict_banner.setVisible(True)
         announce(self._verdict_banner, text)
 
-    def set_rip_log(self, rip_log: RipLog) -> None:
-        """Populate the AccurateRip table + verdict banner from a parsed log."""
+    def set_rip_log(
+        self,
+        rip_log: RipLog,
+        *,
+        disc_track_total: int | None = None,
+        outcome_status: str = "",
+    ) -> None:
+        """Populate the AccurateRip table + verdict banner from a parsed log.
+
+        ``disc_track_total`` and ``outcome_status`` are what stop the trust
+        headline claiming "all N tracks" over a rip that never reached the end of
+        the disc — a cancelled rip's log contains only the tracks it got to, so
+        the log alone cannot tell the verdict how much is missing. Keyword-only
+        and defaulted so a caller without them degrades to the old wording rather
+        than failing.
+        """
         # Kept so the async CTDB verdict can reconcile itself against AccurateRip.
         self._last_rip_log = rip_log
-        message, level = accuraterip_verdict(rip_log)
+        message, level = accuraterip_verdict(
+            rip_log,
+            disc_track_total=disc_track_total,
+            outcome_status=outcome_status,
+        )
         # A fresh verdict supersedes any earlier downgrades — but re-apply them
         # below if they were recorded before the log was parsed.
         self._verdict_base_message = message

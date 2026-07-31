@@ -146,7 +146,35 @@ done
 **Result:** ☐ PASS ☐ FAIL — first file's number/title: ____________ · any off-by-one:
 ☐ y ☐ n
 
-### A11 — [ ] ⭐⭐ Cancel, then quit within five seconds — the drive must stop
+### A11 — [~] ⭐⭐ Cancel, then quit within five seconds — **PARTIAL PASS 2026-07-30**
+
+> **The critical criterion passed.** The drive stopped and the tray opened — no held device,
+> no crash, and the log shows the rescue path working end to end:
+>
+> ```
+> 20:49:58,811  rip finished: success=False
+> 20:50:03,949  force-stopping drive (auto trigger), device=/dev/sr0   ← +5.1s
+> 20:50:04,067  fuser -k /dev/sr0 rc=0
+> 20:50:06,789  ejected /dev/sr0                                       ← +8.0s total
+> 20:50:06,789  force_stop_drive: killed=True ejected=True
+> ```
+>
+> Your "7 or 8 seconds" matches exactly: 5 s of rescue timer, then ~2.7 s for `fuser -k` plus
+> the eject itself. **Note the app ejected the disc for you** — you didn't need the button.
+>
+> **But the specific race this test targets isn't proven, and that's my fault.** The log's
+> last line is a disc-removal repaint, which means the window was *still alive* at +8 s — so
+> either the quit landed after the rescue fired, or it didn't land inside the five-second
+> window. The log can't tell us, because **pressing Cancel logged nothing and quitting
+> logged nothing**. I asked you to check "the log's last lines mention stopping the rip" and
+> the app doesn't produce that. Both lines added on the branch — so **re-run this one on
+> v0.5.19**, where the log will say `rip cancel requested…` and `window close requested…`
+> with timestamps, and the race will be visible either way.
+>
+> Two things to do differently next time: start the clock at **Cancel**, and quit **fast** —
+> if you watched the status message first, that alone is more than three seconds.
+
+**Original test, kept for the record:**
 
 **The one with no recovery.** On Cancel, the host-side wrapper dies immediately, but podman
 does not forward the signal into the container — so the only thing that kills the
@@ -365,7 +393,28 @@ grep -n "Gap handling" *"(EAC-compatible).log"
 
 ## B — Still unproven from earlier releases
 
-### B2 — [ ] ⭐ An interrupted rip must admit it
+### B2 — [x] ⭐ An interrupted rip must admit it — **PASSED 2026-07-30**
+
+> **Broken for four releases, working now.** Your cancelled Police rip's EAC log carries it,
+> at the top, inside the checksum:
+>
+> ```
+> *** INCOMPLETE RIP (cancelled) — this log covers 2 of 14 disc tracks. The remaining
+> 12 track(s) were never extracted and are absent below. ***
+> ```
+>
+> Correct count, correct reason, correct wording. The `.platterpus.json` agrees —
+> `outcome.status: "cancelled"`. Nothing to re-run.
+>
+> One thing still worth a single command next time you have a cancelled rip, because it's the
+> half your run didn't cover — that the banner is *inside* the signed region and so can't be
+> quietly deleted:
+>
+> ```sh
+> head -n -1 *"(EAC-compatible).log" | sha256sum   # must match the log's last line
+> ```
+
+**Original test, kept for the record:**
 
 On this sheet since v0.5.9 and it has **never worked**: the banner's renderer was correct,
 but the code handing it the rip's outcome read a dictionary the wrong way and always passed

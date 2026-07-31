@@ -12,6 +12,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A cancelled rip called itself "✓ Bit-perfect".** Cancel after two tracks of fourteen
+  and the trust headline read *"✓ Bit-perfect: all 2 tracks verified against AccurateRip
+  (confidence 129+)"* — green, over 14% of the disc — while the EAC log written beside it
+  correctly said "covers 2 of 14 disc tracks". A 2026-07-28 fix had already made the verdict
+  compare against a denominator, but the denominator was the number of tracks *in the log*.
+  That catches a track which was ripped and failed (present, no CRC) and cannot catch one
+  that was **never ripped**, because such a track is absent from the log and shrinks both
+  sides of the comparison together. The verdict is now given the **disc's** own track count
+  — the one number a stopped rip cannot move — and the rip's outcome, so the headline reads
+  *"⚠ 2 of 14 tracks verified against AccurateRip — the rip was cancelled so 12 tracks were
+  never ripped"*. The JSON report's `verdict` block gets the same two facts, so the file and
+  the window can no longer disagree. Found on the rig, on a cancelled rip.
+- **Pressing Cancel wrote nothing to the log, and neither did quitting.** The two most
+  consequential things a user can do during a rip left no trace, so a report about a cancel
+  that misbehaved — a drive left spinning, a rip recorded as failed — arrived with no record
+  of when it was pressed, and a log could not even say whether the window had begun closing.
+  Both now log one line: the cancel names the rescue-timer deadline, and the close names
+  whether a rip was still live. Same diagnostic principle as the disc-probe fix in v0.5.18.
 - **The EAC log's `Gap handling` row never actually spoke EAC's vocabulary.** v0.5.18
   claimed to fix this and the fix was unreachable: it only applied when cyanrip reported
   *nothing*, and cyanrip always prints its `Gaps:` block — so on real hardware the row

@@ -76,13 +76,53 @@ def accuraterip_counts(rip_log: object) -> tuple[int, int, int]:
     return total, verified, partial
 
 
-def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
+def _shortfall_phrase(never_ripped: int, no_result: int, outcome_status: str) -> str:
+    """Name *why* the verdict's numerator falls short of the disc's track count.
+
+    Kept separate and pure so the wording is testable on its own. The two causes
+    read very differently to a user — "never extracted" is something they did (or
+    a failure that stopped the rip), while "produced no result" means the track is
+    on disk but AccurateRip had nothing to say about it — so they are never
+    collapsed into one number. When the rip's own outcome explains the first
+    cause, it is named: "the rip was cancelled" is the sentence that turns a
+    confusing shortfall into an obvious one.
+    """
+    status = (outcome_status or "").strip().casefold()
+    parts: list[str] = []
+    if never_ripped:
+        noun = "track was" if never_ripped == 1 else "tracks were"
+        reason = (
+            f"the rip was {status} so " if status in {"cancelled", "failed"} else ""
+        )
+        parts.append(f"{reason}{never_ripped} {noun} never ripped")
+    if no_result:
+        noun = "track" if no_result == 1 else "tracks"
+        # Wording preserved verbatim from the 2026-07-28 fix — its regression test
+        # asserts this exact phrase, and the phrase is right.
+        parts.append(f"{no_result} {noun} produced no result at all")
+    return "; ".join(parts) if parts else "the rip did not cover the whole disc"
+
+
+def accuraterip_verdict(
+    rip_log: object,
+    *,
+    disc_track_total: int | None = None,
+    outcome_status: str = "",
+) -> tuple[str, str]:
     """At-a-glance AccurateRip verdict: ``(message, level)``.
 
     ``level`` is "ok" (all audio tracks verified — bit-perfect against the
     shared AccurateRip database), "warn" (some but not all matched), or
     "neutral" (none matched — typically a disc nobody has submitted, e.g. a
     CD-R). An empty ``message`` means "show nothing" (no audio tracks parsed).
+
+    ``disc_track_total`` is the number of audio tracks **on the disc**, and it is
+    what makes the word "all" mean anything. Without it the denominator can only
+    be the number of tracks *in the log*, which is not the same number the moment
+    a rip stops early — see below. ``outcome_status`` is the rip's own outcome
+    ("success" / "cancelled" / "failed"), used only to explain a shortfall in
+    words the reader will recognise. Both are keyword-only and defaulted, so a
+    caller that cannot supply them keeps the old behaviour rather than breaking.
 
     Pure and never-raises (reads via ``getattr``) so it accepts both the
     whipper and cyanrip ``RipLog`` shapes and any partially-parsed log. The
@@ -93,18 +133,32 @@ def accuraterip_verdict(rip_log: object) -> tuple[str, str]:
     if total == 0:
         return "", "neutral"
     audio = _audio_tracks(rip_log)
-    # A track that failed outright produces no CRC and no AccurateRip line, so it
-    # never reaches `total` — meaning `verified == total` could fire while a
-    # track was missing entirely, and the trust headline went GREEN over a rip
-    # the status line and the disc panel both called incomplete. The denominator
-    # has to be the disc's real track count before anything says "all"
-    # (audit finding, 2026-07-28; the EAC exporter got this guard first).
-    missing = max(0, len(getattr(rip_log, "tracks", ()) or ()) - total)
+    # Two different ways a track can be absent from `total`, and the earlier fix
+    # only closed one of them:
+    #
+    #   • It was ripped and failed — present in the log, no CRC, no AccurateRip
+    #     line. Caught since 2026-07-28 by comparing against the log's own track
+    #     count.
+    #   • **It was never ripped at all** — so it is absent from the log entirely,
+    #     and the log's track count shrinks with it. Both sides of that comparison
+    #     moved together, `missing` stayed 0, and the headline went GREEN.
+    #
+    # A cancelled rip is exactly the second case, and it shipped: cancelling
+    # after two tracks of fourteen produced "✓ Bit-perfect: all 2 tracks verified
+    # against AccurateRip (confidence 129+)" — green, on 14% of the disc — while
+    # the EAC log beside it correctly said "covers 2 of 14 disc tracks" (found on
+    # the rig, 2026-07-30). The exporter was right because it is *given* the disc
+    # total; this function had to be given it too. Only the disc's own count can
+    # be the denominator, because it is the one number a stopped rip cannot move.
+    logged = len(getattr(rip_log, "tracks", ()) or ())
+    expected = disc_track_total if disc_track_total and disc_track_total > 0 else logged
+    never_ripped = max(0, expected - logged)
+    no_result = max(0, logged - total)
+    missing = never_ripped + no_result
     if verified == total and missing:
-        noun = "track" if missing == 1 else "tracks"
         return (
-            f"⚠ {verified} of {total + missing} tracks verified against "
-            f"AccurateRip — {missing} {noun} produced no result at all "
+            f"⚠ {verified} of {expected} tracks verified against AccurateRip — "
+            f"{_shortfall_phrase(never_ripped, no_result, outcome_status)} "
             "(see the table)",
             "warn",
         )
