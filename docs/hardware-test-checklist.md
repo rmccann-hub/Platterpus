@@ -420,10 +420,25 @@ offset-variant match it is, which is a *third* distinct state.
 1. Rip the Police disc normally, all 14 tracks.
 2. Read the **Tracks** tab's AccurateRip columns carefully, and hover each interesting cell.
 
-- Expected: at most three distinct readings, and they are distinguishable at a glance —
-  a plain match, `in DB, no match`, and the offset-variant partial match.
+**The five readings a cell can legitimately show**, so you can tell a wrong one from an
+unfamiliar one:
+
+| Cell text | Means |
+|---|---|
+| `OK (N)` | matched the database at confidence N |
+| `offset-variant match (N)` | matched the +450 shifted pressing — audio is right |
+| `in DB, no match` | the disc **is** in the database and your CRC matched nothing |
+| `not in DB` | nobody submitted this disc. Says nothing about your rip |
+| `—` | no data for this track |
+
+- Expected: whichever appear are distinguishable at a glance, and **`in DB, no match` and
+  `not in DB` never read as the same thing** — that conflation is what was fixed.
 - Expected: the **tooltip** on each cell explains it, and says the same thing as the cell
-  text (they are generated from one shared classifier, so a disagreement is a bug).
+  text. Both are generated from one shared classifier (`_ar_state`), so a disagreement
+  between a cell and its tooltip is a bug — worth reporting even if both are plausible.
+- A sixth possibility exists and would be interesting: an **unrecognised** result is shown
+  **verbatim** rather than guessed at. If you see raw cyanrip wording in a cell, send it —
+  it means a state we don't classify yet.
 - Expected: track 5 does **not** read as alarming — it is a shifted pressing, not a bad rip.
 - Expected: whatever the cells say, the headline verdict is consistent with them.
 
