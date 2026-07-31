@@ -21,6 +21,7 @@ Cancel:
 from __future__ import annotations
 
 import logging
+import math
 import re
 import subprocess
 import time
@@ -45,6 +46,7 @@ from platterpus.read_speed_ladder import (
     tracks_failing_accuraterip,
     unstable_tracks,
 )
+from platterpus.safe_int import int_or_none
 
 log = logging.getLogger(__name__)
 
@@ -119,13 +121,13 @@ class RipParameters:
 #   "Verifying track 3 of 16 (3 of 9) ... 42 %"
 #   "Encoding track to FLAC (5 of 9) ...   0 %"
 #   "Getting length of audio track (1 of 16) ... 100 %"
-_DISC_SCAN_PATTERN = re.compile(r"Reading (?P<what>TOC|table)\s+(?P<pct>\d+)\s*%")
+_DISC_SCAN_PATTERN = re.compile(r"Reading (?P<what>TOC|table)\s+(?P<pct>\d{1,3})\s*%")
 _TRACK_PHASE_PATTERN = re.compile(
-    r"(?P<verb>Reading|Verifying) track (?P<track>\d+) of (?P<total>\d+)"
-    r".*?(?P<pct>\d+)\s*%"
+    r"(?P<verb>Reading|Verifying) track (?P<track>\d{1,4}) of (?P<total>\d{1,4})"
+    r".*?(?P<pct>\d{1,3})\s*%"
 )
 _LENGTH_PHASE_PATTERN = re.compile(
-    r"Getting length of audio track \((?P<track>\d+) of (?P<total>\d+)\)"
+    r"Getting length of audio track \((?P<track>\d{1,4}) of (?P<total>\d{1,4})\)"
 )
 # Per-track sub-phases that carry no track number on their own line.
 _NAMED_PHASES: dict[str, str] = {
@@ -143,17 +145,17 @@ _NAMED_PHASES: dict[str, str] = {
 # bare `\r` to `\n` — so each redraw reaches log_lines() as its own line and
 # these regexes see them one at a time, no extra plumbing.
 _CYANRIP_TRACK_PROGRESS = re.compile(
-    r"Ripping(?P<encoding> and encoding)? track (?P<track>\d+), progress - "
-    r"(?P<pct>\d+(?:\.\d+)?)%(?:, ETA - (?P<eta>[^,]+))?"
+    r"Ripping(?P<encoding> and encoding)? track (?P<track>\d{1,4}), progress - "
+    r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)%(?:, ETA - (?P<eta>[^,]+))?"
 )
 # Per-track completion ("Track 5 ripped and encoded successfully!" / "with
 # errors.") — pegs that track's slice of the overall bar.
 _CYANRIP_TRACK_DONE = re.compile(
-    r"^Track (?P<track>\d+) ripped and encoded (?P<how>successfully|with errors)"
+    r"^Track (?P<track>\d{1,4}) ripped and encoded (?P<how>successfully|with errors)"
 )
 # The start report carries the track total ("Disc tracks:    16") — cyanrip's
 # progress lines don't repeat it, so we capture it here for the overall bar.
-_CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d+)\s*$")
+_CYANRIP_DISC_TRACKS = re.compile(r"^Disc tracks:\s+(?P<total>\d{1,4})\s*$")
 
 # A ripper can abort when it can't fetch online metadata (e.g. the container
 # has no network) and wasn't told the disc is "unknown". We detect that so the
@@ -264,7 +266,36 @@ def _coarsen_eta_seconds(seconds: float) -> int:
         step = 30
     else:  # < 2 min → nearest 10 s
         step = 10
-    return int(round(seconds / step) * step)
+    # `seconds` is already a float we computed, not external text — but this file
+    # is on the never-raises roster and `int()` on a non-finite float raises, so
+    # the guard is the cheap way to keep that promise unconditional.
+    rounded = int_or_none(round(seconds / step) * step, field="rounded ETA seconds")
+    return rounded if rounded is not None else 0
+
+
+def _percent_or_none(raw: str) -> float | None:
+    """A percentage from external text as a finite float, or ``None``. Never raises.
+
+    `float()` is the trap here and it is a quieter one than `int()`: on a long run
+    of digits it does **not** raise, it silently returns `inf`. That `inf` then
+    travels through the progress signal into `RipProgress.set_progress`, where
+    `int(inf)` raises `OverflowError` — on the GUI thread, inside a queued slot,
+    for a progress bar. (`nan` does the same with `ValueError`.)
+
+    So the conversion is done once, here, and anything not finite is refused. The
+    producing patterns are bounded now too; this is the second layer, because a
+    pattern is one edit away from being unbounded again and the read loop that
+    calls this terminates the rip on an exception (audit, 2026-07-31).
+    """
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        log.warning("unusable percentage in ripper output: %r", raw[:32])
+        return None
+    if not math.isfinite(value):
+        log.warning("non-finite percentage in ripper output: %r", raw[:32])
+        return None
+    return value
 
 
 class RipWorker(QObject):
@@ -1505,22 +1536,32 @@ class RipWorker(QObject):
         """
         match = _DISC_SCAN_PATTERN.search(line)
         if match:
-            task = float(match.group("pct"))
+            task = _percent_or_none(match.group("pct"))
+            if task is None:
+                return None
             return self._bump_overall(task * 0.05), task
 
         match = _TRACK_PHASE_PATTERN.search(line)
         if match:
-            self._current_track = int(match.group("track"))
-            self._total_tracks = int(match.group("total"))
-            task = float(match.group("pct"))
+            track = int_or_none(match.group("track"), field="progress track number")
+            total = int_or_none(match.group("total"), field="progress track total")
+            if track is None or total is None:
+                return None
+            self._current_track = track
+            self._total_tracks = total
+            task = _percent_or_none(match.group("pct"))
+            if task is None:
+                return None
             return self._bump_overall(
                 self._overall_from_track(self._current_track, task)
             ), task
 
         match = _LENGTH_PHASE_PATTERN.search(line)
         if match:
-            done = int(match.group("track"))
-            total = int(match.group("total"))
+            done = int_or_none(match.group("track"), field="length-phase track")
+            total = int_or_none(match.group("total"), field="length-phase total")
+            if done is None or total is None:
+                return None
             frac = done / total if total else 1.0
             return self._bump_overall(95.0 + frac * 5.0), 100.0
 
@@ -1529,21 +1570,30 @@ class RipWorker(QObject):
         match = _CYANRIP_DISC_TRACKS.search(line)
         if match:
             # Total learned from the start report; no bar movement yet.
-            self._total_tracks = int(match.group("total"))
+            total = int_or_none(match.group("total"), field="disc track total")
+            if total is not None:
+                self._total_tracks = total
             return None
 
         match = _CYANRIP_TRACK_PROGRESS.search(line)
         if match:
-            self._current_track = int(match.group("track"))
+            track = int_or_none(match.group("track"), field="cyanrip track number")
+            if track is None:
+                return None
+            self._current_track = track
             self._record_cyanrip_eta(match.group("eta"))
-            task = float(match.group("pct"))
+            task = _percent_or_none(match.group("pct"))
+            if task is None:
+                return None
             return self._bump_overall(
                 self._overall_from_track(self._current_track, task)
             ), task
 
         match = _CYANRIP_TRACK_DONE.search(line)
         if match:
-            done = int(match.group("track"))
+            done = int_or_none(match.group("track"), field="completed track number")
+            if done is None:
+                return None
             # task=100 → the end of this track's slice (its full length consumed).
             return self._bump_overall(self._overall_from_track(done, 100.0)), 100.0
 

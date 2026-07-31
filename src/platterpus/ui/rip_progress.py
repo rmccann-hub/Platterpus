@@ -32,6 +32,7 @@ QDesktopServices.openUrl().
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -159,6 +160,24 @@ _TAB_LABEL_LOG: str = "Live &log"
 _OpenUrlFn = Callable[[QUrl], bool]
 # Hook so tests can intercept the in-app file view without spinning a dialog.
 _ViewFileFn = Callable[[Path, str], None]
+
+
+def _bar_value(percent: float) -> int:
+    """A percentage as a safe 0-100 int for a QProgressBar. Never raises.
+
+    Pure and module-level so it is directly testable. A non-finite value becomes
+    0 rather than an exception, because the alternative is a crash dialog over a
+    progress bar; a value outside 0-100 is clamped rather than dropped, since a
+    ripper reporting 101% still means "essentially done".
+    """
+    if not math.isfinite(percent):
+        log.warning(
+            "progress value %r is not a finite number — showing 0 rather than "
+            "raising on the GUI thread",
+            percent,
+        )
+        return 0
+    return max(0, min(100, int(percent)))
 
 
 class RipProgress(QWidget):
@@ -679,9 +698,22 @@ class RipProgress(QWidget):
         separately via `set_status` (fed from the rip worker's phase
         signal), so the label stays meaningful during phases that have no
         numeric percent.
+
+        **Both values are clamped, and non-finite ones are dropped.** This is the
+        last line of defence before an `int()` that runs on the GUI thread, and
+        `int()` on a non-finite float *raises* — `OverflowError` for `inf`,
+        `ValueError` for `nan`. Either would escape a queued slot into the
+        crash-dialog handler, over a progress bar.
+
+        It is reachable from external text, which is why it is guarded rather than
+        trusted: the worker derives these from `float()` on a percentage matched
+        out of the ripper's stdout, and `float()` does *not* raise on a long digit
+        run — it quietly returns `inf`. The producing patterns are now bounded so
+        they cannot match one, but a percentage is a number arriving from another
+        process and a guard here costs two comparisons (audit, 2026-07-31).
         """
-        self._overall_bar.setValue(int(overall))
-        self._progress_bar.setValue(int(task))
+        self._overall_bar.setValue(_bar_value(overall))
+        self._progress_bar.setValue(_bar_value(task))
 
     def set_status(self, text: str) -> None:
         """Set the status label, prefixed with the wall-clock time it was set.

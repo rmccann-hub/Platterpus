@@ -48,12 +48,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   read-stability caveat and above the integrity checksum that covers it. The per-track blocks
   stay byte-comparable with a real EAC log, which is why the line goes in the status area.
 
+### Fixed
+- **One corrupt line of cyanrip output could end a rip in progress.** v0.5.19 closed the
+  4300-digit `int()` hole in eight parsers, where the consequence is a field degrading to
+  "unknown". It missed `workers/rip_worker.py`, where the consequence is different in kind:
+  `_progress_for` parses cyanrip's **live stdout** from inside the read loop, wrapped in a `try`
+  whose handler terminates the child and emits a rip error. A single unparseable progress line
+  would have killed the rip *and* the disc read, minutes in. Eight sites are now guarded and all
+  eight patterns bounded (`\d{1,4}` rather than `\d+`). The percent is worse than the integers
+  and needed its own guard: `float()` does **not** raise on a long digit run, it returns `inf`,
+  which survives every check and then raises `OverflowError` inside `int()` on the *GUI thread*,
+  in a queued slot — a crash dialog over a progress bar. Both ends are now closed, the parse
+  side and the bar itself.
+- **The reason the above was invisible: the new sweep's floor was its own roster length.**
+  `test_never_raises_contract.py` shipped with `assert examined >= 14` against a hand-maintained
+  14-module list, so it could not fail for a module nobody had added — which is exactly what a
+  floor is supposed to prevent. It now asserts every listed module was examined *and* that the
+  list has not shrunk, and `workers/rip_worker.py` is on it. It found all eight sites above
+  immediately.
+
 ### Changed
 - `parsers/cyanrip_log.py` now routes every integer conversion through the shared
   `platterpus.safe_int.int_or_none` guard instead of a private copy of it. This was the module
   the never-raises hole was found in, and the one module still not using the guard that finding
   produced; each call site now also names its field, so an unusable value is diagnosable from a
-  bug report.
+  bug report. With `workers/rip_worker.py` above, v0.5.19's claim that the conversion "now routes
+  through one shared guard" is finally true of the whole package — it was true of the eight sites
+  that release fixed and of nothing else.
 
 ## [0.5.19] — 2026-07-31
 
