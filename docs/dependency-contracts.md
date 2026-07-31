@@ -184,6 +184,45 @@ table) and `pregap_sectors` (`Pregap LSN:`). cyanrip prints **no cache line at
 all**, so there is no `cache` field to parse (see the cache-handling note
 below; this corrects an earlier version of this doc that implied one).
 
+Two corrections to the paragraph above, both from the 2026-07-31 pass:
+
+- "extraction speed/quality" described the **whipper** log's fields, not
+  cyanrip's. cyanrip 0.9.3 prints **no per-track speed, elapsed time or quality**
+  at all (that is the §2.3 gap below), so `extraction_speed` /
+  `extraction_quality` are `None` on every track of every committed cyanrip log.
+- `Appended:    N frames of silence` **is** parsed now, into
+  `TrackResult.appended_silence_frames` (see the graduation note below).
+
+**Lines a FORK of cyanrip will print, which we already parse — *fork-only, NOT in
+0.9.3*.** The maintainer is fixing cyanrip in their own fork, and Platterpus reads
+the new rows *before* they exist so one build serves both: an AppImage user's
+deployed **cyanrip 0.9.3 prints none of these**, and every field below then stays
+`None` and every surface behaves exactly as it did. Full specification and evidence
+per row: [`cyanrip-improvements-wanted.md`](cyanrip-improvements-wanted.md).
+
+| Fork-only line (indented, per-track) | → field | EAC row it fills | Ask |
+|---|---|---|---|
+| `Sample peak:  -0.5 dBFS` — or a `Sample peak:` sub-header followed by `Peak:  -0.5 dBFS`, cyanrip's existing style for `True peak:`. Unit (`dBFS` or `%`) **required**; a value above full scale is refused and logged | `peak_level` (linear fraction) | `Peak level` | §2.1 |
+| `Speed:  1.6x` / `Extraction speed: 1.6 X` (indented — the column-0 `Speed:` row is the drive's speed-changeability and is unaffected) | `extraction_speed` | `Extraction speed` | §2.3 |
+| `Elapsed:  00:02:41.005` / `03:51.44` / `Extraction time: 161 s` (also `Rip time:`, `Time taken:`) | `extraction_elapsed_seconds` | *none* — rendered as an extra `Extraction time` row, never converted into a speed | §2.3 |
+| `Secure re-read: converged (2 out of 2 matches)` / `did NOT converge (…)` / `not attempted`; or the existing `Done; (…)` text routed through the log so it arrives **indented** | `secure_rerip_converged` (True / False / left alone) | drives the `Test CRC`/`Copy CRC` pair vs the "re-reads did NOT agree" caveat | §2.4 |
+| `C2 errors:  supported by drive, not used` (column 0) | `c2_pointers` = `False` | `Make use of C2 pointers` | §2.5 |
+
+Three properties of that table are load-bearing, not incidental:
+
+- **cyanrip's `True peak:` must never fill `peak_level`.** EAC's `Peak level` is
+  the **sample** peak as a percentage of full scale and cannot exceed 100 %; the
+  true (4x-oversampled) peak is a different quantity that legitimately does — all
+  fourteen reference tracks are 100.8 %–109.7 %. Only a line that says *sample*
+  peak is accepted, and any value over full scale is refused.
+- **Indentation disambiguates the `-Z` verdict.** A column-0 `Done; (…)` is the
+  stdout form and belongs to the **next** track (0.9.3 prints it before the
+  `Track N ripped…` opener); an indented one was written by
+  `cyanrip_log_track_end()` and belongs to the track already open.
+- **A bare `supported by drive` still means unknown.** It states a drive
+  *capability*; EAC's row asks what the rip *did*. Only the wording that states
+  usage may answer it.
+
 **Lines cyanrip prints that we knowingly do NOT parse.** Recorded because the
 alternative is what actually kept happening: a row went unparsed by accident and
 nobody could tell the difference (the overread mode twice, the `Gaps:` block, the
@@ -204,11 +243,23 @@ deliberate change, not a silent one): `HDCD decoding:` — an enabled HDCD decod
 *alters samples*, so it bears directly on "is this a bit-perfect copy";
 `Tracks to rip:` — anything but `all` means the album on disk is incomplete;
 `Frame retries:` — the rip-effort setting EAC reports as part of its read mode;
-`Album Art:`; `Disc tracks:` (the disc's track total, so "did we get them all?"
-is answerable from the log alone); and, per-track, `Appended:    N frames of
-silence` — printed on the last track of the reference rips, it names the track
-whose final frames are **fabricated silence rather than disc audio**, which is the
-per-track consequence of overread being off.
+`Album Art:`; and `Disc tracks:` (the disc's track total, so "did we get them
+all?" is answerable from the log alone).
+
+**GRADUATED 2026-07-31 — `Appended:    N frames of silence`.** It was listed above
+as the strongest of those candidates and is now parsed into
+`TrackResult.appended_silence_frames`: printed on the last track of both committed
+reference rips, it names the track whose final frames are **fabricated silence
+rather than disc audio** — the per-track consequence of overread being off, and an
+archival-fidelity statement rather than a rip *setting*. It is surfaced as an
+`Appended silence    :` line in the EAC-layout log's **status report**, beside the
+read-stability caveat: EAC has no such row, and the per-track blocks are the
+section that gets diffed line-by-line against a real EAC log. Note it never
+appeared in `_IGNORED_DISC_LINES` — that allow-list is for **column-0** rows, and
+this one is indented; graduating an indented row means adding it to
+`_INDENTED_LINE_PATTERNS` and to the `must_read` set in
+`tests/test_parsers_cyanrip_log.py`. Two enumerations, one habit: write the
+decision down.
 
 **Cache handling — attempted by cyanrip, measured by `cd-paranoia -A` (KDD-29).**
 cyanrip has no cache-defeat flag and emits no cache-defeat verdict in its log.
