@@ -617,6 +617,48 @@ def test_a_post_rip_failure_downgrades_the_green_trust_banner(window) -> None:
     assert banner.text() == before
 
 
+def test_a_recorded_downgrade_survives_a_later_log_parse(window) -> None:
+    """A second `set_rip_log` must not wipe a downgrade the user was already shown.
+
+    Same failure as the test above, one layer down: the banner is one sentence
+    assembled from the log's verdict *and* the accumulated downgrade reasons, and
+    it was assembled in two places — so whichever ran last won. `set_rip_log`
+    carried a comment promising it re-applied recorded downgrades; nothing did.
+
+    The old code passed the test above only because `set_rip_log` happens to run
+    exactly once per `clear()` today. That is an accident of ordering, not a
+    guarantee — and the consequence of losing it is the exact thing this screen
+    exists to prevent: a green "✓ Bit-perfect" over a master that will not decode.
+
+    Worse, the dedup guard turned the loss permanent. Re-reporting the *same*
+    reason after the second parse returned early ("already recorded"), so the
+    banner stayed green for good. Both halves are asserted below.
+    """
+    progress = window._rip_progress
+    banner = progress._verdict_banner
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    parsed = RipLog(
+        tracks=(TrackResult(number=1, copy_crc="AAAA1111", accuraterip_v2=ok),)
+    )
+
+    progress.set_rip_log(parsed)
+    progress.downgrade_verdict("1 FLAC master(s) failed the decode check")
+    assert "failed the decode check" in banner.text()
+
+    # The log gets re-parsed (a re-rip, a report re-write) with no new downgrade.
+    progress.set_rip_log(parsed)
+    assert not banner.text().startswith("✓"), (
+        "a fresh log parse restored the green tick over a FLAC master that failed "
+        "its decode check — the downgrade was dropped, not superseded"
+    )
+    assert "failed the decode check" in banner.text()
+
+    # And the second half: re-reporting the same failure is still reflected,
+    # rather than swallowed as a duplicate of a reason no longer on screen.
+    progress.downgrade_verdict("1 FLAC master(s) failed the decode check")
+    assert "failed the decode check" in banner.text()
+
+
 # --- Environment assumptions that only hold on the developer's machine -------
 
 

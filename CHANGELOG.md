@@ -66,6 +66,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   floor is supposed to prevent. It now asserts every listed module was examined *and* that the
   list has not shrunk, and `workers/rip_worker.py` is on it. It found all eight sites above
   immediately.
+- **The trust banner was assembled in two places, so whichever ran last won.** The banner is one
+  sentence built from the AccurateRip verdict *and* the post-rip downgrade reasons ("this FLAC
+  master failed its decode check"). `set_rip_log` wrote the first, `downgrade_verdict` wrote
+  both, and `set_rip_log` carried a comment promising it re-applied any downgrade already
+  recorded — which nothing did. It was correct only by accident, because `set_rip_log` happens to
+  run exactly once per pane reset today; the unknown-album self-heal is one `return` away from
+  ripping twice in a cycle, and the dedup guard would then have made the loss permanent
+  (re-reporting the same failure returns early as a duplicate). The outcome is the one thing this
+  screen exists to prevent: a green "✓ Bit-perfect" over a master that will not decode. There is
+  now one renderer that reads both inputs every time.
 
 ### Changed
 - `parsers/cyanrip_log.py` now routes every integer conversion through the shared
