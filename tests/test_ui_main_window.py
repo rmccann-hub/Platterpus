@@ -21,6 +21,7 @@ from conftest import HardExitCalled, stop_window_threads
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
+from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.metaflac import MetaflacAdapter
 from platterpus.adapters.musicbrainz_client import (
     MusicBrainzClient,
@@ -4513,8 +4514,6 @@ def test_flac_only_rip_does_not_start_derived_verify(
 def test_on_derived_verified_records_and_reports(
     teardown_threads, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from platterpus.adapters.derived_verify import DerivedVerifyResult
-
     window = teardown_threads()
     log_file = tmp_path / "Album.log"
     log_file.write_text("log", encoding="utf-8")
@@ -4538,8 +4537,6 @@ def test_on_derived_verified_records_and_reports(
 def test_on_derived_verified_lossless_mismatch_is_loud(teardown_threads) -> None:
     """A lossless (WavPack/WAV) file that isn't bit-identical to the master is a
     real defect → the status line is hijacked to say so."""
-    from platterpus.adapters.derived_verify import DerivedVerifyResult
-
     window = teardown_threads()
     lines: list[str] = []
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
@@ -4640,8 +4637,6 @@ def test_read_speed_summary_reports_auto_fixed_track(teardown_threads) -> None:
 def test_on_derived_verified_mp3_states_decode_clean_not_bit_identity(
     teardown_threads,
 ) -> None:
-    from platterpus.adapters.derived_verify import DerivedVerifyResult
-
     window = teardown_threads()
     lines: list[str] = []
     window._rip_progress.append_log_line = lines.append  # type: ignore[method-assign]
@@ -6882,3 +6877,594 @@ def test_timing_enrichment_skips_an_unparseable_disc_duration(teardown_threads) 
     window._enrich_timing_with_disc_duration(SimpleNamespace(disc_duration="???"))
 
     assert "realtime_multiplier" not in window._last_rip_timing
+
+
+# --- The post-rip daemon's own failure and staleness guards -------------------
+#
+# Every step in `_start_post_rip_processing` carries the same three guards, and
+# each one exists because of a real bug: a best-effort try/except (a stray
+# dependency failure must not take down the app), a rip-generation check (a slow
+# step from album A must not write into album B's report), and a guarded emit (the
+# window may be gone by the time the step finishes).
+
+
+def test_a_cover_art_crash_becomes_a_reported_result_not_a_dead_daemon(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Cover art is the slowest, most failure-prone step (a network GET with a 30 s
+    timeout). A crash there must still produce a result the report can record."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        _ca,
+        "apply_cover_art",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("CAA exploded")),
+    )
+    window = teardown_threads(
+        config=Config(host_setup_prompted=True, cover_art="embed")
+    )
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="some-mbid",
+        embed=True,
+        save_file=False,
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    result = window._last_cover_art_result
+    assert result is not None and result.found is False
+    assert result.reason == "error"
+    assert "rip unaffected" in result.message
+
+
+def test_a_local_cover_choice_takes_the_local_path_not_the_archive(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """The user's explicit pick must win over the archive fetch — and it must be
+    the ONLY thing consulted, so an offline user's chosen image still lands."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    image = tmp_path / "mine.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
+    fetched: list[str] = []
+    monkeypatch.setattr(
+        _ca, "apply_cover_art", lambda *a, **k: fetched.append("archive")
+    )
+    window = teardown_threads(config=Config(host_setup_prompted=True))
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="",
+        embed=True,
+        save_file=False,
+        local_cover_path=str(image),
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    assert fetched == [], "the archive was consulted despite an explicit local pick"
+    result = window._last_cover_art_result
+    assert result is not None and result.mode == "local" and result.found is True
+
+
+def test_additional_art_failure_does_not_lose_the_front_cover_result(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Back-cover/booklet scans are a bonus. A failure fetching them must not
+    discard the front cover's outcome, which is the one the report needs."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        _ca,
+        "save_additional_covers",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("manifest exploded")),
+    )
+    monkeypatch.setattr(
+        _ca,
+        "apply_cover_art",
+        lambda *a, **k: _ca.CoverArtResult(
+            mode="complete", found=True, reason="ok", embedded_count=2, message="ok"
+        ),
+    )
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True, cover_art="complete", save_additional_art=True
+        )
+    )
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="some-mbid",
+        embed=True,
+        save_file=True,
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    result = window._last_cover_art_result
+    assert result is not None and result.found is True
+    assert result.additional_saved == []
+
+
+def test_a_slow_cover_fetch_that_lands_after_the_next_rip_is_dropped(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Regression (audit 2026-07-28): the cover fetch is the step most likely to
+    finish AFTER the user has started the next rip, and `_on_cover_art_done` writes
+    straight into whatever album's report is current — naming a release that album
+    never used."""
+    from platterpus.adapters import cover_art as _ca
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads(config=Config(host_setup_prompted=True))
+    window._last_cover_art_result = None
+
+    def _slow(*a, **k):
+        window._rip_generation += 1  # a NEWER rip starts while the GET is in flight
+        return _ca.CoverArtResult(mode="embed", found=True, reason="ok", message="ok")
+
+    monkeypatch.setattr(_ca, "apply_cover_art", _slow)
+
+    window._start_post_rip_processing(
+        album,
+        tag=False,
+        launch_picard=False,
+        release_id="some-mbid",
+        embed=True,
+        save_file=False,
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=10)
+    qapp.processEvents()
+
+    assert window._last_cover_art_result is None
+
+
+def test_a_recompress_crash_becomes_a_reported_result(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Re-compress rewrites the archival masters, so its outcome belongs in the
+    report even (especially) when it blew up."""
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        mwr,
+        "recompress_flac_files",
+        lambda files: (_ for _ in ()).throw(RuntimeError("flac exploded")),
+    )
+    window = teardown_threads()
+
+    _run_post_rip(window, album, log_file, recompress=True)
+    qapp.processEvents()
+
+    result = window._last_recompress_result
+    assert result is not None and result.error == "failed unexpectedly"
+
+
+def test_a_transcode_crash_becomes_a_reported_result(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """The FLAC master is always kept, so a transcode crash costs the user nothing
+    — but it must still be recorded rather than leaving the report silent."""
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    monkeypatch.setattr(
+        mwr,
+        "transcode_files",
+        lambda files, **kw: (_ for _ in ()).throw(RuntimeError("ffmpeg exploded")),
+    )
+    window = teardown_threads()
+
+    _run_post_rip(window, album, log_file, transcode_fmt="mp3")
+    qapp.processEvents()
+
+    result = window._last_transcode_result
+    assert result is not None and result.error == "failed unexpectedly"
+
+
+def test_a_stale_recompress_or_transcode_result_is_dropped(
+    teardown_threads, tmp_path: Path, monkeypatch, qapp
+) -> None:
+    """Same staleness rule as the cover fetch, for the two steps that run after
+    it: a result from album A must never be recorded against album B."""
+    from platterpus.adapters.flac_recompress import RecompressResult
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+    window._last_recompress_result = None
+    window._last_transcode_result = None
+
+    def _slow(files):
+        window._rip_generation += 1
+        return RecompressResult(reencoded=2)
+
+    monkeypatch.setattr(mwr, "recompress_flac_files", _slow)
+    transcoded: list[object] = []
+    monkeypatch.setattr(
+        mwr, "transcode_files", lambda files, **kw: transcoded.append(files)
+    )
+
+    _run_post_rip(window, album, log_file, recompress=True, transcode_fmt="mp3")
+    qapp.processEvents()
+
+    assert window._last_recompress_result is None
+    # ...and the daemon returned at the generation check, so the LATER steps never
+    # ran against the old album's folder either.
+    assert transcoded == []
+
+
+def test_a_destroyed_window_does_not_break_a_late_post_rip_step(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """Each step's emit is wrapped because Qt raises RuntimeError once the C++
+    window is gone, and an exception on a daemon thread is a crash nobody can act
+    on. Pinned for all four steps at once."""
+    album, log_file = _album_with_leftovers(tmp_path)
+    window = teardown_threads()
+
+    class _DeadSignal:
+        def emit(self, _payload: object) -> None:
+            raise RuntimeError("Internal C++ object already deleted.")
+
+    for name in (
+        "tagging_done",
+        "cover_art_done",
+        "flac_recompress_done",
+        "transcode_done",
+    ):
+        monkeypatch.setattr(window, name, _DeadSignal(), raising=False)
+    monkeypatch.setattr(window, "run_unknown_post_processing", lambda *a, **k: None)
+
+    window._start_post_rip_processing(
+        album,
+        tag=True,
+        launch_picard=False,
+        release_id="",
+        embed=False,
+        save_file=False,
+        recompress=True,
+        transcode_fmt="mp3",
+        rip_log=_parsed_log(log_file),
+    )
+    assert window._post_rip_thread is not None
+    window._post_rip_thread.join(timeout=15)
+    assert not window._post_rip_thread.is_alive()  # it finished, it did not die
+
+
+def test_picard_is_launched_only_when_the_user_asked_and_files_exist(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The unknown-disc hand-off. Gated on files actually existing, so an empty
+    folder doesn't open Picard on nothing."""
+    from platterpus.ui import main_window_rip as mwr
+
+    album, log_file = _album_with_leftovers(tmp_path)
+    launched: list[Path] = []
+    monkeypatch.setattr(
+        mwr, "launch_picard_for", lambda folder: launched.append(folder)
+    )
+    window = teardown_threads()
+    window._metaflac = _CapturingMetaflac()
+    window._track_table.set_placeholder_tracks(2)
+
+    window.run_unknown_post_processing(
+        album, launch_picard=True, rip_log=_parsed_log(log_file)
+    )
+    assert launched == [album]
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    window.run_unknown_post_processing(empty, launch_picard=True)
+    assert launched == [album]  # nothing to hand over → not launched again
+
+
+def test_the_eac_companion_log_is_only_written_when_asked_for(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Off by default, and clearly named so it can never be confused with a real
+    (signed) EAC log — KDD-11/13."""
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    log_file = album / "Album.log"
+    log_file.write_text("cyanrip 0.9.3\n", encoding="utf-8")
+
+    off = teardown_threads(config=Config(write_eac_log_after_rip=False))
+    off._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), log_file)
+    assert not (album / "Album (EAC-compatible).log").exists()
+
+    on = teardown_threads(config=Config(write_eac_log_after_rip=True))
+    on._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), log_file)
+    assert (album / "Album (EAC-compatible).log").exists()
+
+
+def test_the_eac_companion_log_never_breaks_the_finish_handler(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """A courtesy artifact, so an unwritable target is logged and shrugged off."""
+    window = teardown_threads(config=Config(write_eac_log_after_rip=True))
+    missing = tmp_path / "gone" / "Album.log"  # parent does not exist
+
+    window._write_eac_log(RipLog(tracks=(TrackResult(number=1),)), missing)  # no raise
+
+    assert not missing.exists()
+
+
+# --- The result handlers' message branches ------------------------------------
+#
+# Each `_on_*_done` slot turns a result into the one sentence the user reads, and
+# the branch chosen is a claim about what was proved. Several of these wordings
+# exist because an earlier version said something it had not earned.
+
+
+def test_flac_verify_failure_is_loud_and_downgrades_the_trust_banner(
+    teardown_threads,
+) -> None:
+    """A master that will not decode is a real problem, and a green "Bit-perfect"
+    headline above it is the worst thing this screen can show (audit 2026-07-28)."""
+    from platterpus.adapters.flac_verify import FlacVerifyResult
+
+    window = teardown_threads()
+
+    window._on_flac_verified(
+        FlacVerifyResult(checked=2, failures=(Path("01 - A.flac"),))
+    )
+
+    assert "FLAC verify FAILED" in window._rip_progress.current_status()
+    assert window._rip_progress._verdict_downgrades
+
+
+def test_flac_verify_that_could_not_run_is_a_skip_not_a_failure(
+    teardown_threads,
+) -> None:
+    """ "We could not check" and "the check failed" are different facts. Reporting
+    the first as the second is the honesty rule this project is built on."""
+    from platterpus.adapters.flac_verify import FlacVerifyResult
+
+    window = teardown_threads()
+
+    window._on_flac_verified(FlacVerifyResult(error="flac is not installed"))
+
+    line = window._rip_progress._log_view.toPlainText()
+    assert "skipped" in line and "FAILED" not in line
+    assert not window._rip_progress._verdict_downgrades
+
+
+def test_a_lossy_mp3_pass_is_stated_honestly_and_never_as_bit_perfect(
+    teardown_threads,
+) -> None:
+    """Critical rule #4: MP3 is lossy by design, so its proof is decodability +
+    completeness — never bit-identity. The wording has to say which."""
+    window = teardown_threads()
+
+    window._on_derived_verified(
+        DerivedVerifyResult(fmt="mp3", checked=2, expected=2, lossless=False)
+    )
+
+    line = window._rip_progress._log_view.toPlainText()
+    assert "decode cleanly" in line and "not bit-identity" in line
+    assert not window._rip_progress._verdict_downgrades
+
+
+def test_a_lossless_derived_mismatch_downgrades_but_a_lossy_one_does_not(
+    teardown_threads,
+) -> None:
+    """A WavPack that isn't bit-identical to its master is a defect; an MP3 that
+    differs is expected by definition. Only the first may touch the banner."""
+    lossless = teardown_threads()
+    lossless._on_derived_verified(
+        DerivedVerifyResult(
+            fmt="wv",
+            checked=2,
+            expected=2,
+            lossless=True,
+            mismatches=(Path("01 - A.wv"),),
+        )
+    )
+    assert lossless._rip_progress._verdict_downgrades
+
+    lossy = teardown_threads()
+    lossy._on_derived_verified(
+        DerivedVerifyResult(
+            fmt="mp3",
+            checked=2,
+            expected=2,
+            lossless=False,
+            mismatches=(Path("01 - A.mp3"),),
+        )
+    )
+    assert not lossy._rip_progress._verdict_downgrades
+
+
+def test_an_incomplete_transcode_reaches_the_status_line(teardown_threads) -> None:
+    """Regression (audit 2026-07-28): a user who chose MP3 for their phone and got
+    9 of 14 found out only by scrolling the log pane."""
+    window = teardown_threads()
+
+    window._on_derived_verified(DerivedVerifyResult(fmt="mp3", checked=9, expected=14))
+
+    assert "only 9/14" in window._rip_progress.current_status()
+
+
+def test_a_derived_verify_that_could_not_run_keeps_the_master_claim_intact(
+    teardown_threads,
+) -> None:
+    """A skip must not be read as a derived-file failure, and must never suggest
+    the FLAC master is in doubt."""
+    window = teardown_threads()
+
+    window._on_derived_verified(DerivedVerifyResult(fmt="wv", error="wvunpack missing"))
+
+    line = window._rip_progress._log_view.toPlainText()
+    assert "skipped" in line and "FLAC master kept" in line
+    assert not window._rip_progress._verdict_downgrades
+
+
+# --- Cover art from a file: validated at pick time, not at rip end -----------
+
+
+def test_choosing_a_cover_image_validates_it_immediately(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The file is sniffed when it is PICKED, so a wrong file is caught while the
+    user is still looking at the dialog — not silently at the end of a rip."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    good = tmp_path / "art.png"
+    good.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 32)
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(good), ""))
+    )
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert window._manual_cover_path == str(good)
+    assert warned == []
+    assert "art.png" in window._rip_progress.current_status()
+
+
+def test_choosing_a_non_image_is_refused_at_pick_time(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """...and a file that isn't a JPEG/PNG/GIF is refused, with nothing stored."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    bad = tmp_path / "notes.txt"
+    bad.write_bytes(b"this is not an image")
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(bad), ""))
+    )
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert getattr(window, "_manual_cover_path", None) is None
+    assert warned and "JPEG" in warned[0]
+
+
+def test_an_unreadable_cover_choice_is_refused_at_pick_time(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """A path that cannot be read at all (deleted between the dialog and the read,
+    or a directory) is reported with the OS's own reason."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **k: (str(tmp_path / "gone.png"), "")),
+    )
+    warned: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert getattr(window, "_manual_cover_path", None) is None
+    assert warned and "Couldn't read" in warned[0]
+
+
+def test_cancelling_the_cover_art_dialog_changes_nothing(
+    teardown_threads, monkeypatch
+) -> None:
+    """The floor under the three tests above."""
+    from PySide6.QtWidgets import QFileDialog
+
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("", ""))
+    )
+    window = teardown_threads()
+
+    window._on_set_cover_art_from_file()
+
+    assert getattr(window, "_manual_cover_path", None) is None
+
+
+# --- The finish handler's outermost guards ------------------------------------
+
+
+def test_finish_survives_a_report_write_that_raises(
+    teardown_threads, tmp_path: Path, monkeypatch
+) -> None:
+    """The generic `except Exception` in the render block. A parser/report edge
+    must not abort the post-rip chain — that would leave the rip state uncleared,
+    so shutdown treats a finished rip as live and the drive keeps spinning."""
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+        )
+    )
+    window._active_rip_params = _params(tmp_path, unknown=False)
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    log_file = album / "Album.log"
+    log_file.write_text("cyanrip 0.9.3 (release)\n", encoding="utf-8")
+    monkeypatch.setattr(
+        window,
+        "_write_rip_report",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("report exploded")),
+    )
+
+    window._on_rip_finished(True, str(log_file))
+
+    assert window._rip_thread is None  # the chain still cleared the rip state
+    assert window._active_rip_params is None
+
+
+def test_a_notification_failure_never_escapes_the_finish_handler(
+    teardown_threads, monkeypatch
+) -> None:
+    """Regression (v0.5.12): notifications broke inside a swallowed
+    AttributeError. The swallow stays — a toast is never load-bearing — but it is
+    logged at exception level so the next one is findable."""
+    window = teardown_threads()
+    monkeypatch.setattr(
+        window,
+        "_ensure_tray_icon",
+        lambda: (_ for _ in ()).throw(AttributeError("no such attribute")),
+    )
+
+    window._notify_rip_complete(True, "Done.")  # must not raise
+
+
+def test_the_embedded_debug_log_excludes_other_albums_rips(teardown_threads) -> None:
+    """The report is the single self-contained per-album debug artifact, so its
+    embedded log must be THIS album's — other rips in the same session are
+    filtered out, and this rip's own window is kept."""
+    from platterpus.log_buffer import get_session_buffer
+
+    window = teardown_threads()
+    if get_session_buffer() is None:
+        assert window._build_rip_debug_log() is None  # no buffer installed → None
+        return
+    window._rip_windows = []
+    window._current_rip_window = None
+    block = window._build_rip_debug_log()
+    assert block is not None and set(block) >= {"scope", "truncated", "lines"}
