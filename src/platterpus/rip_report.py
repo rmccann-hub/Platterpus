@@ -696,6 +696,11 @@ def _track(track: object) -> dict:
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
         # The shared confidence>=1 rule — same as the banner and disc panel.
         "accuraterip_verified": track_accuraterip_verified(track),
+        # cyanrip's per-track "Accurip:" status text — the only thing that says
+        # whether a lookup happened. Without it a consumer cannot tell "compared
+        # and disagreed" from "never asked", which is the distinction the on-screen
+        # cell and the EAC row were both getting wrong.
+        "accuraterip_lookup": getattr(track, "accuraterip_lookup", None),
         "accuraterip": {
             "v1": _ar(getattr(track, "accuraterip_v1", None)),
             "v2": _ar(getattr(track, "accuraterip_v2", None)),

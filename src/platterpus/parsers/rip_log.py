@@ -161,6 +161,12 @@ class TrackResult:
     # It's surfaced as data (not folded into the verified rule) so the verdict
     # never over-claims a plain match; see docs/architecture.md.
     accuraterip_offset: AccurateRipResult | None = None
+    # The verbatim text of cyanrip's per-track "Accurip:" status row — e.g.
+    # "disc found in database (max confidence: 200)", "disabled", "error". The ONLY
+    # thing in the log that says whether a database lookup happened at all; without
+    # it, a disc nobody looked up was reported as "in DB, no match" (audit,
+    # 2026-07-31). None for whipper logs and any log that omits the row.
+    accuraterip_lookup: str | None = None
     # How many read passes cyanrip needed for this track (its "(after N rips)"
     # suffix). 1 = clean single pass; higher means secure re-reads (-Z N) were
     # needed — the clearest per-track signal of a marginal read region.
@@ -284,8 +290,26 @@ def accuraterip_is_match(ar: object) -> bool:
     would silently miss every cyanrip verification), and it can only ever
     under-claim, never fabricate a match. Reads via ``getattr`` so it accepts
     any AR-result shape and never raises.
+
+    **An all-zero local CRC can never be a match, whatever the confidence says.**
+    cyanrip itself prints the caveat — "match found, confidence 200, but a
+    checksum of 0 is meaningless" — and without this guard that line parsed as a
+    confidence-200 positive. It matters most on the offset-variant row, where a
+    silent or absent track yields `Accurip 450: 00000000` and the cell then
+    announced a partially-accurate match for audio nothing was compared against.
+    Keying on the zero CRC rather than on cyanrip's wording is the stronger
+    invariant: it also covers a backend that omits the caveat (audit, 2026-07-31).
     """
     if ar is None:
+        return False
+    local_crc = getattr(ar, "local_crc", None)
+    # All zeros (any width, with or without a `0x` prefix). The `strip()` must be
+    # guarded by a non-empty check: `"".strip("0Xx")` is also `""`, and an EMPTY
+    # CRC means "not reported" — a whipper log can carry a real match without one,
+    # so treating empty as zero would silently discard genuine verifications. This
+    # is under-claiming, which is the direction that costs the user trust in a
+    # correct rip, so it is as much a bug as the over-claim above.
+    if isinstance(local_crc, str) and local_crc and local_crc.strip("0Xx") == "":
         return False
     confidence = getattr(ar, "confidence", None)
     return confidence is not None and confidence >= 1

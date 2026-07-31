@@ -55,6 +55,7 @@ from platterpus.parsers.rip_log import (
     accuraterip_is_match,
 )
 from platterpus.report_types import SecureReripBlock
+from platterpus.verdict import accuraterip_lookup_happened
 
 log = logging.getLogger(__name__)
 
@@ -1091,6 +1092,16 @@ def _accuraterip_line(track: TrackResult) -> str:
     # is a false claim, and EAC has its own wording for exactly this state
     # (review finding, 2026-07-28). Only a track with no AR data at all gets
     # "not present".
+    # ...but "cannot be verified" is itself a claim, and it presumes a comparison
+    # took place. When cyanrip's per-track `Accurip:` row says the lookup was
+    # `disabled` or errored, nothing was consulted — so the honest line is that no
+    # check was made, not that the check was inconclusive. Stated before the
+    # local-CRC fallback below because cyanrip prints those CRCs in every state,
+    # `disabled` included, which is what made this row over-claim (audit,
+    # 2026-07-31).
+    lookup = getattr(track, "accuraterip_lookup", None)
+    if accuraterip_lookup_happened(lookup) is False:
+        return "Not checked against the AccurateRip database"
     for ar in (track.accuraterip_v2, track.accuraterip_v1, track.accuraterip_offset):
         if ar is not None and ar.local_crc:
             crc = f"  [{ar.local_crc}]" if ar.local_crc else ""

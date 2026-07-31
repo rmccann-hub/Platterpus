@@ -12,6 +12,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A track nobody looked up was reported as "in the database, and your rip disagreed with it".**
+  Both the results table and the archival log asserted a comparison that never happened, and this
+  is live on the cyanrip everyone is running — not fork-only. The evidence for "we compared" was
+  the presence of a local checksum, on the written reasoning that cyanrip only prints a per-track
+  `Accurip v1/v2:` row when the disc was found. **cyanrip prints those rows in every state**,
+  `disabled` included, so the predicate was effectively unconditional: it made the "not in the
+  database" state *structurally unreachable* for any cyanrip log, and every non-match — including
+  one from a lookup that never ran — became `in DB, no match` / `Cannot be verified as accurate`.
+  Platterpus now reads cyanrip's per-track `Accurip:` status row, which is the only line that
+  states this directly, and a new `not-checked` state says plainly that no lookup was made. The
+  local-CRC fallback is kept for logs with no status row (whipper's, where a local CRC really does
+  evidence a comparison), so no existing rip is reclassified.
+- **An all-zero AccurateRip checksum was rendered as a confidence-200 match.** cyanrip prints the
+  caveat itself — `Accurip 450: 00000000 (match found, confidence 200, but a checksum of 0 is
+  meaningless)` — and the confidence alone was enough to make it a positive offset-variant match,
+  so a track nothing was meaningfully compared for announced a partially-accurate match on screen
+  *and* in the attested log. It also inflated the partial tally and, with `rerip_offset_variant`
+  off by default, excluded the track from being re-ripped. Guarded on the zero CRC rather than on
+  cyanrip's wording, so a backend that omits the caveat is covered too. An **empty** CRC is
+  deliberately not treated as zero: it means "not reported", and a whipper log can carry a real
+  match without one — conflating them would have silently discarded genuine verifications, which
+  is the same bug pointing the other way.
+- **The AccurateRip state table could not notice a new state.** `test_surface_consistency`'s floor
+  hardcoded four state names, so it was a floor equal to its own list — the third instance of that
+  shape in two days. It now derives from `verdict.AR_STATES`, and adding `not-checked` failed it
+  immediately until both surfaces and the case table covered it. The one state deliberately
+  excluded now carries its justification in the map rather than being absent silently.
 - **Every secure-re-read verdict was attributed to the wrong track on the maintainer's cyanrip
   fork — producing a false "verified" and a false "not reproducible" in the same attested log.**
   cyanrip emits its `Done; (N out of M matches)` verdict from inside the repeat loop, which runs

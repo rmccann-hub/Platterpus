@@ -101,6 +101,10 @@ AR_STATE_OFFSET_VARIANT: str = "offset-variant"  # matched the +450 pressing onl
 AR_STATE_NO_MATCH: str = "no-match"  # in the database, our read matched nothing
 AR_STATE_ABSENT: str = "absent"  # nothing in the database to compare against
 AR_STATE_NO_DATA: str = "no-data"  # this AR version reported nothing at all
+# No lookup happened, so the database has said NOTHING about this track either
+# way. Distinct from `absent` ("looked, the disc is not there") and from
+# `no-match` ("looked, the disc is there, our read is not one of the copies").
+AR_STATE_NOT_CHECKED: str = "not-checked"
 
 # Every state the classifier can return. A renderer that handles a subset of
 # these is a renderer with a silent hole, which is precisely what happened — so
@@ -113,31 +117,75 @@ AR_STATES: frozenset[str] = frozenset(
         AR_STATE_NO_MATCH,
         AR_STATE_ABSENT,
         AR_STATE_NO_DATA,
+        AR_STATE_NOT_CHECKED,
     }
 )
 
 
-def accuraterip_compared(result: object) -> bool:
+# The `Accurip:` status texts that mean NO comparison took place. Matched as
+# substrings, casefolded, so a reworded variant still lands — and negatives are
+# listed rather than positives because a *positive* list would have to be complete
+# to be safe, while a negative list only has to be right about what it names.
+_LOOKUP_DID_NOT_HAPPEN: tuple[str, ...] = ("disabled", "error", "not attempted")
+# ...and the ones that mean the lookup ran and the disc simply is not there.
+_LOOKUP_FOUND_NOTHING: tuple[str, ...] = ("not found", "not present", "not in database")
+
+
+def accuraterip_lookup_happened(lookup: str | None) -> bool | None:
+    """Did a database lookup take place? True / False / None for "not stated".
+
+    Pure, and never raises. ``lookup`` is the verbatim text of cyanrip's per-track
+    ``Accurip:`` row.
+    """
+    if not lookup:
+        return None
+    text = lookup.casefold()
+    if any(token in text for token in _LOOKUP_DID_NOT_HAPPEN):
+        return False
+    if any(token in text for token in _LOOKUP_FOUND_NOTHING):
+        # The lookup ran; the disc was not there. That IS a comparison attempt, so
+        # it is "happened" — the classifier separates it from a match below.
+        return True
+    return True
+
+
+def accuraterip_compared(result: object, lookup: str | None = None) -> bool:
     """True when this AR result proves a database comparison actually happened.
 
-    The evidence is ``local_crc`` — the checksum *we* computed for the track and
-    sent to AccurateRip. cyanrip only prints a per-track ``Accurip v1/v2:`` (or
-    ``Accurip 450:``) line, CRC included, when the disc was **found** in the
-    database; a disc nobody has submitted produces no such line at all. So a
-    result carrying a local CRC means "the disc is there, we compared" — and a
-    non-match on top of that is the "cannot be verified" state, *not* absence.
+    ``lookup`` is cyanrip's per-track ``Accurip:`` status text and is consulted
+    FIRST, because it is the only thing in the log that states this directly.
+
+    The fallback evidence is ``local_crc`` — the checksum *we* computed for the
+    track. That used to be the whole test, on the stated reasoning that cyanrip
+    only prints a per-track ``Accurip v1/v2:`` row when the disc was found. **That
+    reasoning was false.** cyanrip prints those rows in every state, `disabled`
+    included, so the predicate was effectively unconditional: it made
+    :data:`AR_STATE_ABSENT` unreachable for a cyanrip log, and a disc nobody had
+    ever looked up rendered as "in DB, no match" — a claim both that the disc is
+    in the database and that our read disagreed with it (audit, 2026-07-31).
+
+    The CRC fallback is kept for logs that carry no status row at all — whipper's,
+    where a local CRC really does evidence a comparison — so this change cannot
+    reclassify an existing whipper rip.
 
     Reads via ``getattr`` so it never raises on an unexpected shape.
     """
+    stated = accuraterip_lookup_happened(lookup)
+    if stated is not None:
+        return stated
     return bool(getattr(result, "local_crc", None))
 
 
-def accuraterip_state(result: object, offset_result: object) -> str:
+def accuraterip_state(
+    result: object, offset_result: object, lookup: str | None = None
+) -> str:
     """Classify one AR column (v1 or v2) into exactly one of :data:`AR_STATES`.
 
     ``result`` is the track's v1 or v2 result; ``offset_result`` is its +450
     offset-variant result (cyanrip's "Accurip 450:"), shared by both columns
-    because it describes the same track. Pure and never raises.
+    because it describes the same track. ``lookup`` is the track's ``Accurip:``
+    status text — defaulted so a caller without it degrades to the previous
+    behaviour rather than failing. Pure and never raises.
     """
     # An exact match outranks everything — a real match is never downgraded.
     if accuraterip_is_match(result):
@@ -148,7 +196,17 @@ def accuraterip_state(result: object, offset_result: object) -> str:
     # Nothing matched. Did we have anything to match *against*? Either result
     # carrying our computed checksum means the disc was in the database and this
     # read simply is not one of the stored copies.
-    if accuraterip_compared(result) or accuraterip_compared(offset_result):
+    # Nothing matched. Before deciding *why*, ask whether anyone looked: a
+    # comparison that never happened cannot have failed, and saying it did is the
+    # sharpest way this screen can mislead.
+    if accuraterip_lookup_happened(lookup) is False:
+        return AR_STATE_NOT_CHECKED
+    if lookup and any(token in lookup.casefold() for token in _LOOKUP_FOUND_NOTHING):
+        # Looked, and the disc is not in the database. Says nothing about the rip.
+        return AR_STATE_ABSENT
+    if accuraterip_compared(result, lookup) or accuraterip_compared(
+        offset_result, lookup
+    ):
         return AR_STATE_NO_MATCH
     if result is None:
         return AR_STATE_NO_DATA
