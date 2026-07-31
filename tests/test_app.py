@@ -375,3 +375,96 @@ def test_the_fatal_dialog_refuses_to_build_widgets_off_the_gui_thread(
         "the log line does not name the thread, so a reader cannot tell which "
         f"background task failed. Records: {messages!r}"
     )
+
+
+# --- termination signals (the 2026-07-01 bug through a third door) ----------
+
+
+def test_termination_handlers_close_the_window_and_quit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SIGTERM/SIGINT must go through the real `closeEvent`, not kill us dead.
+
+    `closeEvent` was the ONLY thing that stopped the in-container reader. podman
+    does not forward signals into the container, so a session logout or
+    `kill <pid>` during a rip left cyanrip ripping and holding the drive — and the
+    drive ignores its own eject button while a read holds the device, so there was
+    no in-app *and* no hardware way out.
+
+    The handler deliberately does almost nothing (it runs between arbitrary
+    bytecodes); the QTimer slot does the work. So this test drives the timer's
+    signal directly, which is exactly what the event loop would do.
+    """
+    import signal
+
+    from PySide6.QtWidgets import QApplication
+
+    closed: list[bool] = []
+    quit_called: list[bool] = []
+
+    class _FakeWindow:
+        def close(self) -> None:
+            closed.append(True)
+
+    # The QTimer needs a real QObject parent, so the real application object is
+    # used and its `quit` is intercepted — a fake app would not be a valid parent,
+    # and asserting on a fake whose `quit` is never reached is how this test
+    # passed while proving nothing the first time it was written.
+    qapp = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(qapp, "quit", lambda: quit_called.append(True))
+
+    # Save and restore the process-wide handlers. Leaking a SIGTERM handler into
+    # the rest of the suite would be a real bug in this test, not a detail.
+    saved = {sig: signal.getsignal(sig) for sig in app_module._TERMINATION_SIGNALS}
+    try:
+        timer = app_module._install_termination_handlers(
+            qapp,
+            _FakeWindow(),  # type: ignore[arg-type]  # only close() is used
+        )
+        assert timer is not None, "handlers must install on the main thread"
+        try:
+            # Nothing has arrived yet: a tick must NOT tear the app down.
+            timer.timeout.emit()
+            assert closed == [] and quit_called == [], (
+                "the timer ticks constantly; it must be inert until a signal lands"
+            )
+
+            # Now deliver SIGTERM the way the OS would — through the installed
+            # handler. Calling the handler directly (rather than os.kill) keeps the
+            # test from depending on signal-delivery timing.
+            handler = signal.getsignal(signal.SIGTERM)
+            assert callable(handler), "SIGTERM must have a callable handler installed"
+            handler(signal.SIGTERM, None)
+
+            timer.timeout.emit()
+            assert closed == [True], (
+                "the window must be CLOSED, so the real closeEvent stops the rip "
+                "and frees the drive — never a second copy of the teardown"
+            )
+            assert quit_called == [True], "and the app must actually exit"
+        finally:
+            timer.stop()
+    finally:
+        for sig, previous in saved.items():
+            signal.signal(sig, previous)
+
+
+def test_termination_handlers_degrade_when_signals_cannot_be_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`signal.signal` raises ValueError off the main thread — the normal case
+    under a test runner or an embedded interpreter. That must not stop the app
+    from starting; it just keeps the old behaviour for that signal."""
+    import signal as signal_module
+
+    def refuse(_sig: int, _handler: object) -> object:
+        raise ValueError("signal only works in main thread")
+
+    monkeypatch.setattr(app_module.signal, "signal", refuse)
+    result = app_module._install_termination_handlers(
+        object(),  # type: ignore[arg-type]  # never touched on this path
+        object(),  # type: ignore[arg-type]
+    )
+    assert result is None, "no handlers installed → no timer to keep alive"
+    # And the real handlers are untouched.
+    assert signal_module.getsignal(signal_module.SIGTERM) is not refuse

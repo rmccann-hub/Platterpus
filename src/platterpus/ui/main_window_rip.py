@@ -100,6 +100,16 @@ log = logging.getLogger(__name__)
 # escalate sooner.
 _FORCE_STOP_COUNTDOWN_MS: int = 5000
 
+# How long window-close may spend stopping the in-container reader, in total.
+# Chosen against what the fast path actually costs: on rootless podman the
+# in-container processes are host-visible, so the `fuser -k` that does the real
+# work is effectively instant (measured at 0.12 s on the rig — 20:50:03,949 →
+# 20:50:04,067). 5 s therefore leaves the common case untouched while capping the
+# pathological one, where every step misses and the `distrobox enter` fallback
+# would otherwise be waited out. Deliberately smaller than the worker shutdown
+# budget: this runs BEFORE the workers are stopped and must not eat their share.
+_SHUTDOWN_DRIVE_FREE_BUDGET_S: float = 5.0
+
 # How long the rip may go with NO signal from the worker (no progress line, no
 # status, no log output) before the liveness watchdog calls it a stall and shows
 # the notice. cyanrip streams several lines a second while healthy, so tens of
@@ -402,6 +412,7 @@ class RipMixin(MainWindowShared):
         # countdown can't fire into this fresh rip.
         self._force_stop_timer.stop()
         self._force_stop_done = False
+        self._force_stop_device = ""
 
         self._start_rip_worker(params)
 
@@ -662,6 +673,15 @@ class RipMixin(MainWindowShared):
         )
         self._rip_cancelled = True
         self._force_stop_done = False
+        # Capture the device NOW, not when the timer fires. Prefer the drive this
+        # rip is actually using (`params.drive`) over whatever the picker happens
+        # to show — the picker is a UI control the user can change during the five
+        # seconds, and the rescue must target the drive that is still spinning.
+        # Same precedence the auto-eject path already uses.
+        active = getattr(self, "_active_rip_params", None)
+        self._force_stop_device = (
+            getattr(active, "drive", "") or self._drive_picker.current_device() or ""
+        )
         # The in-container reader can take a moment to stop; set expectations,
         # and arm the auto force-stop in case it doesn't stop on its own.
         secs = _FORCE_STOP_COUNTDOWN_MS // 1000
@@ -715,11 +735,16 @@ class RipMixin(MainWindowShared):
         # a malfunction. Found by a rip-path audit, 2026-07-29; the honesty rule
         # this breaks is the same one the rest of the reporting code is built on.
         self._rip_cancelled = True
-        device = self._drive_picker.current_device() or ""
+        # The armed device wins whenever we have one — for the auto trigger it is
+        # the whole point (see `_force_stop_device`), and for a manual press during
+        # a rip it is still the right target: "Force stop" means stop the thing
+        # that is running, not whatever the picker is now pointing at.
+        device = self._force_stop_device or self._drive_picker.current_device() or ""
         log.info(
-            "force-stopping drive (%s trigger), device=%s",
+            "force-stopping drive (%s trigger), device=%s armed=%s",
             trigger,
             device or "(default)",
+            self._force_stop_device or "(none)",
         )
         self._rip_progress.set_status(
             "Force-stopping the drive (eject + stopping the reader)…"
@@ -811,12 +836,25 @@ class RipMixin(MainWindowShared):
         if self._rip_worker is not None:
             # Host-side: set the cancel flag + killpg the wrapper group.
             self._rip_worker.cancel()
-        device = self._drive_picker.current_device() or ""
+        # The armed device, for the same reason the rescue timer captures it: the
+        # picker is a live UI control and by the time we are closing it may point
+        # at a drive that was never involved in this rip.
+        device = self._force_stop_device or self._drive_picker.current_device() or ""
         try:
             # free_drive kills the in-container reader (host pkill → fuser →
             # distrobox-enter fallback) WITHOUT ejecting. Synchronous by design
             # (see docstring); best-effort and never raises on its own.
-            drive_control.free_drive(device=device)
+            #
+            # BOUNDED. The sequence is up to seven subprocesses, each previously
+            # capped at 20 s on its own, so a wedged drive could hold the window
+            # in a closing state for over a minute — indistinguishable from a
+            # hang, and the maintainer reports freezes as bugs because they are.
+            # One shared budget caps the whole thing; a spent budget skips the
+            # remaining steps and says so in the log.
+            drive_control.free_drive(
+                device=device,
+                runner=drive_control.budgeted_runner(_SHUTDOWN_DRIVE_FREE_BUDGET_S),
+            )
         except Exception:  # noqa: BLE001 — shutdown cleanup must never crash close
             log.exception("shutdown drive-free failed; ignored")
 

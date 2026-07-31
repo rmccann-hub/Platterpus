@@ -12,6 +12,53 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The post-cancel drive rescue could force-kill and eject the WRONG drive.** Cancelling a
+  rip arms a five-second rescue in case the in-container reader keeps spinning — and that
+  rescue asked the drive picker for its *current* device when it **fired**, not when it was
+  armed. So cancelling on `/dev/sr0` and then selecting `/dev/sr1` inside the countdown made
+  it `fuser -k` and eject **sr1**: a drive it had no business touching, possibly one mid-rip
+  in another window. The device is now captured when the rescue is armed, preferring the drive
+  the rip is actually using over whatever the picker happens to show. The shutdown drive-free
+  had the same flaw and the same fix. (Confirmed firing on the rig — the log shows the auto
+  trigger running 5.1 s after a cancel.)
+- **Closing the window during a rip could appear frozen for over a minute.** The shutdown path
+  stops the in-container reader *synchronously on the GUI thread* — deliberately, because a
+  daemon thread would be killed mid-`pkill` as the interpreter exits — but the kill sequence is
+  up to seven subprocesses and each was capped at 20 s **independently**, so a wedged drive hit
+  the sum. One shared budget now bounds the whole sequence (5 s, chosen against the 0.12 s the
+  real fast path measured on the rig), and steps past the budget are skipped **and logged as
+  skipped**, so a truncated shutdown is visible rather than looking like a sequence that ran
+  and found nothing.
+- **A logout, `kill <pid>` or Ctrl-C during a rip left the drive held.** `closeEvent` was the
+  only thing that stopped the in-container reader, and podman does not forward signals into the
+  container — so a session logout killed the GUI and left cyanrip ripping. Because the drive
+  ignores its own eject button while a read holds the device, there was neither an in-app nor a
+  hardware way out: the 2026-07-01 real-user bug through a third door. SIGTERM and SIGINT now
+  close the window properly, going through the real `closeEvent` rather than a second copy of
+  the teardown. Two subtleties are handled and documented: a pending Python signal handler does
+  not run while Qt owns the event loop (a short relay timer gives the interpreter the chance),
+  and a signal handler must not do real work between arbitrary bytecodes (it only records the
+  signal; the timer slot does the shutdown).
+- **"No cover art for this release" was also what an offline rip was told.** Every way the
+  Cover Art Archive fetch could come back empty — a genuine 404, a timeout, a refused
+  connection, an unidentified disc, an unusable reply — collapsed into the one line *"Cover
+  art: none found for this release"*. "Nobody uploaded a cover for this disc" is final;
+  "we could not reach the archive" says nothing at all about the release, and reporting the
+  second as the first is the honesty rule inverted. Each reason now has its own sentence
+  (an offline rip reads *"could not reach the Cover Art Archive — art was not fetched, so
+  this release may still have one"*), a reason code we do not recognise names itself rather
+  than inheriting "none found", and the reason plus the fetch's own error text now also
+  reach the log file and the JSON report's `cover_art.error`.
+- **A failed `metaflac` sample-count probe threw away the only explanation it had.** The CTDB
+  verify path raised a bare `metaflac failed on 01.flac` and discarded metaflac's stderr, so
+  a corrupt stream, a missing file and a permissions problem were indistinguishable — in the
+  user-visible verdict *and* in the log. The exit code and the tool's stderr tail now travel
+  in both, as does the `flac` decoder's stderr and any unparseable probe output.
+- **A transcode that produced nothing left no log line at all.** When ffmpeg reported success
+  but wrote no output file, the file was recorded as a failure silently, so a rip that
+  derived no MP3s offered nothing to diagnose. Both branches now log — the exit code when
+  ffmpeg says it failed, and the *absence* of output when it claims success — each naming
+  the track, the target format and the fact the FLAC master is untouched.
 - **A cancelled rip called itself "✓ Bit-perfect".** Cancel after two tracks of fourteen
   and the trust headline read *"✓ Bit-perfect: all 2 tracks verified against AccurateRip
   (confidence 129+)"* — green, over 14% of the disc — while the EAC log written beside it

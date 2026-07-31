@@ -274,6 +274,14 @@ class MainWindow(
         # drive spinning, force-stop it once the countdown elapses. Guard so
         # we force-stop at most once per cancel.
         self._force_stop_done: bool = False
+        # The device the pending rescue is FOR, captured when the timer is armed.
+        # It must not be read at fire time: `_do_force_stop` used to ask the drive
+        # picker for its *current* device five seconds later, so cancelling a rip
+        # on /dev/sr0 and then selecting /dev/sr1 within the countdown made the
+        # rescue force-kill and eject **sr1** — a drive it had no business
+        # touching, possibly mid-rip in another window. Empty means "we never
+        # armed one; fall back to the picker".
+        self._force_stop_device: str = ""
         self._force_stop_timer: QTimer = QTimer(self)
         self._force_stop_timer.setSingleShot(True)
         self._force_stop_timer.timeout.connect(self._auto_force_stop)

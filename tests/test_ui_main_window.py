@@ -5329,3 +5329,73 @@ def test_a_rip_with_no_log_never_scopes_post_rip_work_to_the_output_root(
         "a post-rip step ran with no known album folder, so it was scoped to the "
         f"output root {tmp_path} — the whole library. Steps called: {len(swept)}"
     )
+
+
+# --- the rescue must target the drive it was armed for (rig, 2026-07-30) ----
+
+
+def test_cancel_captures_the_rip_device_so_a_later_picker_change_is_ignored(
+    teardown_threads, monkeypatch
+) -> None:
+    """The 5 s rescue read the picker's *current* device when it FIRED, not when
+    it was armed. So cancelling a rip on /dev/sr0 and then selecting /dev/sr1
+    within the countdown made the rescue force-kill and eject **sr1** — a drive it
+    had no business touching, possibly mid-rip in another window.
+
+    Confirmed live on the rig: the log shows `force-stopping drive (auto trigger)`
+    firing 5.1 s after a cancel, reading the picker at that moment.
+    """
+    calls = _patch_force_stop(monkeypatch)
+    window = teardown_threads()
+    # A rip is running on sr0.
+    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._active_rip_params = SimpleNamespace(drive="/dev/sr0")
+    window._on_rip_cancel()
+    try:
+        assert window._force_stop_device == "/dev/sr0", (
+            "the device must be captured when the rescue is ARMED"
+        )
+        # The user now switches the picker to a different drive, inside the window.
+        monkeypatch.setattr(
+            window._drive_picker, "current_device", lambda: "/dev/sr1", raising=False
+        )
+        window._auto_force_stop()
+        _join_force_stop(window)
+    finally:
+        window._force_stop_timer.stop()
+
+    assert len(calls) == 1
+    assert calls[0]["device"] == "/dev/sr0", (
+        "the rescue must stop the drive that was being ripped, NOT whichever "
+        "drive the picker now points at"
+    )
+
+
+def test_shutdown_drive_free_targets_the_armed_device_and_is_bounded(
+    teardown_threads, monkeypatch
+) -> None:
+    """Two properties of the shutdown drive-free, both learned the hard way.
+
+    * It must target the armed device for the same reason the rescue does.
+    * It must be BOUNDED. It runs on the GUI thread by design (a daemon thread
+      would be killed mid-`pkill` as the interpreter exits), and the kill sequence
+      is up to seven subprocesses that were each capped at 20 s independently — so
+      the worst case was a window frozen in a closing state for over a minute.
+    """
+    free_calls = _patch_free_drive(monkeypatch)
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(cancel=lambda: None)
+    window._rip_thread = SimpleNamespace()
+    window._force_stop_device = "/dev/sr0"
+    monkeypatch.setattr(
+        window._drive_picker, "current_device", lambda: "/dev/sr1", raising=False
+    )
+
+    window._stop_rip_on_shutdown()
+
+    assert len(free_calls) == 1
+    assert free_calls[0]["device"] == "/dev/sr0"
+    assert free_calls[0].get("runner") is not None, (
+        "shutdown must pass a budgeted runner — without one the sequence is "
+        "bounded only per-command, which is what froze the close"
+    )
