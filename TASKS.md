@@ -573,13 +573,17 @@ remains. None of these is speculative — each was traced to a file:line.
       album folder in the first place) instead of listing it. All five call sites ask it: the
       three verify workers, `checksums.compute_digests`, and `ctdb.diagnose.find_flacs`.
       Degrades to the old folder scan when no log names the files, but logs the downgrade and
-      names any excluded leftover. **Still open:** four sibling globs in
-      `ui/main_window_rip.py` (unknown-mode tagging, the colon-restore metaflac pass,
-      FLAC re-compress, and the transcode input) `rglob("*.flac")` the same folder and so
-      tag/rewrite/transcode a cancelled rip's leftovers too — they should call
-      `rip_files.rip_master_files`, and can pass the already-parsed `RipLog` via its
-      `rip_log=` seam. `adapters/cover_art.py` has the same issue twice: it embeds art into
-      every FLAC under the folder and reports the inflated count as "embedded in N track(s)".
+      names any excluded leftover.
+      *Closed out 2026-07-31:* the six **mutating** siblings now route through the same
+      helper — `ui/main_window_rip.py`'s unknown-mode tagging, the colon-restore metaflac
+      pass, the FLAC re-compress and the transcode input, plus **both** embed loops in
+      `adapters/cover_art.py` (archive fetch and cover-art-from-a-file). These were the worse
+      half of the bug: the verify sites only *read* a leftover, while these wrote this disc's
+      metadata into it, re-compressed it, transcoded it into the library, embedded this
+      album's cover in it, and reported the inflated count as "embedded in N track(s)".
+      `_start_post_rip_processing` takes a `rip_log=` argument and the finish handler passes
+      its already-parsed `RipLog`, so the log is read once and all six agree on one list.
+      Regression test per site, each verified by reverting the fix.
 - **[ ] Closing the window during a rip can freeze it for up to ~100 s.**
       `_stop_rip_on_shutdown` calls `drive_control.free_drive()` **synchronously on the
       GUI thread**: five subprocess steps each bounded at 20 s. A wedged drive hits the
@@ -597,18 +601,41 @@ remains. None of these is speculative — each was traced to a file:line.
       (real CRCs — not discarded) but loses to any complete prior and is labelled,
       and a track the short side never reached no longer warns. A report with no
       `outcome` block at all (pre-v7) still counts as a finished rip.
-- **[ ] Tagging failures are invisible.** `apply_track_tags` logs per-file
+- **[x] Tagging failures are invisible.** `apply_track_tags` logs per-file
       `MetaflacError` at WARNING and returns the successes; the caller discards the
       result. There is no signal, no status line, and no report field. Scenario: the disk
       fills during the metaflac pass → every FLAC ships untagged, the UI says Done.
+      *Fixed 2026-07-31:* `run_unknown_post_processing` returns a `TaggingResult`
+      (attempted / tagged / failing basenames / whole-pass error) and the post-rip daemon
+      delivers it on a new `tagging_done` signal — the same shape as every other post-rip
+      step. The GUI slot puts the failing count and names on the status line and in the rip
+      log view, and stops the trust banner claiming ✓ (the *audio* claim is still true and
+      the text says so — an untagged album is a metadata problem, not a rip problem). The
+      failures derive by *difference* from the returned successes, which also catches
+      `apply_track_tags`' other way of not tagging a file: a name with no leading track
+      number, which it skips deliberately. In the JSON it is an `issues` entry
+      (`tagging_failed`) rather than a new `verification` sub-block — `IssueBlock` already
+      fits, and a new sub-block would change a key set consumers and tests pin exactly, so
+      the schema version is unchanged.
 - **[ ] No SIGTERM/SIGINT handler.** `closeEvent` is the only thing that stops the
       in-container reader, so a session logout or `kill <pid>` during a rip leaves cyanrip
       ripping with the drive's eject button ignored — the 2026-07-01 bug through a third
       door.
-- **[ ] `_launch_post_rip_daemon` doesn't guard `compute()`.** An escape kills the daemon
+- **[x] `_launch_post_rip_daemon` doesn't guard `compute()`.** An escape kills the daemon
       silently, emits no signal, and `_post_rip_work_settled` then reads the dead thread
       as "settled", so the library move proceeds as if the check had passed. (The
       `threading.excepthook` added in v0.5.18 means it is at least *logged* now.)
+      *Fixed 2026-07-31:* `compute()` is wrapped; a crash is logged **against its step** and
+      recorded in `_post_rip_failures` (`{thread attribute: error text}`, written under a
+      module-level lock because two checks can die in the same instant). The settlement gate
+      itself now reads that record: `_poll_library_move` calls `_post_rip_failure_summary()`
+      and tells the user which check did not finish *before* it files the album away.
+      `_post_rip_work_settled` deliberately still returns True for a crashed check — its
+      question is "is anything still touching the files?", and blocking on a crash would
+      strand the album in the workspace forever. **Left open:** a crashed CTDB check leaves
+      the "Verifying against CTDB…" status where it is, because there is no failure signal
+      for the per-step spinners; and with no library folder configured the announcement never
+      runs, so the crash is visible only in `log.txt` and the settled record.
 - **[x] `--doctor` can report a false PASS on its most important check.** Done 2026-07-31.
       Fixed in both halves, because neither alone is enough: `CyanripImpl.version()` now runs
       `-V` with `strict=True`, so a non-zero exit arrives as a `RipError` instead of a string

@@ -12,6 +12,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **Six post-rip steps edited files a previous rip had left behind.** The verification steps were
+  scoped to "the files THIS rip wrote" on 2026-07-30 (`rip_files.rip_master_files`); the six that
+  *mutate or derive from* what they find were not, and each still walked the album folder with
+  `rip_dir.rglob("*.flac")`: unknown-mode tagging, the KDD-22 colon-restore metaflac pass, the
+  FLAC re-compress, the transcode, and **both** cover-art embed loops (archive fetch and "cover
+  art from a file"). One ordinary sequence contaminates that folder — cancel a rip (partial files
+  remain), fix a track title, re-rip and choose *Replace*: the corrected titles produce new
+  filenames, so the new files land *beside* the old ones. This disc's metadata was then written
+  into the leftovers, they were re-compressed, they were transcoded into the user's library as
+  MP3/WavPack, this album's cover was embedded in them, and the inflated count was reported back
+  as "embedded in N track(s)". All six now go through the same shared helper, fed the finish
+  handler's already-parsed `RipLog` through a new `rip_log=` seam so the log is read once and
+  every step agrees on the same file list. Reads still degrade to a folder scan (logged at
+  WARNING) when there is no usable log, so an older rip still gets art and tags.
+- **A tagging failure was invisible: every FLAC could ship untagged under a window saying
+  "Done."** `apply_track_tags` logs each per-file `MetaflacError` at WARNING and returns the
+  files that succeeded — and the caller discarded that return value, so nothing else in the
+  program ever learned about it: no signal, no status line, no report field. The scenario is
+  ordinary (the disk fills during the metaflac pass; `metaflac` goes missing mid-album), and its
+  outcome was a complete album with no metadata at all, reported as success. The pass now returns
+  a structured result which reaches the GUI thread on a new `tagging_done` signal: the failing
+  count and filenames go to the status line and the rip log view, the trust banner stops claiming
+  ✓ (the audio *is* still bit-perfect — the banner text says so, and says the tags are missing),
+  and the JSON report carries a `tagging_failed` entry in its existing `issues` list. A whole-pass
+  crash is reported the same way instead of vanishing into `log.txt`.
+- **A post-rip check that crashed was indistinguishable from one that passed.** `compute()` inside
+  `_launch_post_rip_daemon` was unguarded, so an exception killed the daemon thread having emitted
+  no signal and recorded nothing — and `_post_rip_work_settled` reads a *dead* thread as settled,
+  so the library move filed the album away exactly as if every check had succeeded. The crash is
+  now caught, attributed to its step, logged, and recorded on the window; the settlement gate in
+  front of the library move reads that record and tells the user which check did not finish before
+  it moves anything. The move still proceeds — the audio is unaffected and stranding it in the
+  workspace would be worse — it just is not silent. (`threading.excepthook`, added in v0.5.18,
+  logged the exception; a log line no code reads cannot change a decision.)
 - **An invalid value in a hand-edited `config.toml` was reset to its default with only a log
   line — the silent reset the project's own *validate every input* rule forbids.** Resetting is
   right (an out-of-range value must never reach the ripper), but nothing on screen said it had
@@ -135,6 +169,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   shapes that backtrack, and nobody had noticed any of them.
 
 ### Changed
+- **Characterization tests for the rip mixin's cancel / force-stop / finish paths** — the
+  project's #1 bug-cluster file and, by a wide margin, its least-tested. `main_window_rip.py`
+  under `tests/test_ui_main_window.py` goes from **81% (149 statements / 44 branch partials
+  uncovered) to 96% (26 / 21)**, pinning the cancel → force-stop escalation, the synchronous
+  shutdown drive-free, the KDD-30 auto-fix merge rules (including that a swapped-in re-rip never
+  inherits the discarded read's AccurateRip verdict), the KDD-31 offset confirmation, the
+  library-move settlement gate, and every post-rip step's crash / staleness / destroyed-window
+  guard. Characterization, not aspiration: where a path looked wrong it was reported rather than
+  pinned.
 - **`parse_cyanrip_log` restructured without changing a single parsed value.** It was the
   highest-branch function in the codebase (57 branches / 415 lines, `ruff` PLR0912) and the
   densest source of shipped bugs of any parser; it is now 41 branches / 309 lines, with the
