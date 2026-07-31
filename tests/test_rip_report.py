@@ -885,8 +885,8 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_10() -> None:
-    assert REPORT_SCHEMA_VERSION == 10
+def test_schema_version_is_11() -> None:
+    assert REPORT_SCHEMA_VERSION == 11
 
 
 def test_rip_block_carries_disc_ids() -> None:
@@ -962,7 +962,6 @@ def test_schema_version_is_10_and_the_v10_keys_are_present() -> None:
     record it" only if the key is always present and `null` when unmeasured. The
     whole point of adding these is that a reader can *ask*.
     """
-    assert REPORT_SCHEMA_VERSION == 10
     track = build_report(_sample_log())["tracks"][0]
     for key in (
         "extraction_elapsed_seconds",
@@ -1014,3 +1013,18 @@ def test_the_committed_cyanrip_log_puts_its_real_geometry_in_the_report() -> Non
     # Fork-only: 0.9.3 prints no elapsed, so every track must report null rather
     # than a zero that would read as "instant".
     assert [t["extraction_elapsed_seconds"] for t in tracks] == [None] * 14
+
+
+# --- v11 (0.5.21): the pre-gap length/position split -------------------------
+
+
+def test_pregap_length_and_position_are_separate_keys() -> None:
+    """v10 shipped cyanrip's absolute `Pregap LSN` under the name `pregap_sectors`.
+
+    They are different quantities and the report now says so. The length is
+    derived; the position is what the ripper printed.
+    """
+    track = build_report(_sample_log())["tracks"][0]
+    assert "pregap_sectors" in track and "pregap_start_lsn" in track
+    assert track["pregap_sectors"] is None
+    assert track["pregap_start_lsn"] is None

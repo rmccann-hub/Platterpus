@@ -225,6 +225,7 @@ class TrackBlock(TypedDict):
     start_sector: int | None
     end_sector: int | None
     pregap_sectors: int | None
+    pregap_start_lsn: int | None
     replaygain: dict[str, str] | None
     accuraterip_verified: bool
     accuraterip: TrackAccurateRipBlock

@@ -188,9 +188,20 @@ class TrackResult:
     # None when the log didn't report them (whipper, or a partial log).
     start_sector: int | None = None
     end_sector: int | None = None
-    # Sectors of pre-gap before this track, for EAC's "Pre-gap length" line.
-    # cyanrip prints "Pregap LSN: none" when there is none.
+    # The pre-gap's LENGTH in sectors, for EAC's "Pre-gap length" row. This is a
+    # DERIVED value, not a number cyanrip prints: see `pregap_start_lsn` below.
+    # 0 means the ripper measured "none"; None means it reported nothing usable.
     pregap_sectors: int | None = None
+    # The pre-gap's absolute START position — the number on cyanrip's
+    # "Pregap LSN:" row, which is where INDEX 00 begins and is NOT a length.
+    # Recorded separately because reading that row's number as a length is a real
+    # shipped bug: on the reference pressing, track 2's INDEX 00 sits at LSN 14327
+    # against a Start LSN of 14487, so the true gap is 160 sectors (2.13 s) and the
+    # EAC-layout log archived 3 m 11 s — an 89x over-claim, and one that scales
+    # with the track's position on the disc (audit, 2026-07-31). `pregap_sectors`
+    # above is `start_sector - pregap_start_lsn`, which is exactly how cyanrip
+    # computes the duration it prints in its own `(duration: …)` suffix.
+    pregap_start_lsn: int | None = None
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-improvements-wanted.md §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and

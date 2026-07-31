@@ -587,6 +587,11 @@ class _TrackAcc:
     start_sector: int | None = None
     end_sector: int | None = None
     pregap_sectors: int | None = None
+    # The RAW value off cyanrip's "Pregap LSN:" row — an ABSOLUTE disc position,
+    # not a length. Kept separate from `pregap_sectors` (the derived length)
+    # because conflating the two is precisely the bug this field exists to end:
+    # see the derivation in `flush()`.
+    pregap_start_lsn: int | None = None
     replaygain: dict[str, str] = field(default_factory=dict)
     # The three new per-track facts. All default to None — "the ripper did not say"
     # — which is what the deployed cyanrip 0.9.3 leaves them at for the first two.
@@ -1018,6 +1023,41 @@ def parse_cyanrip_log(text: str) -> RipLog:
         nonlocal current
         if current is None:
             return
+        # Derive the pre-gap LENGTH from the two absolute positions cyanrip prints,
+        # exactly the way cyanrip itself derives the duration it displays:
+        #
+        #     cyanrip_frames_to_duration(t->start_lsn_sig - t->pregap_lsn, ...)
+        #     cyanrip_log(ctx, 0, "    Pregap LSN:  %i (duration: %s)\n",
+        #                 t->pregap_lsn, pregap_duration);
+        #
+        # The number on the row is `pregap_lsn` — where INDEX 00 *begins* — while
+        # `Start LSN:` is `start_lsn_sig`, the very variable cyanrip subtracts
+        # from. Storing the row's number as a length was an 89x over-claim on a
+        # real disc: track 2 of the reference pressing has INDEX 00 at LSN 14327
+        # and starts at 14487, a 160-sector (2.13 s) gap, which was archived as
+        # 3 m 11 s (audit, 2026-07-31).
+        #
+        # Subtraction rather than the `(duration: …)` suffix on purpose: that
+        # suffix's fractional field is CD frames in some cyanrip formatters and
+        # hundredths in others, and we have no reference log that pins which —
+        # so parsing it would trade a known-correct computation for a guess.
+        #
+        # Both operands are required. A log that prints a pregap LSN without a
+        # Start LSN leaves the length None ("not reported"), never 0 ("measured
+        # none") — absent must stay absent.
+        if current.pregap_start_lsn is not None:
+            if current.start_sector is None:
+                current.pregap_sectors = None
+            else:
+                length = current.start_sector - current.pregap_start_lsn
+                # A non-positive result cannot be a gap. It happens for real on
+                # track 1, where cyanrip reports `Pregap LSN: 0` against
+                # `Start LSN: 0`: the Red Book lead-in physically occupies LSN
+                # -150..-1, so LSN 0 cannot express it and the ripper has told us
+                # nothing machine-readable about the length. We record "not
+                # reported" rather than inventing the 150-sector constant — the
+                # log is a record of what the ripper measured (audit, 2026-07-31).
+                current.pregap_sectors = length if length > 0 else None
         disc.tracks.append(
             TrackResult(
                 number=current.number,
@@ -1033,6 +1073,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 start_sector=current.start_sector,
                 end_sector=current.end_sector,
                 pregap_sectors=current.pregap_sectors,
+                pregap_start_lsn=current.pregap_start_lsn,
                 replaygain=dict(current.replaygain),
                 # None for every track of a cyanrip 0.9.3 log except
                 # `appended_silence_frames` on a track that ends in padding.
@@ -1211,11 +1252,18 @@ def parse_cyanrip_log(text: str) -> RipLog:
             match = _PREGAP_LSN.match(line)
             if match:
                 raw = match.group("value")
-                # "none" is a real answer (no pre-gap), recorded as 0 rather than
-                # None so "measured: none" is distinguishable from "not reported".
-                current.pregap_sectors = (
-                    0 if raw == "none" else int_or_none(raw, field="cyanrip Pregap LSN")
-                )
+                if raw == "none":
+                    # "none" is a real answer (no pre-gap), recorded as a measured
+                    # 0 length rather than None so "measured: none" stays
+                    # distinguishable from "not reported".
+                    current.pregap_sectors = 0
+                else:
+                    # An ABSOLUTE LSN, never a length. It is stored raw and the
+                    # length is derived in `flush()`, once `Start LSN:` (printed
+                    # two rows later) is also known.
+                    current.pregap_start_lsn = int_or_none(
+                        raw, field="cyanrip Pregap LSN"
+                    )
                 continue
 
             # "Appended:    2 frames of silence" — cyanrip 0.9.3 DOES print this,
