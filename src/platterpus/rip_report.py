@@ -127,7 +127,18 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #   * `extraction_elapsed_seconds` — fork-only, None on 0.9.3. Serialized now so
 #     the fork's output lands in the report the day the fork ships, rather than
 #     being parsed into a field nothing writes down.
-REPORT_SCHEMA_VERSION: int = 10
+# v11 (0.5.21): two corrections to v10, both found by running the maintainer's
+# cyanrip fork's real output through the parser:
+#   * `pregap_start_lsn` added, and `pregap_sectors` now means what its name says.
+#     v10 serialized cyanrip's "Pregap LSN:" row — an ABSOLUTE position — under
+#     `pregap_sectors`, and every consumer rendered it as a length. On the
+#     reference pressing that is an 89x over-claim in the EAC "Pre-gap length"
+#     row. The length is now derived as `start_sector - pregap_start_lsn`, which
+#     is exactly how cyanrip computes the duration it prints itself.
+#   * the disc-level `c2_pointers`, `paranoia_level` and `overread_mode` — read
+#     from the log and rendered into the EAC-layout artifact, but absent from the
+#     machine record, so an automated consumer could not see what the rip did.
+REPORT_SCHEMA_VERSION: int = 11
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -670,11 +681,16 @@ def _track(track: object) -> dict:
         "appended_silence_frames": getattr(track, "appended_silence_frames", None),
         # Absolute disc geometry (sectors). EAC's "TOC of the extracted CD" is
         # derived from these exactly, so without them the JSON could not
-        # reconstruct a table the .log already shows. `pregap_sectors` is 0 vs
-        # None in the usual sense: measured-none vs not-reported.
+        # reconstruct a table the .log already shows.
         "start_sector": getattr(track, "start_sector", None),
         "end_sector": getattr(track, "end_sector", None),
+        # The pre-gap's LENGTH (0 = the ripper measured none; None = it reported
+        # nothing usable) and, separately, the absolute position its INDEX 00
+        # begins at. Both, because they are different quantities and v10 shipped
+        # the position under the length's name — an 89x over-claim in the EAC row
+        # on a real disc (see parsers.rip_log.TrackResult for the numbers).
         "pregap_sectors": getattr(track, "pregap_sectors", None),
+        "pregap_start_lsn": getattr(track, "pregap_start_lsn", None),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),

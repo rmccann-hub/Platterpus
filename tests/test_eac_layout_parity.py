@@ -411,3 +411,82 @@ def test_no_pregap_rendering_can_produce_an_impossible_fraction() -> None:
         assert int(fraction) <= 99, rows[0]
         checked += 1
     assert checked >= 4000, f"only swept {checked} sector counts"
+
+
+# --- the pre-gap SEMANTICS, not just its formatting (2026-07-31) -------------
+
+
+def test_pregap_row_is_a_length_derived_from_the_two_positions_cyanrip_prints() -> None:
+    """The unit was right and the *quantity* was wrong, for three releases.
+
+    The three tests above verified the FORMATTER against EAC's real values, by
+    handing it a `TrackResult(pregap_sectors=N)` where N was already a length.
+    That is why they all passed while the parser was feeding that field cyanrip's
+    absolute `Pregap LSN` — the position INDEX 00 begins at. The seam the bug
+    lived in was the one the tests skipped, so this one starts from **log text**.
+
+    The numbers are not invented. Track 2 of the committed reference pressing
+    starts at LSN 14487 and real EAC 1.8 reports its pre-gap as `0:00:02.13`,
+    i.e. 160 sectors, which puts INDEX 00 at 14327. Feeding that back in must
+    reproduce EAC's own value.
+
+    Before the fix this rendered `0:03:11.02` — an 89x over-claim, and one that
+    grows with the track's position on the disc, in the SHA-256-attested archival
+    log. The reference disc's TOC declares no pre-gaps at all, which is the only
+    reason it never showed up.
+    """
+    lines = _CYANRIP_RIP.read_text(encoding="utf-8").splitlines()
+    # Sanity floor: if the reference log ever gains a real pre-gap here, this
+    # substitution is no longer the thing being tested and the test must be
+    # re-derived rather than silently measuring something else.
+    pregap_rows = [i for i, ln in enumerate(lines) if "Pregap LSN:" in ln]
+    assert len(pregap_rows) == 14, f"expected 14 pre-gap rows, found {len(pregap_rows)}"
+    assert lines[pregap_rows[1]].strip() == "Pregap LSN:  none"
+    lines[pregap_rows[1]] = "    Pregap LSN:  14327 (duration: 00:02.10)"
+
+    log = parse_cyanrip_log("\n".join(lines) + "\n")
+    track2 = next(t for t in log.tracks if t.number == 2)
+    assert track2.pregap_start_lsn == 14327, "the printed number is the POSITION"
+    assert track2.start_sector == 14487
+    assert track2.pregap_sectors == 160, (
+        "the LENGTH is start - pregap_lsn, exactly as cyanrip computes the "
+        "duration it prints itself"
+    )
+
+    text = render_eac_style_log(log)
+    assert "     Pre-gap length  0:00:02.13" in text, (
+        "must reproduce real EAC 1.8's own value for this track of this disc; got:\n"
+        + "\n".join(ln for ln in text.splitlines() if "Pre-gap" in ln)
+    )
+    # And the over-claim must be gone, named explicitly so a revert is unmistakable.
+    assert "0:03:11" not in text, "the absolute LSN is being rendered as a length again"
+
+
+def test_a_pregap_lsn_without_a_start_lsn_is_unreported_not_zero() -> None:
+    """Absent stays absent: a length we cannot derive is None, never a measured 0.
+
+    0 and None are different answers everywhere else in this dataclass, and the
+    difference matters here — 0 renders no row at all (EAC omits it), which would
+    quietly assert "this track has no pre-gap" about a track whose pre-gap we
+    simply could not compute.
+    """
+    text = (
+        "cyanrip 0.9.3\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Properties:\n"
+        "    Pregap LSN:  1200 (duration: 00:02.00)\n"
+    )
+    track = parse_cyanrip_log(text).tracks[0]
+    assert track.pregap_start_lsn == 1200
+    assert track.pregap_sectors is None, "no Start LSN to subtract from"
+
+    # "none" is still a MEASURED zero — that distinction must survive the change.
+    measured_none = parse_cyanrip_log(
+        "cyanrip 0.9.3\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Properties:\n"
+        "    Pregap LSN:  none\n"
+        "    Start LSN:   0\n"
+    ).tracks[0]
+    assert measured_none.pregap_sectors == 0
+    assert measured_none.pregap_start_lsn is None

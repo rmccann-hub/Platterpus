@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The EAC-layout log over-claimed every pre-gap by up to 89x, and it is a live bug on the
+  cyanrip everyone is running — not a fork-only one.** cyanrip's `Pregap LSN:` row prints the
+  **absolute position** where `INDEX 00` begins; Platterpus stored that number in a field called
+  `pregap_sectors` and every consumer rendered it as a **length**. The error therefore grows with
+  the track's position on the disc. Measured on the committed reference pressing: track 2's
+  `INDEX 00` sits at LSN 14327 against a `Start LSN` of 14487, so the true gap is 160 sectors —
+  **2.13 s**, exactly what real EAC 1.8 reports for that track — and the archival log said
+  **3 m 11 s**. The length is now derived as `start_sector - pregap_start_lsn`, which is precisely
+  how cyanrip computes the duration it prints in its own `(duration: …)` suffix; the raw position
+  is kept as a separate, honestly-named `pregap_start_lsn`. Deliberately *not* parsed from that
+  suffix: its fractional field is CD frames in some cyanrip formatters and hundredths in others,
+  and no committed log pins which — subtraction is exact, a guess is not.
+
+  Why it survived three releases with three green tests over it: **all three pre-gap tests
+  constructed `TrackResult(pregap_sectors=N)` with a value that was already a length**, so they
+  verified the *formatter* (which was right, and is still verified 10/10 against the real EAC
+  baseline) and skipped the parser seam the bug lived in entirely. The reference disc's TOC
+  declares no pre-gaps, so nothing else could have caught it. The new test starts from **log
+  text** and asserts EAC's own `0:00:02.13`.
+
+
 ### Documentation
 - `docs/hardware-test-checklist.md` A22 said an AccurateRip cell has "at most three distinct
   readings". It has **five** (`OK (N)`, `offset-variant match (N)`, `in DB, no match`,
