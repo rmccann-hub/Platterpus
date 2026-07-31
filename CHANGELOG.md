@@ -12,6 +12,35 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A quadratic regex on user-edited text, parsed on the GUI thread before the window is
+  shown.** The drive-offset CSV row pattern was super-linear in the line length — measured
+  at **3.9 seconds** on a single 2000-character row — and that file is the documented way to
+  install the full official AccurateRip drive-offset export, loaded by `MainWindow.__init__`
+  *before the window appears*. One pathological row was a frozen startup with nothing on
+  screen to look at: the never-block-the-GUI-thread rule broken by a regex rather than by a
+  subprocess. Replaced with `rpartition(",")` — linear, fewer moving parts, and it splits on
+  the *last* comma so a drive name containing one still parses.
+- **Three more super-linear patterns bounded**, all fed external text of a length that is
+  not ours to trust: the disc track count (unbounded `\d+`, 141 ms on a 4000-digit run), the
+  generic version matcher (77 ms — it parses a dependency tool's `--version` output), and
+  cyanrip's ETA string (67 ms). A CD holds at most 99 tracks and no version component needs
+  ten digits, so the bounds lose nothing real.
+
+### Added
+- **A sweep that catches the next one.** `tests/test_regex_bounded_time.py` times every
+  compiled pattern in `src/` at two input sizes and objects only to super-linear *growth*,
+  so a uniformly slow machine still passes and a flagged pattern is re-measured before it
+  fails. It found all four offenders above on its first run — and it is what makes this a
+  durable fix rather than four one-off ones, since the four had nothing in common except the
+  shapes that backtrack, and nobody had noticed any of them.
+
+### Changed
+- **The test suite is ~16% faster** (measured 40–43 s → 33.5–35.6 s, and that saving repeats
+  on each of the four CI Python legs). Two causes, both measured rather than guessed: the
+  slowest test in the suite spent 4.02 s — 10% of the whole run — waiting out the real 4 s
+  worker-abandon timeout, which is now shortened for that one test with the branch under test
+  unchanged; and the quadratic track-count pattern above was costing the property-based
+  parser test ~2 s per run.
 - **The EAC log's `Pre-gap length` row would have disagreed with EAC on 9 of 10 values.**
   It rendered the fractional field as CD frames. Every *other* `FF` field in an EAC log is
   frames — the TOC table's are, and ours is byte-identical to EAC's there — but this one is
