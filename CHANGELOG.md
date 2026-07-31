@@ -63,6 +63,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   than being parsed into a field nothing writes down. Every key is always present and `null` when
   unreported, so a reader can tell "the ripper didn't say" from "this build doesn't record it".
 
+- **`docs/cyanrip-improvements-wanted.md` described shipped work as future work** in four of its
+  five sections. §2.1, §2.3, §2.4 and §2.5 each said the Platterpus reader still had to be
+  written — it shipped in v0.5.19 — which is exactly backwards for a document whose purpose is to
+  be handed to whoever works on the fork: they would have read it as "the GUI is not ready for
+  this yet". Each now states the shipped reader, the **exact** line shapes it accepts (both peak
+  styles, all six speed/elapsed labels, all three `-Z` verdict forms), and — more useful than any
+  of that — the constraints under which Platterpus **refuses** a value rather than printing a
+  wrong one: the peak's unit is mandatory, a peak above full scale is rejected, an affirmative C2
+  line must not be printed at all, and the per-track speed row must be indented or it collides
+  with cyanrip's existing disc-level `Speed:` row.
 ### Fixed
 - **One corrupt line of cyanrip output could end a rip in progress.** v0.5.19 closed the
   4300-digit `int()` hole in eight parsers, where the consequence is a field degrading to
