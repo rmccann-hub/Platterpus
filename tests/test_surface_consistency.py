@@ -57,6 +57,7 @@ CRC the report doesn't have turns three red.
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from platterpus.eac_log_export import _accuraterip_line, render_eac_style_log
 from platterpus.parsers.rip_log import (
@@ -77,7 +78,17 @@ from platterpus.rip_report import build_report
 # what the user sees is pinned separately, in
 # ``test_the_per_track_log_line_is_what_the_rendered_log_actually_carries``.
 from platterpus.ui.rip_progress import _ar_cell
-from platterpus.verdict import accuraterip_counts, accuraterip_verdict
+from platterpus.verdict import (
+    AR_STATE_ABSENT,
+    AR_STATE_NO_DATA,
+    AR_STATE_NO_MATCH,
+    AR_STATE_NOT_CHECKED,
+    AR_STATE_OFFSET_VARIANT,
+    AR_STATE_VERIFIED,
+    AR_STATES,
+    accuraterip_counts,
+    accuraterip_verdict,
+)
 
 # TODO(roster): `platterpus.ui.main_window_helpers.fidelity_summary` — the status
 # line — is the fifth surface and is NOT guarded here yet. It is being fixed
@@ -390,6 +401,28 @@ _STATE_VERIFIED = "VERIFIED"
 _STATE_OFFSET = "OFFSET"
 _STATE_NO_MATCH = "NO_MATCH"
 _STATE_ABSENT = "ABSENT"
+_STATE_NOT_CHECKED = "NOT_CHECKED"
+
+# Which verdict state each surface-label stands for. This mapping is the floor:
+# its keys are asserted EQUAL to `verdict.AR_STATES`, so adding a state to the
+# classifier fails this file until the state has a label AND a case below.
+#
+# The old floor hardcoded four state names, which is a floor equal to its own
+# list — it could not notice a fifth state at all, and one was added (`not-checked`)
+# while it stayed green. Same shape as the never-raises roster whose floor equalled
+# its own length (audit, 2026-07-31).
+_LABEL_FOR_AR_STATE: dict[str, str] = {
+    AR_STATE_VERIFIED: _STATE_VERIFIED,
+    AR_STATE_OFFSET_VARIANT: _STATE_OFFSET,
+    AR_STATE_NO_MATCH: _STATE_NO_MATCH,
+    AR_STATE_ABSENT: _STATE_ABSENT,
+    AR_STATE_NOT_CHECKED: _STATE_NOT_CHECKED,
+    # `no-data` is reachable only when a track carries no AR result object at all,
+    # which both surfaces render identically to `absent` by construction — there is
+    # no wording for the two to disagree about. Deliberately unlabelled, and this
+    # comment is the justification the exclusion needs.
+    AR_STATE_NO_DATA: "",
+}
 
 # Row-level precedence: what the *row* claims is its strongest statement. A row
 # can hold two different per-column states (v1 exact, v2 missed, say), and the
@@ -399,6 +432,9 @@ _STATE_PRECEDENCE: tuple[str, ...] = (
     _STATE_VERIFIED,
     _STATE_OFFSET,
     _STATE_NO_MATCH,
+    # Below NO_MATCH: if either column managed a real comparison, that is the
+    # row's strongest claim. NOT_CHECKED means no column had anything to compare.
+    _STATE_NOT_CHECKED,
     _STATE_ABSENT,
 )
 
@@ -411,6 +447,8 @@ def _state_from_log_line(line: str) -> str:
         return _STATE_OFFSET
     if line.startswith("Cannot be verified as accurate"):
         return _STATE_NO_MATCH
+    if line.startswith("Not checked against the AccurateRip database"):
+        return _STATE_NOT_CHECKED
     if line.startswith("Track not present in AccurateRip database"):
         return _STATE_ABSENT
     # Deliberately loud: new wording must be classified on purpose, not silently
@@ -424,6 +462,8 @@ def _state_from_table_cell(cell: str) -> str | None:
         return _STATE_VERIFIED
     if cell.startswith("offset-variant match"):
         return _STATE_OFFSET
+    if cell == "not checked":
+        return _STATE_NOT_CHECKED
     if cell == "in DB, no match":
         return _STATE_NO_MATCH
     if cell == "not in DB":
@@ -442,9 +482,13 @@ def _state_from_table_row(track: TrackResult) -> str:
     take the row's strongest claim — that is what a reader takes away from it.
     """
     offset = track.accuraterip_offset
+    # The lookup status must be handed to the table exactly as the real row does
+    # it — a helper that omits it asks the table a different question from the one
+    # the log answers, and the whole point of this file is that they agree.
+    lookup = track.accuraterip_lookup
     cells = (
-        _ar_cell(track.accuraterip_v1, offset_result=offset),
-        _ar_cell(track.accuraterip_v2, offset_result=offset),
+        _ar_cell(track.accuraterip_v1, offset_result=offset, lookup=lookup),
+        _ar_cell(track.accuraterip_v2, offset_result=offset, lookup=lookup),
     )
     states = {s for s in (_state_from_table_cell(c) for c in cells) if s is not None}
     for state in _STATE_PRECEDENCE:
@@ -520,6 +564,23 @@ AR_STATE_CASES: tuple[tuple[str, str, TrackResult], ...] = (
         ),
     ),
     (
+        "no lookup was made at all — the database has said nothing",
+        _STATE_NOT_CHECKED,
+        TrackResult(
+            number=6,
+            filename="06.flac",
+            copy_crc="AAAA0006",
+            status="ripped successfully",
+            # cyanrip prints the per-track CRC rows even when AccurateRip is off,
+            # which is exactly why this case exists: the CRCs alone used to be read
+            # as proof a comparison happened, so a never-queried disc rendered as
+            # "in DB, no match" — a claim about a database nobody consulted.
+            accuraterip_lookup="disabled",
+            accuraterip_v1=_ar(1, _CYANRIP_NO_MATCH, None),
+            accuraterip_v2=_ar(2, _CYANRIP_NO_MATCH, None),
+        ),
+    ),
+    (
         "in the database, and even the offset variant missed",
         _STATE_NO_MATCH,
         TrackResult(
@@ -550,14 +611,19 @@ def test_the_state_case_table_covers_every_accuraterip_state() -> None:
     guarding three quarters of the surface (the "can this check be satisfied by
     finding nothing?" rule in CLAUDE.md).
     """
+    # Derived, not hardcoded: a state added to the classifier has to appear here.
+    assert set(_LABEL_FOR_AR_STATE) == set(AR_STATES), (
+        "verdict.AR_STATES and this file's label map have diverged — a new "
+        f"classifier state needs a label and a case: "
+        f"{set(AR_STATES) ^ set(_LABEL_FOR_AR_STATE)}"
+    )
+    wanted = {label for label in _LABEL_FOR_AR_STATE.values() if label}
     covered = {expected for _, expected, _ in AR_STATE_CASES}
-    assert covered == {
-        _STATE_VERIFIED,
-        _STATE_OFFSET,
-        _STATE_NO_MATCH,
-        _STATE_ABSENT,
-    }, f"the case table no longer covers every AccurateRip state: {covered}"
-    assert len(AR_STATE_CASES) >= 4
+    assert covered == wanted, (
+        f"the case table no longer covers every AccurateRip state: missing "
+        f"{wanted - covered}, unexpected {covered - wanted}"
+    )
+    assert len(AR_STATE_CASES) >= len(wanted)
 
 
 def test_the_log_and_the_results_table_agree_on_the_accuraterip_state() -> None:
@@ -652,3 +718,51 @@ def test_every_scenario_track_lands_in_the_same_state_on_both_surfaces() -> None
             )
             examined += 1
     assert examined >= 12, f"only {examined} tracks examined across the scenarios"
+
+
+def test_a_zero_checksum_is_never_a_match_on_any_surface() -> None:
+    """cyanrip's own words: "a checksum of 0 is meaningless".
+
+    It prints that caveat on an `Accurip 450:` row whose local CRC is all zeros —
+    and still reports a confidence. Keying on the confidence alone turned that into
+    a positive offset-variant match at confidence 200, so a track nothing was
+    meaningfully compared for announced a partially-accurate match on the results
+    table AND in the archival log.
+
+    Keyed on the zero CRC rather than on cyanrip's wording, so a backend that omits
+    the caveat is covered too.
+    """
+    track = TrackResult(
+        number=9,
+        filename="09.flac",
+        copy_crc="AAAA0009",
+        status="ripped successfully",
+        accuraterip_lookup="disc found in database (max confidence: 200)",
+        accuraterip_v1=_ar(1, _CYANRIP_NO_MATCH, None),
+        accuraterip_v2=_ar(2, _CYANRIP_NO_MATCH, None),
+        accuraterip_offset=_ar(
+            450,
+            "match found, confidence 200, but a checksum of 0 is meaningless",
+            200,
+            local_crc="00000000",
+        ),
+    )
+    assert _state_from_table_row(track) != _STATE_OFFSET, (
+        "an all-zero checksum was rendered as a partially-accurate match"
+    )
+    line = _accuraterip_line(track)
+    assert "offset-variant" not in line, (
+        f"the archival log claimed an offset-variant match from a zero CRC: {line!r}"
+    )
+    # And a REAL offset match on the same shape must still be recognised, so the
+    # guard cannot pass by refusing everything.
+    real = replace(
+        track,
+        accuraterip_offset=_ar(
+            450,
+            "matches Accurip DB, track is partially accurately ripped",
+            200,
+            local_crc="BF62B1DA",
+        ),
+    )
+    assert _state_from_table_row(real) == _STATE_OFFSET

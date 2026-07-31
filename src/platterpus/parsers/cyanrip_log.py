@@ -221,6 +221,18 @@ _ACCURIP_OFFSET = re.compile(
     r"(?:\s+\((?P<result>[^)]*)\))?"
 )
 _ACCURIP_CONFIDENCE = re.compile(r"confidence\s+(?P<value>\d+)")
+# "  Accurip:       disc found in database (max confidence: 200)" — the per-track
+# line that says WHETHER a database lookup happened at all. Also seen: "disabled"
+# (AccurateRip off), "error" (lookup failed), "disc not found in database".
+#
+# It was on the ignore list, with the written reason that the per-track
+# `Accurip vN:` rows only print when the disc was found — so a row's presence was
+# taken as proof a comparison occurred. **That is false**: cyanrip prints the
+# per-track CRC rows in every state, including `disabled`. The consequence was
+# that a disc nobody ever looked up rendered as "in DB, no match", which asserts
+# both that the disc is in the database and that our read disagreed with it
+# (audit, 2026-07-31).
+_TRACK_ACCURIP_STATUS = re.compile(r"^\s+Accurip:\s+(?P<status>\S.*?)\s*$")
 # Finish report.
 _ACCURATE_TOTAL = re.compile(
     r"^Tracks ripped accurately:\s+(?P<hit>\d+)/(?P<total>\d+)"
@@ -609,6 +621,9 @@ class _TrackAcc:
     accuraterip_v1: AccurateRipResult | None = None
     accuraterip_v2: AccurateRipResult | None = None
     accuraterip_offset: AccurateRipResult | None = None
+    # The verbatim text of this track's "Accurip:" status row — the only thing in
+    # the log that says whether a lookup happened. None = the ripper said nothing.
+    accuraterip_lookup: str | None = None
     rip_count: int | None = None
     start_sector: int | None = None
     end_sector: int | None = None
@@ -906,6 +921,7 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_elapsed_clock", _TRACK_ELAPSED_CLOCK),
     ("track_elapsed_seconds", _TRACK_ELAPSED_SECONDS),
     ("track_secure_verdict", _TRACK_SECURE_VERDICT),
+    ("track_accurip_status", _TRACK_ACCURIP_STATUS),
 )
 
 # Lines cyanrip prints at the top level that we KNOWINGLY do not parse. This is
@@ -947,10 +963,20 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^Album Art:\s"), "candidate: cover-art presence"),
     (re.compile(r"^Disc tracks:\s"), "candidate: total tracks on the disc"),
     (re.compile(r"^Tracks to rip:\s"), "candidate: partial-rip marker"),
-    # Whether the DISC was found in AccurateRip at all. The per-track
-    # "Accurip v1/v2:" lines carry the verdict that actually matters, and the
-    # finish report's "Tracks ripped accurately: N/M" summarises it.
-    (re.compile(r"^AccurateRip:\s"), "per-track Accurip lines carry the verdict"),
+    # Whether the DISC was found in AccurateRip at all ("AccurateRip:    found").
+    # Skipped because the INDENTED per-track `Accurip:` row carries the same fact
+    # at finer granularity and is what the classifier reads (see
+    # `_TRACK_ACCURIP_STATUS`). NOT skipped because "the per-track CRC rows only
+    # print when the disc was found" — that was the old reason here and it is
+    # false: cyanrip prints those rows in every state, including `disabled`, which
+    # is how a disc nobody looked up came to render as "in DB, no match".
+    #
+    # Unverified, and it is the reason to keep this line in mind: whether cyanrip
+    # prints per-track `Accurip:` rows at all for a disc that is NOT in the
+    # database. If it does not, this disc-level row is the only signal and will
+    # need parsing. No committed log covers it — it needs a CD-R or an unlisted
+    # pressing on the rig.
+    (re.compile(r"^AccurateRip:\s"), "the indented per-track Accurip: row is read"),
     # Pure structure: a section marker with no value of its own.
     (re.compile(r"^Tracks:\s*$"), "section marker, no payload"),
     (re.compile(r"^Summary:\s*$"), "section marker, no payload"),
@@ -1093,6 +1119,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
                 accuraterip_v1=current.accuraterip_v1,
                 accuraterip_v2=current.accuraterip_v2,
                 accuraterip_offset=current.accuraterip_offset,
+                accuraterip_lookup=current.accuraterip_lookup,
                 rip_count=current.rip_count,
                 secure_rerip_converged=current.secure_rerip_converged,
                 start_sector=current.start_sector,
@@ -1420,6 +1447,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
                     current.accuraterip_v2 = ar
                 else:
                     current.accuraterip_v1 = ar
+                continue
+
+            match = _TRACK_ACCURIP_STATUS.match(line)
+            if match:
+                current.accuraterip_lookup = match.group("status")
                 continue
 
             match = _ACCURIP_OFFSET.match(line)
