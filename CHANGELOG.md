@@ -11,6 +11,50 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Platterpus now reads the cyanrip lines the maintainer's fork will emit — without requiring
+  them.** AppImage users run the *deployed* cyanrip 0.9.3, which prints none of these, so the
+  whole change is written to one rule: **absent means absent.** A field no ripper reported stays
+  `None` and every surface renders exactly what it renders today; the parse of every committed
+  real log is byte-identical except for the one line below that 0.9.3 *does* print. Four new
+  rows are understood (specification: `docs/cyanrip-improvements-wanted.md`):
+  - **A per-track sample peak** (§2.1) fills EAC's `Peak level` row, in both plausible print
+    shapes (inline `Sample peak:  -0.5 dBFS`, or cyanrip's existing sub-header style). The unit
+    is required, never assumed. **cyanrip's existing `True peak:` can never reach this field** —
+    it is a different quantity that legitimately exceeds full scale (all fourteen reference
+    tracks do, 100.8 %–109.7 %), and EAC's row is a percentage of full scale that cannot exceed
+    100 %. Two independent guards enforce it: the peak's own label decides which quantity it is,
+    and any value above full scale is refused and logged rather than printed.
+  - **A per-track extraction speed and elapsed time** (§2.3). The speed multiple fills EAC's
+    `Extraction speed` row; the elapsed gets a row of its own, rendered only when measured.
+    Deliberately *not* converted into a speed — what cyanrip's interval covers is unknown, so a
+    derived number would be a guess wearing EAC's label.
+  - **The `-Z` secure-re-read verdict written into the log file** (§2.4), with all three states
+    it has: converged, did **not** converge, and not attempted. The middle one is why this
+    matters — cyanrip's health line says "No errors occurred" for a track that never read the
+    same way twice, so a log re-read from disk could not tell it from a clean one. An indented
+    verdict belongs to the open track; the existing column-0 stdout form still buffers for the
+    next track, unchanged. An unrecognised wording is *no opinion*, so it can never erase a
+    verdict already measured (the GUI's own auto-fix verdict still wins).
+  - **`C2 errors: supported by drive, not used`** (§2.5) now maps to a truthful `No` for EAC's
+    `Make use of C2 pointers`. A bare `supported by drive` still maps to *unknown*, because that
+    line states a drive **capability** and EAC's row asks what the rip **did** — the distinction
+    that keeps the row honest.
+- **`Appended: N frames of silence` is no longer discarded** — cyanrip 0.9.3 has been printing
+  it all along (track 14 of both committed reference rips) and the parser's own enumerable check
+  flagged it as the best line we still threw away. It names the track whose **final frames are
+  fabricated silence rather than disc audio** — the per-track consequence of overread being off —
+  so it becomes a per-track field and a line in the EAC-layout log's status report, beside the
+  read-stability caveat and above the integrity checksum that covers it. The per-track blocks
+  stay byte-comparable with a real EAC log, which is why the line goes in the status area.
+
+### Changed
+- `parsers/cyanrip_log.py` now routes every integer conversion through the shared
+  `platterpus.safe_int.int_or_none` guard instead of a private copy of it. This was the module
+  the never-raises hole was found in, and the one module still not using the guard that finding
+  produced; each call site now also names its field, so an unusable value is diagnosable from a
+  bug report.
+
 ## [0.5.19] — 2026-07-31
 
 ### Fixed

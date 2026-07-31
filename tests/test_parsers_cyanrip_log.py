@@ -687,6 +687,11 @@ def test_indented_lines_report_what_the_parser_reads_and_what_it_skims() -> None
         "loudness_integrated",
         "loudness_range",
         "loudness_true_peak",
+        # Graduated out of the skimmed residue on 2026-07-31: this row names the
+        # track whose final frames are FABRICATED SILENCE rather than disc audio,
+        # which is an archival-fidelity claim, not per-track noise. Listing it here
+        # is what stops it sliding back into the residue unnoticed.
+        "track_appended_silence",
     }
     assert must_read <= set(recognised), sorted(must_read - set(recognised))
     assert sum(recognised.values()) >= 400, dict(recognised)
@@ -786,3 +791,474 @@ def test_album_rows_inside_a_track_block_do_not_overwrite_the_disc_album() -> No
     assert log.ripping_info.output_formats == "flac"
     # And the track itself still parsed normally around those lines.
     assert log.tracks[0].copy_crc == "B0D122E7"
+
+
+# --- Reading a FUTURE cyanrip: the fork-only rows (2026-07-31) ----------------
+# The maintainer is fixing cyanrip in their own fork, and Platterpus must read the
+# new lines the moment they appear WITHOUT requiring them: AppImage users run the
+# deployed 0.9.3, so one build has to be correct against both. Every case below
+# comes in a pair — the line PRESENT, and the line ABSENT — because the absent half
+# is the one that ships today and the one a careless "improvement" would break.
+#
+# Specification: docs/cyanrip-improvements-wanted.md §2.1 (sample peak), §2.3
+# (per-track speed/elapsed), §2.4 (the -Z verdict in the log file), §2.5 (C2 use
+# vs capability). The `Appended:` row is NOT fork-only — 0.9.3 prints it already.
+
+# The per-track loudness block cyanrip 0.9.3 REALLY prints, verbatim in shape from
+# `output_reference/cyanrip_flac/`. Note what it contains: a TRUE peak of +0.3 dBFS
+# and a ReplayGain track peak of 1.029445 — both ABOVE full scale, which is exactly
+# why neither may ever become EAC's `Peak level`.
+_TRUE_PEAK_ONLY_LOG = """\
+cyanrip 0.9.3 (release)
+Offset:         +667 samples
+
+Track 1 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.9 LUFS
+    Threshold: -24.3 LUFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  EAC CRC32:     B0D122E7
+  Metadata:
+    REPLAYGAIN_TRACK_PEAK:         1.029445
+
+Ripping errors: 0
+"""
+
+
+def test_a_true_peak_line_alone_leaves_the_peak_level_unreported() -> None:
+    """THE critical absent-case: cyanrip's true peak must never fill EAC's row.
+
+    EAC's `Peak level` is the SAMPLE peak as a percentage of full scale and cannot
+    exceed 100 %. cyanrip 0.9.3 reports only the TRUE (4x-oversampled) peak, a
+    different quantity that legitimately goes over full scale — all fourteen tracks
+    of the committed reference disc do (`REPLAYGAIN_TRACK_PEAK` 1.008499–1.097464).
+    Letting it through would print a wrong number into a checksum-attested archival
+    document where today we honestly print "(not reported by the ripper)".
+
+    So: the true-peak line, the ReplayGain peak tag, and both together leave
+    `peak_level` at None. This is the test the whole sample-peak feature is built
+    around — if it ever goes green while `peak_level` is set, the feature is a bug.
+    """
+    (track,) = parse_cyanrip_log(_TRUE_PEAK_ONLY_LOG).tracks
+    assert track.peak_level is None
+    # The true peak IS still readable elsewhere — it just isn't this field.
+    assert track.replaygain["REPLAYGAIN_TRACK_PEAK"] == "1.029445"
+
+
+def test_a_true_peak_below_full_scale_is_still_not_the_sample_peak() -> None:
+    """The case the above-full-scale refusal CANNOT catch — so it isolates the guard.
+
+    Found by reverting: the test above still passes with the "which peak is this?"
+    guard removed, because the reference disc's true peak (+0.3 dBFS) is over full
+    scale and the second guard refuses it anyway. That redundancy is welcome but it
+    hides which defence is doing the work — and on a QUIET track the true peak is
+    legitimately *below* 0 dBFS, where only the header state can tell the two
+    quantities apart. -6 dBFS would sail through as a plausible "50.1 %".
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  True peak:\n"
+        "    Peak:       -6.0 dBFS\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.tracks[0].peak_level is None
+
+
+def test_a_bare_peak_line_with_no_header_is_not_a_sample_peak() -> None:
+    """No armed "Sample peak:" header → the value line stays skimmed.
+
+    A log whose sub-headers were lost (a copy-paste, a trimmed log) must not have
+    its bare `Peak:` line promoted into the sample-peak field by default.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "    Peak:        0.3 dBFS\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.tracks[0].peak_level is None
+
+
+# A fork log: every new line present, in the two shapes each could plausibly take.
+# Track 1 uses the sub-header form (how cyanrip already prints `True peak:`) and
+# clock durations; track 2 uses the inline form and a plain-seconds elapsed.
+_FORK_LOG = """\
+cyanrip 0.9.3.1-fork (platterpus)
+Offset:         +667 samples
+C2 errors:      supported by drive, not used
+Disc tracks:    2
+
+Track 1 ripped and encoded successfully!
+Summary:
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Sample peak:
+    Peak:       -0.5 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03:13.180
+    Pregap LSN:  none
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14486
+
+  Elapsed:     00:02:41.005
+  Speed:       1.6x
+  EAC CRC32:     B0D122E7 (after 2 rips)
+  Secure re-read: converged (2 out of 2 matches for current checksum B0D122E7)
+  File(s):
+    Album/01 - One.flac
+
+Track 2 ripped and encoded successfully!
+  Sample peak:  -1.0 dBFS
+  Extraction speed: 2.4 X
+  Extraction time: 161.5 s
+  Properties:
+    Appended:    2 frames of silence
+  EAC CRC32:     985AAE32 (after 5 rips)
+  Secure re-read: did NOT converge (no matches found, but hit repeat limit of 5)
+
+Ripping errors: 0
+Ripping finished at 2026-08-01 10:00:00
+"""
+
+
+def test_a_fork_sample_peak_fills_the_peak_level_as_a_linear_fraction() -> None:
+    """Both print shapes, converted to the unit the EAC row actually renders.
+
+    `TrackResult.peak_level` is a linear fraction because
+    `eac_log_export._track_block` renders `peak_level * 100:.1f %`. -0.5 dBFS is
+    94.4 % of full scale; -1.0 dBFS is 89.1 %.
+    """
+    by_number = {t.number: t for t in parse_cyanrip_log(_FORK_LOG).tracks}
+    assert by_number[1].peak_level == pytest.approx(10 ** (-0.5 / 20))
+    assert by_number[2].peak_level == pytest.approx(10 ** (-1.0 / 20))
+    # And the sub-header form did NOT let the true peak (+0.3 dBFS, above full
+    # scale) win — track 1 has both lines, in cyanrip's own order.
+    assert by_number[1].peak_level is not None
+    assert by_number[1].peak_level < 1.0
+
+
+def test_a_sample_peak_above_full_scale_is_refused_not_clamped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A second line of defence, in case a fork wires the wrong number in.
+
+    EAC's row is a percentage of full scale, so >100 % is not a sample peak at all
+    — it is almost certainly the true peak arriving under the wrong label. Refusing
+    keeps the honest "(not reported)" cell; clamping would print a plausible 100.0 %
+    that nothing measured. The refusal is logged, because a dependency's unusable
+    output must be diagnosable from a bug report (CLAUDE.md).
+
+    The last case is not decoration: an absurd positive dBFS must be refused
+    *before* the 10**(dB/20) conversion, because `10.0 ** (999999 / 20)` raises
+    OverflowError — a parser documented "never raises" doing exactly that. The
+    range check afterwards would be too late.
+    """
+    lines = (
+        "  Sample peak:  0.3 dBFS",  # cyanrip's real TRUE peak, track 1
+        "  Sample peak:  102.9 %",  # its ReplayGain peak, as a percentage
+        "  Sample peak:  999999 dBFS",  # would OverflowError if converted
+    )
+    with caplog.at_level(logging.WARNING, logger="platterpus.parsers.cyanrip_log"):
+        for line in lines:
+            log = parse_cyanrip_log(
+                "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
+                f"{line}\n  EAC CRC32:     B0D122E7\n"
+            )  # must not raise
+            assert log.tracks[0].peak_level is None, line
+    assert "above full scale" in caplog.text or "outside" in caplog.text, caplog.text
+
+
+def test_a_sample_peak_with_no_unit_is_refused() -> None:
+    """dBFS and a linear fraction are indistinguishable in this range.
+
+    "Sample peak: 0.942" could be 94.2 % (linear) or 111.5 % (dBFS). An archival
+    peak read in the wrong unit is worse than a labelled gap, so the unit is
+    required rather than assumed.
+
+    The negative case is the one that isolates the rule (found by reverting): a
+    bare "0.942" read as dBFS lands above full scale and the refusal above catches
+    it anyway, but a bare "-0.5" read as dBFS would quietly become a
+    plausible-looking 94.4 % from a number whose unit nobody stated.
+    """
+    for value in ("0.942", "-0.5"):
+        log = parse_cyanrip_log(
+            "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
+            f"  Sample peak:  {value}\n  EAC CRC32:     B0D122E7\n"
+        )
+        assert log.tracks[0].peak_level is None, value
+
+
+def test_a_full_scale_sample_peak_is_accepted_at_exactly_100_percent() -> None:
+    """0 dBFS is legal (a clipped track), and it is the boundary of the refusal."""
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
+        "  Sample peak:  0.0 dBFS\n  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.tracks[0].peak_level == pytest.approx(1.0)
+
+
+def test_an_album_sample_peak_does_not_overwrite_the_album_true_peak() -> None:
+    """The disc-level twin of the same trap.
+
+    `album_loudness["true_peak_dbfs"]` is cyanrip's true peak. If a fork adds a
+    sample peak to the Album Loudness Summary, capturing it under the same key
+    would silently replace one loudness quantity with another.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\n"
+        "Album Loudness Summary:\n"
+        "\n"
+        "  Integrated loudness:\n"
+        "    I:         -13.9 LUFS\n"
+        "\n"
+        "  True peak:\n"
+        "    Peak:        0.8 dBFS\n"
+        "\n"
+        "  Sample peak:\n"
+        "    Peak:       -0.6 dBFS\n"
+    )
+    assert log.album_loudness == {
+        "integrated_lufs": "-13.9",
+        "true_peak_dbfs": "0.8",
+        "sample_peak_dbfs": "-0.6",
+    }
+
+
+def test_a_fork_per_track_speed_and_elapsed_are_parsed() -> None:
+    """§2.3's two halves: the speed multiple (EAC's row) and the wall-clock."""
+    by_number = {t.number: t for t in parse_cyanrip_log(_FORK_LOG).tracks}
+    assert by_number[1].extraction_speed == pytest.approx(1.6)
+    # 00:02:41.005 → 161.005 s
+    assert by_number[1].extraction_elapsed_seconds == pytest.approx(161.005)
+    assert by_number[2].extraction_speed == pytest.approx(2.4)
+    assert by_number[2].extraction_elapsed_seconds == pytest.approx(161.5)
+
+
+def test_an_mm_ss_elapsed_is_parsed_as_well_as_hh_mm_ss() -> None:
+    """cyanrip writes durations both ways across versions ("03:51.44", "00:03:51.44").
+
+    A pattern that only accepted the long form would silently drop the value, which
+    is the failure mode this whole file is a museum of.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
+        "  Elapsed time: 03:51.44\n  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.tracks[0].extraction_elapsed_seconds == pytest.approx(231.44)
+
+
+def test_an_indented_per_track_speed_is_not_the_disc_speed_capability() -> None:
+    """cyanrip's banner already has a column-0 "Speed:" row; they must not collide.
+
+    The banner row answers "can this drive change read speed?" (`-S` aborts the rip
+    when it cannot). A per-track row answers "how fast did this track read?".
+    Indentation is the only difference in the text, so it is the discriminator.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\n"
+        "Speed:          default (unchangeable)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Speed:       1.6x\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.ripping_info.speed_changeable is False  # the banner row, untouched
+    assert log.tracks[0].extraction_speed == pytest.approx(1.6)
+
+
+def test_a_fork_secure_verdict_line_records_all_three_states() -> None:
+    """§2.4: converged / did NOT converge / not attempted — three states, not two.
+
+    The middle one is the whole point. Today cyanrip prints "(after 5 rips)" while
+    its health line still says "No errors occurred", so a track that never read the
+    same way twice is indistinguishable from a clean one in the saved log.
+    """
+    by_number = {t.number: t for t in parse_cyanrip_log(_FORK_LOG).tracks}
+    assert by_number[1].secure_rerip_converged is True
+    assert by_number[2].secure_rerip_converged is False
+    # "not attempted" is the third state: no verdict, not a False.
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
+        "  Secure re-read: not attempted (-Z was not requested)\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.tracks[0].secure_rerip_converged is None
+
+
+def test_an_indented_done_line_belongs_to_the_track_already_open() -> None:
+    """The cheapest upstream fix: route the EXISTING "Done;" text through the log.
+
+    That lands the same string INDENTED inside the per-track block. It must attach
+    to the open track — not be buffered for the next one, which is what the
+    column-0 stdout form means (and that path is asserted unchanged below).
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     B0D122E7 (after 5 rips)\n"
+        "  Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     985AAE32\n"
+    )
+    by_number = {t.number: t for t in log.tracks}
+    assert by_number[1].secure_rerip_converged is False
+    # …and it did NOT leak forward onto track 2.
+    assert by_number[2].secure_rerip_converged is None
+
+
+def test_a_column_zero_done_line_still_buffers_for_the_next_track() -> None:
+    """The 0.9.3 stdout behaviour, pinned so the new indented path can't change it.
+
+    `test_secure_rerip_convergence_recorded_per_track` covers this on a four-track
+    fixture; this one states the *rule* — column 0 means "the next track" — so a
+    future refactor of the indented path names what it broke.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3 (release)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     B0D122E7\n"
+        "Done; (2 out of 2 matches for current checksum 985AAE32)\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     985AAE32\n"
+    )
+    by_number = {t.number: t for t in log.tracks}
+    assert by_number[1].secure_rerip_converged is None
+    assert by_number[2].secure_rerip_converged is True
+
+
+def test_an_unrecognised_secure_verdict_never_erases_a_measured_one() -> None:
+    """An unfamiliar future wording must cost nothing, not a verdict.
+
+    The upstream phrasing is unread (§2.4 says so), so the parser matches the
+    *sense*. The safe failure for a sense it cannot read is "no opinion" — leaving
+    whatever was already measured, including the GUI auto-fix verdict that
+    overrides this field later (`_merge_shipped_track`) and must stay the last word.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\n"
+        "Done; (2 out of 2 matches for current checksum B0D122E7)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Secure re-read: quantum superposition\n"
+        "  EAC CRC32:     B0D122E7\n"
+    )
+    assert log.tracks[0].secure_rerip_converged is True
+
+
+def test_c2_supported_but_not_used_is_a_truthful_no() -> None:
+    """§2.5: the new wording states USE, so it can answer EAC's question.
+
+    And the old wording must keep its old meaning: a bare "supported by drive" is a
+    drive CAPABILITY, which says nothing about whether the rip used C2 — that
+    distinction is the entire reason EAC's row is honest here, and
+    `test_c2_capability_is_not_reported_as_c2_use` pins the rendering side.
+    """
+
+    def c2_of(line: str) -> bool | None:
+        return parse_cyanrip_log(f"cyanrip 0.9.3\n{line}\n").ripping_info.c2_pointers
+
+    assert c2_of("C2 errors:      supported by drive, not used") is False
+    assert c2_of("C2 errors:      supported by drive, unused by the reader") is False
+    # Unchanged, deliberately:
+    assert c2_of("C2 errors:      supported by drive") is None
+    assert c2_of("C2 errors:      unsupported by drive") is False
+
+
+def test_appended_silence_frames_are_read_from_the_real_committed_logs() -> None:
+    """Not fork-only: cyanrip 0.9.3 prints this and we discarded it until now.
+
+    It names the track whose FINAL FRAMES ARE FABRICATED SILENCE rather than disc
+    audio — the per-track consequence of overread being off. Read from the committed
+    real logs rather than a fixture we wrote, because a fixture we wrote is not
+    evidence that cyanrip emits the line (docs/testing.md §5.t).
+    """
+    logs = _corpus_logs()
+    assert len(logs) >= 2, logs
+    examined = 0
+    for path in logs:
+        parsed = parse_cyanrip_log(path.read_text(encoding="utf-8", errors="replace"))
+        assert len(parsed.tracks) == 14, path.name
+        padded = {
+            t.number: t.appended_silence_frames
+            for t in parsed.tracks
+            if t.appended_silence_frames
+        }
+        assert padded == {14: 2}, f"{path.name}: {padded}"
+        examined += len(parsed.tracks)
+    assert examined >= 28, examined
+
+
+def test_todays_real_cyanrip_logs_report_none_of_the_fork_only_fields() -> None:
+    """THE absent-case sweep, over the committed real 0.9.3 logs.
+
+    AppImage users run the deployed cyanrip, which prints none of these lines. This
+    is the test that says so with the actual bytes: every fork-only per-track field
+    is None on every track of every committed log, so one build behaves identically
+    against the deployed ripper and the fork.
+    """
+    logs = _corpus_logs()
+    assert len(logs) >= 2, logs
+    examined = 0
+    for path in logs:
+        parsed = parse_cyanrip_log(path.read_text(encoding="utf-8", errors="replace"))
+        for track in parsed.tracks:
+            examined += 1
+            assert track.peak_level is None, (path.name, track.number)
+            assert track.extraction_speed is None, (path.name, track.number)
+            assert track.extraction_elapsed_seconds is None, (path.name, track.number)
+            assert track.secure_rerip_converged is None, (path.name, track.number)
+        # The album true peak keeps its own key; no sample peak is invented.
+        assert "sample_peak_dbfs" not in parsed.album_loudness, path.name
+        assert parsed.album_loudness.get("true_peak_dbfs"), path.name
+    # Floor: 14 tracks x 2 logs. A check that examined nothing proves nothing.
+    assert examined >= 28, examined
+
+
+# One past CPython's 4300-digit conversion ceiling (see safe_int.py). Hypothesis
+# never generates this, so it is pinned — the same reasoning as
+# `test_parsers_property.test_an_absurdly_long_number_never_raises`, extended to
+# the rows added on 2026-07-31.
+_OVER_THE_DIGIT_LIMIT = "9" * 4301
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"  Sample peak:  -{_OVER_THE_DIGIT_LIMIT}.0 dBFS",
+        f"  Sample peak:  {_OVER_THE_DIGIT_LIMIT} %",
+        f"  Speed:       {_OVER_THE_DIGIT_LIMIT}x",
+        f"  Elapsed:     {_OVER_THE_DIGIT_LIMIT}:00:00",
+        f"  Elapsed:     00:00:{_OVER_THE_DIGIT_LIMIT}",
+        f"  Extraction time: {_OVER_THE_DIGIT_LIMIT} s",
+        f"    Appended:    {_OVER_THE_DIGIT_LIMIT} frames of silence",
+        f"  Secure re-read: {_OVER_THE_DIGIT_LIMIT} out of 2 matches",
+    ],
+)
+def test_an_absurdly_long_number_in_a_new_field_never_raises(line: str) -> None:
+    """The new rows uphold the never-raises contract, by being BOUNDED.
+
+    Every new quantifier is `\\d{1,N}`, so an over-limit digit run cannot even
+    match — the conversion is never reached and the field stays unknown. That is
+    stronger than catching the error afterwards, and it is also what keeps these
+    patterns out of `tests/test_regex_bounded_time.py`'s super-linear findings.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3-fork\nTrack 1 ripped and encoded successfully!\n"
+        f"{line}\n  EAC CRC32:     B0D122E7\n"
+    )  # must not raise
+    (track,) = log.tracks
+    assert track.peak_level is None
+    assert track.extraction_speed is None
+    assert track.extraction_elapsed_seconds is None
+    assert track.appended_silence_frames is None
