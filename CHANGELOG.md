@@ -12,6 +12,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **"Open externally…", "Open rip folder" and Help → Open logs folder could silently do nothing.**
+  `QDesktopServices.openUrl` returns False when nothing on the system claims the URL — no file
+  manager wired up, or (the common one on a fresh KDE) no application associated with a bare
+  `.log`. Three of the four call sites threw that bool away, so the click produced no window, no
+  error and no log line: "may or may not work", decided by whether the machine happens to have an
+  association. The window's own logs-folder button had always handled it *inline*, which is why
+  the other three never got it. That fallback is now `ui/external_open.py`, shared by all four:
+  a refusal shows the full path to copy and is written to the log file.
+- **"View log" could show an errno instead of the log that was right there.** It preferred the
+  backend's `.log` unconditionally, including when that file never appeared — while the real-time
+  app log sat readable beside it. The choice is now made at *click* time, which is the one moment
+  the answer is knowable; the backend log still wins whenever it exists.
 - **The EAC-layout log said "INCOMPLETE RIP … 2 of 14 disc tracks" at the top and "All tracks
   accurately ripped" sixty lines below it** — two contradictory claims inside one SHA-256-attested
   document (real artifact off the rig, 2026-08-01). The end-of-rip status report decided its

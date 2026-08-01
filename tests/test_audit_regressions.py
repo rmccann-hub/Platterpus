@@ -1237,3 +1237,33 @@ def test_a_deliberate_subset_rip_is_a_clean_sweep_of_what_was_asked() -> None:
     )
     assert "All tracks accurately ripped" in text
     assert "INCOMPLETE RIP" not in text
+
+
+def test_open_logs_folder_still_reports_a_refusal_through_the_shared_helper(
+    window, monkeypatch
+) -> None:
+    """The one openUrl call site that was already right must survive the move.
+
+    Help → Open logs folder had always checked the bool and shown the path when
+    the desktop declined. That behaviour lived inline, which is why the rip
+    pane's two buttons and the viewer's "Open externally…" never got it — the
+    §5.o shape again: a rule enforced where it was learned and nowhere else. It
+    is now `ui/external_open.open_path_externally`, shared by all four. This
+    pins the original site's behaviour across that move; the other three are in
+    `tests/test_ui_external_open.py`.
+    """
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMessageBox
+
+    bodies: list[str] = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", staticmethod(lambda _url: False))
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda _parent, _title, text, *a: bodies.append(text),
+    )
+
+    window._on_open_logs_folder()
+
+    assert len(bodies) == 1, "a refused open must not be silent"
+    assert "platterpus" in bodies[0].lower(), "the user must be given the path"
