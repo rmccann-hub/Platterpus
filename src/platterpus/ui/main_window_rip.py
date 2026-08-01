@@ -2695,6 +2695,13 @@ class RipMixin(MainWindowShared):
             target = log_file.with_name(f"{log_file.stem} (EAC-compatible).log")
             target.write_text(text, encoding="utf-8")
             log.info("wrote EAC-layout companion log: %s", target)
+            # The JSON report embeds this file's text (v12 `artifacts`), and it
+            # is written AFTER the report's first write — so without this the
+            # one file the user uploads would carry `eac_log.exists: false` for
+            # a log sitting right beside it. Re-arm the debounced write; it
+            # coalesces with the async verifies' re-writes, so this costs
+            # nothing when they are also pending.
+            self._schedule_rip_report_write()
         except Exception:  # noqa: BLE001 — a companion log must never crash finish
             log.warning("could not write EAC-layout log", exc_info=True)
 
@@ -2722,7 +2729,12 @@ class RipMixin(MainWindowShared):
         """
         from datetime import datetime
 
-        from platterpus import build_info, read_speed_ladder, rip_report
+        from platterpus import (
+            build_info,
+            read_speed_ladder,
+            report_artifacts,
+            rip_report,
+        )
 
         # environment: the live Python/OS/PySide6/channel probe, plus the
         # per-dependency versions + locations from the LAUNCH-TIME dependency
@@ -2759,6 +2771,17 @@ class RipMixin(MainWindowShared):
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
             debug_log=self._build_rip_debug_log(),
+            # The verbatim text of the three files written beside this report
+            # (v12). Derived from `log_file`, so a library move — which re-calls
+            # this with the new path — re-reads them from their new home rather
+            # than embedding a stale copy. Reading three small text files is
+            # microseconds; this is already off the rip's critical path (the
+            # write is debounced), so it does not warrant a worker thread.
+            artifacts=report_artifacts.build_artifacts(
+                rip_log=log_file,
+                eac_log=log_file.with_name(f"{log_file.stem} (EAC-compatible).log"),
+                cue=log_file.with_suffix(".cue"),
+            ),
             # v7 process/settings/provenance blocks. `outcome`/`disc` are
             # snapshotted at finish (worker/params are cleared before the debounced
             # re-writes); `settings`/`gates` come from the persistent config +
@@ -2766,7 +2789,23 @@ class RipMixin(MainWindowShared):
             outcome=getattr(self, "_last_outcome", None),
             # The disc's own track count, so the JSON's verdict and the window's
             # agree about the denominator on a rip that stopped early.
-            disc_track_total=getattr(self, "_last_expected_track_total", None),
+            #
+            # The snapshot is only taken at finish, so it is None for every
+            # re-write DURING a rip — and with no denominator the verdict said
+            # "✓ Bit-perfect: all 2 tracks verified" over a 2-of-14 rip that was
+            # still running (found on the rig, 2026-08-01). The EAC-layout log
+            # beside it used the live count and said "2 of 14", so our two
+            # archival artifacts disagreed. Falling back to the same computation
+            # the finish path uses keeps them in step, and folds in the Rip?
+            # selection so a *deliberate* subset is not reported as 12 missing
+            # tracks — the false alarm the finish-time fix already had to solve.
+            disc_track_total=getattr(self, "_last_expected_track_total", None)
+            or expected_track_total(
+                getattr(self, "_current_num_tracks", 0) or None,
+                getattr(self._active_rip_params, "only_tracks", ())
+                if getattr(self, "_active_rip_params", None) is not None
+                else (),
+            ),
             settings=rip_report.build_settings(
                 self._config,
                 read_offset_effective=getattr(

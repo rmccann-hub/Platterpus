@@ -766,6 +766,51 @@ Three shapes that work here, all in `tests/test_qthread_ownership.py`:
 The test that only covers the instance you just fixed is the cheapest test to write and
 the one most likely to let the same bug back in somewhere else.
 
+**A behaviour travels only if it is a callable** (added 2026-08-01). `openUrl` returns
+False when no application claims a URL; the window's Help → Open logs folder checked
+that bool and showed the path instead, correctly, **inline**. The rip pane's two open
+buttons and the file viewer's "Open externally…" were written later, without it, and
+were silently inert on any desktop with no handler for a bare `.log` — which is the
+same desktop the in-app viewer exists to serve. Nobody violated a rule: the rule was a
+seven-line block inside one method, and there was nothing to reuse. When the thing you
+learned is a *behaviour* rather than a value, extracting it to a shared function
+(`ui/external_open.py`) is part of the fix, not a later cleanup — a pattern that lives
+only as a shape in one method will not be copied into the next one.
+
+
+### 5.n — Record the denominator; don't recompute it (added 2026-08-01)
+
+One mistake has now been fixed **four times** in four files: *the log's own track
+list used as the population for a completeness claim.* The trust banner, the JSON
+verdict, the in-progress report write, and finally the EAC-layout status report —
+each compared "how many tracks verified" against `len(rip_log.tracks)`. A cancel
+removes tracks from that list, so both sides of the comparison shrink together and
+a 2-of-14 rip reports a clean sweep. The last instance printed **`All tracks
+accurately ripped`** sixty lines below its own `INCOMPLETE RIP … 2 of 14 disc
+tracks` banner, inside one SHA-256-attested document.
+
+Four fixes, four guards, same shape. The pattern is not "add a fifth guard" — it is
+that **a derived population is not a fact, and every consumer that re-derives it is
+a fresh chance to derive it wrong.** The real fix is to *record* the number once,
+where it is known, as data:
+
+- `verdict.expected_track_total()` — the number the rip was **asked** for, which is
+  the disc's count or fewer when the user ticked a subset. One function, so a
+  deliberate 2-of-14 selection is complete and a cancelled one is not.
+- `report["completeness"]` (schema v12) — that number, written into the artifact.
+  It had reached the report builder for three releases *as an argument* and was
+  never serialized, so the JSON's only track count remained `len(tracks)` and a
+  reader had to parse English out of `verdict.message` to learn better.
+
+When reviewing: **any expression of the form `len(<the thing we parsed>)` used as a
+denominator for a claim about completeness is a defect until proven otherwise.** Ask
+where the authoritative count lives, and whether the artifact states it. If the
+artifact cannot answer "how many were there supposed to be?" without arithmetic on
+its own contents, the next surface will get it wrong too.
+
+Same family as §5.t's "a floor equal to the population it measures is not a floor":
+both are a measurement taken against something that moves with the thing measured.
+
 
 ## 6. Definition of Done (testing) — paste into every PR
 
@@ -833,4 +878,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.5.21.*
+*Last updated for Platterpus v0.6.0.*

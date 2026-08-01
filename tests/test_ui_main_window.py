@@ -7478,3 +7478,189 @@ def test_the_embedded_debug_log_excludes_other_albums_rips(teardown_threads) -> 
     window._current_rip_window = None
     block = window._build_rip_debug_log()
     assert block is not None and set(block) >= {"scope", "truncated", "lines"}
+
+
+def test_an_in_progress_report_does_not_claim_bit_perfect_for_the_whole_disc(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Found on the rig, 2026-08-01, mid-rip: the JSON claimed the disc was done.
+
+    The report is re-written throughout a rip. `disc_track_total` was read only
+    from `_last_expected_track_total`, which is snapshotted at *finish* — so every
+    in-progress write passed `None`, the verdict had no denominator, and a 2-of-14
+    rip still running serialised:
+
+        "✓ Bit-perfect: all 2 tracks verified against AccurateRip (confidence 129+)"
+
+    The EAC-layout log written beside it used the live disc count and said "2 of
+    14", so the two archival artifacts disagreed about the same rip. If the app
+    dies or the rip is cancelled at that moment, that JSON is the record left on
+    disk.
+
+    Driven through the real debounced writer with the window in exactly the state
+    the rig was in: params active, disc count known, finish never reached.
+    """
+    import json as _json
+
+    from platterpus.parsers.rip_log import (
+        AccurateRipResult,
+        RipLog,
+        TrackResult,
+    )
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+            cover_art="",
+        )
+    )
+    album_dir = tmp_path / "The Police" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+
+    # Mid-rip state: the disc is known to have 14 tracks, params are live, and
+    # `_on_rip_finished` has NOT run — so no snapshot exists.
+    window._current_num_tracks = 14
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+    )
+    assert getattr(window, "_last_expected_track_total", None) is None, (
+        "this test is only meaningful before the finish-time snapshot is taken"
+    )
+
+    def _ar(conf: int) -> AccurateRipResult:
+        return AccurateRipResult(
+            version=2,
+            result=f"accurately ripped, confidence {conf}",
+            confidence=conf,
+            local_crc="AAAA1111",
+        )
+
+    window._last_rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=tuple(
+            TrackResult(
+                number=n,
+                copy_crc=f"BBBB000{n}",
+                status="ripped successfully",
+                accuraterip_v2=_ar(200),
+                accuraterip_lookup="disc found in database (max confidence: 200)",
+            )
+            for n in (1, 2)
+        ),
+    )
+    window._last_rip_log_file = log_file
+    window._flush_rip_report()
+
+    report = _json.loads((album_dir / "Album.platterpus.json").read_text())
+    message = report["verdict"]["message"] or ""
+    assert "all 2 tracks" not in message, (
+        f"the report claimed the whole disc was done mid-rip: {message!r}"
+    )
+    assert "2 of 14" in message, (
+        f"expected the disc's own count as the denominator; got {message!r}"
+    )
+    assert report["verdict"]["level"] != "ok", (
+        "a rip with 12 tracks still to go must not be a green verdict"
+    )
+
+
+def test_the_json_report_embeds_the_three_files_written_beside_it(
+    teardown_threads, tmp_path
+) -> None:
+    """Schema v12's whole point, driven through the window that assembles it.
+
+    The maintainer can upload one file. Every hardware diagnosis so far has
+    started by asking for a second one, so the report now carries the verbatim
+    text of cyanrip's own .log, our EAC-layout render, and the .cue.
+    """
+    import json
+
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = True
+    log_file = tmp_path / "The Police - Album.log"
+    log_file.write_text("cyanrip 0.9.3\nDisc tracks:    14\n", encoding="utf-8")
+    (tmp_path / "The Police - Album.cue").write_text(
+        'FILE "01 - Roxanne.flac" WAVE\n', encoding="utf-8"
+    )
+    rip_log = RipLog(log_creator="cyanrip 0.9.3", tracks=(TrackResult(number=1),))
+
+    window._write_eac_log(rip_log, log_file)
+    window._write_rip_report(rip_log, log_file)
+
+    report = json.loads(
+        (tmp_path / "The Police - Album.platterpus.json").read_text(encoding="utf-8")
+    )
+    artifacts = report["artifacts"]
+    assert "Disc tracks:    14" in artifacts["rip_log"]["text"]
+    assert "01 - Roxanne.flac" in artifacts["cue"]["text"]
+    # This drives the two writes in order itself, so it pins the EMBEDDING.
+    # That the app re-arms the report after writing the EAC log — the ordering
+    # half, without which this would be false on a real rip — is pinned
+    # separately by the next test.
+    assert artifacts["eac_log"]["exists"] is True
+    assert "Exact Audio Copy-compatible" in artifacts["eac_log"]["text"]
+
+
+def test_writing_the_eac_log_rearms_the_report_so_it_can_be_embedded(
+    teardown_threads, tmp_path
+) -> None:
+    """The ordering, pinned on its own.
+
+    `_write_eac_log` runs after `_write_rip_report`, so without a re-arm the
+    single uploaded file would say `eac_log.exists: false` about a log sitting
+    directly beside it — the report would be wrong about its own folder. The
+    re-write is debounced, so what's asserted is that the timer was armed, not
+    that a second write happened synchronously.
+    """
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = True
+    log_file = tmp_path / "Album.log"
+    log_file.write_text("cyanrip 0.9.3", encoding="utf-8")
+    rip_log = RipLog(tracks=(TrackResult(number=1),))
+    # _schedule_rip_report_write only arms when there IS something to write.
+    window._last_rip_log = rip_log
+    window._last_rip_log_file = log_file
+    window._rip_report_timer.stop()
+
+    window._write_eac_log(rip_log, log_file)
+
+    assert window._rip_report_timer.isActive(), (
+        "the EAC log must trigger a re-write, or the JSON can never contain it"
+    )
+
+
+def test_the_report_never_embeds_audio_even_if_asked(
+    teardown_threads, tmp_path
+) -> None:
+    """Critical rule #8 at the surface the user is told to upload.
+
+    The window derives the three artifact paths from the log path, so this
+    cannot happen today — which is exactly why it is pinned: a future caller
+    that derives them differently must still be unable to put a track in a
+    file the maintainer forwards to a public issue.
+    """
+    import json
+
+    window = teardown_threads()
+    window._config.write_eac_log_after_rip = False
+    log_file = tmp_path / "Album.flac"  # a caller that got it badly wrong
+    log_file.write_bytes(b"fLaC\x00\x00\x00\x22" + b"\xde\xad\xbe\xef" * 64)
+    window._write_rip_report(RipLog(tracks=(TrackResult(number=1),)), log_file)
+
+    report = json.loads(
+        (tmp_path / "Album.platterpus.json").read_text(encoding="utf-8")
+    )
+    entry = report["artifacts"]["rip_log"]
+    assert entry["exists"] is False
+    assert "text" not in entry
+    assert "refusing to embed" in entry["error"]

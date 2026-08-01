@@ -53,6 +53,11 @@ _EXPECTED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
         "issues",
         "checksums",
         "debug",
+        # v12: the verdict's denominator as a number, and the verbatim text of
+        # the three companion files — so the one file the maintainer uploads is
+        # enough to diagnose a rip. See rip_report's schema history.
+        "completeness",
+        "artifacts",
     }
 )
 
