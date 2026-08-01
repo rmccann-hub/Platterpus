@@ -73,7 +73,8 @@ Rare exceptions (none block the work actually recommended below):
 | # | Gap | Where | Verdict | Effort | Odds |
 |---|-----|-------|---------|--------|------|
 | — | **gap / INDEX-00 pregap + HTOA** | **Platterpus-side `cdrdao` integration** | **Fallback if #115 stalls** (see the 2026-07-07 update box) | Moderate | N/A — lands in our repo |
-| 1 | gap / INDEX-00 pregap + HTOA | cyanrip **PR #115** (exists) | **Support the existing PR** | Low (test + review) | Medium-good |
+| 1 | exact pre-gap *detection* + HTOA | cyanrip **PR #115** (UltraFuzzy, open) | **Support the existing PR** | Low (test + review) | Medium-good |
+| — | `INDEX 00` / `PREGAP` **cue reporting** | **already merged upstream** via **#104 / #118 / #122** | Nothing to do — `master` has it | N/A | Done |
 | 2 | stable machine-parseable cyanrip log | cyanrip (new PR) | Do only if committing to #3 | Moderate-hard | Low value |
 | 3 | tracker recognizes cyanrip | OPSnet/Logchecker (new PR) | **Skip for now** | Hard (2-repo) | Low |
 | 4 | C2 error pointers (+ cache-defeat line) | libcdio-paranoia → cyanrip | **Skip** (keep deferred) | Hard (2-repo) | Very low |
@@ -365,4 +366,4 @@ never fake provenance — the signed EAC checksum stays permanently out of scope
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.20.*
