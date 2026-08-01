@@ -7478,3 +7478,97 @@ def test_the_embedded_debug_log_excludes_other_albums_rips(teardown_threads) -> 
     window._current_rip_window = None
     block = window._build_rip_debug_log()
     assert block is not None and set(block) >= {"scope", "truncated", "lines"}
+
+
+def test_an_in_progress_report_does_not_claim_bit_perfect_for_the_whole_disc(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """Found on the rig, 2026-08-01, mid-rip: the JSON claimed the disc was done.
+
+    The report is re-written throughout a rip. `disc_track_total` was read only
+    from `_last_expected_track_total`, which is snapshotted at *finish* — so every
+    in-progress write passed `None`, the verdict had no denominator, and a 2-of-14
+    rip still running serialised:
+
+        "✓ Bit-perfect: all 2 tracks verified against AccurateRip (confidence 129+)"
+
+    The EAC-layout log written beside it used the live disc count and said "2 of
+    14", so the two archival artifacts disagreed about the same rip. If the app
+    dies or the rip is cancelled at that moment, that JSON is the record left on
+    disk.
+
+    Driven through the real debounced writer with the window in exactly the state
+    the rig was in: params active, disc count known, finish never reached.
+    """
+    import json as _json
+
+    from platterpus.parsers.rip_log import (
+        AccurateRipResult,
+        RipLog,
+        TrackResult,
+    )
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads(
+        config=Config(
+            host_setup_prompted=True,
+            drive_setup_prompted=True,
+            ctdb_verify_after_rip=False,
+            verify_flac_after_rip=False,
+            cover_art="",
+        )
+    )
+    album_dir = tmp_path / "The Police" / "Album"
+    album_dir.mkdir(parents=True)
+    log_file = album_dir / "Album.log"
+    log_file.write_text("", encoding="utf-8")
+
+    # Mid-rip state: the disc is known to have 14 tracks, params are live, and
+    # `_on_rip_finished` has NOT run — so no snapshot exists.
+    window._current_num_tracks = 14
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=tmp_path,
+        track_template="t",
+        disc_template="d",
+    )
+    assert getattr(window, "_last_expected_track_total", None) is None, (
+        "this test is only meaningful before the finish-time snapshot is taken"
+    )
+
+    def _ar(conf: int) -> AccurateRipResult:
+        return AccurateRipResult(
+            version=2,
+            result=f"accurately ripped, confidence {conf}",
+            confidence=conf,
+            local_crc="AAAA1111",
+        )
+
+    window._last_rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=tuple(
+            TrackResult(
+                number=n,
+                copy_crc=f"BBBB000{n}",
+                status="ripped successfully",
+                accuraterip_v2=_ar(200),
+                accuraterip_lookup="disc found in database (max confidence: 200)",
+            )
+            for n in (1, 2)
+        ),
+    )
+    window._last_rip_log_file = log_file
+    window._flush_rip_report()
+
+    report = _json.loads((album_dir / "Album.platterpus.json").read_text())
+    message = report["verdict"]["message"] or ""
+    assert "all 2 tracks" not in message, (
+        f"the report claimed the whole disc was done mid-rip: {message!r}"
+    )
+    assert "2 of 14" in message, (
+        f"expected the disc's own count as the denominator; got {message!r}"
+    )
+    assert report["verdict"]["level"] != "ok", (
+        "a rip with 12 tracks still to go must not be a green verdict"
+    )
