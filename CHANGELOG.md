@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.21] — 2026-07-31
+
 ### Fixed
 - **The fork's `Gaps:` block: all but the first line was discarded, and EAC's Gap handling row
   silently flipped to the *stronger* claim.** Stock cyanrip prints one summary line
@@ -4429,6 +4431,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
@@ -4495,4 +4498,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.20.*
+*Last updated for Platterpus v0.5.21.*
