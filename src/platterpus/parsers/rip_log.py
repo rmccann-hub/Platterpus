@@ -235,6 +235,13 @@ class RipLog:
     """The full parsed log."""
 
     log_creator: str = ""
+    # cyanrip's build tag from its version banner — "release", "fork", a
+    # `git describe` string. Kept out of `log_creator` deliberately: it is the ONLY
+    # thing that tells an archival log which BINARY produced the rip, and two logs
+    # of the same disc from an official build and a local fork can differ in
+    # pre-gap metadata and peak values while both claiming "cyanrip 0.9.3.1"
+    # (audit, 2026-07-31). Empty when the banner carries no parenthetical.
+    ripper_build: str = ""
     creation_date: str = ""
     ripping_info: RippingInfo = field(default_factory=RippingInfo)
     tracks: tuple[TrackResult, ...] = ()

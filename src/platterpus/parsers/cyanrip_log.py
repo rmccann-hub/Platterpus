@@ -88,7 +88,13 @@ from platterpus.safe_int import int_or_none
 log = logging.getLogger(__name__)
 
 # First meaningful line of any cyanrip log/output: "cyanrip 0.9.3.1 (tag)".
-_HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)")
+# The trailing parenthetical is cyanrip's build tag — "(release)", "(fork)", a
+# `git describe` string. Captured into its own field rather than folded into
+# `log_creator`, which would change both committed reference logs' value. It is
+# the ONLY thing that distinguishes a rip by an unreviewed local build from one
+# by official 0.9.3.1, and two such logs of the same disc can carry materially
+# different pre-gap metadata and peak values (audit, 2026-07-31).
+_HEADER = re.compile(r"^cyanrip\s+(?P<version>\S+)(?:\s+\((?P<build>[^)]*)\))?")
 # cyanrip 0.9.3 prints "Device model:   PIONEER …"; older/whipper-style logs use
 # "Drive used:". Accept both so the archival "which drive" field is never lost
 # (real-log bug: 0.9.3's "Device model:" didn't match, so `drive` came out null).
@@ -258,7 +264,11 @@ _REPLAYGAIN = re.compile(
 _ALBUM_LOUDNESS_HEADER = re.compile(r"^Album Loudness Summary:\s*$")
 _LOUDNESS_I = re.compile(r"^\s+I:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LUFS")
 _LOUDNESS_LRA = re.compile(r"^\s+LRA:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LU")
-_LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d+(?:\.\d+)?)\s+dBFS")
+# Bounded like every pattern in the fork block: this one feeds the SAMPLE-peak
+# sub-header path, and `float()` has no 4300-digit ceiling — it returns `-inf`,
+# which slipped past the "> 0.0" refusal and computed a concrete peak of exactly
+# 0.0, i.e. digital silence, from unparseable input (audit, 2026-07-31).
+_LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS")
 # cyanrip's own log signature, the last line: "Log FUN512: <base64>".
 _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 
@@ -292,7 +302,8 @@ _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 # at, because dBFS and a linear fraction are indistinguishable in that range and an
 # archival peak read in the wrong unit is worse than a labelled gap.
 _SAMPLE_PEAK = re.compile(
-    r"^\s+Sample peak:\s+(?P<value>-?\d{1,6}(?:\.\d{1,6})?)\s*(?P<unit>dBFS|%)"
+    r"^\s+(?:Sample peak|Peak level):\s+"
+    r"(?P<value>-?\d{1,6}(?:\.\d{1,6})?)\s*(?P<unit>dBFS|%)"
 )
 # The sub-header form of both peaks. Captured together so the ONE piece of state
 # it arms ("which peak does the next `Peak:` line report?") cannot get out of sync:
@@ -568,6 +579,7 @@ class _Disc:
     """
 
     log_creator: str = ""
+    ripper_build: str = ""
     creation_date: str = ""
     drive: str = ""
     read_offset: int | None = None
@@ -673,6 +685,9 @@ def _take_version(disc: _Disc, match: re.Match[str]) -> bool:
     if disc.log_creator:
         return False
     disc.log_creator = f"cyanrip {match.group('version')}"
+    # Additive: `log_creator` is byte-identical to before, so both committed
+    # reference logs and every assertion over them are untouched.
+    disc.ripper_build = (match.group("build") or "").strip()
     return True
 
 
@@ -1046,6 +1061,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # Section / lookahead state. Every one of these means "the next line(s) are
     # inside this block", which is precisely why they can't become table rows.
     expect_gaps = False
+    # Every indented line of the `Gaps:` block, in order.
+    gap_lines: list[str] = []
     in_paranoia = False
     in_album_loudness = False
     expect_filename = False
@@ -1060,6 +1077,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
     # exceeds full scale) from landing in EAC's sample-peak row. See
     # `_PEAK_KIND_HEADER` and `_sample_peak_fraction`.
     pending_peak_kind = ""
+    # Set when a track gave us its peak as a direct percentage, so the dBFS
+    # sub-header cannot overwrite a more precise value with a rounded one.
+    peak_from_percentage = False
     # Evidence for the debug line at the end: top-level rows nothing claimed.
     # A bounded sample plus a full count, so a corrupt or enormous input cannot
     # turn diagnostics into unbounded memory use.
@@ -1148,17 +1168,29 @@ def parse_cyanrip_log(text: str) -> RipLog:
         if _apply_line_rules(_RULES_BEFORE_GAPS, line, disc, in_track=in_track):
             continue
 
-        # cyanrip's "Gaps:" section is a header plus ONE indented value line, so
-        # it needs a one-line lookahead rather than a table row.
+        # cyanrip's "Gaps:" section is a header plus one or MORE indented lines.
+        # Stock 0.9.3 prints exactly one ("None signalled"); the maintainer's fork
+        # enumerates a line per track ("0 frame pregap in track 1, unmerged"), and
+        # a one-line lookahead silently kept only the first of those — discarding
+        # the gap report for every track but one (audit, 2026-07-31). Collected
+        # until the first blank or non-indented line, the same shape as the
+        # "Paranoia status counts:" block.
         if expect_gaps:
-            expect_gaps = False
-            match = _GAPS_VALUE.match(line)
-            if match and current is None:
-                disc.gap_detection = match.group("value")
+            if current is None and _GAPS_VALUE.match(line):
+                match = _GAPS_VALUE.match(line)
+                assert match is not None  # just tested
+                gap_lines.append(match.group("value"))
                 continue
+            # Anything not an indented value ends the block; fall through so the
+            # line is still offered to every rule below it.
+            expect_gaps = False
+            # Joined for the single-string field every consumer already reads. A
+            # one-line 0.9.3 block therefore still yields exactly "None signalled".
+            disc.gap_detection = "; ".join(gap_lines)
 
         if _GAPS_HEADER.match(line) and current is None:
             expect_gaps = True
+            gap_lines = []
             continue
 
         # Disc-level rows the old if-chain tested AFTER the "Gaps:" block.
@@ -1275,8 +1307,11 @@ def parse_cyanrip_log(text: str) -> RipLog:
             pending_converged = None
             expect_filename = False
             # A new track's peaks are its own: a dangling header from the previous
-            # block must not decide what this track's first "Peak:" line means.
+            # block must not decide what this track's first "Peak:" line means, and
+            # a percentage on the PREVIOUS track must not suppress this track's
+            # dBFS reading.
             pending_peak_kind = ""
+            peak_from_percentage = False
             continue
 
         if current is not None:
@@ -1345,12 +1380,25 @@ def parse_cyanrip_log(text: str) -> RipLog:
             # code today and every field stays None. That is the
             # forward-compatibility contract, not an oversight.
 
-            # The SAMPLE peak, inline form ("Sample peak:  -0.5 dBFS").
+            # The SAMPLE peak, inline form — either label:
+            #   "Sample peak:  -0.5 dBFS"   (the shape §2.1 proposed)
+            #   "Peak level:   99.7%"       (what the fork actually prints)
+            #
+            # The fork's own `Peak level:` row is PREFERRED over the dBFS
+            # sub-header below, and a flag records that so the sub-header cannot
+            # overwrite it. Three reasons, all about accuracy rather than taste:
+            # it is already EAC's unit and precision so nothing is re-derived; it
+            # is pre-rounding, whereas converting a 1-decimal dBFS print fabricates
+            # "exactly 100.0 %" for anything peaking 99.43–100 %; and the fork gates
+            # it behind `t->computed_crcs`, so unlike the FFmpeg-printed sub-header
+            # it cannot appear when no audio was decoded (their `-I` bug).
             match = _SAMPLE_PEAK.match(line)
             if match:
                 current.peak_level = _sample_peak_fraction(
                     match.group("value"), match.group("unit")
                 )
+                if match.group("unit") == "%":
+                    peak_from_percentage = True
                 continue
 
             # The SAMPLE peak, header form: a "Peak:" value line, but ONLY when a
@@ -1360,7 +1408,27 @@ def parse_cyanrip_log(text: str) -> RipLog:
             # percentage-of-full-scale `Peak level`.
             match = _LOUDNESS_PEAK.match(line)
             if match and pending_peak_kind == "sample":
-                current.peak_level = _sample_peak_fraction(match.group("v"), "dBFS")
+                if peak_from_percentage:
+                    # A direct percentage already gave us the value at EAC's own
+                    # precision. Log rather than silently prefer one, because two
+                    # peak statements per track that disagree is a contract problem
+                    # worth seeing (validate-dependency-output rule).
+                    derived = _sample_peak_fraction(match.group("v"), "dBFS")
+                    if (
+                        derived is not None
+                        and current.peak_level is not None
+                        and (abs(derived - current.peak_level) > 0.005)
+                    ):
+                        log.warning(
+                            "track %s reports two different sample peaks: %.4f from "
+                            "the percentage row and %.4f from the dBFS sub-header — "
+                            "keeping the percentage",
+                            current.number,
+                            current.peak_level,
+                            derived,
+                        )
+                else:
+                    current.peak_level = _sample_peak_fraction(match.group("v"), "dBFS")
                 pending_peak_kind = ""
                 continue
 
@@ -1491,6 +1559,9 @@ def parse_cyanrip_log(text: str) -> RipLog:
             if len(unclaimed_sample) < _UNCLAIMED_SAMPLE_LIMIT:
                 unclaimed_sample.append(line[:120])
 
+    if expect_gaps and gap_lines:
+        # EOF inside the block — a truncated log must not lose what it did say.
+        disc.gap_detection = "; ".join(gap_lines)
     flush()
     if unclaimed_total:
         log.debug(
@@ -1509,6 +1580,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         ]
     return RipLog(
         log_creator=disc.log_creator,
+        ripper_build=disc.ripper_build,
         creation_date=disc.creation_date,
         ripping_info=RippingInfo(
             drive=disc.drive,

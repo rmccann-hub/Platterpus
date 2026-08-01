@@ -29,6 +29,10 @@ class RipBlock(TypedDict):
     gap_detection: str | None
     cd_r_detected: bool | None
     speed_changeable: bool | None
+    c2_pointers: bool | None
+    paranoia_level: str | None
+    overread_mode: str | None
+    ripper_build: str | None
     creation_date: str | None
     musicbrainz_disc_id: str | None
     cddb_id: str | None
