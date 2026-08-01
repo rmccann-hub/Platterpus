@@ -356,3 +356,46 @@ class MinimalRipReport(TypedDict):
     schema_version: int
     generator: GeneratorBlock
     error: str
+
+
+class ArtifactEntry(TypedDict):
+    """One companion text file, embedded verbatim in the report (schema v12).
+
+    Always answers the same questions in the same shape so a reader never has
+    to distinguish "key missing" from "file missing". ``sha256`` digests the
+    BYTES ON DISK, not the possibly-truncated ``text`` — a digest of something
+    no file ever contained would be worse than none. ``error`` appears only on
+    a failure (unreadable, or a suffix the embedder refuses).
+    """
+
+    path: str | None
+    exists: bool
+    bytes: NotRequired[int]
+    sha256: NotRequired[str]
+    truncated: NotRequired[bool]
+    text: NotRequired[str]
+    error: NotRequired[str]
+
+
+class ArtifactsBlock(TypedDict):
+    """The three files written beside the report, so one upload is enough."""
+
+    note: str
+    rip_log: ArtifactEntry
+    eac_log: ArtifactEntry
+    cue: ArtifactEntry
+
+
+class CompletenessBlock(TypedDict):
+    """The verdict's denominator, as a number rather than English prose.
+
+    ``tracks_expected`` is what the rip was ASKED for — the disc's track count,
+    or fewer when the user ticked a subset. ``None`` means it was not known to
+    the writer; that is explicitly NOT a claim that the rip was whole, which is
+    why ``complete`` is tri-state rather than defaulting to True.
+    """
+
+    tracks_expected: int | None
+    tracks_in_report: int
+    complete: bool | None
+    note: str

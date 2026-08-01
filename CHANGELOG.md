@@ -11,6 +11,75 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-08-01
+
+### Added
+- **The JSON report is now genuinely the only file worth uploading** (schema **v12**). Every
+  hardware diagnosis so far has started by asking for a second file, so `.platterpus.json` gains
+  an `artifacts` block carrying the **verbatim text** of the three companions written beside it —
+  cyanrip's own `.log`, the EAC-layout render, and the `.cue` — each with its byte count and a
+  SHA-256 of the bytes on disk. Text only, enforced by an extension allowlist: an audio path is
+  refused and the refusal recorded (critical rule #8). A file that is absent says so rather than
+  being omitted, and a **zero-byte** file reads as present-and-empty — the 0-byte `.cue` a
+  cancelled rip left on the rig is invisible in a summary and obvious in a byte count.
+- **`completeness` block** — `tracks_expected` / `tracks_in_report` / `complete`. The disc's track
+  count already reached the report builder, but only to *feed* the verdict; it was never written
+  down, so the JSON's only track count was `len(tracks)` — the log's own list, which a cancel
+  shrinks. A reader had to parse English out of `verdict.message` to learn that a 2-track report
+  described a 14-track disc. `complete` is tri-state: `null` means the writer didn't know, which
+  is explicitly not a claim that the rip was whole.
+
+### Fixed
+- **"Open externally…", "Open rip folder" and Help → Open logs folder could silently do nothing.**
+  `QDesktopServices.openUrl` returns False when nothing on the system claims the URL — no file
+  manager wired up, or (the common one on a fresh KDE) no application associated with a bare
+  `.log`. Three of the four call sites threw that bool away, so the click produced no window, no
+  error and no log line: "may or may not work", decided by whether the machine happens to have an
+  association. The window's own logs-folder button had always handled it *inline*, which is why
+  the other three never got it. That fallback is now `ui/external_open.py`, shared by all four:
+  a refusal shows the full path to copy and is written to the log file.
+- **"View log" could show an errno instead of the log that was right there.** It preferred the
+  backend's `.log` unconditionally, including when that file never appeared — while the real-time
+  app log sat readable beside it. The choice is now made at *click* time, which is the one moment
+  the answer is knowable; the backend log still wins whenever it exists.
+- **The EAC-layout log said "INCOMPLETE RIP … 2 of 14 disc tracks" at the top and "All tracks
+  accurately ripped" sixty lines below it** — two contradictory claims inside one SHA-256-attested
+  document (real artifact off the rig, 2026-08-01). The end-of-rip status report decided its
+  "clean sweep" sentence by comparing the AccurateRip total against the **log's own** track list,
+  which a cancel shrinks; a cancel cannot shrink the disc. It is now handed the same
+  `expected_track_total` every other surface uses — the number the rip was *asked* for — so a
+  deliberate 2-of-14 selection still earns its "All tracks accurately ripped" while a cancelled
+  one cannot.
+- **A rip still in progress serialised "✓ Bit-perfect: all N tracks verified".** Found on the
+  rig mid-rip: with 2 of 14 tracks done and the drive still spinning, `.platterpus.json` carried
+  `"✓ Bit-perfect: all 2 tracks verified against AccurateRip (confidence 129+)"` and a green
+  `level: "ok"`. The verdict guard added in v0.5.19 was being passed the right arguments — but
+  its denominator, `_last_expected_track_total`, is snapshotted at **finish**, so every re-write
+  *during* the rip handed it `None` and the "all N tracks" wording had nothing to contradict it.
+  The EAC-layout log written beside it used the live disc count and said "2 of 14", so the two
+  archival artifacts disagreed about the same rip — and if the app dies or the rip is cancelled
+  at that moment, the JSON is the record left on disk. The in-progress writes now fall back to
+  the same `expected_track_total` computation the finish path uses, which also folds in the Rip?
+  selection so a *deliberate* subset is not reported as missing tracks.
+
+
+### Documentation
+- `docs/hardware-test-checklist.md` rewritten for v0.6.0: **A26** (the "open" buttons the
+  maintainer reported, with a `grep` that says whether their machine ever hit the silent
+  failure), **A27** (the 0-byte `.cue` a cancelled rip left — an open question with a
+  control test that discriminates it), **A28** (the contradicting status report), and an
+  **A24** rebuilt around schema v12 with every path quoted, since unquoted paths through a
+  folder with spaces broke the last attempt. The *Send back* section now asks for **one
+  file** — the report carries the rest.
+- `docs/hardware-test-checklist.md` gains **A25**, which says plainly that v0.5.21's pre-gap fix
+  has **no hardware proof and the usual test disc cannot give it one**: cyanrip reads pre-gaps
+  from the TOC, and that disc's TOC declares none (EAC finds its ten by sub-channel scanning —
+  the KDD-32 gap). A25 is a *screen*, not a rip: one `grep` over the app log after a disc scan
+  says whether a disc can exercise the fix at all, with the likeliest candidates ranked. "None of
+  my discs declare one" is recorded as a real result, so the fix ends up marked
+  hardware-unprovable rather than silently untested.
+
+
 ## [0.5.21] — 2026-07-31
 
 ### Fixed
@@ -4430,7 +4499,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
 [0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
@@ -4498,4 +4568,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.21.*
+*Last updated for Platterpus v0.6.0.*

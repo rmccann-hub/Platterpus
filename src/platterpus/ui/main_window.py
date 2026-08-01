@@ -1055,12 +1055,13 @@ class MainWindow(
         rotated logs to share when reporting a problem — no terminal needed.
         Hands off to the desktop's file manager via QDesktopServices (which is
         non-blocking: it spawns the file manager and returns). Falls back to a
-        dialog showing the path if no file manager is wired up.
+        dialog showing the path if no file manager is wired up — that fallback
+        now lives in `ui/external_open.py` so the rip pane's two buttons and the
+        viewer's "Open externally…" get it too; they were written without it and
+        were silently dead on a desktop with no handler.
         """
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
-
         from platterpus.paths import LOG_DIR
+        from platterpus.ui.external_open import open_path_externally
 
         # The dir may not exist yet if nothing has been logged — create it so the
         # file manager has something to open (cheap: one mkdir, GUI-thread safe).
@@ -1068,15 +1069,7 @@ class MainWindow(
             LOG_DIR.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             log.warning("could not create log dir %s: %s", LOG_DIR, exc)
-        opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOG_DIR)))
-        if not opened:
-            QMessageBox.information(
-                self,
-                "Logs folder",
-                f"Your logs are here:\n{LOG_DIR}\n\n"
-                "(Couldn't open a file manager automatically — copy the path "
-                "above into Files/Dolphin.)",
-            )
+        open_path_externally(LOG_DIR, parent=self, what="logs folder")
 
     def _on_open_settings(self) -> None:
         dialog = SettingsDialog(self._config, self)

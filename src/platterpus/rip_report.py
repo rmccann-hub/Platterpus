@@ -26,7 +26,7 @@ from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
 )
-from platterpus.report_types import EnvironmentBlock
+from platterpus.report_types import ArtifactsBlock, EnvironmentBlock
 from platterpus.verdict import accuraterip_verdict
 
 log = logging.getLogger(__name__)
@@ -138,7 +138,27 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #   * the disc-level `c2_pointers`, `paranoia_level` and `overread_mode` — read
 #     from the log and rendered into the EAC-layout artifact, but absent from the
 #     machine record, so an automated consumer could not see what the rip did.
-REPORT_SCHEMA_VERSION: int = 11
+# v12 (0.5.22): make the JSON genuinely the only file worth uploading. The
+# maintainer's instruction, after a hardware round in which every diagnosis
+# began by asking for a second file: "just assume I can only upload the json
+# file, put all [the tests] in there that you need" (2026-08-01).
+#   * `artifacts` — the verbatim text of the three companion files written
+#     beside the report (cyanrip's own `.log`, our EAC-layout render, the
+#     `.cue`), each with its size and a SHA-256 of the bytes on disk. Text only,
+#     enforced by an extension allowlist — never audio (critical rule #8). A
+#     file that is absent says so rather than being omitted: "cyanrip wrote no
+#     cue" and "we didn't look" are different findings, and a zero-byte cue
+#     after a cancelled rip is invisible in a summary and obvious in a byte
+#     count (both were real, 2026-08-01).
+#   * `completeness` — `tracks_expected` / `tracks_in_report` / `complete`. The
+#     disc's track count reached this builder already, but only to *feed* the
+#     verdict; it was never written down, so the JSON's only track count was
+#     `len(tracks)` — the log's own list, which a cancel shrinks. A reader had
+#     to parse English out of `verdict.message` to learn that a 2-track report
+#     described a 14-track disc. This is the same missing denominator that has
+#     now been corrected on four surfaces; recording it as a number is what
+#     stops a fifth.
+REPORT_SCHEMA_VERSION: int = 12
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -175,6 +195,7 @@ def build_report(
     gates: dict | None = None,
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
+    artifacts: ArtifactsBlock | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -222,6 +243,7 @@ def build_report(
             gates=gates,
             log_parse=log_parse,
             disc_track_total=disc_track_total,
+            artifacts=artifacts,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -471,6 +493,7 @@ def _build(
     gates: dict | None = None,
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
+    artifacts: ArtifactsBlock | None = None,
 ) -> dict:
     # The JSON's verdict must be the SAME claim the window makes, so it is given
     # the same two extra facts: the disc's own track count (the only denominator a
@@ -511,6 +534,27 @@ def _build(
     # can inject a fixed dict for determinism.
     if environment is None:
         environment = build_info.environment_report()
+    # How many tracks this rip was supposed to produce, recorded rather than
+    # merely used. `disc_track_total` reached this builder only to feed the
+    # verdict, so the JSON's ONLY track count was `len(tracks)` — the log's own
+    # list, which a cancel shrinks. That is the same missing denominator that
+    # has now been fixed on four surfaces, and a reader of the JSON alone had
+    # to parse it out of the English in `verdict.message` to know a 2-track
+    # report described a 14-track disc. State it as a number.
+    tracks_in_report = len(getattr(rip_log, "tracks", ()) or ())
+    completeness = {
+        "tracks_expected": disc_track_total,
+        "tracks_in_report": tracks_in_report,
+        "complete": (
+            None if not disc_track_total else tracks_in_report >= disc_track_total
+        ),
+        "note": (
+            "tracks_expected is what the rip was ASKED for — the disc's track "
+            "count, or fewer when the user ticked a subset in the Rip? column. "
+            "null means it wasn't known to this writer (an in-progress write, "
+            "or a log parsed offline); it is NOT a claim that the rip was whole."
+        ),
+    }
     issues = _issues(
         outcome=outcome,
         verdict_level=level,
@@ -547,6 +591,10 @@ def _build(
         "disc": disc,
         "log_creator": getattr(rip_log, "log_creator", "") or None,
         "verdict": {"level": level, "message": message or None},
+        # Immediately after the verdict, because it is the verdict's denominator
+        # — the number the sentence above is measured against, in machine-readable
+        # form so no consumer has to re-derive it from `len(tracks)`.
+        "completeness": completeness,
         "rip": {
             "drive": getattr(info, "drive", "") or None,
             "extraction_engine": getattr(info, "extraction_engine", "") or None,
@@ -644,8 +692,11 @@ def _build(
         # here rather than a separate checksums.sha256 sidecar — one debug file.
         "checksums": (dict(checksums) if checksums else None),
         # Bulky, so it sits last: the embedded session log that makes this
-        # report a self-contained debug record (None when not captured).
+        # report a self-contained debug record (None when not captured), and
+        # the verbatim text of the companion files written beside it (None when
+        # the caller supplied no paths — e.g. the `--compare` CLI).
         "debug": debug_log,
+        "artifacts": artifacts,
     }
 
 
@@ -1145,6 +1196,7 @@ def write_report(
     gates: dict | None = None,
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
+    artifacts: ArtifactsBlock | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -1178,6 +1230,7 @@ def write_report(
             gates=gates,
             log_parse=log_parse,
             disc_track_total=disc_track_total,
+            artifacts=artifacts,
         )
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is

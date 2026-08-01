@@ -64,6 +64,7 @@ from platterpus.parsers.rip_log import (
     tracks_needing_heavy_reread,
 )
 from platterpus.ui.accessibility import announce
+from platterpus.ui.external_open import open_path_externally
 
 # Re-exported so existing imports (and tests) can keep doing
 # `from platterpus.ui.rip_progress import accuraterip_verdict`; the canonical
@@ -171,6 +172,20 @@ _TAB_LABEL_LOG: str = "Live &log"
 _OpenUrlFn = Callable[[QUrl], bool]
 # Hook so tests can intercept the in-app file view without spinning a dialog.
 _ViewFileFn = Callable[[Path, str], None]
+
+
+def _is_readable(path: Path) -> bool:
+    """Is there a file at ``path`` we could actually show? Never raises.
+
+    Used to choose between the backend's own ``.log`` and the real-time app log
+    at *click* time. An OSError here (a dead network mount, a permissions quirk)
+    means "can't show it", same as a missing file — a predicate that guards a
+    fallback must not itself be the thing that fails.
+    """
+    try:
+        return path.is_file()
+    except OSError:  # a stat can fail on a stale mount, not just on absence
+        return False
 
 
 def _bar_value(percent: float) -> int:
@@ -1044,9 +1059,22 @@ class RipProgress(QWidget):
         # Prefer the backend's own .log once the rip has finished; during the
         # rip (before it exists) fall back to the real-time app log so the button
         # is useful the whole time — including while the drive is stuck.
-        target = self._log_path or self._live_log_path
-        if target is None:
+        #
+        # Resolve WHICH of the two at click time, not at set time. `set_log_path`
+        # deliberately doesn't gate on .exists() (the report is written moments
+        # after it's called, so a set-time check would disable a button that is
+        # about to be valid) — but that means `_log_path` can name a file that
+        # never appeared, and preferring it unconditionally showed the user an
+        # errno inside the viewer while the app log sat right there, readable.
+        # Click time is the one moment the answer is actually knowable.
+        candidates = [p for p in (self._log_path, self._live_log_path) if p is not None]
+        if not candidates:
             return
+        target = next((p for p in candidates if _is_readable(p)), candidates[0])
+        if target is not candidates[0]:
+            log.warning(
+                "rip log %s is not readable; showing %s instead", candidates[0], target
+            )
         # In-app viewer, not openUrl: a .log has no default app on a fresh KDE.
         self._view_file(target, f"Rip log — {target.name}")
 
@@ -1064,9 +1092,17 @@ class RipProgress(QWidget):
     def _on_open_folder_clicked(self) -> None:
         if self._rip_dir is None:
             return
-        # A folder DOES have a default handler (the file manager), so openUrl is
-        # the right call here — and revealing the folder is the whole point.
-        self._open_url(QUrl.fromLocalFile(str(self._rip_dir)))
+        # A folder usually DOES have a default handler (the file manager), so
+        # openUrl is the right call here — and revealing the folder is the whole
+        # point. "Usually" is why this goes through the shared helper: when no
+        # file manager is wired up openUrl returns False, and throwing that away
+        # is what makes a button that silently does nothing.
+        open_path_externally(
+            self._rip_dir,
+            parent=self,
+            open_url=self._open_url,
+            what="rip folder",
+        )
 
 
 def status_phase_key(text: str) -> str:
