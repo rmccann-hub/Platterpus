@@ -176,6 +176,23 @@ against the ReplayGain 2.0 spec, and would turn a two-line uncontroversial patch
 into a semantics argument that could sink it. File it as its own issue later, if
 at all.
 
+**⚠️ DO NOT OPEN AN UPSTREAM PR FOR THIS — two are already live** (reported by the
+fork session, 2026-07-31; not independently corroborated here because the GitHub
+API is not enabled for `cyanreg/cyanrip` in this session):
+
+- **#116** (UltraFuzzy) — makes the identical one-line `ebur128=peak=true+sample`
+  change, *plus* a direct `max(|sample|)` scan over the raw PCM. cyanreg pushed
+  back specifically on keeping the less-accurate ebur128-derived value alongside
+  the precise one.
+- **#148** (nicosp, opened 2026-07-24) — explicitly "a simpler alternative to
+  #116": reuses the precise-scan code and drops the ebur128 filter change
+  entirely. This looks like the response to that review comment.
+
+So the change proposed below is *the half cyanreg declined*. Keep it fork-local,
+and rebase onto whatever upstream lands. **Flag early if #148's output is a
+unitless linear amplitude** — our parser requires an explicit `dBFS` or `%` unit
+and would refuse it (see the constraints below).
+
 **Platterpus side — ✅ DONE (v0.5.19), waiting on the fork.** The reader is
 already written and shipped, so a fork that prints this line fills EAC's row with
 no further Platterpus change. `parsers/cyanrip_log.py` accepts **two** shapes,
@@ -900,4 +917,4 @@ absence of any real `-Z` rip log in the repository.
 (the external standard these rows are measured against). PR-first, adaptable to
 the upstream maintainer's call, and we never fake provenance.*
 
-*Last updated for Platterpus v0.5.20.*
+*Last updated for Platterpus v0.5.21.*

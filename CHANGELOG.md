@@ -11,6 +11,141 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.5.21] — 2026-07-31
+
+### Fixed
+- **The fork's `Gaps:` block: all but the first line was discarded, and EAC's Gap handling row
+  silently flipped to the *stronger* claim.** Stock cyanrip prints one summary line
+  (`None signalled`); the fork enumerates one per track (`0 frame pregap in track 1, unmerged`).
+  A one-line lookahead kept only the first, and — worse — the row's sense test looked for the
+  literal word `none`, which that wording does not contain, so it fell through to
+  `Appended to previous track` for a disc where cyanrip had reported **zero frames** and
+  `unmerged`. That is the same category error that cost v0.5.18, reintroduced by a *ripper wording
+  change* rather than by a code change. The block is now collected in full, and the row is decided
+  from the measured frame counts plus the mode: all-zero frames render identically to
+  `None signalled`, a merged mode earns `Appended to previous track`, and an unrecognised mode is
+  left **unreported** with a logged warning rather than assigned whichever EAC phrase is closer.
+- **A peak the ripper never measured could be rendered as digital silence.** The sample-peak
+  sub-header path ran through an unbounded pattern, and `float()` has no 4300-digit ceiling — it
+  returns `-inf`, which slipped past the "greater than zero" refusal and computed a concrete peak
+  of exactly `0.0`. Bounded, and `_sample_peak_fraction` now refuses non-finite input so the
+  guarantee does not depend on which pattern feeds it.
+
+### Documentation
+- **Four stale claims about upstream cyanrip corrected**, all surfaced by the fork session's own
+  source reading. (1) `README.md` credited **PR #115** to cyanreg and presented it as the
+  `INDEX 00` fix; it is **UltraFuzzy's, still open**, and it is the *exact pre-gap detection* layer
+  — `INDEX 00` / `PREGAP` **cue reporting** was already merged upstream via **#104 / #118 / #122**,
+  which no file in this repo named. (2) §2.4's premise that the `-Z` verdict is stdout-only and
+  absent from cyanrip's log file was false at 0.9.3 and at master — **and that false premise is the
+  root cause of the verdict-attribution bug above**, because it is what made indentation look like
+  a usable signal. (3) The `-a`/`-t` colon bug is stated as "confirmed in master"; master **fixed
+  it** (the function moved to `src/naming.c` and minds escapes), so the prepared upstream issue/PR
+  is superseded — while Platterpus's own colon pass must **stay**, since we substitute U+2236
+  *before* invoking cyanrip and removing the restore would ship U+2236 into every user's tags.
+  (4) §2.1 ranked the sample peak as our best first upstream contribution with no mention of
+  **#116** (UltraFuzzy) and **#148** (nicosp, 2026-07-24) already targeting it — and our proposed
+  `ebur128` edit is specifically the half cyanreg pushed back on, in favour of a direct PCM scan.
+
+### Added
+- **The fork's own `Peak level: NN.N%` row is now read, and it wins over the dBFS sub-header.**
+  Converting FFmpeg's 1-decimal dBFS print fabricates *exactly* `100.0 %` for any track peaking
+  99.43–100 %, which in EAC's row means clipped — a claim about the audio the ripper never made.
+  The fork's row is already EAC's unit and precision, is pre-rounding, and is gated behind
+  `computed_crcs` so it cannot appear when no audio was decoded. When both are present and
+  disagree, the percentage is kept and the disagreement is logged.
+- **Which cyanrip *binary* produced a rip is recorded** (`ripper_build`, from the version banner's
+  parenthetical — `release`, `fork`, a `git describe`). It is the only provenance separating a rip
+  by an unreviewed local build from one by official 0.9.3.1, and two such logs of the same disc can
+  carry materially different pre-gap metadata and peak values while both claiming `cyanrip 0.9.3.1`.
+  Kept out of `log_creator` deliberately, so both committed reference logs are byte-identical.
+- **`c2_pointers`, `paranoia_level` and `overread_mode` now reach the JSON report** (schema v11).
+  All three were read from the log and rendered into the EAC-layout artifact but absent from the
+  machine record, so an automated consumer could not see what the rip did. `c2_pointers` is the
+  field the fork's §2.5 change exists to fill.
+- A sub-minute `Extraction time` renders fractional seconds instead of `0:00:00`. The fork's
+  measured `0.08 s` truncated to zero, which reads as "no time at all" beside an
+  `Extraction speed 50.3 X` on the same track.
+
+### Fixed
+- **A track nobody looked up was reported as "in the database, and your rip disagreed with it".**
+  Both the results table and the archival log asserted a comparison that never happened, and this
+  is live on the cyanrip everyone is running — not fork-only. The evidence for "we compared" was
+  the presence of a local checksum, on the written reasoning that cyanrip only prints a per-track
+  `Accurip v1/v2:` row when the disc was found. **cyanrip prints those rows in every state**,
+  `disabled` included, so the predicate was effectively unconditional: it made the "not in the
+  database" state *structurally unreachable* for any cyanrip log, and every non-match — including
+  one from a lookup that never ran — became `in DB, no match` / `Cannot be verified as accurate`.
+  Platterpus now reads cyanrip's per-track `Accurip:` status row, which is the only line that
+  states this directly, and a new `not-checked` state says plainly that no lookup was made. The
+  local-CRC fallback is kept for logs with no status row (whipper's, where a local CRC really does
+  evidence a comparison), so no existing rip is reclassified.
+- **An all-zero AccurateRip checksum was rendered as a confidence-200 match.** cyanrip prints the
+  caveat itself — `Accurip 450: 00000000 (match found, confidence 200, but a checksum of 0 is
+  meaningless)` — and the confidence alone was enough to make it a positive offset-variant match,
+  so a track nothing was meaningfully compared for announced a partially-accurate match on screen
+  *and* in the attested log. It also inflated the partial tally and, with `rerip_offset_variant`
+  off by default, excluded the track from being re-ripped. Guarded on the zero CRC rather than on
+  cyanrip's wording, so a backend that omits the caveat is covered too. An **empty** CRC is
+  deliberately not treated as zero: it means "not reported", and a whipper log can carry a real
+  match without one — conflating them would have silently discarded genuine verifications, which
+  is the same bug pointing the other way.
+- **The AccurateRip state table could not notice a new state.** `test_surface_consistency`'s floor
+  hardcoded four state names, so it was a floor equal to its own list — the third instance of that
+  shape in two days. It now derives from `verdict.AR_STATES`, and adding `not-checked` failed it
+  immediately until both surfaces and the case table covered it. The one state deliberately
+  excluded now carries its justification in the map rather than being absent silently.
+- **Every secure-re-read verdict was attributed to the wrong track on the maintainer's cyanrip
+  fork — producing a false "verified" and a false "not reproducible" in the same attested log.**
+  cyanrip emits its `Done; (N out of M matches)` verdict from inside the repeat loop, which runs
+  *before* the `Track N ripped…` opener, so the line describes the track about to open. v0.5.19
+  told the fork to **indent** that line and defined "indented ⇒ belongs to the track already
+  open". The fork indented the string *in place*, still pre-opener — so indentation and position
+  disagreed and every verdict shifted by one track. Measured on their real output: track 1
+  converged (`Secure re-read: converged after 2 reads`) and Platterpus recorded `False`, then the
+  EAC-layout log said `re-reads did NOT agree — this read is not confirmed reproducible` for it
+  while giving the *non*-converged track EAC's strongest claim, `Test and Copy CRC identical`.
+  The discriminator is now **position, never indentation**: a `Done;` line is buffered for the
+  next track at any indentation, the labelled in-block `Secure re-read:` row is the only in-block
+  source and wins, and the in-block `Done;` arm is deleted — no cyanrip has ever emitted one, so
+  it was reachable *only* as the misattribution.
+
+  **The root cause was a false belief in our own docs**, which is why they move in the same
+  change: §2.4 recorded the `-Z` verdict as stdout-only and absent from cyanrip's log file. It
+  was never absent — `cyanrip_log()` writes the logfile before stdout — so the line was always
+  there, merely un-indented, and the whole indentation scheme was built on a premise the fork
+  disproved by reading the source.
+
+  Hardened alongside, because the consequence is worse than a wrong row: the auto-fix
+  re-rip **file swap** gates on this boolean, so a shifted verdict can copy a read that never
+  reproduced over audio that was fine. The swap now refuses unless the re-rip's log describes
+  exactly the tracks that were requested, so a future attribution bug degrades to "don't swap".
+- `Done; (0 out of N matches)` no longer parses as convergence. No cyanrip is known to print it
+  as a final verdict, but the wording is demonstrably in cyanrip's vocabulary — its own
+  `Repeating ripping (0 out of 1 matches …)` progress line — and a bare digit quantifier read a
+  total failure to reproduce as a clean verdict. Pinned as an invariant, not a fix for an
+  observed bug.
+- **The EAC-layout log over-claimed every pre-gap by up to 89x, and it is a live bug on the
+  cyanrip everyone is running — not a fork-only one.** cyanrip's `Pregap LSN:` row prints the
+  **absolute position** where `INDEX 00` begins; Platterpus stored that number in a field called
+  `pregap_sectors` and every consumer rendered it as a **length**. The error therefore grows with
+  the track's position on the disc. Measured on the committed reference pressing: track 2's
+  `INDEX 00` sits at LSN 14327 against a `Start LSN` of 14487, so the true gap is 160 sectors —
+  **2.13 s**, exactly what real EAC 1.8 reports for that track — and the archival log said
+  **3 m 11 s**. The length is now derived as `start_sector - pregap_start_lsn`, which is precisely
+  how cyanrip computes the duration it prints in its own `(duration: …)` suffix; the raw position
+  is kept as a separate, honestly-named `pregap_start_lsn`. Deliberately *not* parsed from that
+  suffix: its fractional field is CD frames in some cyanrip formatters and hundredths in others,
+  and no committed log pins which — subtraction is exact, a guess is not.
+
+  Why it survived three releases with three green tests over it: **all three pre-gap tests
+  constructed `TrackResult(pregap_sectors=N)` with a value that was already a length**, so they
+  verified the *formatter* (which was right, and is still verified 10/10 against the real EAC
+  baseline) and skipped the parser seam the bug lived in entirely. The reference disc's TOC
+  declares no pre-gaps, so nothing else could have caught it. The new test starts from **log
+  text** and asserts EAC's own `0:00:02.13`.
+
+
 ### Documentation
 - `docs/hardware-test-checklist.md` A22 said an AccurateRip cell has "at most three distinct
   readings". It has **five** (`OK (N)`, `offset-variant match (N)`, `in DB, no match`,
@@ -4296,6 +4431,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.17...v0.5.18
@@ -4362,4 +4498,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.20.*
+*Last updated for Platterpus v0.5.21.*

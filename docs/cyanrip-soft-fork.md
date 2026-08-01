@@ -107,6 +107,19 @@ char *copy = append_missing_keys(album_metadata_ptr, "album=", "album_artist=");
 int err = av_dict_parse_string(&ctx->meta, copy, "=", ":", 0);
 ```
 
+> **⚠️ SCOPE CORRECTION (2026-07-31).** This is real at **v0.9.3.1**, the tag the
+> container deploys (`src/cyanrip_main.c`), and was reproduced on hardware
+> 2026-06-27. It is **fixed upstream in `master`**: the function moved to
+> `src/naming.c` and is a hand-rolled scan that minds `\:` / `\=` escapes. The
+> fork session could not reproduce it against their tree for exactly that reason.
+> So the paste-ready issue/PR for this is **superseded** — do not file it.
+>
+> **Do NOT remove Platterpus's colon pass on that basis.** Our
+> `_escape_meta_value` substitutes U+2236 *before* invoking cyanrip, so deleting
+> `restore_substituted_colons` would ship U+2236 into every user's tags. The
+> version-guarded removal plan below still applies; its trigger is now "the
+> container runs `master` or the fork", not "upstream fixes it".
+
 `append_missing_keys()` tokenises with `av_strtok(src, ":", ...)` — splitting on
 **every** `:`, ignoring both `=` and backslash escapes — and injects a key in
 front of any keyless token. So an explicit value that contains a colon is
@@ -367,4 +380,4 @@ cyanrip built it.
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.5.21.*

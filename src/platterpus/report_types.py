@@ -29,6 +29,10 @@ class RipBlock(TypedDict):
     gap_detection: str | None
     cd_r_detected: bool | None
     speed_changeable: bool | None
+    c2_pointers: bool | None
+    paranoia_level: str | None
+    overread_mode: str | None
+    ripper_build: str | None
     creation_date: str | None
     musicbrainz_disc_id: str | None
     cddb_id: str | None
@@ -225,7 +229,9 @@ class TrackBlock(TypedDict):
     start_sector: int | None
     end_sector: int | None
     pregap_sectors: int | None
+    pregap_start_lsn: int | None
     replaygain: dict[str, str] | None
+    accuraterip_lookup: str | None
     accuraterip_verified: bool
     accuraterip: TrackAccurateRipBlock
 

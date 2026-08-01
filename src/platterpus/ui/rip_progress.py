@@ -72,6 +72,7 @@ from platterpus.verdict import (
     AR_STATE_ABSENT,
     AR_STATE_NO_DATA,
     AR_STATE_NO_MATCH,
+    AR_STATE_NOT_CHECKED,
     AR_STATE_OFFSET_VARIANT,
     AR_STATE_VERIFIED,
     accuraterip_compared,
@@ -116,6 +117,16 @@ NO_MATCH_TOOLTIP: str = (
     "unlisted pressing, or a drive read offset that differs from ours), but a "
     "genuine read error looks exactly the same from here — re-rip the disc to "
     "tell them apart, and compare the two rips."
+)
+
+# The lookup never ran, so the database has said nothing either way. Kept
+# separate from NO_MATCH_TOOLTIP because collapsing them is the exact conflation
+# that made a never-queried disc read as a failed comparison (audit, 2026-07-31).
+NOT_CHECKED_TOOLTIP: str = (
+    "Not checked: no AccurateRip lookup was made for this rip, so the database "
+    "has said nothing about this track either way. This is not a result — it is "
+    "the absence of one. Re-rip with AccurateRip enabled (and a working network "
+    "connection from the ripping container) to get a verdict."
 )
 
 log = logging.getLogger(__name__)
@@ -856,11 +867,15 @@ class RipProgress(QWidget):
             # that (v1/v2 "not found") reads as a partially-accurate match, not
             # an alarming "…or bad rip" (trust-first, mirrors the CTDB fix).
             offset = track.accuraterip_offset
+            # cyanrip's per-track "Accurip:" status — the only thing that says
+            # whether a lookup happened at all. Without it, a disc nobody looked
+            # up read as "in DB, no match" (audit, 2026-07-31).
+            lookup = getattr(track, "accuraterip_lookup", None)
             v1_item = QTableWidgetItem(
-                _ar_cell(track.accuraterip_v1, offset_result=offset)
+                _ar_cell(track.accuraterip_v1, offset_result=offset, lookup=lookup)
             )
             v2_item = QTableWidgetItem(
-                _ar_cell(track.accuraterip_v2, offset_result=offset)
+                _ar_cell(track.accuraterip_v2, offset_result=offset, lookup=lookup)
             )
             # Footnote the cells that need one — the offset-variant explanation
             # (#4 of the 2026-07-09 trust improvements) and the "in the database
@@ -869,8 +884,12 @@ class RipProgress(QWidget):
             # explanation can't disagree; deciding it here by hand is what let
             # the two drift before. Qt shows no tooltip for an empty string, so
             # an unremarkable cell needs no branch.
-            v1_item.setToolTip(_ar_tooltip(track.accuraterip_v1, offset_result=offset))
-            v2_item.setToolTip(_ar_tooltip(track.accuraterip_v2, offset_result=offset))
+            v1_item.setToolTip(
+                _ar_tooltip(track.accuraterip_v1, offset_result=offset, lookup=lookup)
+            )
+            v2_item.setToolTip(
+                _ar_tooltip(track.accuraterip_v2, offset_result=offset, lookup=lookup)
+            )
             eac_text, eac_tip = _eac_cell(track)
             eac_item = QTableWidgetItem(eac_text)
             eac_item.setToolTip(eac_tip)
@@ -1317,11 +1336,14 @@ _AR_STATE_OFFSET_VARIANT = AR_STATE_OFFSET_VARIANT
 _AR_STATE_NO_MATCH = AR_STATE_NO_MATCH
 _AR_STATE_ABSENT = AR_STATE_ABSENT
 _AR_STATE_NO_DATA = AR_STATE_NO_DATA
+_AR_STATE_NOT_CHECKED = AR_STATE_NOT_CHECKED
 _ar_compared = accuraterip_compared
 _ar_state = accuraterip_state
 
 
-def _ar_cell(result: object, *, offset_result: object = None) -> str:
+def _ar_cell(
+    result: object, *, offset_result: object = None, lookup: str | None = None
+) -> str:
     """Render one AccurateRip cell (v1 or v2) for a track.
 
     ``offset_result`` is the track's +450 offset-variant result (cyanrip's
@@ -1336,7 +1358,7 @@ def _ar_cell(result: object, *, offset_result: object = None) -> str:
     carry the nuance (``in DB, no match``), :func:`_ar_tooltip` supplies it.
     Never raises (duck-typed via ``accuraterip_is_match`` / ``getattr``).
     """
-    state = _ar_state(result, offset_result)
+    state = _ar_state(result, offset_result, lookup)
     if state == _AR_STATE_VERIFIED:
         # A genuine database match, format-agnostic across whipper's "Found,
         # exact match" and cyanrip's "accurately ripped, confidence N".
@@ -1348,6 +1370,11 @@ def _ar_cell(result: object, *, offset_result: object = None) -> str:
             if conf is not None
             else "offset-variant match"
         )
+    if state == _AR_STATE_NOT_CHECKED:
+        # NOT "not in DB" — nobody looked, so the database has no opinion. Saying
+        # "no match" here asserted both that the disc is present and that our read
+        # disagreed with it, neither of which was established.
+        return "not checked"
     if state == _AR_STATE_NO_MATCH:
         # THE FIX (2026-07-31): this used to say "not in DB" — a false claim
         # about a disc the database demonstrably has. Keep it short enough for
@@ -1368,7 +1395,9 @@ def _ar_cell(result: object, *, offset_result: object = None) -> str:
     return f"{result_text} ({confidence})" if confidence is not None else result_text
 
 
-def _ar_tooltip(result: object, *, offset_result: object = None) -> str:
+def _ar_tooltip(
+    result: object, *, offset_result: object = None, lookup: str | None = None
+) -> str:
     """The tooltip for one AR cell — empty when the cell text needs no footnote.
 
     Derived from the same :func:`_ar_state` as the cell text, so a cell can never
@@ -1376,9 +1405,11 @@ def _ar_tooltip(result: object, *, offset_result: object = None) -> str:
     re-derived at the call site, which is the same one-fact-many-derivations
     shape this whole module keeps getting bitten by.) Never raises.
     """
-    state = _ar_state(result, offset_result)
+    state = _ar_state(result, offset_result, lookup)
     if state == _AR_STATE_OFFSET_VARIANT:
         return OFFSET_VARIANT_TOOLTIP
+    if state == _AR_STATE_NOT_CHECKED:
+        return NOT_CHECKED_TOOLTIP
     if state == _AR_STATE_NO_MATCH:
         return NO_MATCH_TOOLTIP
     return ""

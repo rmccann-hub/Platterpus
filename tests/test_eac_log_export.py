@@ -834,3 +834,133 @@ def test_a_logged_converged_verdict_earns_the_test_and_copy_pair() -> None:
     assert "Test CRC B0D122E7" in text
     assert "confirmed across 2 secure re-reads" in text
     assert "did NOT agree" not in text
+
+
+def test_a_non_converged_track_never_gets_the_test_and_copy_pair() -> None:
+    """The archival consequence of the verdict shift, asserted at the renderer.
+
+    EAC's `Test and Copy CRC identical` is the strongest reproducibility claim the
+    log makes, and `_track_block` earns it from `secure_rerip_converged`. With the
+    verdict shifted by one track, a track that never read the same way twice
+    carried that line while the track that DID converge carried the warning — a
+    false "verified" and a false "not reproducible" in the same attested log.
+
+    Driven from log text through the real parser, because the shift happened in
+    the parser and a hand-built `TrackResult` cannot express it.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3.1 (fork)\n"
+        "  Done; (1 out of 1 matches for current checksum AAAA1111)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     AAAA1111 (after 2 rips)\n"
+        "  Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  EAC CRC32:     BBBB2222 (after 5 rips)\n"
+    )
+    text = render_eac_style_log(log)
+    blocks = text.split("Track  ")
+    # Floor: two track blocks to compare, or there is nothing to tell apart.
+    assert len(blocks) >= 3, f"expected 2 track blocks, split gave {len(blocks) - 1}"
+    track1, track2 = blocks[1], blocks[2]
+
+    assert "confirmed across" in track1, (
+        "track 1 converged and must carry the reproducibility claim; got:\n" + track1
+    )
+    assert "did NOT agree" not in track1
+    assert "did NOT agree" in track2, (
+        "track 2 hit the repeat limit without agreeing and must say so; got:\n" + track2
+    )
+    assert "confirmed across" not in track2, (
+        "a track whose re-reads never agreed was given EAC's strongest "
+        "reproducibility claim"
+    )
+    assert "track(s) 2 did not read identically" in text, (
+        "the status report must name track 2 alone, not track 1"
+    )
+
+
+def test_gap_handling_reads_cyanrips_own_wording_not_eacs() -> None:
+    """Driven with cyanrip's strings as INPUT, which is the whole point.
+
+    The v0.5.18 version of this row shipped broken and its test could not see it,
+    because the fixture handed the renderer EAC's phrase — a string cyanrip never
+    emits. So this one starts from the ripper's vocabulary in all three shapes.
+
+    The fork's per-track enumeration reintroduced the same category error by a
+    different route: the literal word "none" is absent from
+    "0 frame pregap in track 1, unmerged", so a `\\bnone\\b`-only test fell through
+    to the STRONGER claim for a disc where cyanrip had reported *zero* frames.
+    """
+    from platterpus.eac_log_export import _gap_handling
+    from platterpus.parsers.rip_log import RippingInfo
+
+    def row(detection: str) -> str:
+        return _gap_handling(RippingInfo(gap_detection=detection), True)
+
+    # Stock 0.9.3 — unchanged, and the reference logs must keep saying this.
+    assert row("None signalled") == "Not detected, thus appended to previous track"
+    # The fork, reporting no gap audio at all: the same fact, so the same row.
+    assert (
+        row("0 frame pregap in track 1, unmerged; 0 frame pregap in track 2, unmerged")
+        == "Not detected, thus appended to previous track"
+    ), "zero frames is 'not detected', not the stronger 'appended' claim"
+    # The fork, reporting real gaps folded into the previous track.
+    assert row("150 frame pregap in track 2, merged") == "Appended to previous track"
+    # An unrecognised mode must NOT earn either EAC phrase.
+    assert row("150 frame pregap in track 2, sideways") == _UNREPORTED
+    # Floor: the three recognised shapes must not all render identically, or this
+    # test would pass against a function that returns one constant.
+    distinct = {
+        row("None signalled"),
+        row("150 frame pregap in track 2, merged"),
+        row("150 frame pregap in track 2, sideways"),
+    }
+    assert len(distinct) == 3, f"the row is not discriminating: {distinct}"
+
+
+def test_every_line_of_a_multi_line_gaps_block_survives_the_parse() -> None:
+    """The fork enumerates one line per track; a one-line lookahead kept only the
+    first, discarding the gap report for every other track."""
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3.1 (fork)\n"
+        "Gaps:\n"
+        "    0 frame pregap in track 1, unmerged\n"
+        "    150 frame pregap in track 2, merged\n"
+        "    160 frame pregap in track 3, merged\n"
+        "\n"
+        "Tracks:\n"
+    )
+    detection = log.ripping_info.gap_detection
+    for track in ("track 1", "track 2", "track 3"):
+        assert track in detection, f"{track} was dropped from {detection!r}"
+    # And a stock one-line block still yields EXACTLY the old string, so the
+    # committed reference logs cannot change.
+    stock = parse_cyanrip_log("cyanrip 0.9.3\nGaps:\n    None signalled\n\nTracks:\n")
+    assert stock.ripping_info.gap_detection == "None signalled"
+
+
+def test_a_sub_second_extraction_time_is_not_rendered_as_zero() -> None:
+    """`0:00:00` beside `Extraction speed 50.3 X` is an implausible pair.
+
+    Whole-second truncation printed exactly that for the fork's measured 0.08 s,
+    which invites doubt about both numbers. This row is ours, not one of EAC's, so
+    fractional seconds below a minute cannot affect EAC-layout parity.
+    """
+    from platterpus.eac_log_export import _extraction_time_line
+    from platterpus.parsers.rip_log import TrackResult
+
+    def row(seconds: float | None) -> list[str]:
+        return _extraction_time_line(
+            TrackResult(number=1, extraction_elapsed_seconds=seconds)
+        )
+
+    assert row(0.08) == ["     Extraction time 0.08 s"]
+    assert row(0.0) == ["     Extraction time 0.00 s"]
+    assert row(0.08) != row(0.0), "two different measurements must render differently"
+    # A minute or more keeps EAC's clock shape.
+    assert row(75.0) == ["     Extraction time 0:01:15"]
+    assert row(None) == []
