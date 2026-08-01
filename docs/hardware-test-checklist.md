@@ -17,11 +17,13 @@
 > reported as "in DB, no match", an all-zero checksum read as a confidence-200 match, and
 > every `-Z` verdict attributed to the wrong track on the fork.
 >
-> **Where the value is this round.** §A20–A24 are new and cover things the suite genuinely
+> **Where the value is this round.** §A20–A25 are new and cover things the suite genuinely
 > cannot prove: whether a *contaminated album folder* is handled correctly (A20 — the
 > highest-value test on this sheet, and the one that needs the most setup), and whether the
 > honest-verdict work reads honestly on real output (A22, A23). **A11 is a re-run** — the
-> log now says what it didn't say last time. §D1b is still the one open question.
+> log now says what it didn't say last time. §D1b is still an open question, and **§A25 is new and cannot be done with the usual
+> test disc** — v0.5.21's biggest fix needs a disc whose TOC declares a pre-gap, and screening
+> for one costs nothing.
 >
 > **One thing you cannot test by hand, so it's stated rather than listed.** v0.5.20 fixed a
 > bug where a single malformed line of cyanrip output would have *aborted a rip in
@@ -526,6 +528,43 @@ genuinely read to the end, which is interesting, or that the line moved.*
 
 **Result:** ☐ PASS ☐ FAIL — schema: ______ · track 14 silence: ______ · elapsed all null:
 ☐ y ☐ n
+
+### A25 — [ ] ⭐⭐ Find a disc that can prove the pre-gap fix — the reference disc cannot
+
+**v0.5.21's biggest fix has no hardware proof, and this disc cannot give it one.** Stated
+plainly rather than left looking tested.
+
+cyanrip's `Pregap LSN:` row prints the **absolute position** where `INDEX 00` begins; we were
+rendering it as a **length**, so the error scaled with the track's position on the disc — up to
+an **89x over-claim** in the archival log. It is fixed and revert-proven, but it can only *fire*
+on a disc whose **TOC declares** a pre-gap. cyanrip reads pre-gaps from the TOC; EAC finds them
+by sub-channel scanning. On the Police disc EAC reports ten and cyanrip reports `none` for all
+fourteen — which is the KDD-32 gap, and is exactly why this fix never showed up here.
+
+**Screening costs nothing — no full rip.** Insert a disc, let Platterpus scan it, then:
+
+```sh
+grep "Pregap LSN:" ~/.local/share/platterpus/log.txt | grep -v none
+```
+
+Any line printing a **number** instead of `none` is a candidate disc.
+
+Best candidates, roughly in order:
+
+1. **CD-Extra / enhanced CDs** (audio tracks plus a data track) — the data track's pre-gap is
+   almost always TOC-declared.
+2. **Mixed-mode discs** (track 1 is data) — common on older game and software CDs.
+3. **Live albums and DJ mixes** with index points.
+4. Anything whose EAC log shows `Pre-gap length` on *middle* tracks.
+
+- If you find one: rip it, and send the `.log`, `(EAC-compatible).log` and `.platterpus.json`.
+  Expected: our `Pre-gap length` row equals `start_sector − pregap_start_lsn` converted to
+  hundredths, and matches EAC's row if you have an EAC log of the same disc.
+- **If nothing in the collection declares one, that is a real result** — say so, and the fix
+  gets recorded as hardware-unprovable rather than as untested.
+
+**Result:** ☐ candidate found ☐ none found — discs screened: ________ · disc used:
+____________ · our row: ____________ · EAC's row: ____________
 
 ## B — Still unproven from earlier releases
 

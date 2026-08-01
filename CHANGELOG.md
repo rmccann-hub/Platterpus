@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- `docs/hardware-test-checklist.md` gains **A25**, which says plainly that v0.5.21's pre-gap fix
+  has **no hardware proof and the usual test disc cannot give it one**: cyanrip reads pre-gaps
+  from the TOC, and that disc's TOC declares none (EAC finds its ten by sub-channel scanning —
+  the KDD-32 gap). A25 is a *screen*, not a rip: one `grep` over the app log after a disc scan
+  says whether a disc can exercise the fix at all, with the likeliest candidates ranked. "None of
+  my discs declare one" is recorded as a real result, so the fix ends up marked
+  hardware-unprovable rather than silently untested.
+
+
 ## [0.5.21] — 2026-07-31
 
 ### Fixed
