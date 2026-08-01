@@ -614,6 +614,41 @@ finishes — the re-writes coalesce onto a debounce timer
 so a coalesced write is never lossy. QA / re-verification / repair tooling
 consume the JSON; humans read the log.
 
+**The JSON has to be diagnosable ALONE (schema v12).** It is the file a user is
+asked to attach to a bug report, and until v0.6.0 every real diagnosis still
+began with "can you also send me the `.log`?" — the report was 164 KB of good
+structured data and still lost to a 4 KB text file it did not contain. So it now
+embeds the verbatim text of the three companions written beside it, via
+`platterpus.report_artifacts`: cyanrip's own `.log`, our EAC-layout render, and
+the `.cue`, each with a byte count and a SHA-256 **of the bytes on disk** (not of
+the possibly-truncated text — a digest of something no file ever contained looks
+checkable and isn't).
+
+Two invariants that module exists to hold, both worth preserving if you extend it:
+
+- **Text only, by allowlist.** `EMBEDDABLE_SUFFIXES` is a closed set, not a
+  "anything but audio" denylist, because a denylist fails *open* on the format
+  nobody thought of. Critical rule #8 says no copyrighted media ever leaves in an
+  artifact we hand around, and "the caller passes the right path" is not a
+  guarantee — a rejected path is recorded with its reason rather than raising
+  inside a rip's finish path, so the refusal is visible in the output it protects.
+- **Absence is data.** A file that isn't there gets `exists: false` and keeps its
+  `path`, because "cyanrip wrote no cue" and "we didn't look for one" are
+  different findings and an omitted key cannot tell them apart. A zero-byte file
+  is present-and-empty, never folded in with missing — the 0-byte `.cue` a
+  cancelled rip leaves behind is invisible in a summary and obvious in a byte
+  count.
+
+Ordering matters when you add an artifact: the EAC-layout log is written *after*
+the report's first write, so `_write_eac_log` re-arms the debounced report write.
+Without that the single uploaded file would say `eac_log.exists: false` about a
+log sitting directly beside it — the report would be wrong about its own folder.
+
+The same release added `report["completeness"]`, which records `tracks_expected`
+(what the rip was *asked* for) rather than leaving `len(tracks)` as the report's
+only track count. See `docs/testing.md` §5.n for why that is a category of bug
+and not a one-off.
+
 **Facts the app learns *after* the ripper's log is written must be folded in
 before rendering.** The backend's `.log` is a snapshot of one rip pass, but
 Platterpus keeps learning after it: a measured cache-defeat verdict lives in the
@@ -880,4 +915,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.5.21.*
+*Last updated for Platterpus v0.6.0.*
