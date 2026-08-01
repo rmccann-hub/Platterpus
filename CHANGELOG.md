@@ -12,6 +12,44 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The fork's `Gaps:` block: all but the first line was discarded, and EAC's Gap handling row
+  silently flipped to the *stronger* claim.** Stock cyanrip prints one summary line
+  (`None signalled`); the fork enumerates one per track (`0 frame pregap in track 1, unmerged`).
+  A one-line lookahead kept only the first, and — worse — the row's sense test looked for the
+  literal word `none`, which that wording does not contain, so it fell through to
+  `Appended to previous track` for a disc where cyanrip had reported **zero frames** and
+  `unmerged`. That is the same category error that cost v0.5.18, reintroduced by a *ripper wording
+  change* rather than by a code change. The block is now collected in full, and the row is decided
+  from the measured frame counts plus the mode: all-zero frames render identically to
+  `None signalled`, a merged mode earns `Appended to previous track`, and an unrecognised mode is
+  left **unreported** with a logged warning rather than assigned whichever EAC phrase is closer.
+- **A peak the ripper never measured could be rendered as digital silence.** The sample-peak
+  sub-header path ran through an unbounded pattern, and `float()` has no 4300-digit ceiling — it
+  returns `-inf`, which slipped past the "greater than zero" refusal and computed a concrete peak
+  of exactly `0.0`. Bounded, and `_sample_peak_fraction` now refuses non-finite input so the
+  guarantee does not depend on which pattern feeds it.
+
+### Added
+- **The fork's own `Peak level: NN.N%` row is now read, and it wins over the dBFS sub-header.**
+  Converting FFmpeg's 1-decimal dBFS print fabricates *exactly* `100.0 %` for any track peaking
+  99.43–100 %, which in EAC's row means clipped — a claim about the audio the ripper never made.
+  The fork's row is already EAC's unit and precision, is pre-rounding, and is gated behind
+  `computed_crcs` so it cannot appear when no audio was decoded. When both are present and
+  disagree, the percentage is kept and the disagreement is logged.
+- **Which cyanrip *binary* produced a rip is recorded** (`ripper_build`, from the version banner's
+  parenthetical — `release`, `fork`, a `git describe`). It is the only provenance separating a rip
+  by an unreviewed local build from one by official 0.9.3.1, and two such logs of the same disc can
+  carry materially different pre-gap metadata and peak values while both claiming `cyanrip 0.9.3.1`.
+  Kept out of `log_creator` deliberately, so both committed reference logs are byte-identical.
+- **`c2_pointers`, `paranoia_level` and `overread_mode` now reach the JSON report** (schema v11).
+  All three were read from the log and rendered into the EAC-layout artifact but absent from the
+  machine record, so an automated consumer could not see what the rip did. `c2_pointers` is the
+  field the fork's §2.5 change exists to fill.
+- A sub-minute `Extraction time` renders fractional seconds instead of `0:00:00`. The fork's
+  measured `0.08 s` truncated to zero, which reads as "no time at all" beside an
+  `Extraction speed 50.3 X` on the same track.
+
+### Fixed
 - **A track nobody looked up was reported as "in the database, and your rip disagreed with it".**
   Both the results table and the archival log asserted a comparison that never happened, and this
   is live on the cyanrip everyone is running — not fork-only. The evidence for "we compared" was

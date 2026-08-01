@@ -1316,3 +1316,82 @@ def test_an_absurdly_long_number_in_a_new_field_never_raises(line: str) -> None:
     assert track.extraction_speed is None
     assert track.extraction_elapsed_seconds is None
     assert track.appended_silence_frames is None
+
+
+# --- fork output fidelity (2026-07-31) ---------------------------------------
+
+
+def test_the_forks_own_peak_percentage_wins_over_the_rounded_dbfs_header() -> None:
+    """Two peak statements per track, and the more precise one must win.
+
+    The fork prints BOTH a `Peak level: NN.N%` row (its own, gated behind
+    `computed_crcs`) and FFmpeg's `Sample peak:` / `Peak: N.N dBFS` sub-header.
+    Converting that 1-decimal dBFS print fabricates *exactly* 100.0% for anything
+    peaking 99.43–100%, which in EAC's row means "clipped" — a claim about the
+    audio that the ripper never made.
+
+    The reset between tracks is asserted too: a percentage on one track must not
+    suppress the next track's reading, which is the bug the flag itself can cause.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3.1 (fork)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Sample peak:\n"
+        "    Peak:        -0.0 dBFS\n"
+        "  Properties:\n"
+        "    Peak level:  99.7%\n"
+        "Track 2 ripped and encoded successfully!\n"
+        "  Sample peak:\n"
+        "    Peak:        -6.0 dBFS\n"
+    )
+    by_number = {t.number: t for t in log.tracks}
+    assert by_number[1].peak_level == pytest.approx(0.997), (
+        "the rounded -0.0 dBFS sub-header overwrote the exact 99.7% row, which "
+        "renders as a clipped 100.0% in EAC's Peak level"
+    )
+    assert by_number[2].peak_level == pytest.approx(0.5011872, abs=1e-6), (
+        "track 2's own dBFS reading was suppressed by track 1's percentage"
+    )
+
+
+def test_the_ripper_build_tag_is_recorded_without_changing_log_creator() -> None:
+    """Which BINARY produced the rip — the only provenance separating a local fork
+    build from official 0.9.3.1, which can differ in pre-gap metadata and peaks.
+
+    `log_creator` must stay byte-identical, because both committed reference logs
+    and every assertion over them read it.
+    """
+    for banner, build in (
+        ("cyanrip 0.9.3.1 (fork)", "fork"),
+        ("cyanrip 0.9.3 (release)", "release"),
+        ("cyanrip 0.9.3.1 (git-abcdef1-dirty)", "git-abcdef1-dirty"),
+        ("cyanrip 0.9.3", ""),
+    ):
+        log = parse_cyanrip_log(banner + "\nTracks:\n")
+        assert log.ripper_build == build, f"{banner!r} -> {log.ripper_build!r}"
+        assert log.log_creator == "cyanrip " + banner.split()[1]
+    # Floor: the four cases must not all produce the same answer.
+    builds = {
+        parse_cyanrip_log(b + "\nTracks:\n").ripper_build
+        for b in ("cyanrip 0.9.3.1 (fork)", "cyanrip 0.9.3 (release)", "cyanrip 0.9.3")
+    }
+    assert len(builds) == 3
+
+
+def test_a_long_digit_run_in_a_peak_never_fabricates_digital_silence() -> None:
+    """`float()` has no 4300-digit ceiling — it returns `-inf`.
+
+    That slipped past the "> 0.0" refusal and computed a concrete peak of exactly
+    0.0, i.e. a claim of digital silence, from unparseable input. The never-raises
+    contract already held; this is about absent staying absent.
+    """
+    huge = "9" * 5000
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.3.1 (fork)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Sample peak:\n"
+        f"    Peak:        -{huge} dBFS\n"
+    )
+    assert log.tracks[0].peak_level is None, (
+        "an unparseable peak produced a concrete value instead of 'not reported'"
+    )

@@ -560,6 +560,18 @@ def _build(
             # only (the BDR-209D is speed-locked — real-hardware finding). None
             # when the log didn't say (older cyanrip / whipper).
             "speed_changeable": getattr(info, "speed_changeable", None),
+            # v11: three facts that reach the human-readable EAC-layout log and were
+            # absent from the machine record, so an automated consumer could not see
+            # what the rip actually did. `c2_pointers` is the field the fork's §2.5
+            # change exists to fill: None = capability only / nothing stated, False =
+            # explicitly not used, which is EAC's "No".
+            "c2_pointers": getattr(info, "c2_pointers", None),
+            "paranoia_level": getattr(info, "paranoia_level", "") or None,
+            "overread_mode": getattr(info, "overread_mode", "") or None,
+            # Which cyanrip BINARY produced this rip ("release", "fork", a git
+            # describe). The only provenance separating an official build from a local
+            # one, and they can differ in pre-gap metadata and peak values.
+            "ripper_build": getattr(rip_log, "ripper_build", "") or None,
             "creation_date": getattr(rip_log, "creation_date", "") or None,
             # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
             # The truest "same physical disc" key — stable across re-rips and
