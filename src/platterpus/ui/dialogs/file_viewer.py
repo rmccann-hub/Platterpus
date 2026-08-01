@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.external_open import open_path_externally
 
 log = logging.getLogger(__name__)
 
@@ -106,4 +107,12 @@ class FileViewerDialog(CenteredDialog):
         layout.addWidget(buttons)
 
     def _on_open_external(self) -> None:
-        self._open_url(QUrl.fromLocalFile(str(self._path)))
+        # Via the shared helper, which reports a refusal instead of swallowing
+        # it. This button is the one most likely to be refused: it exists
+        # precisely because a .log/.platterpus.json usually has no registered
+        # handler on a fresh KDE, which is also exactly when openUrl returns
+        # False. Silently ignoring that made the escape hatch a dead button on
+        # the very systems it was written for.
+        open_path_externally(
+            self._path, parent=self, open_url=self._open_url, what="file"
+        )
