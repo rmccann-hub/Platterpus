@@ -349,6 +349,7 @@ def _render(
             _read_stability_line(rip_log)
             + _appended_silence_line(rip_log)
             + _interrupted_securing_line(secure_rerip),
+            disc_track_total=disc_track_total,
         )
     )
     lines.append("")
@@ -730,7 +731,12 @@ def _toc_block(rip_log: RipLog, disc_track_total: int | None = None) -> list[str
     return out
 
 
-def _status_report(rip_log: RipLog, extra: list[str] | None = None) -> list[str]:
+def _status_report(
+    rip_log: RipLog,
+    extra: list[str] | None = None,
+    *,
+    disc_track_total: int | None = None,
+) -> list[str]:
     """EAC's end-of-rip status report, in EAC's own wording and order.
 
     EAC closes with per-count lines ("13 track(s) accurately ripped"), a verdict
@@ -763,7 +769,18 @@ def _status_report(rip_log: RipLog, extra: list[str] | None = None) -> list[str]
         # against the real track count before announcing a clean sweep, or a rip
         # with a dead track reads as "All tracks accurately ripped" (review
         # finding, 2026-07-28).
-        clean_sweep = not unverified and total >= len(rip_log.tracks)
+        # The denominator is the DISC's track count when we know it, not the
+        # log's own track list. Using the list meant a cancelled 2-of-14 rip
+        # printed "All tracks accurately ripped" sixty lines below its own
+        # "INCOMPLETE RIP (cancelled) — this log covers 2 of 14 disc tracks"
+        # banner: two contradictory claims in one SHA-256-attested document
+        # (found on the rig, 2026-08-01).
+        #
+        # This is the fourth place the log's own track list was used as the
+        # denominator for a completeness claim. A stopped rip can shrink that
+        # list; it cannot shrink the disc.
+        expected = disc_track_total or len(rip_log.tracks)
+        clean_sweep = not unverified and total >= expected
         out.append(
             "All tracks accurately ripped"
             if clean_sweep

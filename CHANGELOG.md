@@ -12,6 +12,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The EAC-layout log said "INCOMPLETE RIP … 2 of 14 disc tracks" at the top and "All tracks
+  accurately ripped" sixty lines below it** — two contradictory claims inside one SHA-256-attested
+  document (real artifact off the rig, 2026-08-01). The end-of-rip status report decided its
+  "clean sweep" sentence by comparing the AccurateRip total against the **log's own** track list,
+  which a cancel shrinks; a cancel cannot shrink the disc. It is now handed the same
+  `expected_track_total` every other surface uses — the number the rip was *asked* for — so a
+  deliberate 2-of-14 selection still earns its "All tracks accurately ripped" while a cancelled
+  one cannot.
 - **A rip still in progress serialised "✓ Bit-perfect: all N tracks verified".** Found on the
   rig mid-rip: with 2 of 14 tracks done and the drive still spinning, `.platterpus.json` carried
   `"✓ Bit-perfect: all 2 tracks verified against AccurateRip (confidence 129+)"` and a green

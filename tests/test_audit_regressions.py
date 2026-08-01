@@ -1116,3 +1116,124 @@ def test_expected_track_total_falls_back_to_the_disc_then_to_unknown() -> None:
     assert expected_track_total(14, None) == 14
     assert expected_track_total(None, ()) is None
     assert expected_track_total(0, ()) is None
+
+
+# --- the same denominator, a fourth time, in the attested document ----------
+
+
+_RIG_CANCELLED_2_OF_14 = """cyanrip 0.9.3 (release)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Disc tracks:    14
+Album:          Every Breath You Take: The Classics
+Album artist:   The Police
+AccurateRip:    found
+
+Tracks:
+Track 1 ripped and encoded successfully!
+Summary:
+
+  Properties:
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14486 (with offset: 14488)
+
+  EAC CRC32:     B0D122E7
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)
+    Accurip v2:  22B9924D (accurately ripped, confidence 200)
+
+Track 2 ripped and encoded successfully!
+Summary:
+
+  Properties:
+    Start LSN:   14487 (with offset: 14488)
+    End LSN:     28066 (with offset: 28068)
+
+  EAC CRC32:     985AAE32
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  A3019EB3 (accurately ripped, confidence 131)
+    Accurip v2:  31C28378 (accurately ripped, confidence 200)
+"""
+
+
+def test_the_attested_log_cannot_say_incomplete_at_the_top_and_all_at_the_bottom() -> (
+    None
+):
+    """Two contradictory claims in one SHA-256-signed document, off the rig.
+
+    Real artifact, 2026-08-01: a rip cancelled after two tracks of fourteen. Line
+    10 said ``*** INCOMPLETE RIP (cancelled) — this log covers 2 of 14 disc
+    tracks. ***``; line 68, in the status report, said ``All tracks accurately
+    ripped``. Both signed by the same checksum. The banner and the verdict had
+    already been fixed for exactly this case — the status report had not, because
+    it computed its own denominator instead of being handed one.
+
+    `clean_sweep` compared the AccurateRip total against ``len(rip_log.tracks)``:
+    the LOG's track list, which a cancel shrinks. A cancel cannot shrink the disc.
+    This is the fourth appearance of that denominator (see the three tests above);
+    the concept that fixes it — `expected_track_total`, the number the rip was
+    ASKED for — already existed and simply wasn't threaded this far.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    rip_log = parse_cyanrip_log(_RIG_CANCELLED_2_OF_14)
+    assert len(rip_log.tracks) == 2, "the log itself only carries the two ripped"
+
+    text = render_eac_style_log(
+        rip_log, outcome_status="cancelled", disc_track_total=14
+    )
+
+    # The banner is the claim we trust; the summary must not contradict it.
+    assert "INCOMPLETE RIP (cancelled)" in text
+    assert "2 of 14" in text
+    assert "All tracks accurately ripped" not in text
+    assert "Some tracks could not be verified as accurate" in text
+    # The per-count line is still honest about what DID verify — the fix must not
+    # turn a truthful count into a pessimistic one.
+    assert "2 track(s) accurately ripped" in text
+
+
+def test_a_complete_rip_still_gets_its_clean_sweep_sentence() -> None:
+    """The other side: supplying a disc total must not condemn an honest rip.
+
+    Same failure mode as the verdict fix's companion test — if the guard fired
+    merely because a denominator was passed, every complete rip would lose its
+    "All tracks accurately ripped" line and the fix would be worse than the bug.
+    """
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=tuple(
+            TrackResult(number=n, copy_crc=f"{n:08X}", accuraterip_v2=ok)
+            for n in range(1, 15)
+        ),
+    )
+    text = render_eac_style_log(rip_log, outcome_status="success", disc_track_total=14)
+    assert "All tracks accurately ripped" in text
+    assert "INCOMPLETE RIP" not in text
+
+
+def test_a_deliberate_subset_rip_is_a_clean_sweep_of_what_was_asked() -> None:
+    """A user who ticks two of fourteen and gets both has a complete rip.
+
+    `expected_track_total` is what the caller threads in, so the status report
+    measures against the REQUEST, not the disc — the same false-alarm the verdict
+    fix had to walk back hours after shipping. Pinned here so the log surface
+    can't repeat it.
+    """
+    ok = AccurateRipResult(version=2, result="accurately ripped", confidence=200)
+    rip_log = RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=(
+            TrackResult(number=1, copy_crc="B0D122E7", accuraterip_v2=ok),
+            TrackResult(number=2, copy_crc="985AAE32", accuraterip_v2=ok),
+        ),
+    )
+    text = render_eac_style_log(
+        rip_log,
+        outcome_status="success",
+        disc_track_total=expected_track_total(14, (1, 2)),
+    )
+    assert "All tracks accurately ripped" in text
+    assert "INCOMPLETE RIP" not in text
