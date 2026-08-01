@@ -2766,7 +2766,23 @@ class RipMixin(MainWindowShared):
             outcome=getattr(self, "_last_outcome", None),
             # The disc's own track count, so the JSON's verdict and the window's
             # agree about the denominator on a rip that stopped early.
-            disc_track_total=getattr(self, "_last_expected_track_total", None),
+            #
+            # The snapshot is only taken at finish, so it is None for every
+            # re-write DURING a rip — and with no denominator the verdict said
+            # "✓ Bit-perfect: all 2 tracks verified" over a 2-of-14 rip that was
+            # still running (found on the rig, 2026-08-01). The EAC-layout log
+            # beside it used the live count and said "2 of 14", so our two
+            # archival artifacts disagreed. Falling back to the same computation
+            # the finish path uses keeps them in step, and folds in the Rip?
+            # selection so a *deliberate* subset is not reported as 12 missing
+            # tracks — the false alarm the finish-time fix already had to solve.
+            disc_track_total=getattr(self, "_last_expected_track_total", None)
+            or expected_track_total(
+                getattr(self, "_current_num_tracks", 0) or None,
+                getattr(self._active_rip_params, "only_tracks", ())
+                if getattr(self, "_active_rip_params", None) is not None
+                else (),
+            ),
             settings=rip_report.build_settings(
                 self._config,
                 read_offset_effective=getattr(

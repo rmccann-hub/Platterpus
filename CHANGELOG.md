@@ -11,6 +11,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A rip still in progress serialised "✓ Bit-perfect: all N tracks verified".** Found on the
+  rig mid-rip: with 2 of 14 tracks done and the drive still spinning, `.platterpus.json` carried
+  `"✓ Bit-perfect: all 2 tracks verified against AccurateRip (confidence 129+)"` and a green
+  `level: "ok"`. The verdict guard added in v0.5.19 was being passed the right arguments — but
+  its denominator, `_last_expected_track_total`, is snapshotted at **finish**, so every re-write
+  *during* the rip handed it `None` and the "all N tracks" wording had nothing to contradict it.
+  The EAC-layout log written beside it used the live disc count and said "2 of 14", so the two
+  archival artifacts disagreed about the same rip — and if the app dies or the rip is cancelled
+  at that moment, the JSON is the record left on disk. The in-progress writes now fall back to
+  the same `expected_track_total` computation the finish path uses, which also folds in the Rip?
+  selection so a *deliberate* subset is not reported as missing tracks.
+
+
 ### Documentation
 - `docs/hardware-test-checklist.md` gains **A25**, which says plainly that v0.5.21's pre-gap fix
   has **no hardware proof and the usual test disc cannot give it one**: cyanrip reads pre-gaps
