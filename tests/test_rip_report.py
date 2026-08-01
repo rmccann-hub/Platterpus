@@ -885,8 +885,8 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_11() -> None:
-    assert REPORT_SCHEMA_VERSION == 11
+def test_schema_version_is_12() -> None:
+    assert REPORT_SCHEMA_VERSION == 12
 
 
 def test_rip_block_carries_disc_ids() -> None:

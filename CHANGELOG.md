@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-08-01
+
+### Added
+- **The JSON report is now genuinely the only file worth uploading** (schema **v12**). Every
+  hardware diagnosis so far has started by asking for a second file, so `.platterpus.json` gains
+  an `artifacts` block carrying the **verbatim text** of the three companions written beside it —
+  cyanrip's own `.log`, the EAC-layout render, and the `.cue` — each with its byte count and a
+  SHA-256 of the bytes on disk. Text only, enforced by an extension allowlist: an audio path is
+  refused and the refusal recorded (critical rule #8). A file that is absent says so rather than
+  being omitted, and a **zero-byte** file reads as present-and-empty — the 0-byte `.cue` a
+  cancelled rip left on the rig is invisible in a summary and obvious in a byte count.
+- **`completeness` block** — `tracks_expected` / `tracks_in_report` / `complete`. The disc's track
+  count already reached the report builder, but only to *feed* the verdict; it was never written
+  down, so the JSON's only track count was `len(tracks)` — the log's own list, which a cancel
+  shrinks. A reader had to parse English out of `verdict.message` to learn that a 2-track report
+  described a 14-track disc. `complete` is tri-state: `null` means the writer didn't know, which
+  is explicitly not a claim that the rip was whole.
+
 ### Fixed
 - **"Open externally…", "Open rip folder" and Help → Open logs folder could silently do nothing.**
   `QDesktopServices.openUrl` returns False when nothing on the system claims the URL — no file
@@ -4474,7 +4492,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.13...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
 [0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.18...v0.5.19
@@ -4542,4 +4561,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.5.21.*
+*Last updated for Platterpus v0.6.0.*
