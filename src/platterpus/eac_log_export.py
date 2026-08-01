@@ -55,6 +55,7 @@ from platterpus.parsers.rip_log import (
     accuraterip_is_match,
 )
 from platterpus.report_types import SecureReripBlock
+from platterpus.verdict import accuraterip_lookup_happened
 
 log = logging.getLogger(__name__)
 
@@ -418,6 +419,22 @@ def _is_cyanrip(rip_log: RipLog) -> bool:
 # free text, so match the sense rather than the exact phrasing: 0.9.3 prints
 # "None signalled" and a future wording change must not silently flip the row.
 _GAP_NONE_SIGNALLED = re.compile(r"\bnone\b", re.IGNORECASE)
+# The fork enumerates the block per track instead of summarising it:
+#   "0 frame pregap in track 1, unmerged"
+# Read the FRAME COUNT and the mode, because the literal word "none" is absent
+# from that wording — so a `\bnone\b`-only test fell through to the STRONGER
+# claim ("Appended to previous track") for a disc where cyanrip had reported
+# zero frames and "unmerged". Same category error that cost v0.5.18,
+# reintroduced by a ripper wording change rather than by a code change
+# (audit, 2026-07-31).
+_GAP_PER_TRACK = re.compile(
+    r"(?P<frames>\d{1,9})\s+frames?\s+pregap\s+in\s+track\s+(?P<track>\d{1,4})"
+    r"\s*,\s*(?P<mode>[^;]+)"
+)
+# Modes that mean the gap's audio was folded into the preceding track — EAC's
+# "Appended to previous track". Listed as positives because an unrecognised mode
+# must NOT earn the stronger claim.
+_GAP_MODE_APPENDED: tuple[str, ...] = ("merged", "append", "into previous", "previous")
 
 
 def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
@@ -464,8 +481,31 @@ def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
     """
     if not cyanrip:
         return _UNREPORTED
-    if _GAP_NONE_SIGNALLED.search(info.gap_detection or ""):
+    text = info.gap_detection or ""
+    if not text:
+        return _UNREPORTED
+    if _GAP_NONE_SIGNALLED.search(text):
         return "Not detected, thus appended to previous track"
+    # The fork's per-track enumeration. Decide from the MEASURED frame counts:
+    # all-zero means the ripper found no gap audio at all, which is the same fact
+    # "None signalled" states, so it must render the same way.
+    per_track = _GAP_PER_TRACK.findall(text)
+    if per_track:
+        frames = [int(m[0]) for m in per_track]
+        modes = " ".join(m[2].casefold() for m in per_track)
+        if not any(frames):
+            return "Not detected, thus appended to previous track"
+        if any(token in modes for token in _GAP_MODE_APPENDED):
+            return "Appended to previous track"
+        # Gaps were found and the mode is one we do not recognise — say nothing
+        # rather than pick whichever EAC phrase is closer. This row is a claim
+        # about what the rip DID, and guessing it is how it went wrong before.
+        log.warning(
+            "unrecognised cyanrip gap mode(s) in %r — leaving EAC's Gap handling "
+            "row unreported rather than guessing the policy",
+            text[:120],
+        )
+        return _UNREPORTED
     return "Appended to previous track"
 
 
@@ -620,6 +660,13 @@ def _extraction_time_line(track: TrackResult) -> list[str]:
     if not seconds >= 0 or seconds in (float("inf"),):
         return []
     total = int(seconds)  # truncated, like every other duration in this log
+    if total < 60:
+        # Sub-minute reads get fractional seconds. Whole-second truncation printed
+        # "0:00:00" for a measured 0.08 s, which reads as "no time at all" beside
+        # an "Extraction speed 50.3 X" on the same track — an implausible pair that
+        # invites doubt about both numbers. This row is ours, not one of EAC's, so
+        # widening it cannot affect EAC-layout parity.
+        return [f"     Extraction time {seconds:.2f} s"]
     hours, rest = divmod(total, 3600)
     minutes, secs = divmod(rest, 60)
     return [f"     Extraction time {hours}:{minutes:02d}:{secs:02d}"]
@@ -1091,6 +1138,16 @@ def _accuraterip_line(track: TrackResult) -> str:
     # is a false claim, and EAC has its own wording for exactly this state
     # (review finding, 2026-07-28). Only a track with no AR data at all gets
     # "not present".
+    # ...but "cannot be verified" is itself a claim, and it presumes a comparison
+    # took place. When cyanrip's per-track `Accurip:` row says the lookup was
+    # `disabled` or errored, nothing was consulted — so the honest line is that no
+    # check was made, not that the check was inconclusive. Stated before the
+    # local-CRC fallback below because cyanrip prints those CRCs in every state,
+    # `disabled` included, which is what made this row over-claim (audit,
+    # 2026-07-31).
+    lookup = getattr(track, "accuraterip_lookup", None)
+    if accuraterip_lookup_happened(lookup) is False:
+        return "Not checked against the AccurateRip database"
     for ar in (track.accuraterip_v2, track.accuraterip_v1, track.accuraterip_offset):
         if ar is not None and ar.local_crc:
             crc = f"  [{ar.local_crc}]" if ar.local_crc else ""

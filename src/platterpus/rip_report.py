@@ -127,7 +127,18 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #   * `extraction_elapsed_seconds` — fork-only, None on 0.9.3. Serialized now so
 #     the fork's output lands in the report the day the fork ships, rather than
 #     being parsed into a field nothing writes down.
-REPORT_SCHEMA_VERSION: int = 10
+# v11 (0.5.21): two corrections to v10, both found by running the maintainer's
+# cyanrip fork's real output through the parser:
+#   * `pregap_start_lsn` added, and `pregap_sectors` now means what its name says.
+#     v10 serialized cyanrip's "Pregap LSN:" row — an ABSOLUTE position — under
+#     `pregap_sectors`, and every consumer rendered it as a length. On the
+#     reference pressing that is an 89x over-claim in the EAC "Pre-gap length"
+#     row. The length is now derived as `start_sector - pregap_start_lsn`, which
+#     is exactly how cyanrip computes the duration it prints itself.
+#   * the disc-level `c2_pointers`, `paranoia_level` and `overread_mode` — read
+#     from the log and rendered into the EAC-layout artifact, but absent from the
+#     machine record, so an automated consumer could not see what the rip did.
+REPORT_SCHEMA_VERSION: int = 11
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -549,6 +560,18 @@ def _build(
             # only (the BDR-209D is speed-locked — real-hardware finding). None
             # when the log didn't say (older cyanrip / whipper).
             "speed_changeable": getattr(info, "speed_changeable", None),
+            # v11: three facts that reach the human-readable EAC-layout log and were
+            # absent from the machine record, so an automated consumer could not see
+            # what the rip actually did. `c2_pointers` is the field the fork's §2.5
+            # change exists to fill: None = capability only / nothing stated, False =
+            # explicitly not used, which is EAC's "No".
+            "c2_pointers": getattr(info, "c2_pointers", None),
+            "paranoia_level": getattr(info, "paranoia_level", "") or None,
+            "overread_mode": getattr(info, "overread_mode", "") or None,
+            # Which cyanrip BINARY produced this rip ("release", "fork", a git
+            # describe). The only provenance separating an official build from a local
+            # one, and they can differ in pre-gap metadata and peak values.
+            "ripper_build": getattr(rip_log, "ripper_build", "") or None,
             "creation_date": getattr(rip_log, "creation_date", "") or None,
             # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
             # The truest "same physical disc" key — stable across re-rips and
@@ -670,16 +693,26 @@ def _track(track: object) -> dict:
         "appended_silence_frames": getattr(track, "appended_silence_frames", None),
         # Absolute disc geometry (sectors). EAC's "TOC of the extracted CD" is
         # derived from these exactly, so without them the JSON could not
-        # reconstruct a table the .log already shows. `pregap_sectors` is 0 vs
-        # None in the usual sense: measured-none vs not-reported.
+        # reconstruct a table the .log already shows.
         "start_sector": getattr(track, "start_sector", None),
         "end_sector": getattr(track, "end_sector", None),
+        # The pre-gap's LENGTH (0 = the ripper measured none; None = it reported
+        # nothing usable) and, separately, the absolute position its INDEX 00
+        # begins at. Both, because they are different quantities and v10 shipped
+        # the position under the length's name — an 89x over-claim in the EAC row
+        # on a real disc (see parsers.rip_log.TrackResult for the numbers).
         "pregap_sectors": getattr(track, "pregap_sectors", None),
+        "pregap_start_lsn": getattr(track, "pregap_start_lsn", None),
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
         # The shared confidence>=1 rule — same as the banner and disc panel.
         "accuraterip_verified": track_accuraterip_verified(track),
+        # cyanrip's per-track "Accurip:" status text — the only thing that says
+        # whether a lookup happened. Without it a consumer cannot tell "compared
+        # and disagreed" from "never asked", which is the distinction the on-screen
+        # cell and the EAC row were both getting wrong.
+        "accuraterip_lookup": getattr(track, "accuraterip_lookup", None),
         "accuraterip": {
             "v1": _ar(getattr(track, "accuraterip_v1", None)),
             "v2": _ar(getattr(track, "accuraterip_v2", None)),

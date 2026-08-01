@@ -161,6 +161,12 @@ class TrackResult:
     # It's surfaced as data (not folded into the verified rule) so the verdict
     # never over-claims a plain match; see docs/architecture.md.
     accuraterip_offset: AccurateRipResult | None = None
+    # The verbatim text of cyanrip's per-track "Accurip:" status row — e.g.
+    # "disc found in database (max confidence: 200)", "disabled", "error". The ONLY
+    # thing in the log that says whether a database lookup happened at all; without
+    # it, a disc nobody looked up was reported as "in DB, no match" (audit,
+    # 2026-07-31). None for whipper logs and any log that omits the row.
+    accuraterip_lookup: str | None = None
     # How many read passes cyanrip needed for this track (its "(after N rips)"
     # suffix). 1 = clean single pass; higher means secure re-reads (-Z N) were
     # needed — the clearest per-track signal of a marginal read region.
@@ -188,9 +194,20 @@ class TrackResult:
     # None when the log didn't report them (whipper, or a partial log).
     start_sector: int | None = None
     end_sector: int | None = None
-    # Sectors of pre-gap before this track, for EAC's "Pre-gap length" line.
-    # cyanrip prints "Pregap LSN: none" when there is none.
+    # The pre-gap's LENGTH in sectors, for EAC's "Pre-gap length" row. This is a
+    # DERIVED value, not a number cyanrip prints: see `pregap_start_lsn` below.
+    # 0 means the ripper measured "none"; None means it reported nothing usable.
     pregap_sectors: int | None = None
+    # The pre-gap's absolute START position — the number on cyanrip's
+    # "Pregap LSN:" row, which is where INDEX 00 begins and is NOT a length.
+    # Recorded separately because reading that row's number as a length is a real
+    # shipped bug: on the reference pressing, track 2's INDEX 00 sits at LSN 14327
+    # against a Start LSN of 14487, so the true gap is 160 sectors (2.13 s) and the
+    # EAC-layout log archived 3 m 11 s — an 89x over-claim, and one that scales
+    # with the track's position on the disc (audit, 2026-07-31). `pregap_sectors`
+    # above is `start_sector - pregap_start_lsn`, which is exactly how cyanrip
+    # computes the duration it prints in its own `(duration: …)` suffix.
+    pregap_start_lsn: int | None = None
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-improvements-wanted.md §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and
@@ -218,6 +235,13 @@ class RipLog:
     """The full parsed log."""
 
     log_creator: str = ""
+    # cyanrip's build tag from its version banner — "release", "fork", a
+    # `git describe` string. Kept out of `log_creator` deliberately: it is the ONLY
+    # thing that tells an archival log which BINARY produced the rip, and two logs
+    # of the same disc from an official build and a local fork can differ in
+    # pre-gap metadata and peak values while both claiming "cyanrip 0.9.3.1"
+    # (audit, 2026-07-31). Empty when the banner carries no parenthetical.
+    ripper_build: str = ""
     creation_date: str = ""
     ripping_info: RippingInfo = field(default_factory=RippingInfo)
     tracks: tuple[TrackResult, ...] = ()
@@ -273,8 +297,26 @@ def accuraterip_is_match(ar: object) -> bool:
     would silently miss every cyanrip verification), and it can only ever
     under-claim, never fabricate a match. Reads via ``getattr`` so it accepts
     any AR-result shape and never raises.
+
+    **An all-zero local CRC can never be a match, whatever the confidence says.**
+    cyanrip itself prints the caveat — "match found, confidence 200, but a
+    checksum of 0 is meaningless" — and without this guard that line parsed as a
+    confidence-200 positive. It matters most on the offset-variant row, where a
+    silent or absent track yields `Accurip 450: 00000000` and the cell then
+    announced a partially-accurate match for audio nothing was compared against.
+    Keying on the zero CRC rather than on cyanrip's wording is the stronger
+    invariant: it also covers a backend that omits the caveat (audit, 2026-07-31).
     """
     if ar is None:
+        return False
+    local_crc = getattr(ar, "local_crc", None)
+    # All zeros (any width, with or without a `0x` prefix). The `strip()` must be
+    # guarded by a non-empty check: `"".strip("0Xx")` is also `""`, and an EMPTY
+    # CRC means "not reported" — a whipper log can carry a real match without one,
+    # so treating empty as zero would silently discard genuine verifications. This
+    # is under-claiming, which is the direction that costs the user trust in a
+    # correct rip, so it is as much a bug as the over-claim above.
+    if isinstance(local_crc, str) and local_crc and local_crc.strip("0Xx") == "":
         return False
     confidence = getattr(ar, "confidence", None)
     return confidence is not None and confidence >= 1

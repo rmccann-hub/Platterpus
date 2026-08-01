@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.20
+# Hardware test checklist — v0.5.21
 
 > **Everything that still needs testing, in one place.** Anything that has already passed
 > is gone from this sheet — the record of what passed and when lives in
@@ -9,10 +9,13 @@
 > Rig details, tool versions and expected values are pre-filled from your last six runs.
 > You tick boxes and note anything that **differs** from what's printed.
 >
-> **Two releases since your last run:** v0.5.19 (nine audit findings — leftover files being
-> edited, a silent tagging failure, a path-escape, and eight parsers that could raise) and
-> v0.5.20 (a rip-aborting bug *introduced by* v0.5.19's own blind spot, plus a false
-> "Bit-perfect" the trust banner could show).
+> **Three releases since your last run:** v0.5.19 (nine audit findings), v0.5.20 (a
+> rip-aborting bug *introduced by* v0.5.19's own blind spot, plus a false "Bit-perfect"), and
+> **v0.5.21 — four bugs found by running the maintainer's cyanrip fork's real output through
+> our parser, three of which were live on the cyanrip you are running now**: a pre-gap
+> over-claimed by up to 89x in the archival log, an AccurateRip lookup that never happened
+> reported as "in DB, no match", an all-zero checksum read as a confidence-200 match, and
+> every `-Z` verdict attributed to the wrong track on the fork.
 >
 > **Where the value is this round.** §A20–A24 are new and cover things the suite genuinely
 > cannot prove: whether a *contaminated album folder* is handled correctly (A20 — the
@@ -87,23 +90,29 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
   A22 — and note this may well be what track 3 shows.
 * **A "Done." can now be amber.** If a post-rip step fails (tagging, a FLAC decode check),
   the trust banner is downgraded and says which. Previously it could stay green. See A23.
-* The `.platterpus.json` report is **schema v10** and carries five more per-track fields.
+* **An AccurateRip cell can now read `not checked`** — meaning no lookup happened, as distinct
+  from `not in DB` (the lookup ran, the disc is not there). The EAC-layout log says
+  `Not checked against the AccurateRip database` for the same state. Previously both of these
+  rendered as "in DB, no match", which claimed a comparison that never took place.
+* **A `Pre-gap length` row can appear where it never did**, and any that appears is now much
+  shorter — see A24's warning. It was being computed from the wrong quantity.
+* The `.platterpus.json` report is **schema v11** and carries five more per-track fields.
   See A24 — this one is a two-minute file check, not a rip.
 
 ---
 
-## 0 — [ ] Update to v0.5.20
+## 0 — [ ] Update to v0.5.21
 
-*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.5.20**.
+*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.5.21**.
 Nothing else to set up — your settings are already right (see above).
 
 **Result:** ☐ PASS ☐ FAIL — version shown: ____________
 
 ---
 
-## A — ⭐ New in v0.5.19 / v0.5.20 — only your rig can prove these
+## A — ⭐ New in v0.5.19 – v0.5.21 — only your rig can prove these
 
-*Eleven findings were fixed across these two releases, all found by audits rather than by
+*Twenty-four findings were fixed across these three releases, all found by audits rather than by
 anything going visibly wrong — which is exactly why they need a rig: the suite proves each
 mechanism fires, and cannot prove the drive stops, that the right bytes got the right tags,
 or that a verdict reads honestly to a person.*
@@ -420,7 +429,7 @@ offset-variant match it is, which is a *third* distinct state.
 1. Rip the Police disc normally, all 14 tracks.
 2. Read the **Tracks** tab's AccurateRip columns carefully, and hover each interesting cell.
 
-**The five readings a cell can legitimately show**, so you can tell a wrong one from an
+**The six readings a cell can legitimately show**, so you can tell a wrong one from an
 unfamiliar one:
 
 | Cell text | Means |
@@ -428,7 +437,8 @@ unfamiliar one:
 | `OK (N)` | matched the database at confidence N |
 | `offset-variant match (N)` | matched the +450 shifted pressing — audio is right |
 | `in DB, no match` | the disc **is** in the database and your CRC matched nothing |
-| `not in DB` | nobody submitted this disc. Says nothing about your rip |
+| `not in DB` | the lookup ran; nobody submitted this disc. Says nothing about your rip |
+| `not checked` | **no lookup happened at all** — the database has said nothing either way |
 | `—` | no data for this track |
 
 - Expected: whichever appear are distinguishable at a glance, and **`in DB, no match` and
@@ -483,7 +493,7 @@ Run this against **any** `.platterpus.json` from a v0.5.20 rip:
 python3 - "$HOME"/Music/*Police*/*.platterpus.json <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
-print("schema:", d["schema_version"])
+print("schema:", d["schema_version"])  # 11
 for t in d["tracks"]:
     print(t["number"],
           "silence:", t["appended_silence_frames"],
@@ -493,10 +503,21 @@ for t in d["tracks"]:
 PY
 ```
 
-- Expected: `schema: 10`.
+- Expected: `schema: 11`.
 - Expected: **track 14** has a small non-null `silence:` (2 on the reference rips); every
   other track is `None`.
-- Expected: `start`/`end` are real ascending sector numbers; `pregap` is `0` on this disc.
+- Expected: `start`/`end` are real ascending sector numbers.
+- Expected: **`pregap_sectors` is `0` on every track of this disc** — cyanrip's TOC declares no
+  pre-gaps for it, so `0` here means *measured none*, not "unknown". `pregap_start_lsn` is `null`
+  for the same reason.
+- ⚠️ **Changed in v0.5.21, so it will not match an older report.** `pregap_sectors` used to hold
+  cyanrip's *absolute* `Pregap LSN` and was rendered as a *length* — an 89× over-claim on any disc
+  whose TOC does declare a pre-gap. It is now the derived length (`start_sector -
+  pregap_start_lsn`) and the raw position lives in its own field. On **this** disc both readings
+  happen to be `0`, so a diff against an old report shows only the new key.
+- **The disc that would prove it is one with real pre-gaps** — this disc cannot. If you have a CD
+  whose EAC log shows `Pre-gap length` for its middle tracks, ripping it is the single most
+  valuable extra thing you could do this round: check our `Pre-gap length` rows match EAC's.
 - Expected: `elapsed:` is `None` on **every** track — that field is fork-only and deployed
   cyanrip 0.9.3 does not print it. `None` here is the correct answer, not a gap.
 
@@ -897,4 +918,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.5.20.*
+*Last updated for Platterpus v0.5.21.*
