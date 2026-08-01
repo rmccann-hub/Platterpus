@@ -64,6 +64,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 
 ### Documentation
+- `docs/hardware-test-checklist.md` rewritten for v0.6.0: **A26** (the "open" buttons the
+  maintainer reported, with a `grep` that says whether their machine ever hit the silent
+  failure), **A27** (the 0-byte `.cue` a cancelled rip left — an open question with a
+  control test that discriminates it), **A28** (the contradicting status report), and an
+  **A24** rebuilt around schema v12 with every path quoted, since unquoted paths through a
+  folder with spaces broke the last attempt. The *Send back* section now asks for **one
+  file** — the report carries the rest.
 - `docs/hardware-test-checklist.md` gains **A25**, which says plainly that v0.5.21's pre-gap fix
   has **no hardware proof and the usual test disc cannot give it one**: cyanrip reads pre-gaps
   from the TOC, and that disc's TOC declares none (EAC finds its ten by sub-channel scanning —

@@ -1,4 +1,4 @@
-# Hardware test checklist — v0.5.21
+# Hardware test checklist — v0.6.0
 
 > **Everything that still needs testing, in one place.** Anything that has already passed
 > is gone from this sheet — the record of what passed and when lives in
@@ -9,13 +9,34 @@
 > Rig details, tool versions and expected values are pre-filled from your last six runs.
 > You tick boxes and note anything that **differs** from what's printed.
 >
-> **Three releases since your last run:** v0.5.19 (nine audit findings), v0.5.20 (a
-> rip-aborting bug *introduced by* v0.5.19's own blind spot, plus a false "Bit-perfect"), and
+> ## ⭐ THE BIG CHANGE: you only have to send ONE file now
+>
+> You said *"just assume I can only upload the json file."* Done — that is what **v0.6.0**
+> is. The `.platterpus.json` now contains the **full text** of cyanrip's `.log`, the
+> `(EAC-compatible).log` and the `.cue`, so one upload carries everything I used to ask for
+> separately. Where a test below says "send the log", **send only the `.platterpus.json`.**
+>
+> The one exception is `~/.local/share/platterpus/log.txt` when a test explicitly asks for a
+> `grep` over it — that file spans sessions and is not part of any single album's report.
+>
+> **Your cancelled 2-of-14 run found two real bugs, both fixed in this release.** You did not
+> waste that rip:
+>
+> 1. The `(EAC-compatible).log` said `*** INCOMPLETE RIP (cancelled) — this log covers 2 of 14
+>    disc tracks ***` on line 10 and **`All tracks accurately ripped`** on line 68. Two
+>    contradictory claims inside one SHA-256-signed document.
+> 2. The `.cue` was **0 bytes**. That is still an open question — see **A27**.
+>
+> And your "the log link may or may not work" note found a third: three separate "open"
+> buttons could silently do nothing on a desktop with no handler for a `.log`. See **A26**.
+>
+> **Four releases since your last completed run:** v0.5.19 (nine audit findings), v0.5.20 (a
+> rip-aborting bug *introduced by* v0.5.19's own blind spot, plus a false "Bit-perfect"),
 > **v0.5.21 — four bugs found by running the maintainer's cyanrip fork's real output through
 > our parser, three of which were live on the cyanrip you are running now**: a pre-gap
 > over-claimed by up to 89x in the archival log, an AccurateRip lookup that never happened
 > reported as "in DB, no match", an all-zero checksum read as a confidence-200 match, and
-> every `-Z` verdict attributed to the wrong track on the fork.
+> every `-Z` verdict attributed to the wrong track on the fork — and **v0.6.0** (this sheet).
 >
 > **Where the value is this round.** §A20–A25 are new and cover things the suite genuinely
 > cannot prove: whether a *contaminated album folder* is handled correctly (A20 — the
@@ -98,21 +119,28 @@ one CRC over the whole disc, so one differing track changes it. Either outcome i
   rendered as "in DB, no match", which claimed a comparison that never took place.
 * **A `Pre-gap length` row can appear where it never did**, and any that appears is now much
   shorter — see A24's warning. It was being computed from the wrong quantity.
-* The `.platterpus.json` report is **schema v11** and carries five more per-track fields.
-  See A24 — this one is a two-minute file check, not a rip.
+* The `.platterpus.json` report is **schema v12**. Two new blocks: `artifacts`, which holds
+  the full text of the three files written beside it, and `completeness`, which finally
+  states the **disc's** track count instead of leaving you to infer it from the track list.
+  See A24 — a two-minute file check, not a rip.
+* **The EAC-layout log can no longer say `All tracks accurately ripped` about a rip that was
+  cancelled.** It used to measure against its own track list, which a cancel shrinks. See A28.
+* **"Open externally…" and "Open rip folder" may now pop a dialog giving you the path**
+  instead of doing nothing. That dialog is the *fix*, not a fault — it appears only when the
+  desktop refuses the file. See A26.
 
 ---
 
-## 0 — [ ] Update to v0.5.21
+## 0 — [ ] Update to v0.6.0
 
-*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.5.21**.
+*Help → Check for updates…* → download → verify → restart. *Help → About* says **0.6.0**.
 Nothing else to set up — your settings are already right (see above).
 
 **Result:** ☐ PASS ☐ FAIL — version shown: ____________
 
 ---
 
-## A — ⭐ New in v0.5.19 – v0.5.21 — only your rig can prove these
+## A — ⭐ New in v0.5.19 – v0.6.0 — only your rig can prove these
 
 *Twenty-four findings were fixed across these three releases, all found by audits rather than by
 anything going visibly wrong — which is exactly why they need a rig: the suite proves each
@@ -481,53 +509,65 @@ The simplest provocation is A21's (a tagging failure). If you'd rather not fiddl
 **Result:** ☐ PASS ☐ FAIL — banner ever reverted to green: ☐ y ☐ n · reasons listed:
 ____________
 
-### A24 — [ ] Two-minute file check: the report's new fields (no rip needed)
+### A24 — [ ] ⭐ Two-minute file check: schema v12 (no rip needed)
 
-Schema **v10** adds five per-track fields that were being parsed and thrown away. One of
-them is archivally significant and **is already true of your existing rips**:
-`appended_silence_frames` names the track whose *final frames are fabricated silence rather
-than disc audio* — the per-track consequence of overread being off. It is on **track 14** of
-both committed reference rips, and should be on track 14 of yours.
+**Do this one first.** It needs no disc, and it proves the thing that makes every *other*
+test on this sheet cheaper for you: that one file is now enough.
 
-Run this against **any** `.platterpus.json` from a v0.5.20 rip:
+⚠️ **The path-quoting trap that bit you last time.** Your album folder has spaces in it, so
+an unquoted `$HOME/Music/rips/The Police/...` splits into three arguments and Python tries to
+open `/home/rmccann/Music/rips/The`. **Every path below is quoted** — paste them exactly, or
+drag the file from Dolphin into the terminal, which quotes it for you.
+
+Run this against **any** `.platterpus.json`, including the cancelled one from last time:
 
 ```sh
-python3 - "$HOME"/Music/*Police*/*.platterpus.json <<'PY'
+JSON="$(ls -t "$HOME"/Music/rips/*/*/*.platterpus.json | head -1)"; echo "$JSON"
+python3 - "$JSON" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
-print("schema:", d["schema_version"])  # 11
-for t in d["tracks"]:
-    print(t["number"],
-          "silence:", t["appended_silence_frames"],
-          "start:", t["start_sector"], "end:", t["end_sector"],
-          "pregap:", t["pregap_sectors"],
-          "elapsed:", t["extraction_elapsed_seconds"])
+print("schema:      ", d["schema_version"])            # 12
+print("completeness:", d["completeness"])              # expected / in_report / complete
+for name, a in d["artifacts"].items():
+    if name == "note":
+        continue
+    print(f"{name:9} exists={a['exists']} bytes={a.get('bytes')} "
+          f"chars={len(a.get('text',''))} err={a.get('error')}")
 PY
 ```
 
-- Expected: `schema: 11`.
-- Expected: **track 14** has a small non-null `silence:` (2 on the reference rips); every
-  other track is `None`.
-- Expected: `start`/`end` are real ascending sector numbers.
-- Expected: **`pregap_sectors` is `0` on every track of this disc** — cyanrip's TOC declares no
-  pre-gaps for it, so `0` here means *measured none*, not "unknown". `pregap_start_lsn` is `null`
-  for the same reason.
-- ⚠️ **Changed in v0.5.21, so it will not match an older report.** `pregap_sectors` used to hold
-  cyanrip's *absolute* `Pregap LSN` and was rendered as a *length* — an 89× over-claim on any disc
-  whose TOC does declare a pre-gap. It is now the derived length (`start_sector -
-  pregap_start_lsn`) and the raw position lives in its own field. On **this** disc both readings
-  happen to be `0`, so a diff against an old report shows only the new key.
-- **The disc that would prove it is one with real pre-gaps** — this disc cannot. If you have a CD
-  whose EAC log shows `Pre-gap length` for its middle tracks, ripping it is the single most
-  valuable extra thing you could do this round: check our `Pre-gap length` rows match EAC's.
-- Expected: `elapsed:` is `None` on **every** track — that field is fork-only and deployed
-  cyanrip 0.9.3 does not print it. `None` here is the correct answer, not a gap.
+- Expected: `schema: 12`.
+- Expected: `completeness` names **the disc's count, not the log's**. On the cancelled rip
+  that is `tracks_expected: 14, tracks_in_report: 2, complete: False`. On a whole rip,
+  `14 / 14 / True`. **If a cancelled rip ever says `complete: True`, that is a bug and I
+  want the file.**
+- Expected: `rip_log` and `eac_log` both `exists=True` with a non-zero `chars` — that text
+  *is* the file, which is why you no longer have to attach it.
+- Expected: `cue exists=True`. **`bytes=0` is the open finding — see A27.**
+- Expected: `err=None` on all three. An `err` mentioning *"refusing to embed"* would mean
+  something handed the report a non-text path; that should be impossible, so tell me.
 
-*If `silence:` is null on all 14 tracks, tell me — it would mean this disc's last track
-genuinely read to the end, which is interesting, or that the line moved.*
+**Then the per-track check** (carried over from v0.5.21, still worth two lines):
 
-**Result:** ☐ PASS ☐ FAIL — schema: ______ · track 14 silence: ______ · elapsed all null:
-☐ y ☐ n
+```sh
+python3 - "$JSON" <<'PY'
+import json, sys
+for t in json.load(open(sys.argv[1]))["tracks"]:
+    print(t["number"], "silence:", t["appended_silence_frames"],
+          "start:", t["start_sector"], "end:", t["end_sector"],
+          "pregap:", t["pregap_sectors"], "pregap_lsn:", t["pregap_start_lsn"])
+PY
+```
+
+- Expected on a **complete** rip: **track 14** has a small non-null `silence:` (2 on both
+  reference rips) — the frames of *fabricated silence* appended because overread is off —
+  and every other track is `None`. On your cancelled 2-track rip there is nothing to see here.
+- Expected: `pregap: 0` and `pregap_lsn: None` on every track — cyanrip's TOC declares no
+  pre-gaps for this disc, so `0` means *measured none*, not "unknown". A25 is about finding
+  a disc that can actually exercise this.
+
+**Result:** ☐ PASS ☐ FAIL — schema: ______ · completeness: ______ / ______ / ______ ·
+cue bytes: ______ · track 14 silence: ______
 
 ### A25 — [ ] ⭐⭐ Find a disc that can prove the pre-gap fix — the reference disc cannot
 
@@ -565,6 +605,94 @@ Best candidates, roughly in order:
 
 **Result:** ☐ candidate found ☐ none found — discs screened: ________ · disc used:
 ____________ · our row: ____________ · EAC's row: ____________
+
+### A26 — [ ] ⭐⭐ The buttons you said "may or may not work" — v0.6.0's fix for your report
+
+**Your words, and they were right.** `QDesktopServices.openUrl` returns a success/failure
+flag when it hands a file to the desktop, and it returns *failure* whenever nothing on the
+system is registered to open that kind of file. Three of our four buttons **threw that flag
+away**: the click produced no window, no error, and — the part that made it unreportable —
+no line in the log.
+
+The worst one is the viewer's own **Open externally…**, which exists *because* a bare `.log`
+usually has no default app on KDE. That is exactly when the call fails, so the escape hatch
+was dead on precisely the machines it was written for.
+
+**What I could not do: reproduce your symptom.** I proved the mechanism and fixed it, but
+whether it is *the* mechanism depends on your machine's file associations, which I cannot
+see. That is why the fix also adds a log line — so this test can settle it either way.
+
+Do all four, during a rip and after one. **A dialog appearing is a PASS, not a failure** —
+that is the new behaviour.
+
+| # | Where | Click | Expected |
+|---|---|---|---|
+| 1 | Rip pane, **during** a rip | **View log** | The in-app viewer opens showing `log.txt`, live |
+| 2 | Rip pane, **after** a rip | **View log** | The in-app viewer opens showing **cyanrip's** `.log` |
+| 3 | In that viewer | **Open externally…** | Either your editor opens **or** a dialog appears giving the full path |
+| 4 | Rip pane | **Open rip folder** | Either Dolphin opens **or** a dialog appears giving the full path |
+
+Then check whether the old failure ever happened on your machine:
+
+```sh
+grep "declined to open" ~/.local/share/platterpus/log.txt
+```
+
+- **No lines** → your desktop handles all four, and whatever you saw was something else.
+  Say so — that is a useful answer and it sends me looking elsewhere.
+- **Any lines** → this *was* your bug, and it is now visible instead of silent. Send them.
+- **A button that still does nothing at all** — no window, no dialog, no log line — is a
+  fresh finding and the most important thing on this sheet. Note exactly which one and
+  whether a rip was running.
+
+**Result:** ☐ 1 ☐ 2 ☐ 3 ☐ 4 all responded · `declined to open` lines: ______ ·
+still-dead button: ____________
+
+### A27 — [ ] ⭐ The 0-byte `.cue` — open question, and the answer is either way useful
+
+Your cancelled rip left `Every Breath You Take∶ The Classics.cue` at **0 bytes**. I do not
+yet know whether that is cyanrip writing the cue at the *end* of a rip (so a cancel catches
+it mid-creation, which is benign) or something we are truncating. **v0.6.0 makes the byte
+count visible in the report** — A24 reads it — but only a rip can say which.
+
+Two five-minute observations, no full rip needed:
+
+1. **Complete a short rip.** Tick only tracks 1–2 in the **Rip?** column, let it *finish*
+   normally (do not cancel). Then:
+   ```sh
+   ls -la "$HOME"/Music/rips/*/*/*.cue
+   ```
+   - Expected: **non-zero**, and `View cue` in the rip pane shows `FILE` / `TRACK` lines.
+   - If a *completed* rip also leaves 0 bytes, that is a real bug — send the JSON.
+
+2. **Cancel one deliberately**, as you did before, and `ls -la` the cue again.
+   - 0 bytes here with a healthy cue in step 1 → **cyanrip writes it last; benign**, and I
+     will make the app say so instead of leaving an empty file that looks like damage.
+
+**Result:** completed-rip cue: ______ bytes · cancelled-rip cue: ______ bytes
+
+### A28 — [ ] The status report and its own banner must agree — the bug your last run found
+
+Thirty seconds, and it re-checks the exact document that lied.
+
+Cancel a rip after two or three tracks, then open the `(EAC-compatible).log` — or just read
+`artifacts.eac_log.text` out of the JSON, which now contains it.
+
+- Expected near the top: `*** INCOMPLETE RIP (cancelled) — this log covers N of 14 disc
+  tracks. ***`
+- Expected near the bottom: **`Some tracks could not be verified as accurate`**
+- **`All tracks accurately ripped` must NOT appear.** That sentence, sixty lines below the
+  INCOMPLETE banner, is what v0.6.0 fixes.
+- Also expected, and it must *not* change: the honest per-count line above it still reads
+  `N track(s) accurately ripped`. The fix must not turn a truthful count into a pessimistic
+  one.
+
+And the other direction, so the fix is not simply "never say it": a **completed** rip — full
+disc *or* a deliberate 2-track subset — must still print `All tracks accurately ripped` when
+every track it was asked for verified.
+
+**Result:** ☐ cancelled log says "Some tracks…" ☐ no "All tracks…" in it ☐ completed rip
+still says "All tracks…"
 
 ## B — Still unproven from earlier releases
 
@@ -924,33 +1052,45 @@ binary everything else was tested against.
 
 ## Priority, if you only have an hour
 
-**Updated 2026-07-31 for v0.5.20.** A10, A19, B2, D1 and D2 are answered and retired — A10
-and B2 passed, A19 found a real bug (fixed), D1 and D2 came free with your log.
+**Updated 2026-08-01 for v0.6.0.** Ordered so the cheap ones come first and each one makes
+the next easier.
 
-1. **A20** — the contaminated album folder. The ugliest bug of the batch and the only one
-   that needs a messy folder to see. Worth the setup time even at the cost of the rest.
-2. **A24** — two minutes, no rip: the report's new fields against a file you already have.
-   Do this while a rip runs.
-3. **D1b** — one subset rip of the Police disc; still the last thing gating the #55 fix.
-4. **A11** — the re-run. The log now says `rip cancel requested` and `window close
-   requested` with timestamps, so this time the race is visible either way.
-5. **A22** — the AccurateRip cells. A judgement call, and your judgement is the instrument.
-6. **A17** — a failed disc read says why (and the one regression risk in that change).
+1. **A24** — two minutes, no disc, and it proves the single-file change works. Do it against
+   the cancelled JSON you already have, *before* anything else.
+2. **A26** — the buttons you reported. Four clicks and one `grep`. This is the only test that
+   can tell me whether I actually fixed your problem or merely a neighbouring one.
+3. **A28** — thirty seconds on a cancelled rip; re-checks the document that contradicted
+   itself.
+4. **A27** — the 0-byte cue. Needs one short *completed* rip, which A20 can double as.
+5. **A20** — the contaminated album folder. Still the ugliest bug of the batch and the only
+   one that needs a messy folder to see. You started this last time; it is worth finishing.
+6. **D1b** — one subset rip of the Police disc; still the last thing gating the #55 fix.
 
-*If the hour runs out: A20 and A24 are the two that cannot be inferred from anything else.*
+*If the hour runs out: A24 + A26 cost about five minutes together and answer the two things
+this release is actually about.*
 
 ---
 
 ## Send back
 
-1. `~/.local/share/platterpus/log.txt`
-2. One album's `.log`, `(EAC-compatible).log`, `.cue`, `.platterpus.json`
-3. **The `ls -la` and `metaflac --show-tag` output from A20** — the single most useful item
-   this round
-4. The `python3` block's output from A24
-5. The `grep` output from **D1b**
-6. The `--compare` output from C2
-7. This sheet, filled in
+**One file per album is now enough.**
+
+1. **The `.platterpus.json`** for each album you rip. It contains cyanrip's `.log`, the
+   `(EAC-compatible).log` and the `.cue` **as text inside it** — you no longer need to
+   attach those three separately, and you no longer need to hunt for them in Dolphin.
+2. **This sheet, filled in** — the ☐ boxes and the blanks are the parts no file can carry.
+3. Only when a test explicitly asks for it, the terminal output it names:
+   - the `grep "declined to open"` from **A26**
+   - the `ls -la` and `metaflac --show-tag` from **A20**
+   - the `grep "Pregap LSN:"` from **A25**
+   - the `grep` from **D1b**, the `--compare` output from **C2**
+
+`~/.local/share/platterpus/log.txt` is only needed if something goes wrong *outside* a rip
+(a crash at launch, a failed update) — a rip's own session log is already embedded in that
+album's JSON.
+
+**Never send audio** — no `.flac`, no `.wav`, not even briefly. The JSON, the logs and the
+CRCs prove bit-perfection without it.
 
 Plus anything surprising, even on a test that passed. And specifically: **any rip that dies
 with `rip stream error:`** — that is the v0.5.20 fix's signature and I want the log at once.
