@@ -31,7 +31,7 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 | EAC-style log + per-track EAC CRC32 column + software-version provenance | ✅ | Have it |
 | MusicBrainz tags · front/back/booklet art · UPC/catalog/label · ReplayGain | ✅ | Have it |
 | AppImage · zero-terminal setup · in-app update · FLAC master + WavPack/MP3/WAV | ✅ | Have it |
-| Gap / `INDEX 00` pre-gap detection + HTOA (hidden track) | ⚠️ | **Decided (KDD-32):** build cyanrip from our soft-fork integration branch — upstream `master` already emits `INDEX 00`, and it carries **PR #115** (cyanreg) for exact pre-gaps + HTOA. `cdrdao read-toc` stays the no-upstream-dependency fallback |
+| Gap / `INDEX 00` pre-gap detection + HTOA (hidden track) | ⚠️ | **Decided (KDD-32):** build cyanrip from our soft-fork integration branch — upstream `master` already emits `INDEX 00` (merged via PRs **#104 / #118 / #122**), and the soft-fork carries **PR #115** (UltraFuzzy, open) for *exact* pre-gap detection + HTOA. `cdrdao read-toc` stays the no-upstream-dependency fallback |
 | Test & Copy (two full passes) | ✅ | Have it (KDD-30) — cyanrip `-Z` re-read consensus *is* the two-reads-agree guarantee; a confirmed track renders as a matching **Test CRC / Copy CRC** pair, and *Verify every track* runs it disc-wide |
 | Cache-defeat *verdict* | ✅ | Have it (KDD-29) — **measured** with `cd-paranoia -A` (libcdio's copy of cyanrip's own read engine) via *Set up drive → Analyse cache*; still honestly "(unknown)" when inconclusive, never faked |
 | Log integrity checksum (ours, openly verifiable) | ✅ | Have it (KDD-28) — a plain SHA-256 of the log text, at least as strong as EAC's and checkable with `sha256sum` (no secret key). Clearly labelled *not* an EAC checksum |
@@ -54,7 +54,7 @@ Mapped directly to the settings the *Archival-Grade Extraction* master guide cal
 | **Read sample offset correction** | applied via cyanrip `-s`, value from the bundled AccurateRip drive DB (by model, e.g. `+667`) or manual entry. Instead of EAC's one-shot "Key Disc" probe, **every rip that matches the AccurateRip consensus re-confirms the offset on your own drive** and promotes its trust line to *confirmed* (KDD-31) — the same corrected result, continuously re-proven | ✅ |
 | **Overread into Lead-In/Lead-Out** — off unless firmware-verified | default: cyanrip overreads **+2 frames, filled with silence** (conservative — matches the guide's *off* baseline); opt-in **Settings → Overread** reads the real outermost samples (cyanrip `-O`) for drives verified to support it | ✅ |
 | **Allow speed reduction** on scratches | cyanrip adaptive read-speed ladder | ✅ |
-| **Gap/Index — Detection Method A, Secure** | cyanrip `master` emits `INDEX 00`/pregaps from the TOC; exact subchannel detection + HTOA is cyanrip **PR #115**. Mechanism decided (KDD-32): build cyanrip from our soft-fork integration branch, which picks up `master`'s markers and carries #115 | ⚠️ |
+| **Gap/Index — Detection Method A, Secure** | cyanrip `master` emits `INDEX 00`/pregaps from the TOC; exact subchannel detection + HTOA is cyanrip **PR #115** (UltraFuzzy, open — a different, lower layer than the already-merged cue reporting). Mechanism decided (KDD-32): build cyanrip from our soft-fork integration branch, which picks up `master`'s markers and carries #115 | ⚠️ |
 | **AccurateRip** verify | v1 + v2 (+ offset-variant) | ✅ |
 | **CTDB** verify | present — CRC hardware-validated (KDD-16) | ✅ |
 | **FLAC** `-8 -V -j` (max compression + decode-verify + threads) | cyanrip FLAC → post-rip **FLAC verify (decodes clean)** + optional max-compression recompress | ✅ |
@@ -874,4 +874,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.5.13.*
+*Last updated for Platterpus v0.5.20.*

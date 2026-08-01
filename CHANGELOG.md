@@ -29,6 +29,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   of exactly `0.0`. Bounded, and `_sample_peak_fraction` now refuses non-finite input so the
   guarantee does not depend on which pattern feeds it.
 
+### Documentation
+- **Four stale claims about upstream cyanrip corrected**, all surfaced by the fork session's own
+  source reading. (1) `README.md` credited **PR #115** to cyanreg and presented it as the
+  `INDEX 00` fix; it is **UltraFuzzy's, still open**, and it is the *exact pre-gap detection* layer
+  — `INDEX 00` / `PREGAP` **cue reporting** was already merged upstream via **#104 / #118 / #122**,
+  which no file in this repo named. (2) §2.4's premise that the `-Z` verdict is stdout-only and
+  absent from cyanrip's log file was false at 0.9.3 and at master — **and that false premise is the
+  root cause of the verdict-attribution bug above**, because it is what made indentation look like
+  a usable signal. (3) The `-a`/`-t` colon bug is stated as "confirmed in master"; master **fixed
+  it** (the function moved to `src/naming.c` and minds escapes), so the prepared upstream issue/PR
+  is superseded — while Platterpus's own colon pass must **stay**, since we substitute U+2236
+  *before* invoking cyanrip and removing the restore would ship U+2236 into every user's tags.
+  (4) §2.1 ranked the sample peak as our best first upstream contribution with no mention of
+  **#116** (UltraFuzzy) and **#148** (nicosp, 2026-07-24) already targeting it — and our proposed
+  `ebur128` edit is specifically the half cyanreg pushed back on, in favour of a direct PCM scan.
+
 ### Added
 - **The fork's own `Peak level: NN.N%` row is now read, and it wins over the dBFS sub-header.**
   Converting FFmpeg's 1-decimal dBFS print fabricates *exactly* `100.0 %` for any track peaking
