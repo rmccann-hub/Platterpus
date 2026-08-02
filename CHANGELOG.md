@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **21 of cyanrip's 45 fatal messages were captured and never shown.** The fatal-line pattern
+  matched six prefixes; the fork session enumerated the ripper's fatal log call sites and
+  measured the coverage at 24 of 45. For the rest the report's `failure_hint` stayed `null` and
+  the window said "Rip failed" while the ripper's own diagnosis sat in a buffer we had already
+  captured. The pattern now covers 23 prefixes with a real word boundary (so `Invalid` still
+  does not match `Invalidated`) and a punctuation-aware one (so `Out of memory!` matches at
+  all). Narrowness was the wrong instinct: a miss costs a user the answer, a false positive
+  costs one extra sentence on a rip that already failed.
+
 ### Added
 - **Every rip now records WHICH cyanrip binary produced it.** Platterpus runs a fork that emits
   rows stock cyanrip does not (per-track pre-gap length and provenance, sample peak, extraction

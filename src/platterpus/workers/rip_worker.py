@@ -184,8 +184,58 @@ _NO_METADATA_MARKERS: tuple[str, ...] = (
 # exits on. Deliberately narrow: these are the shapes that end a rip before any
 # audio is read, so surfacing one verbatim is strictly better than "Rip failed."
 # Bounded quantifiers per the never-unbounded rule.
+#
+# WIDENED 2026-08-02. The fork session enumerated cyanrip's fatal `cyanrip_log`
+# call sites and measured that the six prefixes above matched **24 of 45** of
+# them. The other 21 printed a precise diagnosis that the user never saw: the
+# report's `failure_hint` was null and the window said "Rip failed."
+#
+# "Deliberately narrow" was the wrong instinct here, and worth naming because it
+# is a tempting one. The cost of a MISS is a user staring at "Rip failed" with
+# the answer sitting in a buffer we captured and did not read. The cost of a
+# FALSE POSITIVE is one extra sentence of the ripper's own words in a hint —
+# which is, at worst, mildly confusing, and is shown only on a rip that already
+# failed. Those costs are not close, so the pattern is now broad on purpose.
+#
+# Anchored at line start with a trailing space or end-of-line after each prefix,
+# so `Error reading` matches but `No errors` does not, and a track title that
+# happens to begin with one of these words cannot match (titles never appear at
+# column 0 in cyanrip's output — they are indented inside a Metadata block).
+_RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
+    "Invalid",
+    "Unable to",
+    "Missing",
+    "No device",
+    "No disc",
+    "No cover art",
+    "No tracks",
+    "Error",
+    "Errors",
+    "Failed",
+    "Couldn't",
+    "Could not",
+    "Cannot",
+    "Unsupported",
+    "Unknown option",
+    "Unrecognized",
+    "Stopping,",
+    "Stopping",
+    "Aborting",
+    "Drive media",
+    "Insufficient",
+    "Out of memory",
+    "Fatal",
+)
+
 _RIPPER_ERROR_RE = re.compile(
-    r"^(?:Invalid |Unable to |Missing |No device |Error reading |Stopping, )"
+    r"^(?:" + "|".join(re.escape(p) for p in _RIPPER_ERROR_PREFIXES) + r")"
+    # The boundary is what stops `Invalid` matching `Invalidated`. It admits
+    # punctuation as well as whitespace because cyanrip's fatals habitually end
+    # in `!` and some are the whole line — `Out of memory!` has no space after
+    # the prefix at all, and a whitespace-only boundary silently missed it.
+    r"(?:[\s!.,:;?]|$)"
+    # Bounded, per the never-unbounded rule: a `.*` here would hand a
+    # pathological line straight to a regex engine and to a QMessageBox.
     r".{0,200}$"
 )
 
