@@ -11,6 +11,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-08-02
+
+### Added
+- **Three more automatic checks**, in the same registry so they land in every rip's `self_check`
+  block *and* in `--audit-rips` at once:
+  - **Did the ripper receive the command line we sent?** Both halves of this comparison already
+    existed and nothing compared them — we record the argv we spawned, and the fork prints the
+    argv it received (our handshake ask A3). The pair exists precisely so that a wrapper, a
+    shell, or the Distrobox host-export altering an argument becomes visible, and a difference
+    nothing looks at is not visible. Compared as sets of flags, not strings: the ripper's
+    `argv[0]` is the resolved path behind the export while ours is the wrapper, so a string
+    compare would cry wolf on every rip.
+  - **Does the EAC log still match its own SHA-256 footer?** We publish that checksum as an
+    openly-verifiable integrity claim (KDD-28); publishing a claim and never checking it is the
+    weaker half of a promise. Tri-state — a log with no footer is reported as having none, not
+    as having passed.
+  - **The TOC-derived disc identity** (MusicBrainz Disc ID + CDDB ID), so two rips of the same
+    pressing can be compared without opening the JSON by hand.
+
 ## [0.6.1] — 2026-08-02
 
 ### Fixed
@@ -4793,7 +4812,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
 [0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
@@ -4863,4 +4883,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.1.*
+*Last updated for Platterpus v0.6.2.*

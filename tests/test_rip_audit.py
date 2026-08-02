@@ -418,3 +418,107 @@ def test_the_bulk_audit_and_the_embedded_block_agree(tmp_path: Path) -> None:
     )
     # And the only extra is the verdict line the bulk report adds.
     assert len(bulk) - len(embedded) <= 1
+
+
+# --- the three checks added after "the logs must include everything" ---------
+
+
+def test_a_command_line_that_changed_in_transit_is_caught(tmp_path: Path) -> None:
+    """Both halves of this comparison existed and nothing compared them.
+
+    We record the argv we spawned; the fork prints the argv it received (our
+    handshake ask A3). The pair exists *specifically* so a wrapper, a shell or
+    the Distrobox host-export altering an argument becomes visible — and a
+    difference nothing looks at is not visible. This is the look.
+    """
+    report = _healthy()
+    report["outcome"]["ripper_argv"] = ["cyanrip", "-d", "/dev/sr0", "-N", "-o", "flac"]
+    report["rip"]["invoked_as"] = "/usr/bin/cyanrip -d /dev/sr0 -o flac"  # -N vanished
+
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
+    hit = [f for f in album.findings if "changed in transit" in f.text]
+    assert len(hit) == 1, [f.text for f in album.findings]
+    assert "-N" in hit[0].text
+    assert album.worst == LEVEL_WARN
+
+
+def test_matching_command_lines_do_not_warn(tmp_path: Path) -> None:
+    """The positive control, and it must tolerate legitimate differences: the
+    ripper's argv[0] is the resolved absolute path behind the host export while
+    ours is the wrapper we invoked, and its line is shell-formatted. Comparing
+    strings would cry wolf on every single rip."""
+    report = _healthy()
+    report["outcome"]["ripper_argv"] = ["cyanrip", "-d", "/dev/sr0", "-N", "-o", "flac"]
+    report["rip"]["invoked_as"] = (
+        "/home/u/src/cyanrip/build/src/cyanrip -d /dev/sr0 -N -o flac"
+    )
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
+    assert not any("changed in transit" in f.text for f in album.findings)
+    assert any("received the" in f.text for f in album.findings)
+
+
+def test_no_argv_comparison_is_made_when_a_half_is_missing(tmp_path: Path) -> None:
+    """Silence, not a finding. An older rip, or upstream cyanrip which does not
+    print the line, must not be reported as a mismatch."""
+    report = _healthy()
+    report["outcome"]["ripper_argv"] = ["cyanrip", "-N"]
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
+    assert not any(
+        "transit" in f.text or "received the" in f.text for f in album.findings
+    )
+
+
+def test_an_altered_eac_log_is_detected(tmp_path: Path) -> None:
+    """We publish the log's SHA-256 as an openly-verifiable integrity claim.
+    Publishing a claim and never checking it ourselves is the weaker half of a
+    promise."""
+    from platterpus.eac_log_export import render_eac_style_log
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    good = render_eac_style_log(
+        parse_cyanrip_log(
+            "cyanrip 0.9.4-rc1 (platterpus-fork-g1)\n"
+            "Track 1 ripped and encoded successfully!\n"
+        ),
+        platterpus_version="0.6.1",
+        build_fingerprint="test",
+        encoder_versions={},
+    )
+    tampered = good.replace("Track  1", "Track  9", 1)
+    assert tampered != good, "the tamper did not change anything; test is vacuous"
+
+    cases = (
+        ("intact", good, "matches its own"),
+        ("tampered", tampered, "does NOT match"),
+    )
+    for folder_name, text, expect in cases:
+        report = _healthy()
+        report["artifacts"] = {"eac_log": {"text": text, "exists": True}}
+        album = audit_album(_write(tmp_path / folder_name, report, flac_sizes=[_BIG]))
+        assert any(expect in f.text for f in album.findings), (
+            f"{folder_name}: expected {expect!r} in {[f.text for f in album.findings]}"
+        )
+
+
+def test_a_truncated_embedded_log_is_not_accused_of_tampering(tmp_path: Path) -> None:
+    """A truncated *copy* cannot verify, and calling that a mismatch would be a
+    false accusation against an intact file on disk."""
+    report = _healthy()
+    report["artifacts"] = {
+        "eac_log": {"text": "partial...", "exists": True, "truncated": True}
+    }
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
+    assert any("cannot be re-checked" in f.text for f in album.findings)
+    assert not any("does NOT match" in f.text for f in album.findings)
+
+
+def test_the_disc_identity_is_reported_for_cross_rip_comparison(tmp_path: Path) -> None:
+    """TOC-derived, so it identifies the same pressing across re-rips no matter
+    what the metadata says. Without it in the audit, "is this the same disc as
+    last time?" needs the JSON opened by hand."""
+    report = _healthy()
+    report["rip"]["musicbrainz_disc_id"] = "oMp2k.ixH0QqrdaZzsARoRS.p6c-"
+    report["rip"]["cddb_id"] = "14000603"
+    album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
+    text = " ".join(f.text for f in album.findings)
+    assert "oMp2k" in text and "14000603" in text
