@@ -642,8 +642,16 @@ def _pin_pioneer(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_rip_lock_greys_conflicting_ui(teardown_threads) -> None:
-    """During a rip the drive picker, track table, and conflicting menu actions
-    grey out; Quit stays available (it force-stops on exit). Unlock restores."""
+    """During a rip the drive picker and conflicting menu actions grey out; Quit
+    stays available (it force-stops on exit). Unlock restores.
+
+    The **track table is deliberately excluded** from the greying. It used to be
+    disabled too, and a disabled QTableView ignores the wheel and the arrow
+    keys, so the list could not be scrolled for the whole rip — see
+    `test_the_track_list_stays_scrollable_while_a_rip_runs`. It is locked
+    read-only instead, which is what "don't let them edit it mid-rip" actually
+    required.
+    """
     window = teardown_threads()
     # Everything usable before a rip.
     assert window._drive_picker.isEnabled()
@@ -652,7 +660,7 @@ def test_rip_lock_greys_conflicting_ui(teardown_threads) -> None:
 
     window._set_rip_lock(True)
     assert not window._drive_picker.isEnabled()
-    assert not window._track_table.isEnabled()
+    assert window._track_table.isEnabled(), "read-only, not disabled — it must scroll"
     assert all(not a.isEnabled() for a in window._rip_locked_actions)
 
     window._set_rip_lock(False)
@@ -7664,3 +7672,33 @@ def test_the_report_never_embeds_audio_even_if_asked(
     assert entry["exists"] is False
     assert "text" not in entry
     assert "refusing to embed" in entry["error"]
+
+
+def test_the_track_list_stays_scrollable_while_a_rip_runs(
+    teardown_threads,
+) -> None:
+    """`_set_rip_lock` used `setEnabled(False)`, which in Qt also kills wheel
+    and arrow-key scrolling — so for the whole rip the user could not scroll the
+    one widget carrying live per-track status (report, 2026-08-02).
+
+    Driven through the real window because the seam IS the wiring: the
+    widget-level tests in `test_track_table_lock.py` pass either way, which is
+    exactly what reverting the fix revealed.
+    """
+    window = teardown_threads()
+
+    window._set_rip_lock(True)
+    assert window._track_table.isEnabled(), (
+        "a disabled QTableView cannot be scrolled — lock it read-only instead"
+    )
+    from PySide6.QtCore import Qt as _Qt
+
+    from platterpus.ui.track_table import _COL_TITLE
+
+    locked = window._track_table._model.flags(
+        window._track_table._model.index(0, _COL_TITLE)
+    )
+    assert not (locked & _Qt.ItemFlag.ItemIsEditable), "but it must refuse edits"
+
+    window._set_rip_lock(False)
+    assert window._track_table.isEnabled()

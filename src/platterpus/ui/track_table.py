@@ -114,6 +114,9 @@ class TrackTableModel(QAbstractTableModel):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._tracks: list[TrackSummary] = []
+        # Read-only lock, set while a rip is in flight. Blocks editing and the
+        # Rip? checkbox WITHOUT disabling the widget — see `flags`.
+        self._locked: bool = False
         # Live per-track rip status keyed by 1-based track number; absent = pending.
         self._status: dict[int, str] = {}
         # Which tracks the user wants ripped, keyed by 1-based track number.
@@ -313,6 +316,13 @@ class TrackTableModel(QAbstractTableModel):
 
     def flags(self, index: _Index) -> Qt.ItemFlag:
         base = super().flags(index)
+        # A locked model grants no editing and no checkbox — but stays ENABLED
+        # and selectable, so the view still scrolls and the user can still read
+        # and select rows. Disabling the widget instead is what made the track
+        # list unscrollable during a rip, which is precisely when it is the most
+        # interesting thing on screen (user report, 2026-08-02).
+        if self._locked:
+            return base
         col = index.column()
         if col == _COL_RIP:
             # A user-checkable cell — the checkbox toggles the track's rip
@@ -321,6 +331,17 @@ class TrackTableModel(QAbstractTableModel):
         if col in _EDITABLE_COLS:
             return base | Qt.ItemFlag.ItemIsEditable
         return base
+
+    def set_locked(self, locked: bool) -> None:
+        """Make every cell read-only (or editable again) without disabling it.
+
+        Emits ``layoutChanged`` so open editors close and the view re-queries
+        ``flags``; a plain attribute set would leave a mid-edit cell editable.
+        """
+        if self._locked == locked:
+            return
+        self._locked = locked
+        self.layoutChanged.emit()
 
 
 class TrackTable(QWidget):
@@ -444,6 +465,23 @@ class TrackTable(QWidget):
             for n in range(1, count + 1)
         ]
         self._model.set_tracks(rows)
+
+    def set_locked(self, locked: bool) -> None:
+        """Lock the table read-only for the duration of a rip.
+
+        Replaces a ``setEnabled(False)`` that also killed scrolling: a disabled
+        QTableView ignores the wheel and the arrow keys, so during a rip the
+        user could not look at the very list that was updating (report,
+        2026-08-02). Read-only keeps every cell legible, selectable and
+        scrollable while refusing edits and Rip? toggles.
+        """
+        self._model.set_locked(locked)
+        self._view.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
+            if locked
+            else QAbstractItemView.EditTrigger.DoubleClicked
+            | QAbstractItemView.EditTrigger.EditKeyPressed
+        )
 
     def highlight_track(self, track_number: int) -> None:
         """Select and scroll to the row for `track_number` (1-based).

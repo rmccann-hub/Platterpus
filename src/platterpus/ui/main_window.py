@@ -761,7 +761,13 @@ class MainWindow(
         lifecycle. Idempotent.
         """
         self._drive_picker.setEnabled(not active)
-        self._track_table.setEnabled(not active)
+        # Read-only, NOT disabled. A disabled QTableView ignores the wheel and
+        # the arrow keys, so `setEnabled(False)` here left the track list
+        # unscrollable for the whole rip — the one time it is the most
+        # interesting widget on screen, since it carries the live per-track
+        # status (user report, 2026-08-02). Locking the model refuses edits and
+        # Rip? toggles while keeping every row legible and reachable.
+        self._track_table.set_locked(active)
         for action in self._rip_locked_actions:
             action.setEnabled(not active)
 
