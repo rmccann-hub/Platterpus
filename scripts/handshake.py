@@ -345,24 +345,37 @@ TODO
 """
 
 
-def round_status() -> list[str]:
-    """Describe the state of every round found under ``docs/handshake/``."""
+def round_status(root: Path | None = None) -> list[str]:
+    """Describe the state of every round found under ``docs/handshake/``.
+
+    ``root`` overrides that directory so the OPEN and CLOSED branches can be
+    exercised against a constructed state. Without it a test could only assert
+    whatever the repo happens to contain today — which is exactly how the first
+    version of this test broke: it pinned "round 4 is OPEN", and round 4 closed.
+    A test that asserts today's state is a test that fails on progress.
+    """
+    base = root if root is not None else HANDSHAKE_DIR
+    outbound, inbound, verified = (
+        base / "outbound",
+        base / "inbound",
+        base / "verified",
+    )
     lines: list[str] = []
     rounds: set[str] = set()
-    for directory in (OUTBOUND_DIR, INBOUND_DIR, VERIFIED_DIR):
+    for directory in (outbound, inbound, verified):
         if directory.is_dir():
             rounds.update(p.stem for p in directory.glob("round-*.md"))
     if not rounds:
         return ["no handshake rounds recorded under docs/handshake/"]
     for name in sorted(rounds):
-        sent = (OUTBOUND_DIR / f"{name}.md").exists()
-        back = (INBOUND_DIR / f"{name}.md").exists()
-        verified = (VERIFIED_DIR / f"{name}.md").exists()
-        state = "CLOSED" if (sent and back and verified) else "OPEN"
+        sent = (outbound / f"{name}.md").exists()
+        back = (inbound / f"{name}.md").exists()
+        was_verified = (verified / f"{name}.md").exists()
+        state = "CLOSED" if (sent and back and was_verified) else "OPEN"
         lines.append(
             f"{name}: sent={'yes' if sent else 'NO'} "
             f"returned={'yes' if back else 'NO'} "
-            f"verified={'yes' if verified else 'NO'}  -> {state}"
+            f"verified={'yes' if was_verified else 'NO'}  -> {state}"
         )
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")
