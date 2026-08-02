@@ -11,6 +11,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- `CLAUDE.md` gains three rules this round earned: *answer from the artifact, not your memory of
+  it* (and give a correction from another project the same scrutiny as a claim); **diagnostic
+  completeness** — exit code, exact argv, and complete output for every external tool, with
+  head-and-tail bounding and a counted elision marker, because a silent truncation reads as
+  completeness; and *say which build produced an artifact*, tri-state.
+
 ### Fixed
 - **21 of cyanrip's 45 fatal messages were captured and never shown.** The fatal-line pattern
   matched six prefixes; the fork session enumerated the ripper's fatal log call sites and
