@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The cyanrip handshake protocol is now executable, in both directions.** It was prose, and a
+  round arrived missing a required section twice. `scripts/handshake.py --emit N` builds our
+  outbound file with every required section and renders the inbound spec from the same list the
+  checker enforces; `--check FILE` validates a received one and exits non-zero listing what is
+  absent, including the two failures worse than a missing section (present-but-empty, and a
+  null case left silent); `--status` reports every round OPEN or CLOSED off `docs/handshake/`.
+  It found two real gaps on first run, both ours: round 3 was never verified back to the fork,
+  and the return spec had grown from A–I to A–J without being announced.
+- `CLAUDE.md` **Critical rule #12** makes all of it standing behaviour — both contracts
+  published, both directions enforced by tooling, full error capture always surfaced, the fork
+  identified tri-state, and the rule itself mirrored into the fork's repo.
+
 ### Documentation
 - `CLAUDE.md` gains three rules this round earned: *answer from the artifact, not your memory of
   it* (and give a correction from another project the same scrutiny as a claim); **diagnostic
