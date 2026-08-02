@@ -274,6 +274,34 @@ measured `Yes`/`No` when we have one, and `(unknown)` otherwise — **never a
 fabricated `Yes`**. The independent correctness guarantee (AccurateRip/CTDB
 consensus + `-Z N` secure re-reads) still stands on its own.
 
+### ⚠️ Argument RANGE constraints cyanrip enforces — violating one kills the rip
+
+Not every contract is about syntax. cyanrip **validates some argument values
+against the disc** and exits rather than degrading, so an out-of-range value is
+not a cosmetic problem — it is a total rip failure before any audio is read.
+
+| Flag | Constraint | What cyanrip does when violated |
+|---|---|---|
+| `-t N=…` | `1 <= N <= disc tracks` | `Invalid track number N, list has M tracks!` → **exit 1, nothing ripped** |
+| `-l N,…` | `1 <= N <= disc tracks` | `Invalid rip index N, list has M tracks!` → exit 1 |
+| `-P N` | `0 <= N <= max` | `Invalid paranoia level …` → exit 1 |
+| `-m N` | one of `250, 500, 1200, -1` | `Invalid max coverart size …` → exit 1 |
+| `-c N/M` | positive ints | `Invalid discnumber` / `Invalid totaldiscs` → exit 1 |
+| `-p N=…` | valid track idx + known action | `Invalid track idx for pregap` / `Invalid pregap action` → exit 1 |
+| `-J` | never together with `-I` | exit 1 |
+
+**Measured, not read from docs:** the `-t` row cost a real rip on the rig
+(2026-08-02). Disc 1 of a 4-disc set has 16 tracks; the MusicBrainz medium we
+used listed 18; we passed `-t 17=` and `-t 18=`; cyanrip refused the whole rip
+in two seconds. Guarded now in `_metadata_args` and pinned by
+`tests/test_dependency_arg_contract.py`.
+
+**The rule this implies for any new flag:** if a value is derived from
+*anything other than the disc we are about to rip* — a metadata service, a
+config file, a previous disc — it needs a range check against the disc before
+it becomes argv. Being right *usually* is what makes this class of bug rare
+enough to ship.
+
 ### `cd-paranoia` — drive cache-defeat probe (optional; KDD-29)
 
 Adapter: `adapters/cache_probe.py`. Routed like cyanrip — the host-exported

@@ -93,6 +93,12 @@ class RipParameters:
     read_speed: int = 0
     # When set, applied as the read offset for the rip (cyanrip's `-s`).
     read_offset_override: int | None = None
+    # How many tracks the DISC's TOC reports. Handed to the backend so it can
+    # refuse to pass cyanrip a `-t` for a track that does not exist: cyanrip
+    # rejects the entire rip on an out-of-range track number, which cost a real
+    # rip on the rig (2026-08-02). None means "unknown", and the guard then
+    # stays out of the way rather than guessing a ceiling.
+    disc_track_total: int | None = None
     # The GUI's already-fetched album/track tags (track table content),
     # fed to cyanrip via -a/-t so the rip needs no in-container network.
     metadata: RipMetadata | None = None
@@ -174,6 +180,15 @@ _NO_METADATA_MARKERS: tuple[str, ...] = (
 # bare "Rip failed". This matches whipper's "giving up on track N" wording;
 # cyanrip instead rips the track "with errors" and keeps going, so it doesn't
 # trip this — the hint stays for the whipper-format seam and is harmless inert.
+# cyanrip's own fatal-argument / fatal-setup errors, which it prints and then
+# exits on. Deliberately narrow: these are the shapes that end a rip before any
+# audio is read, so surfacing one verbatim is strictly better than "Rip failed."
+# Bounded quantifiers per the never-unbounded rule.
+_RIPPER_ERROR_RE = re.compile(
+    r"^(?:Invalid |Unable to |Missing |No device |Error reading |Stopping, )"
+    r".{0,200}$"
+)
+
 _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 
 # Minimum wall-clock gap between forwarding consecutive *progress redraw* lines
@@ -1019,6 +1034,7 @@ class RipWorker(QObject):
                 force_overread=self._params.force_overread,
                 read_offset_override=self._params.read_offset_override,
                 metadata=self._params.metadata,
+                disc_track_total=self._params.disc_track_total,
                 read_speed=read_speed,
                 only_tracks=only_tracks,
             )
@@ -1099,6 +1115,19 @@ class RipWorker(QObject):
                     m in line for m in _NO_METADATA_MARKERS
                 ):
                     self._needs_unknown_retry = True
+                # The ripper's OWN error text, kept as the hint when we have
+                # nothing better. cyanrip said "Invalid track number 17, list
+                # has 16 tracks!" and the user was shown "Rip failed." — the
+                # tool had already diagnosed it and we threw the diagnosis away
+                # (rig, 2026-08-02). CLAUDE.md requires capturing a dependency's
+                # error output rather than swallowing it; this is that, on the
+                # path the user actually reads.
+                #
+                # `if not self._failure_hint` so the specific, actionable hints
+                # below always outrank a raw line: first error wins, and a
+                # tailored message beats a verbatim one.
+                if not self._failure_hint and _RIPPER_ERROR_RE.match(line):
+                    self._failure_hint = line.strip()
                 giveup = _TRACK_GIVEUP_RE.search(line)
                 if giveup:
                     track = giveup.group("track")

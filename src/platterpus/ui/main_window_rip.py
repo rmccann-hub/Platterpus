@@ -503,6 +503,18 @@ class RipMixin(MainWindowShared):
         if self._config.override_read_offset:
             params = replace(params, read_offset_override=self._config.read_offset)
 
+        # The DISC's own track count, from the scanned TOC. The backend needs it
+        # to refuse an out-of-range `-t`: cyanrip rejects the whole rip on one
+        # ("Invalid track number 17, list has 16 tracks!", exit 1, nothing
+        # ripped), which is exactly what happened to disc 1 of a 4-disc set
+        # whose MusicBrainz medium listed 18 tracks against a 16-track disc
+        # (2026-08-02). Built here rather than in the rip controls because this
+        # is where the scanned disc is known; 0/None stays None so the guard
+        # never invents a ceiling it cannot justify.
+        params = replace(
+            params, disc_track_total=getattr(self, "_current_num_tracks", 0) or None
+        )
+
         # Only validate the track table for non-unknown rips — placeholder
         # tags will be applied after the fact in unknown mode.
         if not params.unknown:
