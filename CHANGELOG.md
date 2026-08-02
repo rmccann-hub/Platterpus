@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **Every rip now records WHICH cyanrip binary produced it.** Platterpus runs a fork that emits
+  rows stock cyanrip does not (per-track pre-gap length and provenance, sample peak, extraction
+  speed and elapsed time), so two logs of one disc from the two binaries are not interchangeable
+  evidence — and the version number cannot tell them apart, because the fork tracks upstream
+  versions. The EAC-style log gains an unconditional `Ripper build:` row and the JSON gains
+  `ripper_is_platterpus_fork` / `ripper_identity` / `ripper_identity_detail` (schema **v13**).
+  The verdict is **tri-state**: an unrecognised or absent build tag reports `unknown` / `null`,
+  never "unmodified upstream", because that would be a claim we have no evidence for.
+- **The ripper's exit code and exact command line are in the report.** Both were computed and
+  discarded, so `1` (the ripper refused an argument), `0` plus a cancel (the user stopped a
+  healthy run) and `-9` (we SIGKILLed a wedged process group) all rendered identically, and no
+  report carried the argv needed to reproduce a failure by hand. `outcome.ripper_exit_code`,
+  `outcome.ripper_argv` and `outcome.ripper_command_display`; a never-reaped child records
+  `null`, not `0`.
+
+### Fixed
+- **A runaway rip dropped the ripper's dying message.** Retained stdout stopped at a 20 000-line
+  cap, head-only — reasoned as "the head holds the header and the earliest tracks", which is
+  true of a rip that succeeds and exactly wrong for one that fails, since a ripper's fatal line
+  is the *last* thing it prints. Capture is now head **and** a rolling tail, with an explicit
+  `[platterpus] … N lines … elided` marker naming how many lines went: an unmarked gap would
+  read as a ripper that fell silent, which is a different and more alarming fact.
+
 ### Fixed
 - **The EAC `Pre-gap length` row briefly stopped matching EAC.** A cross-project correction
   argued that EAC derives the row from `INDEX 00 → INDEX 01` only, so the fork's track-1

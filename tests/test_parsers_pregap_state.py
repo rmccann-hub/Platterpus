@@ -111,7 +111,10 @@ def test_the_eac_row_says_not_determined_rather_than_going_silent() -> None:
     text = render_eac_style_log(
         parse_cyanrip_log(_FORK_GOLDEN.read_text(encoding="utf-8"))
     )
-    rows = [line for line in text.splitlines() if "Pre-gap" in line]
+    # Anchored to the row label, not a substring search for "Pre-gap": the
+    # header's ripper-provenance line legitimately mentions pre-gap in prose,
+    # and a loose filter counted it as a fourth track row.
+    rows = [line for line in text.splitlines() if line.strip().startswith("Pre-gap ")]
     assert len(rows) == 3, "one row per track, including the undetermined one"
     assert "not determined by the ripper" in rows[2]
     assert "sub-channel unreadable" in rows[2]
