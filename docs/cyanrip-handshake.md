@@ -183,4 +183,4 @@ binary.
 
 ---
 
-*Last updated for Platterpus v0.6.1.*
+*Last updated for Platterpus v0.6.2.*
