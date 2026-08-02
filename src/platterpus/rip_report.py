@@ -755,6 +755,12 @@ def _track(track: object) -> dict:
         # on a real disc (see parsers.rip_log.TrackResult for the numbers).
         "pregap_sectors": getattr(track, "pregap_sectors", None),
         "pregap_start_lsn": getattr(track, "pregap_start_lsn", None),
+        # Three states, never two. "unknown" (the ripper tried and could not
+        # tell) must not serialize as a 0-length gap — see TrackResult.
+        "pregap_state": getattr(track, "pregap_state", "") or None,
+        "pregap_unknown_reason": getattr(track, "pregap_unknown_reason", "") or None,
+        "pregap_length_frames": getattr(track, "pregap_length_frames", None),
+        "pregap_source": getattr(track, "pregap_source", "") or None,
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
