@@ -150,6 +150,7 @@ class CyanripImpl(RipBackend):
         force_overread: bool = False,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
+        disc_track_total: int | None = None,
     ) -> list[str]:
         """Build the cyanrip rip argv (pure — unit-tested).
 
@@ -211,7 +212,7 @@ class CyanripImpl(RipBackend):
         # ones — either way cyanrip itself stays offline.
         del unknown
         argv.append("-N")
-        argv += _metadata_args(metadata, release_id)
+        argv += _metadata_args(metadata, release_id, disc_track_total)
         # Naming: translate our whipper-style templates to cyanrip schemes.
         # The directory part (before the last "/") becomes -D, the filename
         # part -F — cyanrip renders {tokens} from the -a/-t tags above and
@@ -246,6 +247,7 @@ class CyanripImpl(RipBackend):
         force_overread: bool = False,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
+        disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
     ) -> RipHandle:
@@ -267,6 +269,7 @@ class CyanripImpl(RipBackend):
             force_overread=force_overread,
             read_speed=read_speed,
             only_tracks=only_tracks,
+            disc_track_total=disc_track_total,
         )
         # cyanrip writes under the current directory (its -D/-F schemes are
         # relative), so run it from the output dir.
@@ -563,7 +566,11 @@ def _reject_path_reference_values(meta: RipMetadata) -> None:
             raise RipError(problem)
 
 
-def _metadata_args(metadata: RipMetadata | None, release_id: str) -> list[str]:
+def _metadata_args(
+    metadata: RipMetadata | None,
+    release_id: str,
+    disc_track_total: int | None = None,
+) -> list[str]:
     """Build the ``-a``/``-t`` arguments from the GUI's metadata.
 
     Empty fields are skipped; with no usable metadata at all this returns
@@ -603,6 +610,30 @@ def _metadata_args(metadata: RipMetadata | None, release_id: str) -> list[str]:
     if album_pairs:
         args += ["-a", ":".join(album_pairs)]
     for track in meta.tracks:
+        # cyanrip REFUSES a -t for a track the disc does not have, and refuses
+        # the whole rip with it: "Invalid track number 17, list has 16 tracks!",
+        # exit 1, nothing ripped. That happened on real hardware (2026-08-02) —
+        # a 4-disc set whose MusicBrainz medium listed 18 tracks against a
+        # 16-track disc, so the rip died two seconds in having read nothing.
+        #
+        # The metadata should never contain those tracks (that root cause is a
+        # medium-selection bug upstream of here), but this is the boundary where
+        # we hand argv to another program, and CLAUDE.md requires validating
+        # against the tool's contract at exactly this point. Dropping the
+        # surplus costs a few tags on tracks that do not exist; passing it costs
+        # the entire rip.
+        if (
+            disc_track_total
+            and isinstance(track.number, int)
+            and track.number > disc_track_total
+        ):
+            log.warning(
+                "dropping metadata for track %s: the disc has only %d track(s), "
+                "and cyanrip rejects the whole rip on an out-of-range -t",
+                track.number,
+                disc_track_total,
+            )
+            continue
         track_pairs: list[str] = []
         if track.title:
             track_pairs.append(f"title={_escape_meta_value(track.title)}")

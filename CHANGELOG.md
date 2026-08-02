@@ -12,6 +12,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **An out-of-range track tag killed an entire rip.** Disc 1 of a 4-disc set has 16 tracks; the
+  MusicBrainz medium we used listed 18; Platterpus passed cyanrip `-t 17=` and `-t 18=`. cyanrip
+  answered `Invalid track number 17, list has 16 tracks!` and exited — **two seconds, nothing
+  ripped** (rig, 2026-08-02). `_metadata_args` now refuses to emit a `-t` for a track the disc
+  does not have. That is the argv chokepoint, so the guard holds regardless of which path
+  assembled the metadata — including the medium-selection defect that produced the bad list,
+  which is still open.
+- **The ripper diagnosed the failure precisely and the user was shown "Rip failed."**
+  `failure_hint` was `null` while cyanrip's own sentence sat in the captured output. Its fatal
+  argument/setup errors are now surfaced verbatim when we have no more specific hint.
+
+### Documentation
+- `docs/dependency-contracts.md` gains cyanrip's **argument range constraints** — the seven
+  flags whose values it validates against the disc and exits on, with the `-t` row marked as
+  measured rather than read.
+- `docs/testing.md` §5.m — *two rules already existed, neither ran*. Both halves of the above
+  were written policy with no test, sweep, or chokepoint enforcing them. The graduated lesson
+  is that a prose rule becomes real only when something executes it, and CLAUDE.md's
+  validate-outputs rule now says so explicitly and names range as well as syntax.
+
+### Fixed
 - **A cancelled rip reported the disc *fraction* as a *rate*.** `realtime_multiplier` was
   `elapsed ÷ disc_seconds` regardless of whether the rip finished, so the rig's 2-of-14 cancel
   archived `0.21` (755 s of a 3582 s disc) when actual throughput was about 0.93×. A plausible

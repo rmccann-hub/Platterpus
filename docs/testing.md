@@ -812,6 +812,43 @@ Same family as §5.t's "a floor equal to the population it measures is not a flo
 both are a measurement taken against something that moves with the thing measured.
 
 
+### 5.m — Two rules already existed. Neither ran. (added 2026-08-02)
+
+A hardware batch of eight discs produced one total rip failure, and both halves
+of it were already covered by written rules:
+
+* *"Before invoking an external tool, validate that the arguments we hand it
+  satisfy that tool's documented contract."* We passed cyanrip `-t 17=` for a
+  16-track disc. It refused the entire rip — exit 1, two seconds, no audio.
+* *"When a dependency fails or emits an error, capture its stderr/stdout and
+  log it (never swallow it) so the failure is diagnosable."* cyanrip printed
+  `Invalid track number 17, list has 16 tracks!`. The report's `failure_hint`
+  was `null` and the user was shown **"Rip failed."**
+
+Neither rule had a test, a sweep, or a single call site enforcing it. This is
+§5.o for the third time in one week — *a rule enforced nowhere is not a rule* —
+so the durable part is not "add these two checks", it is:
+
+**A prose rule in CLAUDE.md is a statement of intent. It becomes real when
+something executes it.** When you write or read a rule of the form "always X
+before Y", ask immediately: *what would fail if I stopped doing X?* If the
+answer is "nothing until a user hits it", the rule is decoration. Give it a
+test, a sweep, or a chokepoint function — in the same change that states it.
+
+Two concrete shapes that came out of this one:
+
+- **Validate at the chokepoint, not at every caller.** The `-t` guard lives in
+  `_metadata_args`, the single place argv is built, so it holds no matter which
+  path assembled the metadata — including the medium-selection bug that
+  produced the bad list in the first place, which is still unfixed. A boundary
+  guard is worth having *even when you know the upstream cause*, because it
+  bounds the blast radius of causes you have not found yet.
+- **Range-check anything not derived from the thing you are about to act on.**
+  The bad track numbers came from MusicBrainz; the constraint belongs to the
+  disc. Values that cross that kind of boundary are where "usually right" hides
+  until it isn't. Recorded per-flag in `docs/dependency-contracts.md`.
+
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

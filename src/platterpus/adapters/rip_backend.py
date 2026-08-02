@@ -302,6 +302,7 @@ class RipBackend(ABC):
         force_overread: bool = False,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
+        disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
     ) -> RipHandle:
