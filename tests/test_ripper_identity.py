@@ -214,3 +214,70 @@ def test_the_committed_reference_log_still_renders_a_row() -> None:
     rows = [ln.strip() for ln in text.splitlines() if "Ripper build:" in ln]
     assert len(rows) == 1
     assert "Platterpus fork" not in rows[0]
+
+
+# --- the real tags this fork emits (handshake round 4, A / Q2 / H3) -----------
+
+
+def test_the_real_pin_banner_identifies_as_the_fork() -> None:
+    """Byte-for-byte the string the fork reports emitting at pin a835052.
+
+    Pinned by SHAPE, not literally: the `g<sha>` component changes on every
+    push, and the fork warned that asserting the whole string would break on
+    their next commit. What must hold is the `platterpus-fork` token.
+    """
+    identity = identify_from_banner("cyanrip 0.9.4-rc1 (platterpus-fork-ga835052)")
+    assert identity.kind == "fork"
+    assert identity.build_tag == "platterpus-fork-ga835052"
+
+
+def test_a_different_commit_sha_still_identifies() -> None:
+    """The shape-not-literal rule, exercised. If this ever fails, someone has
+    pinned a SHA and the next fork push turns the suite red for no reason."""
+    for sha in ("ga835052", "gdeadbee", "g0000000", "gabcdef1234567"):
+        assert identify_from_banner(
+            f"cyanrip 0.9.4-rc1 (platterpus-fork-{sha})"
+        ).kind == ("fork"), sha
+
+
+def test_a_tarball_build_of_the_fork_is_not_mistaken_for_upstream() -> None:
+    """§H3 of the fork's round-4 file, and it is a genuine near-miss.
+
+    Built from a source tarball with no git metadata, meson's `vcs_tag` falls
+    back to the literal string `release`, so the tag becomes
+    `platterpus-fork-grelease`. Because we tokenise on `-`/`_` this classifies
+    as **fork**, correctly. Were we matching `release` as a substring anywhere,
+    that build would flip to "unmodified upstream" — the exact tri-state
+    collapse the classifier exists to prevent, on a binary that IS the fork.
+
+    They flagged it as a case we had not enumerated. They were right; here it is.
+    """
+    identity = identify_from_banner("cyanrip 0.9.4-rc1 (platterpus-fork-grelease)")
+    assert identity.kind == "fork", (
+        "a tarball build of the fork must not read as unmodified upstream"
+    )
+    assert identity.is_fork is True
+
+
+def test_the_older_comma_form_still_identifies() -> None:
+    """The pre-round-4 banner shape, `(<sha>, platterpus-fork)`. The maintainer
+    has archived rips from those builds; reclassifying them as unknown would
+    rewrite the provenance of real library entries."""
+    assert identify_from_banner(
+        "cyanrip 0.9.4-rc1 (ec406ac, platterpus-fork)"
+    ).kind == ("fork")
+
+
+def test_a_dirty_build_is_indistinguishable_and_that_is_recorded() -> None:
+    """Q2's caveat, pinned as a KNOWN LIMIT rather than left as folklore.
+
+    A binary built from a modified working tree emits its base commit's tag with
+    no marker, so it claims to be that commit. We cannot detect it from the
+    banner and must not pretend otherwise: it classifies as fork, which is true,
+    and the SHA it reports may be a lie. Adding `--dirty` is open as J2.
+    """
+    clean = identify_from_banner("cyanrip 0.9.4-rc1 (platterpus-fork-ga835052)")
+    # There is no third state to assert — the point is that a dirty build is
+    # byte-identical to this, so this test exists to carry the sentence above.
+    assert clean.kind == "fork"
+    assert "ga835052" in clean.build_tag

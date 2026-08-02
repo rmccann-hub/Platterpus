@@ -1,0 +1,97 @@
+# cyanrip fork fatal/error message inventory, verbatim from handshake round 4
+# (docs/handshake/inbound/round-4.md, Appendix 2). Generated on THEIR side by
+# walking every cyanrip_log()/fprintf(stderr,...) literal in src/*.c at pin
+# a835052. Committed as a fixture so our surfacing pattern is tested against
+# the ripper's real vocabulary instead of strings we imagined.
+#
+# Do not hand-edit. It is replaced wholesale when a handshake round ships a
+# new inventory; a diff here is a change in what the ripper can say to us.
+# file:line<TAB>message
+accurip.c:97	Unable to get AccuRIP DB data: missing CDDB ID!
+accurip.c:129	Unable to get AccuRIP DB data: missing entry!
+accurip.c:137	Unable to get AccuRIP DB data: %s%s
+accurip.c:140	Unable to get AccuRIP DB data: %s!
+coverart.c:51	Unable to init lavf context: %s!
+coverart.c:57	Unable to alloc stream!
+coverart.c:70	Couldn't open %s for writing: %s!
+coverart.c:82	Couldn't write header: %s!
+coverart.c:92	Error writing picture packet: %s!
+coverart.c:97	Error writing trailer: %s!
+coverart.c:177	Unable to get cover art \"%s\": not found!
+coverart.c:186	Unable to get cover art \"%s\": %s%s!
+coverart.c:189	Unable to get cover art \"%s\": %s!
+coverart.c:262	Unable to open \"%s\": %s!
+coverart.c:269	Unable to get cover image info: %s!
+coverart.c:299	Error demuxing cover image: %s!
+cue_writer.c:39	Couldn't open path \"%s\" for writing: %s!Invalid folder name? Try -D <folder>.
+cyanrip_encode.c:361	Error creating filter source: %s!
+cyanrip_encode.c:372	Error creating filter sink: %s!
+cyanrip_encode.c:386	Error setting filter sample format: %s!
+cyanrip_encode.c:394	Error setting filter channel layout: %s!
+cyanrip_encode.c:403	Error setting filter sample rate: %s!
+cyanrip_encode.c:437	Error initializing filter sink: %s!
+cyanrip_encode.c:471	Error parsing filter graph: %s!
+cyanrip_encode.c:477	Error configuring filter graph: %s!
+cyanrip_encode.c:536	Error pushing frame to FIFO: %s!
+cyanrip_encode.c:555	Error filtering frame: %s!
+cyanrip_encode.c:633	Error allocating frame!
+cyanrip_encode.c:645	Error allocating frame: %s!
+cyanrip_encode.c:776	Could not alloc swr context!
+cyanrip_encode.c:794	Could not init swr context!
+cyanrip_encode.c:969	Error while encoding: %s!
+cyanrip_encode.c:991	Error encoding: %s!
+cyanrip_encode.c:1022	Error pushing packet to FIFO: %s!
+cyanrip_encode.c:1029	Error writing packet: %s!
+cyanrip_encode.c:1059	Error writing to file: %s!
+cyanrip_encode.c:1191	Unable to init output avctx!
+cyanrip_encode.c:1202	Could not open output codec context!
+cyanrip_encode.c:1209	Couldn't copy codec params!
+cyanrip_encode.c:1216	Couldn't open %s: %s! Invalid folder name? Try -D <folder>.
+cyanrip_main.c:181	No device specified and unable to get default device!
+cyanrip_main.c:189	Unable to open device: %s
+cyanrip_main.c:198	Unable to init cddap context!
+cyanrip_main.c:214	Unable to open device!
+cyanrip_main.c:240	Unable to init paranoia!
+cyanrip_main.c:269	Invalid number of tracks: %i!
+cyanrip_main.c:525	Stopping, offset finding incomplete!
+cyanrip_main.c:610	Unable to read track %i subchannel info!
+cyanrip_main.c:675	Error in decoding/sending frame: %s
+cyanrip_main.c:687	Drive media changed, stopping!
+cyanrip_main.c:718	Stopping, ripping incomplete!
+cyanrip_main.c:873	Error in encoding: %s
+cyanrip_main.c:889	Error sending flush signal to encoders: %s
+cyanrip_main.c:1335	Couldn't read \"%s\"!
+cyanrip_main.c:1382	Invalid paranoia level %i must be between 0 and %i!
+cyanrip_main.c:1395	Invalid max coverart size %i (must be 250, 500, 1200 or -1)
+cyanrip_main.c:1407	Invalid sanitation method %s
+cyanrip_main.c:1419	Invalid release index %i!
+cyanrip_main.c:1428	Invalid discnumber %i
+cyanrip_main.c:1435	Invalid totaldiscs %i
+cyanrip_main.c:1460	Invalid format \"%s\"
+cyanrip_main.c:1494	Invalid track idx for pregap: %i
+cyanrip_main.c:1500	Missing pregap action
+cyanrip_main.c:1508	Invalid pregap action %s
+cyanrip_main.c:1539	No cover art location specified for \"%s\"
+cyanrip_main.c:1548	Invalid track idx for cover art: %i
+cyanrip_main.c:1587	-J (only generate a CUE sheet) cannot be used with -I (only print info)!
+cyanrip_main.c:1723	Error reading album tags: %s
+cyanrip_main.c:1793	Invalid track number %i, list has %i tracks!
+cyanrip_main.c:1809	Error reading track tags: %s
+cyanrip_main.c:1937	Error initializing decoder: %s
+cyanrip_main.c:1946	Error initializing encoder: %s
+cyanrip_main.c:1980	Error encoding: %s
+cyanrip_main.c:2000	Invalid rip index %i, list has %i tracks!
+cyanrip_main.c:2082	Error ripping: %s
+discid.c:31	Unable to init SHA for DiscID: %s!
+musicbrainz.c:116	Invalid disc number %i, release only has %i CDs
+musicbrainz.c:193	Could not connect to MusicBrainz.
+musicbrainz.c:201	Missing DiscID!
+musicbrainz.c:224	Error fetching/requesting/auth, this shouldn't happen.
+musicbrainz.c:299	Invalid release index %i specified, only have %i releases!
+musicbrainz.c:366	Unable to find release info for this CD, and metadata hasn't been manually added!
+musicbrainz.c:370	Unable to find metadata for this CD, but metadata has been manually specified, continuing.
+naming.c:123	Error parsing string: %s!
+naming.c:215	Invalid scheme syntax, unterminated \"{\"!
+naming.c:229	Invalid scheme syntax, no \"#\"!
+naming.c:243	Invalid scheme syntax, no terminating \"#\"!
+naming.c:259	Invalid condition syntax!
