@@ -27,6 +27,7 @@ from platterpus.parsers.rip_log import (
     tracks_needing_heavy_reread,
 )
 from platterpus.report_types import ArtifactsBlock, EnvironmentBlock
+from platterpus.ripper_identity import RipperIdentity, identify_ripper
 from platterpus.verdict import accuraterip_verdict
 
 log = logging.getLogger(__name__)
@@ -158,7 +159,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     described a 14-track disc. This is the same missing denominator that has
 #     now been corrected on four surfaces; recording it as a number is what
 #     stops a fifth.
-REPORT_SCHEMA_VERSION: int = 12
+# v13: `ripper_is_platterpus_fork` / `ripper_identity` / `ripper_identity_detail`.
+#     `ripper_build` was already recorded, but it is a raw tag — a consumer had
+#     to know which strings mean "the Platterpus fork" to use it, and nothing
+#     said so. The classified answer is tri-state (`true` / `false` / `null`)
+#     because "we could not tell which binary" is a real and common outcome, and
+#     collapsing it to `false` would assert an unmodified upstream build we have
+#     no evidence for — the exact shape of bug this project has now shipped three
+#     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
+REPORT_SCHEMA_VERSION: int = 13
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -358,6 +367,8 @@ def build_outcome(
     failure_hint: str | None = None,
     auto_unknown_retry_fired: bool = False,
     auto_unknown_retry_reason: str | None = None,
+    ripper_exit_code: int | None = None,
+    ripper_argv: tuple[str, ...] | list[str] | None = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -367,7 +378,22 @@ def build_outcome(
     ``"failed"``; ``failure_hint`` is an actionable one-liner when we have one;
     ``auto_unknown_retry`` records whether the self-heal (re-rip as unknown when
     the ripper couldn't reach MusicBrainz) fired. Pure; never raises.
+
+    ``ripper_exit_code`` and ``ripper_argv`` (v13) are the two facts that make a
+    failure reproducible, and both were being computed and discarded:
+
+    * The exit code separates outcomes that rendered identically. ``1`` is the
+      ripper refusing an argument, ``0`` with a cancel is the user stopping a
+      healthy run, and a negative value is a signal — ``-9`` meaning we had to
+      SIGKILL the process group. ``None`` is its own answer: the child was never
+      reaped, which happens when it is wedged in a drive ioctl where even
+      SIGKILL does not land.
+    * The argv is what lets someone re-run the exact failing command. The one
+      argument defect that has killed a whole rip (``-t 17=`` on a 16-track
+      disc) was diagnosed from files the maintainer uploaded, because our own
+      report did not carry the command line.
     """
+    argv = tuple(ripper_argv or ())
     return {
         "status": status,
         "failure_hint": failure_hint or None,
@@ -375,6 +401,18 @@ def build_outcome(
             "fired": bool(auto_unknown_retry_fired),
             "reason": auto_unknown_retry_reason or None,
         },
+        # Distinct keys rather than one nested object, because a support reader
+        # greps this file and a flat key is findable.
+        "ripper_exit_code": ripper_exit_code,
+        # A list (JSON has no tuples) of the argv as spawned. Empty argv is
+        # serialized as null, not [], so "we never launched it" and "we launched
+        # it with no arguments" stay distinguishable.
+        "ripper_argv": list(argv) or None,
+        # Pre-joined for the human reading the JSON. Not shell-quoted: it is a
+        # record of an `execve` argument vector, and quoting it would suggest it
+        # is safe to paste, which for a vector containing user-entered metadata
+        # it is not. `ripper_argv` above is the machine-readable form.
+        "ripper_command_display": " ".join(argv) or None,
     }
 
 
@@ -500,6 +538,20 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
         ),
         "samples": samples,
     }
+
+
+def _ripper_identity(rip_log: object) -> RipperIdentity:
+    """Classify the ripper binary behind this rip.
+
+    A thin pass-through to the shared classifier so the report, the EAC-style
+    log and the live rip panel cannot describe the same binary differently.
+    ``getattr`` because a caller may hand us a stand-in ``RipLog`` from an older
+    parse that predates these fields.
+    """
+    return identify_ripper(
+        getattr(rip_log, "log_creator", "") or "",
+        getattr(rip_log, "ripper_build", "") or "",
+    )
 
 
 def _build(
@@ -654,6 +706,13 @@ def _build(
             # describe). The only provenance separating an official build from a local
             # one, and they can differ in pre-gap metadata and peak values.
             "ripper_build": getattr(rip_log, "ripper_build", "") or None,
+            # v13: the *classified* answer, so a consumer does not have to know
+            # which tags mean "our fork". Tri-state on purpose — `null` is "not
+            # determined", and must never be read as `false`. An unrecognised
+            # tag is an absence of evidence, not evidence of a stock binary.
+            "ripper_is_platterpus_fork": _ripper_identity(rip_log).is_fork,
+            "ripper_identity": _ripper_identity(rip_log).kind,
+            "ripper_identity_detail": _ripper_identity(rip_log).detail,
             "creation_date": getattr(rip_log, "creation_date", "") or None,
             # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
             # The truest "same physical disc" key — stable across re-rips and

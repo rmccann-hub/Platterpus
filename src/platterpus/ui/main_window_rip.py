@@ -1296,6 +1296,18 @@ class RipMixin(MainWindowShared):
             auto_unknown_retry_reason=(
                 "ripper could not reach MusicBrainz" if self._auto_retry_done else None
             ),
+            # How the ripper actually ended, and what we told it to do. Read off
+            # the worker here — this runs at finish, while `_rip_worker` is still
+            # alive; the outcome dict is then snapshotted and survives the
+            # worker being cleared. `getattr` so an older/stand-in worker without
+            # these properties degrades to "not recorded" rather than raising in
+            # the finish handler.
+            ripper_exit_code=getattr(self._rip_worker, "ripper_exit_code", None)
+            if self._rip_worker
+            else None,
+            ripper_argv=getattr(self._rip_worker, "ripper_argv", ())
+            if self._rip_worker
+            else (),
         )
         _meta = params.metadata if params is not None else None
         self._last_disc = {

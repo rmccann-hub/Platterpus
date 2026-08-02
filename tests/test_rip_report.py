@@ -885,8 +885,37 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_12() -> None:
-    assert REPORT_SCHEMA_VERSION == 12
+def test_schema_version_is_13() -> None:
+    assert REPORT_SCHEMA_VERSION == 13
+
+
+# --- v13: which ripper binary, and how the process actually ended ------------
+
+
+def test_the_report_says_which_cyanrip_binary_ripped_the_disc() -> None:
+    """The fork emits rows stock cyanrip does not, so two logs of one disc are
+    not interchangeable evidence — and the version number cannot tell them apart
+    because the fork tracks upstream versions."""
+    fork = build_report(
+        RipLog(log_creator="cyanrip 0.9.4-rc1", ripper_build="platterpus-fork")
+    )
+    assert fork["rip"]["ripper_is_platterpus_fork"] is True
+    assert fork["rip"]["ripper_identity"] == "fork"
+
+    stock = build_report(RipLog(log_creator="cyanrip 0.9.3.1", ripper_build="release"))
+    assert stock["rip"]["ripper_is_platterpus_fork"] is False
+    assert stock["rip"]["ripper_identity"] == "stock"
+
+
+def test_an_unidentifiable_build_is_null_not_false() -> None:
+    """`false` would assert an unmodified upstream binary we have no evidence
+    for. `null` is "not determined" — the same distinction this codebase has now
+    got wrong three times elsewhere."""
+    for build in ("", "g1a2b3c4", "fedora"):
+        report = build_report(RipLog(log_creator="cyanrip 0.9.3.1", ripper_build=build))
+        assert report["rip"]["ripper_is_platterpus_fork"] is None, build
+        assert report["rip"]["ripper_identity"] == "unknown", build
+        assert report["rip"]["ripper_identity_detail"]
 
 
 def test_rip_block_carries_disc_ids() -> None:
