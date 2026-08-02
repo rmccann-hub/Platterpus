@@ -627,6 +627,13 @@ def _pregap_line(track: TrackResult) -> list[str]:
     look plausible, and be wrong. Found by diffing against the real EAC log
     (2026-07-30).
     """
+    # "The ripper tried and could not tell" gets a row that SAYS so. Omitting it
+    # here would be indistinguishable from a track with no pre-gap, and this log
+    # is signed — an absent row reads as a measured absence. Matches the file's
+    # standing rule: rows the ripper does not report say so instead of guessing.
+    if getattr(track, "pregap_state", "") == "unknown":
+        reason = getattr(track, "pregap_unknown_reason", "") or "not determined"
+        return [f"     Pre-gap length  (not determined by the ripper — {reason})", ""]
     sectors = track.pregap_sectors
     if not isinstance(sectors, int) or sectors <= 0:
         return []

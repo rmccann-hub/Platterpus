@@ -208,6 +208,36 @@ class TrackResult:
     # above is `start_sector - pregap_start_lsn`, which is exactly how cyanrip
     # computes the duration it prints in its own `(duration: …)` suffix.
     pregap_start_lsn: int | None = None
+    # Which of the three things the ripper actually said about this track's
+    # pre-gap. **`unknown` is not `none`.**
+    #
+    #   ""        the ripper printed no Pregap row at all
+    #   "known"   a position was reported → `pregap_start_lsn` is set
+    #   "none"    measured, and there is no pre-gap
+    #   "unknown" the ripper TRIED and could not tell (sub-channel unreadable,
+    #             or CRC mismatches) — `pregap_unknown_reason` says which
+    #
+    # Before this existed, `unknown` did not match the LSN pattern at all, so it
+    # fell through to `pregap_start_lsn=None, pregap_sectors=None` — byte-identical
+    # to a genuine "none". "We could not determine whether this track has a
+    # pre-gap" and "this track has no pre-gap" are different archival claims, and
+    # collapsing them is the same class of error as `Accurip: disabled` rendering
+    # as "in DB, no match". Third instance of that class (2026-08-02).
+    pregap_state: str = ""
+    pregap_unknown_reason: str = ""
+    # The pre-gap length the ripper states OUTRIGHT ("Pregap length: N frames"),
+    # as opposed to the one we derive. Fork-only, and **authoritative when
+    # present** — it is the only field that can express track 1, whose pre-gap is
+    # the 150-frame lead-in PLUS any TOC-declared gap. On the fork's reference
+    # disc track 1 reads `Pregap LSN: 0` / `Start LSN: 150` / `Pregap length: 300`,
+    # and the `Gaps:` block confirms a 150-frame TOC pre-gap: 150 + 150 = 300. A
+    # derivation of `start - lsn` gets 150 there and is simply wrong.
+    pregap_length_frames: int | None = None
+    # How the ripper found it: "TOC" (declared), "lead-in" (track 1's standard
+    # two seconds), or "sub-channel" (a Q-subchannel scan found a gap the TOC does
+    # NOT declare — the EAC-parity case, and the whole point of upstream PR #115).
+    # Provenance we previously had to infer; empty on stock cyanrip.
+    pregap_source: str = ""
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-improvements-wanted.md §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and

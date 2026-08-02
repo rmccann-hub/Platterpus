@@ -205,7 +205,22 @@ _END_LSN = re.compile(r"^\s+End LSN:\s+(?P<value>\d+)")
 # Anchored like its two siblings — NOT to end-of-line. cyanrip prints a
 # "(with offset: N)" suffix on some geometry rows, and a `$` here would drop a
 # real pre-gap value the moment it gained one (review finding, 2026-07-28).
-_PREGAP_LSN = re.compile(r"^\s+Pregap LSN:\s+(?P<value>\d+|none)\b")
+# `unknown` is a THIRD answer, not a missing one. The fork prints
+# `unknown (sub-channel unreadable)` / `unknown (sub-channel CRC mismatches)`
+# when it tried a Q-subchannel scan and could not tell. The old
+# `(\d+|none)` matched neither, so the row fell through entirely and the track
+# came out identical to a measured "none" — see TrackResult.pregap_state.
+_PREGAP_LSN = re.compile(
+    r"^\s{1,8}Pregap LSN:\s+(?P<value>\d{1,9}|none|unknown)"
+    r"(?:\s+\((?P<reason>[^)]{0,64})\))?"
+)
+# Fork-only, and authoritative when present: the only field that can express
+# track 1 (lead-in + any declared gap). Bounded per the never-unbounded rule.
+_PREGAP_LENGTH = re.compile(r"^\s{1,8}Pregap length:\s+(?P<frames>\d{1,9})\s+frames?\b")
+# Fork-only provenance. `sub-channel` is the PR #115 payoff — a gap the TOC does
+# not declare. Left as free text after the keyword so a future source name is
+# recorded rather than dropped.
+_PREGAP_SOURCE = re.compile(r"^\s{1,8}Pregap source:\s+(?P<source>\S.{0,63}?)\s*$")
 
 
 # "  EAC CRC32:     A1B2C3D4" with an optional "(after N rips)" suffix — the
@@ -645,6 +660,11 @@ class _TrackAcc:
     # because conflating the two is precisely the bug this field exists to end:
     # see the derivation in `flush()`.
     pregap_start_lsn: int | None = None
+    # See TrackResult for what each of these means; `unknown` is not `none`.
+    pregap_state: str = ""
+    pregap_unknown_reason: str = ""
+    pregap_length_frames: int | None = None
+    pregap_source: str = ""
     replaygain: dict[str, str] = field(default_factory=dict)
     # The three new per-track facts. All default to None — "the ripper did not say"
     # — which is what the deployed cyanrip 0.9.3 leaves them at for the first two.
@@ -920,6 +940,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_start_lsn", _START_LSN),
     ("track_end_lsn", _END_LSN),
     ("track_pregap_lsn", _PREGAP_LSN),
+    ("track_pregap_length", _PREGAP_LENGTH),
+    ("track_pregap_source", _PREGAP_SOURCE),
     ("track_preemphasis", _PREEMPHASIS),
     ("track_eac_crc", _EAC_CRC),
     ("track_accurip", _ACCURIP_TRACK),
@@ -1159,7 +1181,17 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # Both operands are required. A log that prints a pregap LSN without a
         # Start LSN leaves the length None ("not reported"), never 0 ("measured
         # none") — absent must stay absent.
-        if current.pregap_start_lsn is not None:
+        #
+        # A ripper that STATES the length outright wins over our subtraction.
+        # `Pregap length: N frames` (fork-only) is the only field that can
+        # express track 1, whose gap is the 150-frame lead-in PLUS any declared
+        # gap: the fork's reference disc reads `Pregap LSN: 0` / `Start LSN: 150`
+        # / `Pregap length: 300`, and its `Gaps:` block confirms a 150-frame TOC
+        # pre-gap — 150 + 150. Subtracting gets 150 there, and is simply wrong.
+        # Deriving remains the path for stock cyanrip, which states nothing.
+        if current.pregap_length_frames is not None:
+            current.pregap_sectors = current.pregap_length_frames
+        elif current.pregap_start_lsn is not None:
             if current.start_sector is None:
                 current.pregap_sectors = None
             else:
@@ -1175,6 +1207,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
         disc.tracks.append(
             TrackResult(
                 number=current.number,
+                pregap_state=current.pregap_state,
+                pregap_unknown_reason=current.pregap_unknown_reason,
+                pregap_length_frames=current.pregap_length_frames,
+                pregap_source=current.pregap_source,
                 filename=current.filename,
                 pre_emphasis=current.pre_emphasis,
                 copy_crc=current.copy_crc,
@@ -1396,13 +1432,34 @@ def parse_cyanrip_log(text: str) -> RipLog:
                     # 0 length rather than None so "measured: none" stays
                     # distinguishable from "not reported".
                     current.pregap_sectors = 0
+                    current.pregap_state = "none"
+                elif raw == "unknown":
+                    # The ripper TRIED and could not tell. Deliberately leaves
+                    # `pregap_sectors` as None rather than 0: a 0 here would be
+                    # read downstream as "measured, no gap", which is the false
+                    # claim this branch exists to prevent.
+                    current.pregap_state = "unknown"
+                    current.pregap_unknown_reason = match.group("reason") or ""
                 else:
+                    current.pregap_state = "known"
                     # An ABSOLUTE LSN, never a length. It is stored raw and the
                     # length is derived in `flush()`, once `Start LSN:` (printed
                     # two rows later) is also known.
                     current.pregap_start_lsn = int_or_none(
                         raw, field="cyanrip Pregap LSN"
                     )
+                continue
+
+            match = _PREGAP_LENGTH.match(line)
+            if match:
+                current.pregap_length_frames = int_or_none(
+                    match.group("frames"), field="cyanrip Pregap length"
+                )
+                continue
+
+            match = _PREGAP_SOURCE.match(line)
+            if match:
+                current.pregap_source = match.group("source")
                 continue
 
             # "Appended:    2 frames of silence" — cyanrip 0.9.3 DOES print this,

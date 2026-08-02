@@ -11,6 +11,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **`Pregap LSN: unknown` was indistinguishable from `Pregap LSN: none`.** The cyanrip fork
+  prints `unknown (sub-channel unreadable)` when it tried a Q-subchannel scan and could not
+  tell; our pattern was `(\d+|none)`, which matched neither `unknown` form, so the row fell
+  through and the track came out byte-identical to a measured "no pre-gap". "We could not
+  determine whether this track has a pre-gap" and "this track has no pre-gap" are different
+  archival claims and the log is SHA-256 signed. Third instance of this class after
+  `Accurip: disabled` reading as "in DB, no match" and the all-zero CRC counting as a match,
+  so the fix is a **state** rather than another special case: `pregap_state` is one of
+  `known` / `none` / `unknown`, with the reason recorded, and the EAC row now reads
+  *"(not determined by the ripper — sub-channel unreadable)"* instead of vanishing.
+
+### Added
+- **`Pregap length:` and `Pregap source:` are read, and the stated length wins over our
+  derivation.** `Pregap length` is the only field that can express track 1, whose gap is the
+  150-frame lead-in *plus* any declared gap — the fork's reference disc reads `Pregap LSN: 0`
+  / `Start LSN: 150` / `Pregap length: 300`, and its `Gaps:` block confirms a 150-frame TOC
+  pre-gap, so 150 + 150 = 300 while subtracting gets 150. Our rendered rows now match
+  cyanrip's own `(duration: …)` suffix exactly on both fork tracks. `pregap_source`
+  (`TOC` / `lead-in` / `sub-channel`) is provenance we previously had to infer — a
+  `sub-channel` value means a gap the TOC does *not* declare, which is the whole point of
+  upstream PR #115. All four fields serialize into the JSON report; stock cyanrip is
+  unaffected (all 14 reference tracks still measure `none` and render no row).
+
 ### Added
 - **The ripper's own stdout is now embedded in the JSON report**, beside the three files
   (schema v12's `artifacts` gains `ripper_stdout`). This is the one record that survives the
