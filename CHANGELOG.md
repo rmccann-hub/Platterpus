@@ -20,6 +20,9 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   know how much audio *was* extracted — a real rate computed from that. The timing enrichment
   in the window now **delegates** to `build_timing` instead of recomputing the division itself;
   that second copy of the arithmetic is how the two got to disagree.
+  A **failed** rip counts as not-completed too: gating on the cancel flag alone left that case
+  open, and the rig found it the same day — a rip that died after 2 seconds on a bad argument,
+  having read nothing, archived `realtime_multiplier: 0.0`.
 
 ### Fixed
 - **`Pregap LSN: unknown` was indistinguishable from `Pregap LSN: none`.** The cyanrip fork
