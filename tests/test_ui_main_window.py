@@ -4224,6 +4224,13 @@ def test_report_records_v7_process_blocks(teardown_threads, tmp_path: Path) -> N
         "catalog_number": None,
         "barcode": None,
         "label": None,
+        # Which medium of a multi-disc release these tags came from, and how we
+        # decided. All null/False here: this fixture rips without a fetched
+        # release detail, so there was no medium to resolve — which is the
+        # honest answer, not a claim that it resolved to disc 1.
+        "medium_basis": None,
+        "medium_detail": None,
+        "medium_undetermined": False,
     }
     assert report["environment"]["install_channel"] in {"appimage", "pipx", "source"}
     assert report["environment"]["dependencies"]["cyanrip"] == {

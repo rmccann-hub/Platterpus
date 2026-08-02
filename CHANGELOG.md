@@ -11,6 +11,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`-N` is now enforced at the argv chokepoint, not merely documented.** Critical rule #5 says
+  cyanrip must never run its own MusicBrainz lookup — without `-N` it reaches the network from
+  inside the container and, on an ambiguous disc, opens an interactive prompt that has nowhere
+  to appear, hanging the rip until the user cancels. `assert_metadata_lookup_disabled` is
+  extracted so something can actually call it with a bad argv; a guard that cannot be exercised
+  is a guard nobody has tested.
+- The report's `disc` block records **which medium** of a multi-disc release the tags came from
+  and how it was decided (`medium_basis` / `medium_detail` / `medium_undetermined`), so a rip we
+  could not resolve says so instead of presenting the titles as settled.
+- `docs/handshake/` — the full cyanrip correspondence record, both directions, rounds 1–4, with
+  `verified/` entries closing rounds 1–3. Round 3's verification was late and went out folded
+  into round 4; that is stated in the record rather than tidied away.
+
 ### Fixed
 - **A multi-disc release could be ripped with the wrong disc's track titles.** Every code path
   took MusicBrainz's `medium-list[0]`, under a comment reading *"the first medium is the one we

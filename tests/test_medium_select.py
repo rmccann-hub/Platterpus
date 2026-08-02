@@ -213,3 +213,46 @@ def test_position_falls_back_to_index_when_mb_omits_it() -> None:
     choice = select_medium(media, disc_track_count=16)
     assert choice.index == 1
     assert choice.position == 2
+
+
+# --- the provenance reaches the summary, not just the log --------------------
+#
+# "Capture without surfacing is the same bug from the user's side" is a rule
+# this project wrote down the same day. Logging that a medium was undetermined
+# and then handing back a summary that looks settled would break it, so the
+# flag is asserted where a consumer actually reads it.
+
+
+def test_the_summary_carries_the_basis_and_flags_a_real_ambiguity() -> None:
+    import musicbrainzngs
+    import pytest as _pytest
+
+    from platterpus.adapters.musicbrainz_client import MusicBrainzNgsImpl
+
+    del _pytest  # imported for the fixture's sake in the sibling module only
+
+    def release(media: list[dict]) -> dict:
+        return {"release": {"id": "r", "title": "T", "medium-list": media}}
+
+    client = MusicBrainzNgsImpl("Platterpus-test", "0", "test@example.invalid")
+
+    # Two indistinguishable media -> undetermined, and the summary SAYS so.
+    ambiguous = release([_medium(1, 16), _medium(2, 16)])
+    original = musicbrainzngs.get_release_by_id
+    try:
+        musicbrainzngs.get_release_by_id = lambda *a, **kw: ambiguous  # type: ignore[assignment]
+        summary = client.release_by_mbid("r", disc_track_count=16).summary
+        assert summary.medium_basis == "undetermined-first"
+        assert summary.medium_undetermined is True
+        assert "Could not determine" in summary.medium_detail
+
+        # A single-disc release is NOT "undetermined" — nothing was ambiguous,
+        # and warning about it would train the user to ignore the warning.
+        musicbrainzngs.get_release_by_id = lambda *a, **kw: release(  # type: ignore[assignment]
+            [_medium(1, 12)]
+        )
+        solo = client.release_by_mbid("r").summary
+        assert solo.medium_basis == "sole-medium"
+        assert solo.medium_undetermined is False
+    finally:
+        musicbrainzngs.get_release_by_id = original  # type: ignore[assignment]

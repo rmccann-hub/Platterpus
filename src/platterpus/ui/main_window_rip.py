@@ -1310,6 +1310,12 @@ class RipMixin(MainWindowShared):
             else (),
         )
         _meta = params.metadata if params is not None else None
+        # The release summary this rip's tags came from, for the medium
+        # provenance below. None on an unknown-album rip, which has no
+        # MusicBrainz release and so no medium to have resolved.
+        _summary = getattr(
+            getattr(self, "_current_release_detail", None), "summary", None
+        )
         self._last_disc = {
             "unknown": bool(params.unknown) if params is not None else None,
             "musicbrainz_release_id": (self._current_release_id or None),
@@ -1319,6 +1325,15 @@ class RipMixin(MainWindowShared):
             "catalog_number": (getattr(_meta, "catalog_number", "") or None),
             "barcode": (getattr(_meta, "barcode", "") or None),
             "label": (getattr(_meta, "label", "") or None),
+            # WHICH disc of a multi-disc release these tags came from, and how
+            # we decided. A rip we could not resolve is still a rip, but the
+            # report must say the titles may belong to another disc rather
+            # than presenting them as settled (medium_select.py).
+            "medium_basis": (getattr(_summary, "medium_basis", "") or None),
+            "medium_detail": (getattr(_summary, "medium_detail", "") or None),
+            "medium_undetermined": bool(
+                getattr(_summary, "medium_undetermined", False)
+            ),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.
