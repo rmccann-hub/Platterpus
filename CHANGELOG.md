@@ -12,6 +12,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A cancelled rip reported the disc *fraction* as a *rate*.** `realtime_multiplier` was
+  `elapsed ÷ disc_seconds` regardless of whether the rip finished, so the rig's 2-of-14 cancel
+  archived `0.21` (755 s of a 3582 s disc) when actual throughput was about 0.93×. A plausible
+  wrong number is worse than none, because nothing about it invites checking. It is now `null`
+  with a `realtime_multiplier_basis` saying why, or — when the log carries enough geometry to
+  know how much audio *was* extracted — a real rate computed from that. The timing enrichment
+  in the window now **delegates** to `build_timing` instead of recomputing the division itself;
+  that second copy of the arithmetic is how the two got to disagree.
+
+### Fixed
 - **`Pregap LSN: unknown` was indistinguishable from `Pregap LSN: none`.** The cyanrip fork
   prints `unknown (sub-channel unreadable)` when it tried a Q-subchannel scan and could not
   tell; our pattern was `(\d+|none)`, which matched neither `unknown` form, so the row fell

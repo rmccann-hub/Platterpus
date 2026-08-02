@@ -264,6 +264,8 @@ def build_timing(
     disc_seconds: float | None = None,
     started_at: str = "",
     finished_at: str = "",
+    audio_seconds_ripped: float | None = None,
+    completed: bool | None = None,
 ) -> dict:
     """Build the ``timing`` section: actual elapsed + how it compares to the disc.
 
@@ -291,6 +293,37 @@ def build_timing(
         and disc_seconds > 0
     ):
         timing["disc_seconds"] = round(disc_seconds)
+    # `elapsed / disc_seconds` is only a RATE if the whole disc was ripped. On a
+    # cancelled rip it silently reports the fraction of the disc covered, which
+    # reads as an implausibly fast rip: the rig's 2-of-14 cancel logged
+    # `realtime_multiplier: 0.21` (755 s of a 3582 s disc) when actual throughput
+    # was about 0.93x. A plausible wrong number is worse than none, because
+    # nothing about it invites checking.
+    #
+    # Three outcomes, in order of how much we know:
+    #   * a completed rip           -> elapsed / disc audio, the real rate
+    #   * a partial rip that told us how much audio it DID extract
+    #                               -> elapsed / that, still a real rate
+    #   * anything else             -> null, and null means "we cannot say"
+    #
+    # `completed=None` keeps every existing caller on the old behaviour: a caller
+    # that does not know whether the rip finished has not asserted that it didn't.
+    if not isinstance(elapsed_seconds, int | float) or elapsed_seconds <= 0:
+        return timing
+    if completed is False:
+        if isinstance(audio_seconds_ripped, int | float) and audio_seconds_ripped > 0:
+            timing["realtime_multiplier"] = round(
+                audio_seconds_ripped / elapsed_seconds, 2
+            )
+            timing["realtime_multiplier_basis"] = "audio actually extracted"
+        else:
+            timing["realtime_multiplier"] = None
+            timing["realtime_multiplier_basis"] = (
+                "not computed — the rip did not finish, so elapsed over the "
+                "disc's length would be the fraction covered, not a rate"
+            )
+        return timing
+    if isinstance(disc_seconds, int | float) and disc_seconds > 0:
         timing["realtime_multiplier"] = round(elapsed_seconds / disc_seconds, 2)
     return timing
 
