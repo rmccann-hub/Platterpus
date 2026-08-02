@@ -224,9 +224,28 @@ _INVOKED_AS = re.compile(r"^Invoked as:\s+(?P<argv>\S.{0,4000}?)\s*$")
 # structurally normal — just short". `\d{1,4}` bounded; the yes/no is captured
 # rather than assumed, since "no" is a real answer a completed-but-failed rip
 # gives.
+# TWO shapes, and the second one is the one that matters:
+#
+#     Rip completed:  yes (3 of 3 tracks)
+#     Rip completed:  no (interrupted by user, 2 of 3 tracks)
+#
+# The first version of this pattern handled only the `yes` shape, so a
+# CANCELLED rip — the entire case this parsing exists for — matched
+# `verdict='no'` and silently dropped `2 of 3`. The ripper was telling us its
+# own count for the exact scenario where our own count is untrustworthy, and we
+# threw it away. Found by reading the fork's generated P2 table
+# (`cyanrip_log.c:420`), which is what a provider contract is *for*: their
+# golden reference is a *successful* rip and could never have shown this.
+#
+# The parenthetical's optional leading clause is captured as `reason` rather
+# than skipped, so "interrupted by user" reaches the report instead of being
+# inferred from `verdict == "no"`.
 _RIP_COMPLETED = re.compile(
     r"^Rip completed:\s+(?P<verdict>yes|no)"
-    r"(?:\s+\((?P<done>\d{1,4})\s+of\s+(?P<total>\d{1,4})\s+tracks?\))?"
+    r"(?:\s+\("
+    r"(?:(?P<reason>[^,)]{1,64}),\s*)?"
+    r"(?P<done>\d{1,4})\s+of\s+(?P<total>\d{1,4})\s+tracks?"
+    r"\))?"
 )
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
@@ -656,6 +675,7 @@ class _Disc:
     rip_completed: bool | None = None
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
+    rip_completed_reason: str = ""
     health_status: str = ""
     log_checksum: str = ""
     # Track number → CRC of the file that actually shipped, from Platterpus's own
@@ -886,6 +906,10 @@ def _take_rip_completed(disc: _Disc, match: re.Match[str]) -> bool:
     disc.rip_completed = match.group("verdict") == "yes"
     disc.rip_completed_tracks = int_or_none(match.group("done"), field="rip_completed")
     disc.rip_completed_total = int_or_none(match.group("total"), field="rip_completed")
+    # "interrupted by user" and the like. Kept verbatim rather than inferred
+    # from the verdict: the ripper may grow other reasons, and reconstructing
+    # its sentence from a boolean would be us inventing wording it never used.
+    disc.rip_completed_reason = (match.group("reason") or "").strip()
     return True
 
 
@@ -1801,6 +1825,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         rip_completed=disc.rip_completed,
         rip_completed_tracks=disc.rip_completed_tracks,
         rip_completed_total=disc.rip_completed_total,
+        rip_completed_reason=disc.rip_completed_reason,
         paranoia_counts=disc.paranoia_counts,
         album_loudness=disc.album_loudness,
         log_checksum=disc.log_checksum,

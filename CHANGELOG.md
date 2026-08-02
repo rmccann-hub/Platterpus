@@ -11,6 +11,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A cancelled rip's own track counts were dropped.** cyanrip's footer has two shapes, and only
+  one was handled: `Rip completed: yes (3 of 3 tracks)` parsed, while
+  `Rip completed: no (interrupted by user, 2 of 3 tracks)` matched the verdict and **silently
+  lost "2 of 3"** — the ripper's own count, for exactly the scenario where our own count is
+  least trustworthy. No fixture could have caught it (their golden reference is a *successful*
+  rip); it came out of the fork's generated provider contract. The interruption reason is now
+  kept verbatim too, rather than inferred from the boolean.
+
+### Added
+- `tests/test_provider_contract_agreement.py` — a standing check that **we parse nothing the
+  fork reserves the right to reword**. Their P3 list is text they may change without a
+  handshake; parsing one of those means their next cosmetic edit breaks us silently. Currently
+  zero overlap. Also pins the four log variants that exist in their contract and in no artifact
+  we hold: the CRC-mismatch pre-gap, the lead-in-sourced pre-gap, the sub-channel source, and
+  the cancelled footer.
+
 ### Documentation
 - cyanrip handshake **round 4 is closed in both directions** — their return file verified
   claim-by-claim against the real parser and the committed fixtures, and our verification sent.

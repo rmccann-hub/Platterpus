@@ -298,6 +298,9 @@ class RipLog:
     rip_completed: bool | None = None
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
+    #: Why it did not complete, in the ripper's own words ("interrupted by
+    #: user"). Empty on a completed rip and when the footer is absent.
+    rip_completed_reason: str = ""
     # cyanrip's "Paranoia status counts" block (READ/VERIFY/FIXUP_ATOM/OVERLAP/…)
     # — error-correction activity. High counts explain a slow, re-read-heavy rip.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
