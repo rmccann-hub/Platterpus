@@ -285,6 +285,19 @@ class RipLog:
     # "Total time: HH:MM:SS.mmm" from the start report — the disc's AUDIO length,
     # not the rip's wall-clock (which only the GUI measures; see rip_timing).
     disc_duration: str = ""
+    # cyanrip fork only: the command line the ripper itself reports receiving.
+    # We separately record the argv we spawned it with; when those two disagree
+    # something between us mangled an argument, and that gap was previously
+    # invisible from either end.
+    invoked_as: str = ""
+    # The ripper's own "Rip completed:" footer. **Tri-state.** None = the footer
+    # is absent, which is exactly what a killed rip's log looks like — never
+    # read it as False ("finished, and reported failure"). The fork confirms
+    # (handshake round 4, Q10) this footer is the only structural difference
+    # between a truncated log and a short one, because the cue cannot tell.
+    rip_completed: bool | None = None
+    rip_completed_tracks: int | None = None
+    rip_completed_total: int | None = None
     # cyanrip's "Paranoia status counts" block (READ/VERIFY/FIXUP_ATOM/OVERLAP/…)
     # — error-correction activity. High counts explain a slow, re-read-heavy rip.
     paranoia_counts: dict[str, int] = field(default_factory=dict)

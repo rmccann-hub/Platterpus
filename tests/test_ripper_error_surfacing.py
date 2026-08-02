@@ -23,6 +23,8 @@ Those are not comparable, so the pattern is broad on purpose.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from platterpus.workers.rip_worker import _RIPPER_ERROR_PREFIXES, _RIPPER_ERROR_RE
@@ -143,3 +145,63 @@ def test_the_widening_actually_widened() -> None:
     assert covered_before < covered_now, (
         "this sample no longer demonstrates the gap the widening closed"
     )
+
+
+# --- the fork's OWN generated inventory, all 88 --------------------------------
+
+
+_INVENTORY = Path(__file__).parent / "fixtures" / "cyanrip_fatal_messages.tsv"
+
+
+def _inventory() -> list[tuple[str, str]]:
+    """(source location, message) for every fatal string the fork can print.
+
+    Read from the committed fixture, which is the fork's own mechanically
+    generated list (handshake round 4, Appendix 2) — not a list we imagined.
+    A description derived from their behaviour cannot describe behaviour they
+    do not have, which is the whole reason the contract is exchanged.
+    """
+    rows: list[tuple[str, str]] = []
+    for line in _INVENTORY.read_text(encoding="utf-8").splitlines():
+        if line.startswith("#") or "\t" not in line:
+            continue
+        where, message = line.split("\t", 1)
+        rows.append((where, message))
+    return rows
+
+
+def test_every_string_the_ripper_can_print_is_surfaced() -> None:
+    """All 88. The fork predicted 87/88 and named the miss; we re-measured
+    rather than taking their word, got the same one, and closed it."""
+    rows = _inventory()
+    assert len(rows) >= 80, f"inventory collapsed to {len(rows)} strings"
+    missed = [(w, m) for w, m in rows if not _RIPPER_ERROR_RE.match(m)]
+    assert not missed, "would render as a bare 'Rip failed': " + "; ".join(
+        f"{w} {m}" for w, m in missed
+    )
+
+
+def test_the_hyphen_prefixed_string_is_the_one_that_needed_a_special_case() -> None:
+    """Pins WHY `-J` is in the prefix list, so a tidy-up does not remove it.
+
+    It begins with a hyphen, so no word prefix can reach it. It is also the
+    reason the entry is `-J` and not `-J ` — with the trailing space the
+    boundary would have to match the `(` that follows, and does not. The
+    fixture caught that; reading the list would not have.
+    """
+    line = "-J (only generate a CUE sheet) cannot be used with -I (only print info)!"
+    assert line in [m for _, m in _inventory()]
+    assert _RIPPER_ERROR_RE.match(line)
+
+
+def test_the_argument_parse_errors_are_covered() -> None:
+    """These reach **stdout only** — argument validation runs before the
+    logfile is opened, so there is no file to write them to (fork round 4, Q5).
+    Our stdout capture is load-bearing for the whole class, and the pattern has
+    to recognise them or the user gets "Rip failed" for a typo in a flag."""
+    for message in (
+        "Unable to parse command line argument: --bogus-flag",
+        'Missing value for argument "--paranoia"',
+        'Missing value for argument "--offset"',
+    ):
+        assert _RIPPER_ERROR_RE.match(message), message

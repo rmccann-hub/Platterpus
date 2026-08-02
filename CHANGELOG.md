@@ -12,6 +12,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The ripper's `Invoked as:` line is parsed** (cyanrip fork round 4, our ask A3). We already
+  record the argv we *spawned* it with; this is the argv it reports *receiving*. The value is
+  entirely in the difference — a wrapper, a shell, or the Distrobox host-export mangling an
+  argument is invisible from either end alone.
+- **`Rip completed: yes (N of M tracks)` is parsed**, tri-state. The ripper's own completion
+  verdict with its own denominator, and per the fork the only structural difference between a
+  truncated log and a short one (the cue cannot tell). `None` means the footer was absent —
+  what a killed rip looks like — and is never read as `False`.
+- `tests/fixtures/cyanrip_fatal_messages.tsv` — the fork's mechanically generated inventory of
+  all 88 strings it can print on a fatal path, committed so our surfacing pattern is tested
+  against the ripper's real vocabulary rather than strings we imagined. Coverage re-measured
+  independently at 87/88, the miss closed, now **88/88**.
+
+### Fixed
+- **`Total time:` was silently unparsed on short discs.** The pattern demanded `HH:MM:SS`;
+  cyanrip prints `MM:SS.ff` for a short disc, so the fork's own golden reference fell through
+  as an unrecognised line and the disc duration went missing. Found by running the parser over
+  the round-4 fixture, not by reading it.
+- `-J (only generate a CUE sheet) cannot be used with -I` — the one fatal string no word prefix
+  could reach, because it starts with a hyphen.
+
+### Added
 - **`-N` is now enforced at the argv chokepoint, not merely documented.** Critical rule #5 says
   cyanrip must never run its own MusicBrainz lookup — without `-N` it reaches the network from
   inside the container and, on an ambiguous disc, opens an interactive prompt that has nowhere

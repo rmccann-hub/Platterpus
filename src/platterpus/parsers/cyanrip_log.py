@@ -193,7 +193,41 @@ _SECURE_DONE_MATCH = re.compile(
 )
 _SECURE_DONE_FAIL = re.compile(r"^\s*Done;\s+\(no matches found\b")
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
-_TOTAL_TIME = re.compile(r"^Total time:\s+(?P<time>\d{1,2}:\d{2}:\d{2}(?:\.\d+)?)")
+#
+# TWO shapes, both real. cyanrip prints `HH:MM:SS.mmm` for a full disc and
+# `MM:SS.ff` for a short one, and the original pattern demanded three
+# colon-separated fields — so the fork's own golden reference (`00:08.00`) fell
+# through as an unrecognised line and the disc's duration was silently absent.
+# Found by running the parser over the round-4 fixture rather than by reading
+# it: the artifact answers questions the eye does not (docs/testing.md §5.u).
+_TOTAL_TIME = re.compile(
+    r"^Total time:\s+(?P<time>\d{1,3}:\d{2}(?::\d{2})?(?:\.\d{1,3})?)\s*$"
+)
+
+# FORK-ONLY (round 4, our ask A3). "Invoked as:  /path/to/cyanrip -d ... -N ..."
+# — the argv cyanrip actually RECEIVED, echoed into the log at column 0.
+#
+# We already record the argv we *sent* (`outcome.ripper_argv`, read off
+# `Popen.args`). This is the other end of the same wire, and the value is
+# entirely in the difference: a wrapper script, a shell, or the Distrobox
+# host-export mangling an argument is invisible to both halves alone and
+# obvious the moment they disagree. Bounded at 4000 chars — a metadata-heavy
+# rip's argv is long, and this reaches a report.
+_INVOKED_AS = re.compile(r"^Invoked as:\s+(?P<argv>\S.{0,4000}?)\s*$")
+
+# "Rip completed:  yes (3 of 3 tracks)" — the ripper's OWN verdict on whether
+# it finished, with its own denominator.
+#
+# This is the strongest completeness signal in the log and it is the ripper's,
+# not ours: the fork confirms (round 4 Q10) that the footer is the only thing
+# distinguishing a killed rip from a short one, because the cue "looks
+# structurally normal — just short". `\d{1,4}` bounded; the yes/no is captured
+# rather than assumed, since "no" is a real answer a completed-but-failed rip
+# gives.
+_RIP_COMPLETED = re.compile(
+    r"^Rip completed:\s+(?P<verdict>yes|no)"
+    r"(?:\s+\((?P<done>\d{1,4})\s+of\s+(?P<total>\d{1,4})\s+tracks?\))?"
+)
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
 # is derived from exactly these (its Start and Length columns reproduce
@@ -612,6 +646,16 @@ class _Disc:
     accuraterip_summary: str = ""
     partially_accurate_summary: str = ""
     disc_duration: str = ""
+    # The argv cyanrip received (fork-only, our A3 ask). The counterpart to the
+    # argv we sent; the difference between them is where a wrapper or the
+    # host-export mangles an argument, which neither half can show alone.
+    invoked_as: str = ""
+    # The ripper's own completion verdict + denominator. Tri-state: None means
+    # the footer was absent, which is what a KILLED rip looks like and must not
+    # be read as "ran to the end and failed".
+    rip_completed: bool | None = None
+    rip_completed_tracks: int | None = None
+    rip_completed_total: int | None = None
     health_status: str = ""
     log_checksum: str = ""
     # Track number → CRC of the file that actually shipped, from Platterpus's own
@@ -825,6 +869,26 @@ def _take_total_time(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_invoked_as(disc: _Disc, match: re.Match[str]) -> bool:
+    """The argv cyanrip received, verbatim. Compared against what we sent."""
+    disc.invoked_as = match.group("argv")
+    return True
+
+
+def _take_rip_completed(disc: _Disc, match: re.Match[str]) -> bool:
+    """The ripper's own "did I finish" verdict and its own track denominator.
+
+    Tri-state on purpose. ``None`` means the footer was absent — which is what
+    a killed rip looks like — and must never be read as ``False`` ("the ripper
+    ran to the end and reported failure"). Those need different messages: one
+    says the log stops early, the other says the rip did.
+    """
+    disc.rip_completed = match.group("verdict") == "yes"
+    disc.rip_completed_tracks = int_or_none(match.group("done"), field="rip_completed")
+    disc.rip_completed_total = int_or_none(match.group("total"), field="rip_completed")
+    return True
+
+
 def _take_log_checksum(disc: _Disc, match: re.Match[str]) -> bool:
     disc.log_checksum = match.group("sig")
     return True
@@ -874,6 +938,7 @@ def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
 # a ripper's text into a bit-perfection claim.
 _RULES_BEFORE_GAPS: tuple[_LineRule, ...] = (
     _LineRule("version_banner", _HEADER, _take_version),
+    _LineRule("invoked_as", _INVOKED_AS, _take_invoked_as),
     _LineRule("drive", _DRIVE, _take_drive),
     _LineRule("read_offset", _OFFSET, _take_offset),
     _LineRule("overread_mode", _OVERREAD_MODE, _take_overread_mode),
@@ -900,6 +965,7 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_total", _ACCURATE_TOTAL, _take_accurate_total),
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
+    _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
     _LineRule("finished_at", _FINISHED_AT, _take_finished_at),
 )
 
@@ -995,6 +1061,16 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     # switches to "Underread:" when the read offset is negative.
     (re.compile(r"^(?:Over|Under)read:\s"), "derived from offset; not a verdict"),
     # Rip-effort / feature rows: real facts, no field to put them in yet.
+    # The secure-re-rip progress line, one per non-agreeing read. The VERDICT
+    # is the `Done;` line we already parse; these are the attempts leading to
+    # it and carry no fact the verdict does not. Listed rather than left
+    # unrecognised so the completeness test stays meaningful — an unlisted,
+    # unmatched line is supposed to be a failure, and three of them per track
+    # would drown the signal.
+    (
+        re.compile(r"^Repeating ripping\s+\("),
+        "secure re-rip attempt; the Done; line carries the verdict",
+    ),
     (re.compile(r"^Frame retries:\s"), "candidate: rip-effort setting"),
     (re.compile(r"^HDCD decoding:\s"), "candidate: alters samples when enabled"),
     (re.compile(r"^Album Art:\s"), "candidate: cover-art presence"),
@@ -1721,6 +1797,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
         health_status=disc.health_status,
         partially_accurate_summary=disc.partially_accurate_summary,
         disc_duration=disc.disc_duration,
+        invoked_as=disc.invoked_as,
+        rip_completed=disc.rip_completed,
+        rip_completed_tracks=disc.rip_completed_tracks,
+        rip_completed_total=disc.rip_completed_total,
         paranoia_counts=disc.paranoia_counts,
         album_loudness=disc.album_loudness,
         log_checksum=disc.log_checksum,

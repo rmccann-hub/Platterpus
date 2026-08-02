@@ -18,7 +18,7 @@ will send you; a flag whose meaning changes is also breaking.
 
 ---
 
-## 1. Log lines we parse (49)
+## 1. Log lines we parse (51)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -28,6 +28,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | name | scope | pattern |
 |---|---|---|
 | `version_banner` | disc | `^cyanrip\\s+(?P<version>\\S+)(?:\\s+\\((?P<build>[^)]*)\\))?` |
+| `invoked_as` | disc | `^Invoked as:\\s+(?P<argv>\\S.{0,4000}?)\\s*$` |
 | `drive` | disc | `^(?:Drive used\|Device model):\\s+(?P<drive>.+?)\\s*$` |
 | `read_offset` | disc | `^Offset:\\s+(?P<sign>[+-])(?P<value>\\d+)\\s+samples` |
 | `overread_mode` | disc | `^(?:Over\|Under)read mode:\\s+(?P<mode>.+?)\\s*$` |
@@ -40,11 +41,12 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>.+?)\\s*$` |
-| `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,2}:\\d{2}:\\d{2}(?:\\.\\d+)?)` |
+| `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
+| `rip_completed` | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
 | `finished_at` | disc | `^Ripping finished at\\s+(?P<when>.+?)\\s*$` |
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
@@ -90,7 +92,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (10)
+## 2. Log lines we knowingly ignore (11)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -101,6 +103,7 @@ dropped.
 |---|---|
 | `^System device:\\s` | device node; GUI already knows it |
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
+| `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |
 | `^Frame retries:\\s` | candidate: rip-effort setting |
 | `^HDCD decoding:\\s` | candidate: alters samples when enabled |
 | `^Album Art:\\s` | candidate: cover-art presence |

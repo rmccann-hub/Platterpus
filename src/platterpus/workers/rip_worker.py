@@ -225,6 +225,16 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
     "Insufficient",
     "Out of memory",
     "Fatal",
+    # Begins with a hyphen, so no word prefix reaches it. The fork's generated
+    # inventory (handshake round 4, Appendix 2) has exactly one string our 23
+    # prefixes missed, and this is it — independently re-measured on our side
+    # at 87/88 before adding this, rather than taken on their word.
+    #
+    # No trailing space: the boundary below supplies it. With `"-J "` the
+    # boundary then has to match the `(` of `-J (only generate...` and does
+    # not — which the fixture caught immediately, and reading the prefix list
+    # would not have.
+    "-J",
 )
 
 _RIPPER_ERROR_RE = re.compile(
