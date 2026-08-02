@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -266,6 +267,116 @@ def _audit_files_check(report: dict[str, Any], album: AlbumAudit) -> None:
         )
 
 
+def _audit_argv_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Do the argv we SENT and the argv the ripper says it RECEIVED agree?
+
+    Both halves were captured in v0.6.1 and nothing compared them, which made
+    the pair decorative: we asked the fork for its ``Invoked as:`` line
+    (handshake A3) precisely so that a wrapper, a shell, or the Distrobox
+    host-export mangling an argument would become visible — and a difference
+    that nothing looks at is not visible.
+
+    Compared as **sets of tokens**, not as strings. The two are legitimately
+    formatted differently: we record the vector as spawned, the ripper prints a
+    shell-ish line with quoting, and its argv[0] is the resolved absolute path
+    behind the export while ours is the wrapper we invoked. Comparing the
+    strings would cry wolf on every rip. Comparing the *flags* catches the case
+    that matters — an argument that changed, vanished or appeared in transit.
+    """
+    outcome = report.get("outcome") or {}
+    sent = outcome.get("ripper_argv")
+    received = (report.get("rip") or {}).get("invoked_as")
+    if not sent or not received:
+        # Not a finding. An older rip, an upstream cyanrip that does not print
+        # the line, or a rip that never launched — all legitimately silent.
+        return
+
+    def flags(tokens: list[str]) -> set[str]:
+        return {tok for tok in tokens if re.fullmatch(r"-[A-Za-z]", tok)}
+
+    sent_flags = flags([str(x) for x in sent])
+    received_flags = flags(received.split())
+
+    missing = sorted(sent_flags - received_flags)
+    extra = sorted(received_flags - sent_flags)
+    if not missing and not extra:
+        album.add(LEVEL_OK, f"the ripper received the {len(sent_flags)} flags we sent")
+        return
+    parts = []
+    if missing:
+        parts.append(f"we sent but it did not receive: {' '.join(missing)}")
+    if extra:
+        parts.append(f"it received but we did not send: {' '.join(extra)}")
+    album.add(
+        LEVEL_WARN,
+        "the command line changed in transit between Platterpus and cyanrip — "
+        + "; ".join(parts)
+        + ". Something between us (the host export wrapper, a shell) altered it.",
+    )
+
+
+def _audit_log_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Does the EAC-style log still match its own SHA-256 footer?
+
+    We publish that checksum as an openly-verifiable integrity claim (KDD-28) —
+    anyone can re-run `sha256sum` over the body. Publishing a claim and never
+    checking it ourselves is the weaker half of a promise, so the audit checks
+    it on the copy embedded in the report.
+
+    Tri-state, because the verifier is: ``True`` matches, ``False`` means the
+    log was altered after rendering, ``None`` means there is no Platterpus
+    footer at all (a real EAC log, or output from before the checksum shipped).
+    ``None`` is reported as a note, never as a pass — "no checksum to check" is
+    not "the checksum checked out".
+    """
+    from platterpus.eac_log_export import verify_eac_style_log_checksum
+
+    entry = (report.get("artifacts") or {}).get("eac_log") or {}
+    text = entry.get("text")
+    if not text:
+        return
+    if entry.get("truncated"):
+        # A truncated copy cannot verify, and reporting it as a mismatch would
+        # be a false accusation against an intact file.
+        album.add(
+            LEVEL_NOTE,
+            "the embedded EAC log is truncated, so its checksum cannot be "
+            "re-checked from the report (the file on disk is unaffected)",
+        )
+        return
+    verdict = verify_eac_style_log_checksum(str(text))
+    if verdict is True:
+        album.add(LEVEL_OK, "the EAC-style log matches its own SHA-256 footer")
+    elif verdict is False:
+        album.add(
+            LEVEL_WARN,
+            "the EAC-style log does NOT match its own SHA-256 footer — it was "
+            "altered after it was written. Its contents can no longer be "
+            "treated as an archival record of this rip.",
+        )
+    else:
+        album.add(LEVEL_NOTE, "the EAC-style log carries no Platterpus checksum footer")
+
+
+def _audit_disc_identity(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Record the TOC-derived disc identity, so two rips can be compared.
+
+    The MusicBrainz Disc ID and CDDB ID are computed from the physical TOC, so
+    they identify the same *pressing* across re-rips independently of any
+    metadata edit. Without them in the audit, "is this the same disc as last
+    time?" needs the JSON opened by hand — which is the thing this command
+    exists to avoid.
+    """
+    rip = report.get("rip") or {}
+    disc_id = rip.get("musicbrainz_disc_id")
+    cddb = rip.get("cddb_id")
+    if disc_id or cddb:
+        album.add(
+            LEVEL_NOTE,
+            f"disc identity — MusicBrainz {disc_id or '(none)'} / CDDB {cddb or '(none)'}",
+        )
+
+
 @dataclass(frozen=True)
 class Check:
     """One named question the audit asks of a rip.
@@ -300,6 +411,24 @@ CHECKS: tuple[Check, ...] = (
         "Do the claimed audio files have bytes?",
         True,
         _audit_files_check,
+    ),
+    Check(
+        "argv_agreement",
+        "Did the ripper receive the command line we sent?",
+        False,
+        _audit_argv_agreement,
+    ),
+    Check(
+        "log_integrity",
+        "Does the EAC log still match its own checksum?",
+        False,
+        _audit_log_integrity,
+    ),
+    Check(
+        "disc_identity",
+        "Which physical pressing was this?",
+        False,
+        _audit_disc_identity,
     ),
 )
 
