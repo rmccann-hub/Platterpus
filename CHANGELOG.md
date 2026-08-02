@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-08-02
+
 ### Fixed
 - **A cancelled rip's own track counts were dropped.** cyanrip's footer has two shapes, and only
   one was handled: `Rip completed: yes (3 of 3 tracks)` parsed, while
@@ -4757,7 +4759,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
 [0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
@@ -4826,4 +4829,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.0.*
+*Last updated for Platterpus v0.6.1.*
