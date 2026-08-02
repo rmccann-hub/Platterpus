@@ -849,6 +849,54 @@ Two concrete shapes that came out of this one:
   until it isn't. Recorded per-flag in `docs/dependency-contracts.md`.
 
 
+### 5.u — Answer it from the artifact, not from your memory of the artifact (added 2026-08-02)
+
+The pre-gap convention flipped **twice in one day**, and the deciding evidence
+was in the repo the whole time.
+
+1. The cyanrip fork's handshake §H2 argued that EAC's `Pre-gap length` row is
+   the TOC component alone, so the fork's track-1 `Pregap length: 300`
+   (lead-in 150 + declared TOC gap 150) was not EAC-comparable.
+2. I accepted it, citing my own re-measurement: *"EAC reports no pre-gap for
+   track 1 of the reference disc — 9 of 14 tracks, track 1 not among them."*
+   Committed the change.
+3. Then I opened `output_reference/EAC_flac/eac_baseline_police_classics.log`.
+   It reads `Track  1 … Pre-gap length  0:00:02.00`. **10 of 14 tracks, track 1
+   included.** Reverted.
+
+The "9 of 14" was not invented — it was a correct count of **`INDEX 00` lines in
+the cue**, where track 1 *cannot* appear because no addressable sector exists
+before LSN 0. A true measurement of one artifact, quoted as evidence about a
+different one, and it survived a round-trip through two projects because both
+sides were reasoning about what EAC does rather than reading what EAC wrote.
+
+Three things generalise:
+
+- **A remembered measurement is not a measurement.** It has no provenance you
+  can re-check and it silently drops the qualifier — here, *which file*. If you
+  are about to cite a number you measured earlier, re-run the measurement or
+  cite the command. The re-run cost ten seconds.
+- **Name the artifact in the claim.** "EAC reports N" is unfalsifiable; "EAC's
+  *log* reports N, its *cue* reports M, and they differ on track 1 by
+  construction" is checkable and turned out to be the whole answer.
+- **A correction from the other side deserves the same scrutiny as a claim.**
+  §H2 was well-argued and wrong, and I applied it faster than I had applied any
+  finding of my own, precisely because it was a correction. The handshake's
+  value is the *check*, not the direction of travel.
+
+The durable artifact is `tests/test_eac_pregap_convention.py`, which does not
+state the convention at all — it **derives** it from the committed log and cue
+every run: that EAC's fraction is truncated hundredths (decided by the single
+row where truncation and rounding disagree), that the row for track *n* > 1 is
+`start − INDEX 00`, that track 1's is the lead-in plus any declared gap, and
+that our renderer reproduces all ten real rows byte-for-byte. It carries floors
+(`len(toc) == 14`, `≥ 10 rows`, `≥ 5 distinct values`, `≥ 1 row that
+distinguishes truncation from rounding`) so a swapped or truncated baseline
+fails loudly instead of passing vacuously.
+
+**When a committed artifact can settle a question, the test should read the
+artifact.** Anything else pins your belief about the artifact.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

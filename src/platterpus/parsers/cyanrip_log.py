@@ -1189,6 +1189,25 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # / `Pregap length: 300`, and its `Gaps:` block confirms a 150-frame TOC
         # pre-gap — 150 + 150. Subtracting gets 150 there, and is simply wrong.
         # Deriving remains the path for stock cyanrip, which states nothing.
+        #
+        # This branch was briefly REMOVED on 2026-08-02 and restored the same
+        # day. The fork's handshake §H2 argued EAC's row is the TOC component
+        # alone, so 300 would be un-EAC-comparable; I accepted it from memory,
+        # having recalled "EAC reports no pre-gap for track 1". Then I opened
+        # the committed baseline. EAC's log prints
+        #
+        #     Track  1 ... Pre-gap length  0:00:02.00
+        #
+        # 2.00 s == 150 frames == the lead-in, on a disc whose TOC declares no
+        # track-1 gap. So EAC's track-1 row IS lead-in + declared gap, i.e.
+        # exactly the fork's stated figure; on the fork's fixture EAC would
+        # print 0:00:04.00. The earlier "9 of 14, track 1 not among them" was
+        # counting `INDEX 00` lines in the CUE, where track 1 cannot have one
+        # (there is no addressable sector before LSN 0) — a different artifact
+        # answering a different question. The log says 10 of 14, track 1
+        # included. `tests/test_eac_pregap_convention.py` now derives the whole
+        # convention from those two committed files so this cannot flip a third
+        # time on anyone's recollection.
         if current.pregap_length_frames is not None:
             current.pregap_sectors = current.pregap_length_frames
         elif current.pregap_start_lsn is not None:

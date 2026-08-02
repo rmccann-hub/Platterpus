@@ -12,6 +12,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The EAC `Pre-gap length` row briefly stopped matching EAC.** A cross-project correction
+  argued that EAC derives the row from `INDEX 00 → INDEX 01` only, so the fork's track-1
+  `Pregap length: 300` (lead-in 150 + declared TOC gap 150) was not comparable; the row was
+  switched to the subtraction, then switched back the same day. The committed EAC baseline
+  prints `Track 1 … Pre-gap length  0:00:02.00` — the bare lead-in on a disc declaring no
+  track-1 gap — so EAC's row *is* lead-in plus declared gap, and the fork's stated figure is
+  the EAC-comparable one. No released version carried the wrong value.
+
+### Added
+- **`docs/cyanrip-consumer-contract.md`, generated from the code.** Every log line Platterpus
+  parses, every line it knowingly ignores with the recorded reason, and every flag it passes —
+  read out of the parser's enumeration tables and out of a real call to the argv builder, not
+  written down beside them. It is the consumer half of the cyanrip dependency contract; the
+  fork supplies the mirroring provider half. `scripts/emit_dependency_contract.py` regenerates
+  it and `--check` fails on drift.
+
+### Fixed
 - **The track list could not be scrolled while a rip was running.** The rip lock called
   `setEnabled(False)` on the table to stop mid-rip edits; a disabled `QTableView` also ignores
   the wheel and the arrow keys, so for the entire rip the user could not scroll the one widget
@@ -34,6 +51,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 - `docs/dependency-contracts.md` gains cyanrip's **argument range constraints** — the seven
   flags whose values it validates against the disc and exits on, with the `-t` row marked as
   measured rather than read.
+- `docs/testing.md` §5.u — *answer it from the artifact, not from your memory of the artifact*.
+  The pre-gap convention flipped twice in one day because a true count of `INDEX 00` lines in
+  EAC's **cue** was cited as evidence about EAC's **log**. `tests/test_eac_pregap_convention.py`
+  now derives the whole convention — truncated hundredths, the per-track formula, track 1's
+  lead-in, and byte-exact reproduction of all ten real rows — from the committed artifacts, so
+  it cannot flip again on anyone's recollection.
+- `docs/cyanrip-handshake.md` — the "who was wrong" table gains that entry and the §H2 one, and
+  the shared rigour bar gains two rules: cite the artifact, and give a *correction* from the
+  other side the same scrutiny as a claim.
 - `docs/testing.md` §5.m — *two rules already existed, neither ran*. Both halves of the above
   were written policy with no test, sweep, or chokepoint enforcing them. The graduated lesson
   is that a prose rule becomes real only when something executes it, and CLAUDE.md's

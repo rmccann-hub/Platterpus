@@ -19,8 +19,9 @@ least once**:
 | Who was wrong | What about | Caught by |
 |---|---|---|
 | Platterpus | Told the fork to indent the `-Z` `Done;` line, asserting it was stdout-only. It was not — at 0.9.3 *or* master. The fork implemented the ask faithfully and every verdict shifted by one track. | cyanrip, by reading `cyanrip_log()` |
-| Platterpus | Sent a pre-gap table claiming "10 of 14 tracks, including track 1". Measured: **9 of 14, track 1 not among them** — one row was inferred from the standard lead-in rather than measured. | Platterpus, re-measuring before the next round |
 | Platterpus | Flagged the fork's track-1 `Pregap length: 300` as a factor-of-two contradiction. It is lead-in (150) + declared TOC gap (150). Our *derivation* was the wrong one. | The fork's own package |
+| Platterpus | "Corrected" that pre-gap table to **9 of 14, track 1 not among them**. That is a true count of `INDEX 00` lines in EAC's **cue** — where track 1 cannot appear — quoted as evidence about EAC's **log**, which prints a row for **10 of 14, track 1 included**. The original claim had been right. | Platterpus, by finally opening the committed baseline |
+| cyanrip | §H2: EAC's `Pre-gap length` is the TOC component alone, so the fork's 300 is not EAC-comparable. Well-argued, and wrong — EAC's real log reads `Track 1 … 0:00:02.00`, the bare lead-in on a disc that declares no track-1 gap, so EAC's row *is* lead-in + declared gap. We had applied it before checking. | Platterpus, `tests/test_eac_pregap_convention.py` |
 | cyanrip's FIXPLAN | Concluded a fork could not fix the buffering defect because SIGKILL is uncatchable. True of signal handlers, false of `setvbuf` — which removes the buffering so nothing is pending at kill time. | cyanrip, by measuring |
 
 A one-directional report is a claim. **A handshake is a claim plus an independent check of it.**
@@ -93,6 +94,14 @@ Both sides hold to these. They are not style preferences; each was paid for.
 - **Distinguish "did not happen" from "happened and found nothing."** Three Platterpus bugs of
   exactly this shape: `Accurip: disabled` as "in DB, no match"; an all-zero CRC as a
   confidence-200 match; `Pregap LSN: unknown` as `none`.
+- **Answer it from the artifact, not from your memory of the artifact** (§5.u). A remembered
+  measurement has no provenance and silently drops its qualifier. Name *which file* a number
+  came from: the pre-gap convention flipped twice in one day because a true count of EAC's
+  **cue** was quoted as evidence about EAC's **log**, and both sides reasoned about what EAC
+  does instead of reading what EAC wrote.
+- **A correction from the other side gets the same scrutiny as a claim.** §H2 was well-argued,
+  arrived as a correction, and was applied faster than any finding either side had made
+  itself — which is exactly backwards. The handshake's value is the check, not the direction.
 - **Say what is unverified, plainly.** A "needs the rig" list is worth more than a green suite
   that quietly excludes the hard cases.
 - **Real hardware beats fixtures.** cyanrip's fixtures are libcdio disc images; PR #115's
