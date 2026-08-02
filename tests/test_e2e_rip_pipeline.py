@@ -119,7 +119,13 @@ class _FakeMb(MusicBrainzClient):
     def releases_by_toc(self, toc: TocSignature) -> list[ReleaseSummary]:
         return []
 
-    def release_by_mbid(self, mbid: str) -> ReleaseDetail:  # pragma: no cover
+    def release_by_mbid(
+        self,
+        mbid: str,
+        *,
+        disc_id: str = "",
+        disc_track_count: int | None = None,
+    ) -> ReleaseDetail:  # pragma: no cover
         raise AssertionError("E2E doesn't fetch release detail")
 
     def set_user_agent(self, app: str, version: str, contact: str) -> None:

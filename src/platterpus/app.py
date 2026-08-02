@@ -311,6 +311,16 @@ def main(argv: list[str] | None = None) -> int:
         "(KDD-16), then exit; no CD or re-rip needed",
     )
     parser.add_argument(
+        "--audit-rips",
+        metavar="FOLDER",
+        type=Path,
+        help="audit every already-ripped album under FOLDER and exit: which "
+        "cyanrip built each rip, whether the ripper said it finished, which "
+        "disc of a multi-disc set the tags came from, what pre-gap provenance "
+        "was observed, and whether the audio files the log claims actually "
+        "have bytes in them. Read-only; no CD, no re-rip, nothing modified",
+    )
+    parser.add_argument(
         "--compare",
         nargs=2,
         metavar=("PREVIOUS.json", "LATER.json"),
@@ -394,6 +404,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {error}")
             return 2
         return run_diagnostics(folder, calibrate_crc=True)
+
+    # Audit a whole library of finished rips. Terminal diagnostic like
+    # --doctor: no GUI, no CD, and read-only — it answers the questions the
+    # hardware test plan used to ask a human to answer by opening files.
+    if args.audit_rips is not None:
+        from platterpus import rip_audit, settings_validation
+
+        folder, error = settings_validation.resolve_input_directory(
+            "--audit-rips folder", args.audit_rips
+        )
+        if folder is None:
+            print(f"error: {error}")
+            return 2
+        return rip_audit.run_audit(folder)
 
     # Compare two rip reports of the same disc (a re-rip vs the previous one).
     # Terminal diagnostic like --doctor: no GUI, no CD.

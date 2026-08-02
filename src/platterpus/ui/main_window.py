@@ -153,7 +153,9 @@ class MainWindow(
     _mb_lookup_disc_id_requested = Signal(str)
     # (mbid, context) — context is the disc-id the fetch belongs to, echoed back
     # so a late fetch for an already-ejected disc is dropped (wrong-album guard).
-    _mb_fetch_release_requested = Signal(str, str)
+    # (mbid, disc_id_context, disc_track_count) — the last two identify WHICH
+    # medium of a multi-disc release is in the drive (medium_select.py).
+    _mb_fetch_release_requested = Signal(str, str, int)
 
     def __init__(
         self,
@@ -761,7 +763,13 @@ class MainWindow(
         lifecycle. Idempotent.
         """
         self._drive_picker.setEnabled(not active)
-        self._track_table.setEnabled(not active)
+        # Read-only, NOT disabled. A disabled QTableView ignores the wheel and
+        # the arrow keys, so `setEnabled(False)` here left the track list
+        # unscrollable for the whole rip — the one time it is the most
+        # interesting widget on screen, since it carries the live per-track
+        # status (user report, 2026-08-02). Locking the model refuses edits and
+        # Rip? toggles while keeping every row legible and reachable.
+        self._track_table.set_locked(active)
         for action in self._rip_locked_actions:
             action.setEnabled(not active)
 
@@ -1031,7 +1039,9 @@ class MainWindow(
         # Emit (don't call) so the fetch runs on the MB worker thread. `context`
         # (the disc-id) rides along and is echoed back, so a fetch that finishes
         # after the user swapped discs is dropped rather than tagging the new one.
-        self._mb_fetch_release_requested.emit(mbid, context)
+        self._mb_fetch_release_requested.emit(
+            mbid, context, int(getattr(self, "_current_num_tracks", 0) or 0)
+        )
 
     # --- Slots: menu actions -----------------------------------------------
 

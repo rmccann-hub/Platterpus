@@ -393,3 +393,116 @@ def test_track_summary_is_frozen() -> None:
     t = TrackSummary(number=1, title="x")
     with pytest.raises(FrozenInstanceError):
         t.title = "z"  # type: ignore[misc]
+
+
+# --- multi-disc medium selection (the wiring, not the pure selector) --------
+#
+# `tests/test_medium_select.py` covers the selection RULES. These cover that
+# `release_by_mbid` actually *calls* the selector with the disc context and
+# hands the chosen medium onward — which the rule tests cannot see. Reverting
+# the client to `medium-list[0]` leaves every rule test green and fails these,
+# which is the whole reason they exist (the revert-prove check caught exactly
+# that, for the fourth time in this project).
+
+
+def _four_disc_release() -> dict:
+    """A four-disc set where the disc in the drive is medium 2.
+
+    Shaped after the real failure: medium 1 has 18 tracks, the disc has 16, and
+    taking `medium-list[0]` sends cyanrip `-t 17=` and `-t 18=`.
+    """
+
+    def medium(position: int, count: int, disc_ids: list[str]) -> dict:
+        return {
+            "position": str(position),
+            "format": "CD",
+            "track-count": str(count),
+            "disc-list": [{"id": d} for d in disc_ids],
+            "track-list": [
+                {
+                    "position": str(n),
+                    "recording": {"title": f"Disc {position} Track {n}"},
+                }
+                for n in range(1, count + 1)
+            ],
+        }
+
+    return {
+        "release": {
+            "id": "rel",
+            "title": "Boxed Set",
+            "medium-list": [
+                medium(1, 18, ["disc-one-id-"]),
+                medium(2, 16, ["disc-two-id-"]),
+                medium(3, 14, []),
+                medium(4, 17, []),
+            ],
+        }
+    }
+
+
+def test_release_by_mbid_returns_the_medium_matching_the_disc_id(
+    client: MusicBrainzNgsImpl, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The regression. Disc 2 is in the drive; its 16 titles must come back."""
+    monkeypatch.setattr(
+        musicbrainzngs, "get_release_by_id", lambda *a, **kw: _four_disc_release()
+    )
+
+    detail = client.release_by_mbid("rel", disc_id="disc-two-id-", disc_track_count=16)
+
+    assert len(detail.tracks) == 16, "took the wrong medium's track list"
+    assert detail.tracks[0].title == "Disc 2 Track 1"
+    assert detail.summary.track_count == 16
+    assert detail.summary.disc_number == 2
+    assert detail.summary.total_discs == 4
+
+
+def test_release_by_mbid_falls_back_to_the_track_count(
+    client: MusicBrainzNgsImpl, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """MB has no disc IDs for media 3 and 4; a unique count still resolves."""
+    monkeypatch.setattr(
+        musicbrainzngs, "get_release_by_id", lambda *a, **kw: _four_disc_release()
+    )
+
+    detail = client.release_by_mbid("rel", disc_track_count=14)
+
+    assert len(detail.tracks) == 14
+    assert detail.tracks[0].title == "Disc 3 Track 1"
+    assert detail.summary.disc_number == 3
+
+
+def test_release_by_mbid_requests_the_discids_include(
+    client: MusicBrainzNgsImpl, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without `discids` MB omits every medium's `disc-list`, and the
+    authoritative match silently degrades to the track-count guess. The
+    behaviour above would still look right on a fixture that hard-codes
+    disc-lists, so the include itself is asserted."""
+    captured: dict = {}
+
+    def fake(mbid: str, **kwargs: object) -> dict:
+        captured.update(kwargs)
+        return _four_disc_release()
+
+    monkeypatch.setattr(musicbrainzngs, "get_release_by_id", fake)
+    client.release_by_mbid("rel", disc_id="disc-two-id-")
+
+    assert "discids" in captured["includes"]
+
+
+def test_release_by_mbid_with_no_disc_context_still_returns_a_release(
+    client: MusicBrainzNgsImpl, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A caller with neither signal must still get a usable result — just an
+    unconfident one. Degrading to an exception here would break the
+    unknown-disc path, which has no disc ID to offer."""
+    monkeypatch.setattr(
+        musicbrainzngs, "get_release_by_id", lambda *a, **kw: _four_disc_release()
+    )
+
+    detail = client.release_by_mbid("rel")
+
+    assert len(detail.tracks) == 18, "the documented fallback is the first medium"
+    assert detail.summary.total_discs == 4

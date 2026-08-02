@@ -54,13 +54,64 @@ _FOOTER_RE: re.Pattern[str] = re.compile(
 _EXEMPT_DIR: str = "scripts/cyanrip/"
 _EXEMPT_BASENAME_PREFIXES: tuple[str, ...] = ("issue-", "pr-")
 
+# GENERATED docs. Their content is a pure function of the code, so a version
+# stamp would make every unrelated release produce a spurious diff and train
+# readers to ignore the diffs that matter — and the generator would have to
+# re-render on release, which is exactly the coupling generating it avoided.
+# Their staleness is enforced by regeneration instead (a strictly stronger
+# check than a stamp: it compares content, not a claim about content).
+#
+# Not a free-form allow-list — an entry here must be a file some test
+# regenerates and diffs, which `test_generated_docs_are_actually_generated`
+# below verifies by finding the generator.
+_EXEMPT_GENERATED: dict[str, str] = {
+    "docs/cyanrip-consumer-contract.md": "scripts/emit_dependency_contract.py",
+}
+
+
+# Handshake round files (`docs/handshake/{outbound,inbound,verified}/`). These
+# are **correspondence**, not documentation: a byte-faithful record of what was
+# sent to and received from the cyanrip fork. Adding our version footer to an
+# inbound file would edit the other project's words, and adding one to an
+# outbound file would make the committed copy differ from what they received.
+# A record that is not the record is worthless. Their currency is the round
+# number, and `scripts/handshake.py --status` is what reports it.
+_EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
+
 
 def _is_exempt(rel_path: str) -> bool:
-    """True for the paste-body docs that deliberately carry no footer."""
+    """True for docs that deliberately carry no footer."""
+    if rel_path in _EXEMPT_GENERATED:
+        return True
+    if rel_path.startswith(_EXEMPT_CORRESPONDENCE):
+        return True
     if not rel_path.startswith(_EXEMPT_DIR):
         return False
     basename = rel_path.rsplit("/", 1)[-1]
     return basename.startswith(_EXEMPT_BASENAME_PREFIXES)
+
+
+def test_generated_docs_are_actually_generated() -> None:
+    """A stamp exemption must be paid for by a generator, not just claimed.
+
+    Without this, `_EXEMPT_GENERATED` is a way to silence the stamp check on any
+    doc by asserting it is generated. Each entry must name a generator script
+    that exists and that carries the doc's path, so the exemption is only
+    available to files something really does regenerate.
+    """
+    for doc, generator in _EXEMPT_GENERATED.items():
+        doc_path = _REPO_ROOT / doc
+        gen_path = _REPO_ROOT / generator
+        assert doc_path.exists(), f"{doc} is exempt but does not exist"
+        assert gen_path.exists(), (
+            f"{doc} claims generator {generator}, which is missing"
+        )
+        assert doc.rsplit("/", 1)[-1] in gen_path.read_text(encoding="utf-8"), (
+            f"{generator} does not mention {doc} — it is not its generator"
+        )
+        assert "GENERATED" in doc_path.read_text(encoding="utf-8")[:2000], (
+            f"{doc} carries no generated-file banner for a human reader"
+        )
 
 
 def _git(*args: str) -> str | None:

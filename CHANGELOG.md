@@ -11,6 +11,300 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-08-02
+
+### Fixed
+- **The README still announced "Status: v0.5.x" deep into the v0.6 line**, and `SECURITY.md`
+  still said only `v0.5.x` was supported. The doc-stamp gate could not catch either: a stamp
+  records *when a doc was last edited*, so a doc nobody edits keeps an accurate stamp while its
+  prose quietly expires. Those are two different properties and now have two different checks —
+  `tests/test_no_stale_version_claims.py` fails both on a doc claiming an old version **and** on
+  a `__version__` bump whose CHANGELOG section, compare links, README banner or SECURITY line
+  have not followed.
+
+### Added
+- The in-app **User Guide** covers the v0.6.1 behaviour: which cyanrip built a rip and where to
+  see it, `--audit-rips`, the `self_check` block in every report, the multi-disc "could not
+  determine" warning, and — the confusing one — why a cancelled rip legitimately leaves 0-byte
+  audio files. `--audit-rips` is in the README's command-line section, and a test derives the
+  flag list from `app.py` so a new flag cannot ship undocumented.
+
+### Added
+- **Every rip now audits itself, and the result is in the JSON.** A `self_check` block records
+  which cyanrip built the rip, whether the ripper said it finished, which disc of a multi-disc
+  set the tags came from, what pre-gap provenance was observed, and **whether the audio files
+  the log claims actually have bytes in them** — the last one made necessary by the fork's
+  measurement that a killed rip leaves 0-byte FLACs for tracks its log reports complete. Checks
+  live in one registry, so adding a future one is a single function plus a row, and it appears
+  in both the per-rip block and the bulk audit at once. A check that cannot run is recorded as
+  **skipped and named**, never silently omitted.
+- **`platterpus --audit-rips FOLDER`** — the same checks over a whole library, in one command,
+  read-only. Replaces a hardware checklist that asked a human to open files and read fields.
+  Exits non-zero when something needs attention.
+
+### Fixed
+- **`rip_completed` and `invoked_as` were parsed and never serialized**, so the report said the
+  ripper's completion footer was absent for logs that plainly had one. Found by the embedded
+  self-check the first time it ran — which is the argument for having a consumer. Schema **v14**.
+
+### Fixed
+- **A cancelled rip's own track counts were dropped.** cyanrip's footer has two shapes, and only
+  one was handled: `Rip completed: yes (3 of 3 tracks)` parsed, while
+  `Rip completed: no (interrupted by user, 2 of 3 tracks)` matched the verdict and **silently
+  lost "2 of 3"** — the ripper's own count, for exactly the scenario where our own count is
+  least trustworthy. No fixture could have caught it (their golden reference is a *successful*
+  rip); it came out of the fork's generated provider contract. The interruption reason is now
+  kept verbatim too, rather than inferred from the boolean.
+
+### Added
+- `tests/test_provider_contract_agreement.py` — a standing check that **we parse nothing the
+  fork reserves the right to reword**. Their P3 list is text they may change without a
+  handshake; parsing one of those means their next cosmetic edit breaks us silently. Currently
+  zero overlap. Also pins the four log variants that exist in their contract and in no artifact
+  we hold: the CRC-mismatch pre-gap, the lead-in-sourced pre-gap, the sub-channel source, and
+  the cancelled footer.
+
+### Documentation
+- cyanrip handshake **round 4 is closed in both directions** — their return file verified
+  claim-by-claim against the real parser and the committed fixtures, and our verification sent.
+  `scripts/handshake.py --status` reads all four rounds CLOSED. The release gate is now the two
+  honestly-outstanding hardware items (a successful sub-channel pre-gap read, and a cancelled
+  rip against the new pin), not anything unresolved between the projects.
+
+### Added
+- **`--doctor` now says which cyanrip build the container has** — "the Platterpus fork",
+  "unmodified upstream", or "build not identified" — so the question *"am I on the fork?"* is
+  answered before a disc is committed to a rip rather than discovered from the log afterwards.
+  A separate check from reachability, because a container that works but has the wrong build
+  needs a different sentence from a broken one. Never a FAIL: upstream cyanrip rips perfectly,
+  it just cannot fill the archival rows the fork can.
+
+### Added
+- **The ripper's `Invoked as:` line is parsed** (cyanrip fork round 4, our ask A3). We already
+  record the argv we *spawned* it with; this is the argv it reports *receiving*. The value is
+  entirely in the difference — a wrapper, a shell, or the Distrobox host-export mangling an
+  argument is invisible from either end alone.
+- **`Rip completed: yes (N of M tracks)` is parsed**, tri-state. The ripper's own completion
+  verdict with its own denominator, and per the fork the only structural difference between a
+  truncated log and a short one (the cue cannot tell). `None` means the footer was absent —
+  what a killed rip looks like — and is never read as `False`.
+- `tests/fixtures/cyanrip_fatal_messages.tsv` — the fork's mechanically generated inventory of
+  all 88 strings it can print on a fatal path, committed so our surfacing pattern is tested
+  against the ripper's real vocabulary rather than strings we imagined. Coverage re-measured
+  independently at 87/88, the miss closed, now **88/88**.
+
+### Fixed
+- **`Total time:` was silently unparsed on short discs.** The pattern demanded `HH:MM:SS`;
+  cyanrip prints `MM:SS.ff` for a short disc, so the fork's own golden reference fell through
+  as an unrecognised line and the disc duration went missing. Found by running the parser over
+  the round-4 fixture, not by reading it.
+- `-J (only generate a CUE sheet) cannot be used with -I` — the one fatal string no word prefix
+  could reach, because it starts with a hyphen.
+
+### Added
+- **`-N` is now enforced at the argv chokepoint, not merely documented.** Critical rule #5 says
+  cyanrip must never run its own MusicBrainz lookup — without `-N` it reaches the network from
+  inside the container and, on an ambiguous disc, opens an interactive prompt that has nowhere
+  to appear, hanging the rip until the user cancels. `assert_metadata_lookup_disabled` is
+  extracted so something can actually call it with a bad argv; a guard that cannot be exercised
+  is a guard nobody has tested.
+- The report's `disc` block records **which medium** of a multi-disc release the tags came from
+  and how it was decided (`medium_basis` / `medium_detail` / `medium_undetermined`), so a rip we
+  could not resolve says so instead of presenting the titles as settled.
+- `docs/handshake/` — the full cyanrip correspondence record, both directions, rounds 1–4, with
+  `verified/` entries closing rounds 1–3. Round 3's verification was late and went out folded
+  into round 4; that is stated in the record rather than tidied away.
+
+### Fixed
+- **A multi-disc release could be ripped with the wrong disc's track titles.** Every code path
+  took MusicBrainz's `medium-list[0]`, under a comment reading *"the first medium is the one we
+  want in nearly all cases"*. On a four-disc set that meant disc 1's 18 tracks for a 16-track
+  disc — the `-t 17=` failure that ended a rig rip. The argv chokepoint already stopped that
+  symptom, and stopping it made the underlying bug **more** dangerous: suppress the two bad
+  arguments and the other sixteen still go through, producing a complete, successful-looking
+  album of wrong metadata. `medium_select.py` now picks the medium by **disc ID** (authoritative
+  — ours comes from the physical TOC), then by a **unique** track-count match, then by there
+  being only one medium. Two media with the same count is an *ambiguity*, not a match: the
+  selector reports "not determined" with the counts it saw rather than flipping a coin and
+  presenting it as a fact. The release fetch now requests MusicBrainz's `discids` include, which
+  is what makes the authoritative match possible at all.
+
+### Added
+- **The cyanrip handshake protocol is now executable, in both directions.** It was prose, and a
+  round arrived missing a required section twice. `scripts/handshake.py --emit N` builds our
+  outbound file with every required section and renders the inbound spec from the same list the
+  checker enforces; `--check FILE` validates a received one and exits non-zero listing what is
+  absent, including the two failures worse than a missing section (present-but-empty, and a
+  null case left silent); `--status` reports every round OPEN or CLOSED off `docs/handshake/`.
+  It found two real gaps on first run, both ours: round 3 was never verified back to the fork,
+  and the return spec had grown from A–I to A–J without being announced.
+- `CLAUDE.md` **Critical rule #12** makes all of it standing behaviour — both contracts
+  published, both directions enforced by tooling, full error capture always surfaced, the fork
+  identified tri-state, and the rule itself mirrored into the fork's repo.
+
+### Documentation
+- `CLAUDE.md` gains three rules this round earned: *answer from the artifact, not your memory of
+  it* (and give a correction from another project the same scrutiny as a claim); **diagnostic
+  completeness** — exit code, exact argv, and complete output for every external tool, with
+  head-and-tail bounding and a counted elision marker, because a silent truncation reads as
+  completeness; and *say which build produced an artifact*, tri-state.
+
+### Fixed
+- **21 of cyanrip's 45 fatal messages were captured and never shown.** The fatal-line pattern
+  matched six prefixes; the fork session enumerated the ripper's fatal log call sites and
+  measured the coverage at 24 of 45. For the rest the report's `failure_hint` stayed `null` and
+  the window said "Rip failed" while the ripper's own diagnosis sat in a buffer we had already
+  captured. The pattern now covers 23 prefixes with a real word boundary (so `Invalid` still
+  does not match `Invalidated`) and a punctuation-aware one (so `Out of memory!` matches at
+  all). Narrowness was the wrong instinct: a miss costs a user the answer, a false positive
+  costs one extra sentence on a rip that already failed.
+
+### Added
+- **Every rip now records WHICH cyanrip binary produced it.** Platterpus runs a fork that emits
+  rows stock cyanrip does not (per-track pre-gap length and provenance, sample peak, extraction
+  speed and elapsed time), so two logs of one disc from the two binaries are not interchangeable
+  evidence — and the version number cannot tell them apart, because the fork tracks upstream
+  versions. The EAC-style log gains an unconditional `Ripper build:` row and the JSON gains
+  `ripper_is_platterpus_fork` / `ripper_identity` / `ripper_identity_detail` (schema **v13**).
+  The verdict is **tri-state**: an unrecognised or absent build tag reports `unknown` / `null`,
+  never "unmodified upstream", because that would be a claim we have no evidence for.
+- **The ripper's exit code and exact command line are in the report.** Both were computed and
+  discarded, so `1` (the ripper refused an argument), `0` plus a cancel (the user stopped a
+  healthy run) and `-9` (we SIGKILLed a wedged process group) all rendered identically, and no
+  report carried the argv needed to reproduce a failure by hand. `outcome.ripper_exit_code`,
+  `outcome.ripper_argv` and `outcome.ripper_command_display`; a never-reaped child records
+  `null`, not `0`.
+
+### Fixed
+- **A runaway rip dropped the ripper's dying message.** Retained stdout stopped at a 20 000-line
+  cap, head-only — reasoned as "the head holds the header and the earliest tracks", which is
+  true of a rip that succeeds and exactly wrong for one that fails, since a ripper's fatal line
+  is the *last* thing it prints. Capture is now head **and** a rolling tail, with an explicit
+  `[platterpus] … N lines … elided` marker naming how many lines went: an unmarked gap would
+  read as a ripper that fell silent, which is a different and more alarming fact.
+
+### Fixed
+- **The EAC `Pre-gap length` row briefly stopped matching EAC.** A cross-project correction
+  argued that EAC derives the row from `INDEX 00 → INDEX 01` only, so the fork's track-1
+  `Pregap length: 300` (lead-in 150 + declared TOC gap 150) was not comparable; the row was
+  switched to the subtraction, then switched back the same day. The committed EAC baseline
+  prints `Track 1 … Pre-gap length  0:00:02.00` — the bare lead-in on a disc declaring no
+  track-1 gap — so EAC's row *is* lead-in plus declared gap, and the fork's stated figure is
+  the EAC-comparable one. No released version carried the wrong value.
+
+### Added
+- **`docs/cyanrip-consumer-contract.md`, generated from the code.** Every log line Platterpus
+  parses, every line it knowingly ignores with the recorded reason, and every flag it passes —
+  read out of the parser's enumeration tables and out of a real call to the argv builder, not
+  written down beside them. It is the consumer half of the cyanrip dependency contract; the
+  fork supplies the mirroring provider half. `scripts/emit_dependency_contract.py` regenerates
+  it and `--check` fails on drift.
+
+### Fixed
+- **The track list could not be scrolled while a rip was running.** The rip lock called
+  `setEnabled(False)` on the table to stop mid-rip edits; a disabled `QTableView` also ignores
+  the wheel and the arrow keys, so for the entire rip the user could not scroll the one widget
+  showing live per-track status. It is now locked **read-only** — every row stays legible,
+  selectable and scrollable, while edits and Rip? toggles are refused at the model.
+
+### Fixed
+- **An out-of-range track tag killed an entire rip.** Disc 1 of a 4-disc set has 16 tracks; the
+  MusicBrainz medium we used listed 18; Platterpus passed cyanrip `-t 17=` and `-t 18=`. cyanrip
+  answered `Invalid track number 17, list has 16 tracks!` and exited — **two seconds, nothing
+  ripped** (rig, 2026-08-02). `_metadata_args` now refuses to emit a `-t` for a track the disc
+  does not have. That is the argv chokepoint, so the guard holds regardless of which path
+  assembled the metadata — including the medium-selection defect that produced the bad list,
+  which is still open.
+- **The ripper diagnosed the failure precisely and the user was shown "Rip failed."**
+  `failure_hint` was `null` while cyanrip's own sentence sat in the captured output. Its fatal
+  argument/setup errors are now surfaced verbatim when we have no more specific hint.
+
+### Documentation
+- `docs/dependency-contracts.md` gains cyanrip's **argument range constraints** — the seven
+  flags whose values it validates against the disc and exits on, with the `-t` row marked as
+  measured rather than read.
+- `docs/testing.md` §5.u — *answer it from the artifact, not from your memory of the artifact*.
+  The pre-gap convention flipped twice in one day because a true count of `INDEX 00` lines in
+  EAC's **cue** was cited as evidence about EAC's **log**. `tests/test_eac_pregap_convention.py`
+  now derives the whole convention — truncated hundredths, the per-track formula, track 1's
+  lead-in, and byte-exact reproduction of all ten real rows — from the committed artifacts, so
+  it cannot flip again on anyone's recollection.
+- `docs/cyanrip-handshake.md` — the "who was wrong" table gains that entry and the §H2 one, and
+  the shared rigour bar gains two rules: cite the artifact, and give a *correction* from the
+  other side the same scrutiny as a claim.
+- `docs/testing.md` §5.m — *two rules already existed, neither ran*. Both halves of the above
+  were written policy with no test, sweep, or chokepoint enforcing them. The graduated lesson
+  is that a prose rule becomes real only when something executes it, and CLAUDE.md's
+  validate-outputs rule now says so explicitly and names range as well as syntax.
+
+### Fixed
+- **A cancelled rip reported the disc *fraction* as a *rate*.** `realtime_multiplier` was
+  `elapsed ÷ disc_seconds` regardless of whether the rip finished, so the rig's 2-of-14 cancel
+  archived `0.21` (755 s of a 3582 s disc) when actual throughput was about 0.93×. A plausible
+  wrong number is worse than none, because nothing about it invites checking. It is now `null`
+  with a `realtime_multiplier_basis` saying why, or — when the log carries enough geometry to
+  know how much audio *was* extracted — a real rate computed from that. The timing enrichment
+  in the window now **delegates** to `build_timing` instead of recomputing the division itself;
+  that second copy of the arithmetic is how the two got to disagree.
+  A **failed** rip counts as not-completed too: gating on the cancel flag alone left that case
+  open, and the rig found it the same day — a rip that died after 2 seconds on a bad argument,
+  having read nothing, archived `realtime_multiplier: 0.0`.
+
+### Fixed
+- **`Pregap LSN: unknown` was indistinguishable from `Pregap LSN: none`.** The cyanrip fork
+  prints `unknown (sub-channel unreadable)` when it tried a Q-subchannel scan and could not
+  tell; our pattern was `(\d+|none)`, which matched neither `unknown` form, so the row fell
+  through and the track came out byte-identical to a measured "no pre-gap". "We could not
+  determine whether this track has a pre-gap" and "this track has no pre-gap" are different
+  archival claims and the log is SHA-256 signed. Third instance of this class after
+  `Accurip: disabled` reading as "in DB, no match" and the all-zero CRC counting as a match,
+  so the fix is a **state** rather than another special case: `pregap_state` is one of
+  `known` / `none` / `unknown`, with the reason recorded, and the EAC row now reads
+  *"(not determined by the ripper — sub-channel unreadable)"* instead of vanishing.
+
+### Added
+- **`Pregap length:` and `Pregap source:` are read, and the stated length wins over our
+  derivation.** `Pregap length` is the only field that can express track 1, whose gap is the
+  150-frame lead-in *plus* any declared gap — the fork's reference disc reads `Pregap LSN: 0`
+  / `Start LSN: 150` / `Pregap length: 300`, and its `Gaps:` block confirms a 150-frame TOC
+  pre-gap, so 150 + 150 = 300 while subtracting gets 150. Our rendered rows now match
+  cyanrip's own `(duration: …)` suffix exactly on both fork tracks. `pregap_source`
+  (`TOC` / `lead-in` / `sub-channel`) is provenance we previously had to infer — a
+  `sub-channel` value means a gap the TOC does *not* declare, which is the whole point of
+  upstream PR #115. All four fields serialize into the JSON report; stock cyanrip is
+  unaffected (all 14 reference tracks still measure `none` and render no row).
+
+### Added
+- **The ripper's own stdout is now embedded in the JSON report**, beside the three files
+  (schema v12's `artifacts` gains `ripper_stdout`). This is the one record that survives the
+  ripper being killed: cyanrip's logfile is block-buffered, its stdout is a pipe we are already
+  draining. On the rig the logfile lost a track verified at AccurateRip confidence 200 while the
+  stdout had it the whole time. Progress redraws are excluded (~98% of the stream and useless to
+  a report), leaving every Summary block, header and error. When `rip_log.text` stops mid-record
+  and `ripper_stdout.text` keeps going, **the difference is exactly what was lost** — a
+  comparison that was impossible before, which is why the loss went unnoticed. It also means one
+  uploaded file now serves the cyanrip project too: real-hardware stdout is the artifact they
+  cannot produce for themselves.
+
+
+### Fixed
+- **A cancelled rip could silently drop a track that had completed and verified.** On the rig
+  (2026-08-01) cyanrip's logfile was left at exactly **4096 bytes** — one unflushed stdio block,
+  ending mid-token at `REPLAYGAIN_TRACK_GA`. Track 3 (*Message in a Bottle*, EAC CRC32
+  `59D352DD`, AccurateRip v2 at confidence **200**) had finished 36 seconds before the cancel and
+  was absent from `tracks[]`, from the EAC-layout log, and from the verdict — which then blamed
+  the cancel for 12 tracks "never ripped" when the true figure was 11. The data was never lost;
+  it is in the captured stdout and in the report's own `debug.lines`. The report was built from
+  the file.
+  Platterpus now **detects** the truncation and says so: `RipLog.log_truncated` /
+  `last_track_incomplete`, a `log_parse.note`, an **error**-severity `ripper_log_truncated` issue,
+  and an EAC-log banner that reads *"this is a FLOOR, not a count"* instead of asserting that
+  tracks were never extracted. An intact partial rip still names its missing tracks — the fix
+  removes an unsupported claim, it does not make the log vaguer.
+  **Recovery is not in this change.** Rebuilding the report from the captured stdout is the
+  larger follow-up; the parser cannot read stdout at all today (it opens a track on
+  `Track N ripped and encoded successfully!`, which stdout never prints).
+
 ## [0.6.0] — 2026-08-01
 
 ### Added
@@ -4499,7 +4793,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
 [0.5.21]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.19...v0.5.20
@@ -4568,4 +4863,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.0.*
+*Last updated for Platterpus v0.6.1.*

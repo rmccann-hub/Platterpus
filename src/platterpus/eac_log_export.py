@@ -55,6 +55,7 @@ from platterpus.parsers.rip_log import (
     accuraterip_is_match,
 )
 from platterpus.report_types import SecureReripBlock
+from platterpus.ripper_identity import identify_ripper
 from platterpus.verdict import accuraterip_lookup_happened
 
 log = logging.getLogger(__name__)
@@ -136,6 +137,40 @@ def verify_eac_style_log_checksum(full_text: str) -> bool | None:
     except Exception:  # noqa: BLE001 — a verifier must never crash a caller
         log.exception("EAC-style log checksum verification failed")
         return None
+
+
+def _ripper_identity_row(rip_log: RipLog) -> str:
+    """The provenance sentence naming WHICH cyanrip binary produced the rip.
+
+    Reads the shared classifier rather than formatting the tag here, so this
+    log, the JSON report and the live rip panel cannot end up describing the
+    same binary three different ways.
+    """
+    identity = identify_ripper(rip_log.log_creator, rip_log.ripper_build)
+    if identity.kind == "fork":
+        return (
+            f"{identity.build_tag} — the Platterpus fork of cyanrip. "
+            "Pre-gap, sample-peak and per-track timing rows below come from "
+            "fork-only output."
+        )
+    if identity.kind == "stock":
+        return (
+            f"{identity.build_tag} — unmodified upstream cyanrip. Fork-only "
+            "rows (pre-gap length and provenance, sample peak, per-track "
+            "timings) are not available for this rip."
+        )
+    # NOT "stock". An unrecognised or absent tag is an absence of evidence, and
+    # this row exists precisely so that absence is stated rather than implied.
+    if identity.build_tag:
+        return (
+            f"{identity.build_tag} — not a build tag Platterpus recognises, so "
+            "whether this rip came from the Platterpus fork or an unmodified "
+            "cyanrip was not determined."
+        )
+    return (
+        "not determined — the ripper's version banner carried no build tag, so "
+        "which cyanrip binary produced this rip is unknown."
+    )
 
 
 def render_eac_style_log(
@@ -231,6 +266,15 @@ def _render(
         _BANNER,
         f"  Rendered from a rip by {source}.",
     ]
+    # WHICH cyanrip. The Platterpus fork emits rows stock cyanrip does not
+    # (pre-gap length + provenance, sample peak, per-track timings), so two logs
+    # of the same disc from the two binaries are not interchangeable evidence —
+    # and the version number alone cannot tell them apart, because the fork
+    # tracks upstream versions. The build tag can. This row is unconditional:
+    # when the tag is missing or unrecognised it SAYS the build was not
+    # identified, because an absent row would read as "nothing unusual" and this
+    # log is signed.
+    lines.append(f"  Ripper build: {_ripper_identity_row(rip_log)}")
     lines.extend(
         _provenance_lines(platterpus_version, build_fingerprint, encoder_versions)
     )
@@ -627,6 +671,13 @@ def _pregap_line(track: TrackResult) -> list[str]:
     look plausible, and be wrong. Found by diffing against the real EAC log
     (2026-07-30).
     """
+    # "The ripper tried and could not tell" gets a row that SAYS so. Omitting it
+    # here would be indistinguishable from a track with no pre-gap, and this log
+    # is signed — an absent row reads as a measured absence. Matches the file's
+    # standing rule: rows the ripper does not report say so instead of guessing.
+    if getattr(track, "pregap_state", "") == "unknown":
+        reason = getattr(track, "pregap_unknown_reason", "") or "not determined"
+        return [f"     Pre-gap length  (not determined by the ripper — {reason})", ""]
     sectors = track.pregap_sectors
     if not isinstance(sectors, int) or sectors <= 0:
         return []
@@ -924,8 +975,23 @@ def _incomplete_notice(
         return []
     ripped = len(rip_log.tracks)
     of_total = f" of {disc_track_total}" if disc_track_total else ""
+    # "were never extracted" is a claim about the DISC, and the source log is the
+    # only evidence for it. When that log was cut off mid-write we cannot make
+    # the claim: on the rig (2026-08-01) cyanrip was killed with 4 KiB unflushed,
+    # a track that had completed and matched AccurateRip at confidence 200 was
+    # absent from the file, and this banner reported it as never ripped. The
+    # count was wrong (11, not 12) and, worse, unfalsifiable from the artifact.
+    # So a truncated log gets the honest sentence instead: what it omits is
+    # unknown, not absent.
+    truncated = bool(getattr(rip_log, "log_truncated", False))
     missing = ""
-    if disc_track_total and disc_track_total > ripped:
+    if truncated:
+        missing = (
+            " The ripper's log was cut off mid-write (it was killed before "
+            "flushing), so this is a FLOOR, not a count: tracks missing below "
+            "may have been ripped and verified. Check the ripper's own output."
+        )
+    elif disc_track_total and disc_track_total > ripped:
         missing = (
             f" The remaining {disc_track_total - ripped} track(s) were never "
             "extracted and are absent below."

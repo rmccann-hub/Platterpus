@@ -194,6 +194,28 @@ class RipHandle:
     def __init__(self, process: subprocess.Popen[str]) -> None:
         self._process: subprocess.Popen[str] = process
 
+    @property
+    def argv(self) -> tuple[str, ...]:
+        """The exact command line this handle's process was spawned with.
+
+        Read off ``Popen.args`` rather than being passed in separately, so it is
+        the argv the OS actually received and cannot drift from it. Backends
+        that build argv in pieces therefore need no extra bookkeeping.
+
+        The rip worker records this into the report: a failed rip whose report
+        does not carry the command line cannot be reproduced by hand, and the
+        one argument defect that has killed a whole rip so far (an out-of-range
+        ``-t``) was diagnosed only because the maintainer uploaded their own
+        files.
+        """
+        args = self._process.args
+        if isinstance(args, (str, bytes)):
+            return (args.decode() if isinstance(args, bytes) else args,)
+        return tuple(
+            a.decode() if isinstance(a, bytes) else str(a)
+            for a in args  # type: ignore[union-attr]  # Popen.args is a sequence here
+        )
+
     def log_lines(self) -> Iterator[str]:
         """Yield the ripper's combined stdout/stderr lines as they come.
 
@@ -302,6 +324,7 @@ class RipBackend(ABC):
         force_overread: bool = False,
         read_offset_override: int | None = None,
         metadata: RipMetadata | None = None,
+        disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
     ) -> RipHandle:

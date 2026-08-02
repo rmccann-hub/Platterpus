@@ -93,6 +93,12 @@ class RipParameters:
     read_speed: int = 0
     # When set, applied as the read offset for the rip (cyanrip's `-s`).
     read_offset_override: int | None = None
+    # How many tracks the DISC's TOC reports. Handed to the backend so it can
+    # refuse to pass cyanrip a `-t` for a track that does not exist: cyanrip
+    # rejects the entire rip on an out-of-range track number, which cost a real
+    # rip on the rig (2026-08-02). None means "unknown", and the guard then
+    # stays out of the way rather than guessing a ceiling.
+    disc_track_total: int | None = None
     # The GUI's already-fetched album/track tags (track table content),
     # fed to cyanrip via -a/-t so the rip needs no in-container network.
     metadata: RipMetadata | None = None
@@ -174,6 +180,75 @@ _NO_METADATA_MARKERS: tuple[str, ...] = (
 # bare "Rip failed". This matches whipper's "giving up on track N" wording;
 # cyanrip instead rips the track "with errors" and keeps going, so it doesn't
 # trip this — the hint stays for the whipper-format seam and is harmless inert.
+# cyanrip's own fatal-argument / fatal-setup errors, which it prints and then
+# exits on. Deliberately narrow: these are the shapes that end a rip before any
+# audio is read, so surfacing one verbatim is strictly better than "Rip failed."
+# Bounded quantifiers per the never-unbounded rule.
+#
+# WIDENED 2026-08-02. The fork session enumerated cyanrip's fatal `cyanrip_log`
+# call sites and measured that the six prefixes above matched **24 of 45** of
+# them. The other 21 printed a precise diagnosis that the user never saw: the
+# report's `failure_hint` was null and the window said "Rip failed."
+#
+# "Deliberately narrow" was the wrong instinct here, and worth naming because it
+# is a tempting one. The cost of a MISS is a user staring at "Rip failed" with
+# the answer sitting in a buffer we captured and did not read. The cost of a
+# FALSE POSITIVE is one extra sentence of the ripper's own words in a hint —
+# which is, at worst, mildly confusing, and is shown only on a rip that already
+# failed. Those costs are not close, so the pattern is now broad on purpose.
+#
+# Anchored at line start with a trailing space or end-of-line after each prefix,
+# so `Error reading` matches but `No errors` does not, and a track title that
+# happens to begin with one of these words cannot match (titles never appear at
+# column 0 in cyanrip's output — they are indented inside a Metadata block).
+_RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
+    "Invalid",
+    "Unable to",
+    "Missing",
+    "No device",
+    "No disc",
+    "No cover art",
+    "No tracks",
+    "Error",
+    "Errors",
+    "Failed",
+    "Couldn't",
+    "Could not",
+    "Cannot",
+    "Unsupported",
+    "Unknown option",
+    "Unrecognized",
+    "Stopping,",
+    "Stopping",
+    "Aborting",
+    "Drive media",
+    "Insufficient",
+    "Out of memory",
+    "Fatal",
+    # Begins with a hyphen, so no word prefix reaches it. The fork's generated
+    # inventory (handshake round 4, Appendix 2) has exactly one string our 23
+    # prefixes missed, and this is it — independently re-measured on our side
+    # at 87/88 before adding this, rather than taken on their word.
+    #
+    # No trailing space: the boundary below supplies it. With `"-J "` the
+    # boundary then has to match the `(` of `-J (only generate...` and does
+    # not — which the fixture caught immediately, and reading the prefix list
+    # would not have.
+    "-J",
+)
+
+_RIPPER_ERROR_RE = re.compile(
+    r"^(?:" + "|".join(re.escape(p) for p in _RIPPER_ERROR_PREFIXES) + r")"
+    # The boundary is what stops `Invalid` matching `Invalidated`. It admits
+    # punctuation as well as whitespace because cyanrip's fatals habitually end
+    # in `!` and some are the whole line — `Out of memory!` has no space after
+    # the prefix at all, and a whitespace-only boundary silently missed it.
+    r"(?:[\s!.,:;?]|$)"
+    # Bounded, per the never-unbounded rule: a `.*` here would hand a
+    # pathological line straight to a regex engine and to a QMessageBox.
+    r".{0,200}$"
+)
+
 _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 
 # Minimum wall-clock gap between forwarding consecutive *progress redraw* lines
@@ -184,6 +259,34 @@ _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 # ~10 updates/second keeps the bar and ETA feeling live while leaving the event
 # loop plenty of room to repaint. Only progress lines are throttled — phase
 # changes, errors, and end-of-rip markers always go through immediately.
+# Cap on retained non-progress ripper output (see RipWorker._stdout_lines).
+# A 14-track album is a few hundred such lines, so this is ~30x headroom while
+# still bounding a pathological ripper.
+#
+# HEAD **AND TAIL**, not head-only. This was a plain stop at the cap, reasoned as
+# "the head holds the header and the earliest tracks, which is what a report
+# needs". That is true of a *successful* rip and exactly wrong for a failing one:
+# a ripper's fatal message is the LAST thing it prints, so the one capture a
+# 20000-line runaway most needs to keep was the one guaranteed to be dropped —
+# and dropped silently, since nothing recorded that a drop had happened. The
+# retained text is now the first `_MAX_STDOUT_LINES` lines plus the last
+# `_STDOUT_TAIL_LINES`, with an explicit elision marker in between naming how
+# many lines were discarded (audit prompted by the maintainer, 2026-08-02:
+# "is there any output or error the log file does not capture?").
+_MAX_STDOUT_LINES: int = 20000
+
+# How much of the END of a runaway ripper's output to keep. Small relative to the
+# head cap because the diagnostic value is concentrated in the last handful of
+# lines (the error, and the few lines of context before it), while the head is
+# where the header, argv echo and per-track results live.
+_STDOUT_TAIL_LINES: int = 2000
+
+# Marker written into the captured stdout in place of the discarded middle. It is
+# a line the *ripper* could not have produced, so a reader (or a parser) can tell
+# an elision from real output — an unmarked gap would read as a rip that simply
+# went quiet.
+_STDOUT_ELISION = "[platterpus] … {count} lines of ripper output elided here …"
+
 _PROGRESS_MIN_INTERVAL_S: float = 0.1
 
 # Slack subtracted from a pass's start time when deciding whether a .log is
@@ -391,6 +494,38 @@ class RipWorker(QObject):
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
         self._cancelled: bool = False
+        # Every NON-progress line the ripper printed, kept verbatim.
+        #
+        # This is the one artifact that survives a kill. cyanrip's logfile is
+        # block-buffered, so killing it loses the tail of a 4 KiB block — twice
+        # on the rig now (2026-08-01: a 4096-byte cut that lost a track verified
+        # at AccurateRip confidence 200, and a 20480-byte cut that lost a
+        # track's filename). Its stdout is a pipe we are already draining, so
+        # whatever it *said* is ours the moment it says it, regardless of what
+        # reaches disk.
+        #
+        # Progress redraws are excluded, not truncated: they are ~98% of the
+        # stream (900+ lines of "progress - 41.65%" for one album) and carry
+        # nothing a report needs. What is left is every Summary block, header
+        # and error — a few hundred lines, small enough to embed in the JSON.
+        self._stdout_lines: list[str] = []
+        # The rolling tail kept once `_stdout_lines` hits its cap, so a runaway
+        # ripper's FINAL lines — where its fatal message is — survive. See
+        # `_MAX_STDOUT_LINES`.
+        self._stdout_tail: list[str] = []
+        # How many lines fell out of that rolling window. Reported in the
+        # captured text rather than leaving an unexplained gap.
+        self._stdout_elided: int = 0
+        # The ripper's exit status, and the exact argv we invoked it with. Both
+        # were computed (or built) and then discarded, so the report could say a
+        # rip failed but not *how*: exit 1 (the ripper refused an argument),
+        # exit 0 with cancel (the user stopped it), and -9 (we SIGKILLed a wedged
+        # child) are three different failures that all rendered identically. The
+        # argv is the other half — the `-t 17=` defect that killed a whole rip
+        # was diagnosed from the maintainer's uploaded files because our own
+        # report did not carry the command line (2026-08-02).
+        self._ripper_exit_code: int | None = None
+        self._ripper_argv: tuple[str, ...] = ()
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert whipper-era seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -998,9 +1133,16 @@ class RipWorker(QObject):
                 force_overread=self._params.force_overread,
                 read_offset_override=self._params.read_offset_override,
                 metadata=self._params.metadata,
+                disc_track_total=self._params.disc_track_total,
                 read_speed=read_speed,
                 only_tracks=only_tracks,
             )
+            # Snapshot the command line as soon as we have a handle, BEFORE the
+            # read loop — so a rip that dies in its first second still carries
+            # the argv that caused it. `getattr` because a backend stand-in may
+            # not expose it; an absent argv stays empty rather than raising here,
+            # since failing to record diagnostics must never fail the rip.
+            self._ripper_argv = tuple(getattr(self._handle, "argv", ()) or ())
         except RipError as exc:
             log.exception("rip failed to start")
             self.error.emit(str(exc))
@@ -1034,6 +1176,25 @@ class RipWorker(QObject):
                 # effect, so call it once up front.
                 prog = self._progress_for(line)
                 is_progress = prog is not None
+                # Retain the substantive stream (see `_stdout_lines`). Bounded so
+                # a runaway ripper cannot grow this without limit; the cap is far
+                # above a real album's few hundred non-progress lines, and it is
+                # a *stop*, not a ring buffer, because the head is where the
+                # header and the early tracks are.
+                if not is_progress:
+                    if len(self._stdout_lines) < _MAX_STDOUT_LINES:
+                        self._stdout_lines.append(line)
+                    else:
+                        # Past the head cap: keep a rolling window of the most
+                        # recent lines instead of discarding outright, so the
+                        # ripper's dying message survives. `_stdout_elided`
+                        # counts what fell out of that window, which is what
+                        # `captured_stdout` reports rather than leaving a silent
+                        # hole.
+                        self._stdout_tail.append(line)
+                        if len(self._stdout_tail) > _STDOUT_TAIL_LINES:
+                            self._stdout_tail.pop(0)
+                            self._stdout_elided += 1
                 # Forward the line to the GUI's log pane — but RATE-LIMIT the
                 # high-frequency progress redraws. Appending to the log widget
                 # (text layout + repaint) is the expensive per-tick work; at
@@ -1071,6 +1232,19 @@ class RipWorker(QObject):
                     m in line for m in _NO_METADATA_MARKERS
                 ):
                     self._needs_unknown_retry = True
+                # The ripper's OWN error text, kept as the hint when we have
+                # nothing better. cyanrip said "Invalid track number 17, list
+                # has 16 tracks!" and the user was shown "Rip failed." — the
+                # tool had already diagnosed it and we threw the diagnosis away
+                # (rig, 2026-08-02). CLAUDE.md requires capturing a dependency's
+                # error output rather than swallowing it; this is that, on the
+                # path the user actually reads.
+                #
+                # `if not self._failure_hint` so the specific, actionable hints
+                # below always outrank a raw line: first error wins, and a
+                # tailored message beats a verbatim one.
+                if not self._failure_hint and _RIPPER_ERROR_RE.match(line):
+                    self._failure_hint = line.strip()
                 giveup = _TRACK_GIVEUP_RE.search(line)
                 if giveup:
                     track = giveup.group("track")
@@ -1130,6 +1304,7 @@ class RipWorker(QObject):
             return None
 
         exit_code = self._reap_ripper()
+        self._ripper_exit_code = exit_code
         success = (exit_code == 0) and not self._cancelled
         log_path = self._find_log_path(out_dir, since=self._rip_started_at)
         return success, str(log_path) if log_path else ""
@@ -1517,6 +1692,51 @@ class RipWorker(QObject):
             if looks_like_cyanrip_log(text)
             else parse_rip_log(text)
         )
+
+    @property
+    def captured_stdout(self) -> str:
+        """Everything substantive the ripper printed, as one text blob.
+
+        The recovery source when the logfile is truncated, and the artifact the
+        cyanrip project cannot produce for itself (it has no physical drive).
+        Empty until the rip starts. Safe to read from the GUI thread after
+        ``finished`` — the worker no longer touches the lists by then.
+
+        On a rip that overran the retention cap this is the head, an explicit
+        elision marker naming the number of discarded lines, and the tail. The
+        marker matters as much as the tail does: an unmarked jump would read as
+        a ripper that fell silent, which is a different (and alarming) fact.
+        """
+        if not self._stdout_tail:
+            return "\n".join(self._stdout_lines)
+        middle = (
+            [_STDOUT_ELISION.format(count=self._stdout_elided)]
+            if self._stdout_elided
+            else []
+        )
+        return "\n".join([*self._stdout_lines, *middle, *self._stdout_tail])
+
+    @property
+    def ripper_exit_code(self) -> int | None:
+        """The ripper's exit status, or ``None`` if it was never reaped.
+
+        ``None`` is a real outcome, not a placeholder: a child wedged in a drive
+        ioctl is in uninterruptible sleep where even SIGKILL does not land, and
+        :meth:`_reap_ripper` bounds its wait rather than blocking forever. A
+        negative value is a signal number (``-9`` = we SIGKILLed the group).
+        """
+        return self._ripper_exit_code
+
+    @property
+    def ripper_argv(self) -> tuple[str, ...]:
+        """The exact command line handed to the ripper, for the report.
+
+        Empty until the rip starts. This is the single most useful thing for
+        reproducing a failure by hand, and it is recorded verbatim — including
+        the metadata arguments, since an out-of-range ``-t`` is precisely the
+        kind of defect that reads as an unexplained "Rip failed."
+        """
+        return self._ripper_argv
 
     @Slot()
     def cancel(self) -> None:
