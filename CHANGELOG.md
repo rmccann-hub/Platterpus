@@ -12,6 +12,14 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **`--doctor` now says which cyanrip build the container has** — "the Platterpus fork",
+  "unmodified upstream", or "build not identified" — so the question *"am I on the fork?"* is
+  answered before a disc is committed to a rip rather than discovered from the log afterwards.
+  A separate check from reachability, because a container that works but has the wrong build
+  needs a different sentence from a broken one. Never a FAIL: upstream cyanrip rips perfectly,
+  it just cannot fill the archival rows the fork can.
+
+### Added
 - **The ripper's `Invoked as:` line is parsed** (cyanrip fork round 4, our ask A3). We already
   record the argv we *spawned* it with; this is the argv it reports *receiving*. The value is
   entirely in the difference — a wrapper, a shell, or the Distrobox host-export mangling an

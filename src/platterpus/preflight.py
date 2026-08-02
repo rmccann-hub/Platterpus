@@ -55,6 +55,7 @@ from platterpus.deps.manager import DependencyManager
 from platterpus.deps.version import parse_version
 from platterpus.drive_access import SEVERITY_OK, diagnose_drive_access
 from platterpus.offset_config import WhipperConfOffset, read_drive_offsets
+from platterpus.ripper_identity import identify_from_banner
 
 if TYPE_CHECKING:
     from platterpus.deps.host_setup import HostSetup
@@ -314,6 +315,73 @@ def version_banner(raw: str) -> str:
         if text and parse_version(text) is not None:
             return text
     return ""
+
+
+def check_backend_build(backend: RipBackend, *, backend_name: str) -> CheckResult:
+    """WHICH cyanrip binary the routing chain reaches — fork, upstream, unknown.
+
+    Separate from :func:`check_backend_routing` on purpose: that check answers
+    "can we reach a ripper at all", and folding a second question into it would
+    make one line mean two things and one status cover both. A user whose
+    container is fine but on the wrong build needs a different sentence from a
+    user whose container is broken.
+
+    **Never a FAIL.** Upstream cyanrip is a perfectly good ripper — it simply
+    cannot report pre-gap length and provenance, sample peak, or per-track
+    timings, so the archival log comes out with rows the fork would have filled.
+    That is a WARN. An unrecognised build tag is *also* a WARN and not a FAIL,
+    because "I could not tell" is not "you are on the wrong build" — the same
+    tri-state discipline the log and the report use.
+
+    Exists because the maintainer needs to confirm the container is on the fork
+    **before** committing a disc to a rip, rather than discovering it from the
+    log afterwards. `--doctor` is where that question belongs.
+    """
+    try:
+        raw = backend.version()
+    except Exception:  # noqa: BLE001 — routing already reported this; stay quiet
+        return CheckResult(
+            f"{backend_name} build",
+            Status.WARN,
+            "could not read the version banner",
+            detail=(
+                "The reachability check above reports the real problem; this "
+                "check needs a version banner and there was none."
+            ),
+        )
+    banner = version_banner(raw)
+    identity = identify_from_banner(banner)
+    if identity.kind == "fork":
+        return CheckResult(
+            f"{backend_name} build",
+            Status.OK,
+            f"{banner} — the Platterpus fork",
+            detail=identity.detail,
+        )
+    if identity.kind == "stock":
+        return CheckResult(
+            f"{backend_name} build",
+            Status.WARN,
+            f"{banner} — unmodified upstream, not the Platterpus fork",
+            detail=identity.detail,
+            hint=(
+                "Rips will work and will be bit-perfect. What is missing is "
+                "archival detail: pre-gap length and provenance, sample peak, "
+                "and per-track timings. Rebuild cyanrip inside the 'ripping' "
+                "container from the platterpus-fork branch to get them."
+            ),
+        )
+    return CheckResult(
+        f"{backend_name} build",
+        Status.WARN,
+        f"{banner or '(no banner)'} — build not identified",
+        detail=identity.detail,
+        hint=(
+            "Rips will work. The build tag is not one this version of "
+            "Platterpus recognises, so whether it is the fork was not "
+            "determined — the rip log will say exactly that rather than guess."
+        ),
+    )
 
 
 def check_backend_routing(
@@ -682,6 +750,7 @@ def run_preflight(
     emit(check_output_dir(ctx.cfg))
     emit(check_dependencies(ctx.dependency_manager))
     emit(check_backend_routing(ctx.backend, backend_name=ctx.backend_name))
+    emit(check_backend_build(ctx.backend, backend_name=ctx.backend_name))
     emit(check_drives(ctx.backend))
     emit(check_read_offset(ctx.cfg, backend_name=ctx.backend_name))
     emit(check_drive_access())
