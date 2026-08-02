@@ -13,6 +13,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.1] — 2026-08-02
 
+### Fixed
+- **The README still announced "Status: v0.5.x" deep into the v0.6 line**, and `SECURITY.md`
+  still said only `v0.5.x` was supported. The doc-stamp gate could not catch either: a stamp
+  records *when a doc was last edited*, so a doc nobody edits keeps an accurate stamp while its
+  prose quietly expires. Those are two different properties and now have two different checks —
+  `tests/test_no_stale_version_claims.py` fails both on a doc claiming an old version **and** on
+  a `__version__` bump whose CHANGELOG section, compare links, README banner or SECURITY line
+  have not followed.
+
+### Added
+- The in-app **User Guide** covers the v0.6.1 behaviour: which cyanrip built a rip and where to
+  see it, `--audit-rips`, the `self_check` block in every report, the multi-disc "could not
+  determine" warning, and — the confusing one — why a cancelled rip legitimately leaves 0-byte
+  audio files. `--audit-rips` is in the README's command-line section, and a test derives the
+  flag list from `app.py` so a new flag cannot ship undocumented.
+
 ### Added
 - **Every rip now audits itself, and the result is in the JSON.** A `self_check` block records
   which cyanrip built the rip, whether the ripper said it finished, which disc of a multi-disc
