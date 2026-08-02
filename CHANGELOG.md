@@ -11,6 +11,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Documentation
+- cyanrip handshake **round 4 is closed in both directions** — their return file verified
+  claim-by-claim against the real parser and the committed fixtures, and our verification sent.
+  `scripts/handshake.py --status` reads all four rounds CLOSED. The release gate is now the two
+  honestly-outstanding hardware items (a successful sub-channel pre-gap read, and a cancelled
+  rip against the new pin), not anything unresolved between the projects.
+
 ### Added
 - **`--doctor` now says which cyanrip build the container has** — "the Platterpus fork",
   "unmodified upstream", or "build not identified" — so the question *"am I on the fork?"* is

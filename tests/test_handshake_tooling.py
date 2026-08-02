@@ -234,14 +234,79 @@ def test_the_section_list_is_not_trivially_small(hs: ModuleType) -> None:
 # --- round status -------------------------------------------------------------
 
 
-def test_status_reports_an_incomplete_round_as_open(hs: ModuleType) -> None:
-    """The release gate is "both directions done". Status must say OPEN while a
-    verification is outstanding, because that is the state that blocks a
-    release and the one easiest to forget."""
+def test_status_reports_an_incomplete_round_as_open(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The release gate, exercised against a CONSTRUCTED state.
+
+    The first version of this asserted "round 4 is OPEN" against the real
+    `docs/handshake/` — and then round 4 closed, and the test failed on
+    progress. A test that pins today's state is not testing the logic; it is
+    testing the calendar. `round_status` takes a root so both branches can be
+    driven deterministically.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+    (tmp_path / "outbound" / "round-9.md").write_text("sent", encoding="utf-8")
+    (tmp_path / "inbound" / "round-9.md").write_text("back", encoding="utf-8")
+
+    lines = hs.round_status(tmp_path)
+    assert any(ln.startswith("round-9") and ln.endswith("OPEN") for ln in lines), lines
+    assert any("do not release" in ln for ln in lines), (
+        "an open round must say the release is blocked; that sentence IS the gate"
+    )
+
+
+def test_status_reports_a_complete_round_as_closed(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The other branch. Without it, "reports OPEN" could be satisfied by a
+    function that reports OPEN unconditionally."""
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
+
+    lines = hs.round_status(tmp_path)
+    assert any(ln.startswith("round-9") and ln.endswith("CLOSED") for ln in lines)
+    assert not any("do not release" in ln for ln in lines)
+
+
+def test_the_verification_is_what_closes_a_round(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Step 5 is the one that gets skipped, so it is the one pinned: sent and
+    returned is NOT enough, and the missing piece must be ours."""
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+    (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
+    (tmp_path / "inbound" / "round-9.md").write_text("x", encoding="utf-8")
+    assert hs.round_status(tmp_path)[0].endswith("OPEN")
+
+    (tmp_path / "verified" / "round-9.md").write_text("x", encoding="utf-8")
+    assert hs.round_status(tmp_path)[0].endswith("CLOSED")
+
+
+def test_no_rounds_at_all_is_reported_not_silently_fine(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """An empty record must not read as "everything is closed"."""
+    lines = hs.round_status(tmp_path)
+    assert lines and "no handshake rounds" in lines[0]
+
+
+def test_the_real_record_has_every_round_closed(hs: ModuleType) -> None:
+    """The actual repo state, asserted as a FLOOR rather than an exact shape.
+
+    This one does look at `docs/handshake/`, but it only requires that nothing
+    is left open and that there are rounds to look at — both of which stay true
+    as rounds are added, so it cannot fail on progress the way its predecessor
+    did.
+    """
     lines = hs.round_status()
-    assert lines
-    # Round 4 is sent but not yet returned or verified, so it must read OPEN.
-    round_4 = [ln for ln in lines if ln.startswith("round-4")]
-    if round_4:
-        assert round_4[0].endswith("OPEN"), round_4[0]
-        assert any("do not release" in ln for ln in lines)
+    rounds = [ln for ln in lines if ln.startswith("round-")]
+    assert len(rounds) >= 4, "the correspondence record has shrunk"
+    open_rounds = [ln for ln in rounds if ln.endswith("OPEN")]
+    assert not open_rounds, (
+        "a handshake round is open — no release and no pin switch: "
+        + "; ".join(open_rounds)
+    )
