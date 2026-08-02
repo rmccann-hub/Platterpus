@@ -231,6 +231,20 @@ class CyanripImpl(RipBackend):
             argv += ["-F", scheme_from_template(file_part, year=year)]
         if not cover_art:
             argv.append("-G")  # disable cover-art embedding
+        # Chokepoint assertion for Critical rule #5. `-N` disables cyanrip's own
+        # MusicBrainz lookup, and it is not a preference: without it, a disc the
+        # GUI has already resolved sends cyanrip to the network from inside the
+        # container (flaky on the target machine) and, on an ambiguous disc,
+        # into an INTERACTIVE PROMPT — with no controlling terminal, which hangs
+        # the rip until the user cancels.
+        #
+        # The flag is appended unconditionally above, so this can only fire if
+        # someone later makes it conditional. That is exactly when it is worth
+        # having: the rule is written in CLAUDE.md and in this method's
+        # docstring, and this project has now twice shipped a rule that was
+        # stated everywhere and enforced nowhere. Cheap, and it fails at the
+        # argv chokepoint rather than as a hung GUI on a user's machine.
+        assert_metadata_lookup_disabled(argv)
         return argv
 
     def rip(
@@ -659,6 +673,35 @@ _TOKEN_MAP: dict[str, str] = {
     "%y": "{date}",
     "%N": "{disc}",
 }
+
+
+def assert_metadata_lookup_disabled(argv: list[str]) -> None:
+    """Refuse an argv that would let cyanrip do its own MusicBrainz lookup.
+
+    ``-N`` is not a preference. Without it cyanrip goes to the network from
+    inside the container — the known-flaky spot on the target machine — and on
+    an ambiguous disc it opens an **interactive prompt**. Platterpus runs it
+    with no controlling terminal, so that prompt does not appear anywhere: the
+    rip simply hangs until the user cancels. The cyanrip fork reported the same
+    shape (``Multiple releases found...`` wedging pipelines).
+
+    The flag is appended unconditionally by :meth:`CyanripImpl._build_rip_argv`,
+    so in a correct build this can never fire — which is the point. It exists
+    for the edit that makes the append conditional. Critical rule #5 is written
+    in CLAUDE.md, in the backend docstring, and in the dependency contract, and
+    this project has twice shipped a rule that was stated everywhere and
+    enforced nowhere (``docs/testing.md`` §5.m). A guard costs one comparison
+    and fails at argv construction instead of as a frozen window.
+
+    Separated from the method so something can actually *call* it with a bad
+    argv — a guard that cannot be exercised is a guard nobody has tested.
+    """
+    if "-N" not in argv:
+        raise RipError(
+            "refusing to run cyanrip without -N: the GUI is the single metadata "
+            "source (Critical rule #5), and cyanrip's own lookup can block on an "
+            "interactive prompt with no terminal attached"
+        )
 
 
 def _year_token(raw: str) -> str:

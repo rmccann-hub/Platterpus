@@ -125,6 +125,18 @@ class ReleaseSummary:
     disambiguation: str = ""
     genre: str = ""  # top MB tag (requires the "tags" include); "" when none
     disc_number: int = 1  # this medium's position in the release
+    # HOW we decided which medium of a multi-disc release is in the drive, and
+    # whether we actually determined it. Carried on the summary rather than
+    # logged and forgotten: a rip whose metadata may belong to another disc has
+    # to be able to SAY so in the report and the UI. Capture without surfacing
+    # is the same bug from the user's side (CLAUDE.md, diagnostic
+    # completeness). "" on the picker-list summaries, which describe a release
+    # rather than a resolved disc.
+    medium_basis: str = ""
+    medium_detail: str = ""
+    #: False only when a multi-disc release could not be resolved — never for a
+    #: single-disc release, and never merely because MB was terse.
+    medium_undetermined: bool = False
     total_discs: int = 1  # number of media in the release
 
 
@@ -346,6 +358,14 @@ def _summary_from_release_dict(
         genre=_top_tag_name(release),
         disc_number=disc_number,
         total_discs=total_discs,
+        medium_basis=choice.basis,
+        medium_detail=choice.detail,
+        # Only a real ambiguity counts. A picker-list summary (choice built
+        # with no disc context) is not "undetermined" in the sense the UI
+        # warns about — it simply has not been resolved yet.
+        medium_undetermined=(
+            choice.basis == "undetermined-first" and choice.total_media > 1
+        ),
     )
 
 

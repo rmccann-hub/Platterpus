@@ -21,8 +21,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from platterpus.adapters.cyanrip_backend import _metadata_args
-from platterpus.adapters.rip_backend import RipMetadata
+import pytest
+
+from platterpus.adapters.cyanrip_backend import (
+    CyanripImpl,
+    _metadata_args,
+    assert_metadata_lookup_disabled,
+)
+from platterpus.adapters.rip_backend import RipError, RipMetadata
 
 
 def _meta(count: int) -> RipMetadata:
@@ -118,3 +124,72 @@ def test_ordinary_rip_output_is_not_mistaken_for_a_fatal_error() -> None:
     ]
     for line in ordinary:
         assert not _RIPPER_ERROR_RE.match(line), line
+
+
+# --- Critical rule #5, enforced at the argv chokepoint -----------------------
+
+
+def test_every_rip_argv_carries_dash_n() -> None:
+    """`-N` disables cyanrip's own MusicBrainz lookup.
+
+    Not a preference. Without it cyanrip reaches the network from inside the
+    container — the known-flaky spot on the target machine — and on an ambiguous
+    disc it opens an **interactive prompt**. Platterpus runs it with no
+    controlling terminal, so that prompt appears nowhere: the rip just hangs
+    until the user cancels. The cyanrip fork reported the same shape
+    (`Multiple releases found...` wedging pipelines).
+
+    Swept over parameter combinations rather than checked once, because the flag
+    comes from a single unconditional line today and the risk is an edit that
+    makes it conditional on one of these.
+    """
+    backend = CyanripImpl(binary_path="cyanrip")
+    combos = 0
+    for unknown in (True, False):
+        for cover_art in ("", "front"):
+            for only_tracks in ((), (1, 2)):
+                for metadata in (None, RipMetadata(album_title="A")):
+                    argv = backend._build_rip_argv(
+                        "/dev/sr0",
+                        unknown=unknown,
+                        cover_art=cover_art,
+                        max_retries=4,
+                        read_offset_override=667,
+                        release_id="rel",
+                        track_template="%A/%t",
+                        metadata=metadata,
+                        only_tracks=only_tracks,
+                    )
+                    assert "-N" in argv, (
+                        f"argv without -N: unknown={unknown} "
+                        f"cover_art={cover_art!r} only_tracks={only_tracks}"
+                    )
+                    combos += 1
+    assert combos >= 16, "the sweep collapsed; it is no longer covering variants"
+
+
+def test_the_guard_rejects_an_argv_that_lost_dash_n() -> None:
+    """Proves the guard can FIRE. A check that cannot fail is decoration, and
+    this one lives on a line that is unconditional today — so without this test
+    nothing would ever have executed its raising branch."""
+    with pytest.raises(RipError, match="without -N"):
+        assert_metadata_lookup_disabled(["cyanrip", "-d", "/dev/sr0", "-o", "flac"])
+
+
+def test_the_guard_accepts_a_correct_argv() -> None:
+    """The positive control, so the test above is not simply rejecting
+    everything handed to it."""
+    # Returns None and, crucially, does not raise.
+    assert assert_metadata_lookup_disabled(["cyanrip", "-N", "-o", "flac"]) is None
+
+
+def test_the_guard_is_reachable_from_the_real_builder() -> None:
+    """Grep for a call site before believing a guard works, and check the call
+    site is *reachable* — a fully-implemented check called from nowhere is one
+    of the failure modes this project has actually shipped."""
+    import inspect
+
+    source = inspect.getsource(CyanripImpl._build_rip_argv)
+    assert "assert_metadata_lookup_disabled(argv)" in source
+    # ...and on the return path, not inside a branch that a normal rip skips.
+    assert source.rstrip().endswith("return argv")
