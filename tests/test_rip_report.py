@@ -885,8 +885,35 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_13() -> None:
-    assert REPORT_SCHEMA_VERSION == 13
+def test_schema_version_is_14() -> None:
+    assert REPORT_SCHEMA_VERSION == 14
+
+
+def test_the_rippers_own_completion_verdict_reaches_the_json() -> None:
+    """Parsed since v0.6.1 and, until the embedded self-check ran, never
+    serialized — so the report said "completion footer absent" about a log that
+    plainly had one. Caught by a *consumer* of the field, which is the argument
+    for having one."""
+    report = build_report(
+        RipLog(
+            rip_completed=False,
+            rip_completed_tracks=2,
+            rip_completed_total=14,
+            rip_completed_reason="interrupted by user",
+            invoked_as="/usr/bin/cyanrip -d /dev/sr0 -N",
+        )
+    )
+    assert report["rip"]["rip_completed"] is False
+    assert report["rip"]["rip_completed_tracks"] == 2
+    assert report["rip"]["rip_completed_total"] == 14
+    assert report["rip"]["rip_completed_reason"] == "interrupted by user"
+    assert report["rip"]["invoked_as"] == "/usr/bin/cyanrip -d /dev/sr0 -N"
+
+
+def test_an_absent_footer_serializes_as_null_not_false() -> None:
+    """Tri-state at the serialization boundary, where it is easiest to lose."""
+    report = build_report(RipLog())
+    assert report["rip"]["rip_completed"] is None
 
 
 # --- v13: which ripper binary, and how the process actually ended ------------
