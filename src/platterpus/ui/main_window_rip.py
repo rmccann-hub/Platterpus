@@ -2506,7 +2506,19 @@ class RipMixin(MainWindowShared):
             started_at=timing.get("started_at") or "",
             finished_at=timing.get("finished_at") or "",
             audio_seconds_ripped=_ripped_audio_seconds(rip_log),
-            completed=not getattr(self, "_rip_cancelled", False),
+            # A rip is "completed" only when it neither was cancelled NOR
+            # failed. Gating on the cancel flag alone left the failure case
+            # wide open, and the rig found it immediately: the Roots Music
+            # rip died after 2 seconds on a bad argument and archived
+            # `realtime_multiplier: 0.0` — 2 s over a 3467 s disc, a rate for
+            # a rip that read nothing at all (2026-08-02).
+            completed=(
+                not getattr(self, "_rip_cancelled", False)
+                and str(
+                    (getattr(self, "_last_outcome", None) or {}).get("status") or ""
+                ).casefold()
+                not in {"failed", "cancelled"}
+            ),
         )
         timing.update(enriched)
 

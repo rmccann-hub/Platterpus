@@ -94,3 +94,19 @@ def test_ripped_audio_ignores_a_track_whose_span_is_backwards() -> None:
     """Never raises, and never subtracts: a malformed span contributes nothing
     rather than corrupting the total."""
     assert _ripped_audio_seconds(_Log(_Track(500, 100), _Track(0, 74))) == 1.0
+
+
+# --- the gap the rig found in the first version of this fix ------------------
+
+
+def test_a_failed_rip_is_not_completed_either() -> None:
+    """Gating on "was it cancelled" alone left the failure case open.
+
+    Real artifact, 2026-08-02: the Roots Music rip died after 2 seconds on a bad
+    argument, read nothing, and archived `realtime_multiplier: 0.0` — 2 s over a
+    3467 s disc. `outcome.status` was "failed", not "cancelled", so a
+    cancel-only gate would still have computed it.
+    """
+    timing = build_timing(2, disc_seconds=3467, completed=False)
+    assert timing["realtime_multiplier"] is None
+    assert "did not finish" in timing["realtime_multiplier_basis"]
