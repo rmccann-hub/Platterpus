@@ -109,11 +109,38 @@ def build_artifact(path: Path | None) -> ArtifactEntry:
     return entry
 
 
+def build_text_artifact(text: str | None, *, label: str) -> ArtifactEntry:
+    """Wrap already-in-memory text as an artifact entry. Never raises.
+
+    Some artifacts never touch the filesystem — the ripper's captured stdout is
+    the important one. It is the only record that survives the ripper being
+    killed (its logfile is block-buffered; its stdout is a pipe we are already
+    draining), so it must reach the report even though there is no path to read.
+
+    ``path`` is None and a ``source`` names where it came from, so a reader can
+    tell an in-memory capture from a file that happened to be missing.
+    """
+    if not text:
+        return {"path": None, "exists": False, "source": label}
+    data = text.encode("utf-8", errors="replace")
+    truncated = len(data) > MAX_ARTIFACT_BYTES
+    return {
+        "path": None,
+        "exists": True,
+        "source": label,
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "truncated": truncated,
+        "text": data[:MAX_ARTIFACT_BYTES].decode("utf-8", errors="replace"),
+    }
+
+
 def build_artifacts(
     *,
     rip_log: Path | None = None,
     eac_log: Path | None = None,
     cue: Path | None = None,
+    ripper_stdout: str | None = None,
 ) -> ArtifactsBlock:
     """Build the report's ``artifacts`` block from the three companion paths.
 
@@ -129,6 +156,13 @@ def build_artifacts(
             "others. Text only — never audio (see CLAUDE.md critical rule #8)."
         ),
         "rip_log": build_artifact(rip_log),
+        # The kill-proof one. When `rip_log.text` is short and this is long, the
+        # difference is exactly what the ripper failed to flush.
+        "ripper_stdout": build_text_artifact(
+            ripper_stdout,
+            label="captured from the ripper's stdout (progress "
+            "redraws excluded); complete even when the ripper was killed",
+        ),
         "eac_log": build_artifact(eac_log),
         "cue": build_artifact(cue),
     }

@@ -140,6 +140,10 @@ class _FakeBackend(RipBackend):
         force_overread: bool = False,
         read_offset_override: int | None = None,
         metadata=None,
+        # Mirrors the ABC exactly. A fake that quietly accepts **kwargs would
+        # have hidden this widening, which is the harness-fidelity rule: a
+        # stand-in must not be more permissive than the real thing.
+        disc_track_total: int | None = None,
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
     ) -> RipHandle:

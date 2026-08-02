@@ -208,6 +208,36 @@ class TrackResult:
     # above is `start_sector - pregap_start_lsn`, which is exactly how cyanrip
     # computes the duration it prints in its own `(duration: …)` suffix.
     pregap_start_lsn: int | None = None
+    # Which of the three things the ripper actually said about this track's
+    # pre-gap. **`unknown` is not `none`.**
+    #
+    #   ""        the ripper printed no Pregap row at all
+    #   "known"   a position was reported → `pregap_start_lsn` is set
+    #   "none"    measured, and there is no pre-gap
+    #   "unknown" the ripper TRIED and could not tell (sub-channel unreadable,
+    #             or CRC mismatches) — `pregap_unknown_reason` says which
+    #
+    # Before this existed, `unknown` did not match the LSN pattern at all, so it
+    # fell through to `pregap_start_lsn=None, pregap_sectors=None` — byte-identical
+    # to a genuine "none". "We could not determine whether this track has a
+    # pre-gap" and "this track has no pre-gap" are different archival claims, and
+    # collapsing them is the same class of error as `Accurip: disabled` rendering
+    # as "in DB, no match". Third instance of that class (2026-08-02).
+    pregap_state: str = ""
+    pregap_unknown_reason: str = ""
+    # The pre-gap length the ripper states OUTRIGHT ("Pregap length: N frames"),
+    # as opposed to the one we derive. Fork-only, and **authoritative when
+    # present** — it is the only field that can express track 1, whose pre-gap is
+    # the 150-frame lead-in PLUS any TOC-declared gap. On the fork's reference
+    # disc track 1 reads `Pregap LSN: 0` / `Start LSN: 150` / `Pregap length: 300`,
+    # and the `Gaps:` block confirms a 150-frame TOC pre-gap: 150 + 150 = 300. A
+    # derivation of `start - lsn` gets 150 there and is simply wrong.
+    pregap_length_frames: int | None = None
+    # How the ripper found it: "TOC" (declared), "lead-in" (track 1's standard
+    # two seconds), or "sub-channel" (a Q-subchannel scan found a gap the TOC does
+    # NOT declare — the EAC-parity case, and the whole point of upstream PR #115).
+    # Provenance we previously had to infer; empty on stock cyanrip.
+    pregap_source: str = ""
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
     # parsers/cyanrip_log.py, and docs/cyanrip-improvements-wanted.md §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and
@@ -255,6 +285,22 @@ class RipLog:
     # "Total time: HH:MM:SS.mmm" from the start report — the disc's AUDIO length,
     # not the rip's wall-clock (which only the GUI measures; see rip_timing).
     disc_duration: str = ""
+    # cyanrip fork only: the command line the ripper itself reports receiving.
+    # We separately record the argv we spawned it with; when those two disagree
+    # something between us mangled an argument, and that gap was previously
+    # invisible from either end.
+    invoked_as: str = ""
+    # The ripper's own "Rip completed:" footer. **Tri-state.** None = the footer
+    # is absent, which is exactly what a killed rip's log looks like — never
+    # read it as False ("finished, and reported failure"). The fork confirms
+    # (handshake round 4, Q10) this footer is the only structural difference
+    # between a truncated log and a short one, because the cue cannot tell.
+    rip_completed: bool | None = None
+    rip_completed_tracks: int | None = None
+    rip_completed_total: int | None = None
+    #: Why it did not complete, in the ripper's own words ("interrupted by
+    #: user"). Empty on a completed rip and when the footer is absent.
+    rip_completed_reason: str = ""
     # cyanrip's "Paranoia status counts" block (READ/VERIFY/FIXUP_ATOM/OVERLAP/…)
     # — error-correction activity. High counts explain a slow, re-read-heavy rip.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
@@ -274,6 +320,29 @@ class RipLog:
     # block. Empty for whipper logs / when cyanrip didn't print them.
     disc_id: str = ""
     cddb_id: str = ""
+    # True when the log text itself is evidence that the ripper was killed while
+    # still writing it — NOT merely that the rip was cancelled.
+    #
+    # cyanrip opens its logfile block-buffered, so a completed track's record
+    # only reaches disk when a 4 KiB stdio block fills or the process exits
+    # cleanly. Kill it and the tail of the buffer is lost. On the rig
+    # (2026-08-01) that produced a file of exactly 4096 bytes ending mid-token at
+    # `REPLAYGAIN_TRACK_GA`: track 3 had completed and verified against
+    # AccurateRip at confidence 200, and was absent from every artifact
+    # Platterpus wrote. The data was never lost — it was in our captured stdout
+    # the whole time — but the report was built from the file.
+    #
+    # This flag exists because the *silence* was the real defect. A truncated
+    # log is indistinguishable, from the parse alone, from a rip that simply
+    # stopped earlier: both yield fewer tracks and no finish report. Saying so
+    # turns "12 tracks were never ripped" (wrong, and unfalsifiable) into "this
+    # log was cut off, so what it does NOT say proves nothing".
+    log_truncated: bool = False
+    # Set when the LAST track block was the one cut off — its record claims a
+    # status and a CRC but never reached its `File(s):` line. That track's data
+    # is present but incomplete, which is a different problem from a track that
+    # is missing outright, and a consumer counting "verified" tracks should know.
+    last_track_incomplete: bool = False
 
 
 # --- AccurateRip "is this track verified?" — the ONE shared definition -------

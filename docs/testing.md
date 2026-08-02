@@ -812,6 +812,91 @@ Same family as §5.t's "a floor equal to the population it measures is not a flo
 both are a measurement taken against something that moves with the thing measured.
 
 
+### 5.m — Two rules already existed. Neither ran. (added 2026-08-02)
+
+A hardware batch of eight discs produced one total rip failure, and both halves
+of it were already covered by written rules:
+
+* *"Before invoking an external tool, validate that the arguments we hand it
+  satisfy that tool's documented contract."* We passed cyanrip `-t 17=` for a
+  16-track disc. It refused the entire rip — exit 1, two seconds, no audio.
+* *"When a dependency fails or emits an error, capture its stderr/stdout and
+  log it (never swallow it) so the failure is diagnosable."* cyanrip printed
+  `Invalid track number 17, list has 16 tracks!`. The report's `failure_hint`
+  was `null` and the user was shown **"Rip failed."**
+
+Neither rule had a test, a sweep, or a single call site enforcing it. This is
+§5.o for the third time in one week — *a rule enforced nowhere is not a rule* —
+so the durable part is not "add these two checks", it is:
+
+**A prose rule in CLAUDE.md is a statement of intent. It becomes real when
+something executes it.** When you write or read a rule of the form "always X
+before Y", ask immediately: *what would fail if I stopped doing X?* If the
+answer is "nothing until a user hits it", the rule is decoration. Give it a
+test, a sweep, or a chokepoint function — in the same change that states it.
+
+Two concrete shapes that came out of this one:
+
+- **Validate at the chokepoint, not at every caller.** The `-t` guard lives in
+  `_metadata_args`, the single place argv is built, so it holds no matter which
+  path assembled the metadata — including the medium-selection bug that
+  produced the bad list in the first place, which is still unfixed. A boundary
+  guard is worth having *even when you know the upstream cause*, because it
+  bounds the blast radius of causes you have not found yet.
+- **Range-check anything not derived from the thing you are about to act on.**
+  The bad track numbers came from MusicBrainz; the constraint belongs to the
+  disc. Values that cross that kind of boundary are where "usually right" hides
+  until it isn't. Recorded per-flag in `docs/dependency-contracts.md`.
+
+
+### 5.u — Answer it from the artifact, not from your memory of the artifact (added 2026-08-02)
+
+The pre-gap convention flipped **twice in one day**, and the deciding evidence
+was in the repo the whole time.
+
+1. The cyanrip fork's handshake §H2 argued that EAC's `Pre-gap length` row is
+   the TOC component alone, so the fork's track-1 `Pregap length: 300`
+   (lead-in 150 + declared TOC gap 150) was not EAC-comparable.
+2. I accepted it, citing my own re-measurement: *"EAC reports no pre-gap for
+   track 1 of the reference disc — 9 of 14 tracks, track 1 not among them."*
+   Committed the change.
+3. Then I opened `output_reference/EAC_flac/eac_baseline_police_classics.log`.
+   It reads `Track  1 … Pre-gap length  0:00:02.00`. **10 of 14 tracks, track 1
+   included.** Reverted.
+
+The "9 of 14" was not invented — it was a correct count of **`INDEX 00` lines in
+the cue**, where track 1 *cannot* appear because no addressable sector exists
+before LSN 0. A true measurement of one artifact, quoted as evidence about a
+different one, and it survived a round-trip through two projects because both
+sides were reasoning about what EAC does rather than reading what EAC wrote.
+
+Three things generalise:
+
+- **A remembered measurement is not a measurement.** It has no provenance you
+  can re-check and it silently drops the qualifier — here, *which file*. If you
+  are about to cite a number you measured earlier, re-run the measurement or
+  cite the command. The re-run cost ten seconds.
+- **Name the artifact in the claim.** "EAC reports N" is unfalsifiable; "EAC's
+  *log* reports N, its *cue* reports M, and they differ on track 1 by
+  construction" is checkable and turned out to be the whole answer.
+- **A correction from the other side deserves the same scrutiny as a claim.**
+  §H2 was well-argued and wrong, and I applied it faster than I had applied any
+  finding of my own, precisely because it was a correction. The handshake's
+  value is the *check*, not the direction of travel.
+
+The durable artifact is `tests/test_eac_pregap_convention.py`, which does not
+state the convention at all — it **derives** it from the committed log and cue
+every run: that EAC's fraction is truncated hundredths (decided by the single
+row where truncation and rounding disagree), that the row for track *n* > 1 is
+`start − INDEX 00`, that track 1's is the lead-in plus any declared gap, and
+that our renderer reproduces all ten real rows byte-for-byte. It carries floors
+(`len(toc) == 14`, `≥ 10 rows`, `≥ 5 distinct values`, `≥ 1 row that
+distinguishes truncation from rounding`) so a swapped or truncated baseline
+fails loudly instead of passing vacuously.
+
+**When a committed artifact can settle a question, the test should read the
+artifact.** Anything else pins your belief about the artifact.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -878,4 +963,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.0.*
+*Last updated for Platterpus v0.6.1.*

@@ -370,6 +370,7 @@ class ArtifactEntry(TypedDict):
 
     path: str | None
     exists: bool
+    source: NotRequired[str]
     bytes: NotRequired[int]
     sha256: NotRequired[str]
     truncated: NotRequired[bool]
@@ -382,6 +383,7 @@ class ArtifactsBlock(TypedDict):
 
     note: str
     rip_log: ArtifactEntry
+    ripper_stdout: ArtifactEntry
     eac_log: ArtifactEntry
     cue: ArtifactEntry
 

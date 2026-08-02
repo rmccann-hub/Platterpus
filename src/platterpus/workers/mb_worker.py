@@ -101,16 +101,29 @@ class MusicBrainzWorker(QObject):
             return
         self.releases_returned.emit(context, results)
 
-    @Slot(str, str)
-    def fetch_release(self, mbid: str, context: str = "") -> None:
+    @Slot(str, str, int)
+    def fetch_release(
+        self, mbid: str, context: str = "", disc_track_count: int = 0
+    ) -> None:
         """Fetch full release details for one MBID.
 
         `context` (the disc-id the fetch belongs to) is echoed back so a late
-        fetch for an already-ejected disc can be dropped by the GUI.
+        fetch for an already-ejected disc can be dropped by the GUI — and it
+        doubles as the *authoritative* signal for picking which medium of a
+        multi-disc release is actually in the drive, since it was derived from
+        the physical TOC. `disc_track_count` is the drive's track count, the
+        fallback signal when MusicBrainz has no disc IDs on file.
+
+        Passing 0 for the count means "unknown", which is honest: the selector
+        then reports an undetermined medium rather than a confident wrong one.
         """
         log.debug("MB release fetch: %s", mbid)
         try:
-            detail = self._client.release_by_mbid(mbid)
+            detail = self._client.release_by_mbid(
+                mbid,
+                disc_id=context,
+                disc_track_count=disc_track_count or None,
+            )
         except MusicBrainzQueryError as exc:
             log.warning("MB release fetch failed: %s", exc)
             self.error.emit(context, str(exc))

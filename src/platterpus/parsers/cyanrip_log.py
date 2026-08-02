@@ -193,7 +193,60 @@ _SECURE_DONE_MATCH = re.compile(
 )
 _SECURE_DONE_FAIL = re.compile(r"^\s*Done;\s+\(no matches found\b")
 # "Total time:     00:59:42.354" — the disc's AUDIO duration (start report).
-_TOTAL_TIME = re.compile(r"^Total time:\s+(?P<time>\d{1,2}:\d{2}:\d{2}(?:\.\d+)?)")
+#
+# TWO shapes, both real. cyanrip prints `HH:MM:SS.mmm` for a full disc and
+# `MM:SS.ff` for a short one, and the original pattern demanded three
+# colon-separated fields — so the fork's own golden reference (`00:08.00`) fell
+# through as an unrecognised line and the disc's duration was silently absent.
+# Found by running the parser over the round-4 fixture rather than by reading
+# it: the artifact answers questions the eye does not (docs/testing.md §5.u).
+_TOTAL_TIME = re.compile(
+    r"^Total time:\s+(?P<time>\d{1,3}:\d{2}(?::\d{2})?(?:\.\d{1,3})?)\s*$"
+)
+
+# FORK-ONLY (round 4, our ask A3). "Invoked as:  /path/to/cyanrip -d ... -N ..."
+# — the argv cyanrip actually RECEIVED, echoed into the log at column 0.
+#
+# We already record the argv we *sent* (`outcome.ripper_argv`, read off
+# `Popen.args`). This is the other end of the same wire, and the value is
+# entirely in the difference: a wrapper script, a shell, or the Distrobox
+# host-export mangling an argument is invisible to both halves alone and
+# obvious the moment they disagree. Bounded at 4000 chars — a metadata-heavy
+# rip's argv is long, and this reaches a report.
+_INVOKED_AS = re.compile(r"^Invoked as:\s+(?P<argv>\S.{0,4000}?)\s*$")
+
+# "Rip completed:  yes (3 of 3 tracks)" — the ripper's OWN verdict on whether
+# it finished, with its own denominator.
+#
+# This is the strongest completeness signal in the log and it is the ripper's,
+# not ours: the fork confirms (round 4 Q10) that the footer is the only thing
+# distinguishing a killed rip from a short one, because the cue "looks
+# structurally normal — just short". `\d{1,4}` bounded; the yes/no is captured
+# rather than assumed, since "no" is a real answer a completed-but-failed rip
+# gives.
+# TWO shapes, and the second one is the one that matters:
+#
+#     Rip completed:  yes (3 of 3 tracks)
+#     Rip completed:  no (interrupted by user, 2 of 3 tracks)
+#
+# The first version of this pattern handled only the `yes` shape, so a
+# CANCELLED rip — the entire case this parsing exists for — matched
+# `verdict='no'` and silently dropped `2 of 3`. The ripper was telling us its
+# own count for the exact scenario where our own count is untrustworthy, and we
+# threw it away. Found by reading the fork's generated P2 table
+# (`cyanrip_log.c:420`), which is what a provider contract is *for*: their
+# golden reference is a *successful* rip and could never have shown this.
+#
+# The parenthetical's optional leading clause is captured as `reason` rather
+# than skipped, so "interrupted by user" reaches the report instead of being
+# inferred from `verdict == "no"`.
+_RIP_COMPLETED = re.compile(
+    r"^Rip completed:\s+(?P<verdict>yes|no)"
+    r"(?:\s+\("
+    r"(?:(?P<reason>[^,)]{1,64}),\s*)?"
+    r"(?P<done>\d{1,4})\s+of\s+(?P<total>\d{1,4})\s+tracks?"
+    r"\))?"
+)
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
 # is derived from exactly these (its Start and Length columns reproduce
@@ -205,7 +258,22 @@ _END_LSN = re.compile(r"^\s+End LSN:\s+(?P<value>\d+)")
 # Anchored like its two siblings — NOT to end-of-line. cyanrip prints a
 # "(with offset: N)" suffix on some geometry rows, and a `$` here would drop a
 # real pre-gap value the moment it gained one (review finding, 2026-07-28).
-_PREGAP_LSN = re.compile(r"^\s+Pregap LSN:\s+(?P<value>\d+|none)\b")
+# `unknown` is a THIRD answer, not a missing one. The fork prints
+# `unknown (sub-channel unreadable)` / `unknown (sub-channel CRC mismatches)`
+# when it tried a Q-subchannel scan and could not tell. The old
+# `(\d+|none)` matched neither, so the row fell through entirely and the track
+# came out identical to a measured "none" — see TrackResult.pregap_state.
+_PREGAP_LSN = re.compile(
+    r"^\s{1,8}Pregap LSN:\s+(?P<value>\d{1,9}|none|unknown)"
+    r"(?:\s+\((?P<reason>[^)]{0,64})\))?"
+)
+# Fork-only, and authoritative when present: the only field that can express
+# track 1 (lead-in + any declared gap). Bounded per the never-unbounded rule.
+_PREGAP_LENGTH = re.compile(r"^\s{1,8}Pregap length:\s+(?P<frames>\d{1,9})\s+frames?\b")
+# Fork-only provenance. `sub-channel` is the PR #115 payoff — a gap the TOC does
+# not declare. Left as free text after the keyword so a future source name is
+# recorded rather than dropped.
+_PREGAP_SOURCE = re.compile(r"^\s{1,8}Pregap source:\s+(?P<source>\S.{0,63}?)\s*$")
 
 
 # "  EAC CRC32:     A1B2C3D4" with an optional "(after N rips)" suffix — the
@@ -597,6 +665,17 @@ class _Disc:
     accuraterip_summary: str = ""
     partially_accurate_summary: str = ""
     disc_duration: str = ""
+    # The argv cyanrip received (fork-only, our A3 ask). The counterpart to the
+    # argv we sent; the difference between them is where a wrapper or the
+    # host-export mangles an argument, which neither half can show alone.
+    invoked_as: str = ""
+    # The ripper's own completion verdict + denominator. Tri-state: None means
+    # the footer was absent, which is what a KILLED rip looks like and must not
+    # be read as "ran to the end and failed".
+    rip_completed: bool | None = None
+    rip_completed_tracks: int | None = None
+    rip_completed_total: int | None = None
+    rip_completed_reason: str = ""
     health_status: str = ""
     log_checksum: str = ""
     # Track number → CRC of the file that actually shipped, from Platterpus's own
@@ -645,6 +724,11 @@ class _TrackAcc:
     # because conflating the two is precisely the bug this field exists to end:
     # see the derivation in `flush()`.
     pregap_start_lsn: int | None = None
+    # See TrackResult for what each of these means; `unknown` is not `none`.
+    pregap_state: str = ""
+    pregap_unknown_reason: str = ""
+    pregap_length_frames: int | None = None
+    pregap_source: str = ""
     replaygain: dict[str, str] = field(default_factory=dict)
     # The three new per-track facts. All default to None — "the ripper did not say"
     # — which is what the deployed cyanrip 0.9.3 leaves them at for the first two.
@@ -805,6 +889,30 @@ def _take_total_time(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_invoked_as(disc: _Disc, match: re.Match[str]) -> bool:
+    """The argv cyanrip received, verbatim. Compared against what we sent."""
+    disc.invoked_as = match.group("argv")
+    return True
+
+
+def _take_rip_completed(disc: _Disc, match: re.Match[str]) -> bool:
+    """The ripper's own "did I finish" verdict and its own track denominator.
+
+    Tri-state on purpose. ``None`` means the footer was absent — which is what
+    a killed rip looks like — and must never be read as ``False`` ("the ripper
+    ran to the end and reported failure"). Those need different messages: one
+    says the log stops early, the other says the rip did.
+    """
+    disc.rip_completed = match.group("verdict") == "yes"
+    disc.rip_completed_tracks = int_or_none(match.group("done"), field="rip_completed")
+    disc.rip_completed_total = int_or_none(match.group("total"), field="rip_completed")
+    # "interrupted by user" and the like. Kept verbatim rather than inferred
+    # from the verdict: the ripper may grow other reasons, and reconstructing
+    # its sentence from a boolean would be us inventing wording it never used.
+    disc.rip_completed_reason = (match.group("reason") or "").strip()
+    return True
+
+
 def _take_log_checksum(disc: _Disc, match: re.Match[str]) -> bool:
     disc.log_checksum = match.group("sig")
     return True
@@ -854,6 +962,7 @@ def _take_finished_at(disc: _Disc, match: re.Match[str]) -> bool:
 # a ripper's text into a bit-perfection claim.
 _RULES_BEFORE_GAPS: tuple[_LineRule, ...] = (
     _LineRule("version_banner", _HEADER, _take_version),
+    _LineRule("invoked_as", _INVOKED_AS, _take_invoked_as),
     _LineRule("drive", _DRIVE, _take_drive),
     _LineRule("read_offset", _OFFSET, _take_offset),
     _LineRule("overread_mode", _OVERREAD_MODE, _take_overread_mode),
@@ -880,6 +989,7 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_total", _ACCURATE_TOTAL, _take_accurate_total),
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
+    _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
     _LineRule("finished_at", _FINISHED_AT, _take_finished_at),
 )
 
@@ -920,6 +1030,8 @@ _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("track_start_lsn", _START_LSN),
     ("track_end_lsn", _END_LSN),
     ("track_pregap_lsn", _PREGAP_LSN),
+    ("track_pregap_length", _PREGAP_LENGTH),
+    ("track_pregap_source", _PREGAP_SOURCE),
     ("track_preemphasis", _PREEMPHASIS),
     ("track_eac_crc", _EAC_CRC),
     ("track_accurip", _ACCURIP_TRACK),
@@ -973,6 +1085,16 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     # switches to "Underread:" when the read offset is negative.
     (re.compile(r"^(?:Over|Under)read:\s"), "derived from offset; not a verdict"),
     # Rip-effort / feature rows: real facts, no field to put them in yet.
+    # The secure-re-rip progress line, one per non-agreeing read. The VERDICT
+    # is the `Done;` line we already parse; these are the attempts leading to
+    # it and carry no fact the verdict does not. Listed rather than left
+    # unrecognised so the completeness test stays meaningful — an unlisted,
+    # unmatched line is supposed to be a failure, and three of them per track
+    # would drown the signal.
+    (
+        re.compile(r"^Repeating ripping\s+\("),
+        "secure re-rip attempt; the Done; line carries the verdict",
+    ),
     (re.compile(r"^Frame retries:\s"), "candidate: rip-effort setting"),
     (re.compile(r"^HDCD decoding:\s"), "candidate: alters samples when enabled"),
     (re.compile(r"^Album Art:\s"), "candidate: cover-art presence"),
@@ -1042,6 +1164,49 @@ def looks_like_cyanrip_log(text: str) -> bool:
         if line.strip():
             return bool(_HEADER.match(line))
     return False
+
+
+def _detect_truncation(text: str, tracks: list[TrackResult]) -> tuple[bool, bool]:
+    """Was this log cut off mid-write? Returns ``(truncated, last_incomplete)``.
+
+    **Why this is not "did the rip finish".** A cancelled rip and a truncated
+    log look identical from the parse alone — both give fewer tracks and no
+    finish report — and conflating them is what let a *verified* track vanish
+    in silence. On the rig (2026-08-01) cyanrip's logfile was killed at exactly
+    4096 bytes, one unflushed stdio block, ending mid-token at
+    ``REPLAYGAIN_TRACK_GA``. Track 3 had completed and matched AccurateRip at
+    confidence 200. Every artifact Platterpus wrote said 2 tracks, and the
+    verdict blamed the user's cancel for 12 tracks that "were never ripped" —
+    when the true figure was 11 and the log simply stopped talking.
+
+    Two signals, both specific to *the writer was interrupted*, neither of which
+    a cleanly-stopped rip can trip:
+
+    1. **The text does not end in a newline.** Every line cyanrip writes ends
+       with one, so a final partial line means the process died mid-write. This
+       is the strong signal and it is what the rig artifact shows.
+    2. **The last track claims success but never got its filename.** ``File(s):``
+       is the last row of a track block, so a track that says "ripped
+       successfully" with no filename had its block cut. Scoped to *successful
+       audio* tracks deliberately: a data track and an errored track both
+       legitimately carry an empty filename, so keying on the empty string alone
+       would false-positive on any disc with a data track.
+
+    Deliberately does NOT use "no finish report" as a signal. That is absent
+    from every cancelled rip, truncated or not, so it would flag the honest case
+    as often as the broken one — a detector that fires on everything says
+    nothing. Pure and never raises; the parse itself must not depend on it.
+    """
+    if not text:
+        return False, False
+    mid_write = not text.endswith("\n")
+    last_incomplete = False
+    if tracks:
+        last = tracks[-1]
+        last_incomplete = getattr(
+            last, "status", ""
+        ) == "ripped successfully" and not getattr(last, "filename", "")
+    return (mid_write or last_incomplete), last_incomplete
 
 
 def parse_cyanrip_log(text: str) -> RipLog:
@@ -1116,7 +1281,36 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # Both operands are required. A log that prints a pregap LSN without a
         # Start LSN leaves the length None ("not reported"), never 0 ("measured
         # none") — absent must stay absent.
-        if current.pregap_start_lsn is not None:
+        #
+        # A ripper that STATES the length outright wins over our subtraction.
+        # `Pregap length: N frames` (fork-only) is the only field that can
+        # express track 1, whose gap is the 150-frame lead-in PLUS any declared
+        # gap: the fork's reference disc reads `Pregap LSN: 0` / `Start LSN: 150`
+        # / `Pregap length: 300`, and its `Gaps:` block confirms a 150-frame TOC
+        # pre-gap — 150 + 150. Subtracting gets 150 there, and is simply wrong.
+        # Deriving remains the path for stock cyanrip, which states nothing.
+        #
+        # This branch was briefly REMOVED on 2026-08-02 and restored the same
+        # day. The fork's handshake §H2 argued EAC's row is the TOC component
+        # alone, so 300 would be un-EAC-comparable; I accepted it from memory,
+        # having recalled "EAC reports no pre-gap for track 1". Then I opened
+        # the committed baseline. EAC's log prints
+        #
+        #     Track  1 ... Pre-gap length  0:00:02.00
+        #
+        # 2.00 s == 150 frames == the lead-in, on a disc whose TOC declares no
+        # track-1 gap. So EAC's track-1 row IS lead-in + declared gap, i.e.
+        # exactly the fork's stated figure; on the fork's fixture EAC would
+        # print 0:00:04.00. The earlier "9 of 14, track 1 not among them" was
+        # counting `INDEX 00` lines in the CUE, where track 1 cannot have one
+        # (there is no addressable sector before LSN 0) — a different artifact
+        # answering a different question. The log says 10 of 14, track 1
+        # included. `tests/test_eac_pregap_convention.py` now derives the whole
+        # convention from those two committed files so this cannot flip a third
+        # time on anyone's recollection.
+        if current.pregap_length_frames is not None:
+            current.pregap_sectors = current.pregap_length_frames
+        elif current.pregap_start_lsn is not None:
             if current.start_sector is None:
                 current.pregap_sectors = None
             else:
@@ -1132,6 +1326,10 @@ def parse_cyanrip_log(text: str) -> RipLog:
         disc.tracks.append(
             TrackResult(
                 number=current.number,
+                pregap_state=current.pregap_state,
+                pregap_unknown_reason=current.pregap_unknown_reason,
+                pregap_length_frames=current.pregap_length_frames,
+                pregap_source=current.pregap_source,
                 filename=current.filename,
                 pre_emphasis=current.pre_emphasis,
                 copy_crc=current.copy_crc,
@@ -1353,13 +1551,34 @@ def parse_cyanrip_log(text: str) -> RipLog:
                     # 0 length rather than None so "measured: none" stays
                     # distinguishable from "not reported".
                     current.pregap_sectors = 0
+                    current.pregap_state = "none"
+                elif raw == "unknown":
+                    # The ripper TRIED and could not tell. Deliberately leaves
+                    # `pregap_sectors` as None rather than 0: a 0 here would be
+                    # read downstream as "measured, no gap", which is the false
+                    # claim this branch exists to prevent.
+                    current.pregap_state = "unknown"
+                    current.pregap_unknown_reason = match.group("reason") or ""
                 else:
+                    current.pregap_state = "known"
                     # An ABSOLUTE LSN, never a length. It is stored raw and the
                     # length is derived in `flush()`, once `Start LSN:` (printed
                     # two rows later) is also known.
                     current.pregap_start_lsn = int_or_none(
                         raw, field="cyanrip Pregap LSN"
                     )
+                continue
+
+            match = _PREGAP_LENGTH.match(line)
+            if match:
+                current.pregap_length_frames = int_or_none(
+                    match.group("frames"), field="cyanrip Pregap length"
+                )
+                continue
+
+            match = _PREGAP_SOURCE.match(line)
+            if match:
+                current.pregap_source = match.group("source")
                 continue
 
             # "Appended:    2 frames of silence" — cyanrip 0.9.3 DOES print this,
@@ -1563,6 +1782,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # EOF inside the block — a truncated log must not lose what it did say.
         disc.gap_detection = "; ".join(gap_lines)
     flush()
+    truncated, last_incomplete = _detect_truncation(text, disc.tracks)
     if unclaimed_total:
         log.debug(
             "cyanrip log: %d unrecognised top-level line(s); first %d: %r",
@@ -1601,9 +1821,16 @@ def parse_cyanrip_log(text: str) -> RipLog:
         health_status=disc.health_status,
         partially_accurate_summary=disc.partially_accurate_summary,
         disc_duration=disc.disc_duration,
+        invoked_as=disc.invoked_as,
+        rip_completed=disc.rip_completed,
+        rip_completed_tracks=disc.rip_completed_tracks,
+        rip_completed_total=disc.rip_completed_total,
+        rip_completed_reason=disc.rip_completed_reason,
         paranoia_counts=disc.paranoia_counts,
         album_loudness=disc.album_loudness,
         log_checksum=disc.log_checksum,
         disc_id=disc.disc_id,
         cddb_id=disc.cddb_id,
+        log_truncated=truncated,
+        last_track_incomplete=last_incomplete,
     )

@@ -27,6 +27,7 @@ from platterpus.parsers.rip_log import (
     tracks_needing_heavy_reread,
 )
 from platterpus.report_types import ArtifactsBlock, EnvironmentBlock
+from platterpus.ripper_identity import RipperIdentity, identify_ripper
 from platterpus.verdict import accuraterip_verdict
 
 log = logging.getLogger(__name__)
@@ -158,7 +159,20 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     described a 14-track disc. This is the same missing denominator that has
 #     now been corrected on four surfaces; recording it as a number is what
 #     stops a fifth.
-REPORT_SCHEMA_VERSION: int = 12
+# v14: `rip_completed` / `_tracks` / `_total` / `_reason` and `invoked_as` —
+#     the ripper's own completion verdict and the argv it reports receiving.
+#     Both were being PARSED and then not serialized, which the embedded
+#     self-check caught the first time it ran: it reported "footer absent" for
+#     a log that plainly had one. Also adds the `self_check` block itself.
+# v13: `ripper_is_platterpus_fork` / `ripper_identity` / `ripper_identity_detail`.
+#     `ripper_build` was already recorded, but it is a raw tag — a consumer had
+#     to know which strings mean "the Platterpus fork" to use it, and nothing
+#     said so. The classified answer is tri-state (`true` / `false` / `null`)
+#     because "we could not tell which binary" is a real and common outcome, and
+#     collapsing it to `false` would assert an unmodified upstream build we have
+#     no evidence for — the exact shape of bug this project has now shipped three
+#     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
+REPORT_SCHEMA_VERSION: int = 14
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -264,6 +278,8 @@ def build_timing(
     disc_seconds: float | None = None,
     started_at: str = "",
     finished_at: str = "",
+    audio_seconds_ripped: float | None = None,
+    completed: bool | None = None,
 ) -> dict:
     """Build the ``timing`` section: actual elapsed + how it compares to the disc.
 
@@ -291,6 +307,37 @@ def build_timing(
         and disc_seconds > 0
     ):
         timing["disc_seconds"] = round(disc_seconds)
+    # `elapsed / disc_seconds` is only a RATE if the whole disc was ripped. On a
+    # cancelled rip it silently reports the fraction of the disc covered, which
+    # reads as an implausibly fast rip: the rig's 2-of-14 cancel logged
+    # `realtime_multiplier: 0.21` (755 s of a 3582 s disc) when actual throughput
+    # was about 0.93x. A plausible wrong number is worse than none, because
+    # nothing about it invites checking.
+    #
+    # Three outcomes, in order of how much we know:
+    #   * a completed rip           -> elapsed / disc audio, the real rate
+    #   * a partial rip that told us how much audio it DID extract
+    #                               -> elapsed / that, still a real rate
+    #   * anything else             -> null, and null means "we cannot say"
+    #
+    # `completed=None` keeps every existing caller on the old behaviour: a caller
+    # that does not know whether the rip finished has not asserted that it didn't.
+    if not isinstance(elapsed_seconds, int | float) or elapsed_seconds <= 0:
+        return timing
+    if completed is False:
+        if isinstance(audio_seconds_ripped, int | float) and audio_seconds_ripped > 0:
+            timing["realtime_multiplier"] = round(
+                audio_seconds_ripped / elapsed_seconds, 2
+            )
+            timing["realtime_multiplier_basis"] = "audio actually extracted"
+        else:
+            timing["realtime_multiplier"] = None
+            timing["realtime_multiplier_basis"] = (
+                "not computed — the rip did not finish, so elapsed over the "
+                "disc's length would be the fraction covered, not a rate"
+            )
+        return timing
+    if isinstance(disc_seconds, int | float) and disc_seconds > 0:
         timing["realtime_multiplier"] = round(elapsed_seconds / disc_seconds, 2)
     return timing
 
@@ -325,6 +372,8 @@ def build_outcome(
     failure_hint: str | None = None,
     auto_unknown_retry_fired: bool = False,
     auto_unknown_retry_reason: str | None = None,
+    ripper_exit_code: int | None = None,
+    ripper_argv: tuple[str, ...] | list[str] | None = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -334,7 +383,22 @@ def build_outcome(
     ``"failed"``; ``failure_hint`` is an actionable one-liner when we have one;
     ``auto_unknown_retry`` records whether the self-heal (re-rip as unknown when
     the ripper couldn't reach MusicBrainz) fired. Pure; never raises.
+
+    ``ripper_exit_code`` and ``ripper_argv`` (v13) are the two facts that make a
+    failure reproducible, and both were being computed and discarded:
+
+    * The exit code separates outcomes that rendered identically. ``1`` is the
+      ripper refusing an argument, ``0`` with a cancel is the user stopping a
+      healthy run, and a negative value is a signal — ``-9`` meaning we had to
+      SIGKILL the process group. ``None`` is its own answer: the child was never
+      reaped, which happens when it is wedged in a drive ioctl where even
+      SIGKILL does not land.
+    * The argv is what lets someone re-run the exact failing command. The one
+      argument defect that has killed a whole rip (``-t 17=`` on a 16-track
+      disc) was diagnosed from files the maintainer uploaded, because our own
+      report did not carry the command line.
     """
+    argv = tuple(ripper_argv or ())
     return {
         "status": status,
         "failure_hint": failure_hint or None,
@@ -342,6 +406,18 @@ def build_outcome(
             "fired": bool(auto_unknown_retry_fired),
             "reason": auto_unknown_retry_reason or None,
         },
+        # Distinct keys rather than one nested object, because a support reader
+        # greps this file and a flat key is findable.
+        "ripper_exit_code": ripper_exit_code,
+        # A list (JSON has no tuples) of the argv as spawned. Empty argv is
+        # serialized as null, not [], so "we never launched it" and "we launched
+        # it with no arguments" stay distinguishable.
+        "ripper_argv": list(argv) or None,
+        # Pre-joined for the human reading the JSON. Not shell-quoted: it is a
+        # record of an `execve` argument vector, and quoting it would suggest it
+        # is safe to paste, which for a vector containing user-entered metadata
+        # it is not. `ripper_argv` above is the machine-readable form.
+        "ripper_command_display": " ".join(argv) or None,
     }
 
 
@@ -469,6 +545,20 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
     }
 
 
+def _ripper_identity(rip_log: object) -> RipperIdentity:
+    """Classify the ripper binary behind this rip.
+
+    A thin pass-through to the shared classifier so the report, the EAC-style
+    log and the live rip panel cannot describe the same binary differently.
+    ``getattr`` because a caller may hand us a stand-in ``RipLog`` from an older
+    parse that predates these fields.
+    """
+    return identify_ripper(
+        getattr(rip_log, "log_creator", "") or "",
+        getattr(rip_log, "ripper_build", "") or "",
+    )
+
+
 def _build(
     rip_log: object,
     ctdb_result: object | None,
@@ -566,6 +656,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
+        log_truncated=bool(getattr(rip_log, "log_truncated", False)),
     )
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -620,6 +711,30 @@ def _build(
             # describe). The only provenance separating an official build from a local
             # one, and they can differ in pre-gap metadata and peak values.
             "ripper_build": getattr(rip_log, "ripper_build", "") or None,
+            # v14: the ripper's OWN completion verdict, counts and reason —
+            # not our count of how many tracks its log happened to mention.
+            # Tri-state: `null` means the footer was absent, which is what a
+            # killed rip looks like, and must never be read as `false`
+            # ("finished, and reported failure"). Per the fork (handshake
+            # round 4, Q10) this footer is the only structural difference
+            # between a truncated log and a short one — the cue cannot tell.
+            "rip_completed": getattr(rip_log, "rip_completed", None),
+            "rip_completed_tracks": getattr(rip_log, "rip_completed_tracks", None),
+            "rip_completed_total": getattr(rip_log, "rip_completed_total", None),
+            "rip_completed_reason": getattr(rip_log, "rip_completed_reason", "")
+            or None,
+            # The argv the ripper reports RECEIVING (fork-only). We separately
+            # record the argv we spawned it with in `outcome.ripper_argv`; when
+            # those two disagree, something between us mangled an argument, and
+            # that gap is invisible from either end alone.
+            "invoked_as": getattr(rip_log, "invoked_as", "") or None,
+            # v13: the *classified* answer, so a consumer does not have to know
+            # which tags mean "our fork". Tri-state on purpose — `null` is "not
+            # determined", and must never be read as `false`. An unrecognised
+            # tag is an absence of evidence, not evidence of a stock binary.
+            "ripper_is_platterpus_fork": _ripper_identity(rip_log).is_fork,
+            "ripper_identity": _ripper_identity(rip_log).kind,
+            "ripper_identity_detail": _ripper_identity(rip_log).detail,
             "creation_date": getattr(rip_log, "creation_date", "") or None,
             # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
             # The truest "same physical disc" key — stable across re-rips and
@@ -754,6 +869,12 @@ def _track(track: object) -> dict:
         # on a real disc (see parsers.rip_log.TrackResult for the numbers).
         "pregap_sectors": getattr(track, "pregap_sectors", None),
         "pregap_start_lsn": getattr(track, "pregap_start_lsn", None),
+        # Three states, never two. "unknown" (the ripper tried and could not
+        # tell) must not serialize as a 0-length gap — see TrackResult.
+        "pregap_state": getattr(track, "pregap_state", "") or None,
+        "pregap_unknown_reason": getattr(track, "pregap_unknown_reason", "") or None,
+        "pregap_length_frames": getattr(track, "pregap_length_frames", None),
+        "pregap_source": getattr(track, "pregap_source", "") or None,
         # ReplayGain / loudness tags cyanrip wrote into the FLAC (raw strings) —
         # the machine-readable record of what was tagged. None when absent.
         "replaygain": (dict(getattr(track, "replaygain", {})) or None),
@@ -970,6 +1091,22 @@ def _log_parse(rip_log: object, override: dict | None) -> dict:
         return override
     tracks = getattr(rip_log, "tracks", ()) or ()
     ok = bool(tracks) or bool(getattr(rip_log, "log_creator", ""))
+    # A truncated log parses "fine" — that was the whole problem. cyanrip's
+    # logfile is block-buffered, so killing it loses the tail of a 4 KiB block;
+    # on the rig a track that had completed and matched AccurateRip at
+    # confidence 200 was simply absent, and nothing said so. `ok` stays True
+    # (the parse really did succeed on what was there); the note is what stops a
+    # reader treating the shortfall as fact.
+    if getattr(rip_log, "log_truncated", False):
+        return {
+            "ok": ok,
+            "note": (
+                "the ripper's log was cut off mid-write (it was killed before "
+                "flushing), so tracks it does not mention may still have been "
+                "ripped and verified — this report's track list is a floor, not "
+                "a complete account"
+            ),
+        }
     return {"ok": ok, "note": None}
 
 
@@ -985,6 +1122,7 @@ def _issues(
     read_speed: dict | None,
     tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
+    log_truncated: bool = False,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
 
@@ -1012,6 +1150,19 @@ def _issues(
         )
     elif status == "cancelled":
         add("warning", "rip_cancelled", "the rip was cancelled before it finished")
+
+    # Ranked as an ERROR, above the cancel it usually accompanies, because it
+    # invalidates the other entries rather than adding to them: a truncated log
+    # makes "N tracks were never ripped" unfalsifiable, and the rig's own case
+    # had a track that WAS ripped and verified reported as never ripped.
+    if log_truncated:
+        add(
+            "error",
+            "ripper_log_truncated",
+            "the ripper's log was cut off mid-write, so this report's track "
+            "list is a floor — tracks it omits may have been ripped and "
+            "verified",
+        )
 
     if verdict_level == "warn":
         add(
@@ -1232,6 +1383,25 @@ def write_report(
             disc_track_total=disc_track_total,
             artifacts=artifacts,
         )
+        # Run the audit over the report we just built and embed the result, so
+        # EVERY rip carries its own verdict and nobody has to remember to run
+        # anything. `--audit-rips` runs the same registry over a whole library
+        # later; both go through `rip_audit.CHECKS`, so the per-rip block and
+        # the bulk report cannot word the same finding two different ways.
+        #
+        # Done HERE rather than in `build_report` because one of the checks
+        # stats the audio files, and `build_report` is pure by contract. This
+        # function already writes to disk, so the folder is legitimately in
+        # scope — and it is `target.parent`, the album folder.
+        #
+        # Best-effort like the rest of the report: a broken self-check must
+        # never cost the user their report.
+        try:
+            from platterpus import rip_audit
+
+            report["self_check"] = rip_audit.self_check_block(report, target.parent)
+        except Exception:  # noqa: BLE001 — diagnostics must not break the artifact
+            log.exception("self-check failed; report written without it")
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is
         # best-effort and must never break the post-rip flow. report_to_json

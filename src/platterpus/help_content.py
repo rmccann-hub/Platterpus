@@ -153,6 +153,12 @@ named from the album artist/title you type.
   container, the drive can take a moment to spin down.
 - If the drive keeps spinning, **Force stop** ejects and kills the reader. After
   Cancel the GUI also auto-escalates to a force-stop after a few seconds.
+- **After a cancel, some audio files will be empty — that is expected.** The
+  ripper writes a track's log record before its encoder has finished flushing to
+  disk, so a cancelled rip can leave a 0-byte `.flac` for a track the log says
+  succeeded. It is not corruption and not a damaged disc: just re-rip. Run
+  **`--audit-rips`** (below) if you want the app to tell you exactly which files
+  are affected.
 - **A disc *scan* can get stuck too** (a slow drive's table-of-contents read
   holding the drive). **Force stop** is available during a scan as well — it
   frees the drive without ejecting, so the disc stays in for a **Rescan disc**.
@@ -329,6 +335,42 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
   opens the folder containing `log.txt` in your file manager. For a *verbose*
   log, turn on **Debug logging** in Settings, reproduce the problem, then attach
   that file — it records every step (off by default to keep the log light).
+
+## Checking your rips afterwards
+
+Every rip writes a `.platterpus.json` beside the audio, and since v0.6.1 that
+file contains a **`self_check`** block: the app audits its own work at the
+moment it finishes and records what it found. You do not have to run anything —
+it is already there.
+
+To check a whole library at once, from a terminal:
+
+    ./platterpus-x86_64.AppImage --audit-rips ~/Music/rips/
+
+It is **read-only** — it opens files and prints; it never moves, deletes or
+re-rips anything. Per album it answers:
+
+- **Which cyanrip built this rip** — the Platterpus fork, unmodified upstream,
+  or *not determined*. It matters because the fork records pre-gap, sample-peak
+  and per-track timing detail that upstream cannot, so two logs of the same disc
+  from the two binaries are not interchangeable evidence.
+- **Whether the ripper said it finished**, in its own words and with its own
+  track count — not our guess from how many tracks its log happened to mention.
+- **Which disc of a multi-disc set** the tags came from. If it says *could not
+  determine*, check the track titles against the sleeve before keeping the rip:
+  they may belong to a different disc of the set.
+- **Whether the audio files the log claims actually have bytes in them** (see
+  *Stopping a rip*).
+
+## Which ripper made this? (the log's `Ripper build:` line)
+
+Near the top of every EAC-compatible log there is a `Ripper build:` row naming
+the exact cyanrip binary. It is always present — when the build cannot be
+identified it says so, rather than staying silent, because an absent row would
+read as "nothing unusual" in a log that carries a checksum.
+
+**Tools → …then `--doctor` from a terminal** reports the same thing *before* you
+rip, so you can confirm your setup without committing a disc to it.
 
 ## More
 

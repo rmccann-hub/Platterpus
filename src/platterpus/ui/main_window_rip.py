@@ -359,6 +359,24 @@ def _merge_shipped_track(
     return track
 
 
+def _ripped_audio_seconds(rip_log: object) -> float | None:
+    """How much audio the rip ACTUALLY extracted, in seconds. Never raises.
+
+    Summed from each track's sector span, which is the only figure that means
+    "we read this much" on a rip that stopped early — the disc's own length says
+    what was *available*, not what was taken. Returns None when the log carries
+    no usable geometry, which callers read as "cannot say" rather than zero.
+    """
+    total = 0
+    for track in getattr(rip_log, "tracks", ()) or ():
+        start = getattr(track, "start_sector", None)
+        end = getattr(track, "end_sector", None)
+        if isinstance(start, int) and isinstance(end, int) and end >= start:
+            total += end - start + 1
+    # 75 sectors per second (Red Book), the same constant the TOC table uses.
+    return total / 75 if total else None
+
+
 class RipMixin(MainWindowShared):
     """Start/cancel/finish a rip, plus eject, unknown-album, and cover art."""
 
@@ -484,6 +502,18 @@ class RipMixin(MainWindowShared):
         # (otherwise the rip isn't offset-corrected).
         if self._config.override_read_offset:
             params = replace(params, read_offset_override=self._config.read_offset)
+
+        # The DISC's own track count, from the scanned TOC. The backend needs it
+        # to refuse an out-of-range `-t`: cyanrip rejects the whole rip on one
+        # ("Invalid track number 17, list has 16 tracks!", exit 1, nothing
+        # ripped), which is exactly what happened to disc 1 of a 4-disc set
+        # whose MusicBrainz medium listed 18 tracks against a 16-track disc
+        # (2026-08-02). Built here rather than in the rip controls because this
+        # is where the scanned disc is known; 0/None stays None so the guard
+        # never invents a ceiling it cannot justify.
+        params = replace(
+            params, disc_track_total=getattr(self, "_current_num_tracks", 0) or None
+        )
 
         # Only validate the track table for non-unknown rips — placeholder
         # tags will be applied after the fact in unknown mode.
@@ -1266,8 +1296,26 @@ class RipMixin(MainWindowShared):
             auto_unknown_retry_reason=(
                 "ripper could not reach MusicBrainz" if self._auto_retry_done else None
             ),
+            # How the ripper actually ended, and what we told it to do. Read off
+            # the worker here — this runs at finish, while `_rip_worker` is still
+            # alive; the outcome dict is then snapshotted and survives the
+            # worker being cleared. `getattr` so an older/stand-in worker without
+            # these properties degrades to "not recorded" rather than raising in
+            # the finish handler.
+            ripper_exit_code=getattr(self._rip_worker, "ripper_exit_code", None)
+            if self._rip_worker
+            else None,
+            ripper_argv=getattr(self._rip_worker, "ripper_argv", ())
+            if self._rip_worker
+            else (),
         )
         _meta = params.metadata if params is not None else None
+        # The release summary this rip's tags came from, for the medium
+        # provenance below. None on an unknown-album rip, which has no
+        # MusicBrainz release and so no medium to have resolved.
+        _summary = getattr(
+            getattr(self, "_current_release_detail", None), "summary", None
+        )
         self._last_disc = {
             "unknown": bool(params.unknown) if params is not None else None,
             "musicbrainz_release_id": (self._current_release_id or None),
@@ -1277,6 +1325,15 @@ class RipMixin(MainWindowShared):
             "catalog_number": (getattr(_meta, "catalog_number", "") or None),
             "barcode": (getattr(_meta, "barcode", "") or None),
             "label": (getattr(_meta, "label", "") or None),
+            # WHICH disc of a multi-disc release these tags came from, and how
+            # we decided. A rip we could not resolve is still a rip, but the
+            # report must say the titles may belong to another disc rather
+            # than presenting them as settled (medium_select.py).
+            "medium_basis": (getattr(_summary, "medium_basis", "") or None),
+            "medium_detail": (getattr(_summary, "medium_detail", "") or None),
+            "medium_undetermined": bool(
+                getattr(_summary, "medium_undetermined", False)
+            ),
         }
         # The read offset ACTUALLY handed to cyanrip (`-s`) for this rip — so the
         # report's settings.read_offset.effective is the truth, not just config.
@@ -2465,16 +2522,44 @@ class RipMixin(MainWindowShared):
         or unparseable duration just leaves the multiplier off. The report is
         (re)written after this, so the enriched timing lands in the JSON.
         """
+        from platterpus import rip_report
         from platterpus.rip_timing import parse_hms_to_seconds
 
         timing = self._last_rip_timing
         if not isinstance(timing, dict):
             return
         elapsed = timing.get("elapsed_seconds")
+        if not isinstance(elapsed, int | float):
+            return
         disc_seconds = parse_hms_to_seconds(getattr(rip_log, "disc_duration", ""))
-        if isinstance(elapsed, int | float) and disc_seconds and disc_seconds > 0:
-            timing["disc_seconds"] = round(disc_seconds)
-            timing["realtime_multiplier"] = round(elapsed / disc_seconds, 2)
+        # Delegate rather than recompute. This used to divide elapsed by the
+        # DISC's length regardless of whether the rip finished, so a cancelled
+        # 2-of-14 rip reported `realtime_multiplier: 0.21` — the fraction of the
+        # disc covered, dressed as a speed, when real throughput was ~0.93x.
+        # `build_timing` owns that reasoning (and the fallback to audio actually
+        # extracted); a second copy of the arithmetic here is exactly how the
+        # two got to disagree in the first place.
+        enriched = rip_report.build_timing(
+            elapsed,
+            disc_seconds=disc_seconds or None,
+            started_at=timing.get("started_at") or "",
+            finished_at=timing.get("finished_at") or "",
+            audio_seconds_ripped=_ripped_audio_seconds(rip_log),
+            # A rip is "completed" only when it neither was cancelled NOR
+            # failed. Gating on the cancel flag alone left the failure case
+            # wide open, and the rig found it immediately: the Roots Music
+            # rip died after 2 seconds on a bad argument and archived
+            # `realtime_multiplier: 0.0` — 2 s over a 3467 s disc, a rate for
+            # a rip that read nothing at all (2026-08-02).
+            completed=(
+                not getattr(self, "_rip_cancelled", False)
+                and str(
+                    (getattr(self, "_last_outcome", None) or {}).get("status") or ""
+                ).casefold()
+                not in {"failed", "cancelled"}
+            ),
+        )
+        timing.update(enriched)
 
     def _build_rip_debug_log(self) -> dict | None:
         """Capture this session's log for the report, minus other albums' rips.
@@ -2781,6 +2866,13 @@ class RipMixin(MainWindowShared):
                 rip_log=log_file,
                 eac_log=log_file.with_name(f"{log_file.stem} (EAC-compatible).log"),
                 cue=log_file.with_suffix(".cue"),
+                # The ripper's own stdout, which survives a kill when its
+                # block-buffered logfile does not. Read off the worker rather
+                # than a file because there is no file — this is the capture
+                # that would have shown the track the truncated log lost.
+                ripper_stdout=getattr(self._rip_worker, "captured_stdout", "")
+                if getattr(self, "_rip_worker", None) is not None
+                else "",
             ),
             # v7 process/settings/provenance blocks. `outcome`/`disc` are
             # snapshotted at finish (worker/params are cleared before the debounced

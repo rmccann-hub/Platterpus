@@ -747,3 +747,91 @@ def test_app_doctor_path_runs_and_returns_exit_code(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "preflight" in out.lower()
     assert "Backend" in out
+
+
+# --- which cyanrip build the container actually has --------------------------
+#
+# "Confirm we are using my branch" is a question the app should answer, not the
+# user's memory of what they last built. It is a SEPARATE check from
+# reachability on purpose: one line, one question, and a container that is fine
+# but on the wrong build needs a different sentence from a broken container.
+
+
+class _VersionBackend:
+    """A backend that answers `-V` with one fixed banner and nothing else.
+
+    Mirrors only what `check_backend_build` uses. If the check ever grows to
+    need more of the backend, this stops compiling rather than silently
+    exercising a different path.
+    """
+
+    def __init__(self, banner: str) -> None:
+        self._banner = banner
+
+    def version(self) -> str:
+        return self._banner
+
+
+def test_the_doctor_confirms_the_container_is_on_the_fork() -> None:
+    result = preflight.check_backend_build(
+        _VersionBackend("cyanrip 0.9.4-rc1 (platterpus-fork-ga835052)"),  # type: ignore[arg-type]
+        backend_name="cyanrip",
+    )
+    assert result.status is Status.OK
+    assert "Platterpus fork" in result.summary
+
+
+def test_the_doctor_warns_but_does_not_fail_on_upstream() -> None:
+    """Upstream cyanrip rips perfectly well; it just cannot fill the archival
+    rows the fork can. Failing here would block a working setup."""
+    result = preflight.check_backend_build(
+        _VersionBackend("cyanrip 0.9.3.1 (release)"),  # type: ignore[arg-type]
+        backend_name="cyanrip",
+    )
+    assert result.status is Status.WARN
+    assert "not the Platterpus fork" in result.summary
+    assert "platterpus-fork branch" in (result.hint or "")
+
+
+def test_an_unidentified_build_warns_rather_than_claiming_upstream() -> None:
+    """The tri-state, at the surface the user reads first. "Could not tell" must
+    not render as "you are on the wrong build"."""
+    for banner in ("cyanrip 0.9.3.1 (g1a2b3c4)", "cyanrip 0.9.3.1", ""):
+        result = preflight.check_backend_build(
+            _VersionBackend(banner),  # type: ignore[arg-type]
+            backend_name="cyanrip",
+        )
+        assert result.status is Status.WARN, banner
+        assert "not identified" in result.summary, banner
+        assert "unmodified upstream" not in result.summary, banner
+
+
+def test_a_tarball_build_of_the_fork_is_recognised_here_too() -> None:
+    """The fork's §H3 near-miss, checked at the doctor as well as the parser —
+    a user on a tarball build must not be told to switch branches."""
+    result = preflight.check_backend_build(
+        _VersionBackend("cyanrip 0.9.4-rc1 (platterpus-fork-grelease)"),  # type: ignore[arg-type]
+        backend_name="cyanrip",
+    )
+    assert result.status is Status.OK
+
+
+def test_a_backend_that_raises_does_not_crash_the_doctor() -> None:
+    """Reachability reports the real problem; this check must stay quiet and
+    not double-report or explode."""
+
+    class _Broken:
+        def version(self) -> str:
+            raise RuntimeError("container is down")
+
+    result = preflight.check_backend_build(_Broken(), backend_name="cyanrip")  # type: ignore[arg-type]
+    assert result.status is Status.WARN
+
+
+def test_the_build_check_is_actually_run_by_the_doctor() -> None:
+    """Grep for the call site before believing a check runs. A fully-implemented
+    check called from nowhere is a failure this project has shipped."""
+    import inspect
+
+    source = inspect.getsource(preflight.run_preflight)
+    assert "check_backend_build(" in source
