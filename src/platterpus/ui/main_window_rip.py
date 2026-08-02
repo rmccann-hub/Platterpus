@@ -359,6 +359,24 @@ def _merge_shipped_track(
     return track
 
 
+def _ripped_audio_seconds(rip_log: object) -> float | None:
+    """How much audio the rip ACTUALLY extracted, in seconds. Never raises.
+
+    Summed from each track's sector span, which is the only figure that means
+    "we read this much" on a rip that stopped early — the disc's own length says
+    what was *available*, not what was taken. Returns None when the log carries
+    no usable geometry, which callers read as "cannot say" rather than zero.
+    """
+    total = 0
+    for track in getattr(rip_log, "tracks", ()) or ():
+        start = getattr(track, "start_sector", None)
+        end = getattr(track, "end_sector", None)
+        if isinstance(start, int) and isinstance(end, int) and end >= start:
+            total += end - start + 1
+    # 75 sectors per second (Red Book), the same constant the TOC table uses.
+    return total / 75 if total else None
+
+
 class RipMixin(MainWindowShared):
     """Start/cancel/finish a rip, plus eject, unknown-album, and cover art."""
 
@@ -2465,16 +2483,32 @@ class RipMixin(MainWindowShared):
         or unparseable duration just leaves the multiplier off. The report is
         (re)written after this, so the enriched timing lands in the JSON.
         """
+        from platterpus import rip_report
         from platterpus.rip_timing import parse_hms_to_seconds
 
         timing = self._last_rip_timing
         if not isinstance(timing, dict):
             return
         elapsed = timing.get("elapsed_seconds")
+        if not isinstance(elapsed, int | float):
+            return
         disc_seconds = parse_hms_to_seconds(getattr(rip_log, "disc_duration", ""))
-        if isinstance(elapsed, int | float) and disc_seconds and disc_seconds > 0:
-            timing["disc_seconds"] = round(disc_seconds)
-            timing["realtime_multiplier"] = round(elapsed / disc_seconds, 2)
+        # Delegate rather than recompute. This used to divide elapsed by the
+        # DISC's length regardless of whether the rip finished, so a cancelled
+        # 2-of-14 rip reported `realtime_multiplier: 0.21` — the fraction of the
+        # disc covered, dressed as a speed, when real throughput was ~0.93x.
+        # `build_timing` owns that reasoning (and the fallback to audio actually
+        # extracted); a second copy of the arithmetic here is exactly how the
+        # two got to disagree in the first place.
+        enriched = rip_report.build_timing(
+            elapsed,
+            disc_seconds=disc_seconds or None,
+            started_at=timing.get("started_at") or "",
+            finished_at=timing.get("finished_at") or "",
+            audio_seconds_ripped=_ripped_audio_seconds(rip_log),
+            completed=not getattr(self, "_rip_cancelled", False),
+        )
+        timing.update(enriched)
 
     def _build_rip_debug_log(self) -> dict | None:
         """Capture this session's log for the report, minus other albums' rips.
