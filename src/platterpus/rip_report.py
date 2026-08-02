@@ -159,6 +159,11 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     described a 14-track disc. This is the same missing denominator that has
 #     now been corrected on four surfaces; recording it as a number is what
 #     stops a fifth.
+# v14: `rip_completed` / `_tracks` / `_total` / `_reason` and `invoked_as` —
+#     the ripper's own completion verdict and the argv it reports receiving.
+#     Both were being PARSED and then not serialized, which the embedded
+#     self-check caught the first time it ran: it reported "footer absent" for
+#     a log that plainly had one. Also adds the `self_check` block itself.
 # v13: `ripper_is_platterpus_fork` / `ripper_identity` / `ripper_identity_detail`.
 #     `ripper_build` was already recorded, but it is a raw tag — a consumer had
 #     to know which strings mean "the Platterpus fork" to use it, and nothing
@@ -167,7 +172,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 13
+REPORT_SCHEMA_VERSION: int = 14
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -706,6 +711,23 @@ def _build(
             # describe). The only provenance separating an official build from a local
             # one, and they can differ in pre-gap metadata and peak values.
             "ripper_build": getattr(rip_log, "ripper_build", "") or None,
+            # v14: the ripper's OWN completion verdict, counts and reason —
+            # not our count of how many tracks its log happened to mention.
+            # Tri-state: `null` means the footer was absent, which is what a
+            # killed rip looks like, and must never be read as `false`
+            # ("finished, and reported failure"). Per the fork (handshake
+            # round 4, Q10) this footer is the only structural difference
+            # between a truncated log and a short one — the cue cannot tell.
+            "rip_completed": getattr(rip_log, "rip_completed", None),
+            "rip_completed_tracks": getattr(rip_log, "rip_completed_tracks", None),
+            "rip_completed_total": getattr(rip_log, "rip_completed_total", None),
+            "rip_completed_reason": getattr(rip_log, "rip_completed_reason", "")
+            or None,
+            # The argv the ripper reports RECEIVING (fork-only). We separately
+            # record the argv we spawned it with in `outcome.ripper_argv`; when
+            # those two disagree, something between us mangled an argument, and
+            # that gap is invisible from either end alone.
+            "invoked_as": getattr(rip_log, "invoked_as", "") or None,
             # v13: the *classified* answer, so a consumer does not have to know
             # which tags mean "our fork". Tri-state on purpose — `null` is "not
             # determined", and must never be read as `false`. An unrecognised
@@ -1361,6 +1383,25 @@ def write_report(
             disc_track_total=disc_track_total,
             artifacts=artifacts,
         )
+        # Run the audit over the report we just built and embed the result, so
+        # EVERY rip carries its own verdict and nobody has to remember to run
+        # anything. `--audit-rips` runs the same registry over a whole library
+        # later; both go through `rip_audit.CHECKS`, so the per-rip block and
+        # the bulk report cannot word the same finding two different ways.
+        #
+        # Done HERE rather than in `build_report` because one of the checks
+        # stats the audio files, and `build_report` is pure by contract. This
+        # function already writes to disk, so the folder is legitimately in
+        # scope — and it is `target.parent`, the album folder.
+        #
+        # Best-effort like the rest of the report: a broken self-check must
+        # never cost the user their report.
+        try:
+            from platterpus import rip_audit
+
+            report["self_check"] = rip_audit.self_check_block(report, target.parent)
+        except Exception:  # noqa: BLE001 — diagnostics must not break the artifact
+            log.exception("self-check failed; report written without it")
         # Catch serialization errors (TypeError/ValueError from json.dumps on an
         # exotic future value) as well as write errors (OSError) — the report is
         # best-effort and must never break the post-rip flow. report_to_json

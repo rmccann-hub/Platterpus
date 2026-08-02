@@ -13,6 +13,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.1] — 2026-08-02
 
+### Added
+- **Every rip now audits itself, and the result is in the JSON.** A `self_check` block records
+  which cyanrip built the rip, whether the ripper said it finished, which disc of a multi-disc
+  set the tags came from, what pre-gap provenance was observed, and **whether the audio files
+  the log claims actually have bytes in them** — the last one made necessary by the fork's
+  measurement that a killed rip leaves 0-byte FLACs for tracks its log reports complete. Checks
+  live in one registry, so adding a future one is a single function plus a row, and it appears
+  in both the per-rip block and the bulk audit at once. A check that cannot run is recorded as
+  **skipped and named**, never silently omitted.
+- **`platterpus --audit-rips FOLDER`** — the same checks over a whole library, in one command,
+  read-only. Replaces a hardware checklist that asked a human to open files and read fields.
+  Exits non-zero when something needs attention.
+
+### Fixed
+- **`rip_completed` and `invoked_as` were parsed and never serialized**, so the report said the
+  ripper's completion footer was absent for logs that plainly had one. Found by the embedded
+  self-check the first time it ran — which is the argument for having a consumer. Schema **v14**.
+
 ### Fixed
 - **A cancelled rip's own track counts were dropped.** cyanrip's footer has two shapes, and only
   one was handled: `Rip completed: yes (3 of 3 tracks)` parsed, while
