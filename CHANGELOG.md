@@ -11,6 +11,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The ripper's own stdout is now embedded in the JSON report**, beside the three files
+  (schema v12's `artifacts` gains `ripper_stdout`). This is the one record that survives the
+  ripper being killed: cyanrip's logfile is block-buffered, its stdout is a pipe we are already
+  draining. On the rig the logfile lost a track verified at AccurateRip confidence 200 while the
+  stdout had it the whole time. Progress redraws are excluded (~98% of the stream and useless to
+  a report), leaving every Summary block, header and error. When `rip_log.text` stops mid-record
+  and `ripper_stdout.text` keeps going, **the difference is exactly what was lost** — a
+  comparison that was impossible before, which is why the loss went unnoticed. It also means one
+  uploaded file now serves the cyanrip project too: real-hardware stdout is the artifact they
+  cannot produce for themselves.
+
+
 ### Fixed
 - **A cancelled rip could silently drop a track that had completed and verified.** On the rig
   (2026-08-01) cyanrip's logfile was left at exactly **4096 bytes** — one unflushed stdio block,
