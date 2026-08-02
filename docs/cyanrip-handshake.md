@@ -76,8 +76,20 @@ One markdown file, these sections, in this order:
 | **E** | A regenerated golden reference log, byte-exact, with the command that produced it — if D changed |
 | **F** | Verification status, split: **proven** (with *how* — "tests pass" is not how) and **not proven** (with what it would take) |
 | **G** | Revert-proof statement per behavioural fix: did you revert it and watch the test fail? A "no" is fine and useful. |
-| **H** | **Anything found wrong in Platterpus's output** — logs, JSON, or the argv we pass |
-| **I** | Their open questions back to us |
+| **H** | **Anything found wrong in Platterpus's output** — logs, JSON, or the argv we pass. **"Nothing found" must be written out.** |
+| **I** | Their **provider contract** — the mirror of our consumer contract (§7) |
+| **J** | Their open questions back to us |
+
+**§I was added in round 4**, which moved "questions back" from I to J. `scripts/handshake.py
+--check` enforces this list, so a round arriving against the older A–I shape is reported rather
+than silently accepted — that is the checker working, not the fork failing.
+
+`python scripts/handshake.py --check <file>` runs this table against a received file and exits
+non-zero listing what is absent. It also catches the two failures that are *worse* than a
+missing section: a section present but empty, and D or H trailing off instead of stating the
+null case. `--emit N` produces our outbound skeleton with every §3 section present, and it
+builds the table above **from the same data the checker uses**, so we cannot ask for a section
+we do not check or check one we never asked for.
 
 ## 5. The shared rigour bar
 
@@ -122,6 +134,52 @@ Both sides hold to these. They are not style preferences; each was paid for.
 
 When in doubt: handshake. The cost is a file; the cost of skipping it was a release-shifting
 off-by-one verdict.
+
+## 7. Each side states its half of the seam, and each side reads the other's
+
+We are each other's dependency. Platterpus consumes cyanrip's log and argv surface; cyanrip's
+log format exists to satisfy Platterpus. **Both halves are written down, both are machine-
+derived where possible, and each side is expected to consume the other's.**
+
+| Direction | Artifact | Who produces it | How |
+|---|---|---|---|
+| Platterpus → fork | **`docs/cyanrip-consumer-contract.md`** — every log line we parse, every line we knowingly ignore with its recorded reason, every flag we pass | us | **generated** by `scripts/emit_dependency_contract.py` from the parser's enumeration tables and a real call to the argv builder; `--check` fails on drift |
+| fork → Platterpus | **The provider contract** (§4 I) — stable vs unstable log lines, the argv contract per flag, the exit-code inventory, the fatal-message inventory | the fork | generated if they can; hand-written P3/P4/P5 is still worth more than nothing |
+
+Neither half is a handshake on its own. **A description *derived from* the behaviour cannot
+describe behaviour we do not have** — which is exactly how we once told the fork a line was
+stdout-only when it was not, and how the fork implemented that faithfully and shifted every
+verdict by one track.
+
+### 7.1 Full error capture, both sides, always surfaced
+
+A standing requirement in both directions, not a per-round ask. Each side must:
+
+- **Print a diagnosable line on every fatal path**, at column 0, to a stream the other captures
+  (Platterpus merges stderr into stdout). *A non-zero exit with no output is the one failure
+  that cannot be explained to a user.*
+- **Capture everything the other told it**: exit code (tri-state — `null` for a child never
+  reaped, never `0`), the exact argv as spawned, and the complete output. Where output must be
+  bounded, keep **head and tail** with a counted elision marker — a tool's fatal message is the
+  *last* thing it prints, so a head-only cap drops precisely the line that explains the failure,
+  and **a silent truncation reads as completeness**.
+- **Surface it to the user.** Capture is not enough: 21 of cyanrip's 45 fatal strings were
+  captured by Platterpus and never shown, and from the user's side that is the same bug as
+  never capturing them. When a dependency names the problem, the user sees the dependency's own
+  sentence, not "Rip failed."
+- **Flush before exiting.** An unflushed fatal line is a fatal line the other side never sees.
+  This one compounds with block buffering, which is how a real cancelled rip lost verified
+  tracks.
+
+### 7.2 Which build produced the artifact
+
+Two binaries can produce the log we archive — the Platterpus fork and upstream cyanrip — and
+the version number cannot separate them, because the fork tracks upstream versions. So the fork
+**must** carry the token `platterpus-fork` in its version banner's parenthetical, on
+`--version` *and* on the first line of every rip's logfile, and Platterpus records the
+classification tri-state: `fork` / `stock` / **`unknown`** for an absent or unrecognised tag.
+Never the negative — an unrecognised tag is an absence of evidence, not evidence of a stock
+binary.
 
 ---
 
