@@ -184,6 +184,12 @@ _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 # ~10 updates/second keeps the bar and ETA feeling live while leaving the event
 # loop plenty of room to repaint. Only progress lines are throttled — phase
 # changes, errors, and end-of-rip markers always go through immediately.
+# Cap on retained non-progress ripper output (see RipWorker._stdout_lines).
+# A 14-track album is a few hundred such lines, so this is ~30x headroom while
+# still bounding a pathological ripper. A stop rather than a ring buffer: the
+# head holds the header and the earliest tracks, which is what a report needs.
+_MAX_STDOUT_LINES: int = 20000
+
 _PROGRESS_MIN_INTERVAL_S: float = 0.1
 
 # Slack subtracted from a pass's start time when deciding whether a .log is
@@ -391,6 +397,21 @@ class RipWorker(QObject):
         # GIL, so reading it from the worker thread while the GUI thread
         # sets it is safe without locks.
         self._cancelled: bool = False
+        # Every NON-progress line the ripper printed, kept verbatim.
+        #
+        # This is the one artifact that survives a kill. cyanrip's logfile is
+        # block-buffered, so killing it loses the tail of a 4 KiB block — twice
+        # on the rig now (2026-08-01: a 4096-byte cut that lost a track verified
+        # at AccurateRip confidence 200, and a 20480-byte cut that lost a
+        # track's filename). Its stdout is a pipe we are already draining, so
+        # whatever it *said* is ours the moment it says it, regardless of what
+        # reaches disk.
+        #
+        # Progress redraws are excluded, not truncated: they are ~98% of the
+        # stream (900+ lines of "progress - 41.65%" for one album) and carry
+        # nothing a report needs. What is left is every Summary block, header
+        # and error — a few hundred lines, small enough to embed in the JSON.
+        self._stdout_lines: list[str] = []
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert whipper-era seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -1034,6 +1055,13 @@ class RipWorker(QObject):
                 # effect, so call it once up front.
                 prog = self._progress_for(line)
                 is_progress = prog is not None
+                # Retain the substantive stream (see `_stdout_lines`). Bounded so
+                # a runaway ripper cannot grow this without limit; the cap is far
+                # above a real album's few hundred non-progress lines, and it is
+                # a *stop*, not a ring buffer, because the head is where the
+                # header and the early tracks are.
+                if not is_progress and len(self._stdout_lines) < _MAX_STDOUT_LINES:
+                    self._stdout_lines.append(line)
                 # Forward the line to the GUI's log pane — but RATE-LIMIT the
                 # high-frequency progress redraws. Appending to the log widget
                 # (text layout + repaint) is the expensive per-tick work; at
@@ -1517,6 +1545,17 @@ class RipWorker(QObject):
             if looks_like_cyanrip_log(text)
             else parse_rip_log(text)
         )
+
+    @property
+    def captured_stdout(self) -> str:
+        """Everything substantive the ripper printed, as one text blob.
+
+        The recovery source when the logfile is truncated, and the artifact the
+        cyanrip project cannot produce for itself (it has no physical drive).
+        Empty until the rip starts. Safe to read from the GUI thread after
+        ``finished`` — the worker no longer touches the list by then.
+        """
+        return "\n".join(self._stdout_lines)
 
     @Slot()
     def cancel(self) -> None:

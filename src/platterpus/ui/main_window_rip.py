@@ -2781,6 +2781,13 @@ class RipMixin(MainWindowShared):
                 rip_log=log_file,
                 eac_log=log_file.with_name(f"{log_file.stem} (EAC-compatible).log"),
                 cue=log_file.with_suffix(".cue"),
+                # The ripper's own stdout, which survives a kill when its
+                # block-buffered logfile does not. Read off the worker rather
+                # than a file because there is no file — this is the capture
+                # that would have shown the track the truncated log lost.
+                ripper_stdout=getattr(self._rip_worker, "captured_stdout", "")
+                if getattr(self, "_rip_worker", None) is not None
+                else "",
             ),
             # v7 process/settings/provenance blocks. `outcome`/`disc` are
             # snapshotted at finish (worker/params are cleared before the debounced

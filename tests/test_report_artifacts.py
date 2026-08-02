@@ -27,6 +27,7 @@ from platterpus.report_artifacts import (
     MAX_ARTIFACT_BYTES,
     build_artifact,
     build_artifacts,
+    build_text_artifact,
 )
 from platterpus.rip_report import build_report, report_to_json
 
@@ -147,14 +148,17 @@ def test_the_allowlist_admits_no_audio_extension() -> None:
 # --- the block, and the report it lands in ----------------------------------
 
 
-def test_the_block_names_all_three_companions_even_when_none_exist(
+def test_the_block_names_every_companion_even_when_none_exist(
     tmp_path: Path,
 ) -> None:
     block = build_artifacts(
         rip_log=tmp_path / "a.log", eac_log=tmp_path / "b.log", cue=tmp_path / "a.cue"
     )
-    assert set(block) == {"note", "rip_log", "eac_log", "cue"}
-    assert all(block[k]["exists"] is False for k in ("rip_log", "eac_log", "cue"))
+    assert set(block) == {"note", "rip_log", "ripper_stdout", "eac_log", "cue"}
+    assert all(
+        block[k]["exists"] is False
+        for k in ("rip_log", "ripper_stdout", "eac_log", "cue")
+    )
 
 
 def test_one_upload_carries_the_eac_log_that_contradicted_it(tmp_path: Path) -> None:
@@ -219,3 +223,75 @@ def test_an_unknown_denominator_is_null_not_a_claim_of_completeness() -> None:
     assert report["completeness"]["tracks_expected"] is None
     assert report["completeness"]["complete"] is None
     assert report["completeness"]["tracks_in_report"] == 1
+
+
+# --- the kill-proof artifact: captured stdout -------------------------------
+
+
+def test_captured_stdout_is_embedded_even_though_it_has_no_path() -> None:
+    """The one record that survives the ripper being killed.
+
+    cyanrip's logfile is block-buffered; its stdout is a pipe we are already
+    draining. On the rig the logfile lost a track verified at AccurateRip
+    confidence 200 while the stdout had it the whole time — so the report has to
+    carry the stdout, and it has no path to read it from.
+    """
+    entry = build_text_artifact("Summary:\n  EAC CRC32:  59D352DD\n", label="stdout")
+    assert entry["exists"] is True
+    assert entry["path"] is None, "there is no file; saying otherwise would be a lie"
+    assert entry["source"] == "stdout"
+    assert "59D352DD" in entry["text"]
+    assert entry["bytes"] == len("Summary:\n  EAC CRC32:  59D352DD\n")
+    assert len(entry["sha256"]) == 64
+
+
+def test_no_captured_stdout_is_absent_not_empty_text() -> None:
+    """A rip that captured nothing must not look like a rip that printed "".
+
+    Same rule as a missing file: absence is data, and `exists: False` with a
+    `source` says which kind of nothing this is.
+    """
+    entry = build_text_artifact("", label="stdout")
+    assert entry["exists"] is False
+    assert "text" not in entry
+    assert entry["source"] == "stdout"
+
+
+def test_the_block_carries_stdout_beside_the_three_files(tmp_path: Path) -> None:
+    """One upload has to serve both projects — ours and the cyanrip fork's.
+
+    The fork has no physical drive, so real hardware stdout is the artifact it
+    cannot produce for itself. Putting it in the same JSON means the maintainer
+    uploads one file to both threads instead of curating a set per thread.
+    """
+    block = build_artifacts(
+        rip_log=tmp_path / "a.log",
+        eac_log=tmp_path / "b.log",
+        cue=tmp_path / "a.cue",
+        ripper_stdout="Summary:\n  EAC CRC32:  B0D122E7\n",
+    )
+    assert set(block) == {"note", "rip_log", "ripper_stdout", "eac_log", "cue"}
+    assert "B0D122E7" in block["ripper_stdout"]["text"]
+
+
+def test_stdout_longer_than_the_log_is_the_signature_of_a_truncated_rip(
+    tmp_path: Path,
+) -> None:
+    """The diagnostic the embedding exists to make possible, end to end.
+
+    A reader with only the JSON can compare the two: when the logfile stops
+    mid-record and the stdout keeps going, the difference IS the lost data. That
+    comparison was impossible before, which is why the loss went unnoticed.
+    """
+    log = tmp_path / "Album.log"
+    log.write_bytes(b"Track 1 ripped and encoded successfully!\n  EAC CRC32:  AAAA")
+    block = build_artifacts(
+        rip_log=log,
+        ripper_stdout=(
+            "Summary:\n  EAC CRC32:  AAAA1111\nSummary:\n  EAC CRC32:  BBBB2222\n"
+        ),
+    )
+    assert block["rip_log"]["text"].count("EAC CRC32") == 1
+    assert block["ripper_stdout"]["text"].count("EAC CRC32") == 2, (
+        "the extra CRC in stdout is the track the logfile never flushed"
+    )
