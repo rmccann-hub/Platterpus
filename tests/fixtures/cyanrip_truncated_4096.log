@@ -1,0 +1,132 @@
+cyanrip 0.9.3 (release)
+System device:  /dev/sr0
+Device model:   PIONEER  BD-RW   BDR-209D 1.51 SCSI CD-ROM
+Offset:         +667 samples
+Overread:       +2 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+Paranoia level: max
+Frame retries:  5
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc tracks:    14
+Tracks to rip:  all
+DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
+CDDB ID:        E20DFE0E
+Album:          Every Breath You Take∶ The Classics
+Album artist:   The Police
+AccurateRip:    found
+Total time:     00:59:42.354
+
+Gaps:
+    None signalled
+
+Tracks:
+Track 1 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.9 LUFS
+    Threshold: -24.3 LUFS
+
+  Loudness range:
+    LRA:         6.5 LU
+    Threshold: -34.3 LUFS
+    LRA low:   -18.3 LUFS
+    LRA high:  -11.7 LUFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03:13.180
+    Samples:     8518356
+    Frames:      14487
+    Pregap LSN:  none
+    Start LSN:   0 (with offset: 1)
+    End LSN:     14486 (with offset: 14488)
+
+  EAC CRC32:     B0D122E7
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  5D3C90CB (accurately ripped, confidence 129)
+    Accurip v2:  22B9924D (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         1
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Roxanne
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    catalognumber:                 31454 0380 2
+    label:                         A&M Records
+    musicbrainz_albumid:           d14a7546-815b-43c6-8af6-35cff6cee1d0
+    artist:                        The Police
+    isrc:                          GBAAM0201086
+    creation_time:                 2026-08-01T18:49:34
+    REPLAYGAIN_TRACK_GAIN:         -4.10 dB
+    R128_TRACK_GAIN:               229
+    REPLAYGAIN_TRACK_RANGE:        6.54 dB
+    REPLAYGAIN_TRACK_PEAK:         1.029445
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  File(s):
+    The Police/Every Breath You Take∶ The Classics/01 - Roxanne.flac
+
+Track 2 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -13.1 LUFS
+    Threshold: -23.3 LUFS
+
+  Loudness range:
+    LRA:         6.1 LU
+    Threshold: -33.3 LUFS
+    LRA low:   -17.2 LUFS
+    LRA high:  -11.1 LUFS
+
+  True peak:
+    Peak:        0.1 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03:01.180
+    Samples:     7985040
+    Frames:      13580
+    Pregap LSN:  none
+    Start LSN:   14487 (with offset: 14488)
+    End LSN:     28066 (with offset: 28068)
+
+  EAC CRC32:     985AAE32
+  Accurip:       disc found in database (max confidence: 200)
+    Accurip v1:  A3019EB3 (accurately ripped, confidence 131)
+    Accurip v2:  31C28378 (accurately ripped, confidence 200)
+
+  Metadata:
+    track:                         2
+    tracktotal:                    14
+    discid:                        pNtImOkdBm9RMBIalzx0w9cfsYY-
+    cddb:                          E20DFE0E
+    media_type:                    CD
+    comment:                       cyanrip 0.9.3
+    title:                         Can’t Stand Losing You test
+    album:                         Every Breath You Take∶ The Classics
+    album_artist:                  The Police
+    date:                          1995-09-12
+    catalognumber:                 31454 0380 2
+    label:                         A&M Records
+    musicbrainz_albumid:           d14a7546-815b-43c6-8af6-35cff6cee1d0
+    artist:                        The Police
+    isrc:                          GBAAM0201089
+    creation_time:                 2026-08-01T18:53:14
+    REPLAYGAIN_TRACK_GA

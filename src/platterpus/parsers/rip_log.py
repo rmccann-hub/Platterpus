@@ -274,6 +274,29 @@ class RipLog:
     # block. Empty for whipper logs / when cyanrip didn't print them.
     disc_id: str = ""
     cddb_id: str = ""
+    # True when the log text itself is evidence that the ripper was killed while
+    # still writing it — NOT merely that the rip was cancelled.
+    #
+    # cyanrip opens its logfile block-buffered, so a completed track's record
+    # only reaches disk when a 4 KiB stdio block fills or the process exits
+    # cleanly. Kill it and the tail of the buffer is lost. On the rig
+    # (2026-08-01) that produced a file of exactly 4096 bytes ending mid-token at
+    # `REPLAYGAIN_TRACK_GA`: track 3 had completed and verified against
+    # AccurateRip at confidence 200, and was absent from every artifact
+    # Platterpus wrote. The data was never lost — it was in our captured stdout
+    # the whole time — but the report was built from the file.
+    #
+    # This flag exists because the *silence* was the real defect. A truncated
+    # log is indistinguishable, from the parse alone, from a rip that simply
+    # stopped earlier: both yield fewer tracks and no finish report. Saying so
+    # turns "12 tracks were never ripped" (wrong, and unfalsifiable) into "this
+    # log was cut off, so what it does NOT say proves nothing".
+    log_truncated: bool = False
+    # Set when the LAST track block was the one cut off — its record claims a
+    # status and a CRC but never reached its `File(s):` line. That track's data
+    # is present but incomplete, which is a different problem from a track that
+    # is missing outright, and a consumer counting "verified" tracks should know.
+    last_track_incomplete: bool = False
 
 
 # --- AccurateRip "is this track verified?" — the ONE shared definition -------

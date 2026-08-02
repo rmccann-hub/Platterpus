@@ -1044,6 +1044,49 @@ def looks_like_cyanrip_log(text: str) -> bool:
     return False
 
 
+def _detect_truncation(text: str, tracks: list[TrackResult]) -> tuple[bool, bool]:
+    """Was this log cut off mid-write? Returns ``(truncated, last_incomplete)``.
+
+    **Why this is not "did the rip finish".** A cancelled rip and a truncated
+    log look identical from the parse alone — both give fewer tracks and no
+    finish report — and conflating them is what let a *verified* track vanish
+    in silence. On the rig (2026-08-01) cyanrip's logfile was killed at exactly
+    4096 bytes, one unflushed stdio block, ending mid-token at
+    ``REPLAYGAIN_TRACK_GA``. Track 3 had completed and matched AccurateRip at
+    confidence 200. Every artifact Platterpus wrote said 2 tracks, and the
+    verdict blamed the user's cancel for 12 tracks that "were never ripped" —
+    when the true figure was 11 and the log simply stopped talking.
+
+    Two signals, both specific to *the writer was interrupted*, neither of which
+    a cleanly-stopped rip can trip:
+
+    1. **The text does not end in a newline.** Every line cyanrip writes ends
+       with one, so a final partial line means the process died mid-write. This
+       is the strong signal and it is what the rig artifact shows.
+    2. **The last track claims success but never got its filename.** ``File(s):``
+       is the last row of a track block, so a track that says "ripped
+       successfully" with no filename had its block cut. Scoped to *successful
+       audio* tracks deliberately: a data track and an errored track both
+       legitimately carry an empty filename, so keying on the empty string alone
+       would false-positive on any disc with a data track.
+
+    Deliberately does NOT use "no finish report" as a signal. That is absent
+    from every cancelled rip, truncated or not, so it would flag the honest case
+    as often as the broken one — a detector that fires on everything says
+    nothing. Pure and never raises; the parse itself must not depend on it.
+    """
+    if not text:
+        return False, False
+    mid_write = not text.endswith("\n")
+    last_incomplete = False
+    if tracks:
+        last = tracks[-1]
+        last_incomplete = getattr(
+            last, "status", ""
+        ) == "ripped successfully" and not getattr(last, "filename", "")
+    return (mid_write or last_incomplete), last_incomplete
+
+
 def parse_cyanrip_log(text: str) -> RipLog:
     """Parse a cyanrip log into the backend-neutral RipLog.
 
@@ -1563,6 +1606,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         # EOF inside the block — a truncated log must not lose what it did say.
         disc.gap_detection = "; ".join(gap_lines)
     flush()
+    truncated, last_incomplete = _detect_truncation(text, disc.tracks)
     if unclaimed_total:
         log.debug(
             "cyanrip log: %d unrecognised top-level line(s); first %d: %r",
@@ -1606,4 +1650,6 @@ def parse_cyanrip_log(text: str) -> RipLog:
         log_checksum=disc.log_checksum,
         disc_id=disc.disc_id,
         cddb_id=disc.cddb_id,
+        log_truncated=truncated,
+        last_track_incomplete=last_incomplete,
     )
