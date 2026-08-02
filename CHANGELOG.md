@@ -12,6 +12,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The track list could not be scrolled while a rip was running.** The rip lock called
+  `setEnabled(False)` on the table to stop mid-rip edits; a disabled `QTableView` also ignores
+  the wheel and the arrow keys, so for the entire rip the user could not scroll the one widget
+  showing live per-track status. It is now locked **read-only** — every row stays legible,
+  selectable and scrollable, while edits and Rip? toggles are refused at the model.
+
+### Fixed
 - **An out-of-range track tag killed an entire rip.** Disc 1 of a 4-disc set has 16 tracks; the
   MusicBrainz medium we used listed 18; Platterpus passed cyanrip `-t 17=` and `-t 18=`. cyanrip
   answered `Invalid track number 17, list has 16 tracks!` and exited — **two seconds, nothing
