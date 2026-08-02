@@ -11,6 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A cancelled rip could silently drop a track that had completed and verified.** On the rig
+  (2026-08-01) cyanrip's logfile was left at exactly **4096 bytes** — one unflushed stdio block,
+  ending mid-token at `REPLAYGAIN_TRACK_GA`. Track 3 (*Message in a Bottle*, EAC CRC32
+  `59D352DD`, AccurateRip v2 at confidence **200**) had finished 36 seconds before the cancel and
+  was absent from `tracks[]`, from the EAC-layout log, and from the verdict — which then blamed
+  the cancel for 12 tracks "never ripped" when the true figure was 11. The data was never lost;
+  it is in the captured stdout and in the report's own `debug.lines`. The report was built from
+  the file.
+  Platterpus now **detects** the truncation and says so: `RipLog.log_truncated` /
+  `last_track_incomplete`, a `log_parse.note`, an **error**-severity `ripper_log_truncated` issue,
+  and an EAC-log banner that reads *"this is a FLOOR, not a count"* instead of asserting that
+  tracks were never extracted. An intact partial rip still names its missing tracks — the fix
+  removes an unsupported claim, it does not make the log vaguer.
+  **Recovery is not in this change.** Rebuilding the report from the captured stdout is the
+  larger follow-up; the parser cannot read stdout at all today (it opens a track on
+  `Track N ripped and encoded successfully!`, which stdout never prints).
+
 ## [0.6.0] — 2026-08-01
 
 ### Added

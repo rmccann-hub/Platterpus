@@ -566,6 +566,7 @@ def _build(
         tagging=tagging,
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
+        log_truncated=bool(getattr(rip_log, "log_truncated", False)),
     )
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -970,6 +971,22 @@ def _log_parse(rip_log: object, override: dict | None) -> dict:
         return override
     tracks = getattr(rip_log, "tracks", ()) or ()
     ok = bool(tracks) or bool(getattr(rip_log, "log_creator", ""))
+    # A truncated log parses "fine" — that was the whole problem. cyanrip's
+    # logfile is block-buffered, so killing it loses the tail of a 4 KiB block;
+    # on the rig a track that had completed and matched AccurateRip at
+    # confidence 200 was simply absent, and nothing said so. `ok` stays True
+    # (the parse really did succeed on what was there); the note is what stops a
+    # reader treating the shortfall as fact.
+    if getattr(rip_log, "log_truncated", False):
+        return {
+            "ok": ok,
+            "note": (
+                "the ripper's log was cut off mid-write (it was killed before "
+                "flushing), so tracks it does not mention may still have been "
+                "ripped and verified — this report's track list is a floor, not "
+                "a complete account"
+            ),
+        }
     return {"ok": ok, "note": None}
 
 
@@ -985,6 +1002,7 @@ def _issues(
     read_speed: dict | None,
     tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
+    log_truncated: bool = False,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
 
@@ -1012,6 +1030,19 @@ def _issues(
         )
     elif status == "cancelled":
         add("warning", "rip_cancelled", "the rip was cancelled before it finished")
+
+    # Ranked as an ERROR, above the cancel it usually accompanies, because it
+    # invalidates the other entries rather than adding to them: a truncated log
+    # makes "N tracks were never ripped" unfalsifiable, and the rig's own case
+    # had a track that WAS ripped and verified reported as never ripped.
+    if log_truncated:
+        add(
+            "error",
+            "ripper_log_truncated",
+            "the ripper's log was cut off mid-write, so this report's track "
+            "list is a floor — tracks it omits may have been ripped and "
+            "verified",
+        )
 
     if verdict_level == "warn":
         add(

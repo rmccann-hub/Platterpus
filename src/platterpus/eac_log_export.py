@@ -924,8 +924,23 @@ def _incomplete_notice(
         return []
     ripped = len(rip_log.tracks)
     of_total = f" of {disc_track_total}" if disc_track_total else ""
+    # "were never extracted" is a claim about the DISC, and the source log is the
+    # only evidence for it. When that log was cut off mid-write we cannot make
+    # the claim: on the rig (2026-08-01) cyanrip was killed with 4 KiB unflushed,
+    # a track that had completed and matched AccurateRip at confidence 200 was
+    # absent from the file, and this banner reported it as never ripped. The
+    # count was wrong (11, not 12) and, worse, unfalsifiable from the artifact.
+    # So a truncated log gets the honest sentence instead: what it omits is
+    # unknown, not absent.
+    truncated = bool(getattr(rip_log, "log_truncated", False))
     missing = ""
-    if disc_track_total and disc_track_total > ripped:
+    if truncated:
+        missing = (
+            " The ripper's log was cut off mid-write (it was killed before "
+            "flushing), so this is a FLOOR, not a count: tracks missing below "
+            "may have been ripped and verified. Check the ripper's own output."
+        )
+    elif disc_track_total and disc_track_total > ripped:
         missing = (
             f" The remaining {disc_track_total - ripped} track(s) were never "
             "extracted and are absent below."
