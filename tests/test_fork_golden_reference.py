@@ -137,3 +137,98 @@ def test_a_log_without_the_footer_reports_unknown_not_false(parsed) -> None:  # 
 def test_the_disc_duration_parses_in_the_short_form(parsed) -> None:  # type: ignore[no-untyped-def]
     """`MM:SS.ff`, which the original `HH:MM:SS` pattern missed entirely."""
     assert parsed.disc_duration == "00:08.00"
+
+
+# --- the cancelled form, which their golden reference cannot show -------------
+
+
+def test_the_cancelled_rip_footer_keeps_its_counts() -> None:
+    """The case the whole cancelled-rip effort is about.
+
+    Their golden reference is a *successful* rip, so it carries only
+    `Rip completed:  yes (3 of 3 tracks)`. The fork's generated **P2 table**
+    (`cyanrip_log.c:420`) revealed a second shape:
+
+        Rip completed:  no (interrupted by user, 2 of 3 tracks)
+
+    My first pattern handled only the `yes` shape, so a cancelled rip parsed as
+    `verdict='no'` and **silently dropped "2 of 3"** — the ripper's own count,
+    for the exact scenario where our own count is least trustworthy. No fixture
+    could have caught this; only their contract could. That is what a provider
+    contract is for.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4-rc1 (platterpus-fork-ga04a94b)\n"
+        "Rip completed:  no (interrupted by user, 2 of 3 tracks)\n"
+    )
+    assert log.rip_completed is False
+    assert log.rip_completed_tracks == 2
+    assert log.rip_completed_total == 3
+    assert log.rip_completed_reason == "interrupted by user"
+
+
+def test_a_bare_no_without_counts_still_parses() -> None:
+    """Defensive: the verdict survives even if the parenthetical is absent,
+    and the counts stay None rather than becoming 0."""
+    log = parse_cyanrip_log("cyanrip 0.9.4 (platterpus-fork-g1)\nRip completed:  no\n")
+    assert log.rip_completed is False
+    assert log.rip_completed_tracks is None
+
+
+@pytest.mark.parametrize(
+    ("line", "state", "reason"),
+    [
+        (
+            "    Pregap LSN:  unknown (sub-channel unreadable)",
+            "unknown",
+            "sub-channel unreadable",
+        ),
+        (
+            "    Pregap LSN:  unknown (sub-channel CRC mismatches)",
+            "unknown",
+            "sub-channel CRC mismatches",
+        ),
+        ("    Pregap LSN:  none", "none", ""),
+        ("    Pregap LSN:  150 (duration: 00:02.00)", "known", ""),
+    ],
+)
+def test_every_pregap_outcome_in_their_contract_is_distinguished(
+    line: str, state: str, reason: str
+) -> None:
+    """All four outcomes their P2 table lists, including the CRC-mismatch
+    variant that no fixture we hold has ever contained.
+
+    The three `unknown`/`none` rows are the ones that must not collapse into
+    each other: "tried and the sub-channel was unreadable", "tried and the CRCs
+    disagreed", and "measured, there is no gap" are three different archival
+    claims and this log is signed.
+    """
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4 (platterpus-fork-g1)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Properties:\n"
+        f"{line}\n"
+        "    Start LSN:   150\n"
+    )
+    track = log.tracks[0]
+    assert track.pregap_state == state
+    assert track.pregap_unknown_reason == reason
+
+
+@pytest.mark.parametrize(
+    "source", ["TOC", "lead-in", "sub-channel (not signalled by TOC)"]
+)
+def test_every_pregap_source_in_their_contract_parses(source: str) -> None:
+    """`lead-in` and the sub-channel form are in their P2 table and in no
+    fixture we hold. A source we fail to parse becomes an empty string, which
+    the report would render as "provenance unknown" for a gap whose provenance
+    the ripper stated plainly."""
+    log = parse_cyanrip_log(
+        "cyanrip 0.9.4 (platterpus-fork-g1)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  Properties:\n"
+        "    Pregap LSN:  150 (duration: 00:02.00)\n"
+        f"    Pregap source: {source}\n"
+        "    Start LSN:   300\n"
+    )
+    assert log.tracks[0].pregap_source == source

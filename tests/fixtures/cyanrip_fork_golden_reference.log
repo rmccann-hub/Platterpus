@@ -1,4 +1,4 @@
-cyanrip 0.9.4-rc1 (platterpus-fork-ga835052)
+cyanrip 0.9.4-rc1 (platterpus-fork-ga04a94b)
 Invoked as:     /home/user/cyanrip/build/src/cyanrip -d pregap.cue -N -A -U -s 0 -P 0 -Z 1 -o flac -D o -F {track} -L reference -M sheet
 Drive used:     libcdio CDRWIN (revision 2.1.)
 System device:  pregap.cue
@@ -55,8 +55,8 @@ Summary:
     Samples:     132300
     Frames:      225
     Peak level:  100.0%
-    Extraction speed:  29.8x
-    Elapsed:            0.10 s
+    Extraction speed:  66.6x
+    Elapsed:            0.05 s
     Pregap LSN:  0 (duration: 00:04.00)
     Pregap length: 300 frames
     Pregap source: TOC
@@ -79,7 +79,7 @@ Summary:
     comment:                       cyanrip 0.9.4-rc1
     album:                         Unknown disc (OMP2)
     title:                         Unknown track
-    creation_time:                 2026-08-02T19:37:51
+    creation_time:                 2026-08-02T20:21:24
     REPLAYGAIN_TRACK_GAIN:         -10.29 dB
     R128_TRACK_GAIN:               -1355
     REPLAYGAIN_TRACK_RANGE:        20.00 dB
@@ -119,8 +119,8 @@ Summary:
     Samples:     88200
     Frames:      150
     Peak level:  100.0%
-    Extraction speed:  36.8x
-    Elapsed:            0.05 s
+    Extraction speed:  57.8x
+    Elapsed:            0.03 s
     Pregap LSN:  300 (duration: 00:01.00)
     Pregap length: 75 frames
     Pregap source: TOC
@@ -143,7 +143,7 @@ Summary:
     comment:                       cyanrip 0.9.4-rc1
     album:                         Unknown disc (OMP2)
     title:                         Unknown track
-    creation_time:                 2026-08-02T19:37:51
+    creation_time:                 2026-08-02T20:21:24
     REPLAYGAIN_TRACK_GAIN:         -11.19 dB
     R128_TRACK_GAIN:               -1584
     REPLAYGAIN_TRACK_RANGE:        0.00 dB
@@ -183,8 +183,8 @@ Summary:
     Samples:     44100
     Frames:      75
     Peak level:  27.3%
-    Extraction speed:  30.0x
-    Elapsed:            0.03 s
+    Extraction speed:  58.2x
+    Elapsed:            0.02 s
     Pregap LSN:  unknown (sub-channel unreadable)
     Start LSN:   525
     End LSN:     599
@@ -205,7 +205,7 @@ Summary:
     comment:                       cyanrip 0.9.4-rc1
     album:                         Unknown disc (OMP2)
     title:                         Unknown track
-    creation_time:                 2026-08-02T19:37:51
+    creation_time:                 2026-08-02T20:21:24
     REPLAYGAIN_TRACK_GAIN:         4.63 dB
     R128_TRACK_GAIN:               2465
     REPLAYGAIN_TRACK_RANGE:        0.00 dB
@@ -238,5 +238,5 @@ Paranoia status counts:
 
 Ripping errors: 0
 Rip completed:  yes (3 of 3 tracks)
-Ripping finished at 2026-08-02T19:37:51
-Log FUN512: xou1DDMTGJ6UFeHSE6bYKB1rS6TQ5Q9QGLkwnrsO9bLuvbomndCLetOL6RSl4rpDbk.0ep.b8sSvEbAc1vob9Q
+Ripping finished at 2026-08-02T20:21:24
+Log FUN512: UOMSlY4tDEh3xeLZ_yqs4ivSCbnnCXJ3_u78VgijJJFcF7FyEzoS_k.QnhXok.u08R16Hlq2xmo2lUjUCnYMTQ
