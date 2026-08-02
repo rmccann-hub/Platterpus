@@ -102,6 +102,7 @@ class _FakeMb(MusicBrainzClient):
         self.disc_id_calls: list[str] = []
         self.toc_calls: list[TocSignature] = []
         self.mbid_calls: list[str] = []
+        self.disc_id_calls: list[str] = []
         self.disc_id_result: list[ReleaseSummary] = []
         self.mbid_result: ReleaseDetail | None = None
 
@@ -113,8 +114,15 @@ class _FakeMb(MusicBrainzClient):
         self.toc_calls.append(toc)
         return []
 
-    def release_by_mbid(self, mbid: str) -> ReleaseDetail:
+    def release_by_mbid(
+        self,
+        mbid: str,
+        *,
+        disc_id: str = "",
+        disc_track_count: int | None = None,
+    ) -> ReleaseDetail:
         self.mbid_calls.append(mbid)
+        self.disc_id_calls.append(disc_id)
         assert self.mbid_result is not None
         return self.mbid_result
 

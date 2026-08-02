@@ -30,6 +30,8 @@ from dataclasses import dataclass
 
 import musicbrainzngs
 
+from platterpus.medium_select import MediumChoice, select_medium
+
 log = logging.getLogger(__name__)
 
 # Bound every MusicBrainz HTTP call so a stalled server/connection can't hang the
@@ -149,8 +151,21 @@ class MusicBrainzClient(ABC):
         """Lookup releases by TOC fingerprint. Empty list when no match."""
 
     @abstractmethod
-    def release_by_mbid(self, mbid: str) -> ReleaseDetail:
-        """Fetch full release details for one MBID."""
+    def release_by_mbid(
+        self,
+        mbid: str,
+        *,
+        disc_id: str = "",
+        disc_track_count: int | None = None,
+    ) -> ReleaseDetail:
+        """Fetch full release details for one MBID.
+
+        ``disc_id`` and ``disc_track_count`` describe the disc actually in the
+        drive, and are what lets a multi-disc release resolve to the right
+        medium (``medium_select``). Both default to "unknown" so a caller with
+        neither still works — it just gets an unconfident selection that says
+        so, rather than a confident wrong one.
+        """
 
     @abstractmethod
     def set_user_agent(self, app: str, version: str, contact: str) -> None:
@@ -216,7 +231,13 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
 
         return _summaries_from_disc_response(response)
 
-    def release_by_mbid(self, mbid: str) -> ReleaseDetail:
+    def release_by_mbid(
+        self,
+        mbid: str,
+        *,
+        disc_id: str = "",
+        disc_track_count: int | None = None,
+    ) -> ReleaseDetail:
         try:
             with _socket_timeout(_MB_TIMEOUT_S):
                 response = musicbrainzngs.get_release_by_id(
@@ -231,14 +252,31 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
                         "media",
                         "tags",
                         "isrcs",
+                        # Per-medium disc IDs. Without this the `disc-list` is
+                        # absent and medium selection can only fall back to
+                        # track count — so this include is what makes the
+                        # authoritative match possible at all.
+                        "discids",
                     ],
                 )
         except musicbrainzngs.WebServiceError as exc:
             raise MusicBrainzQueryError(f"MB release fetch failed: {exc}") from exc
 
         release = response.get("release", {})
-        summary = _summary_from_release_dict(release)
-        tracks = _tracks_from_release_dict(release)
+        choice = select_medium(
+            release.get("medium-list", []),
+            disc_id=disc_id,
+            disc_track_count=disc_track_count,
+        )
+        # Log the basis every time, not just on failure: when a rip later turns
+        # out to carry another disc's titles, this line is the evidence for
+        # which medium was believed and why.
+        if choice.confident:
+            log.debug("MB medium selected (%s): %s", choice.basis, choice.detail)
+        else:
+            log.warning("MB medium NOT determined: %s", choice.detail)
+        summary = _summary_from_release_dict(release, choice=choice)
+        tracks = _tracks_from_medium(choice.medium)
         return ReleaseDetail(summary=summary, tracks=tracks)
 
 
@@ -265,8 +303,17 @@ def _summaries_from_disc_response(
     return [_summary_from_release_dict(r) for r in disc.get("release-list", [])]
 
 
-def _summary_from_release_dict(release: dict) -> ReleaseSummary:
-    """Map one MB release dict to a ReleaseSummary."""
+def _summary_from_release_dict(
+    release: dict, *, choice: MediumChoice | None = None
+) -> ReleaseSummary:
+    """Map one MB release dict to a ReleaseSummary.
+
+    ``choice`` names the medium believed to be in the drive. The disc-ID
+    lookup that builds the *picker* list has no per-medium disc data to work
+    from, so it passes ``None`` and the summary describes the first medium —
+    which is fine there: the picker is choosing a *release*, and the medium is
+    resolved on the full fetch that follows.
+    """
     mbid = release.get("id", "")
     title = release.get("title", "")
     artist_credit = _artist_credit_string(release.get("artist-credit", []))
@@ -275,9 +322,12 @@ def _summary_from_release_dict(release: dict) -> ReleaseSummary:
     disambiguation = release.get("disambiguation", "")
 
     media = release.get("medium-list", [])
-    track_count = _first_medium_track_count(media)
-    medium_format = _first_medium_format(media)
-    disc_number, total_discs = _disc_numbering(media)
+    if choice is None:
+        choice = select_medium(media)
+    track_count = _medium_track_count_of(choice.medium)
+    medium_format = _medium_format_of(choice.medium)
+    disc_number = choice.position if choice.index >= 0 else 1
+    total_discs = max(choice.total_media, 1)
 
     label, catalog_number = _first_label_info(release.get("label-info-list", []))
 
@@ -299,16 +349,20 @@ def _summary_from_release_dict(release: dict) -> ReleaseSummary:
     )
 
 
-def _tracks_from_release_dict(release: dict) -> tuple[TrackSummary, ...]:
-    """Extract per-track summaries from a full release fetch."""
-    media = release.get("medium-list", [])
-    if not media:
+def _tracks_from_medium(medium: dict) -> tuple[TrackSummary, ...]:
+    """Per-track summaries for ONE medium — the disc in the drive.
+
+    Takes the already-selected medium rather than reaching for
+    ``medium-list[0]`` itself. That indexing was the multi-disc defect: on a
+    four-disc set it handed back disc 1's 18 tracks for a 16-track disc, which
+    made cyanrip refuse the whole rip — and, once the argv chokepoint stopped
+    that, would instead have produced a complete rip tagged with the wrong
+    disc's titles. See :mod:`platterpus.medium_select`.
+    """
+    if not isinstance(medium, dict) or not medium:
         return ()
-    # The brief targets audio CDs; the first medium is the one we want
-    # in nearly all cases. Multi-disc handling is P1.
-    first = media[0]
     tracks: list[TrackSummary] = []
-    for track in first.get("track-list", []):
+    for track in medium.get("track-list", []):
         recording = track.get("recording", {})
         number = _safe_int(track.get("position") or track.get("number"))
         if number is None:
@@ -343,40 +397,29 @@ def _artist_credit_string(credit: list) -> str:
     return "".join(parts).strip()
 
 
-def _first_medium_track_count(media: list) -> int | None:
-    if not media:
+def _medium_track_count_of(medium: dict) -> int | None:
+    """One medium's track count, declared or counted. None when unknown."""
+    if not isinstance(medium, dict):
         return None
-    tc = media[0].get("track-count")
-    return _safe_int(tc)
+    declared = _safe_int(medium.get("track-count"))
+    if declared is not None:
+        return declared
+    tracks = medium.get("track-list")
+    return len(tracks) if isinstance(tracks, list) else None
 
 
-def _first_medium_format(media: list) -> str:
-    """The first medium's format ("CD", "Digital Media", …), or "".
+def _medium_format_of(medium: dict) -> str:
+    """One medium's format ("CD", "Digital Media", …), or "".
 
     MusicBrainz JSON is the untrusted boundary of an unmaintained adapter
     (Critical rule #1), so the value is coerced rather than trusted: this is
     declared to return ``str`` and used as one, and MB is free to send back a
     number or a null.
     """
-    if not media:
+    if not isinstance(medium, dict):
         return ""
-    first = media[0]
-    if not isinstance(first, dict):
-        return ""
-    value = first.get("format")
+    value = medium.get("format")
     return value if isinstance(value, str) else ""
-
-
-def _disc_numbering(media: list) -> tuple[int, int]:
-    """Return (disc_number, total_discs) from the medium-list.
-
-    We rip the first medium (multi-disc selection is P1), so its `position` is
-    the disc number; the total is how many media the release has. Defaults to
-    1/1 when the list is empty or unnumbered.
-    """
-    total = max(len(media), 1)
-    disc_number = (_safe_int(media[0].get("position")) if media else None) or 1
-    return disc_number, total
 
 
 def _top_tag_name(release: dict) -> str:

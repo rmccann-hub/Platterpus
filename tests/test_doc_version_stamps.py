@@ -69,9 +69,21 @@ _EXEMPT_GENERATED: dict[str, str] = {
 }
 
 
+# Handshake round files (`docs/handshake/{outbound,inbound,verified}/`). These
+# are **correspondence**, not documentation: a byte-faithful record of what was
+# sent to and received from the cyanrip fork. Adding our version footer to an
+# inbound file would edit the other project's words, and adding one to an
+# outbound file would make the committed copy differ from what they received.
+# A record that is not the record is worthless. Their currency is the round
+# number, and `scripts/handshake.py --status` is what reports it.
+_EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
+
+
 def _is_exempt(rel_path: str) -> bool:
     """True for docs that deliberately carry no footer."""
     if rel_path in _EXEMPT_GENERATED:
+        return True
+    if rel_path.startswith(_EXEMPT_CORRESPONDENCE):
         return True
     if not rel_path.startswith(_EXEMPT_DIR):
         return False
