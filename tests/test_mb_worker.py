@@ -37,6 +37,8 @@ class _FakeClient(MusicBrainzClient):
         self.disc_id_calls: list[str] = []
         self.toc_calls: list[TocSignature] = []
         self.mbid_calls: list[str] = []
+        self.disc_id_calls: list[str] = []
+        self.track_count_calls: list[int | None] = []
         self._disc_id_result: list[ReleaseSummary] = []
         self._toc_result: list[ReleaseSummary] = []
         self._mbid_result: ReleaseDetail | None = None
@@ -68,8 +70,19 @@ class _FakeClient(MusicBrainzClient):
             raise self._raise["toc"]
         return self._toc_result
 
-    def release_by_mbid(self, mbid: str) -> ReleaseDetail:
+    def release_by_mbid(
+        self,
+        mbid: str,
+        *,
+        disc_id: str = "",
+        disc_track_count: int | None = None,
+    ) -> ReleaseDetail:
+        # Recorded so a test can assert WHICH disc context reached the
+        # client — the multi-disc medium selection depends on it, and a
+        # fake that swallowed it would hide a broken hand-off.
         self.mbid_calls.append(mbid)
+        self.disc_id_calls.append(disc_id)
+        self.track_count_calls.append(disc_track_count)
         if "mbid" in self._raise:
             raise self._raise["mbid"]
         assert self._mbid_result is not None

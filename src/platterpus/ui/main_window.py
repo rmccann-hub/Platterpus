@@ -153,7 +153,9 @@ class MainWindow(
     _mb_lookup_disc_id_requested = Signal(str)
     # (mbid, context) — context is the disc-id the fetch belongs to, echoed back
     # so a late fetch for an already-ejected disc is dropped (wrong-album guard).
-    _mb_fetch_release_requested = Signal(str, str)
+    # (mbid, disc_id_context, disc_track_count) — the last two identify WHICH
+    # medium of a multi-disc release is in the drive (medium_select.py).
+    _mb_fetch_release_requested = Signal(str, str, int)
 
     def __init__(
         self,
@@ -1037,7 +1039,9 @@ class MainWindow(
         # Emit (don't call) so the fetch runs on the MB worker thread. `context`
         # (the disc-id) rides along and is echoed back, so a fetch that finishes
         # after the user swapped discs is dropped rather than tagging the new one.
-        self._mb_fetch_release_requested.emit(mbid, context)
+        self._mb_fetch_release_requested.emit(
+            mbid, context, int(getattr(self, "_current_num_tracks", 0) or 0)
+        )
 
     # --- Slots: menu actions -----------------------------------------------
 

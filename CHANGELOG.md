@@ -11,6 +11,20 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A multi-disc release could be ripped with the wrong disc's track titles.** Every code path
+  took MusicBrainz's `medium-list[0]`, under a comment reading *"the first medium is the one we
+  want in nearly all cases"*. On a four-disc set that meant disc 1's 18 tracks for a 16-track
+  disc — the `-t 17=` failure that ended a rig rip. The argv chokepoint already stopped that
+  symptom, and stopping it made the underlying bug **more** dangerous: suppress the two bad
+  arguments and the other sixteen still go through, producing a complete, successful-looking
+  album of wrong metadata. `medium_select.py` now picks the medium by **disc ID** (authoritative
+  — ours comes from the physical TOC), then by a **unique** track-count match, then by there
+  being only one medium. Two media with the same count is an *ambiguity*, not a match: the
+  selector reports "not determined" with the counts it saw rather than flipping a coin and
+  presenting it as a fact. The release fetch now requests MusicBrainz's `discids` include, which
+  is what makes the authoritative match possible at all.
+
 ### Added
 - **The cyanrip handshake protocol is now executable, in both directions.** It was prose, and a
   round arrived missing a required section twice. `scripts/handshake.py --emit N` builds our

@@ -287,7 +287,7 @@ class MainWindowShared(_SeamBase):
     rip_comparison_done: Signal
     library_move_done: Signal
     _mb_lookup_disc_id_requested: Signal
-    _mb_fetch_release_requested: Signal
+    _mb_fetch_release_requested: Signal  # (mbid, disc_id, disc_track_count)
 
     if TYPE_CHECKING:
         # --- Cross-mixin / Qt methods a mixin calls on ``self`` -----------
