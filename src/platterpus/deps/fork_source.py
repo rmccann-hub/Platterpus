@@ -35,6 +35,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from platterpus.cyanrip_cli import VERSION_BANNER_SNIPPET
+
 # --- Provenance: the one place the pin is written ---------------------------
 #
 # Changing the pin is a handshake event, not an edit: per CLAUDE.md's deviation
@@ -155,16 +157,22 @@ ninja -C "$src/build"
 #: by reading its own banner. Runs as the last command of the step, so a build
 #: that produced something unexpected fails the step loudly instead of leaving
 #: a mystery binary on the ripping path.
-_VERIFY_SCRIPT: Final[str] = """\
-set -eu
-banner="$("$1" -V 2>&1 | head -n 1)"
-printf '%s\\n' "$banner"
-case "$banner" in
-  *"$2"*) exit 0 ;;
-esac
-echo "installed cyanrip does not identify as the pinned fork build ($2)" >&2
-exit 1
-"""
+_VERIFY_SCRIPT: Final[str] = (
+    "set -eu\n"
+    # Which flag prints the version depends on the build: `-V` on 0.9.3.x, `-v`
+    # from 0.9.4-rc1 on. Verifying a fork build with `-V` alone made a perfect
+    # install report FAILED. The snippet is generated from the same
+    # VERSION_FLAGS tuple the Python probes use, so the shell and the Python
+    # cannot disagree about which flags exist or in what order to try them.
+    + VERSION_BANNER_SNIPPET
+    + "\n"
+    "printf '%s\\n' \"$banner\"\n"
+    'case "$banner" in\n'
+    '  *"$2"*) exit 0 ;;\n'
+    "esac\n"
+    'echo "installed cyanrip does not identify as the pinned fork build ($2)" >&2\n'
+    "exit 1\n"
+)
 
 
 def _enter(container: str, *argv: str) -> list[str]:

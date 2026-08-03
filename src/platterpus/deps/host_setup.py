@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.deps import fork_source
 from platterpus.deps.step_engine import (
     CommandRunner,
@@ -253,11 +254,20 @@ class HostSetup:
         """
         if not self.cyanrip_exported():
             return False
-        rc, out = self.runner.run([str(self.cyanrip_path), "-V"])
-        if rc != 0:
-            # A non-zero exit is not evidence of a stock build — it usually
-            # means the container is down. Report "not done"; the step then
-            # runs and either fixes it or fails with the real output.
+        # Try every flag cyanrip has used to print its version. `-V` works on
+        # 0.9.3.x; the fork's generic option parser accepts only `-v`, and
+        # rejects `-V` with exit 1 — so probing with `-V` alone would report a
+        # correctly-installed fork as "not done" and rebuild it on every run.
+        # See `platterpus.cyanrip_cli`.
+        out = ""
+        for flag in VERSION_FLAGS:
+            rc, out = self.runner.run([str(self.cyanrip_path), flag])
+            if rc == 0:
+                break
+        else:
+            # Every flag failed. That is not evidence of a stock build — it
+            # usually means the container is down. Report "not done"; the step
+            # then runs and either fixes it or fails with the real output.
             return False
         identity = identify_from_banner(out)
         return (

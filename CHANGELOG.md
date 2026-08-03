@@ -13,6 +13,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.3] — 2026-08-03
 
+### Fixed
+- **RELEASE BLOCKER, found before it shipped: installing the fork would have made Platterpus
+  report cyanrip *missing*.** Every version probe sent `cyanrip -V`. That is right for 0.9.3 and
+  earlier — a short-only `getopt` with a `case 'V':` — and wrong for everything after: upstream
+  commit `442de2a` replaced the parser with a generic one that accepts only `-v`/`--version` and
+  rejects `-V` as an unparseable argument, exiting 1. A non-zero exit from a version probe is
+  deliberately read as "this tool is not available", so the launch dependency check would have
+  reported the ripper missing *immediately after the wizard successfully built it*, and the
+  wizard's own post-install verification would have failed on a perfect build.
+  - Probing now tries `-V` then `--version` — the minimal set that covers 0.9.3, stock 0.9.4 and
+    the fork, with the field-proven flag first so the common case still costs one process and an
+    unrecognised flag is never the first thing handed to a CD ripper. The flag list lives in one
+    module (`cyanrip_cli.py`) that all four call sites and the wizard's in-container shell snippet
+    read, so the shell and the Python cannot disagree.
+  - **Not a fork regression** — it would have hit stock upstream 0.9.4 identically, which means
+    "roll back to stock" was never an escape hatch for it. The fork has since restored `-V` as a
+    compatibility alias, and we keep probing both anyway: that fixes their binaries, not the 0.9.3
+    installs users have today.
+  - The expected first failure is no longer logged as a conclusion. It used to emit
+    "treating the tool as unavailable" per attempt, which on every fork install would have put an
+    alarming and untrue line in the user's log; the absence is now logged once, where it is known.
+
 ### Added
 - **The one-time setup wizard now installs the pinned Platterpus fork of cyanrip**, so using the
   fork no longer requires a terminal (KDD-17's zero-terminal bar, in the one place it mattered
