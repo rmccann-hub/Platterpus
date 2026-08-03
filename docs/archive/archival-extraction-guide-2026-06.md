@@ -11,7 +11,7 @@
 > use as *parity targets*, in our own words. Treat it as **targets and
 > principles, not literal config**: it describes EAC on Windows; Platterpus
 > drives cyanrip on Linux, and the concrete mapping lives in the README
-> "Capability & EAC-parity matrix" + [`../ripper-engine-strategy.md`](../ripper-engine-strategy.md).
+> "Capability & EAC-parity matrix" + [`../cyanrip-fork.md`](../cyanrip-fork.md).
 > A couple of the source's claims are the author's assertions flagged
 > **verify-before-relying** (notably the LAME 3.100.1 `noise_shaping_amp` / `-q 4`
 > r6147 claim and some exact version/date numbers).
@@ -69,7 +69,7 @@ WavPack and MP3 are derived.
 See the README's **"Capability & EAC-parity matrix"** and **"Point-by-point vs.
 the EAC 'perfect rip' checklist"** for the line-by-line mapping (Secure Mode →
 cyanrip paranoia + `-Z`, C2 correctly off, offset via AccurateRip, gaps via TOC
-+ cyanrip PR #115, FLAC `-8 -V`, etc.), and `../ripper-engine-strategy.md` for
++ cyanrip PR #115, FLAC `-8 -V`, etc.), and `../cyanrip-fork.md` for
 the deferred gaps.
 
 ## Sources referenced
@@ -90,4 +90,4 @@ can go to the primary source rather than trusting a paraphrase:
 
 ---
 
-*Last updated for Platterpus v0.4.18.*
+*Last updated for Platterpus v0.6.3.*

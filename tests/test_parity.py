@@ -82,7 +82,7 @@ def test_unknown_text_yields_empty() -> None:
 
 # --- Committed reference-data regression guard ----------------------------
 #
-# "Make parity measurable and routine" (docs/eac-parity-investigation.md P1):
+# "Make parity measurable and routine" (docs/eac-parity.md P1):
 # run the two committed REAL-disc logs through the real comparison so a silent
 # parser/parity regression — or an accidental re-encode/corruption of the
 # committed artifacts — fails loudly, with no hardware needed. The numbers

@@ -39,7 +39,7 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 | Signed EAC log checksum | ❌ | **Never** — signing our log as EAC forges provenance (bannable fake log). No PR, ever |
 | Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: re-add whipper, or a 2-PR chain **cyanreg → itismadness** (low odds) |
 
-**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip + CTDB verification, a measured cache-defeat verdict, Test & Copy, an openly-verifiable log checksum, tags, art, provenance — is in place. Each of those was closed with **equal-or-stronger rigor than EAC, honestly labelled as ours** — we never forge EAC's output. The one remaining gap is **gap/INDEX-00 + HTOA**, and its mechanism is now decided (build cyanrip from our soft fork — KDD-32). The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
+**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip + CTDB verification, a measured cache-defeat verdict, Test & Copy, an openly-verifiable log checksum, tags, art, provenance — is in place. Each of those was closed with **equal-or-stronger rigor than EAC, honestly labelled as ours** — we never forge EAC's output. The one remaining gap is **gap/INDEX-00 + HTOA**, and its mechanism is now decided (build cyanrip from our soft fork — KDD-32). The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/cyanrip-upstream.md`](docs/cyanrip-upstream.md) and [`docs/cyanrip-fork.md` Part A §10](docs/cyanrip-fork.md).
 
 ### Point-by-point vs. the EAC "perfect rip" checklist
 
@@ -535,9 +535,9 @@ rationale: [docs/mp3-wav-support.md](docs/mp3-wav-support.md).
 
 ### Compared to EAC's bit-perfect settings
 
-The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. The full point-by-point mapping lives **once**, in the [capability & EAC-parity matrix](#capability--eac-parity-matrix) at the top of this README; the per-setting audit is [PLANNING.md KDD-13](PLANNING.md) and the deep-dive is [docs/eac-parity-investigation.md](docs/eac-parity-investigation.md).
+The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. The full point-by-point mapping lives **once**, in the [capability & EAC-parity matrix](#capability--eac-parity-matrix) at the top of this README; the per-setting audit is [PLANNING.md KDD-13](PLANNING.md) and the deep-dive is [docs/eac-parity.md](docs/eac-parity.md).
 
-Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md).
+Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-parity.md](docs/eac-parity.md).
 
 ### Rip settings at a glance
 
@@ -873,7 +873,7 @@ Source documents and reference material (in `docs/`):
 - [`docs/testing.md`](docs/testing.md) — testing strategy & standards; [`docs/test-plan.md`](docs/test-plan.md) — manual & release testing procedure
 - [`docs/platterpus-research-brief-v2.1.md`](docs/platterpus-research-brief-v2.1.md) — the canonical project brief
 - [`docs/platterpus-session-start.md`](docs/platterpus-session-start.md) — bootstrap instructions for a fresh Claude Code session (Step 0 = optional research-rerun prompt)
-- [`docs/log-format-comparison.md`](docs/log-format-comparison.md) — cyanrip-log vs EAC-log field comparison
+- [`docs/eac-parity.md`](docs/eac-parity.md) — cyanrip-log vs EAC-log field comparison
 
 Build / dev tooling:
 

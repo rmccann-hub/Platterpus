@@ -1,7 +1,7 @@
 """Render a parsed :class:`RipLog` into an EAC-*layout* text log.
 
 **This is NOT a genuine EAC log and it is never signed as one.** See
-``docs/eac-log-and-repair-feasibility.md``: EAC's ``==== Log checksum <hex> ====``
+``docs/eac-parity.md``: EAC's ``==== Log checksum <hex> ====``
 footer is an attestation that *Exact Audio Copy* produced the rip, so emitting
 that exact marker over our (cyanrip) output would be **forging provenance** — a
 bannable "faked log" on gazelle trackers and a direct violation of the project's
@@ -422,7 +422,7 @@ def _real_colons(text: str) -> str:
     """Undo cyanrip's U+2236 stand-in for ':' in displayed text.
 
     cyanrip substitutes the RATIO lookalike when sanitising tag values (its
-    colon-parsing bug — see docs/cyanrip-soft-fork.md), so a title like
+    colon-parsing bug — see docs/cyanrip-fork.md), so a title like
     "Every Breath You Take: The Classics" reaches us as "…∶ The Classics". That
     is an artefact of the workaround, not a fact about the disc, and a real EAC
     log shows the true colon — so the EAC-layout export shows it too. Only the
@@ -1068,7 +1068,7 @@ def _track_block(track: TrackResult) -> list[str]:
     # * `Extraction speed` — no per-track speed or wall-clock in 0.9.3's output;
     #   `extraction_speed` is filled from a fork's per-track speed line.
     # * `Track quality` — EAC-proprietary, no cyanrip analogue, and we will never
-    #   ask for one (docs/cyanrip-improvements-wanted.md §3.1). Permanently
+    #   ask for one (docs/cyanrip-upstream.md Part A §3.1). Permanently
     #   labelled, on purpose.
     out.append(
         "     Peak level "
@@ -1095,7 +1095,7 @@ def _track_block(track: TrackResult) -> list[str]:
     # re-read?). A number computed from an interval we cannot define is a guess
     # wearing EAC's label — the one thing this module exists to refuse. So the
     # measured fact is printed as itself, and EAC's row stays labelled until the
-    # ripper reports a speed. See docs/cyanrip-improvements-wanted.md §2.3.
+    # ripper reports a speed. See docs/cyanrip-upstream.md Part A §2.3.
     out.extend(_extraction_time_line(track))
     out.append(
         "     Track quality "
