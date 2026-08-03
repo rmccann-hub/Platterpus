@@ -45,6 +45,10 @@ _P1_ROW = re.compile(
     r"^\|\s*`(?P<short>-[A-Za-z])`\s*\|(?:\s*`(?P<long>--[a-z-]+)`\s*\|)?", re.M
 )
 
+#: Below this many flags, a document is not publishing a flag table — it is
+#: mentioning flags in prose. Their real tables carry 37-39 rows.
+_MIN_PUBLISHED_FLAGS = 30
+
 #: The consumer contract's flag inventory line — a sorted space-separated list.
 _OUR_FLAGS = re.compile(r"^(-[A-Za-z](?: -[A-Za-z])+)$", re.M)
 
@@ -74,6 +78,26 @@ def _newest_round_files() -> list[Path]:
             continue
         grouped.setdefault(int(match.group("number")), []).append(path)
     assert grouped, "no inbound handshake rounds — nothing to check the argv against"
+
+    # Walk BACK to the newest round that actually publishes a flag table.
+    #
+    # "The contract is unchanged" is a legitimate and complete answer — round 7
+    # gave it, in prose (§9: everything else unchanged from round 6b), and omitted
+    # the provider contract entirely. Keying strictly on the newest round then
+    # parsed a file with no P1 table, found almost no flags, and failed every rip
+    # flag at once: a total-seam-break signature for a round that had simply not
+    # restated something that had not moved.
+    #
+    # Falling back is not a weakening. The table we check against is still the
+    # newest one that exists, and `_newest_inbound_label()` names it, so a reader
+    # of a failure knows which round's contract was used. What we must never do is
+    # silently check against *nothing*, which is what the floor below prevents.
+    for number in sorted(grouped, reverse=True):
+        files = sorted(grouped[number], key=lambda p: p.stem)
+        text = "\n\n".join(f.read_text(encoding="utf-8") for f in files)
+        if len(_their_flags(text)) >= _MIN_PUBLISHED_FLAGS:
+            return files
+    # No round has one. That is a real failure, not something to paper over.
     newest = max(grouped)
     return sorted(grouped[newest], key=lambda p: p.stem)
 
@@ -113,7 +137,9 @@ def test_every_rip_flag_we_send_is_in_the_providers_published_contract() -> None
 
     # Floors. Either side coming back empty would make this pass vacuously, which
     # is exactly how the `-V` gap survived a round of "verification".
-    assert len(their) >= 30, f"only parsed {len(their)} flags from P1 — regex is wrong"
+    assert len(their) >= _MIN_PUBLISHED_FLAGS, (
+        f"only parsed {len(their)} flags from P1 — regex is wrong"
+    )
     assert len(ours) >= 10, f"only parsed {len(ours)} flags from our contract"
 
     unknown = sorted(ours - their)
@@ -140,7 +166,9 @@ def test_every_version_flag_we_probe_with_is_in_the_published_contract() -> None
     would mean we cannot ask this binary its version at all.
     """
     their = _their_flags(_newest_inbound_text())
-    assert len(their) >= 30, f"only parsed {len(their)} flags from P1 — regex is wrong"
+    assert len(their) >= _MIN_PUBLISHED_FLAGS, (
+        f"only parsed {len(their)} flags from P1 — regex is wrong"
+    )
 
     listed = [f for f in VERSION_FLAGS if f in their]
     assert listed, (
@@ -195,8 +223,44 @@ def test_a_round_is_read_as_a_set_of_files_not_only_its_newest() -> None:
     # amendment happening to contain a table.
     union = _their_flags(_newest_inbound_text())
     newest_alone = _their_flags(files[-1].read_text(encoding="utf-8"))
-    assert len(union) >= 30, f"the round's union lists only {len(union)} flags"
+    assert len(union) >= _MIN_PUBLISHED_FLAGS, (
+        f"the round's union lists only {len(union)} flags"
+    )
     assert len(union) >= len(newest_alone), (
         "reading the whole round found fewer flags than its newest file — the "
         "union is losing information"
     )
+
+
+def test_a_round_that_says_the_contract_is_unchanged_does_not_break_the_check() -> None:
+    """Round 7's regression.
+
+    "The contract is unchanged" is a complete answer, and round 7 gave it in prose
+    while omitting the provider contract entirely. Keying strictly on the newest
+    round then parsed a file with no flag table and failed *every* rip flag at
+    once — which reads as a catastrophic seam break rather than as a round that
+    did not restate something that had not moved.
+
+    Asserted two ways so this cannot pass vacuously: the table actually used must
+    clear the published-table floor, and the label must name a round that has one.
+    """
+    files = _newest_round_files()
+    assert files, "no round files found"
+    used = _their_flags(_newest_inbound_text())
+    assert len(used) >= _MIN_PUBLISHED_FLAGS, (
+        f"fell back to a document with only {len(used)} flags — the fallback found "
+        "no published table at all"
+    )
+    # And it is honest about which round it read, so a failure is diagnosable.
+    label = _newest_inbound_label()
+    assert "round-" in label
+    # The newest round on disk may legitimately NOT be the one used; that is the
+    # point. Assert the relationship rather than a hardcoded round number, so this
+    # keeps holding as rounds accumulate.
+    newest_on_disk = max(
+        int(_ROUND_NAME.match(p.stem).group("number"))  # type: ignore[union-attr]
+        for p in INBOUND.glob("round-*.md")
+        if _ROUND_NAME.match(p.stem)
+    )
+    used_round = int(_ROUND_NAME.match(files[0].stem).group("number"))  # type: ignore[union-attr]
+    assert used_round <= newest_on_disk

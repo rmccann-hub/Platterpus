@@ -288,6 +288,11 @@ def test_status_reports_a_complete_round_as_closed(
     for name in ("outbound", "inbound", "verified"):
         (tmp_path / name).mkdir()
         (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
+    # The verification must DECLARE a verdict; presence alone no longer closes a
+    # round (see `test_a_verification_that_holds_does_not_close_the_round`).
+    (tmp_path / "verified" / "round-9.md").write_text(
+        "**GO on pin `abc1234`.**", encoding="utf-8"
+    )
 
     lines = hs.round_status(tmp_path)
     assert any(ln.startswith("round-9") and ln.endswith("CLOSED") for ln in lines)
@@ -305,7 +310,9 @@ def test_the_verification_is_what_closes_a_round(
     (tmp_path / "inbound" / "round-9.md").write_text("x", encoding="utf-8")
     assert hs.round_status(tmp_path)[0].endswith("OPEN")
 
-    (tmp_path / "verified" / "round-9.md").write_text("x", encoding="utf-8")
+    (tmp_path / "verified" / "round-9.md").write_text(
+        "**GO on pin `abc1234`.**", encoding="utf-8"
+    )
     assert hs.round_status(tmp_path)[0].endswith("CLOSED")
 
 
@@ -370,7 +377,10 @@ def test_the_release_gate_blocks_a_release_while_a_round_is_open(
     (tmp_path / "outbound").mkdir()
     (tmp_path / "inbound").mkdir()
     (tmp_path / "verified").mkdir()
-    (tmp_path / "outbound" / "round-1.md").write_text("x", encoding="utf-8")
+    # Round 9, deliberately: rounds 1-3 are grandfathered past the verdict
+    # requirement (`RETROSPECTIVE_ROUNDS`), so building this scenario on round 1
+    # would exercise the exemption instead of the gate.
+    (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
     monkeypatch.setattr(hs, "HANDSHAKE_DIR", tmp_path)
 
     # Sent, nothing back: OPEN → blocked.
@@ -378,11 +388,22 @@ def test_the_release_gate_blocks_a_release_while_a_round_is_open(
 
     # Their return arrives but we have not verified it. A partly-verified pin is
     # an unverified pin, so this must STILL block.
-    (tmp_path / "inbound" / "round-1.md").write_text("x", encoding="utf-8")
+    (tmp_path / "inbound" / "round-9.md").write_text("x", encoding="utf-8")
     assert hs.main(["--release-gate"]) == 1
 
-    # Both directions done → allowed.
-    (tmp_path / "verified" / "round-1.md").write_text("x", encoding="utf-8")
+    # Our verification exists but declares no verdict. Still blocked: a file that
+    # does not say whether the pin may move has not answered the question.
+    verified = tmp_path / "verified" / "round-9.md"
+    verified.write_text("x", encoding="utf-8")
+    assert hs.main(["--release-gate"]) == 1
+
+    # A verification that HOLDS is not a close. This is the round-7 case, and the
+    # reason presence-only was wrong: the file was there, the round was not done.
+    verified.write_text("**HOLD on `d5d12ec`.** Mid-round lap.", encoding="utf-8")
+    assert hs.main(["--release-gate"]) == 1
+
+    # Both directions done AND the verdict is GO → allowed.
+    verified.write_text("**GO on pin `abc1234`.**", encoding="utf-8")
     assert hs.main(["--release-gate"]) == 0
 
 
@@ -534,10 +555,176 @@ def test_an_amendment_belongs_to_its_round_rather_than_being_one(
     for name in ("outbound", "inbound", "verified"):
         (tmp_path / name / "round-6.md").write_text("x", encoding="utf-8")
     (tmp_path / "inbound" / "round-6b.md").write_text("x", encoding="utf-8")
+    (tmp_path / "verified" / "round-6.md").write_text(
+        "**GO on pin `abc1234`.**", encoding="utf-8"
+    )
 
     lines = [ln for ln in hs.round_status(tmp_path) if ln.startswith("round-")]
-    assert lines == ["round-6: sent=yes returned=yes verified=yes  -> CLOSED"], lines
+    assert lines == ["round-6: sent=yes returned=yes verified=yes (GO)  -> CLOSED"], (
+        lines
+    )
     assert hs.round_number(Path("round-6b.md")) == 6
     assert hs.round_number(Path("round-6.md")) == 6
     # A name that is not a round must be ignored, not crash the report.
     assert hs.round_number(Path("notes.md")) is None
+
+
+# --- the round-7 lesson: a HOLD is not a close --------------------------------
+# The gate keyed on the verification file EXISTING. Round 7's verification is a
+# deliberate mid-round HOLD — the fork's §15 asked us to hold — so `--status`
+# reported it CLOSED and `--release-gate` allowed a release, while the deviation
+# policy forbids releasing or moving the pin with a round open. Same shape as the
+# round-6 finding one file up: the check was satisfied by the *wrong thing*, and
+# it reported the right-looking answer for a reason that had nothing to do with
+# the question.
+
+
+def test_a_verification_that_holds_does_not_close_the_round(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """A HOLD and a GO must land on opposite sides of the gate.
+
+    Both branches, in one test, off the same files — so "reports OPEN" cannot be
+    satisfied by a function that ignores the verdict and reports OPEN always.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
+    verified = tmp_path / "verified" / "round-9.md"
+
+    verified.write_text(
+        "# Round 9 — Platterpus verification\n\n"
+        "**HOLD on `d5d12ec`. The pin has NOT moved.** Mid-round lap.\n",
+        encoding="utf-8",
+    )
+    held = hs.round_status(tmp_path)
+    assert held[0].endswith("OPEN"), held
+    assert "HOLD" in held[0], "the status must say WHY it is open, not just that"
+    assert any("do not release" in ln for ln in held)
+
+    verified.write_text("**GO on pin `d5d12ec`.**\n", encoding="utf-8")
+    went = hs.round_status(tmp_path)
+    assert went[0].endswith("CLOSED"), went
+    assert not any("do not release" in ln for ln in went)
+
+
+def test_a_verification_with_no_verdict_does_not_close_a_round(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Fail closed. A verification that never says GO or HOLD has not answered
+    the only question the protocol asks of it, and the safe reading of an
+    unanswered question is "not yet"."""
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "round-9.md").write_text(
+            "Plenty of prose, no verdict anywhere in it.", encoding="utf-8"
+        )
+    lines = hs.round_status(tmp_path)
+    assert lines[0].endswith("OPEN"), lines
+    assert "verified=NO" in lines[0], lines
+
+
+def test_prose_about_the_verdict_is_not_the_verdict(hs: ModuleType) -> None:
+    """The specific way this could have gone wrong.
+
+    Round 7's file says, in its opening paragraph, *"this is a mid-round reply,
+    not a closing GO"* — and declares **HOLD** further down. A pattern searching
+    anywhere in the text for "GO" reads that file as a GO and closes the round
+    off a sentence saying the opposite. Anchored to the line start, so the
+    marker is a *declaration* and prose is prose.
+    """
+    prose = (
+        "This is a mid-round reply, not a closing GO. Your §15 asked us to hold.\n"
+        "We will send a GO when the corpus lands.\n"
+        "\n"
+        "**HOLD on `d5d12ec`.**\n"
+    )
+    assert hs.verification_verdict(prose) == "HOLD"
+    # And the converse: a bolded GO at a line start IS the declaration.
+    assert hs.verification_verdict("**GO on pin `abc1234`.** Everything checked.") == (
+        "GO"
+    )
+    assert hs.verification_verdict("no verdict here at all") is None
+    # A word merely starting with the letters must not match.
+    assert hs.verification_verdict("**GONE, and HOLDINGS aside, we agree.**") is None
+
+
+def test_conflicting_verdicts_read_as_hold(hs: ModuleType) -> None:
+    """A file that declares both changed its mind mid-draft. A release wrongly
+    blocked is a delay; a release wrongly allowed ships an unverified pin."""
+    assert hs.verification_verdict("**GO on `a`.**\n\n**HOLD on `a`.**\n") == "HOLD"
+
+
+def test_the_newest_verification_file_supplies_the_verdict(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """An amendment supersedes what it corrects — in *this* direction too.
+
+    Reading the oldest file would let a since-withdrawn GO keep a round closed,
+    which is exactly the situation round 6b created on the fork's side: a pin
+    asked for in the morning and withdrawn by evening.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
+    (tmp_path / "verified" / "round-9.md").write_text(
+        "**GO on pin `abc1234`.**", encoding="utf-8"
+    )
+    assert hs.round_status(tmp_path)[0].endswith("CLOSED")
+
+    (tmp_path / "verified" / "round-9b.md").write_text(
+        "**HOLD on `abc1234`.** Withdrawing yesterday's GO.", encoding="utf-8"
+    )
+    lines = hs.round_status(tmp_path)
+    assert lines[0].endswith("OPEN"), lines
+    assert "HOLD" in lines[0]
+
+
+def test_the_real_verification_files_all_declare_a_verdict(hs: ModuleType) -> None:
+    """Read the committed artifacts, not my memory of them.
+
+    CLAUDE.md: *when a committed artifact can settle a question, the test should
+    read the artifact.* Every verification file from round 4 on must declare a
+    verdict; rounds 1–3 are the named retrospective exceptions and are the only
+    ones allowed to be silent.
+    """
+    files = sorted(hs.VERIFIED_DIR.glob("round-*.md"))
+    assert len(files) >= 6, "the verification record has shrunk"
+    silent: list[str] = []
+    verdicts: dict[str, str] = {}
+    for path in files:
+        num = hs.round_number(path)
+        assert num is not None, path
+        verdict = hs.verification_verdict(path.read_text(encoding="utf-8"))
+        if verdict is None:
+            if num not in hs.RETROSPECTIVE_ROUNDS:
+                silent.append(path.name)
+        else:
+            verdicts[path.name] = verdict
+    assert not silent, (
+        "verification file(s) declare no GO/HOLD verdict, so the round cannot be "
+        f"read as closed or open: {silent}"
+    )
+    # Floor + non-triviality: this must not pass by finding nothing, and it must
+    # have seen BOTH verdicts, or it is only testing one branch of the parser
+    # against the real corpus.
+    assert len(verdicts) >= 4, verdicts
+    assert set(verdicts.values()) == {"GO", "HOLD"}, (
+        "the real record no longer contains one of each verdict, so this test has "
+        f"stopped comparing them: {verdicts}"
+    )
+
+
+def test_the_retrospective_grandfather_list_may_not_grow(hs: ModuleType) -> None:
+    """A ratchet, not a preference.
+
+    Rounds 1–3 were reconstructed in one sitting long after they closed, before
+    the verdict convention existed. That is a closed historical set. Left
+    unpinned, "add the round to RETROSPECTIVE_ROUNDS" is a one-line way to make
+    an open round read as closed — which is the defect this whole section exists
+    to prevent, re-introduced through the exemption instead of the check.
+    """
+    assert hs.RETROSPECTIVE_ROUNDS == frozenset({1, 2, 3}), (
+        "the retrospective grandfather list may shrink, never grow: a round that "
+        "needs an exemption to close needs a verdict instead"
+    )

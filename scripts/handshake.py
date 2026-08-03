@@ -17,10 +17,13 @@ So this script makes the protocol executable in both directions:
   failure modes that are *worse* than a missing section: a section present but
   empty, and §D ("log-format delta") left silent when silence is ambiguous.
 * ``--status`` reports where the current round stands — what we sent, what came
-  back, whether we verified it — read off ``docs/handshake/``.
+  back, and **what our verification decided** — read off ``docs/handshake/``.
 
 Neither direction is optional and neither is the default: a round is open until
-``--status`` says both files exist *and* our verification was sent.
+both files exist *and* our verification file **declares GO**. The verdict, not
+the file's existence, is what closes a round — round 7's verification is a
+deliberate mid-round ``**HOLD**`` and a presence-only check reported it CLOSED,
+which would have let a release through with the round open.
 
 Usage::
 
@@ -459,6 +462,43 @@ def round_number(path: Path) -> int | None:
     return int(match.group("number")) if match else None
 
 
+#: The verdict a verification file declares, as a bolded marker at the start of
+#: a line: ``**GO on pin `abc1234`.**`` or ``**HOLD on `abc1234`.``. Anchored to
+#: the line start (with the optional ``**``) on purpose — a `GO`/`HOLD` appearing
+#: mid-sentence is *prose about* the verdict, not the verdict. Round 7's file
+#: says "not a closing GO" in its second paragraph and declares **HOLD** on line
+#: 7; a pattern that scanned anywhere in the text would read that file as GO.
+_VERDICT_LINE = re.compile(r"^[ \t]*(?:\*\*)?(?P<verdict>GO|HOLD)\b", re.MULTILINE)
+
+#: Rounds whose verification file predates the ``**GO``/``**HOLD`` convention.
+#: Rounds 1–3 were *reconstructed retrospectively* in one sitting (2026-08-02)
+#: while backfilling the correspondence record — they were closed long before
+#: there was a marker to write. Grandfathered by number, explicitly, rather than
+#: by "treat a missing verdict as GO", because that fallback is the whole defect
+#: this constant exists to avoid: it would silently close any future round whose
+#: verification forgot to state a verdict. This set may shrink, never grow — a
+#: test asserts exactly that.
+RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
+
+
+def verification_verdict(text: str) -> str | None:
+    """The verdict our verification file declares: ``"GO"``, ``"HOLD"``, or None.
+
+    None means *no verdict was stated*, which callers must treat as **not
+    closed** — a verification that does not say whether the pin may move has not
+    answered the question the protocol asks.
+
+    Conflicting markers also return ``"HOLD"``. A file that says both is a file
+    whose author changed their mind mid-draft, and the safe reading of "GO and
+    HOLD" is HOLD: a release wrongly blocked is a delay, a release wrongly
+    allowed is a shipped unverified pin.
+    """
+    found = {m.group("verdict") for m in _VERDICT_LINE.finditer(text)}
+    if not found:
+        return None
+    return "GO" if found == {"GO"} else "HOLD"
+
+
 def _round_files(directory: Path, number: int) -> list[Path]:
     """Every file in ``directory`` belonging to round ``number``, oldest first.
 
@@ -510,12 +550,33 @@ def round_status(root: Path | None = None) -> list[str]:
         sent = _round_files(outbound, num)
         back = _round_files(inbound, num)
         done = _round_files(verified, num)
-        sent, back, was_verified = bool(sent), bool(back), bool(done)
-        state = "CLOSED" if (sent and back and was_verified) else "OPEN"
+        # The verdict comes from the NEWEST verification file for the round —
+        # `_round_files` sorts by stem, so an amendment (`round-7b.md`) supersedes
+        # the file it corrects. Reading the oldest would let a since-withdrawn GO
+        # keep a round closed.
+        verdict: str | None = None
+        if done:
+            verdict = verification_verdict(done[-1].read_text(encoding="utf-8"))
+            if verdict is None and num in RETROSPECTIVE_ROUNDS:
+                verdict = "GO"
+        # A round closes on the VERDICT, not on the file existing. Round 7 is the
+        # case that proved this matters: its verification is a deliberate
+        # mid-round HOLD ("your §15 asked us to hold"), and a presence-only check
+        # reported it CLOSED and let `--release-gate` pass — while the deviation
+        # policy forbids releasing or moving the pin with a round open. A gate
+        # that a HOLD satisfies is not a gate (CLAUDE.md: *can this check be
+        # satisfied by the wrong thing?*).
+        state = "CLOSED" if (sent and back and verdict == "GO") else "OPEN"
+        if verdict is None:
+            shown = "NO"
+        elif verdict == "GO":
+            shown = "yes (GO)"
+        else:
+            shown = "yes (HOLD — not closed)"
         lines.append(
             f"{name}: sent={'yes' if sent else 'NO'} "
             f"returned={'yes' if back else 'NO'} "
-            f"verified={'yes' if was_verified else 'NO'}  -> {state}"
+            f"verified={shown}  -> {state}"
         )
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")
