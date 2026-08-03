@@ -550,6 +550,26 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
+### P1 — Open from cyanrip handshake round 7 (2026-08-03, OPEN — awaiting their return)
+
+`docs/handshake/outbound/round-7.md` is sent. **No release and no pin switch while this
+round is open** (CLAUDE.md deviation policy). What we owe, and what waits on their answers:
+
+- **[ ] The addendum must record re-read *attempts*, not only successful swaps.** Round 7
+      §2c: our whole-disc log says track 3 `Secure re-read: not attempted` (true of pass 1)
+      while our EAC-style log says "re-reads did NOT agree" (true of pass 2, and measured).
+      Nothing in the archived artifact reconciles them, though our app log has the fact
+      outright. Captured and not surfaced — our own rule. **Blocked on Q8:** whether their
+      `-Z N -l <tracks>` invocation writes its own logfile we can cite instead of
+      paraphrasing.
+- **[ ] Send the A7/G2 forced-error corpus.** Hardware-gated and deliberately not
+      hand-assembled: a corpus built from my reading of their control flow is a fixture
+      carrying my assumptions about their control flow. Needs a disc and a drive to
+      misconfigure on purpose.
+- **[ ] Re-run the argv-surface agreement test against their round-7 contract** the moment
+      it lands. Mechanical, and it is the check that would have caught the `-V` blocker a
+      round earlier.
+
 ### P1 — Open from cyanrip handshake round 6 (2026-08-03, closed on pin `2f950c8`)
 
 Each item is either queued with the reason it is queued, or hardware-gated. Nothing
@@ -589,10 +609,14 @@ here blocks the v0.6.3 release; round 6 is CLOSED both directions.
       libavfilter prints the unqualified spellings in the same track block, so an
       unqualified pattern matches two different lines. Needs report-schema fields first,
       same reason as `Encoder:`.
-- **[ ] `Total time:` / `Duration:` MM:SS.FF → seconds.** `parse_hms_to_seconds` silently
-      no-ops on the `MM:SS.FF` shape, and FF is CD frames (1/75 s, 0–74), so reading `.26`
-      as hundredths is wrong by up to 0.98 s. Verified from their `src/utils.h:65-74`.
-      Discriminate on colon count, per their P1 units block.
+- **[x] `Total time:` / `Duration:` MM:SS.FF → seconds.** Done 2026-08-03.
+      `parse_cd_duration_to_seconds` discriminates on colon count per their P1 units block:
+      three fields → milliseconds, two → CD frames (1/75 s). A frame field above 74 is
+      **refused** rather than reinterpreted as hundredths, so a duration cannot quietly gain
+      up to a second. Real-hardware confirmation that the shape is not length-dependent: a
+      59:42 disc prints `Total time:     59:42.57`, two fields on a full-length disc, where
+      our own comment had guessed cyanrip switches to `HH:MM:SS.mmm` for those. Tests read
+      the committed golden reference's own duration rows rather than hand-written samples.
 - **[ ] Consider a second per-track paranoia field for the non-converged passes.** The
       per-track counters report the *final* `-Z` pass only, which hides the evidence of
       difficulty that made `-Z` re-read in the first place. Raised with them as a design

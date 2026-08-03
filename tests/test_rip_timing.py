@@ -101,3 +101,90 @@ def test_parse_eta_never_raises(text: str) -> None:
 def test_format_duration_never_raises(value: object) -> None:
     result = format_duration(value)  # type: ignore[arg-type]
     assert isinstance(result, str)
+
+
+# --- MM:SS.FF is CD FRAMES, not hundredths ------------------------------------
+#
+# Verified from the fork's source at the pinned commit (`src/utils.h`:
+# `snprintf("%02i:%02i.%02i", min, sec, remain)` with `remain = frames % 75`) and
+# stated in their published contract's units block. Reading the fraction as
+# hundredths is wrong by up to 0.98 s, and it was wrong on every per-track
+# `Duration:` row of every disc, silently, because the old pattern demanded
+# HH:MM:SS and returned None for this shape instead.
+
+import pytest  # noqa: E402
+
+from platterpus.rip_timing import (  # noqa: E402
+    CD_FRAMES_PER_SECOND,
+    parse_cd_duration_to_seconds,
+)
+
+
+def test_the_real_discs_total_time_converts_by_frames_not_hundredths() -> None:
+    """`Total time:     59:42.57` off a real 14-track rip.
+
+    57 frames is 0.76 s, not 0.57 s. Asserting the *difference* as well as the
+    value, because a test that only pinned the right answer would still pass if
+    someone reintroduced a /100 divisor and adjusted the expectation to match.
+    """
+    frames_reading = parse_cd_duration_to_seconds("59:42.57")
+    assert frames_reading is not None
+    assert frames_reading == pytest.approx(59 * 60 + 42 + 57 / 75)
+
+    hundredths_reading = 59 * 60 + 42 + 0.57
+    assert frames_reading != pytest.approx(hundredths_reading)
+    assert frames_reading - hundredths_reading == pytest.approx(0.19, abs=0.01)
+
+
+def test_the_two_shapes_are_discriminated_on_colon_count() -> None:
+    """Their contract tells a consumer to key on colon count, and that is the only
+    thing that can work: `.34` is a legal value in both shapes, so the fraction's
+    magnitude carries no information about which one you are looking at."""
+    # Three fields -> the fraction is MILLISECONDS.
+    assert parse_cd_duration_to_seconds("00:59:42.354") == pytest.approx(
+        59 * 60 + 42.354
+    )
+    # Two fields -> the fraction is FRAMES. Same digits, different value.
+    assert parse_cd_duration_to_seconds("59:42.35") == pytest.approx(
+        59 * 60 + 42 + 35 / 75
+    )
+
+
+def test_minutes_are_not_modulo_60() -> None:
+    """There is no hours field in the MM:SS.FF shape, so a 90-minute disc prints
+    `90:12.34`. A pattern allowing only two digits of minutes would drop it."""
+    assert parse_cd_duration_to_seconds("90:12.34") == pytest.approx(
+        90 * 60 + 12 + 34 / 75
+    )
+
+
+def test_a_frame_field_out_of_range_is_refused_not_reinterpreted() -> None:
+    """74 is the last legal frame. A `.75` or higher is not a frame field, and
+    guessing that it must be hundredths would let a duration quietly gain up to a
+    second. Refusing says "this does not match either documented shape"."""
+    assert parse_cd_duration_to_seconds("00:00.74") == pytest.approx(74 / 75)
+    assert parse_cd_duration_to_seconds("00:00.75") is None
+    assert parse_cd_duration_to_seconds("00:00.99") is None
+    assert CD_FRAMES_PER_SECOND == 75
+
+
+def test_the_committed_fork_reference_durations_all_parse() -> None:
+    """Read the artifact, not a hand-written sample (docs/testing.md §5.u).
+
+    Every `Duration:` and `Total time:` row in the committed golden reference must
+    convert. A floor on the count keeps this from passing by finding none.
+    """
+    import re
+    from pathlib import Path
+
+    golden = (
+        Path(__file__).parent / "fixtures" / "cyanrip_fork_golden_reference_r6b.log"
+    )
+    rows = re.findall(
+        r"^\s*(?:Total time|Duration):\s+(\S+)\s*$",
+        golden.read_text(encoding="utf-8"),
+        re.M,
+    )
+    assert len(rows) >= 4, f"only found {len(rows)} duration rows: {rows}"
+    unparsed = [r for r in rows if parse_cd_duration_to_seconds(r) is None]
+    assert not unparsed, f"duration rows the converter cannot read: {unparsed}"
