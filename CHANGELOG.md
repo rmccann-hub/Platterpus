@@ -33,6 +33,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   non-success outcome; the read-stability fact still reaches the user through the EAC-style
   log's `Read stability` line and the warn banner, which is where it belongs.
 
+### Fixed
+- **`MM:SS.FF` durations were read as hundredths, or not at all.** cyanrip prints two
+  duration shapes and the fraction means different things in each: `HH:MM:SS.mmm` is
+  milliseconds, `MM:SS.FF` is **CD frames** (1/75 s, 0–74). Our helper demanded the
+  three-field form and returned nothing for the two-field one, so a disc duration was
+  silently absent — and loosening the pattern without noticing the units would have made
+  every per-track duration wrong by up to 0.98 s. `parse_cd_duration_to_seconds` now
+  discriminates on colon count, as the ripper's published units block instructs, and
+  **refuses** a frame field above 74 rather than reinterpreting it.
+  - Real hardware corrected an assumption in our own comment: the shape is not
+    length-dependent. A 59:42 disc prints `Total time:     59:42.57` — two fields on a
+    full-length disc, where we had guessed it would switch to `HH:MM:SS.mmm`.
+
 ### Changed
 - **The docs are consolidated: 79 markdown files → 64.** Content is preserved verbatim —
   each merged part is the original file, whole, with its headings demoted one level and a

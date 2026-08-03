@@ -60,25 +60,78 @@ def parse_eta_to_seconds(text: str | None) -> int | None:
 
 _HMS = re.compile(r"^\s*(?P<h>\d{1,2}):(?P<m>\d{2}):(?P<s>\d{2}(?:\.\d+)?)\s*$")
 
+#: ``MM:SS.FF`` — cyanrip's *other* duration shape, where ``FF`` is **CD frames**
+#: (1/75 s, 0–74), not hundredths. Minutes are not modulo 60, so a 90-minute disc
+#: prints ``90:12.34``; the pattern allows three digits for that reason.
+_MSF = re.compile(r"^\s*(?P<m>\d{1,3}):(?P<s>\d{2})\.(?P<f>\d{2})\s*$")
 
-def parse_hms_to_seconds(text: str | None) -> float | None:
-    """Parse a ``HH:MM:SS(.mmm)`` duration (cyanrip's ``Total time:``) to seconds.
+#: CD frames per second. A sector *is* a frame: 75 per second, by the Red Book.
+CD_FRAMES_PER_SECOND: int = 75
 
-    Returns None for empty/unparseable input. Never raises.
+
+def parse_cd_duration_to_seconds(text: str | None) -> float | None:
+    """Parse either duration shape cyanrip prints, in real seconds.
+
+    **Two shapes, and the difference is not cosmetic.** Verified from the fork's
+    source at the pinned commit (``src/utils.h``, ``snprintf("%02i:%02i.%02i",
+    min, sec, remain)`` with ``remain = frames % 75``) and stated in their
+    published contract's units block:
+
+    * ``HH:MM:SS.mmm`` — three colon-separated fields; the fraction is
+      **milliseconds**. What a full-length disc's ``Total time:`` looks like.
+    * ``MM:SS.FF`` — two fields; the fraction is **CD frames**, 1/75 s, range
+      0–74. What a short disc and every per-track ``Duration:`` looks like.
+
+    Reading ``.57`` as hundredths where it means 57 frames is wrong by up to
+    **0.98 s** — 57/75 = 0.76 s, not 0.57 s — and reading ``.74`` as hundredths
+    is wrong in the same direction on every track of every disc. The real rip
+    that motivated this printed ``Total time:     59:42.57``.
+
+    Discriminate on **colon count**, which is what their contract tells a
+    consumer to do: two colons means milliseconds, one means frames. Guessing
+    from the fraction's magnitude cannot work — ``.34`` is a legal value in both.
+
+    Returns None for empty/unparseable input. Never raises: this is a parser of
+    external output.
     """
     if not text:
         return None
     try:
-        match = _HMS.match(text)
-        if not match:
+        hms = _HMS.match(text)
+        if hms is not None:
+            return (
+                int(hms.group("h")) * 3600
+                + int(hms.group("m")) * 60
+                + float(hms.group("s"))
+            )
+        msf = _MSF.match(text)
+        if msf is None:
+            return None
+        frames = int(msf.group("f"))
+        # A frame field above 74 is not a frame field. Rather than silently
+        # producing a value >1 s from a fraction, refuse: the input does not
+        # match either documented shape, and inventing a reading of it is how a
+        # duration quietly gains a second.
+        if frames >= CD_FRAMES_PER_SECOND:
             return None
         return (
-            int(match.group("h")) * 3600
-            + int(match.group("m")) * 60
-            + float(match.group("s"))
+            int(msf.group("m")) * 60
+            + int(msf.group("s"))
+            + frames / CD_FRAMES_PER_SECOND
         )
-    except (ValueError, KeyError):  # defensive — the regex already constrains input
+    except (ValueError, KeyError):  # defensive — the regexes already constrain input
         return None
+
+
+def parse_hms_to_seconds(text: str | None) -> float | None:
+    """Backwards-compatible alias for :func:`parse_cd_duration_to_seconds`.
+
+    Kept because the name is used at several call sites and in tests; the old
+    behaviour (``HH:MM:SS`` only, silently returning None for ``MM:SS.FF``) was
+    the defect, so the alias deliberately points at the *fixed* function rather
+    than preserving it.
+    """
+    return parse_cd_duration_to_seconds(text)
 
 
 def format_duration(seconds: float | None) -> str:
