@@ -1,6 +1,6 @@
 """cyanrip backend — the ripping engine behind the RipBackend ABC.
 
-Why (KDD-18, docs/ripper-engine-strategy.md): cyanrip is the sole backend
+Why (KDD-18, docs/cyanrip-fork.md): cyanrip is the sole backend
 because it's better in essentially every situation. It's actively maintained
 (C/FFmpeg), applies the read offset itself via ``-s`` with its own paranoia (so
 it has *no* >587 cd-paranoia bug — exactly the range the tested Pioneer

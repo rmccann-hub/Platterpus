@@ -3,7 +3,7 @@
 #
 # Run this LOCALLY (or in a Claude session seeded with the fork) — this
 # Platterpus cloud session is scoped to this repo and can't reach cyanrip.
-# It only does the mechanical git scaffolding from docs/cyanrip-soft-fork.md §1;
+# It only does the mechanical git scaffolding from docs/cyanrip-fork.md Part A §1;
 # the code edit (apply-colon-fix.py) and the GitHub actions (issue/PR) are
 # separate, deliberate steps.
 #

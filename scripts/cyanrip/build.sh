@@ -3,7 +3,7 @@
 #
 # Run inside the `ripping` Distrobox container (it has FFmpeg/libcdio-paranoia/
 # libmusicbrainz5/libcurl + the C toolchain). This is the "build from our pinned
-# commit instead of a distro package" step from docs/cyanrip-soft-fork.md §4 —
+# commit instead of a distro package" step from docs/cyanrip-fork.md Part A §4 —
 # the routing to ~/.local/bin/cyanrip is unchanged (Critical Rule #3); only the
 # binary's *source* moves.
 #

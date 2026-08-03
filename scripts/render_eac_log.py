@@ -8,7 +8,7 @@ and eyeball the per-track Copy CRCs — the readable companion to
 ``scripts/eac_parity.py``'s pass/fail table.
 
 **It is NOT a genuine EAC log and is never signed** (see
-``docs/eac-log-and-repair-feasibility.md``: signing our output as EAC is
+``docs/eac-parity.md``: signing our output as EAC is
 provenance forgery). The first line and the footer say so.
 
     python3 scripts/render_eac_log.py ~/Music/rips/Album/Album.log

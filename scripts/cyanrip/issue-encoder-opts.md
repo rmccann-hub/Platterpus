@@ -1,7 +1,7 @@
 <!-- Ready-to-paste GitHub ISSUE body for cyanreg/cyanrip. Sanity-check the flag
      name with the maintainer (IRC #cyanrip / this issue) BEFORE building the PR,
      since the wiring touches getopt + the settings structs + --help. Design
-     detail: docs/cyanrip-soft-fork.md §3. -->
+     detail: docs/cyanrip-fork.md Part B §3. -->
 
 Title: Allow passing arbitrary libavcodec encoder options (e.g. FLAC `compression_level`) instead of only the hardcoded per-format default
 

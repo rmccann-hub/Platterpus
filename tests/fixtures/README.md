@@ -15,7 +15,7 @@ The primary `rip_log_real_whipper_0_7.log` was pulled verbatim from
 whipper-team/whipper master's own test suite (commit referenced inside
 the file's "Log created by" line). The `rip_log_eac_reference.log`
 is hand-authored from public EAC log documentation and exists only
-as a reference for the format comparison in `docs/log-format-comparison.md`
+as a reference for the format comparison in `docs/eac-parity.md`
 — it is NOT consumed by any parser.
 
 When real-world output differs from a fixture, update the fixture here and
@@ -34,4 +34,4 @@ checker).
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.6.3.*

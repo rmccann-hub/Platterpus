@@ -3,7 +3,7 @@
 **For:** the Claude Code session working on the cyanrip fork.
 **From:** the Platterpus session, 2026-07-31. Platterpus `main` @ v0.5.19 + the
 v0.5.20 branch (`claude/session-omka9f`).
-**Spec of record:** `docs/cyanrip-improvements-wanted.md` in the Platterpus repo
+**Spec of record:** `docs/cyanrip-upstream.md` in the Platterpus repo
 (818 lines, updated today — §2.1/§2.3/§2.4/§2.5 now state the shipped Platterpus
 side rather than describing it as future work).
 

@@ -68,7 +68,7 @@ than crashing.
 The captured `RippingInfo` block intentionally mirrors what EAC's log
 captures (drive, read offset, cache defeat, gap detection) so the GUI
 can surface an archival summary comparable to EAC's. See
-docs/log-format-comparison.md.
+docs/eac-parity.md.
 """
 
 from __future__ import annotations
@@ -239,7 +239,7 @@ class TrackResult:
     # Provenance we previously had to infer; empty on stock cyanrip.
     pregap_source: str = ""
     # --- fields that only a FORK of cyanrip fills (see the "fork-only" block in
-    # parsers/cyanrip_log.py, and docs/cyanrip-improvements-wanted.md §2.1/§2.3).
+    # parsers/cyanrip_log.py, and docs/cyanrip-upstream.md Part A §2.1/§2.3).
     # The deployed cyanrip 0.9.3 prints none of these, so they stay None there and
     # every surface must behave exactly as it does today — that is the whole
     # contract: ONE Platterpus build reads both the deployed ripper and the fork.

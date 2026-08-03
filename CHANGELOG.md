@@ -33,6 +33,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   non-success outcome; the read-stability fact still reaches the user through the EAC-style
   log's `Read stability` line and the warn banner, which is where it belongs.
 
+### Changed
+- **The docs are consolidated: 79 markdown files → 64.** Content is preserved verbatim —
+  each merged part is the original file, whole, with its headings demoted one level and a
+  provenance table recording where it came from.
+  - `docs/eac-parity.md` ← four EAC investigations (`eac-parity-investigation`,
+    `log-format-comparison`, `eac-log-and-repair-feasibility`,
+    `eac-tracker-requirements-2026-07`). They answered one question between them and now
+    live in one place, Part A first because it carries the framing the others assume.
+  - `docs/cyanrip-fork.md` ← `ripper-engine-strategy` + `cyanrip-soft-fork`: why we fork,
+    and how the fork is kept sane.
+  - `docs/cyanrip-upstream.md` ← `cyanrip-improvements-wanted` + `upstream-pr-roadmap`:
+    what we want, and how it reaches upstream.
+  - `output_reference/`: nine per-directory READMEs → one. Nine files describing one 3×3
+    matrix meant the shared rules (no audio, UTF-16, how to replace a rip) were restated
+    nine times and could drift nine ways.
+  - `docs/audit-2026-07-21.md` → `docs/archive/`, where dated investigations belong.
+  - **Parts are lettered, not numbered, deliberately:** the merged sources number their own
+    sections from 0, so a numbered wrapper would make a cross-reference like *§2.1*
+    ambiguous. Every inbound `§N` reference was rewritten to name its part — `Part A §8`
+    reads exactly one way.
+  - Deliberately *not* merged, with reasons: `manual-ctdb-repair.md` is a user runbook
+    rather than an investigation; `ctdb-crc-algorithm.md` is a live spec cited from code;
+    and `testing.md` / `test-plan.md` / `hardware-test-checklist.md` serve three different
+    audiences, with `testing.md` anchored as the Definition of Done from `CLAUDE.md`.
+
 ### Added
 - **A gate that every relative link between the project's docs resolves**
   (`tests/test_doc_links.py`). 79 markdown files cross-reference each other 200+ times and
@@ -737,7 +762,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   whole change is written to one rule: **absent means absent.** A field no ripper reported stays
   `None` and every surface renders exactly what it renders today; the parse of every committed
   real log is byte-identical except for the one line below that 0.9.3 *does* print. Four new
-  rows are understood (specification: `docs/cyanrip-improvements-wanted.md`):
+  rows are understood (specification: `docs/cyanrip-upstream.md`):
   - **A per-track sample peak** (§2.1) fills EAC's `Peak level` row, in both plausible print
     shapes (inline `Sample peak:  -0.5 dBFS`, or cyanrip's existing sub-header style). The unit
     is required, never assumed. **cyanrip's existing `True peak:` can never reach this field** —
@@ -783,7 +808,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   than being parsed into a field nothing writes down. Every key is always present and `null` when
   unreported, so a reader can tell "the ripper didn't say" from "this build doesn't record it".
 
-- **`docs/cyanrip-improvements-wanted.md` described shipped work as future work** in four of its
+- **`docs/cyanrip-upstream.md` described shipped work as future work** in four of its
   five sections. §2.1, §2.3, §2.4 and §2.5 each said the Platterpus reader still had to be
   written — it shipped in v0.5.19 — which is exactly backwards for a document whose purpose is to
   be handed to whoever works on the fork: they would have read it as "the GUI is not ready for
@@ -1259,7 +1284,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   intentional so they don't read as regressions, and §A17 flags the one behaviour change
   this release that could plausibly regress a working setup.
 - **The changes we want in cyanrip itself now have a ranked, evidence-graded home.**
-  `docs/cyanrip-improvements-wanted.md` lists each gap in the external ripper with the
+  `docs/cyanrip-upstream.md` lists each gap in the external ripper with the
   real log lines that prove it, whether it affects the *audio* or only the *record*
   (every item is the record — none changes a ripped byte), the concrete upstream edit,
   and whether it belongs in an upstream PR, a soft-fork patch, or our own code. It
@@ -1955,7 +1980,7 @@ measured.*
   naming the affected tracks. Measured only: a track nobody re-read is unchanged.
 
 ### Changed
-- `docs/log-format-comparison.md`: the cache-defeat row still described the field
+- `docs/eac-parity.md`: the cache-defeat row still described the field
   as permanently `(unknown)` (KDD-25) — superseded by the measured verdict
   (KDD-29) — and the CRC row predated the Test & Copy rendering. Both corrected.
 
@@ -2193,7 +2218,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   knob to add (cyanrip's `-p` is a per-track override whose only archival-safe
   value is the default we already use; `drop` deletes audio, `track` renumbers
   tracks). The docs that implied an unset gap mode (`test-plan.md`,
-  `eac-parity-investigation.md`) are corrected, the `-p` contract is recorded in
+  `eac-parity.md`) are corrected, the `-p` contract is recorded in
   `dependency-contracts.md`, and the TASKS item is closed. The remaining
   `INDEX 00` cue-metadata difference stays tracked separately (PR #115 route).
 
@@ -2327,7 +2352,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   (code comments cite its numbering); the TASKS.md item that had drifted from
   it is now only a per-gap tracking checklist linking there.
 - **Remaining single-home doc cleanups applied** (docs-audit consolidation
-  plan): `docs/log-format-comparison.md` now points at architecture §3.7 for
+  plan): `docs/eac-parity.md` now points at architecture §3.7 for
   the two-artifacts rationale instead of restating it;
   `tests/fixtures/README.md`'s EAC-baseline section is a pointer at
   `output_reference/` plus the UTF-16/`decode_log_bytes` warning;
@@ -2335,7 +2360,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   installer/desktop-integration/GitHub-API surfaces it deliberately excludes;
   `docs/architecture.md` §2's layer table gained a "Qt-free domain modules"
   row pointing at PLANNING.md §2 as the canonical per-module map.
-- **`ripper-engine-strategy.md` §9 now states where the 2026 ripper-landscape
+- **`cyanrip-fork.md` Part A §9 now states where the 2026 ripper-landscape
   research doc lives** (closing the consolidation plan's last open sub-item):
   it was maintainer-provided session research input, never committed to the
   repo — the project's own record preserves (and corrects) its load-bearing
@@ -2343,7 +2368,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   resurfaces it goes to `docs/archive/` per the compass-artifact convention.
 - **The "two corrections to the ripper-landscape doc" condensed to one home**
   (docs-audit consolidation plan): PLANNING.md KDD-24 keeps the full text (the
-  designated record); `docs/eac-log-and-repair-feasibility.md` now carries a
+  designated record); `docs/eac-parity.md` now carries a
   one-line summary + link instead of the duplicated telling.
 - **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
   call, completing the audit doc-map): graduation row added to the archive
@@ -2368,7 +2393,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   restated the capability matrix and point-by-point table from the top of the
   README (the drifted CTDB status had rotted in three places for exactly this
   reason) — the section now points at the matrix, KDD-13, and
-  `docs/eac-parity-investigation.md`, and the Settings rundown lives under its
+  `docs/eac-parity.md`, and the Settings rundown lives under its
   own "Rip settings at a glance" heading.
 - **`CLAUDE.md`'s companion-document list slimmed to one-line pointers**
   (maintainer-approved): `docs/README.md` is the canonical annotated index and
@@ -2416,7 +2441,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   audited against the code, CI, and the live tag history — 239 findings, ~160
   fixed in this release's docs commits. The audit record (systemic patterns,
   before→after doc map, open maintainer questions) is
-  `docs/audit-2026-07-21.md`; the unexecuted consolidation plan is captured in
+  `docs/archive/audit-2026-07-21.md`; the unexecuted consolidation plan is captured in
   `TASKS.md` → P1 Documentation backlog.
 - **`TASKS.md` statuses caught up with shipped reality.** CTDB verify's three
   trackers all still read as open/hardware-gated although the CRC was
@@ -2502,11 +2527,11 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   checkout) is now git-ignored with a note in the kit README, which also
   gained the standard footer stamp and an accurate build.sh description.
 - **Research/design docs reconciled with their own outcomes.**
-  `eac-log-and-repair-feasibility.md` no longer reads as pending: Part A's
+  `eac-parity.md` no longer reads as pending: Part A's
   decision gate records the KDD-24 resolution (option 1 standing, option 2
   shipped v0.4.16, signing permanently closed), Part B's CRC blocker is marked
   cleared (v0.4.20), and the misattributed "CLAUDE.md" ethos quote is
-  re-cited. `eac-parity-investigation.md` gained a dated Outcome note (13/14
+  re-cited. `eac-parity.md` gained a dated Outcome note (13/14
   reached, Track-3 transience confirmed then refined to read-instability, the
   `-Z` hardware gate answered, P1 done) plus superseded-pointers for the
   INDEX-00 route (PR #115 via the upstream roadmap) and the renamed `-Z`
@@ -2900,7 +2925,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   (their logcheckers gate on ripper *identity*, plus a checksum we refuse to
   forge) and that cache-defeat is reported "attempted, not measured" rather than
   faked (PLANNING.md KDD-24/25). Added a per-gap, license-compatible open-source
-  option menu (`docs/ripper-engine-strategy.md` §10) and corrected stale
+  option menu (`docs/cyanrip-fork.md` Part A §10) and corrected stale
   whipper-era claims across the docs after the KDD-18 backend swap.
 
 ## [0.4.16] — 2026-07-06
@@ -3666,7 +3691,7 @@ richer metadata and cover art, and a more complete per-album report.
   are hardware-gated pending validation on the Pioneer BDR-209D rig — whether the
   drive honours `-S`, whether cyanrip's per-track read-error signal is reliable,
   and whether a track subset can be re-ripped; until then the ladder is
-  best-effort and cannot cause a regression** (see `docs/ripper-engine-strategy.md
+  best-effort and cannot cause a regression** (see `docs/cyanrip-fork.md
   §8.1`).
 - **Derived files (MP3/WavPack/WAV) are now verified too (Task #19).** The FLAC
   master was already fully verified (AccurateRip + CTDB + `flac --test`); now the
@@ -3697,7 +3722,7 @@ richer metadata and cover art, and a more complete per-album report.
   (schema v3→v4); hand-edited templates are left untouched.
 
 ### Documentation
-- Refreshed `docs/log-format-comparison.md` from whipper→EAC to **cyanrip→EAC**
+- Refreshed `docs/eac-parity.md` from whipper→EAC to **cyanrip→EAC**
   (cyanrip is the sole backend since KDD-18): field-by-field for cyanrip's
   header, per-track CRC/AccurateRip/offset-variant, paranoia counts, per-track +
   album loudness, and `Log FUN512:` log signature, plus the single
@@ -4032,7 +4057,7 @@ richer metadata and cover art, and a more complete per-album report.
   first line says it was generated by Platterpus and is not a genuine EAC log,
   and the footer carries an explicit "not signed by Exact Audio Copy" marker in
   place of EAC's checksum. It only ever renders real rip data and refuses to
-  fabricate an EAC signature (see `docs/eac-log-and-repair-feasibility.md`).
+  fabricate an EAC signature (see `docs/eac-parity.md`).
 - **At-a-glance verification verdict banner above the results table.** A single
   bold, colour-coded headline now summarises whether the rip is trustworthy
   without reading every row: green "✓ Bit-perfect: all N tracks verified against

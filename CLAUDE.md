@@ -167,12 +167,14 @@ from it again; it did once, KDD-range v23 vs v25):
 - **`docs/session-log.md`** — per-session chronology (newest first); lessons graduate out of it (rule #7)
 - **`docs/cyanrip-handshake.md`** — the **binding, bidirectional** release handshake with the cyanrip fork: two files per round, both directions, and **no release from either side until both have verified the other's**
 - **`docs/cyanrip-consumer-contract.md`** — **generated, do not hand-edit.** Our half of the cyanrip dependency contract: every log line we parse, every line we knowingly ignore with its recorded reason, and every flag we pass — all read out of the parser's enumeration tables and a real call to the argv builder by `scripts/emit_dependency_contract.py`. The fork supplies the mirroring **provider** contract; two halves, one seam. A description *derived from* the behaviour cannot describe behaviour we do not have, which is exactly how we once told the fork a line was stdout-only when it was not
-- **`docs/ripper-engine-strategy.md`** — living fork/engine research (+ companions: `upstream-pr-roadmap.md`, `cyanrip-soft-fork.md`, the `scripts/cyanrip/` kit)
+- **`docs/cyanrip-fork.md`** — why we fork cyanrip and how the fork is kept sane: Part A the engine-strategy research, Part B the executable soft-fork runbook
+- **`docs/cyanrip-upstream.md`** — what we want from cyanrip (Part A, the ranked ask list) and how it reaches upstream (Part B, the PR roadmap); the `scripts/cyanrip/` kit executes it
+- **`docs/eac-parity.md`** — the single home for EAC parity: what deviates, the log formats field by field, tracker acceptance, and what the real logcheckers deduct for
 - **`docs/archive/`** — retired dated investigations + external reference; graduation map in its README
 
-Everything else under `docs/` (log-format comparison, mp3-wav design-of-record,
-CTDB CRC spec, EAC investigations, GitHub SOP, AppImage testing, dated audits)
-is indexed with one-line descriptions in `docs/README.md`.
+Everything else under `docs/` (mp3-wav design-of-record, CTDB CRC spec, GitHub
+SOP, AppImage testing, the manual CTDB repair runbook) is indexed with one-line
+descriptions in `docs/README.md`. Dated investigations live in `docs/archive/`.
 
 If `PLANNING.md` and the brief conflict, the brief **as amended by the maintainer-approved KDDs** wins on requirements/scope and `PLANNING.md` wins on implementation choices. If `PLANNING.md` and the research output conflict, raise it with the user — don't silently pick.
 

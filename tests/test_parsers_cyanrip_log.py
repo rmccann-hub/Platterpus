@@ -800,7 +800,7 @@ def test_album_rows_inside_a_track_block_do_not_overwrite_the_disc_album() -> No
 # comes in a pair — the line PRESENT, and the line ABSENT — because the absent half
 # is the one that ships today and the one a careless "improvement" would break.
 #
-# Specification: docs/cyanrip-improvements-wanted.md §2.1 (sample peak), §2.3
+# Specification: docs/cyanrip-upstream.md Part A §2.1 (sample peak), §2.3
 # (per-track speed/elapsed), §2.4 (the -Z verdict in the log file), §2.5 (C2 use
 # vs capability). The `Appended:` row is NOT fork-only — 0.9.3 prints it already.
 
