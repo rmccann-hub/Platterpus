@@ -23,8 +23,10 @@ cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
 (always passed — the GUI feeds the tags instead), ``-a``/``-t`` album/track
 metadata, ``-D``/``-F`` dir/file naming schemes (``{key}`` substitution),
-``-G`` disable cover-art embed, ``-I`` info-only, ``-V`` version. (``-f`` is
-cyanrip's *force-overread*, NOT an offset finder — we never use it.)
+``-G`` disable cover-art embed, ``-I`` info-only, and the version flag —
+which is ``-V`` on 0.9.3.x but ``-v``/``--version`` from 0.9.4-rc1 on, so we try
+both (see `platterpus.cyanrip_cli`). (``-f`` is cyanrip's *force-overread*, NOT an
+offset finder — we never use it.)
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     run_capture,
 )
+from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -212,6 +215,7 @@ class CyanripImpl(RipBackend):
         # ones — either way cyanrip itself stays offline.
         del unknown
         argv.append("-N")
+        argv += _disc_args(metadata)
         argv += _metadata_args(metadata, release_id, disc_track_total)
         # Naming: translate our whipper-style templates to cyanrip schemes.
         # The directory part (before the last "/") becomes -D, the filename
@@ -314,13 +318,28 @@ class CyanripImpl(RipBackend):
         in the app; only the adapter can see the exit code, so only the adapter
         can close that hole.
 
-        This cannot fail a working ripper: cyanrip's ``case 'V':`` logs the banner
-        and returns 0 (verified in its source, v0.9.3.1), so a non-zero exit here
-        came from the wrapper/container — exactly the failure the doctor exists to
-        name. The raised `RipError` carries cyanrip's own first output line, and
+        **Which flag prints the version is version-dependent, so we try both.**
+        0.9.3.x has a hand-rolled ``case 'V':``; 0.9.4-rc1 and the Platterpus fork
+        use the generic ``genopt`` parser, which special-cases only
+        ``-v``/``--version`` and rejects ``-V`` as an unparseable argument with
+        exit 1. Sending only ``-V`` therefore made a perfectly working fork build
+        look like a broken container to this method and to ``--doctor``. Order and
+        rationale live in :mod:`platterpus.cyanrip_cli`.
+
+        A non-zero exit from the LAST flag still raises, which is the hole this
+        method was written to close: a broken wrapper/container that exits
+        non-zero while printing an error must not come back as "the version".
+        The raised `RipError` carries cyanrip's own first output line, and
         ``_run`` has already logged the full output.
         """
-        return self._run(["-V"], strict=True).strip()
+        last_error: RipError | None = None
+        for flag in VERSION_FLAGS:
+            try:
+                return self._run([flag], strict=True).strip()
+            except RipError as exc:
+                last_error = exc
+        assert last_error is not None  # VERSION_FLAGS is never empty
+        raise last_error
 
     def produces_max_compression_flac(self) -> bool:
         # cyanrip drives libavcodec at the maximum FLAC compression level for
@@ -580,6 +599,67 @@ def _reject_path_reference_values(meta: RipMetadata) -> None:
             raise RipError(problem)
 
 
+def _disc_args(metadata: RipMetadata | None) -> list[str]:
+    """Build cyanrip's ``-c <disc>/<totaldiscs>`` argument, or ``[]``.
+
+    **Why a dedicated flag instead of an ``-a disc=…`` tag.** Platterpus used to
+    fold the disc number into the album tag string as ``disc=2/3``. cyanrip
+    passes an ``-a`` value through verbatim, and ffmpeg's Vorbis-comment writer
+    maps the key ``disc`` to ``DISCNUMBER`` — so the FLAC ended up carrying the
+    single tag ``DISCNUMBER=2/3``. That is the **ID3** convention, not the
+    Vorbis one: a strict reader wants an integer in ``DISCNUMBER`` and the total
+    in its own field, so "2/3" reads as either a malformed number or the literal
+    string, and ``totaldiscs`` was lost outright.
+
+    cyanrip already has the right seam for this — ``-c disc/totaldiscs``
+    (``cyanrip_main.c``: ``GEN_OPT_ONE(… disc, "c" …)``) — which parses the slash
+    itself and sets **two separate integer keys**, ``disc`` and ``totaldiscs``
+    (``av_dict_set_int(&ctx->meta, "disc", discnumber, 0)`` /
+    ``… "totaldiscs", totaldiscs …``). That produces the Vorbis-correct shape,
+    and it also feeds cyanrip's ``{if #totaldiscs# > #1# CD|disc|}`` log/cue name
+    schemes, so two discs of a set ripped into one folder no longer both try to
+    write ``Album.log``. (Safe for us: the rip worker finds the ripper's log by
+    globbing ``*.log`` in the rip folder, not by reconstructing its name.)
+
+    Single-disc releases get ``-c 1/1`` rather than nothing. EAC and Picard both
+    write ``DISCNUMBER``/``TOTALDISCS`` on a one-disc album, so emitting them
+    keeps a library uniform instead of having the field appear only on box sets —
+    and cyanrip's name schemes are guarded on ``totaldiscs > 1``, so no filename
+    changes for the common case.
+
+    **Range-checked here, at the argv chokepoint.** cyanrip *refuses the whole
+    rip* on a bad value — ``Invalid discnumber``, ``Invalid totaldiscs``, and
+    ``discnumber %i is larger than totaldiscs %i`` all ``return 1`` before a
+    single sector is read. These numbers come from a metadata service, i.e. from
+    something other than the disc in the drive, which is exactly the category
+    CLAUDE.md requires be range-checked before it becomes an argument. This is
+    the same defect shape as the ``-t 17=`` on a 16-track disc that killed a real
+    rip in two seconds (docs/testing.md §5.m): an out-of-range value we could
+    have caught, handed to a tool that treats it as fatal. When the numbers are
+    not usable we drop the flag and log why — losing a disc tag is survivable,
+    losing the rip is not.
+    """
+    meta = metadata or RipMetadata()
+    number = meta.disc_number
+    total = meta.total_discs
+    if not isinstance(number, int) or not isinstance(total, int):
+        log.warning(
+            "not passing -c: disc position is not a pair of integers (%r/%r)",
+            number,
+            total,
+        )
+        return []
+    if number < 1 or total < 1 or number > total:
+        log.warning(
+            "not passing -c: disc %r of %r is not a usable disc position "
+            "(cyanrip refuses the entire rip on an out-of-range -c)",
+            number,
+            total,
+        )
+        return []
+    return ["-c", f"{number}/{total}"]
+
+
 def _metadata_args(
     metadata: RipMetadata | None,
     release_id: str,
@@ -606,10 +686,8 @@ def _metadata_args(
         album_pairs.append(f"date={_escape_meta_value(meta.year)}")
     if meta.genre:
         album_pairs.append(f"genre={_escape_meta_value(meta.genre)}")
-    # FFmpeg/Vorbis `disc` tag, only for multi-disc sets ("n/total"); a plain
-    # single CD gets no disc tag (no point tagging 1/1).
-    if meta.total_discs > 1:
-        album_pairs.append(f"disc={meta.disc_number}/{meta.total_discs}")
+    # NOTE: the disc number is deliberately NOT in `-a`. It goes through
+    # cyanrip's own `-c` flag — see `_disc_args`, which explains why.
     # Release identifiers, Picard-style Vorbis keys, so the archived files carry
     # the disc's canonical IDs. Escaped like every other value (the -a colon-split
     # trap — a catalog number can contain a colon).

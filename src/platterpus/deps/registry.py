@@ -22,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
+from platterpus.deps.build_notes import BuildNote, cyanrip_build_note
 from platterpus.deps.checks import (
     ProbeResult,
     check_cdparanoia,
@@ -84,6 +85,14 @@ class DependencySpec:
     # dialog offers the wizard for these (the search string stays as a last
     # resort). whipper/metaflac/flac set this; host packages do not.
     from_setup_wizard: bool = False
+    # Optional: a pure function that reads the probe's captured output and says
+    # WHICH BUILD of the tool is installed. A version number cannot answer that
+    # for cyanrip — the Platterpus fork keeps upstream's version string byte for
+    # byte, deliberately — so without this the dependency dialog showed a bare
+    # "cyanrip 0.9.3" that was equally consistent with the fork and with stock.
+    # Only cyanrip needs one today; the field exists so a second such tool is a
+    # registry entry rather than a special case in the UI (Critical rule #6).
+    build_note: Callable[[ProbeResult], BuildNote] | None = None
 
 
 # --- Bound probes -----------------------------------------------------------
@@ -134,11 +143,14 @@ SPECS: list[DependencySpec] = [
         search_string="install cyanrip Bazzite Fedora Distrobox COPR barsnick",
         description=(
             "The cyanrip CD ripping CLI — the sole ripping backend (KDD-18). "
-            "Installed into the `ripping` container (from the barsnick COPR, "
-            "since Fedora doesn't package it) and exported to "
-            "~/.local/bin/cyanrip by the one-time setup wizard."
+            "Installed into the `ripping` container (the barsnick COPR package "
+            "first, then rebuilt from the pinned Platterpus fork) and exported "
+            "to ~/.local/bin/cyanrip by the one-time setup wizard."
         ),
         from_setup_wizard=True,
+        # The version alone cannot say whether this is the fork; the build tag
+        # can. See deps/build_notes.py.
+        build_note=cyanrip_build_note,
     ),
     DependencySpec(
         dep_id="metaflac",

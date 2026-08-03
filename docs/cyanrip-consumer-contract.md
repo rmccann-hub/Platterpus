@@ -50,7 +50,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `finished_at` | disc | `^Ripping finished at\\s+(?P<when>.+?)\\s*$` |
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
-| `album_loudness_section` | section header | `^Album Loudness Summary:\\s*$` |
+| `album_loudness_section` | section header | `^Album Loudness\\b` |
 | `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|is data:)` |
 | `secure_rerip_converged` | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |
@@ -72,7 +72,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_accurip_offset` | indented | `^\\s+Accurip 450:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
 | `track_appended_silence` | indented | `^\\s+Appended:\\s+(?P<frames>\\d{1,9})\\s+frames? of silence` |
 | `track_peak_kind_header` **(fork-only)** | indented | `^\\s+(?P<kind>True\|Sample) peak:\\s*$` |
-| `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
+| `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak level\|Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
 | `track_extraction_speed` **(fork-only)** | indented | `^\\s+(?:Extraction speed\|Rip speed\|Read speed\|Speed):\\s+(?P<value>\\d{1,6}(?:\\.\\d{1,3})?)\\s?[xX]\\b` |
 | `track_elapsed_clock` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?:(?P<h>\\d{1,3}):)?(?P<m>\\d{1,3}):(?P<s>\\d{1,2}(?:\\.\\d{1,6})?)\\s*$` |
 | `track_elapsed_seconds` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?P<s>\\d{1,7}(?:\\.\\d{1,6})?)\\s*(?:s\|sec\|secs\|seconds)\\b` |
@@ -92,7 +92,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (11)
+## 2. Log lines we knowingly ignore (14)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -105,6 +105,9 @@ dropped.
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
 | `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |
 | `^Frame retries:\\s` | candidate: rip-effort setting |
+| `^Cache model:\\s` | paranoia's MODELLED cache size; our cache-defeat verdict is measured (cd-paranoia -A, KDD-29) and must not be filled from a model |
+| `^Encoder:\\s` | candidate: encoder provenance, needs a report field before parsing |
+| `^CD-TEXT:\\s` | candidate: tri-state CD-TEXT presence, needs a report field |
 | `^HDCD decoding:\\s` | candidate: alters samples when enabled |
 | `^Album Art:\\s` | candidate: cover-art presence |
 | `^Disc tracks:\\s` | candidate: total tracks on the disc |
@@ -113,7 +116,7 @@ dropped.
 | `^Tracks:\\s*$` | section marker, no payload |
 | `^Summary:\\s*$` | section marker, no payload |
 
-## 3. Flags we pass you (14)
+## 3. Flags we pass you (15)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -121,7 +124,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
--D -F -G -N -O -S -Z -a -d -l -o -r -s -t
+-D -F -G -N -O -S -Z -a -c -d -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

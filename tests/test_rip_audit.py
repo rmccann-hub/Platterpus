@@ -37,6 +37,21 @@ _BIG = rip_audit.MIN_PLAUSIBLE_TRACK_BYTES * 10
 
 
 def _healthy(**over: object) -> dict:
+    """A report that a **fully clean fork rip** would actually produce.
+
+    Deliberately complete rather than minimal. Every check in the registry must
+    be able to reach a positive verdict from this fixture, because
+    ``test_a_complete_rip_with_real_files_is_clean`` asserts the audit comes back
+    with nothing to say — and a fixture missing the fields a check reads would
+    make that test pass for the wrong reason (the check would go quiet, not
+    clean). It was exactly that: the first real-hardware run of the embedded
+    self-check found two checks running silently, and the reason this fixture had
+    never noticed is that it never gave them anything to read.
+
+    So: medium selection recorded, both halves of the command line present, and
+    a pre-gap provenance row. Take any of them away and the audit says "not
+    determined" — which is the behaviour the sibling tests below pin.
+    """
     base: dict = {
         "album": "Healthy",
         "rip": {
@@ -45,12 +60,38 @@ def _healthy(**over: object) -> dict:
             "rip_completed": True,
             "rip_completed_tracks": 2,
             "rip_completed_total": 2,
+            # The fork echoes the command line it received; the argv check
+            # compares it against what we recorded sending.
+            "invoked_as": "/usr/local/bin/cyanrip -d /dev/sr0 -N",
         },
-        "outcome": {"status": "success"},
+        "outcome": {
+            "status": "success",
+            "ripper_argv": ["/home/u/.local/bin/cyanrip", "-d", "/dev/sr0", "-N"],
+        },
+        "disc": {"medium_basis": "disc-id"},
+        # The TOC-derived pressing identity, so the disc-identity check has
+        # something to confirm rather than something to miss.
         "tracks": [{"pregap_source": "TOC"}],
+        "artifacts": {"eac_log": {"text": _stamped_eac_log()}},
     }
+    base.setdefault("rip", {})
+    base["rip"].setdefault("musicbrainz_disc_id", "pNtImOkdBm9RMBIalzx0w9cfsYY-")
+    base["rip"].setdefault("cddb_id", "E20DFE0E")
     base.update(over)  # type: ignore[arg-type]
     return base
+
+
+def _stamped_eac_log(body: str = "Track  1\n     Copy OK\n") -> str:
+    """An EAC-style log carrying a VALID checksum footer.
+
+    Built with the renderer's own footer function rather than a hand-typed hash,
+    so the fixture cannot drift from the verifier: if the checksum format ever
+    changes, this fixture changes with it instead of quietly starting to fail
+    verification and turning the positive control into a false alarm.
+    """
+    from platterpus.eac_log_export import _checksum_footer
+
+    return body + _checksum_footer(body)
 
 
 # --- the empty-file check, and why it must read two different ways -----------
@@ -457,15 +498,37 @@ def test_matching_command_lines_do_not_warn(tmp_path: Path) -> None:
     assert any("received the" in f.text for f in album.findings)
 
 
-def test_no_argv_comparison_is_made_when_a_half_is_missing(tmp_path: Path) -> None:
-    """Silence, not a finding. An older rip, or upstream cyanrip which does not
-    print the line, must not be reported as a mismatch."""
+def test_a_missing_argv_half_reports_not_determined_rather_than_nothing(
+    tmp_path: Path,
+) -> None:
+    """A half-missing comparison must say so — it must NOT go quiet.
+
+    This test previously asserted the opposite (silence when a half is absent),
+    on the reasoning that an older rip or a stock cyanrip that does not print
+    ``Invoked as:`` should not be reported as a mismatch. That reasoning is
+    sound and the conclusion was wrong: a check that says nothing is
+    indistinguishable in the report from a check that found everything in
+    order, and the first real-hardware run of the embedded ``self_check``
+    demonstrated it — ``argv_agreement`` appeared in ``checks_run`` while no
+    finding mentioned it.
+
+    "Not a mismatch" and "nothing to say" are different claims. The fix is to
+    report the *reason* rather than to fall silent.
+    """
     report = _healthy()
-    report["outcome"]["ripper_argv"] = ["cyanrip", "-N"]
+    report["rip"].pop("invoked_as")  # stock cyanrip does not print it
     album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
-    assert not any(
-        "transit" in f.text or "received the" in f.text for f in album.findings
-    )
+
+    # Still not accused of a mismatch...
+    assert not any("transit" in f.text for f in album.findings)
+    assert not any("received the" in f.text for f in album.findings)
+    # ...but it is on the record as undetermined, with the reason.
+    undetermined = [
+        f for f in album.findings if "command-line agreement not determined" in f.text
+    ]
+    assert len(undetermined) == 1
+    assert "Invoked as" in undetermined[0].text
+    assert undetermined[0].level != LEVEL_OK
 
 
 def test_an_altered_eac_log_is_detected(tmp_path: Path) -> None:
@@ -522,3 +585,92 @@ def test_the_disc_identity_is_reported_for_cross_rip_comparison(tmp_path: Path) 
     album = audit_album(_write(tmp_path / "a", report, flac_sizes=[_BIG]))
     text = " ".join(f.text for f in album.findings)
     assert "oMp2k" in text and "14000603" in text
+
+
+# --- THE FLOOR: a check that runs must say something -------------------------
+#
+# The third state `run_checks` originally missed. It distinguished "ran" from
+# "skipped" carefully — and a check that ran and emitted nothing landed in
+# `checks_run` with no finding anywhere, which in the report is indistinguishable
+# from a check that found everything in order.
+#
+# It was not hypothetical. The first real-hardware run of the embedded
+# `self_check` (The Police, 2026-08-02, stock cyanrip 0.9.3) listed eight checks
+# run, zero skipped, and carried six findings. `pregap` and `argv_agreement` were
+# the silent two, because stock cyanrip emits neither the rows nor the
+# `Invoked as:` line they read. Auditing for that found two more — `medium` and
+# `log_integrity` — plus `disc_identity`, which spoke but graded a SUCCESS as a
+# note and so made `worst` read "note" for a flawless rip.
+#
+# CLAUDE.md: "Can this check be satisfied by finding nothing? Then give it a
+# floor." This is that floor, applied to every registered check at once so the
+# next one added cannot be silent either.
+
+
+@pytest.mark.parametrize("check", rip_audit.CHECKS, ids=lambda c: c.name)
+def test_every_check_speaks_for_a_healthy_rip(check, tmp_path: Path) -> None:
+    """Each check, run alone against a complete report, must produce a finding."""
+    album = rip_audit.AlbumAudit(folder=tmp_path)
+    (tmp_path / "01.flac").write_bytes(b"x" * _BIG)
+    check.run(_healthy(), album)
+    assert album.findings, (
+        f"check {check.name!r} ran and said nothing for a healthy rip — "
+        f"silence is indistinguishable from 'all in order'"
+    )
+
+
+@pytest.mark.parametrize("check", rip_audit.CHECKS, ids=lambda c: c.name)
+def test_every_check_speaks_for_an_empty_report(check, tmp_path: Path) -> None:
+    """And for a report with none of the fields it reads — the case that actually
+    produced the silence, since a stock-cyanrip rip is a report missing exactly
+    the fork-only fields."""
+    album = rip_audit.AlbumAudit(folder=tmp_path)
+    check.run({}, album)
+    assert album.findings, (
+        f"check {check.name!r} went silent on a report with nothing in it; it must "
+        f"report 'not determined' and why"
+    )
+    assert all(f.level != LEVEL_OK for f in album.findings), (
+        f"check {check.name!r} reported OK for a report containing none of the "
+        f"fields it reads"
+    )
+
+
+def test_a_silent_check_is_caught_by_run_checks_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The structural backstop, proven with a deliberately silent check.
+
+    The per-check fixes above are the *good* behaviour; this is what happens when
+    a future check forgets. Without it, the guarantee would rest entirely on
+    every author remembering — which is the thing that already failed twice.
+    """
+    silent = rip_audit.Check(
+        "deliberately_silent", "Does nothing?", False, lambda report, album: None
+    )
+    monkeypatch.setattr(rip_audit, "CHECKS", (silent,))
+    album = rip_audit.AlbumAudit(folder=tmp_path)
+    ran, skipped = rip_audit.run_checks(_healthy(), tmp_path, album)
+
+    assert ran == ["deliberately_silent"]
+    assert skipped == []
+    assert len(album.findings) == 1
+    text = album.findings[0].text
+    assert "deliberately_silent" in text
+    assert "nothing to report" in text
+    assert "not determined" in text  # and it says which way to read that
+    assert album.findings[0].level != LEVEL_OK
+
+
+def test_a_clean_fork_rip_reaches_an_all_ok_verdict(tmp_path: Path) -> None:
+    """`worst` has to be able to reach `ok`, or it is not a verdict.
+
+    The first real self_check block read `"worst": "note"` for a rip with nothing
+    wrong with it, because one informational check was hard-coded to note level.
+    A grade that can never be clean tells the user nothing.
+    """
+    album = audit_album(_write(tmp_path / "a", _healthy(), flac_sizes=[_BIG, _BIG]))
+    assert album.worst == LEVEL_OK, [(f.level, f.text) for f in album.findings]
+    # Floor: it reached OK by every check speaking positively, not by an empty
+    # findings list.
+    assert len(album.findings) >= len(rip_audit.CHECKS)

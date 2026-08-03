@@ -71,33 +71,87 @@ class Section:
 # What cyanrip must send us (protocol §4). The letters are the section keys the
 # fork writes as `## A`, `## §A`, `## A.` etc. — the matcher is lenient about
 # the decoration and strict about the content.
+#
+# EVERY INBOUND SECTION CARRIES `keywords`, AND THAT IS NOT DECORATION. A
+# single-letter key matched positionally validates the *label*, not the subject,
+# and it failed in both directions on round 6:
+#
+#   * §I ("Provider contract") passed because a line of their prose began
+#     "I wrote, of your continuation-line sweep:". The provider contract was in
+#     that file — as Appendix 2 — so the check reported the right answer for the
+#     wrong reason and would have passed with the appendix deleted.
+#   * §G ("Revert-proof") passed because they lettered an unrelated section
+#     "## G. Asks back". The word "revert" appears **zero** times in the whole
+#     file. The checker reported 1 problem; there were 2.
+#
+# So the letter now has to be a real heading, and the section's *subject* has to
+# appear somewhere in the document. The letter answers "did they label it", the
+# keywords answer "did they write it", and only the pair is a check. This is the
+# "can it be satisfied by finding nothing?" question applied to our own gate —
+# which is the one place it had never been asked.
 INBOUND_SECTIONS: tuple[Section, ...] = (
-    Section("A", "Pin", "repo, branch, commit SHA, exact --version output"),
+    Section(
+        "A",
+        "Pin",
+        "repo, branch, commit SHA, exact --version output",
+        keywords=("pin", "commit"),
+    ),
     Section(
         "B",
         "Answers",
         "every question, each marked measured / read-from-source / unverified",
+        keywords=("measured", "read from source", "read-from-source"),
     ),
-    Section("C", "Changes", "one row per commit, flagging any that alter log text"),
+    Section(
+        "C",
+        "Changes",
+        "one row per commit, flagging any that alter log text",
+        keywords=("commit", "release contains", "changes"),
+    ),
     Section(
         "D",
         "Log-format delta",
         '"no changes" must be written out — silence is ambiguous',
         must_be_explicit=True,
+        keywords=("log-format", "log format"),
     ),
-    Section("E", "Golden log", "regenerated + the command, if D changed"),
     Section(
-        "F", "Verification", "proven (with how) vs not proven (with what it takes)"
+        "E",
+        "Golden log",
+        "regenerated + the command, if D changed",
+        keywords=("golden",),
     ),
-    Section("G", "Revert-proof", "per behavioural fix; a 'no' is fine, a blank is not"),
+    Section(
+        "F",
+        "Verification",
+        "proven (with how) vs not proven (with what it takes)",
+        keywords=("verif",),
+    ),
+    Section(
+        "G",
+        "Revert-proof",
+        "per behavioural fix; a 'no' is fine, a blank is not",
+        keywords=("revert",),
+    ),
     Section(
         "H",
         "Found in our output",
         '"nothing found" must be written out',
         must_be_explicit=True,
+        keywords=("found in", "nothing found", "your output", "our output"),
     ),
-    Section("I", "Provider contract", "the mirror of our consumer contract"),
-    Section("J", "Questions back", "their open questions to us"),
+    Section(
+        "I",
+        "Provider contract",
+        "the mirror of our consumer contract",
+        keywords=("provider contract",),
+    ),
+    Section(
+        "J",
+        "Questions back",
+        "their open questions to us",
+        keywords=("question", "ask"),
+    ),
 )
 
 # What we must send them (protocol §3).
@@ -178,10 +232,18 @@ def _heading_pattern(key: str) -> re.Pattern[str]:
     all count — because the fork is a different project with its own habits and
     rejecting a complete file over a heading style would be theatre. Bounded
     quantifiers throughout, per the project rule.
+
+    **A heading marker is now REQUIRED** (``#``, ``**`` or ``§``). The first
+    version accepted a bare letter at the start of a line, which meant an
+    ordinary English sentence satisfied a required section: their round-6 file's
+    §I was credited to the line *"I wrote, of your continuation-line sweep:"*.
+    Prose beginning with "A ", "I " or "We " is normal writing, and a validator
+    that reads it as structure launders a missing section as a present one.
     """
     esc = re.escape(key)
     return re.compile(
-        rf"^\s{{0,3}}(?:#{{1,6}}\s*)?(?:\*\*)?(?:§\s*)?{esc}\b[.):\s—-]{{0,4}}",
+        rf"^\s{{0,3}}(?:#{{1,6}}\s*(?:§\s*)?|\*\*\s*(?:§\s*)?|§\s*)"
+        rf"{esc}\b[.):\s—-]{{0,4}}",
         re.MULTILINE | re.IGNORECASE,
     )
 
@@ -215,25 +277,60 @@ _EXPLICIT_NOTHING = (
 )
 
 
-def check_inbound(path: Path) -> list[str]:
-    """Return a list of problems with a received cyanrip handshake file.
+def check_inbound(*paths: Path) -> list[str]:
+    """Return a list of problems with a received cyanrip handshake round.
 
     Empty list means it satisfies the protocol. Never raises on content — a
     malformed file must produce a *report*, not a traceback, or the checker
     becomes something people stop running.
+
+    Several paths are treated as **one round delivered in parts**, which round 6
+    was: the return file, then an amendment hours later that moved the pin
+    because the first pin returned silence on disc images. Requiring the
+    amendment to restate all ten sections would make the honest thing (send the
+    correction immediately) score worse than the dangerous thing (fold it into
+    the next round). Sections are satisfied by any file in the set; the *newest*
+    file wins where both speak, which is what "supersedes" means.
     """
     problems: list[str] = []
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        return [f"cannot read {path}: {exc}"]
-
-    if not text.strip():
-        return [f"{path} is empty"]
+    if not paths:
+        return ["no inbound file given"]
+    texts: list[str] = []
+    for path in paths:
+        try:
+            texts.append(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError as exc:
+            return [f"cannot read {path}: {exc}"]
+        if not texts[-1].strip():
+            return [f"{path} is empty"]
+    text = "\n\n".join(texts)
 
     keys = tuple(s.key for s in INBOUND_SECTIONS)
+    lowered_all = text.casefold()
     for section in INBOUND_SECTIONS:
         body = _section_body(text, section.key, keys)
+        # The SUBJECT floor, checked against the whole document rather than the
+        # section body. A round may reletter its sections — the fork's round 6
+        # ran A–H with the provider contract as an appendix — and rejecting a
+        # complete file over its numbering would be theatre. What may not happen
+        # is a required subject going unwritten while a same-lettered section
+        # covers something else. "revert" appearing zero times in a file whose
+        # §G is headed "Asks back" is a missing section, not a naming quibble.
+        subject_written = not section.keywords or any(
+            k in lowered_all for k in section.keywords
+        )
+        if not subject_written:
+            problems.append(
+                f"§{section.key} ({section.title}) is ABSENT — none of "
+                f"{list(section.keywords)} appears anywhere in the file"
+                + (
+                    f", though a section is lettered {section.key}"
+                    if body is not None
+                    else ""
+                )
+                + f" — {section.why}"
+            )
+            continue
         if body is None:
             problems.append(
                 f"§{section.key} ({section.title}) is MISSING — {section.why}"
@@ -345,6 +442,38 @@ TODO
 """
 
 
+#: A handshake file name: ``round-6.md``, or ``round-6b.md`` for an amendment
+#: sent after the round's main file. The suffix is deliberately allowed — round 6
+#: needed one within hours — and is deliberately *not* a new round number.
+_ROUND_NAME = re.compile(r"^round-(?P<number>\d{1,4})(?P<amendment>[a-z]{0,2})$")
+
+
+def round_number(path: Path) -> int | None:
+    """The round a handshake file belongs to, or None if the name is not one.
+
+    ``round-6b.md`` returns 6. Returning None rather than raising matters: an
+    unrelated file dropped in the directory must not take the status report
+    down with it.
+    """
+    match = _ROUND_NAME.match(path.stem)
+    return int(match.group("number")) if match else None
+
+
+def _round_files(directory: Path, number: int) -> list[Path]:
+    """Every file in ``directory`` belonging to round ``number``, oldest first.
+
+    Sorted by stem so ``round-6.md`` precedes ``round-6b.md`` — the reading order
+    the fork sends them in, and the order in which later files supersede earlier
+    ones.
+    """
+    if not directory.is_dir():
+        return []
+    return sorted(
+        (p for p in directory.glob("round-*.md") if round_number(p) == number),
+        key=lambda p: p.stem,
+    )
+
+
 def round_status(root: Path | None = None) -> list[str]:
     """Describe the state of every round found under ``docs/handshake/``.
 
@@ -361,16 +490,27 @@ def round_status(root: Path | None = None) -> list[str]:
         base / "verified",
     )
     lines: list[str] = []
-    rounds: set[str] = set()
+    rounds: set[int] = set()
     for directory in (outbound, inbound, verified):
         if directory.is_dir():
-            rounds.update(p.stem for p in directory.glob("round-*.md"))
+            for path in directory.glob("round-*.md"):
+                num = round_number(path)
+                if num is not None:
+                    rounds.add(num)
     if not rounds:
         return ["no handshake rounds recorded under docs/handshake/"]
-    for name in sorted(rounds):
-        sent = (outbound / f"{name}.md").exists()
-        back = (inbound / f"{name}.md").exists()
-        was_verified = (verified / f"{name}.md").exists()
+    for num in sorted(rounds):
+        name = f"round-{num}"
+        # An AMENDMENT (`round-6b.md`) belongs to its round, it is not a round of
+        # its own. Round 6 was amended hours after it was sent because the pin it
+        # asked for returned silence on disc images; counting that as "round 6b,
+        # OPEN" would report two open rounds where one was corrected, and would
+        # make sending a correction immediately look worse in the record than
+        # sitting on it.
+        sent = _round_files(outbound, num)
+        back = _round_files(inbound, num)
+        done = _round_files(verified, num)
+        sent, back, was_verified = bool(sent), bool(back), bool(done)
         state = "CLOSED" if (sent and back and was_verified) else "OPEN"
         lines.append(
             f"{name}: sent={'yes' if sent else 'NO'} "
@@ -390,9 +530,21 @@ def main(argv: list[str] | None = None) -> int:
         "--emit", type=int, metavar="ROUND", help="print an outbound skeleton"
     )
     group.add_argument(
-        "--check", type=Path, metavar="FILE", help="validate an inbound file"
+        "--check",
+        type=Path,
+        nargs="+",
+        metavar="FILE",
+        help="validate an inbound file. Pass several to validate a round "
+        "delivered as a file plus an amendment (round 6 + round 6b) — the "
+        "sections are looked for across the set, because an amendment that "
+        "only changes the pin should not be required to restate all ten",
     )
     group.add_argument("--status", action="store_true", help="report the round state")
+    group.add_argument(
+        "--release-gate",
+        action="store_true",
+        help="exit non-zero if any round is open (for the release workflow)",
+    )
     args = parser.parse_args(argv)
 
     if args.emit is not None:
@@ -402,14 +554,34 @@ def main(argv: list[str] | None = None) -> int:
         for line in round_status():
             sys.stdout.write(line + "\n")
         return 1 if any(ln.endswith("OPEN") for ln in round_status()) else 0
-
-    problems = check_inbound(args.check)
-    if not problems:
-        sys.stdout.write(
-            f"{args.check}: satisfies the protocol (all sections present)\n"
+    if args.release_gate:
+        # THE release gate. `--status` reports and also exits non-zero, which
+        # made it look like this already existed — but nothing on the release
+        # path ran it, and the only thing enforcing "no release while a round is
+        # open" was a unit test that reddened *every* commit the moment a round
+        # was opened. That is the wrong place twice over: it blocked ordinary
+        # work, and it did not block a release, because `release.yml` never
+        # called it. This subcommand exists so the workflow can.
+        lines = round_status()
+        open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+        if not open_rounds:
+            sys.stdout.write("handshake: every round is closed — release allowed\n")
+            return 0
+        sys.stderr.write(
+            "handshake: a round is OPEN, so this release is blocked "
+            "(docs/cyanrip-handshake.md §7 — both directions must be verified "
+            "before either project releases):\n"
         )
+        for line in open_rounds:
+            sys.stderr.write(f"  - {line}\n")
+        return 1
+
+    label = " + ".join(str(p) for p in args.check)
+    problems = check_inbound(*args.check)
+    if not problems:
+        sys.stdout.write(f"{label}: satisfies the protocol (all sections present)\n")
         return 0
-    sys.stderr.write(f"{args.check}: {len(problems)} problem(s)\n")
+    sys.stderr.write(f"{label}: {len(problems)} problem(s)\n")
     for problem in problems:
         sys.stderr.write(f"  - {problem}\n")
     return 1

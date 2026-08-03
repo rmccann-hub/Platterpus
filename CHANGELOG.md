@@ -11,6 +11,168 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.3] — 2026-08-03
+
+### Added
+- **`platterpus --install-ripper`** — set up or update the ripping stack from the terminal and exit:
+  the Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built over it, then
+  re-point the host export at the fork. Idempotent; prints each step as it lands, plus the pin it is
+  building and the build tag the finished binary must report.
+  - Why it exists: the pin lives inside a Platterpus release, so a user on an older build had **no
+    in-app route to a newer ripper**. The fork's pin moved three times in one day (`e1d800e` →
+    `ad65a24` → `25a2265` → `2f950c8`), which makes the release cycle the wrong granularity. It
+    drives the *same step engine* as the GUI wizard rather than a documented shell snippet — a
+    second description of the install would drift the first time a build dependency changed.
+  - Its verdict keys on the ripper being usable, not on every step passing: `cd-paranoia` is
+    optional and deliberately last, so an unmeasured cache verdict does not read as "not installed".
+
+### Changed
+- **The pinned cyanrip fork moves to `2f950c8` (fork release r2)**, closing handshake round 6.
+  `ad65a24` — which round 6 asked for — is **superseded and must not be built**: at that commit,
+  ripping a BIN/CUE, NRG or cdrdao *disc image* at any paranoia level above 0 returned one correct
+  sector followed by silence, 99.7% of samples zeroed, reported as `Ripping errors: 0`. The defect
+  is inherited from upstream (`c431d58` set paranoia's cachemodel — which doubles as its `c_block`
+  read-chunk size — to 1 sector for image drivers), so every earlier fork build and stock upstream
+  carry it equally.
+  - **No disc ripped on real hardware is affected.** The override applies only to the three
+    image drivers; a `/dev/sr0` rip never enters it. Verified from the fork's source, and against
+    our own committed references — `output_reference/cyanrip_*` are real-drive rips, and both
+    committed golden references were generated with `-P 0`, which was always byte-perfect.
+  - Verified independently rather than accepted: the cause commit, the fix's diff and its driver
+    scoping, and — because the reference's own build tag names a commit *below* the fix — that the
+    fix is present in the binary that produced it, derived from the paranoia read-chunk counts in
+    the log itself (`ceil(frames/16)` where the broken build logged one read per sector).
+- **The fork's two log-line renames are handled with no behaviour change:** `Peak level:` →
+  `Sample peak level:` (all three spellings the fork has used now parse) and `Cache defeat:` →
+  `Cache model:`. The latter is deliberately *not* wired to our cache-defeat field: cyanrip reports
+  what libcdio-paranoia **models**, our row is a **measured** `cd-paranoia -A` verdict (KDD-29), and
+  filling a measured field from a model is the fabricated "Yes" KDD-25 forbids.
+- `Encoder:`, `CD-TEXT:` and `Cache model:` are on the parser's documented ignore list with recorded
+  reasons rather than silently unrecognised — candidates awaiting a report field, not drops.
+
+### Fixed
+- **The handshake checker (`scripts/handshake.py --check`) passed two absent sections and credited a
+  third to prose.** It reported one problem in the fork's round-6 file; there were three. §G
+  ("Revert-proof") was satisfied by an unrelated section they had lettered `## G. Asks back` while
+  the word "revert" appeared zero times; §B's provenance markers were absent; and §I ("Provider
+  contract") matched the sentence *"I wrote, of your continuation-line sweep:"* — the contract really
+  was in the file, so the verdict was right and the reason was not, and it would have passed with the
+  contract deleted. A check that passes for the wrong reason is worse than one that fails: a failure
+  gets investigated, a pass gets cited.
+  - A section key must now appear in a real heading position (`#`, `**` or `§` — a bare letter at
+    line start no longer counts) **and** the section's subject must appear in the document. Rounds 4
+    and 5 still pass unchanged. `--check` also accepts several files, so a round delivered as a
+    return plus an amendment validates as one round; and an amendment (`round-6b.md`) belongs to its
+    round rather than counting as one, so sending a correction within hours no longer scores worse in
+    the record than folding it into the next round.
+- **The per-track paranoia counters are per-*pass*, and the disc total is not their sum.** Round 5
+  of the handshake told us they sum exactly, and we verified it — on an artifact ripped without `-Z`,
+  where the sum is arithmetically forced. Read from the fork's source, the per-track baseline is
+  re-snapshotted inside the `repeat_ripping:` loop, so the per-track figure is the final pass and the
+  disc-level tally is every pass: a `SKIP: 300` on a `-Z 2` rip is three passes' worth of skips, and
+  rendering it as 300 distinct events over-reports by the re-read factor. Documented next to the
+  field with the citation, and pinned by a test asserting the sums *differ* so nobody later "fixes"
+  the discrepancy into a false invariant.
+- **The album-loudness block was gated on FFmpeg's wording, not cyanrip's.** The parser required
+  the header `Album Loudness Summary:`; only `Album Loudness` is cyanrip's — the ` Summary:` tail
+  comes from FFmpeg's `ebur128` filter, which the fork's contract explicitly marks as libavfilter
+  wording that "moves when FFmpeg does". One upstream rewording would have emptied the whole
+  `album_loudness` block silently. Found by diffing their round-5 unstable-line list against our
+  patterns.
+- **13 of the ripper's own error messages were never shown to the user** — each rendered as a
+  bare "Rip failed." Two are ordinary hardware failures: `Offset is unset! To continue with an
+  offset of 0, run with -s 0!` and `Device does not support changing speeds!`
+  - The standing test asserting we surface everything the ripper can say was **green throughout**,
+    because the fixture it asserted against was the cyanrip fork's machine-generated inventory
+    *filtered through a hand-maintained 21-word prefix allowlist on their side*. Their round-5
+    re-derivation from control flow took that inventory from 88 strings to 104; re-derived
+    independently here at both pins, 104 each time, a strict superset with nothing lost. The
+    fixture had inherited their filter's blind spot, so it measured their allowlist rather than
+    the ripper.
+  - The matcher is no longer a list of opening words. Each of the ripper's published `printf`
+    formats is compiled into a pattern, so a line is a diagnostic because the ripper's own
+    inventory says that text exists. 103 of 104 formats covered, 0 false positives on ordinary
+    output; the one exclusion is a bare `%s`, which would match every line and is refused,
+    named and asserted rather than skipped. The word prefixes survive as the forward-tolerance
+    half for builds newer than the contract — never as the completeness half.
+  - The provider's **evidence** column is preserved rather than flattened: 73 of the 104 are
+    proven reachable on a failure path without reference to wording, and only that subset is
+    safe for hard failure classification. All 104 are used for *surfacing*, because a message
+    that turns out to be a warning is still more useful than silence.
+
+- **RELEASE BLOCKER, found before it shipped: installing the fork would have made Platterpus
+  report cyanrip *missing*.** Every version probe sent `cyanrip -V`. That is right for 0.9.3 and
+  earlier — a short-only `getopt` with a `case 'V':` — and wrong for everything after: upstream
+  commit `442de2a` replaced the parser with a generic one that accepts only `-v`/`--version` and
+  rejects `-V` as an unparseable argument, exiting 1. A non-zero exit from a version probe is
+  deliberately read as "this tool is not available", so the launch dependency check would have
+  reported the ripper missing *immediately after the wizard successfully built it*, and the
+  wizard's own post-install verification would have failed on a perfect build.
+  - Probing now tries `-V` then `--version` — the minimal set that covers 0.9.3, stock 0.9.4 and
+    the fork, with the field-proven flag first so the common case still costs one process and an
+    unrecognised flag is never the first thing handed to a CD ripper. The flag list lives in one
+    module (`cyanrip_cli.py`) that all four call sites and the wizard's in-container shell snippet
+    read, so the shell and the Python cannot disagree.
+  - **Not a fork regression** — it would have hit stock upstream 0.9.4 identically, which means
+    "roll back to stock" was never an escape hatch for it. The fork has since restored `-V` as a
+    compatibility alias, and we keep probing both anyway: that fixes their binaries, not the 0.9.3
+    installs users have today.
+  - The expected first failure is no longer logged as a conclusion. It used to emit
+    "treating the tool as unavailable" per attempt, which on every fork install would have put an
+    alarming and untrue line in the user's log; the absence is now logged once, where it is known.
+
+### Added
+- **The one-time setup wizard now installs the pinned Platterpus fork of cyanrip**, so using the
+  fork no longer requires a terminal (KDD-17's zero-terminal bar, in the one place it mattered
+  most). A new `cyanrip_fork` step installs the build dependencies, clones the fork, detaches
+  onto the handshake-verified commit, compiles it, installs it to `/usr/local/bin/cyanrip`,
+  re-points the `~/.local/bin` export at it, and then **verifies the installed binary prints the
+  pinned fork's build tag** — an install that produced something unexpected fails the step
+  loudly instead of leaving a mystery binary on the ripping path. It runs *after* the stock COPR
+  install and export, so a failed build leaves a working ripper rather than none.
+  The pin, the repo, the branch and the measured build-dependency list live in one module
+  (`deps/fork_source.py`), and a test reads the newest closed handshake round to assert the code
+  builds the commit the record approved.
+- **The dependency check now names which *build* of cyanrip is installed**, not only its version.
+  A wrong build is counted in the summary's headline, described in its own "Wrong build" block
+  with what the difference costs and how to fix it, and shown with a warning icon rather than an
+  information one. Tri-state, like everywhere else — an unrecognised build tag reports "not
+  identified", never "unmodified upstream". Classification delegates to the shared
+  `ripper_identity` module, so the dialog, the EAC-style log, the JSON report and `--doctor`
+  cannot describe the same binary four different ways.
+
+### Fixed
+- **The launch-time dependency dialog said "cyanrip 0.9.3" and "0 missing/needs-attention" while
+  the ripper was unmodified upstream, not the Platterpus fork.** Every word was true and the
+  message was misleading: the fork keeps upstream's version string *deliberately* (its
+  `meson.build` sets a separate `PROJECT_FORK_ID`), so a version number is the one fact that
+  cannot distinguish the two. Platterpus had already been taught to name the build in the
+  archival log, the report and `--doctor`; this was the surface a user actually reads at launch,
+  and it had been missed. Found by the maintainer reading the dialog.
+- **A multi-disc rip wrote `DISCNUMBER=2/3` into its FLAC files** — the ID3 convention, not the
+  Vorbis one — and dropped the disc total entirely. The disc position was folded into cyanrip's
+  `-a` album-tag string as `disc=2/3`, which ffmpeg's Vorbis-comment writer passes through
+  verbatim under the mapped key `DISCNUMBER`. It now goes through cyanrip's own
+  `-c disc/totaldiscs` flag, which parses the slash and sets `disc` and `totaldiscs` as separate
+  integer keys. Single-disc releases get `1/1` too, matching what EAC and Picard write, so the
+  field does not appear only on box sets. Found by diffing our FLAC tags against an EAC baseline
+  on real hardware.
+  - The value is **range-checked at the argv chokepoint**, because cyanrip refuses the *entire
+    rip* on a bad `-c` (`Invalid discnumber`, `Invalid totaldiscs`, `discnumber N is larger than
+    totaldiscs M` — all exit 1 before a sector is read). Same defect shape as the out-of-range
+    `-t` that killed a real rip in two seconds. An unusable disc position is dropped and logged;
+    losing a tag is survivable, losing the rip is not.
+- **Four audit checks could run and say nothing**, which in the report is indistinguishable from
+  a check that found everything in order. The first real-hardware run of the embedded
+  `self_check` listed eight checks run, zero skipped, and carried six findings — `pregap` and
+  `argv_agreement` were silent because stock cyanrip emits neither the rows nor the
+  `Invoked as:` line they read; auditing for it found `medium` and `log_integrity` too. Each now
+  reports *why* it has nothing, and `run_checks` carries a structural floor so a future silent
+  check is impossible rather than merely discouraged.
+- **`self_check`'s verdict could never read "ok"** for a flawless rip: recording the disc's
+  identity was a check that *succeeded* but was graded as a note. A grade that is always at
+  least "note" is not a verdict.
+
 ## [0.6.2] — 2026-08-02
 
 ### Added
@@ -4812,7 +4974,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
@@ -4883,4 +5046,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.2.*
+*Last updated for Platterpus v0.6.3.*

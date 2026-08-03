@@ -1012,5 +1012,45 @@ Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need t
 **Execution is out-of-session by necessity** (already documented in the soft-fork doc §0): this cloud session is scoped to `rmccann-hub/platterpus` (cross-owner `add_repo`/GitHub token can't reach `cyanreg/cyanrip`), has no C toolchain, and no disc — so forking, building, PR #115 testing, and the container build-from-source all happen in a repo-seeded Claude session or on the Bazzite rig. The Platterpus side stays unchanged until the container runs a cyanrip that emits INDEX 00 (then it "just works", and each landed patch retires its Platterpus-side workaround behind a version guard — soft-fork doc §5).
 
 ---
+### KDD-33 — The setup wizard installs the pinned fork; "which build" is a first-class, tri-state, user-visible fact (decided 2026-08-03)
 
-*Last updated for Platterpus v0.5.13.*
+KDD-32 decided the soft-fork *is* the cyanrip Platterpus runs. It did not say who installs it, and the answer in practice was "the maintainer, from a terminal, following a step in a test plan". That step never ran: every rip through v0.6.2 — including the AccurateRip-verified hardware runs — was made with the stock COPR `cyanrip 0.9.3`. The maintainer found out by reading the dependency dialog and asking why their branch wasn't distinguished.
+
+**Two decisions, and the second is the one that generalises.**
+
+**1. The wizard builds it.** `deps/host_setup.py` gains a `cyanrip_fork` step, after the stock install and export: install build deps (read off the fork's own `src/meson.build` at the pin, requested as `pkgconfig()` virtual provides so Fedora's `ffmpeg-free-devel` and RPM Fusion's `ffmpeg-devel` both satisfy them), clone-or-fetch, **detach onto the handshake-verified pin**, compile, install to `/usr/local/bin/cyanrip`, re-export, and **verify the installed binary prints `platterpus-fork-g<pin>`** before the step reports done.
+
+- *Why after the stock install rather than instead of it.* The COPR package is fast, GPG-signed, and pulls in every runtime library the fork also needs. Keeping it means a failed source build leaves a **working ripper** rather than none — the step is additive, and its failure is reported honestly as "you are on stock cyanrip", which is both true and recoverable. Zero-terminal (KDD-17) was never worth buying at the price of a possibly-unrippable machine.
+- *Why build rather than package.* The fork is a moving pin governed by a bidirectional handshake, not a release. Packaging it would add a second release process and a second thing to keep in step; building the pinned commit means the binary cannot be newer or older than what both sides verified. The pin lives in exactly one module (`deps/fork_source.py`) and a test asserts it matches the newest **closed** round under `docs/handshake/`.
+- *Why the probe asks the exported binary.* Not "does a source tree exist", not "is there a file in the container" — those can all be true while `~/.local/bin/cyanrip` still wraps the COPR build, which is precisely the state that went unnoticed for a release. It runs `-V` and classifies, and a fork build from an **older pin** counts as not-done so a re-run rebuilds it.
+
+**2. "Which build" is a reportable fact wherever a version is shown.** The fork keeps upstream's version string byte-for-byte on purpose (its `meson.build` sets a separate `PROJECT_FORK_ID`), which is the right call and makes the version number **the one fact that cannot answer "is this my fork?"**. So a bare version is not an acceptable answer anywhere a user is deciding whether to trust a rip. `ripper_identity` was already the single shared classifier for the EAC-style log, the JSON report and `--doctor`; the dependency dialog was the surface that had been missed, and the generalised rule is that a *new* surface showing a tool version must route through the same classifier rather than inventing a phrase. Mechanically, a dependency that cannot be identified by version alone declares a `build_note` on its registry spec (`deps/build_notes.py`) — so a second such tool is a registry entry, not a special case in the UI (Critical rule #6).
+
+**Tri-state, non-negotiable.** `fork` / `stock` / **`unknown`**. An unrecognised build tag is never reported as "unmodified upstream": that is a claim, and we do not have it. Same discipline as `Pregap LSN: unknown`, `Accurip: disabled`, and the `rip_completed` footer.
+
+**Cost accepted.** A source build in the container on first setup (minutes, network-dependent) and a rebuild whenever the pin moves. The alternative — a manual step in a document — was measured at 0% compliance over three releases.
+
+### KDD-34 — A moving dependency pin gets a terminal install path, and provenance is derived from content rather than from a build tag (decided 2026-08-03)
+
+KDD-33 put the fork install inside the setup wizard. Within one day, handshake round 6 exposed two gaps in that — both structural, neither about the wizard being wrong.
+
+**1. The pin moves faster than releases do, so it needs a route that is not a release.** Round 6 asked us to pin `ad65a24`; round 6b withdrew it hours later (it returned silence on disc-image rips); the r2 pin file then moved it again to `2f950c8`. Three pins in one day. The wizard that installs a pin **ships inside a Platterpus release**, so a user on the previous build has no in-app route to a newer ripper at all, and the release cycle is the wrong granularity for something that changes hourly.
+
+`platterpus --install-ripper` is that route: the wizard's steps from the terminal, before `QApplication`, printing each step as it lands. It drives the **same step engine** (`deps/host_setup.HostSetup`) rather than a documented shell snippet — a copied snippet would be a second description of the install and would drift the first time a build dependency changed (Critical rule #6). Its verdict keys on `is_ready()`, not on "no step failed", because `cd-paranoia` is optional and deliberately last: an unmeasured cache verdict must not read as "the ripper is not installed".
+
+- *Why not just release faster.* A release is a CI cycle, an AppImage build, a changelog and a version bump, and it is the right ceremony for Platterpus changes. It is the wrong ceremony for "the ripper's pin moved and the code is identical".
+- *Why the flag prints the pin and the expected build tag.* It is the one fact the user cannot check any other way before a rip. Two builds of this fork differ only by their banner, and one of the three pins offered this week silently returned silence.
+
+**2. A build tag names a commit, not the content that was built — so provenance must be derivable from the artifact.** `meson`'s `vcs_tag` bakes in `git rev-parse --short HEAD`, which reports the commit; build from a dirty tree (or a stale configure) and the banner names a *different* tree, silently. Round 6 delivered two consecutive golden references whose banners were three commits behind the pin, and both were provable from content: one carried a log line absent from its named commit's source; the other logged a paranoia read-chunk count introduced two commits later. That second one is the useful half — **the read-chunk count is a behavioural fingerprint of the fix**, so the artifact settled its own provenance when its banner could not.
+
+Three consequences, now standing:
+
+- **Our classifier keys on the fork *id*, never on the pinned sha.** A banner we did not produce cannot be required to match a specific commit; requiring it would report a genuine fork build as unrecognised. "Which fork" and "which commit of it" are separate questions and only the first is answerable from a banner.
+- **Our *verify* step does require the pinned sha** — and that is not a contradiction. It checks a binary *we just built* in a tree we clean and detach ourselves, where HEAD is the pin by construction. Requiring an exact match is correct where we control the build and wrong where we do not.
+- **`--dirty` in the build tag is reinstated as a handshake ask.** Previously listed as "agreed, not asking". It is the fix for the mechanism, and this round is the evidence that the mechanism fires in practice.
+
+**Also decided here:** where the pin is a *docs-only* commit above the last source change (as `2f950c8` is — its `src` tree is byte-identical to `25a2265`'s), we pin it anyway, because the pin decides the banner and the banner is what identifies the release. The pin is an *identification* choice, not a compilation one, and `deps/fork_source.py` says so where the constant lives.
+
+---
+
+*Last updated for Platterpus v0.6.3.*
