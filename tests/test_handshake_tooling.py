@@ -294,19 +294,85 @@ def test_no_rounds_at_all_is_reported_not_silently_fine(
     assert lines and "no handshake rounds" in lines[0]
 
 
-def test_the_real_record_has_every_round_closed(hs: ModuleType) -> None:
-    """The actual repo state, asserted as a FLOOR rather than an exact shape.
+def test_the_real_record_has_no_round_left_open_behind_a_closed_one(
+    hs: ModuleType,
+) -> None:
+    """The actual repo state — asserted as well-formedness, not as "all closed".
 
-    This one does look at `docs/handshake/`, but it only requires that nothing
-    is left open and that there are rounds to look at — both of which stay true
-    as rounds are added, so it cannot fail on progress the way its predecessor
-    did.
+    **This test used to assert every round was closed, and that was wrong in the
+    same way its own predecessor was wrong.** The predecessor pinned "round 4 is
+    OPEN" and failed when round 4 closed; this one failed the moment round 5 was
+    *opened*. A round is open by definition between sending our file and sending
+    our verification, so a test forbidding that reddens CI for ordinary work —
+    and, worse, it was the *only* thing enforcing "no release while a round is
+    open", which meant the rule was enforced where releases do not happen and
+    not where they do. The release gate now lives in `release.yml` (via
+    `handshake.py --release-gate`), where it belongs.
+
+    What is still worth asserting is the shape the record must always have: an
+    open round may only be the **newest** one. A round left open *behind* a
+    closed one is the real bug this file was written for — round 3 was never
+    verified back while round 4 closed, and nothing noticed.
     """
     lines = hs.round_status()
     rounds = [ln for ln in lines if ln.startswith("round-")]
     assert len(rounds) >= 4, "the correspondence record has shrunk"
-    open_rounds = [ln for ln in rounds if ln.endswith("OPEN")]
-    assert not open_rounds, (
-        "a handshake round is open — no release and no pin switch: "
-        + "; ".join(open_rounds)
+
+    def number(line: str) -> int:
+        return int(line.split(":")[0].removeprefix("round-"))
+
+    ordered = sorted(rounds, key=number)
+    open_numbers = [number(ln) for ln in ordered if ln.endswith("OPEN")]
+    newest = number(ordered[-1])
+    stale = [n for n in open_numbers if n != newest]
+    assert not stale, (
+        "a handshake round is open behind a newer one, which is how round 3 went "
+        f"unverified while round 4 closed: round(s) {stale} open, newest is {newest}"
+    )
+    # Floor: an all-CLOSED record must not make this vacuous. Every round needs
+    # an outbound file, or the record has a hole rather than a state.
+    assert all("sent=yes" in ln for ln in rounds), (
+        "a round exists with no outbound file: " + "; ".join(rounds)
+    )
+
+
+def test_the_release_gate_blocks_a_release_while_a_round_is_open(
+    hs: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The gate itself, both ways — a checker that cannot fail is decoration.
+
+    Exercised through `main(["--release-gate"])` so it is the same code path the
+    release workflow runs, not a re-implementation of it.
+    """
+    (tmp_path / "outbound").mkdir()
+    (tmp_path / "inbound").mkdir()
+    (tmp_path / "verified").mkdir()
+    (tmp_path / "outbound" / "round-1.md").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(hs, "HANDSHAKE_DIR", tmp_path)
+
+    # Sent, nothing back: OPEN → blocked.
+    assert hs.main(["--release-gate"]) == 1
+
+    # Their return arrives but we have not verified it. A partly-verified pin is
+    # an unverified pin, so this must STILL block.
+    (tmp_path / "inbound" / "round-1.md").write_text("x", encoding="utf-8")
+    assert hs.main(["--release-gate"]) == 1
+
+    # Both directions done → allowed.
+    (tmp_path / "verified" / "round-1.md").write_text("x", encoding="utf-8")
+    assert hs.main(["--release-gate"]) == 0
+
+
+def test_the_release_workflow_actually_calls_the_gate() -> None:
+    """The wiring, not the gate. The rule was stated in three documents and
+    enforced on the release path in none of them; grep for the call site rather
+    than believing the subcommand exists (CLAUDE.md rule 9's lesson, applied to
+    a workflow instead of a `cancel()`)."""
+    workflow = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
+    ).read_text(encoding="utf-8")
+    assert "handshake.py --release-gate" in workflow
+    # And before the build, so a blocked release costs seconds not an AppImage.
+    assert workflow.index("handshake.py --release-gate") < workflow.index(
+        "Build the AppImage"
     )

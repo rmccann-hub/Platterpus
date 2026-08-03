@@ -230,4 +230,4 @@ samples** and bring the track back to the consensus. We already do CTDB
 
 ---
 
-*Last updated for Platterpus v0.6.2.*
+*Last updated for Platterpus v0.6.3.*

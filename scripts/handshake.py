@@ -393,6 +393,11 @@ def main(argv: list[str] | None = None) -> int:
         "--check", type=Path, metavar="FILE", help="validate an inbound file"
     )
     group.add_argument("--status", action="store_true", help="report the round state")
+    group.add_argument(
+        "--release-gate",
+        action="store_true",
+        help="exit non-zero if any round is open (for the release workflow)",
+    )
     args = parser.parse_args(argv)
 
     if args.emit is not None:
@@ -402,6 +407,27 @@ def main(argv: list[str] | None = None) -> int:
         for line in round_status():
             sys.stdout.write(line + "\n")
         return 1 if any(ln.endswith("OPEN") for ln in round_status()) else 0
+    if args.release_gate:
+        # THE release gate. `--status` reports and also exits non-zero, which
+        # made it look like this already existed — but nothing on the release
+        # path ran it, and the only thing enforcing "no release while a round is
+        # open" was a unit test that reddened *every* commit the moment a round
+        # was opened. That is the wrong place twice over: it blocked ordinary
+        # work, and it did not block a release, because `release.yml` never
+        # called it. This subcommand exists so the workflow can.
+        lines = round_status()
+        open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+        if not open_rounds:
+            sys.stdout.write("handshake: every round is closed — release allowed\n")
+            return 0
+        sys.stderr.write(
+            "handshake: a round is OPEN, so this release is blocked "
+            "(docs/cyanrip-handshake.md §7 — both directions must be verified "
+            "before either project releases):\n"
+        )
+        for line in open_rounds:
+            sys.stderr.write(f"  - {line}\n")
+        return 1
 
     problems = check_inbound(args.check)
     if not problems:
