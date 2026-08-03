@@ -18,6 +18,7 @@ shape of decoration that gets trusted for a year before anyone tests it.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -727,4 +728,60 @@ def test_the_retrospective_grandfather_list_may_not_grow(hs: ModuleType) -> None
     assert hs.RETROSPECTIVE_ROUNDS == frozenset({1, 2, 3}), (
         "the retrospective grandfather list may shrink, never grow: a round that "
         "needs an exemption to close needs a verdict instead"
+    )
+
+
+# --- the correspondence index must not fall behind the correspondence ---------
+# `docs/handshake/README.md` described the closing rule as "all three files
+# exist" — the rule that was wrong — and its round-by-round map named exactly one
+# round, four rounds in. `docs/README.md` links it as "the round-by-round map",
+# so a stale map is a broken promise in the canonical index.
+
+
+def test_the_handshake_readme_covers_every_round_on_disc(hs: ModuleType) -> None:
+    """Every round with a file must have a row in the correspondence index.
+
+    Derived from the directories rather than from a list kept here, so the check
+    cannot drift the same way the map did.
+    """
+    readme = (hs.HANDSHAKE_DIR / "README.md").read_text(encoding="utf-8")
+    rounds: set[int] = set()
+    for sub in ("outbound", "inbound", "verified"):
+        for path in (hs.HANDSHAKE_DIR / sub).glob("round-*.md"):
+            num = hs.round_number(path)
+            if num is not None:
+                rounds.add(num)
+    assert len(rounds) >= 4, f"only {len(rounds)} rounds found — glob broken?"
+
+    # A row, not a mention: the round number must open a table row, which is what
+    # makes it an entry in the map rather than a passing reference in prose.
+    rows = {
+        int(m.group("n"))
+        for m in re.finditer(
+            r"^\|\s*\**\s*(?P<n>\d{1,4})\s*\**\s*\|", readme, re.MULTILINE
+        )
+    }
+    missing = sorted(rounds - rows)
+    assert not missing, (
+        "docs/handshake/README.md has no round-by-round row for round(s) "
+        f"{missing} — docs/README.md links it as the map, so a stale map is a "
+        "broken promise in the canonical index"
+    )
+
+
+def test_the_handshake_readme_states_the_verdict_rule(hs: ModuleType) -> None:
+    """The index must not teach the rule the gate no longer uses.
+
+    It said a round is closed "when all three exist". That sentence was the
+    defect, written down — and a reader who believes it will read `--status`'s
+    output as agreement.
+    """
+    readme = (hs.HANDSHAKE_DIR / "README.md").read_text(encoding="utf-8")
+    assert "GO" in readme and "HOLD" in readme, (
+        "the correspondence index never mentions the GO/HOLD verdict that decides "
+        "whether a round is closed"
+    )
+    # And it must not still assert the presence-only rule as sufficient.
+    assert not re.search(r"CLOSED\*{0,2}\s+only when all three exist", readme), (
+        "docs/handshake/README.md still states the presence-only closing rule"
     )
