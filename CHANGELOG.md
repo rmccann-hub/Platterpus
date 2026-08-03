@@ -41,6 +41,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   right: a bare `Yes` in an EAC-shaped log is indistinguishable from an asserted one, and a
   reader who cannot tell a measurement from a claim has been given a claim. The row now
   names its own method inline whenever a verdict exists.
+- **The argv-agreement check was blind to a *long* option appearing in transit.** It
+  compared single-letter flags only, so `--injected-by-a-wrapper` turning up in the ripper's
+  `Invoked as:` line — the exact class of injection the check exists to catch — passed as
+  agreement. Found by the new multi-pass test's own tamper case, not by review. Options are
+  now compared short **and** long; values still are not, because `-s 667`'s `667` and
+  argv[0]'s resolved path legitimately differ between what we spawn and what the ripper
+  prints, and comparing those would cry wolf on every rip.
 - **The release gate counted a deliberate `HOLD` as a closed handshake round.**
   `scripts/handshake.py --status` reported a round CLOSED when three files existed, and
   `--release-gate` is a thin wrapper over it. Round 7's verification file exists and declares
@@ -123,6 +130,40 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   URLs are skipped on purpose (a network check in a unit suite is a flake generator), and
   code fences are excluded so an illustrated link is not read as a real one. Carries a floor
   so it cannot pass by finding nothing.
+- **T14 — the dynamic secure-rerip, tested end to end**
+  (`tests/test_multi_pass_rip_end_to_end.py`). Both of this cycle's real user-facing bugs
+  lived on the multi-pass path, both were found by a human reading a real rip's artifacts,
+  and both were the same shape: a report describing a two-pass rip through fields that assume
+  one pass. Every individual piece had unit tests; nothing walked pass 1 → AccurateRip miss →
+  pass 2 → merged report, so the *seam* — where both defects were — had no coverage. The new
+  test drives a real `RipWorker` over a two-call fake ripper, writes the report to disk,
+  **re-reads it**, and runs the real audit over it. Offered to the cyanrip fork as T14,
+  because their side has the mirror-image gap.
+  - Floors first: it asserts the second pass actually ran, that the two argvs actually
+    differ, and that the album log's `Invoked as:` is the whole-disc pass's. Without those, a
+    fake that collapsed to one pass would make every downstream assertion pass while proving
+    nothing.
+  - And it asserts the fix did not simply switch the check off: the same clean rip with one
+    argument injected must still be caught.
+- **Gates for the two documentation maps that are declared canonical by prose.** Both had
+  drifted, and both drifts were invisible in a diff because a map is only ever wrong by
+  omission.
+  - `tests/test_doc_index_completeness.py` — `CLAUDE.md` calls `docs/README.md` *"the
+    canonical annotated index"* with a parenthetical saying the list *"can't drift from it
+    again"*. That parenthetical was the entire enforcement, and it had already failed:
+    `docs/cyanrip-consumer-contract.md` was listed in `CLAUDE.md` and absent from the index,
+    and `docs/handshake/` — 24 files of binding release correspondence — was reachable from
+    neither. The gate requires an *annotated row*, not a mention, because a document
+    mentioned once in passing prose has a resolving link and is still lost.
+  - `tests/test_planning_module_map.py` — `PLANNING.md` §2 opens *"one paragraph per
+    module"*. It was missing **19 of 122 modules** from the directory tree, the responsibility
+    list, or both — including `hard_exit.py` and `ripper_identity.py`, which `CLAUDE.md`'s own
+    Critical rules and Code conventions name by name. All 19 are now documented, and the map
+    is swept against the filesystem every commit.
+- **`docs/handshake/README.md` is now a round-by-round map**, and gated. It described the
+  closing rule as *"all three files exist"* — the rule that was wrong — and named exactly one
+  round, four rounds in. Two tests now derive the expected rounds from the directories and
+  assert the file does not teach the superseded rule.
 
 ## [0.6.3] — 2026-08-03
 

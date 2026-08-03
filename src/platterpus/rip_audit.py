@@ -358,7 +358,23 @@ def _audit_argv_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
         return
 
     def flags(tokens: list[str]) -> set[str]:
-        return {tok for tok in tokens if re.fullmatch(r"-[A-Za-z]", tok)}
+        """The option tokens, short and long.
+
+        Short options only, originally — which made the check blind to a **long**
+        option appearing in transit, the exact class of injection it exists to
+        catch. Found by T14's own tamper case
+        (`tests/test_multi_pass_rip_end_to_end.py`), which injected
+        `--injected-by-a-wrapper` and was not noticed.
+
+        Still options only, never *values*: `-s 667`'s `667` and argv[0]'s
+        resolved path legitimately differ between what we spawn and what the
+        ripper prints, so comparing those would cry wolf on every rip.
+        """
+        return {
+            tok
+            for tok in tokens
+            if re.fullmatch(r"-[A-Za-z]", tok) or re.fullmatch(r"--[A-Za-z][\w-]*", tok)
+        }
 
     sent_flags = flags([str(x) for x in sent])
     received_flags = flags(received.split())

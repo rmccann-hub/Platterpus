@@ -1150,6 +1150,52 @@ else in the same file.** This is CLAUDE.md rule 9's *"enforce a rule across the
 codebase, not at the place it was learned"* at the smallest possible scale — two
 functions, one module, one round apart.
 
+### §5.af — A promise of completeness that nothing sweeps
+
+*Documentation-currency audit, 2026-08-03. Three maps, all three declared
+canonical in prose, all three expired.*
+
+A map is only ever wrong **by omission**, and an omission is invisible in a diff.
+Nobody reviews a file for what is not in it. So a document that promises
+completeness — *"the canonical annotated index"*, *"one paragraph per module"* —
+is a test waiting to be written, and until it is written the promise decays at
+exactly the rate the codebase grows.
+
+| Promise | Where | What had gone missing |
+|---|---|---|
+| *"the canonical annotated index"* | `CLAUDE.md` → `docs/README.md` | `cyanrip-consumer-contract.md`; and `docs/handshake/` — 24 files of binding correspondence — linked from nowhere |
+| *"one paragraph per module, no more"* | `PLANNING.md` §2 | **19 of 122** modules, including two `CLAUDE.md`'s own rules name by name |
+| the round-by-round record | `docs/handshake/README.md` | every round after the 4th, plus it taught a closing rule that had been superseded |
+
+**The first one is the instructive one, because the fix had already been
+attempted — in prose.** `CLAUDE.md` carries a parenthetical saying the list
+*"can't drift from it again; it did once."* That is a comment where a check
+belongs, and it failed within the cycle.
+
+Three properties a completeness gate needs, each learned from getting one wrong
+while writing these:
+
+1. **Require the unit the promise makes, not a weaker one.** `docs/README.md` is
+   an *annotated* index, so the gate requires a **table row with a description**,
+   not a mention. A document named once in another entry's prose has a resolving
+   link — `test_doc_links.py` is perfectly happy — and is still lost to a reader.
+   Matching on mentions would have passed with the gap present.
+2. **Derive the expected set from the filesystem**, never from a list in the test.
+   A hand-kept list is a second map, and it drifts in the same way for the same
+   reason.
+3. **Scope the converse check narrowly, or it fails on correct prose.** *"No entry
+   for a file that is gone"* is right; *"every filename mentioned resolves"* is
+   not — `docs/README.md` rightly says *"(Absorbed the former `best-practices.md`)"*
+   and `PLANNING.md` rightly discusses `setup.py` as something we do **not** use.
+   My first version failed on both, and a gate that fires on correct writing gets
+   switched off.
+
+**And the reverse-direction rule for the tests themselves:** a skip-list built for
+one question is the wrong input to a different one. `_source_modules()` excludes
+`__init__.py` because a coverage sweep should not demand a paragraph for it —
+reusing that filter in the *phantom* check made the test report `PLANNING.md`'s
+(correct) `__init__.py` entry as describing a deleted module.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

@@ -583,10 +583,14 @@ installed. What we owe, and what waits on their answers:
       absent, not relettered), so `tests/test_argv_surface_agreement.py` walks back to the
       newest round carrying ≥ 30 published flags. Mechanical, and it is the check that
       would have caught the `-V` blocker a round earlier.
-- **[ ] T14 — propose and land a multi-pass rip end-to-end test.** Offered to them in our
-      §9: the dynamic secure-rerip is the path that produced both of this lap's real bugs
-      (argv agreement, `failure_hint`) and it has no single test that walks pass 1 → miss
-      → pass 2 → merged report. Ours to write; named here so it is not lost with the round.
+- **[x] T14 — the multi-pass rip end-to-end test. Done 2026-08-03.**
+      `tests/test_multi_pass_rip_end_to_end.py`: a real `RipWorker` over a two-call fake
+      ripper, pass 1 → AccurateRip miss on tracks 3 and 5 → `-Z 2 -l 3,5` → report written
+      to disk, **re-read**, and run through the real `rip_audit`. Floors assert the second
+      pass actually ran and the two argvs actually differ, so a fake that collapsed to one
+      pass cannot make it green. Its own tamper case found a **new** defect: the
+      argv-agreement check compared single-letter flags only, so a long option injected in
+      transit passed as agreement. Fixed and revert-proven. Offered to the fork as T14.
 
 ### P1 — Open from cyanrip handshake round 6 (2026-08-03, closed on pin `2f950c8`)
 
