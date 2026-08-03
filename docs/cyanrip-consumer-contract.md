@@ -50,7 +50,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `finished_at` | disc | `^Ripping finished at\\s+(?P<when>.+?)\\s*$` |
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
-| `album_loudness_section` | section header | `^Album Loudness Summary:\\s*$` |
+| `album_loudness_section` | section header | `^Album Loudness\\b` |
 | `track_block_start` | section header | `^Track (?P<number>\\d+) (?P<what>ripped and encoded successfully!\|ripped and encoded with errors\\.\|is data:)` |
 | `secure_rerip_converged` | section header | `^\\s*Done;\\s+\\((?P<agreed>\\d{1,6})\\s+out of\\s+(?P<total>\\d{1,6})\\s+matches\\b` |
 | `secure_rerip_no_match` | section header | `^\\s*Done;\\s+\\(no matches found\\b` |

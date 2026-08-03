@@ -14,6 +14,12 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.3] — 2026-08-03
 
 ### Fixed
+- **The album-loudness block was gated on FFmpeg's wording, not cyanrip's.** The parser required
+  the header `Album Loudness Summary:`; only `Album Loudness` is cyanrip's — the ` Summary:` tail
+  comes from FFmpeg's `ebur128` filter, which the fork's contract explicitly marks as libavfilter
+  wording that "moves when FFmpeg does". One upstream rewording would have emptied the whole
+  `album_loudness` block silently. Found by diffing their round-5 unstable-line list against our
+  patterns.
 - **13 of the ripper's own error messages were never shown to the user** — each rendered as a
   bare "Rip failed." Two are ordinary hardware failures: `Offset is unset! To continue with an
   offset of 0, run with -s 0!` and `Device does not support changing speeds!`
