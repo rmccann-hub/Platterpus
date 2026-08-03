@@ -1030,6 +1030,27 @@ KDD-32 decided the soft-fork *is* the cyanrip Platterpus runs. It did not say wh
 
 **Cost accepted.** A source build in the container on first setup (minutes, network-dependent) and a rebuild whenever the pin moves. The alternative — a manual step in a document — was measured at 0% compliance over three releases.
 
+### KDD-34 — A moving dependency pin gets a terminal install path, and provenance is derived from content rather than from a build tag (decided 2026-08-03)
+
+KDD-33 put the fork install inside the setup wizard. Within one day, handshake round 6 exposed two gaps in that — both structural, neither about the wizard being wrong.
+
+**1. The pin moves faster than releases do, so it needs a route that is not a release.** Round 6 asked us to pin `ad65a24`; round 6b withdrew it hours later (it returned silence on disc-image rips); the r2 pin file then moved it again to `2f950c8`. Three pins in one day. The wizard that installs a pin **ships inside a Platterpus release**, so a user on the previous build has no in-app route to a newer ripper at all, and the release cycle is the wrong granularity for something that changes hourly.
+
+`platterpus --install-ripper` is that route: the wizard's steps from the terminal, before `QApplication`, printing each step as it lands. It drives the **same step engine** (`deps/host_setup.HostSetup`) rather than a documented shell snippet — a copied snippet would be a second description of the install and would drift the first time a build dependency changed (Critical rule #6). Its verdict keys on `is_ready()`, not on "no step failed", because `cd-paranoia` is optional and deliberately last: an unmeasured cache verdict must not read as "the ripper is not installed".
+
+- *Why not just release faster.* A release is a CI cycle, an AppImage build, a changelog and a version bump, and it is the right ceremony for Platterpus changes. It is the wrong ceremony for "the ripper's pin moved and the code is identical".
+- *Why the flag prints the pin and the expected build tag.* It is the one fact the user cannot check any other way before a rip. Two builds of this fork differ only by their banner, and one of the three pins offered this week silently returned silence.
+
+**2. A build tag names a commit, not the content that was built — so provenance must be derivable from the artifact.** `meson`'s `vcs_tag` bakes in `git rev-parse --short HEAD`, which reports the commit; build from a dirty tree (or a stale configure) and the banner names a *different* tree, silently. Round 6 delivered two consecutive golden references whose banners were three commits behind the pin, and both were provable from content: one carried a log line absent from its named commit's source; the other logged a paranoia read-chunk count introduced two commits later. That second one is the useful half — **the read-chunk count is a behavioural fingerprint of the fix**, so the artifact settled its own provenance when its banner could not.
+
+Three consequences, now standing:
+
+- **Our classifier keys on the fork *id*, never on the pinned sha.** A banner we did not produce cannot be required to match a specific commit; requiring it would report a genuine fork build as unrecognised. "Which fork" and "which commit of it" are separate questions and only the first is answerable from a banner.
+- **Our *verify* step does require the pinned sha** — and that is not a contradiction. It checks a binary *we just built* in a tree we clean and detach ourselves, where HEAD is the pin by construction. Requiring an exact match is correct where we control the build and wrong where we do not.
+- **`--dirty` in the build tag is reinstated as a handshake ask.** Previously listed as "agreed, not asking". It is the fix for the mechanism, and this round is the evidence that the mechanism fires in practice.
+
+**Also decided here:** where the pin is a *docs-only* commit above the last source change (as `2f950c8` is — its `src` tree is byte-identical to `25a2265`'s), we pin it anyway, because the pin decides the banner and the banner is what identifies the release. The pin is an *identification* choice, not a compilation one, and `deps/fork_source.py` says so where the constant lives.
+
 ---
 
 *Last updated for Platterpus v0.6.3.*

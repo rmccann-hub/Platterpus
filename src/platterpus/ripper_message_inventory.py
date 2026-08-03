@@ -1,16 +1,23 @@
 """Every diagnostic cyanrip can print, as published by the provider contract.
 
 **Generated data, and the provenance matters more than the content.** These rows
-are the cyanrip fork's **P5** inventory from handshake round 5
-(``docs/handshake/inbound/round-5.md``), which that side derives from **control
+are the cyanrip fork's **P5** inventory from handshake round 6
+(``docs/handshake/inbound/round-6.md``), which that side derives from **control
 flow** — a message is listed because the call is followed by ``return 1``, a
 non-zero ``exit()``, ``return AVERROR(...)``, ``total_error_count++``, ``goto fail``
 or ``goto end``, not because of how it is worded.
 
 That derivation is why this file exists in this shape. The previous inventory was
 filtered through a hand-maintained 21-word prefix allowlist on their side, and it
-was **88** strings; the control-flow derivation is **104**. The allowlist had been
-hiding 16, and we had imported the 88 into a test fixture and built a
+was **88** strings; the control-flow derivation was **104**; and round 6 took it to
+**115**. The 104 was still short because the *idiom list* was hand-maintained even
+though the *words* no longer were — it enumerated ``goto`` labels and missed
+``goto end_meta``, ``err = 1`` feeding a later ``+= err``, and bare ``return -1``.
+Round 6 discovers every ``goto <label>`` from the source instead, so a label nobody
+thought of cannot vanish. **That is the same defect one level up, twice** — and it
+is why this file records the derivation rather than trusting a count.
+
+We had imported the original 88 into a test fixture and built a
 "we surface everything the ripper can say" check on it. That check was green
 because our fixture inherited their filter's blind spot — it was measuring their
 allowlist, not their behaviour. Our own pattern missed all 13 matchable strings the
@@ -21,17 +28,17 @@ times, a strict superset of the 88 with nothing lost, and the same class split. 
 104 is a property of the derivation rather than of the newer commits.
 
 **The evidence column is load-bearing — do not flatten it.** Their own contract
-says so: 73 rows (``both`` + ``control flow``) are proven reachable on a failure
+says so: 83 rows (``both`` + ``control flow``) are proven reachable on a failure
 path *without reference to their wording*, and that subset is the one to build a
-hard failure classifier on. The other 31 rest on weaker grounds — ``wording``
+hard failure classifier on. The other 32 rest on weaker grounds — ``wording``
 (reads like a diagnostic, no failure exit found nearby) and ``goto end`` (which in
 ``cyanrip_main.c`` is **both** the ordinary success cleanup and the route several
-genuine aborts take). Neither side can settle the 16 ``goto end`` cases from source
-alone; they need a forced-error run. Treating all 104 as hard fatals would file
+genuine aborts take). Neither side can settle the ``goto``-class cases from source
+alone; they need a forced-error run. Treating all 115 as hard fatals would file
 success lines as failures.
 
 For *surfacing* — showing the user the ripper's own sentence instead of
-"Rip failed." — all 104 are used, because a message that turns out to be a warning
+"Rip failed." — all 115 are used, because a message that turns out to be a warning
 is still the most useful thing we can show, and the alternative is silence.
 
 Do not hand-edit. Regenerate when a handshake round ships a new inventory; a diff
@@ -85,7 +92,7 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
     RipperMessage(
         site="accurip.c:137",
         text="Unable to get AccuRIP DB data: %s%s",
-        evidence="wording",
+        evidence="wording + goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
@@ -145,7 +152,7 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
     RipperMessage(
         site="coverart.c:186",
         text='Unable to get cover art "%s": %s%s!',
-        evidence="wording",
+        evidence="wording + goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
@@ -177,6 +184,12 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         text='Couldn\'t open path "%s" for writing: %s!Invalid folder name? Try -D <folder>.',
         evidence="both",
         reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="cyanrip_encode.c:125",
+        text="Encoder for %s not compiled in ffmpeg!",
+        evidence="control flow",
+        reaches_logfile=False,
     ),
     RipperMessage(
         site="cyanrip_encode.c:361",
@@ -377,235 +390,265 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:582",
+        site="cyanrip_main.c:495",
+        text="cdio error: %s",
+        evidence="control flow",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="cyanrip_main.c:502",
+        text="Frame read failed!",
+        evidence="control flow",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="cyanrip_main.c:586",
         text="Stopping, offset finding incomplete!",
         evidence="wording + goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:667",
+        site="cyanrip_main.c:671",
         text="Unable to read track %i subchannel info!",
         evidence="wording",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:740",
+        site="cyanrip_main.c:744",
         text="Error in decoding/sending frame: %s",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:752",
+        site="cyanrip_main.c:756",
         text="Drive media changed, stopping!",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:783",
+        site="cyanrip_main.c:787",
         text="Stopping, ripping incomplete!",
         evidence="wording",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:938",
+        site="cyanrip_main.c:905",
+        text="Done; (%i out of %i matches for current checksum %08X)",
+        evidence="goto finalize_ripping",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="cyanrip_main.c:911",
+        text="Done; (no matches found, but hit repeat limit of %i)",
+        evidence="goto finalize_ripping",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="cyanrip_main.c:942",
         text="Error in encoding: %s",
         evidence="wording + goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:954",
+        site="cyanrip_main.c:958",
         text="Error sending flush signal to encoders: %s",
         evidence="wording",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:990",
+        site="cyanrip_main.c:994",
         text="Force quitting",
         evidence="control flow",
         reaches_logfile=False,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1402",
+        site="cyanrip_main.c:1404",
+        text='No FUN512 checksum found in "%s"!',
+        evidence="control flow",
+        reaches_logfile=False,
+    ),
+    RipperMessage(
+        site="cyanrip_main.c:1408",
         text='Couldn\'t read "%s"!',
         evidence="both",
         reaches_logfile=False,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1449",
+        site="cyanrip_main.c:1457",
         text="Invalid paranoia level %i must be between 0 and %i!",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1462",
+        site="cyanrip_main.c:1470",
         text="Invalid max coverart size %i (must be 250, 500, 1200 or -1)",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1474",
+        site="cyanrip_main.c:1482",
         text="Invalid sanitation method %s",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1486",
+        site="cyanrip_main.c:1494",
         text="Invalid release index %i!",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1495",
+        site="cyanrip_main.c:1503",
         text="Invalid discnumber %i",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1502",
+        site="cyanrip_main.c:1510",
         text="Invalid totaldiscs %i",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1506",
+        site="cyanrip_main.c:1514",
         text="discnumber %i is larger than totaldiscs %i",
         evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1527",
+        site="cyanrip_main.c:1535",
         text='Invalid format "%s"',
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1532",
+        site="cyanrip_main.c:1540",
         text='Duplicated format "%s"',
         evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1547",
+        site="cyanrip_main.c:1555",
         text="Duplicated rip idx %i",
         evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1561",
+        site="cyanrip_main.c:1569",
         text="Invalid track idx for pregap: %i",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1567",
+        site="cyanrip_main.c:1575",
         text="Missing pregap action",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1575",
+        site="cyanrip_main.c:1583",
         text="Invalid pregap action %s",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1606",
+        site="cyanrip_main.c:1614",
         text='No cover art location specified for "%s"',
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1615",
+        site="cyanrip_main.c:1623",
         text="Invalid track idx for cover art: %i",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1621",
+        site="cyanrip_main.c:1629",
         text="Cover art already specified for track idx %i!",
         evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1633",
+        site="cyanrip_main.c:1641",
         text='Cover art "%s" already specified!',
         evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1639",
+        site="cyanrip_main.c:1647",
         text="Too many cover arts specified!",
         evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1649",
+        site="cyanrip_main.c:1657",
         text="Directory name scheme must contain {format} with multiple output formats!",
         evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1654",
+        site="cyanrip_main.c:1662",
         text="-J (only generate a CUE sheet) cannot be used with -I (only print info)!",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1678",
+        site="cyanrip_main.c:1686",
         text="Offset is unset! To continue with an offset of 0, run with -s 0!",
         evidence="goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1802",
+        site="cyanrip_main.c:1810",
         text="Error reading album tags: %s",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1872",
+        site="cyanrip_main.c:1880",
         text="Invalid track number %i, list has %i tracks!",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1888",
+        site="cyanrip_main.c:1896",
         text="Error reading track tags: %s",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:1910",
+        site="cyanrip_main.c:1918",
         text="%s",
         evidence="goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:2016",
+        site="cyanrip_main.c:2024",
         text="Error initializing decoder: %s",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:2025",
+        site="cyanrip_main.c:2033",
         text="Error initializing encoder: %s",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:2059",
+        site="cyanrip_main.c:2067",
         text="Error encoding: %s",
         evidence="wording + goto end",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:2079",
+        site="cyanrip_main.c:2087",
         text="Invalid rip index %i, list has %i tracks!",
         evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
-        site="cyanrip_main.c:2161",
+        site="cyanrip_main.c:2169",
         text="Error ripping: %s",
         evidence="wording + goto end",
         reaches_logfile=True,
@@ -643,19 +686,49 @@ MESSAGES: Final[tuple[RipperMessage, ...]] = (
     RipperMessage(
         site="musicbrainz.c:224",
         text="Error fetching/requesting/auth, this shouldn't happen.",
-        evidence="wording + goto end",
+        evidence="both",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="musicbrainz.c:247",
+        text="MusicBrainz lookup failed: DiscID has no associated releases.",
+        evidence="goto end_meta",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="musicbrainz.c:255",
+        text="MusicBrainz lookup failed: no releases found for DiscID.",
+        evidence="goto end_meta",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="musicbrainz.c:294",
+        text="Please specify which release to use by adding the -R argument with an index or ID.",
+        evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
         site="musicbrainz.c:299",
         text="Invalid release index %i specified, only have %i releases!",
-        evidence="wording",
+        evidence="both",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="musicbrainz.c:317",
+        text="Release ID %s not found in release list for DiscID %s!",
+        evidence="control flow",
+        reaches_logfile=True,
+    ),
+    RipperMessage(
+        site="musicbrainz.c:362",
+        text="MusicBrainz lookup failed, but DiscID has a matching stub, consider verifying the data and creating a release here:",
+        evidence="control flow",
         reaches_logfile=True,
     ),
     RipperMessage(
         site="musicbrainz.c:366",
         text="Unable to find release info for this CD, and metadata hasn't been manually added!",
-        evidence="wording",
+        evidence="both",
         reaches_logfile=True,
     ),
     RipperMessage(
@@ -701,5 +774,39 @@ CONTROL_FLOW_PROVEN: Final[tuple[RipperMessage, ...]] = tuple(
     m for m in MESSAGES if m.proven_by_control_flow
 )
 
-#: Every message text, for building the surfacing matcher.
-ALL_FORMATS: Final[tuple[str, ...]] = tuple(m.text for m in MESSAGES)
+#: Rows that are in the inventory but must NEVER set a failure hint.
+#:
+#: **Round 6's label discovery swept a success message into P5.** The fork
+#: replaced its hand-maintained list of ``goto`` labels with one discovered from
+#: source — the right fix, and it took the inventory 104 -> 115 — but one of the
+#: labels it discovered, ``goto finalize_ripping``, is the ``-Z`` convergence
+#: *success* route. So ``Done; (2 out of 2 matches for current checksum …)``, which
+#: means the secure re-reads **agreed**, arrived classified as reachable on a
+#: failure path.
+#:
+#: Surfacing it would print a success sentence as the reason a rip failed, on
+#: precisely the rips where our secure re-read worked. Their own P5 preamble names
+#: this exact hazard: *"calling it fatal would file success lines as failures."*
+#:
+#: Note the asymmetry, which is why this is a per-string list and not a per-label
+#: one: its sibling ``Done; (no matches found, but hit repeat limit of %i)`` carries
+#: the **same** label and IS a real problem statement — the re-reads never
+#: converged. One label, two opposite meanings.
+#:
+#: Kept as an explicit named tuple with the reason attached, and asserted by a test,
+#: so it cannot grow silently into a way of hiding messages we simply found
+#: inconvenient.
+SURFACING_EXCLUDED: Final[tuple[tuple[str, str], ...]] = (
+    (
+        "Done; (%i out of %i matches for current checksum %08X)",
+        "the -Z convergence SUCCESS message — the re-reads agreed. Reaches P5 only "
+        "because `goto finalize_ripping` is the success-cleanup route.",
+    ),
+)
+
+#: Message texts used to build the surfacing matcher: everything in the inventory
+#: except :data:`SURFACING_EXCLUDED`. Absent rows are named there with a reason,
+#: never silently dropped.
+ALL_FORMATS: Final[tuple[str, ...]] = tuple(
+    m.text for m in MESSAGES if m.text not in {t for t, _ in SURFACING_EXCLUDED}
+)

@@ -550,6 +550,64 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
+### P1 — Open from cyanrip handshake round 6 (2026-08-03, closed on pin `2f950c8`)
+
+Each item is either queued with the reason it is queued, or hardware-gated. Nothing
+here blocks the v0.6.3 release; round 6 is CLOSED both directions.
+
+- **[ ] Send the forced-error corpus (their G2 — the highest-value artifact we owe them).**
+      Their fatal inventory is 115 strings, of which 83 are control-flow-proven and the
+      rest rest on the wording of the message or on a `goto` label whose fatality neither
+      side can settle from source. A run that *forces* each state and records the string,
+      its exit code and the exact argv settles them empirically. **Hardware-gated, and
+      deliberately not fabricated:** `Offset is unset!`, `Device does not support changing
+      speeds!` and the `goto end` family need real device states on the BDR-209D, and a
+      hand-built corpus would be a fixture carrying my assumptions about their control
+      flow — the §4d failure again (`docs/testing.md` §5.ac).
+- **[ ] Parse `Encoder:` and `CD-TEXT:` into the report schema, then off the ignore list.**
+      Both are real archival facts the fork added for us, both currently on
+      `_IGNORED_DISC_LINES` with a recorded reason. Queued rather than half-landed because
+      a regex with no rendered home is dead code that reads as coverage. `Encoder:` is
+      encoder provenance (which ffmpeg built the files); `CD-TEXT:` is tri-state
+      (present / absent / unreadable-by-this-driver) and closes an EAC parity row. The
+      fork's method for `Encoder:` — assert it against `ffprobe` output rather than
+      against the line itself — is the one to copy. Note the populated disc-level form is
+      richer than our golden reference shows (`present (English, 5 disc fields, 2 of 2
+      tracks tagged)`), and there is now a per-track indented `CD-TEXT:` block too.
+- **[ ] Surface `Cache model:` as a *modelled* figure, distinct from our measured verdict.**
+      Deliberately NOT wired to `defeat_audio_cache` (KDD-25/29 — see the recorded reason
+      on the ignore-list entry). If shown at all it needs its own row, labelled as
+      paranoia's model with the drive unprobed.
+- **[ ] Consume the progress line's `, errors - %i` segment.** Their P2a declares it and
+      we ignore it, so we learn the error count only from the finished log. Surfacing it
+      would let rip-progress say "reading, 3 errors so far" instead of looking healthy
+      until the end. Note it resets per `-Z` pass, like the paranoia counters.
+- **[ ] Migrate `I:` / `LRA:` off libavfilter's wording onto the fork's `(R128)` rows.**
+      Their A5 delivery: `Integrated loudness (R128):` and `Loudness range (R128):` are
+      fork-owned and stable, where the unqualified headings we currently read are
+      libavfilter's and move when FFmpeg does. **The `(R128)` qualifier is required** —
+      libavfilter prints the unqualified spellings in the same track block, so an
+      unqualified pattern matches two different lines. Needs report-schema fields first,
+      same reason as `Encoder:`.
+- **[ ] `Total time:` / `Duration:` MM:SS.FF → seconds.** `parse_hms_to_seconds` silently
+      no-ops on the `MM:SS.FF` shape, and FF is CD frames (1/75 s, 0–74), so reading `.26`
+      as hundredths is wrong by up to 0.98 s. Verified from their `src/utils.h:65-74`.
+      Discriminate on colon count, per their P1 units block.
+- **[ ] Consider a second per-track paranoia field for the non-converged passes.** The
+      per-track counters report the *final* `-Z` pass only, which hides the evidence of
+      difficulty that made `-Z` re-read in the first place. Raised with them as a design
+      question, not a defect; our side would need a field either way.
+- **[ ] The cancelled-rip log addendum, properly.** Their J2 is right that appending after
+      `Log FUN512:` breaks `cyanrip -Y`, and the naive sidecar regresses bug #19 (the
+      shipped-CRC statement lives in that text). Needs the real fix, not the sidecar.
+- **[ ] Answer J7 (tag casing).** The maintainer's ruling, still open. Recommendation: state
+      the convention explicitly in the contract rather than leave it implied.
+- **[ ] Reinstate `--dirty` in the fork's build tag (round 7).** Previously "agreed, not
+      asking"; round 6 delivered two consecutive golden references whose banners named
+      commits three behind the pin, so the mechanism demonstrably fires. Ours is not
+      exposed — the wizard detaches onto the pin in a tree it wipes — but the artifacts we
+      *receive* are.
+
 ### P1 — Open findings from the 2026-07-29 audits (three parallel read-only passes)
 
 Recorded with the mechanism and a concrete failure scenario each, severity-ordered.

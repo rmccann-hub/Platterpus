@@ -572,3 +572,123 @@ def test_doctor_prints_the_config_reset_notice(
     out = capsys.readouterr().out
     assert "Read offset must be between -5000 and 5000." in out
     assert "99999" in out
+
+
+# --- --install-ripper: the no-GUI front end for the setup wizard -------------
+#
+# WHY THIS FLAG NEEDS TESTS OF ITS OWN. It exists because the wizard ships
+# *inside* a release, so a user on an older build has no in-app route to a newer
+# cyanrip pin — and the pin moves every handshake round (it moved twice in one
+# day: round 6 asked for `ad65a24`, round 6b withdrew it hours later). The flag
+# is the route, and the thing that can go quietly wrong is its *verdict*: report
+# success when the ripper is unusable, or failure when only the optional
+# cd-paranoia probe (KDD-29, deliberately last) did not resolve.
+
+
+def _install_ripper_stub(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    ready: bool,
+    failures: tuple[str, ...] = (),
+) -> list[str]:
+    """Replace HostSetup with a stub whose readiness and failures are chosen.
+
+    Returns the list the stub records its printed titles into, so a test can
+    assert the progress callback was actually wired rather than ignored.
+    """
+    from platterpus import config as config_module
+    from platterpus.deps import host_setup as host_setup_module
+    from platterpus.deps import step_engine
+
+    monkeypatch.setattr(config_module, "load", lambda: config_module.Config())
+    seen: list[str] = []
+
+    class _Stub:
+        def __init__(self, *a: object, **kw: object) -> None:
+            pass
+
+        def run(
+            self,
+            progress: object = None,
+            dry_run: bool = False,
+            cancelled: object = None,
+        ) -> list[step_engine.StepResult]:
+            results = [
+                step_engine.StepResult(
+                    "container",
+                    "Container",
+                    step_engine.StepStatus.DONE,
+                    "already present",
+                )
+            ]
+            for title in failures:
+                results.append(
+                    step_engine.StepResult(
+                        title.lower(),
+                        title,
+                        step_engine.StepStatus.FAILED,
+                        "no package",
+                    )
+                )
+            for r in results:
+                seen.append(r.title)
+                if callable(progress):
+                    progress(r)
+            return results
+
+        def is_ready(self) -> bool:
+            return ready
+
+    monkeypatch.setattr(host_setup_module, "HostSetup", _Stub)
+    return seen
+
+
+def test_install_ripper_reports_ready_and_names_the_pin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """The pin is printed because it is the one fact the user cannot check any
+    other way before a rip: two builds of this fork differ only by their build
+    tag, and one of them (`ad65a24`) returns silence on disc images."""
+    from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG, FORK_PIN
+
+    seen = _install_ripper_stub(monkeypatch, ready=True)
+    rc = app_module.main(["--install-ripper"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert FORK_PIN in out, "the pin being built is not stated"
+    assert FORK_EXPECTED_BUILD_TAG in out
+    assert "ready" in out.casefold()
+    assert seen, "the progress callback was never called — steps ran silently"
+    assert "Container" in out, "step results were not printed as they landed"
+
+
+def test_install_ripper_succeeds_when_only_an_optional_step_failed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """cd-paranoia is optional and runs LAST (KDD-29): the cache verdict goes
+    unmeasured, the ripper is fully installed. Keying the exit code on "no step
+    failed" would tell a user with a working ripper that setup failed."""
+    _install_ripper_stub(monkeypatch, ready=True, failures=("Cache probe",))
+    rc = app_module.main(["--install-ripper"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "ready" in out.casefold()
+    # And it does not hide the miss — an unmeasured cache verdict is a fact.
+    assert "Cache probe" in out
+
+
+def test_install_ripper_fails_and_points_at_the_log(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """A failed install must name the step AND where the dependency's own output
+    went. Every command's argv and combined output goes to the log via
+    SubprocessRunner; a failure message without that pointer is a diagnosis the
+    user cannot reach (the diagnostic-completeness rule)."""
+    from platterpus.paths import LOG_PATH
+
+    _install_ripper_stub(monkeypatch, ready=False, failures=("Build cyanrip fork",))
+    rc = app_module.main(["--install-ripper"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "Build cyanrip fork" in out
+    assert str(LOG_PATH) in out

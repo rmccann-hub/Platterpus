@@ -49,13 +49,41 @@ _P1_ROW = re.compile(
 _OUR_FLAGS = re.compile(r"^(-[A-Za-z](?: -[A-Za-z])+)$", re.M)
 
 
-def _newest_inbound() -> Path:
-    rounds = sorted(
-        INBOUND.glob("round-*.md"),
-        key=lambda p: int(re.search(r"round-(\d+)", p.name).group(1)),  # type: ignore[union-attr]
-    )
-    assert rounds, "no inbound handshake rounds — nothing to check the argv against"
-    return rounds[-1]
+#: ``round-6.md``, or ``round-6b.md`` / ``round-6c.md`` for an amendment sent
+#: after the round's main file. The suffix is the round's, not a new round.
+_ROUND_NAME = re.compile(r"^round-(?P<number>\d{1,4})(?P<amendment>[a-z]{0,2})$")
+
+
+def _newest_round_files() -> list[Path]:
+    """Every inbound file belonging to the newest round, oldest first.
+
+    **A round can arrive in several files, and the flag table need not be in all
+    of them.** Round 6 came as a return file with the full P1 table, then two
+    amendments: one withdrawing the pin, one a short pin-update note that mentions
+    `-k` in prose without restating the table. Reading only the newest *file* saw
+    the note and concluded the contract listed almost no flags — every rip flag we
+    send failed at once, which reads like a catastrophic seam break rather than
+    what it was.
+
+    So the round is read as a set, exactly as `handshake.py --check` reads it.
+    """
+    grouped: dict[int, list[Path]] = {}
+    for path in INBOUND.glob("round-*.md"):
+        match = _ROUND_NAME.match(path.stem)
+        if match is None:
+            continue
+        grouped.setdefault(int(match.group("number")), []).append(path)
+    assert grouped, "no inbound handshake rounds — nothing to check the argv against"
+    newest = max(grouped)
+    return sorted(grouped[newest], key=lambda p: p.stem)
+
+
+def _newest_inbound_text() -> str:
+    return "\n\n".join(p.read_text(encoding="utf-8") for p in _newest_round_files())
+
+
+def _newest_inbound_label() -> str:
+    return " + ".join(p.name for p in _newest_round_files())
 
 
 def _their_flags(text: str) -> set[str]:
@@ -80,7 +108,7 @@ def _our_rip_flags() -> set[str]:
 
 def test_every_rip_flag_we_send_is_in_the_providers_published_contract() -> None:
     """The rip argv, mechanically diffed against P1."""
-    their = _their_flags(_newest_inbound().read_text(encoding="utf-8"))
+    their = _their_flags(_newest_inbound_text())
     ours = _our_rip_flags()
 
     # Floors. Either side coming back empty would make this pass vacuously, which
@@ -93,7 +121,7 @@ def test_every_rip_flag_we_send_is_in_the_providers_published_contract() -> None
         f"we send flag(s) the ripper's own contract does not list: {unknown}. "
         f"Either the contract is stale or the flag is gone — and a flag that is "
         f"gone makes cyanrip exit 1 without ripping. Checked against "
-        f"{_newest_inbound().name}."
+        f"{_newest_inbound_label()}."
     )
 
 
@@ -111,13 +139,13 @@ def test_every_version_flag_we_probe_with_is_in_the_published_contract() -> None
     newer contract. What is not acceptable is *none* of them being listed, which
     would mean we cannot ask this binary its version at all.
     """
-    their = _their_flags(_newest_inbound().read_text(encoding="utf-8"))
+    their = _their_flags(_newest_inbound_text())
     assert len(their) >= 30, f"only parsed {len(their)} flags from P1 — regex is wrong"
 
     listed = [f for f in VERSION_FLAGS if f in their]
     assert listed, (
         f"none of our version flags {list(VERSION_FLAGS)} appear in "
-        f"{_newest_inbound().name}'s flag table. Every version probe would exit "
+        f"{_newest_inbound_label()}'s flag table. Every version probe would exit "
         f"non-zero and the app would report cyanrip missing. Flags the contract "
         f"does list: {sorted(their)}"
     )
@@ -144,5 +172,31 @@ def test_the_sweep_can_actually_fail() -> None:
 def test_each_rip_flag_individually(flag: str) -> None:
     """Same assertion, one test per flag, so a failure names the flag in its own
     test id rather than burying it in a list."""
-    their = _their_flags(_newest_inbound().read_text(encoding="utf-8"))
-    assert flag in their, f"{flag} is not in {_newest_inbound().name}'s flag table"
+    their = _their_flags(_newest_inbound_text())
+    assert flag in their, f"{flag} is not in {_newest_inbound_label()}'s flag table"
+
+
+def test_a_round_is_read_as_a_set_of_files_not_only_its_newest() -> None:
+    """The regression test for reading one file when a round arrived as three.
+
+    Round 6 came as `round-6.md` (with the full P1 table), `round-6b.md` (the pin
+    withdrawal) and `round-6c.md` (a short pin note mentioning `-k` in prose).
+    Keying on the newest *file* parsed the note, found almost no flags, and failed
+    every rip flag at once — a total-seam-break signature for what was actually a
+    file-selection bug. The floor below is what makes that impossible to repeat.
+    """
+    files = _newest_round_files()
+    assert files, "no round files found"
+    # Every file in the set belongs to the same round.
+    numbers = {_ROUND_NAME.match(p.stem).group("number") for p in files}  # type: ignore[union-attr]
+    assert len(numbers) == 1, f"files from different rounds grouped together: {files}"
+    # And the union clears the flag floor even when the newest file alone does not,
+    # which is the whole point. Asserted as a comparison so it cannot pass by the
+    # amendment happening to contain a table.
+    union = _their_flags(_newest_inbound_text())
+    newest_alone = _their_flags(files[-1].read_text(encoding="utf-8"))
+    assert len(union) >= 30, f"the round's union lists only {len(union)} flags"
+    assert len(union) >= len(newest_alone), (
+        "reading the whole round found fewer flags than its newest file — the "
+        "union is losing information"
+    )

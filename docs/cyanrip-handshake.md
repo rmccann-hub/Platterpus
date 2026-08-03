@@ -181,6 +181,51 @@ classification tri-state: `fork` / `stock` / **`unknown`** for an absent or unre
 Never the negative — an unrecognised tag is an absence of evidence, not evidence of a stock
 binary.
 
+### 7.3 A build tag names a commit, not the content that was built
+
+`meson`'s `vcs_tag` fills the banner from `git rev-parse --short HEAD`, which reports **the
+commit**. Build from a tree with uncommitted work — or from a build directory whose configure
+is stale — and the banner names a *different tree*, silently and confidently.
+
+Round 6 delivered two consecutive golden references whose banners were three commits behind
+the pin they were labelled with, and both were provable from content: one carried a log line
+absent from its own named commit's source; the other logged a paranoia read-chunk size
+introduced two commits later. So, standing:
+
+- **The producing side adds a `-dirty` marker when the tree is dirty.** `git describe --dirty`,
+  or a suffix when `git status --porcelain` is non-empty. (Reinstated as an ask in round 6
+  after both sides had filed it as "agreed, not asking".)
+- **The consuming side derives provenance from content, not from the banner alone.** A
+  *behavioural* fingerprint in the artifact is the counter to have ready — the read-chunk
+  count settled which build produced a reference when its banner could not.
+- **Classification keys on the fork *id*, never on the pinned sha.** A banner we did not
+  produce cannot be required to match a specific commit; requiring it would report a genuine
+  fork build as unrecognised. Requiring an exact sha is correct only where *we* control the
+  build — our wizard's verify step does, because it detaches onto the pin in a tree it wipes.
+- **Where a pin is a docs-only commit above the last source change, it is still the pin.** The
+  pin decides the banner, and the banner is what identifies the release. Say so, rather than
+  claiming it is "the last commit that changes the binary" when it is not.
+
+### 7.4 Round bookkeeping: amendments, and asks that ride in a verification file
+
+Two mechanical rules, both learned by the record failing to describe the correspondence.
+
+**An amendment belongs to its round.** Round 6 was corrected within hours (`round-6b.md`,
+withdrawing the pin `round-6.md` had asked for). Counting that as its own round would report
+two open rounds where one was corrected — and would make sending a correction immediately
+score *worse* in the record than folding it into the next round, which is the wrong incentive
+to encode in tooling. `handshake.py` reads `round-<N><suffix>.md` as round *N*, and `--check`
+accepts several files so the round validates as a set: sections may be satisfied by any file
+in it, later files supersede earlier ones.
+
+**When our asks ride inside a verification file, write that round's outbound record in the
+same commit.** The protocol is two files per round; folding the next round's asks into the
+previous round's verification is efficient and correct, but it desynchronises the file count
+from the round number, so `--status` can never read the round CLOSED. Twice that looked like a
+missing file rather than what it was. `docs/handshake/outbound/round-6.md` is the pattern: a
+record file that says plainly it is a record, names where the content was actually delivered,
+and points at the answers that prove receipt.
+
 ---
 
 *Last updated for Platterpus v0.6.3.*

@@ -1001,6 +1001,104 @@ fails loudly instead of passing vacuously.
 **When a committed artifact can settle a question, the test should read the
 artifact.** Anything else pins your belief about the artifact.
 
+### §5.ac — Two witnesses that share an ancestor are one witness
+
+*Handshake round 6b, 2026-08-03. The cyanrip fork's finding, generalised, because
+we have now hit this shape from three directions and only had a rule for one.*
+
+For a whole session the fork's audio-safety harness compared its build against
+upstream `958e1ad`: 55 per-track checksum lines and 11 decoded-PCM hashes,
+**identical**, re-run after every commit. Every word of that was true. Both
+builds were also returning **99.7% silence** for any disc-image rip above `-P 0`,
+because the defect was inherited from upstream — and reporting
+`Ripping errors: 0` while doing it. One `cmp` against the fixture `.bin` found in
+a second what a session of cross-build diffing could not.
+
+Three checks reported success, each for a different reason, and each is a shape
+already written down in this file:
+
+1. **Equality between two implementations that share a parent.** They share its
+   bugs, so agreement is expected regardless of correctness. *"Identical to the
+   other implementation"* is not *"correct"*.
+2. **The suite never ran the broken path.** Their `rip()` helper passed `-P 0` on
+   every scenario; the comparison harness omitted it. Suite and harness exercised
+   *different* code, and nobody ran the one that was broken. This is §5.o's
+   "enforce a rule across the codebase, not at the place it was learned" wearing
+   different clothes.
+3. **Silence compares equal to silence.** Every check was an equality test
+   between two things that were both wrong, and none asserted the content was
+   non-trivial.
+
+**The rules, all three of which are cheap:**
+
+- **Assert against the source artifact, not against another run.** The input
+  file, the pressed disc, the upstream document — something that did not come out
+  of the code under test. A comparison against a second run of anything sharing
+  code with the first is a consistency check, not a correctness check.
+- **Add a non-triviality floor to every equality assertion.** "Equal *and* not
+  mostly zeros", "equal *and* at least N distinct values", "equal *and* the file
+  is not empty". Same family as §5's standing "can this check be satisfied by
+  finding nothing?" — here the answer was yes, twice, and the emptiness was in
+  the *data* rather than in the result set.
+- **Make the harness run the product's default.** Where a helper pins a setting
+  the product does not pin, that setting is now untested by construction, and the
+  helper is *safer than the product* — which §5's stand-in question is about. Pin
+  it in the test with a comment, or run both.
+
+Our exposure was luck, and it is worth recording as luck rather than as
+diligence: round 5's affected reference never entered our fixtures because
+`docs/handshake/verified/round-5.md` §4b had asked them to *keep the previous
+reference rather than replace it*, on coverage grounds. The right call for the
+wrong reason. What is now deliberate: `tests/test_fork_golden_reference_r6b.py`
+asserts `-P 0` appears in the committed reference's own `Invoked as:` line, so a
+future fixture generated without it fails at the point of entry instead of
+parsing perfectly and meaning nothing.
+
+### §5.ad — A check that passes for the wrong reason
+
+*Handshake round 6, 2026-08-03. Found in `scripts/handshake.py`, the gate that
+enforces the handshake protocol — the one detector in the project that had never
+been asked §5's own question.*
+
+`--check` validates a received handshake file against ten required sections,
+keyed on the section letter. On the fork's round-6 file it reported **one**
+problem. There were **three**, and a fourth section passed on a coincidence:
+
+| Section | Reported | Truth |
+|---|---|---|
+| §J (Questions back) | MISSING | correct |
+| §G (Revert-proof) | present | **absent** — "revert" appears zero times; a section was lettered `## G. Asks back` |
+| §B (Answers) | present | **absent** — none of `measured` / `read from source` / `unverified` appears |
+| §I (Provider contract) | present | present, but credited to the prose *"I wrote, of your continuation-line sweep:"* |
+
+Two distinct defects, and the second is the more interesting:
+
+- **A bare letter at the start of a line is not a heading.** Every required
+  section is single-lettered, and English sentences begin with "A ", "I ", "We ".
+  The matcher accepted an unmarked letter, so ordinary prose satisfied structure.
+- **A letter validates the label, not the subject.** A section the other side
+  letters `G` for their own reasons satisfies "§G" while covering something else
+  entirely.
+
+**§I is the one to remember, because its verdict was right.** The provider
+contract genuinely was in the file. A check that returns the correct answer for
+an unrelated reason is worse than one that fails: a failure gets investigated, a
+pass gets *cited* — and this one had been cited, in a verification file, as
+evidence the round was complete.
+
+**The rule: where a check matches on a label, make it also require the subject.**
+The label answers "did they name it", the content answers "did they write it",
+and only the pair is a check. Both halves are now in `check_inbound`, and the
+regression test reads the committed round-6 file rather than a synthetic one
+(§5.u) — the artifact that produced the finding is the artifact that proves the
+fix.
+
+A second-order lesson from fixing the tests: `_complete_inbound` built its
+"positive control" from `"x" * 300`, which under the new rule is no longer a
+complete file — correctly, because 300 characters of filler under a §G heading is
+not a revert-proof section. **A fixture that pads with filler teaches the product
+that filler counts.** It now pads with each section's own subject.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

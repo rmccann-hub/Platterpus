@@ -43,6 +43,20 @@ def hs() -> ModuleType:
     return _load()
 
 
+def _body(hs: ModuleType, section: object) -> str:
+    """Filler long enough to clear the length floor, containing the section's
+    own subject keywords.
+
+    The keywords are what makes this a *complete* file under the round-6 rule:
+    a heading lettered §G over 300 characters of `xxxx` is not a revert-proof
+    section, and the checker now says so. Padding with the subject rather than
+    with `x` keeps this fixture honest instead of teaching the product that
+    filler counts as content.
+    """
+    subject = " ".join(getattr(section, "keywords", ()) or ("content",))
+    return (subject + " ") * 4 + "x" * (hs.MIN_SECTION_CHARS + 250)
+
+
 def _complete_inbound(hs: ModuleType) -> str:
     """A file that satisfies every rule, built from the spec itself.
 
@@ -50,9 +64,8 @@ def _complete_inbound(hs: ModuleType) -> str:
     required section cannot leave this fixture quietly incomplete — the
     "positive control" stays positive by construction.
     """
-    body = "x" * (hs.MIN_SECTION_CHARS + 250)
     return "# cyanrip → Platterpus\n\n" + "\n\n".join(
-        f"## {s.key}\n\n{body}" for s in hs.INBOUND_SECTIONS
+        f"## {s.key}\n\n{_body(hs, s)}" for s in hs.INBOUND_SECTIONS
     )
 
 
@@ -73,9 +86,8 @@ def test_dropping_any_single_section_is_caught(
 ) -> None:
     """Swept over every section, not spot-checked on one. A checker that
     enforced eight of ten would look identical from the outside."""
-    body = "x" * (hs.MIN_SECTION_CHARS + 250)
     text = "# cyanrip → Platterpus\n\n" + "\n\n".join(
-        f"## {s.key}\n\n{body}" for s in hs.INBOUND_SECTIONS if s.key != dropped
+        f"## {s.key}\n\n{_body(hs, s)}" for s in hs.INBOUND_SECTIONS if s.key != dropped
     )
     path = tmp_path / "round.md"
     path.write_text(text, encoding="utf-8")
@@ -88,8 +100,13 @@ def test_dropping_any_single_section_is_caught(
 def test_a_section_present_but_empty_is_caught(hs: ModuleType, tmp_path: Path) -> None:
     """The failure worse than a missing section: a heading with nothing under
     it passes a naive "is the heading there" check while telling us nothing."""
+    section_f = next(s for s in hs.INBOUND_SECTIONS if s.key == "F")
     text = _complete_inbound(hs).replace(
-        f"## F\n\n{'x' * (hs.MIN_SECTION_CHARS + 250)}", "## F\n\nTODO"
+        f"## F\n\n{_body(hs, section_f)}",
+        # Long enough to carry the subject (so the ABSENT floor does not fire
+        # instead) yet under the length floor — the "heading with nothing real
+        # under it" case this test is named for.
+        "## F\n\nverified: TODO",
     )
     path = tmp_path / "round.md"
     path.write_text(text, encoding="utf-8")
@@ -106,9 +123,15 @@ def test_a_silent_null_case_is_caught_for_the_explicit_sections(
     explicit = [s.key for s in hs.INBOUND_SECTIONS if s.must_be_explicit]
     assert len(explicit) >= 2, "the must-be-explicit set collapsed"
     for key in explicit:
+        section = next(s for s in hs.INBOUND_SECTIONS if s.key == key)
+        # ONE keyword, not all of them. §H's keyword list literally contains
+        # "nothing found", which is also an `_EXPLICIT_NOTHING` phrase — joining
+        # the whole list made this fixture assert the null case it was supposed
+        # to be withholding, and the test passed for the wrong reason.
         text = _complete_inbound(hs).replace(
-            f"## {key}\n\n{'x' * (hs.MIN_SECTION_CHARS + 250)}",
-            f"## {key}\n\nWe looked at this area during the round and moved on.",
+            f"## {key}\n\n{_body(hs, section)}",
+            f"## {key}\n\n{section.keywords[0]}: we looked at this "
+            f"area during the round and moved on.",
         )
         path = tmp_path / f"round-{key}.md"
         path.write_text(text, encoding="utf-8")
@@ -120,8 +143,9 @@ def test_a_silent_null_case_is_caught_for_the_explicit_sections(
 def test_an_explicit_nothing_is_accepted(hs: ModuleType, tmp_path: Path) -> None:
     """The other half: "no changes" *is* a complete answer and must not be
     nagged, or the check trains people to pad sections with filler."""
+    section_d = next(s for s in hs.INBOUND_SECTIONS if s.key == "D")
     text = _complete_inbound(hs).replace(
-        f"## D\n\n{'x' * (hs.MIN_SECTION_CHARS + 250)}",
+        f"## D\n\n{_body(hs, section_d)}",
         "## D\n\nNo changes to the log format this round. Byte-identical to round 3.",
     )
     path = tmp_path / "round.md"
@@ -153,10 +177,9 @@ def test_heading_decoration_does_not_matter(hs: ModuleType, tmp_path: Path) -> N
     """The fork is a different project with its own habits. Rejecting a complete
     file over `### §A —` vs `## A` would be theatre, and would get the checker
     switched off."""
-    body = "x" * (hs.MIN_SECTION_CHARS + 250)
     styles = ["## {k}", "### §{k} — Title", "## {k}. Title", "**{k}**"]
     text = "# r\n\n" + "\n\n".join(
-        styles[i % len(styles)].format(k=s.key) + f"\n\n{body}"
+        styles[i % len(styles)].format(k=s.key) + f"\n\n{_body(hs, s)}"
         for i, s in enumerate(hs.INBOUND_SECTIONS)
     )
     path = tmp_path / "round.md"
@@ -376,3 +399,145 @@ def test_the_release_workflow_actually_calls_the_gate() -> None:
     assert workflow.index("handshake.py --release-gate") < workflow.index(
         "Build the AppImage"
     )
+
+
+# --- the round-6 lesson: the gate that guards the handshake had never been -----
+# --- asked "can this be satisfied by finding nothing?" ------------------------
+
+
+def test_prose_beginning_a_line_does_not_satisfy_a_section(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Round 6's §I passed on the sentence "I wrote, of your continuation-line
+    sweep:".
+
+    Every required section is single-lettered, and English sentences begin with
+    "A ", "I " and "We ". The first checker accepted a bare letter at line start
+    as a heading, so ordinary writing satisfied structure — and the section it
+    credited (the provider contract) really was in the file, which is what made
+    the bug invisible: a right answer for a wrong reason.
+
+    Swept over every section, because getting this right for §I and wrong for §A
+    would look identical from outside.
+    """
+    for section in hs.INBOUND_SECTIONS:
+        subject = " ".join(section.keywords or ("content",))
+        # A whole file of prose: each required subject IS discussed (so the
+        # keyword floor is satisfied) and every line begins with the section's
+        # letter — but not one heading marker anywhere.
+        prose = "\n\n".join(
+            f"{s.key} sentence about {' '.join(s.keywords or ('content',))} "
+            + "written as flowing prose with no heading marker at all. " * 4
+            for s in hs.INBOUND_SECTIONS
+        )
+        path = tmp_path / f"prose-{section.key}.md"
+        path.write_text(prose, encoding="utf-8")
+        problems = hs.check_inbound(path)
+        assert any(f"§{section.key}" in p for p in problems), (
+            f"§{section.key} ({subject}) was satisfied by a line of prose "
+            f"beginning with '{section.key} ': {problems}"
+        )
+
+
+def test_a_relettered_section_covering_a_different_subject_is_caught(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Round 6's §G ("Revert-proof") passed because they lettered an unrelated
+    section `## G. Asks back`. The word "revert" appears **zero** times in that
+    file. The checker reported one problem; there were two.
+
+    The letter answers "did you label it", the keywords answer "did you write
+    it", and only the pair is a check. Relettering alone must still be tolerated
+    — see the next test — so this asserts specifically on the *subject* being
+    absent while the letter is present.
+    """
+    section_g = next(s for s in hs.INBOUND_SECTIONS if s.key == "G")
+    assert section_g.keywords, "§G lost its subject keywords; this test is vacuous"
+    text = _complete_inbound(hs).replace(
+        f"## G\n\n{_body(hs, section_g)}",
+        "## G. Asks back\n\n" + "Things I would like from you next round. " * 12,
+    )
+    path = tmp_path / "relettered.md"
+    path.write_text(text, encoding="utf-8")
+    problems = hs.check_inbound(path)
+    assert any("§G" in p and "ABSENT" in p for p in problems), problems
+    # And it says WHY, naming both halves — a bare "missing" would send them
+    # hunting for a heading that is right there.
+    assert any("lettered G" in p for p in problems), problems
+
+
+def test_the_real_round_6_file_reproduces_what_the_old_checker_missed(
+    hs: ModuleType,
+) -> None:
+    """The revert-proof for the checker fix, against the committed artifact.
+
+    `docs/testing.md` §5.u: when a committed artifact can settle a question, the
+    test reads the artifact. The question is whether the fix catches what it was
+    written for, and the round-6 correspondence is in this repo.
+
+    Checked against round 6 **alone**, which is what the old checker was run on
+    when the file arrived. It reported one problem (§J). There were three more:
+    §G's subject ("revert") appears zero times while a section is lettered G,
+    §B's provenance markers are absent, and §I was credited to a line of prose
+    beginning "I wrote,". Their amendment later supplied the revert-proof
+    unprompted — see the next test — which is why this reads the file the finding
+    was actually made against rather than the pair.
+    """
+    six = _REPO_ROOT / "docs" / "handshake" / "inbound" / "round-6.md"
+    assert six.exists(), "round-6.md is not committed"
+    problems = hs.check_inbound(six)
+    keys = {p.split(" ")[0] for p in problems}
+    assert {"§B", "§G", "§I", "§J"} <= keys, (
+        f"the round-6 misses are no longer reproduced: {problems}"
+    )
+    # The two that the LETTER matched, so a bare "missing" would have sent them
+    # hunting for a heading that is right there.
+    assert any("§G" in p and "lettered G" in p for p in problems), problems
+
+
+def test_the_amendment_supplies_what_the_return_file_lacked(hs: ModuleType) -> None:
+    """Validating the pair is strictly better than validating either half.
+
+    Round 6b's §2 carries the revert-proof round 6 did not — *"reverting the
+    cachemodel to upstream's 1 fails four of its checks"* — so §G is satisfied by
+    the pair. That is the behaviour the multi-file check exists for: requiring an
+    amendment to restate all ten sections would make sending a correction within
+    hours score worse in the record than folding it into the next round.
+    """
+    inbound = _REPO_ROOT / "docs" / "handshake" / "inbound"
+    six, six_b = inbound / "round-6.md", inbound / "round-6b.md"
+    assert six_b.exists(), "the round-6 amendment is not committed"
+    pair = hs.check_inbound(six, six_b)
+    assert not any("§G" in p for p in pair), (
+        "§G is reported for the pair, but round 6b states the revert-proof: "
+        + str(pair)
+    )
+    # Floor, both directions: the pair must beat each half, or the union is doing
+    # nothing and this test would pass on a checker that ignored the second file.
+    assert len(pair) < len(hs.check_inbound(six))
+    assert len(pair) < len(hs.check_inbound(six_b))
+    assert len(pair) >= 1, "the pair is now clean — update the finding, not the test"
+
+
+def test_an_amendment_belongs_to_its_round_rather_than_being_one(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """`round-6b.md` is round 6, not round 6b.
+
+    Counting an amendment as its own round would report two open rounds where one
+    was corrected — and would make sending a correction within hours score worse
+    in the record than folding it silently into the next round. The wrong
+    incentive, encoded in the tooling.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name / "round-6.md").write_text("x", encoding="utf-8")
+    (tmp_path / "inbound" / "round-6b.md").write_text("x", encoding="utf-8")
+
+    lines = [ln for ln in hs.round_status(tmp_path) if ln.startswith("round-")]
+    assert lines == ["round-6: sent=yes returned=yes verified=yes  -> CLOSED"], lines
+    assert hs.round_number(Path("round-6b.md")) == 6
+    assert hs.round_number(Path("round-6.md")) == 6
+    # A name that is not a round must be ignored, not crash the report.
+    assert hs.round_number(Path("notes.md")) is None

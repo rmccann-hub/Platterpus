@@ -303,6 +303,15 @@ def main(argv: list[str] | None = None) -> int:
         "and exit; prints a pass/fail report",
     )
     parser.add_argument(
+        "--install-ripper",
+        action="store_true",
+        help="set up the ripping stack from the terminal and exit: the Distrobox "
+        "container, cyanrip, and the pinned Platterpus fork of cyanrip built over "
+        "it, then re-point the host export at the fork. Idempotent — steps already "
+        "satisfied report 'already present'. Same steps the GUI's setup wizard "
+        "runs; this is the no-GUI front end for them",
+    )
+    parser.add_argument(
         "--ctdb-calibrate",
         metavar="FOLDER",
         type=Path,
@@ -384,6 +393,73 @@ def main(argv: list[str] | None = None) -> int:
             print("\n" + details)
         print("\n" + preflight.format_summary(results, color=color))
         return preflight.exit_code(results)
+
+    # Install the ripping stack from the terminal. Like --doctor this runs before
+    # QApplication — no window, no event loop, so none of the GUI-thread rules
+    # apply and the multi-minute dnf/meson/ninja commands can run inline.
+    #
+    # WHY THIS EXISTS AT ALL, given the wizard does the same thing: the wizard
+    # ships *inside* a Platterpus release, so a user on an older build has no
+    # in-app route to a newer ripper pin — the very situation a moving fork pin
+    # creates every time it moves. This flag is that route, and it reuses the one
+    # step engine rather than duplicating the commands (Critical rule #6): a
+    # hand-copied shell snippet in the docs would be a second description of the
+    # install that drifts the first time the pin or a build dep changes.
+    if args.install_ripper:
+        from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG, FORK_PIN
+        from platterpus.deps.host_setup import HostSetup
+        from platterpus.deps.step_engine import StepResult, StepStatus, SubprocessRunner
+
+        print(
+            f"Platterpus {__version__} (build {build_fingerprint()}) — installing "
+            f"the ripping stack\n"
+            f"cyanrip fork pin: {FORK_PIN} (expects build tag "
+            f"{FORK_EXPECTED_BUILD_TAG})\n"
+        )
+        # A step can take minutes (an image pull, a dnf transaction, a meson
+        # build). Print each result as it lands rather than batching at the end,
+        # so a long step looks like progress instead of a hang — the terminal
+        # equivalent of the wizard's live row updates.
+        _MARK: dict[StepStatus, str] = {
+            StepStatus.DONE: "  ok  ",
+            StepStatus.RAN: " done ",
+            StepStatus.FAILED: " FAIL ",
+            StepStatus.WOULD_RUN: " plan ",
+            StepStatus.CANCELLED: "  --  ",
+            StepStatus.RUNNING: "  ..  ",
+        }
+
+        def _show(result: StepResult) -> None:
+            line = f"[{_MARK[result.status]}] {result.title}"
+            if result.detail:
+                line += f" — {result.detail}"
+            print(line, flush=True)
+
+        setup = HostSetup(runner=SubprocessRunner())
+        # `step_results`, not `results`: the --doctor block above binds that name
+        # to a list of preflight CheckResults, and reusing it here would make the
+        # two blocks' types collide for no reader benefit.
+        step_results = setup.run(progress=_show)
+        # Report against the ripper being usable, not against every step passing:
+        # cd-paranoia is optional and deliberately last (KDD-29), so its failure
+        # must not read as "the ripper is not installed".
+        failed = [r for r in step_results if r.status is StepStatus.FAILED]
+        print()
+        if setup.is_ready():
+            print("Ripping stack is ready. Launch Platterpus and insert a disc.")
+            if failed:
+                names = ", ".join(r.title for r in failed)
+                print(f"Optional step(s) did not complete: {names}")
+            return 0
+        names = ", ".join(r.title for r in failed) or "unknown"
+        print(f"Setup did not complete. Failed step(s): {names}")
+        # Every command's argv and its combined output went to the log via
+        # SubprocessRunner — say where, so the failure is diagnosable without
+        # re-running anything (the diagnostic-completeness rule).
+        from platterpus.paths import LOG_PATH
+
+        print(f"The full command output is in the log: {LOG_PATH}")
+        return 1
 
     # CTDB calibrate mode: a no-GUI, no-disc CTDB verify + CRC-trim sweep over an
     # already-ripped folder (KDD-16 hardware validation from the AppImage). Like

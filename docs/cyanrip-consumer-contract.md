@@ -72,7 +72,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `track_accurip_offset` | indented | `^\\s+Accurip 450:\\s+(?P<crc>[0-9A-Fa-f]{8})(?:\\s+\\((?P<result>[^)]*)\\))?` |
 | `track_appended_silence` | indented | `^\\s+Appended:\\s+(?P<frames>\\d{1,9})\\s+frames? of silence` |
 | `track_peak_kind_header` **(fork-only)** | indented | `^\\s+(?P<kind>True\|Sample) peak:\\s*$` |
-| `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
+| `track_sample_peak` **(fork-only)** | indented | `^\\s+(?:Sample peak level\|Sample peak\|Peak level):\\s+(?P<value>-?\\d{1,6}(?:\\.\\d{1,6})?)\\s*(?P<unit>dBFS\|%)` |
 | `track_extraction_speed` **(fork-only)** | indented | `^\\s+(?:Extraction speed\|Rip speed\|Read speed\|Speed):\\s+(?P<value>\\d{1,6}(?:\\.\\d{1,3})?)\\s?[xX]\\b` |
 | `track_elapsed_clock` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?:(?P<h>\\d{1,3}):)?(?P<m>\\d{1,3}):(?P<s>\\d{1,2}(?:\\.\\d{1,6})?)\\s*$` |
 | `track_elapsed_seconds` **(fork-only)** | indented | `^\\s+(?:Elapsed(?: time)?\|Rip time\|Extraction time\|Time taken):\\s+(?P<s>\\d{1,7}(?:\\.\\d{1,6})?)\\s*(?:s\|sec\|secs\|seconds)\\b` |
@@ -92,7 +92,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (11)
+## 2. Log lines we knowingly ignore (14)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -105,6 +105,9 @@ dropped.
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
 | `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |
 | `^Frame retries:\\s` | candidate: rip-effort setting |
+| `^Cache model:\\s` | paranoia's MODELLED cache size; our cache-defeat verdict is measured (cd-paranoia -A, KDD-29) and must not be filled from a model |
+| `^Encoder:\\s` | candidate: encoder provenance, needs a report field before parsing |
+| `^CD-TEXT:\\s` | candidate: tri-state CD-TEXT presence, needs a report field |
 | `^HDCD decoding:\\s` | candidate: alters samples when enabled |
 | `^Album Art:\\s` | candidate: cover-art presence |
 | `^Disc tracks:\\s` | candidate: total tracks on the disc |
