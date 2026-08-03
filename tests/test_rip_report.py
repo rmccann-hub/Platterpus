@@ -1084,3 +1084,71 @@ def test_pregap_length_and_position_are_separate_keys() -> None:
     assert "pregap_sectors" in track and "pregap_start_lsn" in track
     assert track["pregap_sectors"] is None
     assert track["pregap_start_lsn"] is None
+
+
+# --- multi-pass rips: two facts a single-pass report cannot express ------------
+
+
+def test_outcome_records_the_first_pass_argv_separately() -> None:
+    """`ripper_argv` is the LAST invocation — right for "re-run what finished".
+    But the archival log's `Invoked as:` line is written by the FIRST pass, so a
+    cross-check between them needs the first pass recorded too. Without it, a
+    dynamic secure-rerip's `-Z`/`-l` read as arguments injected in transit."""
+    first = ["cyanrip", "-d", "/dev/sr0", "-N"]
+    last = [*first, "-Z", "2", "-l", "3,5"]
+    out = build_outcome(
+        status="success", ripper_argv=last, ripper_argv_first_pass=first
+    )
+    assert out["ripper_argv"] == last
+    assert out["ripper_argv_first_pass"] == first
+    # The display string stays the one you can re-run — the last invocation.
+    assert out["ripper_command_display"].endswith("-l 3,5")
+
+
+def test_a_single_pass_rip_leaves_the_first_pass_field_null() -> None:
+    """Null, not a copy of `ripper_argv`: "one pass" and "the first of several"
+    are different facts, and a consumer must be able to tell them apart."""
+    out = build_outcome(status="success", ripper_argv=["cyanrip", "-N"])
+    assert out["ripper_argv"] == ["cyanrip", "-N"]
+    assert out["ripper_argv_first_pass"] is None
+
+
+def test_failure_hint_is_none_on_a_successful_rip() -> None:
+    """A field named `failure_hint` populated on a rip whose status is "success"
+    and whose exit code is 0 tells every consumer — and `--audit-rips` — that
+    this is why the rip failed. It did not fail.
+
+    The real case: a dynamic secure-rerip that did not converge on one track makes
+    the ripper print `Done; (no matches found, but hit repeat limit of 5)`, which
+    was scraped into `failure_hint` on an otherwise clean 14-track rip. The fact
+    belongs in the read-stability line, not here.
+    """
+    out = build_outcome(status="success", failure_hint=None, ripper_exit_code=0)
+    assert out["failure_hint"] is None
+    # And the field still works where it means something.
+    failed = build_outcome(status="failed", failure_hint="Offset is unset!")
+    assert failed["failure_hint"] == "Offset is unset!"
+
+
+def test_the_finish_handler_gates_the_hint_on_a_non_success_status() -> None:
+    """The gate lives in the caller, so assert it there.
+
+    `build_outcome` cannot decide this — it stores what it is handed. The bug was
+    the finish handler handing it the worker's scraped hint unconditionally, so a
+    successful rip carried a failure diagnosis. Read from the source because the
+    handler needs a live MainWindow and a rip to exercise; refactoring an event
+    handler to suit a test is the wrong trade (the harness adapts to the product).
+    """
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "platterpus"
+        / "ui"
+        / "main_window_rip.py"
+    ).read_text(encoding="utf-8")
+    start = source.index("failure_hint=(")
+    window = source[start : start + 600]
+    assert 'if _status != "success"' in window, (
+        "the finish handler no longer gates failure_hint on a non-success status — "
+        "a successful rip will carry a failure diagnosis again"
+    )

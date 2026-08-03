@@ -674,3 +674,83 @@ def test_a_clean_fork_rip_reaches_an_all_ok_verdict(tmp_path: Path) -> None:
     # Floor: it reached OK by every check speaking positively, not by an empty
     # findings list.
     assert len(album.findings) >= len(rip_audit.CHECKS)
+
+
+# --- the multi-pass false alarm (real hardware, 2026-08-03) -------------------
+
+
+def _report_two_passes(*, first: list[str], last: list[str], invoked: str) -> dict:
+    """A report from a rip that spawned the ripper twice.
+
+    The shape a dynamic secure-rerip produces: a whole-disc pass, then a
+    targeted `-Z N -l <tracks>` pass over the tracks AccurateRip did not verify.
+    """
+    return {
+        "outcome": {
+            "status": "success",
+            "ripper_argv": last,
+            "ripper_argv_first_pass": first,
+        },
+        "rip": {"invoked_as": invoked},
+    }
+
+
+def test_argv_agreement_compares_the_first_pass_not_the_last() -> None:
+    """THE REGRESSION. A clean 14-track rip whose self-heal re-ripped 2 tracks was
+    told *"the command line changed in transit … Something between us altered it"*,
+    naming `-Z` and `-l` as injected. Nothing had altered anything: `invoked_as`
+    comes from the whole-disc log (the FIRST pass) and `ripper_argv` held the
+    auto-fix pass. Comparing them is comparing two different commands.
+
+    A cross-check that accuses the user's system of tampering whenever the
+    product's own auto-fix fires is worse than no cross-check — the false alarm
+    lands on exactly the rips someone looks at closely.
+    """
+    first = ["/bin/cyanrip", "-d", "/dev/sr0", "-s", "667", "-o", "flac", "-N"]
+    last = [*first, "-Z", "2", "-l", "3,5"]
+    report = _report_two_passes(
+        first=first,
+        last=last,
+        invoked="/usr/local/bin/cyanrip -d /dev/sr0 -s 667 -o flac -N",
+    )
+    album = rip_audit.AlbumAudit(folder=Path("/tmp/x"))
+    rip_audit._audit_argv_agreement(report, album)
+
+    texts = [f.text for f in album.findings]
+    assert not any(f.level == rip_audit.LEVEL_WARN for f in album.findings), texts
+    # And it says which pass it checked, so "the N flags we sent" is not read as
+    # covering the auto-fix invocation too.
+    assert any("whole-disc pass" in t for t in texts), texts
+
+
+def test_argv_agreement_still_catches_a_real_mismatch_on_a_multi_pass_rip() -> None:
+    """The floor. Fixing the false alarm must not disarm the check: a first pass
+    whose flags genuinely differ from what the ripper reports receiving is still a
+    warning, even when a second pass exists."""
+    first = ["/bin/cyanrip", "-d", "/dev/sr0", "-s", "667", "-N"]
+    report = _report_two_passes(
+        first=first,
+        last=[*first, "-Z", "2"],
+        # `-N` vanished in transit — the case the check exists for.
+        invoked="/usr/local/bin/cyanrip -d /dev/sr0 -s 667",
+    )
+    album = rip_audit.AlbumAudit(folder=Path("/tmp/x"))
+    rip_audit._audit_argv_agreement(report, album)
+    warns = [f.text for f in album.findings if f.level == rip_audit.LEVEL_WARN]
+    assert warns, [f.text for f in album.findings]
+    assert "-N" in warns[0]
+
+
+def test_argv_agreement_on_a_single_pass_rip_does_not_mention_a_pass() -> None:
+    """No `ripper_argv_first_pass` means one invocation; the message must not
+    imply there were several."""
+    argv = ["/bin/cyanrip", "-d", "/dev/sr0", "-N"]
+    report = {
+        "outcome": {"status": "success", "ripper_argv": argv},
+        "rip": {"invoked_as": "/usr/local/bin/cyanrip -d /dev/sr0 -N"},
+    }
+    album = rip_audit.AlbumAudit(folder=Path("/tmp/x"))
+    rip_audit._audit_argv_agreement(report, album)
+    texts = [f.text for f in album.findings]
+    assert not any(f.level == rip_audit.LEVEL_WARN for f in album.findings), texts
+    assert not any("pass" in t for t in texts), texts
