@@ -1,0 +1,269 @@
+cyanrip 0.9.4-rc1 (platterpus-fork-gd5d2fed)
+Invoked as:     /home/user/cyanrip/build/src/cyanrip -d pregap.cue -N -A -Q -s 0 -o flac -Z 2 -G -D o -F {track} -L reference -M sheet -P 0
+Drive used:     libcdio CDRWIN (revision 2.1.)
+System device:  pregap.cue
+Offset:         +0 samples
+Overread:       +0 frames
+Overread mode:  fill with silence in lead-in/lead-out
+Speed:          default (unchangeable)
+C2 errors:      unsupported by drive
+CD-TEXT:        none reported by libcdio (absent, or unreadable by this driver)
+Encoder:        libavformat 60.16.100, libavcodec 60.31.102 (6.1.1-3ubuntu5)
+Paranoia level: none
+Frame retries:  10
+Cache model:    not in use (paranoia disabled)
+HDCD decoding:  disabled
+Album Art:      none
+Outputs:        flac
+Disc tracks:    3
+Tracks to rip:  all
+DiscID:         oMp2k.ixH0QqrdaZzsARoRS.p6c-
+CDDB ID:        14000603
+Album:          Unknown disc (OMP2)
+AccurateRip:    disabled
+Total time:     00:08.00
+
+Gaps:
+    150 frame pregap in track 1, unmerged
+    75 frame pregap in track 2, merging into track 1
+
+Tracks:
+
+Repeating ripping (0 out of 2 matches for current checksum 2C926D69)
+
+Repeating ripping (1 out of 2 matches for current checksum 2C926D69)
+
+Done; (2 out of 2 matches for current checksum 2C926D69)
+Track 1 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:          -7.7 LUFS
+    Threshold: -17.7 LUFS
+
+  Loudness range:
+    LRA:        20.0 LU
+    Threshold: -27.7 LUFS
+    LRA low:   -27.7 LUFS
+    LRA high:   -7.7 LUFS
+
+  Sample peak:
+    Peak:        0.0 dBFS
+
+  True peak:
+    Peak:        0.0 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:03.00
+    Samples:     132300
+    Frames:      225
+    Sample peak level: 100.0% (0.0 dBFS)
+    True peak level:   0.0 dBFS
+    Integrated loudness (R128): -7.7 LUFS
+    Loudness range (R128):      20.0 LU (-27.7 to -7.7 LUFS)
+    Extraction speed:  49.6x
+    Elapsed:            0.06 s
+    Pregap LSN:  0 (duration: 00:04.00)
+    Pregap length: 300 frames
+    Pregap source: TOC
+    Start LSN:   150
+    End LSN:     374
+
+  EAC CRC32:     D36D9296 (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disabled
+    Accurip v1:  BAE96A9D
+    Accurip v2:  C0772401
+    Accurip 450: 00000000
+
+  Metadata:
+    track:                         1
+    tracktotal:                    3
+    musicbrainz_discid:            oMp2k.ixH0QqrdaZzsARoRS.p6c-
+    cddb:                          14000603
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1
+    album:                         Unknown disc (OMP2)
+    title:                         Unknown track
+    creation_time:                 2026-08-03T03:26:48
+    REPLAYGAIN_TRACK_GAIN:         -10.29 dB
+    R128_TRACK_GAIN:               -1355
+    REPLAYGAIN_TRACK_RANGE:        20.00 dB
+    REPLAYGAIN_TRACK_PEAK:         1.005757
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          15
+
+  File(s):
+    o/1.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum F8476090)
+
+Repeating ripping (1 out of 2 matches for current checksum F8476090)
+
+Done; (2 out of 2 matches for current checksum F8476090)
+Track 2 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:          -6.8 LUFS
+    Threshold: -18.6 LUFS
+
+  Loudness range:
+    LRA:         0.0 LU
+    Threshold:   0.0 LUFS
+    LRA low:     0.0 LUFS
+    LRA high:    0.0 LUFS
+
+  Sample peak:
+    Peak:        0.0 dBFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:02.00
+    Samples:     88200
+    Frames:      150
+    Sample peak level: 100.0% (0.0 dBFS)
+    True peak level:   0.3 dBFS
+    Integrated loudness (R128): -6.8 LUFS
+    Loudness range (R128):      0.0 LU (0.0 to 0.0 LUFS)
+    Extraction speed:  39.1x
+    Elapsed:            0.05 s
+    Pregap LSN:  300 (duration: 00:01.00)
+    Pregap length: 75 frames
+    Pregap source: TOC
+    Start LSN:   375
+    End LSN:     524
+
+  EAC CRC32:     07B89F6F (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disabled
+    Accurip v1:  7A5C1F5E
+    Accurip v2:  EE56C11B
+    Accurip 450: 00000000
+
+  Metadata:
+    track:                         2
+    tracktotal:                    3
+    musicbrainz_discid:            oMp2k.ixH0QqrdaZzsARoRS.p6c-
+    cddb:                          14000603
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1
+    album:                         Unknown disc (OMP2)
+    title:                         Unknown track
+    creation_time:                 2026-08-03T03:26:48
+    REPLAYGAIN_TRACK_GAIN:         -11.19 dB
+    R128_TRACK_GAIN:               -1584
+    REPLAYGAIN_TRACK_RANGE:        0.00 dB
+    REPLAYGAIN_TRACK_PEAK:         1.033086
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          10
+
+  File(s):
+    o/2.flac
+
+
+Repeating ripping (0 out of 2 matches for current checksum 33DF95C2)
+
+Repeating ripping (1 out of 2 matches for current checksum 33DF95C2)
+
+Done; (2 out of 2 matches for current checksum 33DF95C2)
+Track 3 ripped and encoded successfully!
+Summary:
+
+  Integrated loudness:
+    I:         -22.6 LUFS
+    Threshold: -32.6 LUFS
+
+  Loudness range:
+    LRA:         0.0 LU
+    Threshold:   0.0 LUFS
+    LRA low:     0.0 LUFS
+    LRA high:    0.0 LUFS
+
+  Sample peak:
+    Peak:      -11.3 dBFS
+
+  True peak:
+    Peak:      -11.3 dBFS
+
+  Preemphasis:   none detected
+
+  Properties:
+    Duration:    00:01.00
+    Samples:     44100
+    Frames:      75
+    Sample peak level: 27.3% (-11.3 dBFS)
+    True peak level:   -11.3 dBFS
+    Integrated loudness (R128): -22.6 LUFS
+    Loudness range (R128):      0.0 LU (0.0 to 0.0 LUFS)
+    Extraction speed:  33.9x
+    Elapsed:            0.03 s
+    Pregap LSN:  unknown (sub-channel unreadable)
+    Start LSN:   525
+    End LSN:     599
+
+  EAC CRC32:     CC206A3D (after 3 rips)
+  Secure re-read:  converged after 3 reads
+  Accurip:       disabled
+    Accurip v1:  CEDEB120
+    Accurip v2:  E856170A
+    Accurip 450: 00000000
+
+  Metadata:
+    track:                         3
+    tracktotal:                    3
+    musicbrainz_discid:            oMp2k.ixH0QqrdaZzsARoRS.p6c-
+    cddb:                          14000603
+    media:                         CD
+    comment:                       cyanrip 0.9.4-rc1
+    album:                         Unknown disc (OMP2)
+    title:                         Unknown track
+    creation_time:                 2026-08-03T03:26:48
+    REPLAYGAIN_TRACK_GAIN:         4.63 dB
+    R128_TRACK_GAIN:               2465
+    REPLAYGAIN_TRACK_RANGE:        0.00 dB
+    REPLAYGAIN_TRACK_PEAK:         0.273444
+    REPLAYGAIN_REFERENCE_LOUDNESS: -18.00 LUFS
+
+  Paranoia status counts:
+    READ:          5
+
+  File(s):
+    o/3.flac
+
+Album Loudness Summary:
+
+  Integrated loudness:
+    I:          -7.4 LUFS
+    Threshold: -18.8 LUFS
+
+  Loudness range:
+    LRA:         3.0 LU
+    Threshold: -27.9 LUFS
+    LRA low:   -10.0 LUFS
+    LRA high:   -6.9 LUFS
+
+  Sample peak:
+    Peak:        0.0 dBFS
+
+  True peak:
+    Peak:        0.3 dBFS
+
+Paranoia status counts:
+  READ:          90
+
+Ripping errors: 0
+Rip completed:  yes (3 of 3 tracks)
+Ripping finished at 2026-08-03T03:26:48
+Log FUN512: nM1vaEG9mzZ_pq5kWqO3eQym7VZR0kAjekS_2uzMwkuhYgV1OaOlIRK14mVaV6EmFx.HIzLC4pxni0P2Mz5xwA

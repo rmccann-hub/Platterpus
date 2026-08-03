@@ -606,6 +606,12 @@ forwards every argument straight to the app):
 # "Doctor" — a no-CD first-pass check of the ripping environment, then exit
 ./platterpus-x86_64.AppImage --doctor
 
+# Install or update the ripping stack from the terminal, then exit: the
+# Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built
+# over it. Same steps the GUI's "Set up ripping" wizard runs, and idempotent —
+# anything already in place reports "already present" and is left alone.
+./platterpus-x86_64.AppImage --install-ripper
+
 # Verify an already-ripped album against the CUETools Database (CTDB) and sweep
 # the CRC offset to confirm the read offset aligns with the pressing. No CD or
 # re-rip needed — it reads the FLACs already on disk.
@@ -645,6 +651,13 @@ results pane.
 folder name is filesystem-safe. Don't type a normal `:` (the path won't be
 found); let the shell supply the real character — `cd` into the folder and pass
 `"$PWD"`, or use tab-completion / a glob (`…/Every\ Breath\ You\ Take*`).
+
+**When to use `--install-ripper`:** normally you never need it — the GUI offers
+the setup wizard on first run. It matters when the **pinned cyanrip version
+moves**, because that pin lives inside a Platterpus release: if a newer cyanrip
+build is verified before the next Platterpus release goes out, this is how you
+get it without waiting. It prints the pin it is building and the build tag the
+finished binary must report, so you can see which ripper you ended up with.
 
 If you installed with **`pipx`** (Method B), the same flags work on the
 `platterpus` command instead — e.g. `platterpus --doctor`.
@@ -849,7 +862,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-33)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-34)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 

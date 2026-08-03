@@ -13,7 +13,66 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.3] — 2026-08-03
 
+### Added
+- **`platterpus --install-ripper`** — set up or update the ripping stack from the terminal and exit:
+  the Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built over it, then
+  re-point the host export at the fork. Idempotent; prints each step as it lands, plus the pin it is
+  building and the build tag the finished binary must report.
+  - Why it exists: the pin lives inside a Platterpus release, so a user on an older build had **no
+    in-app route to a newer ripper**. The fork's pin moved three times in one day (`e1d800e` →
+    `ad65a24` → `25a2265` → `2f950c8`), which makes the release cycle the wrong granularity. It
+    drives the *same step engine* as the GUI wizard rather than a documented shell snippet — a
+    second description of the install would drift the first time a build dependency changed.
+  - Its verdict keys on the ripper being usable, not on every step passing: `cd-paranoia` is
+    optional and deliberately last, so an unmeasured cache verdict does not read as "not installed".
+
+### Changed
+- **The pinned cyanrip fork moves to `2f950c8` (fork release r2)**, closing handshake round 6.
+  `ad65a24` — which round 6 asked for — is **superseded and must not be built**: at that commit,
+  ripping a BIN/CUE, NRG or cdrdao *disc image* at any paranoia level above 0 returned one correct
+  sector followed by silence, 99.7% of samples zeroed, reported as `Ripping errors: 0`. The defect
+  is inherited from upstream (`c431d58` set paranoia's cachemodel — which doubles as its `c_block`
+  read-chunk size — to 1 sector for image drivers), so every earlier fork build and stock upstream
+  carry it equally.
+  - **No disc ripped on real hardware is affected.** The override applies only to the three
+    image drivers; a `/dev/sr0` rip never enters it. Verified from the fork's source, and against
+    our own committed references — `output_reference/cyanrip_*` are real-drive rips, and both
+    committed golden references were generated with `-P 0`, which was always byte-perfect.
+  - Verified independently rather than accepted: the cause commit, the fix's diff and its driver
+    scoping, and — because the reference's own build tag names a commit *below* the fix — that the
+    fix is present in the binary that produced it, derived from the paranoia read-chunk counts in
+    the log itself (`ceil(frames/16)` where the broken build logged one read per sector).
+- **The fork's two log-line renames are handled with no behaviour change:** `Peak level:` →
+  `Sample peak level:` (all three spellings the fork has used now parse) and `Cache defeat:` →
+  `Cache model:`. The latter is deliberately *not* wired to our cache-defeat field: cyanrip reports
+  what libcdio-paranoia **models**, our row is a **measured** `cd-paranoia -A` verdict (KDD-29), and
+  filling a measured field from a model is the fabricated "Yes" KDD-25 forbids.
+- `Encoder:`, `CD-TEXT:` and `Cache model:` are on the parser's documented ignore list with recorded
+  reasons rather than silently unrecognised — candidates awaiting a report field, not drops.
+
 ### Fixed
+- **The handshake checker (`scripts/handshake.py --check`) passed two absent sections and credited a
+  third to prose.** It reported one problem in the fork's round-6 file; there were three. §G
+  ("Revert-proof") was satisfied by an unrelated section they had lettered `## G. Asks back` while
+  the word "revert" appeared zero times; §B's provenance markers were absent; and §I ("Provider
+  contract") matched the sentence *"I wrote, of your continuation-line sweep:"* — the contract really
+  was in the file, so the verdict was right and the reason was not, and it would have passed with the
+  contract deleted. A check that passes for the wrong reason is worse than one that fails: a failure
+  gets investigated, a pass gets cited.
+  - A section key must now appear in a real heading position (`#`, `**` or `§` — a bare letter at
+    line start no longer counts) **and** the section's subject must appear in the document. Rounds 4
+    and 5 still pass unchanged. `--check` also accepts several files, so a round delivered as a
+    return plus an amendment validates as one round; and an amendment (`round-6b.md`) belongs to its
+    round rather than counting as one, so sending a correction within hours no longer scores worse in
+    the record than folding it into the next round.
+- **The per-track paranoia counters are per-*pass*, and the disc total is not their sum.** Round 5
+  of the handshake told us they sum exactly, and we verified it — on an artifact ripped without `-Z`,
+  where the sum is arithmetically forced. Read from the fork's source, the per-track baseline is
+  re-snapshotted inside the `repeat_ripping:` loop, so the per-track figure is the final pass and the
+  disc-level tally is every pass: a `SKIP: 300` on a `-Z 2` rip is three passes' worth of skips, and
+  rendering it as 300 distinct events over-reports by the re-read factor. Documented next to the
+  field with the citation, and pinned by a test asserting the sums *differ* so nobody later "fixes"
+  the discrepancy into a false invariant.
 - **The album-loudness block was gated on FFmpeg's wording, not cyanrip's.** The parser required
   the header `Album Loudness Summary:`; only `Album Loudness` is cyanrip's — the ` Summary:` tail
   comes from FFmpeg's `ebur128` filter, which the fork's contract explicitly marks as libavfilter

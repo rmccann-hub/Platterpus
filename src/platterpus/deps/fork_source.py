@@ -54,11 +54,38 @@ FORK_REPO_URL: Final[str] = "https://github.com/rmccann-hub/cyanrip.git"
 #: unverified work.
 FORK_BRANCH: Final[str] = "platterpus-fork"
 
-#: The handshake-verified commit (round 4, GO, ``docs/handshake/verified/
-#: round-4.md``). Short form because that is what ``git rev-parse --short HEAD``
-#: bakes into the banner, and matching the two by eye is part of verifying an
-#: install.
-FORK_PIN: Final[str] = "a04a94b"
+#: The handshake-verified commit (round 6, GO, ``docs/handshake/verified/
+#: round-6.md``; the fork calls it release **r2**). Short form
+#: because that is what ``git rev-parse --short HEAD`` bakes into the banner, and
+#: matching the two by eye is part of verifying an install.
+#:
+#: **A commit, never a tag, and that is not a style preference.** The fork ships
+#: annotated release tags, but its environment's git proxy refuses tag pushes
+#: (HTTP 403), so ``git ls-remote --tags origin`` returns nothing — no release tag
+#: has ever reached the remote. A wizard that cloned a tag would fail on a ref
+#: that does not exist. They told us rather than letting our pin-agreement test
+#: discover it, which is the handshake working.
+#:
+#: **Not** ``ad65a24``, which round 6 asked for and round 6b withdrew hours later:
+#: at that commit, ripping a BIN/CUE, NRG or cdrdao *disc image* at any paranoia
+#: level above 0 returned one correct sector followed by silence — 99.7% of
+#: samples zeroed, reported as ``Ripping errors: 0``. The defect is inherited from
+#: upstream (``c431d58`` set paranoia's cachemodel, which doubles as its ``c_block``
+#: read-chunk size, to 1 sector for image drivers), so every earlier fork build and
+#: stock upstream carry it equally. **Real drives were never affected** — the
+#: override applies only to the three image drivers — so no disc ripped on the rig
+#: is in question. The fix — cachemodel 16 — lands at ``22de22f``.
+#:
+#: **Why this pin and not ``22de22f``, given that is where the code stops moving.**
+#: ``git rev-parse 2f950c8:src`` and ``git rev-parse 25a2265:src`` are the same tree
+#: (``6529dca5…``), so every commit from ``22de22f`` up to the branch tip builds a
+#: byte-identical binary. What differs is the *banner*: ``vcs_tag`` bakes in
+#: ``git rev-parse --short HEAD``, so the pin decides what the installed ripper
+#: prints — and our verify step matches the banner against
+#: :data:`FORK_EXPECTED_BUILD_TAG`. We therefore pin the commit whose banner the
+#: fork published as release **r2**, and the choice is about *identification*, not
+#: about which code gets compiled.
+FORK_PIN: Final[str] = "2f950c8"
 
 #: What the built binary must print. cyanrip's banner is
 #: ``cyanrip <version> (<PROJECT_FORK_ID>-g<short sha>)`` (fork

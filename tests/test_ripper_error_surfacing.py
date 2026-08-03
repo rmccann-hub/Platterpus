@@ -148,7 +148,7 @@ def test_the_widening_actually_widened() -> None:
     )
 
 
-# --- the fork's OWN inventory: 88 -> 104, and why the 88 was not enough --------
+# --- the fork's OWN inventory: 88 -> 104 -> 115, and why each step mattered ----
 #
 # This section used to read "all 88" and it was green, and it was measuring the
 # wrong thing.
@@ -157,9 +157,12 @@ def test_the_widening_actually_widened() -> None:
 # hand-maintained 21-word `FATAL_PREFIXES` allowlist. Round 5 replaced that with a
 # **control-flow** derivation — a message is listed because the call is followed by
 # `return 1` / a non-zero `exit()` / `return AVERROR(...)` / `total_error_count++` /
-# `goto fail` / `goto end` — and the inventory became **104**. Re-derived
-# independently on our side at both pins: 104 each time, a strict superset of the
-# 88, nothing lost, same class split. The allowlist had been hiding 16.
+# `goto fail` / `goto end` — and the inventory became **104**. Round 6 then took it
+# to **115**, because the 104 still rested on a hand-maintained list of `goto`
+# LABELS: it missed `goto end_meta`, `err = 1` feeding a later `+= err`, and bare
+# `return -1`. Labels are now discovered from source. Re-derived independently on
+# our side at each pin as it arrived: 104, then 115, strict supersets, nothing
+# lost. The word allowlist had been hiding 16; the label list another 11.
 #
 # We had imported the 88 into a fixture and asserted "we surface everything the
 # ripper can say" against it. Our own pattern missed **all 13** matchable strings
@@ -196,7 +199,7 @@ def _inventory() -> list[tuple[str, str]]:
 
 
 def test_every_string_the_ripper_can_print_is_surfaced() -> None:
-    """All 104, from the control-flow-derived inventory rather than the
+    """All 115, from the control-flow-derived inventory rather than the
     prefix-filtered 88 — see the section comment for why that distinction is the
     whole point of this test."""
     from platterpus.ripper_message_inventory import MESSAGES
@@ -223,17 +226,24 @@ def test_every_string_the_ripper_can_print_is_surfaced() -> None:
         f"receive as a bare 'Rip failed', so a new entry needs a decision, not a "
         f"passing test"
     )
+    # Two exclusions, both named and both asserted elsewhere in this file: the
+    # unpatternable bare `%s`, and the `-Z` convergence SUCCESS message that
+    # round 6's label discovery swept into P5 (see
+    # `test_the_convergence_success_message_is_never_a_failure_hint`). Everything
+    # else in the inventory must reach the user.
+    from platterpus.ripper_message_inventory import SURFACING_EXCLUDED
+
+    excluded = set(_UNMATCHABLE_RIPPER_FORMATS) | {t for t, _ in SURFACING_EXCLUDED}
     missed = [
         (w, m)
         for w, m in rows
-        if m not in _UNMATCHABLE_RIPPER_FORMATS
-        and not _RIPPER_ERROR_RE.match(_sample(m))
+        if m not in excluded and not _RIPPER_ERROR_RE.match(_sample(m))
     ]
     assert not missed, "would render as a bare 'Rip failed': " + "; ".join(
         f"{w} {m}" for w, m in missed
     )
-    # Floor: the exclusion must not be doing the work. 103 of 104 matched.
-    assert len(rows) - len(_UNMATCHABLE_RIPPER_FORMATS) >= 100
+    # Floor: the exclusions must not be doing the work.
+    assert len(rows) - len(excluded) >= 110
 
 
 def test_the_strings_the_prefix_allowlist_had_hidden_are_covered() -> None:
@@ -331,3 +341,52 @@ def test_the_argument_parse_errors_are_covered() -> None:
         'Missing value for argument "--offset"',
     ):
         assert _RIPPER_ERROR_RE.match(message), message
+
+
+def test_the_convergence_success_message_is_never_a_failure_hint() -> None:
+    """THE ROUND-6 REGRESSION, and it came from a *good* change on their side.
+
+    The fork replaced its hand-maintained list of `goto` labels with one
+    discovered from source — right, and it took the inventory 104 -> 115. But one
+    discovered label, `goto finalize_ripping`, is the `-Z` convergence **success**
+    route, so `Done; (2 out of 2 matches for current checksum …)` — which means
+    the secure re-reads AGREED — arrived classified as reachable on a failure path.
+
+    Surfacing it would print a success sentence as the reason a rip failed, on
+    exactly the rips where our secure re-read worked. Their own P5 preamble names
+    the hazard: *"calling it fatal would file success lines as failures."*
+
+    The asymmetry is why the exclusion is per-string and not per-label.
+    """
+    from platterpus.ripper_message_inventory import SURFACING_EXCLUDED
+
+    success = "Done; (2 out of 2 matches for current checksum 2C926D69)"
+    failure = "Done; (no matches found, but hit repeat limit of 2)"
+
+    assert not _RIPPER_ERROR_RE.match(success), (
+        "the -Z convergence success message would be reported as the reason a rip "
+        "failed"
+    )
+    # ...and its sibling under the SAME label is a real problem statement and must
+    # still surface. One label, two opposite meanings.
+    assert _RIPPER_ERROR_RE.match(failure)
+
+    # The exclusion is named, reasoned, and cannot grow silently.
+    assert len(SURFACING_EXCLUDED) == 1, (
+        f"the surfacing exclusion list changed to {SURFACING_EXCLUDED} — each entry "
+        f"is a message the user will never be shown, so a new one is a decision"
+    )
+    text, reason = SURFACING_EXCLUDED[0]
+    assert text.startswith("Done; (%i out of %i")
+    assert "success" in reason.lower(), "an exclusion without a stated reason"
+
+
+def test_every_other_inventory_row_still_reaches_the_user() -> None:
+    """Floor on the exclusion: it must remove exactly one row, not act as a
+    catch-all that quietly shrinks coverage."""
+    from platterpus.ripper_message_inventory import ALL_FORMATS, MESSAGES
+
+    assert len(MESSAGES) - len(ALL_FORMATS) == 1
+    assert len(ALL_FORMATS) >= 110, (
+        f"surfacing coverage collapsed to {len(ALL_FORMATS)}"
+    )

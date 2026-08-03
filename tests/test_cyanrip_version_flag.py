@@ -37,10 +37,16 @@ import pytest
 
 from platterpus.cyanrip_cli import VERSION_BANNER_SNIPPET, VERSION_FLAGS
 from platterpus.deps import checks
+from platterpus.deps import fork_source as _FORK_SOURCE
 from platterpus.deps.checks import check_cyanrip
 
 STOCK_BANNER = "cyanrip 0.9.3 (release)"
-FORK_BANNER = "cyanrip 0.9.4-rc1 (platterpus-fork-ga04a94b)"
+#: Derived from the pin, never written out. The literal form of this constant
+#: silently expired twice in one day — the pin moved to `ad65a24` and then, hours
+#: later, to `25a2265` when round 6b withdrew `ad65a24` — and a hardcoded banner
+#: makes the *verify* test fail for a reason that has nothing to do with what it
+#: tests. Deriving it means the pin move is a one-line edit in `fork_source.py`.
+FORK_BANNER = f"cyanrip 0.9.4-rc1 ({_FORK_SOURCE.FORK_EXPECTED_BUILD_TAG})"
 REJECT = "Unable to parse command line argument: {flag}"
 
 
