@@ -849,6 +849,49 @@ Two concrete shapes that came out of this one:
   until it isn't. Recorded per-flag in `docs/dependency-contracts.md`.
 
 
+### 5.aa — A gate in the wrong place is not a gate (added 2026-08-03)
+
+The rule *"neither project releases while a handshake round is open"* was written
+in `CLAUDE.md` (critical rule #12), in `docs/cyanrip-handshake.md` §7, and in the
+deviation policy. What enforced it was a **unit test asserting every round in the
+record was CLOSED**, and `release.yml` never called anything.
+
+Both halves of that were wrong, and they were wrong in opposite directions:
+
+- **It blocked the wrong thing.** A round is open *by definition* between sending
+  our file and sending our verification. So the moment round 5 was opened, the
+  test reddened CI for every ordinary commit on the branch — punishing the work
+  the protocol exists to support.
+- **It did not block the thing it was for.** Nothing on the release path ran it.
+  A release dispatched with a round open would have proceeded, which is the
+  single outcome the rule was written to prevent.
+
+The fix separates the two questions:
+
+| Question | Where it belongs | How |
+|---|---|---|
+| May we release right now? | the **release workflow**, before the build | `scripts/handshake.py --release-gate`, non-zero on any open round |
+| Is the record well-formed? | the **test suite**, every commit | an open round may only be the **newest** one |
+
+That second assertion is the one with lasting value, because it is the actual bug
+this file was written for: round 3 was never verified back while round 4 closed,
+and nothing noticed. "Open" is a legitimate state; "open behind a closed one" is
+a hole in the record.
+
+**The recurring shape.** This test's predecessor asserted *"round 4 is OPEN"* and
+failed when round 4 closed — a test pinning today's state, i.e. testing the
+calendar. Its replacement asserted *"nothing is OPEN"* and failed when a round
+was opened. Third variant of one mistake: **assert the invariant, not the
+snapshot.** Ask what must be true in *every* valid state, including states that
+do not exist yet.
+
+**Corollary, and it is the cheap check:** for any rule you believe is enforced,
+**grep for the call site on the path that matters.** Rule 9 already says this
+about a `cancel()` — check the call site is reachable, not merely present. It
+applies identically to a workflow step, a CI job, and a pre-commit hook. A
+`--release-gate` subcommand that no workflow invokes is a documented capability,
+not a capability (§5.p).
+
 ### 5.u — Answer it from the artifact, not from your memory of the artifact (added 2026-08-02)
 
 The pre-gap convention flipped **twice in one day**, and the deciding evidence
@@ -963,4 +1006,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.2.*
+*Last updated for Platterpus v0.6.3.*

@@ -917,4 +917,4 @@ absence of any real `-Z` rip log in the repository.
 (the external standard these rows are measured against). PR-first, adaptable to
 the upstream maintainer's call, and we never fake provenance.*
 
-*Last updated for Platterpus v0.6.2.*
+*Last updated for Platterpus v0.6.3.*

@@ -1012,5 +1012,24 @@ Fourth EAC gap, and the maintainer's explicit direction: *"for the gap we need t
 **Execution is out-of-session by necessity** (already documented in the soft-fork doc §0): this cloud session is scoped to `rmccann-hub/platterpus` (cross-owner `add_repo`/GitHub token can't reach `cyanreg/cyanrip`), has no C toolchain, and no disc — so forking, building, PR #115 testing, and the container build-from-source all happen in a repo-seeded Claude session or on the Bazzite rig. The Platterpus side stays unchanged until the container runs a cyanrip that emits INDEX 00 (then it "just works", and each landed patch retires its Platterpus-side workaround behind a version guard — soft-fork doc §5).
 
 ---
+### KDD-33 — The setup wizard installs the pinned fork; "which build" is a first-class, tri-state, user-visible fact (decided 2026-08-03)
 
-*Last updated for Platterpus v0.5.13.*
+KDD-32 decided the soft-fork *is* the cyanrip Platterpus runs. It did not say who installs it, and the answer in practice was "the maintainer, from a terminal, following a step in a test plan". That step never ran: every rip through v0.6.2 — including the AccurateRip-verified hardware runs — was made with the stock COPR `cyanrip 0.9.3`. The maintainer found out by reading the dependency dialog and asking why their branch wasn't distinguished.
+
+**Two decisions, and the second is the one that generalises.**
+
+**1. The wizard builds it.** `deps/host_setup.py` gains a `cyanrip_fork` step, after the stock install and export: install build deps (read off the fork's own `src/meson.build` at the pin, requested as `pkgconfig()` virtual provides so Fedora's `ffmpeg-free-devel` and RPM Fusion's `ffmpeg-devel` both satisfy them), clone-or-fetch, **detach onto the handshake-verified pin**, compile, install to `/usr/local/bin/cyanrip`, re-export, and **verify the installed binary prints `platterpus-fork-g<pin>`** before the step reports done.
+
+- *Why after the stock install rather than instead of it.* The COPR package is fast, GPG-signed, and pulls in every runtime library the fork also needs. Keeping it means a failed source build leaves a **working ripper** rather than none — the step is additive, and its failure is reported honestly as "you are on stock cyanrip", which is both true and recoverable. Zero-terminal (KDD-17) was never worth buying at the price of a possibly-unrippable machine.
+- *Why build rather than package.* The fork is a moving pin governed by a bidirectional handshake, not a release. Packaging it would add a second release process and a second thing to keep in step; building the pinned commit means the binary cannot be newer or older than what both sides verified. The pin lives in exactly one module (`deps/fork_source.py`) and a test asserts it matches the newest **closed** round under `docs/handshake/`.
+- *Why the probe asks the exported binary.* Not "does a source tree exist", not "is there a file in the container" — those can all be true while `~/.local/bin/cyanrip` still wraps the COPR build, which is precisely the state that went unnoticed for a release. It runs `-V` and classifies, and a fork build from an **older pin** counts as not-done so a re-run rebuilds it.
+
+**2. "Which build" is a reportable fact wherever a version is shown.** The fork keeps upstream's version string byte-for-byte on purpose (its `meson.build` sets a separate `PROJECT_FORK_ID`), which is the right call and makes the version number **the one fact that cannot answer "is this my fork?"**. So a bare version is not an acceptable answer anywhere a user is deciding whether to trust a rip. `ripper_identity` was already the single shared classifier for the EAC-style log, the JSON report and `--doctor`; the dependency dialog was the surface that had been missed, and the generalised rule is that a *new* surface showing a tool version must route through the same classifier rather than inventing a phrase. Mechanically, a dependency that cannot be identified by version alone declares a `build_note` on its registry spec (`deps/build_notes.py`) — so a second such tool is a registry entry, not a special case in the UI (Critical rule #6).
+
+**Tri-state, non-negotiable.** `fork` / `stock` / **`unknown`**. An unrecognised build tag is never reported as "unmodified upstream": that is a claim, and we do not have it. Same discipline as `Pregap LSN: unknown`, `Accurip: disabled`, and the `rip_completed` footer.
+
+**Cost accepted.** A source build in the container on first setup (minutes, network-dependent) and a rebuild whenever the pin moves. The alternative — a manual step in a document — was measured at 0% compliance over three releases.
+
+---
+
+*Last updated for Platterpus v0.6.3.*
