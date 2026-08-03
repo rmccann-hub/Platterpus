@@ -95,3 +95,12 @@ naming.c:215	Invalid scheme syntax, unterminated \"{\"!
 naming.c:229	Invalid scheme syntax, no \"#\"!
 naming.c:243	Invalid scheme syntax, no terminating \"#\"!
 naming.c:259	Invalid condition syntax!
+# --- Added on the PLATTERPUS side, handshake round 5 -------------------------
+# NOT from the fork's generated inventory: found by reading src/cyanrip_main.c
+# at pin a04a94b while implementing `-c disc/totaldiscs`. Both are fatal
+# (`return 1`) argument-validation errors, and both are absent from the fork's
+# 88-string round-4 list because in each call the format string sits on a
+# CONTINUATION LINE, which their generator's same-line literal scan cannot see.
+# A sweep of the whole src/ tree for that shape finds exactly these two.
+cyanrip_main.c:1439	discnumber %i is larger than totaldiscs %i
+cyanrip_main.c:1554	Cover art already specified for track idx %i!

@@ -235,6 +235,27 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
     # not — which the fixture caught immediately, and reading the prefix list
     # would not have.
     "-J",
+    # Two more, found on our side while implementing `-c disc/totaldiscs` by
+    # reading the fork's `src/cyanrip_main.c` at the pin instead of reading its
+    # generated inventory. Both are fatal (`return 1`), both are argument
+    # validation and therefore stdout-only (their Q5), and both are ABSENT from
+    # the fork's 88-string round-4 inventory:
+    #
+    #   cyanrip_main.c:1439  "discnumber %i is larger than totaldiscs %i"
+    #   cyanrip_main.c:1554  "Cover art already specified for track idx %i!"
+    #
+    # The reason they are missing is a systematic blind spot, not two typos: in
+    # both calls the format string sits on a CONTINUATION LINE, so a generator
+    # scanning for a literal on the same line as `cyanrip_log(` cannot see it.
+    # A sweep of the fork's whole `src/` for that shape finds exactly these two,
+    # which is why the number goes 88 → 90 and not further. Reported as §1 of
+    # handshake round 5, with the class rather than only the instances.
+    #
+    # The first matters immediately: it is the fatal we would hit if the range
+    # check on `-c` ever let a bad disc position through, so shipping the flag
+    # without surfacing its refusal would be capture-without-surfacing again.
+    "discnumber",
+    "Cover art already specified",
 )
 
 _RIPPER_ERROR_RE = re.compile(

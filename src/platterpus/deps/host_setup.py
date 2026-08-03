@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from platterpus.deps import fork_source
 from platterpus.deps.step_engine import (
     CommandRunner,
     StepResult,
@@ -37,6 +38,7 @@ from platterpus.paths import (
     CYANRIP_BINARY_DEFAULT,
     FLAC_BINARY_DEFAULT,
 )
+from platterpus.ripper_identity import identify_from_banner
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +53,7 @@ _OS_RELEASE: Path = Path("/etc/os-release")
 # probes so the status line reflects what's happening instead of sitting on the
 # previous step's text — which looked like a freeze (real-user report
 # 2026-06-26: the wizard appeared stuck at "'ripping' container — working…").
-_SLOW_PROBE_STEPS: frozenset[str] = frozenset({"tools", "cyanrip"})
+_SLOW_PROBE_STEPS: frozenset[str] = frozenset({"tools", "cyanrip", "cyanrip_fork"})
 
 # --- cyanrip packaging (KDD-18) ---------------------------------------------
 # Fedora does NOT package cyanrip (verified 2026-06-09: no result in the
@@ -179,6 +181,16 @@ class HostSetup:
             "tools",
             "cyanrip",
             "export",
+            # Rebuild cyanrip from the pinned Platterpus fork and re-point the
+            # host export at it. AFTER "export" deliberately: `distrobox-export
+            # --bin` writes the same ~/.local/bin/cyanrip wrapper whichever
+            # in-container path it wraps, so whichever export runs last decides
+            # which binary Platterpus actually runs. Running the stock export
+            # first and the fork export second means a *failed* fork build
+            # leaves a working stock ripper rather than nothing — the fork step
+            # is additive, and its failure is reported honestly as "you are on
+            # stock cyanrip" (deps/fork_source.py explains why we build at all).
+            "cyanrip_fork",
             # OPTIONAL, and deliberately LAST: the cd-paranoia cache probe
             # (KDD-29). It is NOT part of is_ready() (which gates on cyanrip +
             # flac), so even if this step fails to find a package the ripper is
@@ -223,6 +235,35 @@ class HostSetup:
 
     def cyanrip_exported(self) -> bool:
         return self.runner.exists(self.cyanrip_path)
+
+    def fork_installed(self) -> bool:
+        """True when the host-exported cyanrip is the pinned Platterpus fork.
+
+        Asks the binary that Platterpus will actually run — the host export —
+        rather than checking whether a source tree or an in-container file
+        exists. Those can all be present while ``~/.local/bin/cyanrip`` still
+        wraps the COPR build, which is exactly the state a maintainer hit:
+        every artefact of a fork install present, and stock cyanrip doing the
+        ripping.
+
+        Two conditions, both required: it identifies as the fork **and** it is
+        the pinned commit. A fork build from an older pin is not the binary the
+        handshake verified, so re-running the wizard must rebuild it rather
+        than report the step already done.
+        """
+        if not self.cyanrip_exported():
+            return False
+        rc, out = self.runner.run([str(self.cyanrip_path), "-V"])
+        if rc != 0:
+            # A non-zero exit is not evidence of a stock build — it usually
+            # means the container is down. Report "not done"; the step then
+            # runs and either fixes it or fails with the real output.
+            return False
+        identity = identify_from_banner(out)
+        return (
+            identity.kind == "fork"
+            and fork_source.FORK_PIN in identity.build_tag.casefold()
+        )
 
     def flac_exported(self) -> bool:
         return self.runner.exists(self.flac_path)
@@ -328,6 +369,14 @@ class HostSetup:
                 ]
                 for b in binaries
             ]
+        if step_id == "cyanrip_fork":
+            # The whole plan lives in deps/fork_source.py: install build deps,
+            # clone/fetch + detach onto the verified pin, compile, install over
+            # the COPR binary, re-export, then VERIFY the installed binary
+            # prints the pinned fork's build tag. The verify is a command in the
+            # list, so a build that produced something unexpected fails the step
+            # instead of quietly leaving a mystery binary on the ripping path.
+            return fork_source.fork_build_commands(self.container)
         if step_id == "cache_tool":
             # Install cd-paranoia into the (Fedora) container and export it. We
             # install by the FILE it provides (`/usr/bin/cd-paranoia`) rather than
@@ -366,6 +415,7 @@ class HostSetup:
             "tools": self.flac_in_container,
             "cyanrip": self.cyanrip_in_container,
             "export": self._export_done,
+            "cyanrip_fork": self.fork_installed,
             "cache_tool": self.cdparanoia_exported,
         }[step_id]()
 
@@ -377,6 +427,7 @@ class HostSetup:
             "tools": "flac + metaflac (in container)",
             "cyanrip": "cyanrip ripper (in container)",
             "export": "Export tools to ~/.local/bin",
+            "cyanrip_fork": "Platterpus fork of cyanrip (build + export)",
             "cache_tool": "cd-paranoia cache probe (optional)",
         },
         init=False,
