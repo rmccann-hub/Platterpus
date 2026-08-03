@@ -46,6 +46,8 @@ from platterpus.read_speed_ladder import (
     tracks_failing_accuraterip,
     unstable_tracks,
 )
+from platterpus.ripper_message_inventory import ALL_FORMATS
+from platterpus.ripper_messages import build_matcher
 from platterpus.safe_int import int_or_none
 
 log = logging.getLogger(__name__)
@@ -258,17 +260,43 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
     "Cover art already specified",
 )
 
-_RIPPER_ERROR_RE = re.compile(
-    r"^(?:" + "|".join(re.escape(p) for p in _RIPPER_ERROR_PREFIXES) + r")"
-    # The boundary is what stops `Invalid` matching `Invalidated`. It admits
-    # punctuation as well as whitespace because cyanrip's fatals habitually end
-    # in `!` and some are the whole line — `Out of memory!` has no space after
-    # the prefix at all, and a whitespace-only boundary silently missed it.
-    r"(?:[\s!.,:;?]|$)"
-    # Bounded, per the never-unbounded rule: a `.*` here would hand a
-    # pathological line straight to a regex engine and to a QMessageBox.
-    r".{0,200}$"
+# THE MATCHER IS DERIVED FROM THE RIPPER'S PUBLISHED INVENTORY, not from the
+# prefix guesses above — full reasoning in `platterpus.ripper_messages`.
+#
+# Short version: the prefix list was a *second* guess at "what does a diagnostic
+# look like", layered on the fork's own 21-word allowlist, and both shared a blind
+# spot. Their control-flow re-derivation took the inventory from 88 strings to
+# 104, and our pattern missed **all 13** matchable strings the allowlist had
+# hidden — including `Offset is unset! To continue with an offset of 0, run with
+# -s 0!` and `Device does not support changing speeds!`, which are ordinary
+# hardware failures, not exotica. Every one rendered as a bare "Rip failed."
+#
+# Our 90/90 standing test stayed green throughout, because the fixture it
+# asserted against had inherited their filter's blind spot: it measured their
+# allowlist, not the ripper's behaviour. That is CLAUDE.md's
+# verify-the-behaviour-not-the-description rule biting one level below where it
+# was written. See docs/testing.md §5.ab.
+#
+# The prefixes are KEPT, as union members and nothing more. The inventory
+# describes one pin; a newer build will say things it does not list, and the
+# prefixes catch the common shapes of those. Inventory for completeness, prefixes
+# for forward tolerance — neither alone was enough, which is the whole lesson.
+_RIPPER_ERROR_RE, _UNMATCHABLE_RIPPER_FORMATS = build_matcher(
+    list(ALL_FORMATS), extra_prefixes=_RIPPER_ERROR_PREFIXES
 )
+
+# Formats too generic to pattern — a bare `%s` would match every line of output,
+# turning every progress redraw into a fatal-error report. Named and counted
+# rather than dropped, because "we cannot pattern this" and "this does not exist"
+# are different facts and only the second one hides bugs.
+if _UNMATCHABLE_RIPPER_FORMATS:
+    log.debug(
+        "ripper diagnostics: %d of %d published formats carry too little literal "
+        "text to pattern, and are covered only by the prefix fallback: %s",
+        len(_UNMATCHABLE_RIPPER_FORMATS),
+        len(ALL_FORMATS),
+        _UNMATCHABLE_RIPPER_FORMATS,
+    )
 
 _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 

@@ -14,6 +14,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.3] — 2026-08-03
 
 ### Fixed
+- **13 of the ripper's own error messages were never shown to the user** — each rendered as a
+  bare "Rip failed." Two are ordinary hardware failures: `Offset is unset! To continue with an
+  offset of 0, run with -s 0!` and `Device does not support changing speeds!`
+  - The standing test asserting we surface everything the ripper can say was **green throughout**,
+    because the fixture it asserted against was the cyanrip fork's machine-generated inventory
+    *filtered through a hand-maintained 21-word prefix allowlist on their side*. Their round-5
+    re-derivation from control flow took that inventory from 88 strings to 104; re-derived
+    independently here at both pins, 104 each time, a strict superset with nothing lost. The
+    fixture had inherited their filter's blind spot, so it measured their allowlist rather than
+    the ripper.
+  - The matcher is no longer a list of opening words. Each of the ripper's published `printf`
+    formats is compiled into a pattern, so a line is a diagnostic because the ripper's own
+    inventory says that text exists. 103 of 104 formats covered, 0 false positives on ordinary
+    output; the one exclusion is a bare `%s`, which would match every line and is refused,
+    named and asserted rather than skipped. The word prefixes survive as the forward-tolerance
+    half for builds newer than the contract — never as the completeness half.
+  - The provider's **evidence** column is preserved rather than flattened: 73 of the 104 are
+    proven reachable on a failure path without reference to wording, and only that subset is
+    safe for hard failure classification. All 104 are used for *surfacing*, because a message
+    that turns out to be a warning is still more useful than silence.
+
 - **RELEASE BLOCKER, found before it shipped: installing the fork would have made Platterpus
   report cyanrip *missing*.** Every version probe sent `cyanrip -V`. That is right for 0.9.3 and
   earlier — a short-only `getopt` with a `case 'V':` — and wrong for everything after: upstream
