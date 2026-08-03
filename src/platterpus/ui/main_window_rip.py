@@ -1285,10 +1285,24 @@ class RipMixin(MainWindowShared):
             _status = "failed"
         self._last_outcome = _rip_report.build_outcome(
             status=_status,
+            # ONLY on a non-success outcome. The worker's hint is scraped from the
+            # ripper's output, and on a *successful* rip that output can legitimately
+            # contain a diagnostic about one track — a dynamic secure-rerip that did
+            # not converge prints `Done; (no matches found, but hit repeat limit of
+            # N)`. Storing that under `failure_hint` on a rip whose status is
+            # "success" and whose exit code is 0 tells every consumer, and
+            # `--audit-rips`, that this is why the rip failed. It did not fail. The
+            # fact still reaches the user, through the read-stability line in the
+            # EAC-style log and the warn banner, which is where it belongs
+            # (real-hardware finding, 2026-08-03).
             failure_hint=(
-                (self._rip_worker.failure_hint if self._rip_worker else "")
-                or getattr(self, "_last_rip_error", None)
-                or None
+                (
+                    (self._rip_worker.failure_hint if self._rip_worker else "")
+                    or getattr(self, "_last_rip_error", None)
+                    or None
+                )
+                if _status != "success"
+                else None
             ),
             # `_auto_retry_done` is set True when the "re-rip as unknown" self-heal
             # fired earlier this Start; the healed rip's report should say so.
@@ -1306,6 +1320,11 @@ class RipMixin(MainWindowShared):
             if self._rip_worker
             else None,
             ripper_argv=getattr(self._rip_worker, "ripper_argv", ())
+            if self._rip_worker
+            else (),
+            ripper_argv_first_pass=getattr(
+                self._rip_worker, "ripper_argv_first_pass", ()
+            )
             if self._rip_worker
             else (),
         )

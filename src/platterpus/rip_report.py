@@ -374,6 +374,7 @@ def build_outcome(
     auto_unknown_retry_reason: str | None = None,
     ripper_exit_code: int | None = None,
     ripper_argv: tuple[str, ...] | list[str] | None = None,
+    ripper_argv_first_pass: tuple[str, ...] | list[str] | None = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -399,6 +400,24 @@ def build_outcome(
       report did not carry the command line.
     """
     argv = tuple(ripper_argv or ())
+    # The FIRST invocation, when the rip took more than one.
+    #
+    # A rip can spawn the ripper twice: the whole-disc pass, then an auto-fix pass
+    # (`-Z N -l <tracks>`) over only the tracks AccurateRip did not verify.
+    # `ripper_argv` is the LAST one — right for "re-run what finished" — but the
+    # archival log's `Invoked as:` line comes from the *first* pass (the auto-fix
+    # addendum says so in as many words). Comparing those two is comparing
+    # different commands, and the argv-agreement check did exactly that: on a real
+    # 14-track rip where auto-fix re-ripped 2 tracks it reported *"the command line
+    # changed in transit … Something between us altered it"*, naming `-Z` and `-l`
+    # as injected. Nothing had altered anything. A cross-check that accuses the
+    # user's system of tampering whenever the product's own self-heal fires is
+    # worse than no cross-check, because the false alarm fires on precisely the
+    # rips a user looks at closely.
+    #
+    # None when there was only one pass, so "single-pass" and "first of several"
+    # stay distinguishable rather than both rendering as a bare argv.
+    first = tuple(ripper_argv_first_pass or ())
     return {
         "status": status,
         "failure_hint": failure_hint or None,
@@ -413,6 +432,7 @@ def build_outcome(
         # serialized as null, not [], so "we never launched it" and "we launched
         # it with no arguments" stay distinguishable.
         "ripper_argv": list(argv) or None,
+        "ripper_argv_first_pass": list(first) or None,
         # Pre-joined for the human reading the JSON. Not shell-quoted: it is a
         # record of an `execve` argument vector, and quoting it would suggest it
         # is safe to paste, which for a vector containing user-entered metadata

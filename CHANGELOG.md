@@ -11,6 +11,37 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A clean rip was told its command line had been tampered with.** The argv-agreement
+  self-check compared the argv of the *last* ripper invocation against the `Invoked as:`
+  line in the archival log, which is written by the *first* one. Any rip where the dynamic
+  secure-rerip fired — i.e. any rip with an AccurateRip miss, the ones you look at closely —
+  reported *"the command line changed in transit between Platterpus and cyanrip … Something
+  between us (the host export wrapper, a shell) altered it"*, naming the auto-fix pass's
+  `-Z` and `-l` as injected arguments. Nothing had altered anything. Found in a real
+  14-track rip of *The Police — Every Breath You Take: The Classics* (2026-08-03).
+  - The report now records `outcome.ripper_argv_first_pass` alongside `ripper_argv`, and the
+    check compares like with like, naming which pass it covered. `null` when there was only
+    one pass, so "single-pass" and "first of several" stay distinguishable.
+  - A cross-check that accuses the user's system of tampering whenever the product's own
+    self-heal fires is worse than no cross-check.
+- **`outcome.failure_hint` was populated on successful rips.** A dynamic secure-rerip that
+  does not converge on one track makes the ripper print `Done; (no matches found, but hit
+  repeat limit of N)`, and that was scraped into a field named `failure_hint` on a rip whose
+  status was `success` and whose exit code was `0` — telling every consumer, and
+  `--audit-rips`, that this was why the rip failed. The hint is now recorded only on a
+  non-success outcome; the read-stability fact still reaches the user through the EAC-style
+  log's `Read stability` line and the warn banner, which is where it belongs.
+
+### Added
+- **A gate that every relative link between the project's docs resolves**
+  (`tests/test_doc_links.py`). 79 markdown files cross-reference each other 200+ times and
+  nothing checked that any of those pointers landed, which made renaming or merging a
+  document a silent-breakage operation. Anchors are checked as far as the file, external
+  URLs are skipped on purpose (a network check in a unit suite is a flake generator), and
+  code fences are excluded so an illustrated link is not read as a real one. Carries a floor
+  so it cannot pass by finding nothing.
+
 ## [0.6.3] — 2026-08-03
 
 ### Added

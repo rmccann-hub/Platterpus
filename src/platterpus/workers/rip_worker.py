@@ -575,6 +575,10 @@ class RipWorker(QObject):
         # report did not carry the command line (2026-08-02).
         self._ripper_exit_code: int | None = None
         self._ripper_argv: tuple[str, ...] = ()
+        # The FIRST pass's argv, kept separately because only the first pass
+        # writes the whole-disc log whose `Invoked as:` line we cross-check
+        # against (see the assignment site for the false alarm this fixes).
+        self._ripper_argv_first_pass: tuple[str, ...] = ()
         # Set true if the ripper aborts for lack of online metadata, so the GUI
         # can heal by retrying as an unknown-album rip. An inert whipper-era seam:
         # cyanrip runs with -N and is fed the GUI's tags, so it never hits this.
@@ -1192,6 +1196,18 @@ class RipWorker(QObject):
             # not expose it; an absent argv stays empty rather than raising here,
             # since failing to record diagnostics must never fail the rip.
             self._ripper_argv = tuple(getattr(self._handle, "argv", ()) or ())
+            # Keep the FIRST pass's argv as well as the latest.
+            #
+            # A rip can spawn the ripper more than once — a speed-ladder retry, or
+            # (dynamic secure-rerip) a whole-disc pass followed by a targeted
+            # `-Z N -l <tracks>` pass over just the tracks AccurateRip did not
+            # verify. Only the first pass writes the whole-disc log, so its
+            # `Invoked as:` line is the only one the argv-agreement check can
+            # compare against. Overwriting this on every pass is what made that
+            # check report the auto-fix pass's `-Z`/`-l` as arguments something
+            # had injected in transit (real-hardware false alarm, 2026-08-03).
+            if not self._ripper_argv_first_pass:
+                self._ripper_argv_first_pass = self._ripper_argv
         except RipError as exc:
             log.exception("rip failed to start")
             self.error.emit(str(exc))
@@ -1786,6 +1802,19 @@ class RipWorker(QObject):
         kind of defect that reads as an unexplained "Rip failed."
         """
         return self._ripper_argv
+
+    @property
+    def ripper_argv_first_pass(self) -> tuple[str, ...]:
+        """The argv of the FIRST pass, when the rip ran the ripper more than once.
+
+        Equal to :attr:`ripper_argv` on a single-pass rip. It differs when a
+        speed-ladder retry or a dynamic secure-rerip spawns the ripper again —
+        and only the first pass writes the whole-disc log, so this is the one
+        that can be compared against that log's ``Invoked as:`` line. Comparing
+        the *last* pass instead reported the auto-fix pass's ``-Z``/``-l`` as
+        arguments injected in transit.
+        """
+        return self._ripper_argv_first_pass
 
     @Slot()
     def cancel(self) -> None:
