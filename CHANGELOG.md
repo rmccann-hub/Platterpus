@@ -11,6 +11,60 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.3] — 2026-08-03
+
+### Added
+- **The one-time setup wizard now installs the pinned Platterpus fork of cyanrip**, so using the
+  fork no longer requires a terminal (KDD-17's zero-terminal bar, in the one place it mattered
+  most). A new `cyanrip_fork` step installs the build dependencies, clones the fork, detaches
+  onto the handshake-verified commit, compiles it, installs it to `/usr/local/bin/cyanrip`,
+  re-points the `~/.local/bin` export at it, and then **verifies the installed binary prints the
+  pinned fork's build tag** — an install that produced something unexpected fails the step
+  loudly instead of leaving a mystery binary on the ripping path. It runs *after* the stock COPR
+  install and export, so a failed build leaves a working ripper rather than none.
+  The pin, the repo, the branch and the measured build-dependency list live in one module
+  (`deps/fork_source.py`), and a test reads the newest closed handshake round to assert the code
+  builds the commit the record approved.
+- **The dependency check now names which *build* of cyanrip is installed**, not only its version.
+  A wrong build is counted in the summary's headline, described in its own "Wrong build" block
+  with what the difference costs and how to fix it, and shown with a warning icon rather than an
+  information one. Tri-state, like everywhere else — an unrecognised build tag reports "not
+  identified", never "unmodified upstream". Classification delegates to the shared
+  `ripper_identity` module, so the dialog, the EAC-style log, the JSON report and `--doctor`
+  cannot describe the same binary four different ways.
+
+### Fixed
+- **The launch-time dependency dialog said "cyanrip 0.9.3" and "0 missing/needs-attention" while
+  the ripper was unmodified upstream, not the Platterpus fork.** Every word was true and the
+  message was misleading: the fork keeps upstream's version string *deliberately* (its
+  `meson.build` sets a separate `PROJECT_FORK_ID`), so a version number is the one fact that
+  cannot distinguish the two. Platterpus had already been taught to name the build in the
+  archival log, the report and `--doctor`; this was the surface a user actually reads at launch,
+  and it had been missed. Found by the maintainer reading the dialog.
+- **A multi-disc rip wrote `DISCNUMBER=2/3` into its FLAC files** — the ID3 convention, not the
+  Vorbis one — and dropped the disc total entirely. The disc position was folded into cyanrip's
+  `-a` album-tag string as `disc=2/3`, which ffmpeg's Vorbis-comment writer passes through
+  verbatim under the mapped key `DISCNUMBER`. It now goes through cyanrip's own
+  `-c disc/totaldiscs` flag, which parses the slash and sets `disc` and `totaldiscs` as separate
+  integer keys. Single-disc releases get `1/1` too, matching what EAC and Picard write, so the
+  field does not appear only on box sets. Found by diffing our FLAC tags against an EAC baseline
+  on real hardware.
+  - The value is **range-checked at the argv chokepoint**, because cyanrip refuses the *entire
+    rip* on a bad `-c` (`Invalid discnumber`, `Invalid totaldiscs`, `discnumber N is larger than
+    totaldiscs M` — all exit 1 before a sector is read). Same defect shape as the out-of-range
+    `-t` that killed a real rip in two seconds. An unusable disc position is dropped and logged;
+    losing a tag is survivable, losing the rip is not.
+- **Four audit checks could run and say nothing**, which in the report is indistinguishable from
+  a check that found everything in order. The first real-hardware run of the embedded
+  `self_check` listed eight checks run, zero skipped, and carried six findings — `pregap` and
+  `argv_agreement` were silent because stock cyanrip emits neither the rows nor the
+  `Invoked as:` line they read; auditing for it found `medium` and `log_integrity` too. Each now
+  reports *why* it has nothing, and `run_checks` carries a structural floor so a future silent
+  check is impossible rather than merely discouraged.
+- **`self_check`'s verdict could never read "ok"** for a flawless rip: recording the disc's
+  identity was a check that *succeeded* but was graded as a note. A grade that is always at
+  least "note" is not a verdict.
+
 ## [0.6.2] — 2026-08-02
 
 ### Added
@@ -4812,7 +4866,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/rmccann-hub/Platterpus/compare/v0.5.21...v0.6.0
@@ -4883,4 +4938,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.2.*
+*Last updated for Platterpus v0.6.3.*

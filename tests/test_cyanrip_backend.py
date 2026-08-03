@@ -253,7 +253,7 @@ def test_rip_argv_always_disables_mb_and_feeds_gui_metadata() -> None:
         year="1992",
         genre="Rock",
         disc_number=1,
-        total_discs=2,  # multi-disc → a "disc=n/total" tag is emitted
+        total_discs=2,  # multi-disc → cyanrip gets `-c 1/2`
         tracks=(
             TrackTag(1, "Roxanne", "The Police", isrc="GBAAA0000001"),
             TrackTag(2, "Can't Stand Losing You"),
@@ -275,7 +275,13 @@ def test_rip_argv_always_disables_mb_and_feeds_gui_metadata() -> None:
     assert "album_artist=The Police" in album_arg
     assert "date=1992" in album_arg
     assert "genre=Rock" in album_arg
-    assert "disc=1/2" in album_arg
+    # The disc position is NOT an -a tag: it goes through cyanrip's own
+    # `-c disc/totaldiscs`, which sets `disc` and `totaldiscs` as separate
+    # integer keys. Folded into -a as "disc=1/2" it wrote the single Vorbis tag
+    # DISCNUMBER=1/2 — the ID3 convention, not the Vorbis one — and dropped
+    # totaldiscs entirely. See _disc_args.
+    assert "disc=" not in album_arg
+    assert argv[argv.index("-c") + 1] == "1/2"
     assert "musicbrainz_albumid=1e477f68-c407-4eae-ad01-518528cedc2c" in album_arg
     track_args = [argv[i + 1] for i, a in enumerate(argv) if a == "-t"]
     assert track_args[0] == "1=title=Roxanne:artist=The Police:isrc=GBAAA0000001"
@@ -836,3 +842,86 @@ def test_ordinary_titles_still_build_argv(title: str) -> None:
     naming (Critical rule #3), and these are all ordinary Linux directory names."""
     args = _metadata_args(RipMetadata(album_title=title), release_id="")
     assert any(title in a for a in args)
+
+
+# --- The disc position: `-c`, not an `-a disc=` tag ---------------------------
+#
+# Found by comparing our FLAC tags against an EAC baseline on real hardware
+# (2026-08-02). We folded the disc position into the album tag string as
+# `disc=2/3`; cyanrip passes an `-a` value through verbatim and ffmpeg's
+# Vorbis-comment writer maps the key `disc` to `DISCNUMBER`, so the file carried
+# the single tag `DISCNUMBER=2/3` — the ID3 convention, not the Vorbis one — and
+# `totaldiscs` was lost outright.
+#
+# cyanrip already has the right seam: `-c disc/totaldiscs` parses the slash and
+# sets two separate integer keys (`cyanrip_main.c`:
+# `av_dict_set_int(&ctx->meta, "disc", discnumber, 0)` / `… "totaldiscs" …`).
+
+
+def _argv_with(**meta_kw: object) -> list[str]:
+    return _impl()._build_rip_argv(
+        "/dev/sr0",
+        unknown=False,
+        cover_art="",
+        max_retries=5,
+        read_offset_override=None,
+        track_template="%d/%t - %n",
+        metadata=RipMetadata(album_title="X", **meta_kw),  # type: ignore[arg-type]
+    )
+
+
+def test_a_multi_disc_release_passes_the_disc_position_via_c() -> None:
+    argv = _argv_with(disc_number=2, total_discs=3)
+    assert argv[argv.index("-c") + 1] == "2/3"
+    # ...and NOT as a tag, which is what produced DISCNUMBER=2/3.
+    assert "disc=" not in argv[argv.index("-a") + 1]
+
+
+def test_a_single_disc_release_still_gets_a_disc_number() -> None:
+    """EAC and Picard both write DISCNUMBER/TOTALDISCS on a one-disc album, so a
+    library tagged by Platterpus should not have the field appear only on box
+    sets. cyanrip's name schemes are guarded on `totaldiscs > 1`, so this changes
+    no filenames."""
+    assert (
+        _argv_with(disc_number=1, total_discs=1)[
+            _argv_with(disc_number=1, total_discs=1).index("-c") + 1
+        ]
+        == "1/1"
+    )
+
+
+@pytest.mark.parametrize(
+    ("number", "total"),
+    [
+        (0, 1),  # cyanrip: "Invalid discnumber 0" → return 1
+        (-1, 2),
+        (1, 0),  # cyanrip: "Invalid totaldiscs 0" → return 1
+        (3, 2),  # cyanrip: "discnumber 3 is larger than totaldiscs 2" → return 1
+        (1, -5),
+    ],
+)
+def test_an_out_of_range_disc_position_is_dropped_not_passed(
+    number: int, total: int
+) -> None:
+    """cyanrip REFUSES THE WHOLE RIP on a bad `-c`, before reading a sector —
+    the same defect shape as the `-t 17=` on a 16-track disc that killed a real
+    rip in two seconds. These numbers come from a metadata service, i.e. from
+    something other than the disc in the drive, which is exactly the category
+    CLAUDE.md requires be range-checked at the argv chokepoint.
+
+    Losing a disc tag is survivable. Losing the rip is not.
+    """
+    argv = _argv_with(disc_number=number, total_discs=total)
+    assert "-c" not in argv
+
+
+def test_a_dropped_disc_position_is_logged_so_it_is_diagnosable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Silently dropping it would leave a mysteriously untagged rip with nothing
+    in the log to explain why."""
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        _argv_with(disc_number=5, total_discs=2)
+    assert any("-c" in r.message for r in caplog.records)

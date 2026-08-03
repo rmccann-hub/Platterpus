@@ -23,7 +23,7 @@ Contract this mixin expects from the host window (set in
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
@@ -40,7 +40,9 @@ from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
 from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:
+    from platterpus.deps.build_notes import BuildNote
     from platterpus.deps.manager import DependencyManager, DependencyReport
+    from platterpus.deps.registry import DependencySpec
 
 
 def _optional_purpose(item: MissingItem) -> str:
@@ -62,6 +64,26 @@ def _optional_purpose(item: MissingItem) -> str:
     # First sentence only — the descriptions are written sentence-first.
     sentence = text.split(". ", 1)[0].rstrip(".")
     return sentence or "optional extra"
+
+
+def _installed_line(
+    spec: DependencySpec,
+    ok_versions: Mapping[str, tuple[int, ...] | None],
+    build_notes: Mapping[str, BuildNote],
+) -> str:
+    """One entry in the summary's "Installed:" list.
+
+    ``name version`` as before, plus ``(build summary)`` for the deps whose
+    version cannot identify the binary. Kept a module-level pure function
+    rather than an inline comprehension so the formatting is unit-testable
+    without constructing a window — the same reason the validators live in
+    their own module.
+    """
+    line = f"{spec.display_name} {format_version(ok_versions.get(spec.dep_id))}"
+    note = build_notes.get(spec.dep_id)
+    if note is not None:
+        line += f" ({note.summary})"
+    return line
 
 
 class DependencyMixin(MainWindowShared):
@@ -450,17 +472,36 @@ class DependencyMixin(MainWindowShared):
         """Post-check summary popup with install-failure detail when present.
 
         The popup format:
-            "<ok_count> ok, <missing_count> missing/needs-attention."
-            "Installed: <name> <version>, …"      ← when any deps are OK
+            "<ok_count> ok, <n> missing/needs-attention."
+            "Installed: <name> <version> (<build note>), …"  ← when any are OK
             "Optional (not installed): <names>"   ← only when present
+            (blank line)
+            "Wrong build:"                ← only when a build note says so
+            "  - <dep>: <summary>" + detail + how to fix
             (blank line)
             "Install failures:"           ← only when failures exist
             "  - <dep>: <error message>"  ← one per failure
+
+        **Why the build notes are here at all.** This dialog is the surface a
+        user actually reads at launch, and it used to print a bare version —
+        which for cyanrip is the one fact that cannot distinguish the
+        Platterpus fork from stock upstream (the fork keeps upstream's version
+        string deliberately). A maintainer looking at "cyanrip 0.9.3" had no
+        way to know the fork install had never happened. Naming the build is
+        CLAUDE.md's *"say which build produced an artifact"* rule; it had been
+        applied to the log, the report and ``--doctor``, and missed here.
         """
         ok_specs = getattr(report, "ok", [])
         ok_count = len(ok_specs)
         missing_count = len(getattr(report, "missing", []))
         ok_versions = getattr(report, "ok_versions", {}) or {}
+        build_notes: Mapping[str, BuildNote] = getattr(report, "build_notes", {}) or {}
+        # Deps that are installed and current but are the WRONG BUILD. Counted
+        # into the headline: a summary that says "0 needs-attention" while
+        # cyanrip is stock is precisely the message that misled the maintainer.
+        attention: list[tuple[DependencySpec, BuildNote]] = list(
+            getattr(report, "build_attention", []) or []
+        )
         # Collect real install failures (not user declines — those are
         # surfaced via the dialog the user already saw).
         install_results = getattr(report, "install_results", [])
@@ -470,18 +511,28 @@ class DependencyMixin(MainWindowShared):
             if not r.success and not getattr(r, "user_declined", False)
         ]
 
-        message = f"{ok_count} ok, {missing_count} missing/needs-attention."
+        message = (
+            f"{ok_count} ok, {missing_count + len(attention)} missing/needs-attention."
+        )
         # Stamp the detected version next to each OK dep so the user knows
-        # exactly what's installed (reproducibility), not just that it's there.
+        # exactly what's installed (reproducibility), not just that it's there —
+        # plus the build, where the version alone doesn't identify the binary.
         if ok_specs:
-            installed = ", ".join(
-                f"{spec.display_name} {format_version(ok_versions.get(spec.dep_id))}"
-                for spec in ok_specs
+            installed = "; ".join(
+                _installed_line(spec, ok_versions, build_notes) for spec in ok_specs
             )
             message += f"\nInstalled: {installed}."
         if optional_missing:
             names = ", ".join(item.spec.display_name for item in optional_missing)
             message += f"\nOptional (not installed): {names}."
+        if attention:
+            attention_lines = "\n".join(
+                f"  • {spec.display_name}: {note.summary}\n"
+                f"    {note.detail}"
+                + (f"\n    Fix: {note.fix_hint}" if note.fix_hint else "")
+                for spec, note in attention
+            )
+            message += f"\n\nWrong build:\n{attention_lines}"
         if failures:
             failure_lines = "\n".join(
                 f"  • {r.spec.display_name}: {r.message}" for r in failures
@@ -491,4 +542,11 @@ class DependencyMixin(MainWindowShared):
                 f"Full output is in ~/.local/share/platterpus/log.txt."
             )
 
-        QMessageBox.information(self, "Dependency check complete", message)
+        # The icon is part of the message. A wrong-build cyanrip reported with
+        # an "information" ⓘ reads as "all fine, here are the details" — which
+        # is how a stock install went unnoticed. Warn when something needs
+        # attention; inform when nothing does.
+        if attention:
+            QMessageBox.warning(self, "Dependency check complete", message)
+        else:
+            QMessageBox.information(self, "Dependency check complete", message)

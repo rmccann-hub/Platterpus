@@ -172,6 +172,16 @@ def _audit_medium(report: dict[str, Any], album: AlbumAudit) -> None:
     disc = report.get("disc") or {}
     basis = disc.get("medium_basis")
     if not basis:
+        # Speak rather than return. No basis recorded is the pre-v0.6.1 report
+        # shape, or a rip with no MusicBrainz release at all — both legitimate,
+        # and both meaning "we cannot tell you which disc of a set this is".
+        # Returning silently made that indistinguishable from "disc confirmed".
+        album.add(
+            LEVEL_NOTE,
+            "which disc of a multi-disc release this is was not recorded — "
+            "either an unknown-disc rip with no MusicBrainz release, or a "
+            "report written before Platterpus recorded medium selection",
+        )
         return
     if disc.get("medium_undetermined"):
         album.add(
@@ -192,9 +202,8 @@ def _audit_pregaps(report: dict[str, Any], album: AlbumAudit) -> None:
     branch, because disc images always fall into ``unknown``. The first real
     occurrence anywhere will show up here.
     """
-    for track in report.get("tracks") or []:
-        if not isinstance(track, dict):
-            continue
+    tracks = [t for t in (report.get("tracks") or []) if isinstance(t, dict)]
+    for track in tracks:
         source = track.get("pregap_source")
         if source:
             album.pregap_sources.add(str(source))
@@ -203,6 +212,26 @@ def _audit_pregaps(report: dict[str, Any], album: AlbumAudit) -> None:
             album.pregap_sources.add(
                 "unknown: " + str(track.get("pregap_unknown_reason") or "?")
             )
+
+    # Say something either way. This check used to feed only the library-wide
+    # summary set, so an album whose tracks carried no pre-gap rows produced no
+    # album finding at all — which on the first real-hardware run of the
+    # embedded self-check meant a check listed as "run" that had said nothing.
+    # The floor in `run_checks` would catch that now; speaking here says *why*,
+    # which is the part the user can act on.
+    observed = sorted(album.pregap_sources)
+    if observed:
+        album.add(
+            LEVEL_OK if len(tracks) else LEVEL_NOTE,
+            f"pre-gap provenance across {len(tracks)} track(s): " + ", ".join(observed),
+        )
+    else:
+        album.add(
+            LEVEL_NOTE,
+            f"no pre-gap provenance recorded for any of {len(tracks)} track(s) — "
+            "pre-gap length and source are fork-only rows, so a rip made with "
+            "unmodified upstream cyanrip cannot report them",
+        )
 
 
 def _audit_files_check(report: dict[str, Any], album: AlbumAudit) -> None:
@@ -287,8 +316,33 @@ def _audit_argv_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
     sent = outcome.get("ripper_argv")
     received = (report.get("rip") or {}).get("invoked_as")
     if not sent or not received:
-        # Not a finding. An older rip, an upstream cyanrip that does not print
-        # the line, or a rip that never launched — all legitimately silent.
+        # NOT silent. This used to `return` with a comment calling the silence
+        # legitimate — an older rip, a stock cyanrip that does not print the
+        # line, a rip that never launched. Those are legitimate *reasons*, and
+        # they are exactly what the user needs told: one of their integrity
+        # cross-checks is unavailable for this rip. Reported as "not determined"
+        # rather than passing by omission.
+        if not sent and not received:
+            album.add(
+                LEVEL_NOTE,
+                "command-line agreement not determined — neither the argv we "
+                "sent nor the ripper's own 'Invoked as:' line was recorded",
+            )
+        elif not received:
+            album.add(
+                LEVEL_NOTE,
+                "command-line agreement not determined — the ripper did not "
+                "print an 'Invoked as:' line, so what it actually received "
+                "cannot be cross-checked (stock cyanrip does not print one; the "
+                "Platterpus fork does)",
+            )
+        else:
+            album.add(
+                LEVEL_NOTE,
+                "command-line agreement not determined — the ripper reported "
+                "the command line it received, but the argv we sent was not "
+                "recorded in this report",
+            )
         return
 
     def flags(tokens: list[str]) -> set[str]:
@@ -334,6 +388,11 @@ def _audit_log_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
     entry = (report.get("artifacts") or {}).get("eac_log") or {}
     text = entry.get("text")
     if not text:
+        album.add(
+            LEVEL_NOTE,
+            "no EAC-style log is embedded in this report, so its published "
+            "SHA-256 footer could not be re-checked from the report alone",
+        )
         return
     if entry.get("truncated"):
         # A truncated copy cannot verify, and reporting it as a mismatch would
@@ -371,9 +430,19 @@ def _audit_disc_identity(report: dict[str, Any], album: AlbumAudit) -> None:
     disc_id = rip.get("musicbrainz_disc_id")
     cddb = rip.get("cddb_id")
     if disc_id or cddb:
+        # LEVEL_OK, not LEVEL_NOTE. Recording the pressing's identity is a check
+        # that SUCCEEDED, and levelling it as a note made `worst` read "note" for
+        # a flawless rip — which is what the first real-hardware self_check block
+        # said. A level that is always at least "note" is not a verdict.
+        album.add(
+            LEVEL_OK,
+            f"disc identity — MusicBrainz {disc_id or '(none)'} / CDDB {cddb or '(none)'}",
+        )
+    else:
         album.add(
             LEVEL_NOTE,
-            f"disc identity — MusicBrainz {disc_id or '(none)'} / CDDB {cddb or '(none)'}",
+            "no TOC-derived disc identity recorded, so this rip cannot be "
+            "matched to the same physical pressing later",
         )
 
 
@@ -455,6 +524,7 @@ def run_checks(
         if check.needs_files and folder is None:
             skipped.append(check.name)
             continue
+        before = len(album.findings)
         try:
             check.run(report, album)
         except Exception as exc:  # noqa: BLE001 — a broken check must not stop the audit
@@ -463,6 +533,25 @@ def run_checks(
             skipped.append(check.name)
             continue
         ran.append(check.name)
+        if len(album.findings) == before:
+            # THE FLOOR. A check that ran and said nothing is the third state
+            # this function originally missed: `checks_run` listed it, no finding
+            # mentioned it, and the report was indistinguishable from one where
+            # the check had found everything in order. The first real-hardware
+            # run of the embedded self-check hit it immediately — `pregap` and
+            # `argv_agreement` both ran silently on a stock-cyanrip rip, because
+            # stock does not emit the rows they read.
+            #
+            # "A silent truncation reads as completeness" (CLAUDE.md), and the
+            # same is true of a silent check. Individual checks are written to
+            # say why they have nothing; this is the backstop that makes a future
+            # silent check impossible rather than merely discouraged, and
+            # tests/test_rip_audit.py asserts every registered check speaks.
+            album.add(
+                LEVEL_NOTE,
+                f"check '{check.name}' ({check.question}) ran but had nothing to "
+                f"report for this rip — treat this as 'not determined', not 'ok'",
+            )
     return ran, skipped
 
 

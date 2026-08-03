@@ -367,8 +367,10 @@ def check_backend_build(backend: RipBackend, *, backend_name: str) -> CheckResul
             hint=(
                 "Rips will work and will be bit-perfect. What is missing is "
                 "archival detail: pre-gap length and provenance, sample peak, "
-                "and per-track timings. Rebuild cyanrip inside the 'ripping' "
-                "container from the platterpus-fork branch to get them."
+                "and per-track timings. Run Tools → Set up Platterpus… to build "
+                "and install the pinned fork — it needs no terminal, keeps the "
+                "working upstream binary if the build fails, and verifies the "
+                "result identifies as the fork before finishing."
             ),
         )
     return CheckResult(
