@@ -23,8 +23,10 @@ cyanrip CLI (from its README): ``-d`` device, ``-s`` sample offset, ``-o``
 codec list (flac default), ``-r`` retries, ``-N`` disable MusicBrainz
 (always passed — the GUI feeds the tags instead), ``-a``/``-t`` album/track
 metadata, ``-D``/``-F`` dir/file naming schemes (``{key}`` substitution),
-``-G`` disable cover-art embed, ``-I`` info-only, ``-V`` version. (``-f`` is
-cyanrip's *force-overread*, NOT an offset finder — we never use it.)
+``-G`` disable cover-art embed, ``-I`` info-only, and the version flag —
+which is ``-V`` on 0.9.3.x but ``-v``/``--version`` from 0.9.4-rc1 on, so we try
+both (see `platterpus.cyanrip_cli`). (``-f`` is cyanrip's *force-overread*, NOT an
+offset finder — we never use it.)
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     run_capture,
 )
+from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -315,13 +318,28 @@ class CyanripImpl(RipBackend):
         in the app; only the adapter can see the exit code, so only the adapter
         can close that hole.
 
-        This cannot fail a working ripper: cyanrip's ``case 'V':`` logs the banner
-        and returns 0 (verified in its source, v0.9.3.1), so a non-zero exit here
-        came from the wrapper/container — exactly the failure the doctor exists to
-        name. The raised `RipError` carries cyanrip's own first output line, and
+        **Which flag prints the version is version-dependent, so we try both.**
+        0.9.3.x has a hand-rolled ``case 'V':``; 0.9.4-rc1 and the Platterpus fork
+        use the generic ``genopt`` parser, which special-cases only
+        ``-v``/``--version`` and rejects ``-V`` as an unparseable argument with
+        exit 1. Sending only ``-V`` therefore made a perfectly working fork build
+        look like a broken container to this method and to ``--doctor``. Order and
+        rationale live in :mod:`platterpus.cyanrip_cli`.
+
+        A non-zero exit from the LAST flag still raises, which is the hole this
+        method was written to close: a broken wrapper/container that exits
+        non-zero while printing an error must not come back as "the version".
+        The raised `RipError` carries cyanrip's own first output line, and
         ``_run`` has already logged the full output.
         """
-        return self._run(["-V"], strict=True).strip()
+        last_error: RipError | None = None
+        for flag in VERSION_FLAGS:
+            try:
+                return self._run([flag], strict=True).strip()
+            except RipError as exc:
+                last_error = exc
+        assert last_error is not None  # VERSION_FLAGS is never empty
+        raise last_error
 
     def produces_max_compression_flac(self) -> bool:
         # cyanrip drives libavcodec at the maximum FLAC compression level for

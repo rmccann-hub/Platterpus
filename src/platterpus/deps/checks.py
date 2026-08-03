@@ -26,6 +26,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.deps.version import parse_version
 from platterpus.killable import KillableCommand
 
@@ -109,6 +110,7 @@ def _run_version_command(
     argv: list[str],
     *,
     accept_exit_codes: frozenset[int] = _SUCCESS_EXIT_CODES,
+    log_failure: bool = True,
 ) -> tuple[bool, str, str | None]:
     """Shell out and capture stdout+stderr. Returns (ran_ok, output, location).
 
@@ -144,6 +146,15 @@ def _run_version_command(
     day one of them changes, the fix is an explicit per-tool allow-list with the
     evidence written down beside it — never a return to "any exit code counts",
     which is the bug this function was fixed for.
+
+    **`log_failure=False` — for a caller that tries several flags.** cyanrip
+    renamed its version flag between the build users have and the build we want
+    (`platterpus.cyanrip_cli`), so `check_cyanrip` tries `-V` then `-v`. On a
+    0.9.4 build the first attempt is *expected* to fail, and logging
+    "treating the tool as unavailable" for it would put a line in every user's
+    log file that is both alarming and untrue. The caller suppresses the
+    per-attempt line and logs once, itself, only if every flag failed. Absence is
+    still logged — just at the point where it is actually known.
     """
     resolved = shutil.which(argv[0]) or argv[0]
     try:
@@ -157,11 +168,17 @@ def _run_version_command(
 
     combined = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode not in accept_exit_codes:
-        log.warning(
-            "probe: %s exited %d — treating the tool as unavailable, NOT parsing a "
-            "version out of its error output. Captured output: %s",
+        # `debug` rather than `warning` when the caller has more flags to try:
+        # the evidence is kept (a bug report still carries it) without asserting
+        # a conclusion the caller has not reached yet.
+        (log.warning if log_failure else log.debug)(
+            "probe: %s exited %d — %s, NOT parsing a version out of its error "
+            "output. Captured output: %s",
             " ".join(argv),
             proc.returncode,
+            "treating the tool as unavailable"
+            if log_failure
+            else "the caller has further flags to try",
             _summarize_output(combined),
         )
         return False, combined, resolved
@@ -201,17 +218,35 @@ def check_cyanrip(binary_path: Path) -> ProbeResult:
     if not binary_path.exists():
         return ProbeResult(present=False, version=None, location=str(binary_path))
 
-    ran, output, _ = _run_version_command([str(binary_path), "-V"])
-    if not ran:
-        return ProbeResult(present=False, version=None, location=str(binary_path))
-
-    version = parse_version(output)
-    return ProbeResult(
-        present=True,
-        version=version,
-        location=str(binary_path),
-        raw_output=output.strip()[:200],
+    # Try every flag cyanrip has ever used to print its version, in order —
+    # `-V` on 0.9.3.x, `-v` from 0.9.4-rc1 onward (the generic genopt parser
+    # replaced the hand-rolled `case 'V':`). See `platterpus.cyanrip_cli`.
+    #
+    # This must not report the FIRST failure as the reason the tool is absent:
+    # on a 0.9.4 build the `-V` attempt is expected to fail, and logging that as
+    # "treating the tool as unavailable" would put a misleading line in every
+    # user's log file. Only an all-flags-failed outcome is a real absence.
+    output = ""
+    for flag in VERSION_FLAGS:
+        ran, output, _ = _run_version_command(
+            [str(binary_path), flag], log_failure=False
+        )
+        if ran:
+            version = parse_version(output)
+            return ProbeResult(
+                present=True,
+                version=version,
+                location=str(binary_path),
+                raw_output=output.strip()[:200],
+            )
+    log.warning(
+        "probe: %s answered none of %s — treating cyanrip as unavailable. "
+        "Last captured output: %s",
+        binary_path,
+        " / ".join(VERSION_FLAGS),
+        _summarize_output(output),
     )
+    return ProbeResult(present=False, version=None, location=str(binary_path))
 
 
 def check_cdparanoia(binary_path: Path) -> ProbeResult:
