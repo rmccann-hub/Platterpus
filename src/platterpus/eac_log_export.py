@@ -314,7 +314,29 @@ def _render(
     lines.append("")
     lines.append(f"Read mode               : {_read_mode(info)}")
     lines.append(f"Utilize accurate stream : {_UNREPORTED}")
-    lines.append(f"Defeat audio cache      : {_yes_no(info.defeat_audio_cache)}")
+    # **Name the source of this verdict, not just the verdict.**
+    #
+    # `defeat_audio_cache` is *our* measurement — `cd-paranoia -A` run once per
+    # drive and stored in the drive profile (KDD-29) — and the parser is asserted
+    # never to fill it from cyanrip's log (`tests/test_fork_golden_reference_r6b.py`).
+    # cyanrip's own `Cache model:` line reports what libcdio-paranoia *models* and
+    # says in the value itself that the drive was never probed; wiring that to this
+    # row would be the fabricated "Yes" KDD-25 forbids, which is why we do not.
+    #
+    # But a reader could not tell any of that from the row. The fork raised exactly
+    # that in round 7 §6b — reasonably, since from outside "Yes" against their
+    # unprobed `Cache model:` looks like us asserting their disclaimer as a result.
+    # So the row now carries its provenance: a measured verdict says it was measured
+    # and by what, and an unmeasured one keeps `_yes_no`'s honest "(unknown)".
+    #
+    # EAC's row means "the ripper defeated the cache during THIS rip"; ours means
+    # "this drive was measured to defeat it". Those are different claims, and the
+    # suffix is what keeps us from silently making the stronger one.
+    _cache = _yes_no(info.defeat_audio_cache)
+    if info.defeat_audio_cache is not None:
+        _cache += "  (measured for this drive with cd-paranoia -A, not asserted "
+        _cache += "from the ripper's log)"
+    lines.append(f"Defeat audio cache      : {_cache}")
     # Not `_yes_no`: its "(unknown)" means "we haven't measured this yet" (as for
     # the cache verdict, which a probe can still fill in). C2 is different — the
     # value simply isn't in cyanrip's log — so it takes the not-reported wording,

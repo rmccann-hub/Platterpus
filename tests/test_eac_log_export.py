@@ -964,3 +964,36 @@ def test_a_sub_second_extraction_time_is_not_rendered_as_zero() -> None:
     # A minute or more keeps EAC's clock shape.
     assert row(75.0) == ["     Extraction time 0:01:15"]
     assert row(None) == []
+
+
+def test_the_cache_defeat_row_names_its_own_source() -> None:
+    """Round 7 §6b: from outside, `Defeat audio cache : Yes` against cyanrip's
+    unprobed `Cache model:` looks like us asserting their disclaimer as a result.
+
+    It never was — the verdict is our own `cd-paranoia -A` measurement (KDD-29) and
+    the parser is asserted never to fill it from the ripper's log. But a reader
+    could not tell, and EAC's row means a different thing (defeated during *this*
+    rip) from ours (measured for *this drive*). So the row states its provenance.
+    """
+
+    def row_for(verdict: bool | None) -> str:
+        log = _sample_log()
+        log = replace(
+            log, ripping_info=replace(log.ripping_info, defeat_audio_cache=verdict)
+        )
+        text = render_eac_style_log(log)
+        return next(
+            ln for ln in text.splitlines() if ln.startswith("Defeat audio cache")
+        )
+
+    measured = row_for(True)
+    assert "Yes" in measured
+    assert "cd-paranoia -A" in measured, measured
+    assert "not asserted from the ripper" in measured, measured
+
+    # An UNMEASURED drive must keep the honest unknown, with no provenance claim
+    # attached — saying "measured with cd-paranoia" when nothing measured it would
+    # be the very fabrication this row is being fixed to avoid.
+    unmeasured = row_for(None)
+    assert "cd-paranoia" not in unmeasured, unmeasured
+    assert "unknown" in unmeasured.casefold(), unmeasured

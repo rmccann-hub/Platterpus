@@ -226,6 +226,35 @@ missing file rather than what it was. `docs/handshake/outbound/round-6.md` is th
 record file that says plainly it is a record, names where the content was actually delivered,
 and points at the answers that prove receipt.
 
+### 7.5 A verification declares a verdict, and the verdict is what closes the round
+
+Every verification file from round 4 on opens with a bolded declaration at the start of a
+line — **`**GO on <pin>`** or **`**HOLD on <pin>`** — and `--status` / `--release-gate` read
+*that*, not the file's existence. Three rules follow, and all three are enforced by
+`tests/test_handshake_tooling.py` rather than stated here only:
+
+- **A HOLD is not a close.** A verification may deliberately be a *mid-round lap*: round 7's
+  own §15 asked us to hold and expect more than one exchange, so our reply verified nine
+  findings, fixed two of our defects, and explicitly did **not** move the pin. The gate keyed
+  on the file existing, reported `round-7 … -> CLOSED`, and allowed a release — while the
+  deviation policy forbids releasing or switching the pin with a round open. The same defect
+  §7 already records twice: *a check satisfied by the wrong thing*.
+- **No verdict fails closed.** A verification that never says which it is has not answered the
+  only question the protocol asks of it, and "not yet" is the safe reading. Rounds 1–3 are the
+  named exception — reconstructed retrospectively, long before the convention existed — and
+  that exemption list may shrink, never grow, or "add the round to the exemption list" becomes
+  a one-line way to close an open round.
+- **The newest file's verdict wins, and a conflict reads as HOLD.** An amendment supersedes
+  what it corrects in this direction too — a GO withdrawn the same evening (round 6b's shape,
+  from the other side) must not keep a round closed. A file declaring both changed its mind
+  mid-draft: a release wrongly blocked is a delay, a release wrongly allowed ships an
+  unverified pin.
+
+**And the prose about a verdict is not the verdict.** Round 7's second paragraph says *"not a
+closing GO"*; a matcher scanning the whole text for "GO" reads that file as GO and closes the
+round off a sentence saying the opposite. The declaration is anchored to a line start for
+exactly that reason.
+
 ---
 
 *Last updated for Platterpus v0.6.3.*

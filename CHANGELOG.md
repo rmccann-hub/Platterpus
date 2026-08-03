@@ -33,6 +33,38 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   non-success outcome; the read-stability fact still reaches the user through the EAC-style
   log's `Read stability` line and the warn banner, which is where it belongs.
 
+- **The EAC-style log's `Defeat audio cache` row did not say where its answer came from.**
+  The fork read it as an echo of cyanrip's own `Cache model:` line and asked us to stop
+  claiming a cache verdict we could not know. The mechanism half of that was wrong — the row
+  is a **measured** `cd-paranoia -A` probe of the real drive (KDD-29), and the parser is
+  asserted never to fill the field from the ripper's log — but the presentation half was
+  right: a bare `Yes` in an EAC-shaped log is indistinguishable from an asserted one, and a
+  reader who cannot tell a measurement from a claim has been given a claim. The row now
+  names its own method inline whenever a verdict exists.
+- **The release gate counted a deliberate `HOLD` as a closed handshake round.**
+  `scripts/handshake.py --status` reported a round CLOSED when three files existed, and
+  `--release-gate` is a thin wrapper over it. Round 7's verification file exists and declares
+  **`HOLD`** — a mid-round lap, at the fork's own request — so the gate printed *"every round
+  is closed — release allowed"* while the one rule the deviation policy states explicitly is
+  *no release and no pin switch while a round is open*. The gate now reads the **verdict** the
+  verification declares, not the file's existence: `GO` closes a round, `HOLD` does not, and a
+  verification with no verdict at all fails closed. Rounds 1–3 predate the convention and are
+  grandfathered by number in a list a test pins to exactly `{1, 2, 3}`, because "add the round
+  to the exemption list" would otherwise be a one-line way to close an open round.
+  - The marker is anchored to the start of a line on purpose. Round 7's own second paragraph
+    says *"not a closing GO"*, and a matcher scanning anywhere in the text would have read
+    that file as a GO — closing the round off a sentence saying the opposite.
+  - This is the sibling of the round-6 finding in the same script, one function over: that fix
+    went into `--check` and this defect was in `--status`. Fixing a detector where you found
+    it leaves the flaw everywhere else in the file.
+- **The argv-surface agreement test hard-failed when an inbound handshake round shipped no
+  provider contract.** Round 7's file has no §I at all — genuinely absent, not relettered —
+  and the test read the newest round unconditionally, so it found zero published flags and
+  failed as though *our* argv had drifted. It now walks back to the newest round carrying at
+  least 30 published flags and names which round it measured against, so a round that omits
+  the table degrades to "checked against the last real one" rather than a false accusation.
+  A missing contract is the fork's problem to fix; misattributing it to our argv is ours.
+
 ### Fixed
 - **`MM:SS.FF` durations were read as hundredths, or not at all.** cyanrip prints two
   duration shapes and the fraction means different things in each: `HH:MM:SS.mmm` is
@@ -47,6 +79,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     full-length disc, where we had guessed it would switch to `HH:MM:SS.mmm`.
 
 ### Changed
+- **The pin a handshake round is *reviewing* is now recorded separately from the pin we
+  build.** `deps/fork_source.py` gained `NEXT_PIN_UNDER_REVIEW` / `NEXT_VERSION_UNDER_REVIEW`,
+  which name the fork commit an open round proposes without installing it. `FORK_PIN` stays
+  at the last commit a **closed** round verified (`2f950c8`); round 7 proposes `d5d12ec` and
+  it is deliberately not built. Written after the pin was moved to a round-7 commit here and
+  the release-gate test caught it — the deviation policy forbids switching pins while a round
+  is open, and until now there was nowhere to put the proposal except the pin itself.
+- **The fork's expected version banner is single-sourced.** `FORK_EXPECTED_VERSION` /
+  `FORK_EXPECTED_BANNER` in `deps/fork_source.py` are what the tests' stand-in ripper now
+  prints, instead of three test files carrying their own copy of the version string. A
+  stand-in that disagrees with the product about what the fork announces is a fixture testing
+  itself.
 - **The docs are consolidated: 79 markdown files → 64.** Content is preserved verbatim —
   each merged part is the original file, whole, with its headings demoted one level and a
   provenance table recording where it came from.

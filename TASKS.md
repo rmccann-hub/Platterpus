@@ -550,10 +550,15 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-03, OPEN — awaiting their return)
+### P1 — Open from cyanrip handshake round 7 (2026-08-03, OPEN — lap 1 replied)
 
-`docs/handshake/outbound/round-7.md` is sent. **No release and no pin switch while this
-round is open** (CLAUDE.md deviation policy). What we owe, and what waits on their answers:
+`docs/handshake/outbound/round-7.md` was sent; their return landed as
+`docs/handshake/inbound/round-7.md`; our first reply is
+`docs/handshake/verified/round-7.md` — **a mid-round lap, deliberately not a closing GO**
+(their §15 asked us to hold and expect more than one lap). **No release and no pin switch
+while this round is open** (CLAUDE.md deviation policy). The pin stays `2f950c8`; their
+`d5d12ec` is recorded as `NEXT_PIN_UNDER_REVIEW` in `deps/fork_source.py` and is *not*
+installed. What we owe, and what waits on their answers:
 
 - **[ ] The addendum must record re-read *attempts*, not only successful swaps.** Round 7
       §2c: our whole-disc log says track 3 `Secure re-read: not attempted` (true of pass 1)
@@ -562,13 +567,26 @@ round is open** (CLAUDE.md deviation policy). What we owe, and what waits on the
       outright. Captured and not surfaced — our own rule. **Blocked on Q8:** whether their
       `-Z N -l <tracks>` invocation writes its own logfile we can cite instead of
       paraphrasing.
-- **[ ] Send the A7/G2 forced-error corpus.** Hardware-gated and deliberately not
+- **[ ] Send the A7/G2/H12 forced-error corpus.** Hardware-gated and deliberately not
       hand-assembled: a corpus built from my reading of their control flow is a fixture
       carrying my assumptions about their control flow. Needs a disc and a drive to
       misconfigure on purpose.
-- **[ ] Re-run the argv-surface agreement test against their round-7 contract** the moment
-      it lands. Mechanical, and it is the check that would have caught the `-V` blocker a
-      round earlier.
+- **[ ] H9 — a second gate-1 disc.** One disc verified their pre-gap emission exactly
+      (13 sub-channel entries, 1 lead-in, zeros on tracks 3/6/11/12, 9 `Gaps:` rows). One
+      disc is an existence proof, not a range: a disc with a *non-zero* pre-gap on a
+      non-first track is the case that could still fail. Hardware-gated.
+- **[ ] H10 — send the `-x` force-overread log line.** We ship the toggle; we have never
+      captured the line it produces on a drive that accepts the command. Hardware-gated on
+      the BDR-209D.
+- **[ ] Re-run the argv-surface agreement test against their round-7 contract** once their
+      §I lands. Their round-7 file has **no §I provider-contract section** (genuinely
+      absent, not relettered), so `tests/test_argv_surface_agreement.py` walks back to the
+      newest round carrying ≥ 30 published flags. Mechanical, and it is the check that
+      would have caught the `-V` blocker a round earlier.
+- **[ ] T14 — propose and land a multi-pass rip end-to-end test.** Offered to them in our
+      §9: the dynamic secure-rerip is the path that produced both of this lap's real bugs
+      (argv agreement, `failure_hint`) and it has no single test that walks pass 1 → miss
+      → pass 2 → merged report. Ours to write; named here so it is not lost with the round.
 
 ### P1 — Open from cyanrip handshake round 6 (2026-08-03, closed on pin `2f950c8`)
 

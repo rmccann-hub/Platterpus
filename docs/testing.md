@@ -1099,6 +1099,57 @@ complete file — correctly, because 300 characters of filler under a §G headin
 not a revert-proof section. **A fixture that pads with filler teaches the product
 that filler counts.** It now pads with each section's own subject.
 
+### §5.ae — A gate that reads presence instead of decision
+
+*Handshake round 7, 2026-08-03. The same file as §5.ad, one round later, and the
+reason this gets its own section rather than a line in that one: the fix to §5.ad
+was applied to `--check`, and this defect was in `--status`. **The lesson had been
+learned in the function next door.***
+
+`round_status` reported a round CLOSED when three files existed —
+`outbound/round-N.md`, `inbound/round-N.md`, `verified/round-N.md` — and
+`--release-gate` is a thin wrapper over it. Round 7's verification file exists and
+declares **`**HOLD on d5d12ec`**: a deliberate mid-round lap, at the fork's own
+request. `--status` reported:
+
+```
+round-7: sent=yes returned=yes verified=yes  -> CLOSED
+handshake: every round is closed — release allowed
+```
+
+Every word of that is derived correctly from what it measured. It measured the
+wrong thing. **A release would have been permitted with the round open**, which is
+the one thing the deviation policy names explicitly.
+
+Three properties the fix needed, each of which is its own way to get this wrong
+again:
+
+1. **Read the decision, not the artifact.** `state = CLOSED` now requires
+   `verdict == "GO"`.
+2. **Fail closed on silence.** A verification with no verdict is not a close. The
+   tempting shortcut — *treat a missing verdict as GO so the old rounds still
+   pass* — reintroduces the whole defect through the fallback. Rounds 1–3 are
+   grandfathered **by number**, in a `RETROSPECTIVE_ROUNDS` frozenset a test pins
+   to exactly `{1, 2, 3}`, because otherwise "add the round to the exemption list"
+   is a one-line close.
+3. **Prose about a verdict is not a verdict.** Round 7's opening paragraph says
+   *"not a closing GO"*. A matcher scanning anywhere in the text for `GO` reads
+   that file as GO — closing the round off a sentence that says the opposite,
+   which is §5.ad's §I failure arriving through a different door. The marker is
+   anchored to a line start, and `**GONE**` / `**HOLDINGS**` are asserted not to
+   match.
+
+**The rule: when a gate's input is a document that states a decision, the gate
+must read the decision.** File presence answers *"did someone do the step"*;
+only the content answers *"and what did they conclude"*. The two diverge exactly
+when the answer is "not yet" — the case the gate exists for.
+
+And the meta-lesson, which is why §5.ad and §5.ae are adjacent: **fixing a
+detector's flaw at the call site where you found it leaves the flaw everywhere
+else in the same file.** This is CLAUDE.md rule 9's *"enforce a rule across the
+codebase, not at the place it was learned"* at the smallest possible scale — two
+functions, one module, one round apart.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
