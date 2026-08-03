@@ -327,9 +327,21 @@ _FILES_HEADER = re.compile(r"^\s+File\(s\):\s*$")
 _REPLAYGAIN = re.compile(
     r"^\s+(?P<key>REPLAYGAIN_[A-Z_]+|R128_TRACK_GAIN):\s+(?P<val>.+?)\s*$"
 )
-# "Album Loudness Summary:" block header (comes after the last track), then
-# indented loudness lines shared with the per-track summaries.
-_ALBUM_LOUDNESS_HEADER = re.compile(r"^Album Loudness Summary:\s*$")
+# The album loudness block header (comes after the last track), then indented
+# loudness lines shared with the per-track summaries.
+#
+# **Anchored on cyanrip's words only.** The full line reads
+# `Album Loudness Summary:`, but only `Album Loudness` is cyanrip's — their P2
+# lists exactly that, from `cyanrip_encode.c:757`; the ` Summary:` tail comes from
+# FFmpeg's `ebur128` filter, which their P3 explicitly marks as libavfilter's
+# wording that "moves when FFmpeg does". Requiring the tail meant one upstream
+# rewording would have emptied `album_loudness` entirely and silently — the whole
+# block, not one field. Found by diffing their round-5 P3 against our patterns
+# (handshake round 5 §4d's sibling finding).
+#
+# `\b` rather than `$`: the header must still match with the FFmpeg tail present,
+# which is every log we have.
+_ALBUM_LOUDNESS_HEADER = re.compile(r"^Album Loudness\b")
 _LOUDNESS_I = re.compile(r"^\s+I:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LUFS")
 _LOUDNESS_LRA = re.compile(r"^\s+LRA:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LU")
 # Bounded like every pattern in the fork block: this one feeds the SAMPLE-peak
