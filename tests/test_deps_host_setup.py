@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from platterpus.deps import fork_source
 from platterpus.deps.host_setup import (
     CYANRIP_COPR_REPO_CONTENT,
     CYANRIP_COPR_REPO_PATH,
@@ -58,6 +59,20 @@ def _setup(tmp_path: Path, runner: _FakeRunner) -> HostSetup:
     )
 
 
+def _fork_installed(runner: _FakeRunner, cyanrip_path: Path) -> None:
+    """Make the host-exported cyanrip answer `-V` with the pinned fork banner.
+
+    The wizard's fork step asks the binary Platterpus will actually run, so a
+    fake that only creates a file still reports the step as not-done. Built from
+    the real constants so bumping the pin cannot leave this fixture claiming a
+    build the code no longer accepts.
+    """
+    runner.results[(str(cyanrip_path), "-V")] = (
+        0,
+        f"cyanrip 0.9.4-rc1 ({fork_source.FORK_EXPECTED_BUILD_TAG})\n",
+    )
+
+
 def _container_ready(runner: _FakeRunner) -> None:
     """Mark distrobox/podman/container/flac/cyanrip-in-container as present."""
     runner.present = {"distrobox", "podman"}
@@ -89,6 +104,7 @@ def test_fresh_system_runs_all_steps(tmp_path: Path) -> None:
         "tools",
         "cyanrip",
         "export",
+        "cyanrip_fork",
         "cache_tool",
     ]
     assert all(r.status is StepStatus.RAN for r in results)
@@ -104,6 +120,20 @@ def test_fresh_system_runs_all_steps(tmp_path: Path) -> None:
     # provides, so dnf resolves the package) and exports it (KDD-29).
     assert any("sudo dnf install -y /usr/bin/cd-paranoia" in c for c in flat)
     assert any("distrobox-export --bin /usr/bin/cd-paranoia" in c for c in flat)
+    # And the fork is built + installed + re-exported, AFTER the stock export,
+    # so ~/.local/bin/cyanrip ends up pointing at the fork rather than the COPR
+    # package (whichever export runs last wins).
+    assert any("ninja -C" in c for c in flat)
+    assert any("/usr/local/bin/cyanrip" in c for c in flat)
+    stock_export = next(
+        i for i, c in enumerate(flat) if "distrobox-export --bin /usr/bin/cyanrip" in c
+    )
+    fork_export = next(
+        i
+        for i, c in enumerate(flat)
+        if "distrobox-export --bin /usr/local/bin/cyanrip" in c
+    )
+    assert fork_export > stock_export
 
 
 def test_host_root_installs_use_pkexec_not_sudo(tmp_path: Path) -> None:
@@ -162,6 +192,7 @@ def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> Non
     no ping, and RUNNING never lands in the returned results."""
     runner = _FakeRunner()
     _container_ready(runner)
+    _fork_installed(runner, tmp_path / "cyanrip")
     runner.paths = {
         tmp_path / "cyanrip",
         tmp_path / "flac",
@@ -172,7 +203,7 @@ def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> Non
 
     running = [r for r in emitted if r.status is StepStatus.RUNNING]
     assert running, "expected a 'checking' ping before the slow container probe"
-    assert all(r.step_id in {"tools", "cyanrip"} for r in running)
+    assert all(r.step_id in {"tools", "cyanrip", "cyanrip_fork"} for r in running)
     assert all("checking" in r.detail for r in running)
     # RUNNING is transient — never recorded in the final results.
     assert all(r.status is not StepStatus.RUNNING for r in results)
@@ -185,6 +216,7 @@ def test_checking_ping_precedes_slow_probe_even_when_done(tmp_path: Path) -> Non
 def test_fully_set_up_system_is_all_done(tmp_path: Path) -> None:
     runner = _FakeRunner()
     _container_ready(runner)
+    _fork_installed(runner, tmp_path / "cyanrip")
     runner.paths = {
         tmp_path / "cyanrip",
         tmp_path / "flac",
@@ -193,7 +225,9 @@ def test_fully_set_up_system_is_all_done(tmp_path: Path) -> None:
 
     results = _setup(tmp_path, runner).run()
 
-    assert all(r.status is StepStatus.DONE for r in results)
+    assert all(r.status is StepStatus.DONE for r in results), [
+        (r.step_id, r.status.value) for r in results
+    ]
     # No mutating commands — only the read-only probes (list / command -v).
     flat = [" ".join(c) for c in runner.calls]
     assert not any("install" in c or "create" in c or "export" in c for c in flat)
@@ -327,6 +361,7 @@ def test_cyanrip_step_ordered_between_tools_and_export(tmp_path: Path) -> None:
         "tools",
         "cyanrip",
         "export",
+        "cyanrip_fork",  # build + install + re-export the pinned fork
         "cache_tool",  # optional cache probe, deliberately last (KDD-29)
     )
 
@@ -422,3 +457,86 @@ def test_install_argv_picks_package_manager(tmp_path: Path) -> None:
     unknown = osr("ID=plan9\n")
     assert install_argv("distrobox", unknown)[0] == "sh"
     assert install_argv("podman", unknown) == []
+
+
+# --- The fork step: is the RIGHT cyanrip on the ripping path? ----------------
+#
+# The wizard now installs the pinned Platterpus fork over the COPR package and
+# re-points the host export at it. Its "already done?" probe has to ask the
+# binary Platterpus will actually run — a maintainer hit the state where every
+# artefact of a fork install was present and `~/.local/bin/cyanrip` still wrapped
+# the COPR build, so stock cyanrip did the ripping while nothing said so.
+
+
+def _fork_probe(tmp_path: Path, banner: str, rc: int = 0) -> bool:
+    runner = _FakeRunner()
+    runner.paths = {tmp_path / "cyanrip"}
+    runner.results[(str(tmp_path / "cyanrip"), "-V")] = (rc, banner)
+    return _setup(tmp_path, runner).fork_installed()
+
+
+def test_the_pinned_fork_banner_marks_the_step_done(tmp_path: Path) -> None:
+    assert (
+        _fork_probe(
+            tmp_path, f"cyanrip 0.9.4-rc1 ({fork_source.FORK_EXPECTED_BUILD_TAG})\n"
+        )
+        is True
+    )
+
+
+def test_a_stock_banner_does_not_mark_the_fork_step_done(tmp_path: Path) -> None:
+    assert _fork_probe(tmp_path, "cyanrip 0.9.3 (release)\n") is False
+
+
+def test_a_fork_build_from_a_DIFFERENT_pin_is_not_done(tmp_path: Path) -> None:
+    """Identifying as the fork is not enough. A build from an older commit is not
+    the binary the handshake verified, so re-running the wizard must rebuild it
+    rather than report the step satisfied."""
+    assert (
+        _fork_probe(tmp_path, "cyanrip 0.9.4-rc1 (platterpus-fork-gdeadbee)\n") is False
+    )
+
+
+def test_an_unrecognised_banner_is_not_done(tmp_path: Path) -> None:
+    assert _fork_probe(tmp_path, "cyanrip 0.9.4 (g1a2b3c4)\n") is False
+
+
+def test_a_nonzero_probe_exit_is_not_read_as_a_stock_build(tmp_path: Path) -> None:
+    """A failing `-V` usually means the container is down, not that upstream
+    cyanrip is installed. Report not-done (the step then runs and either fixes it
+    or fails with the real output) rather than inventing a verdict."""
+    assert (
+        _fork_probe(
+            tmp_path,
+            "Error: container not running",
+            rc=1,
+        )
+        is False
+    )
+
+
+def test_no_export_means_the_fork_step_is_not_done(tmp_path: Path) -> None:
+    runner = _FakeRunner()  # no paths → nothing exported
+    assert _setup(tmp_path, runner).fork_installed() is False
+
+
+def test_a_failed_fork_build_leaves_the_ripper_working(tmp_path: Path) -> None:
+    """The fork step is additive and runs AFTER the stock export, so a build that
+    fails (no network, a missing devel package, a compiler change) leaves a
+    working COPR cyanrip rather than no ripper at all. `is_ready()` therefore
+    gates on the export, not on the fork."""
+    runner = _FakeRunner()
+    _container_ready(runner)
+    runner.paths = {tmp_path / "cyanrip", tmp_path / "flac", tmp_path / "cd-paranoia"}
+    # Make every fork command fail.
+    for argv in fork_source.fork_build_commands("ripping"):
+        runner.results[tuple(argv)] = (1, "meson.build:1:0: ERROR: Dependency missing")
+
+    setup = _setup(tmp_path, runner)
+    results = setup.run()
+    by_id = {r.step_id: r for r in results}
+
+    assert by_id["cyanrip_fork"].status is StepStatus.FAILED
+    assert "ERROR" in by_id["cyanrip_fork"].detail or by_id["cyanrip_fork"].detail
+    assert by_id["export"].status is StepStatus.DONE  # the ripper is still there
+    assert setup.is_ready() is True

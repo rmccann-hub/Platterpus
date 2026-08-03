@@ -7717,3 +7717,102 @@ def test_the_track_list_stays_scrollable_while_a_rip_runs(
 
     window._set_rip_lock(False)
     assert window._track_table.isEnabled()
+
+
+# --- Dep summary: WHICH BUILD, not just which version -----------------------
+#
+# The regression these two pin was found by the maintainer reading this dialog.
+# It printed a bare "cyanrip 0.9.3" and a headline of "0 missing/needs-attention"
+# while the ripper was stock upstream, not the Platterpus fork. Both statements
+# were true; together they were misleading. The fork keeps upstream's version
+# string deliberately, so a version can never answer "is this my fork?".
+
+
+def _build_note_spec(dep_id: str, raw: str):
+    from platterpus.deps.build_notes import cyanrip_build_note
+    from platterpus.deps.checks import ProbeResult
+    from platterpus.deps.registry import DependencySpec, Tier
+
+    probe = ProbeResult(present=True, version=None, location=None, raw_output=raw)
+    return (
+        DependencySpec(
+            dep_id=dep_id,
+            display_name=dep_id,
+            probe=lambda: probe,
+            min_version=(0, 0, 0),
+            tier=Tier.MANUAL,
+            install_command=None,
+            search_string="x",
+            build_note=cyanrip_build_note,
+        ),
+        cyanrip_build_note(probe),
+    )
+
+
+def _capture_boxes(monkeypatch: pytest.MonkeyPatch) -> tuple[list[str], list[str]]:
+    info: list[str] = []
+    warn: list[str] = []
+    monkeypatch.setattr(
+        "platterpus.ui.main_window.QMessageBox.information",
+        lambda parent, title, text: info.append(text),
+    )
+    monkeypatch.setattr(
+        "platterpus.ui.main_window.QMessageBox.warning",
+        lambda parent, title, text: warn.append(text),
+    )
+    return info, warn
+
+
+def test_dep_summary_counts_a_wrong_build_as_needing_attention(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stock cyanrip is present, current, and the WRONG BINARY. It is counted
+    in the headline, described in its own block, and shown with a warning icon —
+    an information ⓘ reads as "all fine, here are the details"."""
+    from platterpus.deps.manager import DependencyReport
+
+    window = teardown_threads()
+    info, warn = _capture_boxes(monkeypatch)
+    spec, note = _build_note_spec("cyanrip", "cyanrip 0.9.3 (release)")
+    window._show_dep_summary(
+        DependencyReport(
+            ok=[spec],
+            ok_versions={"cyanrip": (0, 9, 3)},
+            build_notes={"cyanrip": note},
+        )
+    )
+
+    assert info == [], "a wrong build must not be shown with an information icon"
+    assert len(warn) == 1
+    text = warn[0]
+    assert "1 ok, 1 missing/needs-attention." in text
+    assert "Wrong build:" in text
+    assert "NOT the Platterpus fork" in text
+    assert "Set up Platterpus" in text  # and how to fix it
+
+
+def test_dep_summary_stays_informational_when_the_build_is_right(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of the control — without it the change above could be a
+    dialog that warns unconditionally. It still NAMES the build."""
+    from platterpus.deps.manager import DependencyReport
+
+    window = teardown_threads()
+    info, warn = _capture_boxes(monkeypatch)
+    spec, note = _build_note_spec(
+        "cyanrip", "cyanrip 0.9.4-rc1 (platterpus-fork-ga04a94b)"
+    )
+    window._show_dep_summary(
+        DependencyReport(
+            ok=[spec],
+            ok_versions={"cyanrip": (0, 9, 4)},
+            build_notes={"cyanrip": note},
+        )
+    )
+
+    assert warn == []
+    assert len(info) == 1
+    assert "1 ok, 0 missing/needs-attention." in info[0]
+    assert "Wrong build:" not in info[0]
+    assert "the Platterpus fork" in info[0]

@@ -278,6 +278,23 @@ The live, ordered work queue — what to pick up next. Difficulty: **S** = a foc
 5. **🟡 UX gap backlog remainder (S–M).** Gap #4 is ✅ complete (the keyboard-reachability sweep + focus-safe live announcements shipped 2026-07-21; only the live screen-reader confirmation rides queue item 3); gap #3 is hardware-gated (queue item 3 above). Canonical ranked table: [docs/ux-design-principles.md](docs/ux-design-principles.md); tracking checklist: history item 15 below.
 6. **⛔ CTDB repair (Phase 2) — parked by decision (L; "D → B", maintainer 2026-07-21).** The everyday "beyond EAC" differentiator; its CRC gate cleared 2026-07-07 (KDD-16). **Shipping decided:** *not now* — the documented manual power-user workflow ([docs/manual-ctdb-repair.md](docs/manual-ctdb-repair.md)) covers the rare recovery case (D); wire `ctdb-cli` as an **optional user-installed tool** via the dependency subsystem (Picard model, B) only when a real user actually hits an uncorrectable-error rip CTDB could repair. Bundling a .NET runtime into the AppImage (A) is off the table; a pure-Python parity port (C) stays rejected. So this is no longer "maintainer-gated" — it's demand-gated. See KDD-14 and [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md) Part B.
 
+8. **[x] ✅ The fork is installed by the app, and "which build" is visible — DONE 2026-08-03 (v0.6.3, KDD-33).** The container switch to the fork was a manual step in a test plan, and it never ran: **every rip through v0.6.2 used the stock COPR `cyanrip 0.9.3`**, including the AccurateRip-verified hardware runs. The maintainer found out by reading the dependency dialog. Fixed at both ends — the setup wizard now builds/installs/**verifies** the pinned fork (`deps/fork_source.py`, `cyanrip_fork` step, additive so a failed build leaves a working ripper), and the dependency check names the build next to the version because the fork keeps upstream's version string on purpose. See KDD-33.
+
+10. **[x] ✅ Two contract-verification gaps closed — DONE 2026-08-03 (v0.6.3).** Both were ours and both were invisible to a green suite. (a) **The input half of the seam was never checked.** We diffed the fork's published log lines against our parser and never their published *flag table* against our argv — and that table had said `-v`/`--version` with no `-V` row for a full round, while all four of our version probes sent `-V`. A rejected version flag exits non-zero, which every probe here reads as "the tool is absent", so installing the fork would have reported the ripper **missing** right after the wizard built it. `tests/test_argv_surface_agreement.py` now does the diff mechanically and fails against round 4's own table with the old flag set. (b) **Our fatal-message fixture inherited the fork's filter.** Their generator ran candidates through a 21-word prefix allowlist; their control-flow re-derivation took the inventory 88 → 104, and our pattern missed all 13 matchable strings it had hidden — two of them ordinary hardware failures reaching the user as a bare "Rip failed." The matcher is now compiled from their published `printf` formats. See `docs/testing.md` §5.ab.
+
+11. **⬜ Round-5 follow-ups the verification surfaced (S–M each, not blocking the round).** Ranked:
+   - **HIGH — `Cache defeat:` is captured and discarded.** The fork now prints it; our parser drops it, so the EAC-style log renders `Defeat audio cache : (unknown)` for a fact stated on the line above. A diagnostic-completeness violation in the archival artifact.
+   - **HIGH — keep BOTH golden references.** The round-5 log *narrows* coverage vs the round-4 one already committed: no `-Z` secure-read path (so the F1 `Done;`-misattribution class stops being exercised), no over-full-scale `REPLAYGAIN_TRACK_PEAK` > 1.0 (the case the whole sample-peak trap comment exists for), and no custom `-D/-F/-L/-M/-P`. Commit round 5 as a *second* fixture, and ask them to generate future references with `-Z` and a clipping track.
+   - **MEDIUM — `Encoder:` and `CD-TEXT:` fall through unrecognised.** `Encoder:` names which libavformat/libavcodec actually encoded the archival FLAC, which is squarely under the say-which-build-produced-an-artifact rule.
+   - **MEDIUM — per-track paranoia counters: we asked for W1, they built it, we read none of it.** `TrackResult` has no field. Either graduate it or record the decision.
+   - **MEDIUM — `Total time:` / `Duration:` are `MM:SS.FF` in CD frames.** `rip_timing.parse_hms_to_seconds` requires `HH:MM:SS`, so it returns `None` for every fork value and `_enrich_timing_with_disc_duration` is a silent no-op on every fork log. No wrong number is produced; the fact is dropped.
+   - **LOW — the status report says "3 track(s) could not be verified as accurate" on a disc where AccurateRip was never queried**, while the per-track rows correctly say "Not checked against the AccurateRip database". The summary is less honest than the rows it summarises.
+   - **LOW — `True peak level:` has no field** and falls through silently.
+   - **HIGH — the auto-fix addendum invalidates cyanrip's own log checksum, and the naive fix is worse.** We append the supersession block to the ripper's `.log`, after its `Log FUN512:` line; cyanrip has a dedicated `CRIP_LOG_TRAILING_DATA` state, so `cyanrip -Y` reports the file as modified and exits 1 (fork round 5 Q5, measured). But simply moving it to a sidecar **regresses bug #19**: `parse_cyanrip_log` reads `shipped_crcs` *from that appended text* and its own comment calls it "the only statement in the file about which bytes actually shipped", so the EAC-style log would go back to printing the **discarded** first-pass CRC. Attempted and reverted rather than shipped half-done. The real fix is to apply the supersession structurally from the worker's `retried_tracks` (which already reaches the report) *before* rendering, keep the parser's addendum rule for legacy logs, and only then write the sidecar. Needs the whole chain re-verified end to end.
+   - **MEDIUM — the album-loudness block is gated on FFmpeg's wording.** `cyanrip_log.py` keys on `^Album Loudness Summary:$`; the fork's stable string is `Album Loudness` (their P2, `cyanrip_encode.c:757`). One FFmpeg rewording empties `album_loudness` entirely — measured. Same class: `I:` / `LRA:` have **no** stable provider source at all, so if we keep them the report must say the source is libavfilter and unpinned rather than silently nulling the key.
+
+9. **⬜ Handshake round 5 — OPEN, and it blocks the v0.6.3 release (S, awaiting the fork).** Sent: `docs/handshake/outbound/round-5.md`. Opened because our argv surface changed (`-c disc/totaldiscs`) and because reading the fork's source at the pin found **two fatal strings absent from its own generated 88-string inventory** (`discnumber %i is larger than totaldiscs %i`, `Cover art already specified for track idx %i!`) — both from calls whose format string sits on a *continuation line*, a systematic blind spot in their generator; a sweep of their `src/` finds exactly those two, so the inventory is 88 → 90. Our surfacing is 90/90. **Waiting on:** their §A–§J return file, then our verification file, then the release. The gate is now enforced where it belongs — `release.yml` runs `scripts/handshake.py --release-gate` before the build (see `docs/testing.md` §5.aa for why the old enforcement was in the wrong place).
+
 7. **[x] ✅ Test-suite Qt teardown — RESOLVED 2026-07-28 (was 🔴).** The suite leaked Qt objects and any cyclic collection could crash the process: measured **5 SIGSEGVs in 5 runs on unmodified `main`**, and 3 in 3 with a detector present. Root cause was three things compounding — `deleteLater()` never executes in a suite with no event loop, post-rip work runs on daemon threads, and a cyclic collection can begin on *any* thread, so whichever thread was inside the collector when the GUI thread destroyed a widget was the one that died (hence tracebacks in unrelated files). **Fixed** by pausing the cyclic collector for the duration of each test and collecting at one deterministic point on the main thread *after* every worker is joined; `stop_window_threads` now covers all seven QThread slots and all nine daemon slots; a new `threading.Thread` backstop mirrors the QThread one; and one test that undid its monkeypatches while its worker still ran (leaking a 120-second `compute_digests`) was corrected. **Verified at the root:** `tests/test_qt_teardown_fitness.py` forces a full collection every run and asserts no worker survived — **0 crashes in 10 randomized runs and 0 in 8 under `--cov`**. Full write-up, measurement table, and the two plausible-but-worse fixes that were tried and rejected: `docs/testing.md` §5.w.
 
 ### 2026-06-09 plan — ranked history (numbering preserved; cited elsewhere as "current-plan item N")
@@ -533,6 +550,64 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
+### P1 — Open from cyanrip handshake round 6 (2026-08-03, closed on pin `2f950c8`)
+
+Each item is either queued with the reason it is queued, or hardware-gated. Nothing
+here blocks the v0.6.3 release; round 6 is CLOSED both directions.
+
+- **[ ] Send the forced-error corpus (their G2 — the highest-value artifact we owe them).**
+      Their fatal inventory is 115 strings, of which 83 are control-flow-proven and the
+      rest rest on the wording of the message or on a `goto` label whose fatality neither
+      side can settle from source. A run that *forces* each state and records the string,
+      its exit code and the exact argv settles them empirically. **Hardware-gated, and
+      deliberately not fabricated:** `Offset is unset!`, `Device does not support changing
+      speeds!` and the `goto end` family need real device states on the BDR-209D, and a
+      hand-built corpus would be a fixture carrying my assumptions about their control
+      flow — the §4d failure again (`docs/testing.md` §5.ac).
+- **[ ] Parse `Encoder:` and `CD-TEXT:` into the report schema, then off the ignore list.**
+      Both are real archival facts the fork added for us, both currently on
+      `_IGNORED_DISC_LINES` with a recorded reason. Queued rather than half-landed because
+      a regex with no rendered home is dead code that reads as coverage. `Encoder:` is
+      encoder provenance (which ffmpeg built the files); `CD-TEXT:` is tri-state
+      (present / absent / unreadable-by-this-driver) and closes an EAC parity row. The
+      fork's method for `Encoder:` — assert it against `ffprobe` output rather than
+      against the line itself — is the one to copy. Note the populated disc-level form is
+      richer than our golden reference shows (`present (English, 5 disc fields, 2 of 2
+      tracks tagged)`), and there is now a per-track indented `CD-TEXT:` block too.
+- **[ ] Surface `Cache model:` as a *modelled* figure, distinct from our measured verdict.**
+      Deliberately NOT wired to `defeat_audio_cache` (KDD-25/29 — see the recorded reason
+      on the ignore-list entry). If shown at all it needs its own row, labelled as
+      paranoia's model with the drive unprobed.
+- **[ ] Consume the progress line's `, errors - %i` segment.** Their P2a declares it and
+      we ignore it, so we learn the error count only from the finished log. Surfacing it
+      would let rip-progress say "reading, 3 errors so far" instead of looking healthy
+      until the end. Note it resets per `-Z` pass, like the paranoia counters.
+- **[ ] Migrate `I:` / `LRA:` off libavfilter's wording onto the fork's `(R128)` rows.**
+      Their A5 delivery: `Integrated loudness (R128):` and `Loudness range (R128):` are
+      fork-owned and stable, where the unqualified headings we currently read are
+      libavfilter's and move when FFmpeg does. **The `(R128)` qualifier is required** —
+      libavfilter prints the unqualified spellings in the same track block, so an
+      unqualified pattern matches two different lines. Needs report-schema fields first,
+      same reason as `Encoder:`.
+- **[ ] `Total time:` / `Duration:` MM:SS.FF → seconds.** `parse_hms_to_seconds` silently
+      no-ops on the `MM:SS.FF` shape, and FF is CD frames (1/75 s, 0–74), so reading `.26`
+      as hundredths is wrong by up to 0.98 s. Verified from their `src/utils.h:65-74`.
+      Discriminate on colon count, per their P1 units block.
+- **[ ] Consider a second per-track paranoia field for the non-converged passes.** The
+      per-track counters report the *final* `-Z` pass only, which hides the evidence of
+      difficulty that made `-Z` re-read in the first place. Raised with them as a design
+      question, not a defect; our side would need a field either way.
+- **[ ] The cancelled-rip log addendum, properly.** Their J2 is right that appending after
+      `Log FUN512:` breaks `cyanrip -Y`, and the naive sidecar regresses bug #19 (the
+      shipped-CRC statement lives in that text). Needs the real fix, not the sidecar.
+- **[ ] Answer J7 (tag casing).** The maintainer's ruling, still open. Recommendation: state
+      the convention explicitly in the contract rather than leave it implied.
+- **[ ] Reinstate `--dirty` in the fork's build tag (round 7).** Previously "agreed, not
+      asking"; round 6 delivered two consecutive golden references whose banners named
+      commits three behind the pin, so the mechanism demonstrably fires. Ours is not
+      exposed — the wizard detaches onto the pin in a tree it wipes — but the artifacts we
+      *receive* are.
+
 ### P1 — Open findings from the 2026-07-29 audits (three parallel read-only passes)
 
 Recorded with the mechanism and a concrete failure scenario each, severity-ordered.
@@ -741,4 +816,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.2.*
+*Last updated for Platterpus v0.6.3.*

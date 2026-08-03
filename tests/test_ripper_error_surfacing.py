@@ -23,6 +23,7 @@ Those are not comparable, so the pattern is broad on purpose.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -147,7 +148,34 @@ def test_the_widening_actually_widened() -> None:
     )
 
 
-# --- the fork's OWN generated inventory, all 88 --------------------------------
+# --- the fork's OWN inventory: 88 -> 104 -> 115, and why each step mattered ----
+#
+# This section used to read "all 88" and it was green, and it was measuring the
+# wrong thing.
+#
+# The 88 came from the fork's contract generator filtered through its own
+# hand-maintained 21-word `FATAL_PREFIXES` allowlist. Round 5 replaced that with a
+# **control-flow** derivation — a message is listed because the call is followed by
+# `return 1` / a non-zero `exit()` / `return AVERROR(...)` / `total_error_count++` /
+# `goto fail` / `goto end` — and the inventory became **104**. Round 6 then took it
+# to **115**, because the 104 still rested on a hand-maintained list of `goto`
+# LABELS: it missed `goto end_meta`, `err = 1` feeding a later `+= err`, and bare
+# `return -1`. Labels are now discovered from source. Re-derived independently on
+# our side at each pin as it arrived: 104, then 115, strict supersets, nothing
+# lost. The word allowlist had been hiding 16; the label list another 11.
+#
+# We had imported the 88 into a fixture and asserted "we surface everything the
+# ripper can say" against it. Our own pattern missed **all 13** matchable strings
+# the allowlist had hidden, two of them ordinary hardware failures —
+# `Offset is unset! ...` and `Device does not support changing speeds!` — each
+# rendering to the user as a bare "Rip failed."
+#
+# The test was green because the FIXTURE INHERITED THEIR FILTER'S BLIND SPOT. It
+# described their allowlist, not the ripper's behaviour. That is CLAUDE.md's
+# verify-the-behaviour-not-the-description rule biting one level below where it
+# was written, and it is why the inventory now lives in
+# `platterpus.ripper_message_inventory` with the provider's evidence column
+# preserved, and why the matcher is built FROM it rather than from prefixes.
 
 
 _INVENTORY = Path(__file__).parent / "fixtures" / "cyanrip_fatal_messages.tsv"
@@ -171,14 +199,122 @@ def _inventory() -> list[tuple[str, str]]:
 
 
 def test_every_string_the_ripper_can_print_is_surfaced() -> None:
-    """All 88. The fork predicted 87/88 and named the miss; we re-measured
-    rather than taking their word, got the same one, and closed it."""
+    """All 115, from the control-flow-derived inventory rather than the
+    prefix-filtered 88 — see the section comment for why that distinction is the
+    whole point of this test."""
+    from platterpus.ripper_message_inventory import MESSAGES
+
     rows = _inventory()
-    assert len(rows) >= 80, f"inventory collapsed to {len(rows)} strings"
-    missed = [(w, m) for w, m in rows if not _RIPPER_ERROR_RE.match(m)]
+    # Floor raised deliberately: 80 was satisfiable by the old 88, which is how
+    # this test stayed green while missing 13 real strings.
+    assert len(rows) >= 100, f"inventory collapsed to {len(rows)} strings"
+    assert len(rows) == len(MESSAGES), (
+        f"the committed fixture ({len(rows)}) and the in-code inventory "
+        f"({len(MESSAGES)}) disagree — they are two expressions of one contract "
+        f"and a difference is the bug report"
+    )
+    # One format is excluded, named, and justified — never silently skipped.
+    # `cyanrip_main.c:1910` is a bare `%s`: a pattern built from it would match
+    # EVERY line of output, so every progress redraw would be reported as a fatal
+    # error. Refusing it is correct, and saying so here is the difference between
+    # "we cannot pattern this" and "this does not exist".
+    from platterpus.workers.rip_worker import _UNMATCHABLE_RIPPER_FORMATS
+
+    assert _UNMATCHABLE_RIPPER_FORMATS == ["%s"], (
+        f"the set of unpatternable formats changed to "
+        f"{_UNMATCHABLE_RIPPER_FORMATS} — each one is a message the user can only "
+        f"receive as a bare 'Rip failed', so a new entry needs a decision, not a "
+        f"passing test"
+    )
+    # Two exclusions, both named and both asserted elsewhere in this file: the
+    # unpatternable bare `%s`, and the `-Z` convergence SUCCESS message that
+    # round 6's label discovery swept into P5 (see
+    # `test_the_convergence_success_message_is_never_a_failure_hint`). Everything
+    # else in the inventory must reach the user.
+    from platterpus.ripper_message_inventory import SURFACING_EXCLUDED
+
+    excluded = set(_UNMATCHABLE_RIPPER_FORMATS) | {t for t, _ in SURFACING_EXCLUDED}
+    missed = [
+        (w, m)
+        for w, m in rows
+        if m not in excluded and not _RIPPER_ERROR_RE.match(_sample(m))
+    ]
     assert not missed, "would render as a bare 'Rip failed': " + "; ".join(
         f"{w} {m}" for w, m in missed
     )
+    # Floor: the exclusions must not be doing the work.
+    assert len(rows) - len(excluded) >= 110
+
+
+def test_the_strings_the_prefix_allowlist_had_hidden_are_covered() -> None:
+    """THE REGRESSION, named string by string.
+
+    These are the messages the fork's `FATAL_PREFIXES` allowlist filtered out of
+    the 88, which our pattern therefore never had to match. Two are failures a
+    user will actually hit on real hardware. Listed explicitly rather than left
+    to the bulk sweep above, so a future narrowing of the matcher names which
+    one it broke.
+    """
+    hidden = [
+        "AccuRIP DB data error, got unexpected number of bytes!",
+        "CDIO returned invalid track 3 end LSN",
+        "Codec not found (not compiled in lavc?)!",
+        'Cover art "front.jpg" already specified!',
+        "Device does not support changing speeds!",
+        "Directory name scheme must contain {format} with multiple output formats!",
+        'Duplicated format "flac"',
+        "Duplicated rip idx 3",
+        "Force quitting",
+        "Got empty medium list.",
+        "Offset is unset! To continue with an offset of 0, run with -s 0!",
+        "Too many cover arts specified!",
+        'cdio: "some libcdio message"',
+    ]
+    missed = [m for m in hidden if not _RIPPER_ERROR_RE.match(m)]
+    assert not missed, "still a bare 'Rip failed': " + "; ".join(missed)
+
+
+def test_ordinary_output_is_not_mistaken_for_a_diagnostic() -> None:
+    """The other half of the control. Broadening the matcher to 104 published
+    formats must not turn normal progress output into a fatal-error report —
+    which is exactly what a bare `%s` pattern would have done, and why the
+    builder refuses formats with too little literal text.
+    """
+    benign = [
+        "Ripping and encoding track 3, progress - 42%, ETA - 00:01:23",
+        "Track 3 ripped and encoded successfully!",
+        "  EAC CRC32:     B0D122E7",
+        "Disc tracks:    14",
+        "Ripping errors: 0",
+        "Rip completed:  yes (14 of 14 tracks)",
+        "    title:                         Roxanne",
+        "Total time:     00:59:42.354",
+        "Done; (1 out of 1 matches for current checksum B0D122E7)",
+        "AccurateRip:    found",
+        "Tracks:",
+    ]
+    assert len(benign) >= 8  # floor: a control with no cases proves nothing
+    wrong = [b for b in benign if _RIPPER_ERROR_RE.match(b)]
+    assert not wrong, "ordinary output read as a ripper error: " + "; ".join(wrong)
+
+
+def _sample(fmt: str) -> str:
+    """Substitute a plausible value for each printf conversion.
+
+    The inventory stores cyanrip's *format strings*; what arrives on stdout has
+    the conversions filled in. Matching the raw format would test the wrong
+    string — a `%i` never appears in real output.
+    """
+    text = fmt.replace("\\n", "")
+    for pattern, replacement in (
+        (r"%[-+ #0-9.*]*(?:hh|h|ll|l|j|z|t|L)?[diu]", "7"),
+        (r"%[-+ #0-9.*]*(?:hh|h|ll|l|j|z|t|L)?[xX]", "1A2B"),
+        (r"%[-+ #0-9.*]*(?:hh|h|ll|l|j|z|t|L)?[eEfgGaA]", "1.5"),
+        (r"%[-+ #0-9.*]*[c]", "x"),
+        (r"%[-+ #0-9.*]*(?:hh|h|ll|l|j|z|t|L)?[sp]", "SOMEVALUE"),
+    ):
+        text = re.sub(pattern, replacement, text)
+    return text.strip()
 
 
 def test_the_hyphen_prefixed_string_is_the_one_that_needed_a_special_case() -> None:
@@ -205,3 +341,52 @@ def test_the_argument_parse_errors_are_covered() -> None:
         'Missing value for argument "--offset"',
     ):
         assert _RIPPER_ERROR_RE.match(message), message
+
+
+def test_the_convergence_success_message_is_never_a_failure_hint() -> None:
+    """THE ROUND-6 REGRESSION, and it came from a *good* change on their side.
+
+    The fork replaced its hand-maintained list of `goto` labels with one
+    discovered from source — right, and it took the inventory 104 -> 115. But one
+    discovered label, `goto finalize_ripping`, is the `-Z` convergence **success**
+    route, so `Done; (2 out of 2 matches for current checksum …)` — which means
+    the secure re-reads AGREED — arrived classified as reachable on a failure path.
+
+    Surfacing it would print a success sentence as the reason a rip failed, on
+    exactly the rips where our secure re-read worked. Their own P5 preamble names
+    the hazard: *"calling it fatal would file success lines as failures."*
+
+    The asymmetry is why the exclusion is per-string and not per-label.
+    """
+    from platterpus.ripper_message_inventory import SURFACING_EXCLUDED
+
+    success = "Done; (2 out of 2 matches for current checksum 2C926D69)"
+    failure = "Done; (no matches found, but hit repeat limit of 2)"
+
+    assert not _RIPPER_ERROR_RE.match(success), (
+        "the -Z convergence success message would be reported as the reason a rip "
+        "failed"
+    )
+    # ...and its sibling under the SAME label is a real problem statement and must
+    # still surface. One label, two opposite meanings.
+    assert _RIPPER_ERROR_RE.match(failure)
+
+    # The exclusion is named, reasoned, and cannot grow silently.
+    assert len(SURFACING_EXCLUDED) == 1, (
+        f"the surfacing exclusion list changed to {SURFACING_EXCLUDED} — each entry "
+        f"is a message the user will never be shown, so a new one is a decision"
+    )
+    text, reason = SURFACING_EXCLUDED[0]
+    assert text.startswith("Done; (%i out of %i")
+    assert "success" in reason.lower(), "an exclusion without a stated reason"
+
+
+def test_every_other_inventory_row_still_reaches_the_user() -> None:
+    """Floor on the exclusion: it must remove exactly one row, not act as a
+    catch-all that quietly shrinks coverage."""
+    from platterpus.ripper_message_inventory import ALL_FORMATS, MESSAGES
+
+    assert len(MESSAGES) - len(ALL_FORMATS) == 1
+    assert len(ALL_FORMATS) >= 110, (
+        f"surfacing coverage collapsed to {len(ALL_FORMATS)}"
+    )

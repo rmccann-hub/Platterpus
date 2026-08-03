@@ -24,6 +24,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from platterpus.deps.build_notes import BuildNote
 from platterpus.deps.registry import SPECS, DependencySpec
 from platterpus.deps.resolvers import InstallResult, MissingItem
 from platterpus.deps.version import meets_minimum
@@ -45,6 +46,11 @@ class DependencyReport:
       *where* each tool was found (`probe.location`), not only its version.
     - `install_results`: outcomes from any resolution attempts during
       this run (empty after a pure check that didn't try to resolve).
+    - `build_notes`: dep_id → which *build* of that tool is installed, for
+      the specs that can tell (today: cyanrip fork vs stock vs unknown). A
+      dep is absent from this map when its spec has no `build_note`, which
+      is the normal case — "no note" means "the version is the whole story",
+      never "the build is fine".
     """
 
     ok: list[DependencySpec] = field(default_factory=list)
@@ -52,6 +58,25 @@ class DependencyReport:
     ok_versions: dict[str, tuple[int, ...] | None] = field(default_factory=dict)
     ok_probes: dict[str, object] = field(default_factory=dict)
     install_results: list[InstallResult] = field(default_factory=list)
+    build_notes: dict[str, BuildNote] = field(default_factory=dict)
+
+    @property
+    def build_attention(self) -> list[tuple[DependencySpec, BuildNote]]:
+        """OK deps whose installed *build* is not the one Platterpus wants.
+
+        Separate from `missing` on purpose. A stock cyanrip is present, current
+        and rips discs — routing it into the missing/install flow would be a
+        lie and would offer an install for something already installed. It is
+        nonetheless a thing the user must be told, because it silently changes
+        what their archival log can claim. So it is its own category, counted
+        and shown separately.
+        """
+        return [
+            (spec, note)
+            for spec in self.ok
+            if (note := self.build_notes.get(spec.dep_id)) is not None
+            and note.needs_attention
+        ]
 
     @property
     def all_resolved(self) -> bool:
@@ -114,6 +139,30 @@ class DependencyManager:
                 # Keep the whole probe (adds `location`) for the rip report's
                 # environment.dependencies — ok_versions alone loses where it was.
                 report.ok_probes[spec.dep_id] = probe
+                if spec.build_note is not None:
+                    # Pure function over text we already captured — but it is
+                    # third-party-derived text, so a surprise in it must not
+                    # take down the whole dependency check. A note we could not
+                    # compute is simply absent, and the version still shows.
+                    try:
+                        note = spec.build_note(probe)
+                    except Exception:  # noqa: BLE001 - see below
+                        # Deliberately broad, and deliberately not a bare
+                        # `except:`: this is a display-only enrichment, and any
+                        # exception here would otherwise abort a check the user
+                        # needs. Logged with a traceback so it is diagnosable.
+                        log.exception(
+                            "build-note probe for %s raised; continuing without it",
+                            spec.dep_id,
+                        )
+                    else:
+                        report.build_notes[spec.dep_id] = note
+                        log.info(
+                            "dependency %s build: %s (ok=%s)",
+                            spec.dep_id,
+                            note.summary,
+                            note.ok,
+                        )
             else:
                 report.missing.append(MissingItem(spec=spec, probe=probe))
         return report

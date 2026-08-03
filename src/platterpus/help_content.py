@@ -369,8 +369,34 @@ the exact cyanrip binary. It is always present — when the build cannot be
 identified it says so, rather than staying silent, because an absent row would
 read as "nothing unusual" in a log that carries a checksum.
 
-**Tools → …then `--doctor` from a terminal** reports the same thing *before* you
-rip, so you can confirm your setup without committing a disc to it.
+**Tools → Check dependencies** reports the same thing *before* you rip. It names
+the build next to the version — which matters because the version alone cannot
+tell you: the Platterpus fork deliberately keeps upstream's version string, so
+`cyanrip 0.9.3` and `cyanrip 0.9.4-rc1 (platterpus-fork-…)` look equally normal.
+If the check says **"unmodified upstream, NOT the Platterpus fork"** it also says
+how to fix it. (`--doctor` reports the same from a terminal.)
+
+## Getting the Platterpus fork of cyanrip
+
+Platterpus runs a *forked* cyanrip. Everything the archival log says beyond
+upstream's output — per-track pre-gap length and where it came from, sample peak,
+per-track extraction speed and elapsed time, the ripper's own "rip completed"
+footer, and the command line it received — comes from that fork. Upstream cyanrip
+still rips perfectly and bit-perfectly; its logs simply cannot carry those rows,
+so they do not reach EAC parity.
+
+**Tools → Set up Platterpus…** installs it for you, no terminal needed. The
+wizard installs upstream's packaged build first (fast, signed, and it brings in
+every library the fork needs), then builds the fork from the exact commit this
+release was tested against, installs it, points `~/.local/bin/cyanrip` at it, and
+**checks that the installed binary reports the expected fork build tag** before
+calling the step done. If the build fails — no network, a missing header — you
+are left with the working upstream ripper rather than none, and the dependency
+check will say so.
+
+Re-running the wizard is safe and is how you move to a newer pinned fork: the
+step re-checks which build is actually on the ripping path, so a fork build from
+an older commit is rebuilt rather than accepted.
 
 ## More
 

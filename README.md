@@ -6,7 +6,7 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
-> **Status: v0.6.x — public pre-release.** Implemented end-to-end with 2,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. **New in v0.6.1 — the provenance-and-honesty release:** every rip now records **which cyanrip binary produced it** (the Platterpus fork, unmodified upstream, or — honestly — *not determined*), captures the ripper's **exit code, exact command line and complete output** so a failure is reproducible, surfaces **the ripper's own words** instead of a bare "Rip failed", picks **the right disc of a multi-disc set** (or says it could not tell rather than guessing), and **audits itself**: a `self_check` block lands in every rip's JSON, and `--audit-rips` runs the same checks over your whole library in one command. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
+> **Status: v0.6.x — public pre-release.** Implemented end-to-end with 2,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. **New in v0.6.3 — use your own fork, and be told which one you're on:** the one-time setup wizard now **builds and installs the pinned Platterpus fork of cyanrip** for you (no terminal), verifies the installed binary really is that build, and keeps the working upstream ripper if the build fails; the dependency check **names which build is installed** rather than only its version — which matters because the fork deliberately keeps upstream's version string, so the number alone cannot tell them apart; a multi-disc rip now writes Vorbis-correct `DISCNUMBER`/`totaldiscs` instead of cramming `2/3` into one tag; and every self-check that runs now **says something**, because a check that stays silent reads exactly like a check that found nothing wrong. **New in v0.6.1 — the provenance-and-honesty release:** every rip now records **which cyanrip binary produced it** (the Platterpus fork, unmodified upstream, or — honestly — *not determined*), captures the ripper's **exit code, exact command line and complete output** so a failure is reproducible, surfaces **the ripper's own words** instead of a bare "Rip failed", picks **the right disc of a multi-disc set** (or says it could not tell rather than guessing), and **audits itself**: a `self_check` block lands in every rip's JSON, and `--audit-rips` runs the same checks over your whole library in one command. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
 
@@ -606,6 +606,12 @@ forwards every argument straight to the app):
 # "Doctor" — a no-CD first-pass check of the ripping environment, then exit
 ./platterpus-x86_64.AppImage --doctor
 
+# Install or update the ripping stack from the terminal, then exit: the
+# Distrobox container, cyanrip, and the pinned Platterpus fork of cyanrip built
+# over it. Same steps the GUI's "Set up ripping" wizard runs, and idempotent —
+# anything already in place reports "already present" and is left alone.
+./platterpus-x86_64.AppImage --install-ripper
+
 # Verify an already-ripped album against the CUETools Database (CTDB) and sweep
 # the CRC offset to confirm the read offset aligns with the pressing. No CD or
 # re-rip needed — it reads the FLACs already on disk.
@@ -645,6 +651,13 @@ results pane.
 folder name is filesystem-safe. Don't type a normal `:` (the path won't be
 found); let the shell supply the real character — `cd` into the folder and pass
 `"$PWD"`, or use tab-completion / a glob (`…/Every\ Breath\ You\ Take*`).
+
+**When to use `--install-ripper`:** normally you never need it — the GUI offers
+the setup wizard on first run. It matters when the **pinned cyanrip version
+moves**, because that pin lives inside a Platterpus release: if a newer cyanrip
+build is verified before the next Platterpus release goes out, this is how you
+get it without waiting. It prints the pin it is building and the build tag the
+finished binary must report, so you can see which ripper you ended up with.
 
 If you installed with **`pipx`** (Method B), the same flags work on the
 `platterpus` command instead — e.g. `platterpus --doctor`.
@@ -849,7 +862,7 @@ Your music at `~/Music/rips/` (or wherever Settings points) is never touched by 
 Core project documents (in this directory):
 
 - [`CLAUDE.md`](CLAUDE.md) — project rules and conventions (read before contributing); Project operations section has current build/run/test/uninstall commands
-- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-32)
+- [`PLANNING.md`](PLANNING.md) — architecture, directory tree, per-module responsibilities, keyed design decisions (KDD-01 through KDD-34)
 - [`TASKS.md`](TASKS.md) — active task checklist. P0 (T01-T32, complete), P1.1 (install/uninstall ease), P1 (broader backlog), P2 (future), Out of scope.
 - [`DEPENDENCIES.md`](DEPENDENCIES.md) — pinned versions, last upstream release dates, replacement plans, retirement-review log
 
@@ -882,4 +895,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.2.*
+*Last updated for Platterpus v0.6.3.*

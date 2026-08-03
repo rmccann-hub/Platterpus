@@ -46,6 +46,8 @@ from platterpus.read_speed_ladder import (
     tracks_failing_accuraterip,
     unstable_tracks,
 )
+from platterpus.ripper_message_inventory import ALL_FORMATS
+from platterpus.ripper_messages import build_matcher
 from platterpus.safe_int import int_or_none
 
 log = logging.getLogger(__name__)
@@ -235,19 +237,66 @@ _RIPPER_ERROR_PREFIXES: tuple[str, ...] = (
     # not — which the fixture caught immediately, and reading the prefix list
     # would not have.
     "-J",
+    # Two more, found on our side while implementing `-c disc/totaldiscs` by
+    # reading the fork's `src/cyanrip_main.c` at the pin instead of reading its
+    # generated inventory. Both are fatal (`return 1`), both are argument
+    # validation and therefore stdout-only (their Q5), and both are ABSENT from
+    # the fork's 88-string round-4 inventory:
+    #
+    #   cyanrip_main.c:1439  "discnumber %i is larger than totaldiscs %i"
+    #   cyanrip_main.c:1554  "Cover art already specified for track idx %i!"
+    #
+    # The reason they are missing is a systematic blind spot, not two typos: in
+    # both calls the format string sits on a CONTINUATION LINE, so a generator
+    # scanning for a literal on the same line as `cyanrip_log(` cannot see it.
+    # A sweep of the fork's whole `src/` for that shape finds exactly these two,
+    # which is why the number goes 88 → 90 and not further. Reported as §1 of
+    # handshake round 5, with the class rather than only the instances.
+    #
+    # The first matters immediately: it is the fatal we would hit if the range
+    # check on `-c` ever let a bad disc position through, so shipping the flag
+    # without surfacing its refusal would be capture-without-surfacing again.
+    "discnumber",
+    "Cover art already specified",
 )
 
-_RIPPER_ERROR_RE = re.compile(
-    r"^(?:" + "|".join(re.escape(p) for p in _RIPPER_ERROR_PREFIXES) + r")"
-    # The boundary is what stops `Invalid` matching `Invalidated`. It admits
-    # punctuation as well as whitespace because cyanrip's fatals habitually end
-    # in `!` and some are the whole line — `Out of memory!` has no space after
-    # the prefix at all, and a whitespace-only boundary silently missed it.
-    r"(?:[\s!.,:;?]|$)"
-    # Bounded, per the never-unbounded rule: a `.*` here would hand a
-    # pathological line straight to a regex engine and to a QMessageBox.
-    r".{0,200}$"
+# THE MATCHER IS DERIVED FROM THE RIPPER'S PUBLISHED INVENTORY, not from the
+# prefix guesses above — full reasoning in `platterpus.ripper_messages`.
+#
+# Short version: the prefix list was a *second* guess at "what does a diagnostic
+# look like", layered on the fork's own 21-word allowlist, and both shared a blind
+# spot. Their control-flow re-derivation took the inventory from 88 strings to
+# 104, and our pattern missed **all 13** matchable strings the allowlist had
+# hidden — including `Offset is unset! To continue with an offset of 0, run with
+# -s 0!` and `Device does not support changing speeds!`, which are ordinary
+# hardware failures, not exotica. Every one rendered as a bare "Rip failed."
+#
+# Our 90/90 standing test stayed green throughout, because the fixture it
+# asserted against had inherited their filter's blind spot: it measured their
+# allowlist, not the ripper's behaviour. That is CLAUDE.md's
+# verify-the-behaviour-not-the-description rule biting one level below where it
+# was written. See docs/testing.md §5.ab.
+#
+# The prefixes are KEPT, as union members and nothing more. The inventory
+# describes one pin; a newer build will say things it does not list, and the
+# prefixes catch the common shapes of those. Inventory for completeness, prefixes
+# for forward tolerance — neither alone was enough, which is the whole lesson.
+_RIPPER_ERROR_RE, _UNMATCHABLE_RIPPER_FORMATS = build_matcher(
+    list(ALL_FORMATS), extra_prefixes=_RIPPER_ERROR_PREFIXES
 )
+
+# Formats too generic to pattern — a bare `%s` would match every line of output,
+# turning every progress redraw into a fatal-error report. Named and counted
+# rather than dropped, because "we cannot pattern this" and "this does not exist"
+# are different facts and only the second one hides bugs.
+if _UNMATCHABLE_RIPPER_FORMATS:
+    log.debug(
+        "ripper diagnostics: %d of %d published formats carry too little literal "
+        "text to pattern, and are covered only by the prefix fallback: %s",
+        len(_UNMATCHABLE_RIPPER_FORMATS),
+        len(ALL_FORMATS),
+        _UNMATCHABLE_RIPPER_FORMATS,
+    )
 
 _TRACK_GIVEUP_RE = re.compile(r"giving up on track (?P<track>\d+)")
 

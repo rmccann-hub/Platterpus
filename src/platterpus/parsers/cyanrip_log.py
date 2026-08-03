@@ -327,9 +327,21 @@ _FILES_HEADER = re.compile(r"^\s+File\(s\):\s*$")
 _REPLAYGAIN = re.compile(
     r"^\s+(?P<key>REPLAYGAIN_[A-Z_]+|R128_TRACK_GAIN):\s+(?P<val>.+?)\s*$"
 )
-# "Album Loudness Summary:" block header (comes after the last track), then
-# indented loudness lines shared with the per-track summaries.
-_ALBUM_LOUDNESS_HEADER = re.compile(r"^Album Loudness Summary:\s*$")
+# The album loudness block header (comes after the last track), then indented
+# loudness lines shared with the per-track summaries.
+#
+# **Anchored on cyanrip's words only.** The full line reads
+# `Album Loudness Summary:`, but only `Album Loudness` is cyanrip's — their P2
+# lists exactly that, from `cyanrip_encode.c:757`; the ` Summary:` tail comes from
+# FFmpeg's `ebur128` filter, which their P3 explicitly marks as libavfilter's
+# wording that "moves when FFmpeg does". Requiring the tail meant one upstream
+# rewording would have emptied `album_loudness` entirely and silently — the whole
+# block, not one field. Found by diffing their round-5 P3 against our patterns
+# (handshake round 5 §4d's sibling finding).
+#
+# `\b` rather than `$`: the header must still match with the FFmpeg tail present,
+# which is every log we have.
+_ALBUM_LOUDNESS_HEADER = re.compile(r"^Album Loudness\b")
 _LOUDNESS_I = re.compile(r"^\s+I:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LUFS")
 _LOUDNESS_LRA = re.compile(r"^\s+LRA:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LU")
 # Bounded like every pattern in the fork block: this one feeds the SAMPLE-peak
@@ -369,10 +381,41 @@ _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 # The unit is REQUIRED. A bare "Sample peak: 0.942" is refused rather than guessed
 # at, because dBFS and a linear fraction are indistinguishable in that range and an
 # archival peak read in the wrong unit is worse than a labelled gap.
+#
+# THREE SPELLINGS, and all three must stay. The fork renamed this line twice in
+# two rounds — `Peak level:` -> `Sample peak level:` at pin `ad65a24`, because
+# once a `True peak level:` row was printed beneath it the old label no longer
+# said *which* peak it reported. That reasoning is right, and it means logs on
+# users' disks carry every spelling:
+#
+#   `Peak level:  99.7%`                       0.9.3 and the round-5 fork pins
+#   `Sample peak level: 100.0% (0.0 dBFS)`     pin `ad65a24` onward
+#   `Sample peak:  0.0 dBFS`                   the sub-header + value form
+#
+# A parser for an *archival* format cannot drop a spelling when the producer
+# renames one: the old logs do not get regenerated. Verified against the round-6
+# reference — the two-word form matched and the three-word form did not, so this
+# rename would have silently emptied the peak column on every rip made with the
+# new pin. That is why §D1's renames were the first thing checked, and it is the
+# only thing in that release that could break a working consumer.
+#
+# The trailing dBFS parenthetical on the new form is deliberately NOT captured
+# here — `True peak level:` is its own line and its own field, and folding a
+# second value out of this row would recreate the which-peak-is-it ambiguity the
+# rename exists to remove.
 _SAMPLE_PEAK = re.compile(
-    r"^\s+(?:Sample peak|Peak level):\s+"
+    r"^\s+(?:Sample peak level|Sample peak|Peak level):\s+"
     r"(?P<value>-?\d{1,6}(?:\.\d{1,6})?)\s*(?P<unit>dBFS|%)"
 )
+
+# NOT PARSED YET, and deliberately not stubbed: the fork's own `True peak level:`
+# row (their P2 `cyanrip_log.c:255`) and its `Integrated loudness (R128):` /
+# `Loudness range (R128):` siblings. We currently take those values by scraping
+# FFmpeg's `ebur128` block, whose wording their P3 explicitly disclaims as
+# libavfilter's and liable to move. Migrating to the fork-owned rows is the right
+# call and needs a report-schema field per value, so it is queued (TASKS) rather
+# than half-landed here — a regex with no field behind it is dead code that reads
+# as coverage. *Absent means absent*, which is this module's standing rule.
 # The sub-header form of both peaks. Captured together so the ONE piece of state
 # it arms ("which peak does the next `Peak:` line report?") cannot get out of sync:
 # a `True peak:` header must actively DISARM sample-peak capture, or the existing
@@ -681,6 +724,23 @@ class _Disc:
     # Track number → CRC of the file that actually shipped, from Platterpus's own
     # swap addendum. Applied over the finished track list at the very end.
     shipped_crcs: dict[int, str] = field(default_factory=dict)
+    # Disc-level libcdio-paranoia callback tallies, verbatim from the log's
+    # column-0 `Paranoia status counts:` block.
+    #
+    # **CUMULATIVE ACROSS EVERY `-Z` PASS, and that is not obvious.** Round 5 of
+    # the handshake told us the per-track counters "sum exactly to the disc
+    # totals" and we verified it — on an artifact ripped without `-Z`, where the
+    # claim is arithmetically guaranteed. Read from the fork's source
+    # (`cyanrip_main.c`): the per-track baseline is snapshotted *inside* the
+    # `repeat_ripping:` loop, so every re-read pass resets it and the per-track
+    # figure is the LAST pass only, while this process-global tally keeps
+    # counting. Their own round-6 reference shows it: 15+10+5 per track against a
+    # disc total of 90, a factor of exactly the three passes `-Z 2` performed.
+    #
+    # So do not render a value here as a count of distinct events. A `SKIP: 300`
+    # on a `-Z 2` rip is three passes' worth of skips, and calling it "300
+    # unreadable frames" over-reports by the re-read factor. Pinned by
+    # `tests/test_fork_golden_reference_r6b.py`.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
     album_loudness: dict[str, str] = field(default_factory=dict)
     tracks: list[TrackResult] = field(default_factory=list)
@@ -1096,6 +1156,41 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
         "secure re-rip attempt; the Done; line carries the verdict",
     ),
     (re.compile(r"^Frame retries:\s"), "candidate: rip-effort setting"),
+    # `Cache model:    1200 sectors (drive cache size not probed)` — added by the
+    # fork in round 5 as `Cache defeat:` and RENAMED in round 6 because the old
+    # label asserted an outcome the value disclaims.
+    #
+    # NOT wired to `RippingInfo.defeat_audio_cache`, and that is the whole point
+    # of the rename: this is what libcdio-paranoia *models*, with the line itself
+    # saying the drive was never probed. Our own row is a **measured** verdict
+    # from `cd-paranoia -A`, stored per drive (KDD-29). Filling a measured field
+    # from a modelled figure is exactly the fabricated "Yes" KDD-25 forbids, and
+    # the honest `(unknown)` in an unprobed EAC-style export is the alternative
+    # we chose on purpose.
+    (
+        re.compile(r"^Cache model:\s"),
+        "paranoia's MODELLED cache size; our cache-defeat verdict is measured "
+        "(cd-paranoia -A, KDD-29) and must not be filled from a model",
+    ),
+    # `Encoder:        libavformat 60.16.100, libavcodec 60.31.102 (6.1.1-3ubuntu5)`
+    # Real archival provenance — which ffmpeg built the files — and a candidate
+    # for the report's environment block. Listed rather than parsed because a
+    # field with no rendered home is dead code that reads as coverage; the fork
+    # asserts it against `ffprobe` output rather than against itself, which is the
+    # method to copy when we do wire it. TASKS carries the item.
+    (
+        re.compile(r"^Encoder:\s"),
+        "candidate: encoder provenance, needs a report field before parsing",
+    ),
+    # `CD-TEXT:        none reported by libcdio (absent, or unreadable by this
+    # driver)` — a tri-state disc fact (present / absent / unreadable), and the
+    # wording is careful about the third case for the same reason our pre-gap
+    # state is. EAC logs CD-TEXT presence, so this closes a parity row when it
+    # gets a field. Candidate, not dropped.
+    (
+        re.compile(r"^CD-TEXT:\s"),
+        "candidate: tri-state CD-TEXT presence, needs a report field",
+    ),
     (re.compile(r"^HDCD decoding:\s"), "candidate: alters samples when enabled"),
     (re.compile(r"^Album Art:\s"), "candidate: cover-art presence"),
     (re.compile(r"^Disc tracks:\s"), "candidate: total tracks on the disc"),

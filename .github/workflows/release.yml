@@ -45,6 +45,21 @@ jobs:
           python-version: "3.11"
           cache: pip
 
+      # THE HANDSHAKE GATE (CLAUDE.md critical rule #12 /
+      # docs/cyanrip-handshake.md §7). Platterpus and the cyanrip fork are each
+      # other's dependency, and neither releases while a round is open — both
+      # directions must be verified first, because a partly-verified pin is an
+      # unverified pin.
+      #
+      # This step exists because the rule was written in three documents and
+      # enforced on the release path in none of them: the only check was a unit
+      # test asserting every round was closed, which blocked ordinary commits
+      # (a round is *supposed* to be open between sending and verifying) and
+      # never ran here, where releases actually happen. First, and before the
+      # build, so a blocked release costs seconds rather than a full AppImage.
+      - name: Handshake gate — refuse to release with an open round
+        run: python scripts/handshake.py --release-gate
+
       - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
