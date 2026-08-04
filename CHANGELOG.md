@@ -11,6 +11,62 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b3] — 2026-08-04
+
+**The `$HOME` defect, found by the diagnostics b2 added.** b2's whole purpose was to
+make the fork-build failure visible; it worked, and the answer was in the first log it
+produced. Both of my earlier guesses were wrong — this is what it actually was.
+
+### Fixed
+- **The fork was built in a directory literally named `$HOME`, so its build tag named
+  no commit.** `FORK_SOURCE_DIR` was the literal string `"$HOME/.cache/platterpus/
+  cyanrip-fork"`, with a comment claiming the container's shell would expand it. It
+  does not: the value arrived as a positional argument and the script did `src="$1"`,
+  and **parameter expansion does not recurse** — so `$HOME` stayed five literal
+  characters and every path became relative to a directory *named* `$HOME`. The user's
+  log said so in plain text: `Source dir: /home/rmccann/$HOME/.cache/platterpus/
+  cyanrip-fork`.
+  - **The build otherwise succeeded** — correct commit (`9003e6f`), correct version,
+    31/31 targets, installed and exported. Clone, configure, compile and install all
+    used the same wrong string, so they agreed with each other. **Consistently wrong
+    is the hardest kind of wrong to see**, and it is why this survived several rounds
+    of inspection.
+  - The single casualty was meson's `vcs_tag`, which could not resolve a git revision
+    from that path and fell back to upstream cyanrip's literal `release`. So the binary
+    reported `platterpus-fork-grelease`: **a build tag naming no commit**, which the
+    verify step correctly refused. Exactly the failure CLAUDE.md rule 12 describes —
+    *a build tag names a commit; it does not name what was built* — arriving on our
+    side of the seam this time.
+  - The scripts now expand `$HOME` **at the point of use** (`src="$HOME/$1"`), which is
+    what the old comment believed was happening. `install_command` had to move to
+    `sh -c` for the same reason: it "worked" only because it shared the same wrong
+    literal, so fixing the build alone would have left it copying from a path that no
+    longer exists. One expansion rule, applied in both places.
+  - `assert_shell_safe_subpath()` guards the argv chokepoint: a path containing `$`,
+    an absolute path, a traversal or a shell metacharacter now raises rather than
+    reaching a shell. Per CLAUDE.md — enforced by code, not merely stated in a doc.
+- **The verify step reported what it *expected* and never what it *saw*.** The
+  observed banner was printed one line earlier on stdout, and `_run_commands` keeps
+  only the last line for the UI — so the one fact that mattered was discarded at the
+  moment it mattered. The error now quotes the observed banner, and a `-grelease` /
+  `-gunknown` tag gets its own sentence naming the cause, because a user should not
+  need to know meson internals to act on it. **This one string would have ended the
+  hunt two sessions earlier.**
+- **A silent success left no trace in the log.** `sudo install` produced no output, so
+  nothing was recorded between the argv line before it and the argv line after it, and
+  "did it run?" was unanswerable. Every command now logs its exit.
+
+### Added
+- **Build-step diagnostics, deliberately more than seems necessary.** The build script
+  now reports `$HOME`, the working directory, the resolved source tree, the requested
+  pin and branch; refuses a non-absolute or `$`-bearing source tree with a named
+  fatal; prints `HEAD`, the short sha, `git describe`, and a **dirty-tree warning**;
+  probes whether git is usable in the source root (the precondition `vcs_tag` needs,
+  whose silent failure was this whole bug); and finally **reads the banner off the
+  binary it just built** — so a wrong tag is attributed to the build that produced it
+  rather than surfacing three commands later. The install step reports what it copied
+  and the resulting file.
+
 ## [0.6.4b2] — 2026-08-04
 
 **Beta 2, cut from the joint hardware session's first real run.** Everything here
@@ -5355,7 +5411,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...HEAD
+[0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
 [0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
 [0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
 [0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
@@ -5429,4 +5486,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b2.*
+*Last updated for Platterpus v0.6.4b3.*
