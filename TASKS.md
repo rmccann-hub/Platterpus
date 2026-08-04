@@ -550,16 +550,22 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 3 sent)
+### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 5 sent, protocol v2)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
 `verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
 `verified/round-7b.md` (lap 3). **Both sides declare HOLD.** The round is OPEN and
 **neither project releases** — now enforced bilaterally rather than remembered.
 
-The pin stays `2f950c8` (r2). Their `345241b` — which supersedes `d5d12ec`, which
-superseded `ad65a24`, three SHAs for one unreleased version — is recorded as
-`NEXT_PIN_UNDER_REVIEW` and is **not installed**.
+The pin stays `2f950c8` (r2). **Four SHAs in one open round** — `ad65a24` → `d5d12ec`
+→ `345241b` → `5bc654d` (r4, `0.9.4-rc1+platterpus.4`) — recorded as
+`NEXT_PIN_UNDER_REVIEW`, **not installed**. The gate is what has kept us on r2
+through all four.
+
+**Protocol v2 adopted.** `docs/handshake-protocol.md` is the SHARED spec, verbatim
+from the fork; our own §8 points at it instead of restating it. Conformance is
+`tests/test_handshake_conformance.py`, one test per §8 row (T15 — **done**, and it
+found row 12 failing on our side: an empty record allowed a release).
 
 **We had not sent them `outbound/round-7.md`.** They asked three times; Q8, which we
 cited three times as blocking our addendum fix, was in it. Delivered with lap 3. Our
@@ -587,6 +593,14 @@ What we owe, and what waits on their answers:
 - **[ ] H10 — send the `-x` force-overread log line (checklist §F2).** We ship the toggle; we have never
       captured the line it produces on a drive that accepts the command. Hardware-gated on
       the BDR-209D.
+- **[ ] Pass `--consumer platterpus/<version>` on every rip.** Their lap-4 §7/§4: it is what
+      puts our identity into the archived artifact, recorded verbatim with their log saying
+      *"reported by the caller, not verified by cyanrip"*. Deliberately **not** shipped in the
+      same batch as a protocol bump — it is an argv change, and the argv chokepoint is
+      validated, so it lands with its own range check and test.
+- **[ ] Parse their two new logfile lines**, `Handshake:` (derived at build time from their
+      round files — a build from an open-round tree says so permanently) and `Consumer:`.
+      Currently unrecognised; needs report fields before the regexes earn their place.
 - **[ ] Read the argv surface from their `PROVIDER-CONTRACT:` pointer, not round prose.**
       Their lap-2 §4 declined our remedy (correctly — the contract *did* change: flags
       38 → 39 with `-x`, derived rows 422 → 431, so the line we asked them to write would

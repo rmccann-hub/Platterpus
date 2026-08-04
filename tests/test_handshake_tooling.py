@@ -910,8 +910,10 @@ def test_the_verdict_comes_from_the_header_and_go_is_the_only_close(
     """The core of the format, all four cases."""
     assert hs.wire_verdict("HANDSHAKE-VERDICT: GO\n") == "GO"
     assert hs.wire_verdict("HANDSHAKE-VERDICT: HOLD\n") == "HOLD"
-    # OPEN is a real value in the format and it is not a close.
-    assert hs.wire_verdict("HANDSHAKE-VERDICT: OPEN\n") == "HOLD"
+    # OPEN is a real value in the vocabulary and it is not a close. Reported as
+    # itself so `--status` can say WHICH non-closing state a round is in.
+    assert hs.wire_verdict("HANDSHAKE-VERDICT: OPEN\n") == "OPEN"
+    assert hs.wire_verdict("HANDSHAKE-VERDICT: OPEN\n") != hs.AFFIRMATIVE
     # An unrecognised verdict is NOT consent. Mapping it to anything else would be
     # a guess wearing a derivation's clothes (the fork's phrase, their hazard too).
     assert hs.wire_verdict("HANDSHAKE-VERDICT: MAYBE\n") == "HOLD"
@@ -927,9 +929,15 @@ def test_an_indented_or_quoted_verdict_does_not_match(hs: ModuleType) -> None:
     """
     assert hs.wire_verdict("    HANDSHAKE-VERDICT: GO\n") is None
     assert hs.wire_verdict("> HANDSHAKE-VERDICT: GO\n") is None
-    assert hs.wire_verdict("```\nHANDSHAKE-VERDICT: GO\n```\n") == "GO", (
-        "a fenced block is still column 0 — the format does not parse markdown, "
-        "and pretending otherwise would be a second, weaker spec"
+    # **THIS ASSERTION USED TO SAY THE OPPOSITE**, with a confident comment about
+    # not parsing markdown. It was wrong, and the fork found it the hard way: their
+    # gate read the example block in our own lap-3 §1 and compiled an illustrated
+    # `HANDSHAKE-PEER-VERSION` into their binary as a fact about us. Ours had the
+    # same hole and did not fire only because the illustrated verdict happened to
+    # match the real one. A declaration is a statement the file MAKES, not one it
+    # QUOTES (PROTOCOL.md §2 rule 2).
+    assert hs.wire_verdict("```\nHANDSHAKE-VERDICT: GO\n```\n") is None, (
+        "a fenced field is an illustration, not a declaration"
     )
     # The real file: header at column 0, plus the word GO in prose several times.
     real = (
@@ -1001,15 +1009,25 @@ def test_the_required_field_set_matches_the_published_spec(hs: ModuleType) -> No
     Derived from the protocol doc rather than restated here, so the two cannot
     drift — which is the whole point of writing the format down once.
     """
-    spec = hs.PROTOCOL_DOC.read_text(encoding="utf-8")
-    for field in hs.REQUIRED_WIRE_FIELDS:
-        assert field in spec, (
-            f"{field} is required by the parser and absent from "
-            "docs/cyanrip-handshake.md §8 — the fork is reading the doc, not the code"
+    # The spec is the SHARED file now, not our restatement of it — one document in
+    # both repos, adopted verbatim. Checking our parser against our own paraphrase
+    # would be checking a copy against a copy.
+    shared = hs.PROTOCOL_SPEC.read_text(encoding="utf-8")
+    for field in hs.REQUIRED_WIRE_FIELDS + hs.REQUIRED_CLOSE_FIELDS:
+        assert field in shared, (
+            f"{field} is required by our gate and absent from the shared "
+            "docs/handshake-protocol.md — one of the two has drifted"
         )
-    assert len(hs.REQUIRED_WIRE_FIELDS) >= 7, hs.REQUIRED_WIRE_FIELDS
-    # And the doc must name the section, so a reader can find it.
-    assert "## 8. The wire format" in spec
+    assert len(hs.REQUIRED_WIRE_FIELDS) >= 8, hs.REQUIRED_WIRE_FIELDS
+    assert len(hs.REQUIRED_CLOSE_FIELDS) >= 6, hs.REQUIRED_CLOSE_FIELDS
+    # The version we implement must be the version the shared file describes.
+    assert f"HANDSHAKE-PROTOCOL: {hs.PROTOCOL_VERSION}" in shared, (
+        f"we implement protocol v{hs.PROTOCOL_VERSION} and the shared spec does "
+        "not declare that version"
+    )
+    # And our own doc must route a reader to the shared file rather than restating it.
+    ours = hs.PROTOCOL_DOC.read_text(encoding="utf-8")
+    assert "handshake-protocol.md" in ours
 
 
 def test_a_declared_round_that_contradicts_the_filename_is_an_error(
@@ -1018,8 +1036,9 @@ def test_a_declared_round_that_contradicts_the_filename_is_an_error(
     """§8.3 rule 6. The one check a filename convention cannot make for itself."""
     path = tmp_path / "round-7b.md"
     path.write_text(
-        "HANDSHAKE-ROUND: 8\nHANDSHAKE-LAP: 2\nHANDSHAKE-FROM: cyanrip-fork\n"
-        "HANDSHAKE-VERDICT: GO\nHANDSHAKE-APP-VERSION: platterpus 0.6.3\n"
+        "HANDSHAKE-PROTOCOL: 2\nHANDSHAKE-ROUND: 8\nHANDSHAKE-LAP: 2\n"
+        "HANDSHAKE-FROM: cyanrip-fork\nHANDSHAKE-VERDICT: HOLD\n"
+        "HANDSHAKE-APP-VERSION: platterpus 0.6.3\n"
         "HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1 (platterpus-fork-gabc1234)\n"
         "HANDSHAKE-PIN: abc1234\n",
         encoding="utf-8",
@@ -1049,8 +1068,9 @@ def test_a_mid_round_lap_is_not_held_to_the_full_section_list(
     """
     lap2 = tmp_path / "round-9b.md"
     lap2.write_text(
-        "HANDSHAKE-ROUND: 9\nHANDSHAKE-LAP: 2\nHANDSHAKE-FROM: cyanrip-fork\n"
-        "HANDSHAKE-VERDICT: HOLD\nHANDSHAKE-APP-VERSION: platterpus 0.6.3\n"
+        "HANDSHAKE-PROTOCOL: 2\nHANDSHAKE-ROUND: 9\nHANDSHAKE-LAP: 2\n"
+        "HANDSHAKE-FROM: cyanrip-fork\nHANDSHAKE-VERDICT: HOLD\n"
+        "HANDSHAKE-APP-VERSION: platterpus 0.6.3\n"
         "HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1 (platterpus-fork-gabc1234)\n"
         "HANDSHAKE-PIN: abc1234\n\n"
         "# Round 9 lap 2\n\nA reply to your verification, scoped to what it answers.\n",
@@ -1079,41 +1099,65 @@ def test_our_own_committed_files_satisfy_the_format_we_publish(hs: ModuleType) -
     records — and identified by *carrying* a header rather than by a hardcoded
     list, so adding a file cannot leave this test silently not checking it.
     """
+    # Scoped to files declaring `HANDSHAKE-PROTOCOL`, i.e. the v2 adopters. Earlier
+    # files are grandfathered, and — importantly — **a sent file is never edited**
+    # (`docs/handshake/README.md`), so `round-7b.md` keeps the v1 header it went out
+    # with rather than being retro-fitted to a spec written after it.
     checked = 0
     problems: list[str] = []
     for path in sorted(hs.VERIFIED_DIR.glob("round-*.md")):
         fields = hs.wire_fields(path.read_text(encoding="utf-8"))
-        if "HANDSHAKE-VERDICT" not in fields:
-            continue  # a pre-format file; covered by the grandfather set
+        if "HANDSHAKE-PROTOCOL" not in fields:
+            continue
         checked += 1
         problems.extend(hs.check_wire_header(path, expect_from="platterpus"))
     assert checked >= 1, (
-        "no verification file carries the wire header, so this test is checking "
-        "nothing — the first file to adopt it is verified/round-7b.md"
+        "no verification file declares HANDSHAKE-PROTOCOL, so this test is "
+        "checking nothing — the first v2 file is verified/round-7c.md"
     )
     assert not problems, "our own files violate the format we ask them to use: " + str(
         problems
     )
 
 
-def test_the_published_spec_is_reproduced_in_the_file_that_announces_it(
-    hs: ModuleType,
-) -> None:
-    """The fork does not have our repo, so the spec has to travel in the round file.
+def test_the_shared_spec_is_present_and_not_paraphrased(hs: ModuleType) -> None:
+    """The spec must exist as ONE shared file, not as two descriptions of it.
 
-    Otherwise "see §8 of our protocol doc" is a pointer into a tree they cannot
-    read — the same mistake as telling them a line was stdout-only when it was
-    not: a claim they have no way to check.
+    **This test used to assert something that is no longer correct.** Lap 3 had to
+    reproduce the format inside the round file, because the fork did not have it —
+    and in doing so our `docs/cyanrip-handshake.md` §8 became a *second copy* of the
+    spec, which is the two-vocabularies problem in miniature. In lap 4 the fork
+    wrote it up as a standalone shared document; we adopted that verbatim, and the
+    test's premise moved with it.
+
+    What matters now: the shared file is here, our doc routes to it rather than
+    restating it, and every round file says which protocol version it speaks so a
+    reader can tell which rules applied.
     """
-    path = hs.VERIFIED_DIR / "round-7b.md"
-    assert path.is_file(), "the lap-3 file that announces the format is missing"
-    text = path.read_text(encoding="utf-8")
-    for field in hs.REQUIRED_WIRE_FIELDS:
-        assert field in text, (
-            f"{field} is required by the format and is not named in the file that "
-            "publishes it to the fork"
+    shared = hs.PROTOCOL_SPEC
+    assert shared.is_file(), "the shared protocol spec is not in this tree"
+    text = shared.read_text(encoding="utf-8")
+    assert "neither owns it" in text or "neither project owns it" in text, (
+        "the shared file does not say it is shared, which is the one thing that "
+        "stops either side editing it unilaterally"
+    )
+    # Our own doc must POINT at it, not paraphrase it: a section restating the rules
+    # is a copy that can drift.
+    ours = hs.PROTOCOL_DOC.read_text(encoding="utf-8")
+    assert "handshake-protocol.md" in ours
+
+    # And every v2 round file from our side declares a version we implement.
+    v2_files = [
+        path
+        for path in sorted(hs.VERIFIED_DIR.glob("round-*.md"))
+        if "HANDSHAKE-PROTOCOL" in hs.wire_fields(path.read_text(encoding="utf-8"))
+    ]
+    assert v2_files, "no verification file declares HANDSHAKE-PROTOCOL"
+    for path in v2_files:
+        declared = hs.wire_fields(path.read_text(encoding="utf-8"))[
+            "HANDSHAKE-PROTOCOL"
+        ]
+        assert int(declared) <= hs.PROTOCOL_VERSION, (
+            f"{path.name} declares protocol v{declared} but our gate implements "
+            f"v{hs.PROTOCOL_VERSION} — we would refuse our own file"
         )
-    # And the six shared rules must be there, not just the field table: a format
-    # without its tie-breaking rules is two formats.
-    for rule in ("only affirmative", "fails closed", "ambiguous", "Column 0"):
-        assert rule in text, f"the published spec omits the rule about {rule!r}"
