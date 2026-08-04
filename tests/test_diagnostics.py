@@ -442,3 +442,66 @@ def test_every_wired_code_is_a_known_code() -> None:
     unknown = sorted(c for c in codes if c not in d.KNOWN_CODES)
     assert not unknown, f"not in KNOWN_CODES: {unknown}"
     assert len(codes) >= 8, f"only {len(codes)} distinct codes swept"
+
+
+# --- The level a bug report actually keeps (2026-08-04) --------------------
+#
+# G0 from the subprocess-capture audit, and the finding that makes half the others
+# moot if unfixed: `log.txt` is **INFO-only by default** (`logging_setup` sets the
+# file handler to INFO unless the user has turned Debug logging on, and the toggle is
+# described as "Off by default"). Every subprocess record — including cyanrip's whole
+# transcript, written with `log.debug("cyanrip │ …")` — is therefore *absent* from
+# the file a user attaches to a bug report.
+#
+# So the rule is: a failure record must land at a level the default file handler
+# keeps. This test is the enforcement, because the rule was previously nowhere.
+
+
+def test_a_failure_record_lands_at_a_level_the_default_log_file_keeps(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """ERROR and WARNING, never DEBUG — with the argv and the output attached.
+
+    The floor that matters: assert the *level*, not merely that something was
+    logged. A diagnostic emitted at DEBUG is captured, enumerated in the JSON, and
+    invisible in the one file most bug reports contain.
+    """
+    d.clear()
+    with caplog.at_level(logging.DEBUG):
+        d.record_command_failure(
+            "flac.verify_failed",
+            "flac --test",
+            ["flac", "--test", "/x/01.flac"],
+            1,
+            "01.flac: ERROR while decoding data\n",
+            where="test",
+        )
+        d.warning("ctdb.query_failed", "CTDB was unreachable", tool="CTDB (HTTP)")
+
+    records = [r for r in caplog.records if "platterpus-diagnostic" in r.getMessage()]
+    assert len(records) == 2, f"expected 2 diagnostic log records, got {len(records)}"
+    levels = {r.levelno for r in records}
+    assert logging.DEBUG not in levels, (
+        "a failure diagnostic was emitted at DEBUG, which log.txt does not keep by "
+        "default — so it would be absent from exactly the file a bug report carries"
+    )
+    assert levels <= {logging.ERROR, logging.WARNING}, f"unexpected levels: {levels}"
+
+    # And the four facts travel with it, in the TEXT log — not only in the JSON.
+    error_text = next(r.getMessage() for r in records if r.levelno == logging.ERROR)
+    assert "exit code: 1" in error_text
+    assert "flac --test /x/01.flac" in error_text  # the exact argv
+    assert "ERROR while decoding data" in error_text  # the tool's own words
+    assert "flac.verify_failed" in error_text  # the greppable code
+    d.clear()
+
+
+def test_an_info_diagnostic_is_info_not_a_warning() -> None:
+    """The converse. If everything were escalated to WARNING, the level would carry
+    no information and a reader scanning for problems would be back to reading
+    everything — which is the state this whole subsystem exists to end."""
+    d.clear()
+    item = d.info("ripper.parse_degraded", "a note, not a problem")
+    assert item is not None
+    assert item.severity == d.INFO
+    d.clear()

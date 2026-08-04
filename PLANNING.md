@@ -245,7 +245,8 @@ Platterpus/
         │       ├── auto_center.py       # app-wide event filter centring QMessageBox/QFileDialog too
         │       ├── pending_installs.py  # tier (b) queued installs dialog
         │       ├── manual_install.py    # tier (c) copyable search string dialog
-        │       └── file_viewer.py       # in-app read-only .log/.json viewer (no Open-With chooser)
+        │       ├── file_viewer.py       # in-app read-only .log/.json viewer (no Open-With chooser)
+        │       └── diagnostics_dialog.py # Help → Copy diagnostics: one selectable block for a bug report
         │
         └── workers/                     # long-running operations off the GUI thread
             ├── __init__.py              # start_worker_thread() — the shared one-shot QThread lifecycle wiring
@@ -412,6 +413,7 @@ PySide6 widgets and dialogs. Each module is one screen or one widget; nothing he
 - **`dialogs/auto_center.py`** — an application-wide event filter that centres *every* first-shown dialog — including the plain `QMessageBox`/`QFileDialog` static calls that can't subclass `CenteredDialog` — over the main window.
 - **`dialogs/pending_installs.py`** — `PendingInstallsDialog(QDialog)`. Tier (b) UI: per-item checkboxes, "Install selected" button, per-item progress feedback. Backed by `QueuedInstaller`.
 - **`dialogs/manual_install.py`** — `ManualInstallDialog(QDialog)`. Tier (c) UI: shows missing item, minimum version, why it can't auto-install, copyable search string in a read-only `QLineEdit`. Primary action: Copy. Secondary: Close.
+- **`dialogs/diagnostics_dialog.py`** — **Help → Copy diagnostics**: the version *pair*, the live environment, and **every diagnostic the collector recorded this session**, in one read-only selectable box with a Copy button. Added because an audit found the UI had **no** export, bundle or copy-diagnostics action at all — the only clipboard call in the whole tree copied a package search string — and the per-rip `.platterpus.json`, which *is* the richer bundle, exists only for a rip and is reachable only from the rip pane. So a setup failure, a dependency-check crash, a failed update or a drive probe had no copyable surface. `build_diagnostics_text()` is **pure and never raises** (a diagnostics view that cannot open fails exactly when the user is already reporting a failure) and is deliberately separate from the widget, so a future `--diagnostics` CLI flag renders the same text rather than a second version of it. Reads the same collector the report reads, so the pasted text and the JSON cannot disagree; states its own truncation; and renders the tri-state exit code as *"none (no child was reaped)"* rather than `0`.
 - **`dialogs/file_viewer.py`** — in-app read-only viewer for a rip's `.log` / `.platterpus.json`, so viewing a log never falls into KDE's "Open With" chooser (zero-terminal bar); "Open externally…" still defers to the OS.
 
 ### Workers (`workers/`)

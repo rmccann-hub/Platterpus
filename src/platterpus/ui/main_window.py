@@ -754,6 +754,13 @@ class MainWindow(
         ]
         logs_action = help_menu.addAction("Open &logs folder…")
         logs_action.triggered.connect(self._on_open_logs_folder)
+        # The copyable half of "how do I report this?". Opening the logs FOLDER
+        # assumes the user can attach a file; this gives them something to paste,
+        # which is what a chat window or an issue form actually asks for. Before
+        # this the UI had no copy-diagnostics action at all — the only clipboard
+        # call in the whole tree copied a package search string.
+        diagnostics_action = help_menu.addAction("Copy &diagnostics…")
+        diagnostics_action.triggered.connect(self._on_show_diagnostics)
         help_menu.addSeparator()
         about_action = help_menu.addAction("&About Platterpus…")
         about_action.triggered.connect(self._on_show_about)
@@ -1064,6 +1071,18 @@ class MainWindow(
         from platterpus.ui.help_dialogs import AboutDialog
 
         AboutDialog(parent=self).exec()
+
+    def _on_show_diagnostics(self) -> None:
+        """Help → Copy diagnostics: a selectable, copyable session report.
+
+        Deliberately NOT rip-scoped. The per-rip `.platterpus.json` is the richer
+        bundle, but it exists only for a rip and is reachable only from the rip
+        pane — so a setup failure, a dependency-check crash, a failed update or a
+        drive probe had no copyable surface at all.
+        """
+        from platterpus.ui.dialogs.diagnostics_dialog import DiagnosticsDialog
+
+        DiagnosticsDialog(parent=self).exec()
 
     def _on_open_logs_folder(self) -> None:
         """Help → Open logs folder: reveal the app's log directory.

@@ -345,11 +345,19 @@ without it, ripping is unaffected — only this verdict stays unmeasured.)
   instead, launch with `QT_QPA_PLATFORM=wayland`.
 - **Disc not identified** → check your network; you can still rip via *Rip as
   Unknown Album* and tag later.
-- **Something else** → the log has the details; please attach it when reporting
-  an issue. The quickest way to find it is **Help → Open logs folder…**, which
-  opens the folder containing `log.txt` in your file manager. For a *verbose*
-  log, turn on **Debug logging** in Settings, reproduce the problem, then attach
-  that file — it records every step (off by default to keep the log light).
+- **Something else** → **Help → Copy diagnostics…** is the fastest answer. It
+  shows the Platterpus and cyanrip versions, your environment, and every problem
+  the app noticed this session — with the exact command that failed, its exit
+  code and everything it printed — in one block you can copy straight into an
+  issue or a message. Nothing to find on disk.
+- **If you would rather attach a file** → **Help → Open logs folder…** opens the
+  folder containing `log.txt` in your file manager. For a *verbose* log, turn on
+  **Debug logging** in Settings, reproduce the problem, then attach that file —
+  it records every step (off by default to keep the log light).
+- **If a rip failed** → the album folder also holds a `.platterpus.json`. On a
+  rip that broke badly enough to produce no rip log, that file is named
+  `platterpus-rip-failure.platterpus.json` and it embeds the ripper's own output
+  plus this session's full debug log — it is the single most useful thing to send.
 
 ## Checking your rips afterwards
 
