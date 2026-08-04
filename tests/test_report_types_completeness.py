@@ -23,6 +23,7 @@ still seen, which a runtime call over one fixture would miss.
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -163,38 +164,37 @@ def test_the_handshake_approval_fields_are_in_the_rip_block() -> None:
 # omission, because the report is the thing being described.
 
 
-def _real_report() -> dict:
-    """A report with every block populated, built through the real builder.
-
-    Runtime rather than AST here, deliberately: the question is *"does the type
-    describe what a consumer will actually receive"*, and only a built report
-    answers that — an AST walk cannot see a key added by `_enrich_timing` after the
-    literal is constructed, which is exactly how `realtime_multiplier_basis` hid.
-    """
+def _real_log() -> object:
+    """A parsed rip log with the fields every block needs, so nothing is null."""
     from platterpus.parsers.rip_log import (
         AccurateRipResult,
         RipLog,
         RippingInfo,
         TrackResult,
     )
-    from platterpus.rip_report import build_report, build_timing
 
-    return build_report(
-        RipLog(
-            log_creator="cyanrip 0.9.4-rc1 (platterpus-fork-g0000000)",
-            ripping_info=RippingInfo(drive="PIONEER BD-RW BDR-209D"),
-            tracks=(
-                TrackResult(
-                    number=1,
-                    copy_crc="AA",
-                    accuraterip_v2=AccurateRipResult(
-                        version=2, result="accurately ripped", confidence=200
-                    ),
+    return RipLog(
+        log_creator="cyanrip 0.9.4-rc1 (platterpus-fork-g0000000)",
+        ripping_info=RippingInfo(drive="PIONEER BD-RW BDR-209D"),
+        tracks=(
+            TrackResult(
+                number=1,
+                copy_crc="AA",
+                accuraterip_v2=AccurateRipResult(
+                    version=2, result="accurately ripped", confidence=200
                 ),
             ),
         ),
-        timing=build_timing(100, disc_seconds=50),
-        disc={
+    )
+
+
+def _real_report_kwargs() -> dict:
+    """The keyword arguments that populate every optional block."""
+    from platterpus.rip_report import build_timing
+
+    return {
+        "timing": build_timing(100, disc_seconds=50),
+        "disc": {
             "unknown": False,
             "musicbrainz_release_id": "mbid",
             "catalog_number": "CAT",
@@ -204,8 +204,24 @@ def _real_report() -> dict:
             "medium_detail": "disc 1 of 2",
             "medium_undetermined": False,
         },
-        disc_track_total=1,
-    )
+        "disc_track_total": 1,
+    }
+
+
+def _real_report() -> dict:
+    """A report with every block populated, built through the real builder.
+
+    Runtime rather than AST here, deliberately: the question is *"does the type
+    describe what a consumer will actually receive"*, and only a built report
+    answers that — an AST walk cannot see a key added by `_enrich_timing` after the
+    literal is constructed, which is exactly how `realtime_multiplier_basis` hid.
+
+    **For top-level keys this is still not enough** — the *writer* adds one more. See
+    :func:`test_the_report_declares_every_section_the_WRITER_writes`.
+    """
+    from platterpus.rip_report import build_report
+
+    return build_report(_real_log(), **_real_report_kwargs())
 
 
 #: Report key → the `TypedDict` that must describe it. Derived from `RipReport`'s own
@@ -240,12 +256,32 @@ def _nested_block_types() -> dict[str, str]:
     return out
 
 
-def test_the_report_declares_every_section_it_writes() -> None:
-    """`RipReport`'s keys must be exactly the report's top-level keys.
+def test_the_report_declares_every_section_the_WRITER_writes(tmp_path: Path) -> None:
+    """The sweep must read a **written file**, not the builder's return value.
 
-    Found `completeness` and `artifacts` undeclared, both four schema versions old.
+    Found by a real rig artifact (2026-08-04): the uploaded `.platterpus.json` had
+    **32** top-level keys where `build_report` produces 31. The extra one was
+    `self_check`, which `write_report` adds *after* `_build` (one of its checks stats
+    the audio files, and `_build` is pure by contract). It was undeclared, and the
+    sweep written the same day could not see it — because it inspected the builder,
+    which is my stand-in, not the artifact a consumer actually opens.
+
+    *"What does my stand-in do that the real thing does not?"* — it stops one function
+    early. So this reads the file back off disk.
     """
-    report = _real_report()
+    from platterpus.rip_report import write_report
+
+    album = tmp_path / "Artist" / "Album"
+    album.mkdir(parents=True)
+    written = write_report(_real_log(), album / "rip.log", **_real_report_kwargs())
+    assert written is not None and written.exists(), "no report was written"
+    report = json.loads(written.read_text(encoding="utf-8"))
+    # FLOOR: the writer-added block must actually be present, or this test has
+    # quietly become the builder test it was written to replace.
+    assert "self_check" in report, (
+        "the written report carries no `self_check` — the writer's post-build step "
+        "did not run, so this sweep is measuring the builder again"
+    )
     declared = set(_declared_keys("RipReport"))
     emitted = set(report)
     assert len(emitted) >= 25, f"only {len(emitted)} top-level keys — builder broken?"

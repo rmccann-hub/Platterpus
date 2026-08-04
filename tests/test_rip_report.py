@@ -1014,13 +1014,57 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_16() -> None:
-    # v16 added the `diagnostics` block: every problem the rip noticed, in ONE
-    # place, so "did anything go wrong and what?" has a single answer instead of
-    # requiring a reader to already know about `outcome.failure_hint`,
-    # `log_parse.note`, `ctdb.error`, the per-track `issues` and the verification
-    # blocks. (v15 added the rip-time handshake-approval block.)
-    assert REPORT_SCHEMA_VERSION == 16
+def test_schema_version_is_17() -> None:
+    # v17 added the two FORK-ONLY provenance rows the ripper prints about ITSELF:
+    # `rip.ripper_handshake_note` (its compiled-in statement of which handshake round
+    # it was built from — a build from an open-round tree says so permanently) and
+    # `rip.ripper_consumer` (who it was told the caller was, which its own log calls
+    # unverified). The first is a second, INDEPENDENT witness beside
+    # `ripper_handshake_approval`, which is *our* verdict on the banner: when the two
+    # disagree, the disagreement is the finding.
+    #
+    # v16 added the `diagnostics` block: every problem the rip noticed, in ONE place,
+    # so "did anything go wrong and what?" has a single answer instead of requiring a
+    # reader to already know about `outcome.failure_hint`, `log_parse.note`,
+    # `ctdb.error`, the per-track `issues` and the verification blocks. (v15 added the
+    # rip-time handshake-approval block.)
+    assert REPORT_SCHEMA_VERSION == 17
+
+
+def test_the_forks_own_handshake_and_consumer_lines_reach_the_json() -> None:
+    """Read off the REAL committed fork log, not a hand-written fixture.
+
+    The parser ignored both lines until a real rig artifact was read (2026-08-04) and
+    the top-level-line sweep reported 12 unrecognised rows — two of which were these.
+    They had been on the TASKS list as "currently unrecognised"; the artifact is what
+    made them implementable, because a fixture would have been my guess at their
+    wording.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+
+    fork_log = (
+        Path(__file__).resolve().parents[1]
+        / "output_reference"
+        / "cyanrip_fork_flac"
+        / "cyanrip_fork_police_classics.log"
+    )
+    report = build_report(parse_cyanrip_log(fork_log.read_text(encoding="utf-8")))
+    rip = report["rip"]
+
+    # VERBATIM. The clause that matters most is a whole phrase, not a field.
+    assert rip["ripper_handshake_note"] == (
+        "round 7 lap 7 OPEN, verdict HOLD -- NOT a released build"
+    )
+    assert "NOT a released build" in rip["ripper_handshake_note"]
+    assert rip["ripper_consumer"] == "not identified (no --consumer given)"
+
+
+def test_a_stock_log_leaves_both_new_fork_rows_null() -> None:
+    """Absent means absent. AppImage users run stock cyanrip, which never prints
+    these, and one build has to be correct against both."""
+    report = build_report(_sample_log())
+    assert report["rip"]["ripper_handshake_note"] is None
+    assert report["rip"]["ripper_consumer"] is None
 
 
 def test_the_rippers_own_completion_verdict_reaches_the_json() -> None:

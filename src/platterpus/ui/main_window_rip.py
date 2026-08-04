@@ -395,6 +395,10 @@ class RipMixin(MainWindowShared):
     # the GUI thread.
     _last_tagging_result: TaggingResult | None
     _post_rip_failures: dict[str, str]
+    #: The ripper's substantive stdout, snapshotted at finish. The report is
+    #: written repeatedly and `_rip_worker` is None for every write after the
+    #: first, so the writer must read this rather than the worker.
+    _last_ripper_stdout: str
 
     # --- Slots: rip flow ----------------------------------------------------
 
@@ -584,6 +588,9 @@ class RipMixin(MainWindowShared):
         self._last_disc = None
         self._last_read_offset_effective = None
         self._last_secure_rerip = None
+        #: The ripper's substantive stdout, snapshotted at finish so the report's
+        #: re-writes still carry it after the worker is torn down. See `_finish_rip`.
+        self._last_ripper_stdout = ""
         self._last_cover_art_result = None
         self._last_recompress_result = None
         self._last_tagging_result = None
@@ -1396,6 +1403,29 @@ class RipMixin(MainWindowShared):
         # Why the dynamic secure re-rip did/didn't run (mode/engaged/skip reason).
         # getattr so this is None until the worker grows the property (wired next).
         self._last_secure_rerip = getattr(self._rip_worker, "secure_rerip_report", None)
+        # SNAPSHOT THE RIPPER'S OUTPUT WHILE THE WORKER STILL EXISTS.
+        #
+        # The report is written MORE THAN ONCE — the first write happens here, then
+        # every post-rip step (FLAC verify, transcode, CTDB, the self-check) triggers
+        # a debounced re-write. `_on_rip_finished`'s `finally` sets `_rip_worker =
+        # None` in between, and the writer read `getattr(self._rip_worker,
+        # "captured_stdout", "")`. So the first write carried the ripper's output and
+        # every later one REPLACED it with nothing — and since FLAC verify is on by
+        # default and the self-check always runs, the file left on disk always had an
+        # empty `ripper_stdout`.
+        #
+        # Found by reading a real rig artifact (2026-08-04): a clean 14/14 rip whose
+        # `artifacts.ripper_stdout` was `{"path": null, "exists": false}` while its
+        # `source` string still promised "complete even when the ripper was killed".
+        # Accurate about the mechanism, false about the file — and it is the
+        # kill-proof recovery source, the one artifact the cyanrip project cannot
+        # produce for itself, and the thing round 7 lap 10 tells them we capture.
+        #
+        # A `_last_*` snapshot, like every other fact the report needs after the
+        # worker is gone.
+        self._last_ripper_stdout = (
+            getattr(self._rip_worker, "captured_stdout", "") or ""
+        )
 
         # (The rip lock + repaint belt are released in _on_rip_finished's finally,
         # so they're reset even if anything below raises — BUG-5.)
@@ -2939,12 +2969,26 @@ class RipMixin(MainWindowShared):
                 eac_log=log_file.with_name(f"{log_file.stem} (EAC-compatible).log"),
                 cue=log_file.with_suffix(".cue"),
                 # The ripper's own stdout, which survives a kill when its
-                # block-buffered logfile does not. Read off the worker rather
-                # than a file because there is no file — this is the capture
-                # that would have shown the track the truncated log lost.
-                ripper_stdout=getattr(self._rip_worker, "captured_stdout", "")
-                if getattr(self, "_rip_worker", None) is not None
-                else "",
+                # block-buffered logfile does not — the capture that would have
+                # shown the track a truncated log lost. There is no file to read
+                # it from; it lives in memory.
+                #
+                # THE SNAPSHOT, UNCONDITIONALLY. This read the live worker, guarded
+                # by `if self._rip_worker is not None else ""` — a conditional whose
+                # only effect was to send an EMPTY string on every write after the
+                # first, because `_on_rip_finished`'s `finally` clears the worker and
+                # every post-rip step (FLAC verify, transcode, CTDB, the self-check)
+                # triggers a debounced re-write. The guard was not wrong about the
+                # lifetime; it drew the wrong conclusion from it — the answer to "the
+                # worker is gone" is to have kept the value, not to emit nothing.
+                #
+                # Found by reading a real rig artifact (2026-08-04): a clean 14/14
+                # rip whose `ripper_stdout` block was `{"path": null, "exists":
+                # false}` with a `source` string still promising "complete even when
+                # the ripper was killed". Accurate about the mechanism, false about
+                # the file — and this is the one artifact the cyanrip project cannot
+                # produce for itself, which round 7 lap 10 tells them we capture.
+                ripper_stdout=getattr(self, "_last_ripper_stdout", ""),
             ),
             # v7 process/settings/provenance blocks. `outcome`/`disc` are
             # snapshotted at finish (worker/params are cleared before the debounced
@@ -3074,7 +3118,13 @@ class RipMixin(MainWindowShared):
         try:
             from platterpus import report_artifacts
 
-            captured = getattr(self._rip_worker, "captured_stdout", None)
+            # Snapshot first, live worker second. A hard failure can land BEFORE
+            # `_finish_rip` takes the snapshot, so the worker is the primary source
+            # here — but a *re-write* after teardown has no worker, so the snapshot
+            # has to be consulted too. Neither alone covers both cases.
+            captured = getattr(self, "_last_ripper_stdout", "") or getattr(
+                self._rip_worker, "captured_stdout", ""
+            )
             if not captured:
                 return None
             # No rip_log/eac_log/cue: by definition this path ran because none were

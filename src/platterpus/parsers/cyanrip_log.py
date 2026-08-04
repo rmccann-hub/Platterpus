@@ -352,6 +352,14 @@ _LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS"
 # cyanrip's own log signature, the last line: "Log FUN512: <base64>".
 _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
 
+# FORK-ONLY (round 7). `Handshake:      round 7 lap 7 OPEN, verdict HOLD -- NOT a
+# released build`. Anything after the label, to end of line: see `_take_handshake_note`
+# for why this is not decomposed.
+_HANDSHAKE_NOTE: re.Pattern[str] = re.compile(r"^Handshake:\s+(?P<note>\S.*)$")
+# FORK-ONLY (round 7). `Consumer:       not identified (no --consumer given)`, or the
+# `name/version` string we will start passing.
+_CONSUMER: re.Pattern[str] = re.compile(r"^Consumer:\s+(?P<consumer>\S.*)$")
+
 # ---------------------------------------------------------------------------
 # Lines a FORK of cyanrip will print, parsed before they exist
 # ---------------------------------------------------------------------------
@@ -721,6 +729,25 @@ class _Disc:
     rip_completed_reason: str = ""
     health_status: str = ""
     log_checksum: str = ""
+    # FORK-ONLY, and the strongest provenance line in the file: the binary's own
+    # statement of which handshake round it was built from, derived at ITS build time
+    # from ITS round files. A build from an open-round tree says so permanently —
+    # `round 7 lap 7 OPEN, verdict HOLD -- NOT a released build`.
+    #
+    # Why this is worth a field rather than an ignore entry: it is a provenance claim
+    # **derivable from the artifact's content**, which CLAUDE.md rule 12 asks for
+    # explicitly after two golden references arrived carrying build tags for commits
+    # three behind their pin. Our own `handshake_approval` check compares the banner
+    # against what we believe was approved; this line is what the *other side's build
+    # system* recorded. Two independent witnesses, and this one cannot be stale
+    # relative to the binary because it is compiled into it.
+    handshake_note: str = ""
+    # FORK-ONLY: who told cyanrip it was the caller, echoed verbatim. Their log says
+    # in as many words that this is "reported by the caller, not verified by cyanrip",
+    # so it is recorded as provenance and never as verification. `not identified
+    # (no --consumer given)` until we ship the flag — which is itself the fact worth
+    # carrying, because a log with no consumer cannot be attributed to us at all.
+    consumer: str = ""
     # Track number → CRC of the file that actually shipped, from Platterpus's own
     # swap addendum. Applied over the finished track list at the very end.
     shipped_crcs: dict[int, str] = field(default_factory=dict)
@@ -978,6 +1005,25 @@ def _take_log_checksum(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_handshake_note(disc: _Disc, match: re.Match[str]) -> bool:
+    """The fork's compiled-in handshake state. Kept VERBATIM.
+
+    Deliberately not parsed into round/lap/verdict fields. The sentence is theirs,
+    its shape is theirs to change, and a structured parse would either drop the part
+    we did not anticipate or raise on it. What a reader needs is exactly what the
+    binary said — and the phrase that matters most (`NOT a released build`) is a
+    whole clause, not a field.
+    """
+    disc.handshake_note = (match.group("note") or "").strip()
+    return True
+
+
+def _take_consumer(disc: _Disc, match: re.Match[str]) -> bool:
+    """Who the ripper was told its caller was. Provenance, never verification."""
+    disc.consumer = (match.group("consumer") or "").strip()
+    return True
+
+
 def _take_accurate_total(disc: _Disc, match: re.Match[str]) -> bool:
     disc.accuraterip_summary = (
         f"{match.group('hit')}/{match.group('total')} tracks "
@@ -1043,6 +1089,10 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
 
 _RULES_BEFORE_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("log_signature", _LOG_CHECKSUM, _take_log_checksum),
+    # Both FORK-ONLY and both harmless on stock 0.9.3, which never prints them:
+    # absent means absent, and every surface renders exactly what it renders today.
+    _LineRule("handshake_note", _HANDSHAKE_NOTE, _take_handshake_note),
+    _LineRule("consumer", _CONSUMER, _take_consumer),
 )
 
 _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
@@ -1156,6 +1206,17 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
         "secure re-rip attempt; the Done; line carries the verdict",
     ),
     (re.compile(r"^Frame retries:\s"), "candidate: rip-effort setting"),
+    # The disc/release identifiers cyanrip echoes back from OUR OWN `-a` tags. We
+    # already hold all three (they came from MusicBrainz through this process), so
+    # the log's copy adds no fact — it is our input reflected. Recorded here rather
+    # than left unrecognised so the completeness sweep keeps its meaning.
+    #
+    # Worth stating because it is tempting: the echo *is* useful for one thing — an
+    # argv-versus-log disagreement — but `Invoked as:` already carries the whole
+    # command line, which is a strictly better witness for that question.
+    (re.compile(r"^Disc number:\s"), "our own -a tag echoed back; we hold it"),
+    (re.compile(r"^Total discs:\s"), "our own -a tag echoed back; we hold it"),
+    (re.compile(r"^Release ID:\s"), "our own MusicBrainz release id echoed back"),
     # `Cache model:    1200 sectors (drive cache size not probed)` — added by the
     # fork in round 5 as `Cache defeat:` and RENAMED in round 6 because the old
     # label asserted an outcome the value disclaims.
@@ -1917,6 +1978,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
         partially_accurate_summary=disc.partially_accurate_summary,
         disc_duration=disc.disc_duration,
         invoked_as=disc.invoked_as,
+        handshake_note=disc.handshake_note,
+        consumer=disc.consumer,
         rip_completed=disc.rip_completed,
         rip_completed_tracks=disc.rip_completed_tracks,
         rip_completed_total=disc.rip_completed_total,

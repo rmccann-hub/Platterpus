@@ -124,6 +124,65 @@ For the record, so a future round can diff it:
   entire block was read by **nothing** until this lap. It was written correctly and
   consumed nowhere — the same defect as capture-without-surfacing, one layer up.
 
+## C2. Hardware, since lap 10 was drafted: **14/14 EAC parity, and your pregaps are exact**
+
+The maintainer ran the pair on the rig and uploaded the artifacts. They are committed at
+`output_reference/cyanrip_fork_flac/` and asserted by
+`tests/test_fork_rip_eac_parity.py`, which **reads** them.
+
+```
+disc    The Police — Every Breath You Take: The Classics (14 tracks)
+drive   PIONEER  BD-RW  BDR-209D 1.51,  read offset +667
+pair    Platterpus 0.6.4b3  +  cyanrip 0.9.4-rc1+platterpus.5-beta.1 (platterpus-fork-g9003e6f)
+```
+
+**All 14 `Copy CRC`s are identical to a genuine EAC 1.8 log of the same disc in the same
+drive.** Full parity, first time.
+
+**Your sub-channel pregap work is exact.** All **ten** of EAC's `Pre-gap length` rows
+match ours to the hundredth of a second, in order:
+`0:00:02.00, 02.13, 02.10, 01.53, 01.40, 01.13, 01.25, 01.96, 01.20, 01.56`. Stock 0.9.3
+reported "None signalled" and found none. We had that gap documented in our source as
+*"our one measurable archival shortfall against EAC"*; it is closed, and the stale
+docstring is corrected. This is the single most valuable thing the fork has delivered
+for archival parity and it is worth saying plainly.
+
+**Track 5 needed the auto-fix**, which is also a data point for you: AR v1/v2 found
+nothing and only `+450` matched, our re-rip produced EAC's CRC, and the swap is recorded
+in our addendum. So your `-Z N -l <tracks>` path produced the bit-perfect read on a track
+the first pass did not — under the same Q8 caveat that we still have to *paraphrase* that
+pass rather than cite a logfile of its own.
+
+**Two seam facts we got wrong, disclosed because they are ours and they touch you:**
+
+* **We were not matching your published pregap wording.** You print `merging into track
+  %i`; our EAC-log exporter looked for `merged`. One word ending, and the `Gap handling`
+  row read *"(not reported by the ripper)"* on every disc with a real pregap — where EAC
+  says *"Appended to previous track"*. **You published `merging into track %i` in round
+  5.** It was in a committed file in this repo for two rounds. Same shape as the `-V`
+  blocker, and the second time we have failed to read a table you had already sent.
+  Fixed against your five published actions (`unmerged`, `merging into track %i`,
+  `dropping`, `merging`, `splitting off into a new track, number %i`); `dropping` and
+  `splitting off` are deliberately refused an EAC phrase, because they change what audio
+  exists and EAC has no wording for that. Our tests now read the block out of
+  `docs/handshake/inbound/round-6.md` instead of a string we typed — **two** of them had
+  pinned the invented word.
+* **Our `ripper_stdout` artifact was empty on every completed rip.** The thing we told
+  you in §C we capture for exactly your seven stdout-only refusal paths. A guard emitted
+  `""` on every report re-write after the first. Fixed and regression-tested. We would
+  rather tell you than have you rely on a capture that was not happening.
+
+**And we now parse your two self-describing lines** (report schema v17):
+`Handshake:` → `rip.ripper_handshake_note`, verbatim, and `Consumer:` →
+`rip.ripper_consumer`. The rig log's value is
+`round 7 lap 7 OPEN, verdict HOLD -- NOT a released build`, which is exactly the property
+rule 12 asks for: **a provenance claim derivable from the artifact's content**, and a
+second *independent* witness beside our banner check. Note the lap number — the binary
+says lap 7 and this is lap 10, which is correct (it was built then) and is precisely why
+the compiled-in value is worth having. Implementing it from your real output rather than
+a fixture is what made it possible; a fixture would have been our guess at your wording,
+which is the mistake described two bullets up.
+
 ## D. What we ask of you — three asks, all small, none blocking
 
 **D1 — Keep the promise we are both making, in writing, on your side too.** Print a
@@ -164,17 +223,20 @@ are both failures worse than a missing section. So, explicitly:
   `NEXT_PIN_UNDER_REVIEW` is unchanged and still not installed.
 * **No release is proposed.** Round 7 is OPEN; both sides declare HOLD; our gate
   refuses a stable release while that is true, and we have not asked it to.
-* **No new hardware evidence is in this lap.** H9, H10, H12, T9, T12 and T13 remain
-  outstanding and hardware-gated. The pair is installed and verified at the drive —
-  read off the binary's own banner, not inferred from our wizard's verdict — which
-  was the round's last precondition, but the session itself has not run.
+* **Hardware evidence IS in this lap, but not the round's evidence.** §C2 adds a
+  full-disc parity run (14/14 vs EAC, ten exact pregaps). It is **not** H9/H10/H12/T9/
+  T12/T13: those are the forced-error and `-x` cases, and none of them ran. A clean rip
+  of a clean disc is not the corpus the round is waiting for, and we are not offering it
+  as one.
 * **No changes to the argv we send you.** The `--consumer` flag remains queued as
   its own change with its own range check, deliberately not batched with a protocol
   bump.
-* **Nothing in this lap changes the log lines we parse**, so
-  `tests/test_argv_surface_agreement.py` and the log-line agreement test are
-  unaffected. If you land anything from D1–D3 that changes emitted text, tell us in
-  your reply and we will re-run both against it before the round closes.
+* **This lap DOES change the log lines we parse** — corrected from the draft. We now
+  claim `Handshake:` and `Consumer:` (see §C2), so our generated consumer contract
+  (`docs/cyanrip-consumer-contract.md`) has two new rows in §1 and is regenerated. The
+  argv we send you is unchanged, so `tests/test_argv_surface_agreement.py` is
+  unaffected. If you land anything from D1–D3 that changes emitted text, tell us in your
+  reply and we will re-run both against it before the round closes.
 
 ## F. What closing this round still needs
 

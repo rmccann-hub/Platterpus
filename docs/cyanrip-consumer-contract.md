@@ -41,7 +41,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (51)
+## 1. Log lines we parse (53)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -66,6 +66,8 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>.+?)\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
+| `handshake_note` | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
+| `consumer` | disc | `^Consumer:\\s+(?P<consumer>\\S.*)$` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
@@ -115,7 +117,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (14)
+## 2. Log lines we knowingly ignore (17)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -128,6 +130,9 @@ dropped.
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
 | `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |
 | `^Frame retries:\\s` | candidate: rip-effort setting |
+| `^Disc number:\\s` | our own -a tag echoed back; we hold it |
+| `^Total discs:\\s` | our own -a tag echoed back; we hold it |
+| `^Release ID:\\s` | our own MusicBrainz release id echoed back |
 | `^Cache model:\\s` | paranoia's MODELLED cache size; our cache-defeat verdict is measured (cd-paranoia -A, KDD-29) and must not be filled from a model |
 | `^Encoder:\\s` | candidate: encoder provenance, needs a report field before parsing |
 | `^CD-TEXT:\\s` | candidate: tri-state CD-TEXT presence, needs a report field |

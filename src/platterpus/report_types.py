@@ -46,6 +46,13 @@ class RipBlock(TypedDict):
     # v14: the ripper's own `Invoked as:` line — what it says it RECEIVED, as
     # against `outcome.ripper_argv`, which is what we SENT.
     invoked_as: str | None
+    #: v17, both FORK-ONLY and both verbatim. `ripper_handshake_note` is the
+    #: binary's own compiled-in statement of the round it was built from — a
+    #: second, independent witness beside `ripper_handshake_approval`, which is
+    #: *our* verdict on the banner. `ripper_consumer` is who it was told the
+    #: caller was, which its own log says is unverified.
+    ripper_handshake_note: str | None
+    ripper_consumer: str | None
     # v13: which cyanrip binary produced this. Tri-state: `null` is "not
     # determined" and must never be read as `false`, because an unrecognised
     # build tag is absence of evidence, not evidence of a stock binary.
@@ -425,7 +432,7 @@ class DiagnosticsBlock(TypedDict):
 
 
 class RipReport(TypedDict):
-    """A complete `.platterpus.json`, schema v16.
+    """A complete `.platterpus.json`, schema v17.
 
     Every key is required: `rip_report._build` returns one fixed dict literal,
     so a successfully-built report always carries all of them (many as None).
@@ -471,6 +478,9 @@ class RipReport(TypedDict):
     #: `TypedDict`, so there is nothing for mypy to compare.
     completeness: CompletenessBlock
     artifacts: ArtifactsBlock | None
+    #: Added by `write_report` after `_build`, so it is absent from an in-memory
+    #: report and present in every written one. See :class:`SelfCheckBlock`.
+    self_check: NotRequired[SelfCheckBlock]
 
 
 class MinimalRipReport(TypedDict):
@@ -513,6 +523,35 @@ class ArtifactsBlock(TypedDict):
     ripper_stdout: ArtifactEntry
     eac_log: ArtifactEntry
     cue: ArtifactEntry
+
+
+class SelfCheckFindingBlock(TypedDict):
+    """One finding from the post-rip self-audit (`rip_audit.CHECKS`)."""
+
+    check: str
+    level: str
+    message: str
+
+
+class SelfCheckBlock(TypedDict):
+    """The app auditing its own work at the moment the rip finishes.
+
+    **Added by `write_report`, not by `_build`** — one of its checks stats the audio
+    files, and `_build` is pure by contract. That is a legitimate split and it is also
+    why this block went undeclared: the completeness sweep in
+    `tests/test_report_types_completeness.py` built a report through `build_report` and
+    compared *that* against :class:`RipReport`, so a key the **writer** adds was
+    invisible to it. Found by reading a real rig artifact (2026-08-04), which had 32
+    top-level keys where the builder produces 31 — *"am I verifying the behaviour, or
+    my stand-in's behaviour?"*, answered by the artifact. The sweep now reads a written
+    file.
+    """
+
+    schema: int
+    checks_run: list[str]
+    checks_skipped: list[str]
+    worst: str
+    findings: list[SelfCheckFindingBlock]
 
 
 class CompletenessBlock(TypedDict):

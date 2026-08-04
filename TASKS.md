@@ -694,6 +694,23 @@ calls the worse of the two, because the report still looks complete either way.
       with a §0 naming exactly which app version and which approved ripper build its
       claims cover.
 
+### ⭐ P1 — EAC parity: **CLOSED at 14/14 on real hardware (2026-08-04)**
+
+The rig rip of the baseline disc — b3 + `platterpus-fork-g9003e6f`, same drive, offset
++667 — is **bit-identical to EAC on all 14 tracks**, and its ten `Pre-gap length` rows
+match EAC's to the hundredth of a second in order. Artifacts committed to
+`output_reference/cyanrip_fork_flac/`; proven by `tests/test_fork_rip_eac_parity.py`,
+which reads them.
+
+- **[x] EAC output-parity proof matrix — FLAC, 14/14.** Track 5 reached parity only via
+      the auto-fix re-rip (first pass `6902BCF0`, shipped `E0036697` = EAC's), so the
+      artifact is also the proof that feature works on hardware.
+- **[x] KDD-32 / `INDEX 00` pre-gap shortfall — closed for the fork.** Stock 0.9.3 still
+      reports "None signalled"; both branches stay in `_gap_handling`, whose docstring
+      was corrected (it still described the shortfall as open).
+- **[ ] MP3 / WAV parity rows** — the matrix's other formats are unchanged and still
+      pending; only FLAC is proven.
+
 ### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 10 sent, both betas cut)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
@@ -784,9 +801,14 @@ What we owe, and what waits on their answers:
       *"reported by the caller, not verified by cyanrip"*. Deliberately **not** shipped in the
       same batch as a protocol bump — it is an argv change, and the argv chokepoint is
       validated, so it lands with its own range check and test.
-- **[ ] Parse their two new logfile lines**, `Handshake:` (derived at build time from their
-      round files — a build from an open-round tree says so permanently) and `Consumer:`.
-      Currently unrecognised; needs report fields before the regexes earn their place.
+- **[x] Parse their two new logfile lines** — `Handshake:` and `Consumer:`, done
+      2026-08-04 at schema v17, off the real rig artifact rather than a fixture (which
+      would have been our guess at their wording). `rip.ripper_handshake_note` carries
+      the binary's own compiled-in round state verbatim — the rig log says `round 7 lap 7
+      OPEN, verdict HOLD -- NOT a released build` — which is a provenance claim
+      *derivable from the artifact's content* and a second, **independent** witness
+      beside `ripper_handshake_approval` (our verdict on the banner). When the two
+      disagree, the disagreement is the finding.
 - **[ ] Read the argv surface from their `PROVIDER-CONTRACT:` pointer, not round prose.**
       Their lap-2 §4 declined our remedy (correctly — the contract *did* change: flags
       38 → 39 with `-x`, derived rows 422 → 431, so the line we asked them to write would
