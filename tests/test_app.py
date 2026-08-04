@@ -649,14 +649,14 @@ def test_install_ripper_reports_ready_and_names_the_pin(
     """The pin is printed because it is the one fact the user cannot check any
     other way before a rip: two builds of this fork differ only by their build
     tag, and one of them (`ad65a24`) returns silence on disc images."""
-    from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG, FORK_PIN
+    from platterpus.deps.fork_source import WIZARD_TARGET
 
     seen = _install_ripper_stub(monkeypatch, ready=True)
     rc = app_module.main(["--install-ripper"])
     out = capsys.readouterr().out
     assert rc == 0
-    assert FORK_PIN in out, "the pin being built is not stated"
-    assert FORK_EXPECTED_BUILD_TAG in out
+    assert WIZARD_TARGET.pin in out, "the pin being built is not stated"
+    assert WIZARD_TARGET.banner in out
     assert "ready" in out.casefold()
     assert seen, "the progress callback was never called — steps ran silently"
     assert "Container" in out, "step results were not printed as they landed"

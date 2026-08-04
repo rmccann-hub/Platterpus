@@ -278,6 +278,21 @@ checksum, and installs to `~/Applications` — then the app offers to
 restart into the new version. Nothing changes if the download fails or
 you cancel.
 
+**Update channel** — Settings has an **Offer beta (pre-release) updates**
+checkbox, off by default. Left off, you are only ever offered finished
+releases (`0.6.4`); "you're up to date" then means up to date *on the
+stable channel*, and a newer beta may exist that simply isn't offered.
+
+Turn it on and pre-releases (`0.6.4b1`, `0.6.5rc1`) are offered too. Every
+beta offer says in the dialog that it is a pre-release, and "Yes" is not
+the pre-selected button — so a beta never installs on a keypress you made
+without reading. Betas are published for testing: they may contain bugs,
+and a beta's rip report can name a ripper build that the cyanrip handshake
+has not approved yet (the report says so plainly, and that is expected
+during testing, not a fault). You can return to a stable release at any
+time by downloading it from the releases page. Leave the box off unless you
+are testing.
+
 ## Uninstalling (Tools → Uninstall Platterpus)
 
 Removes everything the app installed: shortcuts, the cyanrip/metaflac/flac

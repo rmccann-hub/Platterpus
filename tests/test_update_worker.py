@@ -27,7 +27,7 @@ def test_check_worker_emits_release_info(
     qapp: QApplication, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     sentinel = object()  # stands in for a ReleaseInfo
-    monkeypatch.setattr(update_worker, "latest_release", lambda: sentinel)
+    monkeypatch.setattr(update_worker, "latest_release", lambda channel=None: sentinel)
     worker = UpdateCheckWorker()
     got: list[object] = []
     worker.finished.connect(got.append)
@@ -37,13 +37,37 @@ def test_check_worker_emits_release_info(
     assert got == [sentinel]
 
 
+def test_check_worker_passes_the_channel_through(
+    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The channel the window chose must reach the lookup — not be defaulted here.
+
+    Asserted because the stub in the test above accepts `channel` and *ignores* it,
+    which is precisely the stand-in that would keep passing if the worker silently
+    dropped the argument and every user quietly stayed on stable.
+    """
+    seen: list[str | None] = []
+
+    def record(channel: str | None = None) -> object:
+        seen.append(channel)
+        return None
+
+    monkeypatch.setattr(update_worker, "latest_release", record)
+    UpdateCheckWorker(channel="beta").run()
+    UpdateCheckWorker().run()  # default
+
+    assert seen == ["beta", "stable"], (
+        "the worker must forward its channel, and default to stable"
+    )
+
+
 def test_check_worker_emits_none_on_crash(
     qapp: QApplication, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A worker must always finish — a lookup that raises becomes None,
     not an unhandled exception that strands the thread."""
 
-    def boom() -> object:
+    def boom(channel: str | None = None) -> object:
         raise RuntimeError("network exploded")
 
     monkeypatch.setattr(update_worker, "latest_release", boom)

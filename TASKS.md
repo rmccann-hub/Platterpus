@@ -485,7 +485,7 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 
 From the trust/quality deep audit — see [docs/archive/trust-audit-2026-07-08.md](docs/archive/trust-audit-2026-07-08.md). Confirmed-but-deferred items (the audit's in-release fixes shipped in v0.4.22):
 
-- **[~] ⭐ Update authenticity (trust-critical).** **Build-provenance attestation DONE** — `release.yml` runs `actions/attest-build-provenance` over the released AppImage (SLSA, GitHub OIDC + Sigstore, no key/secret; verify with `gh attestation verify … --repo rmccann-hub/Platterpus`), and PyPI wheels are attested via Trusted Publishing. **The verify side DONE 2026-07-21 (KDD-26):** the must-ask was answered and `cryptography>=48.0.1,<50` is a declared runtime dep ([DEPENDENCIES.md](DEPENDENCIES.md)); `src/platterpus/update_signing.py` (`verify_minisign`, `verify_minisign_file`, `signing_configured`) is wired into `update_install.py` **fail-closed** on a present-but-invalid signature, with tests. It is dormant because `update_signing.PUBLIC_KEY_B64` is empty — today's gate is SHA-256 only, which `SECURITY.md` documents honestly. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release — the ritual is in [docs/release-signing.md](docs/release-signing.md).
+- **[~] ⭐ Update authenticity (trust-critical).** **Build-provenance attestation DONE** — `release.yml` runs `actions/attest-build-provenance` over the released AppImage (SLSA, GitHub OIDC + Sigstore, no key/secret; verify with `gh attestation verify … --repo rmccann-hub/Platterpus`), and PyPI wheels are attested via Trusted Publishing. **The verify side DONE 2026-07-21 (KDD-26):** the must-ask was answered and `cryptography>=50.0.0,<51` is a declared runtime dep ([DEPENDENCIES.md](DEPENDENCIES.md)); `src/platterpus/update_signing.py` (`verify_minisign`, `verify_minisign_file`, `signing_configured`) is wired into `update_install.py` **fail-closed** on a present-but-invalid signature, with tests. It is dormant because `update_signing.PUBLIC_KEY_B64` is empty — today's gate is SHA-256 only, which `SECURITY.md` documents honestly. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release — the ritual is in [docs/release-signing.md](docs/release-signing.md).
 - **[x] Pin GitHub Actions to commit SHAs** — DONE (round 2, 2026-07-08): every `uses:` across `ci.yml`/`release.yml`/`publish-pypi.yml`/`appimage.yml`/`mutation.yml` pins a full commit SHA (`# vN` comment). Dependabot (`github-actions`) drives the bumps.
 - **[~] Reproducible AppImage build.** **`SOURCE_DATE_EPOCH` — DONE (2026-07-08):** `build_appimage.sh` pins every embedded timestamp to the HEAD commit time; verified the *wheel* is byte-identical across rebuilds (same sha256). **`pip --require-hashes` dependency byte-pinning — PLUMBING SHIPPED (2026-07-21, Option A, maintainer-chosen):** the python-appimage-compatible design is a **hash-verified wheelhouse** — `build/lock-requirements.sh` resolves the third-party closure and writes a hash-pinned `requirements.lock` (run in the release env when a dep changes); `build_appimage.sh`, *when the lock exists*, `pip download --require-hashes`-es the closure into a local wheelhouse (aborts on any byte mismatch) and installs python-appimage's per-line deps **offline** from it, with the local `platterpus` wheel served alongside. It's **opt-in and additive** — no lock ⇒ the previous version-pinned online install, unchanged. Parsing logic unit-verified; scripts `bash -n`-clean. **Still gated on a real build (only place it can be validated):** generate the lock in CI/the release env, commit it, and confirm the *full* AppImage is byte-identical across rebuilds (the sandbox can only verify the wheel half).
 - **[x] Static type-checking in CI — DONE (whole package strict, 2026-07-20).** `mypy` in the `dev` extra + a gating CI `typecheck` job. Ratcheted up in stages: non-UI package (2026-07-09), standalone UI widget/dialog modules (2026-07-10), then the final six `main_window*` god-object modules (2026-07-20). `disallow_untyped_defs` + `disallow_incomplete_defs` are now enforced across the **entire package with no `ignore_errors` exclusions left**. The last step needed a **shared typing seam** (`ui/main_window_shared.py::MainWindowShared`): the mixins' `self` is the concrete window at runtime but the bare mixin to mypy, so cross-mixin `self._x` couldn't resolve (the bulk of the 317 errors were `attr-defined`). The seam is a type-only declaration of the window's shared surface (attrs/signals/cross-mixin methods) that every mixin inherits; it's runtime-neutral (bare annotations + `TYPE_CHECKING` method stubs + a `TYPE_CHECKING`-conditional `QWidget`/`object` base — see docs/architecture.md §3.6). Along the way, ~10 residual real type-gaps were fixed properly (retyped `object|None` workers to concrete classes; `_build_gui_dependency_manager -> DependencyManager`; typed the unknown-post-processing album/track params; widened two `list[object]` helpers to `Sequence[object]`). Full suite green; MRO/metaclass verified unchanged at runtime.
@@ -550,7 +550,7 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 7 sent, both sides on betas)
+### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 9 sent, both betas cut)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
 `verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
@@ -581,10 +581,31 @@ Adopted. Ours is a **pre-release**, because our artifact is an AppImage a user
 downloads rather than a tree they build: `--release-gate --prerelease` permits it
 loudly, `--release-gate` still refuses a stable release.
 
-- **Platterpus test pin: `v0.6.4b1`** (published pre-release).
-- **Awaiting the fork's beta:** `0.9.4-rc1+platterpus.5-beta.1` from `f750890`,
-  requested in `verified/round-7d.md`. **The only thing between us and the rig
-  session.**
+**Both betas are cut and both are named in writing (their lap 8, our lap 9).**
+
+```
+Platterpus  v0.6.4b1                        GitHub pre-release, assets attached
+cyanrip     0.9.4-rc1+platterpus.5-beta.1   commit 9003e6f on platterpus-fork
+```
+
+- **[x] Platterpus test pin: `v0.6.4b1`** — published pre-release.
+- **[x] Adopt the fork's beta as the wizard's build target.** `WIZARD_TARGET` →
+      `9003e6f`, checked out as an exact detached commit; `platterpus-fork-g9003e6f`
+      added to the `--consumer` allowlist so rig logs carry both halves of the pair.
+      **The test pin moved twice inside this round** (`f750890` → `d9c7124` →
+      `9003e6f`), each move retiring a build the previous lap named — `f750890` because
+      its `-x` could hang with no diagnostic at all, which is exactly what H10 exercises.
+      `SUPERSEDED_TEST_PINS` records the retired ones, and a rip that finds one installed
+      says it is retired and names the current one.
+- **[ ] Run the rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
+      invocation** — seven of the ripper's refusal paths fire before its logfile exists,
+      so nothing in the archived log can show them, and its heartbeat lines are
+      stdout-only too. Send the artifacts to **both** repositories. Their lap 8 adds one
+      cheap step worth taking: run `-x` on a rip you can afford to lose first, since it
+      is the least-exercised code in the binary.
+- **[ ] Answer their lap 7 §4** — whether the seven stdout-only refusal paths should be
+      fixed by opening the logfile earlier or documented in the contract as stdout-only.
+      They asked for our view rather than assuming. Not blocking the session.
 
 What we owe, and what waits on their answers:
 

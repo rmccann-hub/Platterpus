@@ -47,6 +47,11 @@ STOCK_BANNER = "cyanrip 0.9.3 (release)"
 #: makes the *verify* test fail for a reason that has nothing to do with what it
 #: tests. Deriving it means the pin move is a one-line edit in `fork_source.py`.
 FORK_BANNER = _FORK_SOURCE.FORK_EXPECTED_BANNER
+#: What the WIZARD installs, which is not always the production pin: mid-round a
+#: test pin is nominated, and the verify snippet checks for whatever was built.
+#: Kept separate from FORK_BANNER because the probe tests only care that a build
+#: identifies as the fork, while the verify test cares *which* build.
+WIZARD_BANNER = _FORK_SOURCE.WIZARD_TARGET.banner
 REJECT = "Unable to parse command line argument: {flag}"
 
 
@@ -194,7 +199,7 @@ def test_the_wizard_fork_probe_accepts_a_long_flag_only_binary(
         def run(self, argv: list[str]) -> tuple[int, str]:
             calls.append(list(argv))
             if argv[-1] == "--version":
-                return 0, f"{fork_source.FORK_EXPECTED_BANNER}\n"
+                return 0, f"{fork_source.WIZARD_TARGET.banner}\n"
             return 1, REJECT.format(flag=argv[-1])
 
     setup = HostSetup(runner=_Runner(), cyanrip_path=cyanrip)
@@ -252,7 +257,17 @@ def test_the_backend_version_returns_on_the_first_flag_that_answers() -> None:
     ("label", "good_flag", "banner", "expected_exit"),
     [
         ("stock: right flag, wrong build", "-V", STOCK_BANNER, 1),
-        ("fork at the pin", "--version", FORK_BANNER, 0),
+        ("fork at the wizard target", "--version", WIZARD_BANNER, 0),
+        # The production pin, when the wizard is building a test pin, is the
+        # RIGHT fork and the WRONG build — and must fail. Before ForkTarget the
+        # verify read a different constant from the build, so this case could
+        # not be expressed at all: there was only ever one "correct" banner.
+        (
+            "fork, but not the build being installed",
+            "--version",
+            _FORK_SOURCE.PRODUCTION_TARGET.banner,
+            0 if _FORK_SOURCE.WIZARD_TARGET == _FORK_SOURCE.PRODUCTION_TARGET else 1,
+        ),
         (
             "fork at a different pin",
             "--version",
@@ -287,7 +302,7 @@ def test_the_wizard_verify_snippet_behaves_on_every_build_shape(
     fake.chmod(0o755)
 
     proc = subprocess.run(
-        ["sh", "-c", script, "verify", str(fake), fork_source.FORK_EXPECTED_BUILD_TAG],
+        ["sh", "-c", script, "verify", str(fake), fork_source.WIZARD_TARGET.build_tag],
         capture_output=True,
         text=True,
         timeout=30,

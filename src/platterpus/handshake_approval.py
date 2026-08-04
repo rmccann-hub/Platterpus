@@ -96,6 +96,46 @@ def _build_tag_of(banner: str) -> str:
     return inner
 
 
+def _why_this_build_is_here(tag: str) -> str:
+    """A sentence naming *why* a recognised-but-unapproved build is installed.
+
+    The verdict stays ``unapproved`` — a build under review or nominated for testing
+    has been approved by nobody, and softening that would be the whole point of the
+    check thrown away. What this adds is the *reason*, because "NOT the build this
+    Platterpus was verified against" is the shape of message the old dependency
+    dialog used to produce: every word true, and the user left thinking something
+    broke. During a hardware session the test pin is *supposed* to be installed, and
+    a report that cannot say so is the same failure as one that cannot say anything.
+
+    Returns ``""`` for a build we have no story for — silence beats a guess.
+    """
+    lowered = tag.casefold()
+    test_pin = fork_source.FORK_TEST_PIN
+    if test_pin and test_pin.casefold() in lowered:
+        return (
+            f" That build is the round-{fork_source.FORK_TEST_PIN_ROUND} **test pin**"
+            f" ({test_pin}, cyanrip {fork_source.FORK_TEST_VERSION}) — nominated by"
+            " both projects to gather the hardware evidence the round needs to"
+            " close. Seeing it here during a test session is expected; a test pin"
+            " is not a release and no round has approved it."
+        )
+    for retired in fork_source.SUPERSEDED_TEST_PINS:
+        if retired.casefold() in lowered:
+            return (
+                f" That build was a round-{fork_source.FORK_TEST_PIN_ROUND} test pin that"
+                f" has since been RETIRED; the current one is {test_pin}"
+                f" (cyanrip {fork_source.FORK_TEST_VERSION}). Evidence gathered with"
+                " a retired pin is not what the round is waiting for."
+            )
+    under_review = fork_source.NEXT_PIN_UNDER_REVIEW
+    if under_review and under_review.casefold() in lowered:
+        return (
+            f" That build is the pin an OPEN handshake round proposes"
+            f" ({under_review}); it has not been approved by either project yet."
+        )
+    return ""
+
+
 def approve_ripper(banner: str | None) -> RipperApproval:
     """Compare an observed cyanrip banner against the handshake-approved build.
 
@@ -143,13 +183,7 @@ def approve_ripper(banner: str | None) -> RipperApproval:
     # negative, and it is the case worth a loud line: the user is ripping with a
     # ripper no closed round has verified, which makes the archival claims on this
     # rip weaker than the ones on a verified rip — a fact only they can weigh.
-    under_review = fork_source.NEXT_PIN_UNDER_REVIEW
-    extra = ""
-    if under_review and under_review.casefold() in tag.casefold():
-        extra = (
-            f" That build is the pin an OPEN handshake round proposes "
-            f"({under_review}); it has not been approved by either project yet."
-        )
+    extra = _why_this_build_is_here(tag)
     return RipperApproval(
         verdict=UNAPPROVED,
         detail=(

@@ -406,16 +406,29 @@ def main(argv: list[str] | None = None) -> int:
     # hand-copied shell snippet in the docs would be a second description of the
     # install that drifts the first time the pin or a build dep changes.
     if args.install_ripper:
-        from platterpus.deps.fork_source import FORK_EXPECTED_BUILD_TAG, FORK_PIN
+        from platterpus.deps.fork_source import PRODUCTION_TARGET, WIZARD_TARGET
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.step_engine import StepResult, StepStatus, SubprocessRunner
 
+        # Name the build being installed AND, when it is not the approved one, say so
+        # here — before minutes of dnf and meson, not in the rip report afterwards.
+        # A test pin is installed on purpose during a session and reports
+        # `unapproved` on every rip; the install is the honest place to set that
+        # expectation, because a surprise in a rip report reads as a defect.
         print(
             f"Platterpus {__version__} (build {build_fingerprint()}) — installing "
             f"the ripping stack\n"
-            f"cyanrip fork pin: {FORK_PIN} (expects build tag "
-            f"{FORK_EXPECTED_BUILD_TAG})\n"
+            f"cyanrip build: {WIZARD_TARGET.pin} — {WIZARD_TARGET.why}\n"
+            f"expects banner: {WIZARD_TARGET.banner}\n"
         )
+        if WIZARD_TARGET != PRODUCTION_TARGET:
+            print(
+                f"NOTE: this is not the handshake-approved build "
+                f"({PRODUCTION_TARGET.pin}). Every rip will report\n"
+                f"      'ripper handshake approval: unapproved' — that is correct, "
+                f"not a fault: the\n"
+                f"      round is open and no round has approved a test pin.\n"
+            )
         # A step can take minutes (an image pull, a dnf transaction, a meson
         # build). Print each result as it lands rather than batching at the end,
         # so a long step looks like progress instead of a hang — the terminal
