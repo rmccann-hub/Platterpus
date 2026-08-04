@@ -43,11 +43,11 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from platterpus import __version__ as _APP_VERSION  # noqa: E402
 from platterpus.adapters.cyanrip_backend import CyanripImpl  # noqa: E402
+from platterpus.adapters.rip_backend import RipMetadata, TrackTag  # noqa: E402
 from platterpus.cyanrip_cli import (  # noqa: E402
     VERIFY_LOG_FLAG,
     VERSION_FLAGS,
 )
-from platterpus.adapters.rip_backend import RipMetadata, TrackTag  # noqa: E402
 from platterpus.deps.fork_source import (  # noqa: E402
     FORK_EXPECTED_BANNER as _APPROVED_BANNER,
 )

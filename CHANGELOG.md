@@ -204,6 +204,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **Handshake files are named `round-NN-lap-LL.md`, and the old scheme had already
+  destroyed one.** The letter suffix (`round-7f.md`) encoded nothing: the same letter
+  meant **lap 12** in `inbound/` and **lap 10** in `verified/`, two files were both lap
+  7 by coincidence, and filing a received file meant picking "the next free letter" —
+  which overwrote lap 4 in this session and needed restoring from git. The name now
+  states the round and lap from the file's own wire header, so the two are checked
+  against each other (`tests/test_handshake_file_naming.py`); direction stays the
+  directory's job; an amendment is a new lap, not a letter. Files predating the lap
+  header keep their names, and the exemption is *derived* — a file with no lap has
+  nothing to name itself with — with the converse enforced too, since a canonical name
+  on a file that declares no lap is a false label. Inbound artifacts follow, naming the
+  build their **own banner** asserts rather than the commit a lap file names them by.
+- **One ordering for handshake files, because three copies of it were wrong at once.**
+  "Which file is newer" was a plain stem sort in three independent places, and the
+  rename broke all three: lexically `"round-07-lap-16" < "round-7"`. One of the three
+  decides `scripts/handshake.py --status`, which reported round 7's `they-verified` as
+  **GO** while their lap 16 declares HOLD — **a release gate saying an open round had
+  closed, because of a filename.** Ordering is now `handshake.sort_key`, keyed on the
+  *declared* round and lap rather than the string, and used by the script and both
+  tests. Regression-tested with a floor requiring the mixed-scheme case the bug needed.
 - **`rip.read_stalls_count` — the stall count, structured, and a `ripper_read_stalls`
   entry in `issues[]` when it is positive.** A rip whose read took 187 seconds is worth
   telling the user about even when every checksum came out right — that is how a disc
@@ -394,7 +414,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   first. The accepted cost is a two-line diff on a version bump, which is not spurious —
   the document really does describe a new version — and the docstring says so, to stop a
   future reader "fixing" it back.
-- **Round 7 lap 10 sent** (`docs/handshake/verified/round-7f.md`, **HOLD** — the round
+- **Round 7 lap 10 sent** (`docs/handshake/verified/round-07-lap-10.md`, **HOLD** — the round
   stays open and the pin does not move). It states what we now capture and surface so the
   fork can hold us to it, and asks three things back, including our own view on their
   seven stdout-only refusal paths: document them as stdout-only rather than opening the
@@ -588,7 +608,7 @@ GitHub pre-release, and every rip's report records
 `ripper_handshake_approval: not_determined` or `unapproved` unless the installed
 ripper is the build a closed round verified. **It is not a verified pair.**
 
-Paired with the cyanrip fork's own beta — see `docs/handshake/verified/round-7d.md`
+Paired with the cyanrip fork's own beta — see `docs/handshake/verified/round-07-lap-07.md`
 for the two builds by name.
 
 ### Fixed
