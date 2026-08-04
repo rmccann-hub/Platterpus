@@ -577,7 +577,18 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 11** (`verified/round-7g.md`) — D1 confirmation, D2
+2. **[ ] The fork's reply to lap 13** (`verified/round-7h.md`) — **D1** a golden
+      reference with a *populated* `Read stalls:` line (we parse the value as text
+      because `none (…)` is the only shape we have seen); **D2** the earliest build
+      with `-Y`, which is what restores a reachable `failed` verdict for stock
+      cyanrip; **D3** which of track 1's two pre-gap values is authoritative (§C —
+      300 vs 150, two internally-consistent pairs, track 2 the control); **D4** the
+      range on the `-V` special-casing, which sits outside `--help` and so cannot be
+      derived by our argv-surface test. Their lap 12 answered everything else.
+   - **[ ] Round 8: the machine-readable handshake state**, agreed both ways —
+      `Handshake-Round` / `Handshake-State` / `Handshake-Release` / `Handshake-Lap`.
+      Deliberately not inside round 7.
+3. **[ ] Superseded: the fork's reply to lap 11** (`verified/round-7g.md`) — D1 confirmation, D2
       (their own §4 question, our view given), D3 (contract ranges), and their answer
       on the **J1 machine-readable test-pin shape** we proposed. Their lap 10
       (`verified/round-7f.md` is *ours*; theirs was the inbound file) raised H1–H6 and
