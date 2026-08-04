@@ -36,7 +36,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from platterpus import rip_files
+from platterpus import diagnostics, rip_files
 from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
 
 log = logging.getLogger(__name__)
@@ -493,6 +493,23 @@ def apply_cover_art(
             result.release_id,
             reason,
             detail or "no further detail",
+        )
+        # Enumerate it too. "good cover image" is a third of the north star, and a
+        # missing cover reached the report only as a `cover_art.reason` string that
+        # nothing listed as a problem — so a rip with no art looked, in the one list
+        # a triager opens, exactly like a rip with art.
+        #
+        # `info` when the release genuinely has no art (nothing went wrong), and
+        # `warning` when we could not find out — the distinction the reason code
+        # already carries and no severity reflected.
+        diagnostics.record(
+            diagnostics.INFO if reason == "no-art" else diagnostics.WARNING,
+            "coverart.fetch_failed",
+            f"cover art was not applied (reason: {reason}) — {result.message}",
+            tool="Cover Art Archive (HTTP)",
+            detail=f"release {result.release_id or '(unknown)'}: "
+            + (detail or "no further detail"),
+            where="adapters.cover_art.fetch_and_apply",
         )
         return result
 

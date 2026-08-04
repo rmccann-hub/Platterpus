@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 import musicbrainzngs
 
+from platterpus import diagnostics
 from platterpus.medium_select import MediumChoice, select_medium
 
 log = logging.getLogger(__name__)
@@ -187,6 +188,31 @@ class MusicBrainzClient(ABC):
 # --- v1 concrete implementation --------------------------------------------
 
 
+def _record_mb_failure(what: str, exc: BaseException, detail: str = "") -> str:
+    """Record an MB query failure and return the message to raise with.
+
+    One helper for all four raise sites, so they cannot describe the same class of
+    failure differently — and so the *report* carries them. Before this, a
+    MusicBrainz failure existed only as an exception message the UI turned into a
+    dialog: nothing enumerated it, so a report from a rip whose metadata came from a
+    fallback path could not say the lookup had failed at all.
+
+    ``exit_code`` is deliberately omitted: MB is an HTTP call, there is no child
+    process, and claiming a tri-state exit status for one would be a confident wrong
+    answer (the same mistake this subsystem's own first output made).
+    """
+    message = f"{what}: {exc}"
+    diagnostics.warning(
+        "musicbrainz.lookup_failed",
+        f"{message} — metadata for this disc could not be fetched from "
+        "MusicBrainz. The rip itself is unaffected; the tags are.",
+        tool="MusicBrainz (HTTP)",
+        detail=detail or f"{type(exc).__name__}: {exc}",
+        where="adapters.musicbrainz_client.MusicBrainzNgsImpl",
+    )
+    return message
+
+
 class MusicBrainzNgsImpl(MusicBrainzClient):
     """MusicBrainz client backed by the `musicbrainzngs` library."""
 
@@ -218,9 +244,13 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
             # "no candidates" (not an error).
             if _is_not_found(exc):
                 return []
-            raise MusicBrainzQueryError(f"MB disc-id lookup failed: {exc}") from exc
+            raise MusicBrainzQueryError(
+                _record_mb_failure("MB disc-id lookup failed", exc, disc_id)
+            ) from exc
         except musicbrainzngs.WebServiceError as exc:
-            raise MusicBrainzQueryError(f"MB disc-id lookup failed: {exc}") from exc
+            raise MusicBrainzQueryError(
+                _record_mb_failure("MB disc-id lookup failed", exc, disc_id)
+            ) from exc
 
         return _summaries_from_disc_response(response)
 
@@ -237,9 +267,13 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
         except musicbrainzngs.ResponseError as exc:
             if _is_not_found(exc):
                 return []
-            raise MusicBrainzQueryError(f"MB TOC lookup failed: {exc}") from exc
+            raise MusicBrainzQueryError(
+                _record_mb_failure("MB TOC lookup failed", exc, toc.to_query())
+            ) from exc
         except musicbrainzngs.WebServiceError as exc:
-            raise MusicBrainzQueryError(f"MB TOC lookup failed: {exc}") from exc
+            raise MusicBrainzQueryError(
+                _record_mb_failure("MB TOC lookup failed", exc, toc.to_query())
+            ) from exc
 
         return _summaries_from_disc_response(response)
 
@@ -272,7 +306,9 @@ class MusicBrainzNgsImpl(MusicBrainzClient):
                     ],
                 )
         except musicbrainzngs.WebServiceError as exc:
-            raise MusicBrainzQueryError(f"MB release fetch failed: {exc}") from exc
+            raise MusicBrainzQueryError(
+                _record_mb_failure("MB release fetch failed", exc, mbid)
+            ) from exc
 
         release = response.get("release", {})
         choice = select_medium(

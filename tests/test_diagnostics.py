@@ -18,9 +18,11 @@ trustworthy rather than about it merely storing things:
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import logging
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -344,3 +346,99 @@ def test_an_isolated_collector_does_not_touch_the_global() -> None:
     private.error("deps.missing", "mine only")
     assert private.count() == 1
     assert d.default_log().count() == 0
+
+
+# --- The wiring is a sweep, not a promise (2026-08-04) ---------------------
+#
+# A collector nothing calls is an empty section that reads as "nothing went wrong".
+# CLAUDE.md's standing lesson from the `cancel()` audit applies verbatim: *grep for a
+# call site before believing it works, and check the call site is reachable, not
+# merely present.* So this asserts every subsystem that CAN fail actually records —
+# by importing the real module and looking for the call, with a floor so the sweep
+# cannot pass by finding nothing.
+
+_SRC = Path(__file__).resolve().parents[1] / "src" / "platterpus"
+
+#: Module → the diagnostic code it must be able to record. Every entry is a
+#: subsystem an audit found failing silently; the point of the list is that adding a
+#: new failure path is a *decision*, and removing one from here is visible in a diff.
+_WIRED: dict[str, str] = {
+    "workers/rip_worker.py": "ripper.nonzero_exit",
+    "workers/dependency_worker.py": "deps.command_failed",
+    "deps/host_setup.py": "setup.step_failed",
+    "adapters/metaflac.py": "metaflac.failed",
+    "adapters/cache_probe.py": "deps.command_failed",
+    "adapters/ctdb_client.py": "ctdb.query_failed",
+    "adapters/musicbrainz_client.py": "musicbrainz.lookup_failed",
+    "adapters/cover_art.py": "coverart.fetch_failed",
+    "adapters/tool_run.py": "record_command_failure",
+    "library_move.py": "library.move_failed",
+    "drive_control.py": "drive.control_failed",
+    "ui/main_window_helpers.py": "library.move_failed",
+}
+
+
+def _imports_diagnostics(source: str) -> bool:
+    """Whether ``source`` imports the collector, in any legal form.
+
+    **AST, not a substring.** The first version of this check looked for the exact
+    line ``from platterpus import diagnostics`` and reported `ctdb_client.py` as
+    unwired — it imports the collector on a shared line
+    (``from platterpus import __version__, diagnostics``), which is the same import.
+    A matcher narrower than the language it inspects produces confident wrong
+    answers, and a *false* failure trains people to ignore the check as surely as a
+    false pass lets a bug through.
+    """
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "platterpus":
+            if any(alias.name == "diagnostics" for alias in node.names):
+                return True
+        if isinstance(node, ast.ImportFrom) and node.module == "platterpus.diagnostics":
+            return True
+        if isinstance(node, ast.Import):
+            if any(a.name == "platterpus.diagnostics" for a in node.names):
+                return True
+    return False
+
+
+def test_every_failure_prone_subsystem_records_a_diagnostic() -> None:
+    """Each module must both import the collector AND name its code.
+
+    Two conditions, not one — the pair is the check. Importing it proves nothing
+    (an unused import passes lint in no project, but a leftover one would); naming
+    the code proves nothing on its own either, since a string can sit in a comment.
+    Requiring both, in the same file, is what makes this a check rather than a label
+    match (CLAUDE.md: *"the label answers 'did they name it', the content answers
+    'did they write it', and only the pair is a check"*).
+    """
+    problems: list[str] = []
+    for rel, code in _WIRED.items():
+        path = _SRC / rel
+        assert path.exists(), f"{rel} has moved — this sweep is measuring nothing"
+        source = path.read_text(encoding="utf-8")
+        if not _imports_diagnostics(source):
+            problems.append(f"{rel} does not import the diagnostics collector")
+            continue
+        if code not in source:
+            problems.append(f"{rel} never names {code!r}")
+    assert not problems, (
+        "the diagnostics collector is not wired where an audit found silent "
+        "failures — " + "; ".join(problems)
+    )
+    # FLOOR: the list itself must not have been emptied.
+    assert len(_WIRED) >= 10, f"only {len(_WIRED)} subsystems swept"
+
+
+def test_every_wired_code_is_a_known_code() -> None:
+    """A typo in a code silently mints a category no aggregation will ever find.
+
+    `record()` logs a warning for an unlisted code rather than refusing it — losing a
+    real diagnostic to a taxonomy quibble would be absurd — which is exactly why this
+    needs a test: the runtime behaviour is deliberately forgiving, so the gate has to
+    live here.
+    """
+    codes = {c for c in _WIRED.values() if "." in c and not c.startswith("record")}
+    unknown = sorted(c for c in codes if c not in d.KNOWN_CODES)
+    assert not unknown, f"not in KNOWN_CODES: {unknown}"
+    assert len(codes) >= 8, f"only {len(codes)} distinct codes swept"
