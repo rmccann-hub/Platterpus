@@ -550,6 +550,91 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
+### ⭐ P1 — Release plan: v0.6.4 (non-beta) — PLANNED, NOT CUT
+
+> *"Get ready for a new non-beta release, but just plan for the release for now."*
+> — maintainer, 2026-08-04
+
+**Status: BLOCKED, and the blocker is the gate working correctly.**
+
+```
+$ python3 scripts/handshake.py --release-gate            → exit 1  (refused)
+$ python3 scripts/handshake.py --release-gate --prerelease → exit 0  (permitted)
+```
+
+Round 7 is OPEN and **both** sides declare HOLD. Per the deviation policy, releasing
+or moving the pin while a round is open is a *must-ask* — and per `CLAUDE.md` rule 12
+the gate is bilateral, so this is not a formality to wave through. **A `v0.6.4`
+stable tag must not be dispatched until round 7 closes with GO on both sides.** A
+further beta (`v0.6.4b4`) is permitted at any time and needs none of this.
+
+What the release itself is waiting on is therefore **not** code — the work below is
+either done or mechanical — it is the rig session (see the round-7 section) and the
+two verdicts turning GO.
+
+#### The blockers, in the order they must clear
+
+1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
+      invocation**; artifacts to both repositories. This is the round's remaining
+      evidence and nothing else can substitute for it. Hardware-gated.
+2. **[ ] The fork's reply to lap 10** (`verified/round-7f.md`) — D1 confirmation, D2
+      (their own §4 question, our view given), D3 (contract ranges).
+3. **[ ] Q8** — whether their `-Z N -l <tracks>` pass writes its own logfile we can
+      cite. The addendum fix is blocked on it.
+4. **[ ] Both verdicts GO.** One side's GO against the other's HOLD is an open round;
+      the gate reads both and will keep refusing until it is not.
+
+#### The release ritual once it is unblocked (mechanics: `CLAUDE.md` → CI/release)
+
+Nothing here is novel — it is the standing checklist, written out so the cycle is not
+reconstructed from memory under time pressure:
+
+1. **[ ] Bump `src/platterpus/__init__.py` `__version__` → `0.6.4`.** The single
+      source; `pyproject.toml` reads it dynamically. Do **not** add a version there.
+2. **[ ] Move the `[Unreleased]` entries** under `## [0.6.4] — <date>` with a matching
+      compare link, and point the `[Unreleased]` link at the new tag.
+3. **[ ] `pytest tests/test_no_stale_version_claims.py`** — the version-bump gate. It
+      fails until the CHANGELOG has both a section *and* a compare link, `[Unreleased]`
+      points at it, and README/SECURITY name the new minor with its stamp. This exists
+      because the README once announced v0.5.x deep into the v0.6 line: a doc-stamp
+      records *when a doc was edited*, and a doc nobody edits keeps an accurate stamp
+      while its prose quietly expires. **Two different things, two different checks.**
+4. **[ ] `pytest tests/test_doc_version_stamps.py`** — restamp every Markdown doc the
+      cycle touched. As of this writing that is `PLANNING.md`, `TASKS.md`,
+      `docs/README.md`, `docs/error-reporting.md` and the round-7 files, all already at
+      `v0.6.4b3` and therefore all needing one more move.
+5. **[ ] `python3 scripts/emit_dependency_contract.py`** — the generated consumer
+      contract now names the app version in its §0, so a version bump *changes it*.
+      This is deliberate (it states the range its claims cover) and the regeneration is
+      part of the bump, not an afterthought. `--check` is the CI gate.
+6. **[ ] `python3 scripts/handshake.py --release-gate`** — must exit 0. If it does not,
+      **stop**; that is the whole point of it.
+7. **[ ] Full green run** — `pytest` on the matrix, `ruff check` + `ruff format
+      --check`, `mypy`, the changelog check, media-guard, `pip-audit`.
+8. **[ ] Dispatch `release.yml` via `workflow_dispatch` with `v0.6.4` as the input.**
+      It creates the tag itself; a tag push does not work from the cloud session and
+      the agent git proxy forbids it anyway.
+9. **[ ] Confirm the artifacts**: AppImage + `.sha256` + `.zsync`, the signed
+      build-provenance attestation, and the PyPI wheel+sdist from the dispatched
+      `publish-pypi.yml`. A `v0.6.*` tag publishes as a **pre-release**; `v0.6.4` is
+      *not* a `v0.*`-style pre-release by tag shape, so verify the release is marked
+      correctly rather than assuming.
+
+#### What this release will contain
+
+The error-reporting work above, in full, plus the three betas' fixes: the AppImage
+built from PyPI instead of the tree (b1), the diagnostics that made the fork-build
+failure visible (b2), and the unexpanded `$HOME` that b2's diagnostics revealed (b3).
+The CHANGELOG `[Unreleased]` section is the authoritative list.
+
+#### Two things deliberately NOT in it
+
+- **`--consumer platterpus/<version>` on every rip.** An argv change, and the argv
+      chokepoint is validated — it lands with its own range check and test, not
+      batched with a release.
+- **Moving the pin to any round-7 test build.** The pin is `2f950c8` and stays there
+      until a round closes on a successor.
+
 ### ⭐ P1 — Full error reporting & diagnosability (maintainer directive, 2026-08-04)
 
 > *"do a full check for error reporting to both Cyanrip and Platterpus, as many and as
