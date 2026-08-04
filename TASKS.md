@@ -569,13 +569,14 @@ installed. What we owe, and what waits on their answers:
       paraphrasing.
 - **[ ] Send the A7/G2/H12 forced-error corpus.** Hardware-gated and deliberately not
       hand-assembled: a corpus built from my reading of their control flow is a fixture
-      carrying my assumptions about their control flow. Needs a disc and a drive to
-      misconfigure on purpose.
-- **[ ] H9 — a second gate-1 disc.** One disc verified their pre-gap emission exactly
+      carrying my assumptions about their control flow. **Now runnable without re-derivation:
+      `docs/hardware-test-checklist.md` §F3** gives the five states as five one-line commands
+      with exactly what to record for each. Case 1 needs no disc and nothing is written.
+- **[ ] H9 — a second gate-1 disc (checklist §F1).** One disc verified their pre-gap emission exactly
       (13 sub-channel entries, 1 lead-in, zeros on tracks 3/6/11/12, 9 `Gaps:` rows). One
       disc is an existence proof, not a range: a disc with a *non-zero* pre-gap on a
       non-first track is the case that could still fail. Hardware-gated.
-- **[ ] H10 — send the `-x` force-overread log line.** We ship the toggle; we have never
+- **[ ] H10 — send the `-x` force-overread log line (checklist §F2).** We ship the toggle; we have never
       captured the line it produces on a drive that accepts the command. Hardware-gated on
       the BDR-209D.
 - **[ ] Re-run the argv-surface agreement test against their round-7 contract** once their

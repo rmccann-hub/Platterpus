@@ -785,3 +785,87 @@ def test_the_handshake_readme_states_the_verdict_rule(hs: ModuleType) -> None:
     assert not re.search(r"CLOSED\*{0,2}\s+only when all three exist", readme), (
         "docs/handshake/README.md still states the presence-only closing rule"
     )
+
+
+# --- readiness: the shapes the fork's NEXT file could arrive in ----------------
+# Round 7 is open and their reply is expected. Two shapes are legitimate — an
+# amendment to round 7, or a fresh round 8 — and the machinery must handle both
+# without a human deciding which. Written as readiness rather than after the fact,
+# because the last two rounds each surprised the tooling once.
+
+
+def test_their_amendment_to_an_open_round_keeps_it_open_on_our_hold(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """`inbound/round-7b.md` is round 7, and our HOLD still governs.
+
+    Their reply to a mid-round verification is an amendment (protocol §7.4), so it
+    must not read as a new round — and it must not close the old one either. Only
+    *our* verdict closes a round; a new file from them is more input, not a
+    decision.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "round-7.md").write_text("x", encoding="utf-8")
+    (tmp_path / "verified" / "round-7.md").write_text(
+        "**HOLD on `d5d12ec`.** Mid-round lap.", encoding="utf-8"
+    )
+    (tmp_path / "inbound" / "round-7b.md").write_text(
+        "our reply to your lap 1", encoding="utf-8"
+    )
+
+    lines = [ln for ln in hs.round_status(tmp_path) if ln.startswith("round-")]
+    assert lines == [
+        "round-7: sent=yes returned=yes verified=yes (HOLD — not closed)  -> OPEN"
+    ], lines
+    # And once we send a GO — as `round-7c.md`, the newest verified file — it closes.
+    (tmp_path / "verified" / "round-7c.md").write_text(
+        "**GO on `d5d12ec`.** Lap 2 closes it.", encoding="utf-8"
+    )
+    closed = [ln for ln in hs.round_status(tmp_path) if ln.startswith("round-")]
+    assert closed[0].endswith("CLOSED"), closed
+
+
+def test_a_fresh_round_from_them_before_we_send_ours_reads_as_unsent(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """`inbound/round-8.md` with no `outbound/round-8.md` is OPEN, and says why.
+
+    The protocol is that we send first, so their opening a round out of order is a
+    real state the record must represent rather than paper over — `sent=NO` is the
+    line that tells a reader which half is missing and whose it is.
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+    for name in ("outbound", "inbound"):
+        (tmp_path / name / "round-7.md").write_text("x", encoding="utf-8")
+    (tmp_path / "verified" / "round-7.md").write_text(
+        "**GO on `d5d12ec`.**", encoding="utf-8"
+    )
+    (tmp_path / "inbound" / "round-8.md").write_text("we opened one", encoding="utf-8")
+
+    lines = [ln for ln in hs.round_status(tmp_path) if ln.startswith("round-")]
+    assert len(lines) == 2, lines
+    assert lines[0].endswith("CLOSED"), lines[0]
+    assert "sent=NO" in lines[1] and lines[1].endswith("OPEN"), lines[1]
+    # The release gate must block on it: an unanswered round of theirs is still an
+    # open round, and "we did not start it" is not an exemption.
+    assert any("do not release" in ln for ln in hs.round_status(tmp_path))
+
+
+def test_check_inbound_reports_the_missing_provider_contract(hs: ModuleType) -> None:
+    """Their round-7 file has no §I, and `--check` must say so, by name.
+
+    Read off the committed artifact rather than a synthetic file (§5.u). This is
+    the finding our reply's §7 asked them to fix, and the assertion is here so
+    that when they send it, this test is what confirms it landed — rather than my
+    reading the file and forming an opinion.
+    """
+    path = hs.INBOUND_DIR / "round-7.md"
+    assert path.is_file(), "the committed round-7 inbound file is missing"
+    problems = hs.check_inbound(path)
+    assert any("§I" in p for p in problems), (
+        "the checker no longer reports round 7's absent provider contract — if "
+        "they have since supplied it, update this test to assert the round is "
+        f"clean instead of deleting it: {problems}"
+    )

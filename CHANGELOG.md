@@ -160,6 +160,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     list, or both — including `hard_exit.py` and `ripper_identity.py`, which `CLAUDE.md`'s own
     Critical rules and Code conventions name by name. All 19 are now documented, and the map
     is swept against the filesystem every commit.
+- **Section F of the hardware checklist: the three artifacts we owe the cyanrip fork**, each
+  written so it can be run without re-deriving anything. Round 7 cannot close without them and
+  neither project releases while it is open, so they are now near the top of the
+  if-you-only-have-an-hour list rather than three lines in `TASKS.md`. F3 (the forced-error
+  corpus) is five one-line commands, needs no disc for the first, and writes nothing — and it
+  is deliberately *not* hand-assembled here, because a corpus built from my reading of their
+  control flow is a fixture carrying my assumptions about their control flow.
+- **Readiness tests for the shapes the fork's next handshake file can arrive in** — an
+  amendment to the open round, or a fresh round opened out of order. Both are legitimate and
+  the machinery now handles each without a human deciding which; the last two rounds each
+  surprised the tooling once. Includes a test that reads the committed round-7 file and
+  asserts `--check` still names its absent §I, so when they supply it, the test is what
+  confirms it rather than my reading the file and forming an opinion.
+- **A behavioural test that the rip log is read only after the ripper is reaped.** cyanrip's
+  logfile was block-buffered, so a killed process lost up to a 4096-byte stdio block — the
+  round-1 finding, reproduced against a real cancelled rip whose log ended mid-token at
+  `REPLAYGAIN_TRACK_GA`. The fork's `setvbuf` fixed the source; our half is ordering, which
+  was correct and untested. The fake writes the log from inside `wait()`, so an inverted order
+  finds nothing — verified by inverting it.
 - **`docs/handshake/README.md` is now a round-by-round map**, and gated. It described the
   closing rule as *"all three files exist"* — the rule that was wrong — and named exactly one
   round, four rounds in. Two tests now derive the expected rounds from the directories and
