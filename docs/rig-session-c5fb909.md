@@ -32,17 +32,59 @@ round 7     OPEN, HOLD both sides — nothing here is a release
 
 ---
 
-## Before you start — 4 checks, ~2 minutes, no disc
+## Before you start — 5 checks, ~5 minutes, no disc
 
 Each one is here because a session has been lost to its absence.
 
-### P1. You are on `b4`, not `b3`
+### P0. Get to `b4` — and the in-app updater will do it
+
+**You must switch channel first.** `update_channel` defaults to `stable`, and **stable
+never offers a pre-release**; `v0.6.4b4` is one. So:
+
+1. **Settings → Updates → tick "Offer beta (pre-release) updates"**
+2. **Help → Check for updates** → accept the offer
+3. **restart** when it asks — the running session holds the old inode
+
+Skip step 1 and "Check for updates" will say you are up to date. That is *correct for your
+channel*, not a bug — and if you are already on a beta it adds *"Note: you are running a
+pre-release build. Turn on the beta channel in Settings → Updates to be offered newer
+betas."*
+
+**Three things about how this update behaves**, all worth knowing before you watch it:
+
+* **It is a full ~242 MB download, not a delta.** The `.zsync` is published and the
+  update-information is embedded, but that is for external `AppImageUpdate`;
+  `update_install.py` streams the whole AppImage and verifies its SHA-256 against the
+  published `.sha256`. Nothing is wrong — it is just not quick.
+* **It installs to `~/Applications/platterpus-x86_64.AppImage`, always**, atomically
+  replacing whatever is there (safe mid-run — the old session keeps its inode). **If the
+  AppImage you actually launch lives somewhere else — `~/Downloads`, a desktop copy — the
+  update lands in `~/Applications` and you can carry on launching the old one.** The app
+  should offer to relocate a stray AppImage (`is_settled()` exists for exactly this), but
+  **P1 is what catches it if that does not happen.**
+* **No signature blocker, and this was worth checking rather than assuming.** The
+  fail-closed signing gate is dormant — `PUBLIC_KEY_B64` is empty, so
+  `signing_configured()` is `False` and integrity is SHA-256 only. Had a key been baked in,
+  this update would have been **refused outright**: `b4` publishes no `.minisig`. (Note for
+  whoever arms signing: the release ritual has to start producing `.minisig` in the *same*
+  change, or the first signed release breaks every in-app update.)
+
+**Manual route, if you would rather not update in-app:** download the AppImage from
+[the release](https://github.com/rmccann-hub/Platterpus/releases/tag/v0.6.4b4), verify it
+against the published `.sha256`, `chmod +x`, and put it in `~/Applications/`.
+
+### P1. You are on `b4`, not `b3` — **verify, do not assume**
 
 ```sh
-./platterpus-x86_64.AppImage --version
+~/Applications/platterpus-x86_64.AppImage --version
 ```
 
-Expect `0.6.4b4`. **This matters more than it looks:** `b3` builds `9003e6f` from the
+Expect `0.6.4b4`. **Run this against the path you will actually launch for the rest of the
+session**, which is the point: an update that installed correctly into `~/Applications`
+while you keep double-clicking a copy in `~/Downloads` looks exactly like a successful
+update until a rip reports the wrong thing.
+
+**Why it matters more than a version string usually does:** `b3` builds `9003e6f` from the
 wizard, and if you hand-build `c5fb909` anyway, `b3` **withholds `--consumer`** (a silent
 `Consumer: not identified` in the log) and reports log verification as `not_determined`.
 Both are fixed only in `b4`.
@@ -50,7 +92,7 @@ Both are fixed only in `b4`.
 ### P2. Install the test pin, through the app
 
 ```sh
-./platterpus-x86_64.AppImage --install-ripper
+~/Applications/platterpus-x86_64.AppImage --install-ripper
 ```
 
 This drives the **same step engine** as the setup wizard — not a copied shell snippet — and
@@ -76,15 +118,18 @@ looks like success everywhere else. Stop and say so if you see either.
 ### P4. Environment check
 
 ```sh
-./platterpus-x86_64.AppImage --doctor
+~/Applications/platterpus-x86_64.AppImage --doctor
 ```
 
 Exits non-zero on a hard blocker. Run it now rather than discovering a missing encoder
 after a 40-minute rip.
 
-**Record for P1–P4:**
+**Record for P0–P4:**
 
 ```
+channel set to beta : ☐ yes
+update route        : ☐ in-app  ☐ manual download
+launched path       : ______________________________________________
 --version         : ______________
 --install-ripper  : ☐ completed   ☐ failed at step: ______________
 cyanrip --version : ______________________________________________
@@ -101,7 +146,7 @@ the things this session is testing, so do not rely on it as the record.
 
 ```sh
 mkdir -p ~/rig-2026-08-XX && cd ~/rig-2026-08-XX
-./platterpus-x86_64.AppImage 2>&1 | tee app-stdout.txt
+~/Applications/platterpus-x86_64.AppImage 2>&1 | tee app-stdout.txt
 ```
 
 For every terminal command below, append `2>&1 | tee <name>.txt`. Keep the files even when
@@ -240,7 +285,7 @@ decodes it via `platterpus.parity.decode_log_bytes`. Don't be fooled by an empty
 **Then, and only as a secondary check**, the run-to-run diff:
 
 ```sh
-./platterpus-x86_64.AppImage --compare <old 9003e6f>.platterpus.json <new c5fb909>.platterpus.json
+~/Applications/platterpus-x86_64.AppImage --compare <old 9003e6f>.platterpus.json <new c5fb909>.platterpus.json
 ```
 
 This tells you which tracks are byte-identical between the two builds. Useful, but it is
