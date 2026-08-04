@@ -1004,6 +1004,34 @@ def _hex_crc(value: object) -> str | None:
     return None
 
 
+def _failure_details(result: object | None) -> list[dict] | None:
+    """Serialize a result's ``failure_details`` — the tool's own words per file.
+
+    Every post-rip adapter that runs an external tool now carries, per failed file,
+    that tool's exit code, exact argv and complete output. This lifts them into the
+    JSON so a report says *why* a file failed rather than only *that* it did.
+
+    ``None`` (not ``[]``) when the adapter predates the field, so a reader can tell
+    "no failures" from "this writer could not say". Never raises: reads defensively
+    and skips anything that will not serialize.
+    """
+    details = getattr(result, "failure_details", None)
+    if not details:
+        return None
+    out: list[dict] = []
+    for detail in details:
+        to_json = getattr(detail, "to_json", None)
+        if callable(to_json):
+            try:
+                block = to_json()
+            except Exception:  # noqa: BLE001 — a report must never fail to build
+                log.exception("rip_report: could not serialize a failure detail")
+                continue
+            if isinstance(block, dict):
+                out.append(block)
+    return out or None
+
+
 def _flac_verify(result: object | None) -> dict | None:
     """Serialize a FlacVerifyResult (decode==stored-MD5 test of the masters).
 
@@ -1019,6 +1047,10 @@ def _flac_verify(result: object | None) -> dict | None:
         "ok": bool(getattr(result, "ok", False)),
         "checked": getattr(result, "checked", 0),
         "failures": [str(p) for p in failures],
+        # What `flac --test` ACTUALLY SAID about each failed file. Before this the
+        # report named the files and could not name the reason, so "3 file(s) failed"
+        # was the whole diagnosis — see `adapters.tool_run`.
+        "failure_details": _failure_details(result),
         "error": getattr(result, "error", "") or None,
     }
 
@@ -1035,6 +1067,8 @@ def _transcode(result: object | None) -> dict | None:
         "ok": bool(getattr(result, "ok", False)),
         "transcoded": getattr(result, "transcoded", 0),
         "failures": [str(p) for p in failures],
+        # ffmpeg's own exit code, argv and output per failed file.
+        "failure_details": _failure_details(result),
         "error": getattr(result, "error", "") or None,
     }
 
@@ -1122,6 +1156,10 @@ def _recompress(result: object | None) -> dict | None:
         "ok": ran and (not failures) and (error is None),
         "reencoded": getattr(result, "reencoded", 0),
         "failures": [str(p) for p in failures],
+        # This step REWRITES the archival master, so a bare "it failed" is least
+        # acceptable here of anywhere: each entry says whether flac refused, flac
+        # claimed success and wrote nothing, or the atomic swap-in failed.
+        "failure_details": _failure_details(result),
         "error": error,
     }
 

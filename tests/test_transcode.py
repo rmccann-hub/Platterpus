@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from platterpus.adapters import transcode
+from platterpus.adapters.tool_run import ToolRun
 from platterpus.adapters.transcode import (
     SUPPORTED_FORMATS,
     TranscodeResult,
@@ -33,10 +34,10 @@ def test_mp3_transcode_writes_sibling_and_keeps_flac(tmp_path: Path) -> None:
     b = _make_flac(tmp_path / "02 - B.flac")
     seen: list[list[str]] = []
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         seen.append(argv)
         Path(argv[-1]).write_bytes(b"mp3data")  # argv[-1] is the temp output
-        return 0
+        return ToolRun.of(0)
 
     result = transcode_files(
         [a, b], fmt="mp3", mp3_vbr_quality=0, binary="ffmpeg", runner=runner
@@ -63,10 +64,10 @@ def test_mp3_vbr_quality_is_passed_through(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
     seen: list[list[str]] = []
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         seen.append(argv)
         Path(argv[-1]).write_bytes(b"x")
-        return 0
+        return ToolRun.of(0)
 
     transcode_files([a], fmt="mp3", mp3_vbr_quality=2, runner=runner)
     assert seen[0][seen[0].index("-q:a") + 1] == "2"
@@ -76,10 +77,10 @@ def test_wav_transcode_uses_pcm_and_no_metadata(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
     seen: list[list[str]] = []
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         seen.append(argv)
         Path(argv[-1]).write_bytes(b"RIFF....WAVE")
-        return 0
+        return ToolRun.of(0)
 
     result = transcode_files([a], fmt="wav", runner=runner)
 
@@ -98,10 +99,10 @@ def test_wavpack_writes_wv_sibling_lossless_with_tags(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01 - A.flac")
     seen: list[list[str]] = []
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         seen.append(argv)
         Path(argv[-1]).write_bytes(b"wvpk....")
-        return 0
+        return ToolRun.of(0)
 
     result = transcode_files([a], fmt="wavpack", runner=runner)
 
@@ -134,10 +135,10 @@ def test_custom_binary_path_is_used(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
     seen: list[list[str]] = []
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         seen.append(argv)
         Path(argv[-1]).write_bytes(b"x")
-        return 0
+        return ToolRun.of(0)
 
     transcode_files([a], fmt="mp3", binary="/opt/ffmpeg/bin/ffmpeg", runner=runner)
     assert seen[0][0] == "/opt/ffmpeg/bin/ffmpeg"
@@ -149,7 +150,7 @@ def test_unsupported_format_is_a_clean_noop(tmp_path: Path) -> None:
 
     # "flac" (and anything we don't transcode) → nothing run, no error.
     result = transcode_files(
-        [a], fmt="flac", runner=lambda argv: calls.append(argv) or 0
+        [a], fmt="flac", runner=lambda argv: calls.append(argv) or ToolRun.of(0)
     )
     assert result.ran and result.ok
     assert result.transcoded == 0
@@ -159,9 +160,9 @@ def test_unsupported_format_is_a_clean_noop(tmp_path: Path) -> None:
 def test_nonzero_rc_leaves_no_output_and_marks_failure(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         Path(argv[-1]).write_bytes(b"partial")  # ffmpeg wrote then failed
-        return 1
+        return ToolRun.of(1, "Error while opening encoder\n", tuple(argv))
 
     result = transcode_files([a], fmt="mp3", runner=runner)
 
@@ -176,7 +177,7 @@ def test_nonzero_rc_leaves_no_output_and_marks_failure(tmp_path: Path) -> None:
 def test_missing_temp_output_is_a_failure(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
     # Runner claims success but never wrote the temp.
-    result = transcode_files([a], fmt="mp3", runner=lambda argv: 0)
+    result = transcode_files([a], fmt="mp3", runner=lambda argv: ToolRun.of(0))
     assert result.failures == (a,)
     assert not (tmp_path / "01.mp3").exists()
 
@@ -192,12 +193,12 @@ def test_missing_temp_output_is_logged_with_the_reason(
     a = _make_flac(tmp_path / "01.flac")
 
     with caplog.at_level(logging.WARNING, logger="platterpus.adapters.transcode"):
-        result = transcode_files([a], fmt="mp3", runner=lambda argv: 0)
+        result = transcode_files([a], fmt="mp3", runner=lambda argv: ToolRun.of(0))
 
     assert result.failures == (a,)
     assert "01.flac" in caplog.text  # which file
     assert "mp3" in caplog.text  # which target format
-    assert "rc=0" in caplog.text  # the specific oddity: success with no output
+    assert "exit 0" in caplog.text  # the specific oddity: success with no output
     assert "wrote no output" in caplog.text
 
 
@@ -205,27 +206,30 @@ def test_nonzero_rc_failure_is_logged_with_the_exit_code(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The sibling case must read differently: ffmpeg *said* it failed, so the log
-    names the exit code and points at the stderr the runner logged."""
+    quotes its exit code and its own words rather than a generic sentence."""
     a = _make_flac(tmp_path / "01.flac")
 
-    def runner(argv: list[str]) -> int:
-        return 3
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun.of(3, "Unknown encoder 'wavpack'\n", tuple(argv))
 
     with caplog.at_level(logging.WARNING, logger="platterpus.adapters.transcode"):
         result = transcode_files([a], fmt="wavpack", runner=runner)
 
     assert result.failures == (a,)
-    assert "exited 3" in caplog.text
+    assert "exit 3" in caplog.text
     assert "01.flac" in caplog.text
     assert "wavpack" in caplog.text
     assert "wrote no output" not in caplog.text  # a different failure, worded so
+    # THE REGRESSION: ffmpeg's own sentence must reach the log AND the result.
+    assert "Unknown encoder" in caplog.text
+    assert "Unknown encoder" in result.failure_details[0].reason
 
 
 def test_missing_binary_is_an_error_not_a_failure(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
 
-    def runner(argv: list[str]) -> int:
-        raise FileNotFoundError("ffmpeg")
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun.failed_to_run("'ffmpeg' not found", tuple(argv))
 
     result = transcode_files([a], fmt="mp3", runner=runner)
     assert not result.ran
@@ -238,12 +242,14 @@ def test_timeout_marks_file_failed_and_continues(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
     b = _make_flac(tmp_path / "02.flac")
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         if argv[argv.index("-i") + 1].endswith("01.flac"):
             Path(argv[-1]).write_bytes(b"partial")
-            raise subprocess.TimeoutExpired(cmd="ffmpeg", timeout=300)
+            return ToolRun.timed_out(
+                "timed out after 300s (child killed, never reaped)", argv=tuple(argv)
+            )
         Path(argv[-1]).write_bytes(b"ok")
-        return 0
+        return ToolRun.of(0)
 
     result = transcode_files([a, b], fmt="mp3", runner=runner)
 
@@ -251,13 +257,17 @@ def test_timeout_marks_file_failed_and_continues(tmp_path: Path) -> None:
     assert result.transcoded == 1  # the second file still succeeded
     assert result.failures == (a,)
     assert not (tmp_path / "01.mp3.transcode.tmp").exists()  # partial cleaned
+    # The duration is NAMED, and a killed child has NO exit code (never 0).
+    assert "300s" in result.failure_details[0].reason
+    assert result.failure_details[0].run is not None
+    assert result.failure_details[0].run.exit_code is None
 
 
-def test_oserror_aborts_with_error(tmp_path: Path) -> None:
+def test_a_run_that_never_started_aborts_the_pass(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
 
-    def runner(argv: list[str]) -> int:
-        raise OSError("permission denied")
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun.failed_to_run("could not run ffmpeg: permission denied")
 
     result = transcode_files([a], fmt="mp3", runner=runner)
     assert not result.ran
@@ -269,9 +279,9 @@ def test_failed_atomic_move_marks_failure(
 ) -> None:
     a = _make_flac(tmp_path / "01.flac")
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         Path(argv[-1]).write_bytes(b"ok")
-        return 0
+        return ToolRun.of(0)
 
     def boom(_src: object, _dst: object) -> None:
         raise OSError("EXDEV")
@@ -282,10 +292,13 @@ def test_failed_atomic_move_marks_failure(
     assert result.ran and not result.ok
     assert result.failures == (a,)
     assert not (tmp_path / "01.mp3.transcode.tmp").exists()  # temp cleaned up
+    # Blame the STAGE, not ffmpeg: it succeeded and the move is what failed.
+    assert "move into place failed" in result.failure_details[0].reason
+    assert "EXDEV" in result.failure_details[0].reason
 
 
 def test_empty_input_is_a_clean_noop() -> None:
-    result = transcode_files([], fmt="mp3", runner=lambda argv: 0)
+    result = transcode_files([], fmt="mp3", runner=lambda argv: ToolRun.of(0))
     assert result.ran and result.ok
     assert result.transcoded == 0
 

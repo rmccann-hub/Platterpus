@@ -3166,9 +3166,16 @@ class RipMixin(MainWindowShared):
         if result.error:
             message = f"FLAC verify: skipped — {result.error}"
         elif result.failures:
-            names = ", ".join(p.name for p in result.failures)
+            # NAME WHAT `flac` SAID, not only which files. "FAILED for 3 file(s):
+            # a, b, c" was accurate and useless — a reader could not tell an
+            # unreadable file from a corrupt one from a tool that timed out. The
+            # reason now travels on the result (see `adapters.tool_run`), so quote
+            # it; fall back to bare names if an older result carries no details.
+            detail = "; ".join(result.reasons()) or ", ".join(
+                p.name for p in result.failures
+            )
             message = (
-                f"⚠ FLAC verify FAILED for {len(result.failures)} file(s): {names}"
+                f"⚠ FLAC verify FAILED for {len(result.failures)} file(s): {detail}"
             )
         else:
             message = f"FLAC verify: all {result.checked} file(s) decode cleanly."
@@ -3207,10 +3214,12 @@ class RipMixin(MainWindowShared):
         if result.error:
             message = f"FLAC re-compress: skipped — {result.error}"
         elif result.failures:
-            names = ", ".join(p.name for p in result.failures)
+            detail = "; ".join(result.reasons()) or ", ".join(
+                p.name for p in result.failures
+            )
             message = (
                 f"FLAC re-compress: {result.reencoded} file(s) re-compressed; "
-                f"{len(result.failures)} left as-is (re-encode failed): {names}"
+                f"{len(result.failures)} left as-is (re-encode failed): {detail}"
             )
         else:
             message = f"FLAC re-compress: {result.reencoded} file(s) re-compressed."
@@ -3240,10 +3249,12 @@ class RipMixin(MainWindowShared):
         if result.error:
             message = f"Transcode: skipped — {result.error} (FLAC master kept)"
         elif result.failures:
-            names = ", ".join(p.name for p in result.failures)
+            detail = "; ".join(result.reasons()) or ", ".join(
+                p.name for p in result.failures
+            )
             message = (
                 f"Transcode: {result.transcoded} file(s) written; "
-                f"{len(result.failures)} failed (FLAC master kept): {names}"
+                f"{len(result.failures)} failed (FLAC master kept): {detail}"
             )
         else:
             message = f"Transcode: {result.transcoded} file(s) written."
