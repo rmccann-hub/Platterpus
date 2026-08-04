@@ -92,6 +92,53 @@ def test_on_finished_ready_reports_success(qapp: QApplication) -> None:
     assert seen == [True]
 
 
+def test_a_failed_step_never_reads_as_setup_complete(qapp: QApplication) -> None:
+    """REGRESSION (real-user report, 2026-08-04, v0.6.4b1).
+
+    The wizard rendered "✓ Setup complete — the ripping tools are installed. You
+    can rip now." and, two lines below it, "✗ Platterpus fork of cyanrip —
+    installed cyanrip does not identify as the pinned fork build". Same run.
+
+    Cause: the headline came from `is_ready()` alone, which asks *"is a ripper
+    reachable on the host?"* (`cyanrip_exported() and flac_exported()`). The
+    PREVIOUS fork build was still exported, so it answered True — correctly, to a
+    different question — and the verdict never consulted `results`, so a FAILED
+    step could not affect it.
+
+    **This exact combination — ready=True WITH a failed step — was untested.** The
+    pre-existing failure test uses ready=False, where `is_ready()` happens to agree
+    with the results, so it could never catch this. A test that only exercises the
+    case where two signals agree cannot detect that one of them is being read.
+    """
+    dialog = _dialog(qapp, ready=True)  # a working ripper IS exported
+
+    dialog._on_finished(
+        [
+            StepResult("export", "Export tools to ~/.local/bin", StepStatus.DONE),
+            StepResult(
+                "fork",
+                "Platterpus fork of cyanrip (build + export)",
+                StepStatus.FAILED,
+                "installed cyanrip does not identify as the pinned fork build "
+                "(platterpus-fork-g9003e6f)",
+            ),
+        ]
+    )
+
+    text = dialog._status_label.text()
+    assert "Setup complete" not in text, (
+        f"a FAILED step still reads as success: {text!r}"
+    )
+    # The failure has to be named, not merely not-claimed-successful.
+    assert "Platterpus fork of cyanrip" in text
+    assert "9003e6f" in text, "the message drops the detail the user needs"
+    # And the OTHER true half stays: they can still rip, with the older build.
+    assert "can rip" in text, (
+        "a user with a working ripper must not be told setup wholly failed — that "
+        "is the opposite error, and just as wrong"
+    )
+
+
 def test_on_finished_failure_shows_failed_step(qapp: QApplication) -> None:
     dialog = _dialog(qapp, ready=False)
     seen: list[bool] = []
