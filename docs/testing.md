@@ -1196,6 +1196,47 @@ one question is the wrong input to a different one. `_source_modules()` excludes
 reusing that filter in the *phantom* check made the test report `PLANNING.md`'s
 (correct) `__init__.py` entry as describing a deleted module.
 
+### §5.ag — A conformance table is run, not read
+
+*Handshake round 7 lap 5, 2026-08-04.*
+
+The cyanrip fork's shared protocol carries a **14-row table** of cases a conforming
+gate must refuse, plus one it must allow. We had already written our gate to the
+four *principles* those rows express, revert-proven it, and reported it as done.
+Turning the table into fourteen tests found a defect immediately:
+
+> **Row 12 — "no round files at all → refuse; an empty record is not agreement."**
+> Ours printed *"every round is closed — release allowed"*.
+
+The mechanism is worth stating because it is so cheap: `round_status()` returned a
+bare `"no handshake rounds recorded"` line, the gate decided by looking for lines
+ending in `OPEN`, that line does not end in `OPEN`, therefore nothing was open. **A
+gate satisfied by finding nothing, in the gate whose entire job is not being
+satisfied by nothing.**
+
+**Reading the table would not have found it.** Every row read as something we
+already did, because at the level of principle we did. The gap was in a *case*.
+
+Two rules follow:
+
+1. **Where a spec offers concrete cases, write one test per case** — in the spec's
+   order, named for its row, so a divergence between two implementations can be
+   cited rather than argued. A floor test asserting every row has a test keeps that
+   true as the spec grows; a skipped row is a divergence nobody can see.
+2. **Assert the ALLOW row first.** A gate that can never say yes is a wall, and it
+   passes every refusal row in the table. Putting the positive case at the top of
+   the file is how that stays honest instead of remembered. (Their observation, and
+   it is the reason the table has that row at all.)
+
+**The companion finding, same lap: a format's own documentation is the likeliest
+place to trip its parser.** Round files illustrate the header format in fenced
+blocks; both projects' gates read those illustrations as declarations. Theirs
+compiled an illustrated field into a binary as a fact; ours resolved correctly only
+because the illustrated value happened to match the real one — and our suite
+asserted the wrong behaviour outright, with a confident comment. **A declaration is
+what a file states, never what it quotes.** Three bait shapes exist (indented,
+prose, fenced) and each project had independently found two of the three.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at

@@ -41,6 +41,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   right: a bare `Yes` in an EAC-shaped log is indistinguishable from an asserted one, and a
   reader who cannot tell a measurement from a claim has been given a claim. The row now
   names its own method inline whenever a verdict exists.
+- **An illustrated field inside a code fence was read as a declaration.** A handshake round
+  file legitimately quotes the header format to explain it — and our parser read those examples
+  as facts about the file itself. Our own lap-3 file adopted `PROVIDER-CONTRACT` from inside a
+  fence, a field we are not even entitled to declare, and its verdict resolved correctly only
+  because the illustrated value happened to match the real one. **Our test suite asserted the
+  wrong behaviour outright**, with a confident comment about not parsing markdown. Fences are
+  now stripped before matching; the assertion is inverted with the reason beside it. Found by
+  the fork, on our file, after their gate compiled an illustrated `HANDSHAKE-PEER-VERSION` into
+  their binary as a fact about us — three bait shapes now (indented, prose, fenced) and each
+  project had found two of the three.
+- **A timing gate that reddened CI at random.** `test_regex_bounded_time`'s detector-proof
+  measured 10.9x growth on a *linear* pattern against an 8.0x ceiling — one run in three, in a
+  container. Wall-clock noise (a GC pass, a scheduler hiccup, a co-tenant) can only ever make a
+  measurement *longer*, so a single sample in the denominator inflates the ratio without bound.
+  Now min-of-3, which is the standard reasoning for timing short operations. 5/5 stable at 29s
+  for the file; a stable gate at 29s beats a flaky one at 10s, because a gate that fires at
+  random is a gate people switch off.
 - **`report_types.py` described half the report it calls itself the source of truth for.**
   Its docstring says *"single source of truth for the structure `rip_report` WRITES"*; it was
   missing **13 of 28** keys of the `rip` block and 4 of the `outcome` block — eight of them
@@ -174,6 +191,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     list, or both — including `hard_exit.py` and `ripper_identity.py`, which `CLAUDE.md`'s own
     Critical rules and Code conventions name by name. All 19 are now documented, and the map
     is swept against the filesystem every commit.
+- **Handshake protocol v2, and the spec is now one shared file instead of two descriptions.**
+  Our lap 3 wrote its own §8 saying *"one language, both repos"* — and thereby created a second
+  copy of the spec, which is the two-vocabularies problem in miniature. The fork wrote it up as
+  a standalone document; we adopted that verbatim as `docs/handshake-protocol.md`, and
+  `docs/cyanrip-handshake.md` §8 now routes to it rather than restating it.
+  - **`HANDSHAKE-PROTOCOL` is required, and a higher version than we implement is refused**
+    rather than guessed at — a v2 gate cannot know which of v3's rules it is silently not
+    applying, including a new close requirement.
+  - **A close now requires the fork's field set too:** both verdicts, both versions, both pins,
+    and `HANDSHAKE-TESTED`. The last is the maintainer's *"proper testing is needed"* as a
+    field — a round that closed with nothing tested is a release nobody checked. `--check`
+    reports a `GO` that cannot close *at check time*, naming the missing field, so the author
+    learns while they are still writing it.
+  - **A field declared twice is ambiguous, not "the last one".**
+- **`tests/test_handshake_conformance.py` — the shared protocol's 14-row conformance table, one
+  test per row, run against our gate.** It found a real defect on the first pass: **row 12, an
+  empty record, allowed a release.** `round_status()` returned a bare "no handshake rounds"
+  line; the gate decided by looking for lines ending in `OPEN`; that line did not; therefore
+  nothing was open. *A gate satisfied by finding nothing, in the gate whose entire job is not
+  being satisfied by nothing.* Row 14 (a complete round must be **allowed**) is asserted first
+  in the file, because a gate that can never say yes passes every refusal row.
 - **The cyanrip handshake is now affirmative, bilateral, and checked at the drive**
   (maintainer directive). Four parts, each previously enforced somewhere other than where it
   mattered:

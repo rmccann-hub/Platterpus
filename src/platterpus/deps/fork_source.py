@@ -131,7 +131,18 @@ FORK_EXPECTED_BANNER: Final[str] = (
 
 # --- The NEXT pin, recorded but deliberately not wired in -------------------
 #
-# Round 7 lap 2 asks for `345241b` (fork release r3, version
+# Round 7 lap 4 asks for `5bc654d` (fork release **r4**, version
+# `0.9.4-rc1+platterpus.4`), superseding lap 2's `345241b` (r3), which superseded
+# lap 1's `d5d12ec`, which superseded round 6's `ad65a24`. **Four SHAs in one open
+# round**, and the fork-release number moved `.3` → `.4` because r4 adds `-dirty`
+# to the build tag (our A9), the paranoia semantics in their generated contract
+# (A8), and their own release gate. The base stays `0.9.4-rc1` deliberately: the
+# maintainer asked for `0.9.5-rc1` and the fork declined with reasons we accept —
+# it would mint a number inside upstream's namespace (exactly why `0.9.4-rc3` was
+# withdrawn, which we endorsed) and assert a base that does not exist. Our
+# `parse_version` returning `(0, 9, 4)` for this tree is *correct*.
+#
+# (Superseded note, kept for the record: lap 2 asked for `345241b` (fork release r3, version
 # `0.9.4-rc1+platterpus.3`) — superseding lap 1's `d5d12ec`, which superseded
 # round 6's `ad65a24`. Three SHAs for one unreleased version, and the version
 # string is right to be unchanged: `+platterpus.N` increments when a *release*
@@ -156,8 +167,8 @@ FORK_EXPECTED_BANNER: Final[str] = (
 # `src/`, so it is what the version banner resolves to and what a build must use.
 # Their branch tip adds only `tools/release-gate.py` + its test — `meson test`
 # reports 20/20 at the pin and 21/21 at the tip, and the executable is identical.
-NEXT_PIN_UNDER_REVIEW: Final[str] = "345241b"
-NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.3"
+NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
+NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- Where it lives inside the container ------------------------------------
 

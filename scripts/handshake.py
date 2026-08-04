@@ -46,6 +46,12 @@ OUTBOUND_DIR: Path = HANDSHAKE_DIR / "outbound"
 INBOUND_DIR: Path = HANDSHAKE_DIR / "inbound"
 VERIFIED_DIR: Path = HANDSHAKE_DIR / "verified"
 PROTOCOL_DOC: Path = _REPO_ROOT / "docs" / "cyanrip-handshake.md"
+#: The SHARED wire-format specification — the same document in both repositories,
+#: adopted verbatim from the fork in round 7 lap 4. Neither project owns it, and a
+#: change to it is a protocol version bump both sides must ship before the next
+#: close. Our gate is measured against *this* file, not against our own paraphrase
+#: of it: checking a copy against a copy is how two vocabularies happen.
+PROTOCOL_SPEC: Path = _REPO_ROOT / "docs" / "handshake-protocol.md"
 
 # Minimum characters of real content under a heading before it counts as
 # answered. A heading with "TODO" or a single word under it is the failure mode
@@ -569,8 +575,32 @@ _WIRE_FIELD = re.compile(
     r"^(?P<key>[A-Z][A-Z0-9-]*):[ \t]*(?P<value>\S.*?)[ \t]*$", re.MULTILINE
 )
 
-#: The fields the format requires of every file, from either side (§8.2).
+#: A fenced code block (``` or ~~~), stripped BEFORE any field matching.
+_FENCE_BLOCK = re.compile(
+    r"^(?P<fence>```+|~~~+)[^\n]*\n.*?^(?P=fence)[ \t]*$\n?",
+    re.MULTILINE | re.DOTALL,
+)
+
+#: The protocol version this gate implements (`PROTOCOL.md`). A file declaring a
+#: **higher** number is refused rather than guessed at: we cannot know which of
+#: that version's rules we are silently not applying.
+PROTOCOL_VERSION: int = 2
+
+#: Sentinel for a field declared more than once with conflicting values. A real
+#: value can never equal it, and every consumer treats it as "not closed".
+#: PROTOCOL.md §2 rule 3 — do not take the first, do not take the last, refuse.
+AMBIGUOUS: str = "<ambiguous: declared more than once>"
+
+#: `GO` is the only closing value, and on its own it is still not a close.
+AFFIRMATIVE: str = "GO"
+
+#: The closed verdict vocabulary (§4). Anything outside it is "not closed" — an
+#: unrecognised value is not agreement and not an error to skip past.
+VERDICT_VOCABULARY: frozenset[str] = frozenset({"OPEN", "HOLD", "GO"})
+
+#: The fields every file must declare, either side (§3).
 REQUIRED_WIRE_FIELDS: tuple[str, ...] = (
+    "HANDSHAKE-PROTOCOL",
     "HANDSHAKE-ROUND",
     "HANDSHAKE-LAP",
     "HANDSHAKE-FROM",
@@ -580,56 +610,141 @@ REQUIRED_WIRE_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-PIN",
 )
 
-#: ``GO`` is the only affirmative. Everything else — including a value neither side
-#: recognises — means *not closed*.
-AFFIRMATIVE: str = "GO"
+#: The additional fields a **closing** file must carry (§5). A `GO` without these
+#: is not a close: an agreement that does not name its parties cannot be quoted
+#: later, and a round that closed with nothing tested is a release nobody checked.
+REQUIRED_CLOSE_FIELDS: tuple[str, ...] = (
+    "HANDSHAKE-PEER-VERDICT",
+    "HANDSHAKE-OUR-VERSION",
+    "HANDSHAKE-OUR-PIN",
+    "HANDSHAKE-PEER-VERSION",
+    "HANDSHAKE-PEER-PIN",
+    "HANDSHAKE-TESTED",
+)
 
-#: Rounds that closed before the fork emitted the header block. Their affirmative
-#: GO for these is in the round record and in our verification prose; grandfathered
-#: **by number**, never by "no header means fine", and pinned by a test. Same shape
-#: and same reason as :data:`RETROSPECTIVE_ROUNDS` — the fallback is the defect.
+#: Rounds recorded before the header existed, exempted **by number** — never by a
+#: rule like "a missing verdict is fine for old rounds", which is the fallback that
+#: lets any new round close by omission. Both sets may shrink, never grow.
 THEIR_PRE_HEADER_ROUNDS: frozenset[int] = frozenset({1, 2, 3, 4, 5, 6, 7})
-
-#: Ours, likewise: every verification file through round 7 lap 1 predates the
-#: format and states its verdict as bolded prose. May shrink, never grow.
 OUR_PRE_HEADER_ROUNDS: frozenset[int] = frozenset({1, 2, 3, 4, 5, 6, 7})
 
 
-def wire_fields(text: str) -> dict[str, str]:
-    """Every column-0 ``KEY: value`` field in a handshake file.
+def _strip_fences(text: str) -> str:
+    """Remove fenced code blocks, so an *illustrated* field is not a declaration.
 
-    Later occurrences win, except that :func:`wire_verdict` treats a *repeated
-    verdict* as ambiguous rather than taking one — see there.
+    **The third bait shape, and neither project had it.** A declaration is a
+    statement the file *makes*, not one it *quotes* — and examples, templates and
+    conformance tables legitimately carry field lines at column 0. The fork's gate
+    read the example block in our own lap-3 §1 and compiled an illustrated
+    ``HANDSHAKE-PEER-VERSION`` into their binary as a fact about us.
+
+    **Ours had the same hole and it did not fire only by luck:** our lap-3 file
+    illustrates ``HANDSHAKE-VERDICT: HOLD`` inside a fence *and* declares ``HOLD``
+    for real, so the duplicate resolved to the right answer for no good reason. Our
+    suite even asserted the **wrong** behaviour — that a fenced field should match
+    — with a confident comment about not parsing markdown. It was wrong.
+
+    Newlines are preserved so nothing that depends on line numbers shifts.
     """
-    return {m.group("key"): m.group("value") for m in _WIRE_FIELD.finditer(text)}
+
+    def blank(match: re.Match[str]) -> str:
+        return "\n" * match.group(0).count("\n")
+
+    return _FENCE_BLOCK.sub(blank, text)
+
+
+def wire_fields(text: str) -> dict[str, str]:
+    """Every column-0 ``KEY: value`` declaration, fenced examples excluded.
+
+    A key declared twice with *different* values maps to :data:`AMBIGUOUS`.
+    """
+    seen: dict[str, str] = {}
+    for match in _WIRE_FIELD.finditer(_strip_fences(text)):
+        key, value = match.group("key"), match.group("value")
+        if key in seen and seen[key] != value:
+            seen[key] = AMBIGUOUS
+        elif key not in seen:
+            seen[key] = value
+    return seen
 
 
 def wire_verdict(text: str) -> str | None:
     """The declared verdict, or None if the file states none.
 
-    ``GO`` is the only affirmative. ``HOLD``, ``OPEN`` and any unrecognised value
-    all mean *not closed* — an unknown verdict is not consent, and mapping it to
-    anything else would be a guess wearing a derivation's clothes (the fork's
-    phrase for the same hazard on their side).
-
-    **Two verdict lines are ambiguous, not "the first one"**, and resolve to
-    ``HOLD``. Adopted from their gate; the reasoning is theirs and it is right.
+    ``GO`` is the only affirmative. ``OPEN``, ``HOLD``, an unrecognised value and
+    an ambiguous double declaration all mean *not closed*.
     """
-    found = {
-        m.group("value").split()[0]
-        for m in _WIRE_FIELD.finditer(text)
-        if m.group("key") == "HANDSHAKE-VERDICT" and m.group("value").split()
-    }
-    if not found:
+    value = wire_fields(text).get("HANDSHAKE-VERDICT")
+    if value is None:
         return None
-    return AFFIRMATIVE if found == {AFFIRMATIVE} else "HOLD"
+    if value == AMBIGUOUS:
+        return "HOLD"
+    token = value.split()[0] if value.split() else ""
+    if token == AFFIRMATIVE:
+        return AFFIRMATIVE
+    return token if token in VERDICT_VOCABULARY else "HOLD"
+
+
+def close_blockers(text: str) -> list[str]:
+    """Why this file does not close a round. Empty list means it does.
+
+    Separate from :func:`wire_verdict` because "did they say GO" and "is that GO
+    sufficient" are different questions, and §5 makes the second the operative
+    test. The gate must name **which** field is absent rather than refusing
+    without a reason.
+    """
+    fields = wire_fields(text)
+    verdict = fields.get("HANDSHAKE-VERDICT")
+    if verdict is None:
+        return ["no HANDSHAKE-VERDICT declared (§2 rule 4)"]
+    if verdict == AMBIGUOUS:
+        return ["HANDSHAKE-VERDICT declared more than once (§2 rule 3)"]
+    token = verdict.split()[0] if verdict.split() else ""
+    if token != AFFIRMATIVE:
+        if token not in VERDICT_VOCABULARY:
+            return [f"unrecognised verdict {token!r} (§4)"]
+        return [f"verdict is {token}, not GO"]
+
+    blockers: list[str] = []
+    for key in REQUIRED_CLOSE_FIELDS:
+        value = fields.get(key)
+        if value is None:
+            blockers.append(f"a closing file must declare {key} (§5)")
+        elif value == AMBIGUOUS:
+            blockers.append(f"{key} declared more than once (§2 rule 3)")
+    peer = fields.get("HANDSHAKE-PEER-VERDICT")
+    if peer is not None and peer != AMBIGUOUS and peer.split()[:1] != [AFFIRMATIVE]:
+        # "They did not object" is never "they agreed" — and the peer verdict is
+        # TRANSCRIBED, not judged, so a peer HOLD written down honestly must block.
+        blockers.append(f"peer verdict is {peer!r}, not GO (§5)")
+    return blockers
+
+
+def protocol_refusal(text: str) -> str | None:
+    """A reason to refuse the file on protocol-version grounds, or None."""
+    declared = wire_fields(text).get("HANDSHAKE-PROTOCOL")
+    if declared is None:
+        return None
+    if declared == AMBIGUOUS:
+        return "HANDSHAKE-PROTOCOL declared more than once"
+    try:
+        version = int(declared.split()[0])
+    except (ValueError, IndexError):
+        return f"HANDSHAKE-PROTOCOL: {declared!r} is not an integer"
+    if version > PROTOCOL_VERSION:
+        return (
+            f"file declares protocol v{version}; this gate implements "
+            f"v{PROTOCOL_VERSION} — refusing rather than guessing which rules it "
+            "is not applying (§3)"
+        )
+    return None
 
 
 def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str]:
-    """Validate a handshake file's header block against §8.2. Returns problems.
+    """Validate a handshake file's header against §2/§3. Returns problems.
 
-    Reports rather than raises, like every other check here: a validator that
-    crashes is a validator people stop running.
+    Reports rather than raises: a validator that crashes is one people stop
+    running.
     """
     problems: list[str] = []
     try:
@@ -637,24 +752,40 @@ def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str
     except OSError as exc:
         return [f"{path.name}: unreadable ({exc})"]
 
+    # A version we do not implement is refused first and alone: reporting field
+    # problems against rules we may be applying wrongly would be noise.
+    refusal = protocol_refusal(text)
+    if refusal:
+        return [f"{path.name}: {refusal}"]
+
     fields = wire_fields(text)
     for key in REQUIRED_WIRE_FIELDS:
-        if key not in fields:
+        value = fields.get(key)
+        if value is None:
+            problems.append(f"{path.name}: missing required field {key} (§3)")
+        elif value == AMBIGUOUS:
+            problems.append(f"{path.name}: {key} declared more than once (§2 rule 3)")
+
+    verdict = fields.get("HANDSHAKE-VERDICT")
+    if verdict is not None and verdict != AMBIGUOUS:
+        token = verdict.split()[0] if verdict.split() else ""
+        if token not in VERDICT_VOCABULARY:
             problems.append(
-                f"{path.name}: missing required field {key} (protocol §8.2)"
+                f"{path.name}: verdict {token!r} is outside the vocabulary "
+                f"{sorted(VERDICT_VOCABULARY)} (§4) — an unrecognised value is "
+                "not agreement"
             )
 
-    # The declared round must match the filename's. A file whose header and name
-    # disagree is an error, not a reinterpretation (§8.3 rule 6) — this is the one
-    # check the filename convention cannot make for itself.
+    # The declared round must match the filename's: a bookkeeping error, not a
+    # reinterpretation (§3). The one check a filename convention cannot self-make.
     declared = fields.get("HANDSHAKE-ROUND", "")
     named = round_number(path)
-    if declared and named is not None:
+    if declared and declared != AMBIGUOUS and named is not None:
         try:
             if int(declared) != named:
                 problems.append(
                     f"{path.name}: declares HANDSHAKE-ROUND: {declared} but its "
-                    f"name says round {named} (protocol §8.3 rule 6)"
+                    f"name says round {named} (§3)"
                 )
         except ValueError:
             problems.append(
@@ -666,6 +797,15 @@ def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str
             f"{path.name}: HANDSHAKE-FROM is {fields['HANDSHAKE-FROM']!r}, expected "
             f"{expect_from!r} for a file in this directory"
         )
+
+    # A `GO` that cannot close is worth saying at check time, not only at gate
+    # time: the author of a closing file should learn what is missing while they
+    # are still writing it.
+    if verdict is not None and verdict != AMBIGUOUS:
+        if verdict.split()[:1] == [AFFIRMATIVE]:
+            problems.extend(
+                f"{path.name}: declares GO but {b}" for b in close_blockers(text)
+            )
     return problems
 
 
@@ -726,7 +866,20 @@ def round_status(root: Path | None = None) -> list[str]:
                 if num is not None:
                     rounds.add(num)
     if not rounds:
-        return ["no handshake rounds recorded under docs/handshake/"]
+        # AN EMPTY RECORD IS A REFUSAL, NOT AGREEMENT (PROTOCOL.md §8 row 12).
+        #
+        # This used to return a bare "no handshake rounds" line, which does not end
+        # in "OPEN" — so `--release-gate` read it as "nothing is open" and printed
+        # *"every round is closed — release allowed"*. A gate satisfied by finding
+        # nothing, in the gate whose whole job is not being satisfied by nothing.
+        # Found by running the fork's own conformance table against ours (T15),
+        # which is the entire argument for having a shared table.
+        return [
+            "no handshake rounds recorded under docs/handshake/ -> OPEN",
+            "",
+            "An empty record is not agreement: do not release, and do not switch "
+            "the pin.",
+        ]
     for num in sorted(rounds):
         name = f"round-{num}"
         # An AMENDMENT (`round-6b.md`) belongs to its round, it is not a round of
