@@ -16,10 +16,13 @@ should be a method instead.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
-from platterpus import naming
+from platterpus import diagnostics, naming
 from platterpus.parsers.rip_log import track_accuraterip_verified
+
+log = logging.getLogger(__name__)
 
 # Audio extensions that mark a folder as already holding a rip (mirrors the
 # Critical-Rule-#8 media list + .githooks/pre-commit). Used to detect an
@@ -163,8 +166,26 @@ def free_album_folder_templates(
                     candidate_disc,
                     suffix_album_folder_template(track_template, n),
                 )
-    except OSError:
-        pass
+    except OSError as exc:
+        # NEVER SILENT. This was a bare `pass`, and the consequence is not cosmetic:
+        # falling back to the ORIGINAL templates means the rip lands in the folder
+        # the user chose "rip to a new folder" specifically to avoid, and could
+        # overwrite audio already there. Failing quietly turned a permissions
+        # problem into an apparent product decision.
+        log.warning(
+            "could not find a free album folder under %s (%s) — falling back to the "
+            "ORIGINAL templates, so this rip may land in a folder that already "
+            "holds audio",
+            output_root,
+            exc,
+        )
+        diagnostics.warning(
+            "library.move_failed",
+            "could not probe for a free album folder, so this rip uses the original "
+            "folder name — it may write into a folder that already contains audio",
+            detail=f"{output_root}: {exc}",
+            where="ui.main_window_helpers.free_album_folder_templates",
+        )
     return (disc_template, track_template)
 
 
@@ -291,7 +312,10 @@ def fidelity_summary(
         else:
             summary = (
                 f"Done — {clean}/{total} tracks ripped cleanly; "
-                f"check the log for the rest."
+                # Name the TAB, not "the log". This means the rip's own log, which is
+                # on screen right now behind a button — naming the place beats naming
+                # a file the user would have to go find.
+                f"see the Rip log tab for the rest."
             )
         clause = _accuraterip_clause(rip_log)
         if clause is None:  # no per-track AR data → legacy summary-string fallback
@@ -309,7 +333,7 @@ def fidelity_summary(
     else:
         summary = (
             f"Done — {verified}/{total} tracks CRC-verified; "
-            f"check the log for the rest."
+            f"see the Rip log tab for the rest."
         )
     clause = _accuraterip_clause(rip_log)
     if clause is None:  # no per-track AR data → legacy summary-string fallback

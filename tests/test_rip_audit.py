@@ -21,7 +21,14 @@ from pathlib import Path
 import pytest
 
 from platterpus import rip_audit
-from platterpus.rip_audit import LEVEL_OK, LEVEL_WARN, audit_album, render, run_audit
+from platterpus.rip_audit import (
+    LEVEL_NOTE,
+    LEVEL_OK,
+    LEVEL_WARN,
+    audit_album,
+    render,
+    run_audit,
+)
 
 
 def _write(folder: Path, report: dict, *, flac_sizes: list[int] | None = None) -> Path:
@@ -73,6 +80,23 @@ def _healthy(**over: object) -> dict:
         # something to confirm rather than something to miss.
         "tracks": [{"pregap_source": "TOC"}],
         "artifacts": {"eac_log": {"text": _stamped_eac_log()}},
+        # The RIPPER's verdict on its OWN log (schema v18). Present because the
+        # `ripper_log_integrity` check reads it, and this fixture's whole contract
+        # is that every registered check can reach a POSITIVE verdict from it —
+        # a check that goes quiet for lack of input makes the "clean rip" test pass
+        # for the wrong reason, which is exactly what happened to two checks on the
+        # first real-hardware run.
+        "ripper_log_verification": {
+            "verdict": "verified",
+            "detail": (
+                "the ripper verified rip.log against its own FUN512 checksum — "
+                "the log is a faithful, unmodified record of this rip"
+            ),
+            "log": "/music/Artist/Album/rip.log",
+            "exit_code": 0,
+            "argv": ["/home/u/.local/bin/cyanrip", "--verify-log", "rip.log"],
+            "output": "",
+        },
     }
     base.setdefault("rip", {})
     base["rip"].setdefault("musicbrainz_disc_id", "pNtImOkdBm9RMBIalzx0w9cfsYY-")
@@ -529,6 +553,114 @@ def test_a_missing_argv_half_reports_not_determined_rather_than_nothing(
     assert len(undetermined) == 1
     assert "Invoked as" in undetermined[0].text
     assert undetermined[0].level != LEVEL_OK
+
+
+# --- the RIPPER's verdict on its own log (round 7 lap 10, J3) ----------------
+#
+# A second check, not an extension of the one below, and the split is the finding:
+# `our_log_integrity` verifies the file WE wrote against the checksum WE computed,
+# which agrees with itself no matter what we did to somebody else's file. On the rig
+# it reported "the EAC-style log matches its own SHA-256 footer" on a rip that
+# shipped a cyanrip log cyanrip itself would reject.
+
+
+def test_a_rejected_ripper_log_warns_and_names_the_evidence(tmp_path: Path) -> None:
+    """The case that shipped. WARN, with the argv and exit code the user can re-run.
+
+    An accusation against an archival artifact has to be checkable — a bare "the log
+    is bad" leaves the user with nothing to do but believe us.
+    """
+    report = _healthy()
+    report["ripper_log_verification"] = {
+        "verdict": "failed",
+        "detail": (
+            "the ripper REJECTED rip.log: it does not match its own FUN512 checksum"
+        ),
+        "log": "/music/Artist/Album/rip.log",
+        "exit_code": 1,
+        "argv": ["/home/u/.local/bin/cyanrip", "--verify-log", "rip.log"],
+        "output": "Log checksum mismatch!",
+    }
+    album = audit_album(_write(tmp_path / "bad", report, flac_sizes=[_BIG]))
+
+    assert album.worst == LEVEL_WARN, [(f.level, f.text) for f in album.findings]
+    text = " ".join(f.text for f in album.findings)
+    assert "REJECTED" in text
+    assert "--verify-log" in text, "the finding does not say how to reproduce it"
+    assert "exited 1" in text
+
+
+def test_a_verified_ripper_log_is_an_ok_finding(tmp_path: Path) -> None:
+    """The positive control. Without it the check could pass by never firing."""
+    album = audit_album(_write(tmp_path / "good", _healthy(), flac_sizes=[_BIG]))
+    assert album.worst == LEVEL_OK, [(f.level, f.text) for f in album.findings]
+    assert any("FUN512" in f.text for f in album.findings), (
+        "no finding mentions the ripper's own checksum, so the check said nothing"
+    )
+
+
+def test_a_not_determined_ripper_log_is_a_note_never_a_warning(
+    tmp_path: Path,
+) -> None:
+    """An absent verifier is not a failed verification.
+
+    This is the state a user on stock cyanrip, or with no ripper on the machine,
+    actually hits — so getting it wrong would make the audit cry wolf on every
+    ordinary rip, which trains people to ignore it as surely as a false pass lets a
+    bug through.
+    """
+    report = _healthy()
+    report["ripper_log_verification"] = {
+        "verdict": "not_determined",
+        "detail": "this ripper build does not accept --verify-log",
+        "log": "rip.log",
+        "exit_code": 1,
+        "argv": ["cyanrip", "--verify-log", "rip.log"],
+        "output": "Unable to parse command line argument: --verify-log",
+    }
+    album = audit_album(_write(tmp_path / "nd", report, flac_sizes=[_BIG]))
+    assert album.worst == LEVEL_NOTE, [(f.level, f.text) for f in album.findings]
+    assert any("--verify-log" in f.text for f in album.findings)
+
+
+def test_an_absent_block_says_so_rather_than_going_quiet(tmp_path: Path) -> None:
+    """A fourth state: the verification never ran (an older report, an early exit).
+
+    Reported as a NOTE rather than omitted, because a findings list that is short
+    because a check did not execute reads identically to one that is short because
+    nothing was wrong — the confusion `run_checks`'s floor exists to prevent.
+    """
+    report = _healthy()
+    report.pop("ripper_log_verification", None)
+    album = audit_album(_write(tmp_path / "absent", report, flac_sizes=[_BIG]))
+    assert album.worst == LEVEL_NOTE
+    assert any("did not record" in f.text for f in album.findings)
+    assert any("not a failed verification" in f.text for f in album.findings)
+
+
+def test_both_log_integrity_checks_are_registered_and_distinct() -> None:
+    """Neither may substitute for the other.
+
+    Merging them would let a pass on ours (easy, and ours to control) imply a pass
+    on the ripper's (the one that caught a real defect). The names must also say
+    WHOSE log each is about — the old name `log_integrity` read as "is the log
+    intact", which is precisely the claim it was not making.
+    """
+    from platterpus.rip_audit import CHECKS
+
+    names = [c.name for c in CHECKS]
+    assert "our_log_integrity" in names
+    assert "ripper_log_integrity" in names
+    ours = next(c for c in CHECKS if c.name == "our_log_integrity")
+    theirs = next(c for c in CHECKS if c.name == "ripper_log_integrity")
+    assert ours.run is not theirs.run
+    assert "WE" in ours.question
+    assert "RIPPER" in theirs.question
+    # Neither needs the filesystem: the ripper's probe runs in the worker (it spawns
+    # a container exec) and this registry runs inside `write_report`, in a GUI slot.
+    assert not theirs.needs_files, (
+        "a filesystem-touching check here would put a subprocess in a GUI slot"
+    )
 
 
 def test_an_altered_eac_log_is_detected(tmp_path: Path) -> None:

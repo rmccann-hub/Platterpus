@@ -145,6 +145,11 @@ class MainWindow(
     # moved into the configured library (or the move failed) — so the post-rip
     # buttons can be repointed at the new location on the GUI thread.
     library_move_done = Signal(object)
+    # (ok, device) — emitted from the eject daemon thread; queued to the GUI
+    # thread so a tray that never opened is CORRECTED on screen. Before this the
+    # `eject_drive` bool was discarded and the status line went on reading
+    # "Ejecting the disc…" indefinitely — an on-screen statement that was untrue.
+    eject_finished = Signal(bool, str)
     # Requests to the persistent MusicBrainz worker. Emitting these (instead of
     # calling the worker's slots directly) is what actually runs the query on
     # the worker's thread: a direct method call would run on the *caller's* (GUI)
@@ -508,6 +513,8 @@ class MainWindow(
         self.rip_comparison_done.connect(self._on_rip_comparison_done)
         # Library move outcome (when "Move finished rips to" is configured).
         self.library_move_done.connect(self._on_library_moved)
+        # Eject outcome — only speaks when the eject FAILED (see _on_eject_finished).
+        self.eject_finished.connect(self._on_eject_finished)
 
         self.setCentralWidget(central)
 
@@ -747,6 +754,13 @@ class MainWindow(
         ]
         logs_action = help_menu.addAction("Open &logs folder…")
         logs_action.triggered.connect(self._on_open_logs_folder)
+        # The copyable half of "how do I report this?". Opening the logs FOLDER
+        # assumes the user can attach a file; this gives them something to paste,
+        # which is what a chat window or an issue form actually asks for. Before
+        # this the UI had no copy-diagnostics action at all — the only clipboard
+        # call in the whole tree copied a package search string.
+        diagnostics_action = help_menu.addAction("Copy &diagnostics…")
+        diagnostics_action.triggered.connect(self._on_show_diagnostics)
         help_menu.addSeparator()
         about_action = help_menu.addAction("&About Platterpus…")
         about_action.triggered.connect(self._on_show_about)
@@ -1057,6 +1071,18 @@ class MainWindow(
         from platterpus.ui.help_dialogs import AboutDialog
 
         AboutDialog(parent=self).exec()
+
+    def _on_show_diagnostics(self) -> None:
+        """Help → Copy diagnostics: a selectable, copyable session report.
+
+        Deliberately NOT rip-scoped. The per-rip `.platterpus.json` is the richer
+        bundle, but it exists only for a rip and is reachable only from the rip
+        pane — so a setup failure, a dependency-check crash, a failed update or a
+        drive probe had no copyable surface at all.
+        """
+        from platterpus.ui.dialogs.diagnostics_dialog import DiagnosticsDialog
+
+        DiagnosticsDialog(parent=self).exec()
 
     def _on_open_logs_folder(self) -> None:
         """Help → Open logs folder: reveal the app's log directory.

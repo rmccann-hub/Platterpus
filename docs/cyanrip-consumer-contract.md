@@ -16,9 +16,32 @@ breaking change to us and requires a handshake round. Anything in §2 is
 safe to change freely — we look at it and throw it away. §3 is the argv we
 will send you; a flag whose meaning changes is also breaking.
 
+## 0. What range these claims cover
+
+Every row in this document is derived from the Platterpus source at the
+version named below, and describes what **that** app version parses and
+sends. It is not a claim about any other version of either side.
+
+- **Platterpus:** `0.6.4b4` — the build that
+  generated this file. A row can only have changed with our code, so this
+  version *is* the range on our half.
+- **Verified against ripper build:** `cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)` — the build a
+  closed handshake round approved (round 6, for Platterpus
+  `0.6.3`). Rows in §1 were checked against that build's output;
+  a newer ripper may emit lines this document does not list, which is a
+  handshake event rather than a defect.
+- **Ripper build under review:** see `HANDSHAKE-PIN` /
+  `HANDSHAKE-TEST-PIN` in the newest file under `docs/handshake/`. A test
+  pin is approved by nobody and this document makes no claim about it.
+
+*Why no date:* this file is a pure function of the code, so a timestamp
+would make every unrelated release produce a spurious diff and train
+readers to ignore the ones that matter. The versions above are the range;
+the git history is the chronology.
+
 ---
 
-## 1. Log lines we parse (51)
+## 1. Log lines we parse (54)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -43,10 +66,13 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>.+?)\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
+| `handshake_note` | disc | `^Handshake:\\s+(?P<note>\\S.*)$` |
+| `consumer` | disc | `^Consumer:\\s+(?P<consumer>\\S.*)$` |
 | `accuraterip_total` | disc | `^Tracks ripped accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `accuraterip_partial_total` | disc | `^Tracks ripped partially accurately:\\s+(?P<hit>\\d+)/(?P<total>\\d+)` |
 | `ripping_errors` | disc | `^Ripping errors:\\s+(?P<count>\\d+)` |
 | `rip_completed` | disc | `^Rip completed:\\s+(?P<verdict>yes\|no)(?:\\s+\\((?:(?P<reason>[^,)]{1,64}),\\s*)?(?P<done>\\d{1,4})\\s+of\\s+(?P<total>\\d{1,4})\\s+tracks?\\))?` |
+| `read_stalls` | disc | `^Read stalls:\\s+(?P<value>\\S.*?)\\s*$` |
 | `finished_at` | disc | `^Ripping finished at\\s+(?P<when>.+?)\\s*$` |
 | `gaps_section` | section header | `^Gaps:\\s*$` |
 | `paranoia_counts_section` | section header | `^Paranoia status counts:\\s*$` |
@@ -92,7 +118,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (14)
+## 2. Log lines we knowingly ignore (17)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -105,6 +131,9 @@ dropped.
 | `^(?:Over\|Under)read:\\s` | derived from offset; not a verdict |
 | `^Repeating ripping\\s+\\(` | secure re-rip attempt; the Done; line carries the verdict |
 | `^Frame retries:\\s` | candidate: rip-effort setting |
+| `^Disc number:\\s` | our own -a tag echoed back; we hold it |
+| `^Total discs:\\s` | our own -a tag echoed back; we hold it |
+| `^Release ID:\\s` | our own MusicBrainz release id echoed back |
 | `^Cache model:\\s` | paranoia's MODELLED cache size; our cache-defeat verdict is measured (cd-paranoia -A, KDD-29) and must not be filled from a model |
 | `^Encoder:\\s` | candidate: encoder provenance, needs a report field before parsing |
 | `^CD-TEXT:\\s` | candidate: tri-state CD-TEXT presence, needs a report field |
@@ -116,7 +145,7 @@ dropped.
 | `^Tracks:\\s*$` | section marker, no payload |
 | `^Summary:\\s*$` | section marker, no payload |
 
-## 3. Flags we pass you (15)
+## 3. Flags we pass you (18)
 
 Obtained by calling the real argv builder with a maximal parameter set, so
 this is what the adapter emits today rather than what it was documented to
@@ -124,7 +153,7 @@ emit. Per-flag semantics and the exact contract for each are in
 `docs/dependency-contracts.md`.
 
 ```
--D -F -G -N -O -S -Z -a -c -d -l -o -r -s -t
+--verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -l -o -r -s -t
 ```
 
 Two of these are load-bearing beyond their own behaviour:

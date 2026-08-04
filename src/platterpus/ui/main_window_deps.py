@@ -35,6 +35,7 @@ from platterpus.deps.resolvers import (
     MissingItem,
 )
 from platterpus.deps.version import format_version
+from platterpus.paths import LOG_PATH
 from platterpus.ui.dialogs.manual_install import ManualInstallDialog
 from platterpus.ui.dialogs.pending_installs import PendingInstallsDialog
 from platterpus.ui.main_window_shared import MainWindowShared
@@ -194,9 +195,28 @@ class DependencyMixin(MainWindowShared):
         self, gui_manager: object, report: DependencyReport | None, show_summary: bool
     ) -> None:
         """GUI-thread half: set optional deps aside, resolve the required
-        missing ones (dialogs), then show the summary. `report` is None only
-        if the off-thread probe crashed — then this is a no-op (already logged)."""
+        missing ones (dialogs), then show the summary.
+
+        ``report`` is None only if the off-thread probe crashed. That used to be a
+        silent ``return``: a user who chose **Tools → Check dependencies** got no
+        window, no message and no change — indistinguishable from a dead menu item —
+        with the traceback going only to a log file that is INFO-only by default. A
+        user-initiated action must never no-op silently, so when the user asked for
+        this check we now say it failed and where to look.
+        """
         if report is None:
+            if show_summary:
+                from PySide6.QtWidgets import QMessageBox
+
+                QMessageBox.warning(
+                    self,
+                    "Couldn't check dependencies",
+                    "The dependency check stopped with an unexpected error, so "
+                    "nothing could be reported about the tools Platterpus needs.\n\n"
+                    "This does not mean a tool is missing — it means the check "
+                    "itself failed.\n\n"
+                    f"The error and its traceback are in:\n{LOG_PATH}",
+                )
             return
         # Optional deps (e.g. Picard) shouldn't nag at launch or count as a
         # problem — set them aside so only required deps drive resolution.
@@ -539,7 +559,11 @@ class DependencyMixin(MainWindowShared):
             )
             message = (
                 f"{message}\n\nInstall failures:\n{failure_lines}\n\n"
-                f"Full output is in ~/.local/share/platterpus/log.txt."
+                # The REAL path. This hardcoded `~/.local/share/...` while
+                # `paths.py` honours `XDG_DATA_HOME`, so under a relocated data dir
+                # it named a file the user does not have — worse than no path, since
+                # they conclude no log exists.
+                f"Full output is in {LOG_PATH}."
             )
 
         # The icon is part of the message. A wrong-build cyanrip reported with

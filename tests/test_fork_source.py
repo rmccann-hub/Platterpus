@@ -13,13 +13,32 @@ document — reading the artifact, not remembering it.
 
 from __future__ import annotations
 
+import importlib.util
 import re
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 from platterpus.deps import fork_source
 from platterpus.deps.host_setup import DEFAULT_CONTAINER
+
+
+def _handshake() -> ModuleType:
+    """Load `scripts/handshake.py`, which owns the handshake file ordering.
+
+    Imported rather than re-implemented: `sort_key` is the single definition of "which
+    handshake file is newer", and this file used to carry the third copy of it.
+    """
+    script = Path(__file__).resolve().parents[1] / "scripts" / "handshake.py"
+    spec = importlib.util.spec_from_file_location("handshake_ordering", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONTAINER = DEFAULT_CONTAINER
@@ -99,9 +118,14 @@ def test_the_wizard_target_is_named_in_the_handshake_record() -> None:
     target = fork_source.WIZARD_TARGET
     if target == fork_source.PRODUCTION_TARGET:
         return  # covered by the verified-round check above
+    # `handshake.sort_key`, not a local sort. This test had its own `(round, name)`
+    # key and it was the THIRD copy of that ordering in the repo; all three broke when
+    # the naming migration mixed `round-7.md` with `round-07-lap-16.md`, because
+    # lexically `"round-07-lap-16" < "round-7"`. This one then read the fork's lap-1
+    # file as the newest round and reported the test pin as unnamed.
     inbound = sorted(
         (REPO_ROOT / "docs" / "handshake" / "inbound").glob("round-*.md"),
-        key=lambda p: (int(re.search(r"round-(\d+)", p.name).group(1)), p.name),  # type: ignore[union-attr]
+        key=_handshake().sort_key,
     )
     assert inbound, "no inbound files — cannot check a test pin against the record"
     newest = inbound[-1]

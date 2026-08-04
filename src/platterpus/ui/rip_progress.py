@@ -37,7 +37,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -349,6 +349,16 @@ class RipProgress(QWidget):
         # the whole pane unusable there. `tests/test_ui_rip_progress.py` pins the
         # pane's minimum width against the longest status we can produce.
         self._status_label.setWordWrap(True)
+        # SELECTABLE. This is the only place in the app where cyanrip's own fatal
+        # sentence is ever displayed, and it could not be selected with a mouse or
+        # read by a keyboard user — so the single most useful line for a bug report
+        # was the one line that could not be copied out of the window.
+        # `main_window_drive.py` already does this for its diagnosis box; this label
+        # was written without it.
+        self._status_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         root.addWidget(self._status_label)
 
         # --- Stall notice (GUI-side liveness watchdog) ---

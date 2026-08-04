@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -472,8 +473,18 @@ def emit_outbound(round_number: int) -> str:
     )
     from platterpus import __version__ as _app_version  # noqa: PLC0415
 
+    # THE GENERATOR MUST EMIT A FILE THE CHECKER ACCEPTS, and it did not: this line
+    # was absent, so `--emit N | --check` reported "missing required field
+    # HANDSHAKE-PROTOCOL (§3)" against our own skeleton. `handshake_filename` exists
+    # because a hand-typed name is a third description of a fact — and the header the
+    # same instruction points at was hand-maintained here and had drifted from
+    # `REQUIRED_WIRE_FIELDS` in the same file. Found in lap 21 by running the emitter
+    # through the checker; `test_the_emitted_skeleton_satisfies_our_own_checker` is
+    # the standing version of that, derived from the required-field tuple rather than
+    # from this list, so the next added field cannot go missing here quietly.
     header = "\n".join(
         [
+            f"HANDSHAKE-PROTOCOL: {PROTOCOL_VERSION}",
             f"HANDSHAKE-ROUND: {round_number}",
             "HANDSHAKE-LAP: 1",
             "HANDSHAKE-FROM: platterpus",
@@ -517,19 +528,86 @@ TODO
 """
 
 
-#: A handshake file name: ``round-6.md``, or ``round-6b.md`` for an amendment
-#: sent after the round's main file. The suffix is deliberately allowed — round 6
-#: needed one within hours — and is deliberately *not* a new round number.
+# --- The file naming convention -----------------------------------------------
+#
+# **Why this needed fixing (maintainer directive, 2026-08-04: "agree on a naming
+# convention for the handshake files and both use it").**
+#
+# The old scheme was `round-N` plus the next free letter, and the letter encoded
+# nothing. What that produced:
+#
+#   * `inbound/round-7f.md` is **lap 12** while `verified/round-7f.md` is **lap 10** —
+#     the same suffix means different laps depending on the directory;
+#   * `inbound/round-7d.md` and `verified/round-7d.md` are *both* lap 7, by coincidence;
+#   * filing a received file means finding "the next free letter", and doing that
+#     wrong **overwrites a previous lap**. It happened in this session: lap 12 was
+#     copied over `round-7c.md`, which was lap 4, and had to be restored from git.
+#
+# The fix is that the name states the two facts the wire header already declares, so
+# the filename and the header are two descriptions of one thing — and a test asserts
+# they agree, which is the only reason a second description is safe to have.
+#
+# ``round-07-lap-16.md``
+#
+#   * zero-padded to two digits so a lexical sort is chronological. At round or lap
+#     100 the width goes to three **everywhere**, as one deliberate migration; the
+#     conformance test fails on mixed widths rather than letting the sort rot;
+#   * direction comes from the directory (``inbound`` / ``outbound`` / ``verified``),
+#     not the name, and ``HANDSHAKE-FROM`` must agree with it;
+#   * **no amendment letters.** An amendment is a new lap. Both projects already
+#     work that way — the fork has issued sixteen laps in one round — and a lap
+#     number is a fact both sides can state, where "the next letter" is a fact only
+#     the filer knows.
+#
+# Files that predate the lap header keep their old names and are grandfathered by
+# the same round-number rule as ``OUR_PRE_HEADER_ROUNDS``: the convention binds a
+# file **that declares a lap**, which is derivable rather than a list to maintain.
+
+#: The canonical form: ``round-07-lap-16``.
+_LAP_NAME = re.compile(r"^round-(?P<round>\d{2,4})-lap-(?P<lap>\d{2,4})$")
+
+#: The grandfathered form: ``round-6``, or ``round-6b`` for an amendment sent after
+#: the round's main file. Retained for the pre-lap-header files only — see above.
 _ROUND_NAME = re.compile(r"^round-(?P<number>\d{1,4})(?P<amendment>[a-z]{0,2})$")
+
+#: Zero-pad width. Bump to 3 only as a whole-directory migration.
+NAME_PAD: int = 2
+
+
+def handshake_filename(round_number_: int, lap: int) -> str:
+    """The canonical file name for a round and lap. **Generate, never hand-type.**
+
+    A name typed by hand is a third description of a fact the header already states
+    twice, and the whole point of the convention is that there are two and they are
+    checked against each other.
+    """
+    return f"round-{round_number_:0{NAME_PAD}d}-lap-{lap:0{NAME_PAD}d}.md"
+
+
+def name_round_and_lap(path: Path) -> tuple[int, int] | None:
+    """``(round, lap)`` from a canonical name, or None if it is not one.
+
+    None covers both "a grandfathered name" and "not a handshake file at all"; the
+    caller decides which matters. Never raises — an unrelated file dropped in the
+    directory must not take the status report down with it.
+    """
+    match = _LAP_NAME.match(path.stem)
+    if match is None:
+        return None
+    return int(match.group("round")), int(match.group("lap"))
 
 
 def round_number(path: Path) -> int | None:
     """The round a handshake file belongs to, or None if the name is not one.
 
-    ``round-6b.md`` returns 6. Returning None rather than raising matters: an
-    unrelated file dropped in the directory must not take the status report
-    down with it.
+    Accepts the canonical ``round-07-lap-16`` form and the grandfathered
+    ``round-6`` / ``round-6b``. Returning None rather than raising matters: an
+    unrelated file dropped in the directory must not take the status report down
+    with it.
     """
+    canonical = name_round_and_lap(path)
+    if canonical is not None:
+        return canonical[0]
     match = _ROUND_NAME.match(path.stem)
     return int(match.group("number")) if match else None
 
@@ -879,18 +957,199 @@ def verification_verdict(text: str) -> str | None:
     return "GO" if found == {"GO"} else "HOLD"
 
 
+#: The lap of a file that declares none. **1, not 0** — the fork's rule, adopted in
+#: lap 19 after their lap 18 revealed we had picked different numbers for the same
+#: convention.
+#:
+#: Theirs is the more correct one and the reason is semantic rather than aesthetic: a
+#: round's pre-lap-header file **is** that round's first lap. Round 7's `round-7.md` is
+#: lap 1; calling it lap 0 invents a lap that never existed. Both choices order our
+#: tree identically today, which is exactly why it needed catching by comparison rather
+#: than by a failing test.
+DEFAULT_LAP: int = 1
+
+#: The lap of a file whose ``HANDSHAKE-LAP`` is declared more than once with different
+#: values. **It sorts LAST, on purpose** — also the fork's rule, and it closes a real
+#: hole on our side rather than merely aligning us.
+#:
+#: We used to fall back to the *filename* for an ambiguous declaration. So a file named
+#: `lap-09` declaring both 9 and 20 sorted at 9, a later valid file was read as the
+#: newest, and **the ambiguity was never examined by the gate at all** — the protocol's
+#: own "present-but-ambiguous is worse than absent" principle broken in the direction
+#: that hides it. Sorting it last makes it the file the verdict is read from, at which
+#: point ``check_wire_header`` refuses it by name.
+#:
+#: A sentinel rather than ``None`` because the sort key is typed ``int``; the value only
+#: has to exceed any real lap, and a lap count that reaches nine figures is a different
+#: problem.
+AMBIGUOUS_LAP: int = 1_000_000_000
+
+
+def _lap_of(path: Path) -> int:
+    """The lap a file belongs to, for ordering. **From the header, never the name.**
+
+    Three answers, and each is a rule in the shared spec rather than a local choice:
+    the declared integer; :data:`DEFAULT_LAP` when nothing is declared (§3 — *"absent
+    means lap 1"*); :data:`AMBIGUOUS_LAP` when two different laps are declared, so the
+    ambiguity sorts to where it must be examined.
+
+    **There used to be a filename fallback between the second and third, and removing
+    it is the round-7-lap-21 fix.** Reading the name when the header is silent is the
+    thing §3 forbids in the same sentence that sets the default — *"by declared number,
+    never by filename or mtime"* — and it made the two implementations of one agreed
+    convention differ invisibly for the whole life of the convention: on today's trees
+    the name and the default agree everywhere (our only no-lap files are named
+    ``round-07-lap-01`` and the grandfathered ``round-N``, which has no lap to read), so
+    no test on either side could see it.
+
+    **What the fallback was accidentally protecting, and what protects it now.** A file
+    that carries a v2 wire header but omits its required ``HANDSHAKE-LAP`` sorts at lap
+    1 under the rule, i.e. *oldest* — so a later ``GO`` could be read as a round's
+    newest word while this file's ``HOLD`` sorted underneath it. That is fail-open, and
+    the name fallback happened to cover it. The fix is not the fallback (which would
+    re-break §3) but §2 rule 4: **an absent required field fails closed.** A header-
+    bearing file with no lap is refused outright by :func:`ordering_blockers`, so it
+    never reaches the question of where it sorts.
+    """
+    try:
+        declared = wire_fields(path.read_text(encoding="utf-8", errors="replace")).get(
+            "HANDSHAKE-LAP", ""
+        )
+    except OSError:
+        declared = ""
+    if declared == AMBIGUOUS:
+        return AMBIGUOUS_LAP
+    if declared and declared.strip().isdigit():
+        return int(declared.strip())
+    return DEFAULT_LAP
+
+
+def _round_of(path: Path) -> int:
+    """The round a file belongs to, for ordering. **Header first, name second.**
+
+    The mirror of :func:`_lap_of`, and it exists because ours did not have one: the
+    round half of the sort key read :func:`round_number`, which is name-only, while the
+    lap half already read the header. One key, two different notions of where the fact
+    lives — the second divergence lap 21's diff found, and the spec had already ruled on
+    it (§3: *"never by filename or mtime"*).
+
+    **The name fallback here is required, not a lapse**, and this is the qualification
+    the rule as worded needs: the v2 wire header begins at round 7 lap 2, so 27 of the
+    41 committed correspondence files declare no ``HANDSHAKE-ROUND`` at all. For those
+    the name is the only fact in existence. "Never the filename" has to mean *never in
+    preference to the header* — a spec that meant it literally would be unimplementable
+    against its own record.
+
+    :func:`round_number` stays name-only on purpose: §3 requires the two to agree, and
+    a check needs each separately in order to say so.
+    """
+    try:
+        declared = declared_round(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        declared = None
+    if declared is not None:
+        return declared
+    return round_number(path) or 0
+
+
+def sort_key(path: Path) -> tuple[int, int, str]:
+    """**The** ordering for handshake files: ``(round, lap, stem)``.
+
+    Public and single because "which file is newer" was answered by a plain stem sort
+    in **three** independent places, and all three were wrong the moment the naming
+    migration mixed `round-7.md` with `round-07-lap-16.md` — lexically
+    ``"round-07-lap-16" < "round-7"``. One of the three decides `--status`, and it
+    reported an OPEN round as closed.
+
+    Three copies of an ordering is three chances to get it wrong; a sort key is exactly
+    the kind of thing that looks too small to share until it decides a release gate.
+    Callers pass this to ``sorted(key=...)`` and no longer spell it themselves.
+
+    ``stem`` is a third component the fork's three ordering rules do not mention. It is
+    only a tiebreak for two files at the same ``(round, lap)`` — a state the naming
+    convention forbids and ``--check`` refuses — kept so the sort is *total*, because a
+    non-total key makes "the newest file" depend on directory iteration order, which is
+    the class of thing that decides a release gate differently on two machines. Named
+    here so it is agreed rather than merely present on one side.
+
+    Never raises: an unreadable or oddly-named file sorts first rather than exploding
+    the caller.
+    """
+    return (_round_of(path), _lap_of(path), path.stem)
+
+
+def ordering_blockers(paths: Iterable[Path]) -> list[str]:
+    """Why the files of a round cannot be *ordered* — which is a refusal, not a warning.
+
+    Two states, both of which ordering alone can only hide, and both already normative
+    in the shared spec. They are checked at the **gate** rather than only in ``--check``
+    because ``--check`` validates one inbound delivery while the gate is what decides
+    whether a round is closed, and it was reading these files without ever asking
+    whether they were coherent.
+
+    * **A v2 file with no ``HANDSHAKE-LAP``** — §2 rule 4, an absent required field
+      fails closed. Under §3's "absent means lap 1" such a file sorts *oldest*, so a
+      later ``GO`` would be read as the round's newest word while this file's verdict
+      sorted underneath it. Fail-open, so it is refused instead.
+    * **A file whose declared round is not its named round** — §3, and §8's tenth
+      conformance row. ``check_wire_header`` has always reported it; the gate never
+      asked, so a file declaring round 8 could sit in round 7's set, sort last on the
+      strength of its declaration, and have its verdict read as round 7's.
+
+    Grandfathering is derived, not listed: a file with no ``HANDSHAKE-PROTOCOL`` line
+    predates the header and neither rule applies to it. That is the same
+    already-in-the-file test the section sweep uses, and it cannot go stale the way a
+    frozenset of round numbers does.
+    """
+    problems: list[str] = []
+    for path in paths:
+        fields = wire_fields(_safe_read(path))
+        if "HANDSHAKE-PROTOCOL" not in fields:
+            continue  # predates the wire header; §9 grandfathers it wholesale
+        lap = fields.get("HANDSHAKE-LAP")
+        if lap is None:
+            problems.append(
+                f"{path.name}: carries a wire header but declares no HANDSHAKE-LAP "
+                "(§2 rule 4) — an absent required field fails closed, and under §3 "
+                "it would otherwise sort as lap 1 and be superseded by anything later"
+            )
+        named = round_number(path)
+        declared = fields.get("HANDSHAKE-ROUND")
+        if (
+            named is not None
+            and declared is not None
+            and declared != AMBIGUOUS
+            and declared.strip().isdigit()
+            and int(declared) != named
+        ):
+            problems.append(
+                f"{path.name}: declares HANDSHAKE-ROUND: {declared} but is filed as "
+                f"round {named} (§3, §8 row 10) — it cannot be ordered within either "
+                "round without the gate choosing which declaration to believe"
+            )
+    return problems
+
+
 def _round_files(directory: Path, number: int) -> list[Path]:
     """Every file in ``directory`` belonging to round ``number``, oldest first.
 
-    Sorted by stem so ``round-6.md`` precedes ``round-6b.md`` — the reading order
-    the fork sends them in, and the order in which later files supersede earlier
-    ones.
+    **Ordered by (lap, stem), NOT by stem alone**, and that distinction was a live bug
+    for the length of one commit. The 2026-08-04 rename to ``round-07-lap-LL.md`` left
+    the pre-lap-header ``round-7.md`` in place beside it, and lexically
+    ``"round-07-lap-16" < "round-7"`` — ``'0' < '7'`` at the seventh character. So the
+    fork's **lap 1** file sorted last and was read as the newest, which flipped
+    ``--status`` for round 7 from ``they-verified=HOLD`` to ``GO``.
+
+    That is the worst class of regression this file can have: a **release gate** whose
+    answer changed because of a filename. Ordering by the declared lap makes the sort
+    a function of the facts rather than of the string, so mixing naming schemes cannot
+    reorder anything. ``stem`` stays as the tiebreak for two files at the same lap.
     """
     if not directory.is_dir():
         return []
     return sorted(
         (p for p in directory.glob("round-*.md") if round_number(p) == number),
-        key=lambda p: p.stem,
+        key=sort_key,
     )
 
 
@@ -943,10 +1202,18 @@ def round_status(root: Path | None = None) -> list[str]:
         sent = _round_files(outbound, num)
         back = _round_files(inbound, num)
         done = _round_files(verified, num)
+        # A ROUND WHOSE FILES CANNOT BE ORDERED IS OPEN, and the reason is named.
+        #
+        # Both blockers are states in which "the newest file" is not a well-defined
+        # question (`ordering_blockers`), and in both the wrong answer is the
+        # permissive one — a file that sorts oldest by omission, or one that sorts
+        # last on the strength of a round it does not belong to. Reported before the
+        # verdicts are read, because the verdicts are read *off the ordering*.
+        unorderable = ordering_blockers([*sent, *back, *done])
         # The verdict comes from the NEWEST verification file for the round —
-        # `_round_files` sorts by stem, so an amendment (`round-7b.md`) supersedes
-        # the file it corrects. Reading the oldest would let a since-withdrawn GO
-        # keep a round closed.
+        # `_round_files` sorts by `sort_key`, so a later lap supersedes the file it
+        # corrects. Reading the oldest would let a since-withdrawn GO keep a round
+        # closed.
         verdict: str | None = None
         if done:
             our_text = done[-1].read_text(encoding="utf-8")
@@ -1006,6 +1273,7 @@ def round_status(root: Path | None = None) -> list[str]:
             and theirs == "GO"
             and not our_blockers
             and not their_blockers
+            and not unorderable
         )
         state = "CLOSED" if (sent and back and both_go) else "OPEN"
 
@@ -1020,6 +1288,9 @@ def round_status(root: Path | None = None) -> list[str]:
             f"we-verified={shown_verdict(verdict)} "
             f"they-verified={shown_verdict(theirs)}  -> {state}"
         )
+        # Named, not merely counted: a gate that refuses without saying which file
+        # and which rule is a gate people route around.
+        lines.extend(f"  cannot order {problem}" for problem in unorderable)
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")
         lines.append("A round is OPEN: do not release, and do not switch the pin.")

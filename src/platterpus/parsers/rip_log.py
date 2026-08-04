@@ -290,6 +290,19 @@ class RipLog:
     # something between us mangled an argument, and that gap was previously
     # invisible from either end.
     invoked_as: str = ""
+    #: FORK-ONLY provenance, verbatim from the binary: which handshake round it
+    #: was BUILT from, derived at its build time from its own round files. A build
+    #: from an open-round tree says so permanently. Independent of our
+    #: `handshake_approval` check, which compares banners against what *we*
+    #: believe was approved — this is what their build system recorded, and it
+    #: cannot be stale relative to the binary because it is compiled into it.
+    handshake_note: str = ""
+    #: FORK-ONLY: who the ripper was TOLD its caller was. Their log states in as
+    #: many words that this is reported by the caller and not verified, so it is
+    #: provenance, never verification. `not identified (no --consumer given)`
+    #: until we ship the flag — itself the fact worth carrying, since a log with
+    #: no consumer cannot be attributed to us at all.
+    consumer: str = ""
     # The ripper's own "Rip completed:" footer. **Tri-state.** None = the footer
     # is absent, which is exactly what a killed rip's log looks like — never
     # read it as False ("finished, and reported failure"). The fork confirms
@@ -301,6 +314,32 @@ class RipLog:
     #: Why it did not complete, in the ripper's own words ("interrupted by
     #: user"). Empty on a completed rip and when the footer is absent.
     rip_completed_reason: str = ""
+    #: FORK-ONLY. The stall watchdog's disc-level verdict, verbatim — e.g.
+    #: ``none (no read exceeded 10s)``. ``""`` means the ripper did not print the
+    #: line at all (stock cyanrip never does), which is a THIRD state: "no stalls
+    #: measured" and "stalls not measured" are different claims and must not render
+    #: the same way.
+    #:
+    #: Text, not a parsed count, on purpose: we have only ever seen the ``none``
+    #: shape, and a regex for the populated one would encode our guess at the fork's
+    #: wording. That guess is what put ``merged`` in the gap matcher for two rounds.
+    read_stalls: str = ""
+    #: FORK-ONLY. How many reads exceeded the stall threshold, parsed out of
+    #: :attr:`read_stalls`. **Tri-state**, and all three states are real answers:
+    #:
+    #: * ``0`` the ripper measured and found none;
+    #: * ``N > 0`` that many reads stalled — the disc needed exceptional effort, and
+    #:   this is the value that raises an enumerated ``issues[]`` entry;
+    #: * ``None`` not measured, not reported, or a shape we did not recognise. Stock
+    #:   cyanrip lands here (it prints no line), and so does the fork's own
+    #:   ``unknown (stall reporting disabled with -k 0)``.
+    #:
+    #: The verbatim :attr:`read_stalls` text is the authoritative record and is never
+    #: replaced by this. The fork published these shapes derived from the code that
+    #: prints them and pinned each with ``strcmp`` (round 7 lap 14, D1), but **no
+    #: build has yet printed a populated one anywhere** — so an unrecognised shape
+    #: must degrade to ``None`` beside intact text, never to ``0``.
+    read_stalls_count: int | None = None
     # cyanrip's "Paranoia status counts" block (READ/VERIFY/FIXUP_ATOM/OVERLAP/…)
     # — error-correction activity. High counts explain a slow, re-read-heavy rip.
     paranoia_counts: dict[str, int] = field(default_factory=dict)
