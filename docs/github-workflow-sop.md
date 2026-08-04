@@ -3,7 +3,7 @@
 > **How this applies to Platterpus.** This is a general, contributor-facing SOP
 > for the GitHub ecosystem — most useful here as the **playbook for contributing
 > *upstream*** (forking + opening PRs to `cyanrip`, `whipper`, `libcdio-paranoia`,
-> etc. — see `docs/ripper-engine-strategy.md` §10 and the upstream-PR roadmap).
+> etc. — see `docs/cyanrip-fork.md` Part A §10 and the upstream-PR roadmap).
 >
 > For work **on the Platterpus repo itself**, the authoritative rules live in
 > **`CLAUDE.md`** and win wherever they differ from this SOP:
@@ -195,10 +195,10 @@ edit-vs-delete). Git halts and flags the files.
 ---
 
 *Filed 2026-07-07 at the maintainer's request as the contributor/upstream-PR
-reference. See `docs/ripper-engine-strategy.md` §10 for the per-gap options
-and `docs/upstream-pr-roadmap.md` for which upstream repos we'd PR to and in
+reference. See `docs/cyanrip-fork.md` Part A §10 for the per-gap options
+and `docs/cyanrip-upstream.md` for which upstream repos we'd PR to and in
 what order.*
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.6.4b1.*

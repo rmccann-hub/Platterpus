@@ -74,17 +74,21 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: read-chunk size, to 1 sector for image drivers), so every earlier fork build and
 #: stock upstream carry it equally. **Real drives were never affected** — the
 #: override applies only to the three image drivers — so no disc ripped on the rig
-#: is in question. The fix — cachemodel 16 — lands at ``22de22f``.
+#: is in question. The fix — cachemodel 16 — landed at ``22de22f``.
 #:
-#: **Why this pin and not ``22de22f``, given that is where the code stops moving.**
-#: ``git rev-parse 2f950c8:src`` and ``git rev-parse 25a2265:src`` are the same tree
-#: (``6529dca5…``), so every commit from ``22de22f`` up to the branch tip builds a
-#: byte-identical binary. What differs is the *banner*: ``vcs_tag`` bakes in
-#: ``git rev-parse --short HEAD``, so the pin decides what the installed ripper
-#: prints — and our verify step matches the banner against
-#: :data:`FORK_EXPECTED_BUILD_TAG`. We therefore pin the commit whose banner the
-#: fork published as release **r2**, and the choice is about *identification*, not
-#: about which code gets compiled.
+#: **``2f950c8`` (r2) is also superseded**: round 7 §0 retracted r2's read-liveness
+#: heartbeat, which never fired because it was emitted from libcdio-paranoia's
+#: status callback — silent in exactly the case it existed for, since a drive
+#: grinding on a bad sector blocks inside a single SCSI command and paranoia never
+#: calls back. r3 moves it to its own thread. We never consumed that heartbeat (our
+#: own stall detection is independent and demonstrably fired on the same stalls), so
+#: this is a correctness improvement for them rather than a fix we needed.
+#:
+#: **The pin decides the banner, which is the release identity.** ``vcs_tag`` bakes
+#: in ``git rev-parse --short HEAD``, and no tag from this fork has ever reached the
+#: remote (the git proxy refuses tag pushes; they re-probed it in round 7). So the
+#: commit SHA is the only resolvable release identifier, and the pin is an
+#: *identification* choice as much as a code one.
 FORK_PIN: Final[str] = "2f950c8"
 
 #: What the built binary must print. cyanrip's banner is
@@ -95,6 +99,121 @@ FORK_PIN: Final[str] = "2f950c8"
 #: build step: an install that does not identify as the fork is a failed step,
 #: not a quiet downgrade.
 FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
+
+#: The full version string the pinned build prints, banner parenthetical excluded.
+#:
+#: **Recorded because the fork's version no longer tracks upstream's, and because
+#: our test doubles were about to lie about it.** Through r1 and r2 the fork carried
+#: upstream's string byte for byte (``0.9.4-rc1``) — which we called exactly right,
+#: since it means a version number can never answer *"is this the fork?"*; only
+#: ``PROJECT_FORK_ID`` can. That property still holds. What it also meant is that r1
+#: and r2 were indistinguishable by version, so r3 appends SemVer **build metadata**:
+#: ``+platterpus.N``. Upstream will never mint one, so it cannot collide — unlike
+#: their withdrawn first attempt (``0.9.4-rc3``), which minted an identifier inside
+#: upstream's namespace and was pulled before release for that reason.
+#:
+#: **Never match on the bare upstream number.** ``0.9.4-rc1`` is answered by stock
+#: upstream too. Match ``platterpus-fork`` (the build tag) or the ``+platterpus.``
+#: substring; never infer the fork release number from the RC number.
+#:
+#: This constant exists so the *fakes* cannot drift from the product: several tests
+#: simulate the installed fork's ``--version`` output, and every one of them derived
+#: the version from a hardcoded ``0.9.4-rc1`` literal. Those tests would have gone on
+#: passing against r3 while asserting a string the real binary no longer prints — a
+#: harness staler than the product, which is the failure mode CLAUDE.md's "what does
+#: my stand-in do that the real thing does not" question exists to catch.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc1"
+
+#: The exact first line the pinned build prints, assembled from the two above.
+FORK_EXPECTED_BANNER: Final[str] = (
+    f"cyanrip {FORK_EXPECTED_VERSION} ({FORK_EXPECTED_BUILD_TAG})"
+)
+
+# --- The NEXT pin, recorded but deliberately not wired in -------------------
+#
+# Round 7 lap 4 asks for `5bc654d` (fork release **r4**, version
+# `0.9.4-rc1+platterpus.4`), superseding lap 2's `345241b` (r3), which superseded
+# lap 1's `d5d12ec`, which superseded round 6's `ad65a24`. **Four SHAs in one open
+# round**, and the fork-release number moved `.3` → `.4` because r4 adds `-dirty`
+# to the build tag (our A9), the paranoia semantics in their generated contract
+# (A8), and their own release gate. The base stays `0.9.4-rc1` deliberately: the
+# maintainer asked for `0.9.5-rc1` and the fork declined with reasons we accept —
+# it would mint a number inside upstream's namespace (exactly why `0.9.4-rc3` was
+# withdrawn, which we endorsed) and assert a base that does not exist. Our
+# `parse_version` returning `(0, 9, 4)` for this tree is *correct*.
+#
+# (Superseded note, kept for the record: lap 2 asked for `345241b` (fork release r3, version
+# `0.9.4-rc1+platterpus.3`) — superseding lap 1's `d5d12ec`, which superseded
+# round 6's `ad65a24`. Three SHAs for one unreleased version, and the version
+# string is right to be unchanged: `+platterpus.N` increments when a *release*
+# happens, not when a commit lands, and this open round is what stops the release.
+# Both new commits came out of our own lap-1 file (their release gate, and the
+# `Duration:` sign correction), which is the handshake working.
+# **The pin has NOT moved to it, on purpose.** Two independent reasons, either
+# sufficient:
+#
+#   * CLAUDE.md's deviation policy forbids switching the container to a new
+#     cyanrip pin while a handshake round is open, and round 7 is open.
+#   * Their own round-7 §15 asks us to hold: *"We are not releasing r3 while this
+#     round is open, and we ask you to hold too. We expect this to take more than
+#     one lap."* r3 carries a retraction, a corrected measurement affecting stored
+#     records, and a version scheme changed twice.
+#
+# Recorded here rather than only in the round file so the values are in the code's
+# reach when the round closes, and so `test_fork_source` keeps asserting the LIVE
+# pin against the newest *closed* round — the check that caught an attempt to move
+# it early.
+# NOTE on their branch tip vs the pin: `345241b` is the last commit that touches
+# `src/`, so it is what the version banner resolves to and what a build must use.
+# Their branch tip adds only `tools/release-gate.py` + its test — `meson test`
+# reports 20/20 at the pin and 21/21 at the tip, and the executable is identical.
+NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
+
+#: The fork's **test pin** — a build designated to gather the hardware evidence a
+#: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
+#:
+#: Their round-7 lap-6 §1 named the deadlock this resolves: a round cannot close
+#: without `HANDSHAKE-TESTED`; that evidence needs the reviewed build on the rig;
+#: installing it is forbidden while the round is open. Every step is a rule both
+#: projects hold and together they are unsatisfiable. A test pin breaks it without
+#: weakening the release gate.
+FORK_TEST_PIN: Final[str] = "f750890"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.4"
+FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
+
+#: Build tags known to accept ``--consumer``. **Sending it to a build without it
+#: is a release blocker, not a cosmetic miss**: cyanrip exits non-zero on an
+#: unrecognised option, and every availability probe here reads a non-zero exit as
+#: *"the tool is not installed"* — the exact `-V` failure from round 5, in the
+#: opposite direction. The flag arrived in the fork's r4, so the pinned r2 build
+#: (:data:`FORK_PIN`) must never be sent it.
+#:
+#: A set rather than a version comparison on purpose: the fork's version string is
+#: deliberately upstream's plus build metadata, so it cannot be ordered, and
+#: `0.9.4-rc1` is answered by stock upstream too.
+BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
+    {
+        f"{FORK_BRANCH}-g{NEXT_PIN_UNDER_REVIEW}",  # r4
+        FORK_TEST_BUILD_TAG,  # the round-7 test pin
+    }
+)
+
+
+def accepts_consumer_flag(build_tag: str) -> bool:
+    """Whether a build identified by ``build_tag`` will accept ``--consumer``.
+
+    Tolerant of a ``-dirty`` suffix: a dirty build of a listed commit still has
+    the flag. Deliberately **False for anything unrecognised** — an unknown build
+    is not evidence the flag is safe, and the failure mode of guessing wrong is a
+    ripper that reports itself missing.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_CONSUMER_FLAG}
+
+
+NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- Where it lives inside the container ------------------------------------
 

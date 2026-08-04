@@ -5,7 +5,7 @@ This is the one error-prone step of the upstream colon-fix contribution: a hand
 edit to *someone else's* C. Doing it by hand risks a stray-whitespace or
 misplaced-block diff, which is exactly what the maintainer's "minimal, clean,
 match surrounding style" rule forbids. This script inserts the exact guard the
-soft-fork runbook designed (docs/cyanrip-soft-fork.md §2), but only after it has
+soft-fork runbook designed (docs/cyanrip-fork.md Part B §2), but only after it has
 *verified* the target function looks the way we expect — and it defaults to a
 dry run that just shows the diff, so nothing is written until you've reviewed it.
 
@@ -124,7 +124,7 @@ def plan_patch(text: str) -> tuple[str, str]:
     if "av_strtok" not in body_text:
         raise SourceMismatch(
             f"{FUNCTION_NAME}() has no av_strtok() call — the source has changed; "
-            "apply the guard by hand per docs/cyanrip-soft-fork.md §2"
+            "apply the guard by hand per docs/cyanrip-fork.md Part B §2"
         )
     if "copy" not in body_text or "returncopy" not in body_text.replace(" ", ""):
         raise SourceMismatch(

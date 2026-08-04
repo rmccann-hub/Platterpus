@@ -2,8 +2,8 @@
 
 Ready-to-run helpers for contributing the two prepared changes **upstream to
 cyanrip** and building the soft fork. The *rationale, the exact fix, and the
-re-merge discipline* live in [`docs/cyanrip-soft-fork.md`](../../docs/cyanrip-soft-fork.md)
-(and the strategy in [`docs/ripper-engine-strategy.md`](../../docs/ripper-engine-strategy.md));
+re-merge discipline* live in [`docs/cyanrip-fork.md`](../../docs/cyanrip-fork.md)
+(and the strategy in [`docs/cyanrip-fork.md`](../../docs/cyanrip-fork.md));
 this directory is just the **execution layer** so each remaining step is one
 command.
 
@@ -55,4 +55,4 @@ guesswork. See the runbook §2 "Platterpus-side cleanup".
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.6.4b1.*

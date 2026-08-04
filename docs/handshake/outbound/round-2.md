@@ -147,7 +147,7 @@ inside itself, so a single file carries all of it.
 
 ## 6. Standing items — unchanged, listed so nothing looks dropped
 
-These are already in `docs/cyanrip-improvements-wanted.md` and the PR roadmap; nothing here
+These are already in `docs/cyanrip-upstream.md` and the PR roadmap; nothing here
 supersedes them. Restated in one line each so this file is a complete picture of the ask:
 
 | Item | Status |

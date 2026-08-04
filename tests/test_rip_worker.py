@@ -1945,3 +1945,82 @@ def test_a_progress_bar_never_receives_a_value_it_cannot_display() -> None:
     assert _bar_value(100.0) == 100
     assert _bar_value(-5.0) == 0, "clamped, not negative"
     assert _bar_value(150.0) == 100, "clamped, not out of range"
+
+
+# --- the log is read only AFTER the child has exited ---------------------------
+# cyanrip's logfile and cue were block-buffered, so a process killed mid-rip lost
+# up to a 4096-byte stdio block — the round-1 finding, reproduced against a real
+# cancelled rip whose log ended mid-token at `REPLAYGAIN_TRACK_GA`. The fork's
+# `setvbuf` removed the buffering at the source (round 2), and our half of the
+# invariant is ordering: never look for the log until the child is reaped.
+#
+# Structurally that is one code path today (`_reap_ripper()` then
+# `_find_log_path()`), and a refactor could invert it with nothing complaining.
+# So this is a BEHAVIOURAL test rather than a source-shape one: the fake writes
+# the log from inside `wait()`, so a read that happened first would find nothing.
+
+
+class _WritesLogOnWait:
+    """A ripper whose log only exists once it has been waited on.
+
+    Stands in for the real thing more faithfully than a handle that pre-writes
+    the file: cyanrip flushes its logfile as it exits, so *before* the wait there
+    is either no log or a truncated one. A fake that has the log ready from the
+    start cannot exhibit the bug, which is the harness-fidelity rule — a stand-in
+    must not be safer than the product.
+    """
+
+    def __init__(self, album: Path, text: str) -> None:
+        self.argv: tuple[str, ...] = ("cyanrip", "-d", "/dev/sr0")
+        self._album: Path = album
+        self._text: str = text
+        self.waited: bool = False
+
+    def log_lines(self) -> Iterable[str]:
+        yield "ripping"
+
+    def wait(self, timeout: float | None = None) -> int:
+        self.waited = True
+        self._album.mkdir(parents=True, exist_ok=True)
+        (self._album / "rip.log").write_text(self._text, encoding="utf-8")
+        return 0
+
+    def cancel(self, term_timeout: float = 5.0) -> int:
+        return 0
+
+
+def test_the_rip_log_is_not_read_before_the_child_is_reaped(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Reap, then read. Inverting the two loses whatever was still buffered."""
+    album = tmp_path / "Artist" / "Album"
+    text = (
+        "cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)\n"
+        "Invoked as: cyanrip -d /dev/sr0\n"
+        "Disc tracks:    1\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     DEADBEEF\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - A.flac\n"
+        "Ripping errors: 0\n"
+    )
+    handle = _WritesLogOnWait(album, text)
+    backend = _FakeBackend(handle=handle)  # type: ignore[arg-type]
+    worker = RipWorker(backend, _params(tmp_path))
+
+    finished: list[tuple[bool, str]] = []
+    worker.finished.connect(lambda ok, path: finished.append((ok, path)))
+    worker.start_rip()
+
+    assert handle.waited, "the worker never waited on the child at all"
+    assert finished, "the worker never emitted finished"
+    ok, log_path = finished[-1]
+    assert ok, "a clean rip must report success"
+    # THE assertion: the log the worker found is the one `wait()` wrote. Had the
+    # search run before the reap, there would have been no file to find and this
+    # would be empty — which is the data loss, reported as "no log".
+    assert log_path, (
+        "the worker found no rip log, which is what happens when the search runs "
+        "before the child has flushed and exited"
+    )
+    assert Path(log_path).read_text(encoding="utf-8") == text

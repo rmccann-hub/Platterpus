@@ -1,5 +1,5 @@
 <!-- Ready-to-paste GitHub ISSUE body for cyanreg/cyanrip. Title on the first
-     line, body below. Rationale + verification: docs/cyanrip-soft-fork.md §2. -->
+     line, body below. Rationale + verification: docs/cyanrip-fork.md Part B §2. -->
 
 Title: `-a`/`-t`: a literal `:` in a tag value is corrupted by `append_missing_keys`
 

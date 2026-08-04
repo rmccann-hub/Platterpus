@@ -22,6 +22,7 @@ from pathlib import Path
 
 from platterpus import __version__, build_info
 from platterpus.atomic_write import atomic_write_text
+from platterpus.handshake_approval import RipperApproval, approve_rip_log
 from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
@@ -159,6 +160,10 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     described a 14-track disc. This is the same missing denominator that has
 #     now been corrected on four surfaces; recording it as a number is what
 #     stops a fifth.
+# v15: `ripper_handshake_approval` / `_detail` / `_approved_build` /
+# `_approved_for_platterpus` / `_approved_by_round` — whether the ripper that
+# produced THIS rip is the build both projects affirmatively verified, checked at
+# rip time rather than only by CI. Tri-state; `not_determined` is not a pass.
 # v14: `rip_completed` / `_tracks` / `_total` / `_reason` and `invoked_as` —
 #     the ripper's own completion verdict and the argv it reports receiving.
 #     Both were being PARSED and then not serialized, which the embedded
@@ -172,7 +177,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 14
+REPORT_SCHEMA_VERSION: int = 15
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -374,6 +379,7 @@ def build_outcome(
     auto_unknown_retry_reason: str | None = None,
     ripper_exit_code: int | None = None,
     ripper_argv: tuple[str, ...] | list[str] | None = None,
+    ripper_argv_first_pass: tuple[str, ...] | list[str] | None = None,
 ) -> dict:
     """Build the ``outcome`` block: the PROCESS result of the rip.
 
@@ -399,6 +405,24 @@ def build_outcome(
       report did not carry the command line.
     """
     argv = tuple(ripper_argv or ())
+    # The FIRST invocation, when the rip took more than one.
+    #
+    # A rip can spawn the ripper twice: the whole-disc pass, then an auto-fix pass
+    # (`-Z N -l <tracks>`) over only the tracks AccurateRip did not verify.
+    # `ripper_argv` is the LAST one — right for "re-run what finished" — but the
+    # archival log's `Invoked as:` line comes from the *first* pass (the auto-fix
+    # addendum says so in as many words). Comparing those two is comparing
+    # different commands, and the argv-agreement check did exactly that: on a real
+    # 14-track rip where auto-fix re-ripped 2 tracks it reported *"the command line
+    # changed in transit … Something between us altered it"*, naming `-Z` and `-l`
+    # as injected. Nothing had altered anything. A cross-check that accuses the
+    # user's system of tampering whenever the product's own self-heal fires is
+    # worse than no cross-check, because the false alarm fires on precisely the
+    # rips a user looks at closely.
+    #
+    # None when there was only one pass, so "single-pass" and "first of several"
+    # stay distinguishable rather than both rendering as a bare argv.
+    first = tuple(ripper_argv_first_pass or ())
     return {
         "status": status,
         "failure_hint": failure_hint or None,
@@ -413,6 +437,7 @@ def build_outcome(
         # serialized as null, not [], so "we never launched it" and "we launched
         # it with no arguments" stay distinguishable.
         "ripper_argv": list(argv) or None,
+        "ripper_argv_first_pass": list(first) or None,
         # Pre-joined for the human reading the JSON. Not shell-quoted: it is a
         # record of an `execve` argument vector, and quoting it would suggest it
         # is safe to paste, which for a vector containing user-entered metadata
@@ -543,6 +568,16 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
         ),
         "samples": samples,
     }
+
+
+def _ripper_approval(rip_log: object) -> RipperApproval:
+    """Whether this rip's ripper is the build both projects verified. Never raises.
+
+    Separate from :func:`_ripper_identity` on purpose: "is it our fork" and "is it
+    the build a closed round approved" are different questions, and answering the
+    second with the first is how an unapproved fork build would have read as fine.
+    """
+    return approve_rip_log(rip_log)
 
 
 def _ripper_identity(rip_log: object) -> RipperIdentity:
@@ -735,6 +770,25 @@ def _build(
             "ripper_is_platterpus_fork": _ripper_identity(rip_log).is_fork,
             "ripper_identity": _ripper_identity(rip_log).kind,
             "ripper_identity_detail": _ripper_identity(rip_log).detail,
+            # v15: is this the build BOTH projects affirmatively verified?
+            #
+            # A different question from `ripper_identity`, which answers "fork,
+            # stock, or undetermined". This answers "the build a closed handshake
+            # round approved" — and it is checked HERE, at rip time, because a
+            # release gate runs once on a machine that never rips a disc. Tri-state
+            # like everything else about provenance: `not_determined` for an absent
+            # or unreadable build tag is a real answer, and never a pass.
+            "ripper_handshake_approval": _ripper_approval(rip_log).verdict,
+            "ripper_handshake_approval_detail": _ripper_approval(rip_log).detail,
+            "ripper_handshake_approved_build": _ripper_approval(
+                rip_log
+            ).approved_banner,
+            "ripper_handshake_approved_for_platterpus": (
+                _ripper_approval(rip_log).approved_for_platterpus
+            ),
+            "ripper_handshake_approved_by_round": (
+                _ripper_approval(rip_log).approved_by_round
+            ),
             "creation_date": getattr(rip_log, "creation_date", "") or None,
             # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
             # The truest "same physical disc" key — stable across re-rips and

@@ -134,7 +134,24 @@ def _emitted_flags() -> list[str]:
         disc_track_total=14,
     )
     # argv[0] is the binary path, not a flag.
-    return sorted({token for token in argv[1:] if re.fullmatch(r"-[A-Za-z]", token)})
+    #
+    # SHORT **AND LONG** options. Short-only was the filter here, which made this
+    # document — whose entire purpose is "this is what we send you" — under-report
+    # our own argv the moment we added `--consumer`. The fork would have read a
+    # contract that omitted a flag we actually send, which is worse than no
+    # contract: it is a wrong one, published, generated, and therefore trusted.
+    #
+    # Third instance of this exact blind spot in one session (the rip audit's argv
+    # comparison, the release gate's, and here). A pattern matching only `-X` looks
+    # complete because every cyanrip flag *was* short.
+    return sorted(
+        {
+            token
+            for token in argv[1:]
+            if re.fullmatch(r"-[A-Za-z]", token)
+            or re.fullmatch(r"--[A-Za-z][\w-]*", token)
+        }
+    )
 
 
 def render() -> str:
