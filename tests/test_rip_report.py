@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
+from platterpus.deps import fork_source
 from platterpus.parsers.rip_log import (
     AccurateRipResult,
     RipLog,
@@ -780,10 +782,18 @@ def test_log_parse_block_flags_thin_parse() -> None:
     assert report["log_parse"] == {"ok": False, "note": "degraded"}
 
 
-def test_issues_empty_on_a_clean_rip() -> None:
-    # All-verified sample would still be "warn" (1 of 2); use a fully-verified one.
-    log = RipLog(
-        log_creator="cyanrip 0.9.3",
+def _clean_log() -> RipLog:
+    """A rip with nothing to flag: verified, and its ripper build identified.
+
+    The **approved banner** is part of "clean" on purpose, read from the product
+    constant rather than a literal. A log whose banner carries no build tag cannot
+    say which binary produced it, and the report now says so at ``info`` — so a
+    fixture with a bare ``"cyanrip 0.9.3"`` is not a clean rip, it is an
+    unidentifiable one, and asserting an empty ``issues`` against it would have
+    pinned the *absence* of that signal.
+    """
+    return RipLog(
+        log_creator=fork_source.FORK_EXPECTED_BANNER,
         tracks=(
             TrackResult(
                 number=1,
@@ -794,8 +804,123 @@ def test_issues_empty_on_a_clean_rip() -> None:
             ),
         ),
     )
-    report = build_report(log, outcome=build_outcome(status="success"))
+
+
+def test_issues_empty_on_a_clean_rip() -> None:
+    # All-verified sample would still be "warn" (1 of 2); use a fully-verified one.
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+    )
     assert report["issues"] == []
+
+
+# --- the eight checks added because each could be true while `issues` was empty ---
+#
+# Every one of these is a regression test for a real hole: the fact was in the
+# report, and the ONE list a triager opens first said "nothing to flag" about it.
+
+
+def test_issues_flags_a_ripper_build_that_cannot_be_identified() -> None:
+    """No build tag → ``not_determined`` at info, never silence and never a pass."""
+    log = replace(_clean_log(), log_creator="cyanrip 0.9.3")
+    report = build_report(
+        log, outcome=build_outcome(status="success", ripper_exit_code=0)
+    )
+    codes = {i["code"]: i["severity"] for i in report["issues"]}
+    assert codes["ripper_handshake_not_determined"] == "info"
+
+
+def test_issues_flags_an_unapproved_ripper_build() -> None:
+    """A build tag we recognise as NOT the approved pin is a warning, not silence."""
+    log = replace(
+        _clean_log(), log_creator="cyanrip 0.9.4-rc1 (platterpus-fork-gdeadbee)"
+    )
+    report = build_report(
+        log, outcome=build_outcome(status="success", ripper_exit_code=0)
+    )
+    codes = {i["code"]: i["severity"] for i in report["issues"]}
+    assert codes["ripper_handshake_unapproved"] == "warning"
+
+
+def test_issues_flags_a_success_whose_ripper_was_never_reaped() -> None:
+    """`None` exit code on a success: 'success' rests on the log alone. Say so."""
+    report = build_report(_clean_log(), outcome=build_outcome(status="success"))
+    codes = {i["code"]: i["severity"] for i in report["issues"]}
+    assert codes["ripper_exit_unknown"] == "warning"
+
+
+def test_issues_flags_a_success_with_a_nonzero_ripper_exit() -> None:
+    report = build_report(
+        _clean_log(), outcome=build_outcome(status="success", ripper_exit_code=3)
+    )
+    issue = next(
+        i for i in report["issues"] if i["code"] == "ripper_nonzero_exit_on_success"
+    )
+    assert issue["severity"] == "warning"
+    assert "3" in issue["message"]
+
+
+def test_issues_flags_a_recompress_failure() -> None:
+    """The step that REWRITES archival masters was not even a parameter before."""
+    from platterpus.adapters.flac_recompress import RecompressResult
+
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        recompress_result=RecompressResult(reencoded=1, failures=(Path("bad.flac"),)),
+    )
+    codes = {i["code"]: i["severity"] for i in report["issues"]}
+    # `error`, not `warning`: re-compression REWRITES the archival master in place,
+    # so a failure means a file we were asked to improve may be in an unknown state.
+    assert codes["recompress_failed"] == "error"
+
+
+def test_issues_flags_a_degraded_log_parse() -> None:
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        log_parse={"ok": False, "note": "non-UTF-8 byte forced errors=replace"},
+    )
+    issue = next(i for i in report["issues"] if i["code"] == "ripper_log_unparsed")
+    assert "non-UTF-8" in issue["message"]
+
+
+def test_issues_flags_a_track_count_that_disagrees_with_the_disc() -> None:
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        disc_track_total=14,
+    )
+    issue = next(i for i in report["issues"] if i["code"] == "track_count_mismatch")
+    assert "14" in issue["message"] and "1" in issue["message"]
+
+
+def test_issues_flags_an_artifact_that_could_not_be_embedded() -> None:
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        artifacts={
+            "note": "n/a",
+            "rip_log": {"path": "/x/a.log", "error": "Permission denied"},
+        },
+    )
+    issue = next(i for i in report["issues"] if i["code"] == "artifact_unavailable")
+    assert "Permission denied" in issue["message"]
+
+
+def test_issues_flags_a_dependency_below_its_minimum() -> None:
+    report = build_report(
+        _clean_log(),
+        outcome=build_outcome(status="success", ripper_exit_code=0),
+        environment={
+            "dependencies": {
+                "flac": {"present": True, "version": "1.2.1", "min_version_met": False}
+            }
+        },
+    )
+    issue = next(i for i in report["issues"] if i["code"] == "dependency_below_minimum")
+    assert "1.2.1" in issue["message"]
 
 
 def test_issues_consolidates_failures_with_severity() -> None:
@@ -885,10 +1010,13 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_15() -> None:
-    # v15 added the rip-time handshake-approval block: whether the ripper that
-    # produced this rip is the build BOTH projects affirmatively verified.
-    assert REPORT_SCHEMA_VERSION == 15
+def test_schema_version_is_16() -> None:
+    # v16 added the `diagnostics` block: every problem the rip noticed, in ONE
+    # place, so "did anything go wrong and what?" has a single answer instead of
+    # requiring a reader to already know about `outcome.failure_hint`,
+    # `log_parse.note`, `ctdb.error`, the per-track `issues` and the verification
+    # blocks. (v15 added the rip-time handshake-approval block.)
+    assert REPORT_SCHEMA_VERSION == 16
 
 
 def test_the_rippers_own_completion_verdict_reaches_the_json() -> None:

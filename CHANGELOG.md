@@ -11,6 +11,49 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **One place that answers "did anything go wrong?" — `diagnostics.py`, and a
+  `diagnostics` block in the rip report (schema v15 → v16).** Diagnostics used to be
+  spread across `outcome.failure_hint`, `log_parse.note`, `ctdb.error`, the per-track
+  `issues` and five verification sub-blocks, none of them enumerated — so answering
+  that one question required knowing where to look, and a fact captured in the log but
+  absent from the JSON (or the reverse) read as *nothing happened*. Now every subsystem
+  records a `Diagnostic` (severity, namespaced `subsystem.what` code, message, detail,
+  tool, exact argv, tri-state exit code, where) through **one call that writes to two
+  sinks** — the text log *and* the report — so the two artifacts cannot describe the
+  same event differently. Placed third in the JSON, ahead of `outcome` and the verdict,
+  because it is the first thing anyone debugging a rip should read.
+  - Four rules are encoded rather than remembered: *recording also logs*; *never
+    raises* (a collector that can throw turns a diagnosable failure into a crash);
+    *truncation is stated* (bounded head **and** tail with a counted elision — a silent
+    truncation reads as completeness); *tri-state* (`null` for an exit code we never
+    collected is a real answer and is never written as `0`). Thread-safe, because
+    workers record from their own threads.
+- **Eight new `issues[]` checks — each one a fact that could be true while the list a
+  triager opens first said "nothing to flag".** `issues[]` is the report's declared home
+  for "what went wrong", and every one of these was somewhere else in the same file:
+  `recompress_failed` (the step that **rewrites archival masters** was not even a
+  parameter of the deriver), `verification_step_did_not_run`, `derived_incomplete`,
+  `ripper_log_unparsed`, `track_count_mismatch`, `ripper_handshake_{approval}` (the
+  entire v15 handshake block was read by *nothing*), `ripper_exit_unknown` /
+  `ripper_nonzero_exit_on_success`, `artifact_unavailable` and
+  `dependency_below_minimum` (`min_version_met: false` was the only per-tool failure
+  signal in the whole report and nothing surfaced it). Nine regression tests, one per
+  code, so none of them can go quiet again.
+
+### Fixed
+- **A `NameError` on the setup engine's own failure path.** The diagnostics call added
+  to `host_setup.py` referenced a module that was never imported, so a *failed* setup
+  step raised `NameError` from inside the code meant to explain the failure. Found by
+  the suite, not by review — and it is the sharpest possible illustration of why the
+  collector exists: the reporting path is code too, and it fails like code.
+- **The `rip` and `log_parse` blocks are now built once, into locals.** They were
+  assembled inline in the report's dict literal, so the `issues` list that claims to
+  summarise them had no way to read them — which is why the entire handshake-approval
+  block and the ripper's exit code contributed nothing. Same rule the verification
+  sub-blocks already followed: one construction site, so the summary and the thing
+  summarised cannot disagree.
+
 ### Verified on hardware
 - **The `$HOME` fix works on the real rig.** After installing v0.6.4b3 the setup
   wizard reports every step ✓ — *"Platterpus fork of cyanrip (build + export) —
