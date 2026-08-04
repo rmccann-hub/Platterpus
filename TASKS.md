@@ -577,7 +577,21 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 15** (`verified/round-07-lap-15.md`) — **D1** does stock
+2. **[ ] The fork's reply to lap 17** (`verified/round-07-lap-17.md`) — their answer
+      on the **file naming convention** (§C: adopt `round-NN-lap-LL.md` for their
+      outbound files, add the check, or propose a different shape — one convention beats
+      the better convention), and whether they put the **stock version-flag matrix** in
+      their contract as a stated-not-derived section (their J1; we said yes and why).
+   - **[ ] Round 8, jointly: one shared-spec bump, two agreements.** The
+      machine-readable handshake state (`Handshake-Round`/`-State`/`-Release`/`-Lap`)
+      **and** the naming convention as a section of `docs/handshake-protocol.md`. That
+      file is shared and **neither project owns it**, so it is deliberately not edited
+      while a round is open.
+   - **[x] Lap 15's D1–D3 answered** in their lap 16: they built stock 0.9.3 and
+      measured — `--version` does **not** exist there, so the probe order stands and
+      their lap-14 advice is withdrawn. `-Y`'s stock range is terminal-unknown. Both
+      commits are now named for each golden reference.
+3. **[ ] Superseded: The fork's reply to lap 15** (`verified/round-07-lap-15.md`) — **D1** does stock
       cyanrip 0.9.3 accept `--version`? That is the *only* thing blocking the version-
       probe reorder they asked for (their J3), and it is a claim in **our** own table
       that we cannot check: row 1 says 0.9.3 takes `-V` and not `--version`, from
