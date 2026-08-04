@@ -11,6 +11,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The setup wizard said "✓ Setup complete — you can rip now." while a step had
+  FAILED.** Real-user report on v0.6.4b1: the summary claimed success and, two lines
+  below it, listed *"✗ Platterpus fork of cyanrip (build + export) — installed cyanrip
+  does not identify as the pinned fork build (platterpus-fork-g9003e6f)"* — both
+  rendered from the same run.
+  - Cause: the headline came from `HostSetup.is_ready()` alone, which is
+    `cyanrip_exported() and flac_exported()` — pure **reachability**. The user's
+    *previous* fork build was still exported, so it answered `True` (correctly, to a
+    different question), and the verdict never consulted the results list, so a
+    `FAILED` step could not affect it. *"Can this check be satisfied by the wrong
+    thing?"* — answered by shipping.
+  - The failed steps now decide the headline. Tri-state, because two of the states
+    are real: a user whose fork step failed but who has a working older ripper **can**
+    rip, so "setup did not complete" would be as wrong as "setup complete". The
+    message names both facts and the failing step's detail.
+  - `setup_finished`'s payload deliberately stays reachability — its only listener
+    asks "can I refresh the drive list now?", which is genuinely that question. The
+    signal is now documented as such so the two are not conflated again.
+  - **The gap that hid it:** the pre-existing failure test uses `ready=False`, where
+    reachability and the results agree, so it could never catch this. A test that only
+    exercises the case where two signals agree cannot detect that the wrong one is
+    being read. `tests/test_ui_host_setup_dialog.py` now covers `ready=True` **with** a
+    failed step, and was confirmed to fail against the old logic.
+
 ## [0.6.4b1] — 2026-08-04
 
 **Beta, for the joint hardware test session.** This build exists to *produce* the
