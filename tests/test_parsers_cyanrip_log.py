@@ -588,15 +588,28 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
     the loop but not listed would make the accountability test below report a
     recognised line as unhandled (or worse, lull a reader into thinking the list
     is the whole story). So this walks the module's own regex constants and
-    requires each to appear in a table, in the section list, or in the indented
-    list. `_ACCURIP_CONFIDENCE` is the one exception and is named explicitly: it
-    is searched inside an already-captured fragment, not matched against a line.
+    requires each to appear in a table, in the section list, in the indented list,
+    or in `_FRAGMENT_PATTERNS`.
+
+    **That last group replaced a test-side allowlist**, and the change is the point:
+    this test used to name `_ACCURIP_CONFIDENCE` itself as "the one exception". A
+    hand-maintained exemption list living in the checker is the shape that hid 16 of
+    the fork's fatal strings behind their generator's prefix filter (round 5), and it
+    bit here the moment two more fragment patterns arrived (round 7 lap 15). The
+    enumeration now lives in the module, so a new fragment pattern fails this sweep
+    instead of quietly requiring the test to be edited.
     """
     listed = (
         {rule.pattern for rule in cyanrip_log._ALL_LINE_RULES}
         | {pattern for _name, pattern in cyanrip_log._SECTION_LINE_PATTERNS}
         | {pattern for _name, pattern in cyanrip_log._INDENTED_LINE_PATTERNS}
-        | {cyanrip_log._ACCURIP_CONFIDENCE}
+        | {pattern for _name, pattern in cyanrip_log._FRAGMENT_PATTERNS}
+    )
+    # The fragment group must not become a dumping ground: it is small, every entry is
+    # applied to a captured substring, and it may not swallow a line-level pattern.
+    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 6, (
+        "the fragment group is growing; check each entry really is matched against a "
+        "captured fragment rather than a whole line"
     )
     module_patterns = {
         name: value

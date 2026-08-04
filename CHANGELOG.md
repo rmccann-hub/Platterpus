@@ -204,6 +204,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **`rip.read_stalls_count` — the stall count, structured, and a `ripper_read_stalls`
+  entry in `issues[]` when it is positive.** A rip whose read took 187 seconds is worth
+  telling the user about even when every checksum came out right — that is how a disc
+  goes from readable to unreadable — and until now the verbatim line was stored and
+  surfaced nowhere. Tri-state: `0` the ripper measured and found none, `N` that many
+  stalled, `null` not measured *or a shape we do not recognise*. The verbatim text
+  stays the authoritative record and is never replaced by the number, because the four
+  shapes are the fork's own, **derived from the code that prints them and not yet
+  observed from any build** — so an unrecognised shape must degrade to `null` beside
+  intact text, never to `0`.
 - **`rip.read_stalls` — the fork's stall-watchdog verdict, verbatim (schema v18 →
   v19).** They added that line at their own initiative *for us*, and we were not
   reading it — while answering their design question about whether we wanted the
@@ -227,6 +237,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   off `__version__`, so a correct historical record is not refused after a version
   bump; and with a proof-of-failure case that runs lap 8's real declaration against the
   real b3 artifact and asserts rejection.
+- **Corrected a disproven claim in our own source: the FUN512 footer and
+  `--verify-log` did *not* arrive together.** `VERIFY_LOG_FLAG`'s range comment said
+  *"all fork builds and stock ≥ 0.9.3 — the checksum footer and this flag arrived
+  together."* The fork disproved both halves from their repository: `-Y` is
+  **upstream's** (commit `443f749`, 2026-07-12), at which point `meson.build` still
+  read `0.9.3`, and the footer landed in `757108c` which **predates** it — so builds
+  exist that write the footer and cannot verify it, and a build reporting `0.9.3` may
+  or may not accept the flag. The wrong version was an inference I had already
+  labelled an inference and left in anyway; the correction is kept visible in the
+  source rather than silently rewritten.
 - **`--verify-log`'s failure classifier no longer keys on cyanrip's error wording.**
   It distinguished *"the flag was rejected"* from *"the log was rejected"* by matching
   `Unable to parse command line argument: …`. The fork pointed out that string is

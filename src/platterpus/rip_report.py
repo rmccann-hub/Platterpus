@@ -947,6 +947,11 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # never prints the line — a THIRD state beside "none" and a count, because
         # "no stalls measured" and "stalls not measured" are different claims.
         "read_stalls": getattr(rip_log, "read_stalls", "") or None,
+        # The count inside it, tri-state: 0 = measured none, N = that many stalled,
+        # null = not measured / not reported / a shape we did not recognise. Never
+        # replaces the verbatim text above — an unrecognised shape must leave the
+        # ripper's own sentence intact rather than reduce it to a wrong number.
+        "read_stalls_count": getattr(rip_log, "read_stalls_count", None),
         "ripper_handshake_note": getattr(rip_log, "handshake_note", "") or None,
         "ripper_consumer": getattr(rip_log, "consumer", "") or None,
         # v13: the *classified* answer, so a consumer does not have to know
@@ -1403,6 +1408,25 @@ def _issues(
     # computed. Only `failed` fires: `not_determined` and a `null` block are
     # non-passes, not faults, and raising an issue for them would train a reader to
     # ignore the entry on every stock-cyanrip rip.
+    # A DRIVE THAT STALLED. The fork's watchdog is the only thing that can tell us a
+    # read took minutes rather than milliseconds, and a rip that needed that is one the
+    # user should know about even when every checksum came out right — a stalling drive
+    # is how a disc goes from readable to unreadable.
+    #
+    # Only a POSITIVE count fires. `0` is a clean measurement and `null` is no
+    # measurement; raising an entry for either would put a line in every stock rip's
+    # report and train a reader to skip the entry.
+    stall_count = (rip or {}).get("read_stalls_count")
+    if isinstance(stall_count, int) and stall_count > 0:
+        add(
+            "warning",
+            "ripper_read_stalls",
+            f"{stall_count} read(s) took long enough for the ripper's watchdog to "
+            f"report a stall: {(rip or {}).get('read_stalls') or 'no detail'}. The "
+            "audio may still be bit-perfect, but a drive or disc that stalls is worth "
+            "knowing about before the next rip.",
+        )
+
     verify_verdict = (ripper_log_verification or {}).get("verdict")
     if verify_verdict == "failed":
         add(

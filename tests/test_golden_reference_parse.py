@@ -42,22 +42,34 @@ from platterpus.parsers import cyanrip_log as parser_module
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 
 _REPO = Path(__file__).resolve().parent.parent
-GOLDEN = (
-    _REPO
-    / "docs"
-    / "handshake"
-    / "inbound"
-    / "artifacts"
-    / "round-7-golden-reference-70dcf19.log"
-)
+_ARTIFACTS = _REPO / "docs" / "handshake" / "inbound" / "artifacts"
+
+#: The reference the fork asked us to parse in lap 12, at `70dcf19`.
+#:
+#: **Superseded and deliberately KEPT.** It carries the track-1 pre-gap defect our
+#: lap-13 §C reported, and it is the only artifact that proves the defect shipped —
+#: the same reasoning that keeps the H2 `.platterpus.json` unregenerated. Deleting it
+#: would erase the evidence and leave only our account of it.
+GOLDEN_WITH_DEFECT = _ARTIFACTS / "round-7-golden-reference-70dcf19.log"
+
+#: The reference regenerated after the fix, which the fork names at `f00cb2b`.
+GOLDEN_FIXED = _ARTIFACTS / "round-7-golden-reference-f00cb2b.log"
+
+#: Every committed reference. The whole-file checks run over ALL of them, because a
+#: property that holds for one artifact and not the next is exactly what a corpus is
+#: for — and because a new reference must not silently escape the sweep.
+GOLDEN_ALL = (GOLDEN_WITH_DEFECT, GOLDEN_FIXED)
+
+#: The newest one, for checks about current behaviour.
+GOLDEN = GOLDEN_FIXED
 
 #: Their new block, verbatim from the artifact. Lines 29-34 at `70dcf19`.
 PRE_LOG_OPEN = "--- output before this log was opened ---"
 PRE_LOG_CLOSE = "--- end of pre-log output ---"
 
 
-def _text() -> str:
-    return GOLDEN.read_text(encoding="utf-8")
+def _text(path: Path = GOLDEN) -> str:
+    return path.read_text(encoding="utf-8")
 
 
 def _disc_rules() -> tuple[object, ...]:
@@ -167,18 +179,49 @@ def test_the_block_does_not_shift_the_disc_fields_around_it() -> None:
 # --- the two self-describing lines, and the one we were ignoring --------------
 
 
+#: The lap of the handshake file that DELIVERED each reference. Not read from the
+#: artifact — that is the whole point of the test below.
+DELIVERED_BY_LAP: dict[str, int] = {
+    GOLDEN_WITH_DEFECT.name: 12,
+    GOLDEN_FIXED.name: 14,
+}
+
+
 def test_the_handshake_and_consumer_lines_are_read() -> None:
-    """Both claimed at schema v17, and this is their first real fork artifact."""
-    r = parse_cyanrip_log(_text())
-    assert (
-        r.handshake_note == "round 7 lap 10 OPEN, verdict HOLD -- NOT a released build"
-    )
-    assert r.consumer == "platterpus/0.6.4b3"
-    # The note names lap 10 while the file arrived with lap 12. That is CORRECT and
-    # is the property worth having: the state is compiled in when the binary is
-    # built, so it cannot name a lap that post-dates it. It is also the fork's own
-    # argument for `Handshake-Lap` in their J2.
-    assert "lap 10" in r.handshake_note
+    """Both claimed at schema v17, over every committed reference."""
+    for path in GOLDEN_ALL:
+        parsed = parse_cyanrip_log(_text(path))
+        assert parsed.handshake_note, f"{path.name}: no Handshake: line parsed"
+        assert "OPEN" in parsed.handshake_note, path.name
+        assert "NOT a released build" in parsed.handshake_note, path.name
+        assert parsed.consumer == "platterpus/0.6.4b3", path.name
+
+
+def test_the_compiled_in_lap_is_always_behind_the_file_that_ships_it() -> None:
+    """The property, asserted instead of the literal — and it IS the J2 argument.
+
+    The state is compiled in from the fork's own round files, so **a binary can never
+    name a lap that post-dates it**: adding a lap file changes the binary. Both
+    references demonstrate it — lap 12 delivered a binary saying lap 10, lap 14
+    delivered one saying lap 12 — and that is precisely why a round number alone cannot
+    identify a build and why we accepted `Handshake-Lap` for round 8.
+
+    Pinning the literal `"lap 10"` was the wrong assertion: it broke on their next
+    reference for a reason that is *correct behaviour*. A test that fails when the
+    dependency does the right thing teaches people to edit the test.
+    """
+    assert len(DELIVERED_BY_LAP) >= 2, "one reference cannot show a pattern"
+    for path in GOLDEN_ALL:
+        delivering_lap = DELIVERED_BY_LAP[path.name]
+        note = parse_cyanrip_log(_text(path)).handshake_note
+        match = re.search(r"lap (\d+)", note)
+        assert match, f"{path.name}: no lap number in {note!r}"
+        compiled_lap = int(match.group(1))
+        assert compiled_lap < delivering_lap, (
+            f"{path.name} was delivered by lap {delivering_lap} but its binary claims "
+            f"lap {compiled_lap}. A binary naming a lap at or after the file that "
+            "ships it would mean the compiled-in state is not compiled in."
+        )
 
 
 def test_read_stalls_is_parsed() -> None:
@@ -299,31 +342,16 @@ def test_an_unreadable_subchannel_is_unknown_with_its_reason() -> None:
 # --- a finding about THEIR artifact -------------------------------------------
 
 
-def test_track_one_pregap_disagrees_with_itself_in_their_log() -> None:
-    """**A finding, asserted so it cannot change quietly.**
+def _pregap_sources(path: Path) -> dict[int, dict[str, int | None]]:
+    """The four independent statements each artifact makes about a pre-gap length.
 
-    Their log states track 1's pre-gap twice and the two disagree by exactly 2x:
-
-    * `Pregap length: 300 frames` and `Pregap LSN: 0 (duration: 00:04.00)`
-      — internally consistent with each other (4s x 75 = 300).
-    * `Start LSN: 150` minus `Pregap LSN: 0` = **150**, and the `Gaps:` block says
-      `150 frame pregap in track 1` — also internally consistent with each other.
-
-    **Track 2 is the control**: LSN 300 -> start 375 = 75, stated 75 frames, stated
-    duration `00:01.00` = 75, `Gaps:` says 75. All four agree. So this is not our
-    arithmetic and not a general problem with their pre-gap path — it is one track.
-
-    We take the per-track `Pregap length` (300), which means our EAC-style log
-    renders `0:00:04.00` for a gap their own `Gaps:` block calls 150 frames. Lap 13
-    asks which value is authoritative rather than guessing: a cue declaring
-    `PREGAP 00:02:00` on top of a 150-frame lead-in would make 300 correct and the
-    `Gaps:` line the incomplete one, and we cannot tell from outside.
-
-    If they change either line this test fails, which is the point — it is the
-    record of a disagreement, and a silent change would erase the question.
+    All four read out of the file, never remembered: the per-track `Pregap length`,
+    the duration beside `Pregap LSN`, the `Start LSN − Pregap LSN` arithmetic, and the
+    disc-level `Gaps:` block. Four witnesses to one number is what turned a suspicion
+    into a finding, and it only worked because they are genuinely independent.
     """
-    text = _text()
-    r = parse_cyanrip_log(text)
+    text = path.read_text(encoding="utf-8")
+    parsed = parse_cyanrip_log(text)
 
     def frames_of(mmssff: str) -> int:
         minutes, rest = mmssff.split(":", 1)
@@ -336,42 +364,176 @@ def test_track_one_pregap_disagrees_with_itself_in_their_log() -> None:
             r"^\s+(?P<frames>\d+) frame pregap in track (?P<track>\d+)", text, re.M
         )
     }
-    assert gaps, "no Gaps rows parsed out of the artifact; the comparison is vacuous"
-
     durations = [
         frames_of(m.group(1))
         for m in re.finditer(r"^\s+Pregap LSN:\s+\d+ \(duration: (\S+)\)", text, re.M)
     ]
-    assert len(durations) == 2, (
-        f"expected two reported pregap durations, got {durations}"
+    out: dict[int, dict[str, int | None]] = {}
+    for index, track in enumerate(parsed.tracks):
+        if track.pregap_start_lsn is None or track.start_sector is None:
+            continue  # track 3: sub-channel unreadable, nothing to cross-check
+        out[track.number] = {
+            "stated": track.pregap_length_frames,
+            "duration": durations[index] if index < len(durations) else None,
+            "derived": track.start_sector - track.pregap_start_lsn,
+            "gaps": gaps.get(track.number),
+        }
+    return out
+
+
+def test_the_superseded_reference_still_carries_the_defect() -> None:
+    """The evidence that it shipped, asserted so the artifact cannot drift.
+
+    Round 7 lap 13 §C reported that track 1's pre-gap length disagreed with itself:
+    `Pregap length: 300 frames` and `duration: 00:04.00` agreeing with each other,
+    `Start LSN 150 − Pregap LSN 0 = 150` and the `Gaps:` block agreeing with each
+    other, exactly 2x apart. The fork confirmed it from their source — the per-track
+    block added the 2-second lead-in **unconditionally**, so a TOC that already
+    signalled the gap got the same 150 sectors counted twice — and told us `150` is
+    authoritative.
+
+    This artifact is kept because it is the only thing that proves the defect was
+    real rather than our reading of it.
+    """
+    sources = _pregap_sources(GOLDEN_WITH_DEFECT)
+    assert set(sources) == {1, 2}, f"expected two cross-checkable tracks, got {sources}"
+
+    one = sources[1]
+    assert one["stated"] == 300
+    assert one["duration"] == 300, "the stated duration no longer agrees with 300"
+    assert one["derived"] == 150
+    assert one["gaps"] == 150
+    assert one["stated"] == 2 * (one["derived"] or 0), "the 2x relationship changed"
+
+    # Track 2 is the control, and it is the reason this was a finding rather than a
+    # doubt about our arithmetic. The fork said so too.
+    assert len(set(sources[2].values())) == 1, sources[2]
+
+
+def test_the_fixed_reference_has_all_four_sources_agreeing() -> None:
+    """J1's confirmation: the disagreement is gone, and gone the right way.
+
+    The fork predicted our lap-13 assertion would now fail and called that failure the
+    confirmation. It does, and this is the positive form of it — checked as *agreement
+    across all four independent sources*, for **both** tracks, so a fix that made
+    every source equally wrong would still be caught. That is their own test's
+    property, asserted independently on our side of the seam.
+    """
+    sources = _pregap_sources(GOLDEN_FIXED)
+    assert set(sources) == {1, 2}, f"expected two cross-checkable tracks, got {sources}"
+    for number, values in sources.items():
+        assert None not in values.values(), f"track {number}: missing source {values}"
+        assert len(set(values.values())) == 1, (
+            f"track {number}'s four pre-gap sources still disagree: {values}"
+        )
+    # And the authoritative value is the one they named, not merely *a* consistent one.
+    assert sources[1]["stated"] == 150
+    assert sources[2]["stated"] == 75
+
+
+def test_the_two_references_differ_only_where_the_fix_landed() -> None:
+    """The blast radius of their fix, measured rather than accepted.
+
+    Their §E says track 1's `Pregap length` and its `Pregap LSN` duration changed and
+    nothing else. A log-format delta is a claim about *our* parse surface, so we check
+    it against our own fields: every parsed value must be identical between the two
+    references except the ones they declared, plus the artifact-identity fields (the
+    checksum covers changed text, and the banner/timestamp move on every rebuild).
+    """
+    import dataclasses
+
+    old = parse_cyanrip_log(_text(GOLDEN_WITH_DEFECT))
+    new = parse_cyanrip_log(_text(GOLDEN_FIXED))
+
+    # Identity fields legitimately differ between two builds of the same fixture.
+    expected_disc_differences = {
+        "log_checksum",
+        "ripper_build",
+        "creation_date",
+        "handshake_note",
+        "invoked_as",
+        "tracks",
+    }
+    for field in dataclasses.fields(old):
+        if field.name in expected_disc_differences:
+            continue
+        assert getattr(old, field.name) == getattr(new, field.name), (
+            f"disc field {field.name} changed between the two references, which their "
+            "§E log-format delta does not declare"
+        )
+
+    assert len(old.tracks) == len(new.tracks) == 3
+    declared = {"pregap_length_frames", "pregap_sectors"}
+    # Per-track timing legitimately varies run to run; it is not a format change.
+    noise = {"extraction_speed", "extraction_elapsed_seconds"}
+    changed: set[str] = set()
+    for before_track, after_track in zip(old.tracks, new.tracks, strict=True):
+        for field in dataclasses.fields(before_track):
+            if field.name in noise:
+                continue
+            if getattr(before_track, field.name) != getattr(after_track, field.name):
+                changed.add(field.name)
+    assert changed <= declared, (
+        f"their fix changed {sorted(changed - declared)} as well as {sorted(declared)}. "
+        "Their §E declares only the pre-gap length; anything else is an undeclared "
+        "log-format change and needs raising before we rely on it."
     )
+    assert changed, "nothing changed between the references; one of them is misfiled"
 
-    first, second = r.tracks[0], r.tracks[1]
 
-    # Track 2 — the control. Every source agrees, which is what makes track 1 a
-    # finding rather than a suspicion about our own reading.
-    assert second.pregap_length_frames == 75
-    assert second.start_sector is not None and second.pregap_start_lsn is not None
-    assert second.start_sector - second.pregap_start_lsn == 75
-    assert durations[1] == 75
-    assert gaps[2] == 75
+def test_every_committed_reference_reports_read_stalls() -> None:
+    """The line we were dropping, checked across the corpus rather than once.
 
-    # Track 1 — two internally-consistent pairs that disagree with each other.
-    assert first.pregap_length_frames == 300
-    assert durations[0] == 300, "the stated duration no longer agrees with 300 frames"
-    assert first.start_sector is not None and first.pregap_start_lsn is not None
-    derived = first.start_sector - first.pregap_start_lsn
-    assert derived == 150, f"LSN arithmetic gives {derived}, not 150"
-    assert gaps[1] == 150, "the Gaps block no longer says 150"
-    assert first.pregap_length_frames == 2 * derived, (
-        "the 2x relationship changed. Re-read the artifact and lap 13's question "
-        "before updating this test — the disagreement is the thing being recorded."
-    )
+    A property asserted against a single artifact is a property of that artifact.
+    """
+    assert len(GOLDEN_ALL) >= 2, "fewer than two references; there is no corpus"
+    for path in GOLDEN_ALL:
+        parsed = parse_cyanrip_log(_text(path))
+        assert parsed.read_stalls == "none (no read exceeded 10s)", (
+            f"{path.name}: read_stalls is {parsed.read_stalls!r}"
+        )
 
-    # And the audio geometry is NOT in doubt, which narrows the question to the gap.
-    assert first.start_sector == 150
-    assert first.end_sector == 374
-    assert first.end_sector - first.start_sector + 1 == 225  # matches "Frames: 225"
+
+def test_the_reference_banner_names_a_different_commit_than_the_lap_file() -> None:
+    """**A finding, and the third instance of the shape rule 12 is written for.**
+
+    The fork names each reference by the commit they committed it at; the artifact's
+    own banner names the commit that *built* it, and the two have differed both times:
+
+    * lap 12 called it `70dcf19`; the banner says `platterpus-fork-gceca8bc`.
+    * lap 14 calls it `f00cb2b`; the banner says `platterpus-fork-g486dce3`.
+
+    Benign in mechanism — the fix commit builds the binary, a later commit checks in
+    the regenerated artifact — but it means *"the golden reference at X"* has never
+    once named the build that produced it. Their lap-14 §A states the stronger claim
+    explicitly: *"this lap's header names `f00cb2b`, the build of the artifact this lap
+    is about."* It is not.
+
+    This is their own rule: **a build tag names a commit; it does not name what was
+    built.** Round 6 shipped two references whose banners named commits three behind
+    the pin, and the counter they proposed then is the one that works now — a
+    *behavioural* fingerprint. Here it is decisive and it exonerates the binary: the
+    `f00cb2b` reference reports `Pregap length: 150 frames`, so whatever built it
+    contained the §C fix, whatever its banner says.
+
+    Asserted rather than only reported, so a future reference that finally agrees will
+    fail this test and tell us the practice changed.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log as parse
+
+    named_by_lap = {
+        GOLDEN_WITH_DEFECT: "70dcf19",
+        GOLDEN_FIXED: "f00cb2b",
+    }
+    for path, lap_name in named_by_lap.items():
+        assert lap_name in path.name, f"{path.name} is not the file named {lap_name}"
+        build = parse(_text(path)).ripper_build
+        assert build, f"{path.name} has no build tag at all"
+        assert lap_name not in build, (
+            f"{path.name}: the banner now names {build!r}, which contains the commit "
+            f"{lap_name!r} the lap file named. The practice changed — update lap 15's "
+            "finding, which reports that these have never agreed."
+        )
 
 
 @pytest.mark.parametrize("truncate_at", [0, 1, 5, 30, 100, 200, 278])

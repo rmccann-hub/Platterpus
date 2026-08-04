@@ -50,6 +50,10 @@ class RipBlock(TypedDict):
     #: exceeded 10s)`). `None` on stock cyanrip, which never prints the line — a
     #: third state, not a synonym for "none".
     read_stalls: str | None
+    #: v19. The count inside `read_stalls`, tri-state: `0` measured none, `N` that
+    #: many stalled, `None` not measured / unrecognised shape. Never a substitute for
+    #: the verbatim text.
+    read_stalls_count: int | None
     #: v17, both FORK-ONLY and both verbatim. `ripper_handshake_note` is the
     #: binary's own compiled-in statement of the round it was built from — a
     #: second, independent witness beside `ripper_handshake_approval`, which is

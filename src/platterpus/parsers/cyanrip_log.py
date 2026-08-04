@@ -263,6 +263,25 @@ _RIP_COMPLETED = re.compile(
 # the mistake that put `merged` in our gap matcher for two rounds. Lap 13 asks them
 # for a populated example; the structured form waits for it.
 _READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S.*?)\s*$")
+# The COUNT inside that value, for the shapes the fork published in round 7 lap 14
+# (D1), derived on their side from the code that prints them and each pinned with a
+# whole-string `strcmp`:
+#
+#     none (no read exceeded 10s)
+#     unknown (stall reporting disabled with -k 0)
+#     2 reads exceeded 10s; longest 187s (track 4, LSN 45231)
+#     1 read exceeded 30s; longest 42s (track 1, LSN 0)
+#
+# Note the singular in the last one — `1 read`, not `1 reads` — which is exactly the
+# kind of detail a guessed regex gets wrong, and the reason we asked for the shapes
+# instead of inventing them. `reads?` covers both.
+#
+# **No build has printed a populated line anywhere yet**, on either side. So this is a
+# BEST-EFFORT structuring of unobserved wording, and it is deliberately layered under
+# the verbatim text rather than replacing it: an unrecognised shape yields `None`
+# beside intact text, never `0`.
+_READ_STALLS_COUNT = re.compile(r"^(?P<count>\d{1,6})\s+reads?\s+exceeded\b")
+_READ_STALLS_NONE = re.compile(r"^none\b")
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
 # is derived from exactly these (its Start and Length columns reproduce
@@ -745,6 +764,8 @@ class _Disc:
     rip_completed_reason: str = ""
     #: The fork's disc-level stall verdict, verbatim. "" = the line was absent.
     read_stalls: str = ""
+    #: The count inside it, tri-state. See :func:`read_stall_count`.
+    read_stalls_count: int | None = None
     health_status: str = ""
     log_checksum: str = ""
     # FORK-ONLY, and the strongest provenance line in the file: the binary's own
@@ -1018,6 +1039,31 @@ def _take_rip_completed(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def read_stall_count(value: str) -> int | None:
+    """The stall count inside a ``Read stalls:`` value. **Tri-state.**
+
+    ``0`` for the ripper's ``none (…)``, ``N`` for a populated line, and ``None`` for
+    anything else — an empty value, its ``unknown (stall reporting disabled…)``, or a
+    shape we do not recognise. That last case is the one worth being careful about:
+    degrading an unrecognised shape to ``0`` would report *"no stalls measured"* about
+    a rip whose log might be saying the opposite, which is the tri-state rule broken in
+    the direction that loses a real warning.
+
+    Pure and never raises — it reads a dependency's prose. Public because
+    ``tests/test_read_stalls.py`` asserts it against the fork's four published shapes,
+    and a helper only reachable through a full parse cannot be pinned that way.
+    """
+    text = (value or "").strip()
+    if not text:
+        return None
+    if _READ_STALLS_NONE.match(text):
+        return 0
+    hit = _READ_STALLS_COUNT.match(text)
+    if hit is None:
+        return None
+    return int_or_none(hit.group("count"), field="cyanrip read-stall count")
+
+
 def _take_read_stalls(disc: _Disc, match: re.Match[str]) -> bool:
     """The stall watchdog's disc-level verdict, verbatim.
 
@@ -1027,6 +1073,7 @@ def _take_read_stalls(disc: _Disc, match: re.Match[str]) -> bool:
     collapsing them would be the tri-state rule broken in the usual direction.
     """
     disc.read_stalls = match.group("value").strip()
+    disc.read_stalls_count = read_stall_count(disc.read_stalls)
     return True
 
 
@@ -1175,6 +1222,28 @@ _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # applies them in the order its section state requires — and the tests assert
 # that no line pattern in this module is missing from one of these three groups,
 # so the listing cannot silently drift away from the code.
+#: Patterns applied to an **already-captured fragment**, never to a whole log line.
+#:
+#: They exist as a named group so `tests/test_parsers_cyanrip_log`'s completeness sweep
+#: can account for every compiled pattern in this module without a **test-side
+#: allowlist**. That allowlist is what it used to be — `_ACCURIP_CONFIDENCE` named in
+#: the test with a reason — and a hand-maintained exemption list in a checker is the
+#: precise shape that hid 16 of the fork's fatal strings behind their own generator's
+#: prefix filter (round 5). The enumeration now lives with the code: a new fragment
+#: pattern that is not added here fails the sweep instead of quietly needing the test
+#: edited.
+#:
+#: Membership is a real, checkable property — these are `search`ed or `match`ed against
+#: a substring a line rule already extracted — not a convenience category.
+_FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # The confidence number inside an already-matched AccurateRip result fragment.
+    ("accurip_confidence", _ACCURIP_CONFIDENCE),
+    # The count, and the "none" case, inside a `Read stalls:` value (see
+    # `read_stall_count`). The line itself is claimed by the `read_stalls` rule.
+    ("read_stalls_count", _READ_STALLS_COUNT),
+    ("read_stalls_none", _READ_STALLS_NONE),
+)
+
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("gaps_value", _GAPS_VALUE),
     ("paranoia_count", _PARANOIA_LINE),
@@ -2031,6 +2100,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         rip_completed_total=disc.rip_completed_total,
         rip_completed_reason=disc.rip_completed_reason,
         read_stalls=disc.read_stalls,
+        read_stalls_count=disc.read_stalls_count,
         paranoia_counts=disc.paranoia_counts,
         album_loudness=disc.album_loudness,
         log_checksum=disc.log_checksum,
