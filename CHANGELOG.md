@@ -22,6 +22,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   shared-ancestor trap. Every step has a null-case blank, since a blank reads as a pass.
 
 ### Fixed
+- **The rig session sheet now says how to *get* to `b4`, not just that you need it.** The
+  in-app updater does it, but **only after switching to the beta channel** — `stable` never
+  offers a pre-release, so "Check for updates" on the default setting correctly reports you
+  are up to date. Written out with the three behaviours worth knowing first: it is a full
+  ~242 MB download (the `.zsync` is for external `AppImageUpdate`, not for us), it always
+  installs to `~/Applications/` regardless of where the AppImage you launch lives, and the
+  fail-closed signature gate is dormant so SHA-256 is the integrity check. Every command in
+  the sheet now names the same `~/Applications/` path the version check verifies — an update
+  that lands there while you keep launching a copy in `~/Downloads` looks exactly like a
+  successful update until a rip reports the wrong thing.
+- **`update_signing.py` now records that arming the gate is a two-sided change.** Baking in
+  `PUBLIC_KEY_B64` makes the installer refuse any release with no `.minisig` — which is
+  every release published so far. The commit that sets the key must also make the release
+  workflow publish `.minisig`, or the first signed release silently breaks in-app updating
+  for everyone on the previous build. Fail-closed is right; shipping half of it is not.
 - **Corrected a flag confusion that had been live in the project's notes and in a chat
   answer: `-O` and `-x` are different flags and only one is ours.** `-O` is force overread
   — our Settings toggle, and the subject of H10/F2. `-x` / `--cache-probe` is the fork's
