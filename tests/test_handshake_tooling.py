@@ -1117,8 +1117,10 @@ def test_our_own_committed_files_satisfy_the_format_we_publish(hs: ModuleType) -
     """
     # Scoped to files declaring `HANDSHAKE-PROTOCOL`, i.e. the v2 adopters. Earlier
     # files are grandfathered, and — importantly — **a sent file is never edited**
-    # (`docs/handshake/README.md`), so `round-7b.md` keeps the v1 header it went out
-    # with rather than being retro-fitted to a spec written after it.
+    # (`docs/handshake/README.md`), so `verified/round-07-lap-03.md` keeps the v1
+    # header it went out with rather than being retro-fitted to a spec written after
+    # it. (That file was `round-7b.md` before the 2026-08-04 naming migration; the
+    # rename touched the name, never the contents.)
     checked = 0
     problems: list[str] = []
     for path in sorted(hs.VERIFIED_DIR.glob("round-*.md")):
@@ -1129,7 +1131,7 @@ def test_our_own_committed_files_satisfy_the_format_we_publish(hs: ModuleType) -
         problems.extend(hs.check_wire_header(path, expect_from="platterpus"))
     assert checked >= 1, (
         "no verification file declares HANDSHAKE-PROTOCOL, so this test is "
-        "checking nothing — the first v2 file is verified/round-7c.md"
+        "checking nothing — the first v2 file is verified/round-07-lap-05.md"
     )
     assert not problems, "our own files violate the format we ask them to use: " + str(
         problems

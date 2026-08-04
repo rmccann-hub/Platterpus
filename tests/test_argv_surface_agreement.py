@@ -28,12 +28,34 @@ log-line half.
 
 from __future__ import annotations
 
+import importlib.util
 import re
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 from platterpus.cyanrip_cli import VERSION_FLAGS
+
+
+def _handshake() -> ModuleType:
+    """Load `scripts/handshake.py`, which owns the handshake filename convention.
+
+    Loaded rather than re-implemented: the round/lap parser is the *definition* of the
+    naming scheme, and a second copy here is a second description of one fact — the
+    drift this repository has spent a whole round finding instances of. `scripts/` is
+    not a package, hence the spec loader, which is the same shim
+    `tests/test_handshake_tooling.py` uses.
+    """
+    script = Path(__file__).resolve().parents[1] / "scripts" / "handshake.py"
+    spec = importlib.util.spec_from_file_location("handshake_naming", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INBOUND = REPO_ROOT / "docs" / "handshake" / "inbound"
@@ -58,9 +80,13 @@ _FLAG_TOKEN = r"--?[A-Za-z][\w-]*"
 _OUR_FLAGS = re.compile(rf"^({_FLAG_TOKEN}(?: {_FLAG_TOKEN})+)$", re.M)
 
 
-#: ``round-6.md``, or ``round-6b.md`` / ``round-6c.md`` for an amendment sent
-#: after the round's main file. The suffix is the round's, not a new round.
-_ROUND_NAME = re.compile(r"^round-(?P<number>\d{1,4})(?P<amendment>[a-z]{0,2})$")
+#: The canonical filename parser, **imported rather than re-declared**.
+#:
+#: This file used to carry its own copy of the regex — two descriptions of one
+#: convention, in a repository whose whole recent history is about exactly that. The
+#: 2026-08-04 naming migration (`round-07-lap-16.md`) would have needed editing in two
+#: places, and the copy here is the one nobody would have remembered.
+_ROUND_NAME = _handshake()._ROUND_NAME
 
 
 def _newest_round_files() -> list[Path]:

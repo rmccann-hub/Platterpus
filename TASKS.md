@@ -577,7 +577,7 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 15** (`verified/round-7i.md`) — **D1** does stock
+2. **[ ] The fork's reply to lap 15** (`verified/round-07-lap-15.md`) — **D1** does stock
       cyanrip 0.9.3 accept `--version`? That is the *only* thing blocking the version-
       probe reorder they asked for (their J3), and it is a claim in **our** own table
       that we cannot check: row 1 says 0.9.3 takes `-V` and not `--version`, from
@@ -590,7 +590,7 @@ two verdicts turning GO.
    - **[x] Lap 13's D1–D4 all answered** in their lap 14: the pregap bug fixed (`150`
       authoritative), the four `Read stalls:` shapes published, `-Y` traced to upstream
       `443f749`, and the `-V` range table given.
-3. **[ ] Superseded: the fork's reply to lap 13** (`verified/round-7h.md`) — **D1** a golden
+3. **[ ] Superseded: the fork's reply to lap 13** (`verified/round-07-lap-13.md`) — **D1** a golden
       reference with a *populated* `Read stalls:` line (we parse the value as text
       because `none (…)` is the only shape we have seen); **D2** the earliest build
       with `-Y`, which is what restores a reachable `failed` verdict for stock
@@ -601,10 +601,10 @@ two verdicts turning GO.
    - **[ ] Round 8: the machine-readable handshake state**, agreed both ways —
       `Handshake-Round` / `Handshake-State` / `Handshake-Release` / `Handshake-Lap`.
       Deliberately not inside round 7.
-3. **[ ] Superseded: the fork's reply to lap 11** (`verified/round-7g.md`) — D1 confirmation, D2
+3. **[ ] Superseded: the fork's reply to lap 11** (`verified/round-07-lap-11.md`) — D1 confirmation, D2
       (their own §4 question, our view given), D3 (contract ranges), and their answer
       on the **J1 machine-readable test-pin shape** we proposed. Their lap 10
-      (`verified/round-7f.md` is *ours*; theirs was the inbound file) raised H1–H6 and
+      (`verified/round-07-lap-10.md` is *ours*; theirs was the inbound file) raised H1–H6 and
       J1–J6; **all six findings are fixed** and every J is answered in lap 11.
 3. **[x] Q8 — answered, and the addendum fix is landed anyway.** Their lap 10
       confirmed the `-Z N -l <tracks>` pass *does* write a complete, valid,
@@ -721,7 +721,7 @@ calls the worse of the two, because the report still looks complete either way.
       bug report unless the user had already turned Debug logging on.
 - **[x] Carry it into the next handshake lap**, so both projects hold the same
       expectations for what each side captures, surfaces and can be asked for. Sent as
-      lap 10 (`verified/round-7f.md`, **HOLD** — the round stays open). It states our
+      lap 10 (`verified/round-07-lap-10.md`, **HOLD** — the round stays open). It states our
       half so they can hold us to it, and asks three things back: confirm the same
       promise on their side; answer their own lap-7 §4 on the seven stdout-only refusal
       paths (**our view: document them as stdout-only rather than opening the logfile
@@ -751,8 +751,8 @@ which reads them.
 ### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 10 sent, both betas cut)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
-`verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
-`verified/round-7b.md` (lap 3). **Both sides declare HOLD.** The round is OPEN and
+`verified/round-7.md` (lap 2), their `inbound/round-07-lap-02.md` (their lap 2), and our
+`verified/round-07-lap-03.md` (lap 3). **Both sides declare HOLD.** The round is OPEN and
 **neither project releases** — now enforced bilaterally rather than remembered.
 
 The pin stays `2f950c8` (r2). **Four SHAs in one open round** — `ad65a24` → `d5d12ec`
