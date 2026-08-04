@@ -70,6 +70,13 @@ class TimingBlock(TypedDict):
     # Only present when BOTH elapsed and a positive disc duration are known.
     disc_seconds: NotRequired[int]
     realtime_multiplier: NotRequired[float]
+    #: WHICH duration the multiplier is measured against — "audio actually
+    #: extracted" for a partial/cancelled rip, the whole disc otherwise. Written by
+    #: `rip_report._enrich_timing` and undeclared here until 2026-08-04, so a
+    #: consumer reading this type had no idea the ratio's denominator could change
+    #: meaning between two reports. `NotRequired` because it only appears alongside
+    #: `realtime_multiplier`.
+    realtime_multiplier_basis: NotRequired[str]
 
 
 class AutoUnknownRetryBlock(TypedDict):
@@ -125,6 +132,15 @@ class DiscBlock(TypedDict):
     catalog_number: str | None
     barcode: str | None
     label: str | None
+    #: WHICH disc of a multi-disc release these tags came from, and how we decided
+    #: (`medium_select.py`). Written since v0.6.1 and undeclared here until
+    #: 2026-08-04 — which matters more than most drift: a rip whose medium could not
+    #: be resolved is still a rip, but its titles may belong to another disc, and
+    #: `medium_undetermined` is the only field that says so. A consumer typed against
+    #: this block could not see it existed.
+    medium_basis: str | None
+    medium_detail: str | None
+    medium_undetermined: bool
 
 
 class DependencyEntry(TypedDict):
@@ -267,6 +283,14 @@ class TrackBlock(TypedDict):
     end_sector: int | None
     pregap_sectors: int | None
     pregap_start_lsn: int | None
+    #: The pre-gap's *provenance and state*, not just its number. Tri-state by
+    #: design — `pregap_state` distinguishes a measured zero from "we could not
+    #: determine it", which is the distinction the whole pre-gap investigation
+    #: turned on — and all four shipped undeclared here.
+    pregap_length_frames: int | None
+    pregap_source: str | None
+    pregap_state: str | None
+    pregap_unknown_reason: str | None
     replaygain: dict[str, str] | None
     accuraterip_lookup: str | None
     accuraterip_verified: bool
@@ -439,6 +463,14 @@ class RipReport(TypedDict):
     issues: list[IssueBlock]
     checksums: dict[str, str] | None
     debug: DebugBlock | None
+    #: The verdict's DENOMINATOR as a number (schema v12) and the verbatim text of
+    #: the companion files written beside the report. Both shipped four schema
+    #: versions before they were declared here, which is the same defect this
+    #: module's own docstring calls out: a `TypedDict` that under-describes a dict
+    #: literal is not a type error, because the emit site is not annotated as the
+    #: `TypedDict`, so there is nothing for mypy to compare.
+    completeness: CompletenessBlock
+    artifacts: ArtifactsBlock | None
 
 
 class MinimalRipReport(TypedDict):
