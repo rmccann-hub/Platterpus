@@ -885,8 +885,10 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_14() -> None:
-    assert REPORT_SCHEMA_VERSION == 14
+def test_schema_version_is_15() -> None:
+    # v15 added the rip-time handshake-approval block: whether the ripper that
+    # produced this rip is the build BOTH projects affirmatively verified.
+    assert REPORT_SCHEMA_VERSION == 15
 
 
 def test_the_rippers_own_completion_verdict_reaches_the_json() -> None:

@@ -41,6 +41,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   right: a bare `Yes` in an EAC-shaped log is indistinguishable from an asserted one, and a
   reader who cannot tell a measurement from a claim has been given a claim. The row now
   names its own method inline whenever a verdict exists.
+- **`report_types.py` described half the report it calls itself the source of truth for.**
+  Its docstring says *"single source of truth for the structure `rip_report` WRITES"*; it was
+  missing **13 of 28** keys of the `rip` block and 4 of the `outcome` block — eight of them
+  shipped in schema v13/v14, and one (`ripper_argv_first_pass`) was added earlier in this same
+  cycle. A `TypedDict` that under-describes a dict literal is not a type error, because the
+  emit site is not annotated as the `TypedDict`, so mypy had nothing to compare. All 17 are now
+  declared and the two sets are diffed every commit
+  (`tests/test_report_types_completeness.py`). Same expired-completeness pattern as the two
+  documentation maps above, in code rather than prose.
 - **The argv-agreement check was blind to a *long* option appearing in transit.** It
   compared single-letter flags only, so `--injected-by-a-wrapper` turning up in the ripper's
   `Invoked as:` line — the exact class of injection the check exists to catch — passed as
@@ -81,6 +90,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   every per-track duration wrong by up to 0.98 s. `parse_cd_duration_to_seconds` now
   discriminates on colon count, as the ripper's published units block instructs, and
   **refuses** a frame field above 74 rather than reinterpreting it.
+  - **The shape change is *upstream's*, not the fork's** — PR #130, which the fork
+    inherited. Corrected after the fork pointed it out (round 7 lap 2 §1). It matters
+    beyond attribution: *"roll back to stock cyanrip"* does not restore the old
+    duration shape either, which is the second measured instance of the rule the `-V`
+    removal taught — an upstream change cannot be escaped by rolling back to upstream.
   - Real hardware corrected an assumption in our own comment: the shape is not
     length-dependent. A 59:42 disc prints `Total time:     59:42.57` — two fields on a
     full-length disc, where we had guessed it would switch to `HH:MM:SS.mmm`.
@@ -160,6 +174,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
     list, or both — including `hard_exit.py` and `ripper_identity.py`, which `CLAUDE.md`'s own
     Critical rules and Code conventions name by name. All 19 are now documented, and the map
     is swept against the filesystem every commit.
+- **The cyanrip handshake is now affirmative, bilateral, and checked at the drive**
+  (maintainer directive). Four parts, each previously enforced somewhere other than where it
+  mattered:
+  - **Both sides must declare `GO`.** `--status` read *our* verdict and not theirs, so the
+    fork's `HOLD` could not block our release — one half of a two-half contract, for the third
+    time in this protocol's life. A round is CLOSED only when both verdicts are `GO`; four
+    combinations are tested, and only that one closes.
+  - **One wire format, both repos.** Both projects built a release gate within a day of each
+    other, to the same four properties, in two different vocabularies: ours read bolded prose,
+    theirs read `HANDSHAKE-VERDICT:` headers, and neither could read the other's files.
+    Theirs wins on the merits and is adopted — machine-readable, survives rewording, and a
+    round number *in* the file cannot silently disagree with the filename. Specified in
+    `docs/cyanrip-handshake.md` §8 and reproduced verbatim in every round file, because the
+    fork does not have this repo and "see §8" is a pointer into a tree they cannot read.
+  - **Both versions named.** `HANDSHAKE-APP-VERSION` and `HANDSHAKE-RIPPER-VERSION` are
+    required fields: a round approves a pin *for a named app version*, and two artifacts from
+    the same ripper under different app versions are not interchangeable evidence.
+  - **Every rip verifies its own ripper** (`handshake_approval.py`, report schema **v15**). A
+    release gate runs once on a machine that never rips a disc; the rig is where an unapproved
+    binary would actually be used. Tri-state — `not_determined` is not a pass, and an
+    unrecognised build tag is never reported as unapproved. The rip that ran an
+    under-review pin says so, by name, in its own archived report.
+- **A mid-round lap is no longer held to the full ten-section list.** Our checker reported 20
+  problems against the fork's lap-2 reply, which legitimately has no golden log and no commit
+  table because nothing about those changed in that exchange. `HANDSHAKE-LAP` makes it
+  decidable rather than a judgement: lap 1 is a full round file and is swept, lap ≥ 2 is a
+  reply and is not. Over-strictness is the failure whose usual fix is switching the checker
+  off.
 - **Section F of the hardware checklist: the three artifacts we owe the cyanrip fork**, each
   written so it can be run without re-deriving anything. Round 7 cannot close without them and
   neither project releases while it is open, so they are now near the top of the

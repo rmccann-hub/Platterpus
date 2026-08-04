@@ -257,4 +257,96 @@ exactly that reason.
 
 ---
 
+## 8. The wire format — one language, both repos
+
+*Added 2026-08-04 on the maintainer's direction: **"Make sure the handshake module for both
+repos is speaking and expecting the same language, variables, arguments, etc., and have it
+communicated on all handshake files so both are on the same page."*** This section **is** the
+specification. It is reproduced verbatim in every round file from round 7 lap 3 on, so a
+reader of either repo's correspondence has the spec in front of them without needing the other
+repo.
+
+### 8.1 Why a wire format, when both sides already had a gate
+
+Both projects built a release gate within a day of each other, to the same four properties —
+and they did **not** speak the same language:
+
+| | Platterpus | cyanrip fork |
+|---|---|---|
+| verdict | `**GO on <pin>` (bolded prose, line-anchored) | `HANDSHAKE-VERDICT: GO` (header, column 0) |
+| round number | inferred from the **filename** | declared **in the file** |
+| lap | not represented | `HANDSHAKE-LAP: N` |
+| contract | `docs/cyanrip-consumer-contract.md`, generated | `PROVIDER-CONTRACT: <path> @ <commit>` |
+| gate | `scripts/handshake.py --release-gate` | `tools/release-gate.py` |
+
+Two gates, two vocabularies, one protocol. Each could read its own files and neither could
+read the other's — which is the exact failure `CLAUDE.md` rule 12's *"this rule lives in both
+repos"* clause exists to prevent, arriving in the tooling instead of in the prose. **Their
+header form wins** on the merits: it is machine-readable, it survives rewording, it does not
+require a bold marker, and a round number *in* the file cannot disagree with the filename
+silently. Platterpus adopts it.
+
+### 8.2 The header block
+
+Every handshake file — outbound, inbound, verification, from either side — opens with this
+block. **Column 0, one field per line, before any prose or heading.** Unknown fields are
+ignored by both parsers, so either side may add one without breaking the other.
+
+```
+HANDSHAKE-ROUND: 7
+HANDSHAKE-LAP: 3
+HANDSHAKE-FROM: platterpus
+HANDSHAKE-VERDICT: HOLD
+HANDSHAKE-APP-VERSION: platterpus 0.6.3
+HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)
+HANDSHAKE-PIN: 2f950c8
+CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ <commit>
+```
+
+| field | required | values | meaning |
+|---|---|---|---|
+| `HANDSHAKE-ROUND` | yes | integer | the round. Must match the filename's round number; both gates assert it. |
+| `HANDSHAKE-LAP` | yes | integer ≥ 1 | which exchange within the round. A round may have many. |
+| `HANDSHAKE-FROM` | yes | `platterpus` \| `cyanrip-fork` | who wrote it. Makes a crossed pair unambiguous without filename conventions. |
+| `HANDSHAKE-VERDICT` | yes | `GO` \| `HOLD` \| `OPEN` | **`GO` is the only affirmative.** Anything else, including an unrecognised value, means *not closed*. |
+| `HANDSHAKE-APP-VERSION` | yes | `platterpus <semver>` | the Platterpus this file's results were produced with. |
+| `HANDSHAKE-RIPPER-VERSION` | yes | `cyanrip <version> (<build tag>)` | the ripper banner this file's results were produced with, verbatim. |
+| `HANDSHAKE-PIN` | yes | fork short SHA | the commit this file concerns. |
+| `PROVIDER-CONTRACT` | fork only | `<path> @ <commit>` | resolvable pointer to their generated contract. |
+| `CONSUMER-CONTRACT` | ours only | `<path> @ <commit>` | resolvable pointer to ours. |
+
+**The two version fields are not decoration.** They are the maintainer's *"include what
+versions you both are and what to use"*: a round that approves a pin approves it **for a named
+app version**, and two artifacts from the same ripper under different app versions are not
+interchangeable evidence. A file that reports a result without saying which pair produced it
+is a measurement with no provenance.
+
+### 8.3 The rules both parsers implement identically
+
+1. **`GO` is the only close, and it must be affirmative on *both* sides.** `--status` reads our
+   verdict *and* theirs; a round is CLOSED only when both say `GO`. One side's GO against the
+   other's HOLD is an open round, and the gate blocks.
+2. **A missing verdict fails closed.** Rounds predating this format are grandfathered **by
+   pinned number** — `RETROSPECTIVE_ROUNDS` (ours, rounds 1–3) and `THEIR_PRE_HEADER_ROUNDS`
+   (theirs, rounds 1–6) — each asserted by a test, never through a "missing means fine"
+   fallback. Both sets may shrink, never grow.
+3. **Two verdict lines are ambiguous, not "the first one."** Resolves to `HOLD`. (Their rule,
+   adopted here: picking either would be a guess wearing a derivation's clothes.)
+4. **An empty record is a refusal, not a pass.** No round files found → the gate blocks.
+5. **Column 0 only.** An indented or block-quoted `HANDSHAKE-VERDICT: GO` does not match, and
+   both suites carry a test containing that exact bait — a round file legitimately quotes the
+   word `GO` in prose.
+6. **The declared round must match the filename.** A `round-7b.md` declaring
+   `HANDSHAKE-ROUND: 8` is an error, not a reinterpretation.
+
+### 8.4 Naming, settled
+
+A round belongs to whoever opens it first; a crossing file becomes that round's other half
+(round 7 §7, agreed both ways). Filenames may differ between repos — ours are
+`docs/handshake/{outbound,inbound,verified}/round-N[suffix].md`, theirs are
+`docs/handshake/round-N[-lapM].md` — because the **declared** `HANDSHAKE-ROUND` is what both
+gates key on. The only invariant is that both sides read the same number.
+
+---
+
 *Last updated for Platterpus v0.6.3.*

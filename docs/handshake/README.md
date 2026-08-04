@@ -11,13 +11,21 @@ inbound/round-N.md    what the fork sent back (protocol §4)
 verified/round-N.md   our verification of it  (protocol §2, step 5)
 ```
 
-A round is **CLOSED** when all three files exist **and our verification declares
-`GO`**. The verdict closes the round, not the file's existence — a verification
-may deliberately be a mid-round `**HOLD`, and round 7 is one. `python
-scripts/handshake.py --status` reports it, and **no release and no pin switch
-happens while any round is OPEN.** See `../cyanrip-handshake.md` §7.5 for why the
-gate reads the verdict: it used to read presence, and it reported a HOLD as
-closed.
+A round is **CLOSED** only when all three files exist **and both sides declare
+`GO`**. The verdict closes the round, not the file's existence, and **one side's GO
+is not enough** — reading only our own verdict made the fork's `HOLD` unable to block
+our release. `python scripts/handshake.py --status` reports both:
+
+```
+round-6: ... we-verified=yes (GO)   they-verified=yes (GO)    -> CLOSED
+round-7: ... we-verified=yes (HOLD) they-verified=yes (HOLD)  -> OPEN
+```
+
+**No release and no pin switch happens while any round is OPEN.** See
+`../cyanrip-handshake.md` §7.5 for why the gate reads the verdict at all (it used to
+read presence, and reported a HOLD as closed) and **§8 for the shared wire format** —
+the column-0 header block both projects now emit, after both built a release gate in
+a different vocabulary and neither could read the other's files.
 
 ## Round-by-round
 
@@ -27,7 +35,7 @@ commit a *closed* round verified.
 
 | Round | Pin | Verdict | What it was about |
 |---|---|---|---|
-| **7** | `d5d12ec` (`0.9.4-rc1+platterpus.3`) | **HOLD — OPEN** | Their §7 measured both rip sessions at 81m11s / 81m13s, refuting our "much faster" explanation — we had described the dynamic-rerip mechanism and let it stand as the cause of a delta never measured. Their §5 pre-gap `Duration:` off-by-one-frame reproduced on our rig, with a sign flip they had not reported (+1 on tracks 1–13, **−1 on track 14**). Gate 1 pre-gap emission verified exactly. Their §6a/§6b answered — one mechanism refuted, one presentation fix accepted and landed. Their file ships **no §I provider contract**. Amendments: none. |
+| **7** | `345241b` (`0.9.4-rc1+platterpus.3`) | **HOLD both sides — OPEN** | Their §7 measured both rip sessions at 81m11s / 81m13s, refuting our "much faster" explanation — we had described the dynamic-rerip mechanism and let it stand as the cause of a delta never measured. Their §5 pre-gap `Duration:` off-by-one-frame reproduced on our rig, with a sign flip they had not reported (+1 on tracks 1–13, **−1 on track 14**). Gate 1 pre-gap emission verified exactly. Their §6a/§6b answered — one mechanism refuted, one presentation fix accepted and landed. Their file ships **no §I provider contract**; their lap 2 replaced the whole idea with a generated contract plus a resolvable pointer, which is better. Lap 2 also confirmed our `Duration:` sign finding and generalised it (at `-s -667` it is *track 1* that inverts), and measured that the naive one-frame repair **doubles** the boundary track's error. Lap 3 adopted their header format as the shared wire format (§8), made the gate bilateral, and put a handshake-approval check in every rip. Pin moved twice within the round: `ad65a24` → `d5d12ec` → `345241b`, one unreleased version throughout. Laps: 3 so far. |
 | **6** | `2f950c8` (fork release r2) | GO | The round that took three pins in one day. Their finding: at any paranoia level above 0, ripping a **disc image** returned one correct sector then silence — 99.7% of samples zeroed, reported as `Ripping errors: 0` — inherited from upstream, never affecting a real drive. Ours: two consecutive golden references whose build tags named commits three behind their content; per-track paranoia counters are per-**pass**, not per-track; their §C7 refuted by their own appendix. Amendments `6b` (urgent pin withdrawal) and `6c`. |
 | **5** | `e1d800e` | GO | Found the release blocker: every version probe we shipped sent `cyanrip -V`, which upstream deleted after 0.9.3 — and a non-zero exit from a version probe reads here as *"the tool is not installed."* Also found our strongest-looking test was measuring **their** generator's allowlist, not the ripper: their fatal inventory went 88 → 104 on re-derivation and our matcher had missed all 13 matchable strings the allowlist hid. |
 | **4** | `a04a94b` | GO | First round under `scripts/handshake.py`, and the round that added §I (the provider contract) to the spec. Their §B answers checked and their golden reference run through the real parser. |
