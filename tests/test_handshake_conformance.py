@@ -237,16 +237,18 @@ def test_row11_a_later_lap_declaring_hold_after_a_go_reopens_the_round(
     for name in ("outbound", "inbound", "verified"):
         (tmp_path / name).mkdir()
         (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
+    # The COMPLETE header on both sides — round 9 is not grandfathered, so a close
+    # needs the identity fields too (C9). Using a bare verdict here was the fixture
+    # C9 immediately invalidated, which is the check working on its own test file.
     (tmp_path / "inbound" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
+        _header(**{"HANDSHAKE-FROM": "cyanrip-fork"}), encoding="utf-8"
     )
-    (tmp_path / "verified" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
-    assert hs.round_status(tmp_path)[0].endswith("CLOSED")
+    (tmp_path / "verified" / "round-9.md").write_text(_header(), encoding="utf-8")
+    assert hs.round_status(tmp_path)[0].endswith("CLOSED"), hs.round_status(tmp_path)
 
     (tmp_path / "verified" / "round-9b.md").write_text(
-        "HANDSHAKE-VERDICT: HOLD\n", encoding="utf-8"
+        _header(**{"HANDSHAKE-VERDICT": "HOLD", "HANDSHAKE-LAP": "3"}),
+        encoding="utf-8",
     )
     reopened = hs.round_status(tmp_path)[0]
     assert reopened.endswith("OPEN"), reopened
@@ -285,6 +287,92 @@ def test_row13_a_higher_protocol_version_refuses_rather_than_guessing(
     assert hs.protocol_refusal(_header(**{"HANDSHAKE-PROTOCOL": "two"})) is not None
 
 
+# --- C9 / C10: the rows the fork added in lap 4, which we did not have ---------
+# Their lap 6: *"your table has 14 rows, ours has 16 — and the two you are missing
+# are the two that found a real gap in our gate."* They were right, and we had the
+# same gap: `check_inbound` validated the four identity fields and the GATE never
+# did, so a round-8 file declaring GO with every §5 close field and none of
+# `HANDSHAKE-FROM` / `-APP-VERSION` / `-RIPPER-VERSION` / `-PIN` closed the round.
+#
+# Our lap-5 reply told them "all four of our v1 additions required — yes". That was
+# a code-reading claim with no conformance row behind it, exactly as they said.
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "HANDSHAKE-FROM",
+        "HANDSHAKE-APP-VERSION",
+        "HANDSHAKE-RIPPER-VERSION",
+        "HANDSHAKE-PIN",
+    ],
+)
+def test_row9_a_round_8_file_missing_an_identity_field_refuses(
+    hs: ModuleType, field: str
+) -> None:
+    """C9 — *"a round ≥ 8 file missing any of the four → refuse, naming the field."*
+
+    Swept over all four: a gate enforcing three of four looks identical from
+    outside, which is how this survived being claimed as done.
+    """
+    blockers = hs.close_blockers(_header(**{field: None}))
+    assert any(field in b for b in blockers), (
+        f"a closing round-8 file with no {field} was not refused: {blockers}"
+    )
+
+
+def test_row9_applies_on_a_mid_round_hold_too(hs: ModuleType) -> None:
+    """C9's second half, which their wording is explicit about.
+
+    A `HOLD` lap must still declare who wrote it and which pair produced its
+    results — a measurement without provenance is the thing the fields exist for,
+    and a mid-round lap is *mostly* what a round consists of.
+    """
+    text = _header(**{"HANDSHAKE-VERDICT": "HOLD", "HANDSHAKE-FROM": None})
+    problems = (
+        hs.check_wire_header(Path("round-9.md"), expect_from=None) if False else None
+    )
+    del problems
+    # Checked through the header validator, which is the surface a non-closing lap
+    # goes through — `close_blockers` short-circuits on a non-GO verdict by design.
+    import tempfile
+
+    path = Path(tempfile.mkdtemp()) / "round-9.md"
+    path.write_text(text, encoding="utf-8")
+    assert any("HANDSHAKE-FROM" in p for p in hs.check_wire_header(path)), (
+        hs.check_wire_header(path)
+    )
+
+
+def test_row10_a_pre_header_round_missing_them_is_allowed(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """C10 — *"a round ≤ 7 file missing them → allow; exemption by pinned number."*
+
+    And this is the half that bit us while implementing C9, twice. The exemption was
+    first keyed on the round declared **in the header** — a field the exempt files do
+    not have — so every closed round in the real record flipped to OPEN. Then
+    `close_blockers` was run over them anyway, and reported "no HANDSHAKE-VERDICT
+    declared" for files that state their verdict in prose. **A grandfather clause
+    defeated by the very absence it exists to permit.**
+    """
+    for name in ("outbound", "inbound", "verified"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "round-6.md").write_text("x", encoding="utf-8")
+    (tmp_path / "verified" / "round-6.md").write_text(
+        "**GO on pin `2f950c8`.** Verified.", encoding="utf-8"
+    )
+    line = hs.round_status(tmp_path)[0]
+    assert line.endswith("CLOSED"), (
+        "a pre-header round was refused for lacking fields that did not exist when "
+        f"it was written: {line}"
+    )
+    # Floor: the real record must still contain closed pre-header rounds, or this
+    # test is asserting a property of an empty set.
+    real = [ln for ln in hs.round_status() if ln.endswith("CLOSED")]
+    assert len(real) >= 5, f"only {len(real)} closed rounds in the record"
+
+
 # --- the table itself must not shrink -----------------------------------------
 
 
@@ -296,7 +384,14 @@ def test_every_conformance_row_has_a_test_here() -> None:
     shared table stays shared.
     """
     source = Path(__file__).read_text(encoding="utf-8")
-    for row in range(1, 15):
+    # 16 rows since the fork's lap 4. Ours had 14 and the two missing were the two
+    # that found a real gap — in their gate and, as it turned out, in ours.
+    for row in range(1, 17):
+        if row in (15, 16):
+            # C15/C16 are their numbering for our rows 13/14 (protocol version,
+            # complete-round-allowed) — same cases, different index. Named here so
+            # the mapping is recorded rather than inferred.
+            continue
         assert f"def test_row{row}_" in source, (
             f"PROTOCOL.md §8 row {row} has no test in this file — a conformance "
             "row without a test is a divergence nobody can see"

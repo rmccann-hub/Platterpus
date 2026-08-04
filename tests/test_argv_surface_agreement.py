@@ -50,7 +50,12 @@ _P1_ROW = re.compile(
 _MIN_PUBLISHED_FLAGS = 30
 
 #: The consumer contract's flag inventory line — a sorted space-separated list.
-_OUR_FLAGS = re.compile(r"^(-[A-Za-z](?: -[A-Za-z])+)$", re.M)
+#: The generated contract's flag-inventory line. Short **and long** options: the
+#: emitter matched only `-X` until `--consumer` was added, so both the document and
+#: this reader silently agreed to ignore a flag we really send. A reader as narrow
+#: as the writer cannot detect the writer's narrowness.
+_FLAG_TOKEN = r"--?[A-Za-z][\w-]*"
+_OUR_FLAGS = re.compile(rf"^({_FLAG_TOKEN}(?: {_FLAG_TOKEN})+)$", re.M)
 
 
 #: ``round-6.md``, or ``round-6b.md`` / ``round-6c.md`` for an amendment sent

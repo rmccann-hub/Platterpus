@@ -58,7 +58,22 @@ jobs:
       # never ran here, where releases actually happen. First, and before the
       # build, so a blocked release costs seconds rather than a full AppImage.
       - name: Handshake gate — refuse to release with an open round
-        run: python scripts/handshake.py --release-gate
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        # A PRE-RELEASE is permitted while a handshake round is open; a STABLE
+        # release is not. The fork named the deadlock this resolves (round 7 lap 6
+        # §1): a round cannot close without hardware evidence, that evidence needs
+        # the reviewed build installed, and installing it is forbidden while the
+        # round is open. Refusing the beta does not protect a user — it guarantees
+        # the round can never close. The gate still prints every open round, so a
+        # pre-release never looks like a clean record.
+        run: |
+          case "$TAG" in
+            v0.*|*-*|*a[0-9]*|*b[0-9]*|*rc[0-9]*)
+              python scripts/handshake.py --release-gate --prerelease ;;
+            *)
+              python scripts/handshake.py --release-gate ;;
+          esac
 
       - name: Install build tooling
         run: |

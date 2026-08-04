@@ -90,4 +90,4 @@ can go to the primary source rather than trusting a paraphrase:
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

@@ -168,6 +168,51 @@ FORK_EXPECTED_BANNER: Final[str] = (
 # Their branch tip adds only `tools/release-gate.py` + its test — `meson test`
 # reports 20/20 at the pin and 21/21 at the tip, and the executable is identical.
 NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
+
+#: The fork's **test pin** — a build designated to gather the hardware evidence a
+#: close requires, which is *not* a release and never moves :data:`FORK_PIN`.
+#:
+#: Their round-7 lap-6 §1 named the deadlock this resolves: a round cannot close
+#: without `HANDSHAKE-TESTED`; that evidence needs the reviewed build on the rig;
+#: installing it is forbidden while the round is open. Every step is a rule both
+#: projects hold and together they are unsatisfiable. A test pin breaks it without
+#: weakening the release gate.
+FORK_TEST_PIN: Final[str] = "f750890"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.4"
+FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
+
+#: Build tags known to accept ``--consumer``. **Sending it to a build without it
+#: is a release blocker, not a cosmetic miss**: cyanrip exits non-zero on an
+#: unrecognised option, and every availability probe here reads a non-zero exit as
+#: *"the tool is not installed"* — the exact `-V` failure from round 5, in the
+#: opposite direction. The flag arrived in the fork's r4, so the pinned r2 build
+#: (:data:`FORK_PIN`) must never be sent it.
+#:
+#: A set rather than a version comparison on purpose: the fork's version string is
+#: deliberately upstream's plus build metadata, so it cannot be ordered, and
+#: `0.9.4-rc1` is answered by stock upstream too.
+BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
+    {
+        f"{FORK_BRANCH}-g{NEXT_PIN_UNDER_REVIEW}",  # r4
+        FORK_TEST_BUILD_TAG,  # the round-7 test pin
+    }
+)
+
+
+def accepts_consumer_flag(build_tag: str) -> bool:
+    """Whether a build identified by ``build_tag`` will accept ``--consumer``.
+
+    Tolerant of a ``-dirty`` suffix: a dirty build of a listed commit still has
+    the flag. Deliberately **False for anything unrecognised** — an unknown build
+    is not evidence the flag is safe, and the failure mode of guessing wrong is a
+    ripper that reports itself missing.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    return tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_CONSUMER_FLAG}
+
+
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
 
 # --- Where it lives inside the container ------------------------------------
