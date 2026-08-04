@@ -519,8 +519,14 @@ def test_verify_never_raises_on_garbage() -> None:
 # --- Test & Copy CRC pair (KDD-30) ------------------------------------------
 
 
-def _rip_log(track: TrackResult) -> RipLog:
-    return RipLog(log_creator="cyanrip 0.9.3", tracks=(track,))
+def _rip_log(*tracks: TrackResult) -> RipLog:
+    """A minimal cyanrip RipLog around one or more tracks.
+
+    Varargs since 2026-08-04: the status-report partition test needs a disc whose
+    three AccurateRip states are all present at once, and a one-track fixture cannot
+    express "these counts must sum to the disc".
+    """
+    return RipLog(log_creator="cyanrip 0.9.3", tracks=tuple(tracks))
 
 
 def test_converged_track_renders_test_and_copy_pair() -> None:
@@ -649,6 +655,76 @@ def test_offset_variant_is_not_reported_as_absent_from_the_database() -> None:
     assert "partially accurate" in text
     assert "confidence 200" in text
     assert "BF62B1DA" in text  # the matched CRC is evidence, so it's shown
+
+
+_COUNT_LINE = re.compile(r"^\s*(\d+) track\(s\) (.+)$", re.M)
+
+
+def _summary_counts(text: str) -> dict[str, int]:
+    """The status report's per-count lines, as ``{what: n}``."""
+    return {
+        what.strip(): int(n)
+        for n, what in _COUNT_LINE.findall(text)
+        if "accurately ripped" in what
+        or "could not be verified" in what
+        or "offset-variant pressing" in what
+    }
+
+
+def test_the_status_report_counts_partition_the_disc() -> None:
+    """REGRESSION (round 7 lap 10, H4): they used to sum to MORE than the disc has.
+
+    `unverified = total - verified` already contained every offset-variant track —
+    an offset-variant match is not an exact match — and the third line counted those
+    same tracks again. The rig's 14-track disc printed `13 + 1 + 1 = 15`. Each line
+    was defensible on its own wording; the aggregate was arithmetically false, in a
+    SHA-256-attested archival document. Found by the cyanrip fork reading the log.
+
+    Asserted as arithmetic rather than as three exact strings, so a future reword
+    (which the fork and we have agreed to coordinate) does not break it.
+    """
+    # 3 tracks: one exact match, one offset-variant only, one in the DB with no
+    # match at all — so all three lines are exercised and none can be satisfied by
+    # the others being absent.
+    exact = TrackResult(
+        number=1,
+        copy_crc="aaaaaaaa",
+        accuraterip_v2=AccurateRipResult(
+            version=2, result="accurately ripped, confidence 200", confidence=200
+        ),
+    )
+    variant = _offset_variant_track()
+    nothing = TrackResult(
+        number=5,
+        copy_crc="cccccccc",
+        accuraterip_v1=AccurateRipResult(version=1, result="no match", confidence=0),
+        accuraterip_v2=AccurateRipResult(version=2, result="no match", confidence=0),
+    )
+    text = render_eac_style_log(_rip_log(exact, variant, nothing), disc_track_total=3)
+    counts = _summary_counts(text)
+
+    assert len(counts) == 3, (
+        f"expected all three count lines, got {counts} — with fewer than three the "
+        "sum could balance by a line being absent, which is the vacuous version "
+        "of this test"
+    )
+    assert sum(counts.values()) == 3, (
+        f"the count lines sum to {sum(counts.values())} on a 3-track disc: {counts}"
+    )
+
+
+def test_a_disc_of_only_offset_variant_matches_is_not_a_clean_sweep() -> None:
+    """The precondition the partition fix CREATED, and the reason it is tested.
+
+    Making the three lines disjoint leaves "could not be verified" at zero for a
+    disc whose every track matched only the +450 pressing. Keying the clean-sweep
+    headline on that disjoint count would then announce "All tracks accurately
+    ripped" over a disc where nothing matched exactly — a worse claim than the bug
+    being fixed. It keys on `total - verified` instead.
+    """
+    text = render_eac_style_log(_rip_log(_offset_variant_track()), disc_track_total=1)
+    assert "All tracks accurately ripped" not in text
+    assert "Some tracks could not be verified as accurate" in text
 
 
 def test_offset_variant_never_claims_a_plain_accurate_rip() -> None:

@@ -204,6 +204,25 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **The EAC-style log's status report claimed more tracks than the disc has.** On the
+  rig's 14-track disc it printed `13 accurately ripped` + `1 could not be verified` +
+  `1 matched only an offset-variant pressing` = **15**. `unverified = total -
+  verified` already contained every offset-variant track — an offset-variant match is
+  not an exact match — and the third line counted those same tracks again. Each line
+  was defensible on its own wording and the aggregate was arithmetically false, in a
+  SHA-256-attested archival document. The three lines now partition the tracks and
+  sum to the total; the wording is deliberately unchanged, because it is what the
+  cyanrip fork diffs against and they asked that neither side reword unilaterally
+  (round 7 lap 10, H4). The clean-sweep headline still keys on *anything short of an
+  exact match*, so a disc of only offset-variant matches cannot announce "All tracks
+  accurately ripped" — a precondition the partition fix created, with its own test.
+- **`partially_accurate_summary` now names its denominator.** cyanrip's `Tracks
+  ripped partially accurately: 1/1` counts tracks *not fully verified*, not tracks on
+  the disc — the fork confirmed it — so `1/1` on a 14-track disc is correct and reads
+  like a typo. We rendered it as *"1/1 tracks ripped partially accurately"*,
+  inheriting the ambiguity and dropping even the positional hint the ripper's line
+  had. It now reads *"1 of 1 track(s) not fully verified matched only an
+  offset-variant pressing"*. The ripper's own line is unchanged.
 - **Tools → Check dependencies could do nothing visible at all.** A crashed probe emitted
   `None` and the GUI half returned immediately, so a user-initiated menu action was
   indistinguishable from a dead menu item — with the traceback going only to a file that

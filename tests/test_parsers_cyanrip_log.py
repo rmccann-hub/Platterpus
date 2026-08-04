@@ -212,7 +212,15 @@ def test_offset_variant_match_is_captured_but_not_a_plain_match() -> None:
 
 def test_partial_accurate_summary_and_paranoia_counts() -> None:
     log = parse_cyanrip_log(_MARGINAL_LOG)
-    assert "2/2" in log.partially_accurate_summary
+    # "2 of 2 track(s) not fully verified", not "2/2". The fork confirmed the
+    # denominator counts tracks NOT FULLY VERIFIED, not tracks on the disc (round 7
+    # lap 10, H4) — so `2/2` on a disc with more than two tracks is correct and reads
+    # like a typo. We name what it measures; the ripper's own line is unchanged.
+    assert "2 of 2" in log.partially_accurate_summary
+    assert "not fully verified" in log.partially_accurate_summary, (
+        "the denominator is unnamed again, so the fraction reads as a share of the "
+        "disc — which is the ambiguity this wording exists to remove"
+    )
     assert log.paranoia_counts == {
         "READ": 71948,
         "VERIFY": 11098,
