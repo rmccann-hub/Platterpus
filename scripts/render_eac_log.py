@@ -24,8 +24,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from platterpus import rip_addendum
 from platterpus.eac_log_export import render_eac_style_log
-from platterpus.parity import decode_log_bytes
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.eac_log import looks_like_eac_log
 from platterpus.parsers.rip_log import RipLog, parse_rip_log
@@ -53,10 +53,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    try:
-        text = decode_log_bytes(args.rip_log.read_bytes())
-    except OSError as exc:
-        print(f"cannot read {args.rip_log}: {exc}", file=sys.stderr)
+    # `read_any_log` NEVER RAISES by contract — it returns "" for a missing or
+    # unreadable log — so an `except OSError` around it is unreachable, and routing
+    # through it turned a clear "cannot read X" + exit 2 into a silent empty read.
+    # (Caught by `test_cli_missing_file_returns_2` the moment the routing landed:
+    # a diagnostic that vanishes is the failure this project keeps naming.) So the
+    # readability check is explicit, before the read, and names the path.
+    if not args.rip_log.is_file():
+        print(f"cannot read {args.rip_log}: not a readable file", file=sys.stderr)
+        return 2
+    text = rip_addendum.read_any_log(args.rip_log)
+    if not text.strip():
+        print(f"{args.rip_log} is empty or unreadable", file=sys.stderr)
         return 2
 
     if looks_like_eac_log(text):

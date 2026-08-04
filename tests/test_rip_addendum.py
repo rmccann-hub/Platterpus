@@ -29,6 +29,17 @@ from platterpus import rip_addendum as ra
 
 _REPO = Path(__file__).resolve().parent.parent
 _SRC = _REPO / "src" / "platterpus"
+#: Also swept: `scripts/`. **The second half of the same 2026-08-04 miss.** The rule was
+#: enforced across `src/` and nowhere else, so the one log reader that lives in `scripts/`
+#: — the EAC parity checker, i.e. the tool that answers "are we bit-perfect?" — was outside
+#: every guard the rule has. CLAUDE.md §5.o, arriving again: enforce a rule across the
+#: codebase, not at the place it was learned.
+_SCRIPTS = _REPO / "scripts"
+
+
+def _swept_roots() -> list[Path]:
+    """Every Python file the addendum rule binds. Both roots, so neither can drift."""
+    return [*_SRC.rglob("*.py"), *_SCRIPTS.rglob("*.py")]
 
 
 # --- render_addendum: pure, so it is testable as text -------------------------
@@ -234,7 +245,26 @@ def test_a_failed_write_is_recorded_and_never_raises(
 #: Every function that turns rip-log TEXT into a parsed object. A read that feeds
 #: one of these without folding the sidecar in gets checksums for bytes that are
 #: not on disk.
-_PARSE_FUNCS: frozenset[str] = frozenset({"parse_cyanrip_log", "parse_rip_log"})
+_PARSE_FUNCS: frozenset[str] = frozenset(
+    {
+        "parse_cyanrip_log",
+        "parse_rip_log",
+        # **ADDED 2026-08-04, and this omission is what let the bug through.** The sweep
+        # keyed only on the two full parsers, so a module that opened a rip log and pulled
+        # per-track CRCs out of it by ANY other route was not considered a log-parsing
+        # module at all — it was invisible, not exempt. `scripts/eac_parity.py` read the
+        # log with `decode_log_bytes` and extracted CRCs with `compare_logs`, and reported
+        # **13/14 NOT parity** for a rip that was 14/14, because the ripper's log records
+        # the read that Platterpus discarded. A wrong answer to the project's headline
+        # question, from the project's own tool.
+        #
+        # The lesson is the trigger, not the file: a sweep that names *some* ways of
+        # reading a log will keep missing the next one. These are every entry point that
+        # turns log TEXT into per-track CRCs.
+        "compare_logs",
+        "track_copy_crcs",
+    }
+)
 
 #: The sanctioned readers.
 _SANCTIONED: frozenset[str] = frozenset({"read_log_with_addendum", "with_addendum"})
@@ -253,7 +283,7 @@ _EXEMPT: dict[str, str] = {
 def _log_parsing_modules() -> list[Path]:
     """Source modules that call a rip-log parser at all."""
     found: list[Path] = []
-    for path in sorted(_SRC.rglob("*.py")):
+    for path in sorted(_swept_roots()):
         if path.name in _EXEMPT:
             continue
         source = path.read_text(encoding="utf-8", errors="replace")

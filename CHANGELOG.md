@@ -22,6 +22,32 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   shared-ancestor trap. Every step has a null-case blank, since a blank reads as a pass.
 
 ### Fixed
+- **Three CLI tools read a rip log without its auto-fix addendum, and one of them
+  therefore gave a wrong answer to the project's headline question.** Found by running
+  `scripts/eac_parity.py` over the 2026-08-04 rig rip of the EAC baseline disc: it reported
+  **13/14 — NOT parity**, naming track 5's CRC as `6902BCF0`. That is the read Platterpus
+  **discarded** after re-ripping the track; the file on disk is `E0036697`, which is EAC's
+  own value, and the rip was **14/14 bit-perfect**. A false negative on "is Platterpus
+  bit-perfect?", from Platterpus's own checker. `render_eac_log.py` and `rip_report.py` had
+  the same read — so the *archival* EAC-compatible log and the regenerated report were
+  exposed to it too. The app itself was always correct; only the standalone scripts were
+  wrong. All three now go through one shared `rip_addendum.read_any_log()` (encoding
+  sniffed **and** addendum applied), because three copies of a read is three chances to
+  forget the sidecar.
+- **The sweep that was supposed to prevent exactly that had two holes, and the second is
+  the one that bit.** `tests/test_rip_addendum.py` (a) globbed `src/platterpus/` only, so
+  every tool in `scripts/` was outside every guard the rule has — CLAUDE.md §5.o again,
+  *enforce a rule across the codebase, not at the place it was learned*; and (b) triggered
+  only on `parse_cyanrip_log`/`parse_rip_log`, so a module that opened a log and pulled
+  per-track CRCs out of it by any **other** route was not *exempt*, it was **unseen**.
+  Widening both immediately found the two further offenders above — a check that had been
+  green while three tools broke the rule it enforces.
+- **Routing those scripts through a never-raises reader silently removed their error
+  path.** `read_any_log` returns `""` for an unreadable log by contract, so the
+  `except OSError` that printed `cannot read <path>` and exited 2 became unreachable —
+  a clear diagnostic replaced by an empty read. Caught immediately by the existing
+  `test_cli_missing_file_returns_2` in two files; the readability check is now explicit
+  and before the read, and an empty result is reported rather than processed.
 - **The rig session sheet now says how to *get* to `b4`, not just that you need it.** The
   in-app updater does it, but **only after switching to the beta channel** — `stable` never
   offers a pre-release, so "Check for updates" on the default setting correctly reports you
