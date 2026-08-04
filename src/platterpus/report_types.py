@@ -345,8 +345,63 @@ class DebugBlock(TypedDict):
     lines: list[str]
 
 
+class DiagnosticItemBlock(TypedDict):
+    """One entry in the report's `diagnostics.items` list.
+
+    Mirrors :class:`platterpus.diagnostics.Diagnostic` exactly — one shape, not two.
+    The dataclass is the producer and this is its consumed contract; a completeness
+    test asserts the field sets match so they cannot drift.
+    """
+
+    severity: str
+    code: str
+    subsystem: str
+    message: str
+    detail: str | None
+    tool: str | None
+    argv: list[str] | None
+    #: Tri-state: `null` means no child was reaped, which is NOT `0`.
+    exit_code: int | None
+    at: str | None
+    where: str | None
+    track: int | None
+
+
+class DiagnosticsBlock(TypedDict):
+    """The report's `diagnostics` block (schema v16) — *"did anything go wrong?"*
+
+    Added on a maintainer directive: *"I want full error and reporting to the output
+    log file (JSON) as possible for future debugging… make finding errors easy."*
+    Before it, diagnostics were scattered across `outcome.failure_hint`,
+    `log_parse.note`, `ctdb.error`, per-track `issues` and the verification blocks —
+    each a different shape, none enumerated, so answering the first question a
+    support thread asks required knowing where to look.
+
+    The counts and `codes` come FIRST on purpose: a reader who checks only
+    `error_count` still learns the thing that matters.
+    """
+
+    error_count: int
+    warning_count: int
+    info_count: int
+    #: The most severe severity recorded, or `null` when nothing was.
+    worst_severity: str | None
+    #: Every distinct code, first-seen order — what *kinds* of thing went wrong.
+    codes: list[str]
+    #: What period the items cover. The collector is process-wide, so a setup
+    #: failure earlier in the same session appears here — useful (it explains an
+    #: unapproved ripper) but only if the reader is told, hence this field.
+    scope: str
+    #: Stated, never implied. A capped list that does not say so reads as complete.
+    truncated: bool
+    dropped_count: int
+    #: The one command that finds every diagnostic in the text log.
+    log_grep_hint: str
+    items: list[DiagnosticItemBlock]
+
+
 class RipReport(TypedDict):
-    """A complete `.platterpus.json`, schema v9.
+    """A complete `.platterpus.json`, schema v16.
 
     Every key is required: `rip_report._build` returns one fixed dict literal,
     so a successfully-built report always carries all of them (many as None).
@@ -355,6 +410,9 @@ class RipReport(TypedDict):
     schema_version: int
     generator: GeneratorBlock
     generated_at: str | None
+    #: Every problem this rip noticed, in one place (schema v16). Deliberately
+    #: near the top of the report: it is the first thing a debugger should read.
+    diagnostics: DiagnosticsBlock
     outcome: OutcomeBlock | None
     timing: TimingBlock | None
     environment: EnvironmentBlock | None

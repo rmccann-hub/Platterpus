@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from platterpus import diagnostics
 from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.deps import fork_source
 from platterpus.deps.step_engine import (
@@ -499,14 +500,17 @@ class HostSetup:
                 continue
             commands = [c for c in self._commands_for(step_id) if c]
             if not commands:
-                record(
-                    StepResult(
-                        step_id,
-                        title,
-                        StepStatus.FAILED,
-                        "no automatic install available for this system — "
-                        "install it manually and retry",
-                    )
+                no_plan = (
+                    "no automatic install available for this system — "
+                    "install it manually and retry"
+                )
+                record(StepResult(step_id, title, StepStatus.FAILED, no_plan))
+                diagnostics.error(
+                    "setup.step_failed",
+                    f"setup step “{title}” has no install plan on this system",
+                    subsystem="setup",
+                    detail=no_plan,
+                    where=f"host_setup step {step_id!r}",
                 )
                 stop = True
                 continue
@@ -527,6 +531,17 @@ class HostSetup:
                 record(StepResult(step_id, title, StepStatus.RAN, detail))
             else:
                 record(StepResult(step_id, title, StepStatus.FAILED, detail))
+                # Also record it as a DIAGNOSTIC, so a setup failure is findable
+                # from the one place that enumerates problems — and so it shows up
+                # in the next rip report, which is where the consequence lands ("my
+                # ripper is unapproved" is usually "the fork build failed earlier").
+                diagnostics.error(
+                    "setup.step_failed",
+                    f"setup step “{title}” failed: {detail}",
+                    subsystem="setup",
+                    detail=detail,
+                    where=f"host_setup step {step_id!r}",
+                )
                 stop = True
         return results
 
