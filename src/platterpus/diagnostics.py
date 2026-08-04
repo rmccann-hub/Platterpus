@@ -58,6 +58,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Final
 
+from platterpus.paths import LOG_PATH
+
 log = logging.getLogger(__name__)
 
 # --- Severity ---------------------------------------------------------------
@@ -161,6 +163,52 @@ def _safe_str(value: object, limit: int | None = None) -> str:
         # elided is indistinguishable from a tool that stopped talking.
         text = text[:limit] + f"\n… [{dropped} more character(s) omitted]"
     return text
+
+
+#: Default line bounds for :func:`bounded_output`. The tail is the larger half on
+#: purpose — see the docstring.
+OUTPUT_HEAD_LINES: Final[int] = 40
+OUTPUT_TAIL_LINES: Final[int] = 60
+
+
+def bounded_output(
+    output: object,
+    *,
+    head: int = OUTPUT_HEAD_LINES,
+    tail: int = OUTPUT_TAIL_LINES,
+) -> str:
+    """A tool's output capped to a head and a tail, with the gap counted and marked.
+
+    **This lives here, once.** The head-and-tail rule was written three times in
+    this codebase (the step engine, the rip worker's stdout capture, and the
+    transcode adapter's log tail), each with different limits and one of them
+    head-only. Three implementations of one rule is three chances to drop the line
+    that explains a failure.
+
+    **Head AND tail, never head alone.** A tool's fatal message is the *last* thing
+    it prints, so a head-only cap drops exactly the line a reader needs — while
+    still looking like a complete capture. The tail is the larger half for the same
+    reason.
+
+    **The marker is load-bearing.** An unmarked jump reads as a command that fell
+    silent, which is a different and more alarming fact than "we elided some
+    lines". A silent truncation reads as completeness.
+
+    Never raises: takes ``object`` and stringifies defensively, because this runs
+    on whatever a dependency handed us.
+    """
+    text = _safe_str(output) if not isinstance(output, str) else output
+    lines = text.rstrip("\n").splitlines()
+    if len(lines) <= head + tail:
+        return "\n".join(lines)
+    elided = len(lines) - head - tail
+    return "\n".join(
+        [
+            *lines[:head],
+            f"  … [{elided} line(s) omitted] …",
+            *lines[-tail:],
+        ]
+    )
 
 
 def _coerce_argv(argv: object) -> tuple[str, ...]:
@@ -509,9 +557,12 @@ class DiagnosticLog:
             # reads as the complete set.
             "truncated": dropped > 0,
             "dropped_count": dropped,
-            "log_grep_hint": (
-                "grep 'platterpus-diagnostic' ~/.local/share/platterpus/log.txt"
-            ),
+            # The REAL path, resolved through `paths.LOG_PATH`, not the `~/.local/
+            # share/...` literal it used to name. That literal is wrong under a
+            # custom `XDG_DATA_HOME`, a Flatpak sandbox, or any other relocation —
+            # and a hint that points at a file the user does not have is worse than
+            # no hint, because they conclude the log does not exist.
+            "log_grep_hint": f"grep 'platterpus-diagnostic' {LOG_PATH}",
             "items": [i.to_json() for i in recorded],
         }
 

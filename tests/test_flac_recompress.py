@@ -9,7 +9,6 @@ must leave the original untouched whenever a file isn't successfully rewritten.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -19,6 +18,7 @@ from platterpus.adapters.flac_recompress import (
     RecompressResult,
     recompress_flac_files,
 )
+from platterpus.adapters.tool_run import ToolRun
 
 
 def _make_flac(path: Path, content: bytes = b"original") -> Path:
@@ -31,12 +31,12 @@ def test_all_reencoded_swaps_in_the_temp(tmp_path: Path) -> None:
     b = _make_flac(tmp_path / "02.flac")
     seen: list[list[str]] = []
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         # Stand in for flac: write the (smaller) re-encoded output to the temp
         # path so the adapter has something to atomically swap in.
         seen.append(argv)
         Path(argv[-2]).write_bytes(b"smaller")  # argv[-2] is the `-o <tmp>` arg
-        return 0
+        return ToolRun.of(0)
 
     result = recompress_flac_files([a, b], binary="flac", runner=runner)
 
@@ -66,11 +66,11 @@ def test_all_reencoded_swaps_in_the_temp(tmp_path: Path) -> None:
 def test_nonzero_rc_leaves_original_untouched(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac", b"keep-me")
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         # Pretend flac wrote a temp but then failed (nonzero exit). The original
         # must survive and the temp must be cleaned up — never swapped in.
         Path(argv[-2]).write_bytes(b"half-written")
-        return 1
+        return ToolRun.of(1, "ERROR: error during encoding\n", tuple(argv))
 
     result = recompress_flac_files([a], runner=runner)
 
@@ -79,25 +79,31 @@ def test_nonzero_rc_leaves_original_untouched(tmp_path: Path) -> None:
     assert result.failures == (a,)
     assert a.read_bytes() == b"keep-me"  # untouched
     assert not (tmp_path / "01.flac.recompress.tmp").exists()
+    # THE REGRESSION: this step rewrites archival masters, so the reason must
+    # travel with the result rather than only into the log.
+    assert "error during encoding" in result.failure_details[0].reason
 
 
 def test_missing_temp_output_is_a_failure(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac", b"keep-me")
 
-    def runner(argv: list[str]) -> int:
-        return 0  # claims success but never wrote the temp file
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun.of(0)  # claims success but never wrote the temp file
 
     result = recompress_flac_files([a], runner=runner)
 
     assert result.failures == (a,)
     assert a.read_bytes() == b"keep-me"
+    # "exit 0 and no output file" must read DIFFERENTLY from "flac refused" — the
+    # second is ordinary, the first means the tool lied about succeeding.
+    assert "wrote no output file" in result.failure_details[0].reason
 
 
 def test_missing_binary_is_an_error_not_a_failure(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
 
-    def runner(argv: list[str]) -> int:
-        raise FileNotFoundError("flac")
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun.failed_to_run("'flac' not found", tuple(argv))
 
     result = recompress_flac_files([a], runner=runner)
 
@@ -111,13 +117,15 @@ def test_timeout_marks_the_file_failed_and_continues(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac", b"a-orig")
     b = _make_flac(tmp_path / "02.flac")
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         if argv[-1].endswith("01.flac"):
             # Simulate flac leaving a partial temp behind, then timing out.
             Path(argv[-2]).write_bytes(b"partial")
-            raise subprocess.TimeoutExpired(cmd="flac", timeout=300)
+            return ToolRun.timed_out(
+                "timed out after 600s (child killed, never reaped)", argv=tuple(argv)
+            )
         Path(argv[-2]).write_bytes(b"smaller")
-        return 0
+        return ToolRun.of(0)
 
     result = recompress_flac_files([a, b], runner=runner)
 
@@ -126,13 +134,16 @@ def test_timeout_marks_the_file_failed_and_continues(tmp_path: Path) -> None:
     assert result.failures == (a,)
     assert a.read_bytes() == b"a-orig"  # untouched
     assert not (tmp_path / "01.flac.recompress.tmp").exists()  # partial cleaned up
+    # The duration that was exceeded is NAMED. "timed out" without the limit leaves
+    # a reader unable to tell a wedged file from a bound that is simply too tight.
+    assert "600s" in result.failure_details[0].reason
 
 
 def test_oserror_aborts_with_error(tmp_path: Path) -> None:
     a = _make_flac(tmp_path / "01.flac")
 
-    def runner(argv: list[str]) -> int:
-        raise OSError("permission denied")
+    def runner(argv: list[str]) -> ToolRun:
+        return ToolRun.failed_to_run("could not run flac: permission denied")
 
     result = recompress_flac_files([a], runner=runner)
 
@@ -145,9 +156,9 @@ def test_failed_atomic_swap_leaves_original_and_marks_failure(
 ) -> None:
     a = _make_flac(tmp_path / "01.flac", b"keep-me")
 
-    def runner(argv: list[str]) -> int:
+    def runner(argv: list[str]) -> ToolRun:
         Path(argv[-2]).write_bytes(b"smaller")  # a good re-encode…
-        return 0
+        return ToolRun.of(0)
 
     # …but the atomic swap-in fails (e.g. cross-device, permissions). The
     # original must survive and the file is reported failed, not lost.
@@ -162,10 +173,14 @@ def test_failed_atomic_swap_leaves_original_and_marks_failure(
     assert result.failures == (a,)
     assert a.read_bytes() == b"keep-me"
     assert not (tmp_path / "01.flac.recompress.tmp").exists()  # temp cleaned up
+    # Blame the STAGE, not the tool: flac succeeded and the swap-in is what failed,
+    # so the reason must say so rather than implying a bad encode.
+    assert "swap-in failed" in result.failure_details[0].reason
+    assert "EXDEV" in result.failure_details[0].reason
 
 
 def test_empty_input_is_a_clean_noop() -> None:
-    result = recompress_flac_files([], runner=lambda argv: 0)
+    result = recompress_flac_files([], runner=lambda argv: ToolRun.of(0))
     assert result.ran and result.ok
     assert result.reencoded == 0
     assert result.failures == ()

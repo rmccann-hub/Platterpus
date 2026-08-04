@@ -41,6 +41,41 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   signal in the whole report and nothing surfaced it). Nine regression tests, one per
   code, so none of them can go quiet again.
 
+- **Every post-rip tool failure now carries the tool's own words — `adapters/tool_run.py`.**
+  `flac_verify`, `transcode` and `flac_recompress` each declared their injected command
+  seam as `Callable[[list[str]], int]`. An `int` — which made it **structurally
+  impossible** for the dependency's output to reach the result, the JSON report or the
+  user: each adapter's default runner captured stderr, logged a line or two, and dropped
+  the rest before returning. So "⚠ FLAC verify FAILED for 3 file(s): a, b, c" named the
+  *files* and could not name **what `flac` said about them**. Not an oversight at a call
+  site; a missing channel, and no amount of care at the call sites could have closed it.
+  - `ToolRun` carries the **exit code (tri-state)**, the **exact argv as spawned** and
+    the **complete output with stderr merged** — the four facts CLAUDE.md's
+    diagnostic-completeness rule names — and it is shared by all three adapters rather
+    than copied into each, because four facts drift to three the moment there are three
+    copies of them.
+  - **A third state beside "exit 0" and "non-zero":** `started`. A missing binary is a
+    problem with the *pass* (blame nothing, abort), a timeout is a problem with *this
+    input* (blame the file, continue). Collapsing them is how a missing `flac` came to be
+    reported as a corrupt FLAC, and the old code had no way to tell them apart.
+  - The report's `verification.*` blocks gain `failure_details` — per failed file, the
+    exit code, argv and complete output. The rip pane quotes the reason instead of
+    listing filenames. `flac --test` no longer runs with `--silent`, which suppressed
+    precisely the message this pass exists to be able to quote.
+  - Three failures that used to read identically now read differently: the tool refused;
+    the tool **claimed success and wrote no output file**; the encode succeeded and the
+    **atomic swap-in** failed. The second is the alarming one and was invisible.
+  - A timeout now **names the duration it exceeded**, so a wedged drive is
+    distinguishable from a bound that is simply too tight for the disc.
+- **The head-and-tail output cap lives in one place** (`diagnostics.bounded_output`).
+  It had been written three times with three different limits, one of them head-only —
+  and a head-only cap drops exactly the last line, which is where a tool puts its fatal
+  message.
+- **The diagnostics grep hint names the real log path.** It hardcoded
+  `~/.local/share/platterpus/log.txt` while `paths.py` honours `XDG_DATA_HOME`; a hint
+  pointing at a file the user does not have is worse than no hint, because they conclude
+  the log does not exist.
+
 ### Fixed
 - **A `NameError` on the setup engine's own failure path.** The diagnostics call added
   to `host_setup.py` referenced a module that was never imported, so a *failed* setup

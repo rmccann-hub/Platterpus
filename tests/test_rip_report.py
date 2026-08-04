@@ -734,6 +734,10 @@ def test_recompress_result_serialized() -> None:
         "ok": True,
         "reencoded": 14,
         "failures": [],
+        # `None`, not `[]`: this writer had no per-file details to report because
+        # nothing failed. `[]` would also be truthful here but indistinguishable
+        # from a result that predates the field, which is a different claim.
+        "failure_details": None,
         "error": None,
     }
 

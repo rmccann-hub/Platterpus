@@ -40,11 +40,11 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from platterpus.adapters.tool_run import ToolRun, ToolRunner, make_runner
 from platterpus.tool_paths import resolve_tool
 
 log = logging.getLogger(__name__)
@@ -81,9 +81,43 @@ EMBEDS_COVER_ART: frozenset[str] = frozenset({"mp3"})
 # bound for slow hardware / long tracks.
 _TIMEOUT_S: float = 300.0
 
-# A runner takes the ffmpeg argv and returns its exit code (injectable so tests
-# run without a real ffmpeg).
-Runner = Callable[[list[str]], int]
+# A runner takes the ffmpeg argv and returns everything ffmpeg said (injectable so
+# tests run without a real ffmpeg). It used to return a bare exit code, which is why
+# a failed transcode could name the file and never the reason — see
+# `platterpus.adapters.tool_run`.
+Runner = ToolRunner
+
+_default_runner: ToolRunner = make_runner(
+    timeout_s=_TIMEOUT_S,
+    tool="ffmpeg",
+    code="transcode.failed",
+    where="adapters.transcode.transcode_files",
+)
+
+
+@dataclass(frozen=True)
+class TranscodeFailure:
+    """One source file that could not be transcoded, **and why**."""
+
+    path: Path
+    #: ffmpeg's exit code, argv and complete output for this file. ``None`` when the
+    #: encode itself succeeded and the *move into place* is what failed.
+    run: ToolRun | None = None
+    #: Set when the failure was ours rather than ffmpeg's (an ``os.replace`` that
+    #: could not complete, or a success with no output file).
+    stage_error: str = ""
+
+    @property
+    def reason(self) -> str:
+        if self.stage_error:
+            return self.stage_error
+        return self.run.summary if self.run else "no reason recorded"
+
+    def to_json(self) -> dict[str, object]:
+        block: dict[str, object] = {"path": str(self.path), "reason": self.reason}
+        if self.run is not None:
+            block.update(self.run.to_json())
+        return block
 
 
 @dataclass(frozen=True)
@@ -95,11 +129,15 @@ class TranscodeResult:
     output was left behind); ``error`` is set (rest empty) when the step could
     not run at all (e.g. ``ffmpeg`` missing, or an unsupported format). ``ok``
     is True only when it ran and every file was transcoded.
+
+    ``failure_details`` is ``failures`` with ffmpeg's own words attached — one entry
+    per failed path, same order.
     """
 
     transcoded: int = 0
     failures: tuple[Path, ...] = ()
     error: str = ""
+    failure_details: tuple[TranscodeFailure, ...] = field(default=())
 
     @property
     def ran(self) -> bool:
@@ -109,31 +147,8 @@ class TranscodeResult:
     def ok(self) -> bool:
         return self.ran and not self.failures
 
-
-def _default_runner(argv: list[str]) -> int:
-    """Run ffmpeg, capturing its stderr so a failure's *reason* reaches the log.
-
-    CLAUDE.md (validate every dependency output): when a dependency fails, capture
-    its error output — never swallow it. ffmpeg is chatty on stdout (progress), so
-    that's still discarded; only stderr (where it prints the actual error) is kept,
-    and only the tail is logged on a non-zero exit so a broken transcode is
-    diagnosable from the log file.
-    """
-    proc = subprocess.run(
-        argv,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        stdin=subprocess.DEVNULL,
-        timeout=_TIMEOUT_S,
-        text=True,
-    )
-    if proc.returncode != 0:
-        stderr_lines = (proc.stderr or "").strip().splitlines()
-        tail = (
-            " / ".join(stderr_lines[-3:]) if stderr_lines else f"rc={proc.returncode}"
-        )
-        log.warning("ffmpeg failed (rc=%s): %s", proc.returncode, tail)
-    return proc.returncode
+    def reasons(self) -> tuple[str, ...]:
+        return tuple(f"{d.path.name}: {d.reason}" for d in self.failure_details)
 
 
 def _safe_unlink(path: Path) -> None:
@@ -218,68 +233,71 @@ def transcode_files(
         # "flac" or anything we don't transcode → nothing to do, cleanly.
         return TranscodeResult()
 
-    run = runner or _default_runner
+    run_cmd = runner or _default_runner
     failures: list[Path] = []
+    details: list[TranscodeFailure] = []
     transcoded = 0
     ext = _FORMAT_EXT[fmt]
     for src in paths:
         dest = src.with_suffix(f".{ext}")
         tmp = dest.with_name(dest.name + ".transcode.tmp")
         argv = _build_argv(binary, src, tmp, fmt, mp3_vbr_quality)
-        try:
-            rc = run(argv)
-        except FileNotFoundError:
+        run = run_cmd(argv)
+        if not run.started:
+            # ffmpeg is missing: a problem with the whole pass. `started`, not `ran`
+            # — a timeout means ffmpeg works and wedged on this input, handled below.
+            log.error(
+                "ffmpeg could not run (%s) — aborting the transcode to %s after "
+                "%d file(s)",
+                run.error,
+                fmt,
+                transcoded,
+            )
+            _safe_unlink(tmp)
             return TranscodeResult(
                 transcoded=transcoded,
-                error=f"'{binary}' not found — cannot transcode to {fmt}",
+                error=f"{run.error} — cannot transcode to {fmt}",
+                failures=tuple(failures),
+                failure_details=tuple(details),
             )
-        except subprocess.TimeoutExpired:
-            log.warning("ffmpeg transcode timed out on %s", src)
-            _safe_unlink(tmp)
-            failures.append(src)
-            continue
-        except OSError as exc:
-            return TranscodeResult(
-                transcoded=transcoded, error=f"could not run {binary}: {exc}"
-            )
-        if rc != 0 or not tmp.exists():
-            # Both of these used to be recorded as a bare failure with NO log line
-            # at all, so a rip that produced no MP3s left nothing behind to explain
-            # why. They are different failures and must read differently:
-            #  * rc != 0 — ffmpeg said it failed. `_default_runner` has already
-            #    logged its stderr tail (the actual reason); this line ties that to
-            #    the specific file and format.
-            #  * rc == 0 but no temp — ffmpeg claimed success and wrote nothing.
-            #    There is no stderr to quote, so the *absence* is the finding, and
-            #    it usually means a bad argv (e.g. an unknown `-f` muxer name) or a
-            #    stubbed/misbehaving runner.
-            if rc != 0:
-                log.warning(
-                    "transcode to %s failed for %s: %s exited %s (its own error "
-                    "output precedes this line); the FLAC is untouched",
+        if not run.ok or not tmp.exists():
+            # Two DIFFERENT failures that must read differently:
+            #  * not ok — ffmpeg said it failed (or wedged). `run` carries its exit
+            #    code, argv and complete output, so the reason travels with the
+            #    result into the report instead of only into the log.
+            #  * ok but no temp — ffmpeg claimed success and wrote nothing. There is
+            #    no error output to quote, so the *absence* is the finding; it
+            #    usually means a bad argv (an unknown `-f` muxer) or a stub runner.
+            if not run.ok:
+                stage = ""
+                log.error(
+                    "transcode to %s failed for %s: %s",
                     fmt,
                     src.name,
-                    Path(binary).name,
-                    rc,
+                    run.summary,
                 )
             else:
-                log.warning(
-                    "transcode to %s failed for %s: %s reported success (rc=0) but "
-                    "wrote no output file (%s); the FLAC is untouched",
-                    fmt,
-                    src.name,
-                    Path(binary).name,
-                    tmp.name,
+                stage = (
+                    f"{Path(binary).name} reported success (exit 0) but wrote no "
+                    f"output file ({tmp.name}); the FLAC is untouched"
                 )
+                log.error("transcode to %s failed for %s: %s", fmt, src.name, stage)
             _safe_unlink(tmp)
             failures.append(src)
+            details.append(TranscodeFailure(path=src, run=run, stage_error=stage))
             continue
         try:
             os.replace(tmp, dest)  # atomic move into place (same directory)
         except OSError as exc:
-            log.warning("could not move transcoded %s into place: %s", dest, exc)
+            reason = f"transcode succeeded but the atomic move into place failed: {exc}"
+            log.error("could not move transcoded %s into place: %s", dest, exc)
             _safe_unlink(tmp)
             failures.append(src)
+            details.append(TranscodeFailure(path=src, stage_error=reason))
             continue
         transcoded += 1
-    return TranscodeResult(transcoded=transcoded, failures=tuple(failures))
+    return TranscodeResult(
+        transcoded=transcoded,
+        failures=tuple(failures),
+        failure_details=tuple(details),
+    )

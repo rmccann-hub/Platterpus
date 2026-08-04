@@ -20,11 +20,11 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from platterpus.adapters.tool_run import ToolRun, ToolRunner, make_runner
 from platterpus.tool_paths import resolve_tool
 
 log = logging.getLogger(__name__)
@@ -70,7 +70,47 @@ _EXTRA_FLAGS: tuple[str, ...] = ("-e", "-p")
 # under exhaustive search). The maintainer accepts the encode time.
 _TIMEOUT_S: float = 600.0
 
-Runner = Callable[[list[str]], int]
+Runner = ToolRunner
+
+_default_runner: ToolRunner = make_runner(
+    timeout_s=_TIMEOUT_S,
+    tool="flac (re-compress)",
+    code="flac.recompress_failed",
+    where="adapters.flac_recompress.recompress_flac_files",
+)
+
+
+@dataclass(frozen=True)
+class RecompressFailure:
+    """One FLAC that could not be re-compressed, **and why**.
+
+    This step rewrites an *archival master* in place, so "it failed" without a
+    reason is the least acceptable place in the program for a bare verdict: the
+    reader needs to know whether the encode was refused, the swap-in was refused,
+    or the tool wedged — three different recoveries.
+    """
+
+    path: Path
+    #: The tool's exit code, argv and complete output for this file. ``None`` when
+    #: the encode itself succeeded and the *swap-in* is what failed — in which case
+    #: ``reason`` carries the OS error and there is no tool output to quote.
+    run: ToolRun | None = None
+    #: Set when the failure was ours rather than the tool's (an ``os.replace`` that
+    #: could not complete). Never both this and a failing ``run``.
+    stage_error: str = ""
+
+    @property
+    def reason(self) -> str:
+        """One line a person can read. Never empty."""
+        if self.stage_error:
+            return self.stage_error
+        return self.run.summary if self.run else "no reason recorded"
+
+    def to_json(self) -> dict[str, object]:
+        block: dict[str, object] = {"path": str(self.path), "reason": self.reason}
+        if self.run is not None:
+            block.update(self.run.to_json())
+        return block
 
 
 @dataclass(frozen=True)
@@ -81,11 +121,15 @@ class RecompressResult:
     not be re-encoded (left untouched); ``error`` is set (rest empty) when the
     step could not run at all (e.g. ``flac`` missing). ``ok`` is True only when it
     ran and every file was rewritten.
+
+    ``failure_details`` is ``failures`` with the tool's own words attached — one
+    entry per failed path, same order.
     """
 
     reencoded: int = 0
     failures: tuple[Path, ...] = ()
     error: str = ""
+    failure_details: tuple[RecompressFailure, ...] = field(default=())
 
     @property
     def ran(self) -> bool:
@@ -95,26 +139,8 @@ class RecompressResult:
     def ok(self) -> bool:
         return self.ran and not self.failures
 
-
-def _default_runner(argv: list[str]) -> int:
-    # Capture stderr and log its tail on failure — never swallow a dependency's
-    # error output (CLAUDE.md "validate every input and every dependency output"),
-    # so a failed re-encode is diagnosable from the log file.
-    proc = subprocess.run(
-        argv,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        stdin=subprocess.DEVNULL,
-        timeout=_TIMEOUT_S,
-        text=True,
-    )
-    if proc.returncode != 0 and proc.stderr and proc.stderr.strip():
-        log.warning(
-            "flac re-compress failed (rc=%s): %s",
-            proc.returncode,
-            proc.stderr.strip().splitlines()[-1],
-        )
-    return proc.returncode
+    def reasons(self) -> tuple[str, ...]:
+        return tuple(f"{d.path.name}: {d.reason}" for d in self.failure_details)
 
 
 def _safe_unlink(path: Path) -> None:
@@ -138,8 +164,9 @@ def recompress_flac_files(
     file is replaced atomically (``os.replace`` of a sibling temp), so the rip is
     never left with a half-written FLAC.
     """
-    run = runner or _default_runner
+    run_cmd = runner or _default_runner
     failures: list[Path] = []
+    details: list[RecompressFailure] = []
     reencoded = 0
     for path in paths:
         tmp = path.with_name(path.name + ".recompress.tmp")
@@ -154,32 +181,50 @@ def recompress_flac_files(
             str(tmp),
             str(path),
         ]
-        try:
-            rc = run(argv)
-        except FileNotFoundError:
+        run = run_cmd(argv)
+        if not run.started:
+            # The binary is missing: a problem with the *pass*, not with this file.
+            # `started`, not `ran` — a timeout means the tool works and wedged on
+            # this input, which is handled below as a per-file failure.
+            log.error(
+                "flac re-compress could not run (%s) — aborting after %d file(s)",
+                run.error,
+                reencoded,
+            )
+            _safe_unlink(tmp)
             return RecompressResult(
                 reencoded=reencoded,
-                error=f"'{binary}' not found — cannot re-compress FLACs",
+                error=f"{run.error} — cannot re-compress FLACs",
+                failures=tuple(failures),
+                failure_details=tuple(details),
             )
-        except subprocess.TimeoutExpired:
-            log.warning("flac re-encode timed out on %s", path)
+        if not run.ok:
             _safe_unlink(tmp)
             failures.append(path)
+            details.append(RecompressFailure(path=path, run=run))
             continue
-        except OSError as exc:
-            return RecompressResult(
-                reencoded=reencoded, error=f"could not run {binary}: {exc}"
-            )
-        if rc != 0 or not tmp.exists():
-            _safe_unlink(tmp)
+        if not tmp.exists():
+            # Exit 0 and NO OUTPUT FILE. Say so explicitly: it used to fall into the
+            # same branch as a non-zero exit, so the report could not distinguish
+            # "flac refused" from "flac claimed success and produced nothing" — and
+            # the second is the more alarming of the two.
+            reason = "flac exited 0 but wrote no output file — nothing was swapped in"
+            log.error("%s (%s)", reason, path)
             failures.append(path)
+            details.append(RecompressFailure(path=path, run=run, stage_error=reason))
             continue
         try:
             os.replace(tmp, path)  # atomic swap-in (same directory)
         except OSError as exc:
-            log.warning("could not swap in re-compressed %s: %s", path, exc)
+            reason = f"re-encode succeeded but the atomic swap-in failed: {exc}"
+            log.error("could not swap in re-compressed %s: %s", path, exc)
             _safe_unlink(tmp)
             failures.append(path)
+            details.append(RecompressFailure(path=path, stage_error=reason))
             continue
         reencoded += 1
-    return RecompressResult(reencoded=reencoded, failures=tuple(failures))
+    return RecompressResult(
+        reencoded=reencoded,
+        failures=tuple(failures),
+        failure_details=tuple(details),
+    )
