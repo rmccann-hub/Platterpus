@@ -11,6 +11,270 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b1] — 2026-08-04
+
+**Beta, for the joint hardware test session.** This build exists to *produce* the
+evidence handshake round 7 needs to close, and it says so about itself: it ships as a
+GitHub pre-release, and every rip's report records
+`ripper_handshake_approval: not_determined` or `unapproved` unless the installed
+ripper is the build a closed round verified. **It is not a verified pair.**
+
+Paired with the cyanrip fork's own beta — see `docs/handshake/verified/round-7d.md`
+for the two builds by name.
+
+### Fixed
+- **A clean rip was told its command line had been tampered with.** The argv-agreement
+  self-check compared the argv of the *last* ripper invocation against the `Invoked as:`
+  line in the archival log, which is written by the *first* one. Any rip where the dynamic
+  secure-rerip fired — i.e. any rip with an AccurateRip miss, the ones you look at closely —
+  reported *"the command line changed in transit between Platterpus and cyanrip … Something
+  between us (the host export wrapper, a shell) altered it"*, naming the auto-fix pass's
+  `-Z` and `-l` as injected arguments. Nothing had altered anything. Found in a real
+  14-track rip of *The Police — Every Breath You Take: The Classics* (2026-08-03).
+  - The report now records `outcome.ripper_argv_first_pass` alongside `ripper_argv`, and the
+    check compares like with like, naming which pass it covered. `null` when there was only
+    one pass, so "single-pass" and "first of several" stay distinguishable.
+  - A cross-check that accuses the user's system of tampering whenever the product's own
+    self-heal fires is worse than no cross-check.
+- **`outcome.failure_hint` was populated on successful rips.** A dynamic secure-rerip that
+  does not converge on one track makes the ripper print `Done; (no matches found, but hit
+  repeat limit of N)`, and that was scraped into a field named `failure_hint` on a rip whose
+  status was `success` and whose exit code was `0` — telling every consumer, and
+  `--audit-rips`, that this was why the rip failed. The hint is now recorded only on a
+  non-success outcome; the read-stability fact still reaches the user through the EAC-style
+  log's `Read stability` line and the warn banner, which is where it belongs.
+
+- **The EAC-style log's `Defeat audio cache` row did not say where its answer came from.**
+  The fork read it as an echo of cyanrip's own `Cache model:` line and asked us to stop
+  claiming a cache verdict we could not know. The mechanism half of that was wrong — the row
+  is a **measured** `cd-paranoia -A` probe of the real drive (KDD-29), and the parser is
+  asserted never to fill the field from the ripper's log — but the presentation half was
+  right: a bare `Yes` in an EAC-shaped log is indistinguishable from an asserted one, and a
+  reader who cannot tell a measurement from a claim has been given a claim. The row now
+  names its own method inline whenever a verdict exists.
+- **An illustrated field inside a code fence was read as a declaration.** A handshake round
+  file legitimately quotes the header format to explain it — and our parser read those examples
+  as facts about the file itself. Our own lap-3 file adopted `PROVIDER-CONTRACT` from inside a
+  fence, a field we are not even entitled to declare, and its verdict resolved correctly only
+  because the illustrated value happened to match the real one. **Our test suite asserted the
+  wrong behaviour outright**, with a confident comment about not parsing markdown. Fences are
+  now stripped before matching; the assertion is inverted with the reason beside it. Found by
+  the fork, on our file, after their gate compiled an illustrated `HANDSHAKE-PEER-VERSION` into
+  their binary as a fact about us — three bait shapes now (indented, prose, fenced) and each
+  project had found two of the three.
+- **A timing gate that reddened CI at random.** `test_regex_bounded_time`'s detector-proof
+  measured 10.9x growth on a *linear* pattern against an 8.0x ceiling — one run in three, in a
+  container. Wall-clock noise (a GC pass, a scheduler hiccup, a co-tenant) can only ever make a
+  measurement *longer*, so a single sample in the denominator inflates the ratio without bound.
+  Now min-of-3, which is the standard reasoning for timing short operations. 5/5 stable at 29s
+  for the file; a stable gate at 29s beats a flaky one at 10s, because a gate that fires at
+  random is a gate people switch off.
+- **`report_types.py` described half the report it calls itself the source of truth for.**
+  Its docstring says *"single source of truth for the structure `rip_report` WRITES"*; it was
+  missing **13 of 28** keys of the `rip` block and 4 of the `outcome` block — eight of them
+  shipped in schema v13/v14, and one (`ripper_argv_first_pass`) was added earlier in this same
+  cycle. A `TypedDict` that under-describes a dict literal is not a type error, because the
+  emit site is not annotated as the `TypedDict`, so mypy had nothing to compare. All 17 are now
+  declared and the two sets are diffed every commit
+  (`tests/test_report_types_completeness.py`). Same expired-completeness pattern as the two
+  documentation maps above, in code rather than prose.
+- **The argv-agreement check was blind to a *long* option appearing in transit.** It
+  compared single-letter flags only, so `--injected-by-a-wrapper` turning up in the ripper's
+  `Invoked as:` line — the exact class of injection the check exists to catch — passed as
+  agreement. Found by the new multi-pass test's own tamper case, not by review. Options are
+  now compared short **and** long; values still are not, because `-s 667`'s `667` and
+  argv[0]'s resolved path legitimately differ between what we spawn and what the ripper
+  prints, and comparing those would cry wolf on every rip.
+- **The release gate counted a deliberate `HOLD` as a closed handshake round.**
+  `scripts/handshake.py --status` reported a round CLOSED when three files existed, and
+  `--release-gate` is a thin wrapper over it. Round 7's verification file exists and declares
+  **`HOLD`** — a mid-round lap, at the fork's own request — so the gate printed *"every round
+  is closed — release allowed"* while the one rule the deviation policy states explicitly is
+  *no release and no pin switch while a round is open*. The gate now reads the **verdict** the
+  verification declares, not the file's existence: `GO` closes a round, `HOLD` does not, and a
+  verification with no verdict at all fails closed. Rounds 1–3 predate the convention and are
+  grandfathered by number in a list a test pins to exactly `{1, 2, 3}`, because "add the round
+  to the exemption list" would otherwise be a one-line way to close an open round.
+  - The marker is anchored to the start of a line on purpose. Round 7's own second paragraph
+    says *"not a closing GO"*, and a matcher scanning anywhere in the text would have read
+    that file as a GO — closing the round off a sentence saying the opposite.
+  - This is the sibling of the round-6 finding in the same script, one function over: that fix
+    went into `--check` and this defect was in `--status`. Fixing a detector where you found
+    it leaves the flaw everywhere else in the file.
+- **The argv-surface agreement test hard-failed when an inbound handshake round shipped no
+  provider contract.** Round 7's file has no §I at all — genuinely absent, not relettered —
+  and the test read the newest round unconditionally, so it found zero published flags and
+  failed as though *our* argv had drifted. It now walks back to the newest round carrying at
+  least 30 published flags and names which round it measured against, so a round that omits
+  the table degrades to "checked against the last real one" rather than a false accusation.
+  A missing contract is the fork's problem to fix; misattributing it to our argv is ours.
+
+### Fixed
+- **`MM:SS.FF` durations were read as hundredths, or not at all.** cyanrip prints two
+  duration shapes and the fraction means different things in each: `HH:MM:SS.mmm` is
+  milliseconds, `MM:SS.FF` is **CD frames** (1/75 s, 0–74). Our helper demanded the
+  three-field form and returned nothing for the two-field one, so a disc duration was
+  silently absent — and loosening the pattern without noticing the units would have made
+  every per-track duration wrong by up to 0.98 s. `parse_cd_duration_to_seconds` now
+  discriminates on colon count, as the ripper's published units block instructs, and
+  **refuses** a frame field above 74 rather than reinterpreting it.
+  - **The shape change is *upstream's*, not the fork's** — PR #130, which the fork
+    inherited. Corrected after the fork pointed it out (round 7 lap 2 §1). It matters
+    beyond attribution: *"roll back to stock cyanrip"* does not restore the old
+    duration shape either, which is the second measured instance of the rule the `-V`
+    removal taught — an upstream change cannot be escaped by rolling back to upstream.
+  - Real hardware corrected an assumption in our own comment: the shape is not
+    length-dependent. A 59:42 disc prints `Total time:     59:42.57` — two fields on a
+    full-length disc, where we had guessed it would switch to `HH:MM:SS.mmm`.
+
+### Changed
+- **The pin a handshake round is *reviewing* is now recorded separately from the pin we
+  build.** `deps/fork_source.py` gained `NEXT_PIN_UNDER_REVIEW` / `NEXT_VERSION_UNDER_REVIEW`,
+  which name the fork commit an open round proposes without installing it. `FORK_PIN` stays
+  at the last commit a **closed** round verified (`2f950c8`); round 7 proposes `d5d12ec` and
+  it is deliberately not built. Written after the pin was moved to a round-7 commit here and
+  the release-gate test caught it — the deviation policy forbids switching pins while a round
+  is open, and until now there was nowhere to put the proposal except the pin itself.
+- **The fork's expected version banner is single-sourced.** `FORK_EXPECTED_VERSION` /
+  `FORK_EXPECTED_BANNER` in `deps/fork_source.py` are what the tests' stand-in ripper now
+  prints, instead of three test files carrying their own copy of the version string. A
+  stand-in that disagrees with the product about what the fork announces is a fixture testing
+  itself.
+- **The docs are consolidated: 79 markdown files → 64.** Content is preserved verbatim —
+  each merged part is the original file, whole, with its headings demoted one level and a
+  provenance table recording where it came from.
+  - `docs/eac-parity.md` ← four EAC investigations (`eac-parity-investigation`,
+    `log-format-comparison`, `eac-log-and-repair-feasibility`,
+    `eac-tracker-requirements-2026-07`). They answered one question between them and now
+    live in one place, Part A first because it carries the framing the others assume.
+  - `docs/cyanrip-fork.md` ← `ripper-engine-strategy` + `cyanrip-soft-fork`: why we fork,
+    and how the fork is kept sane.
+  - `docs/cyanrip-upstream.md` ← `cyanrip-improvements-wanted` + `upstream-pr-roadmap`:
+    what we want, and how it reaches upstream.
+  - `output_reference/`: nine per-directory READMEs → one. Nine files describing one 3×3
+    matrix meant the shared rules (no audio, UTF-16, how to replace a rip) were restated
+    nine times and could drift nine ways.
+  - `docs/audit-2026-07-21.md` → `docs/archive/`, where dated investigations belong.
+  - **Parts are lettered, not numbered, deliberately:** the merged sources number their own
+    sections from 0, so a numbered wrapper would make a cross-reference like *§2.1*
+    ambiguous. Every inbound `§N` reference was rewritten to name its part — `Part A §8`
+    reads exactly one way.
+  - Deliberately *not* merged, with reasons: `manual-ctdb-repair.md` is a user runbook
+    rather than an investigation; `ctdb-crc-algorithm.md` is a live spec cited from code;
+    and `testing.md` / `test-plan.md` / `hardware-test-checklist.md` serve three different
+    audiences, with `testing.md` anchored as the Definition of Done from `CLAUDE.md`.
+
+### Added
+- **A gate that every relative link between the project's docs resolves**
+  (`tests/test_doc_links.py`). 79 markdown files cross-reference each other 200+ times and
+  nothing checked that any of those pointers landed, which made renaming or merging a
+  document a silent-breakage operation. Anchors are checked as far as the file, external
+  URLs are skipped on purpose (a network check in a unit suite is a flake generator), and
+  code fences are excluded so an illustrated link is not read as a real one. Carries a floor
+  so it cannot pass by finding nothing.
+- **T14 — the dynamic secure-rerip, tested end to end**
+  (`tests/test_multi_pass_rip_end_to_end.py`). Both of this cycle's real user-facing bugs
+  lived on the multi-pass path, both were found by a human reading a real rip's artifacts,
+  and both were the same shape: a report describing a two-pass rip through fields that assume
+  one pass. Every individual piece had unit tests; nothing walked pass 1 → AccurateRip miss →
+  pass 2 → merged report, so the *seam* — where both defects were — had no coverage. The new
+  test drives a real `RipWorker` over a two-call fake ripper, writes the report to disk,
+  **re-reads it**, and runs the real audit over it. Offered to the cyanrip fork as T14,
+  because their side has the mirror-image gap.
+  - Floors first: it asserts the second pass actually ran, that the two argvs actually
+    differ, and that the album log's `Invoked as:` is the whole-disc pass's. Without those, a
+    fake that collapsed to one pass would make every downstream assertion pass while proving
+    nothing.
+  - And it asserts the fix did not simply switch the check off: the same clean rip with one
+    argument injected must still be caught.
+- **Gates for the two documentation maps that are declared canonical by prose.** Both had
+  drifted, and both drifts were invisible in a diff because a map is only ever wrong by
+  omission.
+  - `tests/test_doc_index_completeness.py` — `CLAUDE.md` calls `docs/README.md` *"the
+    canonical annotated index"* with a parenthetical saying the list *"can't drift from it
+    again"*. That parenthetical was the entire enforcement, and it had already failed:
+    `docs/cyanrip-consumer-contract.md` was listed in `CLAUDE.md` and absent from the index,
+    and `docs/handshake/` — 24 files of binding release correspondence — was reachable from
+    neither. The gate requires an *annotated row*, not a mention, because a document
+    mentioned once in passing prose has a resolving link and is still lost.
+  - `tests/test_planning_module_map.py` — `PLANNING.md` §2 opens *"one paragraph per
+    module"*. It was missing **19 of 122 modules** from the directory tree, the responsibility
+    list, or both — including `hard_exit.py` and `ripper_identity.py`, which `CLAUDE.md`'s own
+    Critical rules and Code conventions name by name. All 19 are now documented, and the map
+    is swept against the filesystem every commit.
+- **Handshake protocol v2, and the spec is now one shared file instead of two descriptions.**
+  Our lap 3 wrote its own §8 saying *"one language, both repos"* — and thereby created a second
+  copy of the spec, which is the two-vocabularies problem in miniature. The fork wrote it up as
+  a standalone document; we adopted that verbatim as `docs/handshake-protocol.md`, and
+  `docs/cyanrip-handshake.md` §8 now routes to it rather than restating it.
+  - **`HANDSHAKE-PROTOCOL` is required, and a higher version than we implement is refused**
+    rather than guessed at — a v2 gate cannot know which of v3's rules it is silently not
+    applying, including a new close requirement.
+  - **A close now requires the fork's field set too:** both verdicts, both versions, both pins,
+    and `HANDSHAKE-TESTED`. The last is the maintainer's *"proper testing is needed"* as a
+    field — a round that closed with nothing tested is a release nobody checked. `--check`
+    reports a `GO` that cannot close *at check time*, naming the missing field, so the author
+    learns while they are still writing it.
+  - **A field declared twice is ambiguous, not "the last one".**
+- **`tests/test_handshake_conformance.py` — the shared protocol's 14-row conformance table, one
+  test per row, run against our gate.** It found a real defect on the first pass: **row 12, an
+  empty record, allowed a release.** `round_status()` returned a bare "no handshake rounds"
+  line; the gate decided by looking for lines ending in `OPEN`; that line did not; therefore
+  nothing was open. *A gate satisfied by finding nothing, in the gate whose entire job is not
+  being satisfied by nothing.* Row 14 (a complete round must be **allowed**) is asserted first
+  in the file, because a gate that can never say yes passes every refusal row.
+- **The cyanrip handshake is now affirmative, bilateral, and checked at the drive**
+  (maintainer directive). Four parts, each previously enforced somewhere other than where it
+  mattered:
+  - **Both sides must declare `GO`.** `--status` read *our* verdict and not theirs, so the
+    fork's `HOLD` could not block our release — one half of a two-half contract, for the third
+    time in this protocol's life. A round is CLOSED only when both verdicts are `GO`; four
+    combinations are tested, and only that one closes.
+  - **One wire format, both repos.** Both projects built a release gate within a day of each
+    other, to the same four properties, in two different vocabularies: ours read bolded prose,
+    theirs read `HANDSHAKE-VERDICT:` headers, and neither could read the other's files.
+    Theirs wins on the merits and is adopted — machine-readable, survives rewording, and a
+    round number *in* the file cannot silently disagree with the filename. Specified in
+    `docs/cyanrip-handshake.md` §8 and reproduced verbatim in every round file, because the
+    fork does not have this repo and "see §8" is a pointer into a tree they cannot read.
+  - **Both versions named.** `HANDSHAKE-APP-VERSION` and `HANDSHAKE-RIPPER-VERSION` are
+    required fields: a round approves a pin *for a named app version*, and two artifacts from
+    the same ripper under different app versions are not interchangeable evidence.
+  - **Every rip verifies its own ripper** (`handshake_approval.py`, report schema **v15**). A
+    release gate runs once on a machine that never rips a disc; the rig is where an unapproved
+    binary would actually be used. Tri-state — `not_determined` is not a pass, and an
+    unrecognised build tag is never reported as unapproved. The rip that ran an
+    under-review pin says so, by name, in its own archived report.
+- **A mid-round lap is no longer held to the full ten-section list.** Our checker reported 20
+  problems against the fork's lap-2 reply, which legitimately has no golden log and no commit
+  table because nothing about those changed in that exchange. `HANDSHAKE-LAP` makes it
+  decidable rather than a judgement: lap 1 is a full round file and is swept, lap ≥ 2 is a
+  reply and is not. Over-strictness is the failure whose usual fix is switching the checker
+  off.
+- **Section F of the hardware checklist: the three artifacts we owe the cyanrip fork**, each
+  written so it can be run without re-deriving anything. Round 7 cannot close without them and
+  neither project releases while it is open, so they are now near the top of the
+  if-you-only-have-an-hour list rather than three lines in `TASKS.md`. F3 (the forced-error
+  corpus) is five one-line commands, needs no disc for the first, and writes nothing — and it
+  is deliberately *not* hand-assembled here, because a corpus built from my reading of their
+  control flow is a fixture carrying my assumptions about their control flow.
+- **Readiness tests for the shapes the fork's next handshake file can arrive in** — an
+  amendment to the open round, or a fresh round opened out of order. Both are legitimate and
+  the machinery now handles each without a human deciding which; the last two rounds each
+  surprised the tooling once. Includes a test that reads the committed round-7 file and
+  asserts `--check` still names its absent §I, so when they supply it, the test is what
+  confirms it rather than my reading the file and forming an opinion.
+- **A behavioural test that the rip log is read only after the ripper is reaped.** cyanrip's
+  logfile was block-buffered, so a killed process lost up to a 4096-byte stdio block — the
+  round-1 finding, reproduced against a real cancelled rip whose log ended mid-token at
+  `REPLAYGAIN_TRACK_GA`. The fork's `setvbuf` fixed the source; our half is ordering, which
+  was correct and untested. The fake writes the log from inside `wait()`, so an inverted order
+  finds nothing — verified by inverting it.
+- **`docs/handshake/README.md` is now a round-by-round map**, and gated. It described the
+  closing rule as *"all three files exist"* — the rule that was wrong — and named exactly one
+  round, four rounds in. Two tests now derive the expected rounds from the directories and
+  assert the file does not teach the superseded rule.
+
 ## [0.6.3] — 2026-08-03
 
 ### Added
@@ -706,7 +970,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   whole change is written to one rule: **absent means absent.** A field no ripper reported stays
   `None` and every surface renders exactly what it renders today; the parse of every committed
   real log is byte-identical except for the one line below that 0.9.3 *does* print. Four new
-  rows are understood (specification: `docs/cyanrip-improvements-wanted.md`):
+  rows are understood (specification: `docs/cyanrip-upstream.md`):
   - **A per-track sample peak** (§2.1) fills EAC's `Peak level` row, in both plausible print
     shapes (inline `Sample peak:  -0.5 dBFS`, or cyanrip's existing sub-header style). The unit
     is required, never assumed. **cyanrip's existing `True peak:` can never reach this field** —
@@ -752,7 +1016,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   than being parsed into a field nothing writes down. Every key is always present and `null` when
   unreported, so a reader can tell "the ripper didn't say" from "this build doesn't record it".
 
-- **`docs/cyanrip-improvements-wanted.md` described shipped work as future work** in four of its
+- **`docs/cyanrip-upstream.md` described shipped work as future work** in four of its
   five sections. §2.1, §2.3, §2.4 and §2.5 each said the Platterpus reader still had to be
   written — it shipped in v0.5.19 — which is exactly backwards for a document whose purpose is to
   be handed to whoever works on the fork: they would have read it as "the GUI is not ready for
@@ -1228,7 +1492,7 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   intentional so they don't read as regressions, and §A17 flags the one behaviour change
   this release that could plausibly regress a working setup.
 - **The changes we want in cyanrip itself now have a ranked, evidence-graded home.**
-  `docs/cyanrip-improvements-wanted.md` lists each gap in the external ripper with the
+  `docs/cyanrip-upstream.md` lists each gap in the external ripper with the
   real log lines that prove it, whether it affects the *audio* or only the *record*
   (every item is the record — none changes a ripped byte), the concrete upstream edit,
   and whether it belongs in an upstream PR, a soft-fork patch, or our own code. It
@@ -1924,7 +2188,7 @@ measured.*
   naming the affected tracks. Measured only: a track nobody re-read is unchanged.
 
 ### Changed
-- `docs/log-format-comparison.md`: the cache-defeat row still described the field
+- `docs/eac-parity.md`: the cache-defeat row still described the field
   as permanently `(unknown)` (KDD-25) — superseded by the measured verdict
   (KDD-29) — and the CRC row predated the Test & Copy rendering. Both corrected.
 
@@ -2162,7 +2426,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   knob to add (cyanrip's `-p` is a per-track override whose only archival-safe
   value is the default we already use; `drop` deletes audio, `track` renumbers
   tracks). The docs that implied an unset gap mode (`test-plan.md`,
-  `eac-parity-investigation.md`) are corrected, the `-p` contract is recorded in
+  `eac-parity.md`) are corrected, the `-p` contract is recorded in
   `dependency-contracts.md`, and the TASKS item is closed. The remaining
   `INDEX 00` cue-metadata difference stays tracked separately (PR #115 route).
 
@@ -2296,7 +2560,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   (code comments cite its numbering); the TASKS.md item that had drifted from
   it is now only a per-gap tracking checklist linking there.
 - **Remaining single-home doc cleanups applied** (docs-audit consolidation
-  plan): `docs/log-format-comparison.md` now points at architecture §3.7 for
+  plan): `docs/eac-parity.md` now points at architecture §3.7 for
   the two-artifacts rationale instead of restating it;
   `tests/fixtures/README.md`'s EAC-baseline section is a pointer at
   `output_reference/` plus the UTF-16/`decode_log_bytes` warning;
@@ -2304,7 +2568,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   installer/desktop-integration/GitHub-API surfaces it deliberately excludes;
   `docs/architecture.md` §2's layer table gained a "Qt-free domain modules"
   row pointing at PLANNING.md §2 as the canonical per-module map.
-- **`ripper-engine-strategy.md` §9 now states where the 2026 ripper-landscape
+- **`cyanrip-fork.md` Part A §9 now states where the 2026 ripper-landscape
   research doc lives** (closing the consolidation plan's last open sub-item):
   it was maintainer-provided session research input, never committed to the
   repo — the project's own record preserves (and corrects) its load-bearing
@@ -2312,7 +2576,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   resurfaces it goes to `docs/archive/` per the compass-artifact convention.
 - **The "two corrections to the ripper-landscape doc" condensed to one home**
   (docs-audit consolidation plan): PLANNING.md KDD-24 keeps the full text (the
-  designated record); `docs/eac-log-and-repair-feasibility.md` now carries a
+  designated record); `docs/eac-parity.md` now carries a
   one-line summary + link instead of the duplicated telling.
 - **`docs/trust-audit-2026-07-08.md` retired to `docs/archive/`** (maintainer's
   call, completing the audit doc-map): graduation row added to the archive
@@ -2337,7 +2601,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   restated the capability matrix and point-by-point table from the top of the
   README (the drifted CTDB status had rotted in three places for exactly this
   reason) — the section now points at the matrix, KDD-13, and
-  `docs/eac-parity-investigation.md`, and the Settings rundown lives under its
+  `docs/eac-parity.md`, and the Settings rundown lives under its
   own "Rip settings at a glance" heading.
 - **`CLAUDE.md`'s companion-document list slimmed to one-line pointers**
   (maintainer-approved): `docs/README.md` is the canonical annotated index and
@@ -2385,7 +2649,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   audited against the code, CI, and the live tag history — 239 findings, ~160
   fixed in this release's docs commits. The audit record (systemic patterns,
   before→after doc map, open maintainer questions) is
-  `docs/audit-2026-07-21.md`; the unexecuted consolidation plan is captured in
+  `docs/archive/audit-2026-07-21.md`; the unexecuted consolidation plan is captured in
   `TASKS.md` → P1 Documentation backlog.
 - **`TASKS.md` statuses caught up with shipped reality.** CTDB verify's three
   trackers all still read as open/hardware-gated although the CRC was
@@ -2471,11 +2735,11 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   checkout) is now git-ignored with a note in the kit README, which also
   gained the standard footer stamp and an accurate build.sh description.
 - **Research/design docs reconciled with their own outcomes.**
-  `eac-log-and-repair-feasibility.md` no longer reads as pending: Part A's
+  `eac-parity.md` no longer reads as pending: Part A's
   decision gate records the KDD-24 resolution (option 1 standing, option 2
   shipped v0.4.16, signing permanently closed), Part B's CRC blocker is marked
   cleared (v0.4.20), and the misattributed "CLAUDE.md" ethos quote is
-  re-cited. `eac-parity-investigation.md` gained a dated Outcome note (13/14
+  re-cited. `eac-parity.md` gained a dated Outcome note (13/14
   reached, Track-3 transience confirmed then refined to read-instability, the
   `-Z` hardware gate answered, P1 done) plus superseded-pointers for the
   INDEX-00 route (PR #115 via the upstream roadmap) and the renamed `-Z`
@@ -2732,7 +2996,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus vX.Y.Z.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b1.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -2869,7 +3133,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
   (their logcheckers gate on ripper *identity*, plus a checksum we refuse to
   forge) and that cache-defeat is reported "attempted, not measured" rather than
   faked (PLANNING.md KDD-24/25). Added a per-gap, license-compatible open-source
-  option menu (`docs/ripper-engine-strategy.md` §10) and corrected stale
+  option menu (`docs/cyanrip-fork.md` Part A §10) and corrected stale
   whipper-era claims across the docs after the KDD-18 backend swap.
 
 ## [0.4.16] — 2026-07-06
@@ -3635,7 +3899,7 @@ richer metadata and cover art, and a more complete per-album report.
   are hardware-gated pending validation on the Pioneer BDR-209D rig — whether the
   drive honours `-S`, whether cyanrip's per-track read-error signal is reliable,
   and whether a track subset can be re-ripped; until then the ladder is
-  best-effort and cannot cause a regression** (see `docs/ripper-engine-strategy.md
+  best-effort and cannot cause a regression** (see `docs/cyanrip-fork.md
   §8.1`).
 - **Derived files (MP3/WavPack/WAV) are now verified too (Task #19).** The FLAC
   master was already fully verified (AccurateRip + CTDB + `flac --test`); now the
@@ -3666,7 +3930,7 @@ richer metadata and cover art, and a more complete per-album report.
   (schema v3→v4); hand-edited templates are left untouched.
 
 ### Documentation
-- Refreshed `docs/log-format-comparison.md` from whipper→EAC to **cyanrip→EAC**
+- Refreshed `docs/eac-parity.md` from whipper→EAC to **cyanrip→EAC**
   (cyanrip is the sole backend since KDD-18): field-by-field for cyanrip's
   header, per-track CRC/AccurateRip/offset-variant, paranoia counts, per-track +
   album loudness, and `Log FUN512:` log signature, plus the single
@@ -4001,7 +4265,7 @@ richer metadata and cover art, and a more complete per-album report.
   first line says it was generated by Platterpus and is not a genuine EAC log,
   and the footer carries an explicit "not signed by Exact Audio Copy" marker in
   place of EAC's checksum. It only ever renders real rip data and refuses to
-  fabricate an EAC signature (see `docs/eac-log-and-repair-feasibility.md`).
+  fabricate an EAC signature (see `docs/eac-parity.md`).
 - **At-a-glance verification verdict banner above the results table.** A single
   bold, colour-coded headline now summarises whether the rip is trustworthy
   without reading every row: green "✓ Bit-perfect: all N tracks verified against
@@ -4974,7 +5238,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...HEAD
+[0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
 [0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
@@ -5046,4 +5311,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

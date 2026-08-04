@@ -6,6 +6,8 @@
 
 **A secure, EAC-style CD ripper for Linux (FLAC, WAV, WavPack, MP3).** Aims for EAC-equivalent (Exact Audio Copy) archival quality on Linux, packaged as a single-file AppImage. It drives the [`cyanrip`](https://github.com/cyanreg/cyanrip) ripping engine and verifies every rip against AccurateRip and CTDB.
 
+> **Status: v0.6.4b1 — BETA, for the joint cyanrip hardware test session.** This build exists to produce the evidence the open cyanrip handshake round needs in order to close; it is **not** a jointly-verified pair, and every rip it makes says so in its own report. For ordinary use, prefer the latest stable v0.6.x release.
+>
 > **Status: v0.6.x — public pre-release.** Implemented end-to-end with 2,000+ tests (including a full-pipeline end-to-end test) at ~93% branch coverage (91% enforced in CI), and validated on real Bazzite hardware (Pioneer BDR-209D): a full 16-track rip *through the published AppImage* with every Test CRC matching its Copy CRC, plus AccurateRip-verified archival results on a pressed disc (12 of 14 tracks exact at confidence 200, the other 2 offset-variant matches). Highlights: **no-terminal first-run setup** (the AppImage adds itself to your menu; a guided wizard installs the ripping stack), **read-offset auto-fill** from the bundled AccurateRip drive list (no disc needed), **cyanrip as the single ripping backend** (actively maintained, no >587 read-offset bug — whipper was retired, see KDD-18), **multiple output formats** (FLAC is always the lossless master; WavPack/MP3/WAV are derived from it), **goal presets** (Fast verified / Archival exact / Portable), an at-a-glance **verification verdict** (AccurateRip + CTDB) with a machine-readable JSON rip report written beside the log, a per-drive **read-offset trust line**, **true in-app updates**, **cover art** from the Cover Art Archive, **auto-filing finished rips into your library folder**, an **EAC-compatible companion log** with a per-track **EAC CRC32 column**, and **software-version provenance** recorded in the log header and the window title. **New in v0.6.3 — use your own fork, and be told which one you're on:** the one-time setup wizard now **builds and installs the pinned Platterpus fork of cyanrip** for you (no terminal), verifies the installed binary really is that build, and keeps the working upstream ripper if the build fails; the dependency check **names which build is installed** rather than only its version — which matters because the fork deliberately keeps upstream's version string, so the number alone cannot tell them apart; a multi-disc rip now writes Vorbis-correct `DISCNUMBER`/`totaldiscs` instead of cramming `2/3` into one tag; and every self-check that runs now **says something**, because a check that stays silent reads exactly like a check that found nothing wrong. **New in v0.6.1 — the provenance-and-honesty release:** every rip now records **which cyanrip binary produced it** (the Platterpus fork, unmodified upstream, or — honestly — *not determined*), captures the ripper's **exit code, exact command line and complete output** so a failure is reproducible, surfaces **the ripper's own words** instead of a bare "Rip failed", picks **the right disc of a multi-disc set** (or says it could not tell rather than guessing), and **audits itself**: a `self_check` block lands in every rip's JSON, and `--audit-rips` runs the same checks over your whole library in one command. This is an early release for wider testing — expect rough edges, and please [open an issue](https://github.com/rmccann-hub/Platterpus/issues) for anything you hit.
 
 ## At a glance
@@ -39,7 +41,7 @@ Where Platterpus stands against EAC-equivalent archival quality: what it has, wh
 | Signed EAC log checksum | ❌ | **Never** — signing our log as EAC forges provenance (bannable fake log). No PR, ever |
 | Elite-tracker (RED/OPS/Orpheus) log acceptance | ❌ | Out of scope — *identity-walled* (checkers score cyanrip 0 regardless of audio). Honest path: re-add whipper, or a 2-PR chain **cyanreg → itismadness** (low odds) |
 
-**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip + CTDB verification, a measured cache-defeat verdict, Test & Copy, an openly-verifiable log checksum, tags, art, provenance — is in place. Each of those was closed with **equal-or-stronger rigor than EAC, honestly labelled as ours** — we never forge EAC's output. The one remaining gap is **gap/INDEX-00 + HTOA**, and its mechanism is now decided (build cyanrip from our soft fork — KDD-32). The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/upstream-pr-roadmap.md`](docs/upstream-pr-roadmap.md) and [`docs/ripper-engine-strategy.md` §10](docs/ripper-engine-strategy.md).
+**In short:** everything that *proves* a good archival rip — bit-perfect audio, AccurateRip + CTDB verification, a measured cache-defeat verdict, Test & Copy, an openly-verifiable log checksum, tags, art, provenance — is in place. Each of those was closed with **equal-or-stronger rigor than EAC, honestly labelled as ours** — we never forge EAC's output. The one remaining gap is **gap/INDEX-00 + HTOA**, and its mechanism is now decided (build cyanrip from our soft fork — KDD-32). The rest is either *never* (signed checksum = forgery), *aligned with best practice* (C2 stays off), or *identity-walled* (elite-tracker acceptance). Contributor detail: [`docs/cyanrip-upstream.md`](docs/cyanrip-upstream.md) and [`docs/cyanrip-fork.md` Part A §10](docs/cyanrip-fork.md).
 
 ### Point-by-point vs. the EAC "perfect rip" checklist
 
@@ -535,9 +537,9 @@ rationale: [docs/mp3-wav-support.md](docs/mp3-wav-support.md).
 
 ### Compared to EAC's bit-perfect settings
 
-The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. The full point-by-point mapping lives **once**, in the [capability & EAC-parity matrix](#capability--eac-parity-matrix) at the top of this README; the per-setting audit is [PLANNING.md KDD-13](PLANNING.md) and the deep-dive is [docs/eac-parity-investigation.md](docs/eac-parity-investigation.md).
+The widely-cited [Perfect CD Ripping to FLAC with Exact Audio Copy guide](https://flemmingss.com/perfect-cd-ripping-to-flac-with-exact-audio-copy/) is the gold standard for archival rips on Windows. The full point-by-point mapping lives **once**, in the [capability & EAC-parity matrix](#capability--eac-parity-matrix) at the top of this README; the per-setting audit is [PLANNING.md KDD-13](PLANNING.md) and the deep-dive is [docs/eac-parity.md](docs/eac-parity.md).
 
-Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-log-and-repair-feasibility.md](docs/eac-log-and-repair-feasibility.md).
+Bit-perfection here is proven the open way — AccurateRip and CTDB CRCs, checkable by anyone against public databases — not by chasing acceptance from private trackers (RED/OPS/Orpheus). That acceptance is a deliberate **non-goal**: it's gated on ripper identity, not audio quality, so no honest partial score exists to chase. See [PLANNING.md KDD-24](PLANNING.md) and [docs/eac-parity.md](docs/eac-parity.md).
 
 ### Rip settings at a glance
 
@@ -873,7 +875,7 @@ Source documents and reference material (in `docs/`):
 - [`docs/testing.md`](docs/testing.md) — testing strategy & standards; [`docs/test-plan.md`](docs/test-plan.md) — manual & release testing procedure
 - [`docs/platterpus-research-brief-v2.1.md`](docs/platterpus-research-brief-v2.1.md) — the canonical project brief
 - [`docs/platterpus-session-start.md`](docs/platterpus-session-start.md) — bootstrap instructions for a fresh Claude Code session (Step 0 = optional research-rerun prompt)
-- [`docs/log-format-comparison.md`](docs/log-format-comparison.md) — cyanrip-log vs EAC-log field comparison
+- [`docs/eac-parity.md`](docs/eac-parity.md) — cyanrip-log vs EAC-log field comparison
 
 Build / dev tooling:
 
@@ -895,4 +897,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

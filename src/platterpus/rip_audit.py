@@ -313,7 +313,19 @@ def _audit_argv_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
     that matters — an argument that changed, vanished or appeared in transit.
     """
     outcome = report.get("outcome") or {}
-    sent = outcome.get("ripper_argv")
+    # Compare against the FIRST pass when the rip had more than one.
+    #
+    # `invoked_as` is read out of the whole-disc log, which is always the first
+    # pass — the auto-fix addendum states that outright. `ripper_argv` is the
+    # *last* invocation, so on any rip where auto-fix fired the two describe
+    # different commands and the extra `-Z`/`-l` looked like injected arguments.
+    # Real-hardware false alarm, 2026-08-03: a clean 14-track rip whose self-heal
+    # re-ripped 2 tracks was told its command line had been altered in transit.
+    #
+    # Like-for-like, or not at all: a check comparing two different commands is
+    # not a weaker check, it is a wrong one.
+    multi_pass = bool(outcome.get("ripper_argv_first_pass"))
+    sent = outcome.get("ripper_argv_first_pass") or outcome.get("ripper_argv")
     received = (report.get("rip") or {}).get("invoked_as")
     if not sent or not received:
         # NOT silent. This used to `return` with a comment calling the silence
@@ -346,15 +358,39 @@ def _audit_argv_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
         return
 
     def flags(tokens: list[str]) -> set[str]:
-        return {tok for tok in tokens if re.fullmatch(r"-[A-Za-z]", tok)}
+        """The option tokens, short and long.
+
+        Short options only, originally — which made the check blind to a **long**
+        option appearing in transit, the exact class of injection it exists to
+        catch. Found by T14's own tamper case
+        (`tests/test_multi_pass_rip_end_to_end.py`), which injected
+        `--injected-by-a-wrapper` and was not noticed.
+
+        Still options only, never *values*: `-s 667`'s `667` and argv[0]'s
+        resolved path legitimately differ between what we spawn and what the
+        ripper prints, so comparing those would cry wolf on every rip.
+        """
+        return {
+            tok
+            for tok in tokens
+            if re.fullmatch(r"-[A-Za-z]", tok) or re.fullmatch(r"--[A-Za-z][\w-]*", tok)
+        }
 
     sent_flags = flags([str(x) for x in sent])
     received_flags = flags(received.split())
 
+    # Name WHICH pass was compared. A reader who sees "the 9 flags we sent" on a
+    # rip that ran the ripper twice is entitled to know the check covered the
+    # whole-disc pass and not the auto-fix one — whose `Invoked as:` line the
+    # addendum consumed, so there is nothing to compare it against.
+    which = " on the whole-disc pass" if multi_pass else ""
     missing = sorted(sent_flags - received_flags)
     extra = sorted(received_flags - sent_flags)
     if not missing and not extra:
-        album.add(LEVEL_OK, f"the ripper received the {len(sent_flags)} flags we sent")
+        album.add(
+            LEVEL_OK,
+            f"the ripper received the {len(sent_flags)} flags we sent{which}",
+        )
         return
     parts = []
     if missing:
@@ -363,7 +399,8 @@ def _audit_argv_agreement(report: dict[str, Any], album: AlbumAudit) -> None:
         parts.append(f"it received but we did not send: {' '.join(extra)}")
     album.add(
         LEVEL_WARN,
-        "the command line changed in transit between Platterpus and cyanrip — "
+        f"the command line changed in transit between Platterpus and cyanrip{which}"
+        " — "
         + "; ".join(parts)
         + ". Something between us (the host export wrapper, a shell) altered it.",
     )

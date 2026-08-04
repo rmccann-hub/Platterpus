@@ -1050,6 +1050,88 @@ binary everything else was tested against.
 
 ---
 
+## F — ⭐ The three things we OWE the cyanrip fork (handshake round 7)
+
+**Read this if you have a disc and half an hour.** Round 7 of the cyanrip handshake is open,
+and it stays open until both projects verify each other. Three of the items we owe them can
+only be produced on your rig — they are not "nice to have", they are the reason the round
+cannot close. Each one below says exactly what to run and exactly what to send, so nothing
+has to be re-derived at the time.
+
+Everything here is **text only**. Never send audio (Critical rule #8) — the logs and CRCs
+prove what is needed.
+
+### F1 — [ ] ⭐⭐ H9: a disc with a NON-ZERO pre-gap on a non-first track
+
+**Why it is owed.** Their pre-gap emission was verified exactly on one disc: 13 sub-channel
+entries, 1 lead-in, zeros on tracks 3/6/11/12, 9 `Gaps:` rows. That is an **existence proof,
+not a range** — every pre-gap on that disc was zero, so the code path that reports a *real*
+gap has never been exercised against their output. A25 is the same hunt from our side; this
+is the same disc doing double duty.
+
+**What to run.** A normal rip, nothing special. The candidates are, in order of odds:
+a CD-Extra / enhanced CD (audio tracks plus a data track — the data track's pre-gap is
+usually non-zero), a live album with indexed applause, or an early-90s pressing.
+
+**What to send.** The album's `.platterpus.json`, the cyanrip `.log`, the `.cue`. If the
+`Gaps:` block shows any value other than `0`, say so in the message — that is the whole point
+and I would rather not have to find it.
+
+**If every disc you try reports all zeros:** that is still a result. Send one, and say how
+many discs you tried. "Three discs, all zero" tells the fork something a silent absence does
+not.
+
+### F2 — [ ] H10: the `-x` force-overread log line
+
+**Why it is owed.** We ship the force-overread toggle. We have never captured the line cyanrip
+prints when a drive **accepts** the command, so our parser's handling of it is written against
+their published format string and nothing else.
+
+**What to run.** Settings → enable force-overread, then rip **one track** (right-click the
+track table → rip only track 1). One track is enough; the line is emitted per rip, not per
+track.
+
+**What to send.** Just the cyanrip `.log`. The line will be near the top, next to
+`Overread mode:` / `Underread mode:`.
+
+**Upstream warns this can freeze a drive that does not support it.** The BDR-209D is expected
+to be fine, but if the rip hangs: cancel, and *that* is the answer — send the log and say it
+hung. A drive that refuses is a documented outcome, not a failed test.
+
+### F3 — [ ] ⭐⭐⭐ H12/G2/A7: the forced-error corpus — the highest-value artifact we owe
+
+**Why it is owed, and why I will not fabricate it.** Their fatal-message inventory is 115
+strings, of which 83 are proven from control flow; the rest rest on the wording of a message
+or on a `goto` label neither side can settle from source. A run that *forces* each state and
+records the string, its exit code and the exact argv settles them empirically.
+
+I could hand-build this corpus from reading their control flow. I deliberately have not,
+because a corpus built from my reading of their code is a fixture carrying **my assumptions
+about their code** — which is the §4d failure this project has now hit from three directions
+(`docs/testing.md` §5.ab, §5.ac). It has to come from a real binary refusing real conditions.
+
+**What to run — five states, each one command, all safe and reversible.** Run each from a
+terminal so you get the exit code. `cyanrip` here is the host export
+(`~/.local/bin/cyanrip`).
+
+| # | State to force | Command | Then record |
+|---|---|---|---|
+| 1 | No disc in the drive | eject the tray, then `cyanrip -d /dev/sr0 -N` | the message, and `echo $?` |
+| 2 | No such device | `cyanrip -d /dev/sr99 -N` | the message, and `echo $?` |
+| 3 | Offset unset | `cyanrip -d /dev/sr0 -N` with **no** `-s` | the message, and `echo $?` |
+| 4 | Track out of range | disc in, `cyanrip -d /dev/sr0 -N -t 99=` | the message, and `echo $?` |
+| 5 | Speed not supported | `cyanrip -d /dev/sr0 -N -S 99` | the message, and `echo $?` |
+
+**What to send.** For each: the **exact command you typed**, the **complete output** (stderr
+included — `cyanrip … 2>&1 | tee case1.txt` captures both), and the **exit code**. All five in
+one text file is ideal. The exit code matters as much as the message: our probes read a
+non-zero exit as *"the tool is not installed"*, which is how the `-V` blocker nearly shipped.
+
+**None of these can damage anything.** Every one is cyanrip refusing to start. No disc is
+written, no file is created, and case 1 does not need a disc at all.
+
+---
+
 ## Priority, if you only have an hour
 
 **Updated 2026-08-01 for v0.6.0.** Ordered so the cheap ones come first and each one makes
@@ -1065,9 +1147,16 @@ the next easier.
 5. **A20** — the contaminated album folder. Still the ugliest bug of the batch and the only
    one that needs a messy folder to see. You started this last time; it is worth finishing.
 6. **D1b** — one subset rip of the Police disc; still the last thing gating the #55 fix.
+7. **F3** — the forced-error corpus. Five one-line commands, no disc needed for the first,
+   nothing written to disk. **This is the single highest-value thing on the whole list right
+   now**, because handshake round 7 cannot close without it and neither project can release
+   while it is open. Roughly ten minutes.
+8. **F2** — the `-x` line. One track, one log.
+9. **F1** — a non-zero pre-gap disc. Free if you are already hunting one for A25.
 
 *If the hour runs out: A24 + A26 cost about five minutes together and answer the two things
-this release is actually about.*
+this release is actually about. If you have ten minutes and no disc, do **F3** — it needs no
+disc and it unblocks a release on both sides.*
 
 ---
 
@@ -1092,9 +1181,14 @@ album's JSON.
 **Never send audio** — no `.flac`, no `.wav`, not even briefly. The JSON, the logs and the
 CRCs prove bit-perfection without it.
 
+**From section F, separately, because it goes to a different place:** F1/F2/F3's output is
+forwarded to the cyanrip fork as part of handshake round 7, so keep it in its own file(s) and
+say which case each one is. Exit codes included — a message without its exit code is half the
+answer.
+
 Plus anything surprising, even on a test that passed. And specifically: **any rip that dies
 with `rip stream error:`** — that is the v0.5.20 fix's signature and I want the log at once.
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

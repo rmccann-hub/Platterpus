@@ -800,7 +800,7 @@ def test_album_rows_inside_a_track_block_do_not_overwrite_the_disc_album() -> No
 # comes in a pair — the line PRESENT, and the line ABSENT — because the absent half
 # is the one that ships today and the one a careless "improvement" would break.
 #
-# Specification: docs/cyanrip-improvements-wanted.md §2.1 (sample peak), §2.3
+# Specification: docs/cyanrip-upstream.md Part A §2.1 (sample peak), §2.3
 # (per-track speed/elapsed), §2.4 (the -Z verdict in the log file), §2.5 (C2 use
 # vs capability). The `Appended:` row is NOT fork-only — 0.9.3 prints it already.
 
@@ -1394,4 +1394,85 @@ def test_a_long_digit_run_in_a_peak_never_fabricates_digital_silence() -> None:
     )
     assert log.tracks[0].peak_level is None, (
         "an unparseable peak produced a concrete value instead of 'not reported'"
+    )
+
+
+# --- H19: `Secure re-read:` is the contract line; `Done;` is stdout progress ----
+# Round 7 lap 4 §3e: `Done; (no matches found, but hit repeat limit of N)` is
+# progress output, and the purpose-built logfile field is `Secure re-read:`, backed
+# by a three-state enum (`NA` / `CONVERGED` / `LIMIT_HIT`) in their source. Only the
+# second is a line they undertake not to reword without a round.
+#
+# We already read both, and the in-block form already wins — but that precedence
+# was EMERGENT from line ordering rather than asserted, which is the same shape as
+# an invariant that holds by luck. Pinned here.
+
+
+def test_the_secure_reread_contract_line_wins_over_the_done_progress_line() -> None:
+    """When both are present and they disagree, the contract line decides.
+
+    Constructed so the two disagree on purpose: `Done;` says converged, the
+    contract line says it did not. A parser preferring the progress line would
+    report a track as read-stable when the ripper's own field says otherwise —
+    the worst direction for this field to be wrong in.
+    """
+    log = (
+        "cyanrip 0.9.4-rc1+platterpus.4 (platterpus-fork-g5bc654d)\n"
+        "Disc tracks:    1\n"
+        "  Done; (2 out of 2 matches for current checksum ABCD1234)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     DEADBEEF\n"
+        "  Secure re-read:  did NOT converge after 5 reads (repeat limit hit)\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - A.flac\n"
+        "Ripping errors: 0\n"
+    )
+    parsed = parse_cyanrip_log(log)
+    track = next(t for t in parsed.tracks if t.number == 1)
+    assert track.secure_rerip_converged is False, (
+        "the `Done;` progress line overrode the `Secure re-read:` contract line — "
+        "H19: only the second is a line the fork undertakes not to reword"
+    )
+
+
+def test_the_done_line_remains_the_fallback_for_stock_cyanrip() -> None:
+    """And `Done;` is not removed, because stock upstream has no contract line.
+
+    Their ask was to *parse* `Secure re-read:`, not to stop reading `Done;` — and
+    dropping it would blind us on every stock build, which is the ripper a user has
+    before the wizard runs. Keeping a documented fallback is different from
+    depending on it.
+    """
+    log = (
+        "cyanrip 0.9.3 (release)\n"
+        "Disc tracks:    1\n"
+        "  Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     DEADBEEF\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - A.flac\n"
+        "Ripping errors: 0\n"
+    )
+    parsed = parse_cyanrip_log(log)
+    track = next(t for t in parsed.tracks if t.number == 1)
+    assert track.secure_rerip_converged is False
+
+
+def test_not_attempted_never_erases_a_measured_verdict() -> None:
+    """The third enum state. `NA` means "no verdict here", not "it converged"."""
+    log = (
+        "cyanrip 0.9.4-rc1+platterpus.4 (platterpus-fork-g5bc654d)\n"
+        "Disc tracks:    1\n"
+        "  Done; (no matches found, but hit repeat limit of 5)\n"
+        "Track 1 ripped and encoded successfully!\n"
+        "  EAC CRC32:     DEADBEEF\n"
+        "  Secure re-read:  not attempted\n"
+        "  File(s):\n"
+        "    Artist/Album/01 - A.flac\n"
+        "Ripping errors: 0\n"
+    )
+    track = next(t for t in parse_cyanrip_log(log).tracks if t.number == 1)
+    assert track.secure_rerip_converged is False, (
+        "'not attempted' erased a measured non-convergence — an absent verdict "
+        "must never overwrite a present one"
     )

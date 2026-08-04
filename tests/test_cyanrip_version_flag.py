@@ -46,7 +46,7 @@ STOCK_BANNER = "cyanrip 0.9.3 (release)"
 #: later, to `25a2265` when round 6b withdrew `ad65a24` — and a hardcoded banner
 #: makes the *verify* test fail for a reason that has nothing to do with what it
 #: tests. Deriving it means the pin move is a one-line edit in `fork_source.py`.
-FORK_BANNER = f"cyanrip 0.9.4-rc1 ({_FORK_SOURCE.FORK_EXPECTED_BUILD_TAG})"
+FORK_BANNER = _FORK_SOURCE.FORK_EXPECTED_BANNER
 REJECT = "Unable to parse command line argument: {flag}"
 
 
@@ -194,7 +194,7 @@ def test_the_wizard_fork_probe_accepts_a_long_flag_only_binary(
         def run(self, argv: list[str]) -> tuple[int, str]:
             calls.append(list(argv))
             if argv[-1] == "--version":
-                return 0, f"cyanrip 0.9.4-rc1 ({fork_source.FORK_EXPECTED_BUILD_TAG})\n"
+                return 0, f"{fork_source.FORK_EXPECTED_BANNER}\n"
             return 1, REJECT.format(flag=argv[-1])
 
     setup = HostSetup(runner=_Runner(), cyanrip_path=cyanrip)

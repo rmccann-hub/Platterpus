@@ -36,6 +36,30 @@ class RipBlock(TypedDict):
     creation_date: str | None
     musicbrainz_disc_id: str | None
     cddb_id: str | None
+    # v14: the ripper's own completion footer, tri-state. `rip_completed` is
+    # `None` when the log was cut off or predates the fork pin — which is a
+    # different fact from `False`, and must not render as one.
+    rip_completed: bool | None
+    rip_completed_tracks: int | None
+    rip_completed_total: int | None
+    rip_completed_reason: str | None
+    # v14: the ripper's own `Invoked as:` line — what it says it RECEIVED, as
+    # against `outcome.ripper_argv`, which is what we SENT.
+    invoked_as: str | None
+    # v13: which cyanrip binary produced this. Tri-state: `null` is "not
+    # determined" and must never be read as `false`, because an unrecognised
+    # build tag is absence of evidence, not evidence of a stock binary.
+    ripper_is_platterpus_fork: bool | None
+    ripper_identity: str | None
+    ripper_identity_detail: str | None
+    # v15: whether that binary is the build BOTH projects affirmatively verified
+    # — a different question from `ripper_identity`, checked at rip time rather
+    # than only by CI. `"not_determined"` is not a pass.
+    ripper_handshake_approval: str | None
+    ripper_handshake_approval_detail: str | None
+    ripper_handshake_approved_build: str | None
+    ripper_handshake_approved_for_platterpus: str | None
+    ripper_handshake_approved_by_round: int | None
 
 
 class TimingBlock(TypedDict):
@@ -57,6 +81,19 @@ class OutcomeBlock(TypedDict):
     status: str
     failure_hint: str | None
     auto_unknown_retry: AutoUnknownRetryBlock
+    # v13: the two facts that make a failure reproducible, and both were being
+    # computed and discarded before it. `ripper_exit_code` is tri-state — `None`
+    # means the child was never reaped (wedged in a drive ioctl where even
+    # SIGKILL does not land) and must never be written as `0`.
+    ripper_exit_code: int | None
+    ripper_argv: list[str] | None
+    # The FIRST invocation's argv when the rip took more than one pass, `None`
+    # when it took one. The distinction is load-bearing: the archival log's
+    # `Invoked as:` line comes from the first pass, so comparing it against
+    # `ripper_argv` (the last) accused clean multi-pass rips of tampering.
+    ripper_argv_first_pass: list[str] | None
+    #: The argv rendered as a copy-pasteable command line, for a bug report.
+    ripper_command_display: str | None
 
 
 class ReadOffsetBlock(TypedDict):

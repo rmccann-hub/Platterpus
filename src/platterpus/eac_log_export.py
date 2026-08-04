@@ -1,7 +1,7 @@
 """Render a parsed :class:`RipLog` into an EAC-*layout* text log.
 
 **This is NOT a genuine EAC log and it is never signed as one.** See
-``docs/eac-log-and-repair-feasibility.md``: EAC's ``==== Log checksum <hex> ====``
+``docs/eac-parity.md``: EAC's ``==== Log checksum <hex> ====``
 footer is an attestation that *Exact Audio Copy* produced the rip, so emitting
 that exact marker over our (cyanrip) output would be **forging provenance** — a
 bannable "faked log" on gazelle trackers and a direct violation of the project's
@@ -314,7 +314,29 @@ def _render(
     lines.append("")
     lines.append(f"Read mode               : {_read_mode(info)}")
     lines.append(f"Utilize accurate stream : {_UNREPORTED}")
-    lines.append(f"Defeat audio cache      : {_yes_no(info.defeat_audio_cache)}")
+    # **Name the source of this verdict, not just the verdict.**
+    #
+    # `defeat_audio_cache` is *our* measurement — `cd-paranoia -A` run once per
+    # drive and stored in the drive profile (KDD-29) — and the parser is asserted
+    # never to fill it from cyanrip's log (`tests/test_fork_golden_reference_r6b.py`).
+    # cyanrip's own `Cache model:` line reports what libcdio-paranoia *models* and
+    # says in the value itself that the drive was never probed; wiring that to this
+    # row would be the fabricated "Yes" KDD-25 forbids, which is why we do not.
+    #
+    # But a reader could not tell any of that from the row. The fork raised exactly
+    # that in round 7 §6b — reasonably, since from outside "Yes" against their
+    # unprobed `Cache model:` looks like us asserting their disclaimer as a result.
+    # So the row now carries its provenance: a measured verdict says it was measured
+    # and by what, and an unmeasured one keeps `_yes_no`'s honest "(unknown)".
+    #
+    # EAC's row means "the ripper defeated the cache during THIS rip"; ours means
+    # "this drive was measured to defeat it". Those are different claims, and the
+    # suffix is what keeps us from silently making the stronger one.
+    _cache = _yes_no(info.defeat_audio_cache)
+    if info.defeat_audio_cache is not None:
+        _cache += "  (measured for this drive with cd-paranoia -A, not asserted "
+        _cache += "from the ripper's log)"
+    lines.append(f"Defeat audio cache      : {_cache}")
     # Not `_yes_no`: its "(unknown)" means "we haven't measured this yet" (as for
     # the cache verdict, which a probe can still fill in). C2 is different — the
     # value simply isn't in cyanrip's log — so it takes the not-reported wording,
@@ -422,7 +444,7 @@ def _real_colons(text: str) -> str:
     """Undo cyanrip's U+2236 stand-in for ':' in displayed text.
 
     cyanrip substitutes the RATIO lookalike when sanitising tag values (its
-    colon-parsing bug — see docs/cyanrip-soft-fork.md), so a title like
+    colon-parsing bug — see docs/cyanrip-fork.md), so a title like
     "Every Breath You Take: The Classics" reaches us as "…∶ The Classics". That
     is an artefact of the workaround, not a fact about the disc, and a real EAC
     log shows the true colon — so the EAC-layout export shows it too. Only the
@@ -1068,7 +1090,7 @@ def _track_block(track: TrackResult) -> list[str]:
     # * `Extraction speed` — no per-track speed or wall-clock in 0.9.3's output;
     #   `extraction_speed` is filled from a fork's per-track speed line.
     # * `Track quality` — EAC-proprietary, no cyanrip analogue, and we will never
-    #   ask for one (docs/cyanrip-improvements-wanted.md §3.1). Permanently
+    #   ask for one (docs/cyanrip-upstream.md Part A §3.1). Permanently
     #   labelled, on purpose.
     out.append(
         "     Peak level "
@@ -1095,7 +1117,7 @@ def _track_block(track: TrackResult) -> list[str]:
     # re-read?). A number computed from an interval we cannot define is a guess
     # wearing EAC's label — the one thing this module exists to refuse. So the
     # measured fact is printed as itself, and EAC's row stays labelled until the
-    # ripper reports a speed. See docs/cyanrip-improvements-wanted.md §2.3.
+    # ripper reports a speed. See docs/cyanrip-upstream.md Part A §2.3.
     out.extend(_extraction_time_line(track))
     out.append(
         "     Track quality "

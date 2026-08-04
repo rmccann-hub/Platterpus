@@ -75,7 +75,7 @@ and `track` (split into a new track, which **renumbers all following tracks**
 and would desync our per-track `-t`/`-l`/progress/AccurateRip alignment). There
 is no global form: a bare `-p default` parses as track 0 and aborts the rip.
 Only the default (no flag) is archival-safe, which is why it's the only mode we
-use. See `docs/eac-parity-investigation.md` §Pregaps for the `INDEX 00`
+use. See `docs/eac-parity.md` Part A (pre-gaps in the cue) for the `INDEX 00`
 cue-metadata question (separate, decision-gated).
 
 **Tag string syntax (`-a`/`-t`) — a real trap:** the value list is
@@ -198,7 +198,7 @@ Two corrections to the paragraph above, both from the 2026-07-31 pass:
 the new rows *before* they exist so one build serves both: an AppImage user's
 deployed **cyanrip 0.9.3 prints none of these**, and every field below then stays
 `None` and every surface behaves exactly as it did. Full specification and evidence
-per row: [`cyanrip-improvements-wanted.md`](cyanrip-improvements-wanted.md).
+per row: [`cyanrip-upstream.md`](cyanrip-upstream.md).
 
 | Fork-only line (indented, per-track) | → field | EAC row it fills | Ask |
 |---|---|---|---|
@@ -511,4 +511,4 @@ outlive the window — see `ui/main_window_rip.py::_stop_rip_on_shutdown`.
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

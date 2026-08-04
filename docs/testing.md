@@ -1099,6 +1099,144 @@ complete file — correctly, because 300 characters of filler under a §G headin
 not a revert-proof section. **A fixture that pads with filler teaches the product
 that filler counts.** It now pads with each section's own subject.
 
+### §5.ae — A gate that reads presence instead of decision
+
+*Handshake round 7, 2026-08-03. The same file as §5.ad, one round later, and the
+reason this gets its own section rather than a line in that one: the fix to §5.ad
+was applied to `--check`, and this defect was in `--status`. **The lesson had been
+learned in the function next door.***
+
+`round_status` reported a round CLOSED when three files existed —
+`outbound/round-N.md`, `inbound/round-N.md`, `verified/round-N.md` — and
+`--release-gate` is a thin wrapper over it. Round 7's verification file exists and
+declares **`**HOLD on d5d12ec`**: a deliberate mid-round lap, at the fork's own
+request. `--status` reported:
+
+```
+round-7: sent=yes returned=yes verified=yes  -> CLOSED
+handshake: every round is closed — release allowed
+```
+
+Every word of that is derived correctly from what it measured. It measured the
+wrong thing. **A release would have been permitted with the round open**, which is
+the one thing the deviation policy names explicitly.
+
+Three properties the fix needed, each of which is its own way to get this wrong
+again:
+
+1. **Read the decision, not the artifact.** `state = CLOSED` now requires
+   `verdict == "GO"`.
+2. **Fail closed on silence.** A verification with no verdict is not a close. The
+   tempting shortcut — *treat a missing verdict as GO so the old rounds still
+   pass* — reintroduces the whole defect through the fallback. Rounds 1–3 are
+   grandfathered **by number**, in a `RETROSPECTIVE_ROUNDS` frozenset a test pins
+   to exactly `{1, 2, 3}`, because otherwise "add the round to the exemption list"
+   is a one-line close.
+3. **Prose about a verdict is not a verdict.** Round 7's opening paragraph says
+   *"not a closing GO"*. A matcher scanning anywhere in the text for `GO` reads
+   that file as GO — closing the round off a sentence that says the opposite,
+   which is §5.ad's §I failure arriving through a different door. The marker is
+   anchored to a line start, and `**GONE**` / `**HOLDINGS**` are asserted not to
+   match.
+
+**The rule: when a gate's input is a document that states a decision, the gate
+must read the decision.** File presence answers *"did someone do the step"*;
+only the content answers *"and what did they conclude"*. The two diverge exactly
+when the answer is "not yet" — the case the gate exists for.
+
+And the meta-lesson, which is why §5.ad and §5.ae are adjacent: **fixing a
+detector's flaw at the call site where you found it leaves the flaw everywhere
+else in the same file.** This is CLAUDE.md rule 9's *"enforce a rule across the
+codebase, not at the place it was learned"* at the smallest possible scale — two
+functions, one module, one round apart.
+
+### §5.af — A promise of completeness that nothing sweeps
+
+*Documentation-currency audit, 2026-08-03. Three maps, all three declared
+canonical in prose, all three expired.*
+
+A map is only ever wrong **by omission**, and an omission is invisible in a diff.
+Nobody reviews a file for what is not in it. So a document that promises
+completeness — *"the canonical annotated index"*, *"one paragraph per module"* —
+is a test waiting to be written, and until it is written the promise decays at
+exactly the rate the codebase grows.
+
+| Promise | Where | What had gone missing |
+|---|---|---|
+| *"the canonical annotated index"* | `CLAUDE.md` → `docs/README.md` | `cyanrip-consumer-contract.md`; and `docs/handshake/` — 24 files of binding correspondence — linked from nowhere |
+| *"one paragraph per module, no more"* | `PLANNING.md` §2 | **19 of 122** modules, including two `CLAUDE.md`'s own rules name by name |
+| the round-by-round record | `docs/handshake/README.md` | every round after the 4th, plus it taught a closing rule that had been superseded |
+
+**The first one is the instructive one, because the fix had already been
+attempted — in prose.** `CLAUDE.md` carries a parenthetical saying the list
+*"can't drift from it again; it did once."* That is a comment where a check
+belongs, and it failed within the cycle.
+
+Three properties a completeness gate needs, each learned from getting one wrong
+while writing these:
+
+1. **Require the unit the promise makes, not a weaker one.** `docs/README.md` is
+   an *annotated* index, so the gate requires a **table row with a description**,
+   not a mention. A document named once in another entry's prose has a resolving
+   link — `test_doc_links.py` is perfectly happy — and is still lost to a reader.
+   Matching on mentions would have passed with the gap present.
+2. **Derive the expected set from the filesystem**, never from a list in the test.
+   A hand-kept list is a second map, and it drifts in the same way for the same
+   reason.
+3. **Scope the converse check narrowly, or it fails on correct prose.** *"No entry
+   for a file that is gone"* is right; *"every filename mentioned resolves"* is
+   not — `docs/README.md` rightly says *"(Absorbed the former `best-practices.md`)"*
+   and `PLANNING.md` rightly discusses `setup.py` as something we do **not** use.
+   My first version failed on both, and a gate that fires on correct writing gets
+   switched off.
+
+**And the reverse-direction rule for the tests themselves:** a skip-list built for
+one question is the wrong input to a different one. `_source_modules()` excludes
+`__init__.py` because a coverage sweep should not demand a paragraph for it —
+reusing that filter in the *phantom* check made the test report `PLANNING.md`'s
+(correct) `__init__.py` entry as describing a deleted module.
+
+### §5.ag — A conformance table is run, not read
+
+*Handshake round 7 lap 5, 2026-08-04.*
+
+The cyanrip fork's shared protocol carries a **14-row table** of cases a conforming
+gate must refuse, plus one it must allow. We had already written our gate to the
+four *principles* those rows express, revert-proven it, and reported it as done.
+Turning the table into fourteen tests found a defect immediately:
+
+> **Row 12 — "no round files at all → refuse; an empty record is not agreement."**
+> Ours printed *"every round is closed — release allowed"*.
+
+The mechanism is worth stating because it is so cheap: `round_status()` returned a
+bare `"no handshake rounds recorded"` line, the gate decided by looking for lines
+ending in `OPEN`, that line does not end in `OPEN`, therefore nothing was open. **A
+gate satisfied by finding nothing, in the gate whose entire job is not being
+satisfied by nothing.**
+
+**Reading the table would not have found it.** Every row read as something we
+already did, because at the level of principle we did. The gap was in a *case*.
+
+Two rules follow:
+
+1. **Where a spec offers concrete cases, write one test per case** — in the spec's
+   order, named for its row, so a divergence between two implementations can be
+   cited rather than argued. A floor test asserting every row has a test keeps that
+   true as the spec grows; a skipped row is a divergence nobody can see.
+2. **Assert the ALLOW row first.** A gate that can never say yes is a wall, and it
+   passes every refusal row in the table. Putting the positive case at the top of
+   the file is how that stays honest instead of remembered. (Their observation, and
+   it is the reason the table has that row at all.)
+
+**The companion finding, same lap: a format's own documentation is the likeliest
+place to trip its parser.** Round files illustrate the header format in fenced
+blocks; both projects' gates read those illustrations as declarations. Theirs
+compiled an illustrated field into a binary as a fact; ours resolved correctly only
+because the illustrated value happened to match the real one — and our suite
+asserted the wrong behaviour outright, with a confident comment. **A declaration is
+what a file states, never what it quotes.** Three bait shapes exist (indented,
+prose, fenced) and each project had independently found two of the three.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -1165,4 +1303,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

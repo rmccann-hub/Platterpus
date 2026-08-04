@@ -63,6 +63,9 @@ _NOISE_FLOOR_S = 200e-6
 # batch instead gives every pattern a real per-search figure. The cap bounds the
 # cost for the fastest patterns; a slow pattern clears the floor on the first
 # repeat and never escalates, so the expensive case is cheap and vice versa.
+#: Timing rounds per measurement; the MINIMUM is reported. Three is enough to
+#: drop a single scheduler hiccup and cheap enough not to slow the sweep.
+_TIMING_ROUNDS = 3
 _MAX_REPEATS = 4096
 _REPEAT_STEP = 8
 
@@ -114,16 +117,33 @@ def _seconds_per_search(compiled: re.Pattern[str], text: str) -> float:
     Timed with ``.search`` because that is how these patterns are used on
     subprocess output and file rows — ``.match`` would anchor away the backtracking
     that ``.search`` has to do at every start position.
+
+    **Reported as the MINIMUM over several timing rounds, not a single sample.**
+    Scheduler noise, a GC pass, a CPU-frequency step and a co-tenant on the runner
+    can only ever make a measurement *longer* — never shorter — so the minimum is
+    the best available estimate of the pattern's real cost, and it is the standard
+    way to time short operations (`timeit` documents exactly this reasoning).
+
+    Written after this file's own detector-proof test flaked: a *linear* pattern
+    measured 10.9x growth against an 8.0x ceiling, on one run out of three, in a
+    container. A single noisy sample in the denominator inflates the ratio without
+    bound, so the test reported a quadratic pattern where there was none — and a
+    timing gate that reddens CI at random is a gate people switch off, which is
+    worse than not having it.
     """
-    repeats = 1
-    while True:
-        start = time.perf_counter()
-        for _ in range(repeats):
-            compiled.search(text)
-        elapsed = time.perf_counter() - start
-        if elapsed >= _NOISE_FLOOR_S or repeats >= _MAX_REPEATS:
-            return elapsed / repeats
-        repeats *= _REPEAT_STEP
+    best = float("inf")
+    for _ in range(_TIMING_ROUNDS):
+        repeats = 1
+        while True:
+            start = time.perf_counter()
+            for _ in range(repeats):
+                compiled.search(text)
+            elapsed = time.perf_counter() - start
+            if elapsed >= _NOISE_FLOOR_S or repeats >= _MAX_REPEATS:
+                best = min(best, elapsed / repeats)
+                break
+            repeats *= _REPEAT_STEP
+    return best
 
 
 def _worst_growth(pattern: str) -> tuple[float, str, float]:

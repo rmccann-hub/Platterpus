@@ -24,7 +24,7 @@ a disc that still can't read clean at the floor is FLAGGED, never papered over).
   A converged read that merely matches an offset-variant pressing is NEITHER — a
   pressing difference, not a fault — and is never treated as either signal.
 
-**Hardware-gated (see docs/ripper-engine-strategy.md §8 — flagged for the
+**Hardware-gated (see docs/cyanrip-fork.md Part A §8 — flagged for the
 Bazzite + Pioneer BDR-209D validation before this is treated as authoritative):**
   (a) ~~whether cyanrip exposes a reliable per-track read-quality signal~~ —
       ANSWERED 2026-07-01: the whole-disc ripping-error count is NOT sufficient

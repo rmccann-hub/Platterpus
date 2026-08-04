@@ -226,6 +226,74 @@ missing file rather than what it was. `docs/handshake/outbound/round-6.md` is th
 record file that says plainly it is a record, names where the content was actually delivered,
 and points at the answers that prove receipt.
 
+### 7.5 A verification declares a verdict, and the verdict is what closes the round
+
+Every verification file from round 4 on opens with a bolded declaration at the start of a
+line — **`**GO on <pin>`** or **`**HOLD on <pin>`** — and `--status` / `--release-gate` read
+*that*, not the file's existence. Three rules follow, and all three are enforced by
+`tests/test_handshake_tooling.py` rather than stated here only:
+
+- **A HOLD is not a close.** A verification may deliberately be a *mid-round lap*: round 7's
+  own §15 asked us to hold and expect more than one exchange, so our reply verified nine
+  findings, fixed two of our defects, and explicitly did **not** move the pin. The gate keyed
+  on the file existing, reported `round-7 … -> CLOSED`, and allowed a release — while the
+  deviation policy forbids releasing or switching the pin with a round open. The same defect
+  §7 already records twice: *a check satisfied by the wrong thing*.
+- **No verdict fails closed.** A verification that never says which it is has not answered the
+  only question the protocol asks of it, and "not yet" is the safe reading. Rounds 1–3 are the
+  named exception — reconstructed retrospectively, long before the convention existed — and
+  that exemption list may shrink, never grow, or "add the round to the exemption list" becomes
+  a one-line way to close an open round.
+- **The newest file's verdict wins, and a conflict reads as HOLD.** An amendment supersedes
+  what it corrects in this direction too — a GO withdrawn the same evening (round 6b's shape,
+  from the other side) must not keep a round closed. A file declaring both changed its mind
+  mid-draft: a release wrongly blocked is a delay, a release wrongly allowed ships an
+  unverified pin.
+
+**And the prose about a verdict is not the verdict.** Round 7's second paragraph says *"not a
+closing GO"*; a matcher scanning the whole text for "GO" reads that file as GO and closes the
+round off a sentence saying the opposite. The declaration is anchored to a line start for
+exactly that reason.
+
 ---
 
-*Last updated for Platterpus v0.6.3.*
+## 8. The wire format — the shared protocol file
+
+**The specification is [`handshake-protocol.md`](handshake-protocol.md), and it is
+not ours.** It is the same document in both repositories; neither project owns it.
+This section used to *restate* the format, which was the two-vocabularies problem in
+miniature — a second copy that can drift from the first. The fork wrote it up as a
+standalone shared file in round 7 lap 4 and that is strictly better, so we adopted
+it verbatim rather than keeping our own wording.
+
+What lives where:
+
+| | where |
+|---|---|
+| the specification | [`handshake-protocol.md`](handshake-protocol.md) — shared, verbatim, both repos |
+| our gate | `scripts/handshake.py` (`--status`, `--check`, `--release-gate`) |
+| our conformance tests | `tests/test_handshake_conformance.py`, **one test per §8 row** |
+| their gate | `tools/release-gate.py`; their tests are `tests/release_gate.py` |
+
+**Current protocol version: 2.** A gate reading a *higher* number than it
+implements must refuse the round rather than guess — it cannot know which of that
+version's rules it is silently not applying. `handshake.PROTOCOL_VERSION` is ours.
+
+**Why the conformance table is run and not merely read.** Running the fork's §8
+table against our gate found a real defect on the first pass: row 12 (*"no round
+files at all → refuse; an empty record is not agreement"*). Our `--status` returned
+a bare "no handshake rounds" line, which does not end in `OPEN`, so
+`--release-gate` printed *"every round is closed — release allowed"*. **A gate
+satisfied by finding nothing, in the gate whose entire job is not being satisfied by
+nothing.** That is the whole argument for a shared table rather than two
+descriptions.
+
+**Storage stays local and neither layout is wrong.** Ours is
+`docs/handshake/{outbound,inbound,verified}/round-N[suffix].md`; theirs is
+`docs/handshake/round-N[-lapM].md`. Both gates key on the *declared*
+`HANDSHAKE-ROUND`, so neither depends on the other's filenames — which is something
+each side is free to change.
+
+---
+
+*Last updated for Platterpus v0.6.4b1.*

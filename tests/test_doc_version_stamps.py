@@ -45,7 +45,12 @@ _REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 # line so prose that merely *mentions* the convention (with a vX.Y.Z
 # placeholder, or inside a bullet) can never match.
 _FOOTER_RE: re.Pattern[str] = re.compile(
-    r"^\*Last updated for Platterpus v(\d+(?:\.\d+)+)\.\*$", re.MULTILINE
+    # A PEP 440 pre-release suffix (`0.6.4b1`, `1.0rc2`) is part of the version.
+    # The pattern was digits-and-dots only, so the day the project shipped its first
+    # beta EVERY doc read as having zero footers — a check that could not see a
+    # legal version of its own project. Bounded, per the project rule.
+    r"^\*Last updated for Platterpus v(\d{1,4}(?:\.\d{1,4})+(?:(?:a|b|rc)\d{1,3})?)\.\*$",
+    re.MULTILINE,
 )
 
 # The only Markdown files allowed to omit the footer: the ready-to-paste
@@ -78,9 +83,19 @@ _EXEMPT_GENERATED: dict[str, str] = {
 # number, and `scripts/handshake.py --status` is what reports it.
 _EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
 
+# The SHARED protocol specification. Exempt for a stronger reason than the round
+# files: it is **the same document in both repositories and neither project owns
+# it**, so stamping it with *our* version would fork the one file whose entire
+# purpose is not being forked. Its currency is `HANDSHAKE-PROTOCOL`, declared in
+# the spec itself and implemented by `handshake.PROTOCOL_VERSION` — a real version
+# marker, just not ours to set unilaterally.
+_EXEMPT_SHARED_SPEC: str = "docs/handshake-protocol.md"
+
 
 def _is_exempt(rel_path: str) -> bool:
     """True for docs that deliberately carry no footer."""
+    if rel_path == _EXEMPT_SHARED_SPEC:
+        return True
     if rel_path in _EXEMPT_GENERATED:
         return True
     if rel_path.startswith(_EXEMPT_CORRESPONDENCE):
@@ -140,8 +155,28 @@ def _tracked_markdown() -> list[str]:
 
 
 def _version_tuple(version: str) -> tuple[int, ...]:
-    """'0.5.0' → (0, 5, 0) so versions compare numerically, not textually."""
-    return tuple(int(part) for part in version.split("."))
+    """'0.5.0' → (0, 5, 0) so versions compare numerically, not textually.
+
+    **PEP 440 pre-release suffixes are stripped**, so `0.6.4b1` → `(0, 6, 4)`.
+    Without that this raised `ValueError: invalid literal for int() ... '4b1'` the
+    moment the project shipped its first beta — a comparator that assumed every
+    version it would ever see was a plain `X.Y.Z`, in a project whose release
+    workflow has always had a pre-release branch.
+
+    A beta sorts **equal to** its base release here rather than below it, and that
+    is deliberate for what this comparator is used for: the question is *"is this
+    stamp from the future?"*, and `0.6.4b1` is not a claim about a version after
+    `0.6.4`. Ordering betas against each other is not a thing any caller asks.
+    """
+    parts: list[int] = []
+    for part in version.split("."):
+        digits = ""
+        for ch in part:
+            if not ch.isdigit():
+                break
+            digits += ch
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
 
 
 def test_every_markdown_doc_carries_exactly_one_footer() -> None:
