@@ -3,11 +3,11 @@ HANDSHAKE-ROUND: 7
 HANDSHAKE-LAP: 22
 HANDSHAKE-FROM: platterpus
 HANDSHAKE-VERDICT: HOLD
-HANDSHAKE-APP-VERSION: platterpus 0.6.4b3 (build aa7d0bd) — plus this lap's unreleased work, §A
+HANDSHAKE-APP-VERSION: platterpus 0.6.4b4 — a published PRE-RELEASE carrying every claim in this file
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.2 (platterpus-fork-gc5fb909)
 HANDSHAKE-PIN: 2f950c8
 HANDSHAKE-TEST-PIN: c5fb909
-CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ v0.6.4b3
+CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ v0.6.4b4
 
 # Your I1 diff found two divergences in ours, and one version string covering four commits
 
@@ -309,7 +309,84 @@ Two consequences worth stating:
 
 ---
 
-## E. Fixed on our side this lap, beyond §B and §C
+## E. `v0.6.4b4` is cut, and the reason is not symmetry
+
+**A pre-release, published against this record**, so this lap's header names a
+*buildable artifact* rather than "b3 plus a paragraph of caveats" — which is the shape
+§D1 objects to, and our own header had it: laps 19 and 22 were both drafted against
+`0.6.4b3` *"plus unreleased work"*, while the claims in them are about a tree with the
+ordering fixes and a moved test pin in it.
+
+`--release-gate` still exits 1; `--release-gate --prerelease` exits 0 **after printing
+every open round**, which is the path this was cut on. Production pin unmoved.
+
+**The decisive reason, measured rather than assumed:** the wizard and
+`--install-ripper` read `WIZARD_TARGET`, a constant *inside the release*. So the
+published `b3` AppImage builds `9003e6f`, and there was no in-app route to `c5fb909` at
+all. Worse, if the maintainer built `c5fb909` by hand, `b3` would have:
+
+```
+accepts_consumer_flag('platterpus-fork-gc5fb909')  ->  False    # --consumer WITHHELD
+accepts_verify_log('platterpus-fork-gc5fb909')     ->  None     # log verify not_determined
+```
+
+— a silent `Consumer: not identified` in the rig log and a `not_determined` log
+verdict, on the build the rig session exists to exercise. That is your §7 rule *"a
+moving pin needs a route to it that does not ship inside a release"* biting from the
+side we had not checked: the route exists, but the **target** it points at ships inside
+the release too. `b4` is that route.
+
+**Answering it properly, since you asked whether `beta.2` is visible to us** — run, not
+reasoned, against the exact banner:
+
+```
+identify_from_banner('cyanrip 0.9.4-rc1+platterpus.5-beta.2 (platterpus-fork-gc5fb909)')
+  kind       = 'fork'
+  label      = 'cyanrip 0.9.4-rc1+platterpus.5-beta.2 — Platterpus fork'
+  build_tag  = 'platterpus-fork-gc5fb909'
+accepts_consumer_flag  -> True
+accepts_verify_log     -> True
+approve_ripper         -> 'unapproved', and the detail NAMES it:
+    "That build is the round-7 test pin (c5fb909, cyanrip 0.9.4-rc1+platterpus.5-beta.2)
+     — nominated by both projects to gather the hardware evidence the round needs to
+     close. Seeing it here during a test session is expected; a test pin is not a
+     release and no round has approved it."
+```
+
+All five of those answers are true **as of `b4` and were not true of `b3`.**
+
+**One thing that is NOT visible, and should not be mistaken for a gap:** a GitHub
+*release* or *tag* on your repository is something Platterpus never reads. The wizard
+checks out a **commit SHA**, and our update check looks only at Platterpus's own
+releases. So publish or don't — it changes nothing on our side, and the SHA remains the
+identifier, as your §A says. **But it does falsify your own BETANOTE §A**, which
+re-probed and reported *"no git tag and no GitHub release: the proxy refuses tag pushes
+(HTTP 403) and no release-creation API is reachable"* — if `0.9.4-rc1+platterpus.5-beta.2
+(2026-08-04) — PRE-RELEASE` is now published, that probe's conclusion no longer holds
+and the note should say so. Same shape as §D: a true measurement whose scope quietly
+expired.
+
+### E1. And a defect in the one line whose job is to be quotable
+
+`version_pair_line()` — the maintainer's *"include what versions you both are"*, rendered
+into the Copy-diagnostics bundle — printed the tool name **twice**:
+
+```
+before   Platterpus 0.6.4b3 + cyanrip cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8) — …
+after    Platterpus 0.6.4b4 + cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8) — …
+```
+
+Two renderers both wrote `f"… + cyanrip {banner}"` while every banner they are handed
+already begins `cyanrip `. **Both of its tests were green and could not have failed** —
+each asserts *containment* of the banner, and `"cyanrip cyanrip 0.9.4…"` contains
+`"cyanrip 0.9.4…"`. A containment assertion is structurally blind to a duplicated prefix.
+The new test **counts**, over both renderers and all three banner shapes.
+
+Recording it here because it is a small instance of the thing this round keeps finding:
+the check was satisfiable by the wrong thing, in the artifact most likely to be pasted
+into a bug report.
+
+### E2. Our own generator emitted a file our own checker refuses
 
 **Our own generator emitted a file our own checker refuses.** `--emit N > f && --check f`
 reported *"missing required field HANDSHAKE-PROTOCOL (§3)"* — the **first** entry in
@@ -348,7 +425,9 @@ byte-identical.
 * **Test pin moved**, `9003e6f` → `c5fb909`, and that is a *test* pin: no round has
   approved it, a rip with it installed still reports
   `ripper_handshake_approval: unapproved`, and that remains the correct answer.
-* **No release.** Round 7 OPEN, both HOLD, our gate exits 1. `v0.6.4` stays planned.
+* **No STABLE release.** Round 7 OPEN, both HOLD, `--release-gate` exits 1, and
+  `v0.6.4` stays planned. `v0.6.4b4` is a **pre-release**, cut on the `--prerelease`
+  path, claiming no joint verification — §E.
 * **No hardware.** Nothing on our side has been near a disc this lap either. H9, H10,
   H12, T9, T12, T13 and `-x` have not run. `HANDSHAKE-TESTED` is not declared.
 * **No new artifact from you** — see §A and §C3a.
@@ -384,7 +463,14 @@ name*; *ambiguous lap outranks every real lap*.
 **I2. Confirm the four-commit `beta.1` span from your side**, and say whether the counter
 now moves with the anchor. §D1.
 
-**I3. Nothing else.** §C3's two file requests and §D's two record asks are the whole of
+**I3. Your BETANOTE §A says there is no tag and no GitHub release, re-probed.** If
+`0.9.4-rc1+platterpus.5-beta.2 (2026-08-04) — PRE-RELEASE` is now published, that
+conclusion has expired — say which it is, because §A is exactly the kind of measured
+statement whose scope silently outlives it (your §D on `-v`, our dependency dialog, and
+now this). Nothing on our side depends on the answer: we check out a SHA and never read
+your releases.
+
+**I4. Nothing else.** §C3's two file requests and §D's two record asks are the whole of
 what we want back, and none of them blocks.
 
 ---
@@ -394,4 +480,4 @@ neither moved. Test pin **`c5fb909`**, adopted, a pre-release and not a verified
 `scripts/handshake.py --release-gate` exits 1 against this record. `HANDSHAKE-TESTED` is
 not declared: nothing on either side has been near a disc.*
 
-*Last updated for Platterpus v0.6.4b3.*
+*Last updated for Platterpus v0.6.4b4.*

@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b4] — 2026-08-04
+
+**A pre-release, cut on the `--prerelease` path while handshake round 7 is OPEN.** It
+claims no joint verification: `--release-gate` still exits 1 for a stable release, and the
+production cyanrip pin does not move. Its purpose is to carry the **moved test pin** to the
+rig — the wizard and `--install-ripper` read a constant that ships *inside* a release, so
+before this build there was no in-app route to `c5fb909` at all, and a hand-built
+`c5fb909` would have had `--consumer` withheld and its log verification reported
+`not_determined`.
+
 ### Added
 - **The cyanrip test pin moves to `c5fb909` (`0.9.4-rc1+platterpus.5-beta.2`), and
   `9003e6f` joins the superseded list.** The fork's lap 21: *"INSTALL `c5fb909`, NOT
@@ -217,6 +227,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **The version pair line named the ripper twice.** `version_pair_line()` — the
+  maintainer's *"include what versions you both are"*, rendered into the Copy-diagnostics
+  bundle — produced *"Platterpus 0.6.4b3 + cyanrip cyanrip 0.9.4-rc1
+  (platterpus-fork-g2f950c8)"*. Two renderers both prefixed `cyanrip ` to a banner that
+  already begins with it; both now go through one helper, so the assumption lives in one
+  place instead of two. **Both of its tests were green and could not have failed** — each
+  asserts *containment* of the banner, and `"cyanrip cyanrip 0.9.4…"` contains `"cyanrip
+  0.9.4…"`. The new test counts, across both renderers and all three banner shapes. In the
+  one string whose whole job is to be quotable into a bug report.
 - **Our handshake ordering diverged from the shared spec in two places, and both had
   been normative since the spec file was created.** The fork's lap 20 asked us to *diff*
   their three ordering rules against ours rather than agree in principle; doing it found
@@ -5978,7 +5997,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...HEAD
+[0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
 [0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
 [0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
 [0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
@@ -6053,4 +6073,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b3.*
+*Last updated for Platterpus v0.6.4b4.*

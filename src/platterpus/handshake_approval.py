@@ -305,6 +305,33 @@ def cross_check_note(verdict: str, note: str | None) -> str:
     return ""
 
 
+#: The tool name, as cyanrip's own banner already spells it. A banner *starts* with
+#: this word, so any renderer that prefixes "cyanrip " to one prints it twice.
+_RIPPER_NAME: Final[str] = "cyanrip"
+
+
+def _named_banner(banner: str) -> str:
+    """A banner with the tool name exactly once. **Both renderers go through here.**
+
+    Both of them said ``f"… + cyanrip {banner}"`` while every banner they are handed —
+    :data:`fork_source.FORK_EXPECTED_BANNER`, and whatever the ripper actually reported
+    — already begins ``cyanrip ``. So the maintainer-requested pair line rendered
+    *"Platterpus 0.6.4b3 + cyanrip cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)"*, in the
+    Copy-diagnostics bundle, which is the one place its whole job is to be quotable.
+
+    Kept as a shared helper rather than fixed twice: the defect was **two** renderers
+    making the same assumption, and fixing each in place leaves the assumption in two
+    places to be made again by a third.
+
+    A banner that does *not* name the tool still gets the prefix, because a bare version
+    or build tag is exactly the case where the reader needs to be told which tool it is.
+    """
+    text = banner.strip()
+    if text.casefold().startswith(f"{_RIPPER_NAME} "):
+        return text
+    return f"{_RIPPER_NAME} {text}" if text else f"{_RIPPER_NAME} (no banner)"
+
+
 def version_pair_line() -> str:
     """One line naming **both** versions and what they were approved as.
 
@@ -313,7 +340,7 @@ def version_pair_line() -> str:
     use."*
     """
     return (
-        f"Platterpus {__version__} + cyanrip {fork_source.FORK_EXPECTED_BANNER} "
+        f"Platterpus {__version__} + {_named_banner(fork_source.FORK_EXPECTED_BANNER)} "
         f"— pair verified by handshake round {APPROVED_BY_ROUND} "
         f"(approved for Platterpus {APPROVED_FOR_PLATTERPUS_VERSION})"
     )
@@ -325,11 +352,19 @@ def observed_version_pair_line(banner: str | None) -> str:
     Used where the artifact must say what happened rather than what should have:
     an archival log that names the approved pair while a different binary produced
     it is the stale-build-tag failure with the roles swapped.
+
+    **Called from nowhere in `src/` as of v0.6.4b4** — the structured report carries the
+    same facts as `ripper_version` / `ripper_build` / `ripper_handshake_approval`, so
+    nothing is missing from a diagnosis; what is missing is this rendering, and the
+    docstring above asserted a use it does not have. Recorded here rather than deleted
+    or given a call site invented during a release: a renderer with no caller is the
+    shape `RipHandle.cancel` had, and the honest state is worth writing down until it
+    has the one it should have (`TASKS.md`, round-7 block).
     """
     approval = approve_ripper(banner)
-    observed = approval.observed_banner or "(no banner)"
+    observed = approval.observed_banner or ""
     return (
-        f"Platterpus {__version__} + cyanrip {observed} — "
+        f"Platterpus {__version__} + {_named_banner(observed)} — "
         f"handshake approval: {approval.verdict}"
     )
 

@@ -411,6 +411,42 @@ def test_version_pair_line_names_both_versions() -> None:
     assert str(ha.APPROVED_BY_ROUND) in line
 
 
+def test_neither_pair_line_says_cyanrip_twice() -> None:
+    """**REGRESSION, in the one line whose job is to be quotable.**
+
+    Both renderers wrote ``f"… + cyanrip {banner}"`` while every banner they are handed
+    already begins ``cyanrip ``, so the maintainer-requested pair line rendered
+    *"Platterpus 0.6.4b3 + cyanrip cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)"* — in the
+    Copy-diagnostics bundle, the place it is most likely to be pasted into a bug report.
+
+    **The two tests above were green throughout, and could not have failed**: both assert
+    *containment* of the banner, and `"cyanrip cyanrip 0.9.4…"` contains `"cyanrip
+    0.9.4…"`. A containment assertion is structurally blind to a duplicated prefix — *can
+    this check be satisfied by the wrong thing?*
+
+    Asserted by **counting**, which is the observation that separates them, and over both
+    renderers plus the shapes a banner can arrive in: a full banner, a bare build tag, and
+    nothing at all.
+    """
+    lines = {
+        "version_pair_line": ha.version_pair_line(),
+        "observed/full banner": ha.observed_version_pair_line(
+            "cyanrip 0.9.4-rc1+platterpus.5-beta.2 (platterpus-fork-gc5fb909)"
+        ),
+        "observed/bare tag": ha.observed_version_pair_line("platterpus-fork-gc5fb909"),
+        "observed/none": ha.observed_version_pair_line(None),
+    }
+    for label, line in lines.items():
+        assert line.count("cyanrip") == 1, (
+            f"{label} names the tool {line.count('cyanrip')} times: {line!r}"
+        )
+        # And it names it AT ALL — the fix must not be "drop the word".
+        assert "cyanrip" in line, f"{label} no longer says which ripper: {line!r}"
+    # Floor: all four shapes were actually exercised, so this cannot pass on an empty
+    # dict if the helper is ever refactored into something that returns nothing.
+    assert len(lines) == 4
+
+
 def test_observed_pair_line_reports_what_ran_not_what_should_have() -> None:
     """An archival log naming the approved pair while another binary produced it is
     the stale-build-tag failure with the roles swapped."""

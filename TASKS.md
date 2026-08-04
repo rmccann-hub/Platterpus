@@ -851,7 +851,19 @@ underneath it — and one of the changes it spans is a **log value we parse** (t
 nothing here broke; a human reading a report's `ripper_version` could not have told which
 behaviour they had. Raised as lap 22 §D1/I2.
 
-- **[x] Platterpus test pin: `v0.6.4b1`** — published pre-release.
+- **[x] Platterpus test pin: `v0.6.4b4`** — published pre-release, superseding `b1`.
+      Cut when the fork moved their test pin to `c5fb909`, and **the reason is the delivery
+      vehicle, not symmetry**: the wizard and `--install-ripper` read `WIZARD_TARGET`, a
+      constant that ships *inside* a release, so a user on `b3` had no in-app route to
+      `c5fb909` — and a hand-built `c5fb909` would have had `--consumer` **withheld**
+      (`accepts_consumer_flag` → `False`, a silent `Consumer: not identified` in the rig
+      log) and log verification reported `not_determined`. Measured on `b3`, not assumed.
+- **[ ] Wire `observed_version_pair_line()` or delete it.** Exported, tested, and called
+      from **nowhere** in `src/` — the `RipHandle.cancel` shape. Nothing is missing from a
+      diagnosis (the report carries `ripper_version` / `ripper_build` /
+      `ripper_handshake_approval` structurally); what is missing is the *rendering*, and
+      its docstring asserted a use it does not have. The docstring now says so rather than
+      a call site being invented during a release.
 - **[x] Adopt the fork's beta as the wizard's build target.** `WIZARD_TARGET` →
       `9003e6f`, checked out as an exact detached commit; `platterpus-fork-g9003e6f`
       added to the `--consumer` allowlist so rig logs carry both halves of the pair.
@@ -1205,4 +1217,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.4b3.*
+*Last updated for Platterpus v0.6.4b4.*
