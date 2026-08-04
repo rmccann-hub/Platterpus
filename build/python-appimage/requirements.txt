@@ -33,9 +33,16 @@ PySide6~=6.7
 musicbrainzngs==0.7.1
 tomli-w~=1.0
 # Ed25519 release-signature verification (update_signing.py). Floor is the
-# GHSA-537c-gmf6-5ccf fix (48.0.1); `~=48.0` (>=48.0,<49.0) resolves to the
-# newest patched 48.x. pyproject allows the broader >=48.0.1,<50 for dev/pipx;
-# the exact bundled version is fixed by requirements.lock (see the
-# reproducibility note above). Bump both together, and keep the floor patched.
-cryptography~=48.0
+# CVE-2026-69247 fix (50.0.0); `~=50.0` (>=50.0,<51.0) resolves to the newest
+# patched 50.x. pyproject matches with >=50.0.0,<51 for dev/pipx; the exact
+# bundled version is fixed by requirements.lock (see the reproducibility note
+# above). Bump both together, and keep the floor patched.
+#
+# WHY THE FLOOR IS A FLOOR, not a range down to the last known-good release: the
+# CI `pip-audit` gate resolves the HIGHEST version the range allows and fails on a
+# vulnerable one. The previous `>=48.0.1,<50` let it pick 49.0.0, which carries
+# CVE-2026-69247 — so the ceiling was excluding the only fix. A range whose top end
+# is vulnerable turns CI red with no change to our code, which is the floating-tool
+# problem (Critical rule #11) arriving through a dependency instead of a linter.
+cryptography~=50.0
 platterpus

@@ -189,6 +189,15 @@ for the two builds by name.
 - `platterpus-fork-g9003e6f` accepts `--consumer`, so the beta's rig logs carry both
   halves of the pair instead of `Consumer: not identified`.
 
+### Security
+- **`cryptography` 48.0.1 → 50.0.0 (CVE-2026-69247).** The CI `pip-audit` gate went red
+  with no change to our code, and the cause was the *ceiling*, not the floor: `49.0.0`
+  carries the CVE, the fix is `50.0.0`, and our range was `>=48.0.1,<50` — so the ceiling
+  **excluded the only fix** while pip-audit resolved the vulnerable top of the range. Now
+  `>=50.0.0,<51` (pyproject) and `~=50.0` (AppImage), bumped together. Verified against
+  50.0.0 before the bump: the Ed25519 verify surface `update_signing.py` actually uses,
+  plus 32 signing/install tests.
+
 ### Fixed
 - **The AppImage was being built from PyPI, not from the source tree.**
   `build/python-appimage/requirements.txt` carried a bare `platterpus`, and
