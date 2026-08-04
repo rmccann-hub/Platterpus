@@ -187,7 +187,7 @@ def test_no_value_is_spliced_into_the_build_script() -> None:
         fork_source.FORK_REPO_URL,
         fork_source.FORK_BRANCH,
         fork_source.WIZARD_TARGET.pin,
-        fork_source.FORK_SOURCE_DIR,
+        fork_source.FORK_SOURCE_SUBPATH,
     ):
         assert value not in script, f"{value!r} is spliced into the script body"
         assert value in argv, f"{value!r} must be passed as its own argument"
@@ -203,7 +203,7 @@ def test_the_build_script_has_a_label_argument_so_values_are_not_eaten_as_argv0(
     after_script = argv[argv.index("-c") + 2 :]
     assert after_script[0] == "build-cyanrip-fork"
     assert after_script[1:] == [
-        fork_source.FORK_SOURCE_DIR,
+        fork_source.FORK_SOURCE_SUBPATH,
         fork_source.FORK_REPO_URL,
         fork_source.FORK_BRANCH,
         fork_source.WIZARD_TARGET.pin,
@@ -266,3 +266,155 @@ def test_every_meson_dependency_of_the_fork_is_installed(module: str) -> None:
     library rather than about a wizard, so this list is the difference between a
     one-click install and a support thread."""
     assert f"pkgconfig({module})" in fork_source.FORK_BUILD_PACKAGES
+
+
+# --- The `$HOME` defect: paths, expansion, and the guard --------------------
+
+
+def test_the_source_subpath_carries_no_shell_variable() -> None:
+    """REGRESSION (real-user log, 2026-08-04, v0.6.4b2).
+
+    This constant was the literal ``"$HOME/.cache/platterpus/cyanrip-fork"`` with a
+    comment claiming the container's shell would expand it. **Parameter expansion
+    does not recurse:** the script did ``src="$1"``, so ``$HOME`` stayed 5 literal
+    characters and every path became relative to a directory *named* ``$HOME``. The
+    user's own log said::
+
+        Source dir: /home/rmccann/$HOME/.cache/platterpus/cyanrip-fork
+
+    The build still succeeded — right commit, right version, 31/31 targets — because
+    clone, configure, compile and install all used the same wrong string and agreed
+    with each other. The only casualty was meson's ``vcs_tag``, which fell back to
+    upstream's literal ``release``, so the binary reported
+    ``platterpus-fork-grelease``: a build tag naming no commit.
+    """
+    assert "$" not in fork_source.FORK_SOURCE_SUBPATH
+    assert not fork_source.FORK_SOURCE_SUBPATH.startswith("/"), (
+        "the subpath is relative to $HOME by design — the script prefixes it"
+    )
+    assert not hasattr(fork_source, "FORK_SOURCE_DIR"), (
+        "FORK_SOURCE_DIR was the `$HOME`-bearing constant; it must not come back"
+    )
+
+
+def test_no_command_ships_an_unexpanded_variable_to_the_container() -> None:
+    """The sweep, not the single case. ANY argv with a `$` is the same defect.
+
+    Checked across the whole plan rather than the two commands known to have had
+    it, because the failure mode is invisible when every consumer is wrong the same
+    way — which is exactly how it survived.
+    """
+    for argv in fork_source.fork_build_commands(CONTAINER):
+        # The script BODIES legitimately contain `$1`/`$HOME` — that is the fix.
+        # It is the *arguments* that must be literal.
+        script_idx = argv.index("-c") + 1 if "-c" in argv else -1
+        for i, arg in enumerate(argv):
+            if i == script_idx:
+                continue
+            assert "$" not in arg, (
+                f"argv element {arg!r} carries an unexpanded shell variable; it will "
+                f"arrive at the container literally (full argv: {argv})"
+            )
+
+
+def test_the_build_and_install_scripts_expand_home_at_the_point_of_use() -> None:
+    """Both must prefix `$HOME` themselves, and both must agree.
+
+    Fixing only the build would leave the install copying from a path that no
+    longer exists — the two were consistent in being wrong, so they have to stay
+    consistent in being right.
+    """
+    build = fork_source.build_command(CONTAINER)
+    install = fork_source.install_command(CONTAINER)
+    for argv in (build, install):
+        script = argv[argv.index("-c") + 1]
+        assert 'src="$HOME/$1"' in script, (
+            f"script does not expand $HOME at the point of use:\n{script[:200]}"
+        )
+        assert fork_source.FORK_SOURCE_SUBPATH in argv, (
+            "the subpath must arrive as its own argument, never spliced into the body"
+        )
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "$HOME/.cache/platterpus/cyanrip-fork",  # the actual defect
+        "/absolute/path",
+        "../escape",
+        "a/../../b",
+        "has space; rm -rf /",
+        "back`tick`",
+        "quote'd",
+        'double"quote',
+        "pipe|it",
+        "amp&it",
+        "glob*star",
+        "",
+        "  padded  ",
+    ],
+)
+def test_the_chokepoint_guard_rejects_what_a_shell_would_mangle(bad: str) -> None:
+    """CLAUDE.md: validate outputs to dependencies **at the argv chokepoint**, in
+    code — not merely stated in a doc. The `$` case is the one that shipped."""
+    with pytest.raises(ValueError):
+        fork_source.assert_shell_safe_subpath(bad)
+
+
+def test_the_chokepoint_guard_accepts_the_real_subpath() -> None:
+    """The converse — so the guard cannot pass by rejecting everything."""
+    assert (
+        fork_source.assert_shell_safe_subpath(fork_source.FORK_SOURCE_SUBPATH)
+        == fork_source.FORK_SOURCE_SUBPATH
+    )
+
+
+def test_the_build_script_reports_the_paths_it_resolved() -> None:
+    """The diagnostics that would have ended this in seconds instead of two rounds.
+
+    The failure was *entirely* visible in a path, and nothing printed the path.
+    """
+    argv = fork_source.build_command(CONTAINER)
+    script = argv[argv.index("-c") + 1]
+    for needed in (
+        "HOME=$HOME",
+        "cwd=$(pwd)",
+        "source tree=$src",
+        "rev-parse HEAD",
+        "status --porcelain",
+        "built banner=",
+    ):
+        assert needed in script, f"the build script never reports {needed!r}"
+
+
+def test_the_build_script_refuses_a_relative_or_variable_bearing_source_tree() -> None:
+    """Belt to the Python guard's braces — the shell checks its own `$src` too.
+
+    Two independent expressions, deliberately: the Python guard protects the value
+    we pass, and this protects against a `$HOME` that is itself unset or odd inside
+    the container, which Python cannot see.
+    """
+    argv = fork_source.build_command(CONTAINER)
+    script = argv[argv.index("-c") + 1]
+    assert "is not an absolute path" in script
+    assert "unexpanded variable" in script
+
+
+def test_the_verify_error_names_the_banner_it_ACTUALLY_saw() -> None:
+    """The single missing string that cost two sessions.
+
+    The old message said only "does not identify as the pinned fork build ($2)" —
+    what we EXPECTED. The observed banner was printed one line earlier on stdout,
+    and `HostSetup._run_commands` keeps only the LAST line for the UI, so the one
+    fact that mattered was discarded exactly when it mattered. The answer was
+    `platterpus-fork-grelease` — not a wrong commit, a tag naming *no* commit.
+    """
+    argv = fork_source.verify_command(CONTAINER)
+    script = argv[argv.index("-c") + 1]
+    assert "reports" in script and "$banner" in script, (
+        f"the verify error does not quote the observed banner:\n{script}"
+    )
+    assert "grelease" in script, (
+        "the vcs_tag-fallback case has a specific cause and deserves its own "
+        "sentence — a user should not need to know meson internals to act on it"
+    )

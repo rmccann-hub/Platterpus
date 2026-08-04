@@ -166,6 +166,13 @@ class SubprocessRunner:
             log.debug(
                 "host-setup: exit 0 from %s\n%s", argv[0], _bounded_output(output)
             )
+        else:
+            # ALWAYS record the exit, even with no output. A command that succeeds
+            # silently otherwise leaves *nothing* between the argv line before it and
+            # the argv line after it, so "did it run?" is unanswerable from the log.
+            # The real report had exactly this hole for `sudo install`: two
+            # consecutive argv lines and no verdict for the first.
+            log.debug("host-setup: exit 0 from %s (no output)", argv[0])
         return proc.returncode, output
 
 
