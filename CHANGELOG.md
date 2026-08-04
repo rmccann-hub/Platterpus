@@ -11,6 +11,15 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Verified on hardware
+- **The `$HOME` fix works on the real rig.** After installing v0.6.4b3 the setup
+  wizard reports every step ✓ — *"Platterpus fork of cyanrip (build + export) —
+  installed"* — and the binary confirms it itself:
+  `~/.local/bin/cyanrip --version` → `cyanrip 0.9.4-rc1+platterpus.5-beta.1
+  (platterpus-fork-g9003e6f)`. Read off the binary rather than inferred from the
+  wizard's verdict. The orphaned `~/'$HOME'` tree the bug created is confirmed present
+  on disk and is now dead weight, which is the defect's own fingerprint.
+
 ## [0.6.4b3] — 2026-08-04
 
 **The `$HOME` defect, found by the diagnostics b2 added.** b2's whole purpose was to
