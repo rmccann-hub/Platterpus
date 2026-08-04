@@ -579,28 +579,37 @@ calls the worse of the two, because the report still looks complete either way.
 - **[x] `cd-paranoia -A`'s exit code, `eject`'s message, the `except OSError: pass` that
       could send a rip into the folder the user was avoiding, and the drive-offset CSV's
       unlogged row skips.**
-- **[ ] The minimal failure report must carry `captured_stdout` + `debug_log`.** Ranked #1
+- **[x] The minimal failure report must carry `captured_stdout` + `debug_log`.** Ranked #1
       by the surfacing audit: on exactly the rips the minimal report exists for, the
       ripper's whole output reaches neither screen, nor `log.txt` (INFO by default), nor
       the one artifact written — while sitting in a variable the code already knows how to
       serialise.
-- **[ ] Stop `"Rip failed."` clobbering the captured error text.** `_finish_rip` reads only
+- **[x] Stop `"Rip failed."` clobbering the captured error text.** `_finish_rip` reads only
       `worker.failure_hint`, never `_last_rip_error`, so on every start/stream failure the
       specific sentence is replaced by the generic one two lines after being stored.
-- **[ ] Failure surfaces must name the log path, XDG-aware, and never no-op silently.**
+- **[x] Failure surfaces must name the log path, XDG-aware, and never no-op silently.**
       ~20 dialogs say "see the log" with no path; two hardcode `~/.local/share/...` against
       an XDG-aware `paths.py`; a crashed dependency probe makes *Tools → Check
       dependencies* do nothing visible at all.
-- **[ ] Close `report_types.py` drift and make its test a sweep**, not three anchored blocks.
-- **[ ] A copyable diagnostics surface.** There is no export, bundle or copy action
+- **[x] Close `report_types.py` drift and make its test a sweep**, not three anchored blocks.
+- **[x] A copyable diagnostics surface.** There is no export, bundle or copy action
       anywhere in the UI, and the one place a cyanrip fatal is displayed cannot be selected.
-- **[ ] Failure paths must log at ≥ WARNING.** `log.txt` is INFO-only by default, so every
+- **[x] Failure paths must log at ≥ WARNING.** `log.txt` is INFO-only by default, so every
       DEBUG subprocess record — including cyanrip's entire transcript — is absent from a
       bug report unless the user had already turned Debug logging on.
-- **[ ] Carry it into the next handshake lap** so both projects hold the same expectations
-      for what each side captures, surfaces and can be asked for.
+- **[x] Carry it into the next handshake lap**, so both projects hold the same
+      expectations for what each side captures, surfaces and can be asked for. Sent as
+      lap 10 (`verified/round-7f.md`, **HOLD** — the round stays open). It states our
+      half so they can hold us to it, and asks three things back: confirm the same
+      promise on their side; answer their own lap-7 §4 on the seven stdout-only refusal
+      paths (**our view: document them as stdout-only rather than opening the logfile
+      earlier — a logfile opened before the disc is validated trades an old ambiguity
+      for a new one**); and state the *range* a contract claim covers rather than the
+      snapshot. We owed the third one too, so the generated consumer contract now opens
+      with a §0 naming exactly which app version and which approved ripper build its
+      claims cover.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 9 sent, both betas cut)
+### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 10 sent, both betas cut)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
 `verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
