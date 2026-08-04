@@ -46,6 +46,7 @@ from typing import Final
 
 from platterpus.adapters.tool_run import ToolRun, ToolRunner, make_runner
 from platterpus.cyanrip_cli import VERIFY_LOG_FLAG
+from platterpus.deps import fork_source
 
 #: Generous, because the call may cold-start a container (measured: 3.45 s). Still
 #: bounded — a wedged verifier must degrade to ``not_determined``, not hang a rip's
@@ -110,6 +111,7 @@ def verify_rip_log(
     log_path: str | Path,
     binary: str = "cyanrip",
     *,
+    build_tag: str = "",
     runner: ToolRunner | None = None,
 ) -> LogVerification:
     """Run ``<binary> --verify-log <log_path>`` and classify the result.
@@ -160,16 +162,42 @@ def verify_rip_log(
             str(path),
             run,
         )
-    if _looks_like_flag_rejection(run.output):
-        # A build that does not know the flag cannot be reporting a bad log. This
-        # is the `-V` lesson applied in the other direction: a rejected flag and a
-        # failed operation both exit non-zero, and reading the first as the second
-        # is exactly how "the tool is not installed" got reported for a working
-        # binary.
+    # THE DISCRIMINATOR IS THE BUILD, NOT THE RIPPER'S WORDING.
+    #
+    # A rejected flag and a rejected log both exit non-zero, and only one of them
+    # means the archival log is untrustworthy. Our first version told them apart by
+    # matching cyanrip's error text; the fork's lap-12 J4 pointed out that string is
+    # **genopt's, not theirs, and one upstream sync from changing** — and asked us to
+    # key on the exit code plus the flag's presence in their published table instead.
+    #
+    # They are right, and it is the same lesson from the other direction: a matcher
+    # built on a dependency's prose is a hand-maintained list of shapes, which is
+    # exactly what hid 16 of their fatal strings in round 5.
+    #
+    # So `failed` now requires POSITIVE evidence the build accepts the flag. Anything
+    # else is `not_determined`, which fails safe: the cost of that is a report line,
+    # while the cost of the other error is accusing an intact archival log of being
+    # corrupt.
+    supported = fork_source.accepts_verify_log(build_tag)
+    if supported is not True:
         return _not_determined(
-            f"this ripper build does not accept {VERIFY_LOG_FLAG}, so "
-            f"{path.name} could not be verified — a rejected flag is not a failed "
-            "verification",
+            f"{path.name} was not verified: the ripper exited {run.exit_code}, and "
+            f"we cannot establish that this build accepts {VERIFY_LOG_FLAG}"
+            + (f" (build tag {build_tag!r})" if build_tag else " (no build tag)")
+            + " — a non-zero exit from a build whose flag support is unknown is not "
+            "evidence against the log",
+            str(path),
+            run,
+        )
+    if _looks_like_flag_rejection(run.output):
+        # Kept as a BELT, never the load-bearing check. A build we believe supports
+        # the flag but which says otherwise is telling us our table is wrong, and the
+        # safe reading of that is still "not determined".
+        return _not_determined(
+            f"this ripper build appears not to accept {VERIFY_LOG_FLAG} despite "
+            f"being listed as supporting it, so {path.name} could not be verified — "
+            "a rejected flag is not a failed verification, and the disagreement "
+            "means our published-table entry for this build needs re-checking",
             str(path),
             run,
         )

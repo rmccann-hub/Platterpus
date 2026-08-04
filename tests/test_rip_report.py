@@ -1014,7 +1014,13 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_18() -> None:
+def test_schema_version_is_19() -> None:
+    # v19 added `rip.read_stalls` — the fork's stall-watchdog verdict, verbatim. They
+    # added that line at their own initiative FOR us, and we were not reading it while
+    # answering a design question about whether we wanted it per-track (round 7 lap 9
+    # J3 versus lap 13). `null` on stock cyanrip, which never prints it: a third state,
+    # because "no stalls measured" and "stalls not measured" are different claims.
+    #
     # v18 added `ripper_log_verification` — the RIPPER's verdict on its OWN log, run
     # with its own `--verify-log` and its own checksum. The one block here whose
     # verdict is not ours, which is the entire reason it exists: the cyanrip fork
@@ -1035,7 +1041,7 @@ def test_schema_version_is_18() -> None:
     # reader to already know about `outcome.failure_hint`, `log_parse.note`,
     # `ctdb.error`, the per-track `issues` and the verification blocks. (v15 added the
     # rip-time handshake-approval block.)
-    assert REPORT_SCHEMA_VERSION == 18
+    assert REPORT_SCHEMA_VERSION == 19
 
 
 def _issue_codes(report: dict) -> set[str]:

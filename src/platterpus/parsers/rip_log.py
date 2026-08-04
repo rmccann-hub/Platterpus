@@ -314,6 +314,16 @@ class RipLog:
     #: Why it did not complete, in the ripper's own words ("interrupted by
     #: user"). Empty on a completed rip and when the footer is absent.
     rip_completed_reason: str = ""
+    #: FORK-ONLY. The stall watchdog's disc-level verdict, verbatim — e.g.
+    #: ``none (no read exceeded 10s)``. ``""`` means the ripper did not print the
+    #: line at all (stock cyanrip never does), which is a THIRD state: "no stalls
+    #: measured" and "stalls not measured" are different claims and must not render
+    #: the same way.
+    #:
+    #: Text, not a parsed count, on purpose: we have only ever seen the ``none``
+    #: shape, and a regex for the populated one would encode our guess at the fork's
+    #: wording. That guess is what put ``merged`` in the gap matcher for two rounds.
+    read_stalls: str = ""
     # cyanrip's "Paranoia status counts" block (READ/VERIFY/FIXUP_ATOM/OVERLAP/…)
     # — error-correction activity. High counts explain a slow, re-read-heavy rip.
     paranoia_counts: dict[str, int] = field(default_factory=dict)

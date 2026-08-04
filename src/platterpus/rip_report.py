@@ -181,7 +181,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 18
+REPORT_SCHEMA_VERSION: int = 19
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -943,6 +943,10 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # is what the fork's build system compiled into the binary. When the two
         # disagree, the disagreement is the finding — and a build from an open round
         # says so here permanently, which no banner can.
+        # v19: the fork's stall watchdog verdict, verbatim. `null` on stock, which
+        # never prints the line — a THIRD state beside "none" and a count, because
+        # "no stalls measured" and "stalls not measured" are different claims.
+        "read_stalls": getattr(rip_log, "read_stalls", "") or None,
         "ripper_handshake_note": getattr(rip_log, "handshake_note", "") or None,
         "ripper_consumer": getattr(rip_log, "consumer", "") or None,
         # v13: the *classified* answer, so a consumer does not have to know

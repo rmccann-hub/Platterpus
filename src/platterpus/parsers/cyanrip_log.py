@@ -247,6 +247,22 @@ _RIP_COMPLETED = re.compile(
     r"(?P<done>\d{1,4})\s+of\s+(?P<total>\d{1,4})\s+tracks?"
     r"\))?"
 )
+# FORK-ONLY. The stall watchdog's disc-level verdict, added at the fork's own
+# initiative for us: `Read stalls:    none (no read exceeded 10s)`, or a count with
+# the longest stall's track and LSN named.
+#
+# **We asked for the disc-level line and then did not read it** (round 7 lap 9 J3:
+# we answered "disc-level is enough" about a line we were not consuming — the
+# clearest possible case of answering a contract question from the design rather
+# than from the code). Found by running the real parser over their golden reference
+# in lap 13, which is exactly the measurement that offer was for.
+#
+# The VALUE is kept verbatim as text rather than decomposed into a count plus a
+# track plus an LSN. We have only ever seen the `none` shape, and inventing a regex
+# for the populated one would be a fixture carrying our guess at their wording —
+# the mistake that put `merged` in our gap matcher for two rounds. Lap 13 asks them
+# for a populated example; the structured form waits for it.
+_READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S.*?)\s*$")
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
 # is derived from exactly these (its Start and Length columns reproduce
@@ -727,6 +743,8 @@ class _Disc:
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
     rip_completed_reason: str = ""
+    #: The fork's disc-level stall verdict, verbatim. "" = the line was absent.
+    read_stalls: str = ""
     health_status: str = ""
     log_checksum: str = ""
     # FORK-ONLY, and the strongest provenance line in the file: the binary's own
@@ -1000,6 +1018,18 @@ def _take_rip_completed(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_read_stalls(disc: _Disc, match: re.Match[str]) -> bool:
+    """The stall watchdog's disc-level verdict, verbatim.
+
+    ``""`` means the line was absent — stock cyanrip never prints it — which is a
+    third state distinct from ``none (no read exceeded 10s)``. *No stalls measured*
+    and *stalls not measured* are different claims about different evidence, and
+    collapsing them would be the tri-state rule broken in the usual direction.
+    """
+    disc.read_stalls = match.group("value").strip()
+    return True
+
+
 def _take_log_checksum(disc: _Disc, match: re.Match[str]) -> bool:
     disc.log_checksum = match.group("sig")
     return True
@@ -1115,6 +1145,7 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
     _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
+    _LineRule("read_stalls", _READ_STALLS, _take_read_stalls),
     _LineRule("finished_at", _FINISHED_AT, _take_finished_at),
 )
 
@@ -1999,6 +2030,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         rip_completed_tracks=disc.rip_completed_tracks,
         rip_completed_total=disc.rip_completed_total,
         rip_completed_reason=disc.rip_completed_reason,
+        read_stalls=disc.read_stalls,
         paranoia_counts=disc.paranoia_counts,
         album_loudness=disc.album_loudness,
         log_checksum=disc.log_checksum,

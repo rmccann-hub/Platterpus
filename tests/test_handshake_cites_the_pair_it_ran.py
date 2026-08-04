@@ -59,7 +59,9 @@ _FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 
 
 def _declared(text: str) -> dict[str, str]:
-    return {m.group("key"): m.group("value") for m in _FIELD.finditer(_FENCE.sub("", text))}
+    return {
+        m.group("key"): m.group("value") for m in _FIELD.finditer(_FENCE.sub("", text))
+    }
 
 
 def _cited_dirs(text: str) -> set[str]:
@@ -112,8 +114,12 @@ def test_there_are_handshake_files_and_committed_artifacts() -> None:
     """
     files = _handshake_files()
     assert len(files) >= 5, f"only {len(files)} handshake files — the sweep is blind"
-    dirs = [p for p in _REFERENCE.iterdir() if p.is_dir()] if _REFERENCE.is_dir() else []
-    assert dirs, "no committed artifact directories — nothing to check citations against"
+    dirs = (
+        [p for p in _REFERENCE.iterdir() if p.is_dir()] if _REFERENCE.is_dir() else []
+    )
+    assert dirs, (
+        "no committed artifact directories — nothing to check citations against"
+    )
 
 
 def test_at_least_one_file_cites_an_artifact() -> None:
@@ -123,7 +129,9 @@ def test_at_least_one_file_cites_an_artifact() -> None:
     anything the whole module would be green while checking nothing — which is
     indistinguishable from the mismatch it exists to catch.
     """
-    citing = [p for p in _handshake_files() if _cited_dirs(p.read_text(encoding="utf-8"))]
+    citing = [
+        p for p in _handshake_files() if _cited_dirs(p.read_text(encoding="utf-8"))
+    ]
     assert citing, (
         "no handshake file cites a committed artifact directory, so the pair-mismatch "
         "check examined nothing"
