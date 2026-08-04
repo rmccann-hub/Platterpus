@@ -71,6 +71,7 @@ from platterpus.offset_config import is_offset_configured
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
 from platterpus.paths import LOG_PATH
+from platterpus.report_types import ArtifactsBlock
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
     fidelity_summary,
@@ -1406,10 +1407,27 @@ class RipMixin(MainWindowShared):
         elif self._rip_cancelled:
             status = "Rip cancelled by user. Partial files may remain."
         else:
-            # Prefer an actionable hint (e.g. an unreadable track) over the
-            # bare "Rip failed", so the user knows what to do next.
-            hint = self._rip_worker.failure_hint if self._rip_worker else ""
-            status = hint or "Rip failed."
+            # Prefer an actionable sentence over the bare "Rip failed", so the user
+            # knows what to do next — and read BOTH sources, in the same order the
+            # report already does (see `failure_hint=` in `_last_outcome` above).
+            #
+            # THIS READ ONLY `failure_hint`. On every start/stream failure — the
+            # backend never launched, the pipe died, the child was unreapable — the
+            # ripper produced no stdout, so `failure_hint` is empty, so the last
+            # thing the user saw was the generic sentence. Meanwhile the *specific*
+            # one had been put on screen by `_on_rip_error` seconds earlier and
+            # stashed in `_last_rip_error`, where the report reads it and the status
+            # line did not: the one surface a user actually looks at was the only
+            # one that threw the diagnosis away.
+            #
+            # Falls back to a sentence that at least names the log, rather than four
+            # words that name nothing.
+            hint = (self._rip_worker.failure_hint if self._rip_worker else "") or ""
+            status = (
+                hint.strip()
+                or (getattr(self, "_last_rip_error", "") or "").strip()
+                or f"Rip failed — no diagnosis was captured. See {LOG_PATH}"
+            )
         self._rip_progress.set_status(status)
 
         if log_path:
@@ -2971,15 +2989,34 @@ class RipMixin(MainWindowShared):
         )
 
     def _write_minimal_failure_report(self, params: RipParameters | None) -> None:
-        """Write a minimal report for a rip that produced NO log at all.
+        """Write a report for a rip that produced NO log at all.
 
         A hard failure before any output (the backend never started, or the
         stream died before a file was written) used to write nothing — so the
-        most-broken rips were the *least* diagnosable. This drops a small
-        ``platterpus-rip-failure.platterpus.json`` beside the intended output dir
-        carrying the process ``outcome`` (with the failure hint), the effective
-        ``settings``, and the ``environment`` — enough to triage from. Best-effort
-        and never raises (a failing rip must not be made worse by a report write).
+        most-broken rips were the *least* diagnosable. This drops a
+        ``platterpus-rip-failure.platterpus.json`` beside the intended output dir.
+
+        **It carries the ripper's captured stdout and the session DEBUG log**, and
+        that is the whole point rather than a nicety. It did not, and the
+        consequence was the exact inversion this function exists to fix:
+
+        * the worker's ``captured_stdout`` — built with a head, a counted elision
+          and a tail *specifically to survive a kill* — was **discarded**;
+        * the always-DEBUG session buffer was **not embedded**, because
+          ``debug_log=`` was omitted;
+        * and ``log.txt`` is **INFO by default** while every ripper line is written
+          with ``log.debug("cyanrip │ …")``, so it was not on disk either.
+
+        So on a hard failure with default settings the ripper's entire output
+        existed in memory, in a variable the code already knew how to serialise,
+        and reached neither the screen, nor the log file, nor the one artifact
+        written. Only the one-line ``failure_hint`` survived. The full-report path
+        passed both of these all along; only this path — the one for the rips that
+        need them most — did not.
+
+        Best-effort and never raises (a failing rip must not be made worse by a
+        report write). Each embed is guarded separately, so one that cannot be
+        produced cannot cost us the other, or the report.
         """
         if params is None:
             return
@@ -3005,12 +3042,46 @@ class RipMixin(MainWindowShared):
                     ),
                 ),
                 disc=getattr(self, "_last_disc", None),
+                # The two embeds. Guarded individually, below.
+                artifacts=self._failure_artifacts(),
+                debug_log=self._build_rip_debug_log(),
                 generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             )
             if written is not None:
-                log.info("wrote minimal failure report to %s", written)
+                # WARNING, not INFO. `log.txt` is INFO-only by default so this did
+                # reach it — but a failure report existing at all is a
+                # failure-path fact, and it belongs at the level a reader scanning
+                # for problems will see. The path is named because a user asked to
+                # "send the report" has to be able to find it.
+                log.warning("wrote a rip-failure report to %s", written)
+                self._rip_progress.append_log_line(
+                    f"A failure report was written to {written} — it embeds the "
+                    f"ripper's captured output and this session's debug log."
+                )
         except Exception:  # noqa: BLE001 — a failure report must never crash close
             log.exception("could not write the minimal failure report")
+
+    def _failure_artifacts(self) -> ArtifactsBlock | None:
+        """The ``artifacts`` block for a no-log failure: the ripper's own output.
+
+        Separate and individually guarded so a stdout capture that cannot be built
+        cannot cost us the report it was meant to explain. Returns ``None`` when
+        there is genuinely nothing captured — which is itself distinguishable in
+        the JSON from "we had it and dropped it".
+        """
+        try:
+            from platterpus import report_artifacts
+
+            captured = getattr(self._rip_worker, "captured_stdout", None)
+            if not captured:
+                return None
+            # No rip_log/eac_log/cue: by definition this path ran because none were
+            # written. `build_artifacts` records each absent one explicitly, so the
+            # reader is told they are missing rather than left to infer it.
+            return report_artifacts.build_artifacts(ripper_stdout=captured)
+        except Exception:  # noqa: BLE001 — never cost the report
+            log.exception("could not build the failure report's artifacts block")
+            return None
 
     def _append_read_speed_summary(self) -> None:
         """Note the read-speed ladder's outcome in the results log, if it acted.
