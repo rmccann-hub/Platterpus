@@ -23,6 +23,20 @@ component that decides to run a second pass and does so itself
 real. Faked only at the external boundary: the ripper subprocess. The fake is
 *two-call* — it must be, because a single-call fake cannot exhibit the bug.
 
+**What this fixture does NOT exercise, stated because the fork asked and because
+they were right to ask.** Track 5's `Done; (no matches found, but hit repeat limit
+of 5)` is here because the fixture writes it, **not** because any read disagreed
+with another. It is the right *string* for the wrong *reason*. Their `reference`
+scenario has the identical property — it reaches that line by exhausting the repeat
+limit on clean audio — and their round-7 lap-2 §8 asked both sides to say so
+rather than let the fixture imply non-convergence had been exercised.
+
+So, plainly: **nothing here proves we handle a genuine non-convergence.** What
+would is a disc that actually fails to converge for a physical reason, which is
+hardware (`docs/hardware-test-checklist.md` §F). A harness that is safer than the
+product makes the product's gap invisible — this project's own rule, and it applies
+to the fixture that was written to close a gap.
+
 **Asserted against the artifact, not against a belief.** The report is written to
 disk and **re-read** before the audit runs over it, so a field that serialises
 wrongly (or not at all) fails here rather than passing in memory. And the

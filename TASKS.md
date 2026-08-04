@@ -550,15 +550,23 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-03, OPEN — lap 1 replied)
+### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 3 sent)
 
-`docs/handshake/outbound/round-7.md` was sent; their return landed as
-`docs/handshake/inbound/round-7.md`; our first reply is
-`docs/handshake/verified/round-7.md` — **a mid-round lap, deliberately not a closing GO**
-(their §15 asked us to hold and expect more than one lap). **No release and no pin switch
-while this round is open** (CLAUDE.md deviation policy). The pin stays `2f950c8`; their
-`d5d12ec` is recorded as `NEXT_PIN_UNDER_REVIEW` in `deps/fork_source.py` and is *not*
-installed. What we owe, and what waits on their answers:
+Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
+`verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
+`verified/round-7b.md` (lap 3). **Both sides declare HOLD.** The round is OPEN and
+**neither project releases** — now enforced bilaterally rather than remembered.
+
+The pin stays `2f950c8` (r2). Their `345241b` — which supersedes `d5d12ec`, which
+superseded `ad65a24`, three SHAs for one unreleased version — is recorded as
+`NEXT_PIN_UNDER_REVIEW` and is **not installed**.
+
+**We had not sent them `outbound/round-7.md`.** They asked three times; Q8, which we
+cited three times as blocking our addendum fix, was in it. Delivered with lap 3. Our
+process failure, not their oversight: the protocol says two files per round and we sent
+one.
+
+What we owe, and what waits on their answers:
 
 - **[ ] The addendum must record re-read *attempts*, not only successful swaps.** Round 7
       §2c: our whole-disc log says track 3 `Secure re-read: not attempted` (true of pass 1)
@@ -579,6 +587,16 @@ installed. What we owe, and what waits on their answers:
 - **[ ] H10 — send the `-x` force-overread log line (checklist §F2).** We ship the toggle; we have never
       captured the line it produces on a drive that accepts the command. Hardware-gated on
       the BDR-209D.
+- **[ ] Read the argv surface from their `PROVIDER-CONTRACT:` pointer, not round prose.**
+      Their lap-2 §4 declined our remedy (correctly — the contract *did* change: flags
+      38 → 39 with `-x`, derived rows 422 → 431, so the line we asked them to write would
+      have been false) and offered something better: a generated `PROVIDER-CONTRACT.md` at
+      the pin plus a resolvable `PROVIDER-CONTRACT: <path> @ <commit>` header. Read that
+      file at that commit. Keep the walk-back as the *visible* fallback.
+- **[ ] T14(c) — `Duration:` must agree with `Samples:` in both passes' logs.** Their
+      three-part restatement of T14; (a) is done, (b) is blocked on Q8, (c) needs a
+      `Duration:` field we do not yet parse. Queued behind that field rather than
+      half-landed.
 - **[ ] Re-run the argv-surface agreement test against their round-7 contract** once their
       §I lands. Their round-7 file has **no §I provider-contract section** (genuinely
       absent, not relettered), so `tests/test_argv_surface_agreement.py` walks back to the

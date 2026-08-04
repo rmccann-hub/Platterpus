@@ -280,6 +280,15 @@ _EXPLICIT_NOTHING = (
 )
 
 
+def _safe_read(path: Path) -> str:
+    """File text, or ``""``. Used by probes that run *before* the real read, whose
+    job is to report an unreadable file properly."""
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
 def check_inbound(*paths: Path) -> list[str]:
     """Return a list of problems with a received cyanrip handshake round.
 
@@ -298,6 +307,29 @@ def check_inbound(*paths: Path) -> list[str]:
     problems: list[str] = []
     if not paths:
         return ["no inbound file given"]
+    # The shared wire header (protocol §8.2), required from round 7 on. Checked
+    # per-file rather than across the set: a header is per-document metadata, not
+    # a section a later amendment can supply on an earlier file's behalf.
+    for path in paths:
+        num = round_number(path)
+        if num is not None and num not in THEIR_PRE_HEADER_ROUNDS:
+            problems.extend(check_wire_header(path, expect_from="cyanrip-fork"))
+    # A MID-ROUND LAP IS NOT A FULL ROUND FILE, and demanding all ten sections of
+    # one is the over-strictness this checker's own notes warn about — the failure
+    # whose fix people reach for is switching the checker off. A round opens with a
+    # complete file (lap 1) and then both sides exchange *replies*, each scoped to
+    # what it answers; round 7 lap 2 legitimately has no golden log and no §C
+    # commit table because nothing about those changed in that exchange.
+    #
+    # `HANDSHAKE-LAP` is what makes this decidable rather than a judgement, which
+    # is the field earning its place: if every file in the set declares a lap above
+    # 1, the section sweep does not apply. A set containing a lap-1 file is a full
+    # round and is swept as before.
+    laps = [wire_fields(_safe_read(path)).get("HANDSHAKE-LAP") for path in paths]
+    if laps and all(lap and lap.strip().isdigit() and int(lap) > 1 for lap in laps):
+        if not problems:
+            return []
+        return problems
     texts: list[str] = []
     for path in paths:
         try:
@@ -409,12 +441,46 @@ def _inbound_spec_markdown() -> str:
     return "| § | Contents |\n|---|---|\n" + rows
 
 
+def _fork_pin() -> str:
+    """The pinned fork commit, read from the product rather than retyped here.
+
+    A skeleton that names a pin the code does not build is the drift this whole
+    protocol exists to prevent, so the value comes from `deps/fork_source.py`.
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    return fork_source.FORK_PIN
+
+
+def _fork_banner() -> str:
+    """The exact banner the pinned build prints. Same reason as :func:`_fork_pin`."""
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    return fork_source.FORK_EXPECTED_BANNER
+
+
 def emit_outbound(round_number: int) -> str:
     """Build a skeleton outbound handshake file for ``round_number``."""
     sections = "\n\n".join(
         f"## {s.title}\n\n<!-- {s.why} -->\n\nTODO" for s in OUTBOUND_SECTIONS[:-2]
     )
-    return f"""# Platterpus → cyanrip fork · Round {round_number}
+    from platterpus import __version__ as _app_version  # noqa: PLC0415
+
+    header = "\n".join(
+        [
+            f"HANDSHAKE-ROUND: {round_number}",
+            "HANDSHAKE-LAP: 1",
+            "HANDSHAKE-FROM: platterpus",
+            "HANDSHAKE-VERDICT: OPEN",
+            f"HANDSHAKE-APP-VERSION: platterpus {_app_version}",
+            f"HANDSHAKE-RIPPER-VERSION: {_fork_banner()}",
+            f"HANDSHAKE-PIN: {_fork_pin()}",
+            "CONSUMER-CONTRACT: docs/cyanrip-consumer-contract.md @ <commit>",
+        ]
+    )
+    return f"""{header}
+
+# Platterpus → cyanrip fork · Round {round_number}
 
 <!-- Skeleton from scripts/handshake.py. Every section below is required by
      docs/cyanrip-handshake.md §3; the checker will not let a round go out with
@@ -479,6 +545,128 @@ _VERDICT_LINE = re.compile(r"^[ \t]*(?:\*\*)?(?P<verdict>GO|HOLD)\b", re.MULTILI
 #: verification forgot to state a verdict. This set may shrink, never grow — a
 #: test asserts exactly that.
 RETROSPECTIVE_ROUNDS: frozenset[int] = frozenset({1, 2, 3})
+
+
+# --- The shared wire format (protocol §8) -----------------------------------
+#
+# ONE language, both repos. The fork introduced a machine-readable header block in
+# round 7 lap 2 alongside their own release gate; we had bolded prose. Two gates,
+# two vocabularies, one protocol — each able to read only its own files, which is
+# exactly what `CLAUDE.md` rule 12's "this rule lives in both repos" exists to
+# prevent, arriving in the tooling instead of the prose. Their form wins on the
+# merits (machine-readable, survives rewording, a round number *in* the file
+# cannot silently disagree with the filename) and is adopted here.
+#
+# Specified in `docs/cyanrip-handshake.md` §8 and reproduced verbatim in every
+# round file from round 7 lap 3 on, so a reader of either repo has the spec.
+
+#: Any ``KEY: value`` field at column 0. Deliberately generic: unknown fields are
+#: *ignored* by both parsers, so either side can add one without breaking the
+#: other. Column-0 anchored because a round file legitimately quotes ``GO`` in
+#: prose and block-quotes example headers — their lap-2 file does both, on purpose,
+#: as its own first test.
+_WIRE_FIELD = re.compile(
+    r"^(?P<key>[A-Z][A-Z0-9-]*):[ \t]*(?P<value>\S.*?)[ \t]*$", re.MULTILINE
+)
+
+#: The fields the format requires of every file, from either side (§8.2).
+REQUIRED_WIRE_FIELDS: tuple[str, ...] = (
+    "HANDSHAKE-ROUND",
+    "HANDSHAKE-LAP",
+    "HANDSHAKE-FROM",
+    "HANDSHAKE-VERDICT",
+    "HANDSHAKE-APP-VERSION",
+    "HANDSHAKE-RIPPER-VERSION",
+    "HANDSHAKE-PIN",
+)
+
+#: ``GO`` is the only affirmative. Everything else — including a value neither side
+#: recognises — means *not closed*.
+AFFIRMATIVE: str = "GO"
+
+#: Rounds that closed before the fork emitted the header block. Their affirmative
+#: GO for these is in the round record and in our verification prose; grandfathered
+#: **by number**, never by "no header means fine", and pinned by a test. Same shape
+#: and same reason as :data:`RETROSPECTIVE_ROUNDS` — the fallback is the defect.
+THEIR_PRE_HEADER_ROUNDS: frozenset[int] = frozenset({1, 2, 3, 4, 5, 6, 7})
+
+#: Ours, likewise: every verification file through round 7 lap 1 predates the
+#: format and states its verdict as bolded prose. May shrink, never grow.
+OUR_PRE_HEADER_ROUNDS: frozenset[int] = frozenset({1, 2, 3, 4, 5, 6, 7})
+
+
+def wire_fields(text: str) -> dict[str, str]:
+    """Every column-0 ``KEY: value`` field in a handshake file.
+
+    Later occurrences win, except that :func:`wire_verdict` treats a *repeated
+    verdict* as ambiguous rather than taking one — see there.
+    """
+    return {m.group("key"): m.group("value") for m in _WIRE_FIELD.finditer(text)}
+
+
+def wire_verdict(text: str) -> str | None:
+    """The declared verdict, or None if the file states none.
+
+    ``GO`` is the only affirmative. ``HOLD``, ``OPEN`` and any unrecognised value
+    all mean *not closed* — an unknown verdict is not consent, and mapping it to
+    anything else would be a guess wearing a derivation's clothes (the fork's
+    phrase for the same hazard on their side).
+
+    **Two verdict lines are ambiguous, not "the first one"**, and resolve to
+    ``HOLD``. Adopted from their gate; the reasoning is theirs and it is right.
+    """
+    found = {
+        m.group("value").split()[0]
+        for m in _WIRE_FIELD.finditer(text)
+        if m.group("key") == "HANDSHAKE-VERDICT" and m.group("value").split()
+    }
+    if not found:
+        return None
+    return AFFIRMATIVE if found == {AFFIRMATIVE} else "HOLD"
+
+
+def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str]:
+    """Validate a handshake file's header block against §8.2. Returns problems.
+
+    Reports rather than raises, like every other check here: a validator that
+    crashes is a validator people stop running.
+    """
+    problems: list[str] = []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"{path.name}: unreadable ({exc})"]
+
+    fields = wire_fields(text)
+    for key in REQUIRED_WIRE_FIELDS:
+        if key not in fields:
+            problems.append(
+                f"{path.name}: missing required field {key} (protocol §8.2)"
+            )
+
+    # The declared round must match the filename's. A file whose header and name
+    # disagree is an error, not a reinterpretation (§8.3 rule 6) — this is the one
+    # check the filename convention cannot make for itself.
+    declared = fields.get("HANDSHAKE-ROUND", "")
+    named = round_number(path)
+    if declared and named is not None:
+        try:
+            if int(declared) != named:
+                problems.append(
+                    f"{path.name}: declares HANDSHAKE-ROUND: {declared} but its "
+                    f"name says round {named} (protocol §8.3 rule 6)"
+                )
+        except ValueError:
+            problems.append(
+                f"{path.name}: HANDSHAKE-ROUND: {declared!r} is not an integer"
+            )
+
+    if expect_from and fields.get("HANDSHAKE-FROM") not in (None, expect_from):
+        problems.append(
+            f"{path.name}: HANDSHAKE-FROM is {fields['HANDSHAKE-FROM']!r}, expected "
+            f"{expect_from!r} for a file in this directory"
+        )
+    return problems
 
 
 def verification_verdict(text: str) -> str | None:
@@ -556,27 +744,50 @@ def round_status(root: Path | None = None) -> list[str]:
         # keep a round closed.
         verdict: str | None = None
         if done:
-            verdict = verification_verdict(done[-1].read_text(encoding="utf-8"))
+            our_text = done[-1].read_text(encoding="utf-8")
+            # The shared header is authoritative (protocol §8). Our own bolded
+            # prose form is the fallback, and only for rounds that predate the
+            # format — otherwise the two representations could disagree and the
+            # older, looser one would win.
+            verdict = wire_verdict(our_text)
+            if verdict is None and num in OUR_PRE_HEADER_ROUNDS:
+                verdict = verification_verdict(our_text)
             if verdict is None and num in RETROSPECTIVE_ROUNDS:
                 verdict = "GO"
-        # A round closes on the VERDICT, not on the file existing. Round 7 is the
-        # case that proved this matters: its verification is a deliberate
-        # mid-round HOLD ("your §15 asked us to hold"), and a presence-only check
-        # reported it CLOSED and let `--release-gate` pass — while the deviation
-        # policy forbids releasing or moving the pin with a round open. A gate
-        # that a HOLD satisfies is not a gate (CLAUDE.md: *can this check be
-        # satisfied by the wrong thing?*).
-        state = "CLOSED" if (sent and back and verdict == "GO") else "OPEN"
-        if verdict is None:
-            shown = "NO"
-        elif verdict == "GO":
-            shown = "yes (GO)"
-        else:
-            shown = "yes (HOLD — not closed)"
+        # THEIR verdict, read from the newest inbound file for the round.
+        #
+        # **The handshake is affirmative and BILATERAL** (maintainer directive,
+        # 2026-08-04): *"Both of you should not make a new release until you are
+        # both happy with the handshake files."* Reading only our own verdict made
+        # their HOLD unable to block our release — which is the same
+        # one-half-of-a-two-half-contract error §7 of the protocol already records
+        # twice, arriving a third time. Their lap-2 file declares
+        # `HANDSHAKE-VERDICT: HOLD` at column 0; nothing here was reading it.
+        theirs: str | None = None
+        if back:
+            theirs = wire_verdict(back[-1].read_text(encoding="utf-8"))
+            if theirs is None and num in THEIR_PRE_HEADER_ROUNDS:
+                theirs = "GO"
+        # A round closes on BOTH VERDICTS, not on the files existing. Round 7 is
+        # the case that proved the first half matters: its verification is a
+        # deliberate mid-round HOLD ("your §15 asked us to hold"), and a
+        # presence-only check reported it CLOSED and let `--release-gate` pass —
+        # while the deviation policy forbids releasing or moving the pin with a
+        # round open. A gate that a HOLD satisfies is not a gate (CLAUDE.md: *can
+        # this check be satisfied by the wrong thing?*).
+        both_go = verdict == "GO" and theirs == "GO"
+        state = "CLOSED" if (sent and back and both_go) else "OPEN"
+
+        def shown_verdict(value: str | None) -> str:
+            if value is None:
+                return "NO"
+            return "yes (GO)" if value == "GO" else f"yes ({value} — not closed)"
+
         lines.append(
             f"{name}: sent={'yes' if sent else 'NO'} "
             f"returned={'yes' if back else 'NO'} "
-            f"verified={shown}  -> {state}"
+            f"we-verified={shown_verdict(verdict)} "
+            f"they-verified={shown_verdict(theirs)}  -> {state}"
         )
     if any(line.endswith("OPEN") for line in lines):
         lines.append("")

@@ -131,7 +131,13 @@ FORK_EXPECTED_BANNER: Final[str] = (
 
 # --- The NEXT pin, recorded but deliberately not wired in -------------------
 #
-# Round 7 offered `d5d12ec` (fork release r3, version `0.9.4-rc1+platterpus.3`).
+# Round 7 lap 2 asks for `345241b` (fork release r3, version
+# `0.9.4-rc1+platterpus.3`) — superseding lap 1's `d5d12ec`, which superseded
+# round 6's `ad65a24`. Three SHAs for one unreleased version, and the version
+# string is right to be unchanged: `+platterpus.N` increments when a *release*
+# happens, not when a commit lands, and this open round is what stops the release.
+# Both new commits came out of our own lap-1 file (their release gate, and the
+# `Duration:` sign correction), which is the handshake working.
 # **The pin has NOT moved to it, on purpose.** Two independent reasons, either
 # sufficient:
 #
@@ -146,7 +152,11 @@ FORK_EXPECTED_BANNER: Final[str] = (
 # reach when the round closes, and so `test_fork_source` keeps asserting the LIVE
 # pin against the newest *closed* round — the check that caught an attempt to move
 # it early.
-NEXT_PIN_UNDER_REVIEW: Final[str] = "d5d12ec"
+# NOTE on their branch tip vs the pin: `345241b` is the last commit that touches
+# `src/`, so it is what the version banner resolves to and what a build must use.
+# Their branch tip adds only `tools/release-gate.py` + its test — `meson test`
+# reports 20/20 at the pin and 21/21 at the tip, and the executable is identical.
+NEXT_PIN_UNDER_REVIEW: Final[str] = "345241b"
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.3"
 
 # --- Where it lives inside the container ------------------------------------
