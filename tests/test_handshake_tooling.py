@@ -225,6 +225,43 @@ def test_our_own_skeleton_satisfies_our_own_outbound_spec(hs: ModuleType) -> Non
     assert hs.check_outbound(hs.emit_outbound(99)) == []
 
 
+def test_the_emitted_skeleton_declares_every_required_wire_field(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**REGRESSION. The generator emitted a file our own header check refuses.**
+
+    `--emit 9 > f && --check f` reported *"missing required field HANDSHAKE-PROTOCOL
+    (§3)"* — the first entry in `REQUIRED_WIRE_FIELDS`, absent from the emitter's
+    hand-maintained header list in the same module. `check_outbound` did not catch it
+    because it sweeps *sections*, not the wire header, so the existing
+    "our skeleton satisfies our own spec" test was green throughout.
+
+    The instructive part is where it happened: `handshake_filename` exists because a
+    hand-typed *name* is a third description of a fact the header declares. The header
+    that instruction points at was itself hand-typed, three definitions away from the
+    tuple that says what it must contain.
+
+    **Derived from `REQUIRED_WIRE_FIELDS`, so adding a required field cannot silently
+    skip the emitter** — and asserted through `check_wire_header`, the real checker,
+    rather than by string-matching the field names, so it is the production judgement
+    that has to be satisfied.
+    """
+    skeleton = hs.emit_outbound(9)
+    for field in hs.REQUIRED_WIRE_FIELDS:
+        assert f"\n{field}: " in f"\n{skeleton}", (
+            f"the emitted skeleton does not declare {field}, which §3 requires of "
+            "every file — our own --check would refuse what our own --emit produced"
+        )
+    # Floor: the loop above passes trivially if the tuple is empty.
+    assert len(hs.REQUIRED_WIRE_FIELDS) >= 8, hs.REQUIRED_WIRE_FIELDS
+
+    # And through the real checker, on a canonically-named file so the round agrees.
+    path = tmp_path / hs.handshake_filename(9, 1)
+    path.write_text(skeleton, encoding="utf-8")
+    problems = hs.check_wire_header(path, expect_from="platterpus")
+    assert problems == [], problems
+
+
 def test_the_skeleton_carries_the_inbound_spec_inline(hs: ModuleType) -> None:
     """The fork does not have this repo, so linking to the spec is useless. Every
     required inbound section must appear in the file we actually send."""

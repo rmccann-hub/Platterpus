@@ -577,16 +577,45 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 19** (`verified/round-07-lap-19.md`) — nothing is
-      asked of them this lap beyond the round-8 bump. The naming convention is adopted
-      on both sides, their P6 is delivered, and I2 (rendered stderr as an appendix) is a
-      preference we stated rather than a request.
-   - **[ ] Round 8, jointly: one shared-spec bump, now THREE agreements.** The naming
-      convention, the **ordering rules** (no-lap is lap 1, ambiguous sorts last,
-      ordering is `(round, lap)` and never the filename string — all three exist only
-      because we compared implementations), and `Handshake-Round`/`-State`/`-Release`/
-      `-Lap`. `docs/handshake-protocol.md` is shared and **neither project owns it**, so
-      it stays untouched while a round is open.
+2. **[ ] The fork's reply to lap 22** (`verified/round-07-lap-22.md`) — two files and two
+      record corrections, none of them blocking:
+   - **[ ] The golden reference from `c5fb909`** (§C3a). Their lap 21 §E says it exists
+      and was committed with the lap file in *their* tree; it has not reached this
+      repository. Every previous one did, and per-line re-parsing is where lap 13 found
+      the pre-gap double-count they then fixed. Name it
+      `round-07-lap-22-golden-reference-gc5fb909.log`.
+   - **[ ] The P1 flag table back inside a lap file, or `PROVIDER-CONTRACT.md` as a lap
+      artifact** (§C3b). **Not a preference.** None of round 7's twenty-one laps embeds a
+      flag table — every one points at a file in their repository — so the newest table we
+      hold is round 6b's, from before this round opened, while their lap 21 reports the
+      count moving 40 → 41. This is the `-V` situation with one extra step: then the
+      evidence was in a committed file undiffed; now the file is not here at all.
+      Ratcheted as `_MAX_TABLE_LAG` in `tests/test_argv_surface_agreement.py`.
+   - **[ ] Confirm the four-commit `beta.1` span and whether the counter now moves with
+      the anchor** (§D1/I2). `cyanrip 0.9.4-rc1+platterpus.5-beta.1` is declared by laps
+      8–20 across `9003e6f`, `ceca8bc`, `f00cb2b` and `486dce3`, with the source anchor
+      moving **twice** underneath it — and one of the changes it spans is a log value we
+      parse. Also §D2: laps 12 and 14 name a build in `HANDSHAKE-RIPPER-VERSION` that
+      their own delivered artifact's banner contradicts.
+   - **[ ] Round 8, jointly: one shared-spec bump, THREE agreements — and rules 1 and 2
+      are corrections, not additions.** `handshake-protocol.md` §3 has carried *"absent
+      means lap 1"* and *"never by filename or mtime"* since the file was created
+      (`fec0ca3`); both implementations violated both for its whole life, because **§8 has
+      no conformance row for either** (lap 22 §I1 asks for three). The bump carries the
+      naming convention, the ordering rules **with lap 22's two qualifications** (§B1: the
+      pre-v2 name fallback must be stated; §B2: a header-bearing file with no lap field is
+      not the "pre-lap-header file" the rule is about, and fails closed instead), and
+      `Handshake-Round`/`-State`/`-Release`/`-Lap`. That file is shared and **neither
+      project owns it**, so it stays untouched while a round is open.
+   - **[x] Test pin moved to `c5fb909`** (`0.9.4-rc1+platterpus.5-beta.2`), `9003e6f`
+      retired into `SUPERSEDED_TEST_PINS` rather than deleted — it held for thirteen laps
+      and is what the 2026-08-04 rig ran, so a rig that has not rebuilt still gets
+      `--consumer`. Production pin unmoved: round 7 is open.
+   - **[x] Their lap-20 §I1 ordering diff, run rather than agreed** — two divergences,
+      both ours, both against the spec rather than against their wording; plus the gate
+      now refusing the two states ordering can only hide. Lap 22 §B.
+   - **[x] Their I1 (`-j` is a no-op) confirmed by running it**, and confirming it found
+      the argv-surface check reading round 6's table since the rename. Lap 22 §C.
    - **[x] Lap 17's §C adopted by the fork** as specified — no counter-proposal, no
       sender in the name, padding kept. Their lap 18 also reported their loader's
       ordering, which is what exposed our two divergences.
@@ -810,8 +839,17 @@ loudly, `--release-gate` still refuses a stable release.
 
 ```
 Platterpus  v0.6.4b1                        GitHub pre-release, assets attached
-cyanrip     0.9.4-rc1+platterpus.5-beta.1   commit 9003e6f on platterpus-fork
+cyanrip     0.9.4-rc1+platterpus.5-beta.2   commit c5fb909 on platterpus-fork
+                                            (was beta.1 / 9003e6f — moved in lap 21)
 ```
+
+**`beta.1` was worn by four commits, which is why the *tag* is the pin and the version
+never is.** Laps 8–20 all declare `0.9.4-rc1+platterpus.5-beta.1`, across `9003e6f`,
+`ceca8bc`, `f00cb2b` and `486dce3`, while `HANDSHAKE-SOURCE-ANCHOR` moved twice
+underneath it — and one of the changes it spans is a **log value we parse** (track 1's
+`Pregap length:`, the lead-in counted twice). Our classifiers key on the build tag, so
+nothing here broke; a human reading a report's `ripper_version` could not have told which
+behaviour they had. Raised as lap 22 §D1/I2.
 
 - **[x] Platterpus test pin: `v0.6.4b1`** — published pre-release.
 - **[x] Adopt the fork's beta as the wizard's build target.** `WIZARD_TARGET` →

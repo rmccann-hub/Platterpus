@@ -417,30 +417,113 @@ def test_the_newest_file_in_a_round_is_the_highest_lap(hs: ModuleType) -> None:
 
 
 def test_a_legacy_name_sorts_before_a_canonical_one_in_the_same_round(
-    hs: ModuleType,
+    hs: ModuleType, tmp_path: Path
 ) -> None:
     """The mechanism, isolated from the real tree so it cannot go quiet.
 
     The tree happens to contain the mix today. If it ever stops, the test above skips
     and this one still pins the ordering rule — that a file declaring no lap is treated
     as the earliest in its round, which is what the pre-header files are.
+
+    **Written against real files on disk rather than bare `Path` names**, and that is
+    the round-7-lap-21 correction: the first version handed `_lap_of` two paths that did
+    not exist, so the lap it read for `round-07-lap-16.md` came from the *filename*
+    fallback that lap 21 removed. The test passed for a reason unrelated to the property
+    it claimed — identify the subject the way production does, which is by reading it.
     """
-    assert hs._lap_of(Path("round-7.md")) == hs.DEFAULT_LAP == 1, (
+    legacy = tmp_path / "round-7.md"
+    legacy.write_text("# a pre-header file, no wire header at all\n", encoding="utf-8")
+    canonical = tmp_path / "round-07-lap-16.md"
+    canonical.write_text(
+        "\n".join(
+            ("HANDSHAKE-PROTOCOL: 2", "HANDSHAKE-ROUND: 7", "HANDSHAKE-LAP: 16", "")
+        ),
+        encoding="utf-8",
+    )
+
+    assert hs._lap_of(legacy) == hs.DEFAULT_LAP == 1, (
         "a file with no declared lap must sort as lap 1 — it IS its round's first, and "
         "lap 0 invents a lap that never existed. The fork's rule, adopted in lap 19 "
         "after their lap 18 showed we had picked different numbers for one convention."
     )
-    assert hs._lap_of(Path("round-07-lap-16.md")) == 16
-    assert sorted(
-        [Path("round-07-lap-16.md"), Path("round-7.md")],
-        key=lambda p: (hs._lap_of(p), p.stem),
-    ) == [Path("round-7.md"), Path("round-07-lap-16.md")]
+    assert hs._lap_of(canonical) == 16
+    assert sorted([canonical, legacy], key=hs.sort_key) == [legacy, canonical]
     # And prove the naive key gets it wrong, so the fix is not decoration.
-    assert sorted(
-        [Path("round-07-lap-16.md"), Path("round-7.md")], key=lambda p: p.stem
-    ) == [Path("round-07-lap-16.md"), Path("round-7.md")], (
+    assert sorted([canonical, legacy], key=lambda p: p.stem) == [canonical, legacy], (
         "the stem sort no longer misorders these, so this regression is no longer "
         "reachable and the ordering rule needs re-justifying"
+    )
+
+
+def test_a_no_lap_file_is_lap_1_even_when_its_NAME_says_otherwise(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**Divergence 1 of round-7 lap 21's diff. §3: "absent means lap 1".**
+
+    Ours read the *name* when the header was silent, and only fell back to
+    `DEFAULT_LAP` if the name had no lap either. On every tree either side has ever
+    had, those agree — our only no-lap files are named `round-07-lap-01` (where the
+    name says 1 and the default *is* 1) or grandfathered `round-N` (where there is no
+    lap in the name to read). So the divergence was invisible to every test both
+    projects could write, for the whole life of the convention, and the comparison the
+    fork asked for in their lap 20 §I1 was the only instrument that could find it.
+
+    Asserted with the name and the rule in *conflict*, which is the only observation
+    that separates them.
+    """
+    misnamed = tmp_path / "round-07-lap-14.md"
+    misnamed.write_text(
+        "\n".join(("HANDSHAKE-PROTOCOL: 2", "HANDSHAKE-ROUND: 7", "")),
+        encoding="utf-8",
+    )
+    assert hs._lap_of(misnamed) == hs.DEFAULT_LAP == 1, (
+        "the filename fallback is back: a file declaring no lap must be lap 1 per §3 "
+        "('absent means lap 1... never by filename or mtime'), not lap 14 because that "
+        "is what someone typed in the name"
+    )
+    # Revert-proof in the other direction: the old rule produced a DIFFERENT answer,
+    # so this assertion is discriminating rather than decorative.
+    assert (hs.name_round_and_lap(misnamed) or (0, 0))[1] == 14, (
+        "the name no longer says 14, so the two rules no longer disagree here and this "
+        "test has stopped separating them — pick a name that conflicts with the default"
+    )
+
+
+def test_the_ROUND_half_of_the_sort_key_also_reads_the_header_first(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**Divergence 2 of the lap-21 diff, and it was asymmetric inside one sort key.**
+
+    `_lap_of` already read the header; the round half read `round_number()`, which is
+    name-only. One key, two different notions of where the fact lives — and §3 had
+    already ruled: *"by declared number, never by filename or mtime."*
+
+    The name fallback stays, and must: 27 of the 41 committed correspondence files
+    declare no `HANDSHAKE-ROUND` at all, because the v2 wire header begins at round 7
+    lap 2. Both halves of that are asserted here, because "header first" and "name when
+    there is no header" are separate claims and only the pair is the rule.
+    """
+    conflicting = tmp_path / "round-07-lap-05.md"
+    conflicting.write_text(
+        "\n".join(
+            ("HANDSHAKE-PROTOCOL: 2", "HANDSHAKE-ROUND: 8", "HANDSHAKE-LAP: 5", "")
+        ),
+        encoding="utf-8",
+    )
+    assert hs.sort_key(conflicting)[0] == 8, (
+        "the round half of the sort key read the filename; §3 makes the header the fact"
+    )
+    assert hs.round_number(conflicting) == 7, (
+        "round_number() must stay NAME-only — §3 requires the name and the header to "
+        "agree, and a check needs each separately in order to say so"
+    )
+
+    headerless = tmp_path / "round-6b.md"
+    headerless.write_text("# a round-6 amendment, no wire header\n", encoding="utf-8")
+    assert hs.sort_key(headerless)[0] == 6, (
+        "a pre-v2 file has no declared round, so the name is the only fact in "
+        "existence; 'never the filename' has to mean 'never in preference to the "
+        "header' or the rule is unimplementable against its own record"
     )
 
 
@@ -507,6 +590,190 @@ def test_an_ambiguous_lap_declaration_sorts_LAST_so_it_cannot_hide(
     # The ambiguity is then actually refused, rather than merely sorted first.
     problems = hs.check_wire_header(ambiguous, expect_from=None)
     assert any("more than once" in str(x) for x in problems), problems
+
+
+def _round_dirs(base: Path) -> tuple[Path, Path, Path]:
+    """Make the three directories `round_status` reads, so a state can be constructed."""
+    made = tuple((base / d) for d in ("outbound", "inbound", "verified"))
+    for directory in made:
+        directory.mkdir(parents=True)
+    return made[0], made[1], made[2]
+
+
+def _closing(
+    hs: ModuleType, sender: str, round_: int, lap: int, *, pin: str = "abc1234"
+) -> str:
+    """A file that WOULD close a round, so a test can prove what stops it.
+
+    Takes ``HANDSHAKE-PROTOCOL`` from the module rather than hard-coding ``2``: a
+    fixture that keeps declaring the old version once the spec bumps would be refused
+    for a reason unrelated to what each test below is asserting.
+    """
+    fields = {
+        "HANDSHAKE-PROTOCOL": str(hs.PROTOCOL_VERSION),
+        "HANDSHAKE-ROUND": str(round_),
+        "HANDSHAKE-LAP": str(lap),
+        "HANDSHAKE-FROM": sender,
+        "HANDSHAKE-VERDICT": "GO",
+        "HANDSHAKE-APP-VERSION": "platterpus 0.6.4",
+        "HANDSHAKE-RIPPER-VERSION": "cyanrip 0.9.4 (platterpus-fork-gabc1234)",
+        "HANDSHAKE-PIN": pin,
+        "HANDSHAKE-PEER-VERDICT": "GO",
+        "HANDSHAKE-OUR-VERSION": "platterpus 0.6.4",
+        "HANDSHAKE-OUR-PIN": pin,
+        "HANDSHAKE-PEER-VERSION": "cyanrip 0.9.4 (platterpus-fork-gabc1234)",
+        "HANDSHAKE-PEER-PIN": pin,
+        "HANDSHAKE-TESTED": "one disc on a BDR-209D",
+    }
+    return "".join(f"{key}: {value}\n" for key, value in fields.items())
+
+
+def test_a_constructed_two_sided_round_really_does_CLOSE(hs: ModuleType) -> None:
+    """The floor under the three tests below. **Assert the gate can say yes.**
+
+    Protocol §8's last row, and the reason it is there: a gate that refuses everything
+    passes every refusal test in the table. Without this, the three "and now it is
+    refused" tests below could all be satisfied by a fixture that never closes anything.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as raw:
+        base = Path(raw)
+        outbound, inbound, verified = _round_dirs(base)
+        (outbound / "round-08-lap-01.md").write_text(
+            _closing(hs, "platterpus", 8, 1), encoding="utf-8"
+        )
+        (inbound / "round-08-lap-02.md").write_text(
+            _closing(hs, "cyanrip-fork", 8, 2), encoding="utf-8"
+        )
+        (verified / "round-08-lap-03.md").write_text(
+            _closing(hs, "platterpus", 8, 3), encoding="utf-8"
+        )
+        lines = hs.round_status(root=base)
+    assert any(line.endswith("CLOSED") for line in lines), lines
+    assert not any(line.endswith("OPEN") for line in lines), lines
+
+
+def test_a_v2_file_with_NO_declared_lap_is_REFUSED_not_sorted_oldest(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**The state that dropping the filename fallback creates, and its own test.**
+
+    *"What new state does this fix create, and what tests that?"* — §3's "absent means
+    lap 1" sorts a lap-less file **oldest**, so a later `GO` would be read as a round's
+    newest word while this file's `HOLD` sorted underneath it. Fail-open, and the
+    filename fallback happened to cover it.
+
+    The fix is not the fallback, which §3 forbids in the same sentence. It is §2 rule 4
+    — an absent required field fails closed — applied at the **gate**, which was reading
+    these files without ever asking whether they were coherent.
+
+    Constructed so the hazard is live: the lap-less file declares `HOLD`, a *later*
+    valid file declares a complete `GO`, and without the refusal the round would close
+    on the `GO` while the `HOLD` sorted first.
+    """
+    outbound, inbound, verified = _round_dirs(tmp_path)
+    (outbound / "round-08-lap-01.md").write_text(
+        _closing(hs, "platterpus", 8, 1), encoding="utf-8"
+    )
+    (inbound / "round-08-lap-02.md").write_text(
+        _closing(hs, "cyanrip-fork", 8, 2), encoding="utf-8"
+    )
+    (verified / "round-08-lap-03.md").write_text(
+        _closing(hs, "platterpus", 8, 3), encoding="utf-8"
+    )
+    lapless = verified / "round-08-lap-04.md"
+    lapless.write_text(
+        _closing(hs, "platterpus", 8, 3).replace("HANDSHAKE-LAP: 3\n", "")
+        + "\nWe are holding: the rig session has not run.\n",
+        encoding="utf-8",
+    )
+
+    # It really does sort oldest — the hazard is present, not hypothetical.
+    ordered = hs._round_files(verified, 8)
+    assert ordered[0] == lapless, [p.name for p in ordered]
+
+    problems = hs.ordering_blockers([lapless])
+    assert any("HANDSHAKE-LAP" in p for p in problems), problems
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert any("cannot order" in line and "HANDSHAKE-LAP" in line for line in lines), (
+        f"the gate must NAME the file and the rule, not merely refuse: {lines}"
+    )
+
+
+def test_a_PRE_v2_file_with_no_lap_is_grandfathered_rather_than_refused(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The converse, bounded — or the refusal above would refuse the whole record.
+
+    27 of the 41 committed correspondence files declare no lap, because the wire header
+    begins at round 7 lap 2. Grandfathering is **derived** from the absence of
+    `HANDSHAKE-PROTOCOL` rather than from a list of round numbers, so it cannot go stale
+    the way a frozenset does — and a check whose exemption is a list is a check that
+    stops applying to the files added after the list was written.
+    """
+    legacy = tmp_path / "round-6b.md"
+    legacy.write_text("# round 6 amendment, pre-header\n", encoding="utf-8")
+    assert hs.ordering_blockers([legacy]) == []
+    # A floor: the real record must still contain such a file, or this exemption is
+    # being tested against a case that no longer exists.
+    grandfathered = [
+        p
+        for d in _DIRS
+        for p in (_HANDSHAKE / d).glob("round-*.md")
+        if "HANDSHAKE-PROTOCOL" not in p.read_text(encoding="utf-8")
+    ]
+    assert len(grandfathered) >= 10, (
+        f"only {len(grandfathered)} pre-header files remain; if the record has been "
+        "back-filled with headers the exemption needs re-justifying"
+    )
+    assert hs.ordering_blockers(grandfathered) == [], hs.ordering_blockers(
+        grandfathered
+    )
+
+
+def test_a_file_declaring_a_round_it_is_not_filed_under_is_REFUSED_by_the_GATE(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """§8 row 10, checked where it decides something. **`--check` had it; the gate did not.**
+
+    Making the sort key header-first is what makes this reachable: a file named
+    `round-08-lap-…` declaring round 9 is collected into round 8 **by name** and then
+    sorts on the strength of a round it does not belong to. Under the old name-only key
+    the two could not disagree, so the fix creates the state — and the state gets a test.
+
+    The permissive reading is the wrong one either way: believe the name and a file
+    disowns its own declaration; believe the header and a file votes in a round it says
+    it is not in. So neither — refuse, and name the file.
+    """
+    outbound, inbound, verified = _round_dirs(tmp_path)
+    (outbound / "round-08-lap-01.md").write_text(
+        _closing(hs, "platterpus", 8, 1), encoding="utf-8"
+    )
+    (inbound / "round-08-lap-02.md").write_text(
+        _closing(hs, "cyanrip-fork", 8, 2), encoding="utf-8"
+    )
+    (verified / "round-08-lap-03.md").write_text(
+        _closing(hs, "platterpus", 8, 3), encoding="utf-8"
+    )
+    crossed = verified / "round-08-lap-09.md"
+    crossed.write_text(
+        _closing(hs, "platterpus", 8, 9).replace(
+            "HANDSHAKE-ROUND: 8\n", "HANDSHAKE-ROUND: 9\n"
+        ),
+        encoding="utf-8",
+    )
+
+    # It sorts LAST within round 8 on the strength of the round it declares, which is
+    # what makes it the file the verdict would be read from.
+    assert hs._round_files(verified, 8)[-1] == crossed
+
+    problems = hs.ordering_blockers([crossed])
+    assert any("HANDSHAKE-ROUND" in p for p in problems), problems
+    lines = hs.round_status(root=tmp_path)
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert any("cannot order" in line for line in lines), lines
 
 
 def test_the_generator_round_trips_through_the_parser(hs: ModuleType) -> None:
