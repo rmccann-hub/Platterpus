@@ -31,6 +31,38 @@ log = logging.getLogger(__name__)
 # can legitimately take minutes.
 _STEP_TIMEOUT_S: float = 1800.0
 
+# How much of a command's output reaches the log. A container `dnf install` can
+# emit thousands of lines; an unbounded dump would bury every other entry and make
+# the log a user attaches to a bug report unreadable.
+_OUTPUT_HEAD_LINES: int = 40
+_OUTPUT_TAIL_LINES: int = 60
+_OUTPUT_ELISION: str = "  … [{count} line(s) omitted] …"
+
+
+def _bounded_output(output: str) -> str:
+    """``output`` capped to a head and a tail, with the gap counted and marked.
+
+    **Head AND tail, never head alone.** A tool's fatal message is the *last* thing
+    it prints, so a head-only cap drops exactly the line that explains the failure —
+    while still looking like a complete capture. The tail is the larger half for the
+    same reason.
+
+    **The marker is load-bearing.** An unmarked jump reads as a command that fell
+    silent, which is a different and more alarming fact than "we elided some lines".
+    A silent truncation reads as completeness.
+    """
+    lines = output.rstrip("\n").splitlines()
+    if len(lines) <= _OUTPUT_HEAD_LINES + _OUTPUT_TAIL_LINES:
+        return "\n".join(lines)
+    elided = len(lines) - _OUTPUT_HEAD_LINES - _OUTPUT_TAIL_LINES
+    return "\n".join(
+        [
+            *lines[:_OUTPUT_HEAD_LINES],
+            _OUTPUT_ELISION.format(count=elided),
+            *lines[-_OUTPUT_TAIL_LINES:],
+        ]
+    )
+
 
 class StepStatus(Enum):
     """Outcome of one bootstrap step."""
@@ -95,10 +127,46 @@ class SubprocessRunner:
                 stdin=subprocess.DEVNULL,  # never consume a parent stdin
             )
         except FileNotFoundError as exc:
+            log.error("host-setup: %s — command not found", argv[0])
             return 127, f"command not found: {argv[0]} ({exc})"
         except subprocess.TimeoutExpired:
+            log.error(
+                "host-setup: timed out after %.0fs: %s", _STEP_TIMEOUT_S, " ".join(argv)
+            )
             return 124, f"timed out after {_STEP_TIMEOUT_S:.0f}s: {' '.join(argv)}"
-        return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+        output = (proc.stdout or "") + (proc.stderr or "")
+        # LOG THE OUTPUT, NOT ONLY THE ARGV.
+        #
+        # This logged the command and threw away everything the command said. The
+        # caller (`HostSetup._run_commands`) then reduced that output to its LAST
+        # LINE for the UI — so a failed `meson`/`ninja`/`git` inside the container
+        # left exactly one line of evidence anywhere in the system, and the log file
+        # a user is asked to attach to a bug report contained none of it.
+        #
+        # Found while trying to diagnose a real report (2026-08-04): the fork build
+        # step failed with "installed cyanrip does not identify as the pinned fork
+        # build", every command had exited 0 up to the verify, and there was no way
+        # to see what git checked out or what ninja did. The facts existed and were
+        # discarded — which CLAUDE.md calls out as worse than never having them,
+        # because the report still looks complete.
+        #
+        # Failure logs at ERROR with the exit code and the output; success logs the
+        # output at DEBUG so a normal run stays readable but `debug_logging` captures
+        # a full transcript. Bounded head+tail with a counted elision marker, because
+        # a fatal message is the LAST thing a tool prints and a head-only cap drops
+        # precisely the line that explains the failure.
+        if proc.returncode != 0:
+            log.error(
+                "host-setup: exit %d from %s\n%s",
+                proc.returncode,
+                " ".join(argv),
+                _bounded_output(output),
+            )
+        elif output.strip():
+            log.debug(
+                "host-setup: exit 0 from %s\n%s", argv[0], _bounded_output(output)
+            )
+        return proc.returncode, output
 
 
 class StepEngine(Protocol):

@@ -11,7 +11,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b2] — 2026-08-04
+
+**Beta 2, cut from the joint hardware session's first real run.** Everything here
+came out of installing `v0.6.4b1` on the rig: two wrong messages and one missing
+diagnostic, all found within minutes of the wizard being used for real.
+
 ### Fixed
+- **Every setup command's output was captured and thrown away.**
+  `SubprocessRunner.run()` logged the argv and discarded stdout/stderr;
+  `HostSetup._run_commands` then reduced that output to its **last line** for the UI.
+  So a failed `git`/`meson`/`ninja` inside the container left exactly one line of
+  evidence anywhere in the system, and the log file a user is asked to attach to a
+  bug report contained none of it. Found while trying to diagnose a real fork-build
+  failure with nothing to work from. Captured-and-discarded is worse than never
+  captured — the report still looks complete. Now: exit code + exact argv + complete
+  output at ERROR on failure, and at DEBUG on success, bounded **head and tail** with
+  a counted elision marker (a fatal message is the *last* thing a tool prints, so a
+  head-only cap drops precisely the line that explains the failure).
 - **The setup wizard said "✓ Setup complete — you can rip now." while a step had
   FAILED.** Real-user report on v0.6.4b1: the summary claimed success and, two lines
   below it, listed *"✗ Platterpus fork of cyanrip (build + export) — installed cyanrip
@@ -5338,7 +5355,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...HEAD
+[0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
 [0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
 [0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
@@ -5411,4 +5429,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b2.*
