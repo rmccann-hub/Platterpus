@@ -10,6 +10,7 @@ the worker mid-pipeline)."""
 
 from __future__ import annotations
 
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -90,3 +91,78 @@ def test_run_timeout_is_124_not_an_exception(monkeypatch: pytest.MonkeyPatch) ->
     rc, out = SubprocessRunner().run(["sleep", "99999"])
     assert rc == 124
     assert "timed out" in out
+
+
+# --- Diagnostic capture: the output must reach the log ----------------------
+
+
+def test_a_failing_command_logs_its_exit_code_and_output(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """REGRESSION (2026-08-04). The runner logged the argv and DISCARDED the output.
+
+    `HostSetup._run_commands` then reduced that output to its last line for the UI,
+    so a failed `git`/`meson`/`ninja` inside the container left exactly one line of
+    evidence anywhere in the system — and the log file a user is asked to attach to
+    a bug report contained none of it. Found while trying to diagnose a real fork
+    build failure with nothing to go on.
+
+    Captured-and-discarded is worse than never captured: the report still looks
+    complete (CLAUDE.md, diagnostic completeness).
+    """
+    with caplog.at_level(logging.ERROR, logger="platterpus.deps.step_engine"):
+        rc, out = SubprocessRunner().run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; print('stdout marker'); "
+                "print('fatal: the explaining line', file=sys.stderr); "
+                "sys.exit(3)",
+            ]
+        )
+
+    assert rc == 3
+    logged = caplog.text
+    assert "exit 3" in logged, "the exit code is not in the log"
+    assert "stdout marker" in logged, "stdout was swallowed"
+    assert "fatal: the explaining line" in logged, "stderr was swallowed"
+    # And the caller still receives it, so the UI can show the last line.
+    assert "fatal: the explaining line" in out
+
+
+def test_a_successful_command_does_not_shout_but_is_still_recoverable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Success logs at DEBUG: a normal run stays readable, `debug_logging` gets all."""
+    with caplog.at_level(logging.ERROR, logger="platterpus.deps.step_engine"):
+        SubprocessRunner().run([sys.executable, "-c", "print('quiet success')"])
+    assert "quiet success" not in caplog.text, "a success should not log at ERROR"
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="platterpus.deps.step_engine"):
+        SubprocessRunner().run([sys.executable, "-c", "print('quiet success')"])
+    assert "quiet success" in caplog.text, "debug logging must capture the transcript"
+
+
+def test_bounded_output_keeps_the_tail_and_counts_the_gap() -> None:
+    """The TAIL is the half that must survive — a fatal message is printed last.
+
+    A head-only cap drops precisely the line that explains the failure while still
+    looking like a complete capture, and an *unmarked* gap reads as a command that
+    fell silent rather than one that was elided.
+    """
+    from platterpus.deps.step_engine import (
+        _OUTPUT_HEAD_LINES,
+        _OUTPUT_TAIL_LINES,
+        _bounded_output,
+    )
+
+    short = "\n".join(f"line{i}" for i in range(5))
+    assert _bounded_output(short) == short, "short output must pass through verbatim"
+
+    total = _OUTPUT_HEAD_LINES + _OUTPUT_TAIL_LINES + 400
+    kept = _bounded_output("\n".join(f"line{i}" for i in range(total))).splitlines()
+    assert kept[0] == "line0"
+    assert kept[-1] == f"line{total - 1}", "the tail was dropped"
+    marker = kept[_OUTPUT_HEAD_LINES]
+    assert "omitted" in marker and "400" in marker, f"gap not counted: {marker!r}"
