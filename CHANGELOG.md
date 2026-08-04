@@ -90,6 +90,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   notification, and its own first version fired on a *comment* documenting a fix, which
   is the converse trap in miniature.
 
+- **`report_types.py` describes the whole report again, and a sweep keeps it that
+  way.** It calls itself *"the single source of truth for the structure `rip_report`
+  writes"*, and it was missing `RipReport.completeness` and `RipReport.artifacts` (four
+  schema versions late), all four of `TrackBlock`'s pre-gap provenance keys, three
+  `DiscBlock` `medium_*` keys — including `medium_undetermined`, the **only** field that
+  says a rip's titles may belong to another disc — and `TimingBlock`'s
+  `realtime_multiplier_basis`, which changes what the ratio is measured *against*. None
+  of it was a type error, because the emit site is not annotated as the `TypedDict`, so
+  mypy had nothing to compare. The existing test anchored **three** blocks by hand, which
+  is the same invisible-by-omission promise the drift itself was; it now builds a real
+  report at runtime and requires a declared field for every key of every nested block,
+  with floors on both the block count and the key count. Runtime rather than AST on
+  purpose: `realtime_multiplier_basis` is added *after* the dict literal is built, which
+  is exactly how it hid from a source-level check.
+
 ### Fixed
 - **Tools → Check dependencies could do nothing visible at all.** A crashed probe emitted
   `None` and the GUI half returned immediately, so a user-initiated menu action was
