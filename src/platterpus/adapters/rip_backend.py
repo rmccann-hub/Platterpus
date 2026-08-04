@@ -28,6 +28,7 @@ from pathlib import Path
 # Re-exported deliberately (`as DiscInfo`): the UI imports DiscInfo from this
 # module because the backend ABC is the seam it depends on, not the parser.
 # The explicit form is what makes that legal under `no_implicit_reexport`.
+from platterpus import diagnostics
 from platterpus.killable import KillableCommand
 from platterpus.parsers.cd_info import DiscInfo as DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -127,10 +128,50 @@ def run_capture(
     try:
         proc = INFO_PROBE.run(argv, timeout=timeout, stdin_devnull=stdin_devnull)
     except FileNotFoundError as exc:
+        # RECORD BEFORE RAISING. The argv was logged at DEBUG, which `log.txt` does
+        # not keep by default — so on a stock install a probe that could not find its
+        # binary left the exception message and nothing else. `RipError` reaches a
+        # dialog; the argv, which is what makes it reproducible by hand, did not.
+        diagnostics.error(
+            "deps.missing",
+            f"{tool_name} could not be started: no binary at {binary}",
+            tool=tool_name,
+            argv=argv,
+            exit_code=None,  # tri-state: nothing was launched, so nothing was reaped
+            where="adapters.rip_backend.run_capture",
+        )
         raise RipError(f"{tool_name} binary not found at {binary}") from exc
     except subprocess.TimeoutExpired as exc:
+        diagnostics.error(
+            "deps.command_failed",
+            f"{tool_name} timed out after {timeout:.0f}s and was killed — it never "
+            f"reported an exit status",
+            tool=tool_name,
+            argv=argv,
+            exit_code=None,
+            detail=diagnostics.bounded_output(getattr(exc, "output", "") or ""),
+            where="adapters.rip_backend.run_capture",
+        )
         raise RipError(f"{tool_name} timed out after {timeout:.0f}s") from exc
-    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+    output = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode != 0:
+        # A non-zero probe is NOT necessarily a failure — some callers classify the
+        # output themselves (the offset find reads a non-zero exit as a real answer),
+        # which is why this is a warning rather than an error and why the raise is
+        # still the caller's decision. But it must be *recorded*: a probe whose exit
+        # code nobody looked at is how "the tool is missing" came to be reported for
+        # a tool that was present and had merely rejected a flag.
+        diagnostics.record_command_failure(
+            "deps.command_failed",
+            tool_name,
+            argv,
+            proc.returncode,
+            diagnostics.bounded_output(output),
+            message=f"{tool_name} exited {proc.returncode}",
+            severity=diagnostics.WARNING,
+            where="adapters.rip_backend.run_capture",
+        )
+    return proc.returncode, output
 
 
 @dataclass(frozen=True)

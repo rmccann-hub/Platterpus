@@ -90,6 +90,29 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   notification, and its own first version fired on a *comment* documenting a fix, which
   is the converse trap in miniature.
 
+- **Help → Copy diagnostics… — the copyable surface the UI simply did not have.** The
+  audit found **no** export, bundle or copy-diagnostics action anywhere in the app; the
+  only clipboard call in the whole UI tree copied a *package search string*. The per-rip
+  `.platterpus.json` **is** the richer bundle, but it exists only for a rip and is
+  reachable only from the rip pane — so a setup failure, a dependency-check crash, a
+  failed update or a drive probe had nothing to copy. The new dialog shows the version
+  *pair*, the live environment and every diagnostic recorded this session, read from the
+  same collector the report reads so the pasted text and the JSON cannot disagree. It
+  renders the tri-state exit code as *"none (no child was reaped)"* rather than `0`,
+  states its own truncation, distinguishes *"nothing recorded"* from *"everything
+  verified"*, and says so when the dependency check has not run rather than showing an
+  empty section. `build_diagnostics_text()` is pure and never raises — a diagnostics view
+  that cannot open fails exactly when the user is already reporting a failure.
+- **The one place cyanrip's own fatal sentence is displayed is now selectable.** The rip
+  pane's status label had no `setTextInteractionFlags`, so the single most useful line in
+  the app could not be selected by mouse or read by keyboard. `main_window_drive.py`
+  already did this for its diagnosis box; this label was written without it.
+- **`run_capture` records its own failures.** The argv went to DEBUG — which `log.txt`
+  does not keep by default — so on a stock install a probe that could not find its binary
+  left the exception message and nothing else. A non-zero probe exit is now recorded too,
+  at *warning* (some callers legitimately read a non-zero exit as an answer): a probe
+  whose exit code nobody looked at is how *"the tool is missing"* came to be reported for
+  a tool that was present and had merely rejected a flag.
 - **The collector is wired into every subsystem that can fail — and a sweep proves the
   call sites are reachable, not merely present.** A collector nothing calls is an empty
   section that reads as *"nothing went wrong"*, which is the same false-negative the
