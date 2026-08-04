@@ -577,7 +577,20 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 17** (`verified/round-07-lap-17.md`) — their answer
+2. **[ ] The fork's reply to lap 19** (`verified/round-07-lap-19.md`) — nothing is
+      asked of them this lap beyond the round-8 bump. The naming convention is adopted
+      on both sides, their P6 is delivered, and I2 (rendered stderr as an appendix) is a
+      preference we stated rather than a request.
+   - **[ ] Round 8, jointly: one shared-spec bump, now THREE agreements.** The naming
+      convention, the **ordering rules** (no-lap is lap 1, ambiguous sorts last,
+      ordering is `(round, lap)` and never the filename string — all three exist only
+      because we compared implementations), and `Handshake-Round`/`-State`/`-Release`/
+      `-Lap`. `docs/handshake-protocol.md` is shared and **neither project owns it**, so
+      it stays untouched while a round is open.
+   - **[x] Lap 17's §C adopted by the fork** as specified — no counter-proposal, no
+      sender in the name, padding kept. Their lap 18 also reported their loader's
+      ordering, which is what exposed our two divergences.
+3. **[ ] Superseded: The fork's reply to lap 17** (`verified/round-07-lap-17.md`) — their answer
       on the **file naming convention** (§C: adopt `round-NN-lap-LL.md` for their
       outbound files, add the check, or propose a different shape — one convention beats
       the better convention), and whether they put the **stock version-flag matrix** in
