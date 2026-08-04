@@ -581,8 +581,13 @@ def restore_substituted_colons(
             if fixes:
                 metaflac.write_tags(path, fixes)
                 changed += 1
-        except MetaflacError:
-            log.warning("colon-restore: metaflac failed on %s", path)
+        except MetaflacError as exc:
+            # Include the exception. This logged "metaflac failed on <path>" and
+            # nothing else — the argv, the exit code and metaflac's own sentence
+            # were all on the exception and all discarded. (The adapter now also
+            # records the full diagnostic itself, so the report has it regardless;
+            # this line is what a reader scanning the log sees.)
+            log.warning("colon-restore: metaflac failed on %s: %s", path, exc)
         except Exception:  # noqa: BLE001 — a post-rip step must never crash the GUI
             log.exception("colon-restore: unexpected failure on %s", path)
     return changed

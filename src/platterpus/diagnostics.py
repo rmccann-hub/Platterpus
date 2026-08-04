@@ -108,6 +108,9 @@ KNOWN_CODES: Final[frozenset[str]] = frozenset(
         "flac.verify_failed",
         "flac.recompress_failed",
         "transcode.failed",
+        # Tag write-back and cover-art embedding. Runs on EVERY rip, and used to
+        # log nothing at all on failure — see `adapters/metaflac.py`.
+        "metaflac.failed",
         "checksum.mismatch",
         # Network-backed lookups. All optional; all must fail visibly.
         "musicbrainz.lookup_failed",

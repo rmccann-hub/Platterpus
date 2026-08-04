@@ -286,6 +286,7 @@ class MainWindowShared(_SeamBase):
     checksums_done: Signal
     rip_comparison_done: Signal
     library_move_done: Signal
+    eject_finished: Signal  # (ok: bool, device: str)
     _mb_lookup_disc_id_requested: Signal
     _mb_fetch_release_requested: Signal  # (mbid, disc_id, disc_track_count)
 

@@ -145,6 +145,11 @@ class MainWindow(
     # moved into the configured library (or the move failed) — so the post-rip
     # buttons can be repointed at the new location on the GUI thread.
     library_move_done = Signal(object)
+    # (ok, device) — emitted from the eject daemon thread; queued to the GUI
+    # thread so a tray that never opened is CORRECTED on screen. Before this the
+    # `eject_drive` bool was discarded and the status line went on reading
+    # "Ejecting the disc…" indefinitely — an on-screen statement that was untrue.
+    eject_finished = Signal(bool, str)
     # Requests to the persistent MusicBrainz worker. Emitting these (instead of
     # calling the worker's slots directly) is what actually runs the query on
     # the worker's thread: a direct method call would run on the *caller's* (GUI)
@@ -508,6 +513,8 @@ class MainWindow(
         self.rip_comparison_done.connect(self._on_rip_comparison_done)
         # Library move outcome (when "Move finished rips to" is configured).
         self.library_move_done.connect(self._on_library_moved)
+        # Eject outcome — only speaks when the eject FAILED (see _on_eject_finished).
+        self.eject_finished.connect(self._on_eject_finished)
 
         self.setCentralWidget(central)
 

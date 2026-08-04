@@ -7,6 +7,21 @@ rather than calling subprocess directly so the Unknown Album helper
 The adapter writes via `--remove-tag=KEY` + `--set-tag=KEY=VALUE` so
 existing values for a given key are replaced, not duplicated. Reading
 uses `--export-tags-to=-` and parses the `KEY=VALUE` lines.
+
+**Every failure is fully captured and recorded before it is raised.** This runs
+on every rip — it is how the tags the user edited reach the FLAC, and how the
+cover art is embedded — and it used to log *nothing at all*: `MetaflacError`
+carried a message built from the last stderr line, the caller decided whether to
+log it, and the argv, the exit code and the rest of the output were discarded at
+the point of failure. Three of the six call sites then swallowed the exception
+into a one-line `log.warning` with no argv and no output, and nothing about it
+reached the report. So "your tags did not get written" was, in the worst case, a
+single line saying so with no way to find out why. The adapter now records the
+four facts CLAUDE.md's diagnostic-completeness rule requires — exit code (tri-state),
+exact argv, complete output, and a readable sentence — into the diagnostics
+collector, which writes them to the log **and** into the rip report's
+`diagnostics` block, *before* the exception is raised. The exception carries them
+too, so a caller that wants to render the reason no longer has to re-derive it.
 """
 
 from __future__ import annotations
@@ -15,6 +30,8 @@ import logging
 import subprocess
 from pathlib import Path
 
+from platterpus import diagnostics
+
 log = logging.getLogger(__name__)
 
 # A short timeout is fine — metaflac is fast.
@@ -22,11 +39,28 @@ _METAFLAC_TIMEOUT_S: float = 30.0
 
 
 class MetaflacError(Exception):
-    """Raised when a metaflac invocation fails actionably."""
+    """Raised when a metaflac invocation fails actionably.
 
-    def __init__(self, message: str, output: str = "") -> None:
+    Carries the *whole* failure, not just a sentence: the exact argv, the exit
+    code (tri-state — ``None`` means the child was never reaped, which a timeout
+    is), and metaflac's complete output. A caller that catches this can render or
+    log any of it without going back to the adapter.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        output: str = "",
+        *,
+        argv: tuple[str, ...] = (),
+        exit_code: int | None = None,
+    ) -> None:
         super().__init__(message)
         self.output: str = output
+        self.argv: tuple[str, ...] = argv
+        #: Tri-state. ``None`` = no exit status was collected (timeout, or the
+        #: binary never started). Never to be read as 0.
+        self.exit_code: int | None = exit_code
 
 
 class MetaflacAdapter:
@@ -102,27 +136,98 @@ class MetaflacAdapter:
     # --- Internals ---
 
     def _run(self, args: list[str]) -> str:
-        """Invoke metaflac and return its stdout. Raises MetaflacError."""
+        """Invoke metaflac and return its stdout. Raises :class:`MetaflacError`.
+
+        Every failure path records the full diagnostic *before* raising, so the
+        evidence exists whether or not the caller chooses to log the exception —
+        three of the six call sites reduce it to one line, and one drops it
+        entirely. `stdout` is returned separately from the recorded output because
+        `read_tags` parses it; the *recorded* copy merges stderr, since which line
+        of output the error interrupted is part of the diagnosis.
+        """
         argv: list[str] = [self._binary, *args]
+        frozen: tuple[str, ...] = tuple(argv)
         try:
             proc = subprocess.run(
                 argv,
                 capture_output=True,
                 text=True,
                 timeout=_METAFLAC_TIMEOUT_S,
+                # A metaflac that decides to prompt would otherwise block forever in
+                # a GUI process with no terminal — "hung with no explanation" is the
+                # least diagnosable failure there is.
+                stdin=subprocess.DEVNULL,
+                errors="replace",  # a stray non-UTF-8 byte must not raise here
             )
         except FileNotFoundError as exc:
-            raise MetaflacError(f"metaflac binary not found ({self._binary})") from exc
+            return self._fail(
+                f"metaflac binary not found ({self._binary})",
+                argv=frozen,
+                exit_code=None,
+                output="",
+                cause=exc,
+            )
         except subprocess.TimeoutExpired as exc:
-            raise MetaflacError(
-                f"metaflac timed out after {_METAFLAC_TIMEOUT_S:.0f}s"
-            ) from exc
+            partial = exc.output or ""
+            if isinstance(partial, bytes):
+                partial = partial.decode("utf-8", "replace")
+            return self._fail(
+                # NAME THE DURATION: "timed out" without the limit cannot be acted on.
+                f"metaflac timed out after {_METAFLAC_TIMEOUT_S:.0f}s "
+                f"(child killed, never reaped)",
+                argv=frozen,
+                exit_code=None,
+                output=diagnostics.bounded_output(partial),
+                cause=exc,
+            )
+        except OSError as exc:
+            # Was uncaught: an EACCES/ENOEXEC on the binary escaped as a raw OSError
+            # from an adapter documented to raise MetaflacError, so the callers'
+            # `except MetaflacError` did not catch it.
+            return self._fail(
+                f"could not run metaflac: {exc}",
+                argv=frozen,
+                exit_code=None,
+                output="",
+                cause=exc,
+            )
 
         if proc.returncode != 0:
-            stderr = (proc.stderr or "").strip().splitlines()
-            last = stderr[-1] if stderr else f"rc={proc.returncode}"
-            raise MetaflacError(
-                f"metaflac failed: {last}",
-                output=(proc.stdout or "") + (proc.stderr or ""),
+            merged = diagnostics.bounded_output(
+                (proc.stdout or "") + (proc.stderr or "")
+            )
+            stderr_lines = [ln for ln in (proc.stderr or "").splitlines() if ln.strip()]
+            last = stderr_lines[-1].strip() if stderr_lines else "(no error output)"
+            return self._fail(
+                f"metaflac exited {proc.returncode}: {last}",
+                argv=frozen,
+                exit_code=proc.returncode,
+                output=merged,
             )
         return proc.stdout or ""
+
+    @staticmethod
+    def _fail(
+        message: str,
+        *,
+        argv: tuple[str, ...],
+        exit_code: int | None,
+        output: str,
+        cause: BaseException | None = None,
+    ) -> str:
+        """Record the failure in full, then raise. Declared ``-> str`` so callers
+        can `return self._fail(...)` and the type checker sees the same shape as
+        the success path; it never actually returns.
+        """
+        diagnostics.record_command_failure(
+            "metaflac.failed",
+            "metaflac",
+            argv,
+            exit_code,
+            output,
+            message=message,
+            where="adapters.metaflac.MetaflacAdapter._run",
+        )
+        raise MetaflacError(
+            message, output=output, argv=argv, exit_code=exit_code
+        ) from cause

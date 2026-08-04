@@ -77,6 +77,48 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the log does not exist.
 
 ### Fixed
+- **`metaflac` failures were captured nowhere at all** — and it runs on *every* rip
+  (it is how the user's edited tags reach the FLAC and how the cover art is embedded).
+  `MetaflacError` carried a sentence built from the last stderr line; the argv, the exit
+  code and the rest of the output were discarded at the point of failure, three of the
+  six call sites reduced the exception to a one-line warning, and one dropped its text
+  entirely. So "your tags did not get written" was, worst case, a single line saying so
+  with no way to find out why. The adapter now records exit code (tri-state), exact
+  argv, complete output and a readable sentence into the diagnostics collector **before**
+  raising, so the evidence exists whether or not the caller logs it — and the exception
+  carries all four so a caller can render any of them. Also: an `OSError` (EACCES on the
+  binary) used to escape as a raw `OSError` from an adapter documented to raise
+  `MetaflacError`, so every caller's `except MetaflacError` missed it; `stdin` is now
+  `DEVNULL`, because a `metaflac` that decided to prompt would hang the GUI with no
+  explanation; and a timeout names the duration it exceeded.
+- **`cd-paranoia -A`'s exit code was never read**, and its verdict feeds the archival
+  *"Defeat audio cache"* field. "The tool failed" and "the tool ran and was
+  inconclusive" both produced `defeat=None` with nothing distinguishing them — two very
+  different facts rendered identically. The exit code is now recorded on the result
+  (tri-state) and a non-zero exit raises a warning saying explicitly that this was a
+  tool failure rather than an inconclusive measurement. The honest "unknown" verdict is
+  unchanged; what is new is that the reader is told which kind of unknown it is.
+- **`eject`'s own message was destroyed at the source, and the status line lied.**
+  `drive_control._run_bounded` set `stderr=DEVNULL`, so *no* caller could ever report
+  why an eject failed; the exit code was logged at INFO with the message gone, and the
+  caller discarded the returned bool. A tray that never opened therefore left the rip
+  pane reading *"Rip complete — ejecting the disc…"* indefinitely, with nothing above
+  INFO in the log to contradict it. Output is now captured and merged, a failure records
+  the full diagnostic, and the worker reports back via a queued `eject_finished` signal
+  so the on-screen claim is corrected (and names the log path). Success stays silent —
+  an open tray is self-evident, and overwriting "Rip complete" would bury the result.
+- **A bare `except OSError: pass` could send a rip into the folder the user was
+  avoiding.** `free_album_folder_templates` silently fell back to the *original*
+  templates, so "rip to a new folder" could resolve to a folder that already holds
+  audio — a permissions problem presenting as a product decision. It now warns, says
+  what the consequence is, and records a diagnostic.
+- **The drive-offset CSV's malformed rows are logged, as its docstring already
+  promised.** The docstring said malformed lines "are skipped with a log note"; the
+  row-level skip logged nothing, so a user whose CSV contributed nothing had no way to
+  find the bad line. Bounded to five examples with the count stated, plus a distinct
+  message for "every row was malformed" — which reads differently from "the file was
+  empty" and has a different fix. A doc claim a reader relies on has to be true in the
+  code; a comment where a check belongs is not a fix.
 - **A `NameError` on the setup engine's own failure path.** The diagnostics call added
   to `host_setup.py` referenced a module that was never imported, so a *failed* setup
   step raised `NameError` from inside the code meant to explain the failure. Found by

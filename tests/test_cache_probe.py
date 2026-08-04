@@ -16,6 +16,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from platterpus import diagnostics
 from platterpus.adapters import cache_probe
 from platterpus.adapters.cache_probe import (
     CacheProbeResult,
@@ -291,3 +292,64 @@ def test_a_timed_out_probe_still_reports_an_honest_unknown_verdict(
     assert result.defeat is None, "a timed-out probe must not produce a verdict"
     assert result.error == "timed out"
     assert result.analyzed is True  # it ran; it just didn't finish
+
+
+# --- Exit code (2026-08-04) -----------------------------------------------
+#
+# `cd-paranoia -A`'s exit code was never read, and this verdict feeds the archival
+# "Defeat audio cache" field. So "the tool failed" and "the tool ran and was
+# inconclusive" both produced `defeat=None` with nothing in the report or the log
+# distinguishing them — two very different facts rendered identically.
+
+
+def test_a_clean_probe_records_exit_zero() -> None:
+    diagnostics.clear()
+    result = probe_cache_defeat(
+        "/dev/sr0",
+        runner=lambda argv: _proc("Backseek flushes the cache. Drive tests OK.\n"),
+    )
+    assert result.exit_code == 0
+    assert result.defeat is True
+    # Nothing to flag: a clean probe records no diagnostic.
+    assert diagnostics.default_log().count() == 0
+    diagnostics.clear()
+
+
+def test_a_nonzero_exit_is_recorded_and_distinguished_from_inconclusive() -> None:
+    diagnostics.clear()
+
+    def failing(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            argv, 1, stdout="", stderr="cdparanoia: Unable to open disc.\n"
+        )
+
+    result = probe_cache_defeat("/dev/sr0", runner=failing)
+
+    assert result.exit_code == 1
+    assert result.defeat is None  # still honestly unknown — never forged
+    items = diagnostics.default_log().items()
+    assert [i.code for i in items] == ["deps.command_failed"]
+    recorded = items[0]
+    # A warning, not an error: the rip is unaffected and the verdict is still right.
+    assert recorded.severity == "warning"
+    assert recorded.exit_code == 1
+    assert "cd-paranoia" in (recorded.tool or "")
+    assert "-A" in recorded.argv
+    assert "Unable to open disc" in recorded.detail
+    # The distinction the old code could not make, stated in words.
+    assert "tool failure rather than an inconclusive measurement" in recorded.message
+    diagnostics.clear()
+
+
+def test_a_probe_with_no_exit_status_reports_none_not_zero() -> None:
+    """Tri-state: a runner that yields no returncode is 'never reaped', not 0."""
+    diagnostics.clear()
+
+    class _NoCode:
+        stdout = "some output"
+        stderr = ""
+
+    result = probe_cache_defeat("/dev/sr0", runner=lambda argv: _NoCode())  # type: ignore[arg-type,return-value]  # a deliberately malformed runner
+    assert result.exit_code is None
+    assert diagnostics.default_log().items()[0].exit_code is None
+    diagnostics.clear()
