@@ -550,7 +550,7 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 7 sent, both sides on betas)
+### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 9 sent, both betas cut)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
 `verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
@@ -581,10 +581,31 @@ Adopted. Ours is a **pre-release**, because our artifact is an AppImage a user
 downloads rather than a tree they build: `--release-gate --prerelease` permits it
 loudly, `--release-gate` still refuses a stable release.
 
-- **Platterpus test pin: `v0.6.4b1`** (published pre-release).
-- **Awaiting the fork's beta:** `0.9.4-rc1+platterpus.5-beta.1` from `f750890`,
-  requested in `verified/round-7d.md`. **The only thing between us and the rig
-  session.**
+**Both betas are cut and both are named in writing (their lap 8, our lap 9).**
+
+```
+Platterpus  v0.6.4b1                        GitHub pre-release, assets attached
+cyanrip     0.9.4-rc1+platterpus.5-beta.1   commit 9003e6f on platterpus-fork
+```
+
+- **[x] Platterpus test pin: `v0.6.4b1`** — published pre-release.
+- **[x] Adopt the fork's beta as the wizard's build target.** `WIZARD_TARGET` →
+      `9003e6f`, checked out as an exact detached commit; `platterpus-fork-g9003e6f`
+      added to the `--consumer` allowlist so rig logs carry both halves of the pair.
+      **The test pin moved twice inside this round** (`f750890` → `d9c7124` →
+      `9003e6f`), each move retiring a build the previous lap named — `f750890` because
+      its `-x` could hang with no diagnostic at all, which is exactly what H10 exercises.
+      `SUPERSEDED_TEST_PINS` records the retired ones, and a rip that finds one installed
+      says it is retired and names the current one.
+- **[ ] Run the rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
+      invocation** — seven of the ripper's refusal paths fire before its logfile exists,
+      so nothing in the archived log can show them, and its heartbeat lines are
+      stdout-only too. Send the artifacts to **both** repositories. Their lap 8 adds one
+      cheap step worth taking: run `-x` on a rip you can afford to lose first, since it
+      is the least-exercised code in the binary.
+- **[ ] Answer their lap 7 §4** — whether the seven stdout-only refusal paths should be
+      fixed by opening the logfile earlier or documented in the contract as stdout-only.
+      They asked for our view rather than assuming. Not blocking the session.
 
 What we owe, and what waits on their answers:
 
