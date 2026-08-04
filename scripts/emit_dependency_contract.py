@@ -41,8 +41,18 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+from platterpus import __version__ as _APP_VERSION  # noqa: E402
 from platterpus.adapters.cyanrip_backend import CyanripImpl  # noqa: E402
 from platterpus.adapters.rip_backend import RipMetadata, TrackTag  # noqa: E402
+from platterpus.deps.fork_source import (  # noqa: E402
+    FORK_EXPECTED_BANNER as _APPROVED_BANNER,
+)
+from platterpus.handshake_approval import (  # noqa: E402
+    APPROVED_BY_ROUND as _APPROVED_ROUND,
+)
+from platterpus.handshake_approval import (  # noqa: E402
+    APPROVED_FOR_PLATTERPUS_VERSION as _APPROVED_FOR,
+)
 from platterpus.parsers import cyanrip_log as _parser  # noqa: E402
 
 OUTPUT_PATH: Path = _REPO_ROOT / "docs" / "cyanrip-consumer-contract.md"
@@ -155,11 +165,25 @@ def _emitted_flags() -> list[str]:
 
 
 def render() -> str:
-    """Build the whole document. Deterministic — no timestamps, no versions.
+    """Build the whole document. Deterministic — no timestamps.
 
-    Deliberately carries **no** date or version stamp: this file's content is a
-    pure function of the code, so stamping it would make every unrelated release
-    produce a spurious diff and train readers to ignore the ones that matter.
+    **No date, but it does name versions, and the change is deliberate.** The
+    original reasoning was sound and is preserved in §0: a *timestamp* would make
+    every unrelated release produce a spurious diff and train readers to ignore the
+    ones that matter. A *version* is different — it is the range the claims cover,
+    which round 7 lap 10 asked both sides to state (ask D3), because a contract
+    claim with no stated range is a snapshot that reads as a fact. The fork's
+    *"there is no `-V`"* was true when written and one commit from being the
+    misleading kind of true.
+
+    The cost is honest and accepted: this file now diffs by two lines on a version
+    bump. That diff is not spurious — the document really does describe a new app
+    version — and it is the price of a range a reader can check. **Do not "fix" it
+    back to versionless**; that would re-open exactly the ambiguity D3 was raised
+    about.
+
+    Still deterministic for a given (source, version) pair, so `--check` remains a
+    valid CI gate.
     """
     patterns = _pattern_rows()
     ignored = _ignored_rows()
@@ -184,6 +208,43 @@ def render() -> str:
         "breaking change to us and requires a handshake round. Anything in §2 is",
         "safe to change freely — we look at it and throw it away. §3 is the argv we",
         "will send you; a flag whose meaning changes is also breaking.",
+        "",
+        # THE RANGE, NOT THE SNAPSHOT (round 7 lap 10, ask D3 — offered to the fork
+        # and therefore owed by us).
+        #
+        # A contract claim with no stated range is a snapshot that reads as a fact.
+        # The fork's *"`-v` is version; there is no `-V`"* was true when written and
+        # one commit from being the misleading kind of true; our own dependency
+        # dialog's `cyanrip 0.9.3 / 0 missing` had every word accurate and the
+        # message wrong. Same shape, and the fix is the same: say WHICH BUILDS a
+        # claim holds for.
+        #
+        # This document is generated from OUR code, so the honest range is the app
+        # version that produced it and the ripper build it was verified against —
+        # both of which we can state exactly rather than approximately, and neither
+        # of which is a timestamp (the banner explains why there is no date).
+        "## 0. What range these claims cover",
+        "",
+        "Every row in this document is derived from the Platterpus source at the",
+        "version named below, and describes what **that** app version parses and",
+        "sends. It is not a claim about any other version of either side.",
+        "",
+        f"- **Platterpus:** `{_APP_VERSION}` — the build that",
+        "  generated this file. A row can only have changed with our code, so this",
+        "  version *is* the range on our half.",
+        f"- **Verified against ripper build:** `{_APPROVED_BANNER}` — the build a",
+        f"  closed handshake round approved (round {_APPROVED_ROUND}, for Platterpus",
+        f"  `{_APPROVED_FOR}`). Rows in §1 were checked against that build's output;",
+        "  a newer ripper may emit lines this document does not list, which is a",
+        "  handshake event rather than a defect.",
+        "- **Ripper build under review:** see `HANDSHAKE-PIN` /",
+        "  `HANDSHAKE-TEST-PIN` in the newest file under `docs/handshake/`. A test",
+        "  pin is approved by nobody and this document makes no claim about it.",
+        "",
+        "*Why no date:* this file is a pure function of the code, so a timestamp",
+        "would make every unrelated release produce a spurious diff and train",
+        "readers to ignore the ones that matter. The versions above are the range;",
+        "the git history is the chronology.",
         "",
         "---",
         "",

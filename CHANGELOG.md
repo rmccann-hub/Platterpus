@@ -235,6 +235,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   sub-blocks already followed: one construction site, so the summary and the thing
   summarised cannot disagree.
 
+### Documentation
+- **`docs/error-reporting.md` — the design of record for how a failure becomes something
+  a person can act on.** The four obligations and the code that meets each; the one
+  collector that feeds the text log, the report and the copy-diagnostics dialog from a
+  single call; the severity contract; the recipe for adding a failure path; and a table of
+  what is *enforced by a test* rather than trusted. Indexed in `docs/README.md`.
+- **The generated consumer contract now states the range its claims cover** — which app
+  version produced it and which approved ripper build its rows were checked against. A
+  contract claim with no stated range is a snapshot that reads as a fact: the fork's
+  *"there is no `-V`"* was true when written and one commit from being the misleading
+  kind of true. Sent to the fork as an ask in the same round, so we landed our own half
+  first. The accepted cost is a two-line diff on a version bump, which is not spurious —
+  the document really does describe a new version — and the docstring says so, to stop a
+  future reader "fixing" it back.
+- **Round 7 lap 10 sent** (`docs/handshake/verified/round-7f.md`, **HOLD** — the round
+  stays open and the pin does not move). It states what we now capture and surface so the
+  fork can hold us to it, and asks three things back, including our own view on their
+  seven stdout-only refusal paths: document them as stdout-only rather than opening the
+  logfile earlier, because a logfile opened before the disc is validated trades an old
+  ambiguity for a new one.
+
 ### Verified on hardware
 - **The `$HOME` fix works on the real rig.** After installing v0.6.4b3 the setup
   wizard reports every step ✓ — *"Platterpus fork of cyanrip (build + export) —

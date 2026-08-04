@@ -16,6 +16,29 @@ breaking change to us and requires a handshake round. Anything in §2 is
 safe to change freely — we look at it and throw it away. §3 is the argv we
 will send you; a flag whose meaning changes is also breaking.
 
+## 0. What range these claims cover
+
+Every row in this document is derived from the Platterpus source at the
+version named below, and describes what **that** app version parses and
+sends. It is not a claim about any other version of either side.
+
+- **Platterpus:** `0.6.4b3` — the build that
+  generated this file. A row can only have changed with our code, so this
+  version *is* the range on our half.
+- **Verified against ripper build:** `cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)` — the build a
+  closed handshake round approved (round 6, for Platterpus
+  `0.6.3`). Rows in §1 were checked against that build's output;
+  a newer ripper may emit lines this document does not list, which is a
+  handshake event rather than a defect.
+- **Ripper build under review:** see `HANDSHAKE-PIN` /
+  `HANDSHAKE-TEST-PIN` in the newest file under `docs/handshake/`. A test
+  pin is approved by nobody and this document makes no claim about it.
+
+*Why no date:* this file is a pure function of the code, so a timestamp
+would make every unrelated release produce a spurious diff and train
+readers to ignore the ones that matter. The versions above are the range;
+the git history is the chronology.
+
 ---
 
 ## 1. Log lines we parse (51)
