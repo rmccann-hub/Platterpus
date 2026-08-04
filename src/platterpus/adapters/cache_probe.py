@@ -52,9 +52,10 @@ import logging
 import re
 import subprocess
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
+from platterpus import diagnostics
 from platterpus.killable import KillableCommand
 from platterpus.paths import CDPARANOIA_BINARY_DEFAULT
 
@@ -137,6 +138,15 @@ class CacheProbeResult:
       kept in the report/log so a verdict is auditable.
     - ``error``: a short reason the probe couldn't run (missing binary, timeout),
       "" when it ran.
+    - ``exit_code``: what ``cd-paranoia -A`` exited with. **Tri-state** — ``None``
+      means no exit status was collected (the binary never ran, or a timeout killed
+      it), which is a real answer and never to be read as ``0``.
+
+      This was **not recorded at all**, and the value feeds the archival "Defeat
+      audio cache" field. So a probe where cd-paranoia exited non-zero and printed
+      an error produced ``defeat=None`` — correctly "unknown" — with nothing in the
+      report saying the tool had *failed* rather than merely been inconclusive. Two
+      very different facts, and the reader had no way to tell them apart.
     """
 
     defeat: bool | None = None
@@ -144,6 +154,7 @@ class CacheProbeResult:
     analyzed: bool = False
     raw_output: str = ""
     error: str = ""
+    exit_code: int | None = None
 
 
 def build_argv(device: str, binary: Path = CDPARANOIA_BINARY_DEFAULT) -> list[str]:
@@ -325,10 +336,37 @@ def probe_cache_defeat(
 
     combined = (getattr(proc, "stdout", "") or "") + (getattr(proc, "stderr", "") or "")
     result = parse_cache_analysis(combined)
+    # READ THE EXIT CODE. It was never looked at, and this verdict feeds an
+    # archival field: "cd-paranoia failed" and "cd-paranoia ran and was
+    # inconclusive" both produced `defeat=None` with nothing distinguishing them.
+    exit_code = getattr(proc, "returncode", None)
+    if not isinstance(exit_code, int):
+        exit_code = None
+    result = replace(result, exit_code=exit_code)
+    if exit_code != 0:
+        # A warning, not an error: the honest "unknown" verdict is still correct and
+        # the rip is unaffected — but the reader must be told the measurement did
+        # not merely fail to conclude, it failed.
+        diagnostics.record_command_failure(
+            "deps.command_failed",
+            "cd-paranoia -A",
+            argv,
+            exit_code,
+            diagnostics.bounded_output(combined),
+            message=(
+                f"cache-defeat probe on {device or '(default drive)'}: cd-paranoia "
+                f"-A {'exited ' + str(exit_code) if exit_code is not None else 'returned no exit status'}"
+                f" — the archival 'Defeat audio cache' field stays unknown, and that "
+                f"is a tool failure rather than an inconclusive measurement"
+            ),
+            severity=diagnostics.WARNING,
+            where="adapters.cache_probe.probe_cache_defeat",
+        )
     log.info(
-        "cache probe on %s: defeat=%s cache_sectors=%s",
+        "cache probe on %s: defeat=%s cache_sectors=%s exit=%s",
         device or "(default)",
         result.defeat,
         result.cache_sectors,
+        "none (never reaped)" if exit_code is None else exit_code,
     )
     return result

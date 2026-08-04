@@ -1054,23 +1054,56 @@ class RipMixin(MainWindowShared):
         self._eject_async(device, status="Ejecting the disc…")
 
     def _eject_async(self, device: str, status: str) -> None:
-        """Eject `device` off a daemon thread.
+        """Eject `device` off a daemon thread, and say so when it does not work.
 
-        `eject` can block for its subprocess timeout, so — like the
-        force-stop — we never call it on the GUI thread. Best-effort: the
-        status line is informational and we don't surface a failure modally
-        (a missing/empty tray isn't worth a dialog). The thread is stored so
-        tests can join it deterministically.
+        `eject` can block for its subprocess timeout, so — like the force-stop — we
+        never call it on the GUI thread. Still best-effort: a stuck tray does not
+        deserve a modal dialog. But it does deserve to be *said*.
+
+        **The bool used to be discarded.** `eject_drive`'s return value went
+        nowhere, and its message was already destroyed at the source by a
+        `stderr=DEVNULL`, so a tray that never opened left the status line reading
+        "Ejecting the disc…" forever — an on-screen statement that was simply
+        untrue, with nothing above INFO in the log to contradict it. The worker now
+        reports back through a queued signal (never touching a widget off the GUI
+        thread) and the status line is corrected. `drive_control.eject_drive` records
+        the full diagnostic — argv, exit code, `eject`'s own words — either way.
         """
         log.info("ejecting device=%s", device or "(default)")
         self._rip_progress.set_status(status)
-        thread = threading.Thread(
-            target=drive_control.eject_drive,
-            kwargs={"device": device},
-            daemon=True,
-        )
+
+        def _eject_and_report() -> None:
+            ok = False
+            try:
+                ok = drive_control.eject_drive(device=device)
+            except Exception:  # noqa: BLE001 — a daemon thread must never crash
+                log.exception("eject failed unexpectedly on %s", device or "(default)")
+            # A QUEUED emit: this runs on a daemon thread and must not touch a
+            # widget. `eject_finished` is connected to a GUI-thread slot.
+            self.eject_finished.emit(bool(ok), device)
+
+        thread = threading.Thread(target=_eject_and_report, daemon=True)
         self._eject_thread = thread
         thread.start()
+
+    def _on_eject_finished(self, ok: bool, device: str) -> None:
+        """Correct the status line once the eject actually finished (GUI thread).
+
+        Only speaks on failure: a successful eject is self-evident — the tray is
+        open — and overwriting a "Rip complete" headline with "ejected" would bury
+        the result the user cares about.
+        """
+        if ok:
+            return
+        where = device or "the drive"
+        message = (
+            f"Could not eject {where} — it may still be in use. "
+            f"The rip itself is unaffected; see the log for what eject reported "
+            f"({LOG_PATH})."
+        )
+        log.warning("%s", message)
+        self._rip_progress.set_status(message)
+        self._rip_progress.append_log_line(message)
 
     def _notify_rip_complete(self, success: bool, detail: str) -> None:
         """Show a desktop notification that the rip finished (best-effort).
