@@ -1313,11 +1313,22 @@ class RipWorker(QObject):
                 giveup = _TRACK_GIVEUP_RE.search(line)
                 if giveup:
                     track = giveup.group("track")
-                    self._failure_hint = (
+                    tailored = (
                         f"Track {track} couldn't be read after repeated tries. "
                         "The disc may be scratched or dirty — clean it and try "
                         "again."
                     )
+                    # KEEP THE RIPPER'S OWN SENTENCE when we already have one. This
+                    # assigned unconditionally, so a verbatim fatal matched *one line
+                    # earlier* — by the branch directly above, whose comment says
+                    # "first error wins" — was overwritten by this canned advice. The
+                    # comment described a rule the code did not implement for this
+                    # branch. When both exist the tool's words lead and the advice
+                    # follows, so nothing is lost either way.
+                    if self._failure_hint:
+                        self._failure_hint = f"{self._failure_hint} — {tailored}"
+                    else:
+                        self._failure_hint = tailored
                 # Status text first (covers the pre-track disc scan and
                 # the encode/tag sub-phases), then the numeric progress
                 # that drives the bar.

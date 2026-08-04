@@ -1384,6 +1384,34 @@ def test_failure_hint_set_on_track_giveup(qapp: QApplication, tmp_path: Path) ->
     assert "scratched or dirty" in worker.failure_hint
 
 
+def test_a_giveup_line_does_not_overwrite_the_rippers_own_fatal(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The branch above this one is commented "first error wins" — and this branch
+    assigned unconditionally, so a verbatim cyanrip fatal matched ONE LINE EARLIER
+    was replaced by canned "clean the disc" advice. The comment described a rule the
+    code did not implement here. The tool's own sentence now leads and the advice
+    follows, so neither is lost.
+    """
+    handle = _FakeHandle(
+        lines=[
+            # A REAL cyanrip format string, taken from the generated inventory —
+            # not one I invented, which would test the fixture rather than the matcher.
+            "Unable to read track 3 subchannel info!",
+            "CRITICAL:whipper.command.cd:giving up on track 3 after 5 times",
+        ],
+        exit_code=1,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+
+    hint = worker.failure_hint
+    # The ripper's own words, first.
+    assert hint.startswith("Unable to read track 3 subchannel info!")
+    # And the actionable advice is still there, appended rather than substituted.
+    assert "scratched or dirty" in hint
+
+
 def test_no_failure_hint_on_clean_rip(qapp: QApplication, tmp_path: Path) -> None:
     handle = _FakeHandle(lines=["Reading TOC 100 %"], exit_code=0)
     worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))

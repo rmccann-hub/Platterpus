@@ -7,6 +7,8 @@ We DON'T drive a real Qt event loop — tests poke slots directly.
 
 from __future__ import annotations
 
+import json
+import logging
 import threading
 import time
 from pathlib import Path
@@ -20,6 +22,7 @@ import pytest
 from conftest import HardExitCalled, stop_window_threads
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from platterpus import rip_report
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.metaflac import MetaflacAdapter
@@ -40,8 +43,10 @@ from platterpus.ctdb.verify import CtdbVerifyResult, Verdict
 from platterpus.deps.manager import DependencyManager
 from platterpus.drive_access import DriveAccessDiagnosis
 from platterpus.drive_profiles import OffsetSource, compute_fingerprint
+from platterpus.log_buffer import SessionLogBuffer, set_session_buffer
 from platterpus.parsers.drive_list import DriveDescriptor
 from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
+from platterpus.paths import LOG_PATH
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
 from platterpus.ui.main_window_rip import TaggingResult
 
@@ -6255,6 +6260,174 @@ def test_rip_error_is_remembered_for_the_failure_report(teardown_threads) -> Non
 
     assert window._last_rip_error == "cyanrip: could not open /dev/sr0"
     assert "could not open" in window._rip_progress.current_status()
+
+
+def test_a_start_failure_keeps_the_captured_error_on_screen(teardown_threads) -> None:
+    """`_finish_rip` read only `worker.failure_hint`, never `_last_rip_error`.
+
+    On every start/stream failure the ripper produced no stdout, so `failure_hint`
+    is empty, so the last thing the user saw was "Rip failed." — while the
+    *specific* sentence had been put on screen by `_on_rip_error` seconds earlier
+    and stashed in `_last_rip_error`, where the JSON report reads it and the status
+    line did not. The one surface a user actually looks at was the only one that
+    threw the diagnosis away.
+    """
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(failure_hint="")  # no stdout was produced
+    window._on_rip_error("cyanrip: Unable to open device /dev/sr0!")
+
+    window._finish_rip(success=False, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert "Unable to open device /dev/sr0" in status
+    assert status != "Rip failed."
+
+
+def test_a_failure_with_no_diagnosis_at_least_names_the_log(teardown_threads) -> None:
+    """When there genuinely is nothing captured, say so and point somewhere.
+
+    The floor for this fallback: four words that name nothing are replaced by a
+    sentence that admits no diagnosis was captured and gives the log path — which
+    is the one place the user could look next.
+    """
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(failure_hint="")
+    window._last_rip_error = None
+
+    window._finish_rip(success=False, log_path="")
+
+    status = window._rip_progress.current_status()
+    assert "no diagnosis was captured" in status
+    assert str(LOG_PATH) in status
+
+
+def test_the_workers_hint_still_wins_when_it_has_one(teardown_threads) -> None:
+    """Ordering is unchanged: a tailored hint scraped from the ripper's output
+    still outranks the raw error line. This is the *fallback* that was missing, not
+    a new precedence."""
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(
+        failure_hint="Track 3 couldn't be read after repeated tries."
+    )
+    window._on_rip_error("cyanrip: some lower-level noise")
+
+    window._finish_rip(success=False, log_path="")
+
+    assert "Track 3" in window._rip_progress.current_status()
+
+
+def test_the_failure_report_embeds_the_rippers_output_and_the_debug_log(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The #1 diagnosability gap, ranked by the 2026-08-04 surfacing audit.
+
+    This report exists for the rips that produced no log at all — precisely the
+    most-broken ones. It passed no ``artifacts=`` and no ``debug_log=``, so on
+    exactly those rips:
+
+      * the worker's ``captured_stdout`` — built with a head, a counted elision and
+        a tail *specifically to survive a kill* — was discarded;
+      * the always-DEBUG session buffer was not embedded;
+      * and ``log.txt`` is INFO by default while every ripper line is written with
+        ``log.debug``, so it was not on disk either.
+
+    The ripper's entire output existed in memory, in a variable the code already
+    knew how to serialise, and reached nothing. Asserts the *content*, not the
+    presence of a key, so an empty embed cannot satisfy it.
+    """
+    window = teardown_threads()
+    out = tmp_path / "Artist" / "Album"
+    # INSTALL THE REAL SESSION BUFFER. Production always has one (`configure_logging`
+    # installs it at startup, always at DEBUG regardless of the log-file toggle); the
+    # test harness does not, and asserting against a harness with no buffer would have
+    # tested nothing — "what does my stand-in do that the real thing does not".
+    buffer = SessionLogBuffer()
+    set_session_buffer(buffer)
+    pkg_log = logging.getLogger("platterpus")
+    pkg_log.addHandler(buffer)
+    was = pkg_log.level
+    # DEBUG on the LOGGER, not only the handler: `configure_logging` sets the
+    # package logger to DEBUG in production precisely so the buffer sees every
+    # ripper line even when the log FILE is at INFO. A test that left the logger at
+    # its default would have proved nothing about the path that matters.
+    pkg_log.setLevel(logging.DEBUG)
+    try:
+        pkg_log.debug("cyanrip │ a line only DEBUG carries")
+    finally:
+        pkg_log.removeHandler(buffer)
+        pkg_log.setLevel(was)
+    window._rip_worker = SimpleNamespace(
+        captured_stdout="cyanrip 0.9.4\ncyanrip: Unable to open device /dev/sr0!\n"
+    )
+    window._last_outcome = rip_report.build_outcome(
+        status="failed", failure_hint="Unable to open device"
+    )
+
+    window._write_minimal_failure_report(SimpleNamespace(output_dir=str(out)))
+
+    written = out / "platterpus-rip-failure.platterpus.json"
+    assert written.exists(), "no failure report was written at all"
+    report = json.loads(written.read_text(encoding="utf-8"))
+
+    # (1) The ripper's own words — the thing that was discarded.
+    stdout_block = (report["artifacts"] or {}).get("ripper_stdout") or {}
+    assert "Unable to open device /dev/sr0" in (stdout_block.get("text") or ""), (
+        "the ripper's captured stdout did not reach the failure report"
+    )
+    # (2) The session DEBUG log, which `log.txt` does not carry by default.
+    assert report["debug"] is not None, "the session debug log was not embedded"
+    lines = report["debug"].get("lines") or []
+    # NOT just "a list exists": the DEBUG line must actually be in it. An empty
+    # list would satisfy a presence check while carrying nothing.
+    assert any("a line only DEBUG carries" in line for line in lines), (
+        "the session DEBUG buffer's lines did not reach the failure report"
+    )
+    # (3) And the enumerated diagnostics block travels with it.
+    assert "diagnostics" in report
+    set_session_buffer(None)
+
+
+def test_the_failure_report_still_writes_when_there_is_no_captured_output(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The fix's own new state: two extra embeds are two extra ways to fail.
+
+    Each is guarded separately so a stdout capture that cannot be built cannot cost
+    us the report it was meant to explain. `artifacts` is `null` rather than a
+    fabricated empty block — "we had nothing" and "we had it and dropped it" must
+    not render the same way.
+    """
+    window = teardown_threads()
+    out = tmp_path / "Artist" / "Album"
+    window._rip_worker = SimpleNamespace(captured_stdout="")
+    window._last_outcome = rip_report.build_outcome(status="failed")
+
+    window._write_minimal_failure_report(SimpleNamespace(output_dir=str(out)))
+
+    report = json.loads(
+        (out / "platterpus-rip-failure.platterpus.json").read_text(encoding="utf-8")
+    )
+    assert report["artifacts"] is None
+    assert report["outcome"]["status"] == "failed"
+
+
+def test_a_written_failure_report_is_announced_at_warning_with_its_path(
+    teardown_threads, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """It logged at INFO — the level `log.txt` keeps, but not the level a reader
+    scanning for problems looks at — and the user was never told the file existed
+    or where it was."""
+    window = teardown_threads()
+    out = tmp_path / "Artist" / "Album"
+    window._rip_worker = SimpleNamespace(captured_stdout="boom\n")
+    window._last_outcome = rip_report.build_outcome(status="failed")
+
+    with caplog.at_level(logging.WARNING):
+        window._write_minimal_failure_report(SimpleNamespace(output_dir=str(out)))
+
+    assert "platterpus-rip-failure.platterpus.json" in caplog.text
+    # And on screen, not only in the log.
+    assert "failure report was written" in window._rip_progress._log_view.toPlainText()
 
 
 def test_completion_notification_is_skipped_when_turned_off(teardown_threads) -> None:

@@ -77,6 +77,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the log does not exist.
 
 ### Fixed
+- **The rip-failure report now carries the ripper's output and the session debug log.**
+  This report exists for the rips that produced no log at all — the most-broken ones —
+  and it passed neither `artifacts=` nor `debug_log=`. So on exactly those rips: the
+  worker's `captured_stdout` (built with a head, a counted elision and a tail
+  *specifically to survive a kill*) was discarded; the always-DEBUG session buffer was
+  not embedded; and `log.txt` is INFO by default while every ripper line is written with
+  `log.debug`, so it was not on disk either. The ripper's entire output existed in
+  memory, in a variable the code already knew how to serialise, and reached neither the
+  screen, nor the log file, nor the one artifact written — only the one-line
+  `failure_hint` survived. The full-report path had passed both all along. Each embed is
+  guarded separately so a capture that cannot be built cannot cost us the report, and the
+  written path is now announced at WARNING **and on screen**, because a user asked to
+  "send the report" has to be able to find it. Revert-proven.
+- **`"Rip failed."` no longer clobbers the error text captured seconds earlier.**
+  `_finish_rip` read only `worker.failure_hint`. On every start/stream failure the ripper
+  produced no stdout, so that hint is empty — while the *specific* sentence had been put
+  on screen by `_on_rip_error` and stashed in `_last_rip_error`, where the JSON report
+  reads it and the status line did not. The one surface a user actually looks at was the
+  only one that threw the diagnosis away. When there genuinely is nothing captured, the
+  fallback now says so and names the log path instead of four words that name nothing.
+- **A `giving up on track N` line no longer overwrites the ripper's own fatal.** The
+  branch immediately above it is commented *"first error wins"*; this branch assigned
+  unconditionally, so a verbatim cyanrip fatal matched one line earlier was replaced by
+  canned "clean the disc" advice. The comment described a rule the code did not implement
+  here. The tool's sentence now leads and the advice follows.
 - **`metaflac` failures were captured nowhere at all** — and it runs on *every* rip
   (it is how the user's edited tags reach the FLAC and how the cover art is embedded).
   `MetaflacError` carried a sentence built from the last stderr line; the argv, the exit
