@@ -136,17 +136,37 @@ class UpdateMixin(MainWindowShared):
         from platterpus.workers import start_worker_thread
         from platterpus.workers.update_worker import UpdateCheckWorker
 
-        self._update_worker = UpdateCheckWorker()
+        # The channel is read HERE, on the GUI thread, and handed to the worker as a
+        # plain string — the worker must not touch the config off-thread.
+        self._update_worker = UpdateCheckWorker(channel=self._update_channel())
         self._update_thread = QThread(self)
         self._update_worker.finished.connect(self._on_update_result)
         start_worker_thread(
             self._update_worker, self._update_thread, self._update_worker.run
         )
 
+    def _update_channel(self) -> str:
+        """The user's update channel, defensively.
+
+        Read off the live config rather than cached at construction, so flipping the
+        setting takes effect on the next check without a restart. A value the
+        validator would reject falls back to ``stable``: widening what a user is
+        offered is not a safe direction to fail in.
+        """
+        from platterpus.update_check import CHANNEL_STABLE, CHANNELS
+
+        channel = str(getattr(self._config, "update_channel", CHANNEL_STABLE) or "")
+        return channel if channel in CHANNELS else CHANNEL_STABLE
+
     def _on_update_result(self, info: object) -> None:
         """Show the verdict; offer the standard update path when newer."""
         from platterpus import __version__, appimage_integration
-        from platterpus.update_check import RELEASES_PAGE_URL, is_newer
+        from platterpus.update_check import (
+            CHANNEL_BETA,
+            RELEASES_PAGE_URL,
+            is_newer,
+            is_prerelease_version,
+        )
 
         self._update_worker = None
         self._update_thread = None
@@ -161,13 +181,46 @@ class UpdateMixin(MainWindowShared):
             return
         version = getattr(info, "version", "")
         url = getattr(info, "url", RELEASES_PAGE_URL)
+        on_beta = self._update_channel() == CHANNEL_BETA
         if not is_newer(version, __version__):
+            # Name the channel in the "up to date" answer. On the stable channel a
+            # user running a beta is genuinely up to date *for that channel* while a
+            # newer beta exists, and a bare "newest release" would be the accurate-
+            # but-misleading kind of true this project keeps finding.
+            channel_note = (
+                "\n\nYou're on the BETA channel, so pre-releases are included."
+                if on_beta
+                else (
+                    "\n\nYou're on the stable channel — pre-releases (betas) are not "
+                    "offered. Settings → Updates can change that."
+                )
+            )
+            running_beta = (
+                "\n\nNote: you are running a pre-release build. Turn on the beta "
+                "channel in Settings → Updates to be offered newer betas."
+                if is_prerelease_version(__version__) and not on_beta
+                else ""
+            )
             QMessageBox.information(
                 self,
                 "Check for updates",
-                f"You're up to date — v{__version__} is the newest release.",
+                f"You're up to date — v{__version__} is the newest release "
+                f"available to you.{channel_note}{running_beta}",
             )
             return
+
+        # A pre-release offer always says so, in the offer itself. The channel
+        # setting is where consent is given; this is where it is honoured visibly,
+        # so a tester never installs a beta without having read the word.
+        beta_warning = (
+            f"\n\n⚠ {version} is a PRE-RELEASE (beta) build. It is published for "
+            "testing: it may contain bugs, and its rip reports can name a ripper "
+            "build no handshake round has approved. Your existing rips and settings "
+            "are untouched, and you can reinstall a stable release at any time from "
+            f"{RELEASES_PAGE_URL}."
+            if is_prerelease_version(version) or getattr(info, "is_prerelease", False)
+            else ""
+        )
 
         # Newer release exists. When running as an AppImage, update fully
         # in-app: download + verify against the published .sha256 + install
@@ -183,9 +236,13 @@ class UpdateMixin(MainWindowShared):
                 f"Version {version} is available (you have {__version__}).\n\n"
                 "Update now? The new version is downloaded in the background, "
                 "verified, and installed to ~/Applications — then the app "
-                "restarts itself.",
+                f"restarts itself.{beta_warning}",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
+                # A pre-release does NOT get the default button. The one keypress a
+                # user makes without reading should not install a tester build.
+                QMessageBox.StandardButton.No
+                if beta_warning
+                else QMessageBox.StandardButton.Yes,
             )
             if choice == QMessageBox.StandardButton.Yes:
                 self._begin_update_install(version)
@@ -194,7 +251,7 @@ class UpdateMixin(MainWindowShared):
             self,
             "Update available",
             f"Version {version} is available (you have {__version__}).\n\n"
-            "Open the download page?",
+            f"Open the download page?{beta_warning}",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )

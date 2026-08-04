@@ -14,7 +14,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from platterpus.update_check import latest_release
+from platterpus.update_check import CHANNEL_STABLE, latest_release
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +24,21 @@ class UpdateCheckWorker(QObject):
 
     finished = Signal(object)  # ReleaseInfo | None
 
+    def __init__(self, channel: str = CHANNEL_STABLE, parent: QObject | None = None):
+        """``channel`` is the user's update channel (`config.update_channel`).
+
+        Passed in rather than read from the config here: the worker runs on a
+        background thread, and reading (or worse, writing) the config there is the
+        kind of shared-state access that is fine until the day it isn't. The window
+        reads the setting on the GUI thread and hands it over as a plain string.
+        """
+        super().__init__(parent)
+        self.channel: str = channel
+
     @Slot()
     def run(self) -> None:
         try:
-            result = latest_release()
+            result = latest_release(channel=self.channel)
         except Exception:  # noqa: BLE001 — a worker must always finish
             log.exception("update check crashed")
             result = None

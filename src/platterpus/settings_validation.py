@@ -44,6 +44,7 @@ from pathlib import Path
 
 from platterpus import goal_presets
 from platterpus.config import Config
+from platterpus.update_check import CHANNELS
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +94,9 @@ _WINDOWS_RESERVED_NAMES: frozenset[str] = frozenset(
 _ALLOWED_OUTPUT_FORMATS: frozenset[str] = frozenset({"flac", "wavpack", "mp3", "wav"})
 _ALLOWED_COVER_ART: frozenset[str] = frozenset({"", "embed", "file", "complete"})
 _ALLOWED_READ_SPEED_MODES: frozenset[str] = frozenset({"auto_ladder", "fixed"})
+# Derived from update_check.CHANNELS rather than restated, so adding a channel
+# there cannot leave a value the validator rejects (or worse, silently allows).
+_ALLOWED_UPDATE_CHANNELS: frozenset[str] = frozenset(CHANNELS)
 
 
 @dataclass(frozen=True)
@@ -205,6 +209,7 @@ def validate_config(config: Config) -> list[ValidationIssue]:
         ("cover_art", _ALLOWED_COVER_ART, "Cover art"),
         ("read_speed_mode", _ALLOWED_READ_SPEED_MODES, "Read speed mode"),
         ("rip_goal", _allowed_goals(), "Goal"),
+        ("update_channel", _ALLOWED_UPDATE_CHANNELS, "Update channel"),
     ):
         run(
             field_name,
@@ -299,6 +304,7 @@ def validated_field_names() -> frozenset[str]:
             "cover_art",
             "read_speed_mode",
             "rip_goal",
+            "update_channel",
             "integration_declined_path",
             "library_dir",
             "schema_version",

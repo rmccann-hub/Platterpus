@@ -280,6 +280,7 @@ _BAD_VALUES: dict[str, object] = {
     "cover_art": "sometimes",  # bad enum
     "read_speed_mode": "turbo",  # bad enum
     "rip_goal": "nonsense",  # bad enum
+    "update_channel": "nightly",  # bad enum — only stable/beta exist
     "integration_declined_path": "bad\x00path",  # control char
     "schema_version": "six",  # not an int
     "override_read_offset": "yes",  # not a bool

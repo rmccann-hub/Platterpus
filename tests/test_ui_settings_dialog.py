@@ -188,6 +188,49 @@ def test_auto_eject_reflects_config_and_round_trips(qapp: QApplication) -> None:
     assert dialog2.to_config().auto_eject_after_rip is True
 
 
+def test_beta_channel_checkbox_reflects_config_and_round_trips(
+    qapp: QApplication,
+) -> None:
+    """The checkbox is the two-value view of the `update_channel` STRING.
+
+    Both directions are asserted because the mapping is not an identity: a bool
+    widget writing an enum field is exactly where an off state can silently write
+    the wrong string, and "off" must mean `stable` — the safe direction.
+    """
+    from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
+
+    # Default config → stable → unchecked.
+    default = SettingsDialog(Config())
+    assert default._beta_channel_check.isChecked() is False
+    assert default.to_config().update_channel == CHANNEL_STABLE
+
+    # Incoming beta config → checked.
+    on_beta = SettingsDialog(Config(update_channel=CHANNEL_BETA))
+    assert on_beta._beta_channel_check.isChecked() is True
+    assert on_beta.to_config().update_channel == CHANNEL_BETA
+
+    # Toggling on writes the beta channel; toggling back writes stable, not "".
+    dialog = SettingsDialog(Config())
+    dialog._beta_channel_check.setChecked(True)
+    assert dialog.to_config().update_channel == CHANNEL_BETA
+    dialog._beta_channel_check.setChecked(False)
+    assert dialog.to_config().update_channel == CHANNEL_STABLE
+
+
+def test_beta_channel_tooltip_warns_before_the_offer_does(
+    qapp: QApplication,
+) -> None:
+    """The consent point has to carry the warning too, not only the offer.
+
+    A user turning this on is deciding for every future check, so the risk belongs
+    where the decision is made — not solely in the dialog they will see later.
+    """
+    tip = SettingsDialog(Config())._beta_channel_check.toolTip().lower()
+    assert "pre-release" in tip
+    assert "bugs" in tip, "the tooltip does not say a beta may be broken"
+    assert "testing" in tip
+
+
 def test_ctdb_verify_reflects_config_and_round_trips(qapp: QApplication) -> None:
     # Reflects the incoming config…
     dialog = SettingsDialog(Config(ctdb_verify_after_rip=False))
@@ -707,6 +750,7 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
         "notify_on_completion": "_notify_check",
         "library_dir": "_library_dir_edit",
         "debug_logging": "_debug_logging_check",
+        "update_channel": "_beta_channel_check",
         "cover_art": "_cover_art_combo",
         "save_additional_art": "_additional_art_check",
         "max_retries": "_max_retries_spin",
