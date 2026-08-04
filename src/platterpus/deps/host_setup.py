@@ -270,10 +270,13 @@ class HostSetup:
             # then runs and either fixes it or fails with the real output.
             return False
         identity = identify_from_banner(out)
-        return (
-            identity.kind == "fork"
-            and fork_source.FORK_PIN in identity.build_tag.casefold()
-        )
+        # Against the WIZARD's target, not the production pin. This decides whether
+        # the fork step is already satisfied, so it has to ask about the build the
+        # step would install — comparing to `FORK_PIN` while the step builds the test
+        # pin would report a correct install as "not done" and rebuild it every run
+        # (the exact `-V` failure shape: an accurate comparison of the wrong pair).
+        target_pin = fork_source.WIZARD_TARGET.pin
+        return identity.kind == "fork" and target_pin in identity.build_tag.casefold()
 
     def flac_exported(self) -> bool:
         return self.runner.exists(self.flac_path)

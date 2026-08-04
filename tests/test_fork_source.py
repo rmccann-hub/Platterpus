@@ -58,6 +58,63 @@ def test_the_expected_build_tag_is_derived_not_typed() -> None:
     )
 
 
+def test_build_and_verify_cannot_be_given_different_builds() -> None:
+    """The property the ``ForkTarget`` seam exists for.
+
+    Before it, the build step read ``FORK_PIN`` and the verify step read
+    ``FORK_EXPECTED_BUILD_TAG`` — two module constants that agreed only because one
+    derived from the other. With two installable builds (a production pin and a
+    mid-round test pin) "build X, assert it printed Y" became two independent edits,
+    and getting one wrong installs one binary while checking for another.
+
+    Asserted over BOTH targets, not just the current default: a check that only
+    exercises the value in force cannot fail when the *other* one is wrong.
+    """
+    for target in (fork_source.PRODUCTION_TARGET, fork_source.TEST_TARGET):
+        commands = fork_source.fork_build_commands(CONTAINER, target)
+        build_argv, verify_argv = commands[1], commands[-1]
+        assert target.pin in build_argv, f"{target.pin} is not what gets built"
+        assert target.build_tag in verify_argv, (
+            f"the verify does not check for {target.build_tag} — the build and the "
+            f"check are looking at different binaries"
+        )
+        # And the pair really is distinguishable, so this cannot pass vacuously by
+        # both targets happening to be the same commit.
+    assert fork_source.PRODUCTION_TARGET.pin != fork_source.TEST_TARGET.pin, (
+        "the two targets are the same commit, so the test above proves nothing"
+    )
+
+
+def test_the_wizard_target_is_named_in_the_handshake_record() -> None:
+    """Whatever the wizard installs must be a build the record actually names.
+
+    The production pin is checked against the newest *verified* round (above). A
+    **test** pin is nominated by the fork, so it is checked against the newest
+    *inbound* round — and that check is the thing that catches a stale one. This
+    round's test pin moved twice, each time retiring a build the previous lap told
+    us to install; `f750890` in particular could hang an `-x` probe with no
+    diagnostic at all, which is precisely the failure the hardware session exists
+    to observe.
+    """
+    target = fork_source.WIZARD_TARGET
+    if target == fork_source.PRODUCTION_TARGET:
+        return  # covered by the verified-round check above
+    inbound = sorted(
+        (REPO_ROOT / "docs" / "handshake" / "inbound").glob("round-*.md"),
+        key=lambda p: (int(re.search(r"round-(\d+)", p.name).group(1)), p.name),  # type: ignore[union-attr]
+    )
+    assert inbound, "no inbound files — cannot check a test pin against the record"
+    newest = inbound[-1]
+    text = newest.read_text(encoding="utf-8")
+    assert target.pin in text, (
+        f"{newest.name} does not name test pin {target.pin!r} — the wizard would "
+        f"build a commit the newest round did not nominate (which is how a retired "
+        f"pin gets installed for a hardware session)"
+    )
+    for retired in fork_source.SUPERSEDED_TEST_PINS:
+        assert retired != target.pin, f"{retired} is both current and retired"
+
+
 def test_the_pin_is_a_short_sha_not_a_branch_or_tag() -> None:
     """A branch name here would install whatever is newest, which is the thing
     the pin exists to prevent."""
@@ -96,7 +153,7 @@ def test_the_verify_fails_the_step_on_a_binary_that_is_not_the_pinned_fork() -> 
     """The command must actually compare against the expected tag. A verify that
     only ran the binary and ignored its output would pass for stock cyanrip."""
     argv = fork_source.verify_command(CONTAINER)
-    assert fork_source.FORK_EXPECTED_BUILD_TAG in argv
+    assert fork_source.WIZARD_TARGET.build_tag in argv
     assert fork_source.FORK_INSTALL_PATH in argv
     script = next(a for a in argv if "banner=" in a)
     assert "exit 1" in script, "the verify script must fail, not merely print"
@@ -129,7 +186,7 @@ def test_no_value_is_spliced_into_the_build_script() -> None:
     for value in (
         fork_source.FORK_REPO_URL,
         fork_source.FORK_BRANCH,
-        fork_source.FORK_PIN,
+        fork_source.WIZARD_TARGET.pin,
         fork_source.FORK_SOURCE_DIR,
     ):
         assert value not in script, f"{value!r} is spliced into the script body"
@@ -149,7 +206,7 @@ def test_the_build_script_has_a_label_argument_so_values_are_not_eaten_as_argv0(
         fork_source.FORK_SOURCE_DIR,
         fork_source.FORK_REPO_URL,
         fork_source.FORK_BRANCH,
-        fork_source.FORK_PIN,
+        fork_source.WIZARD_TARGET.pin,
     ]
 
 
