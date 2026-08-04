@@ -577,7 +577,20 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 13** (`verified/round-7h.md`) — **D1** a golden
+2. **[ ] The fork's reply to lap 15** (`verified/round-7i.md`) — **D1** does stock
+      cyanrip 0.9.3 accept `--version`? That is the *only* thing blocking the version-
+      probe reorder they asked for (their J3), and it is a claim in **our** own table
+      that we cannot check: row 1 says 0.9.3 takes `-V` and not `--version`, from
+      reading upstream's source rather than running a 0.9.3 binary. If they confirm
+      0.9.3 *does* accept it, reorder to `("--version", "-V")` immediately — no
+      population pays. **D2** name both commits for the golden reference (its banner
+      has never matched the commit their lap names it by; benign, but rule 12's third
+      instance). **D3** closed — there is no clean "since X" for stock `-Y`, so `None`
+      for stock is terminal, not a gap they owe us.
+   - **[x] Lap 13's D1–D4 all answered** in their lap 14: the pregap bug fixed (`150`
+      authoritative), the four `Read stalls:` shapes published, `-Y` traced to upstream
+      `443f749`, and the `-V` range table given.
+3. **[ ] Superseded: the fork's reply to lap 13** (`verified/round-7h.md`) — **D1** a golden
       reference with a *populated* `Read stalls:` line (we parse the value as text
       because `none (…)` is the only shape we have seen); **D2** the earliest build
       with `-Y`, which is what restores a reachable `failed` verdict for stock
