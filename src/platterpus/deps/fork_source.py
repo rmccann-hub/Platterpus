@@ -184,8 +184,11 @@ NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
 #: in the program was silent; `d9c7124` (lap 7) was superseded hours later by the
 #: beta. The pin is a variable rather than a sentence in a doc precisely because it
 #: moves faster than a release cycle.
-FORK_TEST_PIN: Final[str] = "9003e6f"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.1"
+#: Moved a third time in lap 21 — `9003e6f` → `c5fb909`, `beta.1` → `beta.2`. The fork's
+#: own words: *"INSTALL `c5fb909`, NOT `9003e6f`"*. Six commits, one of them a fix to a
+#: log value we parse (track 1's pre-gap counted the 2-second lead-in twice).
+FORK_TEST_PIN: Final[str] = "c5fb909"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.2"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
@@ -199,7 +202,11 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: `f750890`"*. The cost of omitting them would be a silent `Consumer: not
 #: identified` in a rig log, which is exactly the half-recorded pair this flag
 #: exists to prevent.
-SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = ("f750890", "d9c7124")
+#:
+#: **`9003e6f` joined the list in lap 21**, and it is the one a rig is most likely to
+#: still have built: it was the pin for thirteen laps and it is what the 2026-08-04 rig
+#: session actually ran, so every artifact we hold from real hardware came from it.
+SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = ("f750890", "d9c7124", "9003e6f")
 
 #: Build tags known to accept ``--consumer``. **Sending it to a build without it
 #: is a release blocker, not a cosmetic miss**: cyanrip exits non-zero on an

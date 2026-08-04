@@ -12,6 +12,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The cyanrip test pin moves to `c5fb909` (`0.9.4-rc1+platterpus.5-beta.2`), and
+  `9003e6f` joins the superseded list.** The fork's lap 21: *"INSTALL `c5fb909`, NOT
+  `9003e6f`."* One constant (`FORK_TEST_PIN`) drives the wizard target,
+  `--install-ripper`, and the `--consumer` / `--verify-log` support sets. `9003e6f` is
+  retired rather than deleted because it is the pin a rig is most likely to still have
+  built — it held for thirteen laps and it is what the 2026-08-04 hardware session ran,
+  so every artifact we hold from a real drive came from it. The **production** pin does
+  not move: round 7 is open and both sides declare HOLD.
+- **The handshake ordering rules are documented where a reader will look**
+  (`docs/handshake/README.md` → *Ordering*), as four rules with the spec section each
+  comes from, plus the two states the gate refuses rather than orders. A naming
+  convention without its ordering rules is a format both sides can honour while reading
+  it differently — which is the state both projects were in for one lap without knowing.
 - **The ripper now verifies its own log, and the report carries its verdict
   (`ripper_log_verification`, schema v17 → v18).** Every other claim in a Platterpus
   report is our measurement of our own work. This one is not: `cyanrip --verify-log`
@@ -204,6 +217,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **Our handshake ordering diverged from the shared spec in two places, and both had
+  been normative since the spec file was created.** The fork's lap 20 asked us to *diff*
+  their three ordering rules against ours rather than agree in principle; doing it found
+  that (1) `sort_key`'s **round** half read the *filename* while its lap half already read
+  the header — `handshake-protocol.md` §3 says *"by declared number, never by filename or
+  mtime"* — and (2) a file declaring no `HANDSHAKE-LAP` fell back to its *name* rather
+  than to lap 1, which §3 sets in the same sentence. Neither changed the order of any file
+  either project has ever had, which is exactly why only a comparison could find them: a
+  difference that changes no observable behaviour is invisible to every test either side
+  can write. **A spec statement with no conformance row went unimplemented for the whole
+  life of the spec.**
+- **Removing that filename fallback opened a fail-open direction, so the gate now refuses
+  two states rather than ordering them** (`handshake.ordering_blockers`, consulted by
+  `--status` and so by `--release-gate`, naming the file and the rule for each). A v2 file
+  that omits its required `HANDSHAKE-LAP` sorts *oldest* under §3, so a later `GO` would
+  be read as a round's newest word while that file's `HOLD` sorted underneath it — §2 rule
+  4, an absent required field fails closed. And a file whose declared round is not the
+  round it is filed under (§3, §8 row 10) is now refused instead of voting in a round it
+  says it is not in — a state reachable *only because* the round half became header-first,
+  so the fix's own new state got its own test. Grandfathering is derived from the absence
+  of a `HANDSHAKE-PROTOCOL` line, not from a list of round numbers that stops covering
+  files added after it was written.
+- **`tests/test_argv_surface_agreement.py` had been diffing our argv against round 6's
+  flag table since the 2026-08-04 rename.** It grouped inbound files with the
+  *grandfathered* `round-6` / `round-6b` regex, which does not match `round-07-lap-NN.md`,
+  so **all of round 7 was invisible to it** — measured, not inferred: the label read
+  `round-6.md + round-6b.md + round-6c.md` while the fork was on lap 21. That was the
+  fourth place in the repo to grow its own round parser and the fourth to break on the
+  same rename; it now uses the shared `round_number()` and `sort_key()`. **The guard
+  written to catch exactly this had inherited the same blind spot** — it computed "the
+  newest round on disk" with the same regex, and its final assertion (`used_round <=
+  newest_on_disk`) *could not fail*, because the used round is drawn from the on-disk set.
+  Replaced with a recorded lag ratchet that may shrink but never silently grow, plus a
+  regression test that asserts the **production** grouping, not a copy of it, can see the
+  newest round.
+- **`--emit` produced a file `--check` refuses.** The emitted skeleton omitted
+  `HANDSHAKE-PROTOCOL`, the *first* entry in `REQUIRED_WIRE_FIELDS`, so our own generator
+  failed our own §3 header check — and `check_outbound` sweeps sections rather than the
+  header, so the existing "our skeleton satisfies our own spec" test stayed green. The new
+  test derives the expected fields from the required-field tuple and asserts through
+  `check_wire_header`, so the next added field cannot skip the emitter quietly.
+- **An ordering test that passed for a reason unrelated to its claim.** It handed `_lap_of`
+  two `Path`s that did not exist, so the lap it read for `round-07-lap-16.md` came from
+  the very filename fallback this change removes. Rewritten against real files on disk —
+  identify the subject the way production identifies it.
 - **Two divergences between our handshake loader and the fork's, found by comparing
   implementations rather than by a failing test.** Their lap 18 adopted our naming
   convention and reported how *their* loader orders files; ours did it differently in
