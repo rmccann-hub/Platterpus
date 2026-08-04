@@ -11,6 +11,592 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b4] — 2026-08-04
+
+**A pre-release, cut on the `--prerelease` path while handshake round 7 is OPEN.** It
+claims no joint verification: `--release-gate` still exits 1 for a stable release, and the
+production cyanrip pin does not move. Its purpose is to carry the **moved test pin** to the
+rig — the wizard and `--install-ripper` read a constant that ships *inside* a release, so
+before this build there was no in-app route to `c5fb909` at all, and a hand-built
+`c5fb909` would have had `--consumer` withheld and its log verification reported
+`not_determined`.
+
+### Added
+- **The cyanrip test pin moves to `c5fb909` (`0.9.4-rc1+platterpus.5-beta.2`), and
+  `9003e6f` joins the superseded list.** The fork's lap 21: *"INSTALL `c5fb909`, NOT
+  `9003e6f`."* One constant (`FORK_TEST_PIN`) drives the wizard target,
+  `--install-ripper`, and the `--consumer` / `--verify-log` support sets. `9003e6f` is
+  retired rather than deleted because it is the pin a rig is most likely to still have
+  built — it held for thirteen laps and it is what the 2026-08-04 hardware session ran,
+  so every artifact we hold from a real drive came from it. The **production** pin does
+  not move: round 7 is open and both sides declare HOLD.
+- **The handshake ordering rules are documented where a reader will look**
+  (`docs/handshake/README.md` → *Ordering*), as four rules with the spec section each
+  comes from, plus the two states the gate refuses rather than orders. A naming
+  convention without its ordering rules is a format both sides can honour while reading
+  it differently — which is the state both projects were in for one lap without knowing.
+- **The ripper now verifies its own log, and the report carries its verdict
+  (`ripper_log_verification`, schema v17 → v18).** Every other claim in a Platterpus
+  report is our measurement of our own work. This one is not: `cyanrip --verify-log`
+  checks *its* file against *its* checksum with *its* code, which is the only
+  configuration in which a pass means anything. Tri-state (`verified` / `failed` /
+  `not_determined`), with the exit code (`null` for a child never reaped, never `0`),
+  the exact argv as spawned and the complete output, so a `failed` verdict is
+  checkable rather than an accusation the user must take on trust. A `failed` verdict
+  raises an `issues[]` entry and a WARN in the audit; a rejected *flag* is classified
+  `not_determined`, never `failed` — a build that does not know the flag cannot be
+  reporting a bad log, which is upstream's `-V` lesson pointing the other way. Runs
+  on the rip worker's thread, never in a GUI slot; the audit check reads the recorded
+  verdict rather than spawning a container exec inside `write_report`.
+- **`--audit-rips` gained `ripper_log_integrity`, and the old `log_integrity` is
+  renamed `our_log_integrity`.** Two checks, deliberately not merged, so a pass on the
+  one we control can never imply a pass on the one that caught a real defect. The old
+  name read as *"is the log intact"*, which is precisely the claim it was not making.
+- **The consumer contract now enumerates the probe invocations too, not only the rip
+  argv.** `--verify-log` and the version-flag tuple are derived from the same
+  constants the code uses. A renamed flag is indistinguishable from an absent tool —
+  that is how upstream's `-V` removal turned a working fork build into *"cyanrip is
+  not installed"* — so leaving our two most failure-prone invocations out of the
+  document we publish as *"this is what we send you"* was the same gap one layer up.
+  `tests/test_argv_surface_agreement.py` now checks `--verify-log` against the fork's
+  published flag table individually, with the version *fallback* tuple exempt for a
+  stated reason and a test keeping that exemption from widening.
+
+- **One place that answers "did anything go wrong?" — `diagnostics.py`, and a
+  `diagnostics` block in the rip report (schema v15 → v16).** Diagnostics used to be
+  spread across `outcome.failure_hint`, `log_parse.note`, `ctdb.error`, the per-track
+  `issues` and five verification sub-blocks, none of them enumerated — so answering
+  that one question required knowing where to look, and a fact captured in the log but
+  absent from the JSON (or the reverse) read as *nothing happened*. Now every subsystem
+  records a `Diagnostic` (severity, namespaced `subsystem.what` code, message, detail,
+  tool, exact argv, tri-state exit code, where) through **one call that writes to two
+  sinks** — the text log *and* the report — so the two artifacts cannot describe the
+  same event differently. Placed third in the JSON, ahead of `outcome` and the verdict,
+  because it is the first thing anyone debugging a rip should read.
+  - Four rules are encoded rather than remembered: *recording also logs*; *never
+    raises* (a collector that can throw turns a diagnosable failure into a crash);
+    *truncation is stated* (bounded head **and** tail with a counted elision — a silent
+    truncation reads as completeness); *tri-state* (`null` for an exit code we never
+    collected is a real answer and is never written as `0`). Thread-safe, because
+    workers record from their own threads.
+- **Eight new `issues[]` checks — each one a fact that could be true while the list a
+  triager opens first said "nothing to flag".** `issues[]` is the report's declared home
+  for "what went wrong", and every one of these was somewhere else in the same file:
+  `recompress_failed` (the step that **rewrites archival masters** was not even a
+  parameter of the deriver), `verification_step_did_not_run`, `derived_incomplete`,
+  `ripper_log_unparsed`, `track_count_mismatch`, `ripper_handshake_{approval}` (the
+  entire v15 handshake block was read by *nothing*), `ripper_exit_unknown` /
+  `ripper_nonzero_exit_on_success`, `artifact_unavailable` and
+  `dependency_below_minimum` (`min_version_met: false` was the only per-tool failure
+  signal in the whole report and nothing surfaced it). Nine regression tests, one per
+  code, so none of them can go quiet again.
+
+- **Every post-rip tool failure now carries the tool's own words — `adapters/tool_run.py`.**
+  `flac_verify`, `transcode` and `flac_recompress` each declared their injected command
+  seam as `Callable[[list[str]], int]`. An `int` — which made it **structurally
+  impossible** for the dependency's output to reach the result, the JSON report or the
+  user: each adapter's default runner captured stderr, logged a line or two, and dropped
+  the rest before returning. So "⚠ FLAC verify FAILED for 3 file(s): a, b, c" named the
+  *files* and could not name **what `flac` said about them**. Not an oversight at a call
+  site; a missing channel, and no amount of care at the call sites could have closed it.
+  - `ToolRun` carries the **exit code (tri-state)**, the **exact argv as spawned** and
+    the **complete output with stderr merged** — the four facts CLAUDE.md's
+    diagnostic-completeness rule names — and it is shared by all three adapters rather
+    than copied into each, because four facts drift to three the moment there are three
+    copies of them.
+  - **A third state beside "exit 0" and "non-zero":** `started`. A missing binary is a
+    problem with the *pass* (blame nothing, abort), a timeout is a problem with *this
+    input* (blame the file, continue). Collapsing them is how a missing `flac` came to be
+    reported as a corrupt FLAC, and the old code had no way to tell them apart.
+  - The report's `verification.*` blocks gain `failure_details` — per failed file, the
+    exit code, argv and complete output. The rip pane quotes the reason instead of
+    listing filenames. `flac --test` no longer runs with `--silent`, which suppressed
+    precisely the message this pass exists to be able to quote.
+  - Three failures that used to read identically now read differently: the tool refused;
+    the tool **claimed success and wrote no output file**; the encode succeeded and the
+    **atomic swap-in** failed. The second is the alarming one and was invisible.
+  - A timeout now **names the duration it exceeded**, so a wedged drive is
+    distinguishable from a bound that is simply too tight for the disc.
+- **The head-and-tail output cap lives in one place** (`diagnostics.bounded_output`).
+  It had been written three times with three different limits, one of them head-only —
+  and a head-only cap drops exactly the last line, which is where a tool puts its fatal
+  message.
+- **The diagnostics grep hint names the real log path.** It hardcoded
+  `~/.local/share/platterpus/log.txt` while `paths.py` honours `XDG_DATA_HOME`; a hint
+  pointing at a file the user does not have is worse than no hint, because they conclude
+  the log does not exist.
+
+- **One place that tells the user *where to look* — `ui/failure_text.py`, plus a sweep
+  that keeps the tree honest.** ~20 modal failure reports said *"see the log"* and named
+  **no path**; two named a typed-out `~/.local/share/…/log.txt` literal, which is wrong
+  under any relocated `XDG_DATA_HOME` — and a path the user does not have is *worse* than
+  no path, because they conclude the log is missing. **The two that tried hardest were
+  the two that got it wrong**, which is the tell: the failure was not twenty forgetful
+  authors, it was that there was nothing to call. The pointers are now built from
+  `paths.LOG_PATH`, and `tests/test_failure_surfaces.py` sweeps every module for a
+  message that points at "the log" without naming it — with a floor on the examined
+  count, because a sweep that finds nothing because it looked nowhere is decoration. The
+  sweep found six live sites beyond the ones the audit listed, including the desktop
+  notification, and its own first version fired on a *comment* documenting a fix, which
+  is the converse trap in miniature.
+
+- **Help → Copy diagnostics… — the copyable surface the UI simply did not have.** The
+  audit found **no** export, bundle or copy-diagnostics action anywhere in the app; the
+  only clipboard call in the whole UI tree copied a *package search string*. The per-rip
+  `.platterpus.json` **is** the richer bundle, but it exists only for a rip and is
+  reachable only from the rip pane — so a setup failure, a dependency-check crash, a
+  failed update or a drive probe had nothing to copy. The new dialog shows the version
+  *pair*, the live environment and every diagnostic recorded this session, read from the
+  same collector the report reads so the pasted text and the JSON cannot disagree. It
+  renders the tri-state exit code as *"none (no child was reaped)"* rather than `0`,
+  states its own truncation, distinguishes *"nothing recorded"* from *"everything
+  verified"*, and says so when the dependency check has not run rather than showing an
+  empty section. `build_diagnostics_text()` is pure and never raises — a diagnostics view
+  that cannot open fails exactly when the user is already reporting a failure.
+- **The one place cyanrip's own fatal sentence is displayed is now selectable.** The rip
+  pane's status label had no `setTextInteractionFlags`, so the single most useful line in
+  the app could not be selected by mouse or read by keyboard. `main_window_drive.py`
+  already did this for its diagnosis box; this label was written without it.
+- **`run_capture` records its own failures.** The argv went to DEBUG — which `log.txt`
+  does not keep by default — so on a stock install a probe that could not find its binary
+  left the exception message and nothing else. A non-zero probe exit is now recorded too,
+  at *warning* (some callers legitimately read a non-zero exit as an answer): a probe
+  whose exit code nobody looked at is how *"the tool is missing"* came to be reported for
+  a tool that was present and had merely rejected a flag.
+- **The collector is wired into every subsystem that can fail — and a sweep proves the
+  call sites are reachable, not merely present.** A collector nothing calls is an empty
+  section that reads as *"nothing went wrong"*, which is the same false-negative the
+  `cancel()` audit taught: *grep for a call site before believing it works, and check it
+  is reachable.* Now recording: the ripper (a start failure, a stream failure, **every**
+  matched fatal rather than only the first, a non-zero exit with its argv and complete
+  output, and an unreapable child as a real `null` exit code); the dependency probe;
+  `metaflac`; the cache probe; CTDB; MusicBrainz (one helper for all four raise sites, so
+  they cannot describe the same failure differently); Cover Art Archive — at `info` when
+  the release genuinely has no art and `warning` when we could not find out, a distinction
+  the reason code already carried and no severity reflected; and the library move.
+  `tests/test_diagnostics.py` asserts each module both imports the collector *and* names
+  its code — the pair is the check, since a label match alone answers "did they name it"
+  and not "did they write it". Its own first version reported `ctdb_client.py` as unwired
+  because the import shares a line; it reads the AST now, because a matcher narrower than
+  the language produces confident wrong answers, and a false failure trains people to
+  ignore a check as surely as a false pass lets a bug through.
+- **`report_types.py` describes the whole report again, and a sweep keeps it that
+  way.** It calls itself *"the single source of truth for the structure `rip_report`
+  writes"*, and it was missing `RipReport.completeness` and `RipReport.artifacts` (four
+  schema versions late), all four of `TrackBlock`'s pre-gap provenance keys, three
+  `DiscBlock` `medium_*` keys — including `medium_undetermined`, the **only** field that
+  says a rip's titles may belong to another disc — and `TimingBlock`'s
+  `realtime_multiplier_basis`, which changes what the ratio is measured *against*. None
+  of it was a type error, because the emit site is not annotated as the `TypedDict`, so
+  mypy had nothing to compare. The existing test anchored **three** blocks by hand, which
+  is the same invisible-by-omission promise the drift itself was; it now builds a real
+  report at runtime and requires a declared field for every key of every nested block,
+  with floors on both the block count and the key count. Runtime rather than AST on
+  purpose: `realtime_multiplier_basis` is added *after* the dict literal is built, which
+  is exactly how it hid from a source-level check.
+
+- **The auto-fix addendum no longer breaks `cyanrip --verify-log`.** After the
+  per-track auto-fix swapped a converged re-read in, we appended a supersede block to
+  cyanrip's own `.log`. That file ends with a `Log FUN512:` self-checksum and
+  `--verify-log` **rejects trailing content by design**, so every auto-fixed disc
+  shipped a log the ripper itself would call modified. The record now goes to a
+  sidecar — `<log stem>.platterpus-addendum.txt` — and the ripper's log is left
+  byte-exact. `platterpus.rip_addendum.read_log_with_addendum` is the single
+  sanctioned way to read a rip log back, because a re-parse that skips the sidecar
+  gets the checksums of bytes the auto-fix deleted (the original bug the addendum
+  existed to prevent, and the trap moving it created); a source sweep enforces that,
+  since the rule decays and the test does not.
+  - Found by the cyanrip fork reading a real rig artifact. **The question had already
+    been asked and answered** — round 5 asked whether an addendum could follow the
+    checksum line, the answer was no, and they pinned it with a test — and our own
+    integrity check could not see it, because it verified a file we wrote against a
+    checksum we computed. A closed loop agrees with itself.
+- **The addendum now supersedes the whole per-track record, not just the CRC.** The
+  archived AccurateRip v1/v2, the offset-variant result and the secure-re-read verdict
+  all described the read that was discarded; on the rig that meant `7CE3F6E7` and
+  `268CCD94` standing beside a shipped file whose real values were `F5426D5F` and
+  `9EEB8843`. Extending the old block field by field would have been the wrong fix.
+- **`ripper_handshake_approval` returned `not_determined` on every real fork rip — a
+  wrong verdict, not merely a terse one.** The parser splits the banner (`log_creator`
+  without the parenthetical, the tag in `ripper_build`), and the approval matcher read
+  only the half with no `(`, concluded *"no build tag"*, and shrugged about a build it
+  had already extracted and could name. The same log, given its full first line,
+  returns `unapproved` and explains that `9003e6f` is the round-7 test pin. The test
+  written the same day passed because its fixture set `log_creator` to a *whole*
+  banner — a shape the parser never produces. The regression now reads the committed
+  rig log, so the stand-in cannot be more capable than the product again.
+
+### Fixed
+- **The version pair line named the ripper twice.** `version_pair_line()` — the
+  maintainer's *"include what versions you both are"*, rendered into the Copy-diagnostics
+  bundle — produced *"Platterpus 0.6.4b3 + cyanrip cyanrip 0.9.4-rc1
+  (platterpus-fork-g2f950c8)"*. Two renderers both prefixed `cyanrip ` to a banner that
+  already begins with it; both now go through one helper, so the assumption lives in one
+  place instead of two. **Both of its tests were green and could not have failed** — each
+  asserts *containment* of the banner, and `"cyanrip cyanrip 0.9.4…"` contains `"cyanrip
+  0.9.4…"`. The new test counts, across both renderers and all three banner shapes. In the
+  one string whose whole job is to be quotable into a bug report.
+- **Our handshake ordering diverged from the shared spec in two places, and both had
+  been normative since the spec file was created.** The fork's lap 20 asked us to *diff*
+  their three ordering rules against ours rather than agree in principle; doing it found
+  that (1) `sort_key`'s **round** half read the *filename* while its lap half already read
+  the header — `handshake-protocol.md` §3 says *"by declared number, never by filename or
+  mtime"* — and (2) a file declaring no `HANDSHAKE-LAP` fell back to its *name* rather
+  than to lap 1, which §3 sets in the same sentence. Neither changed the order of any file
+  either project has ever had, which is exactly why only a comparison could find them: a
+  difference that changes no observable behaviour is invisible to every test either side
+  can write. **A spec statement with no conformance row went unimplemented for the whole
+  life of the spec.**
+- **Removing that filename fallback opened a fail-open direction, so the gate now refuses
+  two states rather than ordering them** (`handshake.ordering_blockers`, consulted by
+  `--status` and so by `--release-gate`, naming the file and the rule for each). A v2 file
+  that omits its required `HANDSHAKE-LAP` sorts *oldest* under §3, so a later `GO` would
+  be read as a round's newest word while that file's `HOLD` sorted underneath it — §2 rule
+  4, an absent required field fails closed. And a file whose declared round is not the
+  round it is filed under (§3, §8 row 10) is now refused instead of voting in a round it
+  says it is not in — a state reachable *only because* the round half became header-first,
+  so the fix's own new state got its own test. Grandfathering is derived from the absence
+  of a `HANDSHAKE-PROTOCOL` line, not from a list of round numbers that stops covering
+  files added after it was written.
+- **`tests/test_argv_surface_agreement.py` had been diffing our argv against round 6's
+  flag table since the 2026-08-04 rename.** It grouped inbound files with the
+  *grandfathered* `round-6` / `round-6b` regex, which does not match `round-07-lap-NN.md`,
+  so **all of round 7 was invisible to it** — measured, not inferred: the label read
+  `round-6.md + round-6b.md + round-6c.md` while the fork was on lap 21. That was the
+  fourth place in the repo to grow its own round parser and the fourth to break on the
+  same rename; it now uses the shared `round_number()` and `sort_key()`. **The guard
+  written to catch exactly this had inherited the same blind spot** — it computed "the
+  newest round on disk" with the same regex, and its final assertion (`used_round <=
+  newest_on_disk`) *could not fail*, because the used round is drawn from the on-disk set.
+  Replaced with a recorded lag ratchet that may shrink but never silently grow, plus a
+  regression test that asserts the **production** grouping, not a copy of it, can see the
+  newest round.
+- **`--emit` produced a file `--check` refuses.** The emitted skeleton omitted
+  `HANDSHAKE-PROTOCOL`, the *first* entry in `REQUIRED_WIRE_FIELDS`, so our own generator
+  failed our own §3 header check — and `check_outbound` sweeps sections rather than the
+  header, so the existing "our skeleton satisfies our own spec" test stayed green. The new
+  test derives the expected fields from the required-field tuple and asserts through
+  `check_wire_header`, so the next added field cannot skip the emitter quietly.
+- **An ordering test that passed for a reason unrelated to its claim.** It handed `_lap_of`
+  two `Path`s that did not exist, so the lap it read for `round-07-lap-16.md` came from
+  the very filename fallback this change removes. Rewritten against real files on disk —
+  identify the subject the way production identifies it.
+- **Two divergences between our handshake loader and the fork's, found by comparing
+  implementations rather than by a failing test.** Their lap 18 adopted our naming
+  convention and reported how *their* loader orders files; ours did it differently in
+  two places. (1) A file declaring no lap was **lap 0** for us and **lap 1** for them —
+  same ordering on today's tree, so nothing failed; theirs is more correct, since a
+  round's pre-lap-header file *is* that round's first lap. (2) An **ambiguous**
+  `HANDSHAKE-LAP` fell back to the *filename* for us, so it sorted at its named lap, a
+  later valid file was read as newest, and **the ambiguity was never examined by the
+  gate** — the protocol's own "present-but-ambiguous is worse than absent" broken in the
+  direction that hides it. Both of their rules adopted; the ambiguous case now sorts
+  last so the header check refuses it. Two implementations of one convention is the
+  drift this protocol exists to prevent, and it is the only reason either was found.
+- **A floor that expired because it required a tree state, not a property.** The
+  mixed-scheme ordering test demanded a legacy-named file in round 7 — true when
+  written, and the fork's lap 18 renamed theirs to `round-07-lap-01.md`, which we
+  matched, so the floor started failing on a tree that was *more* correct. The
+  mixed-scheme proof moved to the synthetic case, which cannot expire. Same for a test
+  that located a committed artifact by filename rather than by identity.
+- **Handshake files are named `round-NN-lap-LL.md`, and the old scheme had already
+  destroyed one.** The letter suffix (`round-7f.md`) encoded nothing: the same letter
+  meant **lap 12** in `inbound/` and **lap 10** in `verified/`, two files were both lap
+  7 by coincidence, and filing a received file meant picking "the next free letter" —
+  which overwrote lap 4 in this session and needed restoring from git. The name now
+  states the round and lap from the file's own wire header, so the two are checked
+  against each other (`tests/test_handshake_file_naming.py`); direction stays the
+  directory's job; an amendment is a new lap, not a letter. Files predating the lap
+  header keep their names, and the exemption is *derived* — a file with no lap has
+  nothing to name itself with — with the converse enforced too, since a canonical name
+  on a file that declares no lap is a false label. Inbound artifacts follow, naming the
+  build their **own banner** asserts rather than the commit a lap file names them by.
+- **One ordering for handshake files, because three copies of it were wrong at once.**
+  "Which file is newer" was a plain stem sort in three independent places, and the
+  rename broke all three: lexically `"round-07-lap-16" < "round-7"`. One of the three
+  decides `scripts/handshake.py --status`, which reported round 7's `they-verified` as
+  **GO** while their lap 16 declares HOLD — **a release gate saying an open round had
+  closed, because of a filename.** Ordering is now `handshake.sort_key`, keyed on the
+  *declared* round and lap rather than the string, and used by the script and both
+  tests. Regression-tested with a floor requiring the mixed-scheme case the bug needed.
+- **`rip.read_stalls_count` — the stall count, structured, and a `ripper_read_stalls`
+  entry in `issues[]` when it is positive.** A rip whose read took 187 seconds is worth
+  telling the user about even when every checksum came out right — that is how a disc
+  goes from readable to unreadable — and until now the verbatim line was stored and
+  surfaced nowhere. Tri-state: `0` the ripper measured and found none, `N` that many
+  stalled, `null` not measured *or a shape we do not recognise*. The verbatim text
+  stays the authoritative record and is never replaced by the number, because the four
+  shapes are the fork's own, **derived from the code that prints them and not yet
+  observed from any build** — so an unrecognised shape must degrade to `null` beside
+  intact text, never to `0`.
+- **`rip.read_stalls` — the fork's stall-watchdog verdict, verbatim (schema v18 →
+  v19).** They added that line at their own initiative *for us*, and we were not
+  reading it — while answering their design question about whether we wanted the
+  figure per-track or disc-level. Answering a contract question from the design rather
+  than from the code is the failure this round keeps circling, and it was found by
+  running the real parser over their golden reference rather than by re-reading our
+  own source. `null` on stock cyanrip, which never prints the line: a third state,
+  because *no stalls measured* and *stalls not measured* are different claims. Kept as
+  text rather than a parsed count — we have only seen the `none` shape, and a regex
+  for the populated one would encode our guess at their wording, which is what put
+  `merged` in the gap matcher for two rounds.
+- **A handshake file that cites hardware must now name the pair the hardware ran.**
+  Lap 8 declared the tested pair as Platterpus `0.6.4b1`; the rig ran `0.6.4b3`. The
+  fork caught it by hand, and their diagnosis is the finding: *"nothing in either
+  artifact would have flagged the mismatch."* The evidence was in the repository —
+  `generator.version` in the report, the EAC log's header — and the declaration was in
+  a file three directories away, with no code relating them.
+  `tests/test_handshake_cites_the_pair_it_ran.py` now requires any handshake file
+  citing `output_reference/<dir>/` to declare the app version **and** the ripper build
+  tag that directory's artifacts actually carry. Read off the artifact's content, never
+  off `__version__`, so a correct historical record is not refused after a version
+  bump; and with a proof-of-failure case that runs lap 8's real declaration against the
+  real b3 artifact and asserts rejection.
+- **Corrected a disproven claim in our own source: the FUN512 footer and
+  `--verify-log` did *not* arrive together.** `VERIFY_LOG_FLAG`'s range comment said
+  *"all fork builds and stock ≥ 0.9.3 — the checksum footer and this flag arrived
+  together."* The fork disproved both halves from their repository: `-Y` is
+  **upstream's** (commit `443f749`, 2026-07-12), at which point `meson.build` still
+  read `0.9.3`, and the footer landed in `757108c` which **predates** it — so builds
+  exist that write the footer and cannot verify it, and a build reporting `0.9.3` may
+  or may not accept the flag. The wrong version was an inference I had already
+  labelled an inference and left in anyway; the correction is kept visible in the
+  source rather than silently rewritten.
+- **`--verify-log`'s failure classifier no longer keys on cyanrip's error wording.**
+  It distinguished *"the flag was rejected"* from *"the log was rejected"* by matching
+  `Unable to parse command line argument: …`. The fork pointed out that string is
+  **genopt's, not theirs, and one upstream sync from changing**, and asked us to key
+  on the exit code plus the flag's presence in their published table instead. A
+  `failed` verdict now requires positive evidence the build accepts the flag
+  (`fork_source.accepts_verify_log`, tri-state — `None` for unknown, never `False`,
+  since no document says any cyanrip *lacks* it). Everything else fails safe to
+  `not_determined`: the cost of that is a report line, while the other error accuses
+  an intact archival log of being corrupt. The wording match is kept only as a belt
+  that can soften a verdict, never reach one. Their point is a lesson we have watched
+  from the other side — a matcher built on a dependency's prose is a hand-maintained
+  list of shapes, which is what hid 16 of their fatal strings in round 5.
+- **The two provenance witnesses are now actually compared.** Round 7 lap 10 told the
+  cyanrip fork that *"when the two disagree, the disagreement is the finding"* about
+  `ripper_handshake_approval` (our verdict on the build tag) versus
+  `ripper_handshake_note` (the statement the fork's build system compiles into the
+  binary) — and nothing in the code compared them. The note was parsed at schema v17,
+  stored, and read by nothing: the same capture-without-surfacing defect the approval
+  block itself had until they found *it* was read by nothing. An approved build whose
+  own text says it is not a release now raises an `error` in `issues[]`, because one
+  of two independent witnesses must be wrong and both possibilities are serious (a
+  wrong pin, or a build tag naming a tree that is not what was built). The real
+  artifact's state — unapproved, note agreeing — stays silent, so a deliberate
+  test-pin rip does not cry wolf.
+- **The EAC-style log's status report claimed more tracks than the disc has.** On the
+  rig's 14-track disc it printed `13 accurately ripped` + `1 could not be verified` +
+  `1 matched only an offset-variant pressing` = **15**. `unverified = total -
+  verified` already contained every offset-variant track — an offset-variant match is
+  not an exact match — and the third line counted those same tracks again. Each line
+  was defensible on its own wording and the aggregate was arithmetically false, in a
+  SHA-256-attested archival document. The three lines now partition the tracks and
+  sum to the total; the wording is deliberately unchanged, because it is what the
+  cyanrip fork diffs against and they asked that neither side reword unilaterally
+  (round 7 lap 10, H4). The clean-sweep headline still keys on *anything short of an
+  exact match*, so a disc of only offset-variant matches cannot announce "All tracks
+  accurately ripped" — a precondition the partition fix created, with its own test.
+- **`partially_accurate_summary` now names its denominator.** cyanrip's `Tracks
+  ripped partially accurately: 1/1` counts tracks *not fully verified*, not tracks on
+  the disc — the fork confirmed it — so `1/1` on a 14-track disc is correct and reads
+  like a typo. We rendered it as *"1/1 tracks ripped partially accurately"*,
+  inheriting the ambiguity and dropping even the positional hint the ripper's line
+  had. It now reads *"1 of 1 track(s) not fully verified matched only an
+  offset-variant pressing"*. The ripper's own line is unchanged.
+- **Tools → Check dependencies could do nothing visible at all.** A crashed probe emitted
+  `None` and the GUI half returned immediately, so a user-initiated menu action was
+  indistinguishable from a dead menu item — with the traceback going only to a file that
+  is INFO-only by default. It now says the *check* failed (not that a tool is missing),
+  names the log, and records the exception with its traceback in the diagnostics block.
+- **The two "did not complete" dialogs said four words and logged nothing.** Both the
+  setup and uninstall dialogs have a branch for "not ready, and no step reported a
+  failure" — the case nobody had considered, and therefore the least diagnosable message
+  in each dialog. `uninstall_dialog.py` had **no logging at all**. Both now say *why*
+  there is nothing specific to point at, name the log, and record every step's status.
+- **The rip-failure report now carries the ripper's output and the session debug log.**
+  This report exists for the rips that produced no log at all — the most-broken ones —
+  and it passed neither `artifacts=` nor `debug_log=`. So on exactly those rips: the
+  worker's `captured_stdout` (built with a head, a counted elision and a tail
+  *specifically to survive a kill*) was discarded; the always-DEBUG session buffer was
+  not embedded; and `log.txt` is INFO by default while every ripper line is written with
+  `log.debug`, so it was not on disk either. The ripper's entire output existed in
+  memory, in a variable the code already knew how to serialise, and reached neither the
+  screen, nor the log file, nor the one artifact written — only the one-line
+  `failure_hint` survived. The full-report path had passed both all along. Each embed is
+  guarded separately so a capture that cannot be built cannot cost us the report, and the
+  written path is now announced at WARNING **and on screen**, because a user asked to
+  "send the report" has to be able to find it. Revert-proven.
+- **`"Rip failed."` no longer clobbers the error text captured seconds earlier.**
+  `_finish_rip` read only `worker.failure_hint`. On every start/stream failure the ripper
+  produced no stdout, so that hint is empty — while the *specific* sentence had been put
+  on screen by `_on_rip_error` and stashed in `_last_rip_error`, where the JSON report
+  reads it and the status line did not. The one surface a user actually looks at was the
+  only one that threw the diagnosis away. When there genuinely is nothing captured, the
+  fallback now says so and names the log path instead of four words that name nothing.
+- **A `giving up on track N` line no longer overwrites the ripper's own fatal.** The
+  branch immediately above it is commented *"first error wins"*; this branch assigned
+  unconditionally, so a verbatim cyanrip fatal matched one line earlier was replaced by
+  canned "clean the disc" advice. The comment described a rule the code did not implement
+  here. The tool's sentence now leads and the advice follows.
+- **`metaflac` failures were captured nowhere at all** — and it runs on *every* rip
+  (it is how the user's edited tags reach the FLAC and how the cover art is embedded).
+  `MetaflacError` carried a sentence built from the last stderr line; the argv, the exit
+  code and the rest of the output were discarded at the point of failure, three of the
+  six call sites reduced the exception to a one-line warning, and one dropped its text
+  entirely. So "your tags did not get written" was, worst case, a single line saying so
+  with no way to find out why. The adapter now records exit code (tri-state), exact
+  argv, complete output and a readable sentence into the diagnostics collector **before**
+  raising, so the evidence exists whether or not the caller logs it — and the exception
+  carries all four so a caller can render any of them. Also: an `OSError` (EACCES on the
+  binary) used to escape as a raw `OSError` from an adapter documented to raise
+  `MetaflacError`, so every caller's `except MetaflacError` missed it; `stdin` is now
+  `DEVNULL`, because a `metaflac` that decided to prompt would hang the GUI with no
+  explanation; and a timeout names the duration it exceeded.
+- **`cd-paranoia -A`'s exit code was never read**, and its verdict feeds the archival
+  *"Defeat audio cache"* field. "The tool failed" and "the tool ran and was
+  inconclusive" both produced `defeat=None` with nothing distinguishing them — two very
+  different facts rendered identically. The exit code is now recorded on the result
+  (tri-state) and a non-zero exit raises a warning saying explicitly that this was a
+  tool failure rather than an inconclusive measurement. The honest "unknown" verdict is
+  unchanged; what is new is that the reader is told which kind of unknown it is.
+- **`eject`'s own message was destroyed at the source, and the status line lied.**
+  `drive_control._run_bounded` set `stderr=DEVNULL`, so *no* caller could ever report
+  why an eject failed; the exit code was logged at INFO with the message gone, and the
+  caller discarded the returned bool. A tray that never opened therefore left the rip
+  pane reading *"Rip complete — ejecting the disc…"* indefinitely, with nothing above
+  INFO in the log to contradict it. Output is now captured and merged, a failure records
+  the full diagnostic, and the worker reports back via a queued `eject_finished` signal
+  so the on-screen claim is corrected (and names the log path). Success stays silent —
+  an open tray is self-evident, and overwriting "Rip complete" would bury the result.
+- **A bare `except OSError: pass` could send a rip into the folder the user was
+  avoiding.** `free_album_folder_templates` silently fell back to the *original*
+  templates, so "rip to a new folder" could resolve to a folder that already holds
+  audio — a permissions problem presenting as a product decision. It now warns, says
+  what the consequence is, and records a diagnostic.
+- **The drive-offset CSV's malformed rows are logged, as its docstring already
+  promised.** The docstring said malformed lines "are skipped with a log note"; the
+  row-level skip logged nothing, so a user whose CSV contributed nothing had no way to
+  find the bad line. Bounded to five examples with the count stated, plus a distinct
+  message for "every row was malformed" — which reads differently from "the file was
+  empty" and has a different fix. A doc claim a reader relies on has to be true in the
+  code; a comment where a check belongs is not a fix.
+- **A `NameError` on the setup engine's own failure path.** The diagnostics call added
+  to `host_setup.py` referenced a module that was never imported, so a *failed* setup
+  step raised `NameError` from inside the code meant to explain the failure. Found by
+  the suite, not by review — and it is the sharpest possible illustration of why the
+  collector exists: the reporting path is code too, and it fails like code.
+- **The `rip` and `log_parse` blocks are now built once, into locals.** They were
+  assembled inline in the report's dict literal, so the `issues` list that claims to
+  summarise them had no way to read them — which is why the entire handshake-approval
+  block and the ripper's exit code contributed nothing. Same rule the verification
+  sub-blocks already followed: one construction site, so the summary and the thing
+  summarised cannot disagree.
+
+### Documentation
+- **`docs/error-reporting.md` — the design of record for how a failure becomes something
+  a person can act on.** The four obligations and the code that meets each; the one
+  collector that feeds the text log, the report and the copy-diagnostics dialog from a
+  single call; the severity contract; the recipe for adding a failure path; and a table of
+  what is *enforced by a test* rather than trusted. Indexed in `docs/README.md`.
+- **The generated consumer contract now states the range its claims cover** — which app
+  version produced it and which approved ripper build its rows were checked against. A
+  contract claim with no stated range is a snapshot that reads as a fact: the fork's
+  *"there is no `-V`"* was true when written and one commit from being the misleading
+  kind of true. Sent to the fork as an ask in the same round, so we landed our own half
+  first. The accepted cost is a two-line diff on a version bump, which is not spurious —
+  the document really does describe a new version — and the docstring says so, to stop a
+  future reader "fixing" it back.
+- **Round 7 lap 10 sent** (`docs/handshake/verified/round-07-lap-10.md`, **HOLD** — the round
+  stays open and the pin does not move). It states what we now capture and surface so the
+  fork can hold us to it, and asks three things back, including our own view on their
+  seven stdout-only refusal paths: document them as stdout-only rather than opening the
+  logfile earlier, because a logfile opened before the disc is validated trades an old
+  ambiguity for a new one.
+
+### Verified on hardware — **full 14/14 EAC parity, and three defects the artifact caught**
+
+The maintainer uploaded a real rip of the EAC baseline disc from the rig (2026-08-04):
+Platterpus **0.6.4b3** + `cyanrip 0.9.4-rc1+platterpus.5-beta.1
+(platterpus-fork-g9003e6f)`, Pioneer BDR-209D, offset +667. The four artifacts are
+committed to `output_reference/cyanrip_fork_flac/` and
+`tests/test_fork_rip_eac_parity.py` **reads them** rather than restating their numbers.
+
+- **14 of 14 tracks are bit-identical to EAC.** Every `Copy CRC` equal, track for
+  track, against the committed genuine EAC 1.8 log of the same disc in the same drive.
+  That closes the parity goal in `output_reference/README.md`.
+- **All ten of EAC's `Pre-gap length` rows match ours to the hundredth of a second, in
+  order.** cyanrip 0.9.3 reported "None signalled" and found none; the fork reads them
+  from the sub-channel and finds precisely EAC's ten. The KDD-32 / `INDEX 00`
+  capability gap that `eac_log_export._gap_handling` documented as *our one measurable
+  archival shortfall against EAC* is **closed for the fork** — and that docstring, which
+  still described the shortfall as open, is corrected.
+- **Track 5 reached parity only via the auto-fix.** Its first pass produced `6902BCF0`,
+  which does not match EAC; only the `+450` offset-variant matched AccurateRip. The
+  secure re-rip produced `E0036697` — EAC's value — and swapped it in. So the artifact
+  is also the proof that the re-rip feature does the thing it exists for.
+
+### Fixed — found by reading that artifact, all three invisible to a green suite
+- **The EAC log's `Gap handling` row was wrong on every disc with a real pregap.** The
+  fork prints `merging into track N`; our matcher looked for `merged` — one word ending
+  — so the row read *"(not reported by the ripper)"* where EAC says *"Appended to
+  previous track"*. The fork published `merging into track %i` in **round 5**, so the
+  evidence sat in a committed file in this repo for two rounds; exactly the shape of the
+  `-V` blocker. **Two** separate tests pinned the invented word, and
+  `_gap_handling`'s own docstring already named this trap about the *previous* bug in
+  the same function — *"its test could not catch it because the fixture handed the
+  function a string cyanrip does not emit."* The replacement test made the same mistake
+  with a different invented string. The matcher now uses the fork's five published
+  actions, `dropping`/`splitting off` are refused an EAC phrase because they change what
+  audio exists, and the tests read the published block out of
+  `docs/handshake/inbound/round-6.md`.
+- **`artifacts.ripper_stdout` was empty on every completed rip.** The report is
+  re-written by each post-rip step; `_on_rip_finished` clears `_rip_worker` in between;
+  and the writer read the live worker behind a guard whose *only* effect was to emit
+  `""` once it was gone. So the first write carried the ripper's output and every later
+  one replaced it with nothing — and since FLAC verify is on by default and the
+  self-check always runs, the file the user ships always lost it. The block's own
+  `source` string still promised *"complete even when the ripper was killed"*: accurate
+  about the mechanism, false about the file. This is the one artifact the cyanrip
+  project cannot produce for itself, and the thing round 7 lap 10 tells them we capture.
+  Now snapshotted at finish like every other `_last_*` fact.
+- **`self_check` was an undeclared top-level report key, and the sweep written the same
+  day could not see it.** It is added by `write_report` *after* `_build`, and the
+  completeness sweep inspected the **builder** — my stand-in — rather than a written
+  file. The real artifact had 32 top-level keys where the builder produces 31. The sweep
+  now writes a report and reads it back.
+
+### Added
+- **The fork's two self-describing log lines are parsed (schema v16 → v17).**
+  `rip.ripper_handshake_note` is the binary's own compiled-in statement of which
+  handshake round it was built from — the rig log says `round 7 lap 7 OPEN, verdict HOLD
+  -- NOT a released build`, which is a provenance claim **derivable from the artifact's
+  content** (CLAUDE.md rule 12) and a second, *independent* witness beside
+  `ripper_handshake_approval`, which is only *our* verdict on the banner. When the two
+  disagree, the disagreement is the finding. `rip.ripper_consumer` records who the
+  ripper was told the caller was — `not identified (no --consumer given)` until we ship
+  the flag, which is itself worth carrying, because a log with no consumer cannot be
+  attributed to us at all. Both verbatim, both `null` on stock cyanrip. Implemented from
+  the real artifact rather than a fixture, which is what made it possible: a fixture
+  would have been my guess at their wording.
+- **The real-log sweeps are build-aware.** They were written when every committed real
+  log was stock 0.9.3, so *"the real logs"* and *"stock output"* were the same set — the
+  state that let the fork's wording go unmatched for two rounds. `_stock_logs()` /
+  `_fork_logs()` split them, a floor test requires **both** builds to be present, and the
+  top-level-line sweep now stops at Platterpus's own auto-fix addendum rather than
+  demanding ignore-list entries for our own prose.
+
+### Verified on hardware
+- **The `$HOME` fix works on the real rig.** After installing v0.6.4b3 the setup
+  wizard reports every step ✓ — *"Platterpus fork of cyanrip (build + export) —
+  installed"* — and the binary confirms it itself:
+  `~/.local/bin/cyanrip --version` → `cyanrip 0.9.4-rc1+platterpus.5-beta.1
+  (platterpus-fork-g9003e6f)`. Read off the binary rather than inferred from the
+  wizard's verdict. The orphaned `~/'$HOME'` tree the bug created is confirmed present
+  on disk and is now dead weight, which is the defect's own fingerprint.
+
 ## [0.6.4b3] — 2026-08-04
 
 **The `$HOME` defect, found by the diagnostics b2 added.** b2's whole purpose was to
@@ -117,7 +703,7 @@ GitHub pre-release, and every rip's report records
 `ripper_handshake_approval: not_determined` or `unapproved` unless the installed
 ripper is the build a closed round verified. **It is not a verified pair.**
 
-Paired with the cyanrip fork's own beta — see `docs/handshake/verified/round-7d.md`
+Paired with the cyanrip fork's own beta — see `docs/handshake/verified/round-07-lap-07.md`
 for the two builds by name.
 
 ### Fixed
@@ -5411,7 +5997,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...HEAD
+[0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
 [0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
 [0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
 [0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
@@ -5486,4 +6073,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b3.*
+*Last updated for Platterpus v0.6.4b4.*

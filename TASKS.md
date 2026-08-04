@@ -550,11 +550,265 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 9 sent, both betas cut)
+### ⭐ P1 — Release plan: v0.6.4 (non-beta) — PLANNED, NOT CUT
+
+> *"Get ready for a new non-beta release, but just plan for the release for now."*
+> — maintainer, 2026-08-04
+
+**Status: BLOCKED, and the blocker is the gate working correctly.**
+
+```
+$ python3 scripts/handshake.py --release-gate            → exit 1  (refused)
+$ python3 scripts/handshake.py --release-gate --prerelease → exit 0  (permitted)
+```
+
+Round 7 is OPEN and **both** sides declare HOLD. Per the deviation policy, releasing
+or moving the pin while a round is open is a *must-ask* — and per `CLAUDE.md` rule 12
+the gate is bilateral, so this is not a formality to wave through. **A `v0.6.4`
+stable tag must not be dispatched until round 7 closes with GO on both sides.** A
+further beta (`v0.6.4b4`) is permitted at any time and needs none of this.
+
+What the release itself is waiting on is therefore **not** code — the work below is
+either done or mechanical — it is the rig session (see the round-7 section) and the
+two verdicts turning GO.
+
+#### The blockers, in the order they must clear
+
+1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
+      invocation**; artifacts to both repositories. This is the round's remaining
+      evidence and nothing else can substitute for it. Hardware-gated.
+2. **[ ] The fork's reply to lap 22** (`verified/round-07-lap-22.md`) — two files and two
+      record corrections, none of them blocking:
+   - **[ ] The golden reference from `c5fb909`** (§C3a). Their lap 21 §E says it exists
+      and was committed with the lap file in *their* tree; it has not reached this
+      repository. Every previous one did, and per-line re-parsing is where lap 13 found
+      the pre-gap double-count they then fixed. Name it
+      `round-07-lap-22-golden-reference-gc5fb909.log`.
+   - **[ ] The P1 flag table back inside a lap file, or `PROVIDER-CONTRACT.md` as a lap
+      artifact** (§C3b). **Not a preference.** None of round 7's twenty-one laps embeds a
+      flag table — every one points at a file in their repository — so the newest table we
+      hold is round 6b's, from before this round opened, while their lap 21 reports the
+      count moving 40 → 41. This is the `-V` situation with one extra step: then the
+      evidence was in a committed file undiffed; now the file is not here at all.
+      Ratcheted as `_MAX_TABLE_LAG` in `tests/test_argv_surface_agreement.py`.
+   - **[ ] Confirm the four-commit `beta.1` span and whether the counter now moves with
+      the anchor** (§D1/I2). `cyanrip 0.9.4-rc1+platterpus.5-beta.1` is declared by laps
+      8–20 across `9003e6f`, `ceca8bc`, `f00cb2b` and `486dce3`, with the source anchor
+      moving **twice** underneath it — and one of the changes it spans is a log value we
+      parse. Also §D2: laps 12 and 14 name a build in `HANDSHAKE-RIPPER-VERSION` that
+      their own delivered artifact's banner contradicts.
+   - **[ ] Round 8, jointly: one shared-spec bump, THREE agreements — and rules 1 and 2
+      are corrections, not additions.** `handshake-protocol.md` §3 has carried *"absent
+      means lap 1"* and *"never by filename or mtime"* since the file was created
+      (`fec0ca3`); both implementations violated both for its whole life, because **§8 has
+      no conformance row for either** (lap 22 §I1 asks for three). The bump carries the
+      naming convention, the ordering rules **with lap 22's two qualifications** (§B1: the
+      pre-v2 name fallback must be stated; §B2: a header-bearing file with no lap field is
+      not the "pre-lap-header file" the rule is about, and fails closed instead), and
+      `Handshake-Round`/`-State`/`-Release`/`-Lap`. That file is shared and **neither
+      project owns it**, so it stays untouched while a round is open.
+   - **[x] Test pin moved to `c5fb909`** (`0.9.4-rc1+platterpus.5-beta.2`), `9003e6f`
+      retired into `SUPERSEDED_TEST_PINS` rather than deleted — it held for thirteen laps
+      and is what the 2026-08-04 rig ran, so a rig that has not rebuilt still gets
+      `--consumer`. Production pin unmoved: round 7 is open.
+   - **[x] Their lap-20 §I1 ordering diff, run rather than agreed** — two divergences,
+      both ours, both against the spec rather than against their wording; plus the gate
+      now refusing the two states ordering can only hide. Lap 22 §B.
+   - **[x] Their I1 (`-j` is a no-op) confirmed by running it**, and confirming it found
+      the argv-surface check reading round 6's table since the rename. Lap 22 §C.
+   - **[x] Lap 17's §C adopted by the fork** as specified — no counter-proposal, no
+      sender in the name, padding kept. Their lap 18 also reported their loader's
+      ordering, which is what exposed our two divergences.
+3. **[ ] Superseded: The fork's reply to lap 17** (`verified/round-07-lap-17.md`) — their answer
+      on the **file naming convention** (§C: adopt `round-NN-lap-LL.md` for their
+      outbound files, add the check, or propose a different shape — one convention beats
+      the better convention), and whether they put the **stock version-flag matrix** in
+      their contract as a stated-not-derived section (their J1; we said yes and why).
+   - **[ ] Round 8, jointly: one shared-spec bump, two agreements.** The
+      machine-readable handshake state (`Handshake-Round`/`-State`/`-Release`/`-Lap`)
+      **and** the naming convention as a section of `docs/handshake-protocol.md`. That
+      file is shared and **neither project owns it**, so it is deliberately not edited
+      while a round is open.
+   - **[x] Lap 15's D1–D3 answered** in their lap 16: they built stock 0.9.3 and
+      measured — `--version` does **not** exist there, so the probe order stands and
+      their lap-14 advice is withdrawn. `-Y`'s stock range is terminal-unknown. Both
+      commits are now named for each golden reference.
+3. **[ ] Superseded: The fork's reply to lap 15** (`verified/round-07-lap-15.md`) — **D1** does stock
+      cyanrip 0.9.3 accept `--version`? That is the *only* thing blocking the version-
+      probe reorder they asked for (their J3), and it is a claim in **our** own table
+      that we cannot check: row 1 says 0.9.3 takes `-V` and not `--version`, from
+      reading upstream's source rather than running a 0.9.3 binary. If they confirm
+      0.9.3 *does* accept it, reorder to `("--version", "-V")` immediately — no
+      population pays. **D2** name both commits for the golden reference (its banner
+      has never matched the commit their lap names it by; benign, but rule 12's third
+      instance). **D3** closed — there is no clean "since X" for stock `-Y`, so `None`
+      for stock is terminal, not a gap they owe us.
+   - **[x] Lap 13's D1–D4 all answered** in their lap 14: the pregap bug fixed (`150`
+      authoritative), the four `Read stalls:` shapes published, `-Y` traced to upstream
+      `443f749`, and the `-V` range table given.
+3. **[ ] Superseded: the fork's reply to lap 13** (`verified/round-07-lap-13.md`) — **D1** a golden
+      reference with a *populated* `Read stalls:` line (we parse the value as text
+      because `none (…)` is the only shape we have seen); **D2** the earliest build
+      with `-Y`, which is what restores a reachable `failed` verdict for stock
+      cyanrip; **D3** which of track 1's two pre-gap values is authoritative (§C —
+      300 vs 150, two internally-consistent pairs, track 2 the control); **D4** the
+      range on the `-V` special-casing, which sits outside `--help` and so cannot be
+      derived by our argv-surface test. Their lap 12 answered everything else.
+   - **[ ] Round 8: the machine-readable handshake state**, agreed both ways —
+      `Handshake-Round` / `Handshake-State` / `Handshake-Release` / `Handshake-Lap`.
+      Deliberately not inside round 7.
+3. **[ ] Superseded: the fork's reply to lap 11** (`verified/round-07-lap-11.md`) — D1 confirmation, D2
+      (their own §4 question, our view given), D3 (contract ranges), and their answer
+      on the **J1 machine-readable test-pin shape** we proposed. Their lap 10
+      (`verified/round-07-lap-10.md` is *ours*; theirs was the inbound file) raised H1–H6 and
+      J1–J6; **all six findings are fixed** and every J is answered in lap 11.
+3. **[x] Q8 — answered, and the addendum fix is landed anyway.** Their lap 10
+      confirmed the `-Z N -l <tracks>` pass *does* write a complete, valid,
+      self-checksummed cyanrip log. We took **route 1 (the sidecar)** rather than
+      route 2 (cite that log) because route 1 needed no round while one is open —
+      route 2 remains the better *record* and is filed below as its own change.
+4. **[ ] Route 2: cite the re-rip's own log instead of paraphrasing it.** The better
+      record, deliberately **not** batched with the H1 fix: it changes which files an
+      album folder contains, which is a contract of ours with users and with tooling
+      we do not control. Same reasoning that made us keep `-j`'s explicit path.
+5. **[ ] `-x` on one throwaway rip** (their J6). The least-tested path in the binary,
+      never measured on hardware; the fork's new stall report makes the cost one track
+      rather than a session. First group of the hardware plan, not the last.
+6. **[ ] Both verdicts GO.** One side's GO against the other's HOLD is an open round;
+      the gate reads both and will keep refusing until it is not.
+
+#### The release ritual once it is unblocked (mechanics: `CLAUDE.md` → CI/release)
+
+Nothing here is novel — it is the standing checklist, written out so the cycle is not
+reconstructed from memory under time pressure:
+
+1. **[ ] Bump `src/platterpus/__init__.py` `__version__` → `0.6.4`.** The single
+      source; `pyproject.toml` reads it dynamically. Do **not** add a version there.
+2. **[ ] Move the `[Unreleased]` entries** under `## [0.6.4] — <date>` with a matching
+      compare link, and point the `[Unreleased]` link at the new tag.
+3. **[ ] `pytest tests/test_no_stale_version_claims.py`** — the version-bump gate. It
+      fails until the CHANGELOG has both a section *and* a compare link, `[Unreleased]`
+      points at it, and README/SECURITY name the new minor with its stamp. This exists
+      because the README once announced v0.5.x deep into the v0.6 line: a doc-stamp
+      records *when a doc was edited*, and a doc nobody edits keeps an accurate stamp
+      while its prose quietly expires. **Two different things, two different checks.**
+4. **[ ] `pytest tests/test_doc_version_stamps.py`** — restamp every Markdown doc the
+      cycle touched. As of this writing that is `PLANNING.md`, `TASKS.md`,
+      `docs/README.md`, `docs/error-reporting.md` and the round-7 files, all already at
+      `v0.6.4b3` and therefore all needing one more move.
+5. **[ ] `python3 scripts/emit_dependency_contract.py`** — the generated consumer
+      contract now names the app version in its §0, so a version bump *changes it*.
+      This is deliberate (it states the range its claims cover) and the regeneration is
+      part of the bump, not an afterthought. `--check` is the CI gate.
+6. **[ ] `python3 scripts/handshake.py --release-gate`** — must exit 0. If it does not,
+      **stop**; that is the whole point of it.
+7. **[ ] Full green run** — `pytest` on the matrix, `ruff check` + `ruff format
+      --check`, `mypy`, the changelog check, media-guard, `pip-audit`.
+8. **[ ] Dispatch `release.yml` via `workflow_dispatch` with `v0.6.4` as the input.**
+      It creates the tag itself; a tag push does not work from the cloud session and
+      the agent git proxy forbids it anyway.
+9. **[ ] Confirm the artifacts**: AppImage + `.sha256` + `.zsync`, the signed
+      build-provenance attestation, and the PyPI wheel+sdist from the dispatched
+      `publish-pypi.yml`. A `v0.6.*` tag publishes as a **pre-release**; `v0.6.4` is
+      *not* a `v0.*`-style pre-release by tag shape, so verify the release is marked
+      correctly rather than assuming.
+
+#### What this release will contain
+
+The error-reporting work above, in full, plus the three betas' fixes: the AppImage
+built from PyPI instead of the tree (b1), the diagnostics that made the fork-build
+failure visible (b2), and the unexpanded `$HOME` that b2's diagnostics revealed (b3).
+The CHANGELOG `[Unreleased]` section is the authoritative list.
+
+#### Two things deliberately NOT in it
+
+- **`--consumer platterpus/<version>` on every rip.** An argv change, and the argv
+      chokepoint is validated — it lands with its own range check and test, not
+      batched with a release.
+- **Moving the pin to any round-7 test build.** The pin is `2f950c8` and stays there
+      until a round closes on a successor.
+
+### ⭐ P1 — Full error reporting & diagnosability (maintainer directive, 2026-08-04)
+
+> *"do a full check for error reporting to both Cyanrip and Platterpus, as many and as
+> full surface coverage as possible, even if you think it's not needed. I want full error
+> and reporting to the output log file (JSON) as possible for future debugging. Be
+> thorough and verbose; make finding errors easy."*
+
+Four parallel read-only audits (subprocess capture, swallowed exceptions, the JSON report
+surface, and user-facing surfacing) produced a ranked list. The recurring shape is **not**
+"we never obtained the fact" — it is *"we had the fact and discarded it"*, which CLAUDE.md
+calls the worse of the two, because the report still looks complete either way.
+
+- **[x] One collector — `diagnostics.py` + the report's `diagnostics` block (schema v16).**
+      One `record()` writes to the text log **and** the JSON, so the two artifacts cannot
+      describe the same event differently. Greppable `platterpus-diagnostic` prefix; the
+      block states its own scope, its truncation and its count.
+- **[x] Eight new `issues[]` checks.** Each was a fact that could be true while the one
+      list a triager opens first said "nothing to flag" — most sharply `recompress_failed`
+      (the step that rewrites archival masters was not a parameter of the deriver) and the
+      whole v15 handshake-approval block, which was read by nothing at all.
+- **[x] `adapters/tool_run.py` — a channel for the tool's own words.** The three post-rip
+      adapters declared their command seam as `Callable[[list[str]], int]`, which made it
+      *structurally impossible* for a dependency's output to reach the result, the report
+      or the user. Adds a third state (`started`) so a missing binary and a wedged file
+      stop being the same value.
+- **[x] `metaflac` — the worst single gap.** Runs on every rip; captured nothing.
+- **[x] `cd-paranoia -A`'s exit code, `eject`'s message, the `except OSError: pass` that
+      could send a rip into the folder the user was avoiding, and the drive-offset CSV's
+      unlogged row skips.**
+- **[x] The minimal failure report must carry `captured_stdout` + `debug_log`.** Ranked #1
+      by the surfacing audit: on exactly the rips the minimal report exists for, the
+      ripper's whole output reaches neither screen, nor `log.txt` (INFO by default), nor
+      the one artifact written — while sitting in a variable the code already knows how to
+      serialise.
+- **[x] Stop `"Rip failed."` clobbering the captured error text.** `_finish_rip` reads only
+      `worker.failure_hint`, never `_last_rip_error`, so on every start/stream failure the
+      specific sentence is replaced by the generic one two lines after being stored.
+- **[x] Failure surfaces must name the log path, XDG-aware, and never no-op silently.**
+      ~20 dialogs say "see the log" with no path; two hardcode `~/.local/share/...` against
+      an XDG-aware `paths.py`; a crashed dependency probe makes *Tools → Check
+      dependencies* do nothing visible at all.
+- **[x] Close `report_types.py` drift and make its test a sweep**, not three anchored blocks.
+- **[x] A copyable diagnostics surface.** There is no export, bundle or copy action
+      anywhere in the UI, and the one place a cyanrip fatal is displayed cannot be selected.
+- **[x] Failure paths must log at ≥ WARNING.** `log.txt` is INFO-only by default, so every
+      DEBUG subprocess record — including cyanrip's entire transcript — is absent from a
+      bug report unless the user had already turned Debug logging on.
+- **[x] Carry it into the next handshake lap**, so both projects hold the same
+      expectations for what each side captures, surfaces and can be asked for. Sent as
+      lap 10 (`verified/round-07-lap-10.md`, **HOLD** — the round stays open). It states our
+      half so they can hold us to it, and asks three things back: confirm the same
+      promise on their side; answer their own lap-7 §4 on the seven stdout-only refusal
+      paths (**our view: document them as stdout-only rather than opening the logfile
+      earlier — a logfile opened before the disc is validated trades an old ambiguity
+      for a new one**); and state the *range* a contract claim covers rather than the
+      snapshot. We owed the third one too, so the generated consumer contract now opens
+      with a §0 naming exactly which app version and which approved ripper build its
+      claims cover.
+
+### ⭐ P1 — EAC parity: **CLOSED at 14/14 on real hardware (2026-08-04)**
+
+The rig rip of the baseline disc — b3 + `platterpus-fork-g9003e6f`, same drive, offset
++667 — is **bit-identical to EAC on all 14 tracks**, and its ten `Pre-gap length` rows
+match EAC's to the hundredth of a second in order. Artifacts committed to
+`output_reference/cyanrip_fork_flac/`; proven by `tests/test_fork_rip_eac_parity.py`,
+which reads them.
+
+- **[x] EAC output-parity proof matrix — FLAC, 14/14.** Track 5 reached parity only via
+      the auto-fix re-rip (first pass `6902BCF0`, shipped `E0036697` = EAC's), so the
+      artifact is also the proof that feature works on hardware.
+- **[x] KDD-32 / `INDEX 00` pre-gap shortfall — closed for the fork.** Stock 0.9.3 still
+      reports "None signalled"; both branches stay in `_gap_handling`, whose docstring
+      was corrected (it still described the shortfall as open).
+- **[ ] MP3 / WAV parity rows** — the matrix's other formats are unchanged and still
+      pending; only FLAC is proven.
+
+### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 10 sent, both betas cut)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
-`verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
-`verified/round-7b.md` (lap 3). **Both sides declare HOLD.** The round is OPEN and
+`verified/round-7.md` (lap 2), their `inbound/round-07-lap-02.md` (their lap 2), and our
+`verified/round-07-lap-03.md` (lap 3). **Both sides declare HOLD.** The round is OPEN and
 **neither project releases** — now enforced bilaterally rather than remembered.
 
 The pin stays `2f950c8` (r2). **Four SHAs in one open round** — `ad65a24` → `d5d12ec`
@@ -585,10 +839,31 @@ loudly, `--release-gate` still refuses a stable release.
 
 ```
 Platterpus  v0.6.4b1                        GitHub pre-release, assets attached
-cyanrip     0.9.4-rc1+platterpus.5-beta.1   commit 9003e6f on platterpus-fork
+cyanrip     0.9.4-rc1+platterpus.5-beta.2   commit c5fb909 on platterpus-fork
+                                            (was beta.1 / 9003e6f — moved in lap 21)
 ```
 
-- **[x] Platterpus test pin: `v0.6.4b1`** — published pre-release.
+**`beta.1` was worn by four commits, which is why the *tag* is the pin and the version
+never is.** Laps 8–20 all declare `0.9.4-rc1+platterpus.5-beta.1`, across `9003e6f`,
+`ceca8bc`, `f00cb2b` and `486dce3`, while `HANDSHAKE-SOURCE-ANCHOR` moved twice
+underneath it — and one of the changes it spans is a **log value we parse** (track 1's
+`Pregap length:`, the lead-in counted twice). Our classifiers key on the build tag, so
+nothing here broke; a human reading a report's `ripper_version` could not have told which
+behaviour they had. Raised as lap 22 §D1/I2.
+
+- **[x] Platterpus test pin: `v0.6.4b4`** — published pre-release, superseding `b1`.
+      Cut when the fork moved their test pin to `c5fb909`, and **the reason is the delivery
+      vehicle, not symmetry**: the wizard and `--install-ripper` read `WIZARD_TARGET`, a
+      constant that ships *inside* a release, so a user on `b3` had no in-app route to
+      `c5fb909` — and a hand-built `c5fb909` would have had `--consumer` **withheld**
+      (`accepts_consumer_flag` → `False`, a silent `Consumer: not identified` in the rig
+      log) and log verification reported `not_determined`. Measured on `b3`, not assumed.
+- **[ ] Wire `observed_version_pair_line()` or delete it.** Exported, tested, and called
+      from **nowhere** in `src/` — the `RipHandle.cancel` shape. Nothing is missing from a
+      diagnosis (the report carries `ripper_version` / `ripper_build` /
+      `ripper_handshake_approval` structurally); what is missing is the *rendering*, and
+      its docstring asserted a use it does not have. The docstring now says so rather than
+      a call site being invented during a release.
 - **[x] Adopt the fork's beta as the wizard's build target.** `WIZARD_TARGET` →
       `9003e6f`, checked out as an exact detached commit; `platterpus-fork-g9003e6f`
       added to the `--consumer` allowlist so rig logs carry both halves of the pair.
@@ -597,6 +872,13 @@ cyanrip     0.9.4-rc1+platterpus.5-beta.1   commit 9003e6f on platterpus-fork
       its `-x` could hang with no diagnostic at all, which is exactly what H10 exercises.
       `SUPERSEDED_TEST_PINS` records the retired ones, and a rip that finds one installed
       says it is retired and names the current one.
+- **[x] The pair is installed and verified AT THE DRIVE (2026-08-04).** Confirmed by
+      reading the binary's own banner on the rig, not by trusting the wizard:
+      `~/.local/bin/cyanrip --version` →
+      `cyanrip 0.9.4-rc1+platterpus.5-beta.1 (platterpus-fork-g9003e6f)`, under
+      Platterpus **v0.6.4b3**. It took b1 → b2 → b3 to get here: b2 added the
+      diagnostics that made the failure visible, and b3 fixed what they revealed (the
+      unexpanded `$HOME`). **This was the last precondition the round was waiting on.**
 - **[ ] Run the rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation** — seven of the ripper's refusal paths fire before its logfile exists,
       so nothing in the archived log can show them, and its heartbeat lines are
@@ -633,9 +915,14 @@ What we owe, and what waits on their answers:
       *"reported by the caller, not verified by cyanrip"*. Deliberately **not** shipped in the
       same batch as a protocol bump — it is an argv change, and the argv chokepoint is
       validated, so it lands with its own range check and test.
-- **[ ] Parse their two new logfile lines**, `Handshake:` (derived at build time from their
-      round files — a build from an open-round tree says so permanently) and `Consumer:`.
-      Currently unrecognised; needs report fields before the regexes earn their place.
+- **[x] Parse their two new logfile lines** — `Handshake:` and `Consumer:`, done
+      2026-08-04 at schema v17, off the real rig artifact rather than a fixture (which
+      would have been our guess at their wording). `rip.ripper_handshake_note` carries
+      the binary's own compiled-in round state verbatim — the rig log says `round 7 lap 7
+      OPEN, verdict HOLD -- NOT a released build` — which is a provenance claim
+      *derivable from the artifact's content* and a second, **independent** witness
+      beside `ripper_handshake_approval` (our verdict on the banner). When the two
+      disagree, the disagreement is the finding.
 - **[ ] Read the argv surface from their `PROVIDER-CONTRACT:` pointer, not round prose.**
       Their lap-2 §4 declined our remedy (correctly — the contract *did* change: flags
       38 → 39 with `-x`, derived rows 422 → 431, so the line we asked them to write would
@@ -930,4 +1217,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b4.*

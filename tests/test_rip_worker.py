@@ -516,41 +516,142 @@ def test_auto_fix_swaps_in_reripped_track_when_it_converges(
     assert swapped.read_bytes() == b"FIXED-FLAC-BYTES"
 
 
-def test_auto_fix_appends_swap_addendum_to_album_log(
-    qapp: QApplication, tmp_path: Path
-) -> None:
-    """Regression (#19): after a re-ripped track is swapped in, the first-pass
-    album .log's CRC for that track describes the DISCARDED bytes. An addendum
-    must be appended naming the swapped track and the SHIPPED file's CRC, so the
-    committed durable-proof text matches the audio on disk. The original log
-    content is preserved verbatim (append-only)."""
-    rerip_ok = (
+def _rerip_ok_log(*, ar_v1: str = "AAAA0001", ar_v2: str = "BBBB0002") -> str:
+    """A re-rip log for track 3 that CONVERGED, with its own AccurateRip results.
+
+    The AccurateRip lines matter for the H5 half of this change: the addendum must
+    supersede the whole per-track record, not just the CRC, so the fixture has to
+    carry values that differ from the first pass or the assertion could not tell.
+    """
+    return (
         "cyanrip 0.9.3 (release)\n"
         "Disc tracks:    3\n"
         "Done; (2 out of 2 matches for current checksum BBBB2222)\n"
         "Track 3 ripped and encoded successfully!\n"
         "  EAC CRC32:     99999999\n"  # the shipped file's CRC
+        # The REAL line shape, copied from the committed rig log
+        # (output_reference/cyanrip_fork_flac/…): two-space indent under an
+        # "Accurip:" header, bare CRC, verdict and confidence in parentheses. A
+        # fixture that invents the shape tests our guess at cyanrip's output.
+        "  Accurip:       disc found in database (max confidence: 200)\n"
+        f"    Accurip v1:  {ar_v1} (accurately ripped, confidence 42)\n"
+        f"    Accurip v2:  {ar_v2} (accurately ripped, confidence 42)\n"
         "  File(s):\n"
         "    Artist/Album/03 - C.flac\n"
         "Ripping errors: 0\n"
     )
+
+
+def _run_auto_fix_rip(tmp_path: Path) -> Path:
+    """Drive a rip whose track 3 is unstable and is rescued by the auto-fix.
+
+    Returns the album folder. Shared by the addendum tests below so they cannot
+    disagree about what "the rip that swapped a track in" means.
+    """
     backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
-    backend.rip_side_effect = _fake_rip_writer(_PASS1_UNSTABLE, rerip_ok, True)
+    backend.rip_side_effect = _fake_rip_writer(_PASS1_UNSTABLE, _rerip_ok_log(), True)
     worker = RipWorker(
         backend,
         _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
     )
-
     worker.start_rip()
+    return tmp_path / "Artist" / "Album"
 
-    album_log = (tmp_path / "Artist" / "Album" / "rip.log").read_text(encoding="utf-8")
-    # Original first-pass content is intact…
-    assert "Track 1 ripped and encoded successfully!" in album_log
-    assert "EAC CRC32:     11111111" in album_log
-    # …and a clearly-delimited addendum names the swapped track + its new CRC.
-    assert "[Platterpus auto-fix addendum]" in album_log
-    assert "Track 3" in album_log
-    assert "99999999" in album_log
+
+def test_auto_fix_leaves_the_rippers_own_log_byte_exact(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Regression (round 7 lap 10, H1): **do not touch the ripper's log.**
+
+    We used to append the swap addendum to it. cyanrip's log ends with a
+    ``Log FUN512:`` self-checksum and ``cyanrip --verify-log`` *rejects trailing
+    content by design* — the fork had asked that exact question in round 5, answered
+    no, and pinned it with a test — so every auto-fixed disc shipped a log the ripper
+    itself would call modified. Found by them reading a real rig artifact, because
+    our own integrity check verified the log **we** wrote against the checksum **we**
+    computed and had nothing to say about theirs.
+
+    This asserts the bytes, not the absence of a marker: an assertion that only
+    looked for the old marker would pass for a differently-worded append.
+    """
+    album = _run_auto_fix_rip(tmp_path)
+    log_path = album / "rip.log"
+    album_log = log_path.read_text(encoding="utf-8")
+
+    # The swap really happened — the floor under everything below. Without it this
+    # test would pass on a rip that never auto-fixed anything, which is the
+    # "satisfied by finding nothing" trap.
+    assert (album / "03 - C.flac").read_bytes() == b"FIXED-FLAC-BYTES"
+
+    assert album_log == _PASS1_UNSTABLE, (
+        "the ripper's log is no longer byte-exact; something appended to it again"
+    )
+    assert "[Platterpus auto-fix addendum]" not in album_log
+    assert "99999999" not in album_log, (
+        "the shipped CRC leaked into the ripper's log — it belongs in the sidecar"
+    )
+
+
+def test_auto_fix_writes_the_supersede_record_to_a_sidecar(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The other half of H1: the supersede must still EXIST, beside the log.
+
+    Leaving the ripper's log alone is only correct if the record moves rather than
+    disappears — the first-pass log's CRC for a swapped track describes the bytes we
+    deleted (#19), and a fix that made the supersede invisible would trade one wrong
+    artifact for another.
+
+    Also pins **H5**: the record supersedes the whole per-track block. The old
+    appended version named the CRC alone, leaving the archived AccurateRip v1/v2 and
+    the "not attempted" re-read verdict describing the discarded read.
+    """
+    from platterpus.rip_addendum import ADDENDUM_MARKER, addendum_path_for
+
+    album = _run_auto_fix_rip(tmp_path)
+    sidecar = addendum_path_for(album / "rip.log")
+
+    assert sidecar.is_file(), f"no addendum sidecar at {sidecar}"
+    text = sidecar.read_text(encoding="utf-8")
+    assert ADDENDUM_MARKER in text
+    assert "Track 3" in text
+    assert "99999999" in text, "the shipped file's CRC is missing"
+    # H5: the AccurateRip values and the re-read verdict, from the re-rip's own log.
+    assert "AAAA0001" in text, "AccurateRip v1 was not superseded"
+    assert "BBBB0002" in text, "AccurateRip v2 was not superseded"
+    assert "converged" in text.lower(), "the secure re-read verdict was not recorded"
+    # It says why it is a separate file, so a reader who finds it understands.
+    assert "verify-log" in text
+
+
+def test_reading_the_log_back_still_honours_the_supersede(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """Moving the addendum must not make the supersede invisible to a re-parse.
+
+    This is the trap the H1 fix could have walked into. The addendum existed in the
+    first place because a re-parse from disk got CRCs for bytes that are not on disk
+    — the GUI never saw it, since it patches from live worker state. So the sidecar
+    is only a fix if the *reader* folds it back in.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+    from platterpus.rip_addendum import read_log_with_addendum
+
+    album = _run_auto_fix_rip(tmp_path)
+    log_path = album / "rip.log"
+
+    # The ripper's log ALONE still carries the discarded read's CRC — proving the
+    # sidecar is doing real work rather than being redundant.
+    alone = parse_cyanrip_log(log_path.read_text(encoding="utf-8"))
+    track3_alone = next(t for t in alone.tracks if t.number == 3)
+    assert track3_alone.copy_crc != "99999999"
+
+    # Read through the sanctioned reader and the shipped CRC wins.
+    combined = parse_cyanrip_log(read_log_with_addendum(log_path))
+    track3 = next(t for t in combined.tracks if t.number == 3)
+    assert track3.copy_crc == "99999999", (
+        "a re-parse through read_log_with_addendum did not pick up the supersede"
+    )
 
 
 def test_auto_fix_keeps_original_when_rerip_still_unstable(
@@ -1382,6 +1483,34 @@ def test_failure_hint_set_on_track_giveup(qapp: QApplication, tmp_path: Path) ->
     # Actionable, backend-neutral advice (no stale "Keep going" setting, which
     # was removed with whipper, and no false >587 cd-paranoia claim).
     assert "scratched or dirty" in worker.failure_hint
+
+
+def test_a_giveup_line_does_not_overwrite_the_rippers_own_fatal(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The branch above this one is commented "first error wins" — and this branch
+    assigned unconditionally, so a verbatim cyanrip fatal matched ONE LINE EARLIER
+    was replaced by canned "clean the disc" advice. The comment described a rule the
+    code did not implement here. The tool's own sentence now leads and the advice
+    follows, so neither is lost.
+    """
+    handle = _FakeHandle(
+        lines=[
+            # A REAL cyanrip format string, taken from the generated inventory —
+            # not one I invented, which would test the fixture rather than the matcher.
+            "Unable to read track 3 subchannel info!",
+            "CRITICAL:whipper.command.cd:giving up on track 3 after 5 times",
+        ],
+        exit_code=1,
+    )
+    worker = RipWorker(_FakeBackend(handle=handle), _params(tmp_path))
+    worker.start_rip()
+
+    hint = worker.failure_hint
+    # The ripper's own words, first.
+    assert hint.startswith("Unable to read track 3 subchannel info!")
+    # And the actionable advice is still there, appended rather than substituted.
+    assert "scratched or dirty" in hint
 
 
 def test_no_failure_hint_on_clean_rip(qapp: QApplication, tmp_path: Path) -> None:

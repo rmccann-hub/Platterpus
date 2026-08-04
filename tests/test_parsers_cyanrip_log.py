@@ -212,7 +212,15 @@ def test_offset_variant_match_is_captured_but_not_a_plain_match() -> None:
 
 def test_partial_accurate_summary_and_paranoia_counts() -> None:
     log = parse_cyanrip_log(_MARGINAL_LOG)
-    assert "2/2" in log.partially_accurate_summary
+    # "2 of 2 track(s) not fully verified", not "2/2". The fork confirmed the
+    # denominator counts tracks NOT FULLY VERIFIED, not tracks on the disc (round 7
+    # lap 10, H4) — so `2/2` on a disc with more than two tracks is correct and reads
+    # like a typo. We name what it measures; the ripper's own line is unchanged.
+    assert "2 of 2" in log.partially_accurate_summary
+    assert "not fully verified" in log.partially_accurate_summary, (
+        "the denominator is unnamed again, so the fraction reads as a share of the "
+        "disc — which is the ambiguity this wording exists to remove"
+    )
     assert log.paranoia_counts == {
         "READ": 71948,
         "VERIFY": 11098,
@@ -499,9 +507,65 @@ def test_parses_underread_mode_for_negative_offset_drives() -> None:
 # get the reporting test below instead, which has its own floors.
 
 
+#: Where Platterpus's own auto-fix addendum begins in an album log. The writer
+#: (`workers/rip_worker`) emits a 72-char `=` rule and *then* the marker, so the rule
+#: belongs to our block too — cutting at the marker alone leaves that line looking
+#: like a column-0 row cyanrip printed, which is how the first version of this cut
+#: still failed by exactly one line.
+_ADDENDUM_MARKER = "[Platterpus auto-fix addendum]"
+_ADDENDUM_START = "=" * 72 + "\n" + _ADDENDUM_MARKER
+
+
 def _corpus_logs() -> list[Path]:
-    """The committed real cyanrip logs (`output_reference/cyanrip_*/`)."""
-    return sorted((_REPO / "output_reference").glob("cyanrip_*/*.log"))
+    """Every committed real cyanrip log (`output_reference/cyanrip_*/`).
+
+    **Both builds.** Use :func:`_stock_logs` / :func:`_fork_logs` when the assertion
+    is build-specific — several sweeps below were written when this glob returned
+    only stock 0.9.3 logs, so "the real logs" and "stock output" were the same set.
+    Adding a real fork rip separated them.
+    """
+    logs = sorted((_REPO / "output_reference").glob("cyanrip_*/*.log"))
+    # The EAC-layout render is OUR output, not the ripper's; it lives beside the
+    # ripper's log and would otherwise be swept as if cyanrip had printed it.
+    return [p for p in logs if "EACcompatible" not in p.name]
+
+
+def _is_fork_log(path: Path) -> bool:
+    """Whether this log came from the Platterpus fork.
+
+    Keyed on the build tag in the banner, via the shared classifier — not on the
+    filename, which is ours to rename, and not on the version number, which the fork
+    deliberately tracks upstream (so a version cannot separate them; CLAUDE.md
+    rule 12).
+    """
+    from platterpus.ripper_identity import identify_from_banner
+
+    first = path.read_text(encoding="utf-8", errors="replace").split("\n", 1)[0]
+    return bool(identify_from_banner(first).is_fork)
+
+
+def _stock_logs() -> list[Path]:
+    """Committed real logs from **stock** cyanrip — what AppImage users run."""
+    return [p for p in _corpus_logs() if not _is_fork_log(p)]
+
+
+def _fork_logs() -> list[Path]:
+    """Committed real logs from the **fork** — the build the handshake pins."""
+    return [p for p in _corpus_logs() if _is_fork_log(p)]
+
+
+def test_the_corpus_contains_both_builds() -> None:
+    """The floor under every build-aware sweep below.
+
+    If this ever finds only one build, those sweeps stop testing the other half and
+    would keep passing — the "can this check be satisfied by finding nothing?" trap,
+    one level up. A corpus of stock-only logs is exactly the state that let the fork's
+    `merging into track N` wording go unmatched for two handshake rounds.
+    """
+    stock, fork = _stock_logs(), _fork_logs()
+    assert stock, "no committed STOCK cyanrip log — the absent-case sweeps are blind"
+    assert fork, "no committed FORK cyanrip log — the present-case sweeps are blind"
+    assert len(stock) + len(fork) == len(_corpus_logs())
 
 
 def _classify_top_level(line: str) -> str | None:
@@ -524,15 +588,28 @@ def test_rule_tables_are_a_complete_enumeration_of_this_module() -> None:
     the loop but not listed would make the accountability test below report a
     recognised line as unhandled (or worse, lull a reader into thinking the list
     is the whole story). So this walks the module's own regex constants and
-    requires each to appear in a table, in the section list, or in the indented
-    list. `_ACCURIP_CONFIDENCE` is the one exception and is named explicitly: it
-    is searched inside an already-captured fragment, not matched against a line.
+    requires each to appear in a table, in the section list, in the indented list,
+    or in `_FRAGMENT_PATTERNS`.
+
+    **That last group replaced a test-side allowlist**, and the change is the point:
+    this test used to name `_ACCURIP_CONFIDENCE` itself as "the one exception". A
+    hand-maintained exemption list living in the checker is the shape that hid 16 of
+    the fork's fatal strings behind their generator's prefix filter (round 5), and it
+    bit here the moment two more fragment patterns arrived (round 7 lap 15). The
+    enumeration now lives in the module, so a new fragment pattern fails this sweep
+    instead of quietly requiring the test to be edited.
     """
     listed = (
         {rule.pattern for rule in cyanrip_log._ALL_LINE_RULES}
         | {pattern for _name, pattern in cyanrip_log._SECTION_LINE_PATTERNS}
         | {pattern for _name, pattern in cyanrip_log._INDENTED_LINE_PATTERNS}
-        | {cyanrip_log._ACCURIP_CONFIDENCE}
+        | {pattern for _name, pattern in cyanrip_log._FRAGMENT_PATTERNS}
+    )
+    # The fragment group must not become a dumping ground: it is small, every entry is
+    # applied to a captured substring, and it may not swallow a line-level pattern.
+    assert len(cyanrip_log._FRAGMENT_PATTERNS) <= 6, (
+        "the fragment group is growing; check each entry really is matched against a "
+        "captured fragment rather than a whole line"
     )
     module_patterns = {
         name: value
@@ -570,10 +647,18 @@ def test_every_top_level_line_of_the_real_cyanrip_logs_is_accounted_for() -> Non
     assert len(logs) >= 2, f"expected the committed cyanrip logs, found {logs}"
     total_examined = 0
     for path in logs:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        text = path.read_text(encoding="utf-8")
+        # ONLY THE PART CYANRIP WROTE. Platterpus appends its own `[Platterpus
+        # auto-fix addendum]` block to the album log after a re-rip swap, and this
+        # sweep's whole premise is "a column-0 line *cyanrip printed* that no rule
+        # claims". Sweeping our own prose would demand ignore-list entries for our
+        # own sentences — and, worse, an entry matching our wording could then mask a
+        # future cyanrip row that happened to start the same way.
+        text = text.split(_ADDENDUM_START, 1)[0]
+        lines = text.splitlines()
         top_level = [line for line in lines if line and not line[0].isspace()]
         # Floor per log: a truncated or mis-globbed file must not pass by being
-        # nearly empty. The real logs carry 58 top-level lines each.
+        # nearly empty. The real logs carry 58+ top-level lines each.
         assert len(top_level) >= 40, f"{path.name}: only {len(top_level)} top-level"
         unaccounted = [line for line in top_level if _classify_top_level(line) is None]
         assert not unaccounted, (
@@ -1238,7 +1323,7 @@ def test_appended_silence_frames_are_read_from_the_real_committed_logs() -> None
     evidence that cyanrip emits the line (docs/testing.md §5.t).
     """
     logs = _corpus_logs()
-    assert len(logs) >= 2, logs
+    assert len(logs) >= 3, logs
     examined = 0
     for path in logs:
         parsed = parse_cyanrip_log(path.read_text(encoding="utf-8", errors="replace"))
@@ -1248,9 +1333,13 @@ def test_appended_silence_frames_are_read_from_the_real_committed_logs() -> None
             for t in parsed.tracks
             if t.appended_silence_frames
         }
+        # Every log in the corpus is the SAME disc in the SAME drive at the same
+        # offset, so the padded-track answer is a property of the disc and must agree
+        # across builds. A build that disagreed here would be a real finding — the
+        # final frames of track 14 are fabricated silence rather than disc audio.
         assert padded == {14: 2}, f"{path.name}: {padded}"
         examined += len(parsed.tracks)
-    assert examined >= 28, examined
+    assert examined >= 42, examined
 
 
 def test_todays_real_cyanrip_logs_report_none_of_the_fork_only_fields() -> None:
@@ -1261,7 +1350,7 @@ def test_todays_real_cyanrip_logs_report_none_of_the_fork_only_fields() -> None:
     is None on every track of every committed log, so one build behaves identically
     against the deployed ripper and the fork.
     """
-    logs = _corpus_logs()
+    logs = _stock_logs()
     assert len(logs) >= 2, logs
     examined = 0
     for path in logs:

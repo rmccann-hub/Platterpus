@@ -88,6 +88,31 @@ from typing import Final
 #:    known-safe flag first means an unknown one is only reached after the known
 #:    one has declined.
 #:
+#: **The fork asked us to reorder (round 7 lap 14, J3) and we have NOT, yet — for a
+#: reason the table above states.** Their argument: ``-V`` is rejected by current
+#: stock, *"and a rejection is the 'not installed' false negative your own detector
+#: exists to prevent."* The first half is true and their D4 table is the best evidence
+#: either project has for it. The second half does not follow **here**, because the
+#: probe loop in ``deps/checks.py`` tries *every* flag and reports absence only when
+#: all of them fail — the hazard they name is real in general and already mitigated,
+#: and its own comment says so: *"this must not report the FIRST failure as the reason
+#: the tool is absent."*
+#:
+#: So the ordering is a cost question, not a correctness one, and the cost lands on
+#: whichever population pays the extra subprocess. Row 1 of the table says stock
+#: 0.9.3 accepts ``-V`` and **not** ``--version`` — 0.9.3's ``getopt`` is short-only
+#: (upstream replaced it with ``genopt.h`` in ``442de2a``) — and 0.9.3 is what is
+#: deployed in the field today. Reordering would move the wasted probe from
+#: current-stock users onto them.
+#:
+#: **Row 1 is the load-bearing claim and it is ours, not measured.** It comes from our
+#: reading of upstream's source, not from running a 0.9.3 binary, and their round-6
+#: contract note — *"``-v``, ``-V`` and ``--version`` all print the version banner"* —
+#: reads as though it might contradict it (in context it describes their build, not
+#: 0.9.3). Lap 15 asks them to settle it from the source they can check. **If 0.9.3
+#: does accept ``--version``, reordering is free and we should do it** — the whole
+#: argument for the current order collapses to nothing.
+#:
 #: Extending this tuple is how a future rename is absorbed; shortening it is a
 #: compatibility break and needs the same evidence this table carries.
 VERSION_FLAGS: Final[tuple[str, ...]] = ("-V", "--version")
@@ -129,3 +154,41 @@ VERSION_BANNER_SNIPPET: Final[str] = "\n".join(
         "fi",
     ]
 )
+
+
+#: The flag that asks cyanrip to verify a rip log's own ``FUN512:`` checksum.
+#:
+#: **Long spelling on purpose.** Same reasoning as :data:`VERSION_FLAGS`: the fork's
+#: own contract says to prefer the long form because a short letter is what upstream
+#: moved when it replaced getopt with genopt (``-V`` → ``-v``, which read as *"the
+#: tool is not installed"* to every probe we shipped). ``-Y`` is what their table
+#: lists today; ``--verify-log`` is what it has always been called.
+#:
+#: Published in their flag table since round 4, so ``tests/test_argv_surface_agreement``
+#: covers it.
+#:
+#: **RANGE — and the first version of this comment was wrong.** It said *"all fork
+#: builds and stock ≥ 0.9.3 — the checksum footer and this flag arrived together."*
+#: The fork disproved both halves from their repository (round 7 lap 14, D2), and the
+#: correction is worth keeping visible because the wrong version was an *inference I
+#: had already flagged as an inference* and left in anyway:
+#:
+#: * ``-Y`` is **upstream's**, not the fork's: commit ``443f749`` by Lynne,
+#:   2026-07-12, on ``master``. The fork adds nothing to it.
+#: * At that commit ``meson.build`` still read ``version: '0.9.3'``; the bump to
+#:   ``0.9.4-rc1`` landed afterwards. **So a build reporting 0.9.3 may or may not
+#:   accept it, and the version string cannot tell you which.** That is the ``-V``
+#:   trap with a third face: not a flag removed, not a flag not yet added, but a flag
+#:   added *inside a version number that never moved*.
+#: * The ``Log FUN512:`` footer was added in ``757108c``, which **predates**
+#:   ``443f749``. **Builds exist that write the footer and cannot verify it** — so
+#:   "they arrived together" was not merely unproven, it was false, and it would have
+#:   produced a confident ``True`` for a real range of builds.
+#:
+#: What holds: **every fork build we can name accepts it**, verified by ancestry
+#: against ``443f749`` on their side — see
+#: :data:`platterpus.deps.fork_source.BUILD_TAGS_ACCEPTING_VERIFY_LOG`. For stock the
+#: honest answer is *unknown without the commit*, which is why
+#: :func:`platterpus.deps.fork_source.accepts_verify_log` is tri-state and returns
+#: ``None`` rather than guessing.
+VERIFY_LOG_FLAG: Final[str] = "--verify-log"

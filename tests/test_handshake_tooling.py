@@ -225,6 +225,43 @@ def test_our_own_skeleton_satisfies_our_own_outbound_spec(hs: ModuleType) -> Non
     assert hs.check_outbound(hs.emit_outbound(99)) == []
 
 
+def test_the_emitted_skeleton_declares_every_required_wire_field(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**REGRESSION. The generator emitted a file our own header check refuses.**
+
+    `--emit 9 > f && --check f` reported *"missing required field HANDSHAKE-PROTOCOL
+    (§3)"* — the first entry in `REQUIRED_WIRE_FIELDS`, absent from the emitter's
+    hand-maintained header list in the same module. `check_outbound` did not catch it
+    because it sweeps *sections*, not the wire header, so the existing
+    "our skeleton satisfies our own spec" test was green throughout.
+
+    The instructive part is where it happened: `handshake_filename` exists because a
+    hand-typed *name* is a third description of a fact the header declares. The header
+    that instruction points at was itself hand-typed, three definitions away from the
+    tuple that says what it must contain.
+
+    **Derived from `REQUIRED_WIRE_FIELDS`, so adding a required field cannot silently
+    skip the emitter** — and asserted through `check_wire_header`, the real checker,
+    rather than by string-matching the field names, so it is the production judgement
+    that has to be satisfied.
+    """
+    skeleton = hs.emit_outbound(9)
+    for field in hs.REQUIRED_WIRE_FIELDS:
+        assert f"\n{field}: " in f"\n{skeleton}", (
+            f"the emitted skeleton does not declare {field}, which §3 requires of "
+            "every file — our own --check would refuse what our own --emit produced"
+        )
+    # Floor: the loop above passes trivially if the tuple is empty.
+    assert len(hs.REQUIRED_WIRE_FIELDS) >= 8, hs.REQUIRED_WIRE_FIELDS
+
+    # And through the real checker, on a canonically-named file so the round agrees.
+    path = tmp_path / hs.handshake_filename(9, 1)
+    path.write_text(skeleton, encoding="utf-8")
+    problems = hs.check_wire_header(path, expect_from="platterpus")
+    assert problems == [], problems
+
+
 def test_the_skeleton_carries_the_inbound_spec_inline(hs: ModuleType) -> None:
     """The fork does not have this repo, so linking to the spec is useless. Every
     required inbound section must appear in the file we actually send."""
@@ -898,8 +935,15 @@ def test_check_inbound_reports_the_missing_provider_contract(hs: ModuleType) -> 
     that when they send it, this test is what confirms it landed — rather than my
     reading the file and forming an opinion.
     """
-    path = hs.INBOUND_DIR / "round-7.md"
-    assert path.is_file(), "the committed round-7 inbound file is missing"
+    # Located by WHAT IT IS — round 7's first inbound file — not by its name. It was
+    # `round-7.md` until the 2026-08-04 naming migration renamed it to
+    # `round-07-lap-01.md`, and this assertion broke on a rename that changed nothing
+    # about the file. A test that reads a committed artifact should identify it the way
+    # the code does, or it pins the filename rather than the artifact.
+    round_seven = hs._round_files(hs.INBOUND_DIR, 7)
+    assert round_seven, "no committed round-7 inbound file"
+    path = round_seven[0]
+    assert path.is_file(), f"{path} is not a file"
     problems = hs.check_inbound(path)
     assert any("§I" in p for p in problems), (
         "the checker no longer reports round 7's absent provider contract — if "
@@ -1117,8 +1161,10 @@ def test_our_own_committed_files_satisfy_the_format_we_publish(hs: ModuleType) -
     """
     # Scoped to files declaring `HANDSHAKE-PROTOCOL`, i.e. the v2 adopters. Earlier
     # files are grandfathered, and — importantly — **a sent file is never edited**
-    # (`docs/handshake/README.md`), so `round-7b.md` keeps the v1 header it went out
-    # with rather than being retro-fitted to a spec written after it.
+    # (`docs/handshake/README.md`), so `verified/round-07-lap-03.md` keeps the v1
+    # header it went out with rather than being retro-fitted to a spec written after
+    # it. (That file was `round-7b.md` before the 2026-08-04 naming migration; the
+    # rename touched the name, never the contents.)
     checked = 0
     problems: list[str] = []
     for path in sorted(hs.VERIFIED_DIR.glob("round-*.md")):
@@ -1129,7 +1175,7 @@ def test_our_own_committed_files_satisfy_the_format_we_publish(hs: ModuleType) -
         problems.extend(hs.check_wire_header(path, expect_from="platterpus"))
     assert checked >= 1, (
         "no verification file declares HANDSHAKE-PROTOCOL, so this test is "
-        "checking nothing — the first v2 file is verified/round-7c.md"
+        "checking nothing — the first v2 file is verified/round-07-lap-05.md"
     )
     assert not problems, "our own files violate the format we ask them to use: " + str(
         problems

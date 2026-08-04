@@ -47,6 +47,8 @@ import subprocess
 import time
 from collections.abc import Callable
 
+from platterpus import diagnostics
+
 log = logging.getLogger(__name__)
 
 # The Distrobox container the ripper lives in (README/setup-host default).
@@ -106,23 +108,29 @@ _STEP_TIMEOUT_S: float = 20.0
 
 
 def _run_bounded(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
-    """Run a command with an explicit per-command timeout, swallowing its output.
+    """Run a command with an explicit per-command timeout, **capturing** its output.
 
     Never inherits stdin, so a `distrobox enter` can't block waiting on a TTY.
     Split out from :func:`_default_runner` purely so a caller that must bound the
     *whole sequence* can supply a shrinking timeout — see :func:`budgeted_runner`.
+
+    **stderr used to be `DEVNULL`**, which destroyed the tool's message at the
+    source: `eject`'s own explanation ("Device busy", "not a mountpoint") could not
+    be recovered by any caller, however careful, and the rip pane went on reading
+    *"Rip complete — ejecting the disc…"* while the tray never opened. Nothing was
+    logged above INFO and nothing appeared on screen. Output is now captured and
+    merged so callers can log and surface it; `eject` prints a line or two, so
+    there is no volume concern.
     """
     return subprocess.run(
         argv,
         stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,  # merged — the interleaving is evidence
         timeout=timeout,
         check=False,
-        # No output is captured (all streams are DEVNULL), so text mode is a
-        # no-op at runtime — but it makes the return type honestly
-        # CompletedProcess[str], matching the Runner alias callers rely on.
         text=True,
+        errors="replace",  # a stray non-UTF-8 byte must not raise here
     )
 
 
@@ -179,11 +187,27 @@ def budgeted_runner(budget_s: float) -> Runner:
 
 def _run_rc(argv: list[str], run: Runner) -> int | None:
     """Run argv, returning its exit code, or None if it couldn't run."""
+    return _run_capture(argv, run)[0]
+
+
+def _run_capture(argv: list[str], run: Runner) -> tuple[int | None, str]:
+    """Run argv, returning ``(exit code, captured output)``.
+
+    The exit code is **tri-state**: ``None`` means no status was collected (the
+    command could not start, or a timeout killed it), which is a real answer and
+    never to be read as ``0``. The output is what the tool actually said — the
+    thing `_run_bounded` used to send to `DEVNULL`, so no caller could report it.
+    """
     try:
-        return run(argv).returncode
+        proc = run(argv)
     except (OSError, subprocess.SubprocessError) as exc:
         log.warning("command %s failed: %s", argv[:1], exc)
-        return None
+        # The reason IS output as far as a reader is concerned; pass it along rather
+        # than returning an empty string and losing why nothing ran.
+        return None, f"{type(exc).__name__}: {exc}"
+    output = getattr(proc, "stdout", "") or ""
+    stderr = getattr(proc, "stderr", "") or ""
+    return proc.returncode, diagnostics.bounded_output(output + stderr)
 
 
 def _pkill_arglists() -> list[list[str]]:
@@ -215,14 +239,38 @@ def _run_pkills(prefix: list[str], run: Runner) -> bool:
 
 def eject_drive(device: str = "", runner: Runner | None = None) -> bool:
     """Eject `device` on the host (call *after* the holder is killed, so the
-    device is free). Returns True if the eject succeeded."""
+    device is free). Returns True if the eject succeeded.
+
+    A failure is recorded with ``eject``'s **own words** at WARNING, not INFO. It
+    used to log ``"eject … returned rc=N"`` at INFO with the message discarded, and
+    the caller (`_eject_async`) threw the bool away — so a tray that never opened
+    produced nothing at all above INFO, nothing on screen, and a status line still
+    claiming the disc was being ejected.
+    """
     run = runner or _default_runner
     argv = [_resolve("eject", *_EJECT_FALLBACKS), *([device] if device else [])]
-    rc = _run_rc(argv, run)
+    rc, output = _run_capture(argv, run)
     if rc == 0:
         log.info("ejected %s", device or "(default)")
         return True
-    log.info("eject %s returned rc=%s", device or "(default)", rc)
+    diagnostics.record_command_failure(
+        "drive.control_failed",
+        "eject",
+        argv,
+        rc,
+        output,
+        message=(
+            f"could not eject {device or 'the default drive'}: "
+            f"{'no exit status (never reaped)' if rc is None else f'exit {rc}'}"
+            + (
+                f" — {output.strip().splitlines()[-1].strip()}"
+                if output.strip()
+                else ""
+            )
+        ),
+        severity=diagnostics.WARNING,
+        where="drive_control.eject_drive",
+    )
     return False
 
 

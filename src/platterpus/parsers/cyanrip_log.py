@@ -247,6 +247,41 @@ _RIP_COMPLETED = re.compile(
     r"(?P<done>\d{1,4})\s+of\s+(?P<total>\d{1,4})\s+tracks?"
     r"\))?"
 )
+# FORK-ONLY. The stall watchdog's disc-level verdict, added at the fork's own
+# initiative for us: `Read stalls:    none (no read exceeded 10s)`, or a count with
+# the longest stall's track and LSN named.
+#
+# **We asked for the disc-level line and then did not read it** (round 7 lap 9 J3:
+# we answered "disc-level is enough" about a line we were not consuming — the
+# clearest possible case of answering a contract question from the design rather
+# than from the code). Found by running the real parser over their golden reference
+# in lap 13, which is exactly the measurement that offer was for.
+#
+# The VALUE is kept verbatim as text rather than decomposed into a count plus a
+# track plus an LSN. We have only ever seen the `none` shape, and inventing a regex
+# for the populated one would be a fixture carrying our guess at their wording —
+# the mistake that put `merged` in our gap matcher for two rounds. Lap 13 asks them
+# for a populated example; the structured form waits for it.
+_READ_STALLS = re.compile(r"^Read stalls:\s+(?P<value>\S.*?)\s*$")
+# The COUNT inside that value, for the shapes the fork published in round 7 lap 14
+# (D1), derived on their side from the code that prints them and each pinned with a
+# whole-string `strcmp`:
+#
+#     none (no read exceeded 10s)
+#     unknown (stall reporting disabled with -k 0)
+#     2 reads exceeded 10s; longest 187s (track 4, LSN 45231)
+#     1 read exceeded 30s; longest 42s (track 1, LSN 0)
+#
+# Note the singular in the last one — `1 read`, not `1 reads` — which is exactly the
+# kind of detail a guessed regex gets wrong, and the reason we asked for the shapes
+# instead of inventing them. `reads?` covers both.
+#
+# **No build has printed a populated line anywhere yet**, on either side. So this is a
+# BEST-EFFORT structuring of unobserved wording, and it is deliberately layered under
+# the verbatim text rather than replacing it: an unrecognised shape yields `None`
+# beside intact text, never `0`.
+_READ_STALLS_COUNT = re.compile(r"^(?P<count>\d{1,6})\s+reads?\s+exceeded\b")
+_READ_STALLS_NONE = re.compile(r"^none\b")
 _PREEMPHASIS = re.compile(r"^\s+Preemphasis:\s+(?P<text>.+?)\s*$")
 # Absolute disc geometry, from each track's "Properties:" block. EAC's TOC table
 # is derived from exactly these (its Start and Length columns reproduce
@@ -351,6 +386,14 @@ _LOUDNESS_LRA = re.compile(r"^\s+LRA:\s+(?P<v>-?\d+(?:\.\d+)?)\s+LU")
 _LOUDNESS_PEAK = re.compile(r"^\s+Peak:\s+(?P<v>-?\d{1,6}(?:\.\d{1,6})?)\s+dBFS")
 # cyanrip's own log signature, the last line: "Log FUN512: <base64>".
 _LOG_CHECKSUM = re.compile(r"^Log FUN512:\s+(?P<sig>\S+)")
+
+# FORK-ONLY (round 7). `Handshake:      round 7 lap 7 OPEN, verdict HOLD -- NOT a
+# released build`. Anything after the label, to end of line: see `_take_handshake_note`
+# for why this is not decomposed.
+_HANDSHAKE_NOTE: re.Pattern[str] = re.compile(r"^Handshake:\s+(?P<note>\S.*)$")
+# FORK-ONLY (round 7). `Consumer:       not identified (no --consumer given)`, or the
+# `name/version` string we will start passing.
+_CONSUMER: re.Pattern[str] = re.compile(r"^Consumer:\s+(?P<consumer>\S.*)$")
 
 # ---------------------------------------------------------------------------
 # Lines a FORK of cyanrip will print, parsed before they exist
@@ -719,8 +762,31 @@ class _Disc:
     rip_completed_tracks: int | None = None
     rip_completed_total: int | None = None
     rip_completed_reason: str = ""
+    #: The fork's disc-level stall verdict, verbatim. "" = the line was absent.
+    read_stalls: str = ""
+    #: The count inside it, tri-state. See :func:`read_stall_count`.
+    read_stalls_count: int | None = None
     health_status: str = ""
     log_checksum: str = ""
+    # FORK-ONLY, and the strongest provenance line in the file: the binary's own
+    # statement of which handshake round it was built from, derived at ITS build time
+    # from ITS round files. A build from an open-round tree says so permanently —
+    # `round 7 lap 7 OPEN, verdict HOLD -- NOT a released build`.
+    #
+    # Why this is worth a field rather than an ignore entry: it is a provenance claim
+    # **derivable from the artifact's content**, which CLAUDE.md rule 12 asks for
+    # explicitly after two golden references arrived carrying build tags for commits
+    # three behind their pin. Our own `handshake_approval` check compares the banner
+    # against what we believe was approved; this line is what the *other side's build
+    # system* recorded. Two independent witnesses, and this one cannot be stale
+    # relative to the binary because it is compiled into it.
+    handshake_note: str = ""
+    # FORK-ONLY: who told cyanrip it was the caller, echoed verbatim. Their log says
+    # in as many words that this is "reported by the caller, not verified by cyanrip",
+    # so it is recorded as provenance and never as verification. `not identified
+    # (no --consumer given)` until we ship the flag — which is itself the fact worth
+    # carrying, because a log with no consumer cannot be attributed to us at all.
+    consumer: str = ""
     # Track number → CRC of the file that actually shipped, from Platterpus's own
     # swap addendum. Applied over the finished track list at the very end.
     shipped_crcs: dict[int, str] = field(default_factory=dict)
@@ -973,8 +1039,65 @@ def _take_rip_completed(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def read_stall_count(value: str) -> int | None:
+    """The stall count inside a ``Read stalls:`` value. **Tri-state.**
+
+    ``0`` for the ripper's ``none (…)``, ``N`` for a populated line, and ``None`` for
+    anything else — an empty value, its ``unknown (stall reporting disabled…)``, or a
+    shape we do not recognise. That last case is the one worth being careful about:
+    degrading an unrecognised shape to ``0`` would report *"no stalls measured"* about
+    a rip whose log might be saying the opposite, which is the tri-state rule broken in
+    the direction that loses a real warning.
+
+    Pure and never raises — it reads a dependency's prose. Public because
+    ``tests/test_read_stalls.py`` asserts it against the fork's four published shapes,
+    and a helper only reachable through a full parse cannot be pinned that way.
+    """
+    text = (value or "").strip()
+    if not text:
+        return None
+    if _READ_STALLS_NONE.match(text):
+        return 0
+    hit = _READ_STALLS_COUNT.match(text)
+    if hit is None:
+        return None
+    return int_or_none(hit.group("count"), field="cyanrip read-stall count")
+
+
+def _take_read_stalls(disc: _Disc, match: re.Match[str]) -> bool:
+    """The stall watchdog's disc-level verdict, verbatim.
+
+    ``""`` means the line was absent — stock cyanrip never prints it — which is a
+    third state distinct from ``none (no read exceeded 10s)``. *No stalls measured*
+    and *stalls not measured* are different claims about different evidence, and
+    collapsing them would be the tri-state rule broken in the usual direction.
+    """
+    disc.read_stalls = match.group("value").strip()
+    disc.read_stalls_count = read_stall_count(disc.read_stalls)
+    return True
+
+
 def _take_log_checksum(disc: _Disc, match: re.Match[str]) -> bool:
     disc.log_checksum = match.group("sig")
+    return True
+
+
+def _take_handshake_note(disc: _Disc, match: re.Match[str]) -> bool:
+    """The fork's compiled-in handshake state. Kept VERBATIM.
+
+    Deliberately not parsed into round/lap/verdict fields. The sentence is theirs,
+    its shape is theirs to change, and a structured parse would either drop the part
+    we did not anticipate or raise on it. What a reader needs is exactly what the
+    binary said — and the phrase that matters most (`NOT a released build`) is a
+    whole clause, not a field.
+    """
+    disc.handshake_note = (match.group("note") or "").strip()
+    return True
+
+
+def _take_consumer(disc: _Disc, match: re.Match[str]) -> bool:
+    """Who the ripper was told its caller was. Provenance, never verification."""
+    disc.consumer = (match.group("consumer") or "").strip()
     return True
 
 
@@ -987,9 +1110,24 @@ def _take_accurate_total(disc: _Disc, match: re.Match[str]) -> bool:
 
 
 def _take_partial_total(disc: _Disc, match: re.Match[str]) -> bool:
+    """cyanrip's ``Tracks ripped partially accurately: 1/1``.
+
+    **The denominator is not the disc.** The fork confirmed what it counts (round 7
+    lap 10, H4): the tracks *not fully verified*, not the tracks on the disc. So
+    ``1/1`` on a 14-track disc where one track matched only the +450 pressing is
+    correct and reads like a typo, and our old rendering — *"1/1 tracks ripped
+    partially accurately"* — inherited the ambiguity and then dropped the qualifier
+    the ripper's own line at least had by position.
+
+    We name the denominator instead. The ripper's line is unchanged and we are not
+    asking them to reword it; this is our rendering of it, and a sentence in our JSON
+    that misdescribes what a fraction measures is ours to fix.
+    """
+    hit = match.group("hit")
+    total = match.group("total")
     disc.partially_accurate_summary = (
-        f"{match.group('hit')}/{match.group('total')} tracks "
-        "ripped partially accurately (offset-variant match)"
+        f"{hit} of {total} track(s) not fully verified matched only an "
+        "offset-variant pressing (partially accurate)"
     )
     return True
 
@@ -1043,6 +1181,10 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
 
 _RULES_BEFORE_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("log_signature", _LOG_CHECKSUM, _take_log_checksum),
+    # Both FORK-ONLY and both harmless on stock 0.9.3, which never prints them:
+    # absent means absent, and every surface renders exactly what it renders today.
+    _LineRule("handshake_note", _HANDSHAKE_NOTE, _take_handshake_note),
+    _LineRule("consumer", _CONSUMER, _take_consumer),
 )
 
 _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
@@ -1050,6 +1192,7 @@ _RULES_AFTER_TRACKS: tuple[_LineRule, ...] = (
     _LineRule("accuraterip_partial_total", _PARTIAL_TOTAL, _take_partial_total),
     _LineRule("ripping_errors", _RIP_ERRORS, _take_rip_errors),
     _LineRule("rip_completed", _RIP_COMPLETED, _take_rip_completed),
+    _LineRule("read_stalls", _READ_STALLS, _take_read_stalls),
     _LineRule("finished_at", _FINISHED_AT, _take_finished_at),
 )
 
@@ -1079,6 +1222,28 @@ _SECTION_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # applies them in the order its section state requires — and the tests assert
 # that no line pattern in this module is missing from one of these three groups,
 # so the listing cannot silently drift away from the code.
+#: Patterns applied to an **already-captured fragment**, never to a whole log line.
+#:
+#: They exist as a named group so `tests/test_parsers_cyanrip_log`'s completeness sweep
+#: can account for every compiled pattern in this module without a **test-side
+#: allowlist**. That allowlist is what it used to be — `_ACCURIP_CONFIDENCE` named in
+#: the test with a reason — and a hand-maintained exemption list in a checker is the
+#: precise shape that hid 16 of the fork's fatal strings behind their own generator's
+#: prefix filter (round 5). The enumeration now lives with the code: a new fragment
+#: pattern that is not added here fails the sweep instead of quietly needing the test
+#: edited.
+#:
+#: Membership is a real, checkable property — these are `search`ed or `match`ed against
+#: a substring a line rule already extracted — not a convenience category.
+_FRAGMENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # The confidence number inside an already-matched AccurateRip result fragment.
+    ("accurip_confidence", _ACCURIP_CONFIDENCE),
+    # The count, and the "none" case, inside a `Read stalls:` value (see
+    # `read_stall_count`). The line itself is claimed by the `read_stalls` rule.
+    ("read_stalls_count", _READ_STALLS_COUNT),
+    ("read_stalls_none", _READ_STALLS_NONE),
+)
+
 _INDENTED_LINE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("gaps_value", _GAPS_VALUE),
     ("paranoia_count", _PARANOIA_LINE),
@@ -1156,6 +1321,17 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
         "secure re-rip attempt; the Done; line carries the verdict",
     ),
     (re.compile(r"^Frame retries:\s"), "candidate: rip-effort setting"),
+    # The disc/release identifiers cyanrip echoes back from OUR OWN `-a` tags. We
+    # already hold all three (they came from MusicBrainz through this process), so
+    # the log's copy adds no fact — it is our input reflected. Recorded here rather
+    # than left unrecognised so the completeness sweep keeps its meaning.
+    #
+    # Worth stating because it is tempting: the echo *is* useful for one thing — an
+    # argv-versus-log disagreement — but `Invoked as:` already carries the whole
+    # command line, which is a strictly better witness for that question.
+    (re.compile(r"^Disc number:\s"), "our own -a tag echoed back; we hold it"),
+    (re.compile(r"^Total discs:\s"), "our own -a tag echoed back; we hold it"),
+    (re.compile(r"^Release ID:\s"), "our own MusicBrainz release id echoed back"),
     # `Cache model:    1200 sectors (drive cache size not probed)` — added by the
     # fork in round 5 as `Cache defeat:` and RENAMED in round 6 because the old
     # label asserted an outcome the value disclaims.
@@ -1917,10 +2093,14 @@ def parse_cyanrip_log(text: str) -> RipLog:
         partially_accurate_summary=disc.partially_accurate_summary,
         disc_duration=disc.disc_duration,
         invoked_as=disc.invoked_as,
+        handshake_note=disc.handshake_note,
+        consumer=disc.consumer,
         rip_completed=disc.rip_completed,
         rip_completed_tracks=disc.rip_completed_tracks,
         rip_completed_total=disc.rip_completed_total,
         rip_completed_reason=disc.rip_completed_reason,
+        read_stalls=disc.read_stalls,
+        read_stalls_count=disc.read_stalls_count,
         paranoia_counts=disc.paranoia_counts,
         album_loudness=disc.album_loudness,
         log_checksum=disc.log_checksum,

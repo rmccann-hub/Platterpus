@@ -30,12 +30,15 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from platterpus import diagnostics
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
     RipHandle,
     RipMetadata,
 )
+from platterpus.adapters.ripper_log_verify import FAILED as RIPPER_LOG_FAILED
+from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.read_speed_ladder import (
     MAX_ATTEMPTS,
     MAX_SECURE_REREP,
@@ -45,6 +48,11 @@ from platterpus.read_speed_ladder import (
     read_errors_present,
     tracks_failing_accuraterip,
     unstable_tracks,
+)
+from platterpus.rip_addendum import (
+    SupersededTrack,
+    read_log_with_addendum,
+    write_addendum,
 )
 from platterpus.ripper_message_inventory import ALL_FORMATS
 from platterpus.ripper_messages import build_matcher
@@ -489,6 +497,9 @@ class RipWorker(QObject):
     ) -> None:
         super().__init__(parent)
         self._backend: RipBackend = backend
+        #: The ripper's verdict on its own log. None until the verification step
+        #: runs — a third state, not a failure (see `ripper_log_verification`).
+        self._ripper_log_verification: LogVerification | None = None
         self._params: RipParameters = params
         self._handle: RipHandle | None = None
         # Last status text emitted, so we don't re-emit identical phases
@@ -1141,12 +1152,71 @@ class RipWorker(QObject):
                     to_fix, rerip_z, trigger, album_log_path=log_path_str
                 )
 
+        # Ask the RIPPER whether the log it wrote still matches its own checksum.
+        # Deliberately the LAST thing before finishing: every step that could touch
+        # that file (the speed ladder, the auto-fix and its addendum) has run, so a
+        # pass here is a statement about the artifact the user keeps.
+        #
+        # An INDEPENDENT witness — not our file, not our checksum, not our checking
+        # code — which is the whole point (round 7 lap 10, J3). Our own footer check
+        # reported "the log matches its own SHA-256 footer" on a rip that shipped a
+        # cyanrip log cyanrip itself would reject.
+        #
+        # Runs HERE, on the worker thread, because it spawns a container exec. The
+        # report's audit check reads the recorded verdict instead of probing, so no
+        # subprocess ever lands in a GUI slot.
+        self._verify_ripper_log(log_path_str)
+
         if success:
             # Peg both bars at 100% so a finished rip never leaves the
             # overall bar short of full (the post-rip AccurateRip phase
             # has no reliable percentage of its own).
             self.progress.emit(100.0, 100.0)
         self.finished.emit(success, log_path_str)
+
+    def _verify_ripper_log(self, log_path_str: str) -> None:
+        """Record the ripper's verdict on its own log. Best-effort; never raises."""
+        if not log_path_str:
+            return
+        try:
+            verification = self._backend.verify_log(log_path_str)
+        except Exception as exc:  # noqa: BLE001 — a probe must not cost a finished rip
+            log.exception("ripper log verification raised")
+            diagnostics.exception(
+                "ripper.log_verify_failed",
+                "could not ask the ripper to verify its own log; the rip itself is "
+                "unaffected, but this rip carries no independent check of that log",
+                exc,
+            )
+            return
+        self._ripper_log_verification = verification
+        if verification.is_verified:
+            self.log_line.emit(f"[verify] {verification.detail}")
+            return
+        # Both remaining states are surfaced, not just the negative: a
+        # `not_determined` that says nothing is the "capture without surfacing"
+        # bug, and it is the state a user on a stock build will actually hit.
+        self.log_line.emit(f"[verify] {verification.detail}")
+        if verification.verdict == RIPPER_LOG_FAILED:
+            diagnostics.error(
+                "ripper.log_verify_failed",
+                verification.detail,
+                argv=verification.argv,
+                exit_code=verification.exit_code,
+                detail=verification.output,
+            )
+        else:
+            log.info("ripper log not verified: %s", verification.detail)
+
+    @property
+    def ripper_log_verification(self) -> LogVerification | None:
+        """The ripper's verdict on its own log, or ``None`` if never attempted.
+
+        ``None`` is a third state and is reported as such: a rip that never reached
+        the verification step (cancelled before a log existed) is not a rip whose
+        log failed.
+        """
+        return self._ripper_log_verification
 
     def _rip_once(
         self,
@@ -1210,10 +1280,31 @@ class RipWorker(QObject):
                 self._ripper_argv_first_pass = self._ripper_argv
         except RipError as exc:
             log.exception("rip failed to start")
+            # RECORD IT with the argv. A rip that never started produces no ripper
+            # log and no stdout, so this exception is the *entire* evidence — and it
+            # went only to a traceback in a file that is INFO-only by default plus a
+            # one-line signal. It now lands in the enumerated diagnostics too, which
+            # the report carries whether or not anyone reads the text log.
+            diagnostics.exception(
+                "ripper.nonzero_exit",
+                f"the ripper could not be started: {exc}",
+                exc,
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
             self.error.emit(str(exc))
             return None
         except Exception as exc:  # noqa: BLE001 — last-resort guard
             log.exception("unexpected error starting rip")
+            diagnostics.exception(
+                "internal.unexpected_exception",
+                f"an unexpected error stopped the rip before it started: {exc}",
+                exc,
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
             self.error.emit(f"unexpected error: {exc}")
             return None
 
@@ -1308,16 +1399,39 @@ class RipWorker(QObject):
                 # `if not self._failure_hint` so the specific, actionable hints
                 # below always outrank a raw line: first error wins, and a
                 # tailored message beats a verbatim one.
-                if not self._failure_hint and _RIPPER_ERROR_RE.match(line):
-                    self._failure_hint = line.strip()
+                if _RIPPER_ERROR_RE.match(line):
+                    if not self._failure_hint:
+                        self._failure_hint = line.strip()
+                    # EVERY matched fatal is recorded, not only the first. The hint is
+                    # deliberately "first error wins" because a status label holds one
+                    # sentence — but the *report* should carry all of them: a rip that
+                    # printed four diagnostics and showed one is three facts short, and
+                    # the later ones are often the consequence that explains the first.
+                    diagnostics.error(
+                        "ripper.fatal_message",
+                        line.strip(),
+                        tool="cyanrip",
+                        where="workers.rip_worker.RipWorker._run_rip",
+                    )
                 giveup = _TRACK_GIVEUP_RE.search(line)
                 if giveup:
                     track = giveup.group("track")
-                    self._failure_hint = (
+                    tailored = (
                         f"Track {track} couldn't be read after repeated tries. "
                         "The disc may be scratched or dirty — clean it and try "
                         "again."
                     )
+                    # KEEP THE RIPPER'S OWN SENTENCE when we already have one. This
+                    # assigned unconditionally, so a verbatim fatal matched *one line
+                    # earlier* — by the branch directly above, whose comment says
+                    # "first error wins" — was overwritten by this canned advice. The
+                    # comment described a rule the code did not implement for this
+                    # branch. When both exist the tool's words lead and the advice
+                    # follows, so nothing is lost either way.
+                    if self._failure_hint:
+                        self._failure_hint = f"{self._failure_hint} — {tailored}"
+                    else:
+                        self._failure_hint = tailored
                 # Status text first (covers the pre-track disc scan and
                 # the encode/tag sub-phases), then the numeric progress
                 # that drives the bar.
@@ -1358,6 +1472,18 @@ class RipWorker(QObject):
                         self._write_incremental_report(out_dir)
         except Exception as exc:  # noqa: BLE001
             log.exception("error reading ripper stdout")
+            # The stdout we DID capture before the break is the only account of how
+            # far the rip got; hand it over rather than letting the traceback stand
+            # alone. (`captured_stdout` is already head+elision+tail bounded.)
+            diagnostics.exception(
+                "internal.unexpected_exception",
+                f"reading the ripper's output failed mid-rip: {exc}",
+                exc,
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                detail=self.captured_stdout,
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
             # The subprocess is still running (we broke out of the read loop
             # abnormally, before wait()). Stop it so it doesn't keep holding the
             # drive and contend with a retry — best-effort, non-blocking.
@@ -1371,6 +1497,23 @@ class RipWorker(QObject):
         exit_code = self._reap_ripper()
         self._ripper_exit_code = exit_code
         success = (exit_code == 0) and not self._cancelled
+        if exit_code not in (0, None) and not self._cancelled:
+            # The ripper's OWN verdict on the rip, with its argv and everything it
+            # said. Recorded here rather than left to the GUI: this is the one place
+            # that holds all three at once, and the report used to carry the exit code
+            # in `outcome` with nothing enumerating it as a problem.
+            diagnostics.record_command_failure(
+                "ripper.nonzero_exit",
+                "cyanrip",
+                self._ripper_argv,
+                exit_code,
+                self.captured_stdout,
+                message=(
+                    f"the ripper exited {exit_code}"
+                    + (f" — {self._failure_hint}" if self._failure_hint else "")
+                ),
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
         log_path = self._find_log_path(out_dir, since=self._rip_started_at)
         return success, str(log_path) if log_path else ""
 
@@ -1429,6 +1572,20 @@ class RipWorker(QObject):
                 "could not reap the ripper even after SIGKILL; treating the rip as "
                 "not cleanly finished. The drive may still be held — a force stop "
                 "or a drive reset is the remaining recovery."
+            )
+            # Tri-state, made explicit in the report: `null` here means the child was
+            # never reaped, which is a different and more serious fact than exit 0,
+            # and the report must never let the two look the same.
+            diagnostics.error(
+                "ripper.unreapable_child",
+                "the ripper could not be reaped even after SIGKILL — it is probably "
+                "stuck in an uninterruptible drive ioctl, so the drive may still be "
+                "held. This rip has NO exit status; success or failure rests on the "
+                "log alone.",
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                exit_code=None,
+                where="workers.rip_worker.RipWorker._reap_ripper",
             )
         return exit_code
 
@@ -1572,9 +1729,9 @@ class RipWorker(QObject):
                 return
             rerip_log = self._parse_log(rerip_log_path)
             fixed: list[int] = []
-            # (track number, filename, new CRC) for each track actually swapped —
-            # used to append the log addendum so the album .log's CRCs stay honest.
-            swapped: list[tuple[int, str, str]] = []
+            # One record per track actually swapped — used to write the addendum
+            # sidecar, so the folder's text still describes the audio on disk.
+            swapped: list[SupersededTrack] = []
             # A re-rip we asked for ONE track must come back describing exactly
             # that track. This is defence against a verdict-attribution bug, not
             # against cyanrip: the -Z verdict has already been mis-attributed once
@@ -1612,12 +1769,11 @@ class RipWorker(QObject):
                     replaced = self._swap_in_reripped_track(track, tmp_root)
                     if replaced:
                         fixed.append(number)
-                        new_crc = getattr(track, "copy_crc", "") or getattr(
-                            track, "test_crc", ""
-                        )
-                        swapped.append(
-                            (number, getattr(track, "filename", "") or "", new_crc)
-                        )
+                        # The WHOLE per-track record, not just the CRC. Round 7
+                        # lap 10 H5: the CRC-only addendum left the archived
+                        # AccurateRip v1/v2 and the "not attempted" re-read verdict
+                        # describing bytes we had deleted.
+                        swapped.append(self._superseded_record(track))
                         # Keep the re-rip's parsed record: it is the SHIPPED file's
                         # read, so it — not the first pass — is what the report and
                         # the EAC-layout log must describe.
@@ -1660,45 +1816,85 @@ class RipWorker(QObject):
         self,
         album_log_path: str,
         trigger: str,
-        swapped: list[tuple[int, str, str]],
+        swapped: list[SupersededTrack],
     ) -> None:
-        """Append a truthful swap addendum to the whole-disc album ``.log``.
+        """Write the swap addendum to a **sidecar** beside the album ``.log``.
 
         After the auto-fix replaces a track's FLAC with a converged re-read, the
-        first-pass log's CRC for that track describes the *discarded* bytes, not
-        the file now on disk — so the committed proof text would misrepresent the
-        shipped audio (#19). We append a clearly-delimited block that names each
-        swapped track and the shipped file's CRC, superseding the value above.
-        The original log is preserved verbatim (append-only). Best-effort: a
-        write failure is logged and swallowed — it must never abort the rip, and
-        the ``.platterpus.json`` report's ``retried_tracks`` is the structured
-        record regardless.
+        first-pass log's record for that track describes the *discarded* bytes,
+        not the file now on disk — so the folder's proof text would misrepresent
+        the shipped audio (#19). The addendum says which rows are superseded.
+
+        **It used to be appended to the ripper's log, and that was a real defect**
+        (round 7 lap 10, H1): cyanrip's log ends with its own ``Log FUN512:``
+        self-checksum and ``cyanrip --verify-log`` rejects trailing content, so
+        every auto-fixed disc shipped a log the ripper called modified. The
+        ripper's log is now left byte-exact; see :mod:`platterpus.rip_addendum`
+        for the reasoning and for the read path that keeps the supersede visible.
+
+        The method name is kept (tests and the call site above reference it) even
+        though it no longer appends; the docstring is the honest description.
+        Best-effort: a write failure is recorded to diagnostics and swallowed —
+        it must never abort a rip whose audio is already correct, and the
+        ``.platterpus.json`` report's ``retried_tracks`` is the structured record
+        regardless.
         """
         if not album_log_path or not swapped:
             return
-        why = (
-            "didn't match AccurateRip on the first pass"
-            if trigger == "accuraterip"
-            else "didn't read consistently on the first pass"
+        written = write_addendum(album_log_path, trigger, swapped)
+        if written is not None:
+            self.log_line.emit(
+                f"[auto-fix] wrote the supersede record to {written.name} — the "
+                "ripper's own log is left unmodified so it still verifies."
+            )
+
+    @staticmethod
+    def _superseded_record(track: object) -> SupersededTrack:
+        """Build the sidecar's row for one swapped track, from the re-rip's log.
+
+        Every value comes from the **re-rip's** parsed record, which is the read
+        that shipped. Reaching for the first pass here is the H5 bug: the archived
+        block's AccurateRip v1/v2 and its ``not attempted`` re-read verdict belong
+        to bytes we deleted.
+        """
+
+        def _ar(name: str) -> str:
+            result = getattr(track, name, None)
+            if result is None:
+                return ""
+            verdict = str(getattr(result, "result", "") or "")
+            crc = str(getattr(result, "local_crc", "") or "")
+            confidence = getattr(result, "confidence", None)
+            parts = [p for p in (crc, verdict) if p]
+            if isinstance(confidence, int):
+                parts.append(f"confidence {confidence}")
+            return " — ".join(parts)
+
+        converged = getattr(track, "secure_rerip_converged", None)
+        reads = getattr(track, "rip_count", None)
+        if converged is True:
+            reread = (
+                f"converged after {reads} reads"
+                if isinstance(reads, int) and reads > 0
+                else "converged"
+            )
+        elif converged is False:
+            reread = "did not converge (kept anyway only if it read cleanly)"
+        else:
+            reread = ""
+        return SupersededTrack(
+            # int_or_none, not int(): the never-raises contract covers this module,
+            # and a track number reaches us from parsed external text.
+            number=int_or_none(getattr(track, "number", None)) or 0,
+            filename=str(getattr(track, "filename", "") or ""),
+            crc=str(
+                getattr(track, "copy_crc", "") or getattr(track, "test_crc", "") or ""
+            ),
+            accuraterip_v1=_ar("accuraterip_v1"),
+            accuraterip_v2=_ar("accuraterip_v2"),
+            accuraterip_offset=_ar("accuraterip_offset"),
+            secure_reread=reread,
         )
-        lines = [
-            "",
-            "=" * 72,
-            "[Platterpus auto-fix addendum]",
-            "The whole-disc log above records the FIRST read pass. The track(s)",
-            f"below {why} and were re-ripped to secure them; the improved read was",
-            "swapped in. Each CRC below is the SHIPPED file's and supersedes the",
-            "value recorded for that track above.",
-        ]
-        for number, filename, crc in swapped:
-            shown = filename or f"track {number}"
-            lines.append(f"  Track {number} ({shown}): CRC {crc or 'n/a'}")
-        lines.append("=" * 72)
-        try:
-            with Path(album_log_path).open("a", encoding="utf-8") as handle:
-                handle.write("\n".join(lines) + "\n")
-        except OSError:
-            log.exception("could not append auto-fix addendum to %s", album_log_path)
 
     def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:
         """Atomically replace the album's original FLAC with a converged re-rip.
@@ -1748,9 +1944,13 @@ class RipWorker(QObject):
         )
         from platterpus.parsers.rip_log import parse_rip_log
 
-        try:
-            text = Path(log_path_str).read_text(encoding="utf-8", errors="replace")
-        except OSError:
+        # read_log_with_addendum, not read_text: a re-parse that reads the ripper's
+        # log alone gets the checksums of bytes the auto-fix deleted. The addendum
+        # lives in a sidecar (round 7 lap 10 H1) precisely so the ripper's log stays
+        # verifiable, which means the reader is now the only thing keeping the
+        # supersede visible.
+        text = read_log_with_addendum(log_path_str)
+        if not text:
             return None
         return (
             parse_cyanrip_log(text)

@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from platterpus import diagnostics
 from platterpus.adapters import metaflac as metaflac_module
 from platterpus.adapters.metaflac import MetaflacAdapter, MetaflacError
 
@@ -224,3 +225,106 @@ def test_embed_picture_raises_metaflac_error_on_failure(
     )
     with pytest.raises(MetaflacError):
         MetaflacAdapter().embed_picture(Path("/x/t.flac"), Path("/x/c.jpg"))
+
+
+# --- Diagnostic completeness (2026-08-04) ---------------------------------
+#
+# `metaflac` runs on EVERY rip — it is how the user's edited tags reach the FLAC
+# and how the cover art is embedded — and every failure path used to log NOTHING.
+# `MetaflacError` carried a message built from the last stderr line; the argv, the
+# exit code and the rest of the output were discarded at the point of failure, and
+# three of the six call sites then reduced the exception to a one-line warning.
+# These tests pin all four facts CLAUDE.md's diagnostic-completeness rule requires.
+
+
+def test_a_failure_records_argv_exit_code_and_complete_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    diagnostics.clear()
+    monkeypatch.setattr(
+        metaflac_module.subprocess,
+        "run",
+        lambda *a, **kw: SimpleNamespace(
+            stdout="scanning\n",
+            stderr="metaflac: ERROR: unsupported block type\n",
+            returncode=1,
+            args=["metaflac", "--set-tag=X=1", "/x/t.flac"],
+        ),
+    )
+
+    with pytest.raises(MetaflacError) as caught:
+        MetaflacAdapter().write_tags(Path("/x/t.flac"), {"X": "1"})
+
+    exc = caught.value
+    # (1) on the exception, so a caller can render any of it
+    assert exc.exit_code == 1
+    assert exc.argv[0] == "metaflac"
+    assert "/x/t.flac" in exc.argv
+    assert "unsupported block type" in exc.output
+    assert "scanning" in exc.output  # COMPLETE output, stderr merged — not a tail
+    assert "exited 1" in str(exc)
+
+    # (2) and in the diagnostics collector, BEFORE the raise — so the evidence
+    # exists whether or not the caller chooses to log the exception.
+    items = diagnostics.default_log().items()
+    assert [i.code for i in items] == ["metaflac.failed"]
+    recorded = items[0]
+    assert recorded.severity == "error"
+    assert recorded.tool == "metaflac"
+    assert recorded.exit_code == 1
+    assert "/x/t.flac" in recorded.argv
+    assert "unsupported block type" in recorded.detail
+    diagnostics.clear()
+
+
+def test_a_timeout_names_the_duration_and_reaps_no_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tri-state: a killed child has NO exit code, and must never read as 0."""
+    diagnostics.clear()
+
+    def boom(*a: Any, **kw: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd="metaflac", timeout=30, output="partial\n")
+
+    monkeypatch.setattr(metaflac_module.subprocess, "run", boom)
+
+    with pytest.raises(MetaflacError) as caught:
+        MetaflacAdapter().read_tags(Path("/x/t.flac"))
+
+    assert caught.value.exit_code is None
+    assert "30s" in str(caught.value)  # the duration exceeded is NAMED
+    assert "partial" in caught.value.output  # what it managed to say survives
+    assert diagnostics.default_log().items()[0].exit_code is None
+    diagnostics.clear()
+
+
+def test_an_oserror_becomes_a_metaflac_error_not_a_raw_oserror(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Was uncaught: an EACCES escaped as `OSError` from an adapter documented to
+    raise `MetaflacError`, so every caller's `except MetaflacError` missed it."""
+    diagnostics.clear()
+
+    def boom(*a: Any, **kw: Any) -> Any:
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(metaflac_module.subprocess, "run", boom)
+
+    with pytest.raises(MetaflacError, match="could not run metaflac"):
+        MetaflacAdapter().read_tags(Path("/x/t.flac"))
+    assert diagnostics.default_log().count() == 1
+    diagnostics.clear()
+
+
+def test_stdin_is_never_inherited(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A metaflac that decided to prompt would block forever in a GUI process with
+    no terminal, and "hung with no explanation" is the least diagnosable failure."""
+    seen: list[dict[str, Any]] = []
+
+    def fake_run(argv: list[str], **kw: Any) -> Any:
+        seen.append(kw)
+        return _ok()
+
+    monkeypatch.setattr(metaflac_module.subprocess, "run", fake_run)
+    MetaflacAdapter().read_tags(Path("/x/t.flac"))
+    assert seen[0]["stdin"] is subprocess.DEVNULL

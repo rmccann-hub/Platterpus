@@ -58,6 +58,11 @@ _EXPECTED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
         # enough to diagnose a rip. See rip_report's schema history.
         "completeness",
         "artifacts",
+        "ripper_log_verification",
+        # v16: every problem this rip noticed, enumerated in one place, read from
+        # the process-wide collector that also wrote each one to the text log. The
+        # section a triager opens first — see rip_report's schema history.
+        "diagnostics",
     }
 )
 

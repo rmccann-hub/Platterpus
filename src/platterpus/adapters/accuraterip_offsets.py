@@ -261,12 +261,18 @@ def _load_user_csv(path: Path) -> dict[str, int]:
         return {}
 
     entries: dict[str, int] = {}
-    for raw in text.splitlines():
+    skipped: list[str] = []
+    for lineno, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         row = _parse_csv_row(line)
         if row is None:
+            # LOG IT. The docstring above promised malformed rows "are skipped with
+            # a log note"; the row-level skip logged nothing, so a user whose CSV
+            # silently contributed nothing had no way to find out which line was
+            # wrong. A doc claim a reader can rely on has to be true in the code.
+            skipped.append(f"line {lineno}: {line[:120]!r}")
             continue
         name, offset = row
         if name.lower() in ("name", "drive"):  # header row
@@ -274,6 +280,29 @@ def _load_user_csv(path: Path) -> dict[str, int]:
         # The name column is a full drive name; normalize with empty vendor
         # so it collapses whitespace/case the same way lookups do.
         entries[normalize_drive_name("", name)] = offset
+    if skipped:
+        # Bounded, and the bound is STATED — a list of 4,000 malformed rows must not
+        # bury the log, and a silent truncation would read as "only 5 were wrong".
+        shown = skipped[:5]
+        more = (
+            f" (+{len(skipped) - len(shown)} more)" if len(skipped) > len(shown) else ""
+        )
+        log.warning(
+            "drive-offset CSV %s: skipped %d malformed row(s)%s: %s",
+            path,
+            len(skipped),
+            more,
+            "; ".join(shown),
+        )
     if entries:
         log.info("loaded %d drive offsets from %s", len(entries), path)
+    elif skipped:
+        # Every row was bad. Say so plainly: "no offsets loaded" reads as "the file
+        # was empty", which is a different problem with a different fix.
+        log.warning(
+            "drive-offset CSV %s contributed NO usable entries — all %d "
+            "non-comment row(s) were malformed",
+            path,
+            len(skipped),
+        )
     return entries

@@ -504,7 +504,10 @@ def test_a_rip_nothing_could_verify_says_so_in_the_report() -> None:
     from platterpus.rip_report import _issues
 
     issues = _issues(
-        outcome={"status": "success"},
+        # `ripper_exit_code: 0` is what a real success carries. Omit it and the
+        # report now (correctly) raises `ripper_exit_unknown` — a success resting
+        # on the log alone — which would mask the ONE signal this test isolates.
+        outcome={"status": "success", "ripper_exit_code": 0},
         verdict_level="neutral",
         ctdb=None,
         flac_integrity=None,
@@ -524,7 +527,7 @@ def test_a_validated_ctdb_no_match_reaches_the_issues_list() -> None:
     from platterpus.rip_report import _issues
 
     issues = _issues(
-        outcome={"status": "success"},
+        outcome={"status": "success", "ripper_exit_code": 0},
         verdict_level="ok",
         ctdb={"verdict": "no_match", "crc_validated": True},
         flac_integrity=None,
@@ -541,7 +544,7 @@ def test_an_unvalidated_ctdb_no_match_stays_quiet() -> None:
 
     assert (
         _issues(
-            outcome={"status": "success"},
+            outcome={"status": "success", "ripper_exit_code": 0},
             verdict_level="ok",
             ctdb={"verdict": "no_match", "crc_validated": False},
             flac_integrity=None,

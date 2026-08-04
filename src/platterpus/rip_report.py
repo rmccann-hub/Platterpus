@@ -20,9 +20,13 @@ import json
 import logging
 from pathlib import Path
 
-from platterpus import __version__, build_info
+from platterpus import __version__, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
-from platterpus.handshake_approval import RipperApproval, approve_rip_log
+from platterpus.handshake_approval import (
+    RipperApproval,
+    approve_rip_log,
+    cross_check_note,
+)
 from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
@@ -177,7 +181,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 15
+REPORT_SCHEMA_VERSION: int = 19
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -215,6 +219,10 @@ def build_report(
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
     artifacts: ArtifactsBlock | None = None,
+    #: v18: the RIPPER's verdict on its own log, from `adapters.ripper_log_verify`
+    #: — an independent witness, unlike our own SHA-256 footer check. Typed
+    #: `object` because this pure builder must not import an adapter.
+    ripper_log_verification: object | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -263,6 +271,7 @@ def build_report(
             log_parse=log_parse,
             disc_track_total=disc_track_total,
             artifacts=artifacts,
+            ripper_log_verification=ripper_log_verification,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -570,6 +579,36 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
     }
 
 
+def _ripper_log_verify_block(verification: object | None) -> dict | None:
+    """Serialize the ripper's verdict on its own log. ``None`` when never attempted.
+
+    Reads attributes defensively (``getattr``) for the same reason every serializer
+    here does: this builder is pure and must never raise, and it is handed a value
+    the GUI assembled from a worker.
+
+    ``None`` is a THIRD state and is deliberately distinguishable from
+    ``not_determined``: a rip that never reached the verification step (cancelled
+    before a log existed, or a report written by an older build) is not a rip whose
+    log could not be verified. Both are non-passes and neither is a failure.
+    """
+    if verification is None:
+        return None
+    argv = getattr(verification, "argv", ()) or ()
+    return {
+        # `verified` / `failed` / `not_determined`. Tri-state as always: an absent
+        # verifier is not a failed verification.
+        "verdict": str(getattr(verification, "verdict", "") or "") or None,
+        "detail": str(getattr(verification, "detail", "") or "") or None,
+        "log": str(getattr(verification, "log_path", "") or "") or None,
+        # The full diagnostic set for an external call, so a `failed` verdict is an
+        # accusation the user can check rather than one they must take on trust.
+        # Tri-state exit code — `null` for a child never reaped, never written as 0.
+        "exit_code": getattr(verification, "exit_code", None),
+        "argv": [str(part) for part in argv],
+        "output": str(getattr(verification, "output", "") or "") or None,
+    }
+
+
 def _ripper_approval(rip_log: object) -> RipperApproval:
     """Whether this rip's ripper is the build both projects verified. Never raises.
 
@@ -619,6 +658,10 @@ def _build(
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
     artifacts: ArtifactsBlock | None = None,
+    #: v18: the RIPPER's verdict on its own log, from `adapters.ripper_log_verify`
+    #: — an independent witness, unlike our own SHA-256 footer check. Typed
+    #: `object` because this pure builder must not import an adapter.
+    ripper_log_verification: object | None = None,
 ) -> dict:
     # The JSON's verdict must be the SAME claim the window makes, so it is given
     # the same two extra facts: the disc's own track count (the only denominator a
@@ -633,6 +676,10 @@ def _build(
         ),
     )
     info = getattr(rip_log, "ripping_info", None)
+    # Serialized once, into a local, so the block the report shows and the `issues`
+    # entry derived from it cannot describe the same verdict two ways — the same
+    # reason `rip_block` and `log_parse_block` are hoisted below.
+    verify_block = _ripper_log_verify_block(ripper_log_verification)
     # Serialize the verification sub-blocks once, into locals, so both the
     # `verification` block below and the derived `issues` list read the SAME
     # values (they can never disagree). The read-speed block carries the dynamic
@@ -670,8 +717,13 @@ def _build(
     completeness = {
         "tracks_expected": disc_track_total,
         "tracks_in_report": tracks_in_report,
+        # `==`, not `>=`. With `>=`, a report carrying MORE tracks than the rip was
+        # asked for read as "complete" — but a track count that exceeds the request
+        # means the report and the request disagree, which is a fact to surface, not
+        # to round up into success. `tracks_in_report` is right there for a reader
+        # who wants to see which way it differs.
         "complete": (
-            None if not disc_track_total else tracks_in_report >= disc_track_total
+            None if not disc_track_total else tracks_in_report == disc_track_total
         ),
         "note": (
             "tracks_expected is what the rip was ASKED for — the disc's track "
@@ -680,6 +732,13 @@ def _build(
             "or a log parsed offline); it is NOT a claim that the rip was whole."
         ),
     }
+    # The `rip` and `log_parse` blocks are built HERE, into locals, for the same
+    # reason the verification sub-blocks above are: `issues` derives from them, and
+    # a second construction site would let the enumerated "what went wrong" list
+    # and the block it claims to summarise disagree. They are serialised into the
+    # returned dict below by name, never rebuilt.
+    log_parse_block = _log_parse(rip_log, log_parse)
+    rip_block = _rip_block(rip_log, info)
     issues = _issues(
         outcome=outcome,
         verdict_level=level,
@@ -692,6 +751,13 @@ def _build(
         read_speed=read_speed_block,
         heavy_reread_tracks=tracks_needing_heavy_reread(rip_log),
         log_truncated=bool(getattr(rip_log, "log_truncated", False)),
+        recompress=recompress,
+        log_parse=log_parse_block,
+        completeness=completeness,
+        rip=rip_block,
+        artifacts=artifacts,
+        ripper_log_verification=verify_block,
+        dependencies=(environment or {}).get("dependencies"),
     )
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -704,6 +770,32 @@ def _build(
             "build_fingerprint": build_info.build_fingerprint(),
         },
         "generated_at": generated_at or None,
+        # EVERY PROBLEM THIS RIP NOTICED, IN ONE PLACE (schema v16).
+        #
+        # Placed third — before `outcome`, before the verdict, before the tracks —
+        # because it is the first thing anyone debugging a rip should read, and
+        # burying it would recreate the situation it was added to fix: diagnostics
+        # spread across `outcome.failure_hint`, `log_parse.note`, `ctdb.error`, the
+        # per-track `issues` and the verification blocks, none of them enumerated,
+        # so answering "did anything go wrong?" required knowing where to look.
+        #
+        # Read from the process-wide collector, which also wrote every one of these
+        # to the text log as it happened — one call site, two sinks, so the two
+        # artifacts cannot describe the same event differently.
+        "diagnostics": diagnostics.to_report_block(),
+        # v18: THE RIPPER'S OWN VERDICT ON ITS OWN LOG.
+        #
+        # An independent witness. Everything else here is our measurement of our
+        # work; this is the dependency checking its own artifact with its own
+        # checksum and its own code. The cyanrip fork found why that matters (round
+        # 7 lap 10, H1/J3): our `log_integrity` self-check reported *"the EAC-style
+        # log matches its own SHA-256 footer"* on a rip that shipped a cyanrip log
+        # cyanrip itself would reject, because we had appended the auto-fix addendum
+        # past its `Log FUN512:` line. A closed loop agrees with itself.
+        #
+        # `null` means the verification never ran (a cancelled rip, an old report);
+        # `not_determined` means it ran and could not answer. Neither is a pass.
+        "ripper_log_verification": verify_block,
         # The PROCESS result (success/cancelled/failed + hint + auto-heal). The
         # single most-requested support datum; distinct from `verdict`/
         # `health_status`, which describe AccurateRip / the rip log, not the run.
@@ -721,83 +813,7 @@ def _build(
         # — the number the sentence above is measured against, in machine-readable
         # form so no consumer has to re-derive it from `len(tracks)`.
         "completeness": completeness,
-        "rip": {
-            "drive": getattr(info, "drive", "") or None,
-            "extraction_engine": getattr(info, "extraction_engine", "") or None,
-            "read_offset_correction": getattr(info, "read_offset_correction", None),
-            "defeat_audio_cache": getattr(info, "defeat_audio_cache", None),
-            "overread_lead_out": getattr(info, "overread_lead_out", None),
-            "gap_detection": getattr(info, "gap_detection", "") or None,
-            "cd_r_detected": getattr(info, "cd_r_detected", None),
-            # Whether the drive reports it can change read speed. False means
-            # cyanrip's `-S` aborts the rip, so the ladder escalates via `-Z`
-            # only (the BDR-209D is speed-locked — real-hardware finding). None
-            # when the log didn't say (older cyanrip / whipper).
-            "speed_changeable": getattr(info, "speed_changeable", None),
-            # v11: three facts that reach the human-readable EAC-layout log and were
-            # absent from the machine record, so an automated consumer could not see
-            # what the rip actually did. `c2_pointers` is the field the fork's §2.5
-            # change exists to fill: None = capability only / nothing stated, False =
-            # explicitly not used, which is EAC's "No".
-            "c2_pointers": getattr(info, "c2_pointers", None),
-            "paranoia_level": getattr(info, "paranoia_level", "") or None,
-            "overread_mode": getattr(info, "overread_mode", "") or None,
-            # Which cyanrip BINARY produced this rip ("release", "fork", a git
-            # describe). The only provenance separating an official build from a local
-            # one, and they can differ in pre-gap metadata and peak values.
-            "ripper_build": getattr(rip_log, "ripper_build", "") or None,
-            # v14: the ripper's OWN completion verdict, counts and reason —
-            # not our count of how many tracks its log happened to mention.
-            # Tri-state: `null` means the footer was absent, which is what a
-            # killed rip looks like, and must never be read as `false`
-            # ("finished, and reported failure"). Per the fork (handshake
-            # round 4, Q10) this footer is the only structural difference
-            # between a truncated log and a short one — the cue cannot tell.
-            "rip_completed": getattr(rip_log, "rip_completed", None),
-            "rip_completed_tracks": getattr(rip_log, "rip_completed_tracks", None),
-            "rip_completed_total": getattr(rip_log, "rip_completed_total", None),
-            "rip_completed_reason": getattr(rip_log, "rip_completed_reason", "")
-            or None,
-            # The argv the ripper reports RECEIVING (fork-only). We separately
-            # record the argv we spawned it with in `outcome.ripper_argv`; when
-            # those two disagree, something between us mangled an argument, and
-            # that gap is invisible from either end alone.
-            "invoked_as": getattr(rip_log, "invoked_as", "") or None,
-            # v13: the *classified* answer, so a consumer does not have to know
-            # which tags mean "our fork". Tri-state on purpose — `null` is "not
-            # determined", and must never be read as `false`. An unrecognised
-            # tag is an absence of evidence, not evidence of a stock binary.
-            "ripper_is_platterpus_fork": _ripper_identity(rip_log).is_fork,
-            "ripper_identity": _ripper_identity(rip_log).kind,
-            "ripper_identity_detail": _ripper_identity(rip_log).detail,
-            # v15: is this the build BOTH projects affirmatively verified?
-            #
-            # A different question from `ripper_identity`, which answers "fork,
-            # stock, or undetermined". This answers "the build a closed handshake
-            # round approved" — and it is checked HERE, at rip time, because a
-            # release gate runs once on a machine that never rips a disc. Tri-state
-            # like everything else about provenance: `not_determined` for an absent
-            # or unreadable build tag is a real answer, and never a pass.
-            "ripper_handshake_approval": _ripper_approval(rip_log).verdict,
-            "ripper_handshake_approval_detail": _ripper_approval(rip_log).detail,
-            "ripper_handshake_approved_build": _ripper_approval(
-                rip_log
-            ).approved_banner,
-            "ripper_handshake_approved_for_platterpus": (
-                _ripper_approval(rip_log).approved_for_platterpus
-            ),
-            "ripper_handshake_approved_by_round": (
-                _ripper_approval(rip_log).approved_by_round
-            ),
-            "creation_date": getattr(rip_log, "creation_date", "") or None,
-            # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
-            # The truest "same physical disc" key — stable across re-rips and
-            # independent of any MusicBrainz release edit — so the re-rip
-            # comparison (rip_compare) keys on the MB Disc ID first. None on a
-            # whipper log / when cyanrip didn't print them.
-            "musicbrainz_disc_id": getattr(rip_log, "disc_id", "") or None,
-            "cddb_id": getattr(rip_log, "cddb_id", "") or None,
-        },
+        "rip": rip_block,
         "accuraterip_summary": getattr(rip_log, "accuraterip_summary", "") or None,
         "partially_accurate_summary": (
             getattr(rip_log, "partially_accurate_summary", "") or None
@@ -834,7 +850,7 @@ def _build(
         # Whether the human ``.log`` parsed cleanly. A degraded read (a stray
         # non-UTF-8 byte forced ``errors="replace"``, or nothing parsed) is flagged
         # here so a thin/empty report isn't mistaken for a clean rip.
-        "log_parse": _log_parse(rip_log, log_parse),
+        "log_parse": log_parse_block,
         "tracks": [_track(t) for t in (getattr(rip_log, "tracks", ()) or ())],
         "ctdb": ctdb,
         # The full post-rip verification suite in one place: AccurateRip lives in
@@ -866,6 +882,106 @@ def _build(
         # the caller supplied no paths — e.g. the `--compare` CLI).
         "debug": debug_log,
         "artifacts": artifacts,
+    }
+
+
+def _rip_block(rip_log: object, info: object) -> dict:
+    """The ``rip`` block: what the drive and the ripper binary actually did.
+
+    Built by its own function rather than inline in :func:`_build`'s dict literal
+    because ``issues`` derives from it — a second construction site would let the
+    enumerated "what went wrong" list and the block it summarises disagree.
+    """
+    identity = _ripper_identity(rip_log)
+    approval = _ripper_approval(rip_log)
+    return {
+        "drive": getattr(info, "drive", "") or None,
+        "extraction_engine": getattr(info, "extraction_engine", "") or None,
+        "read_offset_correction": getattr(info, "read_offset_correction", None),
+        "defeat_audio_cache": getattr(info, "defeat_audio_cache", None),
+        "overread_lead_out": getattr(info, "overread_lead_out", None),
+        "gap_detection": getattr(info, "gap_detection", "") or None,
+        "cd_r_detected": getattr(info, "cd_r_detected", None),
+        # Whether the drive reports it can change read speed. False means
+        # cyanrip's `-S` aborts the rip, so the ladder escalates via `-Z`
+        # only (the BDR-209D is speed-locked — real-hardware finding). None
+        # when the log didn't say (older cyanrip / whipper).
+        "speed_changeable": getattr(info, "speed_changeable", None),
+        # v11: three facts that reach the human-readable EAC-layout log and were
+        # absent from the machine record, so an automated consumer could not see
+        # what the rip actually did. `c2_pointers` is the field the fork's §2.5
+        # change exists to fill: None = capability only / nothing stated, False =
+        # explicitly not used, which is EAC's "No".
+        "c2_pointers": getattr(info, "c2_pointers", None),
+        "paranoia_level": getattr(info, "paranoia_level", "") or None,
+        "overread_mode": getattr(info, "overread_mode", "") or None,
+        # Which cyanrip BINARY produced this rip ("release", "fork", a git
+        # describe). The only provenance separating an official build from a local
+        # one, and they can differ in pre-gap metadata and peak values.
+        "ripper_build": getattr(rip_log, "ripper_build", "") or None,
+        # v14: the ripper's OWN completion verdict, counts and reason —
+        # not our count of how many tracks its log happened to mention.
+        # Tri-state: `null` means the footer was absent, which is what a
+        # killed rip looks like, and must never be read as `false`
+        # ("finished, and reported failure"). Per the fork (handshake
+        # round 4, Q10) this footer is the only structural difference
+        # between a truncated log and a short one — the cue cannot tell.
+        "rip_completed": getattr(rip_log, "rip_completed", None),
+        "rip_completed_tracks": getattr(rip_log, "rip_completed_tracks", None),
+        "rip_completed_total": getattr(rip_log, "rip_completed_total", None),
+        "rip_completed_reason": getattr(rip_log, "rip_completed_reason", "") or None,
+        # The argv the ripper reports RECEIVING (fork-only). We separately
+        # record the argv we spawned it with in `outcome.ripper_argv`; when
+        # those two disagree, something between us mangled an argument, and
+        # that gap is invisible from either end alone.
+        "invoked_as": getattr(rip_log, "invoked_as", "") or None,
+        # v17: the ripper's OWN statement of what it was built from, and who it was
+        # told the caller was. Both fork-only, both verbatim, both `null` on stock.
+        #
+        # `ripper_handshake_note` is a second, INDEPENDENT witness to provenance:
+        # `ripper_handshake_approval` (v15) is *our* verdict on the banner, while this
+        # is what the fork's build system compiled into the binary. When the two
+        # disagree, the disagreement is the finding — and a build from an open round
+        # says so here permanently, which no banner can.
+        # v19: the fork's stall watchdog verdict, verbatim. `null` on stock, which
+        # never prints the line — a THIRD state beside "none" and a count, because
+        # "no stalls measured" and "stalls not measured" are different claims.
+        "read_stalls": getattr(rip_log, "read_stalls", "") or None,
+        # The count inside it, tri-state: 0 = measured none, N = that many stalled,
+        # null = not measured / not reported / a shape we did not recognise. Never
+        # replaces the verbatim text above — an unrecognised shape must leave the
+        # ripper's own sentence intact rather than reduce it to a wrong number.
+        "read_stalls_count": getattr(rip_log, "read_stalls_count", None),
+        "ripper_handshake_note": getattr(rip_log, "handshake_note", "") or None,
+        "ripper_consumer": getattr(rip_log, "consumer", "") or None,
+        # v13: the *classified* answer, so a consumer does not have to know
+        # which tags mean "our fork". Tri-state on purpose — `null` is "not
+        # determined", and must never be read as `false`. An unrecognised
+        # tag is an absence of evidence, not evidence of a stock binary.
+        "ripper_is_platterpus_fork": identity.is_fork,
+        "ripper_identity": identity.kind,
+        "ripper_identity_detail": identity.detail,
+        # v15: is this the build BOTH projects affirmatively verified?
+        #
+        # A different question from `ripper_identity`, which answers "fork,
+        # stock, or undetermined". This answers "the build a closed handshake
+        # round approved" — and it is checked HERE, at rip time, because a
+        # release gate runs once on a machine that never rips a disc. Tri-state
+        # like everything else about provenance: `not_determined` for an absent
+        # or unreadable build tag is a real answer, and never a pass.
+        "ripper_handshake_approval": approval.verdict,
+        "ripper_handshake_approval_detail": approval.detail,
+        "ripper_handshake_approved_build": approval.approved_banner,
+        "ripper_handshake_approved_for_platterpus": approval.approved_for_platterpus,
+        "ripper_handshake_approved_by_round": approval.approved_by_round,
+        "creation_date": getattr(rip_log, "creation_date", "") or None,
+        # TOC-derived disc identity (cyanrip's "DiscID:"/"CDDB ID:" lines).
+        # The truest "same physical disc" key — stable across re-rips and
+        # independent of any MusicBrainz release edit — so the re-rip
+        # comparison (rip_compare) keys on the MB Disc ID first. None on a
+        # whipper log / when cyanrip didn't print them.
+        "musicbrainz_disc_id": getattr(rip_log, "disc_id", "") or None,
+        "cddb_id": getattr(rip_log, "cddb_id", "") or None,
     }
 
 
@@ -968,6 +1084,34 @@ def _hex_crc(value: object) -> str | None:
     return None
 
 
+def _failure_details(result: object | None) -> list[dict] | None:
+    """Serialize a result's ``failure_details`` — the tool's own words per file.
+
+    Every post-rip adapter that runs an external tool now carries, per failed file,
+    that tool's exit code, exact argv and complete output. This lifts them into the
+    JSON so a report says *why* a file failed rather than only *that* it did.
+
+    ``None`` (not ``[]``) when the adapter predates the field, so a reader can tell
+    "no failures" from "this writer could not say". Never raises: reads defensively
+    and skips anything that will not serialize.
+    """
+    details = getattr(result, "failure_details", None)
+    if not details:
+        return None
+    out: list[dict] = []
+    for detail in details:
+        to_json = getattr(detail, "to_json", None)
+        if callable(to_json):
+            try:
+                block = to_json()
+            except Exception:  # noqa: BLE001 — a report must never fail to build
+                log.exception("rip_report: could not serialize a failure detail")
+                continue
+            if isinstance(block, dict):
+                out.append(block)
+    return out or None
+
+
 def _flac_verify(result: object | None) -> dict | None:
     """Serialize a FlacVerifyResult (decode==stored-MD5 test of the masters).
 
@@ -983,6 +1127,10 @@ def _flac_verify(result: object | None) -> dict | None:
         "ok": bool(getattr(result, "ok", False)),
         "checked": getattr(result, "checked", 0),
         "failures": [str(p) for p in failures],
+        # What `flac --test` ACTUALLY SAID about each failed file. Before this the
+        # report named the files and could not name the reason, so "3 file(s) failed"
+        # was the whole diagnosis — see `adapters.tool_run`.
+        "failure_details": _failure_details(result),
         "error": getattr(result, "error", "") or None,
     }
 
@@ -999,6 +1147,8 @@ def _transcode(result: object | None) -> dict | None:
         "ok": bool(getattr(result, "ok", False)),
         "transcoded": getattr(result, "transcoded", 0),
         "failures": [str(p) for p in failures],
+        # ffmpeg's own exit code, argv and output per failed file.
+        "failure_details": _failure_details(result),
         "error": getattr(result, "error", "") or None,
     }
 
@@ -1071,11 +1221,25 @@ def _recompress(result: object | None) -> dict | None:
         return None
     failures = getattr(result, "failures", ()) or ()
     error = getattr(result, "error", "") or None
+    # `ran` READ OFF THE RESULT, never hardcoded.
+    #
+    # This was `"ran": True`, which is a wrong answer in a real case: when `flac`
+    # is missing the step cannot run at all, `RecompressResult.error` is set, and
+    # `.ran` is False — but the report said `ran: true, ok: false`, i.e. "we
+    # re-encoded your archival masters and it went badly" instead of "we never
+    # touched them". For the one step that MUTATES the masters, that is the worst
+    # possible direction to be wrong in. Every sibling serializer here already
+    # read `.ran`; this one alone asserted it.
+    ran = bool(getattr(result, "ran", True))
     return {
-        "ran": True,
-        "ok": (not failures) and (error is None),
+        "ran": ran,
+        "ok": ran and (not failures) and (error is None),
         "reencoded": getattr(result, "reencoded", 0),
         "failures": [str(p) for p in failures],
+        # This step REWRITES the archival master, so a bare "it failed" is least
+        # acceptable here of anywhere: each entry says whether flac refused, flac
+        # claimed success and wrote nothing, or the atomic swap-in failed.
+        "failure_details": _failure_details(result),
         "error": error,
     }
 
@@ -1177,6 +1341,21 @@ def _issues(
     tagging: dict | None = None,
     heavy_reread_tracks: list[int] | None = None,
     log_truncated: bool = False,
+    # ADDED after an audit found each of these could be true while `issues` stayed
+    # empty — i.e. the one list a triager opens first said "nothing to flag" about a
+    # rip that had demonstrably gone wrong. Each is a separate `if` below.
+    recompress: dict | None = None,
+    log_parse: dict | None = None,
+    completeness: dict | None = None,
+    rip: dict | None = None,
+    # The real type, not a widened one: this is the SAME block the report
+    # serializes, and typing it `dict` here would let a future rename of an
+    # artifact key pass the checker while silently matching nothing.
+    artifacts: ArtifactsBlock | None = None,
+    dependencies: dict | None = None,
+    # The already-serialized v18 block, so this list and the block it summarises
+    # read the same verdict.
+    ripper_log_verification: dict | None = None,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
 
@@ -1216,6 +1395,48 @@ def _issues(
             "the ripper's log was cut off mid-write, so this report's track "
             "list is a floor — tracks it omits may have been ripped and "
             "verified",
+        )
+
+    # The RIPPER's own verdict on its own log (v18). Ranked ERROR alongside the
+    # truncation check and for the same reason: it does not add to the other
+    # entries, it undermines them. Every archival claim in this report is read out
+    # of that log, so a log the ripper rejects makes the rest unfalsifiable.
+    #
+    # This is the entry the fork asked for in round 7 lap 10 J3 — *"it would have
+    # caught this on the first rip"* — and it is the check our own `log_integrity`
+    # could not be, because that one verifies a file we wrote against a checksum we
+    # computed. Only `failed` fires: `not_determined` and a `null` block are
+    # non-passes, not faults, and raising an issue for them would train a reader to
+    # ignore the entry on every stock-cyanrip rip.
+    # A DRIVE THAT STALLED. The fork's watchdog is the only thing that can tell us a
+    # read took minutes rather than milliseconds, and a rip that needed that is one the
+    # user should know about even when every checksum came out right — a stalling drive
+    # is how a disc goes from readable to unreadable.
+    #
+    # Only a POSITIVE count fires. `0` is a clean measurement and `null` is no
+    # measurement; raising an entry for either would put a line in every stock rip's
+    # report and train a reader to skip the entry.
+    stall_count = (rip or {}).get("read_stalls_count")
+    if isinstance(stall_count, int) and stall_count > 0:
+        add(
+            "warning",
+            "ripper_read_stalls",
+            f"{stall_count} read(s) took long enough for the ripper's watchdog to "
+            f"report a stall: {(rip or {}).get('read_stalls') or 'no detail'}. The "
+            "audio may still be bit-perfect, but a drive or disc that stalls is worth "
+            "knowing about before the next rip.",
+        )
+
+    verify_verdict = (ripper_log_verification or {}).get("verdict")
+    if verify_verdict == "failed":
+        add(
+            "error",
+            "ripper_log_verification_failed",
+            (ripper_log_verification or {}).get("detail")
+            or (
+                "the ripper rejected its own log's checksum, so this report's "
+                "archival claims cannot be traced to a faithful record of the rip"
+            ),
         )
 
     if verdict_level == "warn":
@@ -1347,6 +1568,168 @@ def _issues(
             f"{detail} — the audio is unaffected; the files can be tagged with Picard",
         )
 
+    # --- Gaps closed after the 2026-08-04 error-reporting audit ---------------
+    #
+    # Every block below could be a plain statement of failure in the report while
+    # `issues` stayed EMPTY. An empty issues list is read as "nothing to flag", so
+    # each of these was a silent failure with its evidence sitting two blocks away.
+
+    # RE-COMPRESS was not even a parameter of this function. It is the one step that
+    # MUTATES the archival masters, so a failure here is the most consequential kind
+    # there is — and it produced no issue at all.
+    if recompress and recompress.get("ran") and not recompress.get("ok"):
+        whole = recompress.get("error")
+        failed = recompress.get("failures") or []
+        detail = (
+            f"the re-compress pass failed outright ({whole})"
+            if whole
+            else f"{len(failed)} file(s) failed to re-encode: "
+            + ", ".join(str(f) for f in failed[:10])
+            + (", …" if len(failed) > 10 else "")
+        )
+        add(
+            "error",
+            "recompress_failed",
+            f"{detail} — this step re-encodes the archival masters in place, so "
+            f"verify those files before trusting them",
+        )
+
+    # A VERIFICATION STEP THAT COULD NOT RUN was silent: `ran: false` skipped every
+    # check above, while `verification.gates` still said "ran" (the gate is derived
+    # from config, not from the result). "We did not check" is not "it passed".
+    for label, block in (
+        ("FLAC integrity", flac_integrity),
+        ("derived-format verification", derived),
+        ("re-compress", recompress),
+    ):
+        if block is not None and not block.get("ran") and block.get("error"):
+            add(
+                "warning",
+                "verification_step_did_not_run",
+                f"{label} was requested but could not run ({block['error']}) — "
+                f"this rip carries no {label} result either way",
+            )
+
+    # DERIVED INCOMPLETE with no per-file failure: fewer derived files than masters
+    # slipped past the mismatch/failure checks entirely.
+    if derived and derived.get("ran") and derived.get("complete") is False:
+        checked = derived.get("checked")
+        expected = derived.get("expected")
+        if not (derived.get("mismatches") or derived.get("failures")):
+            add(
+                "warning",
+                "derived_incomplete",
+                f"only {checked} of {expected} derived file(s) were verified — the "
+                f"rest were neither confirmed nor reported as failures",
+            )
+
+    # THE RIPPER'S LOG DID NOT PARSE. Every track fact in this report comes from
+    # that log, so a parse failure undermines the whole document — and said nothing.
+    if log_parse is not None and log_parse.get("ok") is False:
+        note = log_parse.get("note") or "no reason recorded"
+        add(
+            "warning",
+            "ripper_log_unparsed",
+            f"the ripper's log could not be parsed ({note}) — track-level facts in "
+            f"this report may be incomplete",
+        )
+
+    # FEWER (OR MORE) TRACKS THAN ASKED FOR. Only ever appeared as prose inside
+    # `verdict.message`, which nothing aggregates.
+    if completeness is not None and completeness.get("complete") is False:
+        got = completeness.get("tracks_in_report")
+        want = completeness.get("tracks_expected")
+        add(
+            "warning",
+            "track_count_mismatch",
+            f"this report describes {got} track(s) but the rip was asked for "
+            f"{want} — it is not a complete account of the request",
+        )
+
+    if rip:
+        # AN UNAPPROVED RIPPER BUILD. The entire v15 handshake block was read by
+        # nothing: a rip produced by a binary no closed round verified looked
+        # identical, in `issues`, to one produced by the approved build.
+        approval = rip.get("ripper_handshake_approval")
+        if approval and approval != "approved":
+            detail = rip.get("ripper_handshake_approval_detail") or ""
+            severity = "warning" if approval == "unapproved" else "info"
+            add(
+                severity,
+                f"ripper_handshake_{approval}",
+                f"the ripper that produced this rip is {approval}: {detail}".strip(),
+            )
+
+        # THE TWO WITNESSES, COMPARED. `ripper_handshake_approval` is OUR verdict on
+        # the build tag; `ripper_handshake_note` is what the fork's build system
+        # compiled into the binary about the round it came from. Neither is derived
+        # from the other, which is the only reason the comparison means anything.
+        #
+        # Our own round-7 lap-10 file told the fork *"when the two disagree, the
+        # disagreement is the finding"* — and nothing compared them. That is
+        # capture-without-surfacing one layer up: we parsed the note at v17, stored
+        # it, published the claim, and did nothing with it. Exactly the defect the
+        # approval block itself had until the fork found it was read by nothing.
+        #
+        # ERROR when we approved a build that says it is not a release: one of the
+        # two must be wrong, and both possibilities are serious (a wrong pin, or a
+        # build tag naming a tree that is not what was built — rule 12).
+        conflict = cross_check_note(
+            str(approval or ""), rip.get("ripper_handshake_note")
+        )
+        if conflict:
+            add(
+                "error" if approval == "approved" else "info",
+                "ripper_provenance_witnesses_disagree"
+                if approval == "approved"
+                else "ripper_provenance_self_reported_only",
+                conflict,
+            )
+
+    # A NON-ZERO EXIT ON A "SUCCESS". These two facts disagree, and only one of
+    # them was flagged. Tri-state: `None` (never reaped) is its own case.
+    if outcome and outcome.get("status") == "success":
+        code = outcome.get("ripper_exit_code")
+        if code is None:
+            add(
+                "warning",
+                "ripper_exit_unknown",
+                "the rip is recorded as successful but the ripper's exit status was "
+                "never collected — the child was not reaped, so 'success' here rests "
+                "on the log alone",
+            )
+        elif code != 0:
+            add(
+                "warning",
+                "ripper_nonzero_exit_on_success",
+                f"the rip is recorded as successful but the ripper exited {code} — "
+                f"those two facts disagree and the exit code is the harder evidence",
+            )
+
+    # AN ARTIFACT WE COULD NOT EMBED. The report's own attachments failing is
+    # exactly the case where a reader most needs to be told.
+    for name, entry in (artifacts or {}).items():
+        if isinstance(entry, dict) and entry.get("error"):
+            add(
+                "warning",
+                "artifact_unavailable",
+                f"the {name} artifact could not be embedded in this report "
+                f"({entry['error']}) — it may still exist on disk",
+            )
+
+    # A DEPENDENCY BELOW ITS MINIMUM. `min_version_met: false` was the only
+    # per-tool failure signal in the whole report and nothing surfaced it.
+    for tool, info in (dependencies or {}).items():
+        if not isinstance(info, dict):
+            continue
+        if info.get("present") and info.get("min_version_met") is False:
+            add(
+                "warning",
+                "dependency_below_minimum",
+                f"{tool} {info.get('version') or '(unknown version)'} is older than "
+                f"this Platterpus requires — its results in this rip are suspect",
+            )
+
     return issues
 
 
@@ -1402,6 +1785,10 @@ def write_report(
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
     artifacts: ArtifactsBlock | None = None,
+    #: v18: the RIPPER's verdict on its own log, from `adapters.ripper_log_verify`
+    #: — an independent witness, unlike our own SHA-256 footer check. Typed
+    #: `object` because this pure builder must not import an adapter.
+    ripper_log_verification: object | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -1436,6 +1823,7 @@ def write_report(
             log_parse=log_parse,
             disc_track_total=disc_track_total,
             artifacts=artifacts,
+            ripper_log_verification=ripper_log_verification,
         )
         # Run the audit over the report we just built and embed the result, so
         # EVERY rip carries its own verdict and nobody has to remember to run

@@ -43,10 +43,12 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     run_capture,
 )
+from platterpus.adapters.ripper_log_verify import LogVerification, verify_rip_log
 from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.drive_list import DriveDescriptor
+from platterpus.ripper_identity import identify_from_banner
 
 if TYPE_CHECKING:
     # Type-only import — the runtime call stays duck-typed (the backend must not
@@ -367,6 +369,35 @@ class CyanripImpl(RipBackend):
         assert last_error is not None  # VERSION_FLAGS is never empty
         raise last_error
 
+    def verify_log(self, log_path: str | Path) -> LogVerification:
+        """Run ``cyanrip --verify-log`` over a log cyanrip wrote.
+
+        Delegates to the `ripper_log_verify` adapter so the classification (and its
+        tri-state) lives in one testable place rather than inside this class, which
+        needs a real binary to exercise. BLOCKING; the rip worker calls it off the
+        GUI thread and the verdict travels into the report as data.
+        """
+        # The build tag is what decides whether a non-zero exit is evidence against
+        # the LOG or evidence the flag was rejected (lap 12 J4). Taken from the
+        # ripper's own banner rather than from anything we remember about the install
+        # — provenance derivable from the artifact, rule 12.
+        return verify_rip_log(
+            log_path, self._binary, build_tag=self._observed_build_tag()
+        )
+
+    def _observed_build_tag(self) -> str:
+        """The parenthetical build tag from this binary's version banner, or ``""``.
+
+        Best-effort and never raises: an unreadable banner yields ``""``, which the
+        classifier treats as *unknown support* and therefore as `not_determined`,
+        which is the fail-safe direction.
+        """
+        try:
+            banner = self.version()
+        except Exception:  # noqa: BLE001 — a probe must not break a rip's report
+            return ""
+        return identify_from_banner(banner.split("\n", 1)[0]).build_tag
+
     def produces_max_compression_flac(self) -> bool:
         # cyanrip drives libavcodec at the maximum FLAC compression level for
         # every rip (confirmed against its README and source), so a post-rip
@@ -581,8 +612,13 @@ def restore_substituted_colons(
             if fixes:
                 metaflac.write_tags(path, fixes)
                 changed += 1
-        except MetaflacError:
-            log.warning("colon-restore: metaflac failed on %s", path)
+        except MetaflacError as exc:
+            # Include the exception. This logged "metaflac failed on <path>" and
+            # nothing else — the argv, the exit code and metaflac's own sentence
+            # were all on the exception and all discarded. (The adapter now also
+            # records the full diagnostic itself, so the report has it regardless;
+            # this line is what a reader scanning the log sees.)
+            log.warning("colon-restore: metaflac failed on %s: %s", path, exc)
         except Exception:  # noqa: BLE001 — a post-rip step must never crash the GUI
             log.exception("colon-restore: unexpected failure on %s", path)
     return changed
