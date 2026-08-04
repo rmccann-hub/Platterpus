@@ -38,6 +38,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus.paths import LOG_PATH
+
 log = logging.getLogger(__name__)
 
 # Cap on how many report files a library scan will load, so discovery can't
@@ -466,7 +468,9 @@ def compare_reports(
             b_better_tracks=(),
             headline_level="neutral",
             summary="Could not compare these two rips.",
-            notes=("the comparison hit an unexpected error — see the log",),
+            notes=(
+                f"the comparison hit an unexpected error — see the log at {LOG_PATH}",
+            ),
         )
 
 

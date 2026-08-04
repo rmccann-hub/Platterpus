@@ -721,7 +721,10 @@ def render(audits: list[AlbumAudit], root: Path) -> str:
             "  *** A SUB-CHANNEL pre-gap read SUCCEEDED. ***",
             "  As of v0.6.1 this path had never executed successfully anywhere —",
             "  disc images always fail into 'unknown'. This is new information;",
-            "  please send the log for that album.",
+            # Name the FILE. "send the log for that album" is ambiguous between the
+            # ripper's `.log`, the EAC-style log and the app log — and the one that
+            # actually carries this evidence is the JSON report.
+            "  please send that album's `.platterpus.json` report.",
         ]
 
     warns = [a for a in audits if a.worst == LEVEL_WARN]

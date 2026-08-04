@@ -55,6 +55,7 @@ from platterpus.deps.manager import DependencyManager
 from platterpus.deps.version import parse_version
 from platterpus.drive_access import SEVERITY_OK, diagnose_drive_access
 from platterpus.offset_config import WhipperConfOffset, read_drive_offsets
+from platterpus.paths import LOG_PATH
 from platterpus.ripper_identity import identify_from_banner
 
 if TYPE_CHECKING:
@@ -502,7 +503,7 @@ def routing_drilldown(backend_name: str, host: HostSetup) -> tuple[str, str]:
         return (
             f"{backend_name} appears installed but its version command failed "
             "— it may be misconfigured.",
-            "Check ~/.local/share/platterpus/log.txt, or re-run the host-setup wizard.",
+            f"Check {LOG_PATH}, or re-run the host-setup wizard.",
         )
     except Exception as exc:  # noqa: BLE001 — the drilldown itself never crashes
         return (f"could not diagnose the backend setup: {exc}", _WIZARD_HINT)

@@ -26,10 +26,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from platterpus import diagnostics
 from platterpus.deps.host_setup import HostSetup
 from platterpus.deps.step_engine import StepResult, StepStatus
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.failure_text import LOG_POINTER
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
 
@@ -205,11 +207,16 @@ class HostSetupDialog(CenteredDialog):
                     f"{first.detail}\n"
                     "A working ripper is still installed, so you can rip — but not "
                     "with the build this version of Platterpus expects. Re-run setup, "
-                    "or send the log if it fails again."
+                    "or send the log if it fails again.\n"
+                    # NAME THE FILE. This said "send the log" and named nothing, which
+                    # asks the user to find something they have never been told the
+                    # location of. One shared sentence (`ui/failure_text`) rather than
+                    # a twenty-first hand-written variant.
+                    f"{LOG_POINTER}"
                 )
             else:
                 self._status_label.setText(
-                    f"Setup stopped at “{first.title}”: {first.detail}"
+                    f"Setup stopped at “{first.title}”: {first.detail}\n{LOG_POINTER}"
                 )
         elif ready and all_already:
             self._status_label.setText(
@@ -220,7 +227,35 @@ class HostSetupDialog(CenteredDialog):
                 "✓ Setup complete — the ripping tools are installed. You can rip now."
             )
         else:
-            self._status_label.setText("Setup did not complete.")
+            # Reached when `ready` is False and NO step is FAILED — empty results, an
+            # all-skipped run, or a status the tri-state above does not cover. It said
+            # four words, logged nothing, and named nothing: the least diagnosable
+            # message in the dialog was the one for the case nobody had thought about.
+            # Say what we actually know, and record it.
+            log.error(
+                "host setup finished with ready=False and no failed step; "
+                "%d result(s): %s",
+                len(results),
+                ", ".join(f"{r.step_id}={r.status.value}" for r in results) or "(none)",
+            )
+            diagnostics.error(
+                "setup.step_failed",
+                "setup finished without making the ripper usable, and no single step "
+                "reported a failure — so there is no one step to blame",
+                detail=(
+                    f"{len(results)} step result(s): "
+                    + (
+                        ", ".join(f"{r.step_id}={r.status.value}" for r in results)
+                        or "(none — the pipeline produced no results at all)"
+                    )
+                ),
+                where="ui.host_setup_dialog.HostSetupDialog._on_finished",
+            )
+            self._status_label.setText(
+                "Setup did not complete, and no individual step reported a failure — "
+                "so there is nothing specific to point at. The ripper is not usable "
+                f"yet.\n{LOG_POINTER}"
+            )
         # Announce the final outcome — the run may have taken minutes (gap #4).
         announce(self._status_label, self._status_label.text())
         self._worker = None

@@ -13,6 +13,8 @@ treats a failure to send as a no-op.
 
 from __future__ import annotations
 
+from platterpus.paths import LOG_PATH
+
 # Shown as the notification's title; the body carries the specifics.
 _TITLE_SUCCESS: str = "Platterpus — rip complete"
 _TITLE_FAILED: str = "Platterpus — rip didn't finish"
@@ -35,4 +37,7 @@ def build_completion_message(
         return _TITLE_CANCELLED, (text or "The rip was cancelled by you.")
     if success:
         return _TITLE_SUCCESS, (text or "Your rip finished successfully.")
-    return _TITLE_FAILED, (text or "The rip did not finish — see the log for details.")
+    # Name the file. "see the log for details" in a desktop toast is the least
+    # actionable sentence in the app: the notification vanishes, and it never said
+    # where to look. A path fits fine in a notification body.
+    return _TITLE_FAILED, (text or f"The rip did not finish. Details are in {LOG_PATH}")

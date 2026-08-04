@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from platterpus import goal_presets, naming, offset_config, settings_validation
 from platterpus.config import Config
+from platterpus.paths import LOG_PATH
 from platterpus.settings_validation import ValidationIssue
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
@@ -374,11 +375,15 @@ class SettingsDialog(CenteredDialog):
             "Debug logging (verbose log for bug reports)", self
         )
         self._debug_logging_check.setChecked(config.debug_logging)
+        # The REAL log path, resolved through `paths.LOG_PATH` rather than the
+        # `~/.local/share/...` literal this used to name. That literal is wrong under
+        # a custom `XDG_DATA_HOME` or a sandbox, and this tooltip's whole job is to
+        # tell a user which file to attach to a bug report — naming a path they do
+        # not have is worse than naming none, because they conclude it is missing.
         self._debug_logging_check.setToolTip(
-            "Record verbose detail to the log file at\n"
-            "~/.local/share/platterpus/log.txt — every probe, command, and "
-            "parse step. Turn this on, reproduce the problem, then attach that "
-            "file to a bug report. Off keeps the log lighter."
+            f"Record verbose detail to the log file at\n{LOG_PATH} — every probe, "
+            "command, and parse step. Turn this on, reproduce the problem, then "
+            "attach that file to a bug report. Off keeps the log lighter."
         )
         form.addRow("Logging:", self._debug_logging_check)
 
