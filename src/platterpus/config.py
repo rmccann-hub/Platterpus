@@ -325,6 +325,23 @@ class Config:
     # individual fields, not this. See goal_presets.py.
     rip_goal: str = "fast_verified"
 
+    # --- Update channel (Settings → Updates) ---
+    # Which releases "Check for updates" will offer: "stable" (default — never a
+    # pre-release) or "beta" (whichever is newest, including a beta/rc).
+    #
+    # DEFAULT STABLE, deliberately. Before this field existed the check took the
+    # newest entry of the releases list unconditionally, so a user who wanted an
+    # update was handed a *tester* build with nothing saying so — every `v0.*` tag
+    # is published as a GitHub pre-release, but a `0.6.4b1` is a different promise
+    # from a `0.6.4`. Opting in is a choice; being opted in silently is not.
+    #
+    # The beta channel exists because testing needs it: a joint hardware session
+    # with the cyanrip fork puts both projects on a pre-release build at the same
+    # time, and a tester who cannot get the next beta in-app has to hand-download
+    # every one. Turning it on shows a warning first, and the offer for a
+    # pre-release names it as one (ui/main_window_update.py).
+    update_channel: str = "stable"
+
     # --- Schema bookkeeping ---
     schema_version: int = SCHEMA_VERSION
 

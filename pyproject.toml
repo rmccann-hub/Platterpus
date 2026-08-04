@@ -41,11 +41,17 @@ dependencies = [
     "tomli-w>=1.0,<2",
     # Ed25519 verification of a release's minisign signature (the in-app
     # updater's authenticity gate — src/platterpus/update_signing.py). Floor is
-    # 48.0.1: earlier versions carry GHSA-537c-gmf6-5ccf (bundled-OpenSSL
-    # advisory, fixed there) which the CI pip-audit gate rejects. Ed25519 verify
+    # 50.0.0: 49.0.0 and earlier carry CVE-2026-69247, and everything below
+    # 48.0.1 also carries GHSA-537c-gmf6-5ccf (bundled-OpenSSL). Ed25519 verify
     # is API-stable across majors, and pip-audit — not this ceiling — is the real
-    # vulnerability gate, so <50 only guards against a surprise major API break.
-    "cryptography>=48.0.1,<50",
+    # vulnerability gate, so <51 only guards against a surprise major API break.
+    #
+    # RAISE THE CEILING WHEN YOU RAISE THE FLOOR. The previous pair was
+    # `>=48.0.1,<50`, and when CVE-2026-69247 landed the fix was 50.0.0 — which
+    # the ceiling excluded. pip-audit resolves the HIGHEST version a range allows,
+    # so it picked the vulnerable 49.0.0 and CI went red with no change to our
+    # code. A ceiling that can exclude the only fix is not a safety margin.
+    "cryptography>=50.0.0,<51",
 ]
 
 [project.optional-dependencies]

@@ -79,7 +79,25 @@ require_python_module python_appimage 'python-appimage>=1.4,<2'
 # changes), else a date-derived stamp. The file is removed after the wheel is
 # built (it's git-ignored regardless) so it never lands in the working tree.
 BUILD_STAMP="$REPO_ROOT/src/platterpus/_build.py"
-trap 'rm -f "$BUILD_STAMP"' EXIT
+
+# ONE cleanup hook for the whole script. There is exactly one `trap … EXIT` in
+# bash per signal — a second `trap` REPLACES the first silently — so every
+# transient file this script creates is restored from here rather than from its
+# own trap. (Written after a second trap was nearly added further down for the
+# requirements.txt pin below, which would have left the build stamp in the
+# working tree with nothing to notice it.) REQ_BAK is empty until that block
+# sets it, so the restore is a no-op before then.
+REQ_BAK=""
+REQ_SRC=""
+cleanup() {
+    rm -f "$BUILD_STAMP"
+    # Restore the committed requirements.txt however this script exits, so a
+    # failed build never leaves a version-pinned copy in the working tree.
+    if [ -n "$REQ_BAK" ] && [ -f "$REQ_BAK" ]; then
+        mv -f "$REQ_BAK" "$REQ_SRC" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
 if command -v git >/dev/null 2>&1 &&
     git -C "$REPO_ROOT" rev-parse --short HEAD >/dev/null 2>&1; then
     BUILD_FP="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
@@ -184,6 +202,51 @@ else
     echo "build/lock-requirements.sh to enable hash-pinned reproducible deps)."
     export PIP_FIND_LINKS="$RECIPE_DIR"
 fi
+
+# PIN THE PLATTERPUS LINE TO THE VERSION WE JUST BUILT.
+#
+# **The AppImage was being built from PyPI, not from this tree**, and it took a
+# beta to expose it. `requirements.txt` carried a bare `platterpus`, and
+# `--find-links` only ADDS a source — pip still resolves to the highest
+# acceptable version, and **pip excludes pre-releases by default**. So with a
+# local `0.6.4b1` wheel and a published `0.6.3` on PyPI, pip chose 0.6.3: the
+# release job built a v0.6.4b1 AppImage containing 0.6.3 and the sanity check
+# caught it (`built version (platterpus 0.6.3 (source)) does not match tag`).
+#
+# **This was invisible for every previous release** because the tree version and
+# the newest PyPI version were always the same number, so "built from the tree"
+# and "built from PyPI" produced identical binaries. Two witnesses agreeing
+# because they share an ancestor — `docs/testing.md` §5.ac, arriving in the build.
+#
+# An EXACT pin rather than `PIP_PRE=1`: `==` makes the resolution provable (PyPI
+# has no such version, so only the local wheel can satisfy it) and fails loudly
+# if the wheel is missing, whereas `--pre` would merely make the local wheel
+# *eligible* and would silently prefer a newer PyPI release later.
+PLATTERPUS_WHEEL_VERSION="$(
+    ls -1 "$RECIPE_DIR"/platterpus-*.whl \
+      | head -1 | sed -E 's|.*/platterpus-([^-]+)-.*|\1|'
+)"
+if [ -z "$PLATTERPUS_WHEEL_VERSION" ]; then
+    echo "error: no platterpus wheel in $RECIPE_DIR — cannot pin the version" >&2
+    exit 1
+fi
+echo "Pinning the bundled platterpus to the wheel we just built: $PLATTERPUS_WHEEL_VERSION"
+# Assigning these two arms the single EXIT trap installed near the top of the
+# script (see `cleanup`) — deliberately NOT a second `trap`, which would silently
+# replace the first and orphan the build stamp.
+REQ_SRC="$RECIPE_DIR/requirements.txt"
+REQ_BAK="$RECIPE_DIR/requirements.txt.orig"
+cp "$REQ_SRC" "$REQ_BAK"
+python3 - "$REQ_SRC" "$PLATTERPUS_WHEEL_VERSION" <<'PIN'
+import re, sys
+path, version = sys.argv[1], sys.argv[2]
+text = open(path, encoding="utf-8").read()
+new, n = re.subn(r"(?m)^platterpus\s*$", f"platterpus=={version}", text)
+if n != 1:
+    sys.exit(f"expected exactly one bare 'platterpus' line in {path}, found {n}")
+open(path, "w", encoding="utf-8").write(new)
+print(f"  requirements.txt: platterpus -> platterpus=={version}")
+PIN
 
 # Optional offline / rate-limit escape hatch: by default python-appimage hits
 # the GitHub API to discover and download a CPython base AppImage. On a host

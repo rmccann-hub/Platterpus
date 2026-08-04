@@ -33,6 +33,7 @@ so the plan can be asserted in tests without a container.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Final
 
 from platterpus.cyanrip_cli import VERSION_BANNER_SNIPPET
@@ -177,9 +178,28 @@ NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
 #: installing it is forbidden while the round is open. Every step is a rule both
 #: projects hold and together they are unsatisfiable. A test pin breaks it without
 #: weakening the release gate.
-FORK_TEST_PIN: Final[str] = "f750890"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.4"
+#: Moved twice inside round 7, and **each move retired a build we were told not to
+#: install** — `f750890` (lap 6) was withdrawn in lap 7 because its `-x` cache probe
+#: ran *before* the stall watchdog started, so a hang on the least-tested read path
+#: in the program was silent; `d9c7124` (lap 7) was superseded hours later by the
+#: beta. The pin is a variable rather than a sentence in a doc precisely because it
+#: moves faster than a release cycle.
+FORK_TEST_PIN: Final[str] = "9003e6f"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.1"
+#: Which round nominated it. Stated rather than derived from the approved round + 1:
+#: a test pin belongs to *a* round, and arithmetic on the approved round is only
+#: accidentally right — it breaks the first time two rounds pass without a close.
+FORK_TEST_PIN_ROUND: Final[int] = 7
 FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
+
+#: Test pins this round has already retired. Listed **only** so a rig that built one
+#: before the pin moved still receives ``--consumer`` (they all carry the flag — it
+#: landed in r4, before any of them). Not an endorsement: the current test pin is
+#: :data:`FORK_TEST_PIN` and the fork's lap 8 says plainly *"do not install
+#: `f750890`"*. The cost of omitting them would be a silent `Consumer: not
+#: identified` in a rig log, which is exactly the half-recorded pair this flag
+#: exists to prevent.
+SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = ("f750890", "d9c7124")
 
 #: Build tags known to accept ``--consumer``. **Sending it to a build without it
 #: is a release blocker, not a cosmetic miss**: cyanrip exits non-zero on an
@@ -194,7 +214,8 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
     {
         f"{FORK_BRANCH}-g{NEXT_PIN_UNDER_REVIEW}",  # r4
-        FORK_TEST_BUILD_TAG,  # the round-7 test pin
+        FORK_TEST_BUILD_TAG,  # the round-7 test pin (currently the beta)
+        *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
     }
 )
 
@@ -214,6 +235,76 @@ def accepts_consumer_flag(build_tag: str) -> bool:
 
 
 NEXT_VERSION_UNDER_REVIEW: Final[str] = "0.9.4-rc1+platterpus.4"
+
+# --- Which build the wizard actually installs -------------------------------
+
+
+@dataclass(frozen=True)
+class ForkTarget:
+    """A commit the wizard can build, with the banner a correct build must print.
+
+    **Why this exists rather than one more constant.** The build step and the verify
+    step each named a *separate* module constant — ``FORK_PIN`` and
+    ``FORK_EXPECTED_BUILD_TAG`` — which happened to agree only because one is
+    derived from the other. The moment a second installable build existed (a test
+    pin, nominated mid-round), "build X, then assert it printed Y" became two
+    independent edits, and getting one of them wrong installs a binary while
+    reporting the other. Bundling the pin with the tag it must print makes the pair
+    un-drift-able: there is one object, and the build and the check read the same
+    field off it.
+    """
+
+    #: Short commit SHA to detach onto.
+    pin: str
+    #: The version string, banner parenthetical excluded.
+    version: str
+    #: Human-readable reason this target exists, for the log and the wizard UI.
+    why: str
+
+    @property
+    def build_tag(self) -> str:
+        """The banner parenthetical a correct build of :attr:`pin` prints."""
+        return f"{FORK_BRANCH}-g{self.pin}"
+
+    @property
+    def banner(self) -> str:
+        """The exact first line a correct build prints."""
+        return f"cyanrip {self.version} ({self.build_tag})"
+
+
+#: The pin a **closed** round approved. Moves only when a round closes.
+PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
+    pin=FORK_PIN,
+    version=FORK_EXPECTED_VERSION,
+    why=f"the build handshake round 6 approved for Platterpus {FORK_EXPECTED_VERSION}",
+)
+
+#: The build nominated to gather the hardware evidence an OPEN round needs.
+TEST_TARGET: Final[ForkTarget] = ForkTarget(
+    pin=FORK_TEST_PIN,
+    version=FORK_TEST_VERSION,
+    why=(
+        f"the round-{FORK_TEST_PIN_ROUND} test pin, nominated by both projects for "
+        "the joint hardware session — NOT a release, and no round has approved it"
+    ),
+)
+
+#: **What the setup wizard and ``--install-ripper`` build by default.**
+#:
+#: Pointed at :data:`TEST_TARGET` for the v0.6.4b1 beta on the maintainer's explicit
+#: instruction — *"Point the test pin / wizard build target at 9003e6f"* — because
+#: the beta exists for one purpose: to put both projects on the same build for the
+#: joint hardware session. Round 7 is OPEN, so a rip with this installed reports
+#: ``ripper_handshake_approval: unapproved``, and **that is the correct answer**, not
+#: a defect: a test pin has been approved by nobody. The wizard says so at install
+#: time rather than letting the rip report be the first place it surfaces.
+#:
+#: **Flipping back is this one line.** When round 7 closes, move :data:`FORK_PIN` to
+#: the approved pin and point this at :data:`PRODUCTION_TARGET`. Deliberately a
+#: separate knob from ``FORK_PIN``: the deviation policy forbids moving the pin while
+#: a round is open, and conflating "what we install for a test" with "what a closed
+#: round approved" is how a test build becomes the production record by accident.
+WIZARD_TARGET: Final[ForkTarget] = TEST_TARGET
 
 # --- Where it lives inside the container ------------------------------------
 
@@ -337,14 +428,21 @@ def build_deps_command(container: str) -> list[str]:
     return _enter(container, "sudo", "dnf", "install", "-y", *FORK_BUILD_PACKAGES)
 
 
-def build_command(container: str) -> list[str]:
+def build_command(container: str, target: ForkTarget | None = None) -> list[str]:
     """Clone-or-fetch, detach onto the pin, configure and compile.
 
     The four values the script needs are appended as positional arguments.
     ``sh -c SCRIPT NAME ARG1 …`` assigns ``NAME`` to ``$0``, so the first real
     argument must be a throwaway label — ``"build-cyanrip-fork"`` here, which
     also makes the command self-describing in the log.
+
+    ``target`` defaults to :data:`WIZARD_TARGET` — resolved at *call* time, not
+    bound as a default argument value, so a caller that overrides it in a test
+    cannot be silently answered with the module's own choice. (The fork hit exactly
+    this in their gate: a ``directory=HANDSHAKE_DIR`` default bound at definition
+    time made a test point at a throwaway record and measure the real one.)
     """
+    chosen = target if target is not None else WIZARD_TARGET
     return _enter(
         container,
         "sh",
@@ -354,7 +452,7 @@ def build_command(container: str) -> list[str]:
         FORK_SOURCE_DIR,
         FORK_REPO_URL,
         FORK_BRANCH,
-        FORK_PIN,
+        chosen.pin,
     )
 
 
@@ -380,8 +478,16 @@ def export_command(container: str) -> list[str]:
     return _enter(container, "distrobox-export", "--bin", FORK_INSTALL_PATH)
 
 
-def verify_command(container: str) -> list[str]:
-    """Assert the installed binary prints the pinned fork's build tag."""
+def verify_command(container: str, target: ForkTarget | None = None) -> list[str]:
+    """Assert the installed binary prints the built target's build tag.
+
+    Reads the tag off the **same** :class:`ForkTarget` the build used. Previously
+    this named ``FORK_EXPECTED_BUILD_TAG`` while the build named ``FORK_PIN``; with
+    one installable build those always agreed, and with two they would not have —
+    the verify would have demanded the production tag from a test-pin build and
+    failed a correct install.
+    """
+    chosen = target if target is not None else WIZARD_TARGET
     return _enter(
         container,
         "sh",
@@ -389,21 +495,27 @@ def verify_command(container: str) -> list[str]:
         _VERIFY_SCRIPT,
         "verify-cyanrip-fork",
         FORK_INSTALL_PATH,
-        FORK_EXPECTED_BUILD_TAG,
+        chosen.build_tag,
     )
 
 
-def fork_build_commands(container: str) -> list[list[str]]:
+def fork_build_commands(
+    container: str, target: ForkTarget | None = None
+) -> list[list[str]]:
     """The whole step, in order: deps → build → install → export → verify.
 
     Verify is deliberately last rather than first: the point is to check what we
     just installed, and a check that runs before the install can only ever
     confirm the previous state.
+
+    One ``target`` is resolved here and passed to *both* the build and the verify,
+    so the two cannot be given different builds by a caller that overrides only one.
     """
+    chosen = target if target is not None else WIZARD_TARGET
     return [
         build_deps_command(container),
-        build_command(container),
+        build_command(container, chosen),
         install_command(container),
         export_command(container),
-        verify_command(container),
+        verify_command(container, chosen),
     ]
