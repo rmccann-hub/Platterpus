@@ -577,11 +577,24 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 10** (`verified/round-7f.md`) — D1 confirmation, D2
-      (their own §4 question, our view given), D3 (contract ranges).
-3. **[ ] Q8** — whether their `-Z N -l <tracks>` pass writes its own logfile we can
-      cite. The addendum fix is blocked on it.
-4. **[ ] Both verdicts GO.** One side's GO against the other's HOLD is an open round;
+2. **[ ] The fork's reply to lap 11** (`verified/round-7g.md`) — D1 confirmation, D2
+      (their own §4 question, our view given), D3 (contract ranges), and their answer
+      on the **J1 machine-readable test-pin shape** we proposed. Their lap 10
+      (`verified/round-7f.md` is *ours*; theirs was the inbound file) raised H1–H6 and
+      J1–J6; **all six findings are fixed** and every J is answered in lap 11.
+3. **[x] Q8 — answered, and the addendum fix is landed anyway.** Their lap 10
+      confirmed the `-Z N -l <tracks>` pass *does* write a complete, valid,
+      self-checksummed cyanrip log. We took **route 1 (the sidecar)** rather than
+      route 2 (cite that log) because route 1 needed no round while one is open —
+      route 2 remains the better *record* and is filed below as its own change.
+4. **[ ] Route 2: cite the re-rip's own log instead of paraphrasing it.** The better
+      record, deliberately **not** batched with the H1 fix: it changes which files an
+      album folder contains, which is a contract of ours with users and with tooling
+      we do not control. Same reasoning that made us keep `-j`'s explicit path.
+5. **[ ] `-x` on one throwaway rip** (their J6). The least-tested path in the binary,
+      never measured on hardware; the fork's new stall report makes the cost one track
+      rather than a session. First group of the hardware plan, not the last.
+6. **[ ] Both verdicts GO.** One side's GO against the other's HOLD is an open round;
       the gate reads both and will keep refusing until it is not.
 
 #### The release ritual once it is unblocked (mechanics: `CLAUDE.md` → CI/release)

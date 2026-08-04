@@ -204,6 +204,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **A handshake file that cites hardware must now name the pair the hardware ran.**
+  Lap 8 declared the tested pair as Platterpus `0.6.4b1`; the rig ran `0.6.4b3`. The
+  fork caught it by hand, and their diagnosis is the finding: *"nothing in either
+  artifact would have flagged the mismatch."* The evidence was in the repository —
+  `generator.version` in the report, the EAC log's header — and the declaration was in
+  a file three directories away, with no code relating them.
+  `tests/test_handshake_cites_the_pair_it_ran.py` now requires any handshake file
+  citing `output_reference/<dir>/` to declare the app version **and** the ripper build
+  tag that directory's artifacts actually carry. Read off the artifact's content, never
+  off `__version__`, so a correct historical record is not refused after a version
+  bump; and with a proof-of-failure case that runs lap 8's real declaration against the
+  real b3 artifact and asserts rejection.
 - **The two provenance witnesses are now actually compared.** Round 7 lap 10 told the
   cyanrip fork that *"when the two disagree, the disagreement is the finding"* about
   `ripper_handshake_approval` (our verdict on the build tag) versus
