@@ -204,6 +204,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **The two provenance witnesses are now actually compared.** Round 7 lap 10 told the
+  cyanrip fork that *"when the two disagree, the disagreement is the finding"* about
+  `ripper_handshake_approval` (our verdict on the build tag) versus
+  `ripper_handshake_note` (the statement the fork's build system compiles into the
+  binary) — and nothing in the code compared them. The note was parsed at schema v17,
+  stored, and read by nothing: the same capture-without-surfacing defect the approval
+  block itself had until they found *it* was read by nothing. An approved build whose
+  own text says it is not a release now raises an `error` in `issues[]`, because one
+  of two independent witnesses must be wrong and both possibilities are serious (a
+  wrong pin, or a build tag naming a tree that is not what was built). The real
+  artifact's state — unapproved, note agreeing — stays silent, so a deliberate
+  test-pin rip does not cry wolf.
 - **The EAC-style log's status report claimed more tracks than the disc has.** On the
   rig's 14-track disc it printed `13 accurately ripped` + `1 could not be verified` +
   `1 matched only an offset-variant pressing` = **15**. `unverified = total -

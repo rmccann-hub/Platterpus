@@ -22,7 +22,11 @@ from pathlib import Path
 
 from platterpus import __version__, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
-from platterpus.handshake_approval import RipperApproval, approve_rip_log
+from platterpus.handshake_approval import (
+    RipperApproval,
+    approve_rip_log,
+    cross_check_note,
+)
 from platterpus.parsers.rip_log import (
     track_accuraterip_verified,
     tracks_needing_heavy_reread,
@@ -1626,6 +1630,32 @@ def _issues(
                 severity,
                 f"ripper_handshake_{approval}",
                 f"the ripper that produced this rip is {approval}: {detail}".strip(),
+            )
+
+        # THE TWO WITNESSES, COMPARED. `ripper_handshake_approval` is OUR verdict on
+        # the build tag; `ripper_handshake_note` is what the fork's build system
+        # compiled into the binary about the round it came from. Neither is derived
+        # from the other, which is the only reason the comparison means anything.
+        #
+        # Our own round-7 lap-10 file told the fork *"when the two disagree, the
+        # disagreement is the finding"* — and nothing compared them. That is
+        # capture-without-surfacing one layer up: we parsed the note at v17, stored
+        # it, published the claim, and did nothing with it. Exactly the defect the
+        # approval block itself had until the fork found it was read by nothing.
+        #
+        # ERROR when we approved a build that says it is not a release: one of the
+        # two must be wrong, and both possibilities are serious (a wrong pin, or a
+        # build tag naming a tree that is not what was built — rule 12).
+        conflict = cross_check_note(
+            str(approval or ""), rip.get("ripper_handshake_note")
+        )
+        if conflict:
+            add(
+                "error" if approval == "approved" else "info",
+                "ripper_provenance_witnesses_disagree"
+                if approval == "approved"
+                else "ripper_provenance_self_reported_only",
+                conflict,
             )
 
     # A NON-ZERO EXIT ON A "SUCCESS". These two facts disagree, and only one of
