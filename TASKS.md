@@ -550,6 +550,56 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
+### ⭐ P1 — Full error reporting & diagnosability (maintainer directive, 2026-08-04)
+
+> *"do a full check for error reporting to both Cyanrip and Platterpus, as many and as
+> full surface coverage as possible, even if you think it's not needed. I want full error
+> and reporting to the output log file (JSON) as possible for future debugging. Be
+> thorough and verbose; make finding errors easy."*
+
+Four parallel read-only audits (subprocess capture, swallowed exceptions, the JSON report
+surface, and user-facing surfacing) produced a ranked list. The recurring shape is **not**
+"we never obtained the fact" — it is *"we had the fact and discarded it"*, which CLAUDE.md
+calls the worse of the two, because the report still looks complete either way.
+
+- **[x] One collector — `diagnostics.py` + the report's `diagnostics` block (schema v16).**
+      One `record()` writes to the text log **and** the JSON, so the two artifacts cannot
+      describe the same event differently. Greppable `platterpus-diagnostic` prefix; the
+      block states its own scope, its truncation and its count.
+- **[x] Eight new `issues[]` checks.** Each was a fact that could be true while the one
+      list a triager opens first said "nothing to flag" — most sharply `recompress_failed`
+      (the step that rewrites archival masters was not a parameter of the deriver) and the
+      whole v15 handshake-approval block, which was read by nothing at all.
+- **[x] `adapters/tool_run.py` — a channel for the tool's own words.** The three post-rip
+      adapters declared their command seam as `Callable[[list[str]], int]`, which made it
+      *structurally impossible* for a dependency's output to reach the result, the report
+      or the user. Adds a third state (`started`) so a missing binary and a wedged file
+      stop being the same value.
+- **[x] `metaflac` — the worst single gap.** Runs on every rip; captured nothing.
+- **[x] `cd-paranoia -A`'s exit code, `eject`'s message, the `except OSError: pass` that
+      could send a rip into the folder the user was avoiding, and the drive-offset CSV's
+      unlogged row skips.**
+- **[ ] The minimal failure report must carry `captured_stdout` + `debug_log`.** Ranked #1
+      by the surfacing audit: on exactly the rips the minimal report exists for, the
+      ripper's whole output reaches neither screen, nor `log.txt` (INFO by default), nor
+      the one artifact written — while sitting in a variable the code already knows how to
+      serialise.
+- **[ ] Stop `"Rip failed."` clobbering the captured error text.** `_finish_rip` reads only
+      `worker.failure_hint`, never `_last_rip_error`, so on every start/stream failure the
+      specific sentence is replaced by the generic one two lines after being stored.
+- **[ ] Failure surfaces must name the log path, XDG-aware, and never no-op silently.**
+      ~20 dialogs say "see the log" with no path; two hardcode `~/.local/share/...` against
+      an XDG-aware `paths.py`; a crashed dependency probe makes *Tools → Check
+      dependencies* do nothing visible at all.
+- **[ ] Close `report_types.py` drift and make its test a sweep**, not three anchored blocks.
+- **[ ] A copyable diagnostics surface.** There is no export, bundle or copy action
+      anywhere in the UI, and the one place a cyanrip fatal is displayed cannot be selected.
+- **[ ] Failure paths must log at ≥ WARNING.** `log.txt` is INFO-only by default, so every
+      DEBUG subprocess record — including cyanrip's entire transcript — is absent from a
+      bug report unless the user had already turned Debug logging on.
+- **[ ] Carry it into the next handshake lap** so both projects hold the same expectations
+      for what each side captures, surfaces and can be asked for.
+
 ### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 9 sent, both betas cut)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
@@ -937,4 +987,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b3.*
