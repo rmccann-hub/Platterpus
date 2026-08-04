@@ -6316,6 +6316,54 @@ def test_the_workers_hint_still_wins_when_it_has_one(teardown_threads) -> None:
     assert "Track 3" in window._rip_progress.current_status()
 
 
+def test_a_report_rewrite_does_not_empty_the_rippers_captured_output(
+    teardown_threads, tmp_path: Path
+) -> None:
+    """The report is written MORE than once, and the later writes used to blank it.
+
+    Found in a real rig artifact (2026-08-04): a clean 14/14 rip whose
+    `artifacts.ripper_stdout` was `{"path": null, "exists": false}` — while that
+    block's own `source` string promised *"complete even when the ripper was
+    killed"*. Accurate about the mechanism, false about the file.
+
+    The mechanism: the first write happens in `_finish_rip` while the worker is
+    alive; `_on_rip_finished`'s `finally` then sets `_rip_worker = None`; and every
+    post-rip step (FLAC verify, transcode, CTDB, the self-check) triggers a debounced
+    re-write that read `getattr(self._rip_worker, "captured_stdout", "")` — i.e.
+    nothing. FLAC verify is on by default and the self-check always runs, so the file
+    the user actually ships always lost it.
+
+    This asserts the *second* write, with the worker already gone, which is the state
+    that was broken.
+    """
+    window = teardown_threads()
+    out = tmp_path / "Artist" / "Album"
+    out.mkdir(parents=True)
+    log_file = out / "rip.log"
+    log_file.write_text("cyanrip 0.9.4-rc1" + chr(10), encoding="utf-8")
+
+    window._last_ripper_stdout = (
+        "cyanrip 0.9.4-rc1+platterpus.5-beta.1"
+        + chr(10)
+        + "Track 1 ripped and encoded successfully!"
+        + chr(10)
+    )
+    # THE STATE THAT WAS BROKEN: the worker is gone, exactly as it is for every
+    # re-write after the first.
+    window._rip_worker = None
+
+    window._write_rip_report(RipLog(log_creator="cyanrip 0.9.4-rc1"), log_file)
+
+    report = json.loads((out / "rip.platterpus.json").read_text(encoding="utf-8"))
+    stdout_block = (report["artifacts"] or {}).get("ripper_stdout") or {}
+    assert "Track 1 ripped and encoded successfully!" in (
+        stdout_block.get("text") or ""
+    ), (
+        "the re-write emptied the ripper's captured output — the kill-proof "
+        "artifact is only in the FIRST write again"
+    )
+
+
 def test_the_failure_report_embeds_the_rippers_output_and_the_debug_log(
     teardown_threads, tmp_path: Path
 ) -> None:

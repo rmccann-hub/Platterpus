@@ -256,6 +256,78 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   logfile earlier, because a logfile opened before the disc is validated trades an old
   ambiguity for a new one.
 
+### Verified on hardware — **full 14/14 EAC parity, and three defects the artifact caught**
+
+The maintainer uploaded a real rip of the EAC baseline disc from the rig (2026-08-04):
+Platterpus **0.6.4b3** + `cyanrip 0.9.4-rc1+platterpus.5-beta.1
+(platterpus-fork-g9003e6f)`, Pioneer BDR-209D, offset +667. The four artifacts are
+committed to `output_reference/cyanrip_fork_flac/` and
+`tests/test_fork_rip_eac_parity.py` **reads them** rather than restating their numbers.
+
+- **14 of 14 tracks are bit-identical to EAC.** Every `Copy CRC` equal, track for
+  track, against the committed genuine EAC 1.8 log of the same disc in the same drive.
+  That closes the parity goal in `output_reference/README.md`.
+- **All ten of EAC's `Pre-gap length` rows match ours to the hundredth of a second, in
+  order.** cyanrip 0.9.3 reported "None signalled" and found none; the fork reads them
+  from the sub-channel and finds precisely EAC's ten. The KDD-32 / `INDEX 00`
+  capability gap that `eac_log_export._gap_handling` documented as *our one measurable
+  archival shortfall against EAC* is **closed for the fork** — and that docstring, which
+  still described the shortfall as open, is corrected.
+- **Track 5 reached parity only via the auto-fix.** Its first pass produced `6902BCF0`,
+  which does not match EAC; only the `+450` offset-variant matched AccurateRip. The
+  secure re-rip produced `E0036697` — EAC's value — and swapped it in. So the artifact
+  is also the proof that the re-rip feature does the thing it exists for.
+
+### Fixed — found by reading that artifact, all three invisible to a green suite
+- **The EAC log's `Gap handling` row was wrong on every disc with a real pregap.** The
+  fork prints `merging into track N`; our matcher looked for `merged` — one word ending
+  — so the row read *"(not reported by the ripper)"* where EAC says *"Appended to
+  previous track"*. The fork published `merging into track %i` in **round 5**, so the
+  evidence sat in a committed file in this repo for two rounds; exactly the shape of the
+  `-V` blocker. **Two** separate tests pinned the invented word, and
+  `_gap_handling`'s own docstring already named this trap about the *previous* bug in
+  the same function — *"its test could not catch it because the fixture handed the
+  function a string cyanrip does not emit."* The replacement test made the same mistake
+  with a different invented string. The matcher now uses the fork's five published
+  actions, `dropping`/`splitting off` are refused an EAC phrase because they change what
+  audio exists, and the tests read the published block out of
+  `docs/handshake/inbound/round-6.md`.
+- **`artifacts.ripper_stdout` was empty on every completed rip.** The report is
+  re-written by each post-rip step; `_on_rip_finished` clears `_rip_worker` in between;
+  and the writer read the live worker behind a guard whose *only* effect was to emit
+  `""` once it was gone. So the first write carried the ripper's output and every later
+  one replaced it with nothing — and since FLAC verify is on by default and the
+  self-check always runs, the file the user ships always lost it. The block's own
+  `source` string still promised *"complete even when the ripper was killed"*: accurate
+  about the mechanism, false about the file. This is the one artifact the cyanrip
+  project cannot produce for itself, and the thing round 7 lap 10 tells them we capture.
+  Now snapshotted at finish like every other `_last_*` fact.
+- **`self_check` was an undeclared top-level report key, and the sweep written the same
+  day could not see it.** It is added by `write_report` *after* `_build`, and the
+  completeness sweep inspected the **builder** — my stand-in — rather than a written
+  file. The real artifact had 32 top-level keys where the builder produces 31. The sweep
+  now writes a report and reads it back.
+
+### Added
+- **The fork's two self-describing log lines are parsed (schema v16 → v17).**
+  `rip.ripper_handshake_note` is the binary's own compiled-in statement of which
+  handshake round it was built from — the rig log says `round 7 lap 7 OPEN, verdict HOLD
+  -- NOT a released build`, which is a provenance claim **derivable from the artifact's
+  content** (CLAUDE.md rule 12) and a second, *independent* witness beside
+  `ripper_handshake_approval`, which is only *our* verdict on the banner. When the two
+  disagree, the disagreement is the finding. `rip.ripper_consumer` records who the
+  ripper was told the caller was — `not identified (no --consumer given)` until we ship
+  the flag, which is itself worth carrying, because a log with no consumer cannot be
+  attributed to us at all. Both verbatim, both `null` on stock cyanrip. Implemented from
+  the real artifact rather than a fixture, which is what made it possible: a fixture
+  would have been my guess at their wording.
+- **The real-log sweeps are build-aware.** They were written when every committed real
+  log was stock 0.9.3, so *"the real logs"* and *"stock output"* were the same set — the
+  state that let the fork's wording go unmatched for two rounds. `_stock_logs()` /
+  `_fork_logs()` split them, a floor test requires **both** builds to be present, and the
+  top-level-line sweep now stops at Platterpus's own auto-fix addendum rather than
+  demanding ignore-list entries for our own prose.
+
 ### Verified on hardware
 - **The `$HOME` fix works on the real rig.** After installing v0.6.4b3 the setup
   wizard reports every step ✓ — *"Platterpus fork of cyanrip (build + export) —

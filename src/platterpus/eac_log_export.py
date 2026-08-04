@@ -56,6 +56,7 @@ from platterpus.parsers.rip_log import (
 )
 from platterpus.report_types import SecureReripBlock
 from platterpus.ripper_identity import identify_ripper
+from platterpus.safe_int import int_or_none
 from platterpus.verdict import accuraterip_lookup_happened
 
 log = logging.getLogger(__name__)
@@ -498,10 +499,43 @@ _GAP_PER_TRACK = re.compile(
     r"(?P<frames>\d{1,9})\s+frames?\s+pregap\s+in\s+track\s+(?P<track>\d{1,4})"
     r"\s*,\s*(?P<mode>[^;]+)"
 )
-# Modes that mean the gap's audio was folded into the preceding track — EAC's
-# "Appended to previous track". Listed as positives because an unrecognised mode
-# must NOT earn the stronger claim.
-_GAP_MODE_APPENDED: tuple[str, ...] = ("merged", "append", "into previous", "previous")
+# The fork's pregap ACTIONS, verbatim from its published provider contract
+# (`docs/handshake/inbound/round-6.md`, `cyanrip_main.c:1090`–`1111`) — five of them:
+#
+#     unmerged  |  merging into track %i  |  dropping  |  merging
+#     splitting off into a new track, number %i
+#
+# Only the two `merging` forms fold the gap's audio into the preceding track, which
+# is what EAC's "Appended to previous track" asserts.
+#
+# WHY THIS LIST IS COPIED FROM THEIR CONTRACT RATHER THAN GUESSED. The previous
+# version read `("merged", "append", "into previous", "previous")` — **four tokens the
+# fork emits none of.** It says `merging`, not `merged`; one word ending, and it cost
+# this row on every disc with a real pregap: the whole-disc log said "160 frame pregap
+# in track 2, merging into track 1" and the EAC row said
+# "(not reported by the ripper)". Found on the rig, 2026-08-04, by the WARNING this
+# function already logged — and the fork had published `merging into track %i` in
+# **round 5**, so the evidence sat in a committed file in this repo for two rounds.
+# Exactly the shape of the `-V` blocker.
+#
+# `tests/test_eac_log_export.py` now reads their published Gaps block out of that
+# committed file instead of a string we invented, which is the only reason a future
+# rename cannot repeat this.
+_GAP_MODE_APPENDED: tuple[str, ...] = ("merging",)
+#: Actions with **no EAC equivalent**: they discard or relocate the gap's audio rather
+#: than appending it. Claiming either EAC phrase for these would be false, so the row
+#: goes unreported and the mode is named in the log.
+_GAP_MODE_NO_EAC_EQUIVALENT: tuple[str, ...] = ("dropping", "splitting off")
+
+
+def _safe_track_number(raw: str) -> int | None:
+    """A track number off the fork's Gaps block, or ``None``. Never raises.
+
+    The regex already bounds it to 1–4 digits, so this is belt rather than braces —
+    but this module renders an archival artifact and the parse-never-raises rule
+    applies to every value that came from a dependency's text.
+    """
+    return int_or_none(raw)
 
 
 def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
@@ -533,17 +567,23 @@ def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
     from a parsed engine name, and every sibling row in this block already says so
     rather than guess.
 
-    **This row will DISAGREE with a real EAC log of the same disc, and that is the
-    point.** On the Police reference disc, in the same drive, EAC's log says
+    **On stock cyanrip this row DISAGREES with a real EAC log of the same disc, and
+    that is the point.** On the Police reference disc, in the same drive, EAC says
     "Appended to previous track" and lists a `Pre-gap length` for **ten of its
-    fourteen** tracks, while cyanrip 0.9.3 says "None signalled" and finds none — so
-    ours now reads
-    "Not detected, thus appended". The old row hid that behind cyanrip's own
-    phrasing. The difference is real: cyanrip's TOC read does not see pregaps EAC
-    detects, which is the same capability gap as KDD-32 / the `INDEX 00` work, and
-    a row that reported EAC's string regardless would have concealed our one
-    measurable archival shortfall against EAC. Honesty first, parity second — see
-    `tests/test_eac_log_export.py` for the assertion that pins this on the real
+    fourteen** tracks, while cyanrip **0.9.3** says "None signalled" and finds none —
+    so a 0.9.3 log renders "Not detected, thus appended". The old row hid that behind
+    cyanrip's own phrasing, and a row that reported EAC's string regardless would have
+    concealed a measurable archival shortfall. Honesty first, parity second.
+
+    **The fork has since CLOSED that shortfall, measured on hardware (2026-08-04).**
+    `platterpus-fork-g9003e6f` reads the pregaps from the sub-channel and finds
+    **exactly the ten EAC finds, to the hundredth of a second, in the same order** —
+    verified value-by-value against `output_reference/EAC_flac/` rather than asserted:
+    `0:00:02.00, 02.13, 02.10, 01.53, 01.40, 01.13, 01.25, 01.96, 01.20, 01.56`. So on
+    the fork this row now reads EAC's own phrase because the evidence earns it, not
+    because we matched a string. The KDD-32 / `INDEX 00` capability gap is closed for
+    the fork; it remains open for stock 0.9.3, which is why both branches stay here.
+    See `tests/test_eac_log_export.py` for the assertions, both pinned on the real
     baseline.
     """
     if not cyanrip:
@@ -558,19 +598,47 @@ def _gap_handling(info: RippingInfo, cyanrip: bool) -> str:
     # "None signalled" states, so it must render the same way.
     per_track = _GAP_PER_TRACK.findall(text)
     if per_track:
-        frames = [int(m[0]) for m in per_track]
-        modes = " ".join(m[2].casefold() for m in per_track)
-        if not any(frames):
+        # DECIDE FROM THE APPENDABLE GAPS ONLY — non-zero, and on a track that HAS a
+        # previous track. Track 1's pregap cannot be appended anywhere, so its mode
+        # (typically `unmerged`) is not a deviation from EAC, which likewise reports
+        # its track-1 pre-gap without appending it to anything.
+        appendable = [
+            m for m in per_track if int(m[0]) > 0 and _safe_track_number(m[1]) != 1
+        ]
+        if not appendable:
+            # No gap this rip could have appended. That is the same fact
+            # "None signalled" states, so it must render the same way.
             return "Not detected, thus appended to previous track"
+        modes = " ".join(m[2].casefold() for m in appendable)
+        blocked = [t for t in _GAP_MODE_NO_EAC_EQUIVALENT if t in modes]
+        if blocked:
+            # These change what audio exists, which EAC never does. Naming the mode
+            # is the point: the old message quoted 120 chars of the whole block and
+            # left the reader to spot which word was the problem.
+            log.warning(
+                "cyanrip gap action(s) %s have no EAC equivalent (they discard or "
+                "relocate the gap's audio), so EAC's Gap handling row is left "
+                "unreported rather than claiming a policy EAC does not have",
+                ", ".join(blocked),
+            )
+            return _UNREPORTED
         if any(token in modes for token in _GAP_MODE_APPENDED):
             return "Appended to previous track"
-        # Gaps were found and the mode is one we do not recognise — say nothing
-        # rather than pick whichever EAC phrase is closer. This row is a claim
-        # about what the rip DID, and guessing it is how it went wrong before.
+        if "unmerged" in modes:
+            # Detected and deliberately NOT appended. EAC has no string for this —
+            # its own row only ever asserts appending — so say nothing rather than
+            # pick whichever phrase is closer.
+            log.warning(
+                "cyanrip left pregap(s) unmerged on track(s) after the first, which "
+                "EAC's Gap handling row has no wording for — leaving it unreported"
+            )
+            return _UNREPORTED
+        # A mode outside their published set: a fork change we have not consumed.
         log.warning(
-            "unrecognised cyanrip gap mode(s) in %r — leaving EAC's Gap handling "
-            "row unreported rather than guessing the policy",
-            text[:120],
+            "unrecognised cyanrip gap action in %r — not one of the five in the "
+            "fork's published contract (docs/handshake/inbound/); leaving EAC's Gap "
+            "handling row unreported rather than guessing the policy",
+            text[:200],
         )
         return _UNREPORTED
     return "Appended to previous track"

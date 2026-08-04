@@ -290,6 +290,19 @@ class RipLog:
     # something between us mangled an argument, and that gap was previously
     # invisible from either end.
     invoked_as: str = ""
+    #: FORK-ONLY provenance, verbatim from the binary: which handshake round it
+    #: was BUILT from, derived at its build time from its own round files. A build
+    #: from an open-round tree says so permanently. Independent of our
+    #: `handshake_approval` check, which compares banners against what *we*
+    #: believe was approved — this is what their build system recorded, and it
+    #: cannot be stale relative to the binary because it is compiled into it.
+    handshake_note: str = ""
+    #: FORK-ONLY: who the ripper was TOLD its caller was. Their log states in as
+    #: many words that this is reported by the caller and not verified, so it is
+    #: provenance, never verification. `not identified (no --consumer given)`
+    #: until we ship the flag — itself the fact worth carrying, since a log with
+    #: no consumer cannot be attributed to us at all.
+    consumer: str = ""
     # The ripper's own "Rip completed:" footer. **Tri-state.** None = the footer
     # is absent, which is exactly what a killed rip's log looks like — never
     # read it as False ("finished, and reported failure"). The fork confirms

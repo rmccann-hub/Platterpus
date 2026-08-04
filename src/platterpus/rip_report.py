@@ -177,7 +177,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 16
+REPORT_SCHEMA_VERSION: int = 17
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -874,6 +874,16 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # those two disagree, something between us mangled an argument, and
         # that gap is invisible from either end alone.
         "invoked_as": getattr(rip_log, "invoked_as", "") or None,
+        # v17: the ripper's OWN statement of what it was built from, and who it was
+        # told the caller was. Both fork-only, both verbatim, both `null` on stock.
+        #
+        # `ripper_handshake_note` is a second, INDEPENDENT witness to provenance:
+        # `ripper_handshake_approval` (v15) is *our* verdict on the banner, while this
+        # is what the fork's build system compiled into the binary. When the two
+        # disagree, the disagreement is the finding — and a build from an open round
+        # says so here permanently, which no banner can.
+        "ripper_handshake_note": getattr(rip_log, "handshake_note", "") or None,
+        "ripper_consumer": getattr(rip_log, "consumer", "") or None,
         # v13: the *classified* answer, so a consumer does not have to know
         # which tags mean "our fork". Tri-state on purpose — `null` is "not
         # determined", and must never be read as `false`. An unrecognised

@@ -145,12 +145,60 @@ def test_gap_row_translates_cyanrips_detection_into_eacs_policy_wording() -> Non
     assert "None signalled" not in text
 
 
-def test_gap_row_drops_the_not_detected_caveat_when_gaps_were_signalled() -> None:
-    """Same policy, no detection caveat — EAC's other real value for this row."""
+def _published_gaps_block() -> str:
+    """The fork's own ``Gaps:`` block, read out of its published provider contract.
+
+    **This is the whole point of the test below.** The version this replaces handed
+    `_gap_handling` the string ``"Track 2: 00:02:00"`` — which cyanrip does not emit,
+    in any build, ever. So it asserted the function's behaviour on input the product
+    never sees, and the real wording (``merging into track %i``) went unmatched for
+    two rounds: the row read "(not reported by the ripper)" on every disc with a real
+    pregap, on hardware, while this test stayed green.
+
+    The bitter part is that `_gap_handling`'s docstring already named this exact trap,
+    about the *previous* bug in the same function — *"its test could not catch it
+    because the fixture handed the function EAC's phrase as input — a string cyanrip
+    does not emit."* The replacement test made the same mistake with a different
+    invented string. Hence: read the committed artifact (CLAUDE.md — *when a committed
+    artifact can settle a question, the test should read the artifact*).
+    """
+    contract = _REPO_ROOT / "docs" / "handshake" / "inbound" / "round-6.md"
+    text = contract.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == "Gaps:")
+    block = []
+    for ln in lines[start + 1 :]:
+        if not ln.strip():
+            break
+        block.append(ln.strip())
+    # FLOOR: the block must actually have been found, with real entries.
+    assert len(block) >= 2, (
+        f"only {len(block)} Gaps entr(ies) found in the fork's published contract — "
+        "the block has moved and this test is measuring nothing"
+    )
+    # And it must contain the fork's real wording, not something we could have typed.
+    assert any("merging into track" in ln for ln in block), (
+        "the fork's published Gaps block no longer contains 'merging into track' — "
+        "if their wording changed, that is a handshake event, not a test to loosen"
+    )
+    return "; ".join(block)
+
+
+def test_gap_row_matches_the_forks_ACTUAL_published_wording() -> None:
+    """The row must read EAC's phrase for the text the fork really prints.
+
+    Regression for 2026-08-04: `_GAP_MODE_APPENDED` held four tokens
+    (``merged``/``append``/``into previous``/``previous``) that the fork emits **none**
+    of — it says ``merging``. One word ending, and this row silently degraded to
+    "(not reported by the ripper)" on every disc with a pregap.
+
+    Input comes from :func:`_published_gaps_block`, so this cannot pass against a
+    string we invented.
+    """
     log = _sample_log()
     signalled = replace(
         log,
-        ripping_info=replace(log.ripping_info, gap_detection="Track 2: 00:02:00"),
+        ripping_info=replace(log.ripping_info, gap_detection=_published_gaps_block()),
     )
     text = render_eac_style_log(signalled)
     assert (
@@ -158,6 +206,84 @@ def test_gap_row_drops_the_not_detected_caveat_when_gaps_were_signalled() -> Non
         in text
     )
     assert "Not detected" not in text
+    assert _UNREPORTED not in text.split("Gap handling")[1].splitlines()[0]
+
+
+def test_a_track_1_only_pregap_is_not_treated_as_a_deviation() -> None:
+    """Track 1's pregap cannot be appended to anything, so ``unmerged`` there is
+    normal — EAC likewise reports its track-1 pre-gap without appending it.
+
+    The fork's published example has exactly this shape (track 1 ``unmerged``, track 2
+    ``merging into track 1``), which is why the decision must look at tracks after the
+    first rather than at every entry.
+    """
+    from platterpus.eac_log_export import _gap_handling
+
+    def row(detection: str) -> str:
+        return _gap_handling(RippingInfo(gap_detection=detection), True)
+
+    # Only track 1 has a gap: nothing this rip could have appended.
+    assert row("150 frame pregap in track 1, unmerged") == (
+        "Not detected, thus appended to previous track"
+    )
+    # Track 1 unmerged + a later track merged → the later track decides.
+    assert (
+        row(
+            "150 frame pregap in track 1, unmerged; "
+            "75 frame pregap in track 2, merging into track 1"
+        )
+        == "Appended to previous track"
+    )
+
+
+def test_a_destructive_gap_action_is_never_given_an_eac_phrase() -> None:
+    """``dropping`` and ``splitting off`` change what audio exists; EAC never does.
+
+    Both are in the fork's published set, and claiming either EAC string for them
+    would be a false archival assertion — so the row goes unreported and the log
+    names the action.
+    """
+    from platterpus.eac_log_export import _gap_handling
+
+    for action in ("dropping", "splitting off into a new track, number 3"):
+        got = _gap_handling(
+            RippingInfo(gap_detection=f"90 frame pregap in track 4, {action}"), True
+        )
+        assert got == _UNREPORTED, f"{action!r} was given the phrase {got!r}"
+
+
+def test_every_published_pregap_action_is_classified_deliberately() -> None:
+    """A sweep over the fork's five published actions: none may fall through by
+    accident.
+
+    "Can this check be satisfied by finding nothing?" — the floor is the count. If
+    the fork adds a sixth action, this test does not fail (it cannot know), but
+    `_gap_handling`'s final branch logs and reports unreported, which is the safe
+    direction and is asserted below.
+    """
+    from platterpus.eac_log_export import _gap_handling
+
+    published = {
+        "unmerged": _UNREPORTED,
+        "merging into track 1": "Appended to previous track",
+        "dropping": _UNREPORTED,
+        "merging": "Appended to previous track",
+        "splitting off into a new track, number 3": _UNREPORTED,
+    }
+    assert len(published) == 5, "the fork publishes five pregap actions"
+    for action, expected in published.items():
+        got = _gap_handling(
+            RippingInfo(gap_detection=f"90 frame pregap in track 4, {action}"), True
+        )
+        assert got == expected, f"{action!r} -> {got!r}, expected {expected!r}"
+
+    # An action outside the set must be unreported, never guessed into a phrase.
+    assert (
+        _gap_handling(
+            RippingInfo(gap_detection="90 frame pregap in track 4, teleporting"), True
+        )
+        == _UNREPORTED
+    )
 
 
 def test_gap_row_is_unreported_for_a_log_from_another_ripper() -> None:
@@ -906,15 +1032,22 @@ def test_gap_handling_reads_cyanrips_own_wording_not_eacs() -> None:
         row("0 frame pregap in track 1, unmerged; 0 frame pregap in track 2, unmerged")
         == "Not detected, thus appended to previous track"
     ), "zero frames is 'not detected', not the stronger 'appended' claim"
-    # The fork, reporting real gaps folded into the previous track.
-    assert row("150 frame pregap in track 2, merged") == "Appended to previous track"
-    # An unrecognised mode must NOT earn either EAC phrase.
+    # The fork, reporting real gaps folded into the previous track. **The wording is
+    # `merging`, not `merged`** — this line used to say `merged`, a word the fork emits
+    # nowhere, and that is how the row came to read "(not reported)" on hardware while
+    # this very test stayed green. A second invented-fixture failure in the same
+    # function, found the same day as the first.
+    assert (
+        row("150 frame pregap in track 2, merging into track 1")
+        == "Appended to previous track"
+    )
+    # An action outside the fork's published five must NOT earn either EAC phrase.
     assert row("150 frame pregap in track 2, sideways") == _UNREPORTED
     # Floor: the three recognised shapes must not all render identically, or this
     # test would pass against a function that returns one constant.
     distinct = {
         row("None signalled"),
-        row("150 frame pregap in track 2, merged"),
+        row("150 frame pregap in track 2, merging into track 1"),
         row("150 frame pregap in track 2, sideways"),
     }
     assert len(distinct) == 3, f"the row is not discriminating: {distinct}"
