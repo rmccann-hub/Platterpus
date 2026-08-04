@@ -158,19 +158,31 @@ nothing goes wrong — *"nothing was printed"* is only a finding if you were cap
 
 **Highest value per minute in the session, and it gates two separate fixes.**
 
-Our old 89× pre-gap bug (F4) and the fork's new lead-in-counted-twice bug (their C1) both
-fire **only on a disc whose TOC declares a pre-gap**. The Police disc declares none —
-see step 2's note — so **neither fix has any hardware proof and this disc cannot give it
-one.**
+The fork's lead-in-counted-twice bug (their C1) fires **only on a disc whose TOC declares a
+pre-gap**. The Police disc declares none, so it cannot test C1 — see step 2's note.
+
+**Our own 89× bug (F4) is a different case and it is now PROVEN.** It needed a non-zero
+`Pregap LSN`, not a TOC-declared one, and the fork's sub-channel read supplies ten of them:
+track 2 reports `Pregap LSN 14327` with a true length of `160`, and we render 160. A25's
+premise (*"cyanrip reports none for all fourteen"*) has expired — **A25 closes as passed.**
 
 Screening costs no rip: insert a disc, let Platterpus scan it, then move on.
 
 ```sh
-# after scanning each disc:
-grep "Pregap LSN:" ~/.local/share/platterpus/log.txt | grep -v none
+# after scanning each disc — the SOURCE line is the discriminating one:
+grep "Pregap source:" ~/.local/share/platterpus/log.txt | grep TOC
 ```
 
-**Any line printing a number instead of `none` is a candidate.** Best bets, in order:
+**Any line saying `TOC` is a candidate. There will usually be none.**
+
+> **CORRECTED 2026-08-04.** This step originally said `grep "Pregap LSN:" … | grep -v none`,
+> inherited from A25. **That test no longer discriminates.** A25 was written when cyanrip
+> reported `none` for every track on this disc; the fork now reads pre-gaps from the
+> **sub-channel**, so a non-`none` `Pregap LSN` is present on almost any disc and the grep
+> hits every time. Measured over the retained log history: **40+ `Pregap source:` lines,
+> every one `lead-in` or `sub-channel (not signalled by TOC)`, zero `TOC`.** The pre-gap
+> fixes on both sides fire only where the **TOC** declares it, so `Pregap source: TOC` is
+> the only string that answers the question. Best bets, in order:
 
 1. **CD-Extra / enhanced CDs** (audio tracks + a data track) — the data track's pre-gap is
    almost always TOC-declared;

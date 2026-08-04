@@ -12,6 +12,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The 2026-08-04 rig session's results are committed as a derived record**
+  (`docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`) with the rip log, the
+  auto-fix addendum, the cue, the rendered EAC-compatible log and the JSON report beside it.
+  **14/14 bit-perfect against EAC's committed baseline**, `ripper_log_verification: verified`,
+  and the first hardware sightings of `Read stalls:` and `C2 errors: unsupported by drive`.
+  Every value in the record is read out of an artifact and names which one; steps that did
+  not run say **NOT RUN** rather than leaving a blank, because a blank reads as a pass.
+- **A25 closes as PASSED, and its premise had expired.** It said our 89× pre-gap bug *"has no
+  hardware proof and this disc cannot give it one"*, because cyanrip reported `none` for all
+  fourteen tracks. The fork now reads pre-gaps from the sub-channel, so ten tracks report a
+  non-zero `Pregap LSN` — track 2's is `14327` against a true length of `160`, exactly the
+  case the bug was about, and we render 160. **The screening command in the session sheet was
+  corrected with it**: `Pregap LSN` ≠ `none` is now satisfied by almost any disc, so the
+  discriminating string is `Pregap source: TOC`. Across the retained log history there are
+  40+ source lines and **zero** say `TOC`, so the fork's C1 fix is recorded as
+  hardware-unprovable on this collection rather than untested.
 - **`docs/rig-session-c5fb909.md`** — an ordered, fill-in session sheet for one *named*
   pair (`v0.6.4b4` + cyanrip `c5fb909`), written at the maintainer's request as a front
   page for the 40-case `hardware-test-checklist.md` rather than a replacement for it. Six
