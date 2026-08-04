@@ -22,6 +22,22 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   shared-ancestor trap. Every step has a null-case blank, since a blank reads as a pass.
 
 ### Fixed
+- **`--consumer` was never sent to the ripper, on any build, in the project's entire
+  history.** `_build_rip_argv` gates it on `consumer_tag_for_build(ripper_build_tag)` and
+  defaults that parameter to `""` so an unknown build gets no capability-gated flags — and
+  **nothing ever passed it.** The parameter's own comment said defaulting to empty *"is
+  what makes the safe behaviour the default rather than something a caller must
+  remember"*; no caller remembered, so the safe default became the only behaviour and a
+  fully-built, fully-tested capability (`accepts_consumer_flag`, the build allowlist,
+  `assert_consumer_tag_is_sane`) hung off a value nobody supplied — the `RipHandle.cancel`
+  shape from rule 9, a working mechanism reachable from nowhere. **Every existing test
+  called `_build_rip_argv` directly and passed a tag**, so they measured the gate and never
+  the wiring. Found in the 2026-08-04 rig artifact, where the fork prints the field:
+  `Consumer: not identified (no --consumer given)`. `rip()` now supplies
+  `_observed_build_tag()`, which already existed for `verify_log` and is best-effort (an
+  unreadable banner still withholds the flag — the same fail-safe direction, now reached by
+  measurement rather than by omission). The new test drives the real `rip()` entry point and
+  asserts **both** directions: sent to `c5fb909`, withheld from an unrecognised build.
 - **Three CLI tools read a rip log without its auto-fix addendum, and one of them
   therefore gave a wrong answer to the project's headline question.** Found by running
   `scripts/eac_parity.py` over the 2026-08-04 rig rip of the EAC baseline disc: it reported
