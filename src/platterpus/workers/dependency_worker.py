@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from platterpus import diagnostics
 from platterpus.deps.checks import cancel_version_probes
 
 if TYPE_CHECKING:
@@ -66,8 +67,20 @@ class DependencyCheckWorker(QObject):
     def run(self) -> None:
         try:
             report = self._manager.check_all(cancelled=lambda: self._cancelled)
-        except Exception:  # noqa: BLE001 — a worker must always finish
+        except Exception as exc:  # noqa: BLE001 — a worker must always finish
             log.exception("dependency check crashed")
+            # RECORD IT, not merely log it. The GUI half returns immediately on a
+            # None report, so a user who clicked Tools → Check dependencies saw
+            # *nothing at all* — indistinguishable from a dead menu item — and the
+            # only trace was a traceback in a file that is INFO-only by default.
+            # This puts it in the enumerated diagnostics too, so a later rip report
+            # explains why the dependency block is empty.
+            diagnostics.exception(
+                "deps.command_failed",
+                "the dependency check crashed before it could produce a report",
+                exc,
+                where="workers.dependency_worker.DependencyWorker.run",
+            )
             report = None
         # A cancelled check yields the partial report; don't announce it as a
         # finished result, or the GUI would render "these deps are missing" from a

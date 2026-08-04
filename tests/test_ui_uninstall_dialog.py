@@ -7,10 +7,14 @@ monkeypatched confirm prompt.
 
 from __future__ import annotations
 
+import logging
+
+import pytest
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from platterpus.deps.step_engine import StepResult, StepStatus
+from platterpus.paths import LOG_PATH
 from platterpus.ui.uninstall_dialog import UninstallDialog
 
 
@@ -162,22 +166,36 @@ def test_step_and_finished_ignored_while_closing(qapp: QApplication) -> None:
     assert seen == []
 
 
-def test_on_finished_incomplete_without_a_failed_step(qapp: QApplication) -> None:
-    # No FAILED step, but not all ok (a CANCELLED step) → the generic
-    # "did not complete" message, and the UI re-enables for a retry.
+def test_on_finished_incomplete_without_a_failed_step(
+    qapp: QApplication, caplog: pytest.LogCaptureFixture
+) -> None:
+    # No FAILED step, but not all ok (a CANCELLED step) — the branch nobody had
+    # considered, and therefore the least diagnosable message in the dialog: four
+    # words, no detail, and this file emitted no logging AT ALL. It must now say
+    # what it actually knows, name the log, and record the step statuses.
     dialog = _dialog(qapp)
     dialog._uninstall_button.setEnabled(False)
     seen: list[bool] = []
     dialog.uninstall_finished.connect(seen.append)
 
-    dialog._on_finished(
-        [
-            StepResult("shortcuts", "Shortcuts", StepStatus.RAN),
-            StepResult("app_data", "Settings + logs", StepStatus.CANCELLED),
-        ]
-    )
+    with caplog.at_level(logging.ERROR):
+        dialog._on_finished(
+            [
+                StepResult("shortcuts", "Shortcuts", StepStatus.RAN),
+                StepResult("app_data", "Settings + logs", StepStatus.CANCELLED),
+            ]
+        )
 
-    assert dialog._status_label.text() == "Uninstall did not complete."
+    text = dialog._status_label.text()
+    assert text.startswith("Uninstall did not complete")
+    # Says WHY there is nothing specific to point at, rather than leaving the user
+    # to guess whether a step failed.
+    assert "no individual step reported a failure" in text
+    assert str(LOG_PATH) in text
+    # And it is on disk: the step statuses are what a triager needs, and this file
+    # used to write nothing anywhere.
+    assert "shortcuts=ran" in caplog.text
+    assert "app_data=cancelled" in caplog.text
     assert dialog._uninstall_button.isEnabled() is True
     assert seen == [False]
 

@@ -76,7 +76,31 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   pointing at a file the user does not have is worse than no hint, because they conclude
   the log does not exist.
 
+- **One place that tells the user *where to look* — `ui/failure_text.py`, plus a sweep
+  that keeps the tree honest.** ~20 modal failure reports said *"see the log"* and named
+  **no path**; two named a typed-out `~/.local/share/…/log.txt` literal, which is wrong
+  under any relocated `XDG_DATA_HOME` — and a path the user does not have is *worse* than
+  no path, because they conclude the log is missing. **The two that tried hardest were
+  the two that got it wrong**, which is the tell: the failure was not twenty forgetful
+  authors, it was that there was nothing to call. The pointers are now built from
+  `paths.LOG_PATH`, and `tests/test_failure_surfaces.py` sweeps every module for a
+  message that points at "the log" without naming it — with a floor on the examined
+  count, because a sweep that finds nothing because it looked nowhere is decoration. The
+  sweep found six live sites beyond the ones the audit listed, including the desktop
+  notification, and its own first version fired on a *comment* documenting a fix, which
+  is the converse trap in miniature.
+
 ### Fixed
+- **Tools → Check dependencies could do nothing visible at all.** A crashed probe emitted
+  `None` and the GUI half returned immediately, so a user-initiated menu action was
+  indistinguishable from a dead menu item — with the traceback going only to a file that
+  is INFO-only by default. It now says the *check* failed (not that a tool is missing),
+  names the log, and records the exception with its traceback in the diagnostics block.
+- **The two "did not complete" dialogs said four words and logged nothing.** Both the
+  setup and uninstall dialogs have a branch for "not ready, and no step reported a
+  failure" — the case nobody had considered, and therefore the least diagnosable message
+  in each dialog. `uninstall_dialog.py` had **no logging at all**. Both now say *why*
+  there is nothing specific to point at, name the log, and record every step's status.
 - **The rip-failure report now carries the ripper's output and the session debug log.**
   This report exists for the rips that produced no log at all — the most-broken ones —
   and it passed neither `artifacts=` nor `debug_log=`. So on exactly those rips: the

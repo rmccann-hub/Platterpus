@@ -312,7 +312,10 @@ def fidelity_summary(
         else:
             summary = (
                 f"Done — {clean}/{total} tracks ripped cleanly; "
-                f"check the log for the rest."
+                # Name the TAB, not "the log". This means the rip's own log, which is
+                # on screen right now behind a button — naming the place beats naming
+                # a file the user would have to go find.
+                f"see the Rip log tab for the rest."
             )
         clause = _accuraterip_clause(rip_log)
         if clause is None:  # no per-track AR data → legacy summary-string fallback
@@ -330,7 +333,7 @@ def fidelity_summary(
     else:
         summary = (
             f"Done — {verified}/{total} tracks CRC-verified; "
-            f"check the log for the rest."
+            f"see the Rip log tab for the rest."
         )
     clause = _accuraterip_clause(rip_log)
     if clause is None:  # no per-track AR data → legacy summary-string fallback

@@ -1604,8 +1604,10 @@ class RipMixin(MainWindowShared):
             )
             self._rip_progress.set_status(
                 "Rip finished, but Platterpus could not find the rip log, so the "
-                "post-rip checks were skipped. Your audio is in the output folder; "
-                "see the log for details."
+                "post-rip checks were skipped. Your audio is in the output folder. "
+                # WHICH log? The one it just said it could not find is the ripper's;
+                # the one that explains why is the app's, and it was never named.
+                f"The app log explains what it looked for: {LOG_PATH}"
             )
         if success and params is not None and rip_dir is not None:
             # Tagging — only when the rip we started was unknown-mode (an

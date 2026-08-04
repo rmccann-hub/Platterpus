@@ -35,6 +35,7 @@ from platterpus.deps.host_teardown import HostTeardown
 from platterpus.deps.step_engine import StepResult, StepStatus
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.ui.failure_text import LOG_POINTER
 from platterpus.workers import start_worker_thread
 from platterpus.workers.host_setup_worker import HostSetupWorker
 
@@ -190,11 +191,34 @@ class UninstallDialog(CenteredDialog):
         else:
             failed = next((r for r in results if r.status is StepStatus.FAILED), None)
             if failed is not None:
+                # This file emitted NO logging at all — there was no `log` in it — so
+                # a failed uninstall left one label on screen and nothing on disk.
+                log.error(
+                    "uninstall stopped at %s (%s): %s",
+                    failed.step_id,
+                    failed.title,
+                    failed.detail or "(no detail reported)",
+                )
                 self._status_label.setText(
-                    f"Uninstall stopped at “{failed.title}”: {failed.detail}"
+                    f"Uninstall stopped at “{failed.title}”: {failed.detail}\n"
+                    f"{LOG_POINTER}"
                 )
             else:
-                self._status_label.setText("Uninstall did not complete.")
+                # `complete` is False and nothing is marked FAILED. Same shape as the
+                # setup dialog's uncovered branch: the least diagnosable message was
+                # the one for the case nobody had considered.
+                log.error(
+                    "uninstall finished incomplete with no failed step; "
+                    "%d result(s): %s",
+                    len(results),
+                    ", ".join(f"{r.step_id}={r.status.value}" for r in results)
+                    or "(none)",
+                )
+                self._status_label.setText(
+                    "Uninstall did not complete, and no individual step reported a "
+                    "failure — so there is nothing specific to point at. Some files "
+                    f"may still be on disk.\n{LOG_POINTER}"
+                )
             self._uninstall_button.setEnabled(True)
             self._container_check.setEnabled(True)
             self._whipper_conf_check.setEnabled(True)
