@@ -308,15 +308,88 @@ WIZARD_TARGET: Final[ForkTarget] = TEST_TARGET
 
 # --- Where it lives inside the container ------------------------------------
 
-#: Source tree. Under the user's cache dir, which Distrobox shares with the
-#: host, so a re-run fetches instead of re-cloning and the uninstaller can find
-#: it. ``$HOME`` is expanded by the shell inside the container, not here.
-FORK_SOURCE_DIR: Final[str] = "$HOME/.cache/platterpus/cyanrip-fork"
+#: Source tree, **relative to the container user's ``$HOME``** — deliberately with
+#: no ``$HOME`` in it.
+#:
+#: **This constant used to be the literal string ``"$HOME/.cache/platterpus/
+#: cyanrip-fork"``, with a comment claiming "``$HOME`` is expanded by the shell
+#: inside the container, not here". That comment was false, and it cost a release
+#: cycle to find out** (real-user log, 2026-08-04, v0.6.4b2).
+#:
+#: The value was passed as a positional argument into ``sh -c SCRIPT``, where the
+#: script did ``src="$1"``. **Parameter expansion does not recurse:** ``$HOME``
+#: inside a *variable's value* is never re-expanded, so ``src`` stayed the literal
+#: 8 characters ``$HOME/…`` and every path built from it was a RELATIVE path
+#: beginning with a directory literally named ``$HOME``. The user's log said so in
+#: plain text and nobody had ever read it::
+#:
+#:     Source dir: /home/rmccann/$HOME/.cache/platterpus/cyanrip-fork
+#:     ninja: Entering directory `$HOME/.cache/platterpus/cyanrip-fork/build'
+#:
+#: **Why it went unnoticed for so long:** the clone, the configure, the compile and
+#: the install *all* used the same wrong string, so they agreed with each other and
+#: the build genuinely succeeded — right commit, right version, 31/31 targets. The
+#: only casualty was meson's ``vcs_tag``, which could not resolve a git revision
+#: from that path and fell back to upstream cyanrip's literal ``release``. So the
+#: binary self-identified as ``platterpus-fork-grelease``: a build tag naming no
+#: commit, which our verify step correctly refused. Consistently wrong is the
+#: hardest kind of wrong to see.
+#:
+#: The script now expands ``$HOME`` **at the point of use** (``src="$HOME/$1"``),
+#: which is what the old comment believed was happening.
+FORK_SOURCE_SUBPATH: Final[str] = ".cache/platterpus/cyanrip-fork"
 
-#: Same path with ``$HOME`` resolved on the host — for the uninstaller and for
-#: telling the user where the source went. Distrobox mounts the host home at the
-#: same path inside the container, so these are the same directory.
-FORK_SOURCE_DIR_HOST: Final[str] = ".cache/platterpus/cyanrip-fork"
+#: The same path as the uninstaller and the "where did the source go" message use
+#: it: relative to the host home. Distrobox mounts the host home at the same path
+#: inside the container, so these are one directory.
+FORK_SOURCE_DIR_HOST: Final[str] = FORK_SOURCE_SUBPATH
+
+#: Human-readable form for logs and UI **only** — never passed to a shell. Written
+#: with a tilde rather than ``$HOME`` precisely so it cannot be mistaken for
+#: something a shell will expand.
+FORK_SOURCE_DIR_DISPLAY: Final[str] = f"~/{FORK_SOURCE_SUBPATH}"
+
+
+def assert_shell_safe_subpath(subpath: str) -> str:
+    """Return ``subpath`` unchanged, or raise if it could not survive a shell.
+
+    **The argv-chokepoint guard for the `$HOME` bug** (CLAUDE.md: *validate every
+    output to a dependency, enforced by code at the argv chokepoint — not merely
+    stated*). A path handed to the container must be a plain relative path: no
+    shell variable, no leading slash, no traversal, no metacharacter.
+
+    ``$`` is the one that actually bit us, and it bit *silently* — the build
+    succeeded into a directory named ``$HOME`` and only the build tag came out
+    wrong. A path containing ``$`` is never what anyone meant, so it is an error
+    rather than something to expand on the caller's behalf.
+
+    Raises :class:`ValueError` with the offending character named, because a guard
+    that fails without saying why is the class of message this whole cycle was
+    about.
+    """
+    if not subpath or subpath.strip() != subpath:
+        raise ValueError(f"fork source subpath is empty or padded: {subpath!r}")
+    if subpath.startswith("/"):
+        raise ValueError(
+            f"fork source subpath must be relative to $HOME, got absolute: {subpath!r}"
+        )
+    if ".." in subpath.split("/"):
+        raise ValueError(f"fork source subpath escapes its parent: {subpath!r}")
+    # `$` first and by name: it is the failure this function exists for.
+    if "$" in subpath:
+        raise ValueError(
+            f"fork source subpath contains '$' ({subpath!r}) — a shell variable in a "
+            "path is never expanded when it arrives as an argument, which is the "
+            "v0.6.4b2 `$HOME` defect. Pass a plain relative path."
+        )
+    forbidden = set("`\"'\\;|&<>()*?[]{}!\n\r\t")
+    bad = sorted(forbidden.intersection(subpath))
+    if bad:
+        raise ValueError(
+            f"fork source subpath contains shell metacharacter(s) {bad}: {subpath!r}"
+        )
+    return subpath
+
 
 #: Install target. ``/usr/local/bin`` precedes ``/usr/bin`` on Fedora's default
 #: PATH, so the fork wins over the COPR package for anything inside the
@@ -366,28 +439,101 @@ FORK_BUILD_PACKAGES: Final[tuple[str, ...]] = (
 # success, the exact class of silent-wrong-answer this project keeps hunting.
 _BUILD_SCRIPT: Final[str] = """\
 set -eu
-src="$1"
+# $1 is a path RELATIVE TO $HOME, and $HOME is expanded HERE — at the point of
+# use, inside the container's own shell. Passing a pre-baked "$HOME/..." string
+# does NOT work: parameter expansion does not recurse, so it stayed literal and
+# every path became a relative one under a directory named '$HOME'. See
+# FORK_SOURCE_SUBPATH for the full post-mortem.
+src="$HOME/$1"
 url="$2"
 branch="$3"
 pin="$4"
+
+# --- Say where we are before doing anything ---------------------------------
+# These four lines are the ones that would have ended the v0.6.4b2 hunt in
+# seconds. The failure was entirely visible in a path and nobody printed it.
+echo "platterpus: HOME=$HOME"
+echo "platterpus: cwd=$(pwd)"
+echo "platterpus: source tree=$src"
+echo "platterpus: requested pin=$pin branch=$branch"
+case "$src" in
+  /*) : ;;
+  *) echo "platterpus: FATAL source tree is not an absolute path: $src" >&2
+     exit 1 ;;
+esac
+case "$src" in
+  *'$'*) echo "platterpus: FATAL source tree contains an unexpanded variable:" \\
+              "$src — this is the v0.6.4b2 defect" >&2
+         exit 1 ;;
+esac
+
 mkdir -p "$(dirname "$src")"
 if [ -d "$src/.git" ]; then
+  echo "platterpus: reusing existing clone, fetching $branch"
   git -C "$src" remote set-url origin "$url"
   git -C "$src" fetch --force origin "$branch"
 else
+  echo "platterpus: no clone at $src — cloning $branch"
   git clone --branch "$branch" "$url" "$src"
 fi
 # Detach onto the verified commit. `--force` discards a half-finished previous
 # attempt; the tree is a build cache we own, never the user's work.
 git -C "$src" checkout --force --detach "$pin"
+
+# --- Prove the tree is what we asked for, before building it ----------------
+# A build tag names a commit; it does not name what was built (CLAUDE.md rule
+# 12). So state the commit we actually landed on, and whether the tree is dirty
+# — a dirty tree bakes a tag for a different tree, silently.
+echo "platterpus: HEAD=$(git -C "$src" rev-parse HEAD)"
+echo "platterpus: HEAD short=$(git -C "$src" rev-parse --short HEAD)"
+echo "platterpus: describe=$(git -C "$src" describe --always --dirty 2>&1 || true)"
+dirt="$(git -C "$src" status --porcelain 2>/dev/null || true)"
+if [ -n "$dirt" ]; then
+  echo "platterpus: WARNING the source tree is DIRTY — the build tag will not" \\
+       "describe what is built:" >&2
+  printf '%s\\n' "$dirt" >&2
+else
+  echo "platterpus: tree is clean"
+fi
+# meson's vcs_tag resolves the build tag by running git in the source root. If
+# THAT cannot work, the tag silently becomes upstream's `release` fallback — the
+# v0.6.4b2 symptom — so probe it here, where a failure is attributable.
+if git -C "$src" rev-parse --short HEAD >/dev/null 2>&1; then
+  echo "platterpus: git is usable in the source root (vcs_tag should resolve)"
+else
+  echo "platterpus: WARNING git is NOT usable in the source root — meson's" \\
+       "vcs_tag will fall back and the build tag will name no commit" >&2
+fi
+
 # `--wipe` reconfigures an existing build dir (and fails if there isn't one),
 # so branch on it rather than deleting anything.
 if [ -d "$src/build" ]; then
+  echo "platterpus: reconfiguring existing build dir"
   meson setup --wipe "$src/build" "$src"
 else
+  echo "platterpus: configuring a fresh build dir"
   meson setup "$src/build" "$src"
 fi
 ninja -C "$src/build"
+
+# --- Read the banner off the thing we just built ----------------------------
+# The build step's own self-check. Previously the first time anyone learned the
+# banner was wrong was three commands later, in the verify step, which reported
+# only what it EXPECTED. Reading it here attributes a wrong tag to the build
+# that produced it.
+built="$src/build/src/cyanrip"
+if [ -x "$built" ]; then
+  echo "platterpus: built binary=$built"
+  for _f in -V --version; do
+    if _out="$("$built" "$_f" 2>/dev/null)"; then
+      echo "platterpus: built banner=$(printf '%s\\n' "$_out" | head -n 1)"
+      break
+    fi
+  done
+else
+  echo "platterpus: FATAL ninja reported success but $built is not executable" >&2
+  exit 1
+fi
 """
 
 #: Verifies the freshly installed binary is the fork *and* the pinned build,
@@ -405,9 +551,32 @@ _VERIFY_SCRIPT: Final[str] = (
     + "\n"
     "printf '%s\\n' \"$banner\"\n"
     'case "$banner" in\n'
-    '  *"$2"*) exit 0 ;;\n'
+    '  *"$2"*) echo "platterpus: installed binary identifies as $2" ; exit 0 ;;\n'
     "esac\n"
-    'echo "installed cyanrip does not identify as the pinned fork build ($2)" >&2\n'
+    # NAME WHAT WE GOT, NOT ONLY WHAT WE WANTED.
+    #
+    # This said only "does not identify as the pinned fork build ($2)". The
+    # observed banner was printed one line ABOVE on stdout — and
+    # `HostSetup._run_commands` keeps only the LAST line for the UI, so the one
+    # fact that mattered was discarded at exactly the moment it mattered. The real
+    # answer was `platterpus-fork-grelease`: not a wrong commit, a tag naming NO
+    # commit, which points at meson's vcs_tag rather than at the checkout. Two
+    # sessions were spent guessing at what one string would have settled.
+    #
+    # `grelease` gets its own sentence, because it has a specific cause and a
+    # user should not have to know that to act on it.
+    # ORDER MATTERS: `HostSetup._run_commands` shows the UI only the LAST
+    # meaningful line, so the line carrying BOTH banners has to be last. The
+    # `grelease` explanation goes first — it is context, and the log keeps every
+    # line regardless now.
+    'case "$banner" in\n'
+    "  *-grelease*|*-gunknown*)\n"
+    '    echo "note: that build tag names no commit at all (meson vcs_tag fell'
+    " back to its literal default), so the binary cannot prove which source it"
+    ' was built from" >&2 ;;\n'
+    "esac\n"
+    'echo "installed cyanrip reports \\"$banner\\" but this Platterpus expects'
+    ' build tag \\"$2\\"" >&2\n'
     "exit 1\n"
 )
 
@@ -449,21 +618,46 @@ def build_command(container: str, target: ForkTarget | None = None) -> list[str]
         "-c",
         _BUILD_SCRIPT,
         "build-cyanrip-fork",
-        FORK_SOURCE_DIR,
+        assert_shell_safe_subpath(FORK_SOURCE_SUBPATH),
         FORK_REPO_URL,
         FORK_BRANCH,
         chosen.pin,
     )
 
 
+#: Copies the built binary into place, through a shell so ``$HOME`` resolves the
+#: SAME WAY the build script resolves it.
+#:
+#: **This has to go through ``sh -c`` now, and that is the point.** It used to be a
+#: bare ``sudo install`` with the path spliced in Python — and it "worked" only
+#: because the spliced string was the same wrong literal the build used, so both
+#: agreed on a directory named ``$HOME``. Fixing the build alone would have left
+#: this one copying from a path that no longer exists. Two expressions of one path
+#: is the drift; one expansion rule, applied in both places, is the fix.
+_INSTALL_SCRIPT: Final[str] = """\
+set -eu
+src="$HOME/$1"
+built="$src/build/src/cyanrip"
+if [ ! -x "$built" ]; then
+  echo "platterpus: FATAL nothing to install — $built is missing or not executable" >&2
+  echo "platterpus: (the build step is what creates it; did it run?)" >&2
+  exit 1
+fi
+echo "platterpus: installing $built -> $2"
+sudo install -Dm0755 "$built" "$2"
+echo "platterpus: installed $(ls -l "$2")"
+"""
+
+
 def install_command(container: str) -> list[str]:
     """Copy the built binary over the COPR one, on the container's PATH."""
     return _enter(
         container,
-        "sudo",
-        "install",
-        "-Dm0755",
-        f"{FORK_SOURCE_DIR}/build/src/cyanrip",
+        "sh",
+        "-c",
+        _INSTALL_SCRIPT,
+        "install-cyanrip-fork",
+        assert_shell_safe_subpath(FORK_SOURCE_SUBPATH),
         FORK_INSTALL_PATH,
     )
 
