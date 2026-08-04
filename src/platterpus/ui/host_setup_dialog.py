@@ -47,9 +47,16 @@ _STATUS_GLYPH: dict[StepStatus, str] = {
 class HostSetupDialog(CenteredDialog):
     """Modal-ish wizard that bootstraps the host stack (Distrobox + cyanrip)."""
 
-    # Emitted once the run finishes; True if the stack is ready to rip. The
-    # main window uses this to re-check dependencies / refresh the drive list.
-    setup_finished = Signal(bool)
+    # Emitted once the run finishes. The payload is REACHABILITY — "is a ripper
+    # usable on the host now?" — and deliberately NOT "did every step succeed?".
+    # Those are different questions and the difference matters: a run whose fork
+    # build failed still leaves a working ripper exported, and the main window's
+    # listener wants to refresh the drive list in exactly that case.
+    #
+    # Spelled out because conflating the two is what produced the "✓ Setup
+    # complete" headline over a failed step (see `_on_finished`). The status LABEL
+    # must consider the failures; this SIGNAL must not.
+    setup_finished = Signal(bool)  # ripper reachable on host — not "no failures"
 
     def __init__(
         self,
@@ -163,13 +170,48 @@ class HostSetupDialog(CenteredDialog):
         self._setup_button.setEnabled(True)
         self._setup_button.setText("Re-run setup")
         ready = self._host.is_ready()
+        # THE FAILED STEPS DECIDE THE HEADLINE, not `is_ready()` alone.
+        #
+        # Real-user report (2026-08-04, v0.6.4b1): this dialog said "✓ Setup
+        # complete — the ripping tools are installed. You can rip now." while
+        # listing, two lines below, "✗ Platterpus fork of cyanrip — installed
+        # cyanrip does not identify as the pinned fork build". Both statements were
+        # rendered from the same run.
+        #
+        # `is_ready()` asks *"is a ripper reachable on the host?"* — it is
+        # `cyanrip_exported() and flac_exported()`, pure reachability. The PREVIOUS
+        # fork build was still exported, so it answered True, and because the
+        # verdict never consulted `results`, a FAILED step could not affect it. A
+        # check satisfied by the wrong thing: it was asked "did setup succeed?" and
+        # it answered a different question correctly.
+        #
+        # Tri-state, because two of these states are real and different. A user
+        # whose fork step failed but who has a working stock/older ripper CAN rip —
+        # saying "setup did not complete" would be as wrong as "setup complete". So
+        # name both facts in one sentence and let them weigh it.
+        failed = [r for r in results if r.status is StepStatus.FAILED]
         # Distinguish "nothing to do" (everything was already present — common
         # on Bazzite, and otherwise looks like the wizard did nothing) from a
         # setup that actually installed things.
         all_already = bool(results) and all(
             r.status is StepStatus.DONE for r in results
         )
-        if ready and all_already:
+        if failed:
+            first = failed[0]
+            if ready:
+                # Can rip, but not with what we asked for. Both halves, explicitly.
+                self._status_label.setText(
+                    f"⚠ Setup did NOT fully complete — “{first.title}” failed: "
+                    f"{first.detail}\n"
+                    "A working ripper is still installed, so you can rip — but not "
+                    "with the build this version of Platterpus expects. Re-run setup, "
+                    "or send the log if it fails again."
+                )
+            else:
+                self._status_label.setText(
+                    f"Setup stopped at “{first.title}”: {first.detail}"
+                )
+        elif ready and all_already:
             self._status_label.setText(
                 "✓ Everything was already set up — you're ready to rip."
             )
@@ -178,13 +220,7 @@ class HostSetupDialog(CenteredDialog):
                 "✓ Setup complete — the ripping tools are installed. You can rip now."
             )
         else:
-            failed = next((r for r in results if r.status is StepStatus.FAILED), None)
-            if failed is not None:
-                self._status_label.setText(
-                    f"Setup stopped at “{failed.title}”: {failed.detail}"
-                )
-            else:
-                self._status_label.setText("Setup did not complete.")
+            self._status_label.setText("Setup did not complete.")
         # Announce the final outcome — the run may have taken minutes (gap #4).
         announce(self._status_label, self._status_label.text())
         self._worker = None
