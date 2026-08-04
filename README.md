@@ -897,4 +897,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.4b2.*
+*Last updated for Platterpus v0.6.4b3.*

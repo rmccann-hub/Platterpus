@@ -11,6 +11,23 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+- **v0.6.4b3: the `$HOME` that was never expanded — and the lesson is about *consistent* wrongness (2026-08-04).** b2 existed to make the fork-build failure visible. It did, and the answer was in the first log it produced. **Both of my earlier hypotheses were wrong** (a stale meson build directory; then nothing coherent at all), and the actual cause had been printing itself in plain text the whole time.
+
+  `FORK_SOURCE_DIR` was the literal string `"$HOME/.cache/platterpus/cyanrip-fork"`, carrying a comment that said *"`$HOME` is expanded by the shell inside the container, not here."* **That comment was false.** The value arrived as a positional argument and the script did `src="$1"` — and **parameter expansion does not recurse**, so `$HOME` stayed five literal characters. Every path derived from it was *relative*, under a directory named `$HOME`. The user's log:
+
+      Source dir: /home/rmccann/$HOME/.cache/platterpus/cyanrip-fork
+      ninja: Entering directory `$HOME/.cache/platterpus/cyanrip-fork/build'
+
+  **Why nobody saw it for months.** The build *worked*. Right commit, right version, 31 of 31 targets, installed, exported, all exit 0 — because the clone, the configure, the compile and the install all used the **same wrong string** and therefore agreed with one another. The only casualty was meson's `vcs_tag`, which cannot resolve a git revision from that path and falls back to upstream cyanrip's literal `release`. So the binary reported `platterpus-fork-grelease`: a build tag naming **no commit**, refused (correctly) by our verify.
+
+  **The durable lesson: consistently wrong is the hardest kind of wrong to see.** Every internal cross-check agreed, because they were all reading the same broken value. This is the shared-ancestor failure (`docs/testing.md` §5.ac) in a new costume — my two witnesses were related, so their agreement carried no information. What broke the tie was an **external** check: meson's independent attempt to read git from that path, which failed and left a fingerprint. Graduated: *when every internal check agrees and the artifact is still wrong, look for the one consumer that does not share your assumption.*
+
+  **The second lesson is one string.** The verify step said only *"does not identify as the pinned fork build (`platterpus-fork-g9003e6f`)"* — what it **expected**. It printed the observed banner one line earlier on stdout, and `_run_commands` keeps only the *last* line for the UI, so the single fact that mattered was discarded exactly when it mattered. Had the message quoted `grelease`, this ends in the first round: `grelease` does not look like a wrong commit, it looks like *no* commit, which points straight at `vcs_tag` rather than at the checkout. **A diagnostic that reports the expectation and not the observation is half a diagnostic.** Now both are named, and the fallback case gets its own sentence.
+
+  **Also fixed:** a silently-succeeding command (`sudo install`) left *nothing* in the log between the argv line before it and the one after, so "did it run?" was unanswerable — every command now logs its exit. And the build step gained deliberately-excessive diagnostics: `$HOME`, cwd, resolved tree, requested pin, an absolute-path and `$`-bearing guard with named fatals, `HEAD` + short sha + `describe`, a dirty-tree warning, a probe of whether git works in the source root, and finally **the banner read off the binary it just built** — so a wrong tag is attributed to the build that made it. `assert_shell_safe_subpath()` puts the guard at the argv chokepoint, in code rather than in prose.
+
+  **Process note worth keeping.** Three of my four confident mechanisms this session were wrong (build directory, then two dead ends), and one was right (the AppImage/PyPI resolution). What kept the wrong ones from shipping was labelling them *hypotheses* and naming the command that would falsify each. The revert-proof discipline also caught itself: a revert script asserted "expected 2 occurrences, found 3" and aborted **before writing**, so the green run that followed was the unreverted code — which is precisely the vacuous pass CLAUDE.md warns about, avoided only because the count was asserted.
+
 - **v0.6.4b2: the first real use of the beta found three wrong messages in minutes (2026-08-04).** The maintainer installed `v0.6.4b1` on the rig and every finding came from *using* it, not from reading it. **All three were messages, not mechanics** — the code did the right thing and told the user something false about it.
 
   **The wizard said "✓ Setup complete — you can rip now." while listing "✗ Platterpus fork of cyanrip — installed cyanrip does not identify as the pinned fork build" two lines below.** One run, both sentences. The headline came from `is_ready()` alone, which is `cyanrip_exported() and flac_exported()` — pure **reachability**. Their *previous* fork build was still exported, so it answered `True`, correctly, to a question nobody asked; and because the verdict never read `results`, a FAILED step could not change it. **CLAUDE.md's "can this check be satisfied by the wrong thing?" answered by shipping.** The fix is tri-state, because two states are real: a user with a working older ripper *can* rip, so "setup did not complete" would be as wrong as "setup complete". **The gap that hid it is the durable lesson:** the pre-existing failure test used `ready=False`, where reachability and the results agree — *a test that only exercises the case where two signals agree cannot detect that the wrong one is being read.*
@@ -820,4 +837,4 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-*Last updated for Platterpus v0.6.4b2.*
+*Last updated for Platterpus v0.6.4b3.*
