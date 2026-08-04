@@ -577,6 +577,18 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
+   - **Ordered sheet for this exact pair: [`docs/rig-session-c5fb909.md`](docs/rig-session-c5fb909.md)**
+      — `v0.6.4b4` + `c5fb909`, six steps cheapest-first, with the pre-flight checks and
+      the fill-in blocks. Written 2026-08-04 at the maintainer's request instead of them
+      working from the 40-case checklist; `hardware-test-checklist.md` stays the full
+      reference and the sheet points into its §F1/§F2/§F3.
+   - **It opens with a correction worth carrying here too:** `-O` (force overread — our
+      Settings toggle, and what H10/F2 is about) and `-x` (the fork's **cache probe**,
+      which our 16-flag argv surface does **not** contain) have both been called `-x` in
+      this correspondence. `cyanrip_backend.py` records that the `-x` older project notes
+      named *"does not exist in cyanrip's getopt at all, so passing it would abort every
+      rip."* Their lap-21 §H ask for `-x` means their probe, run directly against the
+      binary — not something Platterpus can invoke.
 2. **[ ] The fork's reply to lap 22** (`verified/round-07-lap-22.md`) — two files and two
       record corrections, none of them blocking:
    - **[ ] The golden reference from `c5fb909`** (§C3a). Their lap 21 §E says it exists
