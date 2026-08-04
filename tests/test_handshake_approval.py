@@ -19,17 +19,28 @@ The properties under test, in the order they matter:
    hardware session is *expected*; a verdict that cannot say so is the "accurate and
    useless" dependency-dialog failure again.
 4. **Never raises.** It parses a dependency's output.
+5. **The verdict off a *parsed* log matches the verdict off the banner** — added after
+   the fork found (round 7 lap 10, H2) that it did not. See
+   `test_the_real_fork_log_reads_unapproved_not_not_determined`, which reads the
+   committed artifact rather than a fixture, because the fixture in this very file
+   was what hid the bug: it fed `log_creator` a *whole* banner, a shape the parser
+   never produces.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 
 from platterpus import __version__
 from platterpus import handshake_approval as ha
 from platterpus.deps import fork_source
+from platterpus.parsers.cyanrip_log import parse_cyanrip_log
 
 APPROVED_BANNER = fork_source.FORK_EXPECTED_BANNER
+
+_REPO = Path(__file__).resolve().parent.parent
 
 
 def test_the_approved_build_tag_is_the_only_approval() -> None:
@@ -176,9 +187,135 @@ def test_approve_rip_log_survives_a_log_object_with_no_banner() -> None:
     assert ha.approve_rip_log(None).verdict == ha.NOT_DETERMINED
 
     class _Log:
-        log_creator = APPROVED_BANNER
+        # The shape the parser ACTUALLY produces: banner without the parenthetical,
+        # tag in its own field. This fixture used to set
+        # `log_creator = APPROVED_BANNER` — the whole banner, parens included — which
+        # no real parse ever yields, and that is precisely why it passed while the
+        # product returned `not_determined` on every real fork rip (lap 10, H2).
+        log_creator = f"cyanrip {fork_source.FORK_EXPECTED_VERSION}"
+        ripper_build = fork_source.FORK_EXPECTED_BUILD_TAG
 
     assert ha.approve_rip_log(_Log()).verdict == ha.APPROVED
+
+
+# --------------------------------------------------------------------------------
+# The regression that reads the artifact, not our memory of it (CLAUDE.md: *"when a
+# committed artifact can settle a question, the test should read the artifact"*).
+# --------------------------------------------------------------------------------
+
+
+def _real_fork_logs() -> list[Path]:
+    """Committed real fork rip logs — the input shape the product actually sees."""
+    return sorted(
+        p
+        for p in (_REPO / "output_reference").glob("cyanrip_fork_*/*.log")
+        if "EACcompatible" not in p.name
+    )
+
+
+def test_the_parser_splits_the_banner_so_log_creator_alone_cannot_be_classified() -> (
+    None
+):
+    """The mechanism behind H2, pinned off the real artifact.
+
+    This is the *floor* under the next test: it proves the premise (the parser drops
+    the parenthetical from `log_creator`) rather than asserting it in a comment. If a
+    future parser change ever put the tag back into `log_creator`, this fails loudly
+    and tells the next reader why `approve_rip_log` bothers to reassemble.
+    """
+    logs = _real_fork_logs()
+    assert logs, "no committed real fork log — this regression would test nothing"
+    for path in logs:
+        parsed = parse_cyanrip_log(path.read_text(encoding="utf-8", errors="replace"))
+        assert parsed.ripper_build, f"{path.name}: no build tag parsed"
+        assert "(" not in parsed.log_creator, (
+            f"{path.name}: log_creator carries the parenthetical "
+            f"({parsed.log_creator!r}) — H2's premise has changed"
+        )
+        # And the tag is not recoverable from log_creator by any means: the two fields
+        # together are the banner, and only together.
+        assert parsed.ripper_build not in parsed.log_creator, path.name
+
+
+def test_the_real_fork_log_reads_unapproved_not_not_determined() -> None:
+    """The H2 regression: every real fork rip must reach the *verdict*, not the shrug.
+
+    Reverting `approve_rip_log` to read `log_creator` alone makes this fail — the
+    check that a test earns its keep. The maintainer's own instruction predicted the
+    right answer (*"expect ripper_handshake_approval: unapproved on every rip"*),
+    which is what makes the shipped `not_determined` a wrong verdict rather than a
+    terse one.
+    """
+    logs = _real_fork_logs()
+    assert logs, "no committed real fork log — this regression would test nothing"
+    for path in logs:
+        parsed = parse_cyanrip_log(path.read_text(encoding="utf-8", errors="replace"))
+        approval = ha.approve_rip_log(parsed)
+
+        assert approval.verdict == ha.UNAPPROVED, (
+            f"{path.name}: verdict {approval.verdict!r} — a build we extracted and "
+            "can name must never report as 'not determined'"
+        )
+        # The observed banner must be the *whole* first line, reassembled, so a bug
+        # report quotes what the binary printed rather than half of it.
+        first_line = path.read_text(encoding="utf-8", errors="replace").split("\n", 1)[
+            0
+        ]
+        assert approval.observed_banner == first_line.strip(), (
+            f"{path.name}: observed_banner {approval.observed_banner!r} is not the "
+            f"banner line {first_line.strip()!r}"
+        )
+        # And it explains itself: this build is the round-7 test pin, deliberately
+        # installed for the hardware session.
+        assert "test pin" in approval.detail.lower(), path.name
+        assert parsed.ripper_build in approval.detail, path.name
+
+
+def test_the_archived_report_is_the_evidence_the_bug_shipped() -> None:
+    """The bug is provable from the artifact, not only from the fork's report of it.
+
+    The committed `.platterpus.json` was written on the rig by the shipped code, so it
+    still carries the pre-fix answer — and its *detail* sentence is the confession:
+    it says the ripper reported a banner **"with no build tag"** while the log's own
+    first line ends in `(platterpus-fork-g9003e6f)`. Two artifacts from the same rip,
+    disagreeing, both committed.
+
+    Kept rather than regenerated because a regenerated artifact would erase the only
+    hardware evidence that the wrong verdict reached a real report. What this test
+    pins is that the *fixed* classifier no longer agrees with it — so if someone ever
+    "fixes" the discrepancy by reverting the code instead, this fails.
+    """
+    import json
+
+    reports = sorted((_REPO / "output_reference").glob("cyanrip_fork_*/*.json"))
+    assert reports, "no committed fork report — nothing to cross-check"
+    checked = 0
+    for path in reports:
+        report = json.loads(path.read_text(encoding="utf-8"))
+        rip = report.get("rip") or {}
+        archived = str(rip.get("ripper_handshake_approval") or "")
+        if not archived:
+            continue
+        checked += 1
+        assert archived == ha.NOT_DETERMINED, (
+            f"{path.name}: archived verdict is {archived!r}. If this artifact was "
+            "regenerated with the fixed code, update this test to read the new value "
+            "rather than deleting it — the H2 evidence is what it is for."
+        )
+        assert "no build tag" in str(
+            rip.get("ripper_handshake_approval_detail") or ""
+        ), f"{path.name}: the archived detail no longer shows the H2 symptom"
+        # The live classifier, over the log beside it, must now disagree with the
+        # archive. Same rip, same bytes, different answer — that IS the fix.
+        log = path.with_suffix("").with_suffix(".log")
+        if not log.exists():
+            continue
+        parsed = parse_cyanrip_log(log.read_text(encoding="utf-8", errors="replace"))
+        assert ha.approve_rip_log(parsed).verdict != archived, (
+            f"{log.name}: the fixed classifier still returns the archived verdict — "
+            "the H2 fix is not in effect"
+        )
+    assert checked, "no archived approval block found — this check examined nothing"
 
 
 def test_version_pair_line_names_both_versions() -> None:

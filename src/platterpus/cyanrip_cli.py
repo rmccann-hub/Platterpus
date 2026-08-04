@@ -129,3 +129,17 @@ VERSION_BANNER_SNIPPET: Final[str] = "\n".join(
         "fi",
     ]
 )
+
+
+#: The flag that asks cyanrip to verify a rip log's own ``FUN512:`` checksum.
+#:
+#: **Long spelling on purpose.** Same reasoning as :data:`VERSION_FLAGS`: the fork's
+#: own contract says to prefer the long form because a short letter is what upstream
+#: moved when it replaced getopt with genopt (``-V`` → ``-v``, which read as *"the
+#: tool is not installed"* to every probe we shipped). ``-Y`` is what their table
+#: lists today; ``--verify-log`` is what it has always been called.
+#:
+#: Published in their flag table since round 4, so ``tests/test_argv_surface_agreement``
+#: covers it. Range: **all fork builds and stock ≥ 0.9.3** — the checksum footer and
+#: this flag arrived together.
+VERIFY_LOG_FLAG: Final[str] = "--verify-log"

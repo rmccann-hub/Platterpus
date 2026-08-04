@@ -431,8 +431,38 @@ class DiagnosticsBlock(TypedDict):
     items: list[DiagnosticItemBlock]
 
 
+class RipperLogVerificationBlock(TypedDict):
+    """The report's `ripper_log_verification` block (schema v18).
+
+    **The one block in this report whose verdict is not ours.** Every other claim
+    here is our measurement of our own work; this is the ripper checking its own
+    log with its own checksum and its own code. The cyanrip fork found why that
+    distinction is load-bearing (round 7 lap 10, H1/J3): our `self_check`'s
+    `log_integrity` verified the EAC-style log *we* wrote against a footer *we*
+    computed and reported it fine — on a rip that shipped a cyanrip log cyanrip
+    itself would reject, because we had appended the auto-fix addendum past its
+    `Log FUN512:` line. A closed loop agrees with itself no matter what.
+
+    `verdict` is tri-state: `verified`, `failed`, `not_determined`. The BLOCK
+    itself being `None` is a fourth state — the verification never ran at all —
+    and none of the three non-`verified` states is a pass.
+
+    `exit_code` is `null` for a child never reaped, never `0`; `argv` is the
+    command as spawned; `output` is the verifier's complete output with stderr
+    merged. Those three are what make a `failed` verdict checkable rather than an
+    accusation the user has to take on trust.
+    """
+
+    verdict: str | None
+    detail: str | None
+    log: str | None
+    exit_code: int | None
+    argv: list[str]
+    output: str | None
+
+
 class RipReport(TypedDict):
-    """A complete `.platterpus.json`, schema v17.
+    """A complete `.platterpus.json`, schema v18.
 
     Every key is required: `rip_report._build` returns one fixed dict literal,
     so a successfully-built report always carries all of them (many as None).
@@ -478,6 +508,10 @@ class RipReport(TypedDict):
     #: `TypedDict`, so there is nothing for mypy to compare.
     completeness: CompletenessBlock
     artifacts: ArtifactsBlock | None
+    #: v18. `None` when the verification never ran (a cancelled rip, or a report
+    #: from a build before it existed) — a distinct state from its `not_determined`
+    #: verdict, which means it ran and could not answer.
+    ripper_log_verification: RipperLogVerificationBlock | None
     #: Added by `write_report` after `_build`, so it is absent from an in-memory
     #: report and present in every written one. See :class:`SelfCheckBlock`.
     self_check: NotRequired[SelfCheckBlock]

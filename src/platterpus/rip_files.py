@@ -54,6 +54,7 @@ from pathlib import Path
 from platterpus.parity import decode_log_bytes
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
 from platterpus.parsers.rip_log import parse_rip_log
+from platterpus.rip_addendum import with_addendum
 
 log = logging.getLogger(__name__)
 
@@ -212,6 +213,10 @@ def _parse_log_file(path: Path) -> object | None:
     # decode_log_bytes handles a BOM / UTF-16 log without ever raising, so a
     # stray byte can't turn "which files are mine?" into an exception.
     text = decode_log_bytes(raw)
+    # Fold in the auto-fix addendum sidecar. `with_addendum` rather than
+    # `read_log_with_addendum` because the decode above handles a BOM / UTF-16 log
+    # and must not be bypassed to reach the sidecar.
+    text = with_addendum(text, path)
     if looks_like_cyanrip_log(text):
         return parse_cyanrip_log(text)
     return parse_rip_log(text)
