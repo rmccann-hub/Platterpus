@@ -47,6 +47,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "notify_on_completion": "desktop notification",
     "library_dir": "Move finished rips to",
     "debug_logging": "Debug logging",
+    "update_channel": "Offer beta (pre-release) updates",
     "cover_art": "Cover art",
     "save_additional_art": "back cover and booklet",
     "max_retries": "Max retries",

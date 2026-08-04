@@ -2549,6 +2549,100 @@ def test_update_result_newer_as_appimage_starts_builtin_install(
     assert started == ["99.0.0"]
 
 
+def test_prerelease_offer_warns_and_does_not_default_to_yes(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """A beta offer must SAY it is a beta, and must not be the default button.
+
+    The consent lives in Settings → Updates; this is where it is honoured visibly.
+    The default-button half matters as much as the text: the one keypress a user
+    makes without reading must not install a tester build.
+    """
+    import platterpus.appimage_integration as ai
+    from platterpus.update_check import CHANNEL_BETA, ReleaseInfo
+
+    window = teardown_threads()
+    window._config.update_channel = CHANNEL_BETA
+    monkeypatch.setattr(
+        ai, "appimage_path", lambda: tmp_path / "platterpus-x86_64.AppImage"
+    )
+    asked: list[tuple[str, object]] = []
+
+    def fake_question(parent, title, text, buttons=None, default=None):  # noqa: ANN001
+        asked.append((text, default))
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", fake_question)
+
+    window._on_update_result(
+        ReleaseInfo(version="99.0.0b1", url="https://x", is_prerelease=True)
+    )
+
+    assert asked, "no offer was shown"
+    text, default = asked[0]
+    assert "PRE-RELEASE" in text, f"the beta offer does not say so: {text!r}"
+    assert default == QMessageBox.StandardButton.No, (
+        "a pre-release must not be the default button"
+    )
+
+
+def test_stable_offer_carries_no_beta_warning(
+    teardown_threads, monkeypatch, tmp_path
+) -> None:
+    """The converse — so the warning cannot be satisfied by always appearing."""
+    import platterpus.appimage_integration as ai
+    from platterpus.update_check import ReleaseInfo
+
+    window = teardown_threads()
+    monkeypatch.setattr(
+        ai, "appimage_path", lambda: tmp_path / "platterpus-x86_64.AppImage"
+    )
+    asked: list[tuple[str, object]] = []
+
+    def fake_question(parent, title, text, buttons=None, default=None):  # noqa: ANN001
+        asked.append((text, default))
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", fake_question)
+    window._on_update_result(ReleaseInfo(version="99.0.0", url="https://x"))
+
+    assert asked
+    text, default = asked[0]
+    assert "PRE-RELEASE" not in text
+    assert default == QMessageBox.StandardButton.Yes
+
+
+def test_up_to_date_message_names_the_channel(teardown_threads, monkeypatch) -> None:
+    """On stable, "newest release" alone is the accurate-but-misleading kind of
+    true: a newer beta may exist and simply not be offered."""
+    from platterpus import __version__
+    from platterpus.update_check import CHANNEL_BETA, ReleaseInfo
+
+    window = teardown_threads()
+    seen: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "information",
+        lambda parent, title, text, *a, **k: seen.append(text),
+    )
+
+    window._on_update_result(ReleaseInfo(version=__version__, url="x"))
+    assert seen and "stable channel" in seen[0]
+
+    window._config.update_channel = CHANNEL_BETA
+    window._on_update_result(ReleaseInfo(version=__version__, url="x"))
+    assert "BETA channel" in seen[1]
+
+
+def test_update_channel_falls_back_to_stable_on_a_bad_value(teardown_threads) -> None:
+    """A hand-edited config must not be able to widen what a user is offered."""
+    from platterpus.update_check import CHANNEL_STABLE
+
+    window = teardown_threads()
+    window._config.update_channel = "nightly"  # not a channel
+    assert window._update_channel() == CHANNEL_STABLE
+
+
 def test_update_install_success_offers_restart(
     teardown_threads, monkeypatch, tmp_path
 ) -> None:

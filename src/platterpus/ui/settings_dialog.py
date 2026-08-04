@@ -33,6 +33,7 @@ from platterpus.config import Config
 from platterpus.settings_validation import ValidationIssue
 from platterpus.ui.accessibility import announce
 from platterpus.ui.dialogs.centering import CenteredDialog
+from platterpus.update_check import CHANNEL_BETA, CHANNEL_STABLE
 
 
 class SettingsDialog(CenteredDialog):
@@ -345,6 +346,27 @@ class SettingsDialog(CenteredDialog):
             "announced."
         )
         form.addRow("", self._notify_check)
+
+        # Beta update channel — opt-in, off by default. Stored as a channel STRING
+        # (`update_channel`) rather than a bool so a third channel could be added
+        # without a config migration; the checkbox is the two-value view of it.
+        #
+        # Off by default because being handed a tester build is a different thing
+        # from being handed an update, and before this existed the check offered
+        # whatever was newest with nothing saying which it was.
+        self._beta_channel_check: QCheckBox = QCheckBox(
+            "Offer beta (pre-release) updates", self
+        )
+        self._beta_channel_check.setChecked(config.update_channel == CHANNEL_BETA)
+        self._beta_channel_check.setToolTip(
+            "Include pre-release builds (0.6.4b1, 0.6.5rc1…) when checking for "
+            "updates.\n\nBetas are published for testing — they may contain bugs, "
+            "and a beta's rip reports can name a ripper build no handshake round "
+            "has approved yet. Every beta offer says so before it installs, and "
+            "you can go back to a stable release at any time.\n\nLeave this off "
+            "unless you are testing."
+        )
+        form.addRow("Updates:", self._beta_channel_check)
 
         # Debug logging — verbose log file for bug reports. Off by default;
         # testers turn it on, reproduce the issue, then attach the log.
@@ -685,6 +707,9 @@ class SettingsDialog(CenteredDialog):
             auto_launch_picard=self._auto_picard_check.isChecked(),
             auto_eject_after_rip=self._auto_eject_check.isChecked(),
             notify_on_completion=self._notify_check.isChecked(),
+            update_channel=(
+                CHANNEL_BETA if self._beta_channel_check.isChecked() else CHANNEL_STABLE
+            ),
             debug_logging=self._debug_logging_check.isChecked(),
             cover_art=self._cover_art_combo.currentData(),
             max_retries=self._max_retries_spin.value(),
