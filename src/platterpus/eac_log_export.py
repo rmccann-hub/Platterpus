@@ -891,11 +891,28 @@ def _status_report(
     total, verified, partial = accuraterip_counts(rip_log)
     out: list[str] = []
     if total:
-        unverified = total - verified
+        # `not_verified` is everything short of an exact match; `neither` is that
+        # set MINUS the offset-variant matches, so the three printed lines
+        # PARTITION the tracks and sum to `total`.
+        #
+        # They used to sum to more than the disc has. `unverified = total -
+        # verified` already contained every offset-variant track — an offset-variant
+        # match is not an exact match — and the third line then counted those same
+        # tracks again, so the rig's 14-track disc printed 13 + 1 + 1 = 15 (found by
+        # the cyanrip fork reading the log, round 7 lap 10, H4). Each line was
+        # defensible on its own wording and the aggregate was arithmetically false,
+        # in a SHA-256-attested archival document.
+        #
+        # The wording is deliberately UNCHANGED: the fork asked that neither side
+        # reword these lines unilaterally, because ours is what they diff against.
+        # This is an arithmetic fix, which cannot diverge — both sides want their
+        # counts to partition.
+        not_verified = total - verified
+        neither = not_verified - partial
         if verified:
             out.append(f"{verified:2} track(s) accurately ripped")
-        if unverified:
-            out.append(f"{unverified:2} track(s) could not be verified as accurate")
+        if neither:
+            out.append(f"{neither:2} track(s) could not be verified as accurate")
         if partial:
             # The per-track blocks say "Matched an offset-variant pressing"; the
             # summary used to discard that and report only the bare failure,
@@ -921,7 +938,12 @@ def _status_report(
         # denominator for a completeness claim. A stopped rip can shrink that
         # list; it cannot shrink the disc.
         expected = disc_track_total or len(rip_log.tracks)
-        clean_sweep = not unverified and total >= expected
+        # `not_verified`, NOT `neither`. An offset-variant match is not an exact
+        # match, so a disc where every track matched only the +450 pressing must
+        # never announce "All tracks accurately ripped" — which is exactly what
+        # keying this on the new disjoint count would have done. The partition fix
+        # above created this precondition; this is the line that pays for it.
+        clean_sweep = not not_verified and total >= expected
         out.append(
             "All tracks accurately ripped"
             if clean_sweep

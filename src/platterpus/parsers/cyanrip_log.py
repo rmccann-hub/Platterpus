@@ -1033,9 +1033,24 @@ def _take_accurate_total(disc: _Disc, match: re.Match[str]) -> bool:
 
 
 def _take_partial_total(disc: _Disc, match: re.Match[str]) -> bool:
+    """cyanrip's ``Tracks ripped partially accurately: 1/1``.
+
+    **The denominator is not the disc.** The fork confirmed what it counts (round 7
+    lap 10, H4): the tracks *not fully verified*, not the tracks on the disc. So
+    ``1/1`` on a 14-track disc where one track matched only the +450 pressing is
+    correct and reads like a typo, and our old rendering — *"1/1 tracks ripped
+    partially accurately"* — inherited the ambiguity and then dropped the qualifier
+    the ripper's own line at least had by position.
+
+    We name the denominator instead. The ripper's line is unchanged and we are not
+    asking them to reword it; this is our rendering of it, and a sentence in our JSON
+    that misdescribes what a fraction measures is ours to fix.
+    """
+    hit = match.group("hit")
+    total = match.group("total")
     disc.partially_accurate_summary = (
-        f"{match.group('hit')}/{match.group('total')} tracks "
-        "ripped partially accurately (offset-variant match)"
+        f"{hit} of {total} track(s) not fully verified matched only an "
+        "offset-variant pressing (partially accurate)"
     )
     return True
 
