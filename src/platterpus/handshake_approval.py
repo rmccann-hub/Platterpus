@@ -241,6 +241,70 @@ def approve_rip_log(rip_log: object) -> RipperApproval:
     return approve_ripper(banner)
 
 
+#: Tokens in the fork's compiled-in ``Handshake:`` line that mean *"this binary was
+#: built from a tree whose round had not closed"*. Matched case-insensitively as
+#: substrings, because the line is prose the fork writes for a human and its exact
+#: shape is not something either side has frozen — J1 of round 7 lap 10 proposes
+#: giving it a machine-readable form, and until that lands this is a best-effort
+#: read of a *self-description*, never the basis of a negative on its own.
+_NOTE_NOT_RELEASED: Final[tuple[str, ...]] = (
+    "not a released build",
+    "open",
+    "hold",
+)
+
+
+def cross_check_note(verdict: str, note: str | None) -> str:
+    """Compare our verdict on the banner against the binary's own statement.
+
+    Two **independent** witnesses to the same fact. ``verdict`` comes from
+    :func:`approve_ripper` reading the build tag against our record; ``note`` is the
+    ``Handshake:`` line the fork's build system compiled into the binary. Neither is
+    derived from the other, which is the only reason comparing them is worth
+    anything — and it is why a build from an open-round tree says so *permanently*,
+    in a way no banner can.
+
+    Returns ``""`` when they agree or when there is nothing to compare, and a
+    sentence naming the disagreement otherwise.
+
+    **Why this function exists at all.** Our own round-7 lap-10 file told the fork
+    that *"when the two disagree, the disagreement is the finding"* — and nothing in
+    the code compared them. That is the capture-without-surfacing shape one layer up:
+    we parsed the note (schema v17), stored it, published a claim about what we would
+    do with it, and did nothing. The same defect the ``ripper_handshake_approval``
+    block itself had until lap 10, when it turned out to be read by nothing.
+
+    Pure; never raises.
+    """
+    text = (note or "").strip()
+    if not text:
+        return ""
+    lowered = text.casefold()
+    says_unreleased = any(token in lowered for token in _NOTE_NOT_RELEASED)
+
+    if verdict == APPROVED and says_unreleased:
+        # The dangerous direction. We approved a build that states, in its own
+        # compiled-in text, that it came from a tree whose round had not closed.
+        # Either our approved pin is wrong or their build tag is stale — CLAUDE.md
+        # rule 12: a build tag names a commit, not what was built.
+        return (
+            "the ripper's own build-time note says it is NOT a released build "
+            f"({text!r}) while our build-tag check reports it as the approved build. "
+            "Two independent witnesses disagree, so one of them is wrong: either the "
+            "approved pin is not what we think it is, or the binary carries a build "
+            "tag for a different tree"
+        )
+    if verdict == NOT_DETERMINED:
+        # Not a disagreement — the note is the ONLY witness here, and saying so is
+        # the point: a reader must know the provenance rests on a self-description
+        # we cannot corroborate.
+        return (
+            "the ripper's build tag could not be classified, so the only statement "
+            f"about this build's provenance is its own: {text!r}"
+        )
+    return ""
+
+
 def version_pair_line() -> str:
     """One line naming **both** versions and what they were approved as.
 
@@ -279,6 +343,7 @@ __all__ = [
     "RipperApproval",
     "approve_rip_log",
     "approve_ripper",
+    "cross_check_note",
     "observed_version_pair_line",
     "version_pair_line",
 ]

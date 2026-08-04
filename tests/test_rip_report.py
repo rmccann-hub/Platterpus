@@ -1038,6 +1038,83 @@ def test_schema_version_is_18() -> None:
     assert REPORT_SCHEMA_VERSION == 18
 
 
+def _issue_codes(report: dict) -> set[str]:
+    return {str(i.get("code")) for i in report.get("issues") or []}
+
+
+def test_the_two_provenance_witnesses_are_actually_compared() -> None:
+    """We published the claim; nothing in the code was making it.
+
+    Round 7 lap 10 §C told the fork *"when the two disagree, the disagreement is the
+    finding"* about `ripper_handshake_approval` (our verdict on the banner) versus
+    `ripper_handshake_note` (their build system's compiled-in statement). The note
+    was parsed at v17, stored, and read by nothing — the same defect the approval
+    block itself had until the fork found it.
+
+    Driven through `_issues` at the seam it actually runs at, with the note taken
+    from the committed rig log rather than invented.
+    """
+    from platterpus.parsers.cyanrip_log import parse_cyanrip_log
+    from platterpus.rip_report import _issues
+
+    log = (
+        Path(__file__).resolve().parent.parent
+        / "output_reference"
+        / "cyanrip_fork_flac"
+        / "cyanrip_fork_police_classics.log"
+    )
+    assert log.is_file(), "no committed fork log — this test would prove nothing"
+    note = parse_cyanrip_log(
+        log.read_text(encoding="utf-8", errors="replace")
+    ).handshake_note
+    assert note, "the committed log carries no Handshake: line"
+
+    # Approved + a build that says it is NOT a release: an ERROR, because one of two
+    # independent witnesses must be wrong.
+    conflicting = _issues(
+        outcome=None,
+        verdict_level="ok",
+        ctdb=None,
+        flac_integrity=None,
+        derived=None,
+        transcode=None,
+        cover_art=None,
+        read_speed=None,
+        rip={
+            "ripper_handshake_approval": "approved",
+            "ripper_handshake_note": note,
+        },
+    )
+    disagreements = [
+        i for i in conflicting if i["code"] == "ripper_provenance_witnesses_disagree"
+    ]
+    assert disagreements, f"no disagreement raised; got {_codes(conflicting)}"
+    assert disagreements[0]["severity"] == "error"
+    assert note in disagreements[0]["message"]
+
+    # The REAL artifact's state — unapproved, note agreeing — must be silent, or
+    # every deliberate test-pin rip carries a finding and the entry gets ignored.
+    agreeing = _issues(
+        outcome=None,
+        verdict_level="ok",
+        ctdb=None,
+        flac_integrity=None,
+        derived=None,
+        transcode=None,
+        cover_art=None,
+        read_speed=None,
+        rip={
+            "ripper_handshake_approval": "unapproved",
+            "ripper_handshake_note": note,
+        },
+    )
+    assert "ripper_provenance_witnesses_disagree" not in _codes(agreeing)
+
+
+def _codes(issues: list[dict]) -> set[str]:
+    return {str(i.get("code")) for i in issues}
+
+
 def test_the_forks_own_handshake_and_consumer_lines_reach_the_json() -> None:
     """Read off the REAL committed fork log, not a hand-written fixture.
 

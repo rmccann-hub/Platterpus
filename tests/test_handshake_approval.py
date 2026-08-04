@@ -318,6 +318,91 @@ def test_the_archived_report_is_the_evidence_the_bug_shipped() -> None:
     assert checked, "no archived approval block found — this check examined nothing"
 
 
+# --- the two independent witnesses, compared ---------------------------------
+#
+# `approve_ripper` reads the build tag against OUR record. The `Handshake:` line is
+# what the fork's build system compiled into the BINARY. Neither is derived from the
+# other — the only reason comparing them is worth anything, and the reason a build
+# from an open-round tree says so permanently in a way no banner can.
+#
+# Our own round-7 lap-10 file told the fork "when the two disagree, the disagreement
+# is the finding". Nothing compared them until this existed.
+
+_OPEN_ROUND_NOTE = "round 7 lap 7 OPEN, verdict HOLD -- NOT a released build"
+
+
+def test_the_real_forks_note_is_the_one_under_test() -> None:
+    """Floor: the note used below is the artifact's, not one we invented.
+
+    A fixture of our guess at their wording is what the H1/H5 lessons were about.
+    """
+    logs = _real_fork_logs()
+    assert logs, "no committed fork log"
+    notes = {
+        parse_cyanrip_log(
+            p.read_text(encoding="utf-8", errors="replace")
+        ).handshake_note
+        for p in logs
+    }
+    assert _OPEN_ROUND_NOTE in notes, (
+        f"the committed logs carry {notes}, not the note these tests use"
+    )
+
+
+def test_approved_against_a_not_a_release_note_is_a_disagreement() -> None:
+    """The dangerous direction, and the reason this is an ERROR downstream.
+
+    We approved a build whose own compiled-in text says it came from a tree whose
+    round had not closed. One of the two witnesses is wrong, and both possibilities
+    are serious: the approved pin is not what we think, or the binary carries a build
+    tag for a different tree (CLAUDE.md rule 12 — a build tag names a commit, not
+    what was built).
+    """
+    message = ha.cross_check_note(ha.APPROVED, _OPEN_ROUND_NOTE)
+    assert message, "an approved build claiming to be unreleased raised nothing"
+    assert "disagree" in message
+    assert _OPEN_ROUND_NOTE in message, "the finding does not quote the note"
+
+
+def test_unapproved_against_the_same_note_is_agreement_not_a_finding() -> None:
+    """The real artifact's state. It must NOT fire, or every test-pin rip cries wolf.
+
+    This is the false-positive half, and it is the half that decides whether the
+    check survives contact with a hardware session: a finding on every deliberate
+    test-pin rip trains people to ignore the entry.
+    """
+    assert ha.cross_check_note(ha.UNAPPROVED, _OPEN_ROUND_NOTE) == ""
+
+
+def test_not_determined_says_the_note_is_the_only_witness() -> None:
+    """Not a disagreement — a statement about what the provenance claim rests on."""
+    message = ha.cross_check_note(ha.NOT_DETERMINED, _OPEN_ROUND_NOTE)
+    assert "only statement" in message
+    assert _OPEN_ROUND_NOTE in message
+
+
+@pytest.mark.parametrize("note", [None, "", "   "])
+def test_no_note_is_no_finding(note: str | None) -> None:
+    """Stock cyanrip prints no `Handshake:` line. Absence is not evidence."""
+    for verdict in (ha.APPROVED, ha.UNAPPROVED, ha.NOT_DETERMINED):
+        assert ha.cross_check_note(verdict, note) == ""
+
+
+def test_an_approved_build_with_a_released_note_is_silent() -> None:
+    """The state a closed round should produce. It must be quiet, or the check is
+    a permanent finding rather than a detector."""
+    assert ha.cross_check_note(ha.APPROVED, "round 8 CLOSED, released build") == ""
+
+
+@pytest.mark.parametrize(
+    "junk", ["(", "\x00", "OPEN" * 5000, "\n\n", "hold", "HOLD", "Not A Released Build"]
+)
+def test_cross_check_never_raises(junk: str) -> None:
+    """It reads a dependency's prose, so the never-raises rule applies."""
+    for verdict in (ha.APPROVED, ha.UNAPPROVED, ha.NOT_DETERMINED, "", "weird"):
+        assert isinstance(ha.cross_check_note(verdict, junk), str)
+
+
 def test_version_pair_line_names_both_versions() -> None:
     """The maintainer's ask, literally: *include what versions you both are.*"""
     line = ha.version_pair_line()
