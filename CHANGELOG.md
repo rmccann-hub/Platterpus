@@ -165,6 +165,72 @@ for the two builds by name.
     audiences, with `testing.md` anchored as the Definition of Done from `CLAUDE.md`.
 
 ### Added
+- **Beta update channel — opt-in, with a warning (Settings → Updates).** *"we should be
+  able to auto update to a beta release of platterpus and any dependencies, a warning
+  should be given and an option, but for testing we need this."* A new
+  **Offer beta (pre-release) updates** checkbox (`update_channel`, default `stable`)
+  decides whether the update check considers pre-releases. Off, you only ever see
+  finished releases. On, a beta offer **says in the dialog that it is a pre-release**
+  and **"Yes" is not the default button** — a tester build never installs on an unread
+  keypress. Documented in the in-app user guide.
+- **`ForkTarget`: the wizard can install a nominated test build.** `--install-ripper`
+  and the setup wizard now build `WIZARD_TARGET`, which for this beta is the fork's
+  round-7 test pin (`9003e6f`, `cyanrip 0.9.4-rc1+platterpus.5-beta.1`) on the
+  maintainer's instruction. `FORK_PIN` — the production record — is untouched, so a
+  test install cannot become the approved pin by accident. `--install-ripper` prints,
+  *before* minutes of dnf and meson, that every rip will report `unapproved` and that
+  this is correct while the round is open.
+- Rip-time handshake verification now explains a recognised-but-unapproved build instead
+  of only naming it: the current test pin says it *is* a nominated test pin, a **retired**
+  one says so and names the current one, and the pin under review says the round is open.
+  The verdict is unchanged (`unapproved` either way) — only the sentence is, because "NOT
+  the build this Platterpus was verified against" during a test session is the
+  accurate-and-useless message this project keeps re-learning to avoid.
+- `platterpus-fork-g9003e6f` accepts `--consumer`, so the beta's rig logs carry both
+  halves of the pair instead of `Consumer: not identified`.
+
+### Fixed
+- **The AppImage was being built from PyPI, not from the source tree.**
+  `build/python-appimage/requirements.txt` carried a bare `platterpus`, and
+  `--find-links` only *adds* a source — pip still picks the highest acceptable version,
+  and **pip excludes pre-releases by default**. So the first `v0.6.4b1` release attempt
+  built an AppImage containing **0.6.3** off PyPI, and the version sanity-check failed it.
+  Invisible for every previous release because the tree version and the newest PyPI
+  version were always the same number, so "built from the tree" and "built from PyPI"
+  produced identical binaries — two witnesses agreeing because they share an ancestor.
+  The build now pins the line to the exact wheel it just built (`platterpus==<version>`),
+  which PyPI cannot satisfy, and restores the committed file on exit.
+- **A second `trap … EXIT` in the build script would have orphaned the build stamp.**
+  bash allows one handler per signal and a second `trap` silently replaces the first;
+  both cleanups now run from one `cleanup` function.
+- **A beta and its own final release compared equal, making the beta a one-way door.**
+  The updater's version compare read `0.6.4b1` and `0.6.4` as the same `(0, 6, 4)` — so a
+  tester on `0.6.4b1` would never have been offered `0.6.4`, or `0.6.4b2`. Release
+  versions now sort PEP 440-aware: `0.6.3 < 0.6.4b1 < 0.6.4b2 < 0.6.4rc1 < 0.6.4`.
+- **The update check offered whatever was newest by *publication time*.** A patch
+  backported after a newer release would have been offered as an upgrade — i.e. a
+  downgrade. Selection is now by version. Relatedly, one unparseable tag in the list no
+  longer abandons the whole check (it used to report "couldn't check" with five valid
+  releases sitting below the odd one).
+- The `is_prerelease` decision reads the **version string**, not GitHub's `prerelease`
+  flag: this project marks *every* `v0.*` tag as a pre-release, so for the entire 0.x
+  line that flag is a constant. Gating the stable channel on it would have left stable
+  users with nothing on their channel at all — caught by a test whose fixture is simply
+  what our releases really look like.
+
+### Tests
+- `tests/test_handshake_approval.py` — the rip-time approval check shipped with **no test
+  of its own**; the only thing touching it asserted the report *carried* the keys, not
+  that the verdict in them was right.
+- The wizard's build and verify steps can no longer be given different builds
+  (`ForkTarget` is one object, asserted over *both* targets plus a non-triviality check
+  that the two are distinct commits), and a nominated test pin must be named in the
+  newest inbound handshake round — the check that catches a **retired** pin, which this
+  round produced twice.
+- The verify snippet gains the case the old two-constant design could not express: the
+  *right fork* at the *wrong build* must fail.
+
+### Added
 - **A gate that every relative link between the project's docs resolves**
   (`tests/test_doc_links.py`). 79 markdown files cross-reference each other 200+ times and
   nothing checked that any of those pointers landed, which made renaming or merging a
