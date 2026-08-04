@@ -29,6 +29,7 @@ from pathlib import Path
 # module because the backend ABC is the seam it depends on, not the parser.
 # The explicit form is what makes that legal under `no_implicit_reexport`.
 from platterpus import diagnostics
+from platterpus.adapters.ripper_log_verify import LogVerification
 from platterpus.killable import KillableCommand
 from platterpus.parsers.cd_info import DiscInfo as DiscInfo
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -392,6 +393,39 @@ class RipBackend(ABC):
     @abstractmethod
     def version(self) -> str:
         """Return the backend's reported version string (raw, untrimmed)."""
+
+    def verify_log(self, log_path: str | Path) -> LogVerification:
+        """Ask the backend to verify a rip log **it** wrote, against **its** checksum.
+
+        The point is independence. We already check the EAC-style log we write
+        against the SHA-256 footer we compute, and the cyanrip fork correctly noted
+        that a closed loop like that agrees with itself no matter what we did to
+        anybody else's file — it reported the log "matches its own footer" on the
+        very rip that shipped a cyanrip log the ripper itself would reject (round 7
+        lap 10, H1/J3).
+
+        **The default is an honest `not_determined`, not a silent pass.** CLAUDE.md
+        rule 9 names an ABC concrete no-op the backend never overrode as a shipped
+        false promise, so this default states *why* it could not answer rather than
+        returning something a caller could read as success. `is_verified` is False
+        for it.
+
+        BLOCKING — it runs the backend binary. Never call it on the Qt main thread.
+        """
+        from platterpus.adapters.ripper_log_verify import (
+            NOT_DETERMINED,
+            LogVerification,
+        )
+
+        return LogVerification(
+            verdict=NOT_DETERMINED,
+            detail=(
+                f"{type(self).__name__} does not implement log verification, so "
+                f"{Path(log_path).name} was not checked against the ripper's own "
+                "checksum — this is a gap in the backend, not a finding about the log"
+            ),
+            log_path=str(log_path),
+        )
 
     # --- Optional capability flags ------------------------------------------
 

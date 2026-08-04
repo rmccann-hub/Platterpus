@@ -177,7 +177,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 17
+REPORT_SCHEMA_VERSION: int = 18
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -215,6 +215,10 @@ def build_report(
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
     artifacts: ArtifactsBlock | None = None,
+    #: v18: the RIPPER's verdict on its own log, from `adapters.ripper_log_verify`
+    #: — an independent witness, unlike our own SHA-256 footer check. Typed
+    #: `object` because this pure builder must not import an adapter.
+    ripper_log_verification: object | None = None,
 ) -> dict:
     """Return a structured, versioned summary of a rip as a plain dict.
 
@@ -263,6 +267,7 @@ def build_report(
             log_parse=log_parse,
             disc_track_total=disc_track_total,
             artifacts=artifacts,
+            ripper_log_verification=ripper_log_verification,
         )
     except Exception:  # noqa: BLE001 — a report builder must never crash a rip
         log.exception("rip-report build failed; emitting minimal envelope")
@@ -570,6 +575,36 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
     }
 
 
+def _ripper_log_verify_block(verification: object | None) -> dict | None:
+    """Serialize the ripper's verdict on its own log. ``None`` when never attempted.
+
+    Reads attributes defensively (``getattr``) for the same reason every serializer
+    here does: this builder is pure and must never raise, and it is handed a value
+    the GUI assembled from a worker.
+
+    ``None`` is a THIRD state and is deliberately distinguishable from
+    ``not_determined``: a rip that never reached the verification step (cancelled
+    before a log existed, or a report written by an older build) is not a rip whose
+    log could not be verified. Both are non-passes and neither is a failure.
+    """
+    if verification is None:
+        return None
+    argv = getattr(verification, "argv", ()) or ()
+    return {
+        # `verified` / `failed` / `not_determined`. Tri-state as always: an absent
+        # verifier is not a failed verification.
+        "verdict": str(getattr(verification, "verdict", "") or "") or None,
+        "detail": str(getattr(verification, "detail", "") or "") or None,
+        "log": str(getattr(verification, "log_path", "") or "") or None,
+        # The full diagnostic set for an external call, so a `failed` verdict is an
+        # accusation the user can check rather than one they must take on trust.
+        # Tri-state exit code — `null` for a child never reaped, never written as 0.
+        "exit_code": getattr(verification, "exit_code", None),
+        "argv": [str(part) for part in argv],
+        "output": str(getattr(verification, "output", "") or "") or None,
+    }
+
+
 def _ripper_approval(rip_log: object) -> RipperApproval:
     """Whether this rip's ripper is the build both projects verified. Never raises.
 
@@ -619,6 +654,10 @@ def _build(
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
     artifacts: ArtifactsBlock | None = None,
+    #: v18: the RIPPER's verdict on its own log, from `adapters.ripper_log_verify`
+    #: — an independent witness, unlike our own SHA-256 footer check. Typed
+    #: `object` because this pure builder must not import an adapter.
+    ripper_log_verification: object | None = None,
 ) -> dict:
     # The JSON's verdict must be the SAME claim the window makes, so it is given
     # the same two extra facts: the disc's own track count (the only denominator a
@@ -633,6 +672,10 @@ def _build(
         ),
     )
     info = getattr(rip_log, "ripping_info", None)
+    # Serialized once, into a local, so the block the report shows and the `issues`
+    # entry derived from it cannot describe the same verdict two ways — the same
+    # reason `rip_block` and `log_parse_block` are hoisted below.
+    verify_block = _ripper_log_verify_block(ripper_log_verification)
     # Serialize the verification sub-blocks once, into locals, so both the
     # `verification` block below and the derived `issues` list read the SAME
     # values (they can never disagree). The read-speed block carries the dynamic
@@ -709,6 +752,7 @@ def _build(
         completeness=completeness,
         rip=rip_block,
         artifacts=artifacts,
+        ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
     )
     return {
@@ -735,6 +779,19 @@ def _build(
         # to the text log as it happened — one call site, two sinks, so the two
         # artifacts cannot describe the same event differently.
         "diagnostics": diagnostics.to_report_block(),
+        # v18: THE RIPPER'S OWN VERDICT ON ITS OWN LOG.
+        #
+        # An independent witness. Everything else here is our measurement of our
+        # work; this is the dependency checking its own artifact with its own
+        # checksum and its own code. The cyanrip fork found why that matters (round
+        # 7 lap 10, H1/J3): our `log_integrity` self-check reported *"the EAC-style
+        # log matches its own SHA-256 footer"* on a rip that shipped a cyanrip log
+        # cyanrip itself would reject, because we had appended the auto-fix addendum
+        # past its `Log FUN512:` line. A closed loop agrees with itself.
+        #
+        # `null` means the verification never ran (a cancelled rip, an old report);
+        # `not_determined` means it ran and could not answer. Neither is a pass.
+        "ripper_log_verification": verify_block,
         # The PROCESS result (success/cancelled/failed + hint + auto-heal). The
         # single most-requested support datum; distinct from `verdict`/
         # `health_status`, which describe AccurateRip / the rip log, not the run.
@@ -1283,6 +1340,9 @@ def _issues(
     # artifact key pass the checker while silently matching nothing.
     artifacts: ArtifactsBlock | None = None,
     dependencies: dict | None = None,
+    # The already-serialized v18 block, so this list and the block it summarises
+    # read the same verdict.
+    ripper_log_verification: dict | None = None,
 ) -> list[dict]:
     """Derive the consolidated ``issues`` list from the already-assembled blocks.
 
@@ -1322,6 +1382,29 @@ def _issues(
             "the ripper's log was cut off mid-write, so this report's track "
             "list is a floor — tracks it omits may have been ripped and "
             "verified",
+        )
+
+    # The RIPPER's own verdict on its own log (v18). Ranked ERROR alongside the
+    # truncation check and for the same reason: it does not add to the other
+    # entries, it undermines them. Every archival claim in this report is read out
+    # of that log, so a log the ripper rejects makes the rest unfalsifiable.
+    #
+    # This is the entry the fork asked for in round 7 lap 10 J3 — *"it would have
+    # caught this on the first rip"* — and it is the check our own `log_integrity`
+    # could not be, because that one verifies a file we wrote against a checksum we
+    # computed. Only `failed` fires: `not_determined` and a `null` block are
+    # non-passes, not faults, and raising an issue for them would train a reader to
+    # ignore the entry on every stock-cyanrip rip.
+    verify_verdict = (ripper_log_verification or {}).get("verdict")
+    if verify_verdict == "failed":
+        add(
+            "error",
+            "ripper_log_verification_failed",
+            (ripper_log_verification or {}).get("detail")
+            or (
+                "the ripper rejected its own log's checksum, so this report's "
+                "archival claims cannot be traced to a faithful record of the rip"
+            ),
         )
 
     if verdict_level == "warn":
@@ -1644,6 +1727,10 @@ def write_report(
     log_parse: dict | None = None,
     disc_track_total: int | None = None,
     artifacts: ArtifactsBlock | None = None,
+    #: v18: the RIPPER's verdict on its own log, from `adapters.ripper_log_verify`
+    #: — an independent witness, unlike our own SHA-256 footer check. Typed
+    #: `object` because this pure builder must not import an adapter.
+    ripper_log_verification: object | None = None,
 ) -> Path | None:
     """Build and write the JSON report beside ``log_file``. Best-effort.
 
@@ -1678,6 +1765,7 @@ def write_report(
             log_parse=log_parse,
             disc_track_total=disc_track_total,
             artifacts=artifacts,
+            ripper_log_verification=ripper_log_verification,
         )
         # Run the audit over the report we just built and embed the result, so
         # EVERY rip carries its own verdict and nobody has to remember to run

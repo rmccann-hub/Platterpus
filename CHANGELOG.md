@@ -12,6 +12,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Added
+- **The ripper now verifies its own log, and the report carries its verdict
+  (`ripper_log_verification`, schema v17 → v18).** Every other claim in a Platterpus
+  report is our measurement of our own work. This one is not: `cyanrip --verify-log`
+  checks *its* file against *its* checksum with *its* code, which is the only
+  configuration in which a pass means anything. Tri-state (`verified` / `failed` /
+  `not_determined`), with the exit code (`null` for a child never reaped, never `0`),
+  the exact argv as spawned and the complete output, so a `failed` verdict is
+  checkable rather than an accusation the user must take on trust. A `failed` verdict
+  raises an `issues[]` entry and a WARN in the audit; a rejected *flag* is classified
+  `not_determined`, never `failed` — a build that does not know the flag cannot be
+  reporting a bad log, which is upstream's `-V` lesson pointing the other way. Runs
+  on the rip worker's thread, never in a GUI slot; the audit check reads the recorded
+  verdict rather than spawning a container exec inside `write_report`.
+- **`--audit-rips` gained `ripper_log_integrity`, and the old `log_integrity` is
+  renamed `our_log_integrity`.** Two checks, deliberately not merged, so a pass on the
+  one we control can never imply a pass on the one that caught a real defect. The old
+  name read as *"is the log intact"*, which is precisely the claim it was not making.
+- **The consumer contract now enumerates the probe invocations too, not only the rip
+  argv.** `--verify-log` and the version-flag tuple are derived from the same
+  constants the code uses. A renamed flag is indistinguishable from an absent tool —
+  that is how upstream's `-V` removal turned a working fork build into *"cyanrip is
+  not installed"* — so leaving our two most failure-prone invocations out of the
+  document we publish as *"this is what we send you"* was the same gap one layer up.
+  `tests/test_argv_surface_agreement.py` now checks `--verify-log` against the fork's
+  published flag table individually, with the version *fallback* tuple exempt for a
+  stated reason and a test keeping that exemption from widening.
+
 - **One place that answers "did anything go wrong?" — `diagnostics.py`, and a
   `diagnostics` block in the rip report (schema v15 → v16).** Diagnostics used to be
   spread across `outcome.failure_hint`, `log_parse.note`, `ctdb.error`, the per-track
@@ -144,6 +171,37 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   with floors on both the block count and the key count. Runtime rather than AST on
   purpose: `realtime_multiplier_basis` is added *after* the dict literal is built, which
   is exactly how it hid from a source-level check.
+
+- **The auto-fix addendum no longer breaks `cyanrip --verify-log`.** After the
+  per-track auto-fix swapped a converged re-read in, we appended a supersede block to
+  cyanrip's own `.log`. That file ends with a `Log FUN512:` self-checksum and
+  `--verify-log` **rejects trailing content by design**, so every auto-fixed disc
+  shipped a log the ripper itself would call modified. The record now goes to a
+  sidecar — `<log stem>.platterpus-addendum.txt` — and the ripper's log is left
+  byte-exact. `platterpus.rip_addendum.read_log_with_addendum` is the single
+  sanctioned way to read a rip log back, because a re-parse that skips the sidecar
+  gets the checksums of bytes the auto-fix deleted (the original bug the addendum
+  existed to prevent, and the trap moving it created); a source sweep enforces that,
+  since the rule decays and the test does not.
+  - Found by the cyanrip fork reading a real rig artifact. **The question had already
+    been asked and answered** — round 5 asked whether an addendum could follow the
+    checksum line, the answer was no, and they pinned it with a test — and our own
+    integrity check could not see it, because it verified a file we wrote against a
+    checksum we computed. A closed loop agrees with itself.
+- **The addendum now supersedes the whole per-track record, not just the CRC.** The
+  archived AccurateRip v1/v2, the offset-variant result and the secure-re-read verdict
+  all described the read that was discarded; on the rig that meant `7CE3F6E7` and
+  `268CCD94` standing beside a shipped file whose real values were `F5426D5F` and
+  `9EEB8843`. Extending the old block field by field would have been the wrong fix.
+- **`ripper_handshake_approval` returned `not_determined` on every real fork rip — a
+  wrong verdict, not merely a terse one.** The parser splits the banner (`log_creator`
+  without the parenthetical, the tag in `ripper_build`), and the approval matcher read
+  only the half with no `(`, concluded *"no build tag"*, and shrugged about a build it
+  had already extracted and could name. The same log, given its full first line,
+  returns `unapproved` and explains that `9003e6f` is the round-7 test pin. The test
+  written the same day passed because its fixture set `log_creator` to a *whole*
+  banner — a shape the parser never produces. The regression now reads the committed
+  rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
 - **Tools → Check dependencies could do nothing visible at all.** A crashed probe emitted

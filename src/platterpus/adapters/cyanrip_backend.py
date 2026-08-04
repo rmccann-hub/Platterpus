@@ -43,6 +43,7 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     run_capture,
 )
+from platterpus.adapters.ripper_log_verify import LogVerification, verify_rip_log
 from platterpus.cyanrip_cli import VERSION_FLAGS
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
@@ -366,6 +367,16 @@ class CyanripImpl(RipBackend):
                 last_error = exc
         assert last_error is not None  # VERSION_FLAGS is never empty
         raise last_error
+
+    def verify_log(self, log_path: str | Path) -> LogVerification:
+        """Run ``cyanrip --verify-log`` over a log cyanrip wrote.
+
+        Delegates to the `ripper_log_verify` adapter so the classification (and its
+        tri-state) lives in one testable place rather than inside this class, which
+        needs a real binary to exercise. BLOCKING; the rip worker calls it off the
+        GUI thread and the verdict travels into the report as data.
+        """
+        return verify_rip_log(log_path, self._binary)
 
     def produces_max_compression_flac(self) -> bool:
         # cyanrip drives libavcodec at the maximum FLAC compression level for

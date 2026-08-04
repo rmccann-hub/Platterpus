@@ -103,6 +103,9 @@ KNOWN_CODES: Final[frozenset[str]] = frozenset(
         "ripper.logfile_missing",
         "ripper.logfile_truncated",
         "ripper.parse_degraded",
+        # The ripper verifying its OWN log (adapters/ripper_log_verify.py) — an
+        # independent witness, unlike our own footer check (round 7 lap 10, J3).
+        "ripper.log_verify_failed",
         "ripper.cancelled",
         # Post-rip verification and derived outputs.
         "flac.verify_failed",
@@ -129,6 +132,11 @@ KNOWN_CODES: Final[frozenset[str]] = frozenset(
         "internal.unexpected_exception",
         "library.move_failed",
         "drive.control_failed",
+        # The auto-fix swap addendum sidecar (`rip_addendum.py`). Its absence is
+        # not an audio problem, but it IS the folder losing the record of which
+        # track shipped a re-rip — so it must not fail silently.
+        "addendum.write_failed",
+        "addendum.log_unreadable",
     }
 )
 

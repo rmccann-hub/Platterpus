@@ -454,6 +454,73 @@ def _audit_log_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
         album.add(LEVEL_NOTE, "the EAC-style log carries no Platterpus checksum footer")
 
 
+def _audit_ripper_log_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Did the RIPPER accept its own log? The independent half of log integrity.
+
+    **Why this exists as a second check rather than an extension of the first**
+    (round 7 lap 10, J3). :func:`_audit_log_integrity` verifies *the file we wrote*
+    against *the checksum we computed* — a closed loop that agrees with itself no
+    matter what. On the rig it reported *"the EAC-style log matches its own SHA-256
+    footer"* on a rip that shipped a cyanrip log cyanrip itself would reject,
+    because we had appended the auto-fix addendum past its `Log FUN512:` line. The
+    fork's words: *"asserting against the thing you wrote rather than against an
+    independent artifact."*
+
+    So the two checks stay separate and both run: one says our rendering is intact,
+    the other says the ripper's own record is. Neither substitutes for the other,
+    and merging them would let a pass on the easy one imply the hard one.
+
+    Reads the RECORDED verdict rather than probing. The probe lives in the rip
+    worker (`adapters/ripper_log_verify`) because it spawns a container exec, and
+    this registry runs inside `write_report`, which runs in a GUI slot — a
+    subprocess here would freeze the window (CLAUDE.md, never block the GUI
+    thread). `needs_files=False` for exactly that reason: there is nothing to open.
+
+    Four states, all reported, none silently dropped — a check that says nothing is
+    the confusion `run_checks`'s floor exists to prevent.
+    """
+    block = report.get("ripper_log_verification")
+    if not isinstance(block, dict) or not block:
+        album.add(
+            LEVEL_NOTE,
+            "this rip did not record whether the ripper accepts its own log "
+            "(the report predates that check, or the rip ended before a log "
+            "existed) — that is not a failed verification",
+        )
+        return
+    verdict = str(block.get("verdict") or "")
+    detail = str(block.get("detail") or "").strip()
+    if verdict == "verified":
+        album.add(
+            LEVEL_OK,
+            detail or "the ripper verified its own log against its own checksum",
+        )
+        return
+    if verdict == "failed":
+        # WARN, and it names the evidence: exit code and argv, so the user can
+        # re-run the same command themselves. An accusation against an archival
+        # artifact has to be checkable.
+        exit_code = block.get("exit_code")
+        argv = " ".join(str(part) for part in (block.get("argv") or []))
+        shown = detail or "the ripper REJECTED its own log's checksum"
+        album.add(
+            LEVEL_WARN,
+            f"{shown} — verified with `{argv}`"
+            + (
+                f", which exited {exit_code}"
+                if isinstance(exit_code, int)
+                else ", which never returned an exit status"
+            ),
+        )
+        return
+    album.add(
+        LEVEL_NOTE,
+        detail
+        or "the ripper could not be asked to verify its own log, so its integrity "
+        "is not determined — an absent verifier is not a failed verification",
+    )
+
+
 def _audit_disc_identity(report: dict[str, Any], album: AlbumAudit) -> None:
     """Record the TOC-derived disc identity, so two rips can be compared.
 
@@ -525,10 +592,21 @@ CHECKS: tuple[Check, ...] = (
         _audit_argv_agreement,
     ),
     Check(
-        "log_integrity",
-        "Does the EAC log still match its own checksum?",
+        # Renamed from "log_integrity" in v0.6.4. The old name read as "is the log
+        # intact", which is the claim the fork correctly said it was not making: it
+        # checks OUR rendering against OUR footer. The name now says whose.
+        "our_log_integrity",
+        "Does the EAC-style log WE wrote match the checksum WE published?",
         False,
         _audit_log_integrity,
+    ),
+    Check(
+        # The independent half. Kept as its own row rather than folded into the one
+        # above so a pass on ours can never imply a pass on theirs.
+        "ripper_log_integrity",
+        "Does the RIPPER accept the log it wrote?",
+        False,
+        _audit_ripper_log_integrity,
     ),
     Check(
         "disc_identity",

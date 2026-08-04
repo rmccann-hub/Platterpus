@@ -43,6 +43,10 @@ if str(_REPO_ROOT / "src") not in sys.path:
 
 from platterpus import __version__ as _APP_VERSION  # noqa: E402
 from platterpus.adapters.cyanrip_backend import CyanripImpl  # noqa: E402
+from platterpus.cyanrip_cli import (  # noqa: E402
+    VERIFY_LOG_FLAG,
+    VERSION_FLAGS,
+)
 from platterpus.adapters.rip_backend import RipMetadata, TrackTag  # noqa: E402
 from platterpus.deps.fork_source import (  # noqa: E402
     FORK_EXPECTED_BANNER as _APPROVED_BANNER,
@@ -154,10 +158,22 @@ def _emitted_flags() -> list[str]:
     # Third instance of this exact blind spot in one session (the rip audit's argv
     # comparison, the release gate's, and here). A pattern matching only `-X` looks
     # complete because every cyanrip flag *was* short.
+    tokens = set(argv[1:])
+    # The rip is not the only thing we run. Every invocation we make is part of the
+    # argv surface, and a renamed flag is indistinguishable from an absent tool —
+    # which is exactly how upstream's `-V` removal turned a working fork build into
+    # "cyanrip is not installed". So the probes are enumerated here too, from the
+    # same constants the code uses, rather than left out because they are not a rip.
+    #
+    # Added when `--verify-log` became a third invocation shape (round 7 lap 10,
+    # J3): the version probe had already taught this lesson and this document still
+    # described only the rip.
+    tokens.update(VERSION_FLAGS)
+    tokens.add(VERIFY_LOG_FLAG)
     return sorted(
         {
             token
-            for token in argv[1:]
+            for token in tokens
             if re.fullmatch(r"-[A-Za-z]", token)
             or re.fullmatch(r"--[A-Za-z][\w-]*", token)
         }

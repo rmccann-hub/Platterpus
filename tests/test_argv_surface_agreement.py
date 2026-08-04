@@ -125,7 +125,29 @@ def _their_flags(text: str) -> set[str]:
     return flags
 
 
-def _our_rip_flags() -> set[str]:
+#: Flags whose absence from the published table is EXPECTED, not a finding.
+#:
+#: ``VERSION_FLAGS`` is a *fallback tuple*, tried in order until one exits 0, and
+#: the whole point of having more than one entry is that no single flag works on
+#: every build: upstream moved version reporting from ``-V`` to ``-v`` after 0.9.3,
+#: and the fork re-added ``-V``. So "every flag we send must be in their table" is
+#: the wrong assertion for these — the right one is
+#: :func:`test_at_least_one_version_flag_is_in_their_table` below, which is what
+#: actually protects the probe.
+#:
+#: Nothing else goes in here. `--verify-log` is deliberately NOT exempt: it is a
+#: single flag with no fallback, so if their table stops listing it we want to hear
+#: about it before a rip does.
+_PROBE_FALLBACK_FLAGS: frozenset[str] = frozenset(VERSION_FLAGS)
+
+
+def _our_flags() -> set[str]:
+    """Every flag the generated contract says we send — rips AND probes.
+
+    The contract enumerates the whole argv surface on purpose: *"a dependency's own
+    flags are a validated surface, not trivia"*, and a probe invocation is as much a
+    thing we send as a rip is.
+    """
     text = CONSUMER_CONTRACT.read_text(encoding="utf-8")
     match = _OUR_FLAGS.search(text)
     assert match is not None, (
@@ -133,6 +155,18 @@ def _our_rip_flags() -> set[str]:
         "contract — regenerate it with scripts/emit_dependency_contract.py"
     )
     return set(match.group(1).split())
+
+
+def _our_rip_flags() -> set[str]:
+    """The subset that must appear in their table, one for one.
+
+    Excludes only the version-probe fallback tuple, for the reason on
+    :data:`_PROBE_FALLBACK_FLAGS`. Kept as a *derived* set rather than a second
+    hand-written list so a new flag is covered by default — the safe direction, and
+    the opposite of the hand-maintained allowlist that hid 16 of the fork's fatal
+    strings in round 5.
+    """
+    return _our_flags() - _PROBE_FALLBACK_FLAGS
 
 
 def test_every_rip_flag_we_send_is_in_the_providers_published_contract() -> None:
@@ -182,6 +216,54 @@ def test_every_version_flag_we_probe_with_is_in_the_published_contract() -> None
         f"non-zero and the app would report cyanrip missing. Flags the contract "
         f"does list: {sorted(their)}"
     )
+
+
+def test_the_probe_exemption_is_only_the_version_fallback_tuple() -> None:
+    """An exemption list that grows is the rule being retired one flag at a time.
+
+    `VERSION_FLAGS` is exempt from the one-for-one check for a real reason (it is a
+    fallback tuple; no single entry works on every build). Nothing else has that
+    property, and in particular `--verify-log` must NOT drift in here: it is a
+    single flag with no fallback, so their table dropping it is a finding we want
+    before a rip discovers it.
+
+    This is the counter to the round-5 lesson from the other side — a hand-maintained
+    allowlist in their generator hid 16 fatal strings, and the list was consistent
+    with itself the whole time.
+    """
+    from platterpus.cyanrip_cli import VERIFY_LOG_FLAG
+
+    assert _PROBE_FALLBACK_FLAGS == frozenset(VERSION_FLAGS)
+    assert VERIFY_LOG_FLAG not in _PROBE_FALLBACK_FLAGS
+    assert VERIFY_LOG_FLAG in _our_rip_flags(), (
+        "--verify-log is not in the checked set, so their table could drop it "
+        "silently and every rip's log verification would report 'not determined'"
+    )
+    # And the exemption actually removes something, or it is decoration.
+    assert _our_flags() - _our_rip_flags(), "the exemption excludes nothing"
+
+
+def test_the_contract_enumerates_probes_not_only_the_rip() -> None:
+    """The generated contract must describe the WHOLE argv surface.
+
+    A renamed flag is indistinguishable from an absent tool — that is how upstream's
+    `-V` removal turned a working fork build into "cyanrip is not installed" — so a
+    contract that documented only the rip left our two most failure-prone
+    invocations undescribed. Both probes are now derived from the same constants the
+    code uses, not restated.
+    """
+    from platterpus.cyanrip_cli import VERIFY_LOG_FLAG
+
+    ours = _our_flags()
+    assert VERIFY_LOG_FLAG in ours, (
+        "the contract does not mention --verify-log, which we run after every rip"
+    )
+    assert ours & frozenset(VERSION_FLAGS), (
+        "the contract does not mention any version flag, which we run at launch"
+    )
+    # Rip flags are still there — this is an addition, not a replacement.
+    for rip_flag in ("-d", "-N", "-o"):
+        assert rip_flag in ours, rip_flag
 
 
 def test_the_sweep_can_actually_fail() -> None:

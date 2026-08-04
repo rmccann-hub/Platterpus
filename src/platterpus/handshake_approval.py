@@ -198,13 +198,47 @@ def approve_ripper(banner: str | None) -> RipperApproval:
 
 
 def approve_rip_log(rip_log: object) -> RipperApproval:
-    """The same check, taken off a parsed rip log's ``log_creator`` banner.
+    """The same check, taken off a **parsed** rip log.
 
-    Accepts ``object`` and reads the attribute defensively because this is called
+    Accepts ``object`` and reads the attributes defensively because this is called
     from the report builder, which must never raise on a partially-parsed log.
+
+    **Reads ``ripper_build`` FIRST, and that is the whole point of this function.**
+    It used to read only ``log_creator`` — and the parser *splits the banner*: given
+    ``cyanrip 0.9.4-rc1+platterpus.5-beta.1 (platterpus-fork-g9003e6f)`` it stores
+    ``log_creator`` **without** the parenthetical and puts the tag in
+    ``ripper_build``. So :func:`approve_ripper` was handed a string with no ``(``,
+    concluded "no build tag", and returned ``not_determined``.
+
+    That was not merely a wrong *reason* — it was a **wrong verdict**. The same log,
+    given its full first line, returns ``unapproved`` and names the test pin. Every
+    real fork rip therefore reported *"which build produced this rip is not
+    determined"* about a build it had already extracted and could name. The
+    maintainer's own instruction predicted the right value — *"expect
+    ripper_handshake_approval: unapproved on every rip"* — and we shipped the other
+    one.
+
+    Found by the cyanrip fork reading our JSON (round 7 lap 10, H2). Two lessons,
+    both already written down here and both re-earned:
+
+    * **The fixture was more capable than the product.** The test added the same day
+      built its fixture with ``log_creator=FORK_EXPECTED_BANNER`` — the *whole*
+      banner, which the parser never produces — so it exercised a string shape the
+      product cannot hand this function. *"What does my stand-in do that the real
+      thing does not?"*
+    * **A tri-state's two negatives are not interchangeable.** ``not_determined``
+      and ``unapproved`` are different claims about different evidence, and
+      collapsing them the safe-looking direction still misreports.
     """
-    banner = getattr(rip_log, "log_creator", "") or ""
-    return approve_ripper(str(banner))
+    build = str(getattr(rip_log, "ripper_build", "") or "").strip()
+    banner = str(getattr(rip_log, "log_creator", "") or "").strip()
+    if build:
+        # Reassemble the banner the ripper actually printed. `approve_ripper` is the
+        # single classifier — the log, the report, the UI and `--doctor` all reach it
+        # — so this normalises the input rather than adding a second code path that
+        # could disagree with it.
+        return approve_ripper(f"{banner} ({build})" if banner else f"({build})")
+    return approve_ripper(banner)
 
 
 def version_pair_line() -> str:

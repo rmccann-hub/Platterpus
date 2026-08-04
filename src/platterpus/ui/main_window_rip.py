@@ -72,6 +72,7 @@ from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip
 from platterpus.parsers.rip_log import RipLog, TrackResult, parse_rip_log
 from platterpus.paths import LOG_PATH
 from platterpus.report_types import ArtifactsBlock
+from platterpus.rip_addendum import read_log_with_addendum
 from platterpus.ui.main_window_helpers import (
     _dir_has_audio,
     fidelity_summary,
@@ -399,6 +400,10 @@ class RipMixin(MainWindowShared):
     #: written repeatedly and `_rip_worker` is None for every write after the
     #: first, so the writer must read this rather than the worker.
     _last_ripper_stdout: str
+    #: The ripper's verdict on its own log, or None if the step never ran. `object`
+    #: rather than the adapter's dataclass so this UI mixin does not import an
+    #: adapter for a type it only forwards.
+    _last_ripper_log_verification: object | None
 
     # --- Slots: rip flow ----------------------------------------------------
 
@@ -591,6 +596,7 @@ class RipMixin(MainWindowShared):
         #: The ripper's substantive stdout, snapshotted at finish so the report's
         #: re-writes still carry it after the worker is torn down. See `_finish_rip`.
         self._last_ripper_stdout = ""
+        self._last_ripper_log_verification = None
         self._last_cover_art_result = None
         self._last_recompress_result = None
         self._last_tagging_result = None
@@ -1426,6 +1432,14 @@ class RipMixin(MainWindowShared):
         self._last_ripper_stdout = (
             getattr(self._rip_worker, "captured_stdout", "") or ""
         )
+        # The ripper's verdict on its own log (schema v18). Snapshotted for exactly
+        # the same reason as the stdout above — the worker is cleared before the
+        # debounced report re-writes, and a guard that emitted nothing rather than
+        # keeping the value is what left `ripper_stdout` empty on every completed
+        # rip. Same trap, so the same answer: keep the value.
+        self._last_ripper_log_verification = getattr(
+            self._rip_worker, "ripper_log_verification", None
+        )
 
         # (The rip lock + repaint belt are released in _on_rip_finished's finally,
         # so they're reset even if anything below raises — BUG-5.)
@@ -1472,7 +1486,10 @@ class RipMixin(MainWindowShared):
                 # handler and abort the entire post-rip chain (no report, no
                 # tagging, no cover art, no eject, and the rip state left uncleared
                 # so shutdown thinks a rip is still live).
-                text = log_file.read_text(encoding="utf-8", errors="replace")
+                # read_log_with_addendum folds in the auto-fix sidecar, which
+                # supersedes the first pass's per-track record for any swapped
+                # track (see platterpus.rip_addendum).
+                text = read_log_with_addendum(log_file)
                 # Sniff the format instead of trusting the configured
                 # backend: a folder can hold logs from either ripper, and
                 # the auto-heal path can change mid-session.
@@ -2989,6 +3006,10 @@ class RipMixin(MainWindowShared):
                 # the file — and this is the one artifact the cyanrip project cannot
                 # produce for itself, which round 7 lap 10 tells them we capture.
                 ripper_stdout=getattr(self, "_last_ripper_stdout", ""),
+            ),
+            # The one verdict in the report that is not ours (round 7 lap 10, J3).
+            ripper_log_verification=getattr(
+                self, "_last_ripper_log_verification", None
             ),
             # v7 process/settings/provenance blocks. `outcome`/`disc` are
             # snapshotted at finish (worker/params are cleared before the debounced

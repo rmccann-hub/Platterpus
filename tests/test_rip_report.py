@@ -1014,7 +1014,14 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_17() -> None:
+def test_schema_version_is_18() -> None:
+    # v18 added `ripper_log_verification` — the RIPPER's verdict on its OWN log, run
+    # with its own `--verify-log` and its own checksum. The one block here whose
+    # verdict is not ours, which is the entire reason it exists: the cyanrip fork
+    # found that our `self_check`'s log-integrity row verified a file we wrote
+    # against a checksum we computed, and reported it fine on a rip that shipped a
+    # cyanrip log cyanrip itself would reject (round 7 lap 10, H1/J3).
+    #
     # v17 added the two FORK-ONLY provenance rows the ripper prints about ITSELF:
     # `rip.ripper_handshake_note` (its compiled-in statement of which handshake round
     # it was built from — a build from an open-round tree says so permanently) and
@@ -1028,7 +1035,7 @@ def test_schema_version_is_17() -> None:
     # reader to already know about `outcome.failure_hint`, `log_parse.note`,
     # `ctdb.error`, the per-track `issues` and the verification blocks. (v15 added the
     # rip-time handshake-approval block.)
-    assert REPORT_SCHEMA_VERSION == 17
+    assert REPORT_SCHEMA_VERSION == 18
 
 
 def test_the_forks_own_handshake_and_consumer_lines_reach_the_json() -> None:
