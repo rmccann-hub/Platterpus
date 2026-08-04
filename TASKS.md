@@ -597,6 +597,13 @@ cyanrip     0.9.4-rc1+platterpus.5-beta.1   commit 9003e6f on platterpus-fork
       its `-x` could hang with no diagnostic at all, which is exactly what H10 exercises.
       `SUPERSEDED_TEST_PINS` records the retired ones, and a rip that finds one installed
       says it is retired and names the current one.
+- **[x] The pair is installed and verified AT THE DRIVE (2026-08-04).** Confirmed by
+      reading the binary's own banner on the rig, not by trusting the wizard:
+      `~/.local/bin/cyanrip --version` →
+      `cyanrip 0.9.4-rc1+platterpus.5-beta.1 (platterpus-fork-g9003e6f)`, under
+      Platterpus **v0.6.4b3**. It took b1 → b2 → b3 to get here: b2 added the
+      diagnostics that made the failure visible, and b3 fixed what they revealed (the
+      unexpanded `$HOME`). **This was the last precondition the round was waiting on.**
 - **[ ] Run the rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation** — seven of the ripper's refusal paths fire before its logfile exists,
       so nothing in the archived log can show them, and its heartbeat lines are
