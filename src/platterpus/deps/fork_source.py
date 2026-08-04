@@ -220,6 +220,59 @@ BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
 )
 
 
+#: Build tags whose published flag table lists ``-Y`` / ``--verify-log``.
+#:
+#: **Why this exists rather than a match on the ripper's error text** (their round-7
+#: lap 12, J4): our first version of the log-verification classifier decided
+#: "rejected flag" versus "rejected log" by matching cyanrip's *wording* —
+#: ``Unable to parse command line argument: …``. The fork told us that string is
+#: **genopt's, not theirs, and one upstream sync from changing**, and asked us to key
+#: on the exit code plus the flag's presence in their published table instead. They
+#: are right, and the mistake is one we have made from the other side: a matcher
+#: built on a dependency's prose is a hand-maintained list of shapes, which is the
+#: round-5 lesson exactly.
+#:
+#: Every tag here is a fork build named by a round whose P1 table contains the flag;
+#: `tests/test_verify_log_support.py` derives that set from the committed inbound
+#: tables and asserts agreement, so this cannot drift from the documents.
+BUILD_TAGS_ACCEPTING_VERIFY_LOG: Final[frozenset[str]] = frozenset(
+    {
+        FORK_EXPECTED_BUILD_TAG,  # the round-6 approved pin
+        f"{FORK_BRANCH}-g{NEXT_PIN_UNDER_REVIEW}",
+        FORK_TEST_BUILD_TAG,
+        *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
+    }
+)
+
+
+def accepts_verify_log(build_tag: str) -> bool | None:
+    """Whether a build accepts ``--verify-log``. **Tri-state.**
+
+    ``True`` a published flag table lists it for this build. ``None`` we do not
+    know — and that is deliberately NOT ``False``: no document in this repository
+    says any cyanrip *lacks* the flag, so claiming absence would be inventing
+    evidence. Stock upstream lands here, including builds that very likely do
+    support it (every stock 0.9.3 log in `output_reference/` carries a
+    ``Log FUN512:`` footer, which is evidence about the footer and not about the
+    flag — see `docs/cyanrip-handshake.md`; lap 13 asks the fork for the earliest
+    build with ``-Y`` so this can return ``True`` for the stock line too).
+
+    ``False`` is reserved for a build we affirmatively know rejects it, and nothing
+    populates that today.
+
+    Tolerant of a ``-dirty`` suffix, like :func:`accepts_consumer_flag`: a dirty
+    build of a listed commit still has the flag.
+    """
+    tag = (build_tag or "").strip().casefold()
+    if not tag:
+        return None
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
+    if tag in {t.casefold() for t in BUILD_TAGS_ACCEPTING_VERIFY_LOG}:
+        return True
+    return None
+
+
 def accepts_consumer_flag(build_tag: str) -> bool:
     """Whether a build identified by ``build_tag`` will accept ``--consumer``.
 

@@ -204,6 +204,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **`rip.read_stalls` — the fork's stall-watchdog verdict, verbatim (schema v18 →
+  v19).** They added that line at their own initiative *for us*, and we were not
+  reading it — while answering their design question about whether we wanted the
+  figure per-track or disc-level. Answering a contract question from the design rather
+  than from the code is the failure this round keeps circling, and it was found by
+  running the real parser over their golden reference rather than by re-reading our
+  own source. `null` on stock cyanrip, which never prints the line: a third state,
+  because *no stalls measured* and *stalls not measured* are different claims. Kept as
+  text rather than a parsed count — we have only seen the `none` shape, and a regex
+  for the populated one would encode our guess at their wording, which is what put
+  `merged` in the gap matcher for two rounds.
 - **A handshake file that cites hardware must now name the pair the hardware ran.**
   Lap 8 declared the tested pair as Platterpus `0.6.4b1`; the rig ran `0.6.4b3`. The
   fork caught it by hand, and their diagnosis is the finding: *"nothing in either
@@ -216,6 +227,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   off `__version__`, so a correct historical record is not refused after a version
   bump; and with a proof-of-failure case that runs lap 8's real declaration against the
   real b3 artifact and asserts rejection.
+- **`--verify-log`'s failure classifier no longer keys on cyanrip's error wording.**
+  It distinguished *"the flag was rejected"* from *"the log was rejected"* by matching
+  `Unable to parse command line argument: …`. The fork pointed out that string is
+  **genopt's, not theirs, and one upstream sync from changing**, and asked us to key
+  on the exit code plus the flag's presence in their published table instead. A
+  `failed` verdict now requires positive evidence the build accepts the flag
+  (`fork_source.accepts_verify_log`, tri-state — `None` for unknown, never `False`,
+  since no document says any cyanrip *lacks* it). Everything else fails safe to
+  `not_determined`: the cost of that is a report line, while the other error accuses
+  an intact archival log of being corrupt. The wording match is kept only as a belt
+  that can soften a verdict, never reach one. Their point is a lesson we have watched
+  from the other side — a matcher built on a dependency's prose is a hand-maintained
+  list of shapes, which is what hid 16 of their fatal strings in round 5.
 - **The two provenance witnesses are now actually compared.** Round 7 lap 10 told the
   cyanrip fork that *"when the two disagree, the disagreement is the finding"* about
   `ripper_handshake_approval` (our verdict on the build tag) versus

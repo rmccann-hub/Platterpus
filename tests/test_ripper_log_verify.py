@@ -29,6 +29,17 @@ import pytest
 
 from platterpus.adapters import ripper_log_verify as rlv
 from platterpus.adapters.tool_run import ToolRun
+from platterpus.deps import fork_source
+
+#: A build a published flag table lists as accepting `--verify-log`.
+#:
+#: Required for `failed` since round 7 lap 12 (J4): the fork pointed out that our
+#: first classifier told "rejected flag" apart from "rejected log" by matching THEIR
+#: error text, which is genopt's wording and one upstream sync from changing. The
+#: discriminator is now the build. See `tests/test_verify_log_support.py` for the
+#: derivation and for the unknown-build branch; this file keeps the shape of the
+#: original states, now with the evidence the verdict requires.
+KNOWN_BUILD = fork_source.FORK_TEST_BUILD_TAG
 
 _REPO = Path(__file__).resolve().parent.parent
 #: A real cyanrip log, so the argv we build names a file that exists and the
@@ -89,6 +100,7 @@ def test_the_argv_uses_the_long_flag_and_names_the_log() -> None:
 def test_a_nonzero_exit_with_real_output_is_failed() -> None:
     result = rlv.verify_rip_log(
         _REAL_LOG,
+        build_tag=KNOWN_BUILD,
         runner=_runner(
             ToolRun(exit_code=1, output="Log checksum mismatch! File was modified.")
         ),
@@ -119,13 +131,30 @@ def test_a_rejected_flag_is_not_determined_never_failed(output: str) -> None:
     corrupt on any cyanrip old enough to lack `--verify-log`. Getting it backwards
     is the exact shape of the `-V` blocker: a rejected flag exits non-zero, and
     reading that as the operation's verdict was wrong then too.
+
+    **The wording is now a belt, not the discriminator** (lap 12, J4). Two paths reach
+    `not_determined` and both are asserted here: an unknown build (no tag), where the
+    text is irrelevant; and a *listed* build that nevertheless says it rejects the
+    flag, which means our table entry is wrong and the safe reading is still "not
+    determined". Neither may reach `failed`.
     """
-    result = rlv.verify_rip_log(
+    unknown = rlv.verify_rip_log(
         _REAL_LOG, runner=_runner(ToolRun(exit_code=1, output=output))
     )
-    assert result.verdict == rlv.NOT_DETERMINED, output
-    assert not result.is_verified
-    assert "does not accept" in result.detail
+    assert unknown.verdict == rlv.NOT_DETERMINED, output
+    assert not unknown.is_verified
+    assert "cannot establish" in unknown.detail
+
+    listed = rlv.verify_rip_log(
+        _REAL_LOG,
+        build_tag=KNOWN_BUILD,
+        runner=_runner(ToolRun(exit_code=1, output=output)),
+    )
+    assert listed.verdict == rlv.NOT_DETERMINED, output
+    assert "re-check" in listed.detail, (
+        "a listed build that rejects the flag must say the published-table entry "
+        "needs re-checking, not blame the log"
+    )
 
 
 def test_a_missing_binary_blames_the_pass_not_the_log() -> None:

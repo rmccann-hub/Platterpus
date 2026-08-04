@@ -46,6 +46,10 @@ class RipBlock(TypedDict):
     # v14: the ripper's own `Invoked as:` line — what it says it RECEIVED, as
     # against `outcome.ripper_argv`, which is what we SENT.
     invoked_as: str | None
+    #: v19. FORK-ONLY stall watchdog verdict, verbatim (e.g. `none (no read
+    #: exceeded 10s)`). `None` on stock cyanrip, which never prints the line — a
+    #: third state, not a synonym for "none".
+    read_stalls: str | None
     #: v17, both FORK-ONLY and both verbatim. `ripper_handshake_note` is the
     #: binary's own compiled-in statement of the round it was built from — a
     #: second, independent witness beside `ripper_handshake_approval`, which is
