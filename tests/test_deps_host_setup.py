@@ -69,7 +69,7 @@ def _fork_installed(runner: _FakeRunner, cyanrip_path: Path) -> None:
     """
     runner.results[(str(cyanrip_path), "-V")] = (
         0,
-        f"{fork_source.FORK_EXPECTED_BANNER}\n",
+        f"{fork_source.WIZARD_TARGET.banner}\n",
     )
 
 
@@ -476,7 +476,7 @@ def _fork_probe(tmp_path: Path, banner: str, rc: int = 0) -> bool:
 
 
 def test_the_pinned_fork_banner_marks_the_step_done(tmp_path: Path) -> None:
-    assert _fork_probe(tmp_path, f"{fork_source.FORK_EXPECTED_BANNER}\n") is True
+    assert _fork_probe(tmp_path, f"{fork_source.WIZARD_TARGET.banner}\n") is True
 
 
 def test_a_stock_banner_does_not_mark_the_fork_step_done(tmp_path: Path) -> None:
