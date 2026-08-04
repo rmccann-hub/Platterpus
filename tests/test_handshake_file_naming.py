@@ -139,18 +139,78 @@ def test_a_canonical_name_is_never_worn_by_a_file_with_nothing_to_state(
     thing is the failure this round found twice in one file.
     """
     checked = 0
+    exempt = 0
     for path in _all_files():
         pair = hs.name_round_and_lap(path)
         if pair is None:
             continue  # a grandfathered name; the test above does not bind it either
         checked += 1
         round_, lap, _sender = _declared(path)
+        if lap is None:
+            # THE ONE EXEMPTION, and it is derived rather than granted.
+            #
+            # A file that declares no lap IS its round's first (`DEFAULT_LAP`), so
+            # `lap-01` states a fact about it rather than a guess. The fork reached this
+            # independently in their lap 18 — they renamed their round-7 no-lap file to
+            # `round-07-lap-01.md` — and our first version of this rule would have
+            # rejected their tree. Two conditions keep it from becoming a hole:
+            #   * the name must claim lap 1 specifically, not any lap;
+            #   * it must be the round's ONLY no-lap file, checked below, or two files
+            #     would both be "the first".
+            assert pair[1] == hs.DEFAULT_LAP, (
+                f"{path.parent.name}/{path.name} declares no lap but is named lap "
+                f"{pair[1]}. Only lap {hs.DEFAULT_LAP} is derivable for a no-lap file "
+                "(it is its round's first); any other number is invented."
+            )
+            assert round_ == pair[0] or round_ is None, (
+                f"{path.parent.name}/{path.name} declares round {round_} and is named "
+                f"round {pair[0]}"
+            )
+            exempt += 1
+            continue
         assert (round_, lap) == pair, (
             f"{path.parent.name}/{path.name} wears a canonical name claiming round "
             f"{pair[0]} lap {pair[1]}, but declares {(round_, lap)}. A canonical name "
             "on a file that cannot back it up is a false label."
         )
     assert checked >= 10, f"only {checked} canonical names were verified"
+    assert exempt >= 1, (
+        "no no-lap file wears a lap-01 name, so the derived exemption above is "
+        "untested — and it is the clause that lets our tree and the fork's agree"
+    )
+
+
+def test_only_one_file_per_round_can_be_its_first(hs: ModuleType) -> None:
+    """The second condition on the lap-01 exemption, which makes it safe.
+
+    `lap-01` is derivable for a no-lap file *because* the file is its round's first. Two
+    no-lap files in one round would both claim that, and the name would be back to
+    stating a guess — which is how round 6's three amendment files must keep their legacy
+    names rather than all becoming lap 1.
+    """
+    checked = 0
+    for directory in _DIRS:
+        rounds: dict[int, list[Path]] = {}
+        for path in sorted((_HANDSHAKE / directory).glob("*.md")):
+            number = hs.round_number(path)
+            if number is None:
+                continue
+            rounds.setdefault(number, []).append(path)
+        for number, members in rounds.items():
+            no_lap = [p for p in members if _declared(p)[1] is None]
+            named_first = [
+                p for p in no_lap if (hs.name_round_and_lap(p) or (0, 0))[1] == 1
+            ]
+            if not named_first:
+                continue
+            checked += 1
+            assert len(no_lap) == 1, (
+                f"{directory}/round {number}: {[p.name for p in no_lap]} all declare no "
+                f"lap, and {[p.name for p in named_first]} claims to be the first. With "
+                "more than one, 'the round's first file' is not a derivable fact and "
+                "they must keep legacy names."
+            )
+    assert checked >= 1, "no round exercises the first-file claim"
 
 
 def test_grandfathered_files_are_exactly_the_ones_with_no_lap_header(
@@ -177,10 +237,14 @@ def test_grandfathered_files_are_exactly_the_ones_with_no_lap_header(
             continue
         if lap is None:
             legacy += 1
-            assert not canonical, (
-                f"{path.parent.name}/{path.name} has a canonical name but declares no "
-                "lap; it cannot be checked and must keep a legacy name or gain a header"
-            )
+            if canonical:
+                # The derived exemption: a no-lap file IS its round's first, so
+                # `lap-01` states a fact. Bounded to lap 1 and to being the round's
+                # only no-lap file — both checked by the two tests above.
+                assert (hs.name_round_and_lap(path) or (0, 0))[1] == hs.DEFAULT_LAP, (
+                    f"{path.parent.name}/{path.name} declares no lap and is named for "
+                    f"a lap other than {hs.DEFAULT_LAP}, which is not derivable"
+                )
         else:
             assert canonical, (
                 f"{path.parent.name}/{path.name} declares a lap, so its name must be "
@@ -338,17 +402,18 @@ def test_the_newest_file_in_a_round_is_the_highest_lap(hs: ModuleType) -> None:
             f"{directory}/: round 7 files are ordered {[p.name for p in files]}, laps "
             f"{laps} — not oldest-first by lap, so the newest verdict read is wrong"
         )
-        # The floor that makes this bite: a legacy name AND a canonical one must both
-        # be present, because the bug only existed where the two schemes mix.
-        assert any(hs.name_round_and_lap(p) is None for p in files), (
-            f"{directory}/: no legacy-named file left in round 7, so this test no "
-            "longer exercises the mixed-scheme ordering that broke"
-        )
-        assert any(hs.name_round_and_lap(p) is not None for p in files)
+        # A floor on the REAL tree: without a lap past 9 the string sort and the lap
+        # sort agree and this proves nothing.
         assert max(laps) >= 10, (
             f"{directory}/: highest lap is {max(laps)}; below 10 the string sort and "
             "the lap sort agree and the bug is unreachable"
         )
+        # NOT a floor requiring a legacy-named file. The first version of this test
+        # demanded one, because the tree had one — and the fork's lap 18 renamed theirs
+        # to `round-07-lap-01.md`, which we matched, so the mix vanished and the floor
+        # started failing on a tree that was MORE correct. A floor tied to incidental
+        # tree contents expires; the mixed-scheme proof lives in the synthetic test
+        # below, which cannot.
 
 
 def test_a_legacy_name_sorts_before_a_canonical_one_in_the_same_round(
@@ -360,8 +425,10 @@ def test_a_legacy_name_sorts_before_a_canonical_one_in_the_same_round(
     and this one still pins the ordering rule — that a file declaring no lap is treated
     as the earliest in its round, which is what the pre-header files are.
     """
-    assert hs._lap_of(Path("round-7.md")) == 0, (
-        "a file with no declared lap must sort as lap 0, i.e. earliest in its round"
+    assert hs._lap_of(Path("round-7.md")) == hs.DEFAULT_LAP == 1, (
+        "a file with no declared lap must sort as lap 1 — it IS its round's first, and "
+        "lap 0 invents a lap that never existed. The fork's rule, adopted in lap 19 "
+        "after their lap 18 showed we had picked different numbers for one convention."
     )
     assert hs._lap_of(Path("round-07-lap-16.md")) == 16
     assert sorted(
@@ -396,6 +463,50 @@ def test_the_declared_lap_beats_the_name_when_they_could_disagree(
     assert hs._lap_of(mislabelled) == 20, (
         "the name was trusted over the header; a file that says lap 20 must sort as 20"
     )
+
+
+def test_an_ambiguous_lap_declaration_sorts_LAST_so_it_cannot_hide(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """**A hole on our side, closed by adopting the fork's rule (their lap 18 §B1).**
+
+    We used to fall back to the *filename* when `HANDSHAKE-LAP` was declared twice with
+    different values. So a file named `lap-09` declaring both 9 and 20 sorted at 9, a
+    later valid file was read as the newest, and **the ambiguity was never examined by
+    the gate at all** — the protocol's own "present-but-ambiguous is worse than absent"
+    principle broken in the direction that hides it.
+
+    Their rule: ambiguous **wins** the sort, so it becomes the file the verdict is read
+    from and `check_wire_header` refuses it by name. Comparing two implementations of
+    one convention is what surfaced this; no test on either side had it.
+    """
+    lines = ("HANDSHAKE-PROTOCOL: 2", "HANDSHAKE-ROUND: 7")
+    good = tmp_path / "round-07-lap-16.md"
+    good.write_text("\n".join((*lines, "HANDSHAKE-LAP: 16", "")), encoding="utf-8")
+    ambiguous = tmp_path / "round-07-lap-09.md"
+    ambiguous.write_text(
+        "\n".join((*lines, "HANDSHAKE-LAP: 9", "HANDSHAKE-LAP: 20", "")),
+        encoding="utf-8",
+    )
+
+    assert hs._lap_of(ambiguous) == hs.AMBIGUOUS_LAP
+    assert hs._lap_of(ambiguous) > hs._lap_of(good), (
+        "an ambiguous declaration must outrank every real lap, or a later valid file "
+        "is read as the newest and the ambiguity is never surfaced"
+    )
+    ordered = sorted([good, ambiguous], key=hs.sort_key)
+    assert ordered[-1] == ambiguous, [p.name for p in ordered]
+
+    # And prove the OLD behaviour would have hidden it — the fix is not decoration.
+    naive = sorted([good, ambiguous], key=lambda q: hs.name_round_and_lap(q) or (0, 0))
+    assert naive[-1] == good, (
+        "reading the name would no longer put the valid file last, so this regression "
+        "is unreachable and the rule needs re-justifying"
+    )
+
+    # The ambiguity is then actually refused, rather than merely sorted first.
+    problems = hs.check_wire_header(ambiguous, expect_from=None)
+    assert any("more than once" in str(x) for x in problems), problems
 
 
 def test_the_generator_round_trips_through_the_parser(hs: ModuleType) -> None:

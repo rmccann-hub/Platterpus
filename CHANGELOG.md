@@ -204,6 +204,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   rig log, so the stand-in cannot be more capable than the product again.
 
 ### Fixed
+- **Two divergences between our handshake loader and the fork's, found by comparing
+  implementations rather than by a failing test.** Their lap 18 adopted our naming
+  convention and reported how *their* loader orders files; ours did it differently in
+  two places. (1) A file declaring no lap was **lap 0** for us and **lap 1** for them —
+  same ordering on today's tree, so nothing failed; theirs is more correct, since a
+  round's pre-lap-header file *is* that round's first lap. (2) An **ambiguous**
+  `HANDSHAKE-LAP` fell back to the *filename* for us, so it sorted at its named lap, a
+  later valid file was read as newest, and **the ambiguity was never examined by the
+  gate** — the protocol's own "present-but-ambiguous is worse than absent" broken in the
+  direction that hides it. Both of their rules adopted; the ambiguous case now sorts
+  last so the header check refuses it. Two implementations of one convention is the
+  drift this protocol exists to prevent, and it is the only reason either was found.
+- **A floor that expired because it required a tree state, not a property.** The
+  mixed-scheme ordering test demanded a legacy-named file in round 7 — true when
+  written, and the fork's lap 18 renamed theirs to `round-07-lap-01.md`, which we
+  matched, so the floor started failing on a tree that was *more* correct. The
+  mixed-scheme proof moved to the synthetic case, which cannot expire. Same for a test
+  that located a committed artifact by filename rather than by identity.
 - **Handshake files are named `round-NN-lap-LL.md`, and the old scheme had already
   destroyed one.** The letter suffix (`round-7f.md`) encoded nothing: the same letter
   meant **lap 12** in `inbound/` and **lap 10** in `verified/`, two files were both lap
