@@ -154,6 +154,11 @@ class CyanripImpl(RipBackend):
         read_speed: int = 0,
         only_tracks: tuple[int, ...] = (),
         disc_track_total: int | None = None,
+        # The build tag of the ripper we are about to run, when known. Empty means
+        # "unknown", and an unknown build gets NO capability-gated flags — see
+        # `consumer_tag_for_build`. Defaulting to empty is what makes the safe
+        # behaviour the default rather than something a caller must remember.
+        ripper_build_tag: str = "",
     ) -> list[str]:
         """Build the cyanrip rip argv (pure — unit-tested).
 
@@ -215,6 +220,27 @@ class CyanripImpl(RipBackend):
         # ones — either way cyanrip itself stays offline.
         del unknown
         argv.append("-N")
+        # `--consumer <name>/<version>`: who drove the rip, recorded verbatim in
+        # cyanrip's logfile with their own note that they *cannot verify* the claim
+        # (round 7 lap 4 §7). Together with their `Handshake:` line it lets anyone
+        # holding only the log answer "which pair produced this, and had they
+        # agreed?" without either repository.
+        #
+        # **Sent only to a build known to accept it**, and that gate is not
+        # cosmetic. cyanrip exits non-zero on an unrecognised option, and every
+        # availability probe in this codebase reads a non-zero exit as *"the tool is
+        # not installed"* — so sending it to the pinned r2 build would make the app
+        # report a working ripper missing. That is the round-5 `-V` blocker in the
+        # opposite direction: there we sent a flag upstream had removed, here we
+        # would send one the pinned build has not gained.
+        #
+        # Caught before shipping by `tests/test_argv_surface_agreement.py`, which
+        # diffed it against the newest published flag table and refused it. The
+        # capability lives in `fork_source.accepts_consumer_flag`, keyed on the
+        # BUILD TAG rather than the version string — the fork's version is
+        # deliberately upstream's plus build metadata, so it cannot be ordered.
+        if consumer_tag_for_build(ripper_build_tag):
+            argv += ["--consumer", consumer_tag()]
         argv += _disc_args(metadata)
         argv += _metadata_args(metadata, release_id, disc_track_total)
         # Naming: translate our whipper-style templates to cyanrip schemes.
@@ -774,12 +800,94 @@ def assert_metadata_lookup_disabled(argv: list[str]) -> None:
     Separated from the method so something can actually *call* it with a bad
     argv — a guard that cannot be exercised is a guard nobody has tested.
     """
+    # The consumer tag, checked here too: this function is the one place every rip
+    # argv passes through, and a tag validated at construction but not at the
+    # chokepoint is the "stated everywhere, enforced nowhere" shape again.
+    if "--consumer" in argv:
+        index = argv.index("--consumer")
+        if index + 1 >= len(argv):
+            raise RipError("--consumer was passed with no value")
+        assert_consumer_tag_is_sane(argv[index + 1])
+
     if "-N" not in argv:
         raise RipError(
             "refusing to run cyanrip without -N: the GUI is the single metadata "
             "source (Critical rule #5), and cyanrip's own lookup can block on an "
             "interactive prompt with no terminal attached"
         )
+
+
+#: What we call ourselves to cyanrip. One place, so the log, the contract and
+#: the tests cannot disagree about our own name.
+CONSUMER_NAME: str = "platterpus"
+
+
+def consumer_tag_for_build(build_tag: str) -> str:
+    """Our consumer tag if this ripper build accepts ``--consumer``, else ``""``.
+
+    One place, so the argv builder, the tests and any future caller cannot disagree
+    about when the flag is safe. Empty means *do not send it* — never "send it and
+    hope".
+    """
+    from platterpus.deps import fork_source  # noqa: PLC0415
+
+    return consumer_tag() if fork_source.accepts_consumer_flag(build_tag) else ""
+
+
+def consumer_tag() -> str:
+    """``platterpus/<version>`` — what we tell cyanrip we are.
+
+    Built from ``__version__`` rather than hardcoded, so it cannot name a release
+    we are not. Shape fixed by the shared protocol (``docs/handshake-protocol.md``
+    §7): ``<name>/<version>``.
+    """
+    from platterpus import __version__  # noqa: PLC0415 — avoids an import cycle
+
+    return f"{CONSUMER_NAME}/{__version__}"
+
+
+def assert_consumer_tag_is_sane(tag: str) -> None:
+    """Refuse a consumer tag cyanrip would record as something misleading.
+
+    **Why this is validated rather than trusted.** It is a value we hand a
+    dependency, so the argv-chokepoint rule applies (CLAUDE.md: *validate every
+    input and every dependency output*, including **range**, enforced by code and
+    not merely stated). And the failure mode is specific: this string is written
+    verbatim into an archival log as the identity of the program that produced the
+    rip. A tag carrying whitespace would split into two argv words and cyanrip
+    would record only the first; one carrying a newline could forge a second log
+    line entirely.
+
+    Raises :class:`RipError` at construction rather than shipping a log that
+    misidentifies its own producer.
+    """
+    if not tag or tag != tag.strip():
+        raise RipError(
+            f"refusing to send cyanrip a consumer tag with leading/trailing "
+            f"whitespace or none at all: {tag!r}"
+        )
+    if any(ch.isspace() for ch in tag):
+        raise RipError(
+            f"refusing to send cyanrip a consumer tag containing whitespace: "
+            f"{tag!r} — it would split into two argv words and the log would "
+            "record only the first, misidentifying the program that ripped the disc"
+        )
+    if "/" not in tag:
+        raise RipError(
+            f"consumer tag {tag!r} is not <name>/<version> "
+            "(docs/handshake-protocol.md §7)"
+        )
+    name, _, version = tag.partition("/")
+    if name != CONSUMER_NAME:
+        raise RipError(
+            f"consumer tag names {name!r}, but this program is {CONSUMER_NAME!r}"
+        )
+    if not version:
+        raise RipError(f"consumer tag {tag!r} carries no version")
+    # A tag long enough to be a paste accident is refused rather than truncated:
+    # a silently shortened identity is worse than a loud refusal.
+    if len(tag) > 64:
+        raise RipError(f"consumer tag is {len(tag)} chars, refusing (max 64): {tag!r}")
 
 
 def _year_token(raw: str) -> str:

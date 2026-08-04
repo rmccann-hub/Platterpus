@@ -55,4 +55,4 @@ guesswork. See the runbook §2 "Platterpus-side cleanup".
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

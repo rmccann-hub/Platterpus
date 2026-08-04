@@ -685,7 +685,22 @@ def wire_verdict(text: str) -> str | None:
     return token if token in VERDICT_VOCABULARY else "HOLD"
 
 
-def close_blockers(text: str) -> list[str]:
+def declared_round(text: str) -> int | None:
+    """The round a file *declares*, or None. Independent of its filename.
+
+    `round_number()` reads the name; this reads the header. Both exist because §3
+    requires them to agree and a check needs each separately to say so.
+    """
+    value = wire_fields(text).get("HANDSHAKE-ROUND")
+    if value is None or value == AMBIGUOUS:
+        return None
+    try:
+        return int(value.split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
     """Why this file does not close a round. Empty list means it does.
 
     Separate from :func:`wire_verdict` because "did they say GO" and "is that GO
@@ -706,6 +721,43 @@ def close_blockers(text: str) -> list[str]:
         return [f"verdict is {token}, not GO"]
 
     blockers: list[str] = []
+    # THE IDENTITY FIELDS ARE PART OF A CLOSE, and this is where they were missing.
+    #
+    # `check_inbound` validated them; the *gate* never did. So a round-8 file
+    # declaring GO with every §5 close field and **none** of `HANDSHAKE-FROM` /
+    # `-APP-VERSION` / `-RIPPER-VERSION` / `-PIN` closed the round. Our lap-5 reply
+    # told the fork "all four of our v1 additions required — yes", which was true of
+    # one function and false of the one that decides releases: one half of a
+    # two-half check, again.
+    #
+    # Found because the fork had the identical gap — *"our gate parsed all four and
+    # enforced none"* — reported it in their lap 4, and in lap 6 said plainly that
+    # our claim was a code-reading claim with no conformance row behind it. It was.
+    # Rows C9/C10 now exercise it (`tests/test_handshake_conformance.py`).
+    #
+    # Round-gated: rounds in the grandfather set predate the header entirely, and
+    # demanding fields of a file written before the spec would refuse history.
+    # `round_hint` is the round the CALLER knows this file belongs to — from its
+    # directory and filename. It matters because the pre-header rounds have no
+    # header at all, so reading the round out of the text returns None for exactly
+    # the files the exemption exists for. Without the hint this over-fired and
+    # reported rounds 1-6 as OPEN: a grandfather clause keyed on a field the
+    # grandfathered files do not have. An unknown round is treated as exempt —
+    # a file we cannot place is not a file we can hold to a later spec.
+    num = round_hint if round_hint is not None else declared_round(text)
+    grandfathered = num is None or num in (
+        OUR_PRE_HEADER_ROUNDS | THEIR_PRE_HEADER_ROUNDS
+    )
+    if not grandfathered:
+        for key in REQUIRED_WIRE_FIELDS:
+            value = fields.get(key)
+            if value is None:
+                blockers.append(
+                    f"a closing file must declare {key} (§3) — an agreement that "
+                    "does not name its parties cannot be quoted later"
+                )
+            elif value == AMBIGUOUS:
+                blockers.append(f"{key} declared more than once (§2 rule 3)")
     for key in REQUIRED_CLOSE_FIELDS:
         value = fields.get(key)
         if value is None:
@@ -928,7 +980,33 @@ def round_status(root: Path | None = None) -> list[str]:
         # while the deviation policy forbids releasing or moving the pin with a
         # round open. A gate that a HOLD satisfies is not a gate (CLAUDE.md: *can
         # this check be satisfied by the wrong thing?*).
-        both_go = verdict == "GO" and theirs == "GO"
+        # A GO that cannot close is not a close (§5). Reading only the verdict is
+        # what let a round-8 file with no identity fields close — see
+        # `close_blockers`. Checked on BOTH sides' newest file.
+        # `close_blockers` is a check on a §5 *header*, so it only applies to rounds
+        # that have one. The pre-header rounds state their verdict in prose, and
+        # running the header check over them reported "no HANDSHAKE-VERDICT
+        # declared" for every closed round in the record — the grandfather clause
+        # defeated by the very absence it exists to permit. Second time in one
+        # change: the first was keying the exemption on a field those files lack.
+        pre_header = num in (OUR_PRE_HEADER_ROUNDS | THEIR_PRE_HEADER_ROUNDS)
+        our_blockers: list[str] = []
+        their_blockers: list[str] = []
+        if not pre_header:
+            if done:
+                our_blockers = close_blockers(
+                    done[-1].read_text(encoding="utf-8"), round_hint=num
+                )
+            if back:
+                their_blockers = close_blockers(
+                    back[-1].read_text(encoding="utf-8"), round_hint=num
+                )
+        both_go = (
+            verdict == "GO"
+            and theirs == "GO"
+            and not our_blockers
+            and not their_blockers
+        )
         state = "CLOSED" if (sent and back and both_go) else "OPEN"
 
         def shown_verdict(value: str | None) -> str:
@@ -965,6 +1043,14 @@ def main(argv: list[str] | None = None) -> int:
         "only changes the pin should not be required to restate all ten",
     )
     group.add_argument("--status", action="store_true", help="report the round state")
+    parser.add_argument(
+        "--prerelease",
+        action="store_true",
+        help="with --release-gate: permit a PRE-RELEASE while a round is open. A "
+        "pre-release is a test artifact, not a claim that the pair was verified "
+        "(handshake round 7 lap 6 §1 — the close-needs-hardware deadlock). A "
+        "stable release is still refused.",
+    )
     group.add_argument(
         "--release-gate",
         action="store_true",
@@ -980,6 +1066,45 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write(line + "\n")
         return 1 if any(ln.endswith("OPEN") for ln in round_status()) else 0
     if args.release_gate:
+        # A PRE-RELEASE is permitted while a round is open. A stable release is not.
+        #
+        # The fork found the deadlock and named it (round 7 lap 6 §1): a round cannot
+        # close without `HANDSHAKE-TESTED` naming what ran; that evidence needs the
+        # reviewed build on the rig; installing it is forbidden while the round is
+        # open. Every step is a rule both projects hold and together they are
+        # unsatisfiable. Their fix is `HANDSHAKE-TEST-PIN` — a build designated to
+        # gather evidence, which never closes a round and never moves the production
+        # pin. This is the same fix on our side of the seam.
+        #
+        # **What the gate protects is the claim a stable release makes**: that the
+        # pair was jointly verified. A beta makes no such claim — it ships as a
+        # GitHub pre-release, its own report says `ripper_handshake_approval:
+        # not_determined` or `unapproved`, and its whole purpose is to *produce* the
+        # evidence the close requires. Refusing it does not protect a user; it
+        # guarantees the round can never close.
+        #
+        # Loud, not silent: the open rounds are printed either way, so a pre-release
+        # never looks like a clean record.
+        if args.prerelease:
+            lines = round_status()
+            open_rounds = [ln for ln in lines if ln.endswith("OPEN")]
+            if open_rounds:
+                sys.stderr.write(
+                    "handshake: PRE-RELEASE permitted with a round OPEN — this build "
+                    "is a test artifact, not a verified pair. It must ship as a "
+                    "GitHub pre-release and must not move the production pin:\n"
+                )
+                for line in open_rounds:
+                    sys.stderr.write(f"  - {line}\n")
+                sys.stderr.write(
+                    "handshake: a STABLE release is still blocked until both sides "
+                    "declare GO with both versions, both pins and HANDSHAKE-TESTED.\n"
+                )
+            else:
+                sys.stdout.write(
+                    "handshake: every round is closed — pre-release allowed\n"
+                )
+            return 0
         # THE release gate. `--status` reports and also exits non-zero, which
         # made it look like this already existed — but nothing on the release
         # path ran it, and the only thing enforcing "no release while a round is

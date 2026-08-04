@@ -895,4 +895,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

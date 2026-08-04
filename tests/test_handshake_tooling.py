@@ -44,6 +44,34 @@ def hs() -> ModuleType:
     return _load()
 
 
+def _closing(**overrides: str | None) -> str:
+    """A complete §5 closing header. ``None`` omits a field.
+
+    Needed since conformance row C9: a close requires the four identity fields as
+    well as the close set, so a bare `HANDSHAKE-VERDICT: GO` no longer closes a
+    non-grandfathered round. Built from a dict so a future required field is added
+    in one place rather than in every fixture that happens to close a round.
+    """
+    fields: dict[str, str | None] = {
+        "HANDSHAKE-PROTOCOL": "2",
+        "HANDSHAKE-ROUND": "9",
+        "HANDSHAKE-LAP": "1",
+        "HANDSHAKE-FROM": "platterpus",
+        "HANDSHAKE-VERDICT": "GO",
+        "HANDSHAKE-APP-VERSION": "platterpus 0.6.4",
+        "HANDSHAKE-RIPPER-VERSION": "cyanrip 0.9.4-rc1 (platterpus-fork-gabc1234)",
+        "HANDSHAKE-PIN": "abc1234",
+        "HANDSHAKE-PEER-VERDICT": "GO",
+        "HANDSHAKE-OUR-VERSION": "platterpus/0.6.4",
+        "HANDSHAKE-OUR-PIN": "def5678",
+        "HANDSHAKE-PEER-VERSION": "0.9.4-rc1+platterpus.4",
+        "HANDSHAKE-PEER-PIN": "abc1234",
+        "HANDSHAKE-TESTED": "the suite, on the pair above",
+    }
+    fields.update(overrides)
+    return "\n".join(f"{k}: {v}" for k, v in fields.items() if v is not None) + "\n"
+
+
 def _body(hs: ModuleType, section: object) -> str:
     """Filler long enough to clear the length floor, containing the section's
     own subject keywords.
@@ -291,12 +319,8 @@ def test_status_reports_a_complete_round_as_closed(
         (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
     # The verification must DECLARE a verdict; presence alone no longer closes a
     # round (see `test_a_verification_that_holds_does_not_close_the_round`).
-    (tmp_path / "verified" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
-    (tmp_path / "inbound" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
+    (tmp_path / "verified" / "round-9.md").write_text(_closing(), encoding="utf-8")
+    (tmp_path / "inbound" / "round-9.md").write_text(_closing(), encoding="utf-8")
 
     lines = hs.round_status(tmp_path)
     assert any(ln.startswith("round-9") and ln.endswith("CLOSED") for ln in lines)
@@ -311,14 +335,10 @@ def test_the_verification_is_what_closes_a_round(
     for name in ("outbound", "inbound", "verified"):
         (tmp_path / name).mkdir()
     (tmp_path / "outbound" / "round-9.md").write_text("x", encoding="utf-8")
-    (tmp_path / "inbound" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
+    (tmp_path / "inbound" / "round-9.md").write_text(_closing(), encoding="utf-8")
     assert hs.round_status(tmp_path)[0].endswith("OPEN")
 
-    (tmp_path / "verified" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
+    (tmp_path / "verified" / "round-9.md").write_text(_closing(), encoding="utf-8")
     assert hs.round_status(tmp_path)[0].endswith("CLOSED")
 
 
@@ -394,9 +414,7 @@ def test_the_release_gate_blocks_a_release_while_a_round_is_open(
 
     # Their return arrives but we have not verified it. A partly-verified pin is
     # an unverified pin, so this must STILL block.
-    (tmp_path / "inbound" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
+    (tmp_path / "inbound" / "round-9.md").write_text(_closing(), encoding="utf-8")
     assert hs.main(["--release-gate"]) == 1
 
     # Our verification exists but declares no verdict. Still blocked: a file that
@@ -407,11 +425,11 @@ def test_the_release_gate_blocks_a_release_while_a_round_is_open(
 
     # A verification that HOLDS is not a close. This is the round-7 case, and the
     # reason presence-only was wrong: the file was there, the round was not done.
-    verified.write_text("HANDSHAKE-VERDICT: HOLD\n", encoding="utf-8")
+    verified.write_text(_closing(**{"HANDSHAKE-VERDICT": "HOLD"}), encoding="utf-8")
     assert hs.main(["--release-gate"]) == 1
 
     # Both directions done AND BOTH verdicts are GO → allowed (protocol §8.3).
-    verified.write_text("HANDSHAKE-VERDICT: GO\n", encoding="utf-8")
+    verified.write_text(_closing(), encoding="utf-8")
     assert hs.main(["--release-gate"]) == 0
 
 
@@ -604,9 +622,7 @@ def test_a_verification_that_holds_does_not_close_the_round(
         (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
     verified = tmp_path / "verified" / "round-9.md"
     # Their half GOes throughout, so this test isolates OUR verdict.
-    (tmp_path / "inbound" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
+    (tmp_path / "inbound" / "round-9.md").write_text(_closing(), encoding="utf-8")
 
     verified.write_text(
         "HANDSHAKE-ROUND: 9\nHANDSHAKE-VERDICT: HOLD\n\n"
@@ -618,7 +634,7 @@ def test_a_verification_that_holds_does_not_close_the_round(
     assert "HOLD" in held[0], "the status must say WHY it is open, not just that"
     assert any("do not release" in ln for ln in held)
 
-    verified.write_text("HANDSHAKE-VERDICT: GO\n", encoding="utf-8")
+    verified.write_text(_closing(), encoding="utf-8")
     went = hs.round_status(tmp_path)
     assert went[0].endswith("CLOSED"), went
     assert not any("do not release" in ln for ln in went)
@@ -683,16 +699,13 @@ def test_the_newest_verification_file_supplies_the_verdict(
     for name in ("outbound", "inbound", "verified"):
         (tmp_path / name).mkdir()
         (tmp_path / name / "round-9.md").write_text("x", encoding="utf-8")
-    (tmp_path / "inbound" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
-    (tmp_path / "verified" / "round-9.md").write_text(
-        "HANDSHAKE-VERDICT: GO\n", encoding="utf-8"
-    )
+    (tmp_path / "inbound" / "round-9.md").write_text(_closing(), encoding="utf-8")
+    (tmp_path / "verified" / "round-9.md").write_text(_closing(), encoding="utf-8")
     assert hs.round_status(tmp_path)[0].endswith("CLOSED")
 
     (tmp_path / "verified" / "round-9b.md").write_text(
-        "HANDSHAKE-VERDICT: HOLD\n", encoding="utf-8"
+        _closing(**{"HANDSHAKE-VERDICT": "HOLD", "HANDSHAKE-LAP": "2"}),
+        encoding="utf-8",
     )
     lines = hs.round_status(tmp_path)
     assert lines[0].endswith("OPEN"), lines
@@ -835,7 +848,7 @@ def test_their_amendment_to_an_open_round_keeps_it_open_on_our_hold(
     )
     (tmp_path / "inbound" / "round-7b.md").write_text(
         "HANDSHAKE-VERDICT: GO\n\nour reply to your lap 1", encoding="utf-8"
-    )
+    )  # round 7 is grandfathered, so a bare verdict is legal here
 
     lines = [ln for ln in hs.round_status(tmp_path) if ln.startswith("round-")]
     assert lines == [
@@ -971,13 +984,16 @@ def test_a_round_closes_only_when_BOTH_sides_declare_go(
         return next(ln for ln in hs.round_status(tmp_path) if ln.startswith("round-9"))
 
     # They GO, we HOLD -> open.
-    inbound.write_text("HANDSHAKE-VERDICT: GO\n", encoding="utf-8")
-    verified.write_text("HANDSHAKE-VERDICT: HOLD\n", encoding="utf-8")
+    inbound.write_text(_closing(), encoding="utf-8")
+    verified.write_text(_closing(**{"HANDSHAKE-VERDICT": "HOLD"}), encoding="utf-8")
     assert status().endswith("OPEN"), status()
 
     # We GO, they HOLD -> open. This is the direction that used to close.
-    verified.write_text("HANDSHAKE-VERDICT: GO\n", encoding="utf-8")
-    inbound.write_text("HANDSHAKE-VERDICT: HOLD\n", encoding="utf-8")
+    verified.write_text(_closing(), encoding="utf-8")
+    inbound.write_text(
+        _closing(**{"HANDSHAKE-FROM": "cyanrip-fork", "HANDSHAKE-VERDICT": "HOLD"}),
+        encoding="utf-8",
+    )
     line = status()
     assert line.endswith("OPEN"), line
     assert "they-verified=yes (HOLD" in line, line
@@ -987,7 +1003,7 @@ def test_a_round_closes_only_when_BOTH_sides_declare_go(
     assert status().endswith("OPEN"), status()
 
     # BOTH GO -> closed. The only affirmative combination.
-    inbound.write_text("HANDSHAKE-VERDICT: GO\n", encoding="utf-8")
+    inbound.write_text(_closing(), encoding="utf-8")
     assert status().endswith("CLOSED"), status()
 
 

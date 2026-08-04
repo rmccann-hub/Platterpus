@@ -11,6 +11,17 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b1] — 2026-08-04
+
+**Beta, for the joint hardware test session.** This build exists to *produce* the
+evidence handshake round 7 needs to close, and it says so about itself: it ships as a
+GitHub pre-release, and every rip's report records
+`ripper_handshake_approval: not_determined` or `unapproved` unless the installed
+ripper is the build a closed round verified. **It is not a verified pair.**
+
+Paired with the cyanrip fork's own beta — see `docs/handshake/verified/round-7d.md`
+for the two builds by name.
+
 ### Fixed
 - **A clean rip was told its command line had been tampered with.** The argv-agreement
   self-check compared the argv of the *last* ripper invocation against the `Invoked as:`
@@ -2985,7 +2996,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus vX.Y.Z.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b1.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -5227,7 +5238,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...HEAD
+[0.6.4b1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.3...v0.6.4b1
 [0.6.3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.0...v0.6.1
@@ -5299,4 +5311,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*

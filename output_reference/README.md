@@ -194,4 +194,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.6.3.*
+*Last updated for Platterpus v0.6.4b1.*
