@@ -31,6 +31,8 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from platterpus import diagnostics
+
 log = logging.getLogger(__name__)
 
 # How many "<name> (N)" siblings to try before giving up. Two rips of one album
@@ -109,8 +111,24 @@ def move_album_folder(rip_dir: Path, library_dir: Path) -> MoveResult:
         return MoveResult(True, destination, f"moved to {destination}")
     except OSError as exc:
         log.warning("library move of %s failed: %s", rip_dir, exc)
+        # The user's audio is still where the rip put it, so this is a warning, not
+        # an error — but they asked for it to be moved and it was not, and that fact
+        # had no home in the report.
+        diagnostics.warning(
+            "library.move_failed",
+            f"the finished rip could not be moved into the library: {exc}. Your "
+            f"audio is still in {rip_dir}.",
+            detail=f"{type(exc).__name__}: {exc}",
+            where="library_move.move_to_library",
+        )
         return MoveResult(False, None, f"move failed: {exc}")
     except Exception:  # noqa: BLE001 — daemon-thread boundary: a surprise here
         # must degrade to a reported failure, never a vanished thread.
         log.exception("library move of %s failed unexpectedly", rip_dir)
+        diagnostics.error(
+            "library.move_failed",
+            f"an unexpected error stopped the library move; your audio is still in "
+            f"{rip_dir}",
+            where="library_move.move_to_library",
+        )
         return MoveResult(False, None, "move failed unexpectedly (see log)")

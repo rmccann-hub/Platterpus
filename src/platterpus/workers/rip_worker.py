@@ -30,6 +30,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from platterpus import diagnostics
 from platterpus.adapters.rip_backend import (
     RipBackend,
     RipError,
@@ -1210,10 +1211,31 @@ class RipWorker(QObject):
                 self._ripper_argv_first_pass = self._ripper_argv
         except RipError as exc:
             log.exception("rip failed to start")
+            # RECORD IT with the argv. A rip that never started produces no ripper
+            # log and no stdout, so this exception is the *entire* evidence — and it
+            # went only to a traceback in a file that is INFO-only by default plus a
+            # one-line signal. It now lands in the enumerated diagnostics too, which
+            # the report carries whether or not anyone reads the text log.
+            diagnostics.exception(
+                "ripper.nonzero_exit",
+                f"the ripper could not be started: {exc}",
+                exc,
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
             self.error.emit(str(exc))
             return None
         except Exception as exc:  # noqa: BLE001 — last-resort guard
             log.exception("unexpected error starting rip")
+            diagnostics.exception(
+                "internal.unexpected_exception",
+                f"an unexpected error stopped the rip before it started: {exc}",
+                exc,
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
             self.error.emit(f"unexpected error: {exc}")
             return None
 
@@ -1308,8 +1330,20 @@ class RipWorker(QObject):
                 # `if not self._failure_hint` so the specific, actionable hints
                 # below always outrank a raw line: first error wins, and a
                 # tailored message beats a verbatim one.
-                if not self._failure_hint and _RIPPER_ERROR_RE.match(line):
-                    self._failure_hint = line.strip()
+                if _RIPPER_ERROR_RE.match(line):
+                    if not self._failure_hint:
+                        self._failure_hint = line.strip()
+                    # EVERY matched fatal is recorded, not only the first. The hint is
+                    # deliberately "first error wins" because a status label holds one
+                    # sentence — but the *report* should carry all of them: a rip that
+                    # printed four diagnostics and showed one is three facts short, and
+                    # the later ones are often the consequence that explains the first.
+                    diagnostics.error(
+                        "ripper.fatal_message",
+                        line.strip(),
+                        tool="cyanrip",
+                        where="workers.rip_worker.RipWorker._run_rip",
+                    )
                 giveup = _TRACK_GIVEUP_RE.search(line)
                 if giveup:
                     track = giveup.group("track")
@@ -1369,6 +1403,18 @@ class RipWorker(QObject):
                         self._write_incremental_report(out_dir)
         except Exception as exc:  # noqa: BLE001
             log.exception("error reading ripper stdout")
+            # The stdout we DID capture before the break is the only account of how
+            # far the rip got; hand it over rather than letting the traceback stand
+            # alone. (`captured_stdout` is already head+elision+tail bounded.)
+            diagnostics.exception(
+                "internal.unexpected_exception",
+                f"reading the ripper's output failed mid-rip: {exc}",
+                exc,
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                detail=self.captured_stdout,
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
             # The subprocess is still running (we broke out of the read loop
             # abnormally, before wait()). Stop it so it doesn't keep holding the
             # drive and contend with a retry — best-effort, non-blocking.
@@ -1382,6 +1428,23 @@ class RipWorker(QObject):
         exit_code = self._reap_ripper()
         self._ripper_exit_code = exit_code
         success = (exit_code == 0) and not self._cancelled
+        if exit_code not in (0, None) and not self._cancelled:
+            # The ripper's OWN verdict on the rip, with its argv and everything it
+            # said. Recorded here rather than left to the GUI: this is the one place
+            # that holds all three at once, and the report used to carry the exit code
+            # in `outcome` with nothing enumerating it as a problem.
+            diagnostics.record_command_failure(
+                "ripper.nonzero_exit",
+                "cyanrip",
+                self._ripper_argv,
+                exit_code,
+                self.captured_stdout,
+                message=(
+                    f"the ripper exited {exit_code}"
+                    + (f" — {self._failure_hint}" if self._failure_hint else "")
+                ),
+                where="workers.rip_worker.RipWorker._run_rip",
+            )
         log_path = self._find_log_path(out_dir, since=self._rip_started_at)
         return success, str(log_path) if log_path else ""
 
@@ -1440,6 +1503,20 @@ class RipWorker(QObject):
                 "could not reap the ripper even after SIGKILL; treating the rip as "
                 "not cleanly finished. The drive may still be held — a force stop "
                 "or a drive reset is the remaining recovery."
+            )
+            # Tri-state, made explicit in the report: `null` here means the child was
+            # never reaped, which is a different and more serious fact than exit 0,
+            # and the report must never let the two look the same.
+            diagnostics.error(
+                "ripper.unreapable_child",
+                "the ripper could not be reaped even after SIGKILL — it is probably "
+                "stuck in an uninterruptible drive ioctl, so the drive may still be "
+                "held. This rip has NO exit status; success or failure rests on the "
+                "log alone.",
+                tool="cyanrip",
+                argv=self._ripper_argv,
+                exit_code=None,
+                where="workers.rip_worker.RipWorker._reap_ripper",
             )
         return exit_code
 

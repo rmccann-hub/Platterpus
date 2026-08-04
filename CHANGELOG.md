@@ -90,6 +90,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   notification, and its own first version fired on a *comment* documenting a fix, which
   is the converse trap in miniature.
 
+- **The collector is wired into every subsystem that can fail — and a sweep proves the
+  call sites are reachable, not merely present.** A collector nothing calls is an empty
+  section that reads as *"nothing went wrong"*, which is the same false-negative the
+  `cancel()` audit taught: *grep for a call site before believing it works, and check it
+  is reachable.* Now recording: the ripper (a start failure, a stream failure, **every**
+  matched fatal rather than only the first, a non-zero exit with its argv and complete
+  output, and an unreapable child as a real `null` exit code); the dependency probe;
+  `metaflac`; the cache probe; CTDB; MusicBrainz (one helper for all four raise sites, so
+  they cannot describe the same failure differently); Cover Art Archive — at `info` when
+  the release genuinely has no art and `warning` when we could not find out, a distinction
+  the reason code already carried and no severity reflected; and the library move.
+  `tests/test_diagnostics.py` asserts each module both imports the collector *and* names
+  its code — the pair is the check, since a label match alone answers "did they name it"
+  and not "did they write it". Its own first version reported `ctdb_client.py` as unwired
+  because the import shares a line; it reads the AST now, because a matcher narrower than
+  the language produces confident wrong answers, and a false failure trains people to
+  ignore a check as surely as a false pass lets a bug through.
 - **`report_types.py` describes the whole report again, and a sweep keeps it that
   way.** It calls itself *"the single source of truth for the structure `rip_report`
   writes"*, and it was missing `RipReport.completeness` and `RipReport.artifacts` (four

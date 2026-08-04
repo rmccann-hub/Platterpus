@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from platterpus import __version__
+from platterpus import __version__, diagnostics
 from platterpus.ctdb.toc import DiscToc
 
 log = logging.getLogger(__name__)
@@ -154,6 +154,20 @@ class CtdbHttpImpl(CTDBClient):
                 # 4xx is a deterministic server answer (bad request / not found)
                 # — don't retry; 5xx is transient — do.
                 if exc.code < 500:
+                    # RECORD IT. A deterministic rejection is the one CTDB failure a
+                    # user could act on (a malformed TOC, a blocked request), and it
+                    # reached the report only as a `ctdb.error` string nothing
+                    # enumerated. `exit_code=None` on purpose — there is no child
+                    # process here, so the tri-state must not imply one.
+                    diagnostics.warning(
+                        "ctdb.query_failed",
+                        f"CTDB rejected the lookup (HTTP {exc.code}) — the "
+                        "whole-disc cross-check could not run. AccurateRip is the "
+                        "primary proof and is unaffected.",
+                        tool="CTDB (HTTP)",
+                        detail=f"{url}\nHTTP {exc.code} {exc.reason}",
+                        where="adapters.ctdb_client.CtdbHttpImpl.lookup",
+                    )
                     raise CtdbLookupError(
                         f"CTDB rejected the request (HTTP {exc.code})"
                     ) from exc
@@ -169,7 +183,16 @@ class CtdbHttpImpl(CTDBClient):
             return parse_lookup_response(raw)
         # All attempts exhausted — craft a message that tells the user WHICH
         # failure it was (so "no network" reads differently from "server slow").
-        raise CtdbLookupError(_describe_lookup_failure(last_error))
+        reason = _describe_lookup_failure(last_error)
+        diagnostics.warning(
+            "ctdb.query_failed",
+            f"the CTDB lookup failed after {len(_RETRY_BACKOFFS_S)} attempt(s): "
+            f"{reason}",
+            tool="CTDB (HTTP)",
+            detail=f"{url}\nlast error: {type(last_error).__name__}: {last_error}",
+            where="adapters.ctdb_client.CtdbHttpImpl.lookup",
+        )
+        raise CtdbLookupError(reason)
 
 
 def _describe_lookup_failure(exc: Exception | None) -> str:
