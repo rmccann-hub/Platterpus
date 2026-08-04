@@ -550,7 +550,7 @@ Previously it was out of scope to modify the programs underneath us; this is the
 
 - **[x] Add openSUSE / Tumbleweed (`zypper`) support to `setup-host.sh`. Done 2026-06-02.** Added `*suse*) zypper --non-interactive install …` branches to both `ensure_distrobox` and `ensure_container_backend`, so openSUSE now auto-installs Distrobox + podman (README table upgraded from ⚠️ Partial to ✅ Fully). Also made distro detection testable via an `OS_RELEASE_FILE` override; new behavioural + static smoke tests in `tests/test_setup_host_script.py`.
 
-### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 5 sent, protocol v2)
+### P1 — Open from cyanrip handshake round 7 (2026-08-04, OPEN — lap 7 sent, both sides on betas)
 
 Four files so far: our `outbound/round-7.md`, their `inbound/round-7.md` (lap 1), our
 `verified/round-7.md` (lap 2), their `inbound/round-7b.md` (their lap 2), and our
@@ -571,6 +571,20 @@ found row 12 failing on our side: an empty record allowed a release).
 cited three times as blocking our addendum fix, was in it. Delivered with lap 3. Our
 process failure, not their oversight: the protocol says two files per round and we sent
 one.
+
+**The deadlock, and the two betas.** The fork found that our shared rules are
+unsatisfiable as written (their lap 6 §1): a round cannot close without
+`HANDSHAKE-TESTED`; that evidence needs the reviewed build on the rig; installing it
+is forbidden while the round is open. Their fix is `HANDSHAKE-TEST-PIN` — a build for
+gathering evidence, which never closes a round and never moves the production pin.
+Adopted. Ours is a **pre-release**, because our artifact is an AppImage a user
+downloads rather than a tree they build: `--release-gate --prerelease` permits it
+loudly, `--release-gate` still refuses a stable release.
+
+- **Platterpus test pin: `v0.6.4b1`** (published pre-release).
+- **Awaiting the fork's beta:** `0.9.4-rc1+platterpus.5-beta.1` from `f750890`,
+  requested in `verified/round-7d.md`. **The only thing between us and the rig
+  session.**
 
 What we owe, and what waits on their answers:
 
