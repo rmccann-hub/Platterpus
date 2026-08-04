@@ -946,12 +946,45 @@ def verification_verdict(text: str) -> str | None:
     return "GO" if found == {"GO"} else "HOLD"
 
 
+#: The lap of a file that declares none. **1, not 0** — the fork's rule, adopted in
+#: lap 19 after their lap 18 revealed we had picked different numbers for the same
+#: convention.
+#:
+#: Theirs is the more correct one and the reason is semantic rather than aesthetic: a
+#: round's pre-lap-header file **is** that round's first lap. Round 7's `round-7.md` is
+#: lap 1; calling it lap 0 invents a lap that never existed. Both choices order our
+#: tree identically today, which is exactly why it needed catching by comparison rather
+#: than by a failing test.
+DEFAULT_LAP: int = 1
+
+#: The lap of a file whose ``HANDSHAKE-LAP`` is declared more than once with different
+#: values. **It sorts LAST, on purpose** — also the fork's rule, and it closes a real
+#: hole on our side rather than merely aligning us.
+#:
+#: We used to fall back to the *filename* for an ambiguous declaration. So a file named
+#: `lap-09` declaring both 9 and 20 sorted at 9, a later valid file was read as the
+#: newest, and **the ambiguity was never examined by the gate at all** — the protocol's
+#: own "present-but-ambiguous is worse than absent" principle broken in the direction
+#: that hides it. Sorting it last makes it the file the verdict is read from, at which
+#: point ``check_wire_header`` refuses it by name.
+#:
+#: A sentinel rather than ``None`` because the sort key is typed ``int``; the value only
+#: has to exceed any real lap, and a lap count that reaches nine figures is a different
+#: problem.
+AMBIGUOUS_LAP: int = 1_000_000_000
+
+
 def _lap_of(path: Path) -> int:
-    """The lap a file belongs to, for ordering. ``0`` when it declares none.
+    """The lap a file belongs to, for ordering.
 
     Read from the file's **header** first and its name second, because the header is
-    the declaration and the name is a description of it. ``0`` for the pre-lap-header
-    files, which is correct: they are the earliest in their round.
+    the declaration and the name is a description of it.
+
+    Three answers, and the two non-obvious ones are :data:`DEFAULT_LAP` (a file that
+    declares no lap is its round's first) and :data:`AMBIGUOUS_LAP` (a file that
+    declares two different laps sorts last so the ambiguity cannot hide). Both are the
+    cyanrip fork's rules, adopted in round 7 lap 19 — see those constants for why each
+    is better than what we had.
     """
     try:
         declared = wire_fields(path.read_text(encoding="utf-8", errors="replace")).get(
@@ -959,10 +992,12 @@ def _lap_of(path: Path) -> int:
         )
     except OSError:
         declared = ""
-    if declared and declared != AMBIGUOUS and declared.strip().isdigit():
+    if declared == AMBIGUOUS:
+        return AMBIGUOUS_LAP
+    if declared and declared.strip().isdigit():
         return int(declared.strip())
     pair = name_round_and_lap(path)
-    return pair[1] if pair is not None else 0
+    return pair[1] if pair is not None else DEFAULT_LAP
 
 
 def sort_key(path: Path) -> tuple[int, int, str]:

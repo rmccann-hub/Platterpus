@@ -898,8 +898,15 @@ def test_check_inbound_reports_the_missing_provider_contract(hs: ModuleType) -> 
     that when they send it, this test is what confirms it landed — rather than my
     reading the file and forming an opinion.
     """
-    path = hs.INBOUND_DIR / "round-7.md"
-    assert path.is_file(), "the committed round-7 inbound file is missing"
+    # Located by WHAT IT IS — round 7's first inbound file — not by its name. It was
+    # `round-7.md` until the 2026-08-04 naming migration renamed it to
+    # `round-07-lap-01.md`, and this assertion broke on a rename that changed nothing
+    # about the file. A test that reads a committed artifact should identify it the way
+    # the code does, or it pins the filename rather than the artifact.
+    round_seven = hs._round_files(hs.INBOUND_DIR, 7)
+    assert round_seven, "no committed round-7 inbound file"
+    path = round_seven[0]
+    assert path.is_file(), f"{path} is not a file"
     problems = hs.check_inbound(path)
     assert any("§I" in p for p in problems), (
         "the checker no longer reports round 7's absent provider contract — if "
