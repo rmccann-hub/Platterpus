@@ -11,6 +11,26 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **`docs/rig-session-c5fb909.md`** — an ordered, fill-in session sheet for one *named*
+  pair (`v0.6.4b4` + cyanrip `c5fb909`), written at the maintainer's request as a front
+  page for the 40-case `hardware-test-checklist.md` rather than a replacement for it. Six
+  steps, cheapest evidence first, and it states plainly what the session **cannot** prove:
+  the beta's single log-text change needs a disc whose **TOC** declares a pre-gap, and the
+  baseline disc's is a lead-in. Anchors the rip against **EAC's committed baseline** rather
+  than against the previous cyanrip run, because two runs of related builds agreeing is the
+  shared-ancestor trap. Every step has a null-case blank, since a blank reads as a pass.
+
+### Fixed
+- **Corrected a flag confusion that had been live in the project's notes and in a chat
+  answer: `-O` and `-x` are different flags and only one is ours.** `-O` is force overread
+  — our Settings toggle, and the subject of H10/F2. `-x` / `--cache-probe` is the fork's
+  cache probe, which our 16-flag argv surface does not contain and Platterpus cannot
+  invoke; `cyanrip_backend.py` already recorded that the `-x` older project notes named
+  *"does not exist in cyanrip's getopt at all, so passing it would abort every rip."* The
+  new session sheet leads with the distinction so a rig session does not try to reach the
+  fork's probe through the app.
+
 ## [0.6.4b4] — 2026-08-04
 
 **A pre-release, cut on the `--prerelease` path while handshake round 7 is OPEN.** It
