@@ -453,4 +453,4 @@ Round 7 still OPEN, both HOLD. Nothing here approves a pin.
 
 ---
 
-*Last updated for Platterpus v0.6.4b5.*
+*Last updated for Platterpus v0.6.4b6.*

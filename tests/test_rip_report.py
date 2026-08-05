@@ -1014,7 +1014,7 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_19() -> None:
+def test_schema_version_is_20() -> None:
     # v19 added `rip.read_stalls` — the fork's stall-watchdog verdict, verbatim. They
     # added that line at their own initiative FOR us, and we were not reading it while
     # answering a design question about whether we wanted it per-track (round 7 lap 9
@@ -1041,7 +1041,14 @@ def test_schema_version_is_19() -> None:
     # reader to already know about `outcome.failure_hint`, `log_parse.note`,
     # `ctdb.error`, the per-track `issues` and the verification blocks. (v15 added the
     # rip-time handshake-approval block.)
-    assert REPORT_SCHEMA_VERSION == 19
+    #
+    # v20 added `partially_accurate_reported`: the ripper's own offset-variant fraction,
+    # verbatim, beside our sentence about it. The fraction's DENOMINATOR changed meaning
+    # between fork builds (`1/1` up to `e61e75a`, `1/14` from `f5e11ba`, same disc, same
+    # track), so our sentence is derived from the per-track results and this field keeps
+    # what the binary actually printed — two logs of one disc from two builds are not
+    # comparable without it.
+    assert REPORT_SCHEMA_VERSION == 20
 
 
 def _issue_codes(report: dict) -> set[str]:

@@ -37,6 +37,10 @@ _EXPECTED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
         "rip",
         "accuraterip_summary",
         "partially_accurate_summary",
+        # v20: the ripper's own offset-variant fraction, verbatim. Its denominator
+        # changed meaning between fork builds, so our sentence is derived from the
+        # per-track results and this preserves what the binary actually printed.
+        "partially_accurate_reported",
         "disc_duration",
         "paranoia_counts",
         "read_speed",
