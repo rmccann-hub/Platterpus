@@ -11,7 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b9] — 2026-08-05
+
 ### Fixed
+- **The archival log said "INCOMPLETE RIP (cancelled) — this log covers 14 of 14 disc
+  tracks"** — asserting a gap and reporting none, in one sentence. It assumed any
+  non-success outcome means an incomplete extraction, and the rig produces a shape where
+  that is false: the whole-disc pass extracts every track and the *securing* pass
+  afterwards is cancelled. Every track is present, so the banner now says **`RIP STOPPED
+  (cancelled)`** and states that the extraction is complete while anything running after
+  it may not be. A **truncated** log is deliberately excluded from that branch: there
+  the track count is a floor rather than a total (the rig lost a track that had
+  completed and matched AccurateRip at confidence 200 because cyanrip was killed with
+  4 KiB unflushed), so "every track is present" is precisely the claim it cannot
+  support. Found by the test written for the item below.
+- **The log said the securing pass was `INTERRUPTED` without saying the user
+  interrupted it** — while the app had that recorded. It now reads *"INTERRUPTED (you
+  cancelled the rip)"* when the outcome was a cancel, and is unchanged when the pass was
+  cut short by anything else, so a crash is never attributed to the user. Same shape as
+  the cancelled rip that reported `"success"`: captured and not surfaced is the same bug
+  from the reader's side, and this line was the *only* mention of it — the
+  incomplete-rip banner correctly stays silent on a disc where every track is present.
 - **The track list opened showing 2 rows of 14, and its columns moved on every track
   transition.** Both measured from the maintainer's screenshots (2026-08-05,
   *"make sure to keep formatting in mind too"*), and they are two separate defects:
@@ -6424,7 +6444,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...HEAD
+[0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
 [0.6.4b8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...v0.6.4b8
 [0.6.4b7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...v0.6.4b7
 [0.6.4b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...v0.6.4b6
@@ -6504,4 +6525,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b8.*
+*Last updated for Platterpus v0.6.4b9.*

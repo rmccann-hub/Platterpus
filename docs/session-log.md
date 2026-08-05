@@ -1096,4 +1096,4 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-*Last updated for Platterpus v0.6.4b8.*
+*Last updated for Platterpus v0.6.4b9.*
