@@ -280,8 +280,16 @@ class RipLog:
     sha256_hash: str = ""
     # cyanrip-only finish-report extras (empty/absent for whipper logs):
     # "Tracks ripped partially accurately: X/Y" — tracks that matched only the
-    # offset-variant (see TrackResult.accuraterip_offset).
+    # offset-variant (see TrackResult.accuraterip_offset). This is OUR sentence,
+    # derived from the per-track results rather than paraphrased from the ripper's
+    # fraction, because the fraction's denominator changed meaning between fork
+    # builds (cyanrip_log.render_partially_accurate_summary).
     partially_accurate_summary: str = ""
+    # The ripper's own fraction, verbatim — "1/1" on builds up to e61e75a, "1/14" on
+    # f5e11ba and later for the same disc. Kept alongside our sentence because a
+    # rendered sentence cannot be turned back into the number the binary printed, and
+    # a reader comparing two logs of one disc needs to see the raw values.
+    partially_accurate_reported: str = ""
     # "Total time: HH:MM:SS.mmm" from the start report — the disc's AUDIO length,
     # not the rip's wall-clock (which only the GUI measures; see rip_timing).
     disc_duration: str = ""

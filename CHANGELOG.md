@@ -11,6 +11,56 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b6] — 2026-08-05
+
+**A pre-release paired with cyanrip `f5e11ba` (`0.9.4-rc1+platterpus.5-beta.4`) — cutting edge
+on both sides, by maintainer directive.** The previous beta paired with the fork's
+*conservative* build; that was overruled on purpose, because the fork's A2 denominator change
+**cannot be verified anywhere except a real disc with an AccurateRip entry**, so a conservative
+session would leave the one unverifiable change unverified and still need a second session.
+This release ships *our* half of that change, so both sides of the seam move together for the
+first time this round. Round 7 is still OPEN, `--release-gate` still refuses a stable release,
+and the production cyanrip pin does not move.
+
+### Changed
+- **The cyanrip test pin moves to `f5e11ba` (`0.9.4-rc1+platterpus.5-beta.4`)**, retiring
+  `e61e75a` into `SUPERSEDED_TEST_PINS` one lap after it arrived. `c5fb909` and `e61e75a` both
+  stay listed — a rig that has not rebuilt still gets `--consumer`.
+
+### Fixed
+- **The offset-variant tally no longer asserts a denominator that changed meaning under
+  us.** The cyanrip fork's `f5e11ba` (round 7 lap 25 §A2) makes
+  `Tracks ripped partially accurately:` divide by the disc's track count instead of by the
+  tracks *not fully verified* — the same disc that printed `1/1` now prints `1/14`. Our
+  renderer *paraphrased* the old meaning ("N of M track(s) not fully verified"), so on such a
+  log it would have read **"1 of 14 track(s) not fully verified"** on a disc where thirteen
+  tracks verified exactly: not a parse failure, a confidently false sentence in an archival
+  artifact. Fixed by not paraphrasing their fraction at all — the offset-variant tracks are
+  now counted from the per-track `Accurip 450:` results and the population is the disc's own
+  track count, both facts we hold directly and neither dependent on which binary wrote the
+  log. When their numerator disagrees with our count, the sentence **says so** rather than
+  silently rendering ours. Verified against the committed 2026-08-04 rig artifact (14 tracks,
+  track 5 offset-variant, reported `1/1`) and revert-proved: with the old paraphrase
+  restored, the file hash changed, the module still imported, and both new tests failed.
+
+### Added
+- **`partially_accurate_reported` in the JSON report (schema v20)** — the ripper's own
+  fraction, verbatim, beside our sentence about it. A rendered sentence cannot be turned back
+  into the number the binary printed, and two logs of one disc from two fork builds are not
+  comparable without it.
+- **Both wordings of cyanrip's cover-art warning are now recorded as knowingly ignored**, with
+  the reason: cyanrip runs under `-N` with our tags supplied via `-a`, so its own MusicBrainz
+  lookup never runs and the release ID is unset at cover-art time *by construction* — the line
+  is expected on every rip we produce and we fetch cover art ourselves. Matched on the tail the
+  fork deliberately kept stable across the `f5e11ba` rewording. (Answering their lap 25 J2: we
+  had never matched that string at all, so their A1 change is free for us.)
+- **Two tests pinning the concurrent-lap collision.** Both projects independently numbered a
+  lap 25, neither having received the other's file. The shared protocol says a round's state is
+  *"its latest lap's verdict — by declared number"*, which at a tie names two files. Measured
+  rather than reasoned: harmless, because each side's verdict is read from that side's own
+  directory. The tests assert a same-lap collision still closes on bilateral GO **and** cannot
+  hide the peer's HOLD — the direction where a tie resolved toward releasing would matter.
+
 ## [0.6.4b5] — 2026-08-05
 
 **A pre-release, paired with cyanrip `e61e75a` (`0.9.4-rc1+platterpus.5-beta.3`).** Cut so
@@ -6135,7 +6185,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...HEAD
+[0.6.4b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...v0.6.4b6
 [0.6.4b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...v0.6.4b5
 [0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
 [0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
@@ -6212,4 +6263,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b5.*
+*Last updated for Platterpus v0.6.4b6.*

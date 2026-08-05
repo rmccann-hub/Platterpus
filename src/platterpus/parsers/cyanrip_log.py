@@ -750,6 +750,12 @@ class _Disc:
     cddb_id: str = ""
     accuraterip_summary: str = ""
     partially_accurate_summary: str = ""
+    # The ripper's own fraction, VERBATIM, before we render anything from it. Kept
+    # because the denominator's *meaning* changed between fork builds (see
+    # `render_partially_accurate_summary`) and a rendered sentence cannot be turned
+    # back into the number the binary printed. Diagnostic completeness: never
+    # discard what the dependency told us.
+    partially_accurate_reported: str = ""
     disc_duration: str = ""
     # The argv cyanrip received (fork-only, our A3 ask). The counterpart to the
     # argv we sent; the difference between them is where a wrapper or the
@@ -1112,24 +1118,75 @@ def _take_accurate_total(disc: _Disc, match: re.Match[str]) -> bool:
 def _take_partial_total(disc: _Disc, match: re.Match[str]) -> bool:
     """cyanrip's ``Tracks ripped partially accurately: 1/1``.
 
-    **The denominator is not the disc.** The fork confirmed what it counts (round 7
-    lap 10, H4): the tracks *not fully verified*, not the tracks on the disc. So
-    ``1/1`` on a 14-track disc where one track matched only the +450 pressing is
-    correct and reads like a typo, and our old rendering — *"1/1 tracks ripped
-    partially accurately"* — inherited the ambiguity and then dropped the qualifier
-    the ripper's own line at least had by position.
-
-    We name the denominator instead. The ripper's line is unchanged and we are not
-    asking them to reword it; this is our rendering of it, and a sentence in our JSON
-    that misdescribes what a fraction measures is ours to fix.
+    **Records the fraction and renders nothing.** The rendering moved to
+    :func:`render_partially_accurate_summary`, called at assembly time where the
+    track list is available — because the only build-independent way to describe this
+    quantity is to count it ourselves.
     """
-    hit = match.group("hit")
-    total = match.group("total")
-    disc.partially_accurate_summary = (
-        f"{hit} of {total} track(s) not fully verified matched only an "
+    disc.partially_accurate_reported = f"{match.group('hit')}/{match.group('total')}"
+    return True
+
+
+def render_partially_accurate_summary(
+    reported: str, offset_variant_tracks: int, disc_tracks: int
+) -> str:
+    """Describe the offset-variant tally in words, independent of which build ran.
+
+    **THE DENOMINATOR'S MEANING CHANGED UNDER US, AND OUR SENTENCE ASSERTED THE OLD
+    ONE.** Up to fork build ``e61e75a`` the line's denominator was
+    ``nb_tracks - accurip_verified`` — the tracks *not fully verified* — so a 14-track
+    disc with one offset-variant match printed ``1/1``. From ``f5e11ba`` (round 7 lap
+    25 §A2) both tallies divide by ``nb_tracks``, so the same disc prints ``1/14``.
+    Same numerator, same track in the same bucket, different denominator.
+
+    Our previous rendering hard-coded the old meaning in prose — *"1 of 1 track(s) not
+    fully verified matched…"* — so on a ``beta.4`` log it would have read *"1 of 14
+    track(s) not fully verified"*, which is false: 14 is the disc, not the unverified
+    set. A true sentence about a number whose definition moved is not something a
+    string template can carry, and this is the second time a fork-side quantity has
+    silently changed what our own prose claims about it (the pre-gap LSN was the
+    first).
+
+    So we do not paraphrase their fraction at all. **We count the offset-variant
+    tracks ourselves** from the per-track ``Accurip 450:`` results and state the
+    disc's own track count as the denominator — both facts we hold directly, neither
+    of which depends on which binary wrote the log. Their fraction is preserved
+    verbatim in ``partially_accurate_reported`` so the report still carries exactly
+    what the ripper said.
+
+    When our count and their numerator disagree, **say so in the sentence**. That
+    disagreement means one of the two statements in the same artifact is wrong, which
+    is a finding for whoever reads the report — not something to smooth over by
+    trusting whichever number we happened to render.
+    """
+    if not reported:
+        return ""
+    numerator = reported.split("/", 1)[0].strip()
+    # Their numerator is only used to CHECK ours, never to render. A malformed one is
+    # a mismatch we report, not an exception we raise (parsers never raise).
+    #
+    # `int_or_none`, not `int()` behind an `.isdigit()` guard: `.isdigit()` is True for
+    # a 5000-digit run and CPython refuses to convert more than 4300 digits, so the
+    # guard reads as sufficient and is not. Caught by
+    # `tests/test_never_raises_contract.py`, which is why that sweep exists.
+    theirs = int_or_none(numerator, field="cyanrip partially-accurate numerator")
+    # "1 of 14 tracks" — the noun agrees with the POPULATION, not the count. The
+    # mismatch clause below counts a different set, so it needs its own noun.
+    population_noun = "track" if disc_tracks == 1 else "tracks"
+    found_noun = "track" if offset_variant_tracks == 1 else "tracks"
+    summary = (
+        f"{offset_variant_tracks} of {disc_tracks} {population_noun} matched only an "
         "offset-variant pressing (partially accurate)"
     )
-    return True
+    if theirs is None or theirs != offset_variant_tracks:
+        # The ripper's own fraction, and the fact that it does not agree with the
+        # per-track detail in the same log.
+        summary += (
+            f" — NOTE: the ripper's own tally reads {reported}, which does not "
+            f"agree with the {offset_variant_tracks} offset-variant "
+            f"{found_noun} listed per track in this log"
+        )
+    return summary
 
 
 def _take_rip_errors(disc: _Disc, match: re.Match[str]) -> bool:
@@ -1332,6 +1389,27 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^Disc number:\s"), "our own -a tag echoed back; we hold it"),
     (re.compile(r"^Total discs:\s"), "our own -a tag echoed back; we hold it"),
     (re.compile(r"^Release ID:\s"), "our own MusicBrainz release id echoed back"),
+    # The cover-art lookup warning, in BOTH wordings the fork has used:
+    #   up to e61e75a:  "Release ID unavailable, cannot search Cover Art DB!"
+    #   from f5e11ba:   "No MusicBrainz release ID at cover art lookup, ..."
+    # (Round 7 lap 25 §A1. Their new wording is the better line — it states the
+    # observation, that the field is unset at lookup time, instead of the inference
+    # that the release has no ID.)
+    #
+    # EXPECTED ON EVERY RIP WE PRODUCE, and not a problem. cyanrip runs under `-N`
+    # with our tags supplied via `-a`, so its own MusicBrainz lookup never runs and
+    # the release ID is unset at cover-art time by construction. **We fetch cover art
+    # ourselves.** Listed here so the next reader does not have to re-derive why a
+    # cover-art warning appears on every log; matched on the shared tail so both
+    # wordings land on this row.
+    # `.match()` anchors at the start, so this keys on the whole line and not on the
+    # tail alone — a tail-anchored pattern here silently matches NOTHING, which is
+    # how a table row becomes decoration. `.*` keeps it robust to a third rewording,
+    # since the tail is the part they deliberately hold stable.
+    (
+        re.compile(r"^.*cannot search Cover Art DB!$"),
+        "cyanrip's cover-art path is unused under -N; we fetch art ourselves",
+    ),
     # `Cache model:    1200 sectors (drive cache size not probed)` — added by the
     # fork in round 5 as `Cache defeat:` and RENAMED in round 6 because the old
     # label asserted an outcome the value disclaims.
@@ -2069,6 +2147,18 @@ def parse_cyanrip_log(text: str) -> RipLog:
             replace(tr, copy_crc=disc.shipped_crcs.get(tr.number, tr.copy_crc))
             for tr in tracks
         ]
+    # The offset-variant tally is rendered HERE, not where the line was parsed,
+    # because describing it truthfully needs the finished track list — see
+    # `render_partially_accurate_summary` for why their denominator cannot be
+    # paraphrased. Counted off the final `tracks`, after the addendum swap above.
+    offset_variant_tracks = sum(1 for tr in tracks if tr.accuraterip_offset is not None)
+    partially_accurate_summary = render_partially_accurate_summary(
+        disc.partially_accurate_reported,
+        offset_variant_tracks,
+        # The disc's own track count. `len(tracks)` is the log's list, which a cancel
+        # shrinks — prefer the footer's total when the ripper stated one.
+        disc.rip_completed_total or len(tracks),
+    )
     return RipLog(
         log_creator=disc.log_creator,
         ripper_build=disc.ripper_build,
@@ -2090,7 +2180,8 @@ def parse_cyanrip_log(text: str) -> RipLog:
         tracks=tuple(tracks),
         accuraterip_summary=disc.accuraterip_summary,
         health_status=disc.health_status,
-        partially_accurate_summary=disc.partially_accurate_summary,
+        partially_accurate_summary=partially_accurate_summary,
+        partially_accurate_reported=disc.partially_accurate_reported,
         disc_duration=disc.disc_duration,
         invoked_as=disc.invoked_as,
         handshake_note=disc.handshake_note,
