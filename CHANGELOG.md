@@ -11,6 +11,28 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The argv-surface check was structurally blind, and the flag table arriving did not fix
+  it on its own.** For the whole of round 7 every lap cited `PROVIDER-CONTRACT.md @ <commit>`
+  in the *fork's* repository, which we did not hold — so
+  `tests/test_argv_surface_agreement.py` diffed our argv against **round 6b's** table and
+  said so out loud, which is the only reason anyone knew. Lap 25 shipped the contract as an
+  attached artifact; archiving it changed nothing, because the round-grouping globbed only
+  lap files and the shared round parser returns `None` for an artifact's name. **A contract
+  sitting in a directory nothing reads is not a contract received.** Artifacts now resolve
+  to their lap's round through the shared parser (one resolver, three call sites — two had
+  already begun to diverge), so the check reads the round's own table: 82 flag spellings
+  over 42 rows, and `_MAX_TABLE_LAG` ratchets `1 → 0`. Revert-proved twice — once with the
+  artifact resolution removed, once with the contract itself absent — and both reproduce the
+  silent fallback to round 6.
+
+### Added
+- **The input half of the cyanrip contract is checked against the current pin at last.**
+  Every flag we send (`--verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -l -o -r -s
+  -t`) is accepted by `beta.5`, and beta.5's golden reference parses with **zero
+  unrecognised lines** — including `Pregap LSN: 0` on a track-1 HTOA, which is the C1 case
+  we had recorded as untestable and is exactly where a falsy-zero bug would hide.
+
 ## [0.6.4b9] — 2026-08-05
 
 ### Fixed
