@@ -366,6 +366,14 @@ class EtaSampleBlock(TypedDict):
     overall_percent: float
     read_speed: int
     our_eta_seconds: int | None
+    # Which branch of the estimator produced this sample: "computed",
+    # "held_no_rate", "held_over_ceiling", "rereading" or "stalled". Read together
+    # with `our_eta_seconds` — a held value is a re-shown older measurement, not a
+    # fresh one, and without this field the two are indistinguishable in the trace.
+    state: str
+    # Restart count for the current track's read (0 = first read). Non-zero means a
+    # secure re-read is running, which pins the album bar.
+    reread_pass: int
     cyanrip_eta: str | None
     track: int | None
     activity: str | None

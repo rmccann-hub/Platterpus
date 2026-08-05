@@ -1030,7 +1030,16 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_20() -> None:
+def test_schema_version_is_21() -> None:
+    # v21 added `eta_trace.samples[].state` and `.reread_pass`. Only the branch that
+    # made a FRESH rate measurement used to record a sample, so the trace went silent
+    # on the hold and stall paths: the b8 rig trace has a 541-second and a 400-second
+    # hole, both landing exactly on the minutes the estimator was misbehaving, which is
+    # how its peak reading became un-analysable from the artifact that was supposed to
+    # explain it. Every branch records now, and `state` is what keeps that honest — a
+    # re-shown older estimate is labelled `held_*`, a pinned album bar during a secure
+    # re-read is `rereading`, and only `computed` is a measurement.
+    #
     # v19 added `rip.read_stalls` — the fork's stall-watchdog verdict, verbatim. They
     # added that line at their own initiative FOR us, and we were not reading it while
     # answering a design question about whether we wanted it per-track (round 7 lap 9
@@ -1064,7 +1073,7 @@ def test_schema_version_is_20() -> None:
     # track), so our sentence is derived from the per-track results and this field keeps
     # what the binary actually printed — two logs of one disc from two builds are not
     # comparable without it.
-    assert REPORT_SCHEMA_VERSION == 20
+    assert REPORT_SCHEMA_VERSION == 21
 
 
 def _issue_codes(report: dict) -> set[str]:

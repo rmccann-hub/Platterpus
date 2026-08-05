@@ -172,6 +172,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     meaning in prose. The sentence is now counted from the per-track results, and
 #     this field preserves what the binary actually printed — two logs of one disc
 #     from two builds are not comparable without it.
+# v21: `eta_trace.samples[].state` and `.reread_pass`. Before this, only the branch
+#     that made a FRESH rate measurement recorded a sample, so the trace went silent
+#     on the hold and stall paths — the b8 rig trace has a 541-second and a
+#     400-second hole, both landing exactly on the minutes the estimator was
+#     misbehaving, which is how the peak reading became un-analysable from the
+#     artifact. Every branch records now, and `state` is what keeps that honest: a
+#     re-shown older estimate is labelled `held_*`, a pinned album bar during a
+#     secure re-read is `rereading`, and only `computed` is a measurement.
 # v15: `ripper_handshake_approval` / `_detail` / `_approved_build` /
 # `_approved_for_platterpus` / `_approved_by_round` — whether the ripper that
 # produced THIS rip is the build both projects affirmatively verified, checked at
@@ -189,7 +197,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 20
+REPORT_SCHEMA_VERSION: int = 21
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -674,7 +682,13 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
             "so estimate-vs-actual is directly visible; 'cyanrip_eta' is cyanrip's "
             "own per-op estimate (untrusted); 'read_speed' is the -S value in "
             "effect (0 = drive max); 'track'/'activity' are the event context for "
-            "a jump; 'at' is the PC wall-clock time. Compare against 'timing'."
+            "a jump; 'at' is the PC wall-clock time. 'state' names the branch that "
+            "produced the sample — computed (a fresh rate measurement), "
+            "held_no_rate / held_over_ceiling (the previous estimate re-shown), "
+            "rereading (a secure re-read has the album bar pinned) or stalled "
+            "(neither liveness signal moved) — so a held value is never mistaken "
+            "for a measurement; 'reread_pass' counts restarts of the current "
+            "track's read (0 = first read). Compare against 'timing'."
         ),
         "samples": samples,
     }

@@ -12,6 +12,30 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **A secure re-read was reported as a scratched disc, and made the ETA climb to 5h40m
+  on a disc with 22 minutes to go.** Two symptoms, one cause, both in the b8 rig
+  artifacts (2026-08-05, the Police baseline disc). The rip's own debug log carries
+  `rip stalled: no forward progress for 3m 2s at 21.7% (track 3) — the drive is stuck on
+  a hard-to-read spot` **twice**, timestamped in the same seconds as
+  `cyanrip │ Ripping track 3, progress - 52.29%` … `54.50%` — a steady 1× read of a
+  disc with nothing wrong with it. The cause is that `_overall_from_track` maps a track's
+  progress into a span of the album the bar has already covered and `_bump_overall`
+  refuses to let it regress, so the **album fraction is pinned for the whole of a secure
+  re-read** — ten minutes of it here. Watching only that fraction, a healthy converging
+  re-read is indistinguishable from a wedged drive, and `(1 − 0.2173)` of an album
+  divided by whatever noise is left in the window produced 54m → 1h5m → 1h50m → 3h15m →
+  **5h40m across 70 seconds**. The divisor floor added for the 62-hour bug could not
+  catch this one: for the first 90 s of the freeze the window still holds real
+  pre-freeze movement, so the floor is legitimately met. Now: the stall detector takes a
+  **second, independent liveness signal** — cyanrip's own per-operation percentage, which
+  advances on a re-read as much as a first read — and reports "stalled" only when
+  *neither* signal has moved, which makes it strictly more sensitive (a truly wedged
+  drive stops printing progress lines at all, so both go quiet together). And while a
+  re-read is running the estimate is **held and labelled** — `· verifying track 3
+  (re-read 2) · about 54m left` — because the remaining album work genuinely has not
+  changed and the cost of the re-read is unknowable until it converges. All four parts
+  revert-proved; reverting the liveness signal reproduces the field warning text
+  verbatim.
 - **A rip the user cancelled was recorded as `"success"`.** Measured on real hardware,
   2026-08-05, and reported as *"I cancelled it early. It should be easy to tell that."*
   It was not — the report said the opposite. `success` and `_rip_cancelled` are **not
