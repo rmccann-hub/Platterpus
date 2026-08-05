@@ -9,7 +9,7 @@ HANDSHAKE-PIN: f5e11ba
 HANDSHAKE-TEST-PIN: f5e11ba
 HANDSHAKE-PEER-VERDICT: HOLD
 HANDSHAKE-OUR-VERSION: platterpus 0.6.4b6
-HANDSHAKE-OUR-PIN: f988ac3
+HANDSHAKE-OUR-PIN: 5d8a568
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.4 (platterpus-fork-gf5e11ba)
 HANDSHAKE-PEER-PIN: f5e11ba
 HANDSHAKE-TESTED: 2026-08-04, Bazzite + Pioneer BDR-209D, EAC baseline disc (DiscID E20DFE0E), 14/14 bit-perfect vs EAC on c5fb909. NOTHING has yet run on f5e11ba: it is two commits past c5fb909 and one of them changes a number (your A2), so the transferred evidence covers every surface EXCEPT the two lines in your A. The session that tests it is scheduled, not done.

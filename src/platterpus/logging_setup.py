@@ -30,8 +30,20 @@ from platterpus.paths import LOG_DIR, LOG_PATH
 
 # Rotation policy. Five backups of 1 MiB each keeps a useful history
 # (~5 MiB total) without growing unbounded on long-running sessions.
-_LOG_MAX_BYTES: int = 1_048_576
-_LOG_BACKUP_COUNT: int = 5
+# 8 MiB x 10 = a ~88 MiB retained window, raised from 1 MiB x 5 (~6 MiB) after the
+# maintainer asked whether the 1 MiB split was sound. It was not, and the measurement
+# is why: ONE 14-track rip writes enough that a handful of sessions evicted the
+# oldest file, and rotation is BY SIZE ALONE — not per session, not per version — so
+# the eviction is silent and the file that scrolls away is the one holding the rip
+# you are trying to diagnose. Three of the four log files the maintainer uploaded
+# were exactly 1 MiB, i.e. full, which is the tell.
+#
+# Text compresses and disks are large; a diagnosis you cannot reconstruct is the
+# expensive thing. Paired with the report's own 256 KiB embedded-log budget
+# (rip_report._MAX_EMBEDDED_LOG_BYTES), which stops the per-album JSON growing to
+# 1.5 MB the way it had.
+_LOG_MAX_BYTES: int = 8 * 1_048_576
+_LOG_BACKUP_COUNT: int = 10
 
 # Format chosen to be greppable by tail/less without being noisy in the
 # console pane. Module name (%(name)s) makes it easy to track which
