@@ -177,3 +177,92 @@ note ""
 note "Send the whole directory. Every file matters, including the empty ones —"
 note "an artifact that exists and is empty is a measurement; a missing artifact"
 note "is a step that did not run, and only one of those is a result."
+
+# =============================================================================
+# PART 2 — added for v0.6.4b7. Everything below needs no disc and no human.
+#
+# The maintainer's ask: *"emphasize automation, and give me files (macros, for
+# example) and such to do this for you and complete as many tests as possible.
+# Do this for both Platterpus and Cyanrip as much as possible so we can do a
+# bunch at once."* So this half runs BOTH sides' checkable surfaces in one go.
+# =============================================================================
+
+say "10  ETA sanity — the 62-hour bug, checked against THIS rip's own trace"
+# The b6 rip's report contained 383 ETA samples and one of them read 3715
+# minutes. Every report on this machine is now swept for a repeat, so the fix is
+# verified against real artifacts rather than only against the unit test.
+python3 - "$HOME/Music" >"$OUT/10-eta-sweep.txt" 2>&1 <<'PY' || true
+import json, pathlib, sys
+roots = [pathlib.Path(sys.argv[1])] if len(sys.argv) > 1 else []
+worst = []
+checked = 0
+for root in roots:
+    for path in root.rglob("*.platterpus.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, ValueError) as exc:
+            print(f"UNREADABLE {path}: {exc}")
+            continue
+        samples = (data.get("eta_trace") or {}).get("samples") or []
+        if not samples:
+            continue
+        checked += 1
+        peak = max((s.get("our_eta_seconds") or 0) for s in samples)
+        worst.append((peak, len(samples), path.name))
+        flag = "  <-- ABSURD" if peak > 24 * 3600 else ""
+        print(f"{peak/3600:8.2f}h peak   {len(samples):5d} samples   {path.name}{flag}")
+print()
+print(f"reports with an ETA trace: {checked}")
+if not checked:
+    print("NO REPORTS WITH A TRACE FOUND — that is a real result, not a pass:")
+    print("  either no rip has run under a version that records one, or ~/Music is elsewhere.")
+else:
+    absurd = [w for w in worst if w[0] > 24 * 3600]
+    print(f"absurd (>24h) peaks: {len(absurd)}  <-- must be 0 from v0.6.4b7 on")
+PY
+note "artifact: 10-eta-sweep.txt"
+
+say "11  report sizes — the 1.5 MB JSON, and whether retention is holding"
+{
+  echo "== per-album report sizes (81% of the b6 one was the embedded debug log) =="
+  find "$HOME/Music" -name '*.platterpus.json' -printf '%10s  %p\n' 2>/dev/null | sort -rn | head -12
+  echo
+  echo "== app log retention (8 MiB x 10 from v0.6.4b7; was 1 MiB x 5) =="
+  ls -la "$HOME/.local/share/platterpus/"log.txt* 2>/dev/null
+  echo
+  echo "A file at EXACTLY the max size is FULL, which is how the old 1 MiB window"
+  echo "silently evicted the rip you were trying to diagnose."
+} >"$OUT/11-sizes.txt" 2>&1
+note "artifact: 11-sizes.txt"
+
+say "12  the fork's own test suite, IN A CLEAN CLONE (their lap 25 §C1 lesson)"
+# Their beta.3 note claimed "28/28 from a clean checkout" and it was false for
+# anyone who cloned: `git clone` makes a local branch only for the remote HEAD,
+# so `master` was unreachable and version_matrix failed. Verifying in the tree
+# that produced the artifact is not verifying what a consumer gets — so this
+# clones fresh rather than using any existing checkout.
+if command -v git >/dev/null 2>&1; then
+  CLONE="$OUT/scratch/cyanrip-clean"
+  rm -rf "$CLONE"
+  run "    clone the fork" "12-fork-clone.txt" \
+      git clone --quiet https://github.com/rmccann-hub/cyanrip "$CLONE"
+  if [ -d "$CLONE" ]; then
+    ( cd "$CLONE" && git log --oneline -1 && git branch -a ) \
+        >>"$OUT/12-fork-clone.txt" 2>&1 || true
+    note "clone present — run their suite there per their beta note"
+  else
+    note "!! clone failed (no network, or the repo is private) — recorded, not skipped"
+  fi
+else
+  note "git absent — cannot do the clean-clone check"
+  echo "skipped: no git" >"$OUT/12-fork-clone.txt"
+fi
+
+say "13  our own gates, so a rig session also proves the app's build is sane"
+if [ -f pyproject.toml ]; then
+  run "    handshake status"  "13-handshake-status.txt" python3 scripts/handshake.py --status
+  run "    doctor (no network)" "14-preflight.txt" python3 scripts/preflight.py --no-network
+else
+  note "not in a checkout — skipping the repo-side gates"
+  echo "skipped: not in a checkout" >"$OUT/13-handshake-status.txt"
+fi
