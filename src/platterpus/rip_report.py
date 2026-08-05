@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import Final
 
 from platterpus import __version__, build_info, diagnostics
 from platterpus.atomic_write import atomic_write_text
@@ -859,7 +860,7 @@ def _build(
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
     )
-    return {
+    built: dict = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "generator": {
             "name": "platterpus",
@@ -987,6 +988,57 @@ def _build(
         "debug": debug_log,
         "artifacts": artifacts,
     }
+    return _ordered_for_reading(built)
+
+
+# The three blocks that dwarf everything else, biggest LAST. Measured on a real
+# 14-track rip: `debug` 1.23 MB, `artifacts` 100 KB, `eta_trace` 103 KB — together
+# 95% of a 1.5 MB report.
+_BULK_KEYS_LAST: Final[tuple[str, ...]] = ("eta_trace", "artifacts", "debug")
+
+# What a reader wants FIRST: is this report trustworthy, what happened, what went
+# wrong. Anything not named here keeps its existing relative position in the middle.
+_LEAD_KEYS_FIRST: Final[tuple[str, ...]] = (
+    "schema_version",
+    "generator",
+    "generated_at",
+    "self_check",
+    "outcome",
+    "verdict",
+    "completeness",
+    "diagnostics",
+    "issues",
+    "health_status",
+    "accuraterip_summary",
+    "partially_accurate_summary",
+    "partially_accurate_reported",
+    "ripper_log_verification",
+)
+
+
+def _ordered_for_reading(report: dict) -> dict:
+    """Reorder the top-level keys so a PARTIAL read answers the useful questions.
+
+    **THE ONLY CONSUMER OF THIS FILE IS AN ANALYST READING IT** (the maintainer's
+    framing: *"You're the only one reading the JSON file; make it efficient for
+    you."*). JSON objects are order-preserving on the wire, so key order decides
+    what a `head -c 40000` can see — and the measured order was hostile:
+
+    * `self_check`, which says whether the report itself is *trustworthy*, sat at
+      byte **1,515,002 of 1,516,421** — dead last, behind 1.23 MB of `debug`;
+    * `tracks`, `issues` and `checksums` all sat past byte 147,000, pushed there by
+      a 103 KB `eta_trace` wedged in at 14 KB.
+
+    So: the decisive small blocks first, the three bulk blocks last, everything else
+    keeps its relative order. **No key is added or removed** — this is purely the
+    order they serialize in, so every existing consumer and every key-set test is
+    unaffected. Pure; never raises.
+    """
+    lead = [k for k in _LEAD_KEYS_FIRST if k in report]
+    bulk = [k for k in _BULK_KEYS_LAST if k in report]
+    spoken_for = {*lead, *bulk}
+    middle = [k for k in report if k not in spoken_for]
+    return {k: report[k] for k in (*lead, *middle, *bulk)}
 
 
 def _rip_block(rip_log: object, info: object) -> dict:
@@ -1946,6 +1998,13 @@ def write_report(
             from platterpus import rip_audit
 
             report["self_check"] = rip_audit.self_check_block(report, target.parent)
+            # RE-ORDER AFTER THE LATE ASSIGNMENT. `self_check` is set here, after
+            # `_build` returned, so plain insertion appends it — which is precisely
+            # how the block that says whether the report is TRUSTWORTHY ended up at
+            # byte 1,515,002 of a 1,516,421-byte file, behind 1.23 MB of `debug`.
+            # Re-running the ordering puts it back at the front where a partial read
+            # finds it.
+            report = _ordered_for_reading(report)
         except Exception:  # noqa: BLE001 — diagnostics must not break the artifact
             log.exception("self-check failed; report written without it")
         # Catch serialization errors (TypeError/ValueError from json.dumps on an

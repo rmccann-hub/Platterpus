@@ -254,4 +254,4 @@ asked for our view rather than assuming, and either answer is fine as long as it
 
 ---
 
-*Last updated for Platterpus v0.6.4b7.*
+*Last updated for Platterpus v0.6.4b8.*

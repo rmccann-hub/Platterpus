@@ -1,7 +1,7 @@
-# Rig session — Platterpus `v0.6.4b7` + cyanrip `f5e11ba`
+# Rig session — Platterpus `v0.6.4b8` + cyanrip `f5e11ba`
 
 ```
-Platterpus  v0.6.4b7        GitHub PRE-RELEASE   (app-only change; the ripper pin did NOT move)
+Platterpus  v0.6.4b8        GitHub PRE-RELEASE   (app-only change; the ripper pin did NOT move)
 cyanrip     f5e11ba         0.9.4-rc1+platterpus.5-beta.4   (platterpus-fork-gf5e11ba)
 drive       Pioneer BDR-209D
 round 7     OPEN, HOLD both sides — nothing here is a release
@@ -19,7 +19,7 @@ for most of it.
 
 ---
 
-## What changed in `b7`, and what to look for
+## What changed since your last rip, and what to look for
 
 | fixed | how you would notice |
 |---|---|
@@ -38,7 +38,7 @@ for most of it.
 
 > **Help → Check for updates** → accept → **restart**.
 
-Then confirm — **`Help → About` must say 0.6.4b7**.
+Then confirm — **`Help → About` must say 0.6.4b8**.
 
 **Do NOT re-run `--install-ripper`.** The ripper pin is unchanged (`f5e11ba`); you already have
 it. Confirm with:
@@ -52,7 +52,7 @@ it. Confirm with:
 ## Step 2 — One command (this is most of the session)
 
 ```sh
-bash ~/path/to/Platterpus/scripts/rig_session.sh ~/rig-b7
+bash ~/path/to/Platterpus/scripts/rig_session.sh ~/rig-b8
 ```
 
 **14 steps, unattended, one artifact each, never stops on a failure** — a failing step is data,
@@ -75,7 +75,7 @@ and every exit code is recorded including the successes. It now covers **both pr
 
 **Step 10 is the new one that matters.** It reads every `*.platterpus.json` under `~/Music`,
 extracts the ETA trace, and prints the peak estimate per rip with the count of samples. Your
-`b6` rip will show a **62-hour peak**; every rip from `b7` on must not. It says so explicitly if
+`b6` rip will show a **62-hour peak**; every rip from `b8` on must not. It says so explicitly if
 it finds no traces at all, because *"found nothing"* is not a pass.
 
 > **`-x` may hang.** Bounded at 300 s; the script says so if it trips. Their audit §3.1: *"A
@@ -135,10 +135,16 @@ Your last rip's track 5 was read **twice**, and the two reads disagree:
 | AccurateRip **+450** | `4CCBCF89` | **`4CCBCF89`** ← *identical* |
 
 Three of four changed, so the audio changed — yet **+450 did not**, and +450 is the single
-value our entire "partially accurate, confidence 200" verdict for track 5 rests on. Either the
-differing samples happen to fall outside the +450 window (legitimate), or that value was
-carried over from the discarded pass rather than recomputed (a bug we have shipped once
-before). **A third read settles it**, which is why step 3 is worth doing rather than skipping.
+value our entire "partially accurate, confidence 200" verdict for track 5 rests on.
+
+**Our side is now ruled out.** The fold that swaps a re-ripped track's record takes the
+AccurateRip results from the **shipped** read and explicitly refuses to inherit the first
+pass's verdict — it logs a drop rather than carrying one (`_verified_by_this_read`). So
+`4CCBCF89` is **cyanrip's own number, computed independently on the second read**, not a
+stale value of ours. That leaves two possibilities, and both are the fork's to answer: the
+differing samples fall outside the +450 CRC's window (legitimate, and interesting), or its
++450 computation is not sensitive to what changed. **A third read of track 5 is what
+distinguishes them**, which is why step 3 is worth doing rather than skipping.
 
 **Do not delete the album** — it is a good library entry (13 exact + 1 offset-variant, all
 converged), and the files are the only copy of that second pass.
@@ -164,7 +170,7 @@ count.
 
 ## What to send
 
-**The whole `~/rig-b7` directory**, plus from the new rip: the cyanrip `.log`, the
+**The whole `~/rig-b8` directory**, plus from the new rip: the cyanrip `.log`, the
 `(EAC-compatible).log`, the `.platterpus.json`, the `.cue`, the addendum if one appears — and
 this sheet with steps 3 and the cancel block filled in.
 
@@ -175,4 +181,4 @@ file is a step that did not run, and only one of those is a result.
 
 ---
 
-*Last updated for Platterpus v0.6.4b7.*
+*Last updated for Platterpus v0.6.4b8.*
