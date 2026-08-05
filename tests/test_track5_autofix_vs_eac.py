@@ -124,3 +124,50 @@ def test_track_5_is_still_the_offset_variant_track() -> None:
     )
     cyanrip = _CYANRIP_LOG.read_text(encoding="utf-8", errors="replace")
     assert "Accurip 450:" in cyanrip, "the +450 line is gone from the cyanrip log"
+
+
+# --- and the comparison must now PICK that read, not shrug at it -------------------
+
+
+def test_convergence_breaks_the_tie_EAC_already_settled() -> None:
+    """The gap this round's second rip exposed, closed and anchored on real values.
+
+    2026-08-05, two rips of this disc, both cancelled/completed differently:
+
+        b6 rip: track 5 = E0036697, offset-variant, confidence 200, CONVERGED (3 reads)
+        b7 rip: track 5 = 6902BCF0, offset-variant, confidence 200, never re-read
+
+    Identical status, identical confidence, differing bytes — so `_decide_better`
+    returned `unknown`: *"can't tell which read is correct."* It could tell. One read
+    was corroborated by repetition and the other was not, and **EAC independently
+    produced the converged one twice** (see the tests above) and never the other.
+
+    The tiebreak must pick the converged side, and must NOT fire when neither side
+    converged — otherwise it invents a preference where there genuinely is none.
+    """
+    from platterpus.rip_compare import SIDE_A, SIDE_UNKNOWN, _decide_better
+
+    kept, other = _KEPT_CRC, _DISCARDED_CRC
+    status = "offset_variant"
+
+    side, reason = _decide_better(kept, other, status, status, 200, 200, True, None)
+    assert side == SIDE_A, (
+        f"the converged read ({kept}) was not preferred over the unverified one "
+        f"({other}); EAC agrees with the converged one. Got {side}: {reason}"
+    )
+    assert "converged" in reason, f"the reason does not explain the choice: {reason}"
+
+    # The mirror, so the rule is about convergence and not about argument order.
+    side, _ = _decide_better(kept, other, status, status, 200, 200, None, True)
+    assert side != SIDE_A, "the tiebreak ignores which side actually converged"
+
+    # FLOOR: with no convergence on either side there IS no basis, and inventing one
+    # would be worse than shrugging.
+    side, reason = _decide_better(kept, other, status, status, 200, 200, None, None)
+    assert side == SIDE_UNKNOWN, (
+        f"a preference was invented with neither read corroborated: {side} — {reason}"
+    )
+    # TRI-STATE: "never re-read" (None) must not be read as "failed to converge"
+    # (False). Both-unattempted and both-failed are equally baseless.
+    side, _ = _decide_better(kept, other, status, status, 200, 200, False, False)
+    assert side == SIDE_UNKNOWN, "two failed convergences produced a winner"

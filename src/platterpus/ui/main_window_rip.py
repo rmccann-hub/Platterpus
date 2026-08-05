@@ -1324,10 +1324,33 @@ class RipMixin(MainWindowShared):
         # read from self._last_* by _write_rip_report (never off the worker/params).
         from platterpus import rip_report as _rip_report
 
-        if success:
-            _status = "success"
-        elif self._rip_cancelled:
+        # THE CANCEL IS CHECKED FIRST, and the order is the whole point.
+        #
+        # `success` and `_rip_cancelled` are NOT mutually exclusive, which the old
+        # `if success: ... elif self._rip_cancelled:` assumed. Measured on real
+        # hardware (2026-08-05): the whole-disc pass completed all 14 tracks — so
+        # `success` was True — and the user then cancelled the *securing* pass that
+        # runs afterwards. Both were true, `success` won, and the report said
+        #
+        #     outcome.status = "success"        (the user had cancelled it)
+        #     ripper_exit_code = 1              (non-zero, because it was killed)
+        #     failure_hint = None
+        #
+        # — three statements that contradict each other inside one block, and the
+        # word "cancel" appeared NOWHERE in the report outside the embedded debug
+        # log, even though the app log records it at INFO. Captured and not
+        # surfaced, which CLAUDE.md counts as the same bug from the user's side.
+        # The maintainer's report was simply: *"I cancelled it early. It should be
+        # easy to tell that."* It was not.
+        #
+        # A run the user stopped is a CANCELLED run even if every track happened to
+        # land first. That does not hide the good news: `completeness` separately
+        # records 14 of 14 tracks present, so a consumer sees both facts —
+        # "cancelled" describes the RUN, "complete" describes the OUTPUT.
+        if self._rip_cancelled:
             _status = "cancelled"
+        elif success:
+            _status = "success"
         else:
             _status = "failed"
         self._last_outcome = _rip_report.build_outcome(
