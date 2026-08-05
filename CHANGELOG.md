@@ -12,6 +12,34 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 ### Fixed
+- **The track list opened showing 2 rows of 14, and its columns moved on every track
+  transition.** Both measured from the maintainer's screenshots (2026-08-05,
+  *"make sure to keep formatting in mind too"*), and they are two separate defects:
+  - **The columns would not sit still.** Every column but Title/Artist was on
+    `ResizeToContents`, which re-measures whenever its data changes — and the Status
+    column's data changes on *every* track transition. At a 900 px window: Status
+    swung `48 → 67 → 53 px` as one track advanced, and the two stretch columns gave and
+    took to absorb it, sliding the Title text sideways roughly **twice per track, 28
+    times over a disc**. Now only Title stretches; every other column is sized once per
+    *disc* from the widest string it can ever hold, derived from the same table the
+    cells render from so a new status string widens the column on its own. Also fixes
+    the other half: Title and Artist were both `Stretch`, which splits the remainder
+    evenly, so a column repeating `"The Police"` (~70 px) was handed 369 px while the
+    long, varied titles got the same. Title now gets 616 px against Artist's 77, and
+    Artist is capped at a share of the table so a compilation's long credits still
+    cannot crowd it out.
+  - **The window opened too short, and the knob that looked responsible was inert.**
+    The splitter handed the track list 169 of 647 px — 84 for the album form, 20 for
+    the header, a 65 px viewport at a 30 px row height. The stretch factors are *not*
+    what distributes here: measured at four different factor sets across four window
+    sizes, every combination produced **byte-identical** pane sizes, because Qt
+    distributes by factor only what is left after each pane's size hint and the rip
+    pane's hint already claims it all. An explicit split on first show plus a taller
+    default (clamped to the screen, so a 1366×768 laptop still gets a window that fits)
+    takes it to **7 of 14 rows**, with the rip pane at 315 px against 326 before — the
+    room comes from the taller window, not out of the other panes. The split is applied
+    once, so it can never undo the user's own dragging; that is the fix's own new
+    failure mode and it has its own test.
 - **A secure re-read was reported as a scratched disc, and made the ETA climb to 5h40m
   on a disc with 22 minutes to go.** Two symptoms, one cause, both in the b8 rig
   artifacts (2026-08-05, the Police baseline disc). The rip's own debug log carries
