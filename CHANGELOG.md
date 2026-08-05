@@ -63,6 +63,18 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   preference.
 
 ### Added
+- **Handshake round 7, lap 27 sent** (`docs/handshake/verified/round-07-lap-27.md`) —
+  still a **HOLD on `f5e11ba`**, for one reason that is not about the fork's build: the
+  P1 flag table for this pin has not arrived, so the *input* half of the contract cannot
+  be checked and `tests/test_argv_surface_agreement.py` is still diffing our argv against
+  round 6b's table. What the lap does carry: the fork's A2 change **verified at the
+  drive, twice with different numbers** (`1/14` on b6, `2/14` on b8 — same disc, same
+  build, so the field is genuinely counted rather than a string that happens to read
+  `/14`, which one observation could not have shown); their A1 rewording present verbatim
+  in three rig logs; `--verify-log` accepting all three; and our own §G2 claim
+  **withdrawn** — the cover-art refusal sits 13 lines *below* the `Release ID:` header,
+  settled from a log we hold rather than derived from either project's source, which is
+  the pairing the fork's contract records as having no available artifact.
 - **The report now records the release id the ripper *used*, and flags it when that
   disagrees with the one we sent.** `rip.ripper_release_id`, read off cyanrip's own
   header (schema v22). It had been in the parser's ignored table with a recorded reason
