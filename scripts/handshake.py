@@ -40,6 +40,7 @@ import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 _REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 HANDSHAKE_DIR: Path = _REPO_ROOT / "docs" / "handshake"
@@ -934,9 +935,47 @@ def check_wire_header(path: Path, *, expect_from: str | None = None) -> list[str
     if verdict is not None and verdict != AMBIGUOUS:
         if verdict.split()[:1] == [AFFIRMATIVE]:
             problems.extend(
-                f"{path.name}: declares GO but {b}" for b in close_blockers(text)
+                f"{path.name}: declares GO but {b}"
+                for b in close_blockers(text)
+                if not _is_peer_verdict_blocker(b)
             )
     return problems
+
+
+#: The one close-blocker that is NOT the author's to fix, and folding it into
+#: `check_wire_header`'s problems made a first GO unexpressible.
+#:
+#: **THE GO-FIRST DEADLOCK, and it was ours.** Lap 23 was written with
+#: ``HANDSHAKE-VERDICT: GO`` and `test_our_own_committed_files_satisfy_the_format_we_publish`
+#: refused it: *"declares GO but peer verdict is 'HOLD', not GO (§5)"*. We reported that as a
+#: hole in the shared spec. The fork tested **their** loader against the same case in their
+#: lap 24 §B1 — accepted as well-formed, correctly refused as a close — and they were right:
+#: our *gate* was never wrong (`round_status` requires both verdicts and `--release-gate`
+#: exits 1), only this checker was, because it conflated **well-formed** with **closable**.
+#:
+#: Both sides need a closable GO; a GO is closable only once the peer has GO'd; so under the
+#: strict reading neither side can go first and **a round that reaches agreement has no way to
+#: record it.** Round 6 closed before the wire header existed, so round 7 was the first to
+#: reach a close attempt under v2 and the first to hit this.
+#:
+#: The fix is narrow on purpose. **Every other blocker stays a problem**, because every other
+#: blocker is the author's own gap — a missing identity field, no ``HANDSHAKE-TESTED``. The
+#: peer's verdict is the one thing the author cannot fix by editing their own file, so
+#: reporting it as a defect in that file is a category error. §5's intent survives intact:
+#: `close_blockers` still names it, `--status` still shows it, and the round still does not
+#: close.
+#:
+#: Agreed for the round-8 spec bump in preference to a new ``READY`` token (their §B2): a new
+#: verdict word would meet gates that have not shipped the new spec, which correctly treat an
+#: unrecognised verdict as *not agreement* — so a ``READY`` file would silently fail to close
+#: against an older peer. This wording changes only whether a **checker** errors, and leaves
+#: both gates' closing behaviour byte-identical.
+_PEER_VERDICT_BLOCKER: Final[str] = "peer verdict is "
+
+
+def _is_peer_verdict_blocker(blocker: str) -> bool:
+    """Whether this close-blocker is the peer's verdict rather than the author's gap."""
+    return blocker.startswith(_PEER_VERDICT_BLOCKER)
 
 
 def verification_verdict(text: str) -> str | None:

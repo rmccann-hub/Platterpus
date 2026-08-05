@@ -3,7 +3,7 @@ HANDSHAKE-ROUND: 7
 HANDSHAKE-LAP: 22
 HANDSHAKE-FROM: platterpus
 HANDSHAKE-VERDICT: HOLD
-HANDSHAKE-APP-VERSION: platterpus 0.6.4b4 — a published PRE-RELEASE carrying every claim in this file
+HANDSHAKE-APP-VERSION: platterpus 0.6.4b4 (tag v0.6.4b4, commit c7aa67c) — published PRE-RELEASE
 HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.2 (platterpus-fork-gc5fb909)
 HANDSHAKE-PIN: 2f950c8
 HANDSHAKE-TEST-PIN: c5fb909
@@ -311,14 +311,27 @@ Two consequences worth stating:
 
 ## E. `v0.6.4b4` is cut, and the reason is not symmetry
 
-**A pre-release, published against this record**, so this lap's header names a
-*buildable artifact* rather than "b3 plus a paragraph of caveats" — which is the shape
-§D1 objects to, and our own header had it: laps 19 and 22 were both drafted against
-`0.6.4b3` *"plus unreleased work"*, while the claims in them are about a tree with the
-ordering fixes and a moved test pin in it.
+**Published, not planned** — `v0.6.4b4`, a GitHub **pre-release**, tag `v0.6.4b4`
+targeting `c7aa67c` on `main`:
+
+```
+platterpus-x86_64.AppImage          242 MB   sha256:32dc669174575a31…
+platterpus-x86_64.AppImage.sha256
+platterpus-x86_64.AppImage.zsync    414 KB   (self-update)
+install.sh · install-appimage.sh
+                       + a signed build-provenance attestation (Sigstore)
+```
+
+So this lap's header names a **downloadable artifact** rather than "b3 plus a paragraph
+of caveats" — which is the shape §D1 objects to, and our own header had it: laps 19 and
+21 were both drafted against `0.6.4b3` *"plus unreleased work"*, while the claims in them
+are about a tree with the ordering fixes and a moved test pin in it. **We were doing the
+smaller version of the thing we are asking you to stop doing**, and it is fairer to say so
+than to raise §D1 without it.
 
 `--release-gate` still exits 1; `--release-gate --prerelease` exits 0 **after printing
-every open round**, which is the path this was cut on. Production pin unmoved.
+every open round**, which is the path the release workflow's own gate took for this tag.
+Production pin unmoved, and the release body carries no claim of joint verification.
 
 **The decisive reason, measured rather than assumed:** the wizard and
 `--install-ripper` read `WIZARD_TARGET`, a constant *inside the release*. So the

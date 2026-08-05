@@ -577,8 +577,54 @@ two verdicts turning GO.
 1. **[ ] The rig session: H9, H10, H12, T9, T12, T13.** Capture **stdout for every
       invocation**; artifacts to both repositories. This is the round's remaining
       evidence and nothing else can substitute for it. Hardware-gated.
-2. **[ ] The fork's reply to lap 22** (`verified/round-07-lap-22.md`) — two files and two
-      record corrections, none of them blocking:
+   - **Ordered sheet for this exact pair: [`docs/rig-session-c5fb909.md`](docs/rig-session-c5fb909.md)**
+      — `v0.6.4b4` + `c5fb909`, six steps cheapest-first, with the pre-flight checks and
+      the fill-in blocks. Written 2026-08-04 at the maintainer's request instead of them
+      working from the 40-case checklist; `hardware-test-checklist.md` stays the full
+      reference and the sheet points into its §F1/§F2/§F3.
+   - **It opens with a correction worth carrying here too:** `-O` (force overread — our
+      Settings toggle, and what H10/F2 is about) and `-x` (the fork's **cache probe**,
+      which our 16-flag argv surface does **not** contain) have both been called `-x` in
+      this correspondence. `cyanrip_backend.py` records that the `-x` older project notes
+      named *"does not exist in cyanrip's getopt at all, so passing it would abort every
+      rip."* Their lap-21 §H ask for `-x` means their probe, run directly against the
+      binary — not something Platterpus can invoke.
+2. **[ ] The fork's reply to lap 25** — the round is one exchange from closing:
+   - **[x] The rig session ran** (2026-08-04, `c5fb909`): 14/14 vs EAC, log verification
+      `verified`, first hardware sightings of `Read stalls:` and `C2 errors: unsupported by
+      drive`. `HANDSHAKE-TESTED` declared in lap 23. Record:
+      `docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`.
+   - **[x] Their lap 24 answered the pin question**: promote **`e61e75a`** rather than
+      `c5fb909`, because `c5fb909` carries a `dev_path` leak that had made their sanitizers
+      unusable — and `e61e75a` is **observably identical** to it (log body 275 lines, cue,
+      decoded PCM, `-j` record, measured side by side), so the rig evidence transfers.
+      Accepted; test pin moved.
+   - **[x] The go-first deadlock was OURS, not the shared spec's.** Their lap 24 §B1 tested
+      their loader against our exact case and it accepts a first GO while correctly refusing
+      to close. Our gate was always right; only `check_wire_header` conflated *well-formed*
+      with *closable*. Fixed narrowly — see the CHANGELOG.
+   - **[x] `v0.6.4b5` cut against `e61e75a`** (their §E1), and the session procedure rewritten
+      as three human steps plus `scripts/rig_session.sh` (their §E2).
+   - **[ ] The second rig session** — `docs/rig-session-e61e75a.md`. The remaining evidence
+      is `-x` on a real drive (never executed anywhere, ever), `-j` from a physical drive, a
+      deliberate abort, and a mid-rip cancel. **No parity re-run needed.**
+   - **[ ] Then both GO on `0.9.4-rc1+platterpus.5`** cut from `e61e75a`, we move `FORK_PIN`,
+      and stable `v0.6.4` dispatches.
+   - **[ ] Round 8, one bump, four agreements now**: the naming convention, the ordering
+      rules with lap 22 §B1/§B2's qualifications, `Handshake-Round`/`-State`/`-Release`/
+      `-Lap`, **and the §5 first-GO clarification** (their §B2 preferred it over a `READY`
+      token, because a new verdict word would meet older gates that correctly treat an
+      unrecognised verdict as *not agreement*).
+   - **[ ] Still not received: the P1 flag table.** Their lap 24 §F says
+      `PROVIDER-CONTRACT.md @ e61e75a` shipped with the lap; **it did not arrive** — four
+      files came (audit, beta note, golden reference, lap). So our argv check is still
+      diffing against round 6b's table, ratcheted as `_MAX_TABLE_LAG`.
+   - **[x] Their golden reference from `e61e75a` arrived** and re-parses clean — and it
+      carries `Pregap source: TOC` on tracks 1 and 2 (150 and 75 frames), which is the C1
+      case we had recorded as having no available test.
+
+3. **[ ] Superseded: the fork's reply to lap 22** (`verified/round-07-lap-22.md`) — two files
+      and two record corrections, none of them blocking:
    - **[ ] The golden reference from `c5fb909`** (§C3a). Their lap 21 §E says it exists
       and was committed with the lap file in *their* tree; it has not reached this
       repository. Every previous one did, and per-line re-parsing is where lap 13 found
@@ -1217,4 +1263,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.4b4.*
+*Last updated for Platterpus v0.6.4b5.*

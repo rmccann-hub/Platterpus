@@ -11,6 +11,144 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b5] — 2026-08-05
+
+**A pre-release, paired with cyanrip `e61e75a` (`0.9.4-rc1+platterpus.5-beta.3`).** Cut so
+the next rig session tests a *declared pair* rather than a new ripper against the previous
+app — the fork's lap 24 §E1 ask. Round 7 is still OPEN, `--release-gate` still refuses a
+stable release, and the production cyanrip pin does not move.
+
+### Added
+- **The cyanrip test pin moves to `e61e75a` (`0.9.4-rc1+platterpus.5-beta.3`)**, retiring
+  `c5fb909` into `SUPERSEDED_TEST_PINS`. `c5fb909` is what the 2026-08-04 rig actually ran,
+  so it stays listed — a rig that has not rebuilt still gets `--consumer`. Its successor is
+  **observably identical** to it: the fork measured log body (275 lines), cue sheet, decoded
+  PCM and the `-j` record side by side, so the parity evidence transfers and the disc parity
+  does not need repeating. The one code change is a `dev_path` leak on argument-validation
+  refusals, which had made their sanitizers unusable and touches no line we parse.
+- **`scripts/rig_session.sh` — the unattended half of a rig session.** The fork's lap 24 §E2:
+  *"the rig session is the scarce resource; anything that runs unattended and writes an
+  artifact is worth more than a checklist line."* So identity probes, the
+  `-dirty`/`-grelease`/`-gunknown` banner check, `--doctor`, the fork's `-x` and `-j` (which
+  our argv surface never sends), A25 pre-gap screening, a log snapshot taken **before**
+  rotation silently eats it, `--audit-rips` and `eac_parity.py` all moved into one script.
+  It **never stops on a failure** — a failing step is data — records every exit code
+  including the successes, and writes an artifact per step so a step that did nothing is
+  distinguishable from one that passed. Smoke-tested with every binary absent: exits 0, all
+  ten artifacts present, six failures recorded rather than hidden.
+- **`docs/rig-session-e61e75a.md`** — the session reduced to three human steps and one
+  command, with a *proves / does not prove* table per step so a green run cannot be read as
+  broader coverage than it is, and the three things nothing in the session can prove stated
+  outright.
+
+### Fixed
+- **The go-first deadlock was ours, not the shared spec's.** Lap 23 reported that protocol v2
+  cannot express a first `GO`, because writing one made our own conformance test fail:
+  *"declares GO but peer verdict is 'HOLD', not GO (§5)"*. The fork tested **their** loader
+  against the identical case (their lap 24 §B1) — accepted as well-formed, correctly refused
+  as a close — and they were right. Our **gate** was never wrong: `round_status` requires both
+  verdicts and `--release-gate` exits 1. Only `check_wire_header` was, because it conflated
+  **well-formed** with **closable**. A GO whose *peer* verdict is not yet GO is now a *ready*
+  declaration rather than a malformed file; **every other close-blocker stays a problem**,
+  because every other one is the author's own gap (a missing identity field, no
+  `HANDSHAKE-TESTED`) while the peer's verdict is the one thing the author cannot fix by
+  editing their own file. §5's intent survives: `close_blockers` still names it, `--status`
+  still shows it, and the round still does not close. Agreed for the round-8 bump in
+  preference to a new `READY` token, which would meet gates that have not shipped the new
+  spec and be treated — correctly — as *not agreement*.
+
+- **The 2026-08-04 rig session's results are committed as a derived record**
+  (`docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`) with the rip log, the
+  auto-fix addendum, the cue, the rendered EAC-compatible log and the JSON report beside it.
+  **14/14 bit-perfect against EAC's committed baseline**, `ripper_log_verification: verified`,
+  and the first hardware sightings of `Read stalls:` and `C2 errors: unsupported by drive`.
+  Every value in the record is read out of an artifact and names which one; steps that did
+  not run say **NOT RUN** rather than leaving a blank, because a blank reads as a pass.
+- **A25 closes as PASSED, and its premise had expired.** It said our 89× pre-gap bug *"has no
+  hardware proof and this disc cannot give it one"*, because cyanrip reported `none` for all
+  fourteen tracks. The fork now reads pre-gaps from the sub-channel, so ten tracks report a
+  non-zero `Pregap LSN` — track 2's is `14327` against a true length of `160`, exactly the
+  case the bug was about, and we render 160. **The screening command in the session sheet was
+  corrected with it**: `Pregap LSN` ≠ `none` is now satisfied by almost any disc, so the
+  discriminating string is `Pregap source: TOC`. Across the retained log history there are
+  40+ source lines and **zero** say `TOC`, so the fork's C1 fix is recorded as
+  hardware-unprovable on this collection rather than untested.
+- **`docs/rig-session-c5fb909.md`** — an ordered, fill-in session sheet for one *named*
+  pair (`v0.6.4b4` + cyanrip `c5fb909`), written at the maintainer's request as a front
+  page for the 40-case `hardware-test-checklist.md` rather than a replacement for it. Six
+  steps, cheapest evidence first, and it states plainly what the session **cannot** prove:
+  the beta's single log-text change needs a disc whose **TOC** declares a pre-gap, and the
+  baseline disc's is a lead-in. Anchors the rip against **EAC's committed baseline** rather
+  than against the previous cyanrip run, because two runs of related builds agreeing is the
+  shared-ancestor trap. Every step has a null-case blank, since a blank reads as a pass.
+
+### Fixed
+- **`--consumer` was never sent to the ripper, on any build, in the project's entire
+  history.** `_build_rip_argv` gates it on `consumer_tag_for_build(ripper_build_tag)` and
+  defaults that parameter to `""` so an unknown build gets no capability-gated flags — and
+  **nothing ever passed it.** The parameter's own comment said defaulting to empty *"is
+  what makes the safe behaviour the default rather than something a caller must
+  remember"*; no caller remembered, so the safe default became the only behaviour and a
+  fully-built, fully-tested capability (`accepts_consumer_flag`, the build allowlist,
+  `assert_consumer_tag_is_sane`) hung off a value nobody supplied — the `RipHandle.cancel`
+  shape from rule 9, a working mechanism reachable from nowhere. **Every existing test
+  called `_build_rip_argv` directly and passed a tag**, so they measured the gate and never
+  the wiring. Found in the 2026-08-04 rig artifact, where the fork prints the field:
+  `Consumer: not identified (no --consumer given)`. `rip()` now supplies
+  `_observed_build_tag()`, which already existed for `verify_log` and is best-effort (an
+  unreadable banner still withholds the flag — the same fail-safe direction, now reached by
+  measurement rather than by omission). The new test drives the real `rip()` entry point and
+  asserts **both** directions: sent to `c5fb909`, withheld from an unrecognised build.
+- **Three CLI tools read a rip log without its auto-fix addendum, and one of them
+  therefore gave a wrong answer to the project's headline question.** Found by running
+  `scripts/eac_parity.py` over the 2026-08-04 rig rip of the EAC baseline disc: it reported
+  **13/14 — NOT parity**, naming track 5's CRC as `6902BCF0`. That is the read Platterpus
+  **discarded** after re-ripping the track; the file on disk is `E0036697`, which is EAC's
+  own value, and the rip was **14/14 bit-perfect**. A false negative on "is Platterpus
+  bit-perfect?", from Platterpus's own checker. `render_eac_log.py` and `rip_report.py` had
+  the same read — so the *archival* EAC-compatible log and the regenerated report were
+  exposed to it too. The app itself was always correct; only the standalone scripts were
+  wrong. All three now go through one shared `rip_addendum.read_any_log()` (encoding
+  sniffed **and** addendum applied), because three copies of a read is three chances to
+  forget the sidecar.
+- **The sweep that was supposed to prevent exactly that had two holes, and the second is
+  the one that bit.** `tests/test_rip_addendum.py` (a) globbed `src/platterpus/` only, so
+  every tool in `scripts/` was outside every guard the rule has — CLAUDE.md §5.o again,
+  *enforce a rule across the codebase, not at the place it was learned*; and (b) triggered
+  only on `parse_cyanrip_log`/`parse_rip_log`, so a module that opened a log and pulled
+  per-track CRCs out of it by any **other** route was not *exempt*, it was **unseen**.
+  Widening both immediately found the two further offenders above — a check that had been
+  green while three tools broke the rule it enforces.
+- **Routing those scripts through a never-raises reader silently removed their error
+  path.** `read_any_log` returns `""` for an unreadable log by contract, so the
+  `except OSError` that printed `cannot read <path>` and exited 2 became unreachable —
+  a clear diagnostic replaced by an empty read. Caught immediately by the existing
+  `test_cli_missing_file_returns_2` in two files; the readability check is now explicit
+  and before the read, and an empty result is reported rather than processed.
+- **The rig session sheet now says how to *get* to `b4`, not just that you need it.** The
+  in-app updater does it, but **only after switching to the beta channel** — `stable` never
+  offers a pre-release, so "Check for updates" on the default setting correctly reports you
+  are up to date. Written out with the three behaviours worth knowing first: it is a full
+  ~242 MB download (the `.zsync` is for external `AppImageUpdate`, not for us), it always
+  installs to `~/Applications/` regardless of where the AppImage you launch lives, and the
+  fail-closed signature gate is dormant so SHA-256 is the integrity check. Every command in
+  the sheet now names the same `~/Applications/` path the version check verifies — an update
+  that lands there while you keep launching a copy in `~/Downloads` looks exactly like a
+  successful update until a rip reports the wrong thing.
+- **`update_signing.py` now records that arming the gate is a two-sided change.** Baking in
+  `PUBLIC_KEY_B64` makes the installer refuse any release with no `.minisig` — which is
+  every release published so far. The commit that sets the key must also make the release
+  workflow publish `.minisig`, or the first signed release silently breaks in-app updating
+  for everyone on the previous build. Fail-closed is right; shipping half of it is not.
+- **Corrected a flag confusion that had been live in the project's notes and in a chat
+  answer: `-O` and `-x` are different flags and only one is ours.** `-O` is force overread
+  — our Settings toggle, and the subject of H10/F2. `-x` / `--cache-probe` is the fork's
+  cache probe, which our 16-flag argv surface does not contain and Platterpus cannot
+  invoke; `cyanrip_backend.py` already recorded that the `-x` older project notes named
+  *"does not exist in cyanrip's getopt at all, so passing it would abort every rip."* The
+  new session sheet leads with the distinction so a rig session does not try to reach the
+  fork's probe through the app.
+
 ## [0.6.4b4] — 2026-08-04
 
 **A pre-release, cut on the `--prerelease` path while handshake round 7 is OPEN.** It
@@ -5997,7 +6135,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...HEAD
+[0.6.4b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...v0.6.4b5
 [0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
 [0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
 [0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
@@ -6073,4 +6212,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b4.*
+*Last updated for Platterpus v0.6.4b5.*

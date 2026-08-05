@@ -54,6 +54,18 @@ later valid file was read as the newest, and the ambiguity was never examined by
 gate. Sorting it last makes it the file the verdict is read from, at which point the
 header check refuses it.
 
+## Artifacts — `artifacts-round-NN/`
+
+Rig artifacts and derived records for a round live in `artifacts-round-NN/`, named
+`round-NN-lap-LL-<kind>-g<build>.<ext>` — `<build>` being the commit the artifact's **own
+banner** asserts, never the one a lap file names it by. Round 7's holds the 2026-08-04 rig
+rip (log, auto-fix addendum, cue, rendered EAC-compatible log, JSON report) plus
+`rig-session-results-c5fb909.md`, the derived record that says which artifact settled which
+claim.
+
+**Text only, ever.** Critical rule #8: the per-track CRCs prove bit-perfection, so no audio
+is committed even temporarily.
+
 ## Ordering — four rules, and they are the spec's, not ours
 
 **Ordering is `handshake.sort_key` — `(round, lap, stem)` — and nothing else may spell

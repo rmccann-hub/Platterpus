@@ -26,7 +26,43 @@ import argparse
 import sys
 from pathlib import Path
 
+from platterpus import rip_addendum
 from platterpus.parity import ParityReport, compare_logs, decode_log_bytes
+
+
+def _addendum_applies(candidate: Path) -> bool:
+    """Whether an auto-fix addendum sits beside this log. Never raises."""
+    try:
+        return rip_addendum.addendum_path_for(candidate).is_file()
+    except OSError:
+        return False
+
+
+def _candidate_text(candidate: Path) -> str:
+    """A rip log's text **with its auto-fix addendum applied**.
+
+    **REGRESSION, and it produced a wrong answer to the project's headline question.**
+    This used to be a bare ``decode_log_bytes(candidate.read_bytes())``, which reads the
+    ripper's log verbatim — and when Platterpus re-rips a track that missed AccurateRip
+    and swaps the better read in, the ripper's log still records the **discarded** pass.
+    The addendum is what says which CRC describes the file on disk.
+
+    Measured on the 2026-08-04 rig rip of the EAC baseline disc: this script reported
+    **13/14 — NOT parity**, naming track 5's candidate CRC as ``6902BCF0`` (the discarded
+    read) against EAC's ``E0036697``. The file on disk *is* ``E0036697``; the rip was
+    **14/14**. A false negative on the one number that answers "is Platterpus
+    bit-perfect?", from Platterpus's own tool.
+
+    `rip_addendum` already existed for exactly this, and `read_log_with_addendum` is
+    documented as the only sanctioned way to read a rip log back — enforced by a sweep in
+    `tests/test_rip_addendum.py`. **The sweep globs `src/platterpus/**.py` and this file
+    is in `scripts/`**, so the rule was enforced everywhere it was learned and nowhere
+    else. That gap is now closed at both ends: here, and in the sweep's scope.
+
+    UTF-16 still has to work — the *baseline* is an EAC log — so the decode stays for a
+    log with no addendum beside it.
+    """
+    return rip_addendum.read_any_log(candidate)
 
 
 def _print_report(baseline: Path, candidate: Path, report: ParityReport) -> None:
@@ -69,15 +105,25 @@ def main(argv: list[str] | None = None) -> int:
 
     all_ok = True
     for candidate in args.candidate:
-        try:
-            candidate_text = decode_log_bytes(candidate.read_bytes())
-        except OSError as exc:
-            print(f"cannot read {candidate}: {exc}", file=sys.stderr)
+        # Same reason as the other two scripts: `read_any_log` never raises, so the
+        # unreadable case has to be checked, not caught.
+        if not candidate.is_file():
+            print(f"cannot read {candidate}: not a readable file", file=sys.stderr)
+            all_ok = False
+            continue
+        candidate_text = _candidate_text(candidate)
+        if not candidate_text.strip():
+            print(f"{candidate} is empty or unreadable", file=sys.stderr)
             all_ok = False
             continue
         report = compare_logs(baseline_text, candidate_text)
         all_ok = all_ok and report.ok
         _print_report(args.baseline, candidate, report)
+        if _addendum_applies(candidate):
+            print(
+                f"  (an auto-fix addendum was applied: "
+                f"{rip_addendum.addendum_path_for(candidate).name})"
+            )
 
     return 0 if all_ok else 1
 

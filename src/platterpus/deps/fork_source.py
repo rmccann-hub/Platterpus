@@ -187,8 +187,8 @@ NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
 #: Moved a third time in lap 21 — `9003e6f` → `c5fb909`, `beta.1` → `beta.2`. The fork's
 #: own words: *"INSTALL `c5fb909`, NOT `9003e6f`"*. Six commits, one of them a fix to a
 #: log value we parse (track 1's pre-gap counted the 2-second lead-in twice).
-FORK_TEST_PIN: Final[str] = "c5fb909"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.2"
+FORK_TEST_PIN: Final[str] = "e61e75a"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.3"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
@@ -206,7 +206,19 @@ FORK_TEST_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_TEST_PIN}"
 #: **`9003e6f` joined the list in lap 21**, and it is the one a rig is most likely to
 #: still have built: it was the pin for thirteen laps and it is what the 2026-08-04 rig
 #: session actually ran, so every artifact we hold from real hardware came from it.
-SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = ("f750890", "d9c7124", "9003e6f")
+SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
+    "f750890",
+    "d9c7124",
+    "9003e6f",
+    # Retired in lap 25. `c5fb909` is the build the 2026-08-04 rig session actually ran,
+    # so it stays listed for the same reason `9003e6f` does: a rig that has not rebuilt
+    # still gets `--consumer`. Its successor `e61e75a` is **observably identical** to it —
+    # the fork measured log body (275 lines), cue, decoded PCM and the `-j` record side by
+    # side (their lap 24 §C2) — so the rig evidence transfers; the one code change is a
+    # `dev_path` leak on argument-validation refusals, which made their sanitizers
+    # unusable and touches no line we parse.
+    "c5fb909",
+)
 
 #: Build tags known to accept ``--consumer``. **Sending it to a build without it
 #: is a release blocker, not a cosmetic miss**: cyanrip exits non-zero on an
