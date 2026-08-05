@@ -1206,3 +1206,95 @@ def test_the_cache_defeat_row_names_its_own_source() -> None:
     unmeasured = row_for(None)
     assert "cd-paranoia" not in unmeasured, unmeasured
     assert "unknown" in unmeasured.casefold(), unmeasured
+
+
+# --- the cancelled SECURING pass: complete disc, incomplete verification ----------
+#
+# The shape that has no banner and needed the wording (rig run, 2026-08-05): the
+# whole-disc pass completed 14 of 14, so the incomplete-rip notice correctly stays
+# silent, and the securing pass that runs afterwards was then cancelled. The only
+# line about it read "INTERRUPTED" with no cause — while the app had the cause
+# recorded, which is the same defect as the report saying "success" for that run.
+
+
+def _complete_disc_log() -> RipLog:
+    return RipLog(
+        log_creator="cyanrip 0.9.3",
+        tracks=tuple(TrackResult(number=n, copy_crc=f"{n:08x}") for n in range(1, 15)),
+    )
+
+
+def test_a_cancelled_securing_pass_names_the_cancel_as_the_cause() -> None:
+    text = render_eac_style_log(
+        _complete_disc_log(),
+        outcome_status="cancelled",
+        disc_track_total=14,
+        secure_rerip={"interrupted": True},
+    )
+    assert "the securing pass was INTERRUPTED (you cancelled the rip)" in text, (
+        "the log says the securing pass stopped but not that the user stopped it, "
+        "which the app knew"
+    )
+    # FLOOR: the disc really is complete, so this is not just the incomplete-rip
+    # banner under another name. And the banner must not CONTRADICT itself: it used
+    # to read "INCOMPLETE RIP (cancelled) — this log covers 14 of 14 disc tracks",
+    # which this test found.
+    assert "INCOMPLETE RIP" not in text
+    assert "RIP STOPPED (cancelled)" in text
+    assert "every one of the 14 disc track(s) is present" in text
+
+
+def test_an_interrupted_securing_pass_with_no_cancel_does_not_invent_one() -> None:
+    """A securing pass cut short by something OTHER than a cancel (a crash, a closed
+    window, a re-rip that never produced a log) must not be attributed to the user.
+    The line still fires; only the cause clause is absent."""
+    text = render_eac_style_log(
+        _complete_disc_log(),
+        outcome_status="success",
+        disc_track_total=14,
+        secure_rerip={"interrupted": True},
+    )
+    assert "the securing pass was INTERRUPTED before it finished" in text
+    assert "you cancelled" not in text
+
+
+def test_a_securing_pass_that_finished_says_nothing_about_being_interrupted() -> None:
+    """The ALLOW case: the line must not fire on a normal rip, or it would appear on
+    every disc and train the reader to skip it."""
+    text = render_eac_style_log(
+        _complete_disc_log(),
+        outcome_status="cancelled",
+        disc_track_total=14,
+        secure_rerip={"interrupted": False},
+    )
+    assert "INTERRUPTED" not in text
+
+
+def test_a_complete_but_stopped_rip_does_not_claim_missing_tracks() -> None:
+    """The banner used to contradict itself. `INCOMPLETE RIP (cancelled) — this log
+    covers 14 of 14 disc tracks` asserts a gap and then reports none, in one
+    sentence, on the shape the rig actually produces: the whole-disc pass finishes
+    and the securing pass afterwards is cancelled."""
+    text = render_eac_style_log(
+        _complete_disc_log(), outcome_status="cancelled", disc_track_total=14
+    )
+    assert "INCOMPLETE" not in text, (
+        "a rip with every disc track present is not an incomplete rip"
+    )
+    assert "RIP STOPPED (cancelled)" in text
+    assert "never extracted" not in text
+
+
+def test_a_truncated_log_is_never_called_complete_even_at_the_full_count() -> None:
+    """The count off a cut-off log is a FLOOR, not a total — the rig lost a track
+    that had completed and matched AccurateRip at confidence 200 because cyanrip was
+    killed with 4 KiB unflushed. So "every track is present" is exactly the claim a
+    truncated log cannot support, however the numbers happen to line up."""
+    log = replace(_complete_disc_log(), log_truncated=True)
+    text = render_eac_style_log(log, outcome_status="cancelled", disc_track_total=14)
+    assert "RIP STOPPED" not in text, (
+        "a truncated log was reported as a complete extraction on the strength of a "
+        "count the truncation makes unreliable"
+    )
+    assert "INCOMPLETE RIP (cancelled)" in text
+    assert "cut off mid-write" in text
