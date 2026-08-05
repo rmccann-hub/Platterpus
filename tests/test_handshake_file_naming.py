@@ -36,6 +36,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import sys
+import tempfile
 from pathlib import Path
 from types import ModuleType
 
@@ -635,8 +636,6 @@ def test_a_constructed_two_sided_round_really_does_CLOSE(hs: ModuleType) -> None
     passes every refusal test in the table. Without this, the three "and now it is
     refused" tests below could all be satisfied by a fixture that never closes anything.
     """
-    import tempfile
-
     with tempfile.TemporaryDirectory() as raw:
         base = Path(raw)
         outbound, inbound, verified = _round_dirs(base)
@@ -796,4 +795,64 @@ def test_the_convention_is_documented_where_a_reader_will_look() -> None:
     assert "round-NN-lap-LL" in text or "round-07-lap" in text, (
         "the handshake README does not state the file naming convention, so the next "
         "person to file a received file will guess — which is how lap 4 got overwritten"
+    )
+
+
+# --- concurrent laps: both sides numbered a lap 25 -------------------------------
+#
+# WHAT HAPPENED (2026-08-05, round 7). We wrote lap 25 answering their lap 24; they
+# wrote lap 25 answering our lap 23. Neither had received the other's file, so both
+# picked the same number legitimately. The protocol's §2 rule for
+# `HANDSHAKE-LAP` says *"a round's state is its latest lap's verdict — by declared
+# number"*, which at a tie names two files and settles nothing.
+#
+# MEASURED, NOT REASONED: the tie is harmless, because `round_status` reads each
+# side's verdict from its OWN directory (`verified/` vs `inbound/`), so "the latest
+# lap" is only ever resolved within one sender's files. These two tests pin that,
+# so it stays a property the suite checks rather than a claim someone read off the
+# code once. The spec sentence still wants the clarification — "each side's latest
+# lap", not "the round's" — which is a round-8 shared-spec item.
+
+
+def test_a_same_lap_collision_across_directories_still_CLOSES(hs: ModuleType) -> None:
+    """Both sides at lap 25, both GO: the tie must not block a real close."""
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        outbound, inbound, verified = _round_dirs(base)
+        (outbound / "round-08-lap-01.md").write_text(
+            _closing(hs, "platterpus", 8, 1), encoding="utf-8"
+        )
+        # THE COLLISION: both sides' newest file declares lap 25.
+        (inbound / "round-08-lap-25.md").write_text(
+            _closing(hs, "cyanrip-fork", 8, 25), encoding="utf-8"
+        )
+        (verified / "round-08-lap-25.md").write_text(
+            _closing(hs, "platterpus", 8, 25), encoding="utf-8"
+        )
+        lines = hs.round_status(root=base)
+    assert any(line.endswith("CLOSED") for line in lines), lines
+
+
+def test_a_same_lap_collision_cannot_hide_the_peers_HOLD(hs: ModuleType) -> None:
+    """The direction that matters: their HOLD at the same lap must still block."""
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        outbound, inbound, verified = _round_dirs(base)
+        (outbound / "round-08-lap-01.md").write_text(
+            _closing(hs, "platterpus", 8, 1), encoding="utf-8"
+        )
+        (inbound / "round-08-lap-25.md").write_text(
+            _closing(hs, "cyanrip-fork", 8, 25).replace(
+                "HANDSHAKE-VERDICT: GO", "HANDSHAKE-VERDICT: HOLD"
+            ),
+            encoding="utf-8",
+        )
+        (verified / "round-08-lap-25.md").write_text(
+            _closing(hs, "platterpus", 8, 25), encoding="utf-8"
+        )
+        lines = hs.round_status(root=base)
+    assert any(line.endswith("OPEN") for line in lines), lines
+    assert not any(line.endswith("CLOSED") for line in lines), (
+        "our GO at lap 25 outranked their HOLD at the same lap — a tie resolved in "
+        "favour of releasing is the one resolution the gate must never pick"
     )
