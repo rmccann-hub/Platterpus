@@ -925,3 +925,87 @@ def test_a_dropped_disc_position_is_logged_so_it_is_diagnosable(
     with caplog.at_level(logging.WARNING):
         _argv_with(disc_number=5, total_discs=2)
     assert any("-c" in r.message for r in caplog.records)
+
+
+# --- --consumer reaches the ripper (round 7 lap 23) ------------------------
+
+
+def test_rip_actually_sends_consumer_to_a_build_that_accepts_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """**REGRESSION. `--consumer` was never sent, on any build, ever.**
+
+    `_build_rip_argv` gates the flag on `consumer_tag_for_build(ripper_build_tag)`, and
+    that parameter defaults to `""` so an unknown build gets no capability-gated flags.
+    Its own comment said defaulting to empty *"is what makes the safe behaviour the
+    default rather than something a caller must remember"* — and **no caller remembered.**
+    The safe default became the only behaviour, so a fully-built and fully-tested
+    capability (`accepts_consumer_flag`, the build allowlist,
+    `assert_consumer_tag_is_sane`) hung off a value nothing supplied.
+
+    **Why no existing test caught it:** every one of them called `_build_rip_argv`
+    *directly* and passed a tag, so they measured the gate and never the wiring. That is
+    the `RipHandle.cancel` shape from CLAUDE.md rule 9 — a working mechanism reachable
+    from nowhere — and the reason this test drives the real `rip()` entry point instead.
+    Found in a rig artifact: every log said `Consumer: not identified (no --consumer
+    given)`.
+
+    Asserted in **both** directions below, because "the flag appears" alone would also
+    pass if we sent it unconditionally, which is the failure the gate exists to prevent.
+    """
+    from platterpus.adapters import cyanrip_backend as mod
+
+    captured: list[list[str]] = []
+
+    class _FakeProc:
+        args: list[str] = []
+        stdout = None
+        stderr = None
+        returncode = 0
+
+        def poll(self) -> int:
+            return 0
+
+        def wait(self, timeout: float | None = None) -> int:
+            return 0
+
+    def fake_popen(argv, *a, **kw):  # type: ignore[no-untyped-def]
+        captured.append(list(argv))
+        proc = _FakeProc()
+        proc.args = list(argv)
+        return proc
+
+    monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
+
+    def _rip_once(banner: str) -> list[str]:
+        captured.clear()
+        impl = _impl()
+        monkeypatch.setattr(impl, "version", lambda: banner)
+        impl.rip(
+            drive="/dev/sr0",
+            release_id="",
+            output_dir=tmp_path,
+            track_template="{track} - {title}",
+            disc_template="",
+        )
+        assert captured, "rip() did not spawn anything"
+        return captured[-1]
+
+    # 1. A build whose published flag table lists --consumer: the flag is SENT.
+    supported = _rip_once(
+        "cyanrip 0.9.4-rc1+platterpus.5-beta.2 (platterpus-fork-gc5fb909)"
+    )
+    assert "--consumer" in supported, (
+        "rip() did not send --consumer to a build that accepts it — the "
+        "ripper_build_tag wiring is gone again, and every rip will log "
+        f"'Consumer: not identified'. argv: {supported}"
+    )
+    assert supported[supported.index("--consumer") + 1] == mod.consumer_tag()
+
+    # 2. An unknown build: the flag is WITHHELD. Without this the test would pass
+    #    against a version that sends --consumer unconditionally, which would abort
+    #    every rip on a build that does not know the flag (the -V failure, inverted).
+    unknown = _rip_once("cyanrip 0.9.3")
+    assert "--consumer" not in unknown, (
+        f"--consumer was sent to an unrecognised build: {unknown}"
+    )

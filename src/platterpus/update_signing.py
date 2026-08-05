@@ -67,6 +67,14 @@ log = logging.getLogger(__name__)
 # by `minisign -G` (the line after "untrusted comment: …"). Leaving it EMPTY
 # keeps release-signing OFF (SHA-256-only updates, unchanged). Setting it ARMS
 # the fail-closed signature gate — see docs/release-signing.md before you do.
+#
+# **ARMING THIS IS A TWO-SIDED CHANGE, and only one side is here.** The moment a
+# key is baked in, `update_install.download_and_install` refuses any release with
+# no `.minisig` asset — which is *every release published so far*, including the
+# `v0.6.4b4` pre-release the 2026-08-04 rig session installs. So the commit that
+# sets this constant must ALSO make the release workflow publish `.minisig`, or
+# the first signed release silently breaks in-app updating for everyone on the
+# previous build. Fail-closed is right; shipping half of it is not.
 PUBLIC_KEY_B64: str = ""
 
 # minisign signature-algorithm tags (first 2 bytes of the decoded signature).

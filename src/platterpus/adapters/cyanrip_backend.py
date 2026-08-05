@@ -316,6 +316,25 @@ class CyanripImpl(RipBackend):
             read_speed=read_speed,
             only_tracks=only_tracks,
             disc_track_total=disc_track_total,
+            # WITHOUT THIS, `--consumer` IS NEVER SENT — ON ANY BUILD.
+            #
+            # `_build_rip_argv` gates the flag on `consumer_tag_for_build(ripper_build_tag)`
+            # and defaults the parameter to `""` so an unknown build gets no
+            # capability-gated flags. The parameter's own comment says defaulting to empty
+            # "is what makes the safe behaviour the default rather than something a caller
+            # must remember" — and then **no caller remembered**, so the safe default became
+            # the only behaviour and the feature was dead from the argv's point of view.
+            # `consumer_tag_for_build`, `accepts_consumer_flag`, the build allowlist and
+            # `assert_consumer_tag_is_sane` were all built and tested around a value nothing
+            # supplied. Every rip in the project's history logged `Consumer: not identified
+            # (no --consumer given)`; the 2026-08-04 rig artifact is where that became
+            # visible, because the fork prints the field.
+            #
+            # `_observed_build_tag()` already existed for `verify_log` and is best-effort by
+            # design (an unreadable banner yields `""`, which withholds the flag — the same
+            # fail-safe direction as before, now reached by measurement rather than by
+            # omission). This runs on the rip worker's thread, never the GUI thread.
+            ripper_build_tag=self._observed_build_tag(),
         )
         # cyanrip writes under the current directory (its -D/-F schemes are
         # relative), so run it from the output dir.

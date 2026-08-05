@@ -253,12 +253,44 @@ def read_log_with_addendum(log_path: str | Path) -> str:
     return with_addendum(text, path)
 
 
+def read_any_log(log_path: str | Path) -> str:
+    """Any rip log's text — **encoding sniffed, addendum applied**. One reader.
+
+    :func:`read_log_with_addendum` assumes UTF-8, which is right for cyanrip and whipper
+    and wrong for EAC (UTF-16). The three CLI tools in ``scripts/`` all have to accept
+    either, so each of them grew the same two-line ``decode_log_bytes(p.read_bytes())`` —
+    and **all three of them thereby skipped the addendum.**
+
+    Found 2026-08-04 when `scripts/eac_parity.py` reported the rig's Police rip as
+    **13/14 NOT parity**: it read track 5's CRC as ``6902BCF0``, the pass Platterpus
+    *discarded* after re-ripping, where the file on disk is ``E0036697`` — EAC's own value.
+    The rip was 14/14. Widening the sweep that should have caught it then found
+    ``render_eac_log.py`` and ``rip_report.py`` doing the same, so the archival
+    EAC-compatible log and the regenerated report were both exposed to it too.
+
+    **Three copies of a read is three chances to forget the sidecar**, which is the same
+    argument that made `handshake.sort_key` public. So: one function, and the scripts call
+    it rather than spelling the read themselves.
+
+    Never raises: a missing or unreadable log yields ``""``.
+    """
+    from platterpus.parity import decode_log_bytes  # noqa: PLC0415 — avoids a cycle
+
+    path = Path(log_path)
+    try:
+        text = decode_log_bytes(path.read_bytes())
+    except OSError:
+        return ""
+    return with_addendum(text, path)
+
+
 __all__ = [
     "ADDENDUM_MARKER",
     "ADDENDUM_SUFFIX",
     "SupersededTrack",
     "addendum_path_for",
     "addendum_text",
+    "read_any_log",
     "read_log_with_addendum",
     "render_addendum",
     "with_addendum",
