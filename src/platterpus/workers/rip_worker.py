@@ -370,6 +370,50 @@ _ETA_SMOOTHING_ALPHA: float = 0.15
 # trailing window tracks the CURRENT rate and self-corrects as the rip proceeds.
 _ETA_RATE_WINDOW_S: float = 90.0
 
+# MINIMUM progress across the window before its rate is believed, as a FRACTION
+# (0.002 = 0.2 percentage points).
+#
+# **THIS IS THE 62-HOUR BUG.** The rate projection divides by the progress made
+# across the window, and the guard used to be nothing but `window_dfrac > 0`. A
+# movement of 0.01 percentage points is greater than zero, so it passed — and
+# dividing an hour of remaining work by a rounding-level delta produced, measured
+# on real hardware from this rip's own `eta_trace`: 51 → 59 → 70 → 85 → 115 → 175
+# → 335 → **3715 minutes**, eight consecutive samples, then a snap back to 11
+# minutes when the delta finally reached exactly zero and the fallback branch took
+# over. The maintainer saw it as *"track 5 went from hours to minutes"*.
+#
+# A floor, not a cap, is the right fix here: below this much movement we have no
+# rate measurement at all, so the honest answer is to keep the previous estimate
+# rather than to invent a number from noise. `_ETA_MAX_REMAINING_MULTIPLE` is the
+# belt to this braces, because a floor cannot catch every way a model can be wrong.
+_ETA_MIN_WINDOW_DFRAC: float = 0.002
+
+# A drop in progress this large (fraction) means the bar RESTARTED rather than
+# regressed by rounding — a second cyanrip invocation for an auto-fix re-rip,
+# which reports its own progress from 0 and resets the elapsed baseline.
+#
+# Measured: 0.9479 → 0.2935 in one sample when track 5's re-rip began. Blending
+# that into an album-scale rate estimate is meaningless, so the estimator is reset
+# and the phase is recorded; a sub-pass gets its own clean measurement instead of
+# corrupting the album's.
+_ETA_PROGRESS_RESET_DROP: float = 0.05
+
+# Hard sanity ceiling on the estimate (seconds). Above this the model has failed
+# and we show NOTHING, because "about 62 hours left" is worse than no estimate —
+# the user cannot tell a bug from a genuinely slow disc.
+#
+# WHY AN ABSOLUTE BOUND AND NOT A DISC-RELATIVE ONE. The first draft scaled this to
+# the disc's own audio length, which reads better — but the worker does not know
+# that length (cyanrip prints `Total time:` in its start report; nothing plumbs it
+# here), and inventing plumbing so a *safety net* can be more elegant is backwards:
+# a net that depends on a field being populated fails open exactly when the field
+# is missing. Red Book caps an audio CD near 80 minutes, so 24 hours is ~18x the
+# whole disc — generous enough that it can never fire on a real rip, including a
+# damaged disc grinding at 0.5x with heavy re-reads. Genuine wedges are the stall
+# detector's job (`_ETA_STALL_THRESHOLD_S`), which reports "stalled" instead of a
+# countdown, so this does not have to model them.
+_ETA_MAX_REMAINING_S: float = 24 * 60 * 60
+
 # The "for posterity" ETA trace: sample at most this often (seconds) and cap the
 # number of samples, so a long rip yields a compact comparable curve, not a
 # per-tick flood. ~10s over even a 5-hour rip stays well under the cap.
@@ -624,6 +668,11 @@ class RipWorker(QObject):
         # (see _album_eta_text / _ETA_RATE_WINDOW_S). Pruned to the window and
         # cleared per pass so each pass's rate is measured on its own progress.
         self._eta_rate_window: list[tuple[float, float]] = []
+        # The previous album fraction, so a RESTART (a second cyanrip invocation
+        # for an auto-fix re-rip, which reports progress from zero) can be told
+        # from ordinary forward movement and reset the rate estimate instead of
+        # blending two different scales. See _ETA_PROGRESS_RESET_DROP.
+        self._eta_last_frac: float | None = None
         # Stall detection (see _album_eta_text / _ETA_STALL_THRESHOLD_S): the album
         # fraction at the last MEANINGFUL forward step, and the monotonic time it
         # was reached. When the fraction hasn't cleared another step for the
@@ -780,22 +829,68 @@ class RipWorker(QObject):
         # ETA came out absurdly low. Collect (elapsed, frac) points — only past
         # the scan band, so the scan never enters the window — prune to the
         # window, and measure the rate over it.
+        # A RESTART, not a regression: the auto-fix re-rip is a SECOND cyanrip
+        # invocation that reports its own progress from zero and resets the elapsed
+        # baseline. Measured: 94.79% → 29.35% in one sample. Carrying the album's
+        # rate window across that boundary mixes two different scales, so throw the
+        # window away and measure the new phase on its own terms.
+        if (
+            self._eta_last_frac is not None
+            and frac < self._eta_last_frac - _ETA_PROGRESS_RESET_DROP
+        ):
+            log.info(
+                "ETA: progress restarted (%.1f%% -> %.1f%%) — a new pass is running, "
+                "resetting the rate estimate rather than blending two scales",
+                self._eta_last_frac * 100.0,
+                frac * 100.0,
+            )
+            self._eta_rate_window = []
+            self._smoothed_remaining_s = None
+        self._eta_last_frac = frac
         self._eta_rate_window.append((elapsed, frac))
         cutoff = elapsed - _ETA_RATE_WINDOW_S
         self._eta_rate_window = [p for p in self._eta_rate_window if p[0] >= cutoff]
         base_elapsed, base_frac = self._eta_rate_window[0]
         window_dt = elapsed - base_elapsed
         window_dfrac = frac - base_frac
-        if window_dt > 0 and window_dfrac > 0:
+        if window_dt > 0 and window_dfrac >= _ETA_MIN_WINDOW_DFRAC:
             # remaining = remaining_fraction ÷ recent_rate (frac per second).
             raw_remaining = (1.0 - frac) * window_dt / window_dfrac
+        elif self._smoothed_remaining_s is not None:
+            # THE WINDOW HAS NO USABLE RATE — and we already have an estimate, so
+            # KEEP IT rather than divide by noise. This is the 62-hour bug's fix:
+            # the old code's only guard was `> 0`, so a 0.01pp rounding wobble
+            # became the divisor and the estimate ran to 3715 minutes across eight
+            # consecutive samples. A frozen progress bar means "we cannot measure
+            # the rate right now", and the honest response is to hold the last
+            # measurement, not to invent one.
+            return self._eta_hold_text()
         else:
-            # Only one distinct point so far (first post-scan tick) or a paused
-            # bar (encode phase, no forward progress): fall back to the
-            # cumulative projection until the window has real movement.
+            # No usable rate AND no previous estimate (first post-scan tick):
+            # the cumulative projection is all we have. Bounded below by the same
+            # sanity check as every other branch.
             raw_remaining = elapsed * (1.0 - frac) / frac
         if not raw_remaining >= 1:  # guards NaN/inf and sub-second "0s left"
             return ""
+        # PHYSICAL SANITY BOUND. A floor on the divisor stops the failure we
+        # measured; this stops the ones we have not. Scaled to the disc's own audio
+        # length rather than a magic hour count, so a 25-minute EP and a 74-minute
+        # disc get proportionate ceilings. Beyond it the model has failed, and the
+        # right output is NO estimate — "about 62 hours left" is worse than silence
+        # because the user cannot tell it is a bug.
+        if raw_remaining > _ETA_MAX_REMAINING_S:
+            log.warning(
+                "ETA: computed %s remaining, past the %s sanity ceiling — the model "
+                "has failed, so no estimate is shown (progress %.2f%%, "
+                "window dt=%.1fs dfrac=%.5f, elapsed %.0fs)",
+                format_duration(raw_remaining),
+                format_duration(_ETA_MAX_REMAINING_S),
+                frac * 100.0,
+                window_dt,
+                window_dfrac,
+                elapsed,
+            )
+            return self._eta_hold_text()
         # EMA-smooth so a per-tick swing doesn't yank the number around.
         if self._smoothed_remaining_s is None:
             self._smoothed_remaining_s = raw_remaining
@@ -810,6 +905,25 @@ class RipWorker(QObject):
         # Record a throttled trace sample (PC clock + both estimates) for the
         # report — this is the point where both are freshest. Best-effort.
         self._record_eta_sample(overall_pct, elapsed, display)
+        return f" · about {format_duration(display)} left"
+
+    def _eta_hold_text(self) -> str:
+        """The last believed estimate, re-rendered — or nothing if there is none.
+
+        Used when the rate is unmeasurable (a frozen progress bar) or when the
+        computed value failed the sanity ceiling. **Holding a stale-but-plausible
+        number beats printing a fresh implausible one**: the 62-hour reading came
+        from recomputing on noise, and a user reads every number we print as a
+        claim. Deliberately does NOT record a trace sample — the trace exists to
+        show what we *computed*, and holding is the absence of a computation.
+        """
+        from platterpus.rip_timing import format_duration
+
+        if self._smoothed_remaining_s is None:
+            return ""
+        display = _coarsen_eta_seconds(self._smoothed_remaining_s)
+        if display < 1:
+            return ""
         return f" · about {format_duration(display)} left"
 
     def _record_cyanrip_eta(self, eta: str | None) -> None:
@@ -1653,6 +1767,9 @@ class RipWorker(QObject):
         self._eta_pass_started = time.monotonic()
         self._smoothed_remaining_s = None
         self._eta_rate_window = []
+        # Also clear the restart detector's memory: the fraction is about to drop to
+        # 0 legitimately, and that is not the anomaly the detector exists to catch.
+        self._eta_last_frac = None
         self._eta_stall_frac = None
         self._eta_stall_since = None
         self._eta_stalled = False
