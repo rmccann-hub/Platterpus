@@ -169,14 +169,6 @@ else
   echo "skipped: not in a checkout" >"$OUT/09-eac-parity.txt"
 fi
 
-# ------------------------------------------------------------------- done ----
-say "COMPLETE"
-note "artifacts:"
-ls -1 "$OUT" | sed 's/^/      /' | tee -a "$SUMMARY" || true
-note ""
-note "Send the whole directory. Every file matters, including the empty ones —"
-note "an artifact that exists and is empty is a measurement; a missing artifact"
-note "is a step that did not run, and only one of those is a result."
 
 # =============================================================================
 # PART 2 — added for v0.6.4b7. Everything below needs no disc and no human.
@@ -223,12 +215,18 @@ PY
 note "artifact: 10-eta-sweep.txt"
 
 say "11  report sizes — the 1.5 MB JSON, and whether retention is holding"
+# EVERY command here is `|| true`-guarded. `ls` on a glob that matches nothing
+# exits 2, and with errexit on that killed the entire script mid-step — found by
+# actually running it, not by reading it. A step that finds nothing must record
+# "nothing" and continue.
 {
   echo "== per-album report sizes (81% of the b6 one was the embedded debug log) =="
-  find "$HOME/Music" -name '*.platterpus.json' -printf '%10s  %p\n' 2>/dev/null | sort -rn | head -12
+  find "$HOME/Music" -name '*.platterpus.json' -printf '%10s  %p\n' 2>/dev/null \
+      | sort -rn | head -12 || true
   echo
   echo "== app log retention (8 MiB x 10 from v0.6.4b7; was 1 MiB x 5) =="
-  ls -la "$HOME/.local/share/platterpus/"log.txt* 2>/dev/null
+  ls -la "$HOME/.local/share/platterpus/"log.txt* 2>/dev/null \
+      || echo "(no app logs found at that path — recorded, not skipped)"
   echo
   echo "A file at EXACTLY the max size is FULL, which is how the old 1 MiB window"
   echo "silently evicted the rip you were trying to diagnose."
@@ -264,5 +262,19 @@ if [ -f pyproject.toml ]; then
   run "    doctor (no network)" "14-preflight.txt" python3 scripts/preflight.py --no-network
 else
   note "not in a checkout — skipping the repo-side gates"
+  # BOTH artifacts, not just the first. The script's own contract is that every step
+  # writes a file even when it finds nothing, so a step that did not run is
+  # distinguishable from one that passed — and this branch was writing 13 and
+  # silently omitting 14. Found by the smoke test, which counts artifacts.
   echo "skipped: not in a checkout" >"$OUT/13-handshake-status.txt"
+  echo "skipped: not in a checkout" >"$OUT/14-preflight.txt"
 fi
+
+# ------------------------------------------------------------------- done ----
+say "COMPLETE"
+note "artifacts:"
+ls -1 "$OUT" | sed 's/^/      /' | tee -a "$SUMMARY" || true
+note ""
+note "Send the whole directory. Every file matters, including the empty ones —"
+note "an artifact that exists and is empty is a measurement; a missing artifact"
+note "is a step that did not run, and only one of those is a result."

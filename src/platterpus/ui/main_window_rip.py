@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from platterpus.adapters.musicbrainz_client import TrackSummary
     from platterpus.ui.track_table import AlbumMetadata
 
-from platterpus import drive_control, rip_files
+from platterpus import drive_control, rip_addendum, rip_files
 from platterpus.adapters import cover_art
 from platterpus.adapters.derived_verify import DerivedVerifyResult
 from platterpus.adapters.flac_recompress import (
@@ -2985,6 +2985,11 @@ class RipMixin(MainWindowShared):
                 rip_log=log_file,
                 eac_log=log_file.with_name(f"{log_file.stem} (EAC-compatible).log"),
                 cue=log_file.with_suffix(".cue"),
+                # The auto-fix addendum, derived through the one helper that owns the
+                # naming convention rather than re-spelling the suffix here. This is
+                # the companion that SUPERSEDES `rip_log` for a re-ripped track, and
+                # it was the only one this call omitted.
+                addendum=rip_addendum.addendum_path_for(log_file),
                 # The ripper's own stdout, which survives a kill when its
                 # block-buffered logfile does not — the capture that would have
                 # shown the track a truncated log lost. There is no file to read

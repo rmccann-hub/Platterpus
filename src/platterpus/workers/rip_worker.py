@@ -384,8 +384,23 @@ _ETA_RATE_WINDOW_S: float = 90.0
 #
 # A floor, not a cap, is the right fix here: below this much movement we have no
 # rate measurement at all, so the honest answer is to keep the previous estimate
-# rather than to invent a number from noise. `_ETA_MAX_REMAINING_MULTIPLE` is the
-# belt to this braces, because a floor cannot catch every way a model can be wrong.
+# rather than to invent a number from noise. `_ETA_MAX_REMAINING_S` is the belt to
+# this braces, because a floor cannot catch every way a model can be wrong.
+#
+# WHERE THIS FLOOR BITES, measured rather than assumed. Progress across a 90 s
+# window is `90 / total_rip_seconds`, so the floor is reached when a rip's total
+# length passes roughly **12.5 hours**:
+#
+#     1 h rip -> 2.500 pp per window     8 h  -> 0.312 pp     believed
+#     4 h rip -> 0.625 pp per window    12 h  -> 0.208 pp     believed
+#                                       16 h  -> 0.156 pp     HELD
+#                                       24 h  -> 0.104 pp     HELD
+#
+# Past that the estimate is held rather than refreshed. That is the safe direction
+# (a stale plausible number beats a fresh implausible one) and a 12-hour CD rip is
+# already pathological — genuine wedges are the stall detector's job, and it reports
+# "stalled" instead of a countdown. Documented because an undocumented boundary is
+# the kind of thing that gets rediscovered as a bug.
 _ETA_MIN_WINDOW_DFRAC: float = 0.002
 
 # A drop in progress this large (fraction) means the bar RESTARTED rather than

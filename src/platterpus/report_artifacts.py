@@ -140,6 +140,7 @@ def build_artifacts(
     rip_log: Path | None = None,
     eac_log: Path | None = None,
     cue: Path | None = None,
+    addendum: Path | None = None,
     ripper_stdout: str | None = None,
 ) -> ArtifactsBlock:
     """Build the report's ``artifacts`` block from the three companion paths.
@@ -165,4 +166,15 @@ def build_artifacts(
         ),
         "eac_log": build_artifact(eac_log),
         "cue": build_artifact(cue),
+        # THE AUTO-FIX ADDENDUM, and it was missing until 2026-08-05 — while the
+        # `note` above promised "this one file is enough to diagnose a rip without
+        # asking for the others". It is the one companion that **supersedes** the
+        # ripper's log: when a track is re-ripped, the log keeps the DISCARDED
+        # read's CRCs (it must stay byte-exact for `cyanrip --verify-log`) and this
+        # file states what actually shipped. Omitting it meant the report embedded
+        # the superseded values verbatim and not the correction.
+        #
+        # Found by the maintainer asking "why can that not be put in the json
+        # file?" — a question about placement that turned out to be about absence.
+        "addendum": build_artifact(addendum),
     }

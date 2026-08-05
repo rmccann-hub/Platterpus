@@ -2258,7 +2258,21 @@ def test_a_frozen_progress_bar_never_produces_an_absurd_eta(
 def test_the_estimate_is_held_not_reinvented_while_the_bar_is_frozen(
     qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A frozen bar means "rate unmeasurable", so the last estimate stands."""
+    """A frozen bar means "rate unmeasurable", so the last estimate stands.
+
+    **THE STALL DETECTOR IS DISABLED HERE ON PURPOSE.** The first version of this
+    test passed with the fix reverted, which makes it worthless as written: after
+    `_ETA_STALL_THRESHOLD_S` (180 s) without >=0.5% progress, the pre-existing stall
+    detector returns "stalled …" *before* any projection runs, so the estimate stops
+    moving whatever the arithmetic below it does. The test was measuring a different
+    mechanism than its name claims.
+
+    Raising the threshold out of the way is what makes this test about the hold
+    path. It also matters for the real bug: the field freeze lasted ~160 s, i.e.
+    **under** the stall threshold, so the explosion lived in exactly the window the
+    stall detector does not cover.
+    """
+    monkeypatch.setattr(rip_worker_module, "_ETA_STALL_THRESHOLD_S", 1e9)
     worker, clock = _eta_worker(tmp_path, monkeypatch)
     _feed(worker, clock, [20.0, 24.0, 28.0, 32.0, 35.0])
     before = worker._smoothed_remaining_s
@@ -2300,12 +2314,34 @@ def test_a_rerip_restarting_progress_resets_the_rate_estimate(
 def test_the_measured_62_hour_sequence_cannot_happen_again(
     qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Replay the field trace's own percentages through the real estimator.
+    """Replay the field sequence — with the wobble the trace's own rounding hid.
 
-    Samples 338-382 of the 2026-08-05 rip: track 14 finishing, then the track-5
-    re-rip restarting progress and freezing it. The old code printed 51 -> 59 -> 70
-    -> 85 -> 115 -> 175 -> 335 -> **3715** minutes across this sequence.
+    Samples 338-382 of the 2026-08-05 rip: track 14 finishing, then track 5's
+    re-rip restarting progress and freezing it. The old code printed
+    51 -> 59 -> 70 -> 85 -> 115 -> 175 -> 335 -> **3715** minutes across it.
+
+    **THE FIRST VERSION OF THIS TEST PASSED WITH THE BUG RESTORED**, and the reason
+    is worth keeping: `eta_trace` rounds `overall_percent` to two decimals, so the
+    frozen samples all read exactly `35.45`. Feeding those literal values makes
+    `window_dfrac` exactly **zero**, which even the buggy code handled — it fell to
+    the cumulative branch and produced a sane number. The explosion needed a delta
+    that was *tiny but positive*, i.e. movement below the trace's own resolution.
+
+    So the sub-0.01pp wobble here is **inferred, not observed**: cyanrip was
+    actively re-reading, so its true percentage cannot have been bit-for-bit
+    constant, and only a positive delta explains the measured 3715. Stating that
+    plainly because the evidence chain matters — the percentages are measured, the
+    wobble is a deduction from them plus the arithmetic.
+
+    **THE STALL DETECTOR IS DISABLED HERE, and the field data is why.** The rip's
+    own debug log contains `rip stalled: no forward progress for 3m 0s at 35.5%
+    (track 5)` — so in the field the stall detector *did* eventually take over and
+    replace the countdown. That means the bug lives in the **first 180 seconds** of a
+    freeze, before the rescue, and the 3715-minute reading landed about 80 s in. A
+    test that lets the stall detector fire is testing the rescue, not the bug: that
+    is precisely why the first version of this test passed with the fix reverted.
     """
+    monkeypatch.setattr(rip_worker_module, "_ETA_STALL_THRESHOLD_S", 1e9)
     measured = [
         93.66,
         93.95,
@@ -2317,7 +2353,7 @@ def test_the_measured_62_hour_sequence_cannot_happen_again(
         29.89,
         30.13,
         30.47,
-        30.68,  # the re-rip restarts
+        30.68,  # the re-rip restarts progress
         31.28,
         31.75,
         32.09,
@@ -2329,13 +2365,18 @@ def test_the_measured_62_hour_sequence_cannot_happen_again(
         34.99,
         35.26,
         35.45,
-        *([35.45] * 16),  # then it FREEZES
     ]
+    # The freeze: 15 samples x 10 s = 150 s, under the 180 s stall threshold, with
+    # the inferred sub-resolution wobble.
+    frozen = [35.45 + (0.004 if i % 2 else 0.0) for i in range(15)]
     worker, clock = _eta_worker(tmp_path, monkeypatch)
     peak = 0.0
-    for text in _feed(worker, clock, measured):
+    for text in _feed(worker, clock, [*measured, *frozen]):
         peak = max(peak, worker._smoothed_remaining_s or 0.0)
-        assert "3715" not in text, f"the exact field value reappeared: {text!r}"
+        for hours in re.findall(r"(\d+)h", text):
+            assert int(hours) < 24, f"an absurd ETA was displayed: {text!r}"
     assert peak < 24 * 60 * 60, (
-        f"replaying the measured trace still peaks at {peak / 3600:.1f} hours"
+        f"replaying the measured sequence still peaks at {peak / 3600:.1f} hours"
     )
+    # FLOOR: the replay must actually have driven the estimator, or it proves nothing.
+    assert worker._smoothed_remaining_s is not None, "no estimate was ever produced"
