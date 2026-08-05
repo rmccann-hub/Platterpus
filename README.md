@@ -661,6 +661,27 @@ build is verified before the next Platterpus release goes out, this is how you
 get it without waiting. It prints the pin it is building and the build tag the
 finished binary must report, so you can see which ripper you ended up with.
 
+**And it takes a commit**, which is what makes the sentence above actually true:
+
+```sh
+./platterpus-x86_64.AppImage --install-ripper 9048082
+```
+
+Without an argument it builds the pin baked into *this* Platterpus build — so
+before this option existed, "get it without waiting" still meant waiting for a
+release, which is the granularity the whole point was to avoid. The fork's pin
+moved **five times inside one handshake round**, twice in a single day. With a
+commit it builds that commit instead, through the same steps, and verifies the
+binary reports `platterpus-fork-g<commit>`.
+
+It deliberately does **not** predict the version string for a commit we don't
+pin — we can't read that tree's `meson.build`, and printing a guess next to the
+word "expects" would invite a comparison against a number nobody measured. You
+get the build tag, which is checked, and an explicit note that the version is
+not predictable. Every rip with a non-pinned build reports
+`ripper handshake approval: unapproved`, and the install says so up front rather
+than letting the rip report be the first place you see it.
+
 If you installed with **`pipx`** (Method B), the same flags work on the
 `platterpus` command instead — e.g. `platterpus --doctor`.
 
@@ -897,4 +918,4 @@ See [PLANNING.md KDD-10](PLANNING.md) for the rationale.
 
 ---
 
-*Last updated for Platterpus v0.6.4b9.*
+*Last updated for Platterpus v0.6.4b10.*

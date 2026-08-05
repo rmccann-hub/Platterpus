@@ -1,11 +1,17 @@
-# Rig session — Platterpus `v0.6.4b9` + cyanrip `f5e11ba`
+# Rig session — Platterpus `v0.6.4b10` + cyanrip `9048082`
 
 ```
-Platterpus  v0.6.4b9        GitHub PRE-RELEASE   (app-only change; the ripper pin did NOT move)
-cyanrip     f5e11ba         0.9.4-rc1+platterpus.5-beta.4   (platterpus-fork-gf5e11ba)
+Platterpus  v0.6.4b10       GitHub PRE-RELEASE
+cyanrip     9048082         0.9.4-rc1+platterpus.5-beta.5   (platterpus-fork-g9048082)
 drive       Pioneer BDR-209D
 round 7     OPEN, HOLD both sides — nothing here is a release
 ```
+
+> **The ripper pin DID move**, after this sheet was first written: the fork superseded
+> `f5e11ba` (`beta.4`) with `9048082` (`beta.5`) for a cue defect your last rip found. Step 1
+> covers it, and it is your call. `b10` exists because `b9` could not reach the new pin —
+> `--install-ripper` built a commit baked in at release time, so a pin that moves faster than
+> our release cycle was unreachable. It takes a commit now.
 
 **Your last rip found the real bug, and it was not the one I fixed in b8.** The b8 floor cut
 the ETA's peak from 61.9 hours to 8.3 — better, and still wrong, which is the useful kind of
@@ -80,9 +86,15 @@ not an instruction. If you would rather not, say so and rip on `f5e11ba`; the b9
 are what this session is mainly for and they do not depend on the ripper at all.
 
 ```sh
-platterpus --install-ripper        # or ./platterpus-x86_64.AppImage --install-ripper
+./platterpus-x86_64.AppImage --install-ripper 9048082
 ~/.local/bin/cyanrip --version     # expect 0.9.4-rc1+platterpus.5-beta.5 / platterpus-fork-g9048082
 ```
+
+**Pass the commit.** A bare `--install-ripper` builds whatever pin is baked into the
+Platterpus build you are running, and if you are on `b9` that is `9048082` already — but
+passing it explicitly is right regardless, because it is the same command whether or not
+your app happens to be current. It prints the commit and the build tag before it starts,
+so you can see what you are getting before minutes of `dnf` and `meson`.
 
 A banner ending `-dirty` means the tree had uncommitted changes and the commit does not
 describe the binary — stop and tell me if you see one.
@@ -230,4 +242,4 @@ This exercises the two banner fixes, and only a real cancel produces the shape.
 
 ---
 
-*Last updated for Platterpus v0.6.4b9.*
+*Last updated for Platterpus v0.6.4b10.*

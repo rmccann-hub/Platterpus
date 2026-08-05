@@ -110,4 +110,4 @@ If you needed to start over with a fresh git repository:
 
 ---
 
-*Last updated for Platterpus v0.6.4b9.*
+*Last updated for Platterpus v0.6.4b10.*
