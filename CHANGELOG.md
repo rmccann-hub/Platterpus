@@ -11,6 +11,175 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b9] — 2026-08-05
+
+### Fixed
+- **The archival log said "INCOMPLETE RIP (cancelled) — this log covers 14 of 14 disc
+  tracks"** — asserting a gap and reporting none, in one sentence. It assumed any
+  non-success outcome means an incomplete extraction, and the rig produces a shape where
+  that is false: the whole-disc pass extracts every track and the *securing* pass
+  afterwards is cancelled. Every track is present, so the banner now says **`RIP STOPPED
+  (cancelled)`** and states that the extraction is complete while anything running after
+  it may not be. A **truncated** log is deliberately excluded from that branch: there
+  the track count is a floor rather than a total (the rig lost a track that had
+  completed and matched AccurateRip at confidence 200 because cyanrip was killed with
+  4 KiB unflushed), so "every track is present" is precisely the claim it cannot
+  support. Found by the test written for the item below.
+- **The log said the securing pass was `INTERRUPTED` without saying the user
+  interrupted it** — while the app had that recorded. It now reads *"INTERRUPTED (you
+  cancelled the rip)"* when the outcome was a cancel, and is unchanged when the pass was
+  cut short by anything else, so a crash is never attributed to the user. Same shape as
+  the cancelled rip that reported `"success"`: captured and not surfaced is the same bug
+  from the reader's side, and this line was the *only* mention of it — the
+  incomplete-rip banner correctly stays silent on a disc where every track is present.
+- **The track list opened showing 2 rows of 14, and its columns moved on every track
+  transition.** Both measured from the maintainer's screenshots (2026-08-05,
+  *"make sure to keep formatting in mind too"*), and they are two separate defects:
+  - **The columns would not sit still.** Every column but Title/Artist was on
+    `ResizeToContents`, which re-measures whenever its data changes — and the Status
+    column's data changes on *every* track transition. At a 900 px window: Status
+    swung `48 → 67 → 53 px` as one track advanced, and the two stretch columns gave and
+    took to absorb it, sliding the Title text sideways roughly **twice per track, 28
+    times over a disc**. Now only Title stretches; every other column is sized once per
+    *disc* from the widest string it can ever hold, derived from the same table the
+    cells render from so a new status string widens the column on its own. Also fixes
+    the other half: Title and Artist were both `Stretch`, which splits the remainder
+    evenly, so a column repeating `"The Police"` (~70 px) was handed 369 px while the
+    long, varied titles got the same. Title now gets 616 px against Artist's 77, and
+    Artist is capped at a share of the table so a compilation's long credits still
+    cannot crowd it out.
+  - **The window opened too short, and the knob that looked responsible was inert.**
+    The splitter handed the track list 169 of 647 px — 84 for the album form, 20 for
+    the header, a 65 px viewport at a 30 px row height. The stretch factors are *not*
+    what distributes here: measured at four different factor sets across four window
+    sizes, every combination produced **byte-identical** pane sizes, because Qt
+    distributes by factor only what is left after each pane's size hint and the rip
+    pane's hint already claims it all. An explicit split on first show plus a taller
+    default (clamped to the screen, so a 1366×768 laptop still gets a window that fits)
+    takes it to **7 of 14 rows**, with the rip pane at 315 px against 326 before — the
+    room comes from the taller window, not out of the other panes. The split is applied
+    once, so it can never undo the user's own dragging; that is the fix's own new
+    failure mode and it has its own test.
+- **A secure re-read was reported as a scratched disc, and made the ETA climb to 5h40m
+  on a disc with 22 minutes to go.** Two symptoms, one cause, both in the b8 rig
+  artifacts (2026-08-05, the Police baseline disc). The rip's own debug log carries
+  `rip stalled: no forward progress for 3m 2s at 21.7% (track 3) — the drive is stuck on
+  a hard-to-read spot` **twice**, timestamped in the same seconds as
+  `cyanrip │ Ripping track 3, progress - 52.29%` … `54.50%` — a steady 1× read of a
+  disc with nothing wrong with it. The cause is that `_overall_from_track` maps a track's
+  progress into a span of the album the bar has already covered and `_bump_overall`
+  refuses to let it regress, so the **album fraction is pinned for the whole of a secure
+  re-read** — ten minutes of it here. Watching only that fraction, a healthy converging
+  re-read is indistinguishable from a wedged drive, and `(1 − 0.2173)` of an album
+  divided by whatever noise is left in the window produced 54m → 1h5m → 1h50m → 3h15m →
+  **5h40m across 70 seconds**. The divisor floor added for the 62-hour bug could not
+  catch this one: for the first 90 s of the freeze the window still holds real
+  pre-freeze movement, so the floor is legitimately met. Now: the stall detector takes a
+  **second, independent liveness signal** — cyanrip's own per-operation percentage, which
+  advances on a re-read as much as a first read — and reports "stalled" only when
+  *neither* signal has moved, which makes it strictly more sensitive (a truly wedged
+  drive stops printing progress lines at all, so both go quiet together). And while a
+  re-read is running the estimate is **held and labelled** — `· verifying track 3
+  (re-read 2) · about 54m left` — because the remaining album work genuinely has not
+  changed and the cost of the re-read is unknowable until it converges. All four parts
+  revert-proved; reverting the liveness signal reproduces the field warning text
+  verbatim.
+- **A rip the user cancelled was recorded as `"success"`.** Measured on real hardware,
+  2026-08-05, and reported as *"I cancelled it early. It should be easy to tell that."*
+  It was not — the report said the opposite. `success` and `_rip_cancelled` are **not
+  mutually exclusive**, which `if success: … elif self._rip_cancelled:` assumed: the
+  whole-disc pass completed all 14 tracks (so `success` was `True`) and the *securing*
+  pass that runs afterwards was then cancelled. `success` won, and the report carried
+  three mutually contradictory statements — `outcome.status = "success"`,
+  `ripper_exit_code = 1` (non-zero, because it was killed), `failure_hint = null` — with
+  the word "cancel" appearing **nowhere** outside the embedded debug log, even though the
+  app log records it at INFO. Captured and never surfaced, which counts as the same bug
+  from the user's side. The cancel is now checked first: a run the user stopped is a
+  cancelled run even if every track happened to land, and `completeness` carries the good
+  news separately (14 of 14 present). Revert-proved.
+- **The re-rip comparison said *"can't tell which read is correct"* when it could tell.**
+  Two rips of the same disc read track 5 differently, both offset-variant at confidence
+  200 — identical status, identical confidence — so `_decide_better` gave up. But one read
+  had **converged across three secure re-reads** and the other was a single read with
+  `Secure re-read: not attempted`, and **EAC independently produced the converged one,
+  twice.** Convergence is now the tiebreak after confidence: a read corroborated by
+  repeating it on this drive beats one nobody checked. Ranked *below* confidence
+  deliberately — confidence is corroboration by many independent rippers, convergence by
+  one drive repeating itself — so it can never overturn an AccurateRip verdict, only
+  replace a shrug. Tri-state throughout: "never re-read" is not "failed to converge", and
+  with neither read corroborated it still returns `unknown` rather than inventing a
+  preference.
+
+### Added
+- **Handshake round 7, lap 27 sent** (`docs/handshake/verified/round-07-lap-27.md`) —
+  still a **HOLD on `f5e11ba`**, for one reason that is not about the fork's build: the
+  P1 flag table for this pin has not arrived, so the *input* half of the contract cannot
+  be checked and `tests/test_argv_surface_agreement.py` is still diffing our argv against
+  round 6b's table. What the lap does carry: the fork's A2 change **verified at the
+  drive, twice with different numbers** (`1/14` on b6, `2/14` on b8 — same disc, same
+  build, so the field is genuinely counted rather than a string that happens to read
+  `/14`, which one observation could not have shown); their A1 rewording present verbatim
+  in three rig logs; `--verify-log` accepting all three; and our own §G2 claim
+  **withdrawn** — the cover-art refusal sits 13 lines *below* the `Release ID:` header,
+  settled from a log we hold rather than derived from either project's source, which is
+  the pairing the fork's contract records as having no available artifact.
+- **The report now records the release id the ripper *used*, and flags it when that
+  disagrees with the one we sent.** `rip.ripper_release_id`, read off cyanrip's own
+  header (schema v22). It had been in the parser's ignored table with a recorded reason
+  — *"our own input reflected; `Invoked as:` is a better witness for an argv
+  disagreement"* — which is true of the argv question and answers a different one. We
+  hand the whole tag set as **one colon-delimited `-a` blob**, so what the ripper
+  *received* and what it *parsed out of that blob* are separate claims, and only the
+  first was recorded. The failure mode is live rather than theoretical: the reference
+  disc's album title carries `∶` (U+2236, a lookalike) precisely because a real colon
+  breaks that syntax, and a tag that split wrong would land in the wrong field silently.
+  Two `issues` entries make the field more than a record — an `error` when the two ids
+  differ (the tags, filenames and cue on disk may describe another release), and a
+  `warning` when the ripper reports an id on a rip that sent none, which means `-N` did
+  not suppress its own MusicBrainz lookup (Critical rule #5, now checked at the artifact
+  instead of trusted). Tri-state: an absent echo is no claim, not a disagreement.
+- **The auto-fix re-rip is now validated against an independent ripper, on the disc's
+  worst track.** Track 5 of the EAC baseline disc was read **twice with different
+  results** on 2026-08-04, so Platterpus discarded the first read and swapped in the
+  second — the most consequential thing the auto-fix can do, and nothing in-house could
+  check it (comparing cyanrip against cyanrip compares relatives; AccurateRip does not
+  help because this pressing does not match its consensus at all). **EAC settles it:**
+  the committed baseline holds two independent EAC 1.8 extractions of the same disc in
+  the same drive, and both report for track 5 exactly the values our re-rip produced
+  (`Test CRC E0036697`, `Copy CRC E0036697`, AR v2 `9EEB8843`), while the read we threw
+  away (`6902BCF0` / `268CCD94`) appears in **neither**. `tests/test_track5_autofix_vs_eac.py`
+  reads the committed artifacts rather than restating them, asserts both halves (EAC
+  agrees with what we kept **and** does not contain what we discarded — agreement with
+  both would be agreement with neither), and was adversarially checked by swapping the
+  two constants, which fails it.
+- **`output_reference/EAC_flac/eac_pcm_md5.txt`** — EAC's own decoded-PCM MD5s for five
+  tracks. FLAC's STREAMINFO carries an MD5 of the *unencoded* audio, so equal MD5s prove
+  **byte-identical PCM** — a direct proof where a CRC32 comparison is a proof about a
+  32-bit digest, against an independent implementation rather than a relative, and it
+  moves **only text** (critical rule #8). One command produces the comparable value:
+  `metaflac --show-md5sum *.flac`.
+
+### Fixed
+- **A duplicate `(directory, round, lap, sender)` failed OPEN in the handshake gate.**
+  The cyanrip fork revised and re-sent its round-7 lap-25 file — protocol §2 says a sent
+  file is never edited — and keeping both copies created two files at one lap. `sort_key`
+  is `(round, lap, stem)`, so the tie falls through to the **filename**: measured on the
+  real pair, the *revision* sorted first, so the gate would have read the **superseded**
+  file's verdict as the round's newest word. Both declared `HOLD`, so nothing broke —
+  which is how this class of bug survives. `ordering_blockers` now refuses it, scoped per
+  directory because an outbound round file and our verification of it can legitimately
+  share a lap. This is the **third** fail-open ordering hole in that function's own
+  subject matter. The earlier copy is preserved under
+  `docs/handshake/inbound/superseded/` with a README explaining why — a subdirectory
+  rather than a filename exception, because an exception threaded through three separate
+  conformance checks is how a rule quietly stops applying.
+
+### Changed
+- Documented where the ETA's progress-delta floor actually bites: past roughly **12.5
+  hours** of total rip time, a 90-second window's progress falls below `0.002` and the
+  estimate is held rather than refreshed. Safe direction, real boundary, previously
+  undocumented.
+
 ## [0.6.4b8] — 2026-08-05
 
 **A double-check pass over `b7`, at the maintainer's request to re-verify *"especially what you think is correct"* — it found six real problems, five of them in work just called done.**
@@ -6275,7 +6444,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...HEAD
+[0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
 [0.6.4b8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...v0.6.4b8
 [0.6.4b7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...v0.6.4b7
 [0.6.4b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...v0.6.4b6
@@ -6355,4 +6525,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b8.*
+*Last updated for Platterpus v0.6.4b9.*

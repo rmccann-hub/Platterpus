@@ -8131,3 +8131,213 @@ def test_dep_summary_stays_informational_when_the_build_is_right(
     assert "1 ok, 0 missing/needs-attention." in info[0]
     assert "Wrong build:" not in info[0]
     assert "the Platterpus fork" in info[0]
+
+
+def test_a_cancelled_rip_is_recorded_as_cancelled_even_when_every_track_landed(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**MEASURED ON REAL HARDWARE, 2026-08-05.** The report said "success".
+
+    `success` and `_rip_cancelled` are NOT mutually exclusive, which the old
+    `if success: ... elif self._rip_cancelled:` assumed. The whole-disc pass
+    completed all 14 tracks — so `success` was True — and the user then cancelled the
+    *securing* pass that runs afterwards. Both were true, `success` won, and the
+    report contained three mutually contradictory statements:
+
+        outcome.status     = "success"     (the user had cancelled it)
+        ripper_exit_code   = 1             (non-zero, because it was killed)
+        failure_hint       = None
+
+    …and the word "cancel" appeared **nowhere** in the report outside the embedded
+    debug log, though the app log records it at INFO. The maintainer's report was
+    just: *"I cancelled it early. It should be easy to tell that."* It was not.
+
+    A run the user stopped is a cancelled run even if every track happened to land
+    first — `completeness` carries the good news separately.
+    """
+    from types import SimpleNamespace
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint="", argv=(), first_pass_argv=None
+    )
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    # THE CONDITION THAT WAS MISHANDLED: the rip succeeded AND was cancelled.
+    window._rip_cancelled = True
+    window._auto_retry_done = True  # no auto-heal path; keep this test to one subject
+    monkeypatch.setattr(
+        "platterpus.ui.main_window.QTimer.singleShot", lambda _ms, fn: None
+    )
+
+    window._on_rip_finished(True, "")
+
+    outcome = window._last_outcome
+    assert outcome is not None, "no outcome was recorded at all"
+    assert outcome.get("status") == "cancelled", (
+        "a rip the user cancelled was recorded as "
+        f"{outcome.get('status')!r} — the report asserts the opposite of what "
+        "happened, which is the worst thing this program can say"
+    )
+
+
+# --- the window opens with a usable track list -----------------------------------
+#
+# MEASURED, then fixed (2026-08-05, from screenshots the maintainer sent). At the old
+# 960x720 default the track list showed **2 of 14 rows**: the splitter handed it 169
+# of 647 px, of which the album-metadata form takes 84 and the header 20, leaving a
+# 65 px viewport at a 30 px row height.
+#
+# The stretch factors were not the lever — measured at 0/2/3, 0/1/1, 0/3/4 and 0/5/6
+# across four window sizes, every combination gave BYTE-IDENTICAL pane sizes, because
+# Qt distributes by factor only what is left after each pane's sizeHint and the rip
+# pane's hint already claims it all. `_apply_pane_shares` (an explicit `setSizes` on
+# first show) is what actually divides the window; the taller default supplies the
+# room. Both are needed and both are asserted below.
+
+
+def _fourteen_track_release() -> ReleaseDetail:
+    return ReleaseDetail(
+        summary=ReleaseSummary(
+            mbid="mbid-14", title="Fourteen", artist_credit="The Police", date="1995"
+        ),
+        tracks=tuple(
+            TrackSummary(
+                number=n,
+                title=f"Track {n}",
+                artist_credit="The Police",
+                length_ms=200_000,
+            )
+            for n in range(1, 15)
+        ),
+    )
+
+
+def test_the_track_list_opens_showing_several_rows(qapp: QApplication) -> None:
+    """THE REGRESSION: it used to open on two rows of fourteen."""
+    window = _make_window(qapp)
+    try:
+        window.show()
+        qapp.processEvents()
+        table = window._track_table
+        table.set_release(_fourteen_track_release())
+        qapp.processEvents()
+        view = table._view
+        row_height = view.rowHeight(0)
+        # FLOORS, so this cannot pass by measuring nothing: the disc really has 14
+        # rows, and the rows really have a height (a collapsed view would otherwise
+        # divide by the fallback 1 and report a huge count).
+        assert table._model.rowCount() == 14, "the disc under test is not 14 tracks"
+        assert row_height > 0, "the view reported no row height; nothing was laid out"
+        visible = view.viewport().height() // row_height
+        assert visible >= 4, (
+            f"only {visible} of 14 track rows are visible at the default "
+            f"{window.width()}x{window.height()} (splitter "
+            f"{window._content_splitter.sizes()}) — the list opens unusable"
+        )
+    finally:
+        window.close()
+
+
+def test_the_initial_pane_split_is_applied_once_and_not_on_every_show(
+    qapp: QApplication,
+) -> None:
+    """Applying it on every show would silently undo the user's own dragging — the
+    fix's own new failure mode, so it gets its own test."""
+    window = _make_window(qapp)
+    try:
+        window.show()
+        qapp.processEvents()
+        assert window._pane_shares_applied, "the split was never applied"
+        splitter = window._content_splitter
+        total = sum(splitter.sizes())
+        # The user drags the track list wide open.
+        dragged = [10, total - 110, 100]
+        splitter.setSizes(dragged)
+        qapp.processEvents()
+        after_drag = splitter.sizes()
+        window.hide()
+        window.show()
+        qapp.processEvents()
+        assert splitter.sizes() == after_drag, (
+            f"re-showing the window reset the user's pane sizes: {after_drag} -> "
+            f"{splitter.sizes()}"
+        )
+    finally:
+        window.close()
+
+
+def test_the_default_window_size_is_clamped_to_the_screen() -> None:
+    """A 1366x768 laptop must not get a window whose bottom edge is off-screen.
+
+    Pure — reads the helper, not a shown window — so it holds regardless of what
+    display the suite happens to run on."""
+    from PySide6.QtGui import QGuiApplication
+
+    from platterpus.ui.main_window import (
+        _DEFAULT_WINDOW_H,
+        _DEFAULT_WINDOW_W,
+        _default_window_size,
+    )
+
+    width, height = _default_window_size()
+    assert width <= _DEFAULT_WINDOW_W and height <= _DEFAULT_WINDOW_H, (
+        "the helper returned MORE than the preferred size, so the clamp is inverted"
+    )
+    screen = QGuiApplication.primaryScreen()
+    if screen is not None:
+        available = screen.availableGeometry()
+        assert width <= available.width() and height <= available.height(), (
+            f"{width}x{height} does not fit the available "
+            f"{available.width()}x{available.height()}"
+        )
+
+
+def test_the_taller_default_is_what_buys_the_extra_rows(qapp: QApplication) -> None:
+    """The height change, tested where it is observable.
+
+    `_default_window_size` clamps to the screen, and CI's virtual screen (800x800
+    here) is smaller than both the old 960x720 and the new 1000x860 — so at the
+    *default* size the two are indistinguishable and the row-count test above cannot
+    see this change at all. Measured: reverting the constants leaves that test
+    passing. Rather than leave the change unpinned, resize explicitly to each
+    preferred size, which Qt honours for an already-created widget regardless of the
+    screen, and assert the taller one shows strictly more of the disc.
+    """
+    from platterpus.ui.main_window import _DEFAULT_WINDOW_H, _DEFAULT_WINDOW_W
+
+    window = _make_window(qapp)
+    try:
+        window.show()
+        qapp.processEvents()
+        table = window._track_table
+        table.set_release(_fourteen_track_release())
+        qapp.processEvents()
+        view = table._view
+
+        def rows_at(width: int, height: int) -> int:
+            window.resize(width, height)
+            qapp.processEvents()
+            window._apply_pane_shares()
+            qapp.processEvents()
+            row_height = view.rowHeight(0)
+            assert row_height > 0, "nothing was laid out at this size"
+            return view.viewport().height() // row_height
+
+        was = rows_at(960, 720)  # the geometry that shipped through v0.6.4b8
+        now = rows_at(_DEFAULT_WINDOW_W, _DEFAULT_WINDOW_H)
+        assert now > was, (
+            f"the preferred window size shows {now} rows against {was} at the old "
+            "960x720 — the taller default is buying nothing"
+        )
+        assert now >= 6, f"only {now} of 14 rows at the preferred size"
+    finally:
+        window.close()

@@ -15,7 +15,10 @@ from platterpus.ui.track_table import (
     _COL_LENGTH,
     _COL_NUMBER,
     _COL_RIP,
+    _COL_STATUS,
     _COL_TITLE,
+    STATUS_DONE,
+    STATUS_RIPPING,
     AlbumMetadata,
     TrackTable,
     TrackTableModel,
@@ -581,3 +584,191 @@ def test_validate_accepts_a_blank_track_artist(qapp: QApplication) -> None:
     widget._model.setData(widget._model.index(0, _COL_ARTIST), "")
     ok, message = widget.validate()
     assert ok is True, message
+
+
+# --- column widths: stable during a rip, and Title gets the room ------------------
+#
+# MEASURED, then fixed (2026-08-05, after the maintainer sent two screenshots and
+# said "make sure to keep formatting in mind too"). At a 900 px window on the
+# 14-track reference disc, with every column but Title/Artist on `ResizeToContents`:
+#
+#     pending   Rip?=33  #=26  Title=370  Artist=369  Length=52  Status=48
+#     ripping   Rip?=33  #=26  Title=360  Artist=360  Length=52  Status=67
+#     done      Rip?=33  #=26  Title=367  Artist=367  Length=52  Status=53
+#
+# Two separate defects in one table:
+#
+#   * Status is re-measured whenever its data changes, and its data changes on every
+#     track transition — so the whole table re-laid-out roughly TWICE PER TRACK, 28
+#     times over a disc, sliding the Title text the user is reading.
+#   * Title and Artist were both `Stretch`, which splits the remainder evenly, so a
+#     column holding "The Police" on every row (~70 px) was handed 369 px while the
+#     column holding the long, varied titles got the same.
+
+
+def _release(tracks: list[TrackSummary]) -> ReleaseDetail:
+    return ReleaseDetail(
+        summary=ReleaseSummary(
+            mbid="mbid-1",
+            title="Every Breath You Take: The Classics",
+            artist_credit="The Police",
+            date="1995",
+        ),
+        tracks=tuple(tracks),
+    )
+
+
+_POLICE_TRACKS: list[TrackSummary] = [
+    TrackSummary(
+        number=1, title="Roxanne", artist_credit="The Police", length_ms=193000
+    ),
+    TrackSummary(
+        number=2,
+        title="Every Little Thing She Does Is Magic",
+        artist_credit="The Police",
+        length_ms=261000,
+    ),
+    TrackSummary(
+        number=14,
+        title="Message in a Bottle (new classic rock mix)",
+        artist_credit="The Police",
+        length_ms=295000,
+    ),
+]
+
+
+def _widths(table: TrackTable) -> list[int]:
+    header = table._view.horizontalHeader()
+    return [header.sectionSize(c) for c in range(6)]
+
+
+def _laid_out(table: TrackTable, width: int, app: QApplication) -> None:
+    table.show()
+    table.resize(width, 320)
+    app.processEvents()
+
+
+# --- the pure width functions (no Qt geometry involved) --------------------------
+
+
+def test_status_width_is_derived_from_the_status_table_not_a_copy_of_it() -> None:
+    """Add a status string and the column widens on its own.
+
+    The anti-drift property, and the reason `measure` is injected: a hand-written
+    list of specimen strings beside `_STATUS_DISPLAY` would be a second copy, and it
+    would go stale the first time a status was added — silently, because a too-narrow
+    column elides rather than errors.
+    """
+    from platterpus.ui import track_table as tt
+
+    measure = len  # 1 unit per character: enough to compare, and deterministic
+    before = tt.status_column_width(measure, pad=0)
+    longest = max(len(s) for s in tt._STATUS_DISPLAY.values())
+    assert before >= longest, "the width does not even cover today's widest status"
+    with_extra = dict(tt._STATUS_DISPLAY)
+    with_extra["invented"] = "x" * (longest + 25)
+    original = tt._STATUS_DISPLAY
+    try:
+        tt._STATUS_DISPLAY = with_extra
+        after = tt.status_column_width(measure, pad=0)
+    finally:
+        tt._STATUS_DISPLAY = original
+    assert after == longest + 25, (
+        f"a new status string did not widen the column ({before} -> {after}); the "
+        "width is not derived from the table the cells render from"
+    )
+
+
+def test_the_number_column_is_sized_for_any_disc_not_this_one() -> None:
+    """A 9-track disc and a 14-track disc must render identically.
+
+    Sizing `#` to the disc's own highest track number would change the column width
+    between discs for no reason the user can see — the same class of "it never sits
+    still" complaint as the Status swing, arriving between rips instead of during one.
+    """
+    from platterpus.ui import track_table as tt
+
+    widths = tt.fixed_column_widths(len, pad=0)
+    assert widths[tt._COL_NUMBER] >= len("99")
+    assert widths[tt._COL_LENGTH] >= len("00:00"), (
+        "the Length column cannot hold a two-digit-minute track, so a >=10:00 track "
+        "would widen it mid-list"
+    )
+
+
+def test_artist_width_is_capped_so_a_compilation_cannot_crowd_title_out() -> None:
+    from platterpus.ui import track_table as tt
+
+    long_credits = ["Emerson, Lake & Palmer featuring The London Philharmonic"] * 3
+    capped = tt.artist_column_width(len, long_credits, available_px=100, pad=0)
+    assert capped <= 100 * tt._ARTIST_MAX_FRACTION + 1, (
+        f"the Artist column took {capped} of 100 available px"
+    )
+    # FLOOR: the cap must not be the only thing being tested — without a ceiling the
+    # content width has to be what comes back, or the cap above proves nothing.
+    uncapped = tt.artist_column_width(len, long_credits, available_px=0, pad=0)
+    assert uncapped == len(long_credits[0]), (
+        "with no ceiling known the content width should stand"
+    )
+    assert uncapped > capped, "the cap did not actually reduce anything"
+
+
+# --- the widget, at a real size -------------------------------------------------
+
+
+def test_column_widths_do_not_move_while_a_rip_advances(qapp: QApplication) -> None:
+    """THE REGRESSION. Every status transition used to re-lay-out the table."""
+    table = TrackTable()
+    table.set_release(_release(_POLICE_TRACKS))
+    _laid_out(table, 900, qapp)
+    before = _widths(table)
+    assert sum(before) > 0, "the table was never laid out; this proves nothing"
+    for number, status in (
+        (1, STATUS_RIPPING),
+        (1, STATUS_DONE),
+        (2, STATUS_RIPPING),
+        (2, STATUS_DONE),
+        (14, STATUS_RIPPING),
+        (14, STATUS_DONE),
+    ):
+        table._model.set_track_status(number, status)
+        qapp.processEvents()
+    assert _widths(table) == before, (
+        f"the columns moved during the rip: {before} -> {_widths(table)}. The Title "
+        "text slides sideways on every track transition."
+    )
+
+
+def test_title_gets_the_room_not_the_repeated_album_artist(qapp: QApplication) -> None:
+    """The reported symptom: Artist held "The Police" on every row and was handed
+    the same width as the column with the long, varied titles."""
+    table = TrackTable()
+    table.set_release(_release(_POLICE_TRACKS))
+    _laid_out(table, 900, qapp)
+    widths = _widths(table)
+    title, artist = widths[_COL_TITLE], widths[_COL_ARTIST]
+    assert title > artist * 3, (
+        f"Title={title} vs Artist={artist} — a column repeating one short string is "
+        "still taking room from the one that needs it"
+    )
+
+
+def test_extra_window_width_goes_to_title(qapp: QApplication) -> None:
+    """Only Title stretches, so growing the window must widen Title and nothing
+    else. Guards the converse of the fix: pinning every column would have passed the
+    stability test above and left the table unable to use a wider window."""
+    table = TrackTable()
+    table.set_release(_release(_POLICE_TRACKS))
+    _laid_out(table, 900, qapp)
+    narrow = _widths(table)
+    table.resize(1400, 320)
+    qapp.processEvents()
+    wide = _widths(table)
+    assert wide[_COL_TITLE] > narrow[_COL_TITLE] + 400, (
+        f"Title did not absorb the extra 500 px: {narrow[_COL_TITLE]} -> "
+        f"{wide[_COL_TITLE]}"
+    )
+    for col in (_COL_RIP, _COL_NUMBER, _COL_ARTIST, _COL_LENGTH, _COL_STATUS):
+        assert wide[col] == narrow[col], (
+            f"column {col} changed width when the window grew: {narrow} -> {wide}"
+        )

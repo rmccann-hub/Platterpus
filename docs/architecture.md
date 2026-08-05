@@ -406,6 +406,83 @@ Rules when adding one:
   prominent buttons carry unique `&`-mnemonics per window
   (`tests/test_ui_accessibility.py` pins the uniqueness).
 
+### 3.8a Progress: the bar is a display, the estimator needs the raw signal
+
+`RipWorker._progress_for` turns each ripper progress line into **two** numbers: the
+album bar (0-100 across the whole rip) and the current operation's own percentage.
+The album bar is deliberately **monotonic** — `_bump_overall` clamps it so it can
+never go backwards, because a bar that retreats reads as a fault.
+
+That clamp is fine for a bar and a trap for anything that *infers* from it. A secure
+re-read (`-Z`) reads a track the bar has already counted, so `_overall_from_track`
+returns a lower value and the clamp pins the album fraction for the entire re-read —
+minutes at a time, by design, on a perfectly healthy drive. Two inferences read that
+fraction and both described the clamp instead of the disc: the stall detector
+announced *"stuck on a hard-to-read spot (a scratch or smudge)"* and the ETA divided
+the remaining fraction by the leftover noise and reached 5h40m (measured twice in one
+rip, 2026-08-05; `docs/testing.md` §5.ah).
+
+So, when you add anything that reasons about rip progress:
+
+- **Derive it from the raw per-operation percentage, or from a second signal** —
+  never from the clamped album bar alone. `_note_task_progress` maintains both:
+  `_task_forward_at` (the last time the operation's own percentage really advanced,
+  which is *liveness*) and `_reread_pass` (how many times the current track's read
+  has restarted, which is *why the album bar is pinned*).
+- **A liveness check needs every signal to be quiet, not one.** Firing on a single
+  quiet signal cries wolf; exempting a phase restores the hang the check exists for.
+  `tests/test_rip_worker.py::test_a_genuinely_wedged_drive_is_still_reported_stalled`
+  is the converse guard — keep one whenever you add a suppression.
+- **When you cannot measure, hold the last value and say why.** `· verifying track 3
+  (re-read 2) · about 54m left` is the shape: a number that stops moving with a
+  reason beside it. Blanking the estimate reads as a hang; recomputing it from a
+  pinned input is how both of the above happened.
+- **Every branch of the estimator records an `eta_trace` sample, tagged with the
+  branch that produced it** (`computed` / `held_*` / `rereading` / `stalled`). The
+  first version recorded only fresh measurements, and the resulting holes in the
+  shipped trace landed exactly on the minutes worth analysing.
+
+### 3.8b Tables: size a column to what it *can* hold, not to what it holds now
+
+`ResizeToContents` looks like the right answer for any column whose width should
+follow its text, and it is — right up to the point where that text changes while the
+user is watching. The Status column in the track grid changes on every track
+transition, so the grid re-laid-out roughly **twice per track**, sliding the Title
+text sideways 28 times over a disc (measured 2026-08-05; `Status` swung 48 → 67 → 53
+px and the stretch columns absorbed it).
+
+The pattern that replaced it, and the one to follow for any new grid:
+
+- **One column stretches. Every other column is `Interactive` at a computed width.**
+  `Interactive`, not `Fixed`, so the user can still drag; what they cannot get is the
+  table rearranging itself under them.
+- **Compute the width from the widest string the column can EVER hold**, and derive
+  that from the same table the cells render from — `track_table.status_column_width`
+  reads `_STATUS_DISPLAY.values()`, so adding a status widens the column with no
+  second list to update. A hand-written list of specimen strings is a copy, and it
+  goes stale silently because a narrow column elides rather than errors.
+- **Size for the domain, not for this disc.** The `#` column is sized for `"99"`, not
+  for the disc's own highest track, so a 9-track and a 14-track disc render
+  identically — otherwise the column changes width *between* rips instead of during
+  one.
+- **Recompute on a DATA change, never on a status change.** `_apply_column_widths` is
+  called from `set_release` / `set_placeholder_tracks` / the album-artist
+  propagation, and from nowhere else.
+- **Two `Stretch` columns split the remainder evenly**, which is almost never what you
+  want: it gave a column repeating `"The Police"` the same width as the column of long
+  varied titles. Stretch the one that needs the room; size the other to its content
+  with a **cap** (a share of the table) so an outlier row cannot crowd the first out.
+- **The pure width functions take a `measure` callable** so they are testable without
+  a laid-out widget, and the widget wrapper is a thin `resizeSection` loop that never
+  raises — geometry polish must not be able to take a rip down.
+
+And one Qt fact worth knowing before you tune anything: **`QSplitter.setStretchFactor`
+distributes only the space left after each pane's `sizeHint`.** When the hints already
+fill the window the factors are inert — measured across four factor sets and four
+window sizes with byte-identical results. If a pane opens too small, `setSizes()` on
+first show is the lever, not the factors (`main_window._apply_pane_shares`); apply it
+**once**, or it silently undoes the user's dragging.
+
 ### 3.9 Variable-length panes: wrap the labels, give it one scroll surface, and never nest two
 
 Two distinct failure modes, one root cause: **a widget whose content length is
@@ -915,4 +992,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b9.*

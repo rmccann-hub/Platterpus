@@ -367,6 +367,14 @@ class RipLog:
     # block. Empty for whipper logs / when cyanrip didn't print them.
     disc_id: str = ""
     cddb_id: str = ""
+    # The MusicBrainz RELEASE id the ripper resolved and USED, read off its own
+    # header — NOT the id we sent, which is the point. We hand the whole tag set as
+    # one colon-delimited `-a` blob, so this is the witness that its parse of that
+    # blob put our release id where we meant it to go; `Invoked as:` can only show
+    # what it received. A disagreement with `disc.musicbrainz_release_id` is a
+    # finding, and the report raises it as one. Empty for whipper logs, and empty
+    # whenever no release id reached the ripper (an unknown-disc rip).
+    release_id: str = ""
     # True when the log text itself is evidence that the ripper was killed while
     # still writing it — NOT merely that the rip was cancelled.
     #

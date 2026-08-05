@@ -1117,6 +1117,25 @@ def sort_key(path: Path) -> tuple[int, int, str]:
     return (_round_of(path), _lap_of(path), path.stem)
 
 
+#: Filename marker for a lap file the SENDER later revised and re-sent. Protocol §2
+#: says *"Each lap is a new file. Never edit a file already sent."* — but it happened
+#: (cyanrip fork, round 7 lap 25, 2026-08-05: a second, larger lap-25 with substantive
+#: corrections). Deleting the first would destroy the record of what was actually sent
+#: and quoted; keeping it unmarked creates a duplicate `(round, lap)` that the gate
+#: resolves by FILENAME — and measured, it resolved BACKWARDS, treating the superseded
+#: file as newest. So a marked file is archival: preserved, and out of the sequence.
+SUPERSEDED_MARKER: Final[str] = "-as-first-sent"
+
+
+def is_superseded_archive(path: Path) -> bool:
+    """True for a preserved earlier copy of a lap the sender revised and re-sent.
+
+    Deliberately keyed on the FILENAME rather than on content: the whole point is that
+    the file's content is what was sent and must not be edited to add a marker.
+    """
+    return SUPERSEDED_MARKER in path.stem
+
+
 def ordering_blockers(paths: Iterable[Path]) -> list[str]:
     """Why the files of a round cannot be *ordered* — which is a refusal, not a warning.
 
@@ -1166,6 +1185,49 @@ def ordering_blockers(paths: Iterable[Path]) -> list[str]:
                 f"round {named} (§3, §8 row 10) — it cannot be ordered within either "
                 "round without the gate choosing which declaration to believe"
             )
+    # A DUPLICATE (round, lap, sender) IS UNORDERABLE, AND IT FAILED OPEN.
+    #
+    # `sort_key` is `(round, lap, stem)`, so two files at the same round and lap fall
+    # through to the filename — which is arbitrary with respect to which was sent
+    # later. MEASURED on the real case: `round-07-lap-25.md` (the revision) sorted
+    # BEFORE `round-07-lap-25-as-first-sent.md`, so the gate would have read the
+    # SUPERSEDED file's verdict as the round's newest word. Both happened to declare
+    # HOLD, so nothing broke — which is exactly how this class of bug survives.
+    #
+    # This is the third fail-open ordering hole in this function's own subject matter,
+    # and the first two are the two blockers above it. The lesson is the same each
+    # time: whenever "the newest file" is not a well-defined question, the permissive
+    # answer is the wrong one.
+    # SCOPED PER DIRECTORY, which is the correct scope and not a loosening.
+    # `_round_files` sorts within ONE directory and the verdict is read from that
+    # directory's last file (`done[-1]` ours, `back[-1]` theirs) — so two files only
+    # ever compete for "newest" inside the same directory. An outbound round file and
+    # our verification of it can legitimately share a lap: different roles, neither
+    # superseding the other.
+    seen: dict[tuple[str, int | None, int, str], str] = {}
+    for path in paths:
+        if is_superseded_archive(path):
+            continue  # archival by name: preserved, deliberately out of the sequence
+        fields = wire_fields(_safe_read(path))
+        if "HANDSHAKE-PROTOCOL" not in fields:
+            continue  # predates the wire header; §9 grandfathers it wholesale
+        key = (
+            path.parent.name,
+            _round_of(path),
+            _lap_of(path),
+            (fields.get("HANDSHAKE-FROM") or "").strip(),
+        )
+        if key in seen:
+            problems.append(
+                f"{path.name}: declares the same round/lap/sender as {seen[key]} "
+                f"(round {key[1]}, lap {key[2]}, from {key[3] or '?'}) — §2 says each "
+                "lap is a new file and a sent file is never edited, so two of them "
+                "cannot be ordered: the gate would pick by filename, which is "
+                f"arbitrary. Rename the earlier copy with '{SUPERSEDED_MARKER}' to "
+                "archive it out of the sequence, or give the revision its own lap."
+            )
+        else:
+            seen[key] = path.name
     return problems
 
 

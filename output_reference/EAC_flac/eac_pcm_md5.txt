@@ -1,0 +1,64 @@
+EAC's own decoded-PCM MD5s — Every Breath You Take: The Classics (The Police)
+==============================================================================
+DiscID  pNtImOkdBm9RMBIalzx0w9cfsYY-   CDDB E20DFE0E   14 tracks
+Ripper  Exact Audio Copy V1.8, 11 June 2026, PIONEER BD-RW BDR-209D
+Source  the FLAC files from the EAC rip this directory's log describes,
+        read 2026-08-05 on five of the fourteen tracks.
+
+WHY THIS FILE EXISTS
+--------------------
+This is the STRONGEST bit-perfection evidence we can hold, and it is pure text.
+
+FLAC's STREAMINFO block carries an MD5 of the *unencoded* audio — the PCM the
+encoder was handed. Two FLAC files whose STREAMINFO MD5s are equal decode to
+byte-identical PCM. So comparing our rip's MD5 against EAC's is a DIRECT proof
+of bit-identity, where comparing CRC32s is a proof about a 32-bit digest.
+
+It also settles the shared-ancestor problem CLAUDE.md warns about. Comparing two
+cyanrip runs compares relatives; comparing against EAC compares against an
+independent implementation, on the same physical disc, in the same drive.
+
+And it needs NO AUDIO TRANSFER, which is what makes it usable here at all
+(critical rule #8 — never commit or move copyrighted media). One command
+produces the comparable value:
+
+    metaflac --show-md5sum *.flac
+
+CORRECTION THIS FILE RECORDS
+----------------------------
+When these five files first arrived I described them as our rip's output and
+reported that "each file's STREAMINFO sample count matches the log". They are
+EAC's files. The measurement was right and the provenance was wrong, and the
+corrected reading is *better* evidence than the one I claimed: EAC's own files
+carry exactly the sample counts cyanrip's log reports for the same tracks, which
+is two independent rippers agreeing on every track boundary.
+
+THE VALUES
+----------
+Sample counts are the total per track (44100 Hz, 2 ch, 16 bit), and each equals
+the `Samples:` figure in the cyanrip log for the same track.
+
+  track  samples       MD5 of unencoded PCM              title
+      1   8,518,356    A459A2F19A890EC0B210E7E2272A6710  Roxanne
+      6  10,897,404    E9E6D87CCBCD60709B6D291F258CBE1C  De Do Do Do, De Da Da Da
+      8   9,940,140    D3216367CA58DBD40316AFE239924D91  Invisible Sun
+     10  11,227,860    06E77C370A5A4ECAD34CA8031120E63B  Every Breath You Take
+     11  13,247,640    A6736E506759DE5C48EFB1D21D2CF1FE  King of Pain
+
+Tracks 2-5, 7, 9, 12-14 are NOT recorded here: those files were not read. Their
+absence is a gap in this reference, not a claim about them — and track 5 is the
+one that matters most, since it is the disc's offset-variant track and the only
+one whose two reads disagreed.
+
+HOW TO USE IT
+-------------
+Run the command above on our rip of this disc and compare per track.
+
+  equal   -> our PCM is byte-identical to EAC's. Bit-perfect, proven directly.
+  differ  -> a real difference in the audio, NOT a CRC-convention mismatch.
+             That is worth a full investigation; start with the offset (+667)
+             and the per-track CRCs in the cyanrip log.
+
+A DIFFERING MD5 IS NOT AUTOMATICALLY OUR BUG: a track that legitimately matched
+only the +450 offset-variant pressing may differ from a run whose offset landed
+elsewhere. Read it alongside the AccurateRip results rather than alone.

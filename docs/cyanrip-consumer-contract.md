@@ -22,7 +22,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.6.4b8` — the build that
+- **Platterpus:** `0.6.4b9` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)` — the build a
@@ -41,7 +41,7 @@ the git history is the chronology.
 
 ---
 
-## 1. Log lines we parse (54)
+## 1. Log lines we parse (55)
 
 Changing the text, indentation, or field order of any of these changes what
 Platterpus records about a rip. `scope` is where in the log the line is read:
@@ -63,6 +63,7 @@ Platterpus records about a rip. `scope` is where in the log the line is read:
 | `outputs` | disc | `^Outputs:\\s+(?P<value>.+?)\\s*$` |
 | `disc_id` | disc | `^DiscID:\\s+(?P<value>\\S+)` |
 | `cddb_id` | disc | `^CDDB ID:\\s+(?P<value>\\S+)` |
+| `release_id` | disc | `^Release ID:\\s+(?P<value>\\S+)` |
 | `speed_capability` | disc | `^Speed:\\s+(?P<text>.+?)\\s*$` |
 | `total_time` | disc | `^Total time:\\s+(?P<time>\\d{1,3}:\\d{2}(?::\\d{2})?(?:\\.\\d{1,3})?)\\s*$` |
 | `log_signature` | disc | `^Log FUN512:\\s+(?P<sig>\\S+)` |
@@ -118,7 +119,7 @@ stock cyanrip 0.9.3. They are the fork's specific obligation:
 - `track_secure_verdict`
 - `track_accurip_status`
 
-## 2. Log lines we knowingly ignore (18)
+## 2. Log lines we knowingly ignore (17)
 
 An allow-list, not a shrug — each entry is a recorded decision, and the
 parser's own test treats an unrecognised, unlisted line as a failure. So a
@@ -133,7 +134,6 @@ dropped.
 | `^Frame retries:\\s` | candidate: rip-effort setting |
 | `^Disc number:\\s` | our own -a tag echoed back; we hold it |
 | `^Total discs:\\s` | our own -a tag echoed back; we hold it |
-| `^Release ID:\\s` | our own MusicBrainz release id echoed back |
 | `^.*cannot search Cover Art DB!$` | cyanrip's cover-art path is unused under -N; we fetch art ourselves |
 | `^Cache model:\\s` | paranoia's MODELLED cache size; our cache-defeat verdict is measured (cd-paranoia -A, KDD-29) and must not be filled from a model |
 | `^Encoder:\\s` | candidate: encoder provenance, needs a report field before parsing |

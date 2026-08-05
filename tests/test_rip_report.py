@@ -1030,7 +1030,26 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_20() -> None:
+def test_schema_version_is_22() -> None:
+    # v22 added `rip.ripper_release_id` — the release id the ripper RESOLVED AND USED,
+    # off its own header — plus the `issues` comparison against the id we sent. It had
+    # been in the ignored table with a recorded reason: "our own input reflected;
+    # `Invoked as:` is a better witness for an argv disagreement." True of the argv
+    # question, and it did not cover a different one: the whole tag set goes as ONE
+    # colon-delimited `-a` blob, so what the ripper RECEIVED and what it PARSED are
+    # separate claims and only the first was recorded. The comparison is what makes
+    # either number more than a record, and it checks `-N` really suppressed the
+    # ripper's own lookup (Critical rule #5) at the artifact rather than on trust.
+    #
+    # v21 added `eta_trace.samples[].state` and `.reread_pass`. Only the branch that
+    # made a FRESH rate measurement used to record a sample, so the trace went silent
+    # on the hold and stall paths: the b8 rig trace has a 541-second and a 400-second
+    # hole, both landing exactly on the minutes the estimator was misbehaving, which is
+    # how its peak reading became un-analysable from the artifact that was supposed to
+    # explain it. Every branch records now, and `state` is what keeps that honest — a
+    # re-shown older estimate is labelled `held_*`, a pinned album bar during a secure
+    # re-read is `rereading`, and only `computed` is a measurement.
+    #
     # v19 added `rip.read_stalls` — the fork's stall-watchdog verdict, verbatim. They
     # added that line at their own initiative FOR us, and we were not reading it while
     # answering a design question about whether we wanted it per-track (round 7 lap 9
@@ -1064,7 +1083,7 @@ def test_schema_version_is_20() -> None:
     # track), so our sentence is derived from the per-track results and this field keeps
     # what the binary actually printed — two logs of one disc from two builds are not
     # comparable without it.
-    assert REPORT_SCHEMA_VERSION == 20
+    assert REPORT_SCHEMA_VERSION == 22
 
 
 def _issue_codes(report: dict) -> set[str]:
@@ -1443,3 +1462,84 @@ def test_the_finish_handler_gates_the_hint_on_a_non_success_status() -> None:
         "the finish handler no longer gates failure_hint on a non-success status — "
         "a successful rip will carry a failure diagnosis again"
     )
+
+
+# --- v22: the release id the ripper RESOLVED, and the comparison ------------------
+#
+# This line sat in the parser's ignored table with a recorded reason — "our own input
+# reflected; `Invoked as:` is a better witness for an argv disagreement" — which was
+# true of the argv question and quietly answered a different one. We hand the whole
+# tag set as ONE colon-delimited `-a` blob, so what the ripper RECEIVED and what it
+# PARSED OUT are separate claims, and only the first was recorded. The album title on
+# the reference disc carries `∶` (U+2236) precisely because a real colon breaks that
+# syntax, so the failure mode is live, not theoretical.
+
+
+def _log_with_ripper_release_id(value: str) -> RipLog:
+    log = _sample_log()
+    return replace(log, release_id=value)
+
+
+def test_the_ripper_resolved_release_id_is_recorded() -> None:
+    report = build_report(_log_with_ripper_release_id("d14a7546-815b-43c6"))
+    assert report["rip"]["ripper_release_id"] == "d14a7546-815b-43c6"
+
+
+def test_an_absent_ripper_release_id_is_null_not_a_finding() -> None:
+    """An unknown-disc rip sends no release id, a whipper log has no such line, and
+    neither does a build older than this row. All three are "no claim" — the report
+    must not manufacture a disagreement out of a field nobody filled."""
+    report = build_report(
+        _sample_log(), disc={"unknown": True, "musicbrainz_release_id": None}
+    )
+    assert report["rip"]["ripper_release_id"] is None
+    assert not {
+        "ripper_release_id_mismatch",
+        "ripper_release_id_unexpected",
+    } & _issue_codes(report)
+
+
+def test_matching_release_ids_raise_nothing() -> None:
+    """The ALLOW case first: a check that can only ever complain is a wall, and it
+    would pass every negative case below."""
+    report = build_report(
+        _log_with_ripper_release_id("release-123"),
+        disc={"unknown": False, "musicbrainz_release_id": "release-123"},
+    )
+    assert report["rip"]["ripper_release_id"] == "release-123"
+    assert not {
+        "ripper_release_id_mismatch",
+        "ripper_release_id_unexpected",
+    } & _issue_codes(report)
+
+
+def test_a_release_id_the_ripper_did_not_get_from_us_is_flagged() -> None:
+    """`-N` is supposed to stop cyanrip doing its own MusicBrainz lookup (Critical
+    rule #5). If it reports a release id on a rip that sent none, it looked one up —
+    and that is checked against the artifact instead of trusted."""
+    report = build_report(
+        _log_with_ripper_release_id("looked-this-up-itself"),
+        disc={"unknown": True, "musicbrainz_release_id": None},
+    )
+    assert "ripper_release_id_unexpected" in _issue_codes(report)
+    hit = next(
+        i for i in report["issues"] if i["code"] == "ripper_release_id_unexpected"
+    )
+    assert hit["severity"] == "warning"
+    assert "looked-this-up-itself" in hit["message"]
+
+
+def test_a_release_id_disagreement_is_an_error_naming_both() -> None:
+    """The case the field exists for: the tags, filenames and cue on disk were
+    written from what the RIPPER parsed, so a disagreement means the folder may
+    describe a different release than the report does. Both ids are named, because a
+    message saying only "mismatch" leaves the reader to go find them."""
+    report = build_report(
+        _log_with_ripper_release_id("what-the-ripper-used"),
+        disc={"unknown": False, "musicbrainz_release_id": "what-we-resolved"},
+    )
+    assert "ripper_release_id_mismatch" in _issue_codes(report)
+    hit = next(i for i in report["issues"] if i["code"] == "ripper_release_id_mismatch")
+    assert hit["severity"] == "error"
+    assert "what-the-ripper-used" in hit["message"]
+    assert "what-we-resolved" in hit["message"]

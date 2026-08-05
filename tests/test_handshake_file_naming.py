@@ -856,3 +856,70 @@ def test_a_same_lap_collision_cannot_hide_the_peers_HOLD(hs: ModuleType) -> None
         "our GO at lap 25 outranked their HOLD at the same lap — a tie resolved in "
         "favour of releasing is the one resolution the gate must never pick"
     )
+
+
+# --- a duplicate (round, lap, sender) is unorderable, and it FAILED OPEN ------------
+#
+# WHAT HAPPENED (2026-08-05). The cyanrip fork revised and re-sent lap 25 — protocol §2
+# says *"Each lap is a new file. Never edit a file already sent."* Deleting the first
+# copy would destroy the record of what was actually sent and quoted, so both are kept.
+# That creates two files at the same (round, lap), and `sort_key` is
+# `(round, lap, stem)` — so the tie falls through to the FILENAME.
+#
+# MEASURED: `round-07-lap-25.md` (the revision) sorted BEFORE
+# `round-07-lap-25-as-first-sent.md`, so the gate read the SUPERSEDED file as the
+# round's newest word. Both declared HOLD, so nothing broke — which is exactly how
+# this class of bug survives long enough to matter.
+#
+# This is the THIRD fail-open ordering hole in `ordering_blockers`'s own subject
+# matter; the other two are the blockers it already had.
+
+
+def test_an_unmarked_duplicate_lap_is_REFUSED(hs: ModuleType, tmp_path: Path) -> None:
+    """Two files at one (round, lap, sender) cannot be ordered, so the gate refuses."""
+    (tmp_path / "round-08-lap-03.md").write_text(
+        _closing(hs, "cyanrip-fork", 8, 3), encoding="utf-8"
+    )
+    (tmp_path / "round-08-lap-03-revised.md").write_text(
+        _closing(hs, "cyanrip-fork", 8, 3), encoding="utf-8"
+    )
+    problems = hs.ordering_blockers(sorted(tmp_path.glob("*.md")))
+    assert problems, "a duplicate round/lap/sender was accepted — the tie resolves by "
+    assert any("same round/lap/sender" in p for p in problems), problems
+
+
+def test_a_marked_archive_is_out_of_the_sequence_not_refused(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The escape hatch: a preserved earlier copy is archival, not part of the laps.
+
+    Without this the record could only be kept by making the round permanently
+    unorderable — so preserving evidence would cost the ability to close a round, and
+    the incentive would be to delete the evidence.
+    """
+    (tmp_path / "round-08-lap-03.md").write_text(
+        _closing(hs, "cyanrip-fork", 8, 3), encoding="utf-8"
+    )
+    (tmp_path / f"round-08-lap-03{hs.SUPERSEDED_MARKER}.md").write_text(
+        _closing(hs, "cyanrip-fork", 8, 3), encoding="utf-8"
+    )
+    assert not hs.ordering_blockers(sorted(tmp_path.glob("*.md"))), (
+        "a deliberately-archived earlier copy still blocked ordering"
+    )
+
+
+def test_two_files_at_one_lap_from_DIFFERENT_senders_are_fine(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """The floor. Concurrent laps across the two projects are legitimate and common —
+    round 7 had exactly that — so the duplicate check must key on the SENDER too or it
+    refuses normal traffic."""
+    (tmp_path / "round-08-lap-03.md").write_text(
+        _closing(hs, "cyanrip-fork", 8, 3), encoding="utf-8"
+    )
+    (tmp_path / "round-08-lap-03-ours.md").write_text(
+        _closing(hs, "platterpus", 8, 3), encoding="utf-8"
+    )
+    assert not hs.ordering_blockers(sorted(tmp_path.glob("*.md"))), (
+        "two senders at the same lap were refused; concurrent laps are legitimate"
+    )
