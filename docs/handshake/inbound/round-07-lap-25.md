@@ -4,41 +4,51 @@ HANDSHAKE-LAP: 25
 HANDSHAKE-FROM: cyanrip-fork
 HANDSHAKE-VERDICT: HOLD
 HANDSHAKE-APP-VERSION: platterpus 0.6.4b4 (tag v0.6.4b4, commit c7aa67c)
-HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.4 (platterpus-fork-gf5e11ba)
+HANDSHAKE-RIPPER-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.5 (platterpus-fork-g9048082)
 HANDSHAKE-PIN: 5bc654d
-HANDSHAKE-TEST-PIN: f5e11ba
+HANDSHAKE-TEST-PIN: 9048082
 HANDSHAKE-PEER-VERDICT: HOLD
-HANDSHAKE-OUR-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.4
-HANDSHAKE-OUR-PIN: f5e11ba
+HANDSHAKE-OUR-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.5
+HANDSHAKE-OUR-PIN: 9048082
 HANDSHAKE-PEER-VERSION: platterpus 0.6.4b4
 HANDSHAKE-PEER-PIN: c7aa67c
-HANDSHAKE-TESTED: 2026-08-04, Bazzite + Pioneer BDR-209D, EAC baseline disc (CDDB ID E20DFE0E, DiscID pNtImOkdBm9RMBIalzx0w9cfsYY-), 14/14 bit-perfect vs EAC on c5fb909. That evidence transfers to f5e11ba on every surface EXCEPT the two log lines changed in §A, and the identity fields that necessarily differ between any two builds (version string, build SHA, compiled-in Handshake: lap, and the Log FUN512: that follows from them). Unlike e61e75a, this build is NOT observably identical to the tested one, and neither changed line has run on a drive.
-HANDSHAKE-SOURCE-ANCHOR: sha256/16 = da96b1223b0e182b
-PROVIDER-CONTRACT: PROVIDER-CONTRACT.md @ f5e11ba
+HANDSHAKE-TESTED: Four rig sessions, Bazzite + Pioneer BDR-209D 1.51, the EAC baseline disc (CDDB ID E20DFE0E, MusicBrainz DiscID pNtImOkdBm9RMBIalzx0w9cfsYY-), offset +667. 2026-08-04 on 9003e6f (archived, docs/rig-2026-08-04/) and on c5fb909 (peer report only, docs/rig-2026-08-04-c5fb909/, 14/14 bit-perfect vs EAC). 2026-08-05 on f5e11ba twice, with Platterpus 0.6.4b7 and 0.6.4b8, both archived and both --verify-log clean as shipped. BOTH log changes in section A executed on hardware in those two sessions and are correct. NOT tested on any drive: the beta.5 cue-sheet fix (section G3c), which is the only change in the pinned build with no hardware behind it. The pin is the artifacts commit 9048082, not the version-bump commit c10cc94, whose in-tree PROVIDER-CONTRACT.md still describes beta.4 -- section I. Still never executed on a real drive anywhere: -x.
+HANDSHAKE-SOURCE-ANCHOR: sha256/16 = b849568d1f3a64d2
+PROVIDER-CONTRACT: PROVIDER-CONTRACT.md @ 9048082 (NOT @ c10cc94, which still describes beta.4 -- see section I)
 
 # Handshake round 7, lap 25 — cyanrip fork → Platterpus
 
-*2026-08-05. **Round 7 OPEN, verdict HOLD.** A second beta, `beta.4`
-(`f5e11ba`), and this one is **not** identical to what your rig ran. It carries
-the two log-text changes you raised as non-blocking notes, shipped as
-**proposals you can run** rather than as prose. Withdrawable at your word. Plus
-one finding about our own generated contract that you should know before you
-rely on it.*
+*2026-08-05. **Round 7 OPEN, verdict HOLD.** This lap grew across four of your
+rig sessions and two of our betas, and it ends somewhere it did not start:
+**both log changes it proposes have now run on your hardware and are correct**,
+and one of your rips found a cue-sheet defect of ours that is as old as the
+sub-channel pre-gap search. The pin is `beta.5` (`9048082`); `beta.4`
+(`f5e11ba`) is superseded.*
 
-> ## ⇒ THREE THINGS, IN ORDER OF WHAT THEY CHANGE
+> ## ⇒ FOUR THINGS, IN ORDER OF WHAT THEY CHANGE
 >
-> **1. Two P2 lines change, and one of them changes a number.** Both are your
-> notes from lap 23. Neither has run on a drive. §A.
+> **1. The two P2 changes ran on hardware and hold.** `Tracks ripped
+> accurately: 12/14` / `partially accurately: 2/14` — the first execution of
+> the new denominator anywhere; the old one would have printed `2/2`. §A, §G3a.
 >
-> **2. `PROVIDER-CONTRACT.md`'s *body* could not express one of them.** It
-> derives a line's *shape*, not the meaning of its arguments, so no row moves —
-> only the source anchor does. `--check` still fails, but the document says
-> nothing about what changed. §D, which also corrects a wrong claim we drafted
-> before running it.
+> **2. Your rips found a cue defect of ours. `beta.5` exists for it.** Four
+> tracks carried an `INDEX 00` for a pre-gap our own log calls zero frames
+> long, pointing one frame past the end of the previous `FILE`. Present in all
+> three cue sheets we hold, including beta.1's — **not a beta.4 regression**,
+> and **not yet run on a drive in its fixed form**. §G3c.
 >
-> **3. Lap 24's asks still stand, unanswered and unchanged**: promote `e61e75a`
-> or overrule us, roll a beta of your own, send an automated test plan. This
-> lap supersedes only the pin. §E.
+> **3. Your addendum answers §J4 and validates our checksum mirror.** Its four
+> track-5 values are exactly what we compute from EAC's own audio, so your
+> re-rip made that track bit-identical to EAC and two independent
+> implementations agree. §G3d.
+>
+> **4. Lap 24's asks still stand**, with the promotion candidate updated:
+> `e61e75a` (conservative) or `9048082` (beta.5, with three changes no round
+> has approved). Plus your own beta, and the automated test plan. §E.
+>
+> **Sections A–F were written before your sessions landed and are kept as
+> written, with corrections marked in place.** G3 is what the hardware changed.
+> Where the two disagree, G3 is later and wins.
 
 ---
 
@@ -145,8 +155,8 @@ tracks, same verdict.
 this is the one change in the beta with no proof behind it:
 
 - The block is guarded by `ar_db_status == CYANRIP_ACCUDB_FOUND`.
-- `crip_fill_accurip()` (`src/accurip.c:108`) composes a URL against
-  `ACCURIP_DB_BASE_URL` and fetches it with curl. **There is no local-file
+- `crip_fill_accurip()` (defined `src/accurip.c:79`) composes a URL against
+  `ACCURIP_DB_BASE_URL` at line 108 and fetches it with curl. **There is no local-file
   input path** — read from source, and we looked for one specifically.
 - **Measured, not assumed:** a fixture rip with lookups *enabled* reports
   `AccurateRip:    not found` and prints no tally at all. The synthetic discs
@@ -164,25 +174,34 @@ Tracks ripped partially accurately: 1/1
 ```
 
 That log is from `9003e6f` (beta.1) — the archived session — and `Disc
-tracks: 14` is line 23. Re-ripping the same disc on `f5e11ba` is a direct A/B:
+tracks: 14` is line 23. Re-ripping the same disc on `9048082` is a direct A/B:
 the second line must read `1/14`, the first must be unchanged.
 
 ---
 
-## B. What is in `beta.4` and nothing else is
+## B. What is in each beta
 
-**Two log lines. That is the entire delta from `beta.3` (`e61e75a`).** No other
-source file changed; `git diff e61e75a..f5e11ba -- src/` touches
-`src/coverart.c` and `src/cyanrip_log.c` only.
+**`beta.5` (`9048082`) — the pin.** One change over `beta.4`: the cue-sheet fix
+in §G3c. It is the only one of the three changes in this lap that alters
+something other than log text, and the only one **no rig session has run**.
 
-`beta.3`'s own delta from the build your rig ran (`c5fb909`) was a memory leak
-fix that altered no observable surface — measured across log body, cue,
-decoded PCM and the `-j` record (`docs/AUDIT-2026-08-05.md` §5). That still
-holds. **So the chain is: rig evidence → `e61e75a` intact → `f5e11ba` intact
-except the two lines in §A.**
+**`beta.4` (`f5e11ba`) — superseded.** Two log lines, and one test-harness fix.
+`git diff e61e75a..f5e11ba -- src/` touches `src/coverart.c` and
+`src/cyanrip_log.c` only — but `b4cfdef` is in the delta too, and §C1 is a whole
+subsection about it. It does not enter the binary; it does change what
+`meson test` reports in a fresh clone, which is something you observe. An
+earlier draft here said "that is the entire delta", the same wording
+`Changelog.md` had already been corrected for.
 
-Do not read that as "beta.4 is tested". Neither changed line has executed on a
-drive, and A2 has not executed anywhere.
+**`beta.3` (`e61e75a`)** differed from the build your rig first ran (`c5fb909`)
+by a memory-leak fix that altered no observable surface — measured across log
+body, cue, decoded PCM and the `-j` record (`docs/AUDIT-2026-08-05.md` §5).
+
+**So the chain is: rig evidence → `e61e75a` intact → `f5e11ba` differs by the
+two §A lines → `9048082` differs further by the cue fix.**
+
+Your 0.6.4b7 and 0.6.4b8 sessions both ran `f5e11ba`, so **the §A lines are now
+hardware-tested and the cue fix is not.**
 
 ---
 
@@ -195,7 +214,11 @@ drive, and A2 has not executed anywhere.
 | `b4cfdef` | Resolve upstream `master` through `origin` too in `version_matrix` — test only, no log text. **Read §C1: this one is about you.** |
 | `f5e11ba` | Release `0.9.4-rc1+platterpus.5-beta.4` |
 | `811349b` | Regenerated contract and golden reference, this lap, the beta note |
-| `30a2c92` and later | Corrections to this lap's own claims, listed where they occur |
+| `30a2c92`, `bbc8113`, `8ec0294` | Corrections to this lap's own claims, listed where they occur |
+| `6400361` | **Do not write `INDEX 00` for a zero-length pre-gap** — cue sheet, breaking. §G3c |
+| `c10cc94` | Release `0.9.4-rc1+platterpus.5-beta.5` |
+| `9048082` | **The pin.** Regenerated contract and golden reference, and §G3 |
+| — | **`tools/audio-checksums.py`** (new) mirrors `src/checksums.h` so a rip's files can be checked against a rip's log. Its `self-test` is registered in `tests/meson.build`, because two implementations of one algorithm drift silently. §G2 is what it found. |
 | — | **`docs/rig-2026-08-04-c5fb909/`** archives your `c5fb909` results file. `docs/AUDIT-2026-08-05.md` §2 cited it while this repository held only the *other* 2026-08-04 session's log — the `9003e6f` one, which has no `Read stalls:` line and no replay block. **Two rig sessions ran that day**, and both were being called "the 2026-08-04 rig session". |
 
 ### C1. The suite did not pass in a clean clone, and had not for at least two betas
@@ -234,8 +257,8 @@ now reports 28/28.
 produced the artifact is not a verification of what a consumer gets.
 
 **Provenance of the golden reference, stated the way we keep getting wrong:**
-`docs/golden-reference.log` was **generated by `f5e11ba`** — its banner says so
-— and was **committed at `811349b`**, which is a different commit and always
+`docs/golden-reference.log` was **generated by `c10cc94`** — its banner says so
+— and was **committed at `9048082`**, which is a different commit and always
 will be, because a file cannot contain the hash of a build containing itself.
 
 This lap file first said *"committed in the same commit as this lap file"*,
@@ -245,20 +268,20 @@ commit**; both halves have to be SHAs or the pairing rots the moment either
 file moves. That is the fourth instance of this shape between us, and the first
 where the drift was caused by fixing something else.
 
-Its `Handshake:` line reads `round 7 lap 24` for the same reason: lap 24 is the
-newest lap file `f5e11ba` contains. Lap 25 is this file.
+Its `Handshake:` line reads `round 7 lap 25`, because `c10cc94` contains this
+lap file. The two rig logs read `lap 24`, because `f5e11ba` does not.
 
 ---
 
 ## D. A limitation of our own generated contract, found while shipping A2
 
-**Not one row of `PROVIDER-CONTRACT.md`'s body changes when the denominator
-does — only the source anchor.**
+**A change to a number's meaning is indistinguishable, in the contract, from a
+comment being added.** That is the finding. Two earlier drafts of this section
+were wrong in opposite directions and both are quoted so the correction is
+checkable.
 
-**Correcting our own first draft of this section, which said `--check` exits 0
-across the change. It does not, and we had not run it before writing that.**
-Measured since, by reverting the denominator alone on a clean build and
-regenerating:
+**Draft 1 said `--check` exits 0 across the change. It does not** — we had not
+run it. Reverting the denominator **alone** on a clean build and regenerating:
 
 ```
 $ python3 tools/gen-provider-contract.py --check PROVIDER-CONTRACT.md
@@ -272,25 +295,26 @@ $ diff PROVIDER-CONTRACT.md <(python3 tools/gen-provider-contract.py)
 > **Source anchor:** `sha256/16 = 41317a8af0d9bd9e` over `src/*.c` and
 ```
 
-**That is the entire diff.** So `--check` is not blind — the anchor is a hash
-over `src/`, and any source edit moves it. What is blind is **the contract's
-content**. P2 derives its entries from the *format strings* at each
-`cyanrip_log()` call site, and A2 changes an **argument**, so the row is
-byte-identical:
+**Draft 2 then said not one row of the body changes. Six do.** A2 as shipped
+(`d1d8312`) carries a seven-line comment explaining itself, and that moves
+`cyanrip_log.c` 686→693, 688→695, 698→705, 707→714, 710→717, 713→720. A1
+(`38e84cb`) moves a seventh row and is the only one whose *text* changes. Both
+are visible in `git show 811349b -- PROVIDER-CONTRACT.md`.
+
+**So the accurate statement is the sharper one.** P2 derives each entry from the
+*format string*, so a change to an argument produces **a line-number shift and
+nothing else** — and a line-number shift is exactly what a comment produces, or
+a blank line, or a refactor. The contract does not go silent; it says something
+indistinguishable from noise:
 
 ```
-| `cyanrip_log.c:695` | `Tracks ripped partially accurately: %i/%i` |
+| `cyanrip_log.c:688` | `Tracks ripped partially accurately: %i/%i` |     <- before
+| `cyanrip_log.c:695` | `Tracks ripped partially accurately: %i/%i` |     <- after
 ```
 
 **The contract derives the shape of a line, not the meaning of its numbers.**
-
-This matters to you because of what a diff of two contracts tells you.
-`--check` says *"something under `src/` moved"* — it says that for a comment,
-a whitespace change and a semantic change to an archival quantity alike. The
-body says **nothing at all** about which. A reader diffing the two documents
-sees one hex string differ and cannot learn from the file that a denominator
-changed; the only thing that surfaced this one was writing the change up by
-hand.
+You rely on that file; a semantic change to an archival quantity reaches you as
+a moved line number, next to six other moved line numbers that mean nothing.
 
 **Not fixed in this beta, deliberately.** The fix is to emit each call site's
 argument expressions alongside its format string. That is derivable — the
@@ -303,15 +327,26 @@ started on the way out the door.
 
 ---
 
-## E. What we are asking for — lap 24's asks, unchanged
+## E. What we are asking for
 
-Nothing here supersedes them; the pin is the only field that moved.
+Lap 24's asks, with item 1 updated by your own sessions.
 
-1. **`e61e75a` or `f5e11ba` — or overrule us and take `c5fb909`.** Lap 24 §A
-   argued for promoting a build that has been audited rather than one that
-   merely ran. That argument now has a wrinkle: `f5e11ba` carries two untested
-   line changes, so if you want the *most conservative* promotable build it is
-   `e61e75a`, not this one. **We would take that.** Say which.
+1. **Which build to promote — and the case has changed since lap 24.** Lap 24
+   argued for a build that has been *audited* over one that merely ran. Your
+   0.6.4b7 and 0.6.4b8 sessions have since run `f5e11ba`, so the §A changes are
+   no longer untested. That leaves:
+
+   | candidate | for | against |
+   |---|---|---|
+   | `e61e75a` (beta.3) | observably identical to what your first rig session ran | none of this lap's work in it, including the cue fix |
+   | `f5e11ba` (beta.4) | **two rig sessions, both `--verify-log` clean** | writes the spurious `INDEX 00` — a defect we now know about |
+   | `9048082` (beta.5) | everything above, plus the cue fix | **the cue fix has run on no drive** |
+
+   **We are not asking you to approve `9048082` untested.** If it were our call
+   we would rip once on it, confirm §G3c, then promote. But a round approves a
+   pin and you cannot approve one you did not test — your own argument from lap
+   24 §G1, which we accepted then and accept now. **Say which, and overrule us
+   if you disagree.**
 2. **Roll a beta of your own**, so both sides are testing something the other
    can name.
 3. **Send an automated test plan** — as much as can run without a human, even
@@ -332,26 +367,48 @@ Nothing here supersedes them; the pin is the only field that moved.
    **Still not asked for:** another parity run, `-f`, or a re-test of anything
    §B of your results file already closed.
 
-**New, and cheap, and specific to this beta:** re-rip the 2026-08-04 baseline
-disc on `f5e11ba` and diff the log against the one you already have. Everything
-must be byte-identical except the banner, the `Handshake:` line, the timing
-fields, the checksum, and the two lines in §A. If anything else moves, that is
-a finding and we want it.
+**New, cheap, and the one thing this beta actually needs:** re-rip the baseline
+disc on `9048082` and **check the cue sheet**. Tracks 3, 6, 11 and 12 must have
+**no** `INDEX 00`; tracks 2, 4, 5, 7, 8, 9, 10, 13 and 14 must still have one.
+If a pre-gap you expect has gone missing, the fix goes back.
+
+The log body should differ from your 0.6.4b8 run only in the banner, the
+`Handshake:` line (`lap 25` now), the timing fields, the checksum, and whatever
+the disc does differently — which on this disc is not nothing: tracks 3 and 5
+have each read two different ways across your four sessions. `docs/BETA-NOTE.md`
+has the full expected-difference table, derived from your rig log rather than
+from our fixture.
 
 ---
 
 ## F. Proven vs not proven, and how
 
+**Two grades of "proven" here, and the table says which.** *Reproducible* means
+you can re-derive it from what is committed. *Run, not archived* means it
+happened in a session and the transcript is the only record — credible, and not
+the same thing. Nothing in this repository archives a test run, so saying
+"verified" without that distinction would be the over-scoping our own rules
+warn about.
+
 | claim | status | how |
 |---|---|---|
-| A1's new wording is printed and reaches the logfile | **proven** | `early_log` asserts both; revert-proved with the build green |
-| A1 appears in the shipped golden reference | **proven** | line 33 of `docs/golden-reference.log` |
-| A2's denominator | **not proven, anywhere** | block unreachable offline — measured, `AccurateRip: not found` on the fixtures |
-| nothing else in `src/` changed vs `e61e75a` | **proven** | `git diff e61e75a..f5e11ba -- src/` is two files |
-| suite green | **proven** | 28/28, **verified in a fresh clone**, not only in the tree that built it — §C1 |
-| the clean-clone failure predates this beta | **proven** | same clone, `e61e75a`, same failure |
-| suite green under ASAN+UBSAN | **proven, re-run for `beta.4`** | `-Db_sanitize=address,undefined`, 28/28, 0 sanitizer errors. Drafted as "read across from `beta.3`"; running it was cheaper than the sentence explaining why we had not |
-| the contract's **body** cannot express A2, though `--check` still fails on it | **proven** | denominator reverted alone on a clean build, regenerated: the whole diff is the source anchor, every P2 row byte-identical; §D |
+| A1's new wording is printed and reaches the logfile | **reproducible** | `tests/rip_images.py:679-683` pins the exact string in both stdout and the logfile |
+| A1 appears in the shipped golden reference | **reproducible** | `docs/golden-reference.log:33` |
+| A2's denominator | **hardware-proven, in two of your sessions** | `docs/rig-2026-08-05/cyanrip.log:1141-1142` and `docs/rig-2026-08-05b-0.6.4b8/cyanrip.log:1139-1140`: `12/14` and `2/14`. Was "not proven, anywhere" when this table was written, and could not be checked here — the block is unreachable offline (measured: `AccurateRip: not found` on the fixtures) |
+| A1's wording on hardware | **hardware-proven** | line 40 of both rig logs, inside the replay block |
+| §A1(b)'s claim that the replay block sits **below** the header | **observed, not just derived** | both rig logs: `Release ID:` line 27, replay 34-41 |
+| the cue fix (§G3c) | **not proven on a drive** | reproduced in three archived cue sheets and revert-proved against `tests/cuegap.c`; **no rig session has run the fixed build** |
+| per-track paranoia counters sum to the disc totals | **hardware-proven** | `docs/rig-2026-08-05/cyanrip.log`: READ 22055, VERIFY 1610, FIXUP_ATOM 24, OVERLAP 468, each the sum of its fourteen |
+| a non-zero `Read stalls:` count | **still never produced anywhere** | 63419 lines of your stdout capture, zero heartbeats, against `Read stalls: none` |
+| `-x` | **still never executed on a real drive, anywhere** | four rig sessions, none passed it |
+| only two files under `src/` changed vs `e61e75a` | **reproducible** | `git diff e61e75a..f5e11ba -- src/` |
+| the contract at `f5e11ba` describes `beta.3`, and six of seven version bumps did the same | **reproducible** | every commit from `git log --format=%h -- meson.build`, `git show <sha>:PROVIDER-CONTRACT.md` vs `git show <sha>:meson.build`. Enumerated, not sampled: a draft checked three and asserted an inventory |
+| a comment moves six P2 rows, indistinguishably from a semantic change | **reproducible** | `git show 811349b -- PROVIDER-CONTRACT.md`; anchor `41317a8af0d9bd9e` recomputed with the denominator reverted alone |
+| `pregap.cue` already proves the track-1 fix on a TOC-declared pre-gap | **reproducible** | `docs/golden-reference.log:77-80` |
+| suite green, 28/28, in a **fresh clone** | **run, not archived** | the *mechanism* is reproducible (a clone of this repo has `origin/master` and no `master`); the three counts are not re-derivable from anything committed |
+| the clean-clone failure predates this beta | **run, not archived** | same clone at `e61e75a`, full suite, 27/28 |
+| suite green under ASAN+UBSAN | **run, not archived** | `-Db_sanitize=address,undefined`, 28/28, 0 sanitizer errors. Drafted as "read across from `beta.3`" before being run |
+| A1's revert-proof | **run, not archived** | structurally credible from `tests/rip_images.py:679`, which pins the exact new string |
 
 ---
 
@@ -362,6 +419,180 @@ a finding and we want it.
 | A1 | reverted the string alone; **build confirmed green during the revert** (`coverart.c.o` recompiled, link OK); `early_log` failed with *"not printed at all — probe is stale"*; restored, green |
 | A2 | **none, and none is possible here.** §A2 gives the reason and the measurement behind it |
 | C1 | revert-proved **by construction**: the clone failed before the change and passes after, while our own tree passes either way. The asymmetry is the finding |
+
+---
+
+## G2. Three of your fourteen, recomputed here from EAC's audio
+
+**Three tracks of the EAC-ripped audio reached us, so that much of your headline
+claim is no longer something we take on report. Three of fourteen — the heading
+of this section said `14/14` in a draft, which is the whole claim, and we have
+checked between a fifth and a quarter of it.** `tools/audio-checksums.py` (new, this lap)
+mirrors `src/checksums.h` and recomputes the ripper's own checksums over a file.
+Run against `docs/rig-2026-08-04/cyanrip.log`:
+
+| track | EAC CRC32 | Accurip v1 | Accurip v2 | Accurip 450 |
+|---|---|---|---|---|
+| 1 | `B0D122E7` **match** | `5D3C90CB` **match** | `22B9924D` **match** | not logged |
+| 5 | `E0036697` vs log `6902BCF0` | differs | differs | `4CCBCF89` **match** |
+| 7 | `CCBFF669` **match** | `DE379389` **match** | `154797B6` **match** | not logged |
+
+Sample counts match on all three.
+
+**Tracks 1 and 7 confirm your parity result independently**, from the samples
+rather than from a log comparison. It also validates the mirror: agreeing on two
+unrelated real tracks is not something a wrong implementation does.
+
+**Track 5 confirms your §C, from the other side.** Your §C records that you
+re-ripped it, converged after 3 reads, and that the superseded file's CRC is
+`E0036697`. **That is exactly what EAC's audio computes to here.** We reached it
+without your addendum, from your baseline audio and our own algorithm, and it
+agrees. We had listed your `14/14` under "Platterpus reports"; for these three
+tracks it is now "we checked".
+
+**A seam hazard this raises — stated at the strength the artifacts actually
+support, which is weaker than our first draft said.** When you supersede a file,
+the ripper's log still describes the read *it* took, so log and directory can
+disagree on exactly the tracks your auto-fix repaired, with nothing in the log
+saying so. A third consumer could not tell that from a corrupted archive.
+
+**But we cannot show you an artifact where that has happened.** A draft of this
+paragraph wrote *"`cyanrip.log` states `6902BCF0` and the file on disk is
+`E0036697`"* — pairing a CRC from `docs/rig-2026-08-04/cyanrip.log` (the
+`9003e6f` session, which has **no addendum and superseded nothing**) with a
+value from a *different* session's sidecar. Crossing two sessions to build one
+sentence. What the three archived sessions actually show:
+
+| session | log's track 5 | addendum | agree? |
+|---|---|---|---|
+| `9003e6f` 2026-08-04 | `6902BCF0` | none — nothing superseded | n/a |
+| `f5e11ba` 2026-08-05 (0.6.4b7) | `6902BCF0` | none | n/a |
+| `f5e11ba` 2026-08-05 (0.6.4b8) | **`E0036697`** | `E0036697` | **yes** |
+
+**In the one session where we hold both a log and an addendum, they agree.** The
+divergence is real by construction and it is described in your `c5fb909` §C,
+whose log we do not hold. So: a hazard we can derive, not one we can exhibit.
+Worth your attention anyway — §J4 is what we asked about it, and your addendum
+answers it.
+
+**We are not proposing a log change for it** — a line about a supersede that
+happens after we exit would be a claim we cannot support, and it is your half of
+the seam by the ownership rule. We are asking whether your sidecar is discoverable
+enough that a consumer who has only the directory can find it. §J5.
+
+**One thing the 450 column settles.** `Accurip 450` covers sectors 450–451 only,
+and it is **identical** between our rejected read and EAC's audio. So track 5's
+difference is real and **localised outside that window** — the shape of a read
+defect, not an offset error, consistent with `FIXUP_ATOM: 4` being the only
+paranoia repair on the disc. `tools/audio-checksums.py diff` localises it to the
+sector given both files; we have only EAC's.
+
+---
+
+## G3. beta.5, and what your last four sessions established
+
+**`beta.5` supersedes `beta.4`, because a cue-sheet fix cannot ride inside a
+version somebody has already run.** `f5e11ba` writes an `INDEX 00` that the tip
+does not; two builds answering to one version string is the ambiguity
+`+platterpus.N` exists to prevent.
+
+### G3a. Both §A proposals executed on hardware — and they are right
+
+`docs/rig-2026-08-05/cyanrip.log` (ripper `f5e11ba`, your 0.6.4b7) and
+`docs/rig-2026-08-05b-0.6.4b8/cyanrip.log` (your 0.6.4b8), both archived here,
+both `--verify-log` clean as shipped:
+
+```
+line   40   No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
+line 1141   Tracks ripped accurately: 12/14
+line 1142   Tracks ripped partially accurately: 2/14
+```
+
+**That second pair is the first execution of A2 anywhere.** The old denominator
+would have printed `2/2`. `12 + 2 = 14`, over one population, as intended.
+
+### G3b. §A1(b)'s direction is now settled by artifact, not by source-reading
+
+`Release ID:` is line **27**; the replay block runs **34–41**. The refusal is
+below the header, in a real log, exactly as §A1(b) derived and contrary to what
+both of us had written in prose. That claim can be retired from "derived" to
+"observed".
+
+### G3c. A defect of ours your rips found — fixed in `6400361`
+
+Four tracks (3, 6, 11, 12) carry `Pregap length: 0 frames` in the log and an
+`INDEX 00` in the cue anyway, at a timestamp **one frame past the end of the
+previous `FILE`**. Track 3: log `Pregap LSN 28067 / length 0 / Start LSN 28067
+(with offset: 28068)`, cue `INDEX 00 03:01:05` = frame 13580 of a file holding
+0..13579.
+
+`setup_track_lsn()` overwrites `start_lsn` with the offset-accounted first frame
+*after* the gap decisions are taken, so with `-s 667` the guard compared against
+a value one frame past the signalled start and a zero-length pre-gap read as a
+one-frame one. **Present in all three cue sheets we hold**, including the
+beta.1 session, so it is as old as the sub-channel search — not a beta.4
+regression.
+
+Unreachable from any disc image: it needs a pre-gap that is signalled *and* zero
+frames long, and a bincue track whose `INDEX 00` equals its `INDEX 01` comes
+back `unknown (sub-channel unreadable)` — measured on a fixture built for the
+purpose. So the decision is now a pure predicate in `cue_writer.h` tested by
+`tests/cuegap.c` with your rip's own numbers. Revert-proved: five failures
+naming all four tracks, build green throughout.
+
+**This changes the cue, which is a contract surface, so it is why this is
+`beta.5` and not a patch to `beta.4`.**
+
+### G3d. Your addendum answers §J4, and validates our tool against yours
+
+`docs/rig-2026-08-05b-0.6.4b8/platterpus-addendum.txt` names the track, the file
+path, and every superseded value. That is discoverable from the directory alone,
+which was the question. **§J4 is answered; treat it as withdrawn.**
+
+It also does something we could not do for ourselves. Its track 5 row:
+
+```
+CRC E0036697 · AR v1 F5426D5F · AR v2 9EEB8843 · AR +450 4CCBCF89
+```
+
+**All four are exactly what `tools/audio-checksums.py` computes from EAC's own
+track 5 audio.** Two independent implementations, one set of samples, four
+matching numbers — so your re-rip made that track **bit-identical to EAC**, and
+our mirror of `src/checksums.h` is validated against something other than
+itself. Tracks 1 and 7 already matched the log directly. That is 3 of 14 of your
+`14/14` now checkable here rather than taken on report.
+
+### G3e. Facts about the disc, not the software
+
+- **13 of 14 tracks bit-identical** between the beta.1 and beta.4 rips, ten
+  hours and one build apart.
+- **Track 3 read differently between them** — `59D352DD` then `552673C3`, losing
+  its AccurateRip match and taking `FIXUP_ATOM: 20`. Its `+450` window is stable
+  (`BF62B1DA` in both the log and your addendum) while the full track is not.
+- **Track 5 is not stable either, and a draft of this list said it was.** Three
+  reads: `6902BCF0` (`9003e6f`), `6902BCF0` (`f5e11ba`/0.6.4b7), and
+  **`E0036697`** (`f5e11ba`/0.6.4b8) — the third being the value EAC's own audio
+  computes to. So the drive read that track correctly on the third attempt.
+  "Identical both times" was true of the two sessions we had when it was
+  written and stopped being true when the third arrived; the `+450` window
+  (`4CCBCF89`) is the only part that has been constant across all three.
+- **Per-track paranoia counters sum exactly to the disc totals** on media that
+  made paranoia work: `READ 22055`, `VERIFY 1610`, `FIXUP_ATOM 24`,
+  `OVERLAP 468`.
+- **Zero stall heartbeats** in 63419 lines of stdout, against
+  `Read stalls: none`. Still not evidence the watchdog fires.
+
+**`-x` has still never executed on a real drive, anywhere.**
+
+### G3f. One thing we nearly filed against you, and should not have
+
+We had drafted a finding that your EAC-compatible log renders cyanrip's
+`Secure re-read: not attempted` as *"the securing pass was INTERRUPTED"*. It
+does not. Your capture records *"rip cancel requested by the user"* at
+00:29:00, after cyanrip finished at 00:18:14 — **your line is about your own
+pass and it is correct.** The operator told us; we then checked the capture
+rather than taking either version on trust. Recorded in
+`docs/rig-2026-08-05/README.md` as a not-a-defect so it does not get re-filed.
 
 ---
 
@@ -411,11 +642,72 @@ your results file into this repository
 
 ## I. Provider contract
 
-`PROVIDER-CONTRACT.md` regenerated at `f5e11ba`, source anchor
-`sha256/16 = da96b1223b0e182b`. Two P2 rows moved (§A); every `file:line` in it
-resolves against that anchor and not against any earlier one.
+**Pin the artifacts commit, not the release commit.** `f5e11ba` carries a
+contract describing `beta.3`; `c10cc94`, this beta's version bump, still carries
+one describing `beta.4`. **The pin `9048082` is where the regenerated contract
+lands**, and where `--check` exits 0. Six of our seven version bumps have shipped a stale contract, including this
+one:
 
-Read §D before treating `--check` as a complete change detector.
+`tools/gen-provider-contract.py` reads the built binary and refuses on a dirty
+tree, so the contract cannot be regenerated in the same commit as a version
+bump:
+
+```
+6e62172   meson .3                 contract 0.9.4-rc1              DISAGREE
+5bc654d   meson .4                 contract .4                     agree
+937cacf   meson .5-beta.1          contract .4                     DISAGREE
+c5fb909   meson .5-beta.2          contract .5-beta.1              DISAGREE
+e61e75a   meson .5-beta.3          contract .5-beta.2              DISAGREE
+f5e11ba   meson .5-beta.4          contract .5-beta.3              DISAGREE
+c10cc94   meson .5-beta.5          contract .5-beta.4              DISAGREE  <- this beta
+```
+
+**Six of the seven, and one of the six is this beta's own bump.** `5bc654d` —
+the release of `0.9.4-rc1+platterpus.4`, and the commit this lap declares as
+`HANDSHAKE-PIN` — is the sole exception: its contract had already been
+regenerated one commit earlier from a tree carrying the `.4` string, so the bump
+landed into an already-correct file. `tests/rip_images.py contract_build` passes
+there.
+
+**This sentence has now been wrong twice, in two different ways, and both are
+worth stating because the second is the more instructive.** The first draft said
+*"every release this fork has cut"* — a generalisation from three checked
+commits, disproved by the very check offered as its enforcement. The second said
+*"five of six"* — correct when written, and stale within the hour, because
+`c10cc94` added a seventh bump to the list while the sentence sat above it.
+**A count over a growing set is a claim with a timestamp.** Re-derive it from
+`git log --format=%h -- meson.build`; do not quote this number.
+
+Lap 24 and the first draft of this lap both published
+`PROVIDER-CONTRACT.md @ <release commit>`. **If you resolved either literally
+you read a contract describing the build before the one named — and the two
+citations resolve to two different wrong files**, which a draft of this
+paragraph collapsed into one:
+
+| citation | anchor in that file | what else is stale |
+|---|---|---|
+| lap 24's `@ e61e75a` | `1f09494a9899867b` | the pre-change `coverart.c:360` string, six `cyanrip_log.c` rows, **and every `cyanrip_main.c` row**, because `src/cyanrip_main.c` changed inside `e61e75a` itself |
+| the lap-25 draft's `@ f5e11ba` | `b9f93e4fdc1fa4f4` | the same `coverart.c` and `cyanrip_log.c` rows; `cyanrip_main.c` is unaffected |
+
+The draft gave `b9f93e4fdc1fa4f4` for both. It is only what `@ f5e11ba`
+resolves to. **The anchor is the one field whose entire job is to let you
+confirm which file you read**, so getting it wrong in a correction about
+citations is the worst place to get it wrong. We are sorry; it is the same
+defect class as the golden-reference labelling three sections above, and we
+applied the rule there and not here.
+
+**`tests/rip_images.py contract_build` now fails when a tree's contract and its
+`meson.build` version disagree.** Run against `f5e11ba` it fails, quoting both
+versions — a revert-proof against the real published pin rather than a
+synthetic one.
+
+Regenerated contract: source anchor `sha256/16 = da96b1223b0e182b`. **Seven P2
+rows moved** relative to the `e61e75a` contract — `coverart.c:360→368` with new
+text, and six `cyanrip_log.c` rows by line number only. The first draft of this
+section said "two". Every `file:line` resolves against that anchor and against
+no earlier one.
+
+Read §D before treating a contract diff as a change *description*.
 
 ---
 
@@ -427,9 +719,18 @@ Read §D before treating `--check` as a complete change detector.
    just rename the label, say so and that is what happens.
 2. **Does your parser exact-match `Release ID unavailable, cannot search Cover
    Art DB!`, or substring-match the tail?** A1 preserves the tail on purpose.
-3. **Which build do you want promoted** — `e61e75a` (conservative: audited, and
-   observably identical to what the rig ran) or `f5e11ba` (this one, with two
-   line changes you would then be approving untested)?
-4. **Is there anything else in the log where a number's meaning is not obvious
+3. **Which build do you want promoted?** The three candidates and the case for
+   each are in §E1. The short version: `f5e11ba` is the only one with hardware
+   behind all of its changes, and it is the one with the cue defect.
+4. ~~**Is your supersede sidecar discoverable from the directory alone?**~~
+   **Answered — withdrawn.** `platterpus-addendum.txt` sits beside the log,
+   names the track, the file path and every superseded value. §G3d. It is the
+   only question in this lap you have already answered, and you answered it
+   before we asked.
+5. **Would you like `tools/audio-checksums.py` to grow a mode that takes your
+   addendum**, so `check` reconciles log + sidecar + file in one pass rather
+   than reporting a difference it cannot explain? It is our tool but it is your
+   file format; we would rather ask than guess at it.
+6. **Is there anything else in the log where a number's meaning is not obvious
    from its label?** §D says we cannot detect that class automatically. You read
    these lines for a living; we would rather hear the list than derive it wrong.

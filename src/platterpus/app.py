@@ -304,12 +304,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--install-ripper",
-        action="store_true",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="COMMIT",
         help="set up the ripping stack from the terminal and exit: the Distrobox "
         "container, cyanrip, and the pinned Platterpus fork of cyanrip built over "
         "it, then re-point the host export at the fork. Idempotent — steps already "
         "satisfied report 'already present'. Same steps the GUI's setup wizard "
-        "runs; this is the no-GUI front end for them",
+        "runs; this is the no-GUI front end for them. Optionally takes a fork "
+        "COMMIT to build instead of the pinned one, so a pin that moves mid-round "
+        "is reachable without waiting for a Platterpus release",
     )
     parser.add_argument(
         "--ctdb-calibrate",
@@ -405,11 +410,24 @@ def main(argv: list[str] | None = None) -> int:
     # step engine rather than duplicating the commands (Critical rule #6): a
     # hand-copied shell snippet in the docs would be a second description of the
     # install that drifts the first time the pin or a build dep changes.
-    if args.install_ripper:
-        from platterpus.deps.fork_source import PRODUCTION_TARGET, WIZARD_TARGET
+    if args.install_ripper is not None:
+        from platterpus.deps.fork_source import (
+            PRODUCTION_TARGET,
+            WIZARD_TARGET,
+            target_for_commit,
+        )
         from platterpus.deps.host_setup import HostSetup
         from platterpus.deps.step_engine import StepResult, StepStatus, SubprocessRunner
 
+        # An operator-supplied commit wins over the pinned one. Resolved HERE, once, so
+        # every line below — the banner we print, the build, and the verify — reads the
+        # same target; the whole reason `ForkTarget` bundles the pin with the tag it must
+        # print is that "build X, verify Y" was once two independent edits.
+        target = (
+            target_for_commit(args.install_ripper)
+            if args.install_ripper
+            else WIZARD_TARGET
+        )
         # Name the build being installed AND, when it is not the approved one, say so
         # here — before minutes of dnf and meson, not in the rip report afterwards.
         # A test pin is installed on purpose during a session and reports
@@ -418,10 +436,10 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"Platterpus {__version__} (build {build_fingerprint()}) — installing "
             f"the ripping stack\n"
-            f"cyanrip build: {WIZARD_TARGET.pin} — {WIZARD_TARGET.why}\n"
-            f"expects banner: {WIZARD_TARGET.banner}\n"
+            f"cyanrip build: {target.pin} — {target.why}\n"
+            f"expects banner: {target.expectation}\n"
         )
-        if WIZARD_TARGET != PRODUCTION_TARGET:
+        if target != PRODUCTION_TARGET:
             print(
                 f"NOTE: this is not the handshake-approved build "
                 f"({PRODUCTION_TARGET.pin}). Every rip will report\n"
@@ -448,7 +466,7 @@ def main(argv: list[str] | None = None) -> int:
                 line += f" — {result.detail}"
             print(line, flush=True)
 
-        setup = HostSetup(runner=SubprocessRunner())
+        setup = HostSetup(runner=SubprocessRunner(), fork_target=target)
         # `step_results`, not `results`: the --doctor block above binds that name
         # to a list of preflight CheckResults, and reusing it here would make the
         # two blocks' types collide for no reader benefit.

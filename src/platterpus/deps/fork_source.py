@@ -187,8 +187,18 @@ NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
 #: Moved a third time in lap 21 — `9003e6f` → `c5fb909`, `beta.1` → `beta.2`. The fork's
 #: own words: *"INSTALL `c5fb909`, NOT `9003e6f`"*. Six commits, one of them a fix to a
 #: log value we parse (track 1's pre-gap counted the 2-second lead-in twice).
-FORK_TEST_PIN: Final[str] = "f5e11ba"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.4"
+#: Moved a fifth time in lap 25's second revision — `f5e11ba` → `9048082`,
+#: `beta.4` → `beta.5`. The fork's own words: *"`beta.4` (`f5e11ba`) is superseded and
+#: should not be installed."* One change, and it is the cue fix for a defect our rip found.
+#:
+#: **Pin the ARTIFACTS commit, not the version bump.** `c10cc94` is where `meson.build`
+#: says `beta.5`; `9048082` is where the regenerated `PROVIDER-CONTRACT.md` lands, and it
+#: is the same ripping code (`git diff c10cc94..9048082 -- src/ meson.build` is empty).
+#: Their contract generator reads the *built binary* and refuses on a dirty tree, so a
+#: contract can never be regenerated in the commit that bumps the version — six of their
+#: seven bumps shipped a contract describing the previous release.
+FORK_TEST_PIN: Final[str] = "9048082"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.5"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
@@ -230,6 +240,16 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
     # release, so both halves of that change land together rather than a build arriving
     # ahead of the code that can describe it.
     "e61e75a",
+    # Retired in lap 25's SECOND revision, 2026-08-05. `f5e11ba` is the build two rig
+    # sessions actually ran (b7 and b8), so it stays listed for the usual reason — a rig
+    # that has not rebuilt still gets `--consumer`.
+    #
+    # It is retired for a defect OUR OWN RIP FOUND, which is the first time that has been
+    # the reason: on tracks 3, 6, 11 and 12 the log says `Pregap length: 0 frames` and the
+    # cue writes an `INDEX 00` anyway, one frame past the end of the previous `FILE`.
+    # Present in all three cue sheets on record, so it is as old as their sub-channel
+    # pre-gap search rather than a `beta.4` regression.
+    "f5e11ba",
 )
 
 #: Build tags known to accept ``--consumer``. **Sending it to a build without it
@@ -352,8 +372,35 @@ class ForkTarget:
 
     @property
     def banner(self) -> str:
-        """The exact first line a correct build prints."""
+        """The exact first line a correct build prints.
+
+        Only meaningful when :attr:`version` is a real version. For an
+        operator-supplied commit it is not — read :attr:`expectation` instead, which
+        says so rather than composing a sentence around a placeholder.
+        """
         return f"cyanrip {self.version} ({self.build_tag})"
+
+    @property
+    def version_known(self) -> bool:
+        """False for an operator-supplied commit, whose `meson.build` we cannot read."""
+        return not self.version.startswith("(")
+
+    @property
+    def expectation(self) -> str:
+        """What a correct build must print, stated as strictly as we can and no more.
+
+        For a pinned build that is the whole banner. For a commit handed to
+        ``--install-ripper`` it is the build tag alone, because the version string of an
+        arbitrary commit is genuinely unknown to us and printing a guess next to the
+        word "expects" would invite a comparison against a number we never measured.
+        The verify step keys on the tag in both cases, so nothing is weakened.
+        """
+        if self.version_known:
+            return self.banner
+        return (
+            f"a banner ending ({self.build_tag}) — the version string is not "
+            "predictable for a commit we do not pin"
+        )
 
 
 #: The pin a **closed** round approved. Moves only when a round closes.
@@ -389,6 +436,40 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 #: a round is open, and conflating "what we install for a test" with "what a closed
 #: round approved" is how a test build becomes the production record by accident.
 WIZARD_TARGET: Final[ForkTarget] = TEST_TARGET
+
+
+def target_for_commit(pin: str) -> ForkTarget:
+    """A build target for an ARBITRARY fork commit, for ``--install-ripper <commit>``.
+
+    **Why this exists, and it closes a gap in a rule we had already written.**
+    `CLAUDE.md` Critical rule #12 says *"a moving pin needs a route to it that does not
+    ship inside a release"*, and names ``platterpus --install-ripper`` as that route.
+    It was only half true: the flag existed, but it built :data:`WIZARD_TARGET`, whose
+    pin is a module constant — so reaching a new pin still required cutting a release,
+    which is the granularity the rule says is wrong. The fork's pin has now moved
+    **five times inside one round**, twice in a single day.
+
+    So the pin becomes an argument. What we can still check, we check: a correct build
+    of ``pin`` must print ``platterpus-fork-g<pin>``, and :attr:`ForkTarget.build_tag`
+    is derived, so the verify step is as strict as for a pinned build.
+
+    What we CANNOT check is the version string — an arbitrary commit's
+    ``meson.build`` is unknown to us, and inventing one would put a number we never
+    measured into a banner comparison. :attr:`version` therefore says exactly that,
+    and the resulting :attr:`banner` is not usable as an equality test. That is the
+    honest shape: the tag is verified, the version is declared unknown, and nothing
+    pretends otherwise.
+    """
+    return ForkTarget(
+        pin=pin,
+        version="(version not known for an operator-supplied commit)",
+        why=(
+            f"commit {pin}, supplied on the command line — NOT a pinned build, and no "
+            "round has approved it. Every rip with this installed reports "
+            "ripper_handshake_approval: unapproved, which is the correct answer"
+        ),
+    )
+
 
 # --- Where it lives inside the container ------------------------------------
 

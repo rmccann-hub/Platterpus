@@ -11,6 +11,59 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b10] — 2026-08-05
+
+### Changed
+- **The cyanrip test pin moves `f5e11ba` → `9048082`** (`beta.4` → `beta.5`), retiring
+  `f5e11ba`. It is retired for a defect **our own rip found**, which is a first: on tracks
+  3, 6, 11 and 12 the ripper's log says `Pregap length: 0 frames` and the cue writes an
+  `INDEX 00` anyway, one frame past the end of the previous `FILE`. Present in all three cue
+  sheets on record, so it is as old as the fork's sub-channel pre-gap search rather than a
+  `beta.4` regression. The pin is the **artifacts** commit, not the version bump `c10cc94` —
+  same ripping code, but `c10cc94`'s in-tree provider contract still describes `beta.4`
+  (their generator reads the built binary and refuses on a dirty tree, so a contract can
+  never be regenerated in the commit that bumps the version).
+
+### Added
+- **`--install-ripper` takes a commit**, which is what makes a rule we already wrote
+  actually true. Critical rule #12 says *"a moving pin needs a route to it that does not ship
+  inside a release"* and names this flag as that route — but it built a module constant, so
+  reaching a new pin still required cutting a Platterpus release, exactly the granularity the
+  rule calls wrong. The fork's pin has moved **five times inside one round**, twice in a
+  single day. `--install-ripper 9048082` now builds that commit through the same step engine,
+  and verifies the binary reports `platterpus-fork-g9048082`.
+
+  It deliberately does **not** predict the version string for a commit we don't pin: we
+  cannot read that tree's `meson.build`, and printing a guess beside the word "expects"
+  invites a comparison against a number nobody measured. The build tag is checked, the
+  version is declared unpredictable, and the non-approved status is stated *before* minutes
+  of `dnf` and `meson` rather than left for the rip report to reveal. The target is resolved
+  **once** and threaded to both the readiness check and the build — those two have already
+  diverged in this codebase, which reported a correct install as "not done" and rebuilt it
+  every run.
+
+### Fixed
+- **The argv-surface check was structurally blind, and the flag table arriving did not fix
+  it on its own.** For the whole of round 7 every lap cited `PROVIDER-CONTRACT.md @ <commit>`
+  in the *fork's* repository, which we did not hold — so
+  `tests/test_argv_surface_agreement.py` diffed our argv against **round 6b's** table and
+  said so out loud, which is the only reason anyone knew. Lap 25 shipped the contract as an
+  attached artifact; archiving it changed nothing, because the round-grouping globbed only
+  lap files and the shared round parser returns `None` for an artifact's name. **A contract
+  sitting in a directory nothing reads is not a contract received.** Artifacts now resolve
+  to their lap's round through the shared parser (one resolver, three call sites — two had
+  already begun to diverge), so the check reads the round's own table: 82 flag spellings
+  over 42 rows, and `_MAX_TABLE_LAG` ratchets `1 → 0`. Revert-proved twice — once with the
+  artifact resolution removed, once with the contract itself absent — and both reproduce the
+  silent fallback to round 6.
+
+### Added
+- **The input half of the cyanrip contract is checked against the current pin at last.**
+  Every flag we send (`--verify-log --version -D -F -G -N -O -S -V -Z -a -c -d -l -o -r -s
+  -t`) is accepted by `beta.5`, and beta.5's golden reference parses with **zero
+  unrecognised lines** — including `Pregap LSN: 0` on a track-1 HTOA, which is the C1 case
+  we had recorded as untestable and is exactly where a falsy-zero bug would hide.
+
 ## [0.6.4b9] — 2026-08-05
 
 ### Fixed
@@ -6444,7 +6497,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...HEAD
+[0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
 [0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
 [0.6.4b8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...v0.6.4b8
 [0.6.4b7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...v0.6.4b7
@@ -6525,4 +6579,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b9.*
+*Last updated for Platterpus v0.6.4b10.*
