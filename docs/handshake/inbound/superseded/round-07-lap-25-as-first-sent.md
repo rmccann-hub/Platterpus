@@ -12,7 +12,7 @@ HANDSHAKE-OUR-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.4
 HANDSHAKE-OUR-PIN: f5e11ba
 HANDSHAKE-PEER-VERSION: platterpus 0.6.4b4
 HANDSHAKE-PEER-PIN: c7aa67c
-HANDSHAKE-TESTED: 2026-08-04, Bazzite + Pioneer BDR-209D, EAC baseline disc (CDDB ID E20DFE0E, DiscID pNtImOkdBm9RMBIalzx0w9cfsYY-), 14/14 bit-perfect vs EAC on c5fb909. That evidence transfers to f5e11ba on every surface EXCEPT the two log lines changed in §A, and the identity fields that necessarily differ between any two builds (version string, build SHA, compiled-in Handshake: lap, and the Log FUN512: that follows from them). Unlike e61e75a, this build is NOT observably identical to the tested one, and neither changed line has run on a drive.
+HANDSHAKE-TESTED: 2026-08-04, Bazzite + Pioneer BDR-209D, EAC baseline disc (DiscID E20DFE0E), 14/14 bit-perfect vs EAC on c5fb909. That evidence transfers to f5e11ba on every surface EXCEPT the two log lines changed in §A -- unlike e61e75a, this build is NOT observably identical to the tested one, and neither changed line has run on a drive.
 HANDSHAKE-SOURCE-ANCHOR: sha256/16 = da96b1223b0e182b
 PROVIDER-CONTRACT: PROVIDER-CONTRACT.md @ f5e11ba
 
@@ -30,11 +30,10 @@ rely on it.*
 > **1. Two P2 lines change, and one of them changes a number.** Both are your
 > notes from lap 23. Neither has run on a drive. §A.
 >
-> **2. `PROVIDER-CONTRACT.md`'s *body* could not express one of them.** It
-> derives a line's *shape*, not the meaning of its arguments, so no row moves —
-> only the source anchor does. `--check` still fails, but the document says
-> nothing about what changed. §D, which also corrects a wrong claim we drafted
-> before running it.
+> **2. `PROVIDER-CONTRACT.md` could not see one of them.** It derives a line's
+> *shape*, not the meaning of its arguments — so the denominator change is
+> invisible to `--check`. First time it has mattered; we are telling you rather
+> than half-fixing it on the way out. §D.
 >
 > **3. Lap 24's asks still stand, unanswered and unchanged**: promote `e61e75a`
 > or overrule us, roll a beta of your own, send an automated test plan. This
@@ -58,57 +57,13 @@ want either reverted, say so and it is reverted; that is what proposing means.
 + No MusicBrainz release ID at cover art lookup, cannot search Cover Art DB!
 ```
 
-**Why.** A reader who sees this line and the header's `Release ID: <uuid>` in
-one log concludes one of them is wrong. **Neither is.** Read from source,
-`src/cyanrip_main.c`: `crip_fill_coverart()` runs at line 1853; `-R` is merged
-into `ctx->meta` at 1869 and user `-a musicbrainz_albumid=` at 1879+. So at
-cover-art time the only possible source is cyanrip's own MusicBrainz lookup —
-and on the 2026-08-04 rig run there was none, because the ID arrived as an `-a`
-tag. `docs/rig-2026-08-04/cyanrip.log:2` shows
-`-a "…:musicbrainz_albumid=d14a7546-815b-43c6-8af6-35cff6cee1d0"` in
-`Invoked as:`, and line 26 is the resulting `Release ID:` header.
-
-**Two corrections to this paragraph's first draft, and the second one is a
-finding about the log rather than about the prose.**
-
-**(a) The artifacts.** The draft said the refusal "sits in the replayed pre-log
-block two blocks above" that header, as though one log in front of us showed
-both. None does — checked, not assumed:
-
-| artifact | refusal | `Release ID:` header |
-|---|---|---|
-| `docs/rig-2026-08-04/cyanrip.log` (**`9003e6f`, beta.1**) | absent — beta.1 predates the replay block, so it reached stdout and no logfile | present, line 26 |
-| `docs/rig-2026-08-04/platterpus.json:6565` | present — **captured from stdout by you**, which is exactly the loss the replay block was built to stop | n/a |
-| `docs/rig-2026-08-04-c5fb909/platterpus-results.md:64-73` | present, quoted **inside** a replay block from the `c5fb909` log (the refusal is line 71) | that log is not held; your §G2 (line 230) reports both in it |
-| `docs/golden-reference.log:33` | present | absent (`-N`) |
-
-**(b) The direction was backwards, in both our files and yours.** We wrote that
-the refusal sits *above* the header; your §G2 writes *"the pre-log block
-contradicts the header two lines later … and the header **then** prints
-`Release ID:`"*. Both put the refusal first. **In the file it is second**, and
-the file is what a parser sees:
-
-- `crip_early_flush()` is the **last statement of
-  `cyanrip_log_start_report()`** — the function that writes the banner,
-  `Release ID:` and `Total time:`. `src/cyanrip_log.c`, function opens at 535,
-  flush at 662.
-- **This was already true of `c5fb909`**, the build your §G2 describes:
-  `git show c5fb909:src/cyanrip_log.c` puts the flush at line 662 of a function
-  opening at 535, exactly as now. So it is not a difference between builds.
-  `9003e6f` has no `crip_early_flush` at all, which is why the beta.1 log has no
-  replay block.
-- `docs/golden-reference.log`: header ends line 27, replay runs 29–34.
-
-So the **event** precedes the header and the **line** follows it. A parser
-reading top to bottom meets `Release ID:` first and the refusal after — which is
-why the pair reads as a retraction rather than as a sequence, and why naming the
-ID in the line is worth more than moving anything.
-
-**We cannot open your `c5fb909` log**, so this is a claim about what that build
-must have written, derived from its source at that commit — not a reading of
-your file. If your log actually shows the replay block above the header, that is
-a finding we want, and it would mean something we believe about our own output
-is wrong.
+**Why.** The old line sits in the replayed pre-log block two blocks above a
+header that prints `Release ID: d14a7546-…`, and a reader reconciling the two
+concludes one is wrong. **Neither is.** Read from source, `src/cyanrip_main.c`:
+`crip_fill_coverart()` runs at line 1853; `-R` is merged into `ctx->meta` at
+1869 and user `-a musicbrainz_albumid=` at 1879+. So at cover-art time the only
+possible source is cyanrip's own MusicBrainz lookup, and on your rig run there
+was none — the ID came from your `-a` tags.
 
 The new wording states **the observation** (the field is unset at this point),
 not the inference (the release has no ID).
@@ -154,18 +109,9 @@ this is the one change in the beta with no proof behind it:
 - A test that reached the network would be evidence about the network, which
   our own rules forbid.
 
-**So this needs your rig disc**, which has an AccurateRip entry
-(`AccurateRip:    found`, `docs/rig-2026-08-04/cyanrip.log:30`) and produced
-exactly this pair at lines 1130-1131 of that file:
-
-```
-Tracks ripped accurately: 13/14
-Tracks ripped partially accurately: 1/1
-```
-
-That log is from `9003e6f` (beta.1) — the archived session — and `Disc
-tracks: 14` is line 23. Re-ripping the same disc on `f5e11ba` is a direct A/B:
-the second line must read `1/14`, the first must be unchanged.
+**So this needs your rig disc**, which has an AccurateRip entry and produced
+exactly the `13/14` + `1/1` pair on 2026-08-04. Re-ripping it on `f5e11ba` is a
+direct A/B: the second line must read `1/14`, the first must be unchanged.
 
 ---
 
@@ -194,9 +140,7 @@ drive, and A2 has not executed anywhere.
 | `d1d8312` | Count partially accurate tracks against the disc, not the unverified — **log text changes (P2), and a number** |
 | `b4cfdef` | Resolve upstream `master` through `origin` too in `version_matrix` — test only, no log text. **Read §C1: this one is about you.** |
 | `f5e11ba` | Release `0.9.4-rc1+platterpus.5-beta.4` |
-| `811349b` | Regenerated contract and golden reference, this lap, the beta note |
-| `30a2c92` and later | Corrections to this lap's own claims, listed where they occur |
-| — | **`docs/rig-2026-08-04-c5fb909/`** archives your `c5fb909` results file. `docs/AUDIT-2026-08-05.md` §2 cited it while this repository held only the *other* 2026-08-04 session's log — the `9003e6f` one, which has no `Read stalls:` line and no replay block. **Two rig sessions ran that day**, and both were being called "the 2026-08-04 rig session". |
+| *this commit* | Regenerated contract and golden reference, this lap, the beta note |
 
 ### C1. The suite did not pass in a clean clone, and had not for at least two betas
 
@@ -210,14 +154,10 @@ for the remote's HEAD**, which is `platterpus-fork`, so a fresh clone has
 unreachable; P6 cites it"*.
 
 ```
+clone @ f5e11ba, before the fix   27/28   FAIL version_matrix
 clone @ e61e75a, before the fix   27/28   FAIL version_matrix   <- beta.3, same failure
-clone @ f5e11ba, after the fix    28/28   pass
 our working tree, before the fix  28/28   pass
 ```
-
-Each row is a full-suite run, not an inference from one test — the first draft
-of this table wrote `27/28` for a row where only `version_matrix` had actually
-been run, which is a count nobody had counted.
 
 **So `beta.3`'s note claimed "28/28 from a clean checkout" and that was not
 true for anyone who cloned the repository.** It passed for us because our tree
@@ -235,15 +175,9 @@ produced the artifact is not a verification of what a consumer gets.
 
 **Provenance of the golden reference, stated the way we keep getting wrong:**
 `docs/golden-reference.log` was **generated by `f5e11ba`** — its banner says so
-— and was **committed at `811349b`**, which is a different commit and always
-will be, because a file cannot contain the hash of a build containing itself.
-
-This lap file first said *"committed in the same commit as this lap file"*,
-which was true when written and stopped being true one commit later, when a
-correction pass edited the lap. **A relative reference to a commit is not a
-commit**; both halves have to be SHAs or the pairing rots the moment either
-file moves. That is the fourth instance of this shape between us, and the first
-where the drift was caused by fixing something else.
+— and is **committed in the same commit as this lap file**, which is a
+different commit and always will be, because a file cannot contain the hash of
+a build containing itself.
 
 Its `Handshake:` line reads `round 7 lap 24` for the same reason: lap 24 is the
 newest lap file `f5e11ba` contains. Lap 25 is this file.
@@ -252,45 +186,22 @@ newest lap file `f5e11ba` contains. Lap 25 is this file.
 
 ## D. A limitation of our own generated contract, found while shipping A2
 
-**Not one row of `PROVIDER-CONTRACT.md`'s body changes when the denominator
-does — only the source anchor.**
+**`PROVIDER-CONTRACT.md` did not change when the denominator changed.**
 
-**Correcting our own first draft of this section, which said `--check` exits 0
-across the change. It does not, and we had not run it before writing that.**
-Measured since, by reverting the denominator alone on a clean build and
-regenerating:
-
-```
-$ python3 tools/gen-provider-contract.py --check PROVIDER-CONTRACT.md
-PROVIDER-CONTRACT.md is stale -- regenerate with tools/gen-provider-contract.py
-rc=1
-
-$ diff PROVIDER-CONTRACT.md <(python3 tools/gen-provider-contract.py)
-9c9
-< **Source anchor:** `sha256/16 = da96b1223b0e182b` over `src/*.c` and
----
-> **Source anchor:** `sha256/16 = 41317a8af0d9bd9e` over `src/*.c` and
-```
-
-**That is the entire diff.** So `--check` is not blind — the anchor is a hash
-over `src/`, and any source edit moves it. What is blind is **the contract's
-content**. P2 derives its entries from the *format strings* at each
-`cyanrip_log()` call site, and A2 changes an **argument**, so the row is
-byte-identical:
+P2 derives its entries from the *format strings* at each `cyanrip_log()` call
+site. The A2 change is in an **argument**, not the format string, so the P2 row
+is byte-identical before and after:
 
 ```
 | `cyanrip_log.c:695` | `Tracks ripped partially accurately: %i/%i` |
 ```
 
-**The contract derives the shape of a line, not the meaning of its numbers.**
+`tools/gen-provider-contract.py --check` exits 0 across the change. **The
+contract derives the shape of a line, not the meaning of its numbers.**
 
-This matters to you because of what a diff of two contracts tells you.
-`--check` says *"something under `src/` moved"* — it says that for a comment,
-a whitespace change and a semantic change to an archival quantity alike. The
-body says **nothing at all** about which. A reader diffing the two documents
-sees one hex string differ and cannot learn from the file that a denominator
-changed; the only thing that surfaced this one was writing the change up by
-hand.
+This is worth your attention because you rely on that file: **a semantic change
+to a quantity is invisible to it**, and the only thing that surfaced this one
+was writing the change up by hand.
 
 **Not fixed in this beta, deliberately.** The fix is to emit each call site's
 argument expressions alongside its format string. That is derivable — the
@@ -316,21 +227,9 @@ Nothing here supersedes them; the pin is the only field that moved.
    can name.
 3. **Send an automated test plan** — as much as can run without a human, even
    if it has to hang off an extra flag.
-4. **The five hardware items, in lap 24 §E1's order** — re-read from that file,
-   because the first draft of this line restated them **from memory and got the
-   list wrong**: it reordered them and added `-f`, which lap 24 explicitly lists
-   under *"Not asked for"*. Verbatim in intent, in its order:
-
-   | # | item | why it leads |
-   |---|---|---|
-   | 1 | **`-x` on one throwaway rip** | never executed on a real drive, anywhere, ever. A hang is also a result |
-   | 2 | **`-j <path>` on any one run** | never written by a rip from a physical drive |
-   | 3 | **a deliberate abort** — eject mid-rip, or a full disk | the diagnosed-abort exit code has never fired on hardware |
-   | 4 | **marginal media plus `-k 1`** | a non-zero `Read stalls:` count has never been produced anywhere |
-   | 5 | CD-TEXT from a disc that has some | different code path (`mmc_read_cdtext`) from the `.toc` parser we test |
-
-   **Still not asked for:** another parity run, `-f`, or a re-test of anything
-   §B of your results file already closed.
+4. **The five hardware items, in priority order**, unchanged from lap 24 §E:
+   `-x` (never executed on any real drive, anywhere), a non-zero `Read stalls:`
+   count, the diagnosed-abort exit code, `-j` from a physical drive, `-f`.
 
 **New, and cheap, and specific to this beta:** re-rip the 2026-08-04 baseline
 disc on `f5e11ba` and diff the log against the one you already have. Everything
@@ -350,8 +249,8 @@ a finding and we want it.
 | nothing else in `src/` changed vs `e61e75a` | **proven** | `git diff e61e75a..f5e11ba -- src/` is two files |
 | suite green | **proven** | 28/28, **verified in a fresh clone**, not only in the tree that built it — §C1 |
 | the clean-clone failure predates this beta | **proven** | same clone, `e61e75a`, same failure |
-| suite green under ASAN+UBSAN | **proven, re-run for `beta.4`** | `-Db_sanitize=address,undefined`, 28/28, 0 sanitizer errors. Drafted as "read across from `beta.3`"; running it was cheaper than the sentence explaining why we had not |
-| the contract's **body** cannot express A2, though `--check` still fails on it | **proven** | denominator reverted alone on a clean build, regenerated: the whole diff is the source anchor, every P2 row byte-identical; §D |
+| suite green under ASAN+UBSAN | **read across from `beta.3`, not re-run for `beta.4`** | the delta is two string/arithmetic changes in already-covered call sites; say so rather than imply a fresh run |
+| the contract cannot see A2 | **proven** | `--check` exits 0 across the change; §D |
 
 ---
 
@@ -367,45 +266,9 @@ a finding and we want it.
 
 ## H. Anything found wrong in your output
 
-**Two things, and both are ours as much as yours** — we propagated the first and
-we wrote the second the same way you did.
-
-**H1. `E20DFE0E` is the CDDB ID, not the DiscID.** Your `c5fb909` results file,
-line 4, reads *"14 tracks, DiscID `E20DFE0E`"*. cyanrip prints them as two
-separate fields, and `docs/rig-2026-08-04/cyanrip.log` prints both, two lines
-apart:
-
-```
-25: DiscID:         pNtImOkdBm9RMBIalzx0w9cfsYY-
-27: CDDB ID:        E20DFE0E
-```
-
-The number is right and the label is wrong. **We then copied it into lap 24's
-`HANDSHAKE-TESTED` and into the first draft of this lap's**, so this is a shared
-defect and not a report on you. Lap 25's header now carries both, labelled.
-
-**H2. Your §G2 has the same ordering backwards that we did** — §A1(b). It reads
-*"the pre-log block contradicts the header two lines later … and the header then
-prints `Release ID:`"*. In the file the header is **first**: `crip_early_flush()`
-is the last statement of `cyanrip_log_start_report()`, and
-`git show c5fb909:src/cyanrip_log.c` confirms that was already so in the very
-build your §G2 describes.
-
-**Scope, stated because it is the difference between a finding and a guess:**
-this is derived from your build's *source*, not read from your log, which we do
-not hold. It is not a defect in your parser — G2 is an observation about layout,
-not a parse rule — and we raise it only because a reader of either document
-builds the wrong mental model of where that line lands. **If your log really
-does put the replay block above the header, say so**: something we believe about
-our own output would then be wrong, and that is worth more to us than being
-right here.
-
-**Method note, because it is the only reason either was found.** We archived
-your results file into this repository
-(`docs/rig-2026-08-04-c5fb909/platterpus-results.md`) to fix a different problem
-— `docs/AUDIT-2026-08-05.md` §2 cited it while holding only the *other*
-2026-08-04 session's log — and both of these fell out of being able to grep it.
-**Answering from the artifact required having the artifact.**
+**Nothing found this lap.** No new artifact of yours has arrived since lap 23,
+so this is an absence of input, not a clean review — we did not look at
+anything new, rather than looking and finding nothing.
 
 ---
 

@@ -415,7 +415,7 @@ def _render(
             rip_log,
             _read_stability_line(rip_log)
             + _appended_silence_line(rip_log)
-            + _interrupted_securing_line(secure_rerip),
+            + _interrupted_securing_line(secure_rerip, outcome_status),
             disc_track_total=disc_track_total,
         )
     )
@@ -1050,7 +1050,9 @@ def _appended_silence_line(rip_log: RipLog) -> list[str]:
     ]
 
 
-def _interrupted_securing_line(secure_rerip: SecureReripBlock | None) -> list[str]:
+def _interrupted_securing_line(
+    secure_rerip: SecureReripBlock | None, outcome_status: str = ""
+) -> list[str]:
     """A line when the auto-fix securing pass started and never finished.
 
     Run 4 on the reference rig: the pass launched, the window was closed 26
@@ -1060,13 +1062,25 @@ def _interrupted_securing_line(secure_rerip: SecureReripBlock | None) -> list[st
     report only, so the *durable* artifact, the one a stranger reads years later,
     still said nothing (audit finding, 2026-07-28).
 
+    ``outcome_status`` NAMES THE CAUSE when we know it. A rip whose whole-disc pass
+    completed 14 of 14 tracks and whose *securing* pass was then cancelled is a real
+    and confusing shape (rig run, 2026-08-05): the disc is complete, so the
+    incomplete-rip banner correctly stays silent, and this was the only line about it
+    — reading "INTERRUPTED" with no cause, when the cause was the user's own click and
+    we had it recorded. Captured and not surfaced is the same bug from their side.
+
     Reads defensively: this comes from worker state, and a wrong shape must cost
     a line, not the whole log.
     """
     if not isinstance(secure_rerip, dict) or not secure_rerip.get("interrupted"):
         return []
+    cause = (
+        " (you cancelled the rip)"
+        if (outcome_status or "").strip().lower() == "cancelled"
+        else ""
+    )
     return [
-        "Secure re-read      : the securing pass was INTERRUPTED before it "
+        f"Secure re-read      : the securing pass was INTERRUPTED{cause} before it "
         "finished — any track it had not yet re-read carries only its first read"
     ]
 
@@ -1081,12 +1095,34 @@ def _incomplete_notice(
     ``"failed"``). Every number in it is measured — the track count is
     ``len(rip_log.tracks)`` and the disc total is what the TOC reported — so the
     never-invent rule holds. An unknown outcome renders nothing, exactly as before.
+
+    **A non-success outcome does not always mean an incomplete rip**, which this used
+    to assume. The rip whose whole-disc pass extracted every track and whose *securing*
+    pass was then cancelled is ``status == "cancelled"`` with ``ripped ==
+    disc_track_total`` — and the banner rendered *"INCOMPLETE RIP (cancelled) — this log
+    covers 14 of 14 disc tracks"*, contradicting itself inside one sentence. Found by
+    the test written for the securing-pass wording, on the shape the rig produced
+    (2026-08-05). Every track IS present, so the honest banner names what stopped and
+    claims no gap; the securing-pass line beside it says what went unverified. A
+    truncated log is excluded from that branch — there the count is a floor, not a
+    total, so "every track is present" is exactly the claim we cannot make.
     """
     status = (outcome_status or "").strip()
     if not status or status.casefold() in {"success", "ok", "completed"}:
         return []
     ripped = len(rip_log.tracks)
     of_total = f" of {disc_track_total}" if disc_track_total else ""
+    if (
+        disc_track_total
+        and ripped >= disc_track_total
+        and not bool(getattr(rip_log, "log_truncated", False))
+    ):
+        return [
+            f"*** RIP STOPPED ({status}) — every one of the {disc_track_total} disc "
+            "track(s) is present below, so the extraction itself is complete. Whatever "
+            "runs AFTER extraction may not have: see the status report. ***",
+            "",
+        ]
     # "were never extracted" is a claim about the DISC, and the source log is the
     # only evidence for it. When that log was cut off mid-write we cannot make
     # the claim: on the rig (2026-08-01) cyanrip was killed with 4 KiB unflushed,

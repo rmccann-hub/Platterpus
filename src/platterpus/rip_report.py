@@ -172,6 +172,14 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     meaning in prose. The sentence is now counted from the per-track results, and
 #     this field preserves what the binary actually printed — two logs of one disc
 #     from two builds are not comparable without it.
+# v21: `eta_trace.samples[].state` and `.reread_pass`. Before this, only the branch
+#     that made a FRESH rate measurement recorded a sample, so the trace went silent
+#     on the hold and stall paths — the b8 rig trace has a 541-second and a
+#     400-second hole, both landing exactly on the minutes the estimator was
+#     misbehaving, which is how the peak reading became un-analysable from the
+#     artifact. Every branch records now, and `state` is what keeps that honest: a
+#     re-shown older estimate is labelled `held_*`, a pinned album bar during a
+#     secure re-read is `rereading`, and only `computed` is a measurement.
 # v15: `ripper_handshake_approval` / `_detail` / `_approved_build` /
 # `_approved_for_platterpus` / `_approved_by_round` — whether the ripper that
 # produced THIS rip is the build both projects affirmatively verified, checked at
@@ -189,7 +197,16 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 20
+# v22: `rip.ripper_release_id` — the MusicBrainz release id the ripper RESOLVED AND
+#     USED, off its own header, plus the `issues` comparison against the id we sent.
+#     Previously in the ignored table with a recorded reason ("our own input reflected;
+#     `Invoked as:` is a better witness for an argv disagreement"), which was true of
+#     the argv question and did not cover a different one: we hand the whole tag set as
+#     ONE colon-delimited `-a` blob, so what the ripper received and what it parsed are
+#     separate claims and only the first was recorded. The comparison is what makes
+#     either number more than a record — it also checks `-N` really suppressed the
+#     ripper's own lookup (Critical rule #5) at the artifact instead of on trust.
+REPORT_SCHEMA_VERSION: int = 22
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -674,7 +691,13 @@ def _eta_trace_block(eta_trace: list | None, timing: dict | None) -> dict | None
             "so estimate-vs-actual is directly visible; 'cyanrip_eta' is cyanrip's "
             "own per-op estimate (untrusted); 'read_speed' is the -S value in "
             "effect (0 = drive max); 'track'/'activity' are the event context for "
-            "a jump; 'at' is the PC wall-clock time. Compare against 'timing'."
+            "a jump; 'at' is the PC wall-clock time. 'state' names the branch that "
+            "produced the sample — computed (a fresh rate measurement), "
+            "held_no_rate / held_over_ceiling (the previous estimate re-shown), "
+            "rereading (a secure re-read has the album bar pinned) or stalled "
+            "(neither liveness signal moved) — so a held value is never mistaken "
+            "for a measurement; 'reread_pass' counts restarts of the current "
+            "track's read (0 = first read). Compare against 'timing'."
         ),
         "samples": samples,
     }
@@ -856,6 +879,7 @@ def _build(
         log_parse=log_parse_block,
         completeness=completeness,
         rip=rip_block,
+        disc=disc,
         artifacts=artifacts,
         ripper_log_verification=verify_block,
         dependencies=(environment or {}).get("dependencies"),
@@ -1138,6 +1162,11 @@ def _rip_block(rip_log: object, info: object) -> dict:
         # whipper log / when cyanrip didn't print them.
         "musicbrainz_disc_id": getattr(rip_log, "disc_id", "") or None,
         "cddb_id": getattr(rip_log, "cddb_id", "") or None,
+        # The release id the RIPPER resolved and used, off its own header — the
+        # witness that its parse of our single colon-delimited `-a` blob put our
+        # release id where we meant it to. `outcome.ripper_argv` shows what it
+        # received; only this shows what it used. `issues` compares the two.
+        "ripper_release_id": getattr(rip_log, "release_id", "") or None,
     }
 
 
@@ -1504,6 +1533,10 @@ def _issues(
     log_parse: dict | None = None,
     completeness: dict | None = None,
     rip: dict | None = None,
+    # The disc as WE resolved it, so the ripper's echoed release id can be compared
+    # against the one we sent. Two blocks, one question, and the comparison is the
+    # only thing that makes either number more than a record.
+    disc: dict | None = None,
     # The real type, not a widened one: this is the SAME block the report
     # serializes, and typing it `dict` here would let a future rename of an
     # artifact key pass the checker while silently matching nothing.
@@ -1581,6 +1614,37 @@ def _issues(
             f"report a stall: {(rip or {}).get('read_stalls') or 'no detail'}. The "
             "audio may still be bit-perfect, but a drive or disc that stalls is worth "
             "knowing about before the next rip.",
+        )
+
+    # DID THE RIPPER USE THE RELEASE WE SENT IT? Tags, filenames and the .cue are all
+    # written from the metadata WE resolved, but the ripper writes them from what it
+    # parsed out of a single colon-delimited `-a` blob. A value that split wrong lands
+    # in the wrong field silently, and the album title on the reference disc carries a
+    # U+2236 lookalike precisely because a real colon breaks that syntax.
+    #
+    # Tri-state, and each state is a different claim:
+    #   * ripper echoed nothing -> no claim (an unknown-disc rip sends no release id,
+    #     and neither does a whipper log or a build older than this row). NOT a finding.
+    #   * we sent nothing, ripper reports one -> it ran its OWN lookup, so `-N` did not
+    #     take. That is Critical rule #5, checked at the artifact rather than trusted.
+    #   * both present and different -> the tags on disk may describe another release.
+    theirs = (rip or {}).get("ripper_release_id")
+    ours = (disc or {}).get("musicbrainz_release_id")
+    if theirs and not ours:
+        add(
+            "warning",
+            "ripper_release_id_unexpected",
+            f"the ripper reported release id {theirs} although this rip sent it none "
+            "— it appears to have run its own MusicBrainz lookup, which -N is supposed "
+            "to prevent.",
+        )
+    elif theirs and ours and theirs != ours:
+        add(
+            "error",
+            "ripper_release_id_mismatch",
+            f"the ripper used release id {theirs} but this rip resolved {ours} — the "
+            "tags, filenames and cue sheet on disk may describe a different release "
+            "than the one shown here. Check the -a argument in outcome.ripper_argv.",
         )
 
     verify_verdict = (ripper_log_verification or {}).get("verdict")

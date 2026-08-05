@@ -368,6 +368,24 @@ def _stopped_phrase(status: str) -> str:
 # --- The comparison ---------------------------------------------------------
 
 
+def _track_converged(track: object) -> bool | None:
+    """Whether this track's secure re-read CONVERGED — tri-state, read defensively.
+
+    `None` means "never re-read", which is a different fact from `False` ("re-read
+    and never agreed with itself"). Collapsing them would let an unattempted read
+    look like a failed one and vice versa, and the tiebreak above depends on the
+    distinction. Accepts a mapping or an object because the comparison is fed both
+    parsed logs and JSON reports.
+    """
+    if track is None:
+        return None
+    if isinstance(track, dict):
+        value = track.get("secure_rerip_converged")
+    else:
+        value = getattr(track, "secure_rerip_converged", None)
+    return value if isinstance(value, bool) else None
+
+
 def _decide_better(
     crc_a: str | None,
     crc_b: str | None,
@@ -375,6 +393,8 @@ def _decide_better(
     status_b: str,
     conf_a: int | None,
     conf_b: int | None,
+    converged_a: bool | None = None,
+    converged_b: bool | None = None,
 ) -> tuple[str, str]:
     """Decide which side is the better master for one track: ``(side, reason)``.
 
@@ -382,8 +402,28 @@ def _decide_better(
     * A track missing from one side → the present side wins.
     * Byte-identical reads → ``equal`` (either is fine).
     * Otherwise prefer the stronger AR status (verified > offset-variant >
-      not-in-DB); on a tie prefer the higher confidence; on a further tie the
-      reads genuinely differ with no basis to choose → ``unknown``.
+      not-in-DB); on a tie prefer the higher confidence; **on a further tie prefer
+      the read that CONVERGED** across secure re-reads; only then → ``unknown``.
+
+    **WHY CONVERGENCE IS A TIEBREAK, AND WHY IT WAS MISSING.** Found on real
+    hardware, 2026-08-05. Two rips of the same disc both read track 5 as
+    offset-variant at confidence 200 — identical status, identical confidence — so
+    this function returned ``unknown``: *"can't tell which read is correct."* But
+    the two reads were **not** equally supported. One had converged across three
+    secure re-reads; the other was a single read with ``Secure re-read: not
+    attempted``. And EAC, independently, twice, produced the converged one
+    (`E0036697`) and never the other (`6902BCF0`).
+
+    So "no basis to choose" was false: **a read corroborated by repetition on this
+    drive and this disc is better evidence than one nobody checked.** AccurateRip
+    confidence cannot express that — it counts how many *strangers* submitted a
+    matching CRC, which is the same number for both reads here and says nothing
+    about which of *our* two reads is sound.
+
+    Ranked BELOW confidence deliberately: confidence is corroboration by many
+    independent rippers, convergence is corroboration by one drive repeating
+    itself. Convergence only breaks ties the earlier rules leave open, so it can
+    never overturn an AccurateRip verdict — it only replaces a shrug.
     """
     if crc_a is None and crc_b is None:
         return SIDE_UNKNOWN, "neither rip recorded this track"
@@ -411,6 +451,18 @@ def _decide_better(
         side = SIDE_A if ca > cb else SIDE_B
         return side, f"reads differ; both {_describe_status(status_a)}, but " + (
             f"confidence {max(ca, cb)} beats {min(ca, cb)}"
+        )
+    # CONVERGENCE. Same status, same confidence, differing bytes — but if exactly
+    # one read was corroborated by repeating it, that one is the better master.
+    # `is True` / `is not True` on purpose: the flag is TRI-STATE, and "not
+    # attempted" (None) must not be read as "failed to converge" (False). Only an
+    # affirmative convergence on exactly one side breaks the tie.
+    if (converged_a is True) != (converged_b is True):
+        side = SIDE_A if converged_a is True else SIDE_B
+        return side, (
+            f"reads differ; both {_describe_status(status_a)} with equal confidence, "
+            "but one read converged across secure re-reads and the other was never "
+            "re-read — the corroborated read is the better master"
         )
     # No basis to choose. Only mention "equal confidence" when both sides
     # actually HAVE a confidence — a not-in-DB track has none, so saying "equal
@@ -539,7 +591,14 @@ def _compare(
         )
         is_identical = crc_a is not None and crc_a == crc_b
         better, reason = _decide_better(
-            crc_a, crc_b, status_a, status_b, conf_a, conf_b
+            crc_a,
+            crc_b,
+            status_a,
+            status_b,
+            conf_a,
+            conf_b,
+            _track_converged(ta),
+            _track_converged(tb),
         )
         title = _track_title(
             ta if ta is not None else (tb if tb is not None else {}), number

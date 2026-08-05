@@ -80,6 +80,64 @@ log = logging.getLogger(__name__)
 # main_window_rip (_RIP_STALL_THRESHOLD_S).
 _RIP_LIVENESS_INTERVAL_MS: int = 5000
 
+# --- Default window geometry and the initial pane split --------------------------
+#
+# MEASURED, then changed (2026-08-05, from two screenshots the maintainer sent with
+# "make sure to keep formatting in mind too"). At the old 960x720 default, on a
+# 14-track disc, the track list showed **2 of 14 rows** — the splitter handed it 169
+# of 647 px, of which the album-metadata form above the grid takes 84 and the header
+# 20, leaving a 65 px viewport at a 30 px row height.
+#
+# THE STRETCH FACTORS DO NOT DO THIS. Below, the splitter's factors are set 0/2/3, and
+# they are inert here: measured at four different factor sets (0/2/3, 0/1/1, 0/3/4,
+# 0/5/6) across four window sizes, every combination produced BYTE-IDENTICAL pane
+# sizes. Qt distributes by stretch factor only the space left over after each pane's
+# sizeHint, and the rip pane's hint (progress bars + AccurateRip table + log view)
+# already claims everything — so there is no remainder to distribute. The factors are
+# kept because they ARE the mechanism on a style or DPI where the hints do not fill,
+# but they are not what balances this window, and a reader who assumes they are will
+# tune them and see nothing change.
+#
+# So two changes, both measured (rows visible on a 14-track disc):
+#
+#     960x720, hints only ............ 2 / 14      <- shipped through v0.6.4b8
+#     1000x860, hints only ........... 5 / 14
+#     1000x860 + explicit setSizes ... 7 / 14      <- now
+#
+# and the rip pane ends at 315 px against 326 before, so this is not taken out of it
+# — the extra comes from the taller default.
+_DEFAULT_WINDOW_W: int = 1000
+_DEFAULT_WINDOW_H: int = 860
+# Leave this much for the desktop's panels/decorations when clamping to the screen,
+# so the window never opens with its bottom edge off a 1366x768 laptop display.
+_SCREEN_MARGIN_PX: int = 48
+# Initial share of the splitter for (disc info, track list, controls+progress). Only
+# a STARTING point: the user drags freely afterwards and Qt keeps their sizes.
+_PANE_SHARES: tuple[float, float, float] = (0.20, 0.40, 0.40)
+
+
+def _default_window_size() -> tuple[int, int]:
+    """The startup window size, clamped to the screen that will show it.
+
+    Best-effort: with no screen information (offscreen, a headless test) the
+    preferred size stands, which is what every previous version did unconditionally.
+    Never raises — a geometry helper must not be able to stop the app opening.
+    """
+    try:
+        from PySide6.QtGui import QGuiApplication
+
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return _DEFAULT_WINDOW_W, _DEFAULT_WINDOW_H
+        available = screen.availableGeometry()
+        return (
+            min(_DEFAULT_WINDOW_W, max(640, available.width() - _SCREEN_MARGIN_PX)),
+            min(_DEFAULT_WINDOW_H, max(480, available.height() - _SCREEN_MARGIN_PX)),
+        )
+    except Exception:  # noqa: BLE001 — never let sizing stop the window opening
+        log.exception("could not read the screen geometry; using the preferred size")
+        return _DEFAULT_WINDOW_W, _DEFAULT_WINDOW_H
+
 
 class MainWindow(
     QMainWindow,
@@ -178,7 +236,7 @@ class MainWindow(
         # always-visible surface, so a rip's provenance no longer requires
         # opening Help → About (which still carries the build fingerprint too).
         self.setWindowTitle(f"Platterpus {__version__}")
-        self.resize(960, 720)
+        self.resize(*_default_window_size())
 
         # --- Injected dependencies -----------------------------------------
         self._config: Config = config
@@ -486,10 +544,19 @@ class MainWindow(
         self._content_splitter.addWidget(rip_section)
         # Initial proportions: the disc-info panel takes its compact natural
         # size; the track list and the progress/log block share the rest.
+        #
+        # These are Qt's fallback, NOT what balances this window — see the
+        # `_PANE_SHARES` block at the top of this module for the measurement that
+        # shows every factor set produces identical sizes here. `_apply_pane_shares`
+        # is what actually does it, on first show.
         self._content_splitter.setStretchFactor(0, 0)  # disc info
         self._content_splitter.setStretchFactor(1, 2)  # track table
         self._content_splitter.setStretchFactor(2, 3)  # controls + progress/log
         root.addWidget(self._content_splitter, stretch=1)
+        # Set once, on the first show, when the panes have real geometry to divide.
+        # Doing it in __init__ is too early (nothing is laid out yet) and doing it on
+        # every show would undo the user's own dragging.
+        self._pane_shares_applied: bool = False
 
         # Cover-art outcome lands in the rip log view (not the status line —
         # that's showing the fidelity verdict by then, which matters more).
@@ -584,6 +651,31 @@ class MainWindow(
         self._drive_list_worker = None
         self._drive_list_thread = None
         self._drive_picker.show_error(message)
+
+    def showEvent(self, event: object) -> None:  # noqa: N802 — Qt API
+        """Apply the initial pane split, once, the first time the window appears."""
+        super().showEvent(event)  # type: ignore[arg-type]  # Qt's QShowEvent
+        if not self._pane_shares_applied:
+            self._pane_shares_applied = True
+            self._apply_pane_shares()
+
+    def _apply_pane_shares(self) -> None:
+        """Divide the splitter by `_PANE_SHARES`, so the track list opens usable.
+
+        The default split leaves 2 of 14 track rows visible because the rip pane's
+        size hint claims the space and the stretch factors have no remainder to work
+        with (measurement in the `_PANE_SHARES` block). Best-effort and idempotent:
+        a failure leaves Qt's own distribution, which is what shipped before.
+        """
+        try:
+            total = sum(self._content_splitter.sizes())
+            if total <= 0:
+                return
+            self._content_splitter.setSizes(
+                [int(total * share) for share in _PANE_SHARES]
+            )
+        except Exception:  # noqa: BLE001 — layout polish must never break startup
+            log.exception("could not apply the initial pane split; keeping Qt's")
 
     def closeEvent(self, event: object) -> None:  # noqa: N802 — Qt API
         """Tear down worker threads cleanly on window close.

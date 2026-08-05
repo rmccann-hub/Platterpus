@@ -36,6 +36,10 @@ class RipBlock(TypedDict):
     creation_date: str | None
     musicbrainz_disc_id: str | None
     cddb_id: str | None
+    # The release id the ripper resolved and used, off its own header — a
+    # different claim from the argv it received. `issues` compares it against
+    # `disc.musicbrainz_release_id`.
+    ripper_release_id: str | None
     # v14: the ripper's own completion footer, tri-state. `rip_completed` is
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.
@@ -366,6 +370,14 @@ class EtaSampleBlock(TypedDict):
     overall_percent: float
     read_speed: int
     our_eta_seconds: int | None
+    # Which branch of the estimator produced this sample: "computed",
+    # "held_no_rate", "held_over_ceiling", "rereading" or "stalled". Read together
+    # with `our_eta_seconds` — a held value is a re-shown older measurement, not a
+    # fresh one, and without this field the two are indistinguishable in the trace.
+    state: str
+    # Restart count for the current track's read (0 = first read). Non-zero means a
+    # secure re-read is running, which pins the album bar.
+    reread_pass: int
     cyanrip_eta: str | None
     track: int | None
     activity: str | None

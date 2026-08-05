@@ -447,8 +447,40 @@ _ETA_TRACE_MAX: int = 2000
 #     stuck/crawling read takes many minutes to clear it.
 #   * THRESHOLD is deliberately generous (3 min) so a merely-slow-but-advancing
 #     drive is never mislabelled — only a genuine hang crosses it.
+#   * The album fraction is NOT the only liveness signal, and on its own it is
+#     wrong: see `_TASK_LIVENESS_MIN_PCT` below. A secure re-read replays a track
+#     the album bar has already counted, so the album fraction freezes for the
+#     whole re-read while the drive reads perfectly — measured twice in one rip
+#     (2026-08-05 b8): "no forward progress for 3m 2s at 21.7% (track 3)" while
+#     cyanrip's own line climbed 52% -> 55% at a steady 1x. We told the user their
+#     disc was scratched while nothing was wrong with it.
 _ETA_STALL_MIN_PROGRESS: float = 0.005  # 0.5% of the whole album
 _ETA_STALL_THRESHOLD_S: float = 180.0
+
+# A meaningful forward step in the CURRENT OPERATION's own percentage (0-100), used
+# as a second, independent liveness signal for the stall detector.
+#
+# WHY A SECOND SIGNAL. The album fraction is a lossy projection: `_overall_from_track`
+# maps (track, task%) into the album's 5-95% band and `_bump_overall` refuses to let
+# it regress, so ANY work that revisits ground the bar has already covered leaves it
+# frozen. The secure re-read (`-Z`) is exactly that — cyanrip re-reads the same track
+# from 0% again — so a healthy, converging re-read looks identical to a wedged drive
+# if you only watch the album bar. cyanrip's per-operation percentage does not have
+# that blind spot: it advances whenever the drive is actually reading, on a re-read
+# as much as a first read. So the drive is "stalled" only when NEITHER signal has
+# moved for the threshold, which makes the detector strictly more sensitive (a truly
+# stuck drive freezes both) and stops it crying scratch on ordinary verification.
+_TASK_LIVENESS_MIN_PCT: float = 1.0
+
+# A drop this large (percentage points) in the CURRENT OPERATION's percentage, while
+# the track number is unchanged, means that track's read RESTARTED — a secure re-read
+# pass (`-Z`), not a regression.
+#
+# Measured (2026-08-05, b8, track 3): "Ripping track 3, progress - 100%" then
+# "…progress - 5%", twice, as it re-read to convergence. 20pp is far above cyanrip's
+# redraw granularity (~0.05pp per line) and far below a real restart's ~100pp drop,
+# so it cannot be tripped by jitter and cannot miss a restart.
+_REREAD_TASK_DROP_PCT: float = 20.0
 
 # cyanrip appends its OWN per-op ETA to each progress redraw
 # ("…, progress - 42%, ETA - 3m"). We distrust it (it printed "822h" at 0.01%)
@@ -695,6 +727,22 @@ class RipWorker(QObject):
         # instead of a misleading countdown. Reset per pass.
         self._eta_stall_frac: float | None = None
         self._eta_stall_since: float | None = None
+        # SECOND liveness signal, independent of the album bar: the current
+        # operation's own percentage at its last meaningful forward step, and when
+        # that happened. See _TASK_LIVENESS_MIN_PCT — during a secure re-read the
+        # album fraction is frozen by construction, so watching it alone reported a
+        # perfectly healthy drive as stuck on a scratch. Maintained in
+        # _note_task_progress, consumed by the stall check in _album_eta_text.
+        self._task_forward_pct: float | None = None
+        self._task_forward_at: float | None = None
+        # Secure-re-read tracking (see _REREAD_TASK_DROP_PCT). `_reread_track` is the
+        # track whose task percentage we're following; `_reread_pass` counts how many
+        # times its read has RESTARTED (0 = still the first read). While it is >0 the
+        # album fraction cannot advance, so the ETA holds and says what's happening
+        # rather than dividing a huge remaining fraction by a frozen window.
+        self._reread_track: int | None = None
+        self._reread_pass: int = 0
+        self._task_pct_seen: float | None = None
         # True once we've LOGGED that this pass is stalled, so the warning is
         # written to the record (log.txt + the report's embedded debug log) exactly
         # once per stall — on entry — not on every progress tick while it's stuck.
@@ -791,21 +839,40 @@ class RipWorker(QObject):
         elapsed = now - started
         if elapsed < _MIN_ELAPSED_FOR_ETA_S:
             return ""
-        # Stall detection FIRST — before any projection. Track when the album
-        # fraction last cleared a meaningful forward step; if it hasn't for the
-        # threshold, the drive is stuck on a hard-to-read spot (real hardware: a
-        # track that hung for hours while the projection still counted down "~4h
-        # left"). Say so plainly instead — honest and far more useful than a
-        # misleading, ever-growing number. A tiny per-tick crawl doesn't reset the
-        # timer (the step is what a healthy read clears in a second or two), so a
-        # barely-moving read is caught, while a merely-slow-but-advancing one is
-        # not. Note `frac > 0.05` already here (scan band skipped above).
-        if (
+        # Stall detection FIRST — before any projection. Track when the drive last
+        # proved itself alive; if it hasn't for the threshold, it's stuck on a
+        # hard-to-read spot (real hardware: a track that hung for hours while the
+        # projection still counted down "~4h left"). Say so plainly instead — honest
+        # and far more useful than a misleading, ever-growing number. A tiny per-tick
+        # crawl doesn't reset the timer (the step is what a healthy read clears in a
+        # second or two), so a barely-moving read is caught, while a
+        # merely-slow-but-advancing one is not. Note `frac > 0.05` already here (scan
+        # band skipped above).
+        #
+        # TWO signals, not one, and the second is not optional — a secure re-read
+        # pins the album fraction by construction, and watching only that told a
+        # maintainer twice in one rip that a perfectly good disc was scratched.
+        album_moved = (
             self._eta_stall_frac is None
             or frac >= self._eta_stall_frac + _ETA_STALL_MIN_PROGRESS
+        )
+        if album_moved:
+            self._eta_stall_frac = frac
+            self._eta_stall_since = now
+        # SECOND SIGNAL. The album fraction freezes for the whole of a secure
+        # re-read, so it cannot be the only witness — see _TASK_LIVENESS_MIN_PCT.
+        # "Stalled" requires that NEITHER signal has moved for the threshold, so
+        # take the more recent of the two as the last time the drive proved itself
+        # alive. This makes the detector stricter, not laxer: a wedged drive stops
+        # printing progress lines at all, so both signals go quiet together.
+        last_alive = self._eta_stall_since
+        if self._task_forward_at is not None and (
+            last_alive is None or self._task_forward_at > last_alive
         ):
-            # Real forward progress. If we were stalled, note the recovery in the
-            # record (the transient status line can't be a durable record).
+            last_alive = self._task_forward_at
+        if last_alive is None or now - last_alive < _ETA_STALL_THRESHOLD_S:
+            # The drive proved itself alive recently enough. If we were stalled, note
+            # the recovery in the record (the transient status line can't be one).
             if self._eta_stalled:
                 log.info(
                     "rip recovered from stall at %.1f%% (track %s)",
@@ -813,13 +880,8 @@ class RipWorker(QObject):
                     self._current_track,
                 )
                 self._eta_stalled = False
-            self._eta_stall_frac = frac
-            self._eta_stall_since = now
-        elif (
-            self._eta_stall_since is not None
-            and now - self._eta_stall_since >= _ETA_STALL_THRESHOLD_S
-        ):
-            stalled_for = now - self._eta_stall_since
+        else:
+            stalled_for = now - last_alive
             # Record the stall ONCE (on entry) at WARNING, so it lands in both
             # log.txt (INFO+) and the report's embedded debug log regardless of the
             # Debug-logging setting — the status line alone is not a durable record
@@ -833,10 +895,42 @@ class RipWorker(QObject):
                     overall_pct,
                     self._current_track,
                 )
+            self._record_eta_sample(overall_pct, elapsed, None, state="stalled")
             return (
                 f" · stalled {format_duration(stalled_for)} — the drive is stuck "
                 "on a hard-to-read spot (a scratch or smudge)"
             )
+        # A SECURE RE-READ IS RUNNING, so the album fraction is pinned and there is
+        # nothing here to project from: `_overall_from_track` maps this track's
+        # progress into a span of the album the bar has already covered, and
+        # `_bump_overall` refuses to regress. Any rate computed below would be
+        # (1 - a big constant) ÷ (whatever noise is left in the window) — measured
+        # climbing 54m -> 1h5m -> 2h15m -> 5h40m in 70 seconds (2026-08-05, b8,
+        # track 3), which is the SAME divide-by-a-frozen-bar shape as the 62-hour
+        # bug arriving through a door the floor below does not cover: the window
+        # still held real pre-freeze movement, so the floor was legitimately met.
+        #
+        # So hold the estimate and SAY WHY. "About 54m left · verifying track 3" is
+        # the truth: the remaining album work hasn't changed, and the extra time the
+        # re-read costs is unknowable until it converges (this one took two more
+        # passes; the next disc may take five). A number that stops moving with a
+        # reason beside it is honest; a number that triples in a minute is not.
+        if self._reread_pass > 0:
+            self._record_eta_sample(
+                overall_pct,
+                elapsed,
+                _coarsen_eta_seconds(self._smoothed_remaining_s)
+                if self._smoothed_remaining_s is not None
+                else None,
+                state="rereading",
+            )
+            verifying = (
+                f" · verifying track {self._current_track} "
+                f"(re-read {self._reread_pass + 1})"
+                if self._current_track
+                else " · verifying this track by re-reading it"
+            )
+            return f"{self._eta_hold_text()}{verifying}"
         # Project the remaining time from the RECENT read rate (a trailing
         # window), not the cumulative average since the pass began. The fast
         # disc-scan phase and the disc's inner tracks read much faster than the
@@ -879,6 +973,12 @@ class RipWorker(QObject):
             # consecutive samples. A frozen progress bar means "we cannot measure
             # the rate right now", and the honest response is to hold the last
             # measurement, not to invent one.
+            self._record_eta_sample(
+                overall_pct,
+                elapsed,
+                _coarsen_eta_seconds(self._smoothed_remaining_s),
+                state="held_no_rate",
+            )
             return self._eta_hold_text()
         else:
             # No usable rate AND no previous estimate (first post-scan tick):
@@ -904,6 +1004,14 @@ class RipWorker(QObject):
                 window_dt,
                 window_dfrac,
                 elapsed,
+            )
+            self._record_eta_sample(
+                overall_pct,
+                elapsed,
+                _coarsen_eta_seconds(self._smoothed_remaining_s)
+                if self._smoothed_remaining_s is not None
+                else None,
+                state="held_over_ceiling",
             )
             return self._eta_hold_text()
         # EMA-smooth so a per-tick swing doesn't yank the number around.
@@ -948,10 +1056,33 @@ class RipWorker(QObject):
             self._last_cyanrip_eta = eta.strip()
 
     def _record_eta_sample(
-        self, overall_pct: float, elapsed_s: float, our_eta_s: int
+        self,
+        overall_pct: float,
+        elapsed_s: float,
+        our_eta_s: int | None,
+        state: str = "computed",
     ) -> None:
         """Append a throttled ETA-trace sample: PC wall-clock time + both
-        estimates + progress, for the report's ``eta_trace``. Never raises."""
+        estimates + progress + WHICH BRANCH produced it, for the report's
+        ``eta_trace``. Never raises.
+
+        ``state`` names the path: ``computed`` (a fresh rate measurement),
+        ``held_no_rate`` / ``held_over_ceiling`` (the previous estimate re-shown
+        because the window had no usable rate, or the computed value failed the
+        sanity ceiling), ``rereading`` (a secure re-read has the album bar pinned),
+        ``stalled`` (neither liveness signal moved). ``our_eta_seconds`` is None
+        where there was no estimate to show.
+
+        **EVERY branch records.** The first version recorded only ``computed``,
+        with a comment arguing that "holding is the absence of a computation" — and
+        that argument cost the analysis of this very bug: the 2026-08-05 b8 trace
+        has a 541-second hole and a 400-second hole, both landing exactly on the
+        minutes the model was misbehaving, because the hold and stall paths returned
+        without sampling. A trace that goes quiet during the interesting part is not
+        a trace, and the maintainer's standing instruction is to capture more than
+        we think we need. `state` is what keeps the samples honest instead: a held
+        value is labelled as held rather than passed off as a measurement.
+        """
         try:
             now = time.monotonic()
             if self._eta_trace and (
@@ -972,8 +1103,15 @@ class RipWorker(QObject):
                     # The read speed (`-S`) in effect (0 = drive max) — recorded
                     # so a future ETA model can correlate rate with speed.
                     "read_speed": self._current_read_speed,
-                    # Our smoothed album estimate (seconds remaining).
+                    # Our smoothed album estimate (seconds remaining), or None when
+                    # there was nothing to show. `state` says how it was arrived at
+                    # — read the two together or a held value reads as a fresh one.
                     "our_eta_seconds": our_eta_s,
+                    "state": state,
+                    # How many times the current track's read has restarted (0 =
+                    # first read). Non-zero means the album bar is pinned by a
+                    # secure re-read, which is why `state` is "rereading".
+                    "reread_pass": self._reread_pass,
                     # cyanrip's own per-op ETA at this moment (its raw string), or
                     # None if it hasn't printed one yet.
                     "cyanrip_eta": self._last_cyanrip_eta,
@@ -1788,6 +1926,15 @@ class RipWorker(QObject):
         self._eta_stall_frac = None
         self._eta_stall_since = None
         self._eta_stalled = False
+        # And the task-level liveness / re-read state: a new pass re-reads tracks
+        # this rip has already read, so carrying the previous pass's percentage in
+        # would look like a restart-within-a-track and mislabel the first line of
+        # the new pass as a secure re-read.
+        self._task_forward_pct = None
+        self._task_forward_at = None
+        self._reread_track = None
+        self._reread_pass = 0
+        self._task_pct_seen = None
 
     def _auto_fix_tracks(
         self,
@@ -2209,6 +2356,7 @@ class RipWorker(QObject):
             task = _percent_or_none(match.group("pct"))
             if task is None:
                 return None
+            self._note_task_progress(self._current_track, task)
             return self._bump_overall(
                 self._overall_from_track(self._current_track, task)
             ), task
@@ -2242,6 +2390,7 @@ class RipWorker(QObject):
             task = _percent_or_none(match.group("pct"))
             if task is None:
                 return None
+            self._note_task_progress(self._current_track, task)
             return self._bump_overall(
                 self._overall_from_track(self._current_track, task)
             ), task
@@ -2255,6 +2404,79 @@ class RipWorker(QObject):
             return self._bump_overall(self._overall_from_track(done, 100.0)), 100.0
 
         return None
+
+    def _note_task_progress(self, track: int, task_pct: float) -> None:
+        """Follow the CURRENT OPERATION's own percentage, to tell a secure re-read
+        apart from a stalled drive.
+
+        Called for every per-track progress line, before the album bar is computed.
+        Maintains two things the album bar cannot express:
+
+        * **Liveness.** ``_task_forward_at`` is stamped whenever this percentage
+          makes a real forward step (or restarts). The album bar freezes during a
+          re-read; this does not, so the stall detector gets a signal that means
+          "the drive is reading" rather than "the bar moved".
+        * **Re-read passes.** A big drop with the track number unchanged is cyanrip
+          starting that track's read over (``-Z``). We count the passes, because
+          while one is running the album fraction is pinned and any ETA computed
+          from it is arithmetic on a constant — measured climbing 54m -> 5h40m in
+          70 seconds (2026-08-05, b8, track 3).
+
+        Pure bookkeeping; never raises, emits nothing, touches no widgets.
+        """
+        now = time.monotonic()
+        if track != self._reread_track:
+            # A different track: a genuinely new operation. Record how many extra
+            # passes the one we're leaving needed — that is the honest measure of how
+            # hard the disc was to read there, and it is nowhere else in the record.
+            #
+            # No window reset is needed HERE even though the fraction is about to
+            # jump forward to catch up on everything the freeze hid: the window was
+            # emptied when the re-read STARTED (below), and the hold path
+            # `_album_eta_text` takes during a re-read returns before appending, so
+            # by now it holds nothing that predates the freeze. Stated rather than
+            # re-cleared defensively, because a guard no test can distinguish from
+            # its absence is a claim of protection, not protection.
+            if self._reread_pass:
+                log.info(
+                    "secure re-read of track %s finished after %d extra pass(es); "
+                    "resuming the album ETA on a fresh rate window",
+                    self._reread_track,
+                    self._reread_pass,
+                )
+            self._reread_track = track
+            self._reread_pass = 0
+            self._task_pct_seen = task_pct
+            self._task_forward_pct = task_pct
+            self._task_forward_at = now
+            return
+        previous = self._task_pct_seen
+        if previous is not None and task_pct < previous - _REREAD_TASK_DROP_PCT:
+            # Same track, percentage restarted: another secure re-read pass.
+            self._reread_pass += 1
+            log.info(
+                "track %s is being re-read to verify it (pass %d) — its progress "
+                "restarted at %.0f%%; the album bar cannot advance during a "
+                "re-read, so the ETA holds instead of projecting from a frozen "
+                "fraction",
+                track,
+                self._reread_pass + 1,
+                task_pct,
+            )
+            # The window's older points are from BEFORE the freeze. Left in place
+            # they keep the divisor alive just long enough to inflate the estimate
+            # (measured: 0.22pp of pre-freeze movement still in a 90 s window,
+            # yielding 498 minutes). Drop them; the hold path takes over.
+            self._eta_rate_window = []
+            self._task_forward_pct = task_pct
+            self._task_forward_at = now
+        elif (
+            self._task_forward_pct is None
+            or task_pct >= self._task_forward_pct + _TASK_LIVENESS_MIN_PCT
+        ):
+            self._task_forward_pct = task_pct
+            self._task_forward_at = now
+        self._task_pct_seen = task_pct
 
     def _overall_from_track(self, current_track: int, task_pct: float) -> float:
         """Map (track, within-track %) to an overall 0-100 bar value in the 5-95%
