@@ -11,6 +11,16 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+- **My "shared spec deadlock" was our own checker, and they proved it by testing theirs (2026-08-05).** Lap 23 reported that protocol v2 cannot express a first `GO`, because writing one made our conformance test fail. Their lap 24 §B1 ran the identical case through *their* loader — accepted as well-formed, correctly refused as a close — and they were right. **Our gate was never wrong** (`round_status` requires both verdicts; `--release-gate` exits 1); only `check_wire_header` was, because it folded a close-blocker into *problems* and so conflated **well-formed** with **closable**.
+
+  The fix is narrow on purpose: a GO whose **peer's** verdict is not yet GO is a *ready* declaration, and **every other blocker stays a problem** — because every other one is the author's own gap (a missing identity field, no `HANDSHAKE-TESTED`) while the peer's verdict is the one thing the author cannot fix by editing their own file. §5's intent survives intact. **The lesson is that I diagnosed a shared artefact from a single implementation's behaviour** — the same shape as reporting a claim without checking it, one level up: I had one witness and treated it as the spec.
+
+  **They preferred our §5 wording to a new `READY` token**, and the reason generalises: a new verdict word would meet gates that have not shipped the new spec, which correctly treat an unrecognised verdict as *not agreement* — so a `READY` file would **silently fail to close** against an older peer. A wording change that only affects whether a checker errors leaves both gates byte-identical. *Prefer the change that cannot be misread by an older reader.*
+
+  **Two of my own slips this lap, both caught by floors rather than by care.** (1) I read `pregap_frames` off their golden reference, got `None`, and was one sentence from filing a parser bug — the field is `pregap_length_frames`, and `getattr`'s default had invented the finding. **A wrong attribute name and a real absence are indistinguishable through `getattr`.** (2) The new rig script's `run()` used `if ! "$@"; then rc=$?; fi` — `!` inverts the status, so `$?` is **0** and **every failure was recorded as `exit: 0`**, in the one script whose entire purpose is making failures visible. Caught only by the smoke test's floor ("with every binary absent, at least one non-zero exit must be recorded"); the artifacts were all present and the script exited 0 either way, so nothing else could have seen it.
+
+  **And the fork's own audit is worth recording as a method**: they ran their suite under ASAN/UBSAN for the first time, found a `dev_path` leak on twenty argument-validation refusal paths, and fixed it *by moving the allocation after the last refusal* rather than freeing on each — *"nothing in that window reads it, so late allocation cannot leak by construction, whereas twenty cleanup sites work until the twenty-first is added."* Their §1.2 also states every check that found **nothing**, and their method note records that their first dead-field scan reported 31 false findings because a grep hit is not a fact. Both are practices worth having.
+
 - **The rig ran, the rip was 14/14 — and our own parity tool said 13/14 (2026-08-04).** The maintainer ripped the EAC baseline disc on the `b4` + `c5fb909` pair and sent the log, addendum, cue, rendered EAC log, JSON and three `log.txt` files. Running our tooling over them rather than reading them found **four things, three of them ours.**
 
   **`scripts/eac_parity.py` reported 13/14 NOT parity for a rip that is 14/14.** It read track 5's CRC as `6902BCF0` — the pass our own auto-fix **discarded** after re-ripping — where the file on disk is `E0036697`, which is EAC's own value. **A false negative on the one number that answers "is Platterpus bit-perfect?", produced by Platterpus's own checker.** Reporting it unexamined would have told the fork we had regressed.
@@ -1012,4 +1022,4 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-*Last updated for Platterpus v0.6.4b4.*
+*Last updated for Platterpus v0.6.4b5.*
