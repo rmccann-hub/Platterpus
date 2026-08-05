@@ -406,6 +406,42 @@ Rules when adding one:
   prominent buttons carry unique `&`-mnemonics per window
   (`tests/test_ui_accessibility.py` pins the uniqueness).
 
+### 3.8a Progress: the bar is a display, the estimator needs the raw signal
+
+`RipWorker._progress_for` turns each ripper progress line into **two** numbers: the
+album bar (0-100 across the whole rip) and the current operation's own percentage.
+The album bar is deliberately **monotonic** — `_bump_overall` clamps it so it can
+never go backwards, because a bar that retreats reads as a fault.
+
+That clamp is fine for a bar and a trap for anything that *infers* from it. A secure
+re-read (`-Z`) reads a track the bar has already counted, so `_overall_from_track`
+returns a lower value and the clamp pins the album fraction for the entire re-read —
+minutes at a time, by design, on a perfectly healthy drive. Two inferences read that
+fraction and both described the clamp instead of the disc: the stall detector
+announced *"stuck on a hard-to-read spot (a scratch or smudge)"* and the ETA divided
+the remaining fraction by the leftover noise and reached 5h40m (measured twice in one
+rip, 2026-08-05; `docs/testing.md` §5.ah).
+
+So, when you add anything that reasons about rip progress:
+
+- **Derive it from the raw per-operation percentage, or from a second signal** —
+  never from the clamped album bar alone. `_note_task_progress` maintains both:
+  `_task_forward_at` (the last time the operation's own percentage really advanced,
+  which is *liveness*) and `_reread_pass` (how many times the current track's read
+  has restarted, which is *why the album bar is pinned*).
+- **A liveness check needs every signal to be quiet, not one.** Firing on a single
+  quiet signal cries wolf; exempting a phase restores the hang the check exists for.
+  `tests/test_rip_worker.py::test_a_genuinely_wedged_drive_is_still_reported_stalled`
+  is the converse guard — keep one whenever you add a suppression.
+- **When you cannot measure, hold the last value and say why.** `· verifying track 3
+  (re-read 2) · about 54m left` is the shape: a number that stops moving with a
+  reason beside it. Blanking the estimate reads as a hang; recomputing it from a
+  pinned input is how both of the above happened.
+- **Every branch of the estimator records an `eta_trace` sample, tagged with the
+  branch that produced it** (`computed` / `held_*` / `rereading` / `stalled`). The
+  first version recorded only fresh measurements, and the resulting holes in the
+  shipped trace landed exactly on the minutes worth analysing.
+
 ### 3.9 Variable-length panes: wrap the labels, give it one scroll surface, and never nest two
 
 Two distinct failure modes, one root cause: **a widget whose content length is
@@ -915,4 +951,4 @@ External sources for the practices above:
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b8.*

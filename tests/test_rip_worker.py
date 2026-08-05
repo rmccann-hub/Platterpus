@@ -2380,3 +2380,273 @@ def test_the_measured_62_hour_sequence_cannot_happen_again(
     )
     # FLOOR: the replay must actually have driven the estimator, or it proves nothing.
     assert worker._smoothed_remaining_s is not None, "no estimate was ever produced"
+
+
+# --- a secure re-read is not a scratched disc, and not an exploding ETA ----------
+#
+# MEASURED ON REAL HARDWARE (2026-08-05, b8 + cyanrip f5e11ba, the Police baseline
+# disc). Two DIFFERENT bugs, one cause, both in the shipped artifacts:
+#
+#   the rip's own debug log:
+#     01:38:57 WARNING rip stalled: no forward progress for 3m 2s at 21.7% (track 3)
+#                      — the drive is stuck on a hard-to-read spot
+#     01:38:50 DEBUG   cyanrip │ Ripping track 3, progress - 52.29%
+#     01:38:55 DEBUG   cyanrip │ Ripping track 3, progress - 54.50%
+#
+#   the rip's own eta_trace (samples 372-380), the same minutes:
+#     21.73% -> 21.73% -> ... (frozen) ... and the ETA 54m -> 65 -> 75 -> 85
+#     -> 110 -> 135 -> 195 -> 340 -> 500 minutes, then a snap back to 46m
+#
+# The drive was reading PERFECTLY, at 1x, printing a steady climb — because this is
+# the secure re-read (`-Z`), which reads the SAME track again. `_overall_from_track`
+# maps that read into a span of the album the bar has already covered and
+# `_bump_overall` refuses to regress, so the album fraction is pinned for the whole
+# re-read. Watching only the album fraction, that is indistinguishable from a wedged
+# drive — so we told the maintainer twice in one rip that a good disc was scratched,
+# and divided (1 - 0.2173) of an album by whatever noise was left in the window.
+#
+# The floor added for the 62-hour bug could not catch this one: for the first 90 s of
+# the freeze the window still holds real pre-freeze movement, so the floor is
+# legitimately met and the divisor is legitimately tiny.
+
+
+# The Police baseline disc's real per-track lengths, from the TOC of the rip's own
+# EAC-compatible log (MM:SS.FF at 75 frames/s). Used so the replay weights the album
+# bar exactly as the field run did — an equal-slices fallback would put the freeze at
+# a different percentage and stop being a replay.
+_POLICE_TOC_MMSSFF: list[tuple[int, int, int]] = [
+    (3, 13, 12),
+    (3, 1, 5),
+    (4, 51, 28),
+    (5, 2, 0),
+    (4, 0, 72),
+    (4, 7, 8),
+    (4, 21, 7),
+    (3, 45, 30),
+    (3, 1, 0),
+    (4, 14, 45),
+    (5, 0, 30),
+    (5, 15, 23),
+    (4, 53, 42),
+    (4, 55, 55),
+]
+
+
+def _police_lengths_ms() -> list[int]:
+    return [
+        (m * 60 + s) * 1000 + round(f * 1000 / 75) for m, s, f in _POLICE_TOC_MMSSFF
+    ]
+
+
+def _rip_lines_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[RipWorker, _Clock]:
+    """A worker fed by REAL cyanrip stdout lines, with the Police disc's lengths.
+
+    Deliberately not `_eta_worker`: these tests are about a signal that only exists
+    in the per-track progress line, so calling `_album_eta_text` with a bare
+    percentage would bypass the very code under test. Driving the actual parser is
+    what makes the sequence below a replay rather than an assertion about numbers I
+    chose.
+    """
+    clock = _Clock()
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", clock)
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0)),
+        _params_with_lengths(tmp_path, list(_police_lengths_ms())),
+    )
+    worker._total_tracks = 14
+    worker._started_monotonic = clock.now - 600.0
+    worker._eta_pass_started = worker._started_monotonic
+    return worker, clock
+
+
+def _eta_elapsed(worker: RipWorker, clock: _Clock) -> float:
+    """Seconds of THIS PASS elapsed, as `_album_eta_text` computes it.
+
+    A helper because the two floors below first open-coded it as `clock.now - 600`
+    — which is not the elapsed time at all (the fake clock starts at 10_000, and the
+    baseline is the pass start), so one floor was ~8800 against a 90-second bound and
+    could never fail. A floor that cannot fail is the decoration CLAUDE.md warns
+    about, and it arrived in the check written to prevent exactly that.
+    """
+    return clock.now - (worker._eta_pass_started or 0.0)
+
+
+def _feed_lines(
+    worker: RipWorker, clock: _Clock, track: int, percents: list[float], step: float
+) -> list[str]:
+    """Feed cyanrip progress lines for `track`, `step` seconds apart.
+
+    Returns the status suffix `_album_eta_text` produced for each, which is exactly
+    what the user reads on the progress line.
+    """
+    out: list[str] = []
+    for pct in percents:
+        clock.tick(step)
+        prog = worker._progress_for(f"Ripping track {track}, progress - {pct:.2f}%")
+        assert prog is not None, f"the progress line for {pct}% did not parse"
+        out.append(worker._album_eta_text(prog[0]))
+    return out
+
+
+def test_a_secure_reread_is_not_reported_as_a_stalled_or_scratched_disc(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The field bug, verbatim: a healthy re-read must never say "scratch".
+
+    Track 3's re-read ran for ~10 minutes with the album bar pinned, so the
+    album-fraction-only stall detector fired twice — while cyanrip's own line climbed
+    steadily. A user reading "the drive is stuck on a hard-to-read spot (a scratch or
+    smudge)" about a disc that is fine will go clean or replace it for nothing.
+    """
+    worker, clock = _rip_lines_worker(tmp_path, monkeypatch)
+    # Track 3's first read, to 100% — this is what pins the bar at 21.73%.
+    _feed_lines(worker, clock, 3, [float(p) for p in range(10, 101, 5)], 10.0)
+    pinned = worker._overall
+    # Now the re-read: cyanrip restarts the same track at ~0% and climbs. Run it for
+    # WELL past the stall threshold — in the field it ran for two full 4:51 passes.
+    reread = [float(p) for p in range(2, 100, 2)]
+    shown = _feed_lines(worker, clock, 3, reread, 10.0)
+    assert _eta_elapsed(worker, clock) > rip_worker_module._ETA_STALL_THRESHOLD_S * 2, (
+        "the replay did not run long enough to reach the stall threshold, so it "
+        "cannot prove the detector stays quiet"
+    )
+    assert worker._overall == pinned, (
+        "the album bar moved during the re-read, so this replay is not reproducing "
+        "the frozen-bar condition the bug needs"
+    )
+    assert worker._reread_pass == 1, (
+        f"the re-read was not recognised (pass={worker._reread_pass}); the rest of "
+        "this test would then be checking the wrong code path"
+    )
+    for text in shown:
+        assert "stalled" not in text, f"a healthy re-read was called a stall: {text!r}"
+        assert "scratch" not in text, (
+            f"a healthy re-read was blamed on a scratch: {text!r}"
+        )
+    assert not worker._eta_stalled, "the worker still believes the rip is stalled"
+
+
+def test_a_genuinely_wedged_drive_is_still_reported_stalled(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The converse, and the reason the fix is a SECOND signal rather than an
+    exemption: when the drive really does stop, cyanrip stops printing progress
+    lines too, so both signals go quiet and the detector must still fire. A fix that
+    silenced the detector during re-reads would have passed the test above and
+    reintroduced the hours-long silent hang the detector exists for."""
+    worker, clock = _rip_lines_worker(tmp_path, monkeypatch)
+    _feed_lines(worker, clock, 3, [float(p) for p in range(10, 61, 5)], 10.0)
+    # The drive wedges: no more progress lines at all, just the passage of time.
+    clock.tick(rip_worker_module._ETA_STALL_THRESHOLD_S + 30.0)
+    text = worker._album_eta_text(worker._overall)
+    assert "stalled" in text, (
+        f"a wedged drive was not reported as stalled: {text!r} — the liveness "
+        "signal is being treated as permanent instead of as a timestamp"
+    )
+    assert worker._eta_stalled
+
+
+def test_the_eta_holds_and_says_why_during_a_secure_reread(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Replay the measured climb. The album fraction is pinned, so there is nothing
+    to project from; the honest output is the last estimate plus the reason.
+
+    The field numbers this replaces: 54m -> 1h5m -> 1h15m -> 1h25m -> 1h50m ->
+    2h15m -> 3h15m -> 5h40m, across 70 seconds, on a disc with ~22 minutes to go.
+    """
+    worker, clock = _rip_lines_worker(tmp_path, monkeypatch)
+    _feed_lines(worker, clock, 3, [float(p) for p in range(10, 101, 5)], 10.0)
+    baseline = worker._smoothed_remaining_s
+    assert baseline is not None, (
+        "no estimate was established from the first read, so a 'held' assertion "
+        "below would be vacuously true"
+    )
+    # The measured re-read percentages from the trace's own `activity` strings.
+    shown = _feed_lines(
+        worker, clock, 3, [5.0, 7.0, 11.0, 14.0, 17.0, 21.0, 24.0], 10.0
+    )
+    assert worker._smoothed_remaining_s == baseline, (
+        "the smoothed estimate moved while the album bar was pinned by a re-read — "
+        "it is still being recomputed from a frozen fraction"
+    )
+    for text in shown:
+        assert "verifying track 3" in text, (
+            f"the user is not told why the estimate stopped moving: {text!r}"
+        )
+        assert "left" in text, f"the estimate vanished during the re-read: {text!r}"
+        for hours in re.findall(r"(\d+)h", text):
+            assert int(hours) < 2, f"the ETA climbed during a re-read: {text!r}"
+
+
+def test_the_eta_resumes_on_a_fresh_window_after_a_reread(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No rate window may ever SPAN a freeze — the jump on the far side is catch-up,
+    not speed.
+
+    Measured: the first sample after track 3's re-read read 21.73% -> 29.55% and
+    projected 13 minutes for 12 minutes of work it had not started. That jump is
+    everything the pinned bar hid arriving at once, and dividing it by a window whose
+    other end predates the freeze reads the rate as far faster than the drive can go.
+
+    The window is emptied when the re-read STARTS, which is what makes this hold. A
+    SHORT re-read is what tests it: the discarded points have to still be inside the
+    90-second window at the moment the next track appends, or their absence proves
+    nothing but the pruning that would have happened anyway.
+    """
+    worker, clock = _rip_lines_worker(tmp_path, monkeypatch)
+    _feed_lines(worker, clock, 3, [float(p) for p in range(10, 101, 5)], 10.0)
+    pre_freeze = list(worker._eta_rate_window)
+    assert len(pre_freeze) > 1, "no pre-freeze window was built; nothing to poison"
+    _feed_lines(worker, clock, 3, [5.0, 40.0, 75.0, 100.0], 10.0)  # 40 s: sub-window
+    assert worker._reread_pass == 1, "the re-read was not detected; nothing to leave"
+    _feed_lines(worker, clock, 5, [3.0, 8.0, 14.0], 10.0)
+    assert worker._reread_pass == 0, "the re-read state survived the track change"
+    newest_pre_freeze = max(elapsed for elapsed, _ in pre_freeze)
+    assert (
+        _eta_elapsed(worker, clock) - newest_pre_freeze
+        < rip_worker_module._ETA_RATE_WINDOW_S
+    ), (
+        "the pre-freeze points would have aged out of the window on their own, so "
+        "this test cannot tell the fix from ordinary pruning"
+    )
+    survivors = [p for p in worker._eta_rate_window if p[0] <= newest_pre_freeze]
+    assert not survivors, (
+        f"{len(survivors)} pre-freeze point(s) are still in the rate window, so the "
+        "measured rate is the catch-up jump divided by the frozen period"
+    )
+
+
+def test_every_eta_branch_records_a_trace_sample(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The diagnostic hole. `eta_trace` used to record only fresh measurements, so
+    it went silent on exactly the minutes worth analysing — the b8 trace has a
+    541-second gap where the re-read and the stall were. A trace with holes over the
+    interesting part cannot answer the question it exists for."""
+    worker, clock = _rip_lines_worker(tmp_path, monkeypatch)
+    _feed_lines(worker, clock, 3, [float(p) for p in range(10, 101, 5)], 10.0)
+    _feed_lines(worker, clock, 3, [2.0, 6.0, 10.0], 10.0)  # re-read
+    clock.tick(rip_worker_module._ETA_STALL_THRESHOLD_S + 30.0)
+    worker._album_eta_text(worker._overall)  # wedged
+    states = [s.get("state") for s in worker.eta_trace]
+    assert "computed" in states, "no measurement was recorded at all"
+    assert "rereading" in states, (
+        f"the re-read minutes are missing from the trace: {states}"
+    )
+    assert "stalled" in states, (
+        f"the stalled minutes are missing from the trace: {states}"
+    )
+    # A held sample must be LABELLED, or it reads as a fresh measurement — which is
+    # the mistake that made the field peak un-analysable.
+    for sample in worker.eta_trace:
+        assert "state" in sample and "reread_pass" in sample, (
+            f"a trace sample carries no provenance: {sample}"
+        )
+    rereads = [s for s in worker.eta_trace if s.get("state") == "rereading"]
+    assert rereads and all(s["reread_pass"] >= 1 for s in rereads), (
+        "a 'rereading' sample recorded reread_pass 0, so the two fields disagree"
+    )

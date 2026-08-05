@@ -1237,6 +1237,70 @@ asserted the wrong behaviour outright, with a confident comment. **A declaration
 what a file states, never what it quotes.** Three bait shapes exist (indented,
 prose, fenced) and each project had independently found two of the three.
 
+### §5.ah — A detector's input can be pinned by design, and then it detects the design
+
+*Real hardware, 2026-08-05, b8 + cyanrip `f5e11ba`, the Police baseline disc.*
+
+Two user-visible bugs, one cause, and the cause is not in either detector — it is in
+the **signal both were reading**.
+
+The stall detector watched the album progress fraction: no meaningful step for 180 s
+means the drive is wedged on a scratch. The ETA divided the remaining fraction by
+that same fraction's recent rate. Both are sound. But `_overall_from_track` maps a
+track's progress into a span of the album, and `_bump_overall` refuses to let the bar
+regress — so **a secure re-read, which reads the same track again, pins the album
+fraction for its entire duration by construction.** Ten minutes of it, twice, in one
+rip. The artifacts say it plainly, in the same seconds:
+
+```
+01:38:57 WARNING rip stalled: no forward progress for 3m 2s at 21.7% (track 3)
+                 — the drive is stuck on a hard-to-read spot
+01:38:50 DEBUG   cyanrip │ Ripping track 3, progress - 52.29%
+01:38:55 DEBUG   cyanrip │ Ripping track 3, progress - 54.50%
+```
+
+and the ETA, off the same pinned fraction: 54m → 1h5m → 1h50m → 3h15m → **5h40m in
+70 seconds**, on a disc with 22 minutes to go. So: a healthy disc reported as
+scratched, and a countdown that quintupled while nothing was wrong.
+
+Four lessons, each of which cost something:
+
+1. **Ask what pins your input, not just what your logic does with it.** Both
+   detectors were reviewed, tested and correct. Neither review asked *"is there a
+   normal, designed condition under which this input stops changing while the world
+   does not?"* — and the answer was a headline feature of the product.
+2. **A monotonic display value is not a measurement.** `_bump_overall` exists for a
+   real UX reason (a bar must not go backwards). The moment a *display* value became
+   the input to two *inferences*, the clamp stopped being cosmetic. Derive
+   measurements from the raw signal; clamp only on the way to the screen.
+3. **The fix for "my signal went quiet" is a second signal, not an exemption.** The
+   tempting fix — suppress the stall detector during a re-read — passes the test that
+   the false alarm is gone and silently reintroduces the hours-long undetected hang
+   the detector was written for. Taking cyanrip's own per-operation percentage as a
+   second witness and firing only when *neither* has moved makes the detector
+   strictly **more** sensitive. `test_a_genuinely_wedged_drive_is_still_reported_stalled`
+   is the converse guard, and it exists because the exemption would have passed
+   without it.
+4. **A trace that goes quiet during the interesting part is not a trace.** Only the
+   branch that made a fresh rate measurement recorded an `eta_trace` sample — the
+   hold and stall paths returned early, with a comment reasoning that "holding is the
+   absence of a computation." That reasoning cost the analysis of this bug: the
+   shipped trace has a **541-second and a 400-second hole**, both landing exactly on
+   the minutes the estimator was misbehaving, so its peak reading could not be
+   explained from the artifact meant to explain it. Every branch records now, each
+   labelled with a `state` — the labelling is what keeps a re-shown estimate from
+   reading as a measurement, which is the honest version of what the early return was
+   trying to protect.
+
+**And a floor caught a floor.** The regression test for the rate window asserts that
+the discarded points would still have been *inside* the 90-second window — otherwise
+ordinary pruning, not the fix, explains their absence. Written first as
+`clock.now - 600.0`, which is not the elapsed time at all (the fake clock starts at
+10 000), it compared ~8800 against a 90-second bound and could never fail. It fired
+only because the sibling assertion made the arithmetic visible. Compute a derived
+quantity **once, in a named helper**, especially inside a check whose whole purpose is
+to not be vacuous.
+
 ## 6. Definition of Done (testing) — paste into every PR
 
 - [ ] New/changed behaviour has tests across the relevant **tiers** (§3) — at
@@ -1303,4 +1367,4 @@ Install the test tooling with the dev extra: `pip install -e ".[dev]"`
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b8.*
