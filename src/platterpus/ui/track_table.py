@@ -20,7 +20,8 @@ Editable columns: Title, Artist. Track number and length are read-only.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import logging
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import TypeAlias
 
@@ -56,6 +57,8 @@ from platterpus.settings_validation import path_segment_issue
 # started rejecting it wherever it was used as an annotation.
 _Index: TypeAlias = QModelIndex | QPersistentModelIndex
 
+log = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class AlbumMetadata:
@@ -88,6 +91,103 @@ _STATUS_DISPLAY: dict[str, str] = {
     STATUS_RIPPING: "⟳ Ripping",
     STATUS_DONE: "✓ Done",
 }
+
+# --- Column widths: measured once per disc, never during a rip -------------------
+#
+# WHY THIS IS NOT `ResizeToContents`, which is what it used to be. That mode
+# re-measures whenever the data changes, and the Status column's data changes on
+# EVERY track transition — so the whole table re-laid-out mid-rip. Measured on the
+# 14-track reference disc at a 900 px window (2026-08-05, after the maintainer
+# reported the columns "eating the width"):
+#
+#     pending   Rip?=33  #=26  Title=370  Artist=369  Length=52  Status=48
+#     ripping   Rip?=33  #=26  Title=360  Artist=360  Length=52  Status=67
+#     done      Rip?=33  #=26  Title=367  Artist=367  Length=52  Status=53
+#
+# Status swings 48 -> 67 -> 53 as one track advances, and the two stretch columns
+# give and take to absorb it — so the Title text the user is reading shifts sideways
+# roughly **twice per track**, 28 times over a disc. Nothing is broken; it just
+# never sits still, which reads as the layout being unstable rather than as a bar
+# advancing.
+#
+# So: every column except Title gets a width computed from the widest string it can
+# ever hold, and only Title stretches. The widths are derived from the SAME tables
+# the cells render from (`_STATUS_DISPLAY.values()`, `_COLUMNS`), so a new status
+# string widens the column automatically — a hand-maintained list of specimen
+# strings would be a second copy to keep in sync, and it would go stale silently.
+#
+# Padding for the cell's own margins plus the frame; measured empirically rather
+# than derived, because the exact figure is style-dependent and only needs to be
+# generous enough that no text is clipped.
+_COL_PAD_PX: int = 16
+# The widest track number a Red Book CD can carry is 99, so sizing to "99" makes a
+# 9-track disc and a 14-track disc render identically — otherwise the `#` column
+# changes width between discs for no reason the user can see.
+_WIDEST_TRACK_NUMBER: str = "99"
+# The widest length string: a CD tops out near 80 minutes, so two digits of minutes
+# is the ceiling. "00:00" is wider than "9:99" in any proportional font.
+_WIDEST_LENGTH: str = "00:00"
+# Artist starts sized to its content but never takes more than this share of the
+# table, so a compilation with long artist credits cannot squeeze Title out. The
+# user can still drag it — Artist is Interactive, not Fixed.
+_ARTIST_MAX_FRACTION: float = 0.32
+
+
+def status_column_width(measure: Callable[[str], int], pad: int = _COL_PAD_PX) -> int:
+    """Width the Status column needs to hold ANY status it can ever show.
+
+    ``measure`` is a text-width function (in practice ``QFontMetrics
+    .horizontalAdvance``); injected so this is a pure, directly testable function
+    rather than something only observable through a laid-out widget.
+
+    Derived from ``_STATUS_DISPLAY`` itself, so adding a status string cannot leave
+    this width behind. Pure; never raises.
+    """
+    candidates = [_COLUMNS[_COL_STATUS], *_STATUS_DISPLAY.values()]
+    return max(measure(text) for text in candidates) + pad
+
+
+def fixed_column_widths(
+    measure: Callable[[str], int], pad: int = _COL_PAD_PX
+) -> dict[int, int]:
+    """Width for every column that must NOT resize itself, keyed by column index.
+
+    Excludes Title (which stretches) and Artist (whose width depends on the disc's
+    own data — see `artist_column_width`). Pure; never raises.
+    """
+    return {
+        _COL_RIP: measure(_COLUMNS[_COL_RIP]) + pad,
+        _COL_NUMBER: max(measure(_COLUMNS[_COL_NUMBER]), measure(_WIDEST_TRACK_NUMBER))
+        + pad,
+        _COL_LENGTH: max(measure(_COLUMNS[_COL_LENGTH]), measure(_WIDEST_LENGTH)) + pad,
+        _COL_STATUS: status_column_width(measure, pad),
+    }
+
+
+def artist_column_width(
+    measure: Callable[[str], int],
+    artists: Iterable[str],
+    available_px: int,
+    pad: int = _COL_PAD_PX,
+) -> int:
+    """Initial width for the Artist column: what its content needs, capped.
+
+    An album where every row reads "The Police" needs ~70 px and used to be handed
+    half the table, because two `Stretch` columns split the remainder evenly and
+    Title is the column with the varied, long text. Sized to content instead, with
+    a ceiling of `_ARTIST_MAX_FRACTION` of the table so a compilation's long artist
+    credits still cannot crowd Title out.
+
+    `available_px` <= 0 (a widget not laid out yet) means "no ceiling known", so the
+    content width stands. Pure; never raises.
+    """
+    needed = max(
+        [measure(_COLUMNS[_COL_ARTIST]), *(measure(a) for a in artists if a)] or [0]
+    )
+    needed += pad
+    if available_px > 0:
+        return min(needed, int(available_px * _ARTIST_MAX_FRACTION))
+    return needed
 
 
 def _format_length(ms: int | None) -> str:
@@ -126,6 +226,14 @@ class TrackTableModel(QAbstractTableModel):
         self._selected: dict[int, bool] = {}
 
     # --- Public surface ---
+
+    def artist_credits(self) -> list[str]:
+        """Every row's Artist text, for sizing that column to its real content.
+
+        Reads the model rather than the ReleaseDetail so it reflects the user's
+        edits and any album-artist propagation, not just what MusicBrainz sent.
+        """
+        return [t.artist_credit for t in self._tracks]
 
     def set_tracks(self, tracks: Sequence[TrackSummary]) -> None:
         """Replace the current track list. Resets the view, rip status, and
@@ -410,15 +518,20 @@ class TrackTable(QWidget):
         # was removed (real-user feedback, 2026-07-22). Live progress lives in the
         # one two-tier bar (overall + current task); the grid just says which
         # track is active.
-        # Title + Artist columns stretch; # + Length are content-sized.
+        # ONLY Title stretches. Everything else is Interactive at a width computed
+        # from the widest string it can hold — see the `_COL_PAD_PX` block above for
+        # the measurements that motivated this. `Interactive`, not `Fixed`, so the
+        # user can still drag any boundary; what they cannot get is the table
+        # re-laying itself out under them while a rip advances.
         header = self._view.horizontalHeader()
         for col in range(len(_COLUMNS)):
             mode = (
                 QHeaderView.ResizeMode.Stretch
-                if col in _EDITABLE_COLS
-                else QHeaderView.ResizeMode.ResizeToContents
+                if col == _COL_TITLE
+                else QHeaderView.ResizeMode.Interactive
             )
             header.setSectionResizeMode(col, mode)
+        self._apply_column_widths()
         # Right-click a row (or several highlighted rows) for quick rip-selection
         # actions — the second half of the "checkbox column + right-click" model.
         self._view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -428,6 +541,35 @@ class TrackTable(QWidget):
         self._model.selection_changed.connect(self.selection_changed)
         root.addWidget(self._view, stretch=1)
 
+    def _apply_column_widths(self) -> None:
+        """Size every non-stretching column from the widest text it can hold.
+
+        Called when the DISC changes (a new release, placeholder rows, an
+        album-artist propagation) — deliberately NOT when a track's status changes,
+        which is what `ResizeToContents` used to do and is what made the table shift
+        under the user roughly twice per track. Best-effort: a geometry helper must
+        never take a rip down, so a Qt failure is logged and swallowed.
+        """
+        try:
+            from PySide6.QtGui import QFontMetrics
+
+            header = self._view.horizontalHeader()
+            measure = QFontMetrics(self._view.font()).horizontalAdvance
+            widths = fixed_column_widths(measure)
+            for col, width in widths.items():
+                header.resizeSection(col, width)
+            # Artist last: its ceiling is a share of what is left after the fixed
+            # columns, not of the whole table, or a narrow window would let it take
+            # a third of the space Title needs.
+            viewport = self._view.viewport().width()
+            remaining = max(0, viewport - sum(widths.values()))
+            header.resizeSection(
+                _COL_ARTIST,
+                artist_column_width(measure, self._model.artist_credits(), remaining),
+            )
+        except Exception:  # noqa: BLE001 — layout polish must never break a rip
+            log.exception("column-width sizing failed; leaving Qt's defaults")
+
     # --- Public surface -----------------------------------------------------
 
     def set_release(self, detail: ReleaseDetail) -> None:
@@ -436,6 +578,7 @@ class TrackTable(QWidget):
         self._album_title_edit.setText(detail.summary.title)
         self._album_year_edit.setText(detail.summary.date)
         self._model.set_tracks(detail.tracks)
+        self._apply_column_widths()
 
     def set_placeholder_tracks(self, count: int) -> None:
         """Pre-fill placeholder metadata for a disc MusicBrainz can't ID.
@@ -455,6 +598,7 @@ class TrackTable(QWidget):
         self._album_year_edit.clear()
         if count <= 0:
             self._model.set_tracks([])
+            self._apply_column_widths()
             return
         rows = [
             TrackSummary(
@@ -465,6 +609,7 @@ class TrackTable(QWidget):
             for n in range(1, count + 1)
         ]
         self._model.set_tracks(rows)
+        self._apply_column_widths()
 
     def set_locked(self, locked: bool) -> None:
         """Lock the table read-only for the duration of a rip.
@@ -523,6 +668,7 @@ class TrackTable(QWidget):
     def _propagate_album_artist(self) -> None:
         """Push the album-artist field into every track row's Artist cell."""
         self._model.set_all_artists(self._album_artist_edit.text())
+        self._apply_column_widths()
 
     def album_metadata(self) -> AlbumMetadata:
         """Return the user's current album-level edits."""

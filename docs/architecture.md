@@ -442,6 +442,47 @@ So, when you add anything that reasons about rip progress:
   first version recorded only fresh measurements, and the resulting holes in the
   shipped trace landed exactly on the minutes worth analysing.
 
+### 3.8b Tables: size a column to what it *can* hold, not to what it holds now
+
+`ResizeToContents` looks like the right answer for any column whose width should
+follow its text, and it is — right up to the point where that text changes while the
+user is watching. The Status column in the track grid changes on every track
+transition, so the grid re-laid-out roughly **twice per track**, sliding the Title
+text sideways 28 times over a disc (measured 2026-08-05; `Status` swung 48 → 67 → 53
+px and the stretch columns absorbed it).
+
+The pattern that replaced it, and the one to follow for any new grid:
+
+- **One column stretches. Every other column is `Interactive` at a computed width.**
+  `Interactive`, not `Fixed`, so the user can still drag; what they cannot get is the
+  table rearranging itself under them.
+- **Compute the width from the widest string the column can EVER hold**, and derive
+  that from the same table the cells render from — `track_table.status_column_width`
+  reads `_STATUS_DISPLAY.values()`, so adding a status widens the column with no
+  second list to update. A hand-written list of specimen strings is a copy, and it
+  goes stale silently because a narrow column elides rather than errors.
+- **Size for the domain, not for this disc.** The `#` column is sized for `"99"`, not
+  for the disc's own highest track, so a 9-track and a 14-track disc render
+  identically — otherwise the column changes width *between* rips instead of during
+  one.
+- **Recompute on a DATA change, never on a status change.** `_apply_column_widths` is
+  called from `set_release` / `set_placeholder_tracks` / the album-artist
+  propagation, and from nowhere else.
+- **Two `Stretch` columns split the remainder evenly**, which is almost never what you
+  want: it gave a column repeating `"The Police"` the same width as the column of long
+  varied titles. Stretch the one that needs the room; size the other to its content
+  with a **cap** (a share of the table) so an outlier row cannot crowd the first out.
+- **The pure width functions take a `measure` callable** so they are testable without
+  a laid-out widget, and the widget wrapper is a thin `resizeSection` loop that never
+  raises — geometry polish must not be able to take a rip down.
+
+And one Qt fact worth knowing before you tune anything: **`QSplitter.setStretchFactor`
+distributes only the space left after each pane's `sizeHint`.** When the hints already
+fill the window the factors are inert — measured across four factor sets and four
+window sizes with byte-identical results. If a pane opens too small, `setSizes()` on
+first show is the lever, not the factors (`main_window._apply_pane_shares`); apply it
+**once**, or it silently undoes the user's dragging.
+
 ### 3.9 Variable-length panes: wrap the labels, give it one scroll surface, and never nest two
 
 Two distinct failure modes, one root cause: **a widget whose content length is
