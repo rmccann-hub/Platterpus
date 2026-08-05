@@ -11,6 +11,7 @@ whipper binary.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import time
 from collections.abc import Iterable
@@ -26,6 +27,7 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     TrackTag,
 )
+from platterpus.workers import rip_worker as rip_worker_module
 from platterpus.workers.rip_worker import (
     RipParameters,
     RipWorker,
@@ -1043,7 +1045,18 @@ def test_album_eta_is_smoothed(qapp: QApplication, tmp_path: Path) -> None:
     assert seeded is not None
     # A pass that suddenly implies a much larger remaining shouldn't yank the
     # smoothed value all the way there.
-    worker._album_eta_text(10.0)  # raw ~900s, but EMA moves only ~15% of the gap
+    #
+    # **THE STIMULUS CHANGED, NOT THE PROPERTY.** This used to jump 50% -> 10%, a
+    # 40-POINT DROP. That is now classified as a pass RESTART (the auto-fix re-rip
+    # is a second cyanrip invocation reporting progress from zero), which correctly
+    # clears the estimate instead of blending two scales — so the old stimulus no
+    # longer exercises smoothing at all. The sawtooth the EMA actually exists for is
+    # FORWARD: the bar creeps a hair while time passes, so the projected remaining
+    # balloons. That is what is fed here. The restart path has its own test
+    # (`test_a_rerip_restarting_progress_resets_the_rate_estimate`), so both
+    # behaviours are covered rather than one masking the other.
+    worker._started_monotonic -= 800.0  # 900s elapsed at ~50% => raw ~900s
+    worker._album_eta_text(50.001)
     assert worker._smoothed_remaining_s < 0.5 * (seeded + 900)
 
 
@@ -2153,3 +2166,176 @@ def test_the_rip_log_is_not_read_before_the_child_is_reaped(
         "before the child has flushed and exited"
     )
     assert Path(log_path).read_text(encoding="utf-8") == text
+
+
+# --- the ETA must never print 62 hours -------------------------------------------
+#
+# MEASURED ON REAL HARDWARE, from the rip's own `eta_trace` (2026-08-05, the Police
+# baseline disc on b6 + cyanrip f5e11ba). During track 5's auto-fix re-rip the album
+# ETA climbed across eight consecutive samples:
+#
+#     51m -> 59m -> 70m -> 85m -> 115m -> 175m -> 335m -> 3715m   then snapped to 11m
+#
+# 3715 minutes is 62 HOURS, on a 60-minute disc, with ~6 minutes of work left. The
+# maintainer reported it as "track 5 went from hours to minutes and such".
+#
+# CAUSE: `raw_remaining = (1 - frac) * window_dt / window_dfrac`, guarded only by
+# `window_dfrac > 0`. The re-rip is a SECOND cyanrip invocation, so `overall_percent`
+# first went BACKWARDS (94.79 -> 29.35) and then FROZE at 35.45 while work continued.
+# A frozen bar still wobbles by a rounding step, and 0.01 percentage points is
+# greater than zero, so an hour of remaining work got divided by noise.
+
+
+class _Clock:
+    """A controllable monotonic clock.
+
+    The real trace samples every ~10 seconds. Calling `_album_eta_text` in a tight
+    loop instead makes the window's `dt` a few microseconds, so the measured rate
+    looks near-infinite and a pre-existing guard returns "" — an artifact of the
+    test, not the product. Driving time explicitly is what makes these tests
+    reproduce the field behaviour rather than a harness quirk.
+    """
+
+    def __init__(self, start: float = 10_000.0) -> None:
+        self.now: float = start
+
+    def __call__(self) -> float:
+        return self.now
+
+    def tick(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _eta_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[RipWorker, _Clock]:
+    """A worker whose ETA clock we drive, with 10 minutes already elapsed."""
+    clock = _Clock()
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", clock)
+    worker = RipWorker(
+        _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0)), _params(tmp_path)
+    )
+    worker._started_monotonic = clock.now - 600.0
+    worker._eta_pass_started = worker._started_monotonic
+    return worker, clock
+
+
+def _feed(worker: RipWorker, clock: _Clock, percents: list[float]) -> list[str]:
+    """Feed album percentages 10 seconds apart, as the real sampler does."""
+    out: list[str] = []
+    for pct in percents:
+        clock.tick(10.0)
+        out.append(worker._album_eta_text(pct))
+    return out
+
+
+def test_a_frozen_progress_bar_never_produces_an_absurd_eta(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The regression. A bar that stops advancing must not divide by its own noise."""
+    worker, clock = _eta_worker(tmp_path, monkeypatch)
+    # Establish a believable estimate from real forward movement...
+    _feed(worker, clock, [20.0, 22.0, 24.0, 26.0, 28.0, 30.0, 33.0, 35.44])
+    assert worker._smoothed_remaining_s is not None, (
+        "no baseline estimate was established — the test proves nothing"
+    )
+    # ...then freeze the bar, wobbling by a rounding step exactly as the measured
+    # trace did (35.44 -> 35.45 -> 35.44 …). THIS produced 3715 minutes.
+    shown = _feed(worker, clock, [35.45, 35.44] * 20)
+    worst = worker._smoothed_remaining_s or 0.0
+    assert worst < 24 * 60 * 60, (
+        f"the estimate reached {worst / 3600:.1f} hours on a frozen bar — the "
+        "divide-by-noise bug is back"
+    )
+    # Precise, not a substring: the first version tested `"d " not in text`, which
+    # matches "har**d-**to-read spot" in the stall message. A check that fires on the
+    # wrong thing is the failure CLAUDE.md warns about, arriving in the test itself.
+    for text in shown:
+        for hours in re.findall(r"(\d+)h", text):
+            assert int(hours) < 24, f"an ETA of {hours}h was displayed: {text!r}"
+
+
+def test_the_estimate_is_held_not_reinvented_while_the_bar_is_frozen(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A frozen bar means "rate unmeasurable", so the last estimate stands."""
+    worker, clock = _eta_worker(tmp_path, monkeypatch)
+    _feed(worker, clock, [20.0, 24.0, 28.0, 32.0, 35.0])
+    before = worker._smoothed_remaining_s
+    assert before is not None
+    # Freeze for LONGER THAN THE RATE WINDOW (90s) before expecting a hold. For the
+    # first 90s of a freeze the window still contains real forward movement, so a
+    # growing estimate is correct there — the rate genuinely is falling. Holding is
+    # for when the window is entirely frozen and there is no rate left to measure.
+    _feed(worker, clock, [35.0] * 12)  # 120s > _ETA_RATE_WINDOW_S
+    settled = worker._smoothed_remaining_s
+    assert settled is not None
+    held = _feed(worker, clock, [35.0, 35.0])
+    assert worker._smoothed_remaining_s == settled, (
+        "the smoothed estimate moved on a fully-frozen window — recomputed from "
+        "noise instead of held"
+    )
+    # Holding must still SHOW something. Suppressing the ETA entirely while the
+    # drive works is its own bug: the user reads a vanished estimate as a hang.
+    assert all(text for text in held), (
+        f"the ETA vanished while holding instead of showing the last value: {held!r}"
+    )
+    assert before is not None  # floor: a baseline really was established first
+
+
+def test_a_rerip_restarting_progress_resets_the_rate_estimate(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """94.79% -> 29.35% is a new pass, not a regression: measure it on its own."""
+    worker, clock = _eta_worker(tmp_path, monkeypatch)
+    _feed(worker, clock, [80.0, 85.0, 90.0, 94.79])
+    assert len(worker._eta_rate_window) > 1, "no window built; the test proves nothing"
+    _feed(worker, clock, [29.35])  # the measured re-rip restart
+    assert len(worker._eta_rate_window) == 1, (
+        "the album's rate window survived a progress restart, so two different "
+        "scales are being averaged together"
+    )
+
+
+def test_the_measured_62_hour_sequence_cannot_happen_again(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Replay the field trace's own percentages through the real estimator.
+
+    Samples 338-382 of the 2026-08-05 rip: track 14 finishing, then the track-5
+    re-rip restarting progress and freezing it. The old code printed 51 -> 59 -> 70
+    -> 85 -> 115 -> 175 -> 335 -> **3715** minutes across this sequence.
+    """
+    measured = [
+        93.66,
+        93.95,
+        94.24,
+        94.52,
+        94.79,  # track 14 finishing
+        29.35,
+        29.69,
+        29.89,
+        30.13,
+        30.47,
+        30.68,  # the re-rip restarts
+        31.28,
+        31.75,
+        32.09,
+        32.56,
+        33.04,
+        33.64,
+        34.18,
+        34.66,
+        34.99,
+        35.26,
+        35.45,
+        *([35.45] * 16),  # then it FREEZES
+    ]
+    worker, clock = _eta_worker(tmp_path, monkeypatch)
+    peak = 0.0
+    for text in _feed(worker, clock, measured):
+        peak = max(peak, worker._smoothed_remaining_s or 0.0)
+        assert "3715" not in text, f"the exact field value reappeared: {text!r}"
+    assert peak < 24 * 60 * 60, (
+        f"replaying the measured trace still peaks at {peak / 3600:.1f} hours"
+    )

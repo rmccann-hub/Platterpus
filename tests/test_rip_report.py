@@ -462,19 +462,35 @@ def test_session_log_is_embedded_in_the_json_not_a_sidecar(tmp_path: Path) -> No
     assert not (tmp_path / "Album.platterpus.log").exists()
 
 
-def test_debug_section_caps_embedded_lines_and_keeps_most_recent() -> None:
-    """A marathon session must not bloat the report (or its on-GUI-thread
-    re-serialization): the embedded log is capped to the most-recent lines and
-    marked truncated; log.txt keeps the full history."""
+def test_debug_section_keeps_BOTH_ENDS_when_it_has_to_truncate() -> None:
+    """A truncated embedded log keeps the HEAD **and** the TAIL, counted.
+
+    **THIS TEST'S EXPECTATION CHANGED DELIBERATELY.** It used to assert tail-only
+    ("keeps most recent"), matching the old `lines[-N:]`. That drops exactly the
+    opening of a rip — the argv we spawned, the drive and disc detection, the
+    settings in force — and CLAUDE.md's diagnostic-completeness rule requires both
+    ends with a counted elision, because "a silent truncation reads as
+    completeness". A failure's explanation is usually last; a rip's *context* is
+    always first.
+
+    Note the cap itself is now a runaway backstop, not a routine limit (the
+    maintainer: *"I did tell you to capture more error data than you think you
+    need"*), so reaching it takes a deliberately pathological input.
+    """
     from platterpus.rip_report import _MAX_EMBEDDED_LOG_LINES
 
     lines = [f"line {i}" for i in range(_MAX_EMBEDDED_LOG_LINES + 500)]
     debug = build_debug_log(lines)
-    assert len(debug["lines"]) == _MAX_EMBEDDED_LOG_LINES
     assert debug["truncated"] is True
-    # The most RECENT lines are kept (closest to the just-finished rip).
-    assert debug["lines"][-1] == lines[-1]
-    assert debug["lines"][0] == lines[500]
+    # BOTH ends survive.
+    assert debug["lines"][0] == lines[0], "the head was dropped"
+    assert debug["lines"][-1] == lines[-1], "the tail was dropped"
+    # And the gap is MARKED and COUNTED, not silently joined.
+    markers = [line for line in debug["lines"] if "elided" in line]
+    assert len(markers) == 1, f"expected exactly one elision marker, got {markers}"
+    assert "500" in markers[0] or "50" in markers[0], (
+        f"the elision marker does not state how many lines went missing: {markers[0]!r}"
+    )
 
 
 def test_ctdb_section_serialized_when_present() -> None:

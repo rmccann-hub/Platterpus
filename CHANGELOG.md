@@ -11,6 +11,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b7] — 2026-08-05
+
+**Everything here came out of one real rip's own artifacts** — the 2026-08-05 Police
+baseline rip on `b6` + cyanrip `f5e11ba`. The A2 denominator change landed correctly in
+the field (`partially_accurate_reported: "1/14"`, sentence unchanged), and the report's
+383-sample `eta_trace` was what made the timing bug measurable rather than anecdotal.
+
+### Fixed
+- **The album ETA could reach 62 hours on a 60-minute disc.** Measured from the rip's own
+  trace: during track 5's auto-fix re-rip the estimate climbed `51 → 59 → 70 → 85 → 115 →
+  175 → 335 → **3715 minutes**` across eight consecutive samples, then snapped back to 11
+  — the maintainer's *"track 5 went from hours to minutes"*. **Cause:** the remaining time
+  is projected as `(1 − frac) × window_dt ÷ window_dfrac`, and the only guard was
+  `window_dfrac > 0`. A re-rip is a *second* cyanrip invocation, so album progress first
+  went **backwards** (94.79% → 29.35%) and then **froze** at 35.45% while work continued;
+  a frozen bar still wobbles by a rounding step, and 0.01 percentage points is greater
+  than zero, so an hour of remaining work was divided by noise. Three fixes, each with its
+  own test: a **floor** on the progress delta before its rate is believed (below it the
+  last estimate is *held* rather than reinvented — the honest answer when the rate is
+  unmeasurable); **restart detection**, so a backwards jump resets the rate window instead
+  of averaging two different scales; and a **sanity ceiling**, above which no estimate is
+  shown at all, because "about 62 hours left" is worse than silence — the user cannot tell
+  a bug from a slow disc. Includes a test that replays the field trace's own percentages
+  through the real estimator.
+- **A truncated embedded log kept only the tail, dropping the rip's own opening** — the
+  argv we spawned, the drive and disc detection, the settings in force. Now keeps **head
+  and tail** with a **counted** elision marker, per the diagnostic-completeness rule: *a
+  silent truncation reads as completeness*.
+
+### Changed
+- **Log retention raised from ~6 MiB to ~88 MiB** (`1 MiB × 5` → `8 MiB × 10`), answering
+  the maintainer's question about whether the 1 MiB split was sound. It was not: one
+  14-track rip writes enough that a few sessions evicted the oldest file, rotation is **by
+  size alone** (not per session, not per version), so the eviction is silent and the file
+  that scrolls away is the one holding the rip you are trying to diagnose. Three of the
+  four log files uploaded were exactly 1 MiB — i.e. full — which is the tell.
+- **The report's embedded-log limits are now runaway backstops, not routine caps**
+  (10k lines → 200k; a new 8 MiB byte budget). An earlier revision of this change capped
+  the block at 256 KiB to shrink a 1.5 MB report; the maintainer corrected it — *"I did
+  tell you to capture more error data than you think you need"* — and the arithmetic
+  agrees: 1.5 MB of diagnostics sits beside ~400 MB of FLAC for the same album, so the
+  report is 0.4% of what the rip already wrote. A verbose 14-track rip is now embedded
+  **whole**.
+- **The cyanrip test pin stays `f5e11ba`**; this release changes only Platterpus.
+
 ## [0.6.4b6] — 2026-08-05
 
 **A pre-release paired with cyanrip `f5e11ba` (`0.9.4-rc1+platterpus.5-beta.4`) — cutting edge
@@ -6185,7 +6230,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...HEAD
+[0.6.4b7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...v0.6.4b7
 [0.6.4b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...v0.6.4b6
 [0.6.4b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...v0.6.4b5
 [0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
@@ -6263,4 +6309,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b6.*
+*Last updated for Platterpus v0.6.4b7.*

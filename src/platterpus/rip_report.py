@@ -198,7 +198,33 @@ REPORT_SCHEMA_VERSION: int = 20
 # case (the write is atomic + debounced, off the critical path). Lines are scoped
 # to THIS rip already; if the in-memory buffer's own bound ever truncated older
 # lines, `truncated` is set and the full history is still in log.txt.
-_MAX_EMBEDDED_LOG_LINES: int = 10000
+# ALSO A BACKSTOP, for the same reason as the byte budget below — raised from 10,000
+# after that number turned out to be the binding constraint on a real verbose rip
+# (20k lines), which is not what a "cap a pathological case" limit should ever be.
+# Bytes are the meaningful bound; this is the cheap sanity guard in front of them.
+_MAX_EMBEDDED_LOG_LINES: int = 200_000
+
+# Byte budget for the embedded log — the bound that actually matters, added after a
+# real 14-track rip produced a **1.5 MB** report of which **1.23 MB (81%)** was this
+# one block. The line cap above was set from an estimate ("a few hundred lines at
+# INFO, low thousands at DEBUG") that was never measured against a rip, and a line
+# cap cannot bound a file anyway because a line has no fixed length.
+#
+# **THIS IS A RUNAWAY BACKSTOP, NOT A ROUTINE CAP — DO NOT LOWER IT TO SAVE SPACE.**
+# The first version of this constant was 256 KiB, chosen to bring that 1.5 MB report
+# "back under control", and the maintainer corrected it on the spot: *"I did tell you
+# to capture more error data than you think you need."* He is right, and the
+# arithmetic says so — 1.5 MB of diagnostics sits beside ~400 MB of FLAC for the same
+# album, so the report is 0.4% of what the rip already wrote. Trading a diagnosis for
+# 0.4% is the wrong trade, and it is the exact trade CLAUDE.md's diagnostic-
+# completeness rule forbids: a fact we had and discarded is worse than one we never
+# obtained, because the artifact looks complete either way.
+#
+# 8 MiB therefore bounds only a pathological case (a log loop, a runaway retry) where
+# the report would otherwise grow without limit and become unopenable. A normal
+# verbose rip — measured at 1.23 MB for 14 tracks at DEBUG — is nowhere near it and
+# is embedded whole.
+_MAX_EMBEDDED_LOG_BYTES: int = 8 * 1024 * 1024
 
 
 def build_report(
@@ -377,7 +403,16 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> dict:
     embedded = list(lines)
     capped = len(embedded) > _MAX_EMBEDDED_LOG_LINES
     if capped:
-        embedded = embedded[-_MAX_EMBEDDED_LOG_LINES:]
+        embedded = _head_and_tail(embedded, _MAX_EMBEDDED_LOG_LINES)
+    # THEN the byte budget, which is the constraint that actually bit. The line cap
+    # alone let a real 14-track rip's report reach 1.23 MB of `debug` — 81% of a
+    # 1.5 MB file — because the comment above estimated "a few hundred lines at
+    # INFO, low thousands at DEBUG" and never checked. Lines are a proxy; bytes are
+    # the thing the user waits on and the disk holds.
+    budget = _MAX_EMBEDDED_LOG_BYTES
+    if sum(len(line) + 1 for line in embedded) > budget:
+        capped = True
+        embedded = _head_and_tail_by_bytes(embedded, budget)
     return {
         "scope": "this session since launch, excluding other albums' rips",
         # True if EITHER the in-memory buffer dropped lines OR we capped here;
@@ -385,6 +420,64 @@ def build_debug_log(lines: list[str], *, truncated: bool = False) -> dict:
         "truncated": bool(truncated) or capped,
         "lines": embedded,
     }
+
+
+def _elision(dropped: int) -> str:
+    """The marker that makes a truncation VISIBLE and COUNTED.
+
+    CLAUDE.md: *"A silent truncation reads as completeness."* A reader who sees a
+    gap marked with its size knows to open log.txt; a reader who sees a seamless
+    join believes they have the whole record.
+    """
+    return f"… [{dropped} line(s) elided by Platterpus — the full record is in log.txt]"
+
+
+def _head_and_tail(lines: list[str], limit: int) -> list[str]:
+    """Keep the FIRST and LAST portions, not just the last.
+
+    **Tail-only was the bug here.** The old cap kept `lines[-N:]`, which for a rip
+    drops exactly the opening: the argv we spawned, the drive and disc detection,
+    the settings in force. A failure's explanation is usually last, but a rip's
+    *context* is always first, and a bounded record needs both ends (CLAUDE.md,
+    diagnostic completeness). Two-thirds to the tail, because that is where a
+    fatal message lands.
+    """
+    if len(lines) <= limit:
+        return lines
+    tail_n = max(1, (limit * 2) // 3)
+    head_n = max(1, limit - tail_n - 1)  # -1 leaves room for the marker itself
+    dropped = len(lines) - head_n - tail_n
+    return [*lines[:head_n], _elision(dropped), *lines[-tail_n:]]
+
+
+def _head_and_tail_by_bytes(lines: list[str], budget: int) -> list[str]:
+    """The same head+tail shape, bounded by BYTES rather than line count.
+
+    A line can be any length, so a line cap does not bound a file. Fills the tail
+    first (a fatal message is the last thing printed), then the head with whatever
+    budget remains, and always emits the counted marker.
+    """
+    tail: list[str] = []
+    used = 0
+    tail_budget = (budget * 2) // 3
+    for line in reversed(lines):
+        cost = len(line) + 1
+        if used + cost > tail_budget:
+            break
+        tail.append(line)
+        used += cost
+    tail.reverse()
+    head: list[str] = []
+    for line in lines[: len(lines) - len(tail)]:
+        cost = len(line) + 1
+        if used + cost > budget:
+            break
+        head.append(line)
+        used += cost
+    dropped = len(lines) - len(head) - len(tail)
+    if dropped <= 0:
+        return lines
+    return [*head, _elision(dropped), *tail]
 
 
 def build_outcome(
