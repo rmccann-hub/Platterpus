@@ -36,6 +36,10 @@ class RipBlock(TypedDict):
     creation_date: str | None
     musicbrainz_disc_id: str | None
     cddb_id: str | None
+    # The release id the ripper resolved and used, off its own header — a
+    # different claim from the argv it received. `issues` compares it against
+    # `disc.musicbrainz_release_id`.
+    ripper_release_id: str | None
     # v14: the ripper's own completion footer, tri-state. `rip_completed` is
     # `None` when the log was cut off or predates the fork pin — which is a
     # different fact from `False`, and must not render as one.

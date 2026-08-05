@@ -156,6 +156,28 @@ _ADDENDUM_CRC = re.compile(
 _OUTPUTS = re.compile(r"^Outputs:\s+(?P<value>.+?)\s*$")
 _DISC_ID = re.compile(r"^DiscID:\s+(?P<value>\S+)")
 _CDDB_ID = re.compile(r"^CDDB ID:\s+(?P<value>\S+)")
+# "Release ID:     d14a7546-815b-43c6-8af6-35cff6cee1d0" — the MusicBrainz RELEASE
+# id, echoed back from the `-a musicbrainz_albumid=` tag we sent.
+#
+# WHY THIS IS WORTH PARSING even though it is our own input reflected, which is the
+# reason it sat in the ignored table until now (round 7 lap 27). Two distinct
+# claims, and only the weaker one was covered:
+#
+#   * `Invoked as:` proves what argv cyanrip RECEIVED — a strictly better witness
+#     for an argv-versus-log disagreement, which is why the old note preferred it.
+#   * This line proves what cyanrip RESOLVED AND USED, which `Invoked as:` cannot
+#     show. The gap between the two is a parse: we hand the whole tag set as one
+#     colon-delimited `-a` blob, so a value containing a colon splits wrong. That is
+#     not hypothetical — the album title on the reference disc carries `∶` (U+2236,
+#     a lookalike) *because* a real colon breaks that syntax. A tag that silently
+#     lands in the wrong field would be visible here and nowhere else.
+#
+# It is also the line the fork's cover-art discussion turns on (lap 25 §A1): the
+# refusal "No MusicBrainz release ID at cover art lookup" and this header co-occur
+# in one file and read as a contradiction, and neither project could cite an
+# artifact containing both — the fork's own golden reference runs under `-N` with no
+# `-a`, so it has the refusal and no header. Our rig logs have both, 13 lines apart.
+_RELEASE_ID = re.compile(r"^Release ID:\s+(?P<value>\S+)")
 # "Speed:          default (unchangeable)" / "default (changeable)" / "8x".
 # cyanrip's drive banner reports whether the drive can change read speed. When
 # it can't, cyanrip ABORTS on `-S` — so the read-speed ladder must read this and
@@ -748,6 +770,10 @@ class _Disc:
     output_formats: str = ""
     disc_id: str = ""
     cddb_id: str = ""
+    # The MusicBrainz RELEASE id cyanrip resolved and used, from its own header
+    # (see _RELEASE_ID). Not the same claim as the id we sent: this is the value
+    # that survived its parse of our `-a` blob.
+    release_id: str = ""
     accuraterip_summary: str = ""
     partially_accurate_summary: str = ""
     # The ripper's own fraction, VERBATIM, before we render anything from it. Kept
@@ -1000,6 +1026,11 @@ def _take_disc_id(disc: _Disc, match: re.Match[str]) -> bool:
     return True
 
 
+def _take_release_id(disc: _Disc, match: re.Match[str]) -> bool:
+    disc.release_id = match.group("value")
+    return True
+
+
 def _take_cddb_id(disc: _Disc, match: re.Match[str]) -> bool:
     disc.cddb_id = match.group("value")
     return True
@@ -1232,6 +1263,7 @@ _RULES_AFTER_GAPS: tuple[_LineRule, ...] = (
     _LineRule("outputs", _OUTPUTS, _take_outputs, disc_level_only=True),
     _LineRule("disc_id", _DISC_ID, _take_disc_id),
     _LineRule("cddb_id", _CDDB_ID, _take_cddb_id),
+    _LineRule("release_id", _RELEASE_ID, _take_release_id),
     _LineRule("speed_capability", _SPEED_CAP, _take_speed_cap),
     _LineRule("total_time", _TOTAL_TIME, _take_total_time),
 )
@@ -1379,16 +1411,11 @@ _IGNORED_DISC_LINES: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (re.compile(r"^Frame retries:\s"), "candidate: rip-effort setting"),
     # The disc/release identifiers cyanrip echoes back from OUR OWN `-a` tags. We
-    # already hold all three (they came from MusicBrainz through this process), so
-    # the log's copy adds no fact — it is our input reflected. Recorded here rather
-    # than left unrecognised so the completeness sweep keeps its meaning.
-    #
-    # Worth stating because it is tempting: the echo *is* useful for one thing — an
-    # argv-versus-log disagreement — but `Invoked as:` already carries the whole
-    # command line, which is a strictly better witness for that question.
+    # already hold them (they came from MusicBrainz through this process), so the
+    # log's copy adds no fact — it is our input reflected. Recorded here rather than
+    # left unrecognised so the completeness sweep keeps its meaning.
     (re.compile(r"^Disc number:\s"), "our own -a tag echoed back; we hold it"),
     (re.compile(r"^Total discs:\s"), "our own -a tag echoed back; we hold it"),
-    (re.compile(r"^Release ID:\s"), "our own MusicBrainz release id echoed back"),
     # The cover-art lookup warning, in BOTH wordings the fork has used:
     #   up to e61e75a:  "Release ID unavailable, cannot search Cover Art DB!"
     #   from f5e11ba:   "No MusicBrainz release ID at cover art lookup, ..."
@@ -2197,6 +2224,7 @@ def parse_cyanrip_log(text: str) -> RipLog:
         log_checksum=disc.log_checksum,
         disc_id=disc.disc_id,
         cddb_id=disc.cddb_id,
+        release_id=disc.release_id,
         log_truncated=truncated,
         last_track_incomplete=last_incomplete,
     )
