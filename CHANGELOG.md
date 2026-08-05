@@ -63,6 +63,21 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   preference.
 
 ### Added
+- **The report now records the release id the ripper *used*, and flags it when that
+  disagrees with the one we sent.** `rip.ripper_release_id`, read off cyanrip's own
+  header (schema v22). It had been in the parser's ignored table with a recorded reason
+  — *"our own input reflected; `Invoked as:` is a better witness for an argv
+  disagreement"* — which is true of the argv question and answers a different one. We
+  hand the whole tag set as **one colon-delimited `-a` blob**, so what the ripper
+  *received* and what it *parsed out of that blob* are separate claims, and only the
+  first was recorded. The failure mode is live rather than theoretical: the reference
+  disc's album title carries `∶` (U+2236, a lookalike) precisely because a real colon
+  breaks that syntax, and a tag that split wrong would land in the wrong field silently.
+  Two `issues` entries make the field more than a record — an `error` when the two ids
+  differ (the tags, filenames and cue on disk may describe another release), and a
+  `warning` when the ripper reports an id on a rip that sent none, which means `-N` did
+  not suppress its own MusicBrainz lookup (Critical rule #5, now checked at the artifact
+  instead of trusted). Tri-state: an absent echo is no claim, not a disagreement.
 - **The auto-fix re-rip is now validated against an independent ripper, on the disc's
   worst track.** Track 5 of the EAC baseline disc was read **twice with different
   results** on 2026-08-04, so Platterpus discarded the first read and swapped in the
