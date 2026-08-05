@@ -11,6 +11,49 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **The auto-fix re-rip is now validated against an independent ripper, on the disc's
+  worst track.** Track 5 of the EAC baseline disc was read **twice with different
+  results** on 2026-08-04, so Platterpus discarded the first read and swapped in the
+  second — the most consequential thing the auto-fix can do, and nothing in-house could
+  check it (comparing cyanrip against cyanrip compares relatives; AccurateRip does not
+  help because this pressing does not match its consensus at all). **EAC settles it:**
+  the committed baseline holds two independent EAC 1.8 extractions of the same disc in
+  the same drive, and both report for track 5 exactly the values our re-rip produced
+  (`Test CRC E0036697`, `Copy CRC E0036697`, AR v2 `9EEB8843`), while the read we threw
+  away (`6902BCF0` / `268CCD94`) appears in **neither**. `tests/test_track5_autofix_vs_eac.py`
+  reads the committed artifacts rather than restating them, asserts both halves (EAC
+  agrees with what we kept **and** does not contain what we discarded — agreement with
+  both would be agreement with neither), and was adversarially checked by swapping the
+  two constants, which fails it.
+- **`output_reference/EAC_flac/eac_pcm_md5.txt`** — EAC's own decoded-PCM MD5s for five
+  tracks. FLAC's STREAMINFO carries an MD5 of the *unencoded* audio, so equal MD5s prove
+  **byte-identical PCM** — a direct proof where a CRC32 comparison is a proof about a
+  32-bit digest, against an independent implementation rather than a relative, and it
+  moves **only text** (critical rule #8). One command produces the comparable value:
+  `metaflac --show-md5sum *.flac`.
+
+### Fixed
+- **A duplicate `(directory, round, lap, sender)` failed OPEN in the handshake gate.**
+  The cyanrip fork revised and re-sent its round-7 lap-25 file — protocol §2 says a sent
+  file is never edited — and keeping both copies created two files at one lap. `sort_key`
+  is `(round, lap, stem)`, so the tie falls through to the **filename**: measured on the
+  real pair, the *revision* sorted first, so the gate would have read the **superseded**
+  file's verdict as the round's newest word. Both declared `HOLD`, so nothing broke —
+  which is how this class of bug survives. `ordering_blockers` now refuses it, scoped per
+  directory because an outbound round file and our verification of it can legitimately
+  share a lap. This is the **third** fail-open ordering hole in that function's own
+  subject matter. The earlier copy is preserved under
+  `docs/handshake/inbound/superseded/` with a README explaining why — a subdirectory
+  rather than a filename exception, because an exception threaded through three separate
+  conformance checks is how a rule quietly stops applying.
+
+### Changed
+- Documented where the ETA's progress-delta floor actually bites: past roughly **12.5
+  hours** of total rip time, a 90-second window's progress falls below `0.002` and the
+  estimate is held rather than refreshed. Safe direction, real boundary, previously
+  undocumented.
+
 ## [0.6.4b8] — 2026-08-05
 
 **A double-check pass over `b7`, at the maintainer's request to re-verify *"especially what you think is correct"* — it found six real problems, five of them in work just called done.**
