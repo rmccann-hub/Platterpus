@@ -1,11 +1,17 @@
-# Rig session — Platterpus `v0.6.4b9` + cyanrip `f5e11ba`
+# Rig session — Platterpus `v0.6.4b10` + cyanrip `9048082`
 
 ```
-Platterpus  v0.6.4b9        GitHub PRE-RELEASE   (app-only change; the ripper pin did NOT move)
-cyanrip     f5e11ba         0.9.4-rc1+platterpus.5-beta.4   (platterpus-fork-gf5e11ba)
+Platterpus  v0.6.4b10       GitHub PRE-RELEASE
+cyanrip     9048082         0.9.4-rc1+platterpus.5-beta.5   (platterpus-fork-g9048082)
 drive       Pioneer BDR-209D
 round 7     OPEN, HOLD both sides — nothing here is a release
 ```
+
+> **The ripper pin DID move**, after this sheet was first written: the fork superseded
+> `f5e11ba` (`beta.4`) with `9048082` (`beta.5`) for a cue defect your last rip found. Step 1
+> covers it, and it is your call. `b10` exists because `b9` could not reach the new pin —
+> `--install-ripper` built a commit baked in at release time, so a pin that moves faster than
+> our release cycle was unreachable. It takes a commit now.
 
 **Your last rip found the real bug, and it was not the one I fixed in b8.** The b8 floor cut
 the ETA's peak from 61.9 hours to 8.3 — better, and still wrong, which is the useful kind of
@@ -57,11 +63,41 @@ with your eyes, and everything else is scripted.
 Then confirm — **`Help → About` must say 0.6.4b9**. If it still says b8, the update did not take;
 tell me rather than working around it.
 
-**Do NOT re-run `--install-ripper`.** The ripper pin has not moved. Confirm it is still the one:
+### The ripper pin: move it to `9048082`, and this is your call
+
+**Changed since this sheet was first written.** The fork shipped `beta.5` (`9048082`) and
+**superseded `beta.4` (`f5e11ba`) — the build you have.** Their reason is a defect *your
+last rip found*: on tracks 3, 6, 11 and 12 the log says `Pregap length: 0 frames` and the
+cue writes an `INDEX 00` anyway, one frame past the end of the previous `FILE`. Present in
+all three cue sheets on record, so it is not a `beta.4` regression — it is as old as their
+sub-channel pre-gap search.
+
+**Why moving is the right call, and it costs you nothing extra.** `beta.5`'s only change
+over `beta.4` is that cue fix, and it is **the one change in their pin no drive has run**.
+Their own §E1 says they are not asking us to approve it untested, and cites our rule back
+at us: *a round approves the pin you tested*. That leaves a genuine bind — `f5e11ba` is the
+most-tested build **and** the one with the defect — except that you are about to rip
+anyway. Ripping on `9048082` converts "untested" into "tested" in the same session, and
+then the round can close on a build with no known defect and no untested change.
+
+**Switching the container's ripper pin while a round is open is a decision the rules
+reserve for you** (`CLAUDE.md` deviation policy), which is why this is a marked step and
+not an instruction. If you would rather not, say so and rip on `f5e11ba`; the b9 app fixes
+are what this session is mainly for and they do not depend on the ripper at all.
 
 ```sh
-~/.local/bin/cyanrip --version    # expect 0.9.4-rc1+platterpus.5-beta.4 / platterpus-fork-gf5e11ba
+./platterpus-x86_64.AppImage --install-ripper 9048082
+~/.local/bin/cyanrip --version     # expect 0.9.4-rc1+platterpus.5-beta.5 / platterpus-fork-g9048082
 ```
+
+**Pass the commit.** A bare `--install-ripper` builds whatever pin is baked into the
+Platterpus build you are running, and if you are on `b9` that is `9048082` already — but
+passing it explicitly is right regardless, because it is the same command whether or not
+your app happens to be current. It prints the commit and the build tag before it starts,
+so you can see what you are getting before minutes of `dnf` and `meson`.
+
+A banner ending `-dirty` means the tree had uncommitted changes and the commit does not
+describe the binary — stop and tell me if you see one.
 
 ---
 
@@ -104,6 +140,24 @@ artifacts — but knowing what you *saw* tells me which of the two signals misfi
 
 **Also worth a glance:** the track grid should not twitch as tracks complete. If any column
 jumps width mid-rip, that is a miss and I want to know.
+
+### If you moved to `9048082`: check the cue sheet (2 minutes, and it closes the round)
+
+This is the only thing in their pin no drive has run, and it is a one-look check. Open
+`Every Breath You Take∶ The Classics.cue` and count `INDEX 00` lines:
+
+```sh
+grep -n "INDEX 00" "<album>/Every Breath You Take∶ The Classics.cue"
+```
+
+| tracks | expected |
+|---|---|
+| **3, 6, 11, 12** | **no `INDEX 00`** — these are the zero-length pre-gaps their fix stops writing |
+| 2, 4, 5, 7, 8, 9, 10, 13, 14 | `INDEX 00` still present |
+
+**If a pre-gap you expect has gone missing, that is a finding and their fix goes back** —
+their words, and they mean it. Send the cue either way; a correct result is what lets the
+round close, and a wrong one is worth more.
 
 ---
 
@@ -188,4 +242,4 @@ This exercises the two banner fixes, and only a real cancel produces the shape.
 
 ---
 
-*Last updated for Platterpus v0.6.4b9.*
+*Last updated for Platterpus v0.6.4b10.*

@@ -169,8 +169,23 @@ class HostSetup:
     # Bazzite/Silverblue distrobox+podman are preinstalled, so these steps
     # are skipped and no prompt appears at all.
     elevate: str = "pkexec"
+    #: Which fork build to install, overriding the module pin. `None` means "the pinned
+    #: one" (`fork_source.WIZARD_TARGET`), which is every caller but
+    #: ``--install-ripper <commit>``.
+    #:
+    #: Threaded as a field rather than read from the module at each use because the two
+    #: places that need it — "is the fork already installed?" and "build it" — must agree.
+    #: They already diverged once: the readiness check compared against `FORK_PIN` while
+    #: the build step built the test pin, so a correct install reported "not done" and was
+    #: rebuilt on every run.
+    fork_target: fork_source.ForkTarget | None = None
     # Ordered step ids, exposed for the dialog/tests.
     STEP_IDS: tuple[str, ...] = field(default=(), init=False)
+
+    @property
+    def _target(self) -> fork_source.ForkTarget:
+        """The fork build this instance installs and checks against. One resolution."""
+        return self.fork_target or fork_source.WIZARD_TARGET
 
     def __post_init__(self) -> None:
         # cyanrip is the sole ripping backend (KDD-18); it's installed
@@ -276,7 +291,7 @@ class HostSetup:
         # step would install — comparing to `FORK_PIN` while the step builds the test
         # pin would report a correct install as "not done" and rebuild it every run
         # (the exact `-V` failure shape: an accurate comparison of the wrong pair).
-        target_pin = fork_source.WIZARD_TARGET.pin
+        target_pin = self._target.pin
         return identity.kind == "fork" and target_pin in identity.build_tag.casefold()
 
     def flac_exported(self) -> bool:
@@ -390,7 +405,7 @@ class HostSetup:
             # prints the pinned fork's build tag. The verify is a command in the
             # list, so a build that produced something unexpected fails the step
             # instead of quietly leaving a mystery binary on the ripping path.
-            return fork_source.fork_build_commands(self.container)
+            return fork_source.fork_build_commands(self.container, self._target)
         if step_id == "cache_tool":
             # Install cd-paranoia into the (Fedora) container and export it. We
             # install by the FILE it provides (`/usr/bin/cd-paranoia`) rather than

@@ -106,16 +106,66 @@ _TABLE_ROUND_FLOOR: int = 6
 #: How many rounds behind the newest inbound round the table we read may be. **Also a
 #: ratchet, and it is currently 1 because that is the measured truth, not the goal.**
 #:
-#: Measured 2026-08-04: **none of round 7's twenty-one laps embeds a P1 flag table.**
-#: Every one names ``PROVIDER-CONTRACT.md @ <commit>`` in *the fork's* repository, which
-#: is not present here — so the newest flag table in this repo is **round 6b's**, and
-#: the fork's own lap 21 §C3 reports their flag count moving 40 → 41 (``-j``), a change
-#: this check structurally cannot see.
+#: Measured 2026-08-05: **0.** Round 7 lap 25 shipped `PROVIDER-CONTRACT.md` itself,
+#: archived under `inbound/artifacts/`, so this check now reads the round's OWN table —
+#: 82 flag spellings over 42 rows — instead of one from before the round opened.
+#:
+#: It was 1 for the whole of round 7 until then, and the comment it replaces is worth
+#: keeping in view: *"none of round 7's twenty-one laps embeds a P1 flag table; every one
+#: names ``PROVIDER-CONTRACT.md @ <commit>`` in the fork's repository, which is not
+#: present here"*. That was true, and it meant the fork's own `40 → 41` flag change
+#: (`-j`, their lap 21 §C3) was structurally invisible to us. **The table arriving is
+#: only half of the fix — a contract sitting in a directory nothing reads changes
+#: nothing**, which is why the artifact resolution above exists and why this number
+#: reaching 0 is the part that proves it did.
 #:
 #: Recorded as a number rather than left implicit because *a silent truncation reads as
 #: completeness*: without this, the check reports agreement about a surface it is
 #: reading from before the round opened. Asked for in lap 22 §C.
-_MAX_TABLE_LAG: int = 1
+_MAX_TABLE_LAG: int = 0
+
+
+#: Inbound ARTIFACTS the fork ships beside a lap file — their provider contract among
+#: them. Named `round-NN-lap-LL-<what>-g<sha>.md`, so the shared round parser resolves
+#: them exactly as it resolves a lap.
+#:
+#: **This directory is why the check is no longer structurally blind.** Every round-7
+#: lap named `PROVIDER-CONTRACT.md @ <commit>` in the fork's own repository, which this
+#: repo did not hold — so the newest flag table here was round 6b's and the fork's own
+#: `40 -> 41` flag change (`-j`) was invisible. Round 7 lap 25 arrived with the contract
+#: itself attached; archiving it under this directory is what lets the round's real
+#: table be read instead of a table from before the round opened.
+#:
+#: Reading artifacts is not a weakening of "read the lap": a contract the fork sends as
+#: part of a lap IS part of that lap, and `handshake.py --check` already reads a round
+#: as a set of files for the same reason.
+_ARTIFACTS: Path = INBOUND / "artifacts"
+
+#: An artifact's name begins with the lap it belongs to: `round-07-lap-25-<what>-g<sha>`.
+#: Peeled off so the SHARED round parser still decides what a round number is — this
+#: regex only says "an artifact is named after its lap", which is the naming convention,
+#: and deliberately does NOT re-spell `round-NN-lap-LL`. Re-spelling it is what broke
+#: this file once already (see the `_HS` note above).
+_ARTIFACT_LAP_PREFIX = re.compile(r"^(?P<lap>round-\d+-lap-\d+)-")
+
+
+def _artifact_round(path: Path) -> int | None:
+    """The round an inbound *artifact* belongs to, via its lap name. None if unnamed."""
+    match = _ARTIFACT_LAP_PREFIX.match(path.name)
+    if match is None:
+        return None
+    return _HS.round_number(path.with_name(f"{match.group('lap')}.md"))
+
+
+def _file_round(path: Path) -> int | None:
+    """The round ANY inbound file belongs to — lap file or attached artifact.
+
+    The single resolver. Within minutes of `_artifact_round` existing there were two
+    call sites resolving rounds two different ways and a third asserting on the result,
+    which is how this file previously ended up checking a stale table: one of them knew
+    about the new naming and the others did not.
+    """
+    return _HS.round_number(path) or _artifact_round(path)
 
 
 def _group_by_round() -> dict[int, list[Path]]:
@@ -128,8 +178,16 @@ def _group_by_round() -> dict[int, list[Path]]:
     identifies it.
     """
     grouped: dict[int, list[Path]] = {}
+    # Lap files AND the artifacts shipped beside them. A provider contract the fork
+    # attaches to a lap is part of that lap; excluding it is what left this check
+    # reading round 6b's table while round 7 was on lap 25 (see :data:`_ARTIFACTS`).
     for path in INBOUND.glob("round-*.md"):
         number = _HS.round_number(path)
+        if number is None:
+            continue
+        grouped.setdefault(number, []).append(path)
+    for path in _ARTIFACTS.glob("round-*.md"):
+        number = _file_round(path)
         if number is None:
             continue
         grouped.setdefault(number, []).append(path)
@@ -384,8 +442,11 @@ def test_a_round_is_read_as_a_set_of_files_not_only_its_newest() -> None:
     """
     files = _newest_round_files()
     assert files, "no round files found"
-    # Every file in the set belongs to the same round.
-    numbers = {_HS.round_number(p) for p in files}
+    # Every file in the set belongs to the same round. Via `_file_round`, because the
+    # set now includes attached artifacts and the LAP parser returns None for those —
+    # reading it with the lap parser alone made this compare {None, 7} and fail on a
+    # correctly-grouped round.
+    numbers = {_file_round(p) for p in files}
     assert len(numbers) == 1, f"files from different rounds grouped together: {files}"
     # And the union clears the flag floor even when the newest file alone does not,
     # which is the whole point. Asserted as a comparison so it cannot pass by the
@@ -435,7 +496,7 @@ def test_a_round_that_says_the_contract_is_unchanged_does_not_break_the_check() 
     # Replaced with a RATCHET: the table actually used may not come from a round older
     # than `_TABLE_ROUND_FLOOR`, and the gap to the newest inbound round is asserted
     # against a recorded number so it can shrink but never silently grow.
-    used_round = _HS.round_number(files[0])
+    used_round = _file_round(files[0])
     assert used_round is not None
     assert used_round >= _TABLE_ROUND_FLOOR, (
         f"the flag table is being read from round {used_round}, older than the "
@@ -481,4 +542,38 @@ def test_the_round_grouping_can_see_the_NEWEST_inbound_round() -> None:
     assert len(canonical) >= 5, (
         f"only {len(canonical)} canonically-named inbound files — with too few, the "
         "grandfathered regex would have worked and this test proves nothing"
+    )
+
+
+def test_the_table_we_check_against_is_the_current_rounds_own() -> None:
+    """The blocker that held our handshake verdict at HOLD for three laps, as a test.
+
+    Every round-7 lap up to 25 cited `PROVIDER-CONTRACT.md @ <commit>` in the *fork's*
+    repository. We did not hold that file, so this check read **round 6b's** table — and
+    said so out loud rather than falling back silently, which is the only reason anyone
+    knew. Lap 25 shipped the contract as an attached artifact.
+
+    Two assertions, because either alone can be satisfied by the wrong thing:
+
+    * the table comes from the newest inbound round, not a fallback, and
+    * the provider contract is actually among the files read.
+
+    The second is the one that matters. A lap file that merely *mentions* enough flags in
+    prose could clear the first — which is what the flag floor was already there for.
+    """
+    files = _newest_round_files()
+    rounds = {_file_round(p) for p in files}
+    assert rounds == {_newest_inbound_round()}, (
+        f"the flag table came from round(s) {rounds}, not the newest "
+        f"({_newest_inbound_round()}) — this is the silent-fallback case"
+    )
+    assert any("provider-contract" in p.name for p in files), (
+        "no provider contract among the files read, so the table is being taken from "
+        f"prose in the lap files: {[p.name for p in files]}"
+    )
+    # FLOOR: it must be a real table, not a handful of flags mentioned in passing.
+    their = _their_flags(_newest_inbound_text())
+    assert len(their) >= 60, (
+        f"only {len(their)} flag spellings parsed — a 42-row table publishes both a "
+        "short and a long form for nearly every row, so this is not the whole table"
     )

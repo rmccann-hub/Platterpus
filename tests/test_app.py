@@ -594,7 +594,9 @@ def _install_ripper_stub(
     """Replace HostSetup with a stub whose readiness and failures are chosen.
 
     Returns the list the stub records its printed titles into, so a test can
-    assert the progress callback was actually wired rather than ignored.
+    assert the progress callback was actually wired rather than ignored. The stub
+    class also records its construction kwargs on ``_Stub.last_kwargs``, reachable
+    via ``host_setup_module.HostSetup.last_kwargs``.
     """
     from platterpus import config as config_module
     from platterpus.deps import host_setup as host_setup_module
@@ -604,8 +606,15 @@ def _install_ripper_stub(
     seen: list[str] = []
 
     class _Stub:
+        #: The kwargs the CLI constructed it with, so a test can assert WHICH fork
+        #: target was threaded through. Without this the override could resolve
+        #: correctly for the banner and still build the pinned commit — the print and
+        #: the build are two different reads, and this repo has already shipped that
+        #: exact divergence once.
+        last_kwargs: dict[str, object] = {}
+
         def __init__(self, *a: object, **kw: object) -> None:
-            pass
+            _Stub.last_kwargs = dict(kw)
 
         def run(
             self,
@@ -692,3 +701,72 @@ def test_install_ripper_fails_and_points_at_the_log(
     assert rc == 1
     assert "Build cyanrip fork" in out
     assert str(LOG_PATH) in out
+
+
+# --- --install-ripper <commit>: reaching a pin that moved without a release -------
+#
+# `CLAUDE.md` Critical rule #12 says a moving fork pin needs a route to it that does
+# not ship inside a release, and names `--install-ripper` as that route. It was half
+# true: the flag existed, but it built a module constant, so a new pin still needed a
+# Platterpus release — the granularity the rule calls wrong. The fork's pin moved
+# FIVE times inside round 7, twice in one day.
+
+
+def test_install_ripper_builds_the_pinned_commit_by_default(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The ALLOW case, and first: an override that broke the default would be worse
+    than no override."""
+    from platterpus.deps import host_setup as host_setup_module
+    from platterpus.deps.fork_source import WIZARD_TARGET
+
+    _install_ripper_stub(monkeypatch, ready=True)
+    assert app_module.main(["--install-ripper"]) == 0
+    target = host_setup_module.HostSetup.last_kwargs.get("fork_target")
+    # On the PIN, not on `is None`. The CLI resolves the default to `WIZARD_TARGET`
+    # explicitly, which is equivalent to passing nothing — asserting `is None` would be
+    # testing the mechanism rather than the behaviour, and it failed for that reason.
+    assert target is not None and target.pin == WIZARD_TARGET.pin, (
+        f"a bare --install-ripper is no longer building the pinned build: {target!r}"
+    )
+    assert WIZARD_TARGET.banner in capsys.readouterr().out
+
+
+def test_install_ripper_with_a_commit_builds_that_commit(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from platterpus.deps import host_setup as host_setup_module
+
+    _install_ripper_stub(monkeypatch, ready=True)
+    assert app_module.main(["--install-ripper", "deadbee"]) == 0
+    target = host_setup_module.HostSetup.last_kwargs.get("fork_target")
+    # THE ASSERTION THAT MATTERS: the target reaches the thing that BUILDS, not just
+    # the line that prints. Those are separate reads, and naming one while building
+    # the other is a failure this repo has shipped before.
+    assert target is not None and target.pin == "deadbee", (
+        f"the supplied commit did not reach HostSetup: {target!r}"
+    )
+    out = capsys.readouterr().out
+    assert "deadbee" in out
+    assert "platterpus-fork-gdeadbee" in out, "the tag a correct build must print"
+    # It is not the approved build, and the install must say so BEFORE the build, not
+    # leave the rip report to be the first place it surfaces.
+    assert "unapproved" in out
+
+
+def test_an_operator_commit_does_not_invent_a_version_string(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """We cannot read an arbitrary commit's `meson.build`, so we must not print a
+    version next to the word "expects" — that invites a comparison against a number
+    nobody measured. The tag is verifiable; the version is declared unknown."""
+    from platterpus.deps.fork_source import FORK_TEST_VERSION
+
+    _install_ripper_stub(monkeypatch, ready=True)
+    app_module.main(["--install-ripper", "deadbee"])
+    out = capsys.readouterr().out
+    assert FORK_TEST_VERSION not in out, (
+        "the pinned build's version was printed for a different commit, which is a "
+        "claim about a tree we never read"
+    )
+    assert "not predictable" in out
