@@ -11,6 +11,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A rip the user cancelled was recorded as `"success"`.** Measured on real hardware,
+  2026-08-05, and reported as *"I cancelled it early. It should be easy to tell that."*
+  It was not — the report said the opposite. `success` and `_rip_cancelled` are **not
+  mutually exclusive**, which `if success: … elif self._rip_cancelled:` assumed: the
+  whole-disc pass completed all 14 tracks (so `success` was `True`) and the *securing*
+  pass that runs afterwards was then cancelled. `success` won, and the report carried
+  three mutually contradictory statements — `outcome.status = "success"`,
+  `ripper_exit_code = 1` (non-zero, because it was killed), `failure_hint = null` — with
+  the word "cancel" appearing **nowhere** outside the embedded debug log, even though the
+  app log records it at INFO. Captured and never surfaced, which counts as the same bug
+  from the user's side. The cancel is now checked first: a run the user stopped is a
+  cancelled run even if every track happened to land, and `completeness` carries the good
+  news separately (14 of 14 present). Revert-proved.
+- **The re-rip comparison said *"can't tell which read is correct"* when it could tell.**
+  Two rips of the same disc read track 5 differently, both offset-variant at confidence
+  200 — identical status, identical confidence — so `_decide_better` gave up. But one read
+  had **converged across three secure re-reads** and the other was a single read with
+  `Secure re-read: not attempted`, and **EAC independently produced the converged one,
+  twice.** Convergence is now the tiebreak after confidence: a read corroborated by
+  repeating it on this drive beats one nobody checked. Ranked *below* confidence
+  deliberately — confidence is corroboration by many independent rippers, convergence by
+  one drive repeating itself — so it can never overturn an AccurateRip verdict, only
+  replace a shrug. Tri-state throughout: "never re-read" is not "failed to converge", and
+  with neither read corroborated it still returns `unknown` rather than inventing a
+  preference.
+
 ### Added
 - **The auto-fix re-rip is now validated against an independent ripper, on the disc's
   worst track.** Track 5 of the EAC baseline disc was read **twice with different

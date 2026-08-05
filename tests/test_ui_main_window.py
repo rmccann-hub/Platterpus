@@ -8131,3 +8131,59 @@ def test_dep_summary_stays_informational_when_the_build_is_right(
     assert "1 ok, 0 missing/needs-attention." in info[0]
     assert "Wrong build:" not in info[0]
     assert "the Platterpus fork" in info[0]
+
+
+def test_a_cancelled_rip_is_recorded_as_cancelled_even_when_every_track_landed(
+    teardown_threads, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**MEASURED ON REAL HARDWARE, 2026-08-05.** The report said "success".
+
+    `success` and `_rip_cancelled` are NOT mutually exclusive, which the old
+    `if success: ... elif self._rip_cancelled:` assumed. The whole-disc pass
+    completed all 14 tracks — so `success` was True — and the user then cancelled the
+    *securing* pass that runs afterwards. Both were true, `success` won, and the
+    report contained three mutually contradictory statements:
+
+        outcome.status     = "success"     (the user had cancelled it)
+        ripper_exit_code   = 1             (non-zero, because it was killed)
+        failure_hint       = None
+
+    …and the word "cancel" appeared **nowhere** in the report outside the embedded
+    debug log, though the app log records it at INFO. The maintainer's report was
+    just: *"I cancelled it early. It should be easy to tell that."* It was not.
+
+    A run the user stopped is a cancelled run even if every track happened to land
+    first — `completeness` carries the good news separately.
+    """
+    from types import SimpleNamespace
+
+    from platterpus.workers.rip_worker import RipParameters
+
+    window = teardown_threads()
+    window._rip_worker = SimpleNamespace(  # type: ignore[assignment]
+        needs_unknown_retry=False, failure_hint="", argv=(), first_pass_argv=None
+    )
+    window._active_rip_params = RipParameters(
+        drive="/dev/sr0",
+        release_id="mbid",
+        output_dir=Path("/tmp/x"),
+        track_template="t",
+        disc_template="d",
+        unknown=False,
+    )
+    # THE CONDITION THAT WAS MISHANDLED: the rip succeeded AND was cancelled.
+    window._rip_cancelled = True
+    window._auto_retry_done = True  # no auto-heal path; keep this test to one subject
+    monkeypatch.setattr(
+        "platterpus.ui.main_window.QTimer.singleShot", lambda _ms, fn: None
+    )
+
+    window._on_rip_finished(True, "")
+
+    outcome = window._last_outcome
+    assert outcome is not None, "no outcome was recorded at all"
+    assert outcome.get("status") == "cancelled", (
+        "a rip the user cancelled was recorded as "
+        f"{outcome.get('status')!r} — the report asserts the opposite of what "
+        "happened, which is the worst thing this program can say"
+    )
