@@ -67,7 +67,9 @@ def _run(tmp_path: Path) -> tuple[int, Path, str]:
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
-def test_the_script_exits_zero_even_when_every_binary_is_missing(tmp_path: Path) -> None:
+def test_the_script_exits_zero_even_when_every_binary_is_missing(
+    tmp_path: Path,
+) -> None:
     """**The load-bearing property.** A failing step is data; the caller reads files.
 
     This is the assertion that catches an `errexit` abort. It failed for the exit-2
@@ -75,7 +77,9 @@ def test_the_script_exits_zero_even_when_every_binary_is_missing(tmp_path: Path)
     file-existence check alone reported success.
     """
     rc, _out, output = _run(tmp_path)
-    assert rc == 0, f"the script aborted with {rc} instead of surviving:\n{output[-3000:]}"
+    assert rc == 0, (
+        f"the script aborted with {rc} instead of surviving:\n{output[-3000:]}"
+    )
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")

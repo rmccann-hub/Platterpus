@@ -11,6 +11,10 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b8] — 2026-08-05
+
+**A double-check pass over `b7`, at the maintainer's request to re-verify *"especially what you think is correct"* — it found six real problems, five of them in work just called done.**
+
 ### Fixed
 - **`artifacts` omitted the auto-fix addendum** — the one companion file that
   *supersedes* the ripper's log — while its own note promised *"this one file is enough
@@ -6271,7 +6275,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...HEAD
+[0.6.4b8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...v0.6.4b8
 [0.6.4b7]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b6...v0.6.4b7
 [0.6.4b6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...v0.6.4b6
 [0.6.4b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...v0.6.4b5
@@ -6350,4 +6355,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b7.*
+*Last updated for Platterpus v0.6.4b8.*
