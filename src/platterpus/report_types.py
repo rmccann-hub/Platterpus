@@ -562,13 +562,17 @@ class ArtifactEntry(TypedDict):
 
 
 class ArtifactsBlock(TypedDict):
-    """The three files written beside the report, so one upload is enough."""
+    """The files written beside the report, so one upload is enough."""
 
     note: str
     rip_log: ArtifactEntry
     ripper_stdout: ArtifactEntry
     eac_log: ArtifactEntry
     cue: ArtifactEntry
+    #: The auto-fix addendum, which SUPERSEDES part of `rip_log` — added 2026-08-05
+    #: after it turned out to be the one companion file this block omitted, while
+    #: its own note promised the report was enough on its own.
+    addendum: ArtifactEntry
 
 
 class SelfCheckFindingBlock(TypedDict):
