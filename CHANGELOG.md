@@ -11,7 +11,52 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b5] — 2026-08-05
+
+**A pre-release, paired with cyanrip `e61e75a` (`0.9.4-rc1+platterpus.5-beta.3`).** Cut so
+the next rig session tests a *declared pair* rather than a new ripper against the previous
+app — the fork's lap 24 §E1 ask. Round 7 is still OPEN, `--release-gate` still refuses a
+stable release, and the production cyanrip pin does not move.
+
 ### Added
+- **The cyanrip test pin moves to `e61e75a` (`0.9.4-rc1+platterpus.5-beta.3`)**, retiring
+  `c5fb909` into `SUPERSEDED_TEST_PINS`. `c5fb909` is what the 2026-08-04 rig actually ran,
+  so it stays listed — a rig that has not rebuilt still gets `--consumer`. Its successor is
+  **observably identical** to it: the fork measured log body (275 lines), cue sheet, decoded
+  PCM and the `-j` record side by side, so the parity evidence transfers and the disc parity
+  does not need repeating. The one code change is a `dev_path` leak on argument-validation
+  refusals, which had made their sanitizers unusable and touches no line we parse.
+- **`scripts/rig_session.sh` — the unattended half of a rig session.** The fork's lap 24 §E2:
+  *"the rig session is the scarce resource; anything that runs unattended and writes an
+  artifact is worth more than a checklist line."* So identity probes, the
+  `-dirty`/`-grelease`/`-gunknown` banner check, `--doctor`, the fork's `-x` and `-j` (which
+  our argv surface never sends), A25 pre-gap screening, a log snapshot taken **before**
+  rotation silently eats it, `--audit-rips` and `eac_parity.py` all moved into one script.
+  It **never stops on a failure** — a failing step is data — records every exit code
+  including the successes, and writes an artifact per step so a step that did nothing is
+  distinguishable from one that passed. Smoke-tested with every binary absent: exits 0, all
+  ten artifacts present, six failures recorded rather than hidden.
+- **`docs/rig-session-e61e75a.md`** — the session reduced to three human steps and one
+  command, with a *proves / does not prove* table per step so a green run cannot be read as
+  broader coverage than it is, and the three things nothing in the session can prove stated
+  outright.
+
+### Fixed
+- **The go-first deadlock was ours, not the shared spec's.** Lap 23 reported that protocol v2
+  cannot express a first `GO`, because writing one made our own conformance test fail:
+  *"declares GO but peer verdict is 'HOLD', not GO (§5)"*. The fork tested **their** loader
+  against the identical case (their lap 24 §B1) — accepted as well-formed, correctly refused
+  as a close — and they were right. Our **gate** was never wrong: `round_status` requires both
+  verdicts and `--release-gate` exits 1. Only `check_wire_header` was, because it conflated
+  **well-formed** with **closable**. A GO whose *peer* verdict is not yet GO is now a *ready*
+  declaration rather than a malformed file; **every other close-blocker stays a problem**,
+  because every other one is the author's own gap (a missing identity field, no
+  `HANDSHAKE-TESTED`) while the peer's verdict is the one thing the author cannot fix by
+  editing their own file. §5's intent survives: `close_blockers` still names it, `--status`
+  still shows it, and the round still does not close. Agreed for the round-8 bump in
+  preference to a new `READY` token, which would meet gates that have not shipped the new
+  spec and be treated — correctly — as *not agreement*.
+
 - **The 2026-08-04 rig session's results are committed as a derived record**
   (`docs/handshake/artifacts-round-07/rig-session-results-c5fb909.md`) with the rip log, the
   auto-fix addendum, the cue, the rendered EAC-compatible log and the JSON report beside it.
@@ -6090,7 +6135,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b5...HEAD
+[0.6.4b5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b4...v0.6.4b5
 [0.6.4b4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b3...v0.6.4b4
 [0.6.4b3]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b2...v0.6.4b3
 [0.6.4b2]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b1...v0.6.4b2
@@ -6166,4 +6212,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b4.*
+*Last updated for Platterpus v0.6.4b5.*
