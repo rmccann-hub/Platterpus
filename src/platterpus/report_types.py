@@ -492,6 +492,10 @@ class RipReport(TypedDict):
     rip: RipBlock
     accuraterip_summary: str | None
     partially_accurate_summary: str | None
+    #: v20: the ripper's own offset-variant fraction, verbatim. Its denominator means
+    #: different things on different fork builds, which is why our sentence above is
+    #: derived from the per-track results instead of paraphrasing this.
+    partially_accurate_reported: str | None
     disc_duration: str | None
     paranoia_counts: dict[str, int] | None
     read_speed: ReportReadSpeedBlock | None

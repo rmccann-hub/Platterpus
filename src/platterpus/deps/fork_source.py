@@ -187,8 +187,8 @@ NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
 #: Moved a third time in lap 21 — `9003e6f` → `c5fb909`, `beta.1` → `beta.2`. The fork's
 #: own words: *"INSTALL `c5fb909`, NOT `9003e6f`"*. Six commits, one of them a fix to a
 #: log value we parse (track 1's pre-gap counted the 2-second lead-in twice).
-FORK_TEST_PIN: Final[str] = "e61e75a"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.3"
+FORK_TEST_PIN: Final[str] = "f5e11ba"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.4"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
@@ -218,6 +218,18 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
     # `dev_path` leak on argument-validation refusals, which made their sanitizers
     # unusable and touches no line we parse.
     "c5fb909",
+    # Retired in lap 26, one lap after it arrived — MAINTAINER DIRECTIVE, 2026-08-05:
+    # *"take the newest beta and release based on that, i want to test cutting edge. with
+    # our logs we should see failure, and that in itself is a test"* — for both projects.
+    #
+    # This reverses what our own lap 26 §M recommended (promote `e61e75a`, the
+    # conservative build). The maintainer's reasoning is better than ours was: their §A2
+    # denominator change **cannot be verified anywhere but the rig**, so a session spent
+    # on the conservative build leaves the one unverifiable change unverified, and the
+    # next session has to happen anyway. Our own A2 consumer fix ships in the same
+    # release, so both halves of that change land together rather than a build arriving
+    # ahead of the code that can describe it.
+    "e61e75a",
 )
 
 #: Build tags known to accept ``--consumer``. **Sending it to a build without it

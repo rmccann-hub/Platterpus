@@ -164,6 +164,13 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     described a 14-track disc. This is the same missing denominator that has
 #     now been corrected on four surfaces; recording it as a number is what
 #     stops a fifth.
+# v20: `partially_accurate_reported` — the ripper's own offset-variant fraction,
+#     verbatim, beside our own derived sentence about it. Added because the fraction's
+#     DENOMINATOR changed meaning between fork builds (`1/1` up to `e61e75a`, `1/14`
+#     from `f5e11ba`, same disc, same track) while our sentence asserted the old
+#     meaning in prose. The sentence is now counted from the per-track results, and
+#     this field preserves what the binary actually printed — two logs of one disc
+#     from two builds are not comparable without it.
 # v15: `ripper_handshake_approval` / `_detail` / `_approved_build` /
 # `_approved_for_platterpus` / `_approved_by_round` — whether the ripper that
 # produced THIS rip is the build both projects affirmatively verified, checked at
@@ -181,7 +188,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
-REPORT_SCHEMA_VERSION: int = 19
+REPORT_SCHEMA_VERSION: int = 20
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -817,6 +824,10 @@ def _build(
         "accuraterip_summary": getattr(rip_log, "accuraterip_summary", "") or None,
         "partially_accurate_summary": (
             getattr(rip_log, "partially_accurate_summary", "") or None
+        ),
+        # v20: the ripper's own fraction, verbatim, beside our sentence about it.
+        "partially_accurate_reported": (
+            getattr(rip_log, "partially_accurate_reported", "") or None
         ),
         "disc_duration": getattr(rip_log, "disc_duration", "") or None,
         "paranoia_counts": dict(getattr(rip_log, "paranoia_counts", {}) or {}) or None,

@@ -16,7 +16,11 @@ from pathlib import Path
 import pytest
 
 from platterpus.parsers import cyanrip_log
-from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
+from platterpus.parsers.cyanrip_log import (
+    looks_like_cyanrip_log,
+    parse_cyanrip_log,
+    render_partially_accurate_summary,
+)
 from platterpus.parsers.rip_log import RipLog
 
 # The committed real-hardware logs the accountability tests at the bottom read.
@@ -212,14 +216,17 @@ def test_offset_variant_match_is_captured_but_not_a_plain_match() -> None:
 
 def test_partial_accurate_summary_and_paranoia_counts() -> None:
     log = parse_cyanrip_log(_MARGINAL_LOG)
-    # "2 of 2 track(s) not fully verified", not "2/2". The fork confirmed the
-    # denominator counts tracks NOT FULLY VERIFIED, not tracks on the disc (round 7
-    # lap 10, H4) — so `2/2` on a disc with more than two tracks is correct and reads
-    # like a typo. We name what it measures; the ripper's own line is unchanged.
-    assert "2 of 2" in log.partially_accurate_summary
-    assert "not fully verified" in log.partially_accurate_summary, (
-        "the denominator is unnamed again, so the fraction reads as a share of the "
-        "disc — which is the ambiguity this wording exists to remove"
+    # THIS FIXTURE IS DELIBERATELY SELF-INCONSISTENT: it declares `2/2` while listing
+    # one track. A real log does not do that, so it is kept as the mismatch case —
+    # when the ripper's numerator and the per-track detail in the same file disagree,
+    # the sentence must SAY SO rather than silently render whichever we computed.
+    assert log.partially_accurate_reported == "2/2", (
+        "the ripper's own fraction must survive verbatim — a rendered sentence "
+        "cannot be turned back into the number the binary printed"
+    )
+    assert "does not agree" in log.partially_accurate_summary, (
+        "the ripper said 2 and the per-track list has 1; a summary that hides that "
+        "disagreement is the swallowed-diagnosis failure this project keeps finding"
     )
     assert log.paranoia_counts == {
         "READ": 71948,
@@ -1565,3 +1572,83 @@ def test_not_attempted_never_erases_a_measured_verdict() -> None:
         "'not attempted' erased a measured non-convergence — an absent verdict "
         "must never overwrite a present one"
     )
+
+
+# --- the offset-variant tally survives a fork-side denominator change -----------
+#
+# Round 7 lap 25 §A2: from build `f5e11ba` the fork's
+# `Tracks ripped partially accurately:` line divides by `nb_tracks` instead of by
+# `nb_tracks - accurip_verified`. Same disc, same track, same numerator — the
+# DENOMINATOR moves, `1/1` becomes `1/14`.
+#
+# Our sentence used to paraphrase the old meaning ("N of M track(s) not fully
+# verified"), so on a `beta.4` log it would have claimed 14 tracks were not fully
+# verified when 13 of them were verified exactly. The fix is to stop paraphrasing
+# their fraction and count the offset-variant tracks ourselves.
+#
+# THE ANCHOR IS A REAL ARTIFACT, not a fixture: the 2026-08-04 rig rip of the EAC
+# baseline disc, committed under docs/handshake/artifacts-round-07/. It is the only
+# real log in existence carrying this tally, because the block needs an AccurateRip
+# database hit and the synthetic discs are not in the database (their §A2, measured).
+_RIG_RIP_LOG = (
+    Path(__file__).resolve().parent.parent
+    / "docs"
+    / "handshake"
+    / "artifacts-round-07"
+    / "round-07-lap-23-rig-rip-gc5fb909.log"
+)
+
+
+def test_offset_variant_sentence_is_the_same_on_both_fork_denominators() -> None:
+    """`1/1` and `1/14` describe one disc; they must render one sentence."""
+    old_shape = render_partially_accurate_summary("1/1", 1, 14)
+    new_shape = render_partially_accurate_summary("1/14", 1, 14)
+    assert old_shape == new_shape, (
+        "the fork's denominator change moved our sentence, so a re-rip of the same "
+        "disc on a newer ripper would read as a different result"
+    )
+    # NON-TRIVIALITY FLOOR: two empty strings are also equal. Assert the sentence
+    # actually says something, and specifically that it names the DISC as the
+    # population — the whole point of the change.
+    assert "1 of 14 tracks" in old_shape, old_shape
+    assert "offset-variant" in old_shape, old_shape
+    # And the old prose must be gone: it asserted a meaning that is now wrong.
+    assert "not fully verified" not in old_shape, (
+        "the sentence still claims the denominator counts unverified tracks, which "
+        "is false on f5e11ba and later"
+    )
+
+
+def test_the_real_rig_log_renders_the_disc_as_the_population() -> None:
+    """Read the committed artifact, not a fixture's idea of one."""
+    assert _RIG_RIP_LOG.is_file(), f"missing committed artifact: {_RIG_RIP_LOG}"
+    log = parse_cyanrip_log(_RIG_RIP_LOG.read_text(encoding="utf-8", errors="replace"))
+    # Floors first: a log that parsed to nothing would satisfy every assertion below.
+    assert len(log.tracks) == 14, (
+        f"expected the 14-track baseline disc, got {len(log.tracks)}"
+    )
+    variant = [t.number for t in log.tracks if t.accuraterip_offset is not None]
+    assert variant == [5], f"expected exactly track 5 offset-variant, got {variant}"
+    # The ripper printed `1/1`; the sentence must describe the disc, and must not
+    # flag a disagreement, because there is none — their 1 is our 1.
+    assert log.partially_accurate_reported == "1/1"
+    assert log.partially_accurate_summary == (
+        "1 of 14 tracks matched only an offset-variant pressing (partially accurate)"
+    ), log.partially_accurate_summary
+    assert "does not agree" not in log.partially_accurate_summary
+
+
+def test_a_malformed_fraction_is_reported_not_raised() -> None:
+    """Parsers never raise. A junk denominator is a mismatch note, not a crash."""
+    assert render_partially_accurate_summary("", 1, 14) == "", (
+        "an absent tally must render nothing, not a sentence about nothing"
+    )
+    # Junk where the NUMERATOR should be: we cannot check their count against ours,
+    # so the sentence says the two do not agree rather than implying they do.
+    for junk in ("x/y", "/", "not-a-fraction", "9/14"):
+        out = render_partially_accurate_summary(junk, 1, 14)
+        assert "does not agree" in out, (junk, out)
+        assert junk in out, "the ripper's own text must appear verbatim in the note"
+    # A junk DENOMINATOR is not a disagreement: we never read the denominator, and
+    # the numerator still checks out. The raw string is preserved either way.
+    assert "does not agree" not in render_partially_accurate_summary("1/", 1, 14)
