@@ -11,6 +11,44 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **`artifacts` omitted the auto-fix addendum** — the one companion file that
+  *supersedes* the ripper's log — while its own note promised *"this one file is enough
+  to diagnose a rip without asking for the others"*. So for a re-ripped track the report
+  embedded the **discarded** read's values verbatim and not the correction. Found by the
+  maintainer asking why the addendum could not live in the JSON: a question about
+  placement that turned out to be about absence.
+- **The report's key order made a partial read useless.** JSON is order-preserving on the
+  wire, and the measured order buried the decisive blocks: `self_check` — which says
+  whether the report is *trustworthy* — sat at byte **1,515,002 of 1,516,421**, behind
+  1.23 MB of `debug`, because it is assigned after the builder returns. `tracks`,
+  `issues` and `checksums` all sat past byte 147,000. The decisive small blocks now come
+  first and the three bulk blocks (`eta_trace`, `artifacts`, `debug`) last, so
+  `head -c 4096` answers *did it work, what went wrong, is this report sound*. No key is
+  added or removed — order only.
+- **Three bugs in `scripts/rig_session.sh`, all found by running it rather than reading
+  it**: the completion banner ended up *before* the steps added in b7, so the summary
+  said `COMPLETE` with five steps still to run; `ls` on a glob matching nothing exits 2
+  and `set -e` killed the script mid-step — in the script whose whole purpose is that a
+  failing step is data; and the "not in a checkout" branch wrote one of its two
+  artifacts, breaking the script's own "writes a file even when it finds nothing" rule.
+
+### Added
+- **`tests/test_rig_session_script.py`** — the script had **no** test. The b6 changelog
+  described a *manual* run (*"smoke-tested with every binary absent"*) as though it were
+  a standing check, and the script regressed the moment it grew a second half. A
+  described verification is not a check.
+- **Two ETA tests that were not discriminating are now revert-proved.** All four failed
+  against a complete revert only after fixing them: one was measuring the pre-existing
+  **stall detector** rather than the new hold path, and the field-trace replay passed
+  with the bug restored because `eta_trace` rounds percentages to 2 dp — so the literal
+  values give a delta of *exactly zero*, which even the buggy code handled. The
+  explosion needed a delta *tiny but positive*, below the trace's own resolution. The
+  replay now carries that wobble, marked as **inferred** rather than observed, and holds
+  the freeze under the 180 s stall threshold — because the rip's own log shows
+  `rip stalled: no forward progress for 3m 0s at 35.5%`, i.e. the bug lives in the
+  window *before* the stall detector rescues the display.
+
 ## [0.6.4b7] — 2026-08-05
 
 **Everything here came out of one real rip's own artifacts** — the 2026-08-05 Police
@@ -46,7 +84,10 @@ the field (`partially_accurate_reported: "1/14"`, sentence unchanged), and the r
   14-track rip writes enough that a few sessions evicted the oldest file, rotation is **by
   size alone** (not per session, not per version), so the eviction is silent and the file
   that scrolls away is the one holding the rip you are trying to diagnose. Three of the
-  four log files uploaded were exactly 1 MiB — i.e. full — which is the tell.
+  four log files uploaded were within **70 bytes** of the 1 MiB rotation threshold
+  (1048542 / 1048506 / 1048548 of 1048576) — i.e. rotated at the limit, which is the
+  tell. (Corrected from "exactly 1 MiB": `RotatingFileHandler` rolls over *before*
+  exceeding the cap, so a full file lands just under it, never on it.)
 - **The report's embedded-log limits are now runaway backstops, not routine caps**
   (10k lines → 200k; a new 8 MiB byte budget). An earlier revision of this change capped
   the block at 256 KiB to shrink a 1.5 MB report; the maintainer corrected it — *"I did

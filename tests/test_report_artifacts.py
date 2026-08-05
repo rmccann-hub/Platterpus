@@ -154,7 +154,7 @@ def test_the_block_names_every_companion_even_when_none_exist(
     block = build_artifacts(
         rip_log=tmp_path / "a.log", eac_log=tmp_path / "b.log", cue=tmp_path / "a.cue"
     )
-    assert set(block) == {"note", "rip_log", "ripper_stdout", "eac_log", "cue"}
+    assert set(block) == {"note", "rip_log", "ripper_stdout", "eac_log", "cue", "addendum"}
     assert all(
         block[k]["exists"] is False
         for k in ("rip_log", "ripper_stdout", "eac_log", "cue")
@@ -270,7 +270,7 @@ def test_the_block_carries_stdout_beside_the_three_files(tmp_path: Path) -> None
         cue=tmp_path / "a.cue",
         ripper_stdout="Summary:\n  EAC CRC32:  B0D122E7\n",
     )
-    assert set(block) == {"note", "rip_log", "ripper_stdout", "eac_log", "cue"}
+    assert set(block) == {"note", "rip_log", "ripper_stdout", "eac_log", "cue", "addendum"}
     assert "B0D122E7" in block["ripper_stdout"]["text"]
 
 
