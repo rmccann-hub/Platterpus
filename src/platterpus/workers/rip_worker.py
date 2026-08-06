@@ -2497,6 +2497,23 @@ class RipWorker(QObject):
         """
         if not album_log_path or not swapped:
             return
+        # THE SIDECAR STAYS, and the reason is an ORDERING one that a file count
+        # does not outweigh. `main_window_rip`'s post-rip finish handler re-parses
+        # this log through `read_log_with_addendum` BEFORE `write_report` has run,
+        # so at that moment the `.platterpus.json` does not exist yet. Retiring the
+        # file made that re-parse read the DISCARDED pass's CRC — reintroducing the
+        # exact defect the addendum was created to prevent (#19), and the trap this
+        # module's docstring names: fixing one problem by making the supersede
+        # invisible.
+        #
+        # `rip_addendum.addendum_text` now ALSO rebuilds the block from the report
+        # when no sidecar is present, which covers a folder written by an older
+        # build and any offline re-parse of a folder whose sidecar was lost. That is
+        # added robustness, not a replacement.
+        #
+        # Still never appended to the ripper's own log: it ends with cyanrip's
+        # `Log FUN512:` checksum and `--verify-log` rejects trailing content by
+        # design (round 7 lap 10).
         written = write_addendum(album_log_path, trigger, swapped)
         if written is not None:
             self.log_line.emit(

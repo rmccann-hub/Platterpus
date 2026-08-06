@@ -68,6 +68,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   controls. Lap 27's stale HOLD is withdrawn separately — its stated reason, the missing flag
   table, is satisfied.
 
+- **The auto-fix supersede can now also be rebuilt from the JSON report**, so a folder
+  whose sidecar is missing — one written by an older build, or one where the write failed —
+  still resolves a re-ripped track to the values actually on disk instead of the discarded
+  pass's.
+
+  **The sidecar file itself stays**, and the attempt to retire it is worth recording
+  because it failed for a reason a file count does not outweigh: the post-rip finish
+  handler re-parses the ripper's log *before* `write_report` runs, so at that moment there
+  is no report to read and removing the file made that re-parse return the **discarded**
+  CRC — reintroducing the precise defect the addendum exists to prevent. An existing test
+  caught it. The per-rip folder therefore still carries the sidecar, and only when a track
+  was genuinely swapped.
+
 - **Every rip now records a retag-surviving audio identity** (`audio_md5`, schema v24).
   The existing `checksums` map digests the **container**, so writing a tag rewrites the file
   and invalidates the SHA-256 while the audio is untouched — a retagged album looked exactly
