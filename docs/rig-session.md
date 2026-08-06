@@ -3,7 +3,8 @@
 ```
 Platterpus  v0.6.4b13      GitHub PRE-RELEASE
 cyanrip     9048082        0.9.4-rc1+platterpus.5-beta.5   (platterpus-fork-g9048082)  <- installed
-cyanrip     dc21958        0.9.4-rc1+platterpus.5-beta.6   TEST PIN, not yet installed
+cyanrip     4a35604        0.9.4-rc1+platterpus.5-beta.7   TEST PIN, not yet installed
+cyanrip     dc21958        beta.6 — WITHDRAWN, do not rip on it (see below)
 drive       Pioneer BDR-209D 1.51, read offset +667
 round 7     OPEN — HOLD on both sides. Nothing here is a verified pair.
 ```
@@ -28,6 +29,24 @@ own — no `--install-ripper` needed, and none needed now:
 ```
 
 ---
+
+## beta.6 is withdrawn — use beta.7 (`4a35604`)
+
+**Do not run the rip on beta.6.** The fork withdrew it in round 7 lap 32 after
+reproducing a defect we had only read about: a `-t` argument with no `=` made
+cyanrip read *past the end of the string* and then **publish what it read**. They
+measured an environment variable landing in a FLAC tag, in the log, and in the
+cue — at exit 0, with nothing printed.
+
+It cannot happen on a Platterpus rip (our argv builder never emits a bare `-t N`,
+and refuses one at the chokepoint if a future caller tries), so this is not a
+warning about the app. It is about the *artifact*: a rip made on a build with a
+known path from adjacent memory into the archival record is evidence we would
+then have to argue about, and the point of the rip is to settle things.
+
+beta.7 fixes it, plus four segfaults their probe found while generalising the
+same report. Both builds satisfy all four criteria below, so nothing is lost by
+waiting for beta.7.
 
 ## The next rip's acceptance criteria — round 7 lap 31
 
@@ -336,4 +355,4 @@ that is Critical rule #8 and it has no exceptions, including temporary ones.
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.4b14.*

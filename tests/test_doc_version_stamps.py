@@ -83,18 +83,35 @@ _EXEMPT_GENERATED: dict[str, str] = {
 # number, and `scripts/handshake.py --status` is what reports it.
 _EXEMPT_CORRESPONDENCE: str = "docs/handshake/"
 
-# The SHARED protocol specification. Exempt for a stronger reason than the round
-# files: it is **the same document in both repositories and neither project owns
-# it**, so stamping it with *our* version would fork the one file whose entire
-# purpose is not being forked. Its currency is `HANDSHAKE-PROTOCOL`, declared in
-# the spec itself and implemented by `handshake.PROTOCOL_VERSION` — a real version
-# marker, just not ours to set unilaterally.
-_EXEMPT_SHARED_SPEC: str = "docs/handshake-protocol.md"
+# The SHARED files. Exempt for a stronger reason than the round files: each is
+# **the same document in both repositories and neither project owns it**, so
+# stamping one with *our* version would fork the very files whose entire purpose
+# is not being forked. Their currency is a spec version declared inside them and
+# implemented by code — `HANDSHAKE-PROTOCOL` / `handshake.PROTOCOL_VERSION` for
+# the protocol, `SEAM-RULES-VERSION` for the seam rules — a real version marker,
+# just not ours to set unilaterally.
+#
+# **This constant named ONE file until round 7 lap 33, while the comment above it
+# stated the general principle.** The cyanrip fork found the gap (their lap 32
+# §H1) and the evidence was clean: the two shared files carrying our footer were
+# exactly the two that drifted, and `handshake-protocol.md` — the one with no
+# footer — matched byte-for-byte on the first try. Every Platterpus beta broke the
+# other two by construction, because a per-project release stamp inside a
+# byte-identical document is itself the drift the document exists to prevent. Same
+# lesson as `docs/testing.md` §5.o: a rule enforced at the place it was learned is
+# not enforced.
+_EXEMPT_SHARED_FILES: frozenset[str] = frozenset(
+    {
+        "docs/handshake-protocol.md",
+        "docs/seam-rules.md",
+        "docs/seam-commands.md",
+    }
+)
 
 
 def _is_exempt(rel_path: str) -> bool:
     """True for docs that deliberately carry no footer."""
-    if rel_path == _EXEMPT_SHARED_SPEC:
+    if rel_path in _EXEMPT_SHARED_FILES:
         return True
     if rel_path in _EXEMPT_GENERATED:
         return True

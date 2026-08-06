@@ -197,8 +197,54 @@ NEXT_PIN_UNDER_REVIEW: Final[str] = "5bc654d"
 #: Their contract generator reads the *built binary* and refuses on a dirty tree, so a
 #: contract can never be regenerated in the commit that bumps the version — six of their
 #: seven bumps shipped a contract describing the previous release.
-FORK_TEST_PIN: Final[str] = "9048082"
-FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.5"
+#: Moved a sixth time in round 7 lap 32/33 — `9048082` → `4a35604`, `beta.5` → `beta.7`.
+#: **`beta.6` (`dc21958`) never reached this constant**, so no user could install it
+#: through the app; it was declared as a test pin in lap 30 and withdrawn in lap 32
+#: before the pin moved. That is the `HANDSHAKE-TEST-PIN` mechanism working: naming a
+#: build to test cost nobody an install.
+#:
+#: **Why beta.6 was withdrawn, and why beta.7 is not optional.** Our lap 31 reported
+#: that cyanrip's `-t` parse does `strtol()` then `end += 1` without checking a `=` is
+#: there, reading one past the NUL. The fork ran it: `append_missing_keys()` then
+#: `strlen`s and parses what it read, and argv is contiguous with the environment
+#: block — so an environment variable landed **in a FLAC tag, in the log and in the
+#: cue, at exit 0 with nothing printed** (their lap 32 §B). Generalising the report
+#: into a malformed-shape probe axis found four more crashes (`-c /`, `-c //`, `-p =`,
+#: `-p ==`, all NULL-deref in `strtol`). Fixed in `3923dee` and `58f5151`.
+#:
+#: Platterpus can never emit a bare `-t N` — the builder only adds `-t` when a tag
+#: exists, and `assert_meta_args_are_parseable` refuses the shape at the chokepoint —
+#: so this is not a defence of the app. It is about the **artifact**: a rip made on a
+#: build with a known path from adjacent memory into the archival record is evidence
+#: we would then have to argue about, and the rip exists to settle things.
+#: **Moved to `104f6d4` / `beta.8`. The pin moved three times in one hour** —
+#: `4a35604` → `92ceeed` → `104f6d4` — and the first two arrived OUT OF BAND, reported
+#: by the maintainer rather than by a lap. `104f6d4` is their lap-33 commit ("gate the
+#: golden reference's version, and pin beta.8"); `92ceeed` is its ancestor. Recorded
+#: rather than smoothed over: our lap 34 declares it and asks them to confirm.
+#: The maintainer reported it directly (2026-08-06); no lap declares it. Our lap 33 and
+#: their lap 32 both name `4a35604` / `beta.7`, so the record and the rig disagree until
+#: a lap 34 closes the gap. Recorded here rather than smoothed over.
+#:
+#: **Why taking it is safe, verified rather than assumed.** beta.8 changes no ripping
+#: code at all:
+#:
+#:     git diff 4a35604..104f6d4 -- 'src/*.c' 'src/*.h'   # empty
+#:
+#: and their own `HANDSHAKE-SOURCE-ANCHOR` is unchanged at `8290677bea1a834d` across
+#: both builds — which is independent confirmation, because that anchor is *defined* as
+#: a hash over exactly those files. The diff is `.gitattributes`, a `Changelog.md`
+#: entry, `src/archive-version.txt`, meson version detection for tarball builds, their
+#: test harness, and a one-line version string in `PROVIDER-CONTRACT.md`. Nothing we
+#: parse can have moved.
+#:
+#: **Why we must pin it anyway even though the code is identical.** Every rip verifies
+#: its own ripper against the approved build (`handshake_approval.py`, report schema
+#: v15). A beta.8 banner against a `4a35604` expectation would report an unapproved
+#: binary on a rip that is behaviourally the declared one — a false alarm on the very
+#: artifact the round is waiting for.
+FORK_TEST_PIN: Final[str] = "104f6d4"
+FORK_TEST_VERSION: Final[str] = "0.9.4-rc1+platterpus.5-beta.8"
 #: Which round nominated it. Stated rather than derived from the approved round + 1:
 #: a test pin belongs to *a* round, and arithmetic on the approved round is only
 #: accidentally right — it breaks the first time two rounds pass without a close.
@@ -250,6 +296,32 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
     # Present in all three cue sheets on record, so it is as old as their sub-channel
     # pre-gap search rather than a `beta.4` regression.
     "f5e11ba",
+    # Retired in lap 33 when the pin moved to `4a35604` (beta.7). `9048082` is the
+    # build the 2026-08-05 rig session ran and the one the rig still has built, so it
+    # stays listed for the usual reason: a rig that has not rebuilt still receives
+    # `--consumer`, and a silent `Consumer: not identified` in a rig log is the
+    # half-recorded pair that flag exists to prevent.
+    "9048082",
+    # `dc21958` (beta.6) never became FORK_TEST_PIN and so was never installable
+    # through the app — see the note on FORK_TEST_PIN. Listed anyway because it WAS
+    # named to the maintainer as a test pin in lap 30, so a hand-built copy could
+    # exist on the rig, and `--consumer` costs nothing to keep working on it. Being
+    # listed here is explicitly not an endorsement: it is withdrawn.
+    "dc21958",
+    # Retired when the pin moved to `92ceeed` (beta.8). `4a35604` is the build BOTH
+    # SIDES DECLARED in writing (their lap 32, our lap 33) and it is behaviourally
+    # identical to beta.8 — the `src/*.c` + `src/*.h` diff between them is empty and
+    # their source anchor did not move. A rig that built beta.7 is running the same
+    # ripping code and must keep receiving `--consumer`.
+    "4a35604",
+    # The commit that GENERATED their beta.7 golden reference. Never a test pin: their
+    # lap 32 as first sent named it as one by mistake and they corrected the file in
+    # place. Listed because a rig could have built it from that first copy.
+    "400155b",
+    # Retired within the hour by `104f6d4`. Same ripping code — the `src/*.c` +
+    # `src/*.h` diff from `4a35604` all the way to `104f6d4` is empty — so a rig that
+    # built it is running the declared code and must keep receiving `--consumer`.
+    "92ceeed",
 )
 
 #: Build tags known to accept ``--consumer``. **Sending it to a build without it
