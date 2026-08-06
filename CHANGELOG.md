@@ -14,6 +14,19 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.4b13] — 2026-08-06
 
 ### Changed
+- **The rig sheet carries the next rip's acceptance criteria, before the rip rather than after.** Four
+  checks with a copy-pasteable command each: 14 ISRCs in the cue, `INDEX 00` on exactly
+  2/4/5/7/8/9/10/13/14 **and nowhere else**, the `Offset:` line unchanged as the negative control for
+  the fork's new argument bound, and the album title carrying a real colon in both the cue and the
+  ripper's log. Each row states how it could pass for the wrong reason — a marker *count* of nine
+  passes on the wrong nine, and beta.1 wrote thirteen markers of which four were for pre-gaps its own
+  log measured at zero. The commands were verified against the committed reference cue, which
+  reproduces beta.1's numbers exactly.
+
+  Written because lap 31 told the fork these were already in our hardware sheet and they were not —
+  the sheet held the beta.5 *analysis*, not the beta.6 *criteria*. Caught by re-reading our own sent
+  claim rather than by anyone asking.
+
 - **Round 7 lap 31 filed, and the fork's lap 30 correction accepted into the record.** Our
   lap 29 blamed the cue's ISRC regression on the fork; the branch is **upstream's**, and what
   the fork changed is only its *reachability*. Verified in their repository rather than taken

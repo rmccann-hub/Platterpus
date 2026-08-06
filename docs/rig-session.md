@@ -1,8 +1,9 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.4b11      GitHub PRE-RELEASE
-cyanrip     9048082        0.9.4-rc1+platterpus.5-beta.5   (platterpus-fork-g9048082)
+Platterpus  v0.6.4b13      GitHub PRE-RELEASE
+cyanrip     9048082        0.9.4-rc1+platterpus.5-beta.5   (platterpus-fork-g9048082)  <- installed
+cyanrip     dc21958        0.9.4-rc1+platterpus.5-beta.6   TEST PIN, not yet installed
 drive       Pioneer BDR-209D 1.51, read offset +667
 round 7     OPEN — HOLD on both sides. Nothing here is a verified pair.
 ```
@@ -25,6 +26,46 @@ own — no `--install-ripper` needed, and none needed now:
 ```
 19:38:36  cyanrip 0.9.4-rc1+platterpus.5-beta.5 (platterpus-fork-g9048082)
 ```
+
+---
+
+## The next rip's acceptance criteria — round 7 lap 31
+
+**Read this before the rip, not after.** Four checks, and each one has a *"and nowhere
+else"* half or a negative control, because a count alone passes on the wrong set. The
+first three are the fork's own J1 wording (lap 30); the fourth is ours.
+
+Requires the **test pin** `dc21958` (beta.6) — see `--install-ripper` below. The three
+changes it carries have been near no drive, which is exactly why this list exists.
+
+| # | check | pass | why it can pass for the wrong reason |
+|---|---|---|---|
+| 1 | **ISRCs in the cue** | **all 14**, one per track | "more than before" is not the criterion. beta.1 wrote **1**, beta.5 wrote **5**. A partial improvement looks like success. |
+| 2 | **`INDEX 00` markers** | on exactly **2, 4, 5, 7, 8, 9, 10, 13, 14** — and **nowhere else** | beta.1 wrote **13** markers, four of them (**3, 6, 11, 12**) for pre-gaps its *own log* measured at **0 frames**. A count of 9 with the wrong set passes a count check. |
+| 3 | **the `Offset:` line** | **unchanged** from the b12 rip | the negative control for their new `-s` bound. If this moved, the bound changed behaviour on a value we send. |
+| 4 | **the real colon** *(ours)* | the cue's album `TITLE` **and** the log's `album:` field both read `Every Breath You Take: The Classics` | beta.6 + app 0.6.4b13 is the first pair where this can be observed. If either shows `∶` or a truncated title, the `\:` escape did **not** survive and lap 31 §C's verdict is wrong. |
+
+Commands, run in the rip folder afterwards:
+
+```bash
+# 1 — must print 14
+grep -c '^ *ISRC ' *.cue
+
+# 2 — must print exactly: 2 4 5 7 8 9 10 13 14
+awk '/^ *TRACK/ {t=$2+0} /^ *INDEX 00/ {printf "%d ", t} END {print ""}' *.cue
+
+# 3 — compare against the b12 rip's log; the number must be identical
+grep -n 'Offset:' *.log
+
+# 4 — all three must show a real ':' and no U+2236
+grep -n '^TITLE' *.cue
+grep -n 'album:' *.log
+metaflac --show-tag=ALBUM *.flac | head -1
+```
+
+**If any of the four fails, stop and report it rather than re-ripping.** A failure here is
+information the round needs; a second rip over the top of it loses the artifact that proves
+which build did what.
 
 ---
 
