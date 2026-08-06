@@ -481,6 +481,34 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 - **[x] Declined dependencies should not cascade to the next tier.** Done (verified 2026-06-02) — see the identical item under P1.1 above. `resolve_missing` skips cascade for `user_declined`; three tests cover it.
 - **[x] Picard auto-install failure mode — resolved.** Both halves are done: (1) **root cause** — the registry now installs Picard via the **`.flatpakref` URL** (`https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref`) instead of `flathub <ref>`; the `.flatpakref` carries the remote URL so flatpak adds flathub at *user* level on first install, fixing the Bazzite "No remote refs found for 'flathub'" error (Atomic distros configure flathub as a *system* remote). See `deps/registry.py`. (2) **diagnostics** — `AutoInstaller` captures the failed command's last stderr/stdout line into `InstallResult.message`, and `_show_dep_summary` surfaces it in an "Install failures:" block (no longer debug-only). Picard is also `optional=True`, so a failure doesn't nag.
 
+### P0 — The script vocabulary advertises 13 verbs the runner does not implement (found 2026-08-06)
+
+**Verified by running it, not by reading it:** `verbs.py` advertises **25** verbs; `runner.py` implements **12**. The other **13** parse cleanly, pass the arity check, pass the unsafe gate, and then fail at *run* time with `'<verb>' is not implemented yet` — `set`, `expect`, `expect-contains`, `album`, `album-artist`, `rescan`, `rip`, `wait-for-rip`, `cancel-rip`, `expect-status`, `expect-tracks`, `eval`, `call`.
+
+**This is `docs/testing.md` §5.p — "a documented capability is not a capability" — committed by the person who wrote that rule down.** The built-in reference renders from the verb table, so the console would show a user thirteen commands that cannot run. A batch pasted against that reference dies mid-run, unattended, which is the precise failure the whole feature exists to prevent.
+
+- **[ ] Either implement the thirteen or mark them unavailable in the table**, and add the sweep that makes the two halves agree — `set(VERBS) == {handlers on ScriptRunner}` is a one-line assertion and it would have failed the moment the gap opened.
+
+### P0 — `set`/`expect` must key on Config field names, NOT row labels (audit, 2026-08-06)
+
+`verbs.py` currently says *"set `<field>` `<value>` — set a Settings field by its row label."* **That is the wrong design and the audit gives three in-repo proofs:**
+
+1. **Seven form rows have the label `""`, five of them interactive** — `override_read_offset`, `notify_on_completion`, `save_additional_art`, `rerip_offset_variant`, `secure_rerip_dynamic`. There is no label to address them by, so a label-keyed namespace cannot reach five real switches.
+2. **Labels are prose and they get renamed.** `option_labels.py` exists *because* every option string was renamed in b11 — a script pinned to `"Fixed speed (advanced)"` broke silently at that commit.
+3. **A registry already exists, half-built:** `settings_dialog.py:700`'s `_validated_widgets: dict[str, QWidget]` already maps **config field name → widget**, for 8 of them. Generalising it gives `set`, `expect`, the validation renderer and the completeness test **one** source.
+
+So: **canonical key = the `Config` field name; row label = an alias**, matched by equality after normalisation (never `startswith`/`in`), with ambiguous or empty aliases **refused at parse time** rather than guessed.
+
+- **[ ] Traps the audit found that any resolver must handle**, each of which would otherwise be a silent wrong answer:
+  - `secure_rerip_dynamic` is **INVERTED** relative to its checkbox; `update_channel` is a **bool view of a string**.
+  - `Read offset (samples):` names **two** widgets (the spin box and `Re-&detect…`) — the input must win or the resolver must refuse.
+  - Substring collisions: `Track template:` ⊂ `Track template (unknown):`; `Verify FLACs:` and `Re-compress FLACs:` share `FLACs:`.
+  - Unicode that will not survive a copy-paste: `×` is **U+00D7** (not ASCII `x`) in `Fixed speed (×):`; `…` is **U+2026**.
+  - Mnemonic ampersands survive `.text()` — `Chec&k dependencies`, and `&&` renders as one `&`.
+  - `metaflac path:` is the only lowercase-initial label; an over-eager `.title()` normaliser eats it.
+  - `recompress_flac_after_rip` is **permanently disabled**; `mp3_vbr_quality` and `read_speed` are **gated** — setting a disabled widget must FAIL loudly, not no-op silently.
+- **[ ] The completeness test:** derive the editable set from the dialog and assert every one is addressable, so this audit cannot silently expire.
+
 ### P0 — The RETURN path from cyanrip is unsanitised, and Qt's default renders it as HTML (found 2026-08-06)
 
 The maintainer asked the mirror of the argv question: *"do all logs and commands pass back to platterpus from cyanrip before user facing? same deal, they probably should and get sanitized and checked ... this should be a check in both directions, and full."*
@@ -495,6 +523,7 @@ The maintainer asked the mirror of the argv question: *"do all logs and commands
 
 - **[ ] Pin every user-facing widget that can carry dependency output to `PlainText`**, and add a sweep test asserting no `QLabel`/`QMessageBox` receiving tool output is left on `AutoText`. The sweep matters more than the individual fixes — this is a rule to enforce across the codebase, not at the one place it was found (`docs/testing.md` §5.o).
 - **[ ] Add the return-path sanitiser as the mirror of `sanitise_cyanrip_args`**: strip/flag control characters and NULs, bound absurd line lengths (a 10 MB single line will freeze the GUI thread rendering it), and preserve everything else verbatim. It must **never silently drop** — an elision is counted and marked, same rule as the argv side.
+- **[x] Institutionalised in both repos.** The clause is now a bullet of Critical rule #12 in `CLAUDE.md` (which is the bidirectional-seam rule and already carries the "this rule lives in both repos" obligation), and the fork's half is drafted ready to send as [`docs/handshake/outbound/round-07-lap-28-seam-sanitation.md`](docs/handshake/outbound/round-07-lap-28-seam-sanitation.md) §S. That file describes **our own two defects** rather than proposing a clause from a clean position, asks which of their routes reach the ripping core, and asks for confirmation the clause landed on their side so the next round can cite it instead of re-arguing it.
 - **[ ] Make it a two-way contract test.** The input half is `tests/test_argv_surface_agreement.py`. The output half has parser tests but nothing asserting *what reaches the user* is what cyanrip said. That asymmetry is the same one that let the `-V` blocker ship for a full round.
 
 ### P0 — Handshake lap 28: our sent verdict is wrong on both halves (verified 2026-08-06)
