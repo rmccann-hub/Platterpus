@@ -20,6 +20,37 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Open, from round 7 laps 32-33
+
+- [ ] **Round 8 lap 1 — raise `PROTOCOL_VERSION` to 3, then bump the shared file.**
+  Two steps in that order, agreed with the fork (their lap 32 §F/J1, our lap 33 §F/J1).
+  Raising the constant first is backward-compatible (`declared <= implemented`), and doing
+  it the other way round means whichever side declares 3 first has its file refused by the
+  other — *including the file carrying the bump*. Neither side has raised it yet, on purpose.
+
+- [ ] **Round 8 — cross-check `HANDSHAKE-SHARED-HASHES` against theirs.** We declare ours and
+  verify them against our own tree; nobody compares the two sides yet. Needs the inbound file
+  plumbed into `scripts/handshake.py`. Both sides shipped the declaration without the check and
+  said so.
+
+- [ ] **Round 8 — the three exit codes we named**, in the fork's queue: "the flag I sent does
+  not exist in this build" first, then disc/drive-failure vs argument-refusal, then
+  cancelled/signalled. Our side is the consumption: stop treating every non-zero as one thing.
+
+- [ ] **Three CHANGELOG headings claim releases that were never tagged** — `0.5.16`, `0.2.0`,
+  `0.0.1` — and the `0.5.16`/`0.5.17` compare links resolve to nothing. Found while fixing the
+  same defect in `0.6.4b12` (which *was* this cycle's, and is fixed). These three predate the
+  cycle; deciding what they should say needs their history, and guessing would be worse than
+  leaving them. **Not a gate yet either**: a tag-vs-heading check needs tags in CI, and the
+  `test` job checks out shallow without them, so it would need a workflow change to be honest
+  rather than a skip.
+
+- [ ] **Answer the fork's H3 question about a Platterpus-side sanitiser blind spot.** They
+  found ASAN and UBSAN both blind to their argv overread. Our nearest equivalent of that false
+  comfort is *"the parsers have a `hypothesis` never-raises property test, so malformed input is
+  covered"* — which proves survival, not correctness of the value returned. Worth a real audit
+  rather than the one example we volunteered.
+
 ## Next release — gated on the rig package
 
 *(Absorbed the former `release-plan-next.md` on 2026-08-06. It was a separate

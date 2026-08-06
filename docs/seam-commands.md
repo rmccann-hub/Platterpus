@@ -96,7 +96,7 @@ its own, which is a different call path and is tabled separately in §2.
 | `-o` | format | `str` enum | **always `flac`** | archival master; every other format is transcoded host-side, so the ripper is never asked for a lossy encode | HAVE |  HAVE |
 | `-D` | directory | `str`, path | writable | output directory | HAVE |  HAVE |
 | `-a` | tag blob | `str`, colon-delimited, **backslash-escaped** | no newline, no NUL, bounded. Every `:` `=` `\` `'` in a *value* is escaped; the blob's structure (one `key=value` per unescaped `:`, exactly one unescaped `=` per field, no dangling escape) is refused at our argv chokepoint. Measured: an **unescaped** `:` does not fail, it silently truncates the value | the whole tag set as one argument | HAVE — escape shipped lap 31 |  HAVE — **and there IS an escape: `\\:`. See §7.** |
-| `-t` | track list | `str`, `n=<escaped blob>` | **range-checked against the disc's real track count**, and the leading `<number>=` is required — cyanrip does `strtol` then `end += 1` without checking a `=` is there, so a bare `-t 12` reads past the string | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE — same escape, same chokepoint |  HAVE — same escape |
+| `-t` | track list | `str`, `n=<escaped blob>` | **range-checked against the disc's real track count**, and the leading `<number>=` is required. Your reading was right and understated: it did not only read past the string, it **published** what it read as track metadata. **Refused since `3923dee`** — `Missing "=" in track metadata "%s"`, exit 1 | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE — same escape, same chokepoint |  HAVE — fixed `3923dee`, measured in §7, regression test in `sc_cli` |
 | `-c` | disc position | `int/int` | both ints, `number <= total`, else the flag is dropped | `DISCNUMBER` / `TOTALDISCS` | HAVE |  HAVE |
 | `-s` | offset | `int`, samples | drive-plausible range | read offset correction | HAVE |  HAVE — **now bounded ±1048576**, §7 |
 | `-S` | speed | `int` multiplier | bounded; `0` = drive max | read speed, fixed mode only | HAVE |  HAVE |
@@ -296,6 +296,67 @@ S-9 most wants recorded, and there are none.
   interaction probes inherited `-I` from the base invocation. Same shape as the
   false alarm you hit resolving `INDEX 00` against absolute LSNs.
 
+### What it did NOT find, and why that is the more useful half
+
+**`-t` without its `=` published adjacent process memory, and this probe walked
+straight past it for a whole round.** You found it by reading the source (lap 31
+J3), not us by running the binary — so S-9's "limits are established by running
+the binary" bought nothing here, and it is worth being precise about why rather
+than filing it as a win for source review.
+
+Every `-t` value in the grid above was **well-formed**: `1=title=x`,
+`1=title=a:b`, `0=title=x`, `99=title=x`. The grid varied the *track number* and
+the *value*, and never once varied the **shape**. The defect lived in the shape.
+A probe that only feeds well-formed arguments measures how the happy path
+handles bad data, which is not the same thing and reads identically in a summary
+— "82 probes, 0 silently ignored" was true, and the interesting input was not
+among the 82.
+
+So we added the missing axis — separator absent, doubled, empty on either side,
+trailing — to **every** argument with internal structure (`-t`, `-a`, `-p`,
+`-c`, `-C`), not just to the one you reported. The grid went 82 probes → 111.
+
+### What the new axis found on its first run: four segfaults
+
+**`-c /`, `-c //`, `-p =` and `-p ==` killed cyanrip with SIGSEGV.** Exit 139,
+and **not one line of output** — the undiagnosable non-zero exit our shared
+rules call the one failure a consumer cannot explain to a user. ASAN puts it at
+`cyanrip_main.c:1575`:
+
+```
+ERROR: AddressSanitizer: SEGV on unknown address 0x000000000000
+    #0 __GI_____strtol_l_internal ../stdlib/strtol_l.c:304
+    #3 cyanrip_run ../src/cyanrip_main.c:1575
+```
+
+An argument consisting only of its own separator tokenises to **no token at
+all**, so `av_strtok()` returns `NULL` and `strtol()` dereferences it. The
+second `av_strtok()` in both functions was always `NULL`-checked; the first
+never was, because a non-empty string was assumed to yield at least one token.
+Both fixed, each revert-proved on its own, and `'/'`, `'//'`, `'='`, `'=='` are
+rows in §7 now.
+
+Three things worth carrying across the seam, because none of them is about `-t`:
+
+- **Our own gate graded a segfault as a clean refusal.** `probe()` mapped every
+  non-zero exit to `refused`, and Python reports signal death as a *negative*
+  returncode, so `-11` was filed as a successful refusal and the gate printed
+  `0 silently ignored` and exited **0** while the binary was crashing. Measured,
+  not inferred: with the guard removed and the pre-lap-32 gate restored, it
+  still exits 0. `crashed` is now its own outcome class, checked first so it
+  cannot be masked, and a non-zero exit with no message is now a gate failure
+  in its own right. **If your probe classifies by exit code, check the sign.**
+- **A summary that counts only the failure mode you thought of reads as
+  all-clear.** `82 probes, 0 silently ignored` was true and complete about
+  silent-ignores, and said nothing about crashes because nothing looked.
+- **Neither sanitizer covers the `-t` class**, so a green ASAN/UBSAN run is not
+  evidence there. argv and environ strings share the initial stack block, so an
+  overread out of one and into the next crosses no redzone either tool
+  maintains. Confirmed by running the pre-fix binary under both: it leaked the
+  environment variable into the FLAC tags and exited 0, silently, with no
+  sanitizer diagnostic. The crashes above *are* caught by ASAN — the two
+  classes differ, and "we run sanitizers" covers one and not the other.
+
 ### Answers to §4.4 and your Q3/Q4 — **an escape exists and always has**
 
 `-a` and `-t` are split by `av_dict_parse_string(dict, str, "=", ":", 0)`,
@@ -382,6 +443,12 @@ rather than an error — also an `absent` row.
 | `-c` | disc/totaldiscs | `'1/1'` | **accepted** | 0 | (no header field exposes this) |
 | `-c` | disc/totaldiscs | `'2/1'` | **refused** | 1 | discnumber 2 is larger than totaldiscs 1 |
 | `-c` | disc/totaldiscs | `'1/2'` | **accepted** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'1'` | **accepted** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'1/'` | **accepted** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'/2'` | **accepted** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'1//2'` | **accepted** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'/'` | **refused** | 1 | Missing discnumber |
+| `-c` | disc/totaldiscs | `'//'` | **refused** | 1 | Missing discnumber |
 | `-u` | consumer tag | `''` | **accepted** | 0 | (reported |
 | `-u` | consumer tag | `'x'` | **accepted** | 0 | x |
 | `-u` | consumer tag | `'platterpus/0.6.4b12'` | **accepted** | 0 | platterpus/0.6.4b12 |
@@ -390,10 +457,20 @@ rather than an error — also an `absent` row.
 | `-a` | album metadata blob | `'album=x'` | **accepted** | 0 | (no header field exposes this) |
 | `-a` | album metadata blob | `'album=a:b'` | **accepted** | 0 | (no header field exposes this) |
 | `-a` | album metadata blob | `'album=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'album'` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'=x'` | **refused** | 1 | Error reading album tags: Invalid argument |
+| `-a` | album metadata blob | `'album='` | **refused** | 1 | Error reading album tags: Invalid argument |
+| `-a` | album metadata blob | `'a=b:'` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'a=b::c=d'` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'a==b'` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'album=x\\'` | **accepted** | 0 | (no header field exposes this) |
 | `-t` | track metadata | `'1=title=x'` | **accepted** | 0 | (no header field exposes this) |
 | `-t` | track metadata | `'1=title=a:b'` | **accepted** | 0 | (no header field exposes this) |
 | `-t` | track metadata | `'0=title=x'` | **refused** | 1 | Invalid track number 0, list has 2 tracks! |
 | `-t` | track metadata | `'99=title=x'` | **refused** | 1 | Invalid track number 99, list has 2 tracks! |
+| `-t` | track metadata | `'1'` | **refused** | 1 | Missing "=" in track metadata "1" |
+| `-t` | track metadata | `'99'` | **refused** | 1 | Invalid track number 99, list has 2 tracks! |
+| `-t` | track metadata | `'1='` | **accepted** | 0 | (no header field exposes this) |
 | `-o` | output formats | `'flac'` | **accepted** | 0 | (no header field exposes this) |
 | `-o` | output formats | `''` | **refused** | 1 | Invalid format "" |
 | `-o` | output formats | `'nosuchformat'` | **refused** | 1 | Invalid format "nosuchformat" |
@@ -409,6 +486,19 @@ rather than an error — also an `absent` row.
 | `-p` | pregap action | `'1=track'` | **accepted** | 0 | (no header field exposes this) |
 | `-p` | pregap action | `'1=bogus'` | **refused** | 1 | Invalid pregap action bogus |
 | `-p` | pregap action | `'99=drop'` | **accepted** | 0 | (no header field exposes this) |
+| `-p` | pregap action | `'1'` | **refused** | 1 | Missing pregap action |
+| `-p` | pregap action | `'=drop'` | **refused** | 1 | Invalid track idx for pregap: 0 |
+| `-p` | pregap action | `'1='` | **refused** | 1 | Missing pregap action |
+| `-p` | pregap action | `'1==drop'` | **accepted** | 0 | (no header field exposes this) |
+| `-p` | pregap action | `'1=drop='` | **accepted** | 0 | (no header field exposes this) |
+| `-p` | pregap action | `'='` | **refused** | 1 | Missing track idx for pregap |
+| `-p` | pregap action | `'=='` | **refused** | 1 | Missing track idx for pregap |
+| `-C` | cover art location | `'Front=/nonexistent.png'` | **refused** | 1 | Unable to open "/nonexistent.png": No such file or directory! |
+| `-C` | cover art location | `'Front='` | **refused** | 1 | Unable to open "": No such file or directory! |
+| `-C` | cover art location | `'=/nonexistent.png'` | **refused** | 1 | Unable to open "/nonexistent.png": No such file or directory! |
+| `-C` | cover art location | `'Front'` | **refused** | 1 | Unable to open "Front": No such file or directory! |
+| `-C` | cover art location | `'1='` | **refused** | 1 | Unable to open "": No such file or directory! |
+| `-C` | cover art location | `'='` | **refused** | 1 | Unable to open "": No such file or directory! |
 
 ### Interactions
 
@@ -420,7 +510,7 @@ rather than an error — also an `absent` row.
 | `-x` | cache probe on an image | **accepted** | 0 |  |
 | `-f` | find-offset on an image | **accepted** | 0 |  |
 
-**82 probes: 53 accepted, 29 refused, 0 silently ignored.**
+**111 probes: 65 accepted, 46 refused, 0 silently ignored.**
 
 **Silently-ignored values: none.** Every value either took effect or was refused with a message.
 
@@ -438,5 +528,3 @@ would become contract surface and this round is already carrying a cue change.
 Proposed for round 8 with the `generic` row left standing until then, per S-12.
 
 ---
-
-*Last updated for Platterpus v0.6.4b13.*

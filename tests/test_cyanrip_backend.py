@@ -1174,6 +1174,31 @@ def test_the_self_probe_reports_no_silently_dropped_values() -> None:
         "chokepoint is not firing, so out-of-range values reach the ripper again"
     )
 
+    # THE SHAPE AXIS, with its own floor. Added round 7 lap 33 after the cyanrip
+    # fork pointed out (their §C) that a grid feeding only well-formed values has
+    # the same blind spot as a type signature — theirs found four segfaults the
+    # first time they added this axis. A floor is required because the axis is
+    # young: a future edit that dropped `_SHAPE_GRID` would leave every assertion
+    # above passing.
+    shape = [p for p in probes if p.axis == "shape"]
+    assert len(shape) >= 10, (
+        f"only {len(shape)} malformed-shape probe(s) ran; the shape axis has been "
+        "removed or gutted, and the range assertions above cannot see that"
+    )
+    shape_findings = [p for p in shape if p.is_finding]
+    assert not shape_findings, "values that did not survive the blob round trip: " + (
+        ", ".join(f"{p.parameter}={p.value} ({p.detail})" for p in shape_findings)
+    )
+    # And the classes must ACCOUNT for every row. Our own first version reported
+    # "4 round-tripped, 0 mangled, 0 wrongly refused" out of 12 and called it zero
+    # findings — 4+0+0 != 12, and the missing eight were the whole defect.
+    named = {"emitted", "mangled", "wrongly-refused", "dropped"}
+    unaccounted = [p for p in shape if p.outcome not in named]
+    assert not unaccounted, (
+        "shape probes landed in an outcome class nothing counts: "
+        + ", ".join(sorted({p.outcome for p in unaccounted}))
+    )
+
 
 # --- The -a / -t blob shape guard --------------------------------------------
 #

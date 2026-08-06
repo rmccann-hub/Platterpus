@@ -11,6 +11,51 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **The argv probe grew a malformed-shape axis, and it found three defects in itself before
+  finding none in the argv.** The cyanrip fork added the same axis to their probe and it found
+  **four segfaults on its first run**; their statement of why is the one worth keeping — *a grid
+  that only feeds well-formed values has the same blind spot as a type signature.* Ours had
+  varied numeric values on four flags and nothing else, so every metadata blob it had ever built
+  was well-formed.
+
+  Adding twelve structurally awkward values (`:`, `=`, `::`, `a:=b`, a trailing backslash, an
+  unescaped separator) through the production path found, in order: an **expectation that was
+  backwards**, reporting 12 defects against rows where the escaping had worked perfectly — a
+  probe with a wrong expectation is worse than a missing one, because someone will change the
+  code to satisfy it; a **blob selector** that reported the album value for three track-level
+  rows; and an **outcome class nothing counted**, which made the experiment meant to prove the
+  axis work pass with zero findings against a build with the escape deleted.
+
+  The last one is the general fix. A finding is now **the complement of the pass** rather than a
+  list of failures — an enumeration is only as complete as the imagination that wrote it — and
+  the summary **reconciles**, naming any rows the classes do not account for. Our own line read
+  "12 probes, 4 round-tripped, 0 mangled, 0 wrongly refused. Findings: 0" and 4+0+0 ≠ 12.
+
+- **The shared seam files no longer carry a Platterpus version stamp.** `*Last updated for
+  Platterpus vX*` inside a document whose entire purpose is being byte-identical in two
+  repositories broke the hash on every beta, by construction. Our own stamp-exemption test
+  already carried the argument — *"stamping it with our version would fork the one file whose
+  entire purpose is not being forked"* — and enumerated one file while the reasoning covered
+  three. The fork's evidence was the clean kind: the two files with the footer were exactly the
+  two that drifted, and the footerless one matched first try.
+
+- **Round 7 laps 32 and 33 filed.** Test pin moves to `4a35604` (beta.7) and **beta.6 is
+  withdrawn** — the `-t` bounds defect we reported turned out to *publish* what it read past the
+  string, putting an environment variable into a FLAC tag, the log and the cue at exit 0. Their
+  three new refusal messages were checked against our surfacing matcher (3 of 3 matched, with a
+  no-false-positive floor) and their beta.7 golden reference through our parser.
+
+### Fixed
+- **The changelog claimed a release that never existed.** `0.6.4b12` had a dated heading and a
+  compare link, but no `v0.6.4b12` tag or GitHub release was ever cut — the version was bumped to
+  b13 before the release went out, so b12's entries shipped *inside* b13. The link resolved to
+  nothing and the b13 link pointed at it. Folded into b13 with a note saying so; entries kept
+  verbatim. Three older headings (`0.5.16`, `0.2.0`, `0.0.1`) have the same defect and are
+  **left alone pending a decision** — they predate this cycle and "fixing" a heading whose
+  history we do not know would be a guess. Recorded in `TASKS.md` rather than silently kept.
+
+
 ## [0.6.4b13] — 2026-08-06
 
 ### Changed
@@ -105,7 +150,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   would have made the new title check accuse **every correct rip** of a disc whose title
   contains a colon. Both sides now share one implementation of cyanrip's blob syntax.
 
-## [0.6.4b12] — 2026-08-06
+### Also in this release: everything prepared as 0.6.4b12, which was never tagged
+
+The version was bumped to `0.6.4b13` before any release was cut, because the colon-escape
+work landed after these entries were written. **No `v0.6.4b12` tag or GitHub release exists**,
+so this is not a separate release and its compare link has been removed rather than left
+pointing at a tag that resolves to nothing. The entries are kept verbatim: they describe
+changes that shipped, in this release.
 
 ### Added
 - **The `.cue` cyanrip writes is now validated before we ship it** (`cue_validate.py`,
@@ -6866,8 +6917,7 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 - Linux x86-64 only.
 
 [Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...HEAD
-[0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b12...v0.6.4b13
-[0.6.4b12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b12
+[0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b13
 [0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
 [0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
 [0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
