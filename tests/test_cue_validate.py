@@ -808,7 +808,26 @@ def _partial_rip_report(selection: tuple[int, ...]) -> dict:
     # ISRC lines would make every partial-rip test below fail for the ORIGINAL
     # reason rather than for the selection handling under test.
     sent = sent_track_metadata([str(x) for x in report["outcome"]["ripper_argv"]])
-    lines = ['TITLE "Album"']
+    # The album TITLE line comes from the SAME argv as everything else here, and
+    # not from a placeholder. It said `TITLE "Album"` until round 7 lap 31, when
+    # the title-fidelity check started comparing the cue's titles against the text
+    # we sent and — correctly — reported the placeholder as a mismatch. That is the
+    # "what does my stand-in do that the real thing does not" question answering
+    # itself: a fixture that invents a title cannot exercise a check about titles.
+    #
+    # It is written VERBATIM, including the U+2236 the committed argv carries: that
+    # rip was made before the backslash escape shipped, and a fixture that quietly
+    # modernised its own input would be testing a rip that never happened. The
+    # audit consequently reports one colon-artefact warning about this cue, which
+    # is *true of that rip* — the assertions below name it instead of using
+    # `worst` as a proxy for "no ISRC false positives".
+    sent_album = sent_album_metadata([str(x) for x in report["outcome"]["ripper_argv"]])
+    album_title = sent_album.get("album", "Album")
+    assert COLON_SUBSTITUTE in album_title or ":" in album_title, (
+        "the artifact's album title carries neither a colon nor its substitute, so "
+        "this fixture no longer exercises the separator case it was built for"
+    )
+    lines = [f'TITLE "{album_title}"']
     for track in kept:
         assert track.number is not None
         lines += [
@@ -855,7 +874,17 @@ def test_a_user_selected_partial_rip_is_not_accused_of_missing_twelve_isrcs() ->
     assert not [f for f in album.findings if "are missing from the cue" in f.text], [
         f.text for f in album.findings
     ]
-    assert album.worst != LEVEL_WARN, [(f.level, f.text) for f in album.findings]
+    # `album.worst != LEVEL_WARN` stood here as a proxy for "no ISRC false
+    # positives" until round 7 lap 31. The fixture's cue is now written from the
+    # committed argv verbatim, and that argv predates the backslash escape — so the
+    # audit correctly reports exactly one warning, about the U+2236 in the album
+    # title. Naming it is *stricter* than the old proxy was: a new warning of any
+    # other kind still fails here, where a blanket "worst != warn" would have had to
+    # be deleted outright.
+    unexpected = [
+        f for f in album.findings if f.level == LEVEL_WARN and "U+2236" not in f.text
+    ]
+    assert not unexpected, [(f.level, f.text) for f in album.findings]
 
 
 def test_a_partial_rips_non_contiguous_numbering_is_not_determined_not_a_warning() -> (
@@ -988,3 +1017,113 @@ def test_no_input_makes_the_cue_seam_raise(text: str) -> None:
     restored, changes = restore_metadata_colons(text)
     assert changes >= 0
     assert COLON_SUBSTITUTE not in restored or changes >= 0
+
+
+# --- Title fidelity: the check that cannot pass by finding nothing -----------
+
+
+def _titled_cue(album: str, track_title: str) -> str:
+    return "\n".join(
+        [
+            f'TITLE "{album}"',
+            'FILE "01.flac" WAVE',
+            "  TRACK 01 AUDIO",
+            f'    TITLE "{track_title}"',
+            "    INDEX 01 00:00:00",
+            "",
+        ]
+    )
+
+
+def test_titles_matching_what_we_sent_is_reported_with_a_count() -> None:
+    """The pass arm must say how many titles it compared.
+
+    "No substitute found" was the whole of this check until round 7 lap 31, and a
+    check that can only succeed by finding nothing is decoration (CLAUDE.md). The
+    count is the floor: a future edit that stops comparing turns this OK into a
+    NOTE, and the assertion on the number catches an edit that keeps comparing
+    but silently compares less.
+    """
+    findings = validate_cue(
+        _titled_cue("Every Breath You Take: The Classics", "Roxanne"),
+        expected=ExpectedCue(
+            album_title="Every Breath You Take: The Classics",
+            track_titles={1: "Roxanne"},
+        ),
+    )
+    ok = _by_code(findings, "cue_colon_ok")
+    assert ok.level == LEVEL_OK
+    assert "2 title(s) match" in ok.text, ok.text
+
+
+def test_a_truncated_title_is_caught_even_though_no_substitute_is_present() -> None:
+    """The failure the old check was blind to, and the reason for this one.
+
+    Measured, not imagined: cyanrip's real parser turns an unescaped ':' in a
+    value into a silent truncation — `album=Every Breath You Take: The
+    Classics:album_artist=...` parses to `Every Breath You Take` and the rest is
+    dropped, exit 0, nothing logged. The resulting cue contains no U+2236 at all,
+    so the U+2236 check would have called it clean.
+    """
+    findings = validate_cue(
+        _titled_cue("Every Breath You Take", "Roxanne"),
+        expected=ExpectedCue(
+            album_title="Every Breath You Take: The Classics",
+            track_titles={1: "Roxanne"},
+        ),
+    )
+    mismatch = _by_code(findings, "cue_title_mismatch")
+    assert mismatch.level == LEVEL_WARN
+    # It must quote BOTH strings — a mismatch report that says only "differs"
+    # cannot be acted on from a bug report.
+    assert "Every Breath You Take: The Classics" in mismatch.text
+    assert 'cue says "Every Breath You Take"' in mismatch.text
+    # And it must name the mechanism, so the reader knows where to look.
+    assert "unescaped" in mismatch.text
+
+
+def test_nothing_to_compare_against_is_not_determined_not_a_pass() -> None:
+    """An unknown disc has no expected titles, so there is no verdict to give.
+
+    Tri-state everywhere: the absence of evidence is reported as such. This is the
+    arm that stops the check from becoming a rubber stamp on rips it never saw the
+    metadata for.
+    """
+    findings = validate_cue(
+        _titled_cue("Some Album", "Some Track"), expected=ExpectedCue()
+    )
+    assert "cue_colon_ok" not in _codes(findings)
+    note = _by_code(findings, "cue_colon_not_determined")
+    assert note.level == LEVEL_NOTE
+
+
+def test_a_title_a_cue_cannot_quote_is_not_determined_rather_than_accused() -> None:
+    """A `"` in a title is a formatting difference, not lost text.
+
+    Deliberately a NOTE and not a WARN: a false accusation on a good rip costs
+    more trust than a missed one on a rare title, and we have no measured case of
+    how cyanrip writes a quote into a cue. When we have one, this can tighten.
+    """
+    findings = validate_cue(
+        _titled_cue("Say It Loud", "Track"),
+        expected=ExpectedCue(album_title='Say "It" Loud'),
+    )
+    assert "cue_title_mismatch" not in _codes(findings)
+    note = _by_code(findings, "cue_colon_not_determined")
+    assert "cannot quote" in note.text
+
+
+def test_the_substitute_still_wins_over_the_title_comparison() -> None:
+    """Ordering matters: U+2236 gets its own message, not a generic mismatch.
+
+    Both findings would be true of a cue carrying the substitute, and the
+    substitute one is more actionable — it names the repair. Asserting the
+    ordering pins it, because which of two true diagnoses a user sees is a
+    product decision, not an accident of control flow.
+    """
+    findings = validate_cue(
+        _titled_cue(f"Every Breath You Take{COLON_SUBSTITUTE} The Classics", "Roxanne"),
+        expected=ExpectedCue(album_title="Every Breath You Take: The Classics"),
+    )
+    assert "cue_colon_artefact" in _codes(findings)
+    assert "cue_title_mismatch" not in _codes(findings)

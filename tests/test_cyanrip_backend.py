@@ -318,17 +318,33 @@ def test_rip_argv_no_metadata_omits_tag_flags() -> None:
 
 
 def test_meta_value_escaping_makes_separators_safe() -> None:
-    # A colon CANNOT be backslash-escaped for cyanrip: its append_missing_keys()
-    # preprocessor splits on ':' naively (ignoring '\') and injects spurious
-    # keys, which corrupted "Every Breath You Take: The Classics" into a folder
-    # named "...∶album_artist= The Classics" (real-user bug, 2026-06-27). So the
-    # colon is substituted with the U+2236 lookalike (the real ':' is restored
-    # in the FLAC tags post-rip). No backslash, no spurious split.
-    assert _escape_meta_value("Live: At The Met") == "Live∶ At The Met"
-    assert "\\" not in _escape_meta_value("Every Breath You Take: The Classics")
-    assert ":" not in _escape_meta_value("a:b:c")  # every colon substituted
-    # The other tokenizer-special chars still get a backslash (av_get_token
-    # honors them; append_missing_keys never splits on them).
+    r"""A colon is backslash-escaped now, NOT substituted (round 7 lap 31).
+
+    **This assertion was the opposite way round until 2026-08-06, and the old
+    version was correct when it was written** — which is why the reason is here
+    rather than in a commit message. cyanrip's `append_missing_keys()` runs before
+    `av_dict_parse_string()` and used to split on ':' naively, ignoring '\', so a
+    backslash-escaped colon did not survive it: a real user's album became the
+    folder "Every Breath You Take∶album_artist= The Classics" (2026-06-27). We
+    substituted U+2236 RATIO instead.
+
+    **Their code changed, and we verified that rather than taking the claim.** The
+    fork told us in lap 30 that `\:` works. Our own docstring said otherwise, so
+    we read both trees: `append_missing_keys` is now escape-aware ("minding
+    \: and \= escapes"), and it is escape-aware **on upstream `master` too** —
+    so this is safe on stock as well as the fork, which is what allowed the change
+    to be unconditional instead of gated on a build tag.
+
+    What it buys: cyanrip's `.cue` TITLE and its log's `album:` field carried the
+    substitute and were the two artifacts we could never repair. Now the real
+    colon goes in and comes back out. The folder name is unchanged — cyanrip
+    still sanitises ':' out of paths itself, which is where U+2236 came from.
+    """
+    assert _escape_meta_value("Live: At The Met") == "Live\\: At The Met"
+    assert "∶" not in _escape_meta_value("Every Breath You Take: The Classics")
+    # Every colon is escaped, and none is replaced.
+    assert _escape_meta_value("a:b:c") == "a\\:b\\:c"
+    # The other tokenizer-special chars are unchanged in treatment.
     assert _escape_meta_value("a=b") == "a\\=b"
     assert _escape_meta_value("back\\slash") == "back\\\\slash"
     assert _escape_meta_value("It's") == "It\\'s"
@@ -1157,3 +1173,153 @@ def test_the_self_probe_reports_no_silently_dropped_values() -> None:
         f"only {len(refused)} probe(s) were refused — the range guard at the argv "
         "chokepoint is not firing, so out-of-range values reach the ripper again"
     )
+
+
+# --- The -a / -t blob shape guard --------------------------------------------
+#
+# These pin the OUTBOUND half of the seam. The numbers in the docstrings below
+# are measured, not reasoned: `scratchpad/escape-harness/harness.c` compiles the
+# real `append_missing_keys()` out of cyanrip @ 9048082 (the pin installed on the
+# rig) against the real libavutil 58.29.100 and prints what each blob parses to.
+# That is why the expectations here are stated as facts about cyanrip rather than
+# as our opinion of a format.
+
+
+def test_the_metadata_blob_we_build_for_a_colon_title_is_accepted() -> None:
+    """The real reference disc's title passes the chokepoint.
+
+    This is the case the whole escape change exists for: "Every Breath You Take:
+    The Classics". Measured through cyanrip's own parser it comes out as the real
+    colon, and it must not be refused here.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    args = _metadata_args(
+        RipMetadata(
+            album_title="Every Breath You Take: The Classics",
+            album_artist="The Police",
+            tracks=[TrackTag(number=1, title="Roxanne", artist="The Police")],
+        ),
+        release_id="",
+    )
+    assert "-a" in args and "-t" in args
+    blob = args[args.index("-a") + 1]
+    # The escape is present and the substitute is not.
+    assert "Take\\: The" in blob
+    assert "∶" not in blob
+    assert_meta_args_are_parseable(["cyanrip", "-N", *args])  # must not raise
+
+
+def test_an_unescaped_colon_in_a_value_is_refused_it_truncates() -> None:
+    """A raw ':' does not fail in cyanrip — it drops the rest of the value.
+
+    Measured against the pinned parser:
+
+        album=Every Breath You Take: The Classics:album_artist=The Police
+          -> [album] = [Every Breath You Take]
+
+    " The Classics" is gone, exit code 0, nothing in the log. Silent loss is the
+    failure this guard exists to make loud, so the refusal must fire even though
+    the blob is, syntactically, something cyanrip will happily accept.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    argv = [
+        "cyanrip",
+        "-N",
+        "-a",
+        "album=Every Breath You Take: The Classics:album_artist=The Police",
+    ]
+    with pytest.raises(RipError) as excinfo:
+        assert_meta_args_are_parseable(argv)
+    # The message must name the mechanism, not just say "invalid".
+    assert "truncates" in str(excinfo.value)
+
+
+def test_a_dangling_backslash_is_refused_it_eats_the_separator() -> None:
+    """A value ending in one backslash escapes whatever follows it.
+
+    Writing this test corrected my own model of the failure, so the distinction is
+    recorded rather than smoothed over: a dangling escape **mid-blob** does not
+    surface as a dangling escape at all. It eats the ``:`` and welds two tags into
+    one field, which the unescaped-``=`` count catches first — so both refusals
+    are asserted here, each with the message that actually fires. A guard whose
+    error text you have to guess at is a guard nobody will trust in a bug report.
+
+    The parity count matters because ``a\\\\`` (an escaped backslash) is a
+    perfectly good value and ``a\\`` is not — ``endswith("\\\\")`` cannot tell
+    them apart.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    # Mid-blob: the escape consumes the ':' and the two tags merge, so this is
+    # reported as a field with two unescaped '='.
+    with pytest.raises(RipError, match="unescaped '='"):
+        assert_meta_args_are_parseable(
+            ["cyanrip", "-N", "-a", "album=Trailing\\:album_artist=X"]
+        )
+    # End of blob: nothing left to weld to, so the dangling escape is what is seen.
+    with pytest.raises(RipError, match="lone backslash"):
+        assert_meta_args_are_parseable(
+            ["cyanrip", "-N", "-a", "album_artist=X:album=Trailing\\"]
+        )
+    # Escaped backslash: two of them, structurally fine, in both positions.
+    assert_meta_args_are_parseable(
+        ["cyanrip", "-N", "-a", "album=Trailing\\\\:album_artist=X"]
+    )
+    assert_meta_args_are_parseable(
+        ["cyanrip", "-N", "-a", "album_artist=X:album=Trailing\\\\"]
+    )
+
+
+def test_a_track_arg_without_the_leading_number_equals_is_refused() -> None:
+    """cyanrip steps over the '=' of `-t N=` without checking one is there.
+
+    `strtol()` then `end += 1` — so `-t 12` moves its pointer one past the NUL
+    and parses whatever follows in memory. We can never emit that, and that is
+    exactly why it is worth a guard: the cost of being wrong is not a bad tag.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    for bad in ("12", "title=Roxanne", ""):
+        with pytest.raises(RipError, match="track number"):
+            assert_meta_args_are_parseable(["cyanrip", "-N", "-t", bad])
+    # The shape we do emit is accepted.
+    assert_meta_args_are_parseable(["cyanrip", "-N", "-t", "12=title=Roxanne"])
+
+
+def test_the_blob_guard_runs_from_the_chokepoint_not_just_directly() -> None:
+    """Reachability, not presence.
+
+    CLAUDE.md's own history has a fully-implemented guard called from nowhere
+    (`RipHandle.cancel`). This asserts the new check is wired into
+    `assert_metadata_lookup_disabled`, which is the one function every route to
+    the ripper passes through — including the scripted verb, which delegates here
+    rather than restating the rule.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+
+    with pytest.raises(RipError, match="truncates"):
+        assert_metadata_lookup_disabled(
+            ["cyanrip", "-N", "-a", "album=A: B:album_artist=C"]
+        )
+
+
+def test_split_on_unescaped_matches_how_cyanrips_parser_walks_the_blob() -> None:
+    """The splitter is the thing the guard's correctness rests on, so pin it.
+
+    Cases 1 and 5 of the measured harness, plus the degenerate ones. Note the
+    escaping backslash is RETAINED: this function answers "where are the
+    structural separators", not "what is the final text" — conflating those is
+    how a validator ends up rejecting a legitimate value.
+    """
+    from platterpus.adapters.cyanrip_backend import split_on_unescaped
+
+    assert split_on_unescaped("a:b", ":") == ["a", "b"]
+    assert split_on_unescaped("a\\:b", ":") == ["a\\:b"]
+    assert split_on_unescaped("a\\\\:b", ":") == ["a\\\\", "b"]
+    assert split_on_unescaped("", ":") == [""]
+    assert split_on_unescaped("album=A\\:B\\:C:album_artist=X", ":") == [
+        "album=A\\:B\\:C",
+        "album_artist=X",
+    ]

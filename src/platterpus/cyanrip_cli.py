@@ -56,6 +56,7 @@ failure is expected and meaningless.
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 #: Version flags to try, **in order**, stopping at the first that exits 0.
@@ -192,3 +193,94 @@ VERSION_BANNER_SNIPPET: Final[str] = "\n".join(
 #: :func:`platterpus.deps.fork_source.accepts_verify_log` is tri-state and returns
 #: ``None`` rather than guessing.
 VERIFY_LOG_FLAG: Final[str] = "--verify-log"
+
+
+# --- The -a / -t metadata blob syntax ----------------------------------------
+#
+# The second fact both layers need, added round 7 lap 31. It lives here for the
+# same reason as the version flag above: `adapters/cyanrip_backend.py` writes
+# these blobs and `cue_validate.py` reads them back out of a report to check what
+# the ripper did with them, and neither may import the other. Two copies of an
+# escaping convention is two things to drift — and this one drifted *within a
+# single change*: the escape shipped on the write side while the read side still
+# split naively, which silently turned the album title
+# "Every Breath You Take: The Classics" into "Every Breath You Take\".
+
+#: What separates one ``key=value`` pair from the next in a ``-a``/``-t`` blob.
+META_PAIR_SEPARATOR: Final[str] = ":"
+
+#: What separates a key from its value.
+META_KEY_SEPARATOR: Final[str] = "="
+
+
+def split_on_unescaped(blob: str, separator: str) -> list[str]:
+    """Split ``blob`` on ``separator``, honouring a backslash escape.
+
+    This mirrors how cyanrip's two-stage parse walks the blob — its
+    ``append_missing_keys()`` pre-splitter and FFmpeg's ``av_get_token()`` both
+    let a backslash protect the next character — so splitting this way tells us
+    what *cyanrip* will see, not what a naive :meth:`str.split` would.
+
+    Verified against the real thing rather than the documentation: the pinned
+    tree's ``append_missing_keys()`` compiled against libavutil 58.29.100 parses
+    ``album=Every Breath You Take\\: The Classics:album_artist=The Police`` to
+    ``album`` = ``Every Breath You Take: The Classics``, and a *naive* split of
+    the same blob yields ``Every Breath You Take\\`` with " The Classics" dropped
+    on the floor.
+
+    The escaping backslash is **kept** in the returned pieces: this answers "where
+    are the structural separators", not "what is the final text" — see
+    :func:`unescape_meta_value` for the second half. Conflating the two is how a
+    validator ends up rejecting a perfectly good value.
+    """
+    pieces: list[str] = []
+    current: list[str] = []
+    escaped = False
+    for char in blob:
+        if escaped:
+            current.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            current.append(char)
+            escaped = True
+            continue
+        if char == separator:
+            pieces.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    pieces.append("".join(current))
+    return pieces
+
+
+def unescape_meta_value(value: str) -> str:
+    """Undo the backslash escaping, recovering the text the user actually typed.
+
+    The exact inverse of ``cyanrip_backend._escape_meta_value``, and the same
+    thing FFmpeg's ``av_get_token`` does on cyanrip's side: a backslash is
+    dropped and whatever follows it is taken literally.
+    """
+    return re.sub(r"\\(.)", r"\1", value)
+
+
+def split_meta_blob(blob: str) -> dict[str, str]:
+    """One ``-a``/``-t`` blob → its ``key=value`` pairs, keys lower-cased.
+
+    Never raises: a malformed blob yields whatever pairs did parse, which is what
+    a report reader needs — a diagnostic that dies on the input it is diagnosing
+    is worse than a partial answer.
+    """
+    pairs: dict[str, str] = {}
+    for chunk in split_on_unescaped(blob, META_PAIR_SEPARATOR):
+        halves = split_on_unescaped(chunk, META_KEY_SEPARATOR)
+        if len(halves) < 2:
+            continue
+        key = halves[0].strip().lower()
+        if not key:
+            continue
+        # Re-join any surplus halves so a value with an unescaped '=' in it (which
+        # we never emit, but a hand-edited argv might) is preserved rather than
+        # truncated — the failure this whole change is about.
+        pairs[key] = unescape_meta_value(META_KEY_SEPARATOR.join(halves[1:]))
+    return pairs

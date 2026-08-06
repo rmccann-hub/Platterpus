@@ -55,6 +55,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
+from platterpus.cyanrip_cli import split_meta_blob
 from platterpus.safe_int import int_or_none
 
 log = logging.getLogger(__name__)
@@ -355,24 +356,20 @@ def parse_cue(cue_text: str) -> CueSheet:
 def _split_meta_blob(blob: str) -> dict[str, str]:
     """Split one ``-a``/``-t`` blob into its ``key=value`` pairs.
 
-    Splitting on ``:`` is safe *because of* the escaping this module exists to
-    complain about: a real colon can never appear in one of these blobs — it was
-    turned into U+2236 before the argv was built — so every ``:`` here is a
-    genuine separator. Backslash escapes (``\\``, ``=``, ``'``) are undone, the
-    inverse of ``cyanrip_backend._escape_meta_value``.
+    **Delegated, not implemented here** — :func:`platterpus.cyanrip_cli.split_meta_blob`
+    is the single copy, shared with the argv builder that writes these blobs.
 
-    Never raises: a malformed blob yields whatever pairs did parse.
+    The version that lived here split naively on ``:`` and justified it in as many
+    words: *"a real colon can never appear in one of these blobs — it was turned
+    into U+2236 before the argv was built."* That was true and stopped being true
+    in the same change that started backslash-escaping the colon instead, at which
+    point this function read the album title ``Every Breath You Take\\: The
+    Classics`` back as ``Every Breath You Take\\`` — and since it feeds
+    :class:`ExpectedCue`, the title-fidelity check would then have accused every
+    correct rip of a disc whose title contains a colon. Kept as a named wrapper
+    rather than deleted so that story stays attached to the place it happened.
     """
-    pairs: dict[str, str] = {}
-    for chunk in blob.split(":"):
-        if "=" not in chunk:
-            continue
-        key, _, value = chunk.partition("=")
-        key = key.strip().lower()
-        if not key:
-            continue
-        pairs[key] = re.sub(r"\\(.)", r"\1", value)
-    return pairs
+    return split_meta_blob(blob)
 
 
 def sent_track_metadata(argv: Sequence[str]) -> dict[int, dict[str, str]]:
@@ -723,6 +720,100 @@ def _check_pregaps(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
     return findings
 
 
+#: Characters a cue sheet cannot carry verbatim in a quoted value, so a
+#: difference involving one of them is a *formatting* difference and not evidence
+#: that text was lost. A title containing one is reported **not determined**
+#: rather than accused — a false accusation on a good rip costs more trust than a
+#: missed one on a rare title, and we can always widen this later with a measured
+#: case in hand (docs/testing.md, miss-vs-false-positive).
+_CUE_UNSAFE_CHARS: frozenset[str] = frozenset('"\r\n')
+
+
+def _check_titles_survived(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
+    """Do the cue's titles still say what we handed the ripper, character for character?
+
+    **Why this replaced a "no substitute found" pass.** Until round 7 lap 31 the
+    colon check ended by reporting OK when it found no U+2236 — which is a check
+    that can only ever succeed by *finding nothing*, the exact shape CLAUDE.md
+    tells us to give a floor. It also could not see the failure that matters more.
+
+    Measured against cyanrip's real parser (``append_missing_keys`` from the
+    pinned tree compiled against libavutil 58.29.100), an unescaped ``:`` in a
+    value is not an error — it **silently truncates**:
+
+        album=Every Breath You Take: The Classics:album_artist=The Police
+          -> [album] = [Every Breath You Take]
+
+    Exit 0, nothing in the ripper's log, and the old check would have called that
+    cue clean because there is no U+2236 anywhere in it. Comparing against
+    :class:`ExpectedCue` — which comes from the argv we sent, a *different source*
+    than the file being judged — catches truncation, substitution and any other
+    mangling with one assertion.
+
+    Tri-state, as everywhere: with nothing to compare against (an unknown disc, a
+    cue with no ``TITLE``) this reports **not determined**, never a pass.
+    """
+    compared: list[str] = []
+    mismatches: list[str] = []
+    undecidable: list[str] = []
+
+    def judge(label: str, truth: str, found: str) -> None:
+        if _CUE_UNSAFE_CHARS & set(truth):
+            undecidable.append(label)
+            return
+        compared.append(label)
+        if found != truth:
+            mismatches.append(f'{label}: cue says "{found}", we sent "{truth}"')
+
+    if expected.album_title:
+        for meta in sheet.metadata:
+            if meta.field_name == "TITLE" and meta.track_number is None:
+                judge("album title", expected.album_title, meta.value)
+    for meta in sheet.metadata:
+        if meta.field_name != "TITLE" or meta.track_number is None:
+            continue
+        truth = expected.track_titles.get(meta.track_number)
+        if truth:
+            judge(f"track {meta.track_number} title", truth, meta.value)
+
+    if mismatches:
+        return [
+            CueFinding(
+                LEVEL_WARN,
+                "cue_title_mismatch",
+                f"cue sheet — {len(mismatches)} title(s) in the cue do not match the "
+                f"text we handed the ripper: {_named(mismatches)}. The usual cause is "
+                "a separator character reaching cyanrip's -a/-t parser unescaped: it "
+                "does not fail on one, it drops the rest of the value, so the rip "
+                "succeeds and the tag is quietly wrong",
+            )
+        ]
+    if not compared:
+        detail = (
+            f" ({_named(undecidable)} contain a character a cue cannot quote, so a "
+            "difference there would not be evidence)"
+            if undecidable
+            else ""
+        )
+        return [
+            CueFinding(
+                LEVEL_NOTE,
+                "cue_colon_not_determined",
+                "cue sheet — title fidelity not determined: there is no title here "
+                f"that can be compared against what we sent{detail}",
+            )
+        ]
+    return [
+        CueFinding(
+            LEVEL_OK,
+            "cue_colon_ok",
+            f"cue sheet — {len(compared)} title(s) match the text we handed the "
+            "ripper exactly, and no metadata value carries the U+2236 colon "
+            f"substitute (checked {len(sheet.metadata)} value(s))",
+        )
+    ]
+
+
 def _check_colon_fidelity(sheet: CueSheet, expected: ExpectedCue) -> list[CueFinding]:
     """Is any metadata value still carrying our U+2236 escaping artefact?
 
@@ -742,14 +833,7 @@ def _check_colon_fidelity(sheet: CueSheet, expected: ExpectedCue) -> list[CueFin
 
     offenders = [m for m in sheet.metadata if COLON_SUBSTITUTE in m.value]
     if not offenders:
-        return [
-            CueFinding(
-                LEVEL_OK,
-                "cue_colon_ok",
-                f"cue sheet — all {len(sheet.metadata)} metadata value(s) carry real "
-                "text, with no U+2236 colon substitute left in them",
-            )
-        ]
+        return _check_titles_survived(sheet, expected)
 
     truth = ""
     if expected.album_title and any(

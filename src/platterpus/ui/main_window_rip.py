@@ -205,9 +205,10 @@ def _rip_master_paths(rip_dir: Path, rip_log: object | None) -> list[Path]:
 def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> bool:
     """Whether any tag value handed to cyanrip carries a literal ``:``.
 
-    Drives the post-rip colon-restore (KDD-22): cyanrip can't take a ``:`` in a
-    tag arg, so each such value is fed as the U+2236 lookalike and must be
-    restored in the written tags afterward. This must cover EVERY field the
+    Drives the post-rip colon-restore (KDD-22). Since round 7 lap 31 such a value
+    is fed **backslash-escaped** rather than substituted, so what this arms is a
+    net rather than a repair — see :meth:`_metadata_has_colon` for why it is still
+    armed and what would retire it. This must cover EVERY field the
     backend's ``_escape_meta_value`` touches — album artist/title, year, genre,
     the ``musicbrainz_albumid`` (``release_id``), and each track's title, artist,
     and ISRC. It previously checked only album/track title+artist, so a colon in
@@ -1936,8 +1937,18 @@ class RipMixin(MainWindowShared):
     def _metadata_has_colon(self) -> bool:
         """True if any metadata value fed to cyanrip contains a ``:``.
 
-        Drives the cyanrip colon-restore (KDD-22): only worth a post-rip metaflac
-        pass when a colon was actually substituted with the U+2236 lookalike. We
+        Drives the cyanrip colon-restore (KDD-22). **Since round 7 lap 31 this
+        gates a safety net rather than a repair**: values now go out
+        backslash-escaped (``\\:``) instead of substituted, so in a correct build
+        there is no U+2236 left in the tags and the pass finds nothing to fix.
+
+        It is deliberately still armed. Our side can prove we *emit* the escape
+        and that both cyanrip source trees parse it; only a real rip can prove it
+        survives all the way into the written tags. Dropping the escape and the
+        net in one unverified release is the "each fix introduces the next"
+        pattern this project has paid for three times — so the net stays until a
+        rig rip says otherwise, at which point this becomes dead code and should
+        go. We
         check the assembled ``RipMetadata`` that was actually sent (album fields,
         year, genre, the release id, and every track's title/artist/isrc) rather
         than re-deriving from the track table — the table exposes only
@@ -2026,9 +2037,12 @@ class RipMixin(MainWindowShared):
         gen = self._rip_generation  # drop the transcode result if a newer rip starts
 
         def work() -> None:
-            # 0) Restore the real ':' in cyanrip's tags (it was fed the ∶
-            #    lookalike because its parser can't take a literal colon). Runs
-            #    FIRST so cover-art and the transcode see the corrected tags.
+            # 0) Safety net: restore the real ':' in cyanrip's tags if any ∶
+            #    lookalike is still there. Since lap 31 we escape the colon
+            #    instead of substituting it, so this should now find nothing —
+            #    it is kept armed until a rig rip confirms the escape survives
+            #    into the written tags (see `_metadata_has_colon`). Runs FIRST so
+            #    cover-art and the transcode see corrected tags either way.
             #    Never raises; a no-op for colon-free albums.
             if restore_colons:
                 from platterpus.adapters.cyanrip_backend import (

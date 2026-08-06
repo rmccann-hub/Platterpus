@@ -11,6 +11,47 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **A colon in an album or track title is now sent to cyanrip as `\:` instead of being
+  replaced by a lookalike character.** Titles with a colon — "Every Breath You Take: The
+  Classics" — reached cyanrip's `-a`/`-t` arguments as U+2236 RATIO, a visually identical
+  stand-in, because that parser could not then be trusted with an escaped colon. We repaired
+  the FLAC tags and our own log afterwards, but **two artifacts we do not write kept the
+  wrong character forever**: cyanrip's `.cue` `TITLE` line and its own log's `album:` field.
+  Now the real colon goes in and comes back out, and nothing needs repairing. Folder names
+  are unchanged — cyanrip still substitutes the lookalike when sanitising a *path*, which is
+  where the character came from in the first place.
+
+  What changed is cyanrip's code, not our opinion of it, and we verified that instead of
+  taking the fork's word for it: its pre-splitter is now escape-aware **in both the fork and
+  upstream**, present at the build installed on the test rig. Measured end-to-end where we
+  could — the real function compiled out of the pinned tree against the real FFmpeg library —
+  which also surfaced the finding below. Full confirmation that the escape survives into
+  cyanrip's own written tags needs a rip on real hardware, so the post-rip repair pass stays
+  armed as a safety net until then rather than being removed in the same release.
+
+- **An unescaped separator in a tag value is refused at the argv chokepoint.** Measured
+  against cyanrip's real parser, an unescaped `:` in a value does not fail — it **silently
+  truncates**: `album=Every Breath You Take: The Classics` parses to `Every Breath You Take`,
+  exit code 0, nothing in any log. The escape was correct at all twelve places that build a
+  tag pair, but that is a rule enforced by everyone remembering it, and a thirteenth would
+  have lost the user's text with no diagnostic. The blob's structure is now validated where
+  every route to the ripper already passes.
+
+- **The cue's titles are compared against the text we sent, not merely scanned for the old
+  workaround.** The check that read the shipped `.cue` could previously only *pass by finding
+  nothing* — and it was blind to the truncation above, which leaves no trace in the file.
+  It now compares each title against the argv, so substitution, truncation and any other
+  mangling are caught by one assertion, and reports **not determined** when there is nothing
+  to compare against. A title containing a character a cue cannot quote is likewise not
+  determined rather than accused.
+
+- **The argv writer and the report reader can no longer disagree about the escaping.** They
+  did, for the length of one change: the escape shipped on the write side while the read side
+  still split naively, which turned the album title back into `Every Breath You Take\` and
+  would have made the new title check accuse **every correct rip** of a disc whose title
+  contains a colon. Both sides now share one implementation of cyanrip's blob syntax.
+
 ## [0.6.4b12] — 2026-08-06
 
 ### Added
