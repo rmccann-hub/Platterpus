@@ -172,6 +172,50 @@ Two consequences worth stating now:
 - **`docs/seam-rules.md` ships with the beta**, so round 8 can cite
   `SEAM-RULES-VERSION: 1` rather than re-argue it.
 
+## 4b. Round 8 — what goes to the fork, and what the maintainer uploads
+
+His instruction: *"give a new handshake file for cyanrip include all wel've said
+and learned. make sure they are informed to follow our new formats and standards,
+and give them any new information they need to improve or fix based on what we
+learned/have seen. and make sure they update their stuff and give us back
+something similar."*
+
+**The round-8 outbound package is five things, sent together:**
+
+| # | what | why it must be in the same round |
+|---|---|---|
+| 1 | **`docs/seam-rules.md` v4** | the twelve tagged rules. Adopted as a file, not paraphrased — a restatement is a second spec that can drift |
+| 2 | **`docs/seam-commands.md`** | the one table. Our column filled, theirs `?`. Their half is the ask |
+| 3 | **The round-8 verification file** | withdraws lap 27's stale HOLD, corrects our recommendation of a superseded pin, raises the three-sends-under-one-lap-number breach, and carries §S/§S5a/§S5b/§S5c |
+| 4 | **The rip artifacts** | evidence *about their binary*, which is the only thing that can settle the cue fix and close round 7 |
+| 5 | **Our own defect list** | what we found in ourselves this cycle. A contract argued from a hole you just found in yourself carries more weight than one argued from a clean position |
+
+**What we ask back, explicitly**: their half of the command table, their exit-code
+grading with the `generic` list, their three S-11 numbers and their regression-test
+list, and confirmation the rules landed in their `CLAUDE.md` — so round 9 can
+*cite* rather than re-argue.
+
+### The upload order, and why it is not "whenever"
+
+The maintainer offered: *"i can also upload all the log and other files there if
+helpful, just let me know what to do when you are ready."* The answer is **yes,
+but after we have read them, not before**, and the reason is specific:
+
+1. **We read the artifacts first.** They may change what the round-8 file says —
+   a wrong pre-gap result sends their cue fix back and the file's verdict inverts.
+   A file written before we looked would need retracting, and this protocol has
+   already spent a round on a retraction.
+2. **Then everything goes at once.** Analysis and evidence arriving together
+   means they can check our reading against the same bytes. Evidence without the
+   reading invites them to re-derive it; the reading without the evidence asks
+   them to take it on trust. Both have failed here before.
+3. **The artifacts are named in the file's header**, so a later reader can tell
+   which log settled which claim — the *answer it from the artifact, and name
+   which artifact* rule.
+
+So: **send nothing to the fork yet.** When the package is read and round 8 is
+written, the upload is one action with a stated manifest.
+
 ## 5. What could change this plan
 
 Stated so that a later reader can tell a revised plan from a forgotten one:
