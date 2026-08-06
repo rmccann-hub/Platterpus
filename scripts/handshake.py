@@ -786,6 +786,22 @@ REQUIRED_CLOSE_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-TESTED",
 )
 
+#: The optional field that names a build designated to *gather* the evidence a
+#: close needs (§6a). It is **not** a pin agreement and must never be read as one.
+#:
+#: Why the protocol needed it: our own rules deadlocked. A close requires
+#: `HANDSHAKE-TESTED`; hardware evidence only comes from the rig; the rig installs
+#: the pinned build; neither side may move the pin while a round is open — so the
+#: rig always runs the build *without* the changes under review, and the round can
+#: never close. Every step is a rule both projects hold and together they are
+#: unsatisfiable. The fix is to stop conflating "the build we agreed on" with "the
+#: build we are testing".
+#:
+#: Consequence for this gate, and the whole reason the constant exists here rather
+#: than being ignored as an unknown field: a file carrying a test pin must be no
+#: closer to closing a round than the same file without one (rows C17/C18).
+TEST_PIN_FIELD: str = "HANDSHAKE-TEST-PIN"
+
 #: Rounds recorded before the header existed, exempted **by number** — never by a
 #: rule like "a missing verdict is fine for old rounds", which is the fallback that
 #: lets any new round close by omission. Both sets may shrink, never grow.
@@ -933,6 +949,24 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
         # "They did not object" is never "they agreed" — and the peer verdict is
         # TRANSCRIBED, not judged, so a peer HOLD written down honestly must block.
         blockers.append(f"peer verdict is {peer!r}, not GO (§5)")
+    # A TEST PIN IS NOT A PIN AGREEMENT (§6a, row C18). A test pin may accompany a
+    # valid close — that is the normal sequence, since the evidence a close cites
+    # was gathered on it — but it must never *substitute* for `HANDSHAKE-PIN`. The
+    # failure this refuses is a file that names only the build it tested and closes
+    # the round on it, moving the production pin to something never agreed.
+    #
+    # Deliberately checked here rather than left to the required-field sweep above:
+    # that sweep is round-gated by the grandfather clause, and a test pin is a v2
+    # addition that can only appear on files written after it existed.
+    test_pin = fields.get(TEST_PIN_FIELD)
+    if test_pin is not None and test_pin != AMBIGUOUS:
+        agreed = fields.get("HANDSHAKE-PIN")
+        if agreed is None or agreed == AMBIGUOUS:
+            blockers.append(
+                f"{TEST_PIN_FIELD} is declared but HANDSHAKE-PIN is not (§6a) — a "
+                "test pin names the build that gathered the evidence, never the "
+                "build being agreed to, and it must not be read as one"
+            )
     return blockers
 
 

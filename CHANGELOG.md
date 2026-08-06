@@ -13,6 +13,37 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [0.6.4b13] — 2026-08-06
 
+### Changed
+- **The shared handshake protocol is back in sync with the cyanrip fork, and our copy was
+  the stale one.** `docs/handshake-protocol.md` is a document *neither project owns* — the
+  same file in both repositories — and ours had not been edited since the day it was adopted
+  (round 7 lap 4), while theirs had absorbed three later laps. Established from evidence, not
+  from argument: `git log` shows exactly one commit touching our copy, and the diff against
+  theirs contains **§6b, a mechanism Platterpus itself proposed in lap 7** and never wrote
+  into the shared file. Adopted verbatim, byte-identical.
+
+  It brings three things: the round-8 requirement that every file name its own pair (on a
+  mid-round `HOLD` too — a measurement without provenance is what the fields exist to
+  prevent), the optional `HANDSHAKE-TEST-PIN`, and a conformance table with **stable row IDs
+  `C1`–`C20`** so a disagreement can cite a row rather than a paraphrase.
+
+  `HANDSHAKE-TEST-PIN` resolves a real deadlock: closing a round requires evidence that can
+  only be gathered by installing the build under review, but neither side may move the pin
+  while a round is open — so the test rig forever runs the build *without* the changes, and
+  the round can never close. Our gate now enforces that a test pin is inert on a `HOLD` and
+  can never stand in for the agreed pin.
+
+  Our conformance suite is one test per row ID, with the **expected ID set parsed out of the
+  shared table** rather than hardcoded. The version it replaced looped over a number range
+  and skipped two entries, which had let two different tests both be named for "row 9" —
+  either could have been deleted with the coverage check still green.
+
+  One finding worth stating because it cuts against us: removing our local annotation from
+  the top of the shared file broke a test that claimed to assert the *shared spec* says it is
+  shared. It had been matching **our own comment** — the spec's own sentence is wrapped
+  across a newline and never matched. A Platterpus-only comment inside a file whose entire
+  purpose is byte-identity was itself the drift that file exists to prevent.
+
 ### Fixed
 - **A colon in an album or track title is now sent to cyanrip as `\:` instead of being
   replaced by a lookalike character.** Titles with a colon — "Every Breath You Take: The

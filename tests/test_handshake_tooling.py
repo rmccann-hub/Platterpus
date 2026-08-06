@@ -1199,7 +1199,17 @@ def test_the_shared_spec_is_present_and_not_paraphrased(hs: ModuleType) -> None:
     shared = hs.PROTOCOL_SPEC
     assert shared.is_file(), "the shared protocol spec is not in this tree"
     text = shared.read_text(encoding="utf-8")
-    assert "neither owns it" in text or "neither project owns it" in text, (
+    # **Whitespace-normalised, and that is the fix — not a loosening.** Until lap 31
+    # this matched the raw text, and what it was matching was a Platterpus-only HTML
+    # comment we had added at the top of the file. The shared file's own sentence
+    # says the same thing wrapped across a newline ("neither owns\nit."), so the
+    # substring never matched it. Removing our annotation — because a local comment
+    # inside a file whose whole purpose is byte-identity IS the drift it exists to
+    # prevent — is what exposed that the check had been passing for the wrong
+    # reason. It asserted a property of our comment while claiming to assert one of
+    # the shared spec.
+    flowed = " ".join(text.split())
+    assert "neither owns it" in flowed or "neither project owns it" in flowed, (
         "the shared file does not say it is shared, which is the one thing that "
         "stops either side editing it unilaterally"
     )
