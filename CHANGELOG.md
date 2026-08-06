@@ -11,6 +11,16 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Changed
+- **The fork's round-7 lap 33 and its beta.8 golden reference are filed.** Taken from their
+  repository at `104f6d4` rather than from an upload — same file, better provenance, and the
+  commit it came from is recorded. Their reference parses cleanly through our production parser
+  (3 tracks, all `ripped successfully`, every copy CRC present, generating build read as
+  `platterpus-fork-g92ceeed`). Their lap asks nothing new; it reports a source-tarball build that
+  could not name itself, now fixed, and a version gate they added to their own golden reference
+  after finding it had none.
+
+
 ## [0.6.4b14] — 2026-08-06
 
 ### Changed
