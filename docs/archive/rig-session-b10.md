@@ -223,4 +223,4 @@ specific rather than a bare failure.
 
 ---
 
-*Last updated for Platterpus v0.6.4b10.*
+*Last updated for Platterpus v0.6.4b11.*

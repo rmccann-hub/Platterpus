@@ -1030,7 +1030,16 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_22() -> None:
+def test_schema_version_is_23() -> None:
+    # v23 made `settings.rip_goal` DERIVED from the six preset fields instead of read
+    # back from `config.rip_goal`, and added `settings.rip_goal_stored`, present only
+    # when the stored label disagreed. `rip_goal` is a label for a bundle of fields and
+    # nothing kept the two in step: a hand-edited config.toml, a field changed outside
+    # `apply_preset`, or a config written before the field existed all leave a stale
+    # label behind. The Settings dialog had always re-derived, so the SCREEN was right
+    # while the permanent record could name a goal the settings never matched. Both
+    # values are kept when they differ, because the disagreement is itself the finding.
+    #
     # v22 added `rip.ripper_release_id` — the release id the ripper RESOLVED AND USED,
     # off its own header — plus the `issues` comparison against the id we sent. It had
     # been in the ignored table with a recorded reason: "our own input reflected;
@@ -1083,7 +1092,7 @@ def test_schema_version_is_22() -> None:
     # track), so our sentence is derived from the per-track results and this field keeps
     # what the binary actually printed — two logs of one disc from two builds are not
     # comparable without it.
-    assert REPORT_SCHEMA_VERSION == 22
+    assert REPORT_SCHEMA_VERSION == 23
 
 
 def _issue_codes(report: dict) -> set[str]:
@@ -1543,3 +1552,73 @@ def test_a_release_id_disagreement_is_an_error_naming_both() -> None:
     assert hit["severity"] == "error"
     assert "what-the-ripper-used" in hit["message"]
     assert "what-we-resolved" in hit["message"]
+
+
+# --- v23: settings.rip_goal is derived, not the stored label ----------------
+
+
+def test_settings_rip_goal_is_derived_from_the_fields_not_the_stored_label() -> None:
+    """The rig finding of 2026-08-05, pinned.
+
+    `Config()`'s defaults ARE the `fast_verified` preset, so a config carrying
+    `rip_goal="custom"` is incoherent: it claims a hand-tuned setup while every
+    field matches a shipped preset. The Settings dialog already showed the
+    truthful answer (it re-derives); the report was writing the stored string, so
+    the rip's permanent record could name a goal its settings never matched.
+    """
+    from platterpus.config import Config
+
+    settings = build_settings(replace(Config(), rip_goal="custom"))
+    assert settings["rip_goal"] == "fast_verified"
+    # And the stale label is kept rather than overwritten in silence.
+    assert settings["rip_goal_stored"] == "custom"
+
+
+def test_a_truthful_stored_label_adds_no_extra_field() -> None:
+    """No noise in the normal case — absence of the key is the "they agree" signal."""
+    from platterpus.config import Config
+
+    settings = build_settings(Config())
+    assert settings["rip_goal"] == "fast_verified"
+    assert "rip_goal_stored" not in settings
+
+
+def test_a_hand_tuned_config_derives_custom_and_keeps_the_stale_preset_label() -> None:
+    """The other direction, and the one a real config file hits.
+
+    `read_speed_mode="fixed"` is one field away from every shipped preset, so the
+    settings ARE custom — while `rip_goal` still holds the default
+    `"fast_verified"`, because nothing rewrote it. (The dialog would have: it
+    derives on OK. This is the shape of a config written by anything else.) The
+    report must name the truthful goal and keep the stale label beside it.
+    """
+    from platterpus.config import Config
+
+    settings = build_settings(replace(Config(), read_speed_mode="fixed"))
+    assert settings["rip_goal"] == "custom"
+    assert settings["rip_goal_stored"] == "fast_verified"
+
+
+def test_a_config_that_cannot_be_classified_falls_back_to_the_stored_label() -> None:
+    """`build_settings` takes duck-typed objects and must never raise.
+
+    A stand-in without the six preset fields cannot be classified, and a blank is
+    worse than a possibly-stale label, so the stored value is reported and no
+    disagreement is claimed.
+    """
+
+    class _Partial:
+        rip_goal = "portable"
+
+    settings = build_settings(_Partial())
+    assert settings["rip_goal"] == "portable"
+    assert "rip_goal_stored" not in settings
+
+
+def test_a_config_with_no_goal_at_all_reports_none() -> None:
+    class _Empty:
+        pass
+
+    settings = build_settings(_Empty())
+    assert settings["rip_goal"] is None
+    assert "rip_goal_stored" not in settings

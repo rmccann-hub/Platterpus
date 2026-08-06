@@ -74,17 +74,26 @@ def _installed_line(
 ) -> str:
     """One entry in the summary's "Installed:" list.
 
-    ``name version`` as before, plus ``(build summary)`` for the deps whose
-    version cannot identify the binary. Kept a module-level pure function
-    rather than an inline comprehension so the formatting is unit-testable
-    without constructing a window — the same reason the validators live in
-    their own module.
+    Two shapes, and which one you get is the point of this function:
+
+    - **A dep with a build note** reports the tool's *own* version string and its
+      build tag — ``cyanrip 0.9.4-rc1+platterpus.5-beta.5 (the Platterpus fork,
+      build platterpus-fork-g9048082)``. This line used to read
+      ``cyanrip 0.9.4 (the Platterpus fork)``: every word true, and it named
+      neither the pre-release nor the commit, on the one surface a user actually
+      reads. Both facts were already in the object passed in here — see
+      :class:`~platterpus.deps.build_notes.BuildNote`.
+    - **Everything else** reports the parsed int-triple, which is all we have and
+      all those tools need.
+
+    Kept a module-level pure function rather than an inline comprehension so the
+    formatting is unit-testable without constructing a window — the same reason
+    the validators live in their own module.
     """
-    line = f"{spec.display_name} {format_version(ok_versions.get(spec.dep_id))}"
     note = build_notes.get(spec.dep_id)
     if note is not None:
-        line += f" ({note.summary})"
-    return line
+        return note.identity_line(spec.display_name)
+    return f"{spec.display_name} {format_version(ok_versions.get(spec.dep_id))}"
 
 
 class DependencyMixin(MainWindowShared):

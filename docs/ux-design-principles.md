@@ -43,7 +43,7 @@ and important settings were scattered across many dialogs.
 3. **Progressive disclosure, two axes.** Defer advanced controls by *task phase*
    (setup → rip → verify) and by *expertise* (basic → advanced → forensic) — but
    the beginner path must still produce a trustworthy result. *Platterpus:*
-   ✅ first-run wizard + **goal presets** ("Fast verified" / "Archival exact" /
+   ✅ first-run wizard + **goal presets** ("Fast Verified" / "Archival Exact" /
    "Portable" — gap #1, shipped 2026-06-28, 0.4.0).
 4. **Outcome-oriented terminology.** Lead with the *effect*, then the term:
    "Drive caches audio — needs slower secure reads," not "Cache defeat."
@@ -107,7 +107,7 @@ user impact ÷ effort:
 
 | # | Gap | Why it matters | Rough size |
 |---|---|---|---|
-| 1 | ✅ **Goal presets** ("Fast verified" / "Archival exact" / "Portable") (`goal_presets.py` + the Settings Goal combo; 2026-06-28) | Anchors all config to user *intent* instead of asking novices to reason about abstract toggles first (EAC's "accuracy vs speed" was this, bluntly). | M |
+| 1 | ✅ **Goal presets** ("Fast Verified" / "Archival Exact" / "Portable") (`goal_presets.py` + the Settings Goal combo; 2026-06-28) | Anchors all config to user *intent* instead of asking novices to reason about abstract toggles first (EAC's "accuracy vs speed" was this, bluntly). | M |
 | 2 | ✅ **Machine-readable (JSON) log** beside the human one (`platterpus.rip_report` → `<name>.platterpus.json`; 2026-06-28) | Powers QA, re-verification, repair tooling, support; "two outputs every time." | S–M |
 | 3 | **Timestamp-localized anomalies + one-click playback** of flagged regions | The single most "friendly to demanding users" EAC trait — review only where confidence broke, not the whole disc. | M (HW-gated) |
 | 4 | ✅ **Accessibility pass** (names pass 0.4.4; keyboard-reachability sweep + focus-safe live announcements via `ui/accessibility.py`, 2026-07-21) | Accessible names, keyboard coverage, non-colour-only status, focus-safe live updates. Reports rank this the #1 modern gap. *Hardware-gated fraction:* a live screen-reader (Orca) session on the real rig. | S–M |
@@ -133,4 +133,4 @@ finished — put the explanation *in the product*.
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.6.4b11.*

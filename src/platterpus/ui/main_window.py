@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -1092,11 +1093,46 @@ class MainWindow(
             # to keep the flow linear. Capture `context` locally and thread it
             # into the fetch — the modal runs a nested event loop, so the disc
             # could change mid-dialog; the fetch must stay tagged to *this* disc.
+            #
+            # LOGGED ON EVERY BRANCH, deliberately. This path used to log nothing
+            # at all, so a user sitting in front of the picker and a genuinely
+            # wedged app produced byte-identical logs — a 96-second silence, which
+            # is what made the maintainer close the window (2026-08-05). The base
+            # `CenteredDialog` records that the dialog was *presented*; these lines
+            # record how long the wait lasted and what came out of it, which is the
+            # half that identifies a user who walked away versus one who cancelled.
+            log.info(
+                "MusicBrainz returned %d candidates for disc %r — opening the "
+                "release picker; the app will WAIT here until the user chooses "
+                "(this is not a hang)",
+                len(releases),
+                context,
+            )
             dialog = ReleasePickerDialog(releases, self)
-            if dialog.exec() == QDialog.DialogCode.Accepted:
+            waited_from = time.monotonic()
+            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            waited = time.monotonic() - waited_from
+            if accepted:
                 mbid = dialog.selected_mbid()
                 if mbid:
+                    log.info("release picker: user chose %s after %.1fs", mbid, waited)
                     self._fetch_release_detail(mbid, context)
+                else:
+                    # Accepted with nothing selected shouldn't happen (the OK
+                    # button is gated on a selection) — say so rather than
+                    # returning silently, because a silent return here is
+                    # indistinguishable from the cancel below.
+                    log.warning(
+                        "release picker was accepted after %.1fs but reported no "
+                        "selected release; nothing to fetch",
+                        waited,
+                    )
+            else:
+                log.info(
+                    "release picker: cancelled after %.1fs — the disc stays "
+                    "unidentified",
+                    waited,
+                )
         else:
             # 0 matches: the disc had a MusicBrainz disc ID but no release
             # is registered for it. Same outcome as a disc with no ID —

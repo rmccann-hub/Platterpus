@@ -148,7 +148,8 @@ Platterpus/
         ├── appimage_integration.py      # first-run "add me to the app menu" self-integration (KDD-17a)
         ├── app_icon.py                  # locate the in-app window icon (packaged SVG; best-effort)
         ├── naming.py                    # file-naming presets + live filename preview (path templates)
-        ├── goal_presets.py              # rip goal presets (Fast verified / Archival exact / Portable)
+        ├── goal_presets.py              # rip goal presets (Fast Verified / Archival Exact / Portable)
+        ├── option_labels.py             # the ONE Settings-option naming convention + its checker
         ├── settings_validation.py       # pure Settings/Config input validation (type/range/charset/format)
         ├── verdict.py                   # the single pure AccurateRip trust verdict (shared by every surface)
         ├── tool_paths.py                # resolve an external tool off PATH (~/.local/bin distrobox exports)
@@ -306,8 +307,9 @@ One paragraph per module, no more. If a module's paragraph creeps beyond a few s
 - **`help_content.py`** — the User Guide Markdown kept *in code* (not packaged data, to dodge AppImage package-data pitfalls); rendered by the Help dialogs.
 - **`appimage_integration.py`** — first-AppImage-run self-integration (KDD-17a): one-time, dismissible offer to write the app's own `.desktop` + icon into the user's menu and set the AppImage executable. No-op for source/pipx installs (detected via `$APPIMAGE`).
 - **`app_icon.py`** — locates the packaged SVG logo for the in-app window icon; best-effort, returns `None` (caller skips the icon) if the resource or the Qt SVG plugin is missing.
+- **`option_labels.py`** — the single naming convention every *option* in Settings follows (`Name — Descriptor In Title Case [Qualifier]`) plus the pure `check_option_label()` that enforces it, and the shared `CUSTOM_LABEL` the Goal and naming-scheme combos both use. Written after the maintainer read the dialog on real hardware and found five dropdowns phrased five different ways; the checker exists rather than a style note because *a comment where a check belongs is not a fix* — `tests/test_option_labels.py` sweeps every item of every combo in the constructed dialog, so a dropdown added later is covered without anyone remembering the rule.
 - **`naming.py`** — file-naming presets (the `%`-token path templates for the rip's folder+file layout) plus a pure `render_preview()` so the Settings dialog shows the exact filename before the user commits.
-- **`goal_presets.py`** — the three rip "goal" presets (Fast verified / Archival exact / Portable); each just bundles existing `Config` fields (progressive disclosure — the rip still reads the individual fields, presets are never a new code path).
+- **`goal_presets.py`** — the three rip "goal" presets (Fast Verified / Archival Exact / Portable); each just bundles existing `Config` fields (progressive disclosure — the rip still reads the individual fields, presets are never a new code path).
 - **`settings_validation.py`** — the pure validator for Settings/Config inputs (type, range, character set, format) — the "validate every input" boundary; returns a list of `ValidationIssue`, no Qt and no persistence, so tests assert against it directly (Code conventions).
 - **`update_signing.py`** — ed25519 (minisign-format) verification of a release's signature, used **fail-closed** by `update_install.py`: a present-but-invalid signature aborts the update (KDD-26). Dormant until `PUBLIC_KEY_B64` is baked in; until then the gate is SHA-256 only, which `SECURITY.md` states plainly.
 - **`tool_paths.py`** — one search order for every external binary: `PATH`, then `~/.local/bin` (where `distrobox-export` puts the container's tools), then the usual system directories, then the bare name. A GUI launched from a desktop icon does not inherit a login shell's `PATH`, so without this the wizard could report a tool installed while the dependency probe reported it missing.
@@ -1107,4 +1109,4 @@ Three consequences, now standing:
 
 ---
 
-*Last updated for Platterpus v0.6.4b10.*
+*Last updated for Platterpus v0.6.4b11.*

@@ -44,6 +44,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from platterpus import option_labels
+
 # --- The token → sample-value substitution used ONLY for the preview ---------
 # These mirror what cyanrip fills in at rip time. The preview is a faithful
 # dry-run so the dialog can show the real result without touching a disc.
@@ -149,35 +151,37 @@ class NamingPreset:
 PRESETS: tuple[NamingPreset, ...] = (
     NamingPreset(
         key="artist_album_track_title",
-        label="Artist / Album / 01 - Title  (recommended)",
+        label="Artist / Album / 01 - Title — Simple, No Year Clutter [Recommended]",
         track_template="%A/%d/%t - %n",
         disc_template="%A/%d/%d",
         note="The clean default used by Picard, beets and Plex. No year clutter.",
     ),
     NamingPreset(
         key="artist_album_track_title_nodash",
-        label="Artist / Album / 01 Title",
+        label="Artist / Album / 01 Title — Same Layout, No Dash",
         track_template="%A/%d/%t %n",
         disc_template="%A/%d/%d",
         note="Same layout without the dash separator.",
     ),
     NamingPreset(
         key="artist_album_year_track_title",
-        label="Artist / Album (Year) / 01 - Title  (media servers)",
+        label="Artist / Album (Year) / 01 - Title — Plex and Jellyfin Style",
         track_template="%A/%d (%Y)/%t - %n",
         disc_template="%A/%d (%Y)/%d",
         note="Plex/Jellyfin style — the 4-digit year in the folder.",
     ),
     NamingPreset(
         key="artist_year_album_track_title",
-        label="Artist / Year - Album / 01 - Title  (chronological)",
+        label="Artist / Year - Album / 01 - Title — Chronological, foobar2000 Style",
         track_template="%A/%Y - %d/%t - %n",
         disc_template="%A/%Y - %d/%d",
         note="foobar2000 style — albums sort by year.",
     ),
     NamingPreset(
         key="compilation",
-        label="Compilation: Artist / Album / 01 - Track Artist - Title",
+        label=(
+            "Artist / Album / 01 - Track Artist - Title — Compilations, Various Artists"
+        ),
         track_template="%A/%d/%t - %a - %n",
         disc_template="%A/%d/%d",
         note="Keeps the per-track artist in the name — best for Various-Artists discs.",
@@ -189,7 +193,13 @@ DEFAULT_PRESET: NamingPreset = PRESETS[0]
 # Sentinel shown in the dropdown when the templates don't match any preset
 # (i.e. the user hand-edited them). Not in PRESETS so it never overwrites a
 # custom template by being "selected".
-CUSTOM_LABEL: str = "Custom (hand-tuned below)"
+#
+# Re-exported from `option_labels` rather than spelled again here: the Settings
+# dialog needs the same row for its *Goal* combo and used to carry its own copy
+# of the literal, four hundred lines away from this one. Two spellings of one
+# label in one dialog is drift waiting to happen, and it was already logged as
+# a hazard when the labels were renamed (TASKS.md, rig findings 2026-08-05).
+CUSTOM_LABEL: str = option_labels.CUSTOM_LABEL
 
 
 def preset_for_templates(
