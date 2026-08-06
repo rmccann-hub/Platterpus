@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b14] — 2026-08-06
+
+### Changed
+- **`--install-ripper` and the setup wizard now build cyanrip `beta.8` (`104f6d4`), not `beta.5`.**
+  This is the reason the release exists: the released b13 pinned `9048082` (beta.5), so a user
+  updating and running the installer would have got the build the fork **withdrew** — the one whose
+  `-t` parse reads past the end of a string and *publishes what it read* (an environment variable
+  into a FLAC tag, the log and the cue, at exit 0). Platterpus can never emit the argument shape
+  that triggers it, so this is about the **artifact**, not the app: a rip made on a withdrawn build
+  is evidence you then have to argue about.
+
+  The pin moved three times in an hour (`4a35604` → `92ceeed` → `104f6d4`), the first two reported
+  out of band rather than in a handshake lap. Each was verified in the fork's own repository before
+  being taken, and the check that mattered is that **`git diff 4a35604..104f6d4 -- 'src/*.c'
+  'src/*.h'` is empty** — the ripping code is identical to the build both sides declared in
+  writing. Their own source anchor is unchanged across the range, which is an independent witness,
+  since that anchor is defined as a hash over exactly those files.
+
+  Our own guard caught the gap rather than a person noticing: the wizard's target must be named in
+  the handshake record, and it was not. Round 7 lap 34 declares it and asks the fork to confirm.
+
 ### Changed
 - **The argv probe grew a malformed-shape axis, and it found three defects in itself before
   finding none in the argv.** The cyanrip fork added the same axis to their probe and it found
@@ -6923,7 +6944,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...HEAD
+[0.6.4b14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...v0.6.4b14
 [0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b13
 [0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
 [0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
@@ -7007,4 +7029,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.4b14.*
