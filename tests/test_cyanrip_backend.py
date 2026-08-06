@@ -6,6 +6,7 @@ construction and the sysfs-based drive scan with injected paths.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +20,10 @@ from platterpus.adapters.cyanrip_backend import (
     scheme_from_template,
 )
 from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
+
+#: Repo root, for loading `scripts/` helpers that are part of the contract
+#: surface these tests assert on.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class _FakeMetaflac:
@@ -1008,4 +1013,147 @@ def test_rip_actually_sends_consumer_to_a_build_that_accepts_it(
     unknown = _rip_once("cyanrip 0.9.3")
     assert "--consumer" not in unknown, (
         f"--consumer was sent to an unrecognised build: {unknown}"
+    )
+
+
+# --------------------------------------------------------------------------
+# RANGE at the argv chokepoint, not only at the Settings boundary.
+#
+# Found 2026-08-06 by `scripts/probe_argv_surface.py` — the black-box self-probe
+# `docs/seam-rules.md` S-9 asks each side to run against its OWN surface. It
+# measured six out-of-range values reaching the argv, every one of them outside
+# the range the Settings dialog enforces, and every one reachable because the
+# range was checked at the Settings boundary and NOWHERE ELSE. A hand-edited
+# `config.toml` skips Settings entirely.
+#
+# CLAUDE.md states it directly: range "must be enforced by code at the argv
+# chokepoint — not merely stated here", and "a GUI widget's own constraint (a
+# QSpinBox range) is a *convenience*, not the validation".
+# --------------------------------------------------------------------------
+
+
+def test_the_chokepoint_refuses_an_out_of_range_numeric_argument() -> None:
+    """Each refusal must NAME the flag, the value and the range (S-12).
+
+    A message that says only "invalid argument" is the `generic` grade the seam
+    rules call a defect in its own right: a caller cannot recover differently from
+    failures it cannot tell apart.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_numeric_args_in_range
+
+    cases = [
+        (["cyanrip", "-N", "-r", "10000"], "-r", "0..100"),
+        (["cyanrip", "-N", "-S", "999"], "-S", "0..72"),
+        (["cyanrip", "-N", "-Z", "1000"], "-Z", "0..10"),
+        (["cyanrip", "-N", "-s", "99999"], "-s", "-5000..5000"),
+    ]
+    for argv, flag, expected_range in cases:
+        with pytest.raises(RipError) as excinfo:
+            assert_numeric_args_in_range(argv)
+        message = str(excinfo.value)
+        assert flag in message, f"the refusal does not name the flag: {message}"
+        assert expected_range in message, (
+            f"the refusal does not state the range, so a user cannot tell what "
+            f"would be acceptable: {message}"
+        )
+
+
+def test_every_in_range_value_is_accepted() -> None:
+    """The floor. A guard that refuses everything is not a range check.
+
+    Without this, tightening a bound to a single value would still pass the test
+    above — and the rip would be unrunnable.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_numeric_args_in_range
+
+    accepted = 0
+    for argv in (
+        ["cyanrip", "-N", "-r", "0"],
+        ["cyanrip", "-N", "-r", "100"],
+        ["cyanrip", "-N", "-S", "0"],
+        ["cyanrip", "-N", "-S", "72"],
+        ["cyanrip", "-N", "-Z", "10"],
+        ["cyanrip", "-N", "-s", "-5000"],
+        ["cyanrip", "-N", "-s", "5000"],
+        ["cyanrip", "-N", "-s", "667"],
+    ):
+        assert_numeric_args_in_range(argv)  # must not raise
+        accepted += 1
+    assert accepted == 8, "the accept-side cases did not all run"
+
+
+def test_a_non_integer_argument_is_refused_rather_than_forwarded() -> None:
+    """`-r abc` must not become the C program's problem."""
+    from platterpus.adapters.cyanrip_backend import assert_numeric_args_in_range
+
+    with pytest.raises(RipError, match="not an integer"):
+        assert_numeric_args_in_range(["cyanrip", "-N", "-r", "abc"])
+
+
+def test_the_range_map_reuses_the_settings_bounds_rather_than_copying_them() -> None:
+    """One source of truth, or the dialog and the argv can disagree.
+
+    Asserts the *values* agree, so a future edit to either side that forgets the
+    other fails here rather than shipping two different definitions of acceptable.
+    """
+    from platterpus import settings_validation as sv
+    from platterpus.adapters.cyanrip_backend import _load_arg_ranges
+
+    ranges = _load_arg_ranges()
+    assert ranges["-r"][:2] == (sv.MAX_RETRIES_MIN, sv.MAX_RETRIES_MAX)
+    assert ranges["-S"][:2] == (sv.READ_SPEED_MIN, sv.READ_SPEED_MAX)
+    assert ranges["-Z"][:2] == (sv.SECURE_REREP_MIN, sv.SECURE_REREP_MAX)
+    assert ranges["-s"][:2] == (sv.OFFSET_MIN, sv.OFFSET_MAX)
+    assert len(ranges) >= 4, "the range map is smaller than the flags it must cover"
+
+
+def test_a_negative_is_refused_rather_than_silently_treated_as_auto() -> None:
+    """`0` means auto; a negative meant nothing and emitted no flag at all.
+
+    The silent drop is the defect: a caller that computed a negative got a default
+    that looked deliberate and never learned otherwise.
+    """
+    for kwargs in ({"read_speed": -1}, {"secure_rerip_matches": -1}):
+        with pytest.raises(RipError, match="not 'auto'"):
+            _impl()._build_rip_argv(
+                "/dev/sr0",
+                unknown=False,
+                cover_art="",
+                max_retries=5,
+                read_offset_override=667,
+                track_template="%d/%t - %n",
+                metadata=RipMetadata(album_title="X"),
+                **kwargs,  # type: ignore[arg-type]
+            )
+
+
+def test_the_self_probe_reports_no_silently_dropped_values() -> None:
+    """The black-box probe is a GATE, not a report someone might read.
+
+    S-11: every row in the seam table is backed by a test in its owner's suite.
+    This runs the real probe and fails if any non-zero value a caller set vanishes
+    without a refusal — which is the exact finding that produced this whole batch.
+    """
+    import importlib.util
+
+    script = _REPO_ROOT / "scripts" / "probe_argv_surface.py"
+    spec = importlib.util.spec_from_file_location("probe_argv_surface", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    probes = module.probe_all()
+    assert len(probes) >= 20, (
+        f"only {len(probes)} probes ran; the grid is not exercising the surface"
+    )
+    findings = [p for p in probes if p.is_finding]
+    assert not findings, "values silently dropped from the argv: " + ", ".join(
+        f"{p.parameter}={p.value}" for p in findings
+    )
+    # A probe run where NOTHING is ever refused would mean the range guard is gone.
+    refused = [p for p in probes if p.outcome == "raised"]
+    assert len(refused) >= 4, (
+        f"only {len(refused)} probe(s) were refused — the range guard at the argv "
+        "chokepoint is not firing, so out-of-range values reach the ripper again"
     )

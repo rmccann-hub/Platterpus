@@ -68,6 +68,33 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   controls. Lap 27's stale HOLD is withdrawn separately — its stated reason, the missing flag
   table, is satisfied.
 
+- **Out-of-range values could reach the ripper, and a black-box self-probe found it.**
+  `docs/seam-rules.md` S-9 asks each side to establish its own limits by *probing its own
+  surface*, so `scripts/probe_argv_surface.py` now does that for the argv builder and the
+  chokepoint — both pure functions, so the whole grid (below-min / min / typical / max /
+  one-past) runs with no drive and no disc.
+
+  On its first run it measured **six unvalidated values reaching the argv**: `-r -1`,
+  `-r 2147483648`, `-S 999`, `-S 2147483648`, `-s 2147483648` and `-Z 1000`. Every one was
+  outside the range the Settings dialog already enforces, and every one was reachable
+  **because the range was checked at the Settings boundary and nowhere else** — so a
+  hand-edited `config.toml`, or any caller that skips Settings, handed it straight to a C
+  program. CLAUDE.md says range "must be enforced by code at the argv chokepoint — not
+  merely stated here"; it was stated and not enforced.
+
+  All six are refused now, at the chokepoint, reusing the *same* constants
+  `settings_validation` defines so the dialog and the argv cannot disagree about what is
+  acceptable. Each refusal names the flag, the value and the range — `usable` under S-12,
+  not the `generic` grade the rules call a defect in its own right.
+
+  Two more were **silently dropped**: `-S -1` and `-Z -1` emitted no flag and no complaint,
+  because `0` means "auto" and a negative fell through the same branch. A caller that
+  computed a negative got a default that looked deliberate. Also refused now.
+
+  The probe is a **gate, not a report**: one test fails if any non-zero value a caller set
+  vanishes without a refusal, and a second fails if *nothing* is ever refused — which would
+  mean the guard had been removed and the first test would still pass.
+
 - **`docs/seam-commands.md` gained a return-path section.** The table had an outbound half
   and no inbound half, which is precisely why the cue was ungoverned. Every artifact the
   ripper hands back now has a row with its type, what it must satisfy, and the test that

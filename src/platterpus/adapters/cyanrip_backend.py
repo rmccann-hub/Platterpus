@@ -189,6 +189,22 @@ class CyanripImpl(RipBackend):
         # marginal/damaged discs (EAC-parity item 1; see config.py). Only
         # passed when the user enabled it (> 0) — on a clean disc it just
         # burns time, so the default rip omits it entirely.
+        # A NEGATIVE IS A CALLER ERROR, NOT "AUTO". `0` means auto and is a
+        # documented convention; `-1` meant nothing, emitted no flag, and produced
+        # no complaint — so a caller that computed a negative got a silent default
+        # and never learned. Found by `scripts/probe_argv_surface.py`.
+        if secure_rerip_matches < 0:
+            raise RipError(
+                f"refusing secure_rerip_matches={secure_rerip_matches}: a negative "
+                "is not 'auto' (0 is). Dropping the flag silently would hide a "
+                "caller bug behind a default that looks deliberate"
+            )
+        if read_speed < 0:
+            raise RipError(
+                f"refusing read_speed={read_speed}: a negative is not 'auto' "
+                "(0 means drive maximum). Dropping the flag silently would hide a "
+                "caller bug behind a default that looks deliberate"
+            )
         if secure_rerip_matches > 0:
             argv += ["-Z", str(secure_rerip_matches)]
         # `-O`: read into the disc's lead-in/lead-out instead of zero-padding
@@ -834,6 +850,84 @@ _TOKEN_MAP: dict[str, str] = {
 }
 
 
+#: The numeric flags whose ARGUMENT has a real range, and where that range lives.
+#: Imported from `settings_validation` rather than restated, because a second copy
+#: of a bound is a second thing to drift — and the Settings dialog and the argv
+#: must not be able to disagree about what is acceptable.
+#:
+#: Found 2026-08-06 by `scripts/probe_argv_surface.py`, the black-box self-probe
+#: S-9 asks each side to run on its own surface. It measured six unvalidated
+#: values reaching the argv: `-r -1`, `-r 2147483648`, `-S 999`, `-S 2147483648`,
+#: `-s 2147483648` and `-Z 1000`. Every one is out of the range the Settings
+#: dialog enforces, and every one was reachable because **the range was checked at
+#: the Settings boundary and nowhere else** — so a hand-edited `config.toml`, a
+#: value carried over from a previous disc, or any future caller bypassing Settings
+#: sent it straight to a C program. CLAUDE.md says this in as many words: range
+#: "must be enforced by code at the argv chokepoint — not merely stated here".
+_ARG_RANGES: dict[str, tuple[int, int, str]] = {}
+
+
+def _load_arg_ranges() -> dict[str, tuple[int, int, str]]:
+    """Build the flag→range map lazily, to avoid an import cycle at module load."""
+    if not _ARG_RANGES:
+        from platterpus.settings_validation import (
+            MAX_RETRIES_MAX,
+            MAX_RETRIES_MIN,
+            OFFSET_MAX,
+            OFFSET_MIN,
+            READ_SPEED_MAX,
+            READ_SPEED_MIN,
+            SECURE_REREP_MAX,
+            SECURE_REREP_MIN,
+        )
+
+        _ARG_RANGES.update(
+            {
+                "-r": (MAX_RETRIES_MIN, MAX_RETRIES_MAX, "per-track retries"),
+                "-S": (READ_SPEED_MIN, READ_SPEED_MAX, "fixed read speed"),
+                "-Z": (SECURE_REREP_MIN, SECURE_REREP_MAX, "secure re-read matches"),
+                "-s": (OFFSET_MIN, OFFSET_MAX, "read offset correction"),
+            }
+        )
+    return _ARG_RANGES
+
+
+def assert_numeric_args_in_range(argv: list[str]) -> None:
+    """Refuse an argv whose numeric arguments are outside their real range.
+
+    Separate from :func:`assert_metadata_lookup_disabled` so each failure names
+    one cause — S-12: a code or message that does not distinguish *which* thing
+    was wrong tells a caller only that something was, which it already knew.
+
+    A non-numeric value is refused too. `-r abc` would otherwise be handed to a C
+    program to interpret, and "whatever the other side does with it" is not a
+    contract.
+    """
+    ranges = _load_arg_ranges()
+    for flag, (low, high, what) in ranges.items():
+        if flag not in argv:
+            continue
+        index = argv.index(flag)
+        if index + 1 >= len(argv):
+            raise RipError(f"{flag} ({what}) was passed with no value")
+        raw = argv[index + 1]
+        try:
+            value = int(raw)
+        except ValueError:
+            raise RipError(
+                f"refusing {flag} {raw!r} ({what}): not an integer. Every value we "
+                "hand the ripper is validated here, at the argv chokepoint, because "
+                "a widget's own limit is a convenience and not the validation"
+            ) from None
+        if not low <= value <= high:
+            raise RipError(
+                f"refusing {flag} {value} ({what}): outside the accepted range "
+                f"{low}..{high}. This is the same range the Settings dialog "
+                "enforces; a value arriving from a hand-edited config, a previous "
+                "disc, or a future caller that skips Settings is checked here too"
+            )
+
+
 def assert_metadata_lookup_disabled(argv: list[str]) -> None:
     """Refuse an argv that would let cyanrip do its own MusicBrainz lookup.
 
@@ -870,6 +964,12 @@ def assert_metadata_lookup_disabled(argv: list[str]) -> None:
             "source (Critical rule #5), and cyanrip's own lookup can block on an "
             "interactive prompt with no terminal attached"
         )
+
+    # RANGE, not just syntax. Delegated rather than inlined so there is exactly one
+    # implementation, and called from HERE so every existing route to the ripper
+    # picks it up without a second thing for a caller to remember — the same reason
+    # the scripted `cyanrip` verb delegates to this function instead of restating it.
+    assert_numeric_args_in_range(argv)
 
 
 #: What we call ourselves to cyanrip. One place, so the log, the contract and

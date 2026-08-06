@@ -369,11 +369,36 @@ flag is silently ignored*; interactions and mutual exclusions; and the
 zero/empty/absent case, since `0` so often means "auto". Where a limit cannot be
 probed the cell says `not-probed: <reason>`. **A blank reads as "tested and fine."**
 
-**We are behind on our own half and say so plainly:** our column covers the flags
-we send, and its type and range columns are hand-transcribed rather than generated.
-For every flag of yours we do not send, nothing records whether we decline it,
-cannot use it, or never noticed. That gap is our work and we are naming it rather
-than waiting to be asked.
+**We were behind on our own half, and have now run our side of it.**
+`scripts/probe_argv_surface.py` probes our outbound surface — the argv builder and
+the chokepoint, both pure functions, so no drive is needed — across a value grid of
+below-min / min / typical / max / one-past for every numeric flag, and records
+whether the value was **emitted**, **silently dropped**, or **refused**.
+
+**It found six unvalidated values reaching the argv on its first run:** `-r -1`,
+`-r 2147483648`, `-S 999`, `-S 2147483648`, `-s 2147483648` and `-Z 1000`. Every
+one was outside the range our own Settings dialog enforces, and every one was
+reachable **because the range was checked at the Settings boundary and nowhere
+else** — so a hand-edited config, or any caller that skips Settings, sent it
+straight to a C program. Our own rules say range "must be enforced by code at the
+argv chokepoint — not merely stated"; it was stated and not enforced.
+
+All six are now refused at the chokepoint, with the flag, the value and the
+acceptable range in the message — S-12 `usable`, not `generic`. Two more were
+**silently dropped**: `-S -1` and `-Z -1` emitted no flag and no complaint, because
+`0` means auto and a negative fell through the same branch. A caller that computed
+a negative got a default that looked deliberate. Also refused now.
+
+The probe is a **gate, not a report**: a CI test fails if any non-zero value a
+caller set vanishes without a refusal, and separately if *nothing* is ever refused
+(which would mean the range guard had been removed). Results are §1a of the shared
+table, generated.
+
+**Still ours to do, named rather than waited on:** §1's type and range columns are
+still hand-transcribed for the non-numeric flags, and for every flag of yours we do
+not send, nothing records whether we decline it, cannot use it, or never noticed.
+
+**This is what we are asking you for in kind** — not a document, a measurement.
 
 ### S6. Tested, and regression-tested — on both sides
 
