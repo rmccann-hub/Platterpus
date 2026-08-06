@@ -76,6 +76,11 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   function, and keeps the stored value as `settings.rip_goal_stored` **only when the two
   disagree** — the disagreement is itself a finding, and discarding it silently would be the
   same bug in a smaller place. Report schema **v22 → v23**.
+- **`DiagnosticsDialog` was the one dialog that subclassed `QDialog` directly**, so it
+  inherited neither the centring nor the new lifecycle lines — a *diagnostics* window that
+  left no trace of having been opened. Found by a sweep (`test_every_dialog_in_the_app_inherits_the_logging_base`,
+  derived from the source with a floor of 15 scanned modules), not by memory, and the sweep
+  is what stops the next one.
 - **An unbounded `\s*` in the new label checker** backtracked super-linearly (16× the time
   for 4× the input, on a run of tabs). Found by `test_regex_bounded_time.py`, not by care —
   which is the point of having it.

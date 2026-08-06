@@ -116,3 +116,43 @@ def test_the_release_picker_inherits_the_lifecycle_lines(
 # that builds a real MainWindow with its threads stopped. Named here so the two
 # halves are findable from each other: see
 # `test_multiple_candidates_log_the_wait_before_it_starts` and its three siblings.
+
+
+# --- The sweep: no dialog may opt out -------------------------------------
+
+
+def test_every_dialog_in_the_app_inherits_the_logging_base() -> None:
+    """A straight `QDialog` subclass silently opts out of the lifecycle lines.
+
+    Derived from the source rather than from a list of the dialogs we know about,
+    because this rule's whole failure mode is *the one that was missed*. It found
+    one on the day it was written: `DiagnosticsDialog` — a **diagnostics** window
+    that left no trace of having been opened, which is the joke telling itself.
+
+    Matches on the base class named in the `class X(...)` line rather than by
+    importing every UI module, so it needs no QApplication and cannot be defeated
+    by an import that happens to fail in a headless container.
+    """
+    import re
+    from pathlib import Path
+
+    ui_root = Path(__file__).resolve().parents[1] / "src" / "platterpus" / "ui"
+    pattern = re.compile(r"^class (?P<name>\w+)\(QDialog\):", re.MULTILINE)
+    offenders: list[str] = []
+    scanned = 0
+    for path in sorted(ui_root.rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        scanned += 1
+        for match in pattern.finditer(text):
+            name = match.group("name")
+            # `CenteredDialog` IS the base; it is the one legitimate subclass.
+            if name == "CenteredDialog":
+                continue
+            rel = path.relative_to(ui_root.parents[2])
+            offenders.append(f"{rel}: class {name}(QDialog)")
+    # Floor: a rglob that stopped matching would report "no offenders" forever.
+    assert scanned >= 15, f"only scanned {scanned} UI modules — the glob is broken"
+    assert not offenders, (
+        "these dialogs subclass QDialog directly, so they inherit neither the "
+        "centring nor the presented/closed log lines:\n  " + "\n  ".join(offenders)
+    )
