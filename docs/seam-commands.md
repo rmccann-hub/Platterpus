@@ -91,23 +91,23 @@ its own, which is a different call path and is tabled separately in §2.
 
 | flag | argument | type | range / shape enforced | meaning | **PP** | **CR** |
 |---|---|---|---|---|---|---|
-| `-N` | — | flag | **always present, unconditionally** | disable cyanrip's own MusicBrainz lookup. Critical rule #5; its interactive prompt would hang a GUI rip with no terminal | HAVE | ? |
-| `-d` | device | `str`, absolute path | must exist, must be a block device | the drive | HAVE | ? |
-| `-o` | format | `str` enum | **always `flac`** | archival master; every other format is transcoded host-side, so the ripper is never asked for a lossy encode | HAVE | ? |
-| `-D` | directory | `str`, path | writable | output directory | HAVE | ? |
-| `-a` | tag blob | `str`, colon-delimited | no newline, no NUL, bounded. **No escape syntax exists**, so a value containing `:` is unrepresentable — see §4.4 | the whole tag set as one argument — **this is the value we are least comfortable with** | HAVE | ? |
-| `-t` | track list | `str`, `n=` / ranges | **range-checked against the disc's real track count** | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE | ? |
-| `-c` | disc position | `int/int` | both ints, `number <= total`, else the flag is dropped | `DISCNUMBER` / `TOTALDISCS` | HAVE | ? |
-| `-s` | offset | `int`, samples | drive-plausible range | read offset correction | HAVE | ? |
-| `-S` | speed | `int` multiplier | bounded; `0` = drive max | read speed, fixed mode only | HAVE | ? |
-| `-r` | retries | `int` | bounded | per-track retry count | HAVE | ? |
-| `-Z` | matches | `int` | `0` disables | secure re-read consensus — the Test & Copy equivalent. **Measured with `-Z 2`**: track 5 converged after 3 reads, and the per-track paranoia counters then report the *last* pass while the disc totals report *every* pass (§3) | HAVE | ? |
-| `-l` | track number(s) | `int` list | must name tracks that exist on the disc | rip only these tracks. **Also how the auto-fix re-rip runs** — a second invocation with `-l <n>`, which is the structural signal that a pass is a subset rather than the whole album (it is what our progress model now keys on) | HAVE | ? |
-| `-G` | — | flag | conditional | disable cover-art embedding; we embed host-side | HAVE | ? |
-| `-O` | — | flag | **opt-in only** | overread into lead-in/lead-out. Their own help says it *"may freeze if unsupported by drive"*, so it is never on by default | HAVE | ? |
-| `-F` | — | flag | conditional | — *(transcribed from the builder; semantics need confirming, see §5)* | HAVE | ? |
-| `-I` | — | flag | **never with `-J`** | — *(mutual exclusion recorded in `dependency-contracts.md`; we should state why)* | HAVE | ? |
-| `--consumer` | tag | `str`, `<name>/<version>` | no whitespace, contains `/` | who we tell them we are. Validated because it is written verbatim into an archival log as the identity of the producing program | HAVE | ? |
+| `-N` | — | flag | **always present, unconditionally** | disable cyanrip's own MusicBrainz lookup. Critical rule #5; its interactive prompt would hang a GUI rip with no terminal | HAVE |  HAVE |
+| `-d` | device | `str`, absolute path | must exist, must be a block device | the drive | HAVE |  HAVE |
+| `-o` | format | `str` enum | **always `flac`** | archival master; every other format is transcoded host-side, so the ripper is never asked for a lossy encode | HAVE |  HAVE |
+| `-D` | directory | `str`, path | writable | output directory | HAVE |  HAVE |
+| `-a` | tag blob | `str`, colon-delimited, **backslash-escaped** | no newline, no NUL, bounded. Every `:` `=` `\` `'` in a *value* is escaped; the blob's structure (one `key=value` per unescaped `:`, exactly one unescaped `=` per field, no dangling escape) is refused at our argv chokepoint. Measured: an **unescaped** `:` does not fail, it silently truncates the value | the whole tag set as one argument | HAVE — escape shipped lap 31 |  HAVE — **and there IS an escape: `\\:`. See §7.** |
+| `-t` | track list | `str`, `n=<escaped blob>` | **range-checked against the disc's real track count**, and the leading `<number>=` is required — cyanrip does `strtol` then `end += 1` without checking a `=` is there, so a bare `-t 12` reads past the string | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE — same escape, same chokepoint |  HAVE — same escape |
+| `-c` | disc position | `int/int` | both ints, `number <= total`, else the flag is dropped | `DISCNUMBER` / `TOTALDISCS` | HAVE |  HAVE |
+| `-s` | offset | `int`, samples | drive-plausible range | read offset correction | HAVE |  HAVE — **now bounded ±1048576**, §7 |
+| `-S` | speed | `int` multiplier | bounded; `0` = drive max | read speed, fixed mode only | HAVE |  HAVE |
+| `-r` | retries | `int` | bounded | per-track retry count | HAVE |  HAVE |
+| `-Z` | matches | `int` | `0` disables | secure re-read consensus — the Test & Copy equivalent. **Measured with `-Z 2`**: track 5 converged after 3 reads, and the per-track paranoia counters then report the *last* pass while the disc totals report *every* pass (§3) | HAVE |  HAVE |
+| `-l` | track number(s) | `int` list | must name tracks that exist on the disc | rip only these tracks. **Also how the auto-fix re-rip runs** — a second invocation with `-l <n>`, which is the structural signal that a pass is a subset rather than the whole album (it is what our progress model now keys on) | HAVE |  HAVE |
+| `-G` | — | flag | conditional | disable cover-art embedding; we embed host-side | HAVE |  HAVE |
+| `-O` | — | flag | **opt-in only** | overread into lead-in/lead-out. Their own help says it *"may freeze if unsupported by drive"*, so it is never on by default | HAVE |  HAVE |
+| `-F` | — | flag | conditional | — *(transcribed from the builder; semantics need confirming, see §5)* | HAVE |  HAVE — track naming scheme, §7 |
+| `-I` | — | flag | **never with `-J`** | — *(mutual exclusion recorded in `dependency-contracts.md`; we should state why)* | HAVE |  HAVE — refuses with `-J`, §7 |
+| `--consumer` | tag | `str`, `<name>/<version>` | no whitespace, contains `/` | who we tell them we are. Validated because it is written verbatim into an archival log as the identity of the producing program | HAVE |  HAVE |
 
 ## 2. Probe-path flags, which is a separate call and a separate risk
 
@@ -192,7 +192,7 @@ Every row is `verified` (a test asserts it) or `documented-untested`, per S-11.
 | `.cue` → `ISRC` per track | `str`, 12 chars `[A-Z0-9]` | **every ISRC we sent must come back** on its track. We send N, the log records N, the cue must carry N | `cue_validate.validate_cue` ISRC round-trip; `tests/test_cue_validate.py` | verified | HAVE | **? — broken on `9048082`** |
 | `.cue` → `INDEX 00` presence | marker | present iff the log's per-track `Pregap length` is non-zero; **track 1 exempt** (its lead-in gap cannot append to a previous track) | same validator, pregap agreement | verified | HAVE | HAVE |
 | `.cue` → `INDEX 00` value | `MM:SS:FF` | an offset **within its own `FILE`**, not an absolute disc position. Resolve against that file's start LSN before comparing — a naive absolute comparison reports 8 false mismatches of 9 | lap-29 §A, checked on all 9 markers | verified | HAVE | HAVE |
-| `.cue` → `TITLE` / `PERFORMER` | `str`, arbitrary Unicode | must be the **real** metadata. Currently carries our U+2236 colon substitute, because `-a` has no escape (§4.4) | colon-fidelity check; `FILE` lines deliberately exempt | verified | HAVE | ? |
+| `.cue` → `TITLE` / `PERFORMER` | `str`, arbitrary Unicode | must be the **real** metadata, compared **character for character** against the text we sent — which catches substitution, truncation and any other mangling with one assertion. Should carry a real colon from beta.6 + app 0.6.4b13 on; **unconfirmed until a rig rip** | title-fidelity check, tri-state; `FILE` lines deliberately exempt | verified | HAVE | HAVE |
 | `.cue` → track numbering | `int` | contiguous from 1, every track has `INDEX 01`, count matches the disc | structural sanity check | verified | HAVE | ? |
 | `.log` → `album:` field | `str` | same U+2236 issue as the cue's `TITLE` | — | documented-untested | ? | ? |
 | `.log` → its own FUN512 checksum | `str` | `--verify-log` exits 0 with *"checksum valid"* on an unmodified log | `rip_audit`, every rip | verified | HAVE | HAVE |
@@ -266,6 +266,176 @@ positive teaches people to ignore the true ones.
   per row, so a `we-send` / `they-accept` disagreement is a visible row rather
   than a broken release.
 - Propose it in the round-8 outbound alongside `docs/seam-rules.md`.
+
+---
+
+## 7. cyanrip's half — MEASURED, black-box, on our own binary (S-9)
+
+**This section is GENERATED** by `tools/probe-argv-surface.py --markdown` and is
+a CI gate in `--gate` mode (`meson test -C build 'Argv surface probe'`), so a
+value that starts vanishing without a refusal fails the build rather than
+waiting for a round. Never hand-edit it.
+
+Method: `-I` on a disc image, so this probes argument handling and not the
+drive, and `-N -A -U` keep it off the network. Each row is one invocation of
+the real binary. **`ignored` means exit 0 and the value gone** — the outcome
+S-9 most wants recorded, and there are none.
+
+### What it found in us
+
+- **`-s` was unbounded and reached undefined behaviour.** The option table took
+  the full int32 range; UBSAN reports three distinct UB sites on `INT32_MIN` —
+  a negation in `cyanrip_run()`, the `abs()` in the `Offset:` log line (which
+  printed `Offset:  --2147483648 samples`, a doubled sign in a contract line),
+  and `offset*4` in `setup_track_lsn()`. **Now bounded to ±1048576 samples**
+  (~23.8 s, three orders of magnitude past any real drive), refused by genopt
+  with the flag, the value and the range named. Regression test in `sc_cli`.
+- **Two bugs in the probe itself**, found by disbelieving its own output: it
+  called `-s 0` silently-ignored because the header prints a sign and the
+  comparison was textual, and it called `-J` alone refused-by-`-I` because the
+  interaction probes inherited `-I` from the base invocation. Same shape as the
+  false alarm you hit resolving `INDEX 00` against absolute LSNs.
+
+### Answers to §4.4 and your Q3/Q4 — **an escape exists and always has**
+
+`-a` and `-t` are split by `av_dict_parse_string(dict, str, "=", ":", 0)`,
+which is **FFmpeg's** parser, and it implements a backslash escape. Measured,
+all four on the real binary:
+
+| input | result | exit |
+|---|---|---|
+| `-a 'album=A: B'` | `album=A` — **splits, and the fragment with no `=` is silently discarded** | 0 |
+| `-a 'album=A\: B'` | `album=A: B` | 0 |
+| `-a 'album=A\=B'` | `album=A=B` | 0 |
+| `-a 'album=A\\B'` | `album=A\B` | 0 |
+| `-t '1=title=A\: B'` | `title=A: B` — same grammar | 0 |
+
+**So `\:` is the escape, it works in both flags, and your U+2236 substitution is
+not needed.** Verified end to end: `-a 'album=Every Breath You Take\: The
+Classics'` produces `TITLE "Every Breath You Take: The Classics"` in the cue.
+
+This was never documented — by upstream or by us — which is why it was folklore
+on both sides. It is now in `PROVIDER-CONTRACT.md`. **Ask (C-1) is answered by
+measurement rather than by new work; ask (C-3) is answered above: split, tail
+dropped, no message, exit 0.** That last is an S-12 **`absent`** grade and we
+are recording it as a defect row of ours, not as documented behaviour.
+
+Single and double quotes do **not** work as delimiters and produce garbage
+rather than an error — also an `absent` row.
+
+### Measured argument behaviour (black-box, our own binary)
+
+| flag | meaning | value | outcome | exit | message / observed |
+|---|---|---|---|---|---|
+| `-s` | read offset, samples | `-2147483648` | **refused** | 1 | Error parsing -2147483648 for argument "offset": not in [-1048576:1048576] range! |
+| `-s` | read offset, samples | `-5000` | **accepted** | 0 | -5000 |
+| `-s` | read offset, samples | `-667` | **accepted** | 0 | -667 |
+| `-s` | read offset, samples | `0` | **accepted** | 0 | +0 |
+| `-s` | read offset, samples | `667` | **accepted** | 0 | +667 |
+| `-s` | read offset, samples | `5000` | **accepted** | 0 | +5000 |
+| `-s` | read offset, samples | `2147483647` | **refused** | 1 | Error parsing 2147483647 for argument "offset": not in [-1048576:1048576] range! |
+| `-r` | frame/rip retries | `-1` | **refused** | 1 | Error parsing -1 for argument "retries": not in [0:2147483647] range! |
+| `-r` | frame/rip retries | `0` | **accepted** | 0 | 0 |
+| `-r` | frame/rip retries | `1` | **accepted** | 0 | 1 |
+| `-r` | frame/rip retries | `10` | **accepted** | 0 | 10 |
+| `-r` | frame/rip retries | `2147483647` | **accepted** | 0 | 2147483647 |
+| `-r` | frame/rip retries | `2147483648` | **refused** | 1 | Error parsing 2147483648 for argument "retries": not in [0:2147483647] range! |
+| `-Z` | repeat rips until N matches | `-1` | **refused** | 1 | Error parsing -1 for argument "repeat_rips": not in [0:2147483647] range! |
+| `-Z` | repeat rips until N matches | `0` | **accepted** | 0 | (no header field exposes this) |
+| `-Z` | repeat rips until N matches | `1` | **accepted** | 0 | (no header field exposes this) |
+| `-Z` | repeat rips until N matches | `2` | **accepted** | 0 | (no header field exposes this) |
+| `-Z` | repeat rips until N matches | `10` | **accepted** | 0 | (no header field exposes this) |
+| `-Z` | repeat rips until N matches | `2147483647` | **accepted** | 0 | (no header field exposes this) |
+| `-S` | drive speed multiplier | `-1` | **refused** | 1 | Error parsing -1 for argument "speed": not in [0:2147483647] range! |
+| `-S` | drive speed multiplier | `0` | **accepted** | 0 | (no header field exposes this) |
+| `-S` | drive speed multiplier | `1` | **refused** | 1 | Device does not support changing speeds! |
+| `-S` | drive speed multiplier | `48` | **refused** | 1 | Device does not support changing speeds! |
+| `-S` | drive speed multiplier | `2147483647` | **refused** | 1 | Device does not support changing speeds! |
+| `-k` | stall threshold, seconds | `-1` | **refused** | 1 | Error parsing -1 for argument "stall_secs": not in [0:2147483647] range! |
+| `-k` | stall threshold, seconds | `0` | **accepted** | 0 | (no header field exposes this) |
+| `-k` | stall threshold, seconds | `1` | **accepted** | 0 | (no header field exposes this) |
+| `-k` | stall threshold, seconds | `10` | **accepted** | 0 | (no header field exposes this) |
+| `-k` | stall threshold, seconds | `2147483647` | **accepted** | 0 | (no header field exposes this) |
+| `-P` | paranoia level | `-1` | **refused** | 1 | Invalid paranoia level -1 must be between 0 and 3! |
+| `-P` | paranoia level | `0` | **accepted** | 0 | none |
+| `-P` | paranoia level | `1` | **accepted** | 0 | 1 |
+| `-P` | paranoia level | `3` | **accepted** | 0 | max |
+| `-P` | paranoia level | `4` | **refused** | 1 | Invalid paranoia level 4 must be between 0 and 3! |
+| `-P` | paranoia level | `999` | **refused** | 1 | Invalid paranoia level 999 must be between 0 and 3! |
+| `-m` | cover art max size | `-2` | **refused** | 1 | Error parsing -2 for argument "cover_size": not in [-1:1200] range! |
+| `-m` | cover art max size | `-1` | **accepted** | 0 | (no header field exposes this) |
+| `-m` | cover art max size | `250` | **accepted** | 0 | (no header field exposes this) |
+| `-m` | cover art max size | `500` | **accepted** | 0 | (no header field exposes this) |
+| `-m` | cover art max size | `1200` | **accepted** | 0 | (no header field exposes this) |
+| `-m` | cover art max size | `999` | **refused** | 1 | Invalid max coverart size 999 (must be 250, 500, 1200 or -1) |
+| `-b` | lossy bitrate, kbps | `-1` | **refused** | 1 | Error parsing -1.000000 for argument "bitrate": not in [0.000000:10000.000000] range! |
+| `-b` | lossy bitrate, kbps | `0` | **accepted** | 0 | (no header field exposes this) |
+| `-b` | lossy bitrate, kbps | `1` | **accepted** | 0 | (no header field exposes this) |
+| `-b` | lossy bitrate, kbps | `256` | **accepted** | 0 | (no header field exposes this) |
+| `-b` | lossy bitrate, kbps | `100000` | **refused** | 1 | Error parsing 100000.000000 for argument "bitrate": not in [0.000000:10000.000000] range! |
+| `-l` | track list | `0` | **refused** | 1 | Invalid rip index 0, list has 2 tracks! |
+| `-l` | track list | `1` | **accepted** | 0 | (no header field exposes this) |
+| `-l` | track list | `2` | **accepted** | 0 | (no header field exposes this) |
+| `-l` | track list | `3` | **refused** | 1 | Invalid rip index 3, list has 2 tracks! |
+| `-l` | track list | `99` | **refused** | 1 | Invalid rip index 99, list has 2 tracks! |
+| `-c` | disc/totaldiscs | `'0/0'` | **refused** | 1 | Invalid discnumber 0 |
+| `-c` | disc/totaldiscs | `'1/1'` | **accepted** | 0 | (no header field exposes this) |
+| `-c` | disc/totaldiscs | `'2/1'` | **refused** | 1 | discnumber 2 is larger than totaldiscs 1 |
+| `-c` | disc/totaldiscs | `'1/2'` | **accepted** | 0 | (no header field exposes this) |
+| `-u` | consumer tag | `''` | **accepted** | 0 | (reported |
+| `-u` | consumer tag | `'x'` | **accepted** | 0 | x |
+| `-u` | consumer tag | `'platterpus/0.6.4b12'` | **accepted** | 0 | platterpus/0.6.4b12 |
+| `-u` | consumer tag | `'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'` | **accepted** | 0 | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa |
+| `-a` | album metadata blob | `''` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'album=x'` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'album=a:b'` | **accepted** | 0 | (no header field exposes this) |
+| `-a` | album metadata blob | `'album=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'` | **accepted** | 0 | (no header field exposes this) |
+| `-t` | track metadata | `'1=title=x'` | **accepted** | 0 | (no header field exposes this) |
+| `-t` | track metadata | `'1=title=a:b'` | **accepted** | 0 | (no header field exposes this) |
+| `-t` | track metadata | `'0=title=x'` | **refused** | 1 | Invalid track number 0, list has 2 tracks! |
+| `-t` | track metadata | `'99=title=x'` | **refused** | 1 | Invalid track number 99, list has 2 tracks! |
+| `-o` | output formats | `'flac'` | **accepted** | 0 | (no header field exposes this) |
+| `-o` | output formats | `''` | **refused** | 1 | Invalid format "" |
+| `-o` | output formats | `'nosuchformat'` | **refused** | 1 | Invalid format "nosuchformat" |
+| `-o` | output formats | `'flac,flac'` | **refused** | 1 | Duplicated format "flac" |
+| `-T` | filename sanitation | `'simple'` | **accepted** | 0 | (no header field exposes this) |
+| `-T` | filename sanitation | `'os_simple'` | **accepted** | 0 | (no header field exposes this) |
+| `-T` | filename sanitation | `'unicode'` | **accepted** | 0 | (no header field exposes this) |
+| `-T` | filename sanitation | `'os_unicode'` | **accepted** | 0 | (no header field exposes this) |
+| `-T` | filename sanitation | `'bogus'` | **refused** | 1 | Invalid sanitation method bogus |
+| `-p` | pregap action | `'1=default'` | **accepted** | 0 | (no header field exposes this) |
+| `-p` | pregap action | `'1=drop'` | **accepted** | 0 | (no header field exposes this) |
+| `-p` | pregap action | `'1=merge'` | **accepted** | 0 | (no header field exposes this) |
+| `-p` | pregap action | `'1=track'` | **accepted** | 0 | (no header field exposes this) |
+| `-p` | pregap action | `'1=bogus'` | **refused** | 1 | Invalid pregap action bogus |
+| `-p` | pregap action | `'99=drop'` | **accepted** | 0 | (no header field exposes this) |
+
+### Interactions
+
+| flags | meaning | outcome | exit | message |
+|---|---|---|---|---|
+| `-I -J` | info-only with cue-only | **refused** | 1 | -J (only generate a CUE sheet) cannot be used with -I (only print info)! |
+| `-J` | cue-only alone | **accepted** | 0 |  |
+| `-E -W` | force deemphasis with no-deemphasis | **accepted** | 0 |  |
+| `-x` | cache probe on an image | **accepted** | 0 |  |
+| `-f` | find-offset on an image | **accepted** | 0 |  |
+
+**82 probes: 53 accepted, 29 refused, 0 silently ignored.**
+
+**Silently-ignored values: none.** Every value either took effect or was refused with a message.
+
+
+### Exit codes, graded (S-12)
+
+| grade | count | which |
+|---|---|---|
+| **usable** | most refusals | every range refusal names the flag, the value and the accepted range; every enum refusal names the invalid value. The message distinguishes, the code does not |
+| **generic** | **the exit code itself, always `1`** | **a defect row of ours.** Every refusal above exits `1`. A caller cannot tell a bad `-s` from a bad `-o` from a missing device by code alone — only by message, which S-12 then makes contract surface |
+| **absent** | `-a`/`-t` colon split; `-E -W` together; quotes in `-a` | no code and no message. The colon case silently drops data, which is the worst of the three |
+
+**We are not proposing distinct exit codes this round**, because the numbers
+would become contract surface and this round is already carrying a cue change.
+Proposed for round 8 with the `generic` row left standing until then, per S-12.
 
 ---
 

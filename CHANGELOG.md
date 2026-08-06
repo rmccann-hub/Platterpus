@@ -14,6 +14,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [0.6.4b13] — 2026-08-06
 
 ### Changed
+- **Round 7 lap 31 filed, and the fork's lap 30 correction accepted into the record.** Our
+  lap 29 blamed the cue's ISRC regression on the fork; the branch is **upstream's**, and what
+  the fork changed is only its *reachability*. Verified in their repository rather than taken
+  on trust — a finding that arrives as "you got this wrong" is not pre-verified, and this
+  project's own rule says a correction should not get *less* scrutiny than a claim. It is the
+  third time a seam failure has turned out to be upstream's inherited by the fork, and the
+  rule warning about exactly that was already written down here from the previous two.
 - **The shared handshake protocol is back in sync with the cyanrip fork, and our copy was
   the stale one.** `docs/handshake-protocol.md` is a document *neither project owns* — the
   same file in both repositories — and ours had not been edited since the day it was adopted
