@@ -2896,7 +2896,25 @@ def test_the_securing_pass_never_rewinds_the_album_bar_or_says_track_n_of_m(
 ) -> None:
     """Defects (2) and (3): the bar regressed 94.77% -> 35.45% and relabelled
     itself "Ripping track 5 of 14…" after all 14 tracks were on disk — while the
-    same sentence carried a 99% track-local figure beside that 35.45% bar."""
+    same sentence carried a 99% track-local figure beside that 35.45% bar.
+
+    **REVERT-PROOFED, and the result is worth knowing before you touch either
+    fix.** Two independent changes prevent the rewind, and *each one alone is
+    enough to keep this test green*:
+
+    1. ``_reset_pass_progress`` no longer zeroes ``self._overall`` for a refix pass
+       (b11 zeroed it unconditionally, which restarted the no-regress clamp and let
+       35% be accepted after 94.77%);
+    2. ``_progress_for`` returns the reserved post-rip band for a refix pass
+       instead of mapping the track into the album's read band.
+
+    So reverting **one** of them does NOT fail this test — measured, both ways.
+    Reverting **both** fails it at **35.36%**, which is the field value (35.45%) to
+    within the fixture's rounding. That is defence in depth, not redundancy, but it
+    has a consequence: a green run here is *not* evidence that either fix is
+    individually unnecessary. Do not delete one because the suite still passes —
+    that is precisely the reasoning this note exists to block.
+    """
     worker, clock, backend, signals = _police_worker(tmp_path, monkeypatch)
     _run_pass(worker, backend, clock, _album_tail_lines(), pass_kind="album")
     album_peak = max(overall for overall, _ in signals.progress)
