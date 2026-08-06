@@ -133,6 +133,47 @@ A validator on each side of a boundary is the same argument in the small. The on
 that catches the defect is whichever one the defect walks into, and you cannot
 know in advance which that is.
 
+## S5a. Exhaustive documentation and black-box limit testing — the standing ask
+
+Our maintainer, and this becomes permanent from here forward:
+
+> *"i want it exhaustive on you side and on thiers. even if you dont use the
+> argument or variabe or setting, i want i documented and with the limits and
+> errors. we may have to use or fix in the future."*
+
+> *"explore limites with bloackbox testing on each app … i dont expect you to
+> test cyanrip, its on them, just like its on you."*
+
+That division is the part we want to be explicit about: **each side probes its own
+binary and neither probes the other's.** We are not asking you to accept our
+measurements of your tool, and we will not accept yours of ours. A limit derived
+from reading someone else's documentation is a claim about behaviour nobody ran.
+
+`docs/seam-rules.md` **version 2** adds three rules for this — **S-8** (every
+argument documented whether or not it is used), **S-9** (limits and error
+behaviour established by black-box testing, each side its own), **S-10** (the
+table travels with every handshake file, both directions, from here forward).
+
+**What a complete row needs**, per argument: type; the **real** accepted range,
+not the declared one; behaviour at min, at max and **one past each**; what happens
+on a bad value — exit code, message, and crucially *whether the operation dies or
+the flag is silently ignored*; interactions and mutual exclusions; and the
+zero/empty/absent case, since `0` so often means "auto".
+
+**Where a limit cannot be probed** — it needs hardware, or a disc with a
+particular TOC — the cell says `not-probed: <reason>`. That is a finding. **A
+blank reads as "tested and fine."**
+
+**We are behind on our own half and say so plainly:** `docs/seam-commands.md`
+currently covers the 17 flags we send, and its type and range columns are
+hand-transcribed rather than generated. The 41-versus-18 gap is unaddressed —
+for every flag of yours we do not send, nothing records whether we decline it,
+cannot use it, or never noticed. That gap is our work, and we are naming it
+rather than waiting to be asked.
+
+**Ask (S5a-1):** the same from your side — every flag, including ones we never
+send, with its measured limits and its failure behaviour.
+
 ## S6. What we are asking for in the return file
 
 1. **S2a above** — which routes in your build reach the ripping core, and whether

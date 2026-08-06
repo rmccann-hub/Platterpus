@@ -18,7 +18,7 @@ it is free.
 | **`[PLATTERPUS]`** | the GUI only | cyanrip, so they know what we promise |
 | **`[CYANRIP]`** | the ripper only | Platterpus, so we know what to expect |
 
-Format version: **1** (`SEAM-RULES-VERSION: 1`). Cite it when you claim
+Format version: **2** (`SEAM-RULES-VERSION: 2`). Cite it when you claim
 conformance.
 
 ---
@@ -73,6 +73,62 @@ checking as a reason to skip its own.**
 `0`, non-zero, and **`null` for a child never reaped**. A process that was killed,
 timed out, or never started has no exit status, and writing that as `0` is a
 claim you do not have.
+
+### `[BOTH]` S-8 — Every argument is documented, whether or not you use it
+
+**Completeness is over the *tool's* surface, not over the surface you happen to
+exercise.** A flag you do not send, a variable you do not read, a setting you
+leave default — all of it gets a row. The reason is not tidiness: *we may have to
+use or fix it in the future*, and the moment that happens, an undocumented
+argument is a thing somebody has to rediscover under time pressure, usually
+during an incident.
+
+The 41-versus-18 gap is the live example. They document 41 flags; we send 18. Two
+sentences that sound alike are entirely different claims — *"these are the flags
+we send"* and *"these are the flags worth sending"* — and only the first is
+currently recorded anywhere. **A flag absent from the table is indistinguishable
+from a flag nobody thought about.**
+
+Each row states, explicitly, which it is: `HAVE` (we use it), `NO` (declined,
+**with a reason**), or `?` (**not yet examined — an open row, not a passing
+one**).
+
+### `[BOTH]` S-9 — Limits and error behaviour are established by black-box testing, not by reading
+
+**Each side tests its own application. Neither tests the other's.** That division
+is deliberate and it is symmetric: we do not run your test suite and you do not
+run ours, because the side that owns the code is the side that can tell a
+measurement from a coincidence — and a claim about *your* behaviour that we
+derived from *our* reading of your docs is exactly the class of error this
+protocol keeps finding.
+
+For every argument in the table, its owner establishes **by running the binary**,
+not by reading the source:
+
+| what | why reading it is not enough |
+|---|---|
+| **valid range** — the real accepted min and max | the declared type is not the accepted range; `int` says nothing about whether `-1` is taken |
+| **boundary behaviour** — at min, at max, and **one past each** | off-by-one at a boundary is the single most common argument defect, and it is invisible in a type |
+| **what it does when the value is wrong** — exit code, message, and *whether the whole operation dies or the flag is ignored* | this is the difference between a bad tag and a lost rip. `-t 17=` on a 16-track disc killed a rip in **two seconds**; the type was fine |
+| **interactions** — mutual exclusions, ordering, flags that silently override others | `-I` must never appear with `-J` in our builder, and neither of us has recorded *why* |
+| **the empty / absent / zero case** | `0` frequently means "auto" rather than zero, and that is never in a type signature |
+
+**Exhaustive means exhaustive.** Every argument, including the ones neither side
+sends today. Where a limit genuinely cannot be probed without hardware or a
+specific disc, the row says **`not-probed: <reason>`** — which is a recorded
+finding, not a blank. A blank reads as *tested and fine*, and that is the
+failure this whole document exists to stop.
+
+### `[BOTH]` S-10 — The table travels with every handshake file, from here forward
+
+Not on request, not when something changed — **every round, both directions**. A
+round that changed nothing in the table says so explicitly, so *"nobody sent it"*
+is never confusable with *"nothing changed"*. And a closing file names the table
+version it audited, because a shared artifact nobody re-reads is the same
+artifact as no artifact: their flag table said `-v`/`--version` with **no `-V`**
+for a full round while every version probe we shipped sent `-V`, and a rejected
+flag exits non-zero, which every probe reads as *"the tool is not installed"*.
+**The document was right. Nobody looked at it against the code.**
 
 ---
 
@@ -170,11 +226,11 @@ last read it. Every row names a direction, a type, and what must be checked.
 State the version and which tags you implement:
 
 ```
-SEAM-RULES-VERSION: 1
+SEAM-RULES-VERSION: 2
 IMPLEMENTS: BOTH(S-1..S-7) PLATTERPUS(P-1..P-3)
 ```
 
-A side claiming `BOTH` claims all seven. Partial conformance names the gaps
+A side claiming `BOTH` claims all ten. Partial conformance names the gaps
 explicitly — **a rule you have not implemented is not a rule you may cite.**
 
 ---

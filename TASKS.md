@@ -481,6 +481,21 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 - **[x] Declined dependencies should not cascade to the next tier.** Done (verified 2026-06-02) — see the identical item under P1.1 above. `resolve_missing` skips cascade for `user_declined`; three tests cover it.
 - **[x] Picard auto-install failure mode — resolved.** Both halves are done: (1) **root cause** — the registry now installs Picard via the **`.flatpakref` URL** (`https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref`) instead of `flathub <ref>`; the `.flatpakref` carries the remote URL so flatpak adds flathub at *user* level on first install, fixing the Bazzite "No remote refs found for 'flathub'" error (Atomic distros configure flathub as a *system* remote). See `deps/registry.py`. (2) **diagnostics** — `AutoInstaller` captures the failed command's last stderr/stdout line into `InstallResult.message`, and `_show_dep_summary` surfaces it in an "Install failures:" block (no longer debug-only). Picard is also `optional=True`, so a failure doesn't nag.
 
+### P0 — Exhaustive argument documentation + black-box limit testing, our half (2026-08-06)
+
+Maintainer, and it is now `docs/seam-rules.md` **S-8/S-9/S-10** (version 2): *"i want it exhaustive on you side and on thiers. even if you dont use the argument or variabe or setting, i want i documented and with the limits and errors. we may have to use or fix in the future."* Plus the division of labour: *"i dont expect you to test cyanrip, its on them, just like its on you."*
+
+**What we owe, and it is a real body of work:**
+
+- **[ ] Rows for all 41 of their flags, not our 17.** For every flag we do not send, the row must say `NO: <reason>` or `?`. Today nothing distinguishes *"we decline it"* from *"we never noticed it"* — and those are different facts about the same blank cell.
+- **[ ] Black-box limit probes for every argument we DO send**, run against the real binary rather than read out of the builder: the **real** accepted min/max (the declared type is not the range — `int` says nothing about whether `-1` is taken); behaviour at min, at max and **one past each**; and on a bad value the exit code, the message, and **whether the operation dies or the flag is silently ignored**. That last distinction is the difference between a bad tag and a lost rip: `-t 17=` on a 16-track disc killed a rip in two seconds and the *type* was fine.
+- **[ ] The same for our own surface** — every `Config` field and every CLI flag, including ones the GUI cannot set. Same columns, same rule.
+- **[ ] `not-probed: <reason>` where hardware or a specific disc is required.** A recorded finding. **A blank reads as "tested and fine"**, which is the failure the file exists to prevent.
+- **[ ] Interactions**: `-I` must never appear with `-J` in our builder and **neither of us has recorded why**; `-F` is in the builder with no recorded reason at all. Probe both, document both, or delete them — carrying a flag we cannot explain is worse than not having it.
+- **[ ] Generate, do not transcribe.** The type/range columns in `docs/seam-commands.md` are currently hand-written and carry a provenance warning saying so. `emit_dependency_contract.py` must emit them from the builder's signatures and range checks, and the probe results must land beside them mechanically.
+
+The limit probes are a natural fit for the in-app script runner once `cyanrip`/`expect-exit` are joined by the rest of the vocabulary — a generated batch that walks every argument to its boundary and records the exit code is exactly the artifact S-9 asks for.
+
 ### P0 — The command table must be AUDITED every round, and the gate change is bilateral (2026-08-06)
 
 The maintainer: *"it needs to be looked at, checked, and verified, every time there is a handshake, its most of the entire point."*

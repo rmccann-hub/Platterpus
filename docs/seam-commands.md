@@ -15,6 +15,34 @@ test for this file: if a row exists, each side can exercise that flag with that
 argument type and check the result. A row nobody can test is a row that is
 documentation rather than contract.
 
+## What every row must carry (seam-rules S-8 / S-9)
+
+Beyond the status columns below, each row is only complete when it states — **for
+every argument, whether or not either side uses it**:
+
+| column | established how |
+|---|---|
+| **type** | the declared type |
+| **valid range** | the **real accepted** min and max, by running the binary. The type is not the range: `int` says nothing about whether `-1` is taken |
+| **boundary** | behaviour at min, at max, and **one past each**. Off-by-one at a boundary is the commonest argument defect and is invisible in a type |
+| **on a bad value** | exit code, message, and **whether the operation dies or the flag is ignored** — the difference between a bad tag and a lost rip. `-t 17=` on a 16-track disc killed a rip in two seconds and the *type* was fine |
+| **interactions** | mutual exclusions, ordering, silent overrides |
+| **zero / empty / absent** | `0` usually means "auto", never stated in a signature |
+
+**Each side probes its own binary. Neither probes the other's.** A limit we
+derived from reading their docs is a claim about behaviour we never measured.
+
+Where a limit cannot be probed without specific hardware or a specific disc, the
+cell reads **`not-probed: <reason>`** — a recorded finding. **A blank reads as
+"tested and fine"**, which is the failure this file exists to prevent.
+
+**Nothing is out of scope for being unused.** *We may have to use or fix it in
+the future*, and at that moment an undocumented argument is something a person
+rediscovers under time pressure. The tables below are therefore incomplete by
+construction today: they cover the 17 flags we send, not the 41 their tool has.
+**That gap is the work, not an oversight** — every remaining flag needs a row
+with `NO: <reason>` or `?`.
+
 ## How to read the two status columns
 
 Every row carries a status from **each** side, because the interesting
