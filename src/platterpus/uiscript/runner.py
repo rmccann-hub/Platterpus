@@ -55,6 +55,14 @@ MAX_WAIT_S: float = 600.0
 #: hardware; three hours is generous and still bounded.
 MAX_RIP_WAIT_S: float = 3 * 60 * 60
 
+#: Timeout for a scripted `cyanrip` invocation. Generous enough for a cold
+#: container exec (measured at 3.45 s) and a `-x` cache probe, bounded so an
+#: unattended batch cannot be stranded by a wedged drive.
+CYANRIP_VERB_TIMEOUT_S: float = 300.0
+
+#: Cap on captured tool output carried into a single transcript record.
+MAX_TOOL_OUTPUT_CHARS: int = 8000
+
 
 class ScriptRunner(QObject):
     """Runs parsed steps against a live MainWindow, one per event-loop tick.
@@ -84,6 +92,11 @@ class ScriptRunner(QObject):
         self._deadline_step: Step | None = None
         self._deadline_started: float = 0.0
         self._deadline_predicate: Callable[[], bool] | None = None
+        #: The last `cyanrip` invocation, so `expect-cyanrip` / `expect-exit`
+        #: assert against what actually ran rather than re-running it.
+        self._last_cyanrip_exit: int | None = None
+        self._last_cyanrip_output: str = ""
+        self._last_cyanrip_argv: list[str] = []
         self._timer: QTimer = QTimer(self)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
@@ -408,6 +421,102 @@ class ScriptRunner(QObject):
                 step, Outcome.FAIL, f"expected {wanted!r} but the dialog is {actual!r}"
             )
 
+    # --- Verbs: cyanrip, for real --------------------------------------------
+
+    def _do_cyanrip(self, step: Step) -> None:
+        """Invoke the host-exported ripper through the app's own seam.
+
+        Deliberately :func:`~platterpus.adapters.rip_backend.run_capture` and not
+        a fresh ``subprocess`` call: that is the seam the application's own
+        probes use, so a script exercises the **real** path rather than a
+        parallel one that could drift from it. It brings a killable child, a
+        bounded timeout and diagnostics-on-failure with it.
+
+        Records the exit code, the exact argv and the complete output, because
+        that trio is what makes a ripper failure reproducible by hand
+        (``CLAUDE.md`` — diagnostic completeness), and because the maintainer
+        asked that inputs be recorded beside errors.
+
+        Blocking is acceptable *here specifically* and nowhere else in this file:
+        `run_capture` is bounded by its own timeout and the alternative — a
+        second async path with its own worker — would be a parallel
+        implementation of the thing being tested.
+        """
+        from platterpus.adapters.rip_backend import RipError, run_capture
+        from platterpus.paths import CYANRIP_BINARY_DEFAULT
+
+        args = list(step.args)
+        argv = [str(CYANRIP_BINARY_DEFAULT), *args]
+        self._last_cyanrip_argv = argv
+        started = time.monotonic()
+        try:
+            code, output = run_capture(
+                "cyanrip",
+                str(CYANRIP_BINARY_DEFAULT),
+                args,
+                timeout=CYANRIP_VERB_TIMEOUT_S,
+                stdin_devnull=True,  # cyanrip reads stdin; it must be closed
+            )
+        except RipError as exc:
+            # Tri-state, always: nothing was reaped, so the exit code is None and
+            # must never be written as 0.
+            self._last_cyanrip_exit = None
+            self._last_cyanrip_output = str(exc)
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"argv: {' '.join(argv)}\nexit: null (never reaped)\n{exc}",
+                elapsed=time.monotonic() - started,
+            )
+            return
+        self._last_cyanrip_exit = code
+        self._last_cyanrip_output = output
+        self._record(
+            step,
+            Outcome.PASS,
+            f"argv: {' '.join(argv)}\nexit: {code}\n{_bounded_output(output)}",
+            elapsed=time.monotonic() - started,
+        )
+
+    def _do_expect_cyanrip(self, step: Step) -> None:
+        wanted = step.joined()
+        if not self._last_cyanrip_argv:
+            self._record(step, Outcome.ERROR, "no cyanrip command has run yet")
+            return
+        if wanted in self._last_cyanrip_output:
+            self._record(step, Outcome.PASS, f"found {wanted!r}")
+        else:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"{wanted!r} is not in the output of "
+                f"{' '.join(self._last_cyanrip_argv)}\n"
+                f"{_bounded_output(self._last_cyanrip_output)}",
+            )
+
+    def _do_expect_exit(self, step: Step) -> None:
+        if not self._last_cyanrip_argv:
+            self._record(step, Outcome.ERROR, "no cyanrip command has run yet")
+            return
+        raw = step.args[0]
+        if raw.lower() in {"null", "none"}:
+            wanted: int | None = None
+        else:
+            try:
+                wanted = int(raw)
+            except ValueError:
+                self._record(step, Outcome.ERROR, f"{raw!r} is not an exit code")
+                return
+        if self._last_cyanrip_exit == wanted:
+            self._record(step, Outcome.PASS, f"exit was {wanted}")
+        else:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"expected exit {wanted}, got {self._last_cyanrip_exit} from "
+                f"{' '.join(self._last_cyanrip_argv)}",
+            )
+
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:
             return self._artifact_dir
@@ -523,6 +632,20 @@ def _panel_fields(window: QWidget) -> dict[str, str]:
         if callable(text):
             fields[label] = text()
     return fields
+
+
+def _bounded_output(text: str) -> str:
+    """Head AND tail, with the elision counted.
+
+    A tool's fatal message is the *last* thing it prints, so a head-only cap
+    drops precisely the line that explains the failure — and a silent truncation
+    reads as completeness (`CLAUDE.md`).
+    """
+    if len(text) <= MAX_TOOL_OUTPUT_CHARS:
+        return text
+    half = MAX_TOOL_OUTPUT_CHARS // 2
+    dropped = len(text) - 2 * half
+    return f"{text[:half]}\n… [{dropped} characters omitted] …\n{text[-half:]}"
 
 
 def _safe_name(raw: str) -> str:

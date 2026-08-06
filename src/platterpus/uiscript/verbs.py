@@ -13,6 +13,16 @@ them belongs in a batch that runs while nobody is watching, because the failure
 mode of an unattended destructive action is unbounded. A script that needs one of
 those is a script that needs a person.
 
+**cyanrip is passed through for real, not simulated.** The maintainer's
+instruction: *"it needs to be an independent test, but have full access to every
+surface exposed by the application and also cyanrip. the passthrough should be
+real, or at least have logic."* So ``cyanrip <args…>`` invokes the
+**host-exported binary** through :func:`platterpus.adapters.rip_backend.
+run_capture` — the same seam the application's own probes use, so the test
+exercises the real path rather than a parallel one that could drift from it. It
+inherits that seam's killable child, its bounded timeout and its
+diagnostics-on-failure for free, which is also why it is not reimplemented here.
+
 **The escape hatch.** The maintainer asked for one explicitly, so ``eval`` and
 ``call`` exist — and they are marked :attr:`Verb.unsafe`, which means they are
 refused unless the user has separately opted in (a second Settings toggle, off by
@@ -154,6 +164,26 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         1,
         "expect-tracks <count> — assert how many track rows are loaded",
+    ),
+    # --- cyanrip, passed through for real ------------------------------------
+    Verb(
+        "cyanrip",
+        1,
+        None,
+        "cyanrip <args…> — run the host-exported ripper for real and capture "
+        "its exit code, exact argv and complete output",
+    ),
+    Verb(
+        "expect-cyanrip",
+        1,
+        None,
+        "expect-cyanrip <text> — assert the last cyanrip output contains text",
+    ),
+    Verb(
+        "expect-exit",
+        1,
+        1,
+        "expect-exit <code> — assert the last cyanrip exit code",
     ),
     # --- The escape hatch ----------------------------------------------------
     Verb(
