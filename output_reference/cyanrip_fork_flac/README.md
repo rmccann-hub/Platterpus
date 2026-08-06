@@ -68,4 +68,4 @@ bit-perfection without it — that is the entire reason this directory is text.
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b12.*

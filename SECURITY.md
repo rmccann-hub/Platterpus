@@ -38,7 +38,7 @@ reproduce on the newest release before reporting.
   SHA-256-only; from the first signed release on, it refuses any update whose
   signature is missing or invalid. The key is held offline and signing happens
   outside CI, so a CI compromise can't forge a signature. See
-  [`docs/release-signing.md`](docs/release-signing.md) and the trust-audit notes
+  [`docs/architecture.md` §6.2 *Release signing*](docs/architecture.md) and the trust-audit notes
   in `docs/`. (The updater does not yet check the SLSA attestation itself.)
 - **Workflow supply chain.** CI runs least-privilege (`contents: read`), a
   server-side guard rejects committed audio, every GitHub Action is pinned to a
@@ -54,4 +54,4 @@ should be reported to those projects.
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b12.*

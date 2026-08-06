@@ -11,6 +11,97 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b12] — 2026-08-06
+
+### Added
+- **The `.cue` cyanrip writes is now validated before we ship it** (`cue_validate.py`,
+  a new `cue_integrity` self-check). The cue was **external input nobody read** — the
+  2026-08-05 rig rip handed the user a cue missing **9 of its 14 ISRCs** and carrying a
+  U+2236 escaping artefact in the album title, and *both were derivable from facts already
+  in the report*. The validator judges the cue against what we know **independently** of it:
+  the ISRCs and titles from the argv we sent, the pre-gap frame counts from the ripper's own
+  log. Checking an artifact against itself is consistent, not verified.
+
+  Every check is tri-state — an absent, empty or truncated cue is *not determined*, never a
+  pass — and the one false positive that would make the validator worse than nothing is
+  explicitly excluded: a U+2236 inside a `FILE` line is **correct** and never flagged, because
+  that character really is in the filename on disk.
+
+### Changed
+- **Documentation consolidated: 27 top-level docs → 22, and a rule so it stops growing.**
+  The maintainer's instruction was blunt — *"make sure you are not making and adding md files
+  just for the sake of it … amalgamate as much as you can into the fewest files possible
+  without losing info and context"* — and it was earned: **four** new docs appeared inside
+  **71 minutes** on 2026-08-06, one of which lived **43 minutes** before being deleted, and
+  five separate rig sheets accumulated in three days for one recurring activity.
+
+  Merged: the release plan into `TASKS.md` (which is the declared home for a task queue), the
+  error-reporting design into `docs/architecture.md` beside the error-handling rules it
+  restated, AppImage testing and the release-signing ritual into that file's packaging
+  section, and the shipped multi-format design-of-record into `docs/archive/` — with its one
+  still-open item graduated to `TASKS.md` first, because archiving a doc with a live item
+  loses it.
+
+  **Critical rule #7 gained a fourth obligation:** a durable lesson graduates into an
+  *existing* home; a **new** document requires that no existing home fits, and the commit must
+  name the homes considered and why each failed. A recurring activity's sheet is **rewritten**
+  when it goes stale, never joined by a sibling.
+
+  Two carve-outs, because they cut the other way: the handshake correspondence is
+  **append-only** (a merged round file is a falsified record), and the EAC-compatible log
+  stays as close to EAC's original as it can get without forging — consolidation applies to
+  *documentation*, never to *evidence*.
+
+- **A doc CLAUDE.md merely mentions can no longer vanish unnoticed.** `CLAUDE.md` names some
+  docs in plain backticks rather than as links, and the companion-list check filtered its
+  candidates to files that *still exist* — so deleting a doc CLAUDE.md mentions left a stale
+  reference no test could see. Now every `docs/<name>.md` string anywhere in `CLAUDE.md` must
+  resolve, with a floor so the check cannot pass by finding nothing.
+
+- **Handshake round 7 lap 29 sent, with a HOLD on pin `9048082`.** Verified from the rig
+  artifacts: the fork's `INDEX 00` pre-gap markers are **correct on all nine tracks** — the
+  same nine EAC marks on this disc, and each resolving to the sector against the pre-gap start
+  LSN in the ripper's own log. Held anyway, because the commit that added them stopped writing
+  `ISRC`: the cue carries 5 of 14, and the missing nine are *exactly* the nine with a marker.
+  Proven across two fork builds by a relation that holds in both (surviving ISRCs = 14 −
+  marker count), with stock cyanrip (14 ISRCs, 0 markers) and EAC (14 and 9 together) as
+  controls. Lap 27's stale HOLD is withdrawn separately — its stated reason, the missing flag
+  table, is satisfied.
+
+- **`docs/seam-commands.md` gained a return-path section.** The table had an outbound half
+  and no inbound half, which is precisely why the cue was ungoverned. Every artifact the
+  ripper hands back now has a row with its type, what it must satisfy, and the test that
+  asserts it.
+
+### Fixed
+- **The rip ETA froze instead of exploding.** During the post-rip auto-fix pass the estimate
+  sat at **2580 s for 47 consecutive samples**, and the last one read *"about 43m 0s left"*
+  with **four seconds** to go — while cyanrip's own estimate said `3s` and was right. The b8
+  fix for an ETA *explosion* had created a *freeze*: it held the stale **album** estimate
+  through a phase that is one track long.
+
+  The two cases are now distinguished **structurally**, not heuristically — the auto-fix pass
+  is a separate invocation with `-l <track>`, so the worker is told which kind of pass it is
+  rather than inferring it from a clock going backwards. A securing pass gets its own rate
+  window, its own estimate scoped to the read it is actually measuring, and wording that
+  never implies it knows how many more re-reads there will be. The album-pass re-read hold —
+  the b8 fix — is unchanged and separately pinned, because removing it would restore the
+  explosion.
+
+- **The album progress bar ran backwards.** The same pass rewound it from **94.77% → 35.45%**
+  and relabelled itself *"Ripping track 5 of 14…"* after all 14 tracks were already on disk,
+  with a 99% track-local figure in the same sentence as the 35.45% bar.
+
+- **`scripts/handshake.py --check` never validated our own outbound files.**
+  `check_outbound` existed, was correct, and **had no caller** — the CLI ran the *inbound*
+  spec against everything, so checking one of our own round files reported six sections
+  "missing" that the outbound spec never asks for, plus a wrong-sender complaint. Seven bogus
+  problems on a correct file is how a checker gets switched off. `--check` now routes by
+  direction (outbound / inbound / verification), and each checker has a test proving it can
+  **fail**. Same shape as the `RipHandle.cancel` that was fully implemented and called from
+  nowhere: grep for a call site before believing a capability is reachable.
+
+
 ### Added
 - **In-app UI scripting (in progress) — the pure layer.** A closed-vocabulary batch language
   so hardware tests can run unattended: paste a script, run it, paste the transcript back.
@@ -4380,7 +4471,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b1.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b12.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -6622,7 +6713,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b12...HEAD
+[0.6.4b12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b12
 [0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
 [0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
 [0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
@@ -6705,4 +6797,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b12.*

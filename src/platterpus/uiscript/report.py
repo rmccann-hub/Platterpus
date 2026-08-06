@@ -50,7 +50,7 @@ class StepRecord:
     #: it existed on disk.
     artifact: str = ""
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         data = asdict(self)
         data["outcome"] = self.outcome.value
         return data
@@ -98,7 +98,7 @@ class RunReport:
             all(step.outcome in GOOD for step in self.steps) and not self.ended_reason
         )
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         """The shape embedded in the rip report's ``ui_script`` block."""
         return {
             "started_at": self.started_at,

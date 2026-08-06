@@ -90,14 +90,14 @@ its own, which is a different call path and is tabled separately in §2.
 | `-d` | device | `str`, absolute path | must exist, must be a block device | the drive | HAVE | ? |
 | `-o` | format | `str` enum | **always `flac`** | archival master; every other format is transcoded host-side, so the ripper is never asked for a lossy encode | HAVE | ? |
 | `-D` | directory | `str`, path | writable | output directory | HAVE | ? |
-| `-a` | tag blob | `str`, colon-delimited | no newline, no NUL, bounded | the whole tag set as one argument — **this is the value we are least comfortable with**, see §4 | HAVE | ? |
+| `-a` | tag blob | `str`, colon-delimited | no newline, no NUL, bounded. **No escape syntax exists**, so a value containing `:` is unrepresentable — see §4.4 | the whole tag set as one argument — **this is the value we are least comfortable with** | HAVE | ? |
 | `-t` | track list | `str`, `n=` / ranges | **range-checked against the disc's real track count** | which tracks to rip. A `-t 17=` on a 16-track disc killed a rip in two seconds | HAVE | ? |
 | `-c` | disc position | `int/int` | both ints, `number <= total`, else the flag is dropped | `DISCNUMBER` / `TOTALDISCS` | HAVE | ? |
 | `-s` | offset | `int`, samples | drive-plausible range | read offset correction | HAVE | ? |
 | `-S` | speed | `int` multiplier | bounded; `0` = drive max | read speed, fixed mode only | HAVE | ? |
 | `-r` | retries | `int` | bounded | per-track retry count | HAVE | ? |
-| `-Z` | matches | `int` | `0` disables | secure re-read consensus — the Test & Copy equivalent | HAVE | ? |
-| `-l` | — | flag | conditional | per-track selection companion | HAVE | ? |
+| `-Z` | matches | `int` | `0` disables | secure re-read consensus — the Test & Copy equivalent. **Measured with `-Z 2`**: track 5 converged after 3 reads, and the per-track paranoia counters then report the *last* pass while the disc totals report *every* pass (§3) | HAVE | ? |
+| `-l` | track number(s) | `int` list | must name tracks that exist on the disc | rip only these tracks. **Also how the auto-fix re-rip runs** — a second invocation with `-l <n>`, which is the structural signal that a pass is a subset rather than the whole album (it is what our progress model now keys on) | HAVE | ? |
 | `-G` | — | flag | conditional | disable cover-art embedding; we embed host-side | HAVE | ? |
 | `-O` | — | flag | **opt-in only** | overread into lead-in/lead-out. Their own help says it *"may freeze if unsupported by drive"*, so it is never on by default | HAVE | ? |
 | `-F` | — | flag | conditional | — *(transcribed from the builder; semantics need confirming, see §5)* | HAVE | ? |
@@ -113,6 +113,31 @@ its own, which is a different call path and is tabled separately in §2.
 
 **A probe invocation and a rip invocation are different contracts**, and the
 merged table must say which each flag belongs to. Ours currently does not.
+
+## 2a. Return-path artifacts — the ripper's OUTPUT is contract surface too
+
+**Added round 7 lap 29, and the reason it was missing is the finding.** This table
+had an outbound half and no inbound half, so the `.cue` the ripper writes — which
+we ship to the user unread — was governed by nothing. A rip on pin `9048082` lost
+**9 of its 14 ISRCs** and nothing noticed, because nothing here looked.
+
+Every row is `verified` (a test asserts it) or `documented-untested`, per S-11.
+
+| artifact / field | type | what it must satisfy | how it is checked | status | **PP** | **CR** |
+|---|---|---|---|---|---|---|
+| `.cue` → `ISRC` per track | `str`, 12 chars `[A-Z0-9]` | **every ISRC we sent must come back** on its track. We send N, the log records N, the cue must carry N | `cue_validate.validate_cue` ISRC round-trip; `tests/test_cue_validate.py` | verified | HAVE | **? — broken on `9048082`** |
+| `.cue` → `INDEX 00` presence | marker | present iff the log's per-track `Pregap length` is non-zero; **track 1 exempt** (its lead-in gap cannot append to a previous track) | same validator, pregap agreement | verified | HAVE | HAVE |
+| `.cue` → `INDEX 00` value | `MM:SS:FF` | an offset **within its own `FILE`**, not an absolute disc position. Resolve against that file's start LSN before comparing — a naive absolute comparison reports 8 false mismatches of 9 | lap-29 §A, checked on all 9 markers | verified | HAVE | HAVE |
+| `.cue` → `TITLE` / `PERFORMER` | `str`, arbitrary Unicode | must be the **real** metadata. Currently carries our U+2236 colon substitute, because `-a` has no escape (§4.4) | colon-fidelity check; `FILE` lines deliberately exempt | verified | HAVE | ? |
+| `.cue` → track numbering | `int` | contiguous from 1, every track has `INDEX 01`, count matches the disc | structural sanity check | verified | HAVE | ? |
+| `.log` → `album:` field | `str` | same U+2236 issue as the cue's `TITLE` | — | documented-untested | ? | ? |
+| `.log` → its own FUN512 checksum | `str` | `--verify-log` exits 0 with *"checksum valid"* on an unmodified log | `rip_audit`, every rip | verified | HAVE | HAVE |
+
+**Why `FILE` lines are exempt from the colon check, and why that exemption is
+load-bearing.** `FILE` names a real path on disk, and the substitute character is
+genuinely *in* that filename. "Repairing" it there would name a file that does not
+exist. A validator that flagged it would be worse than none, because the false
+positive teaches people to ignore the true ones.
 
 ## 3. EXPECT — behaviours we rely on that are not flags
 
@@ -138,6 +163,24 @@ merged table must say which each flag belongs to. Ours currently does not.
    double-check rule exists for.
 3. **Which of their 41 flags are rip-path and which are probe-path**, so §2's
    distinction can be mechanical rather than ours to infer.
+4. **An escape mechanism in the `-a` / `-t` grammar — or a written statement that
+   there is none.** Both flags are `key=value` pairs joined by `:`, and there is
+   no documented way to express a value that *contains* a colon. Album and track
+   titles contain them constantly; the reference disc is literally *"Every Breath
+   You Take: The Classics"*.
+
+   We work around it by substituting **U+2236 RATIO** (`∶`), which is visually
+   identical and does not break their parser, then repairing it afterwards — but
+   only in the two artifacts we own (the FLAC tags, via `metaflac`; and our
+   EAC-style log). **Their cue and their log keep the substitute**, so a user
+   importing that cue sees a ratio character in their album title.
+
+   This is the oldest live defect at this seam and neither side had written it
+   down. Three things are needed and all three are cheap: the escape syntax, a
+   row in their contract stating what the parser does with a literal colon
+   *today* (split / error / last-wins — **we have never sent one, so we do not
+   know, and S-9 says we do not probe their binary to find out**), and until
+   then, the limitation recorded rather than passed around as folklore.
 
 ## 5. WANT — non-blocking
 
@@ -162,4 +205,4 @@ merged table must say which each flag belongs to. Ours currently does not.
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b12.*

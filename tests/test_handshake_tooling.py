@@ -1223,3 +1223,143 @@ def test_the_shared_spec_is_present_and_not_paraphrased(hs: ModuleType) -> None:
             f"{path.name} declares protocol v{declared} but our gate implements "
             f"v{hs.PROTOCOL_VERSION} — we would refuse our own file"
         )
+
+
+# --------------------------------------------------------------------------
+# `--check` must apply the spec that MATCHES the file's direction.
+#
+# Found 2026-08-06 while validating the round-8 outbound file. `check_outbound`
+# existed, was correct, and **had no caller**: the CLI ran `check_inbound`
+# against everything. So checking one of our own files reported six sections
+# "missing" that the outbound spec never asks for, plus a wrong-sender
+# complaint — seven bogus problems on a correct file.
+#
+# The same shape as `RipHandle.cancel`, which was fully implemented and called
+# from nowhere: grep for the call site before believing a capability is
+# reachable. These tests assert the *routing*, and — the part that matters —
+# that each checker can still FAIL.
+# --------------------------------------------------------------------------
+
+
+def test_direction_is_read_from_the_directory_not_the_header(hs: ModuleType) -> None:
+    """Routing must not trust the field most likely to be wrong.
+
+    A file with a mistyped ``HANDSHAKE-FROM`` is exactly the file that needs
+    checking, and routing on that field would hand it to the checker that cannot
+    see the mistake.
+    """
+    assert hs.direction_of(hs.OUTBOUND_DIR / "round-08-lap-01.md") == "outbound"
+    assert hs.direction_of(hs.INBOUND_DIR / "round-07-lap-25.md") == "inbound"
+    assert hs.direction_of(hs.VERIFIED_DIR / "round-07-lap-27.md") == "verified"
+
+
+def test_our_real_outbound_round_openers_pass_the_outbound_spec(
+    hs: ModuleType,
+) -> None:
+    """Every round-opening file we have sent satisfies the spec we publish.
+
+    Reads the committed artifacts rather than a fixture (§5.u). Scoped to **round
+    openers** — a lap-1 file, or a grandfathered ``round-N.md`` — because the
+    section sweep is a full-round obligation; a mid-round lap answers what it
+    answers, which is the same carve-out ``check_inbound`` makes for them. Asking
+    more of ourselves than of them would be a different kind of wrong, but asking
+    it *only* of ourselves in a way no real file can satisfy is how a test gets
+    deleted.
+    """
+    # Rounds 1-3 predate `OUTBOUND_SECTIONS` and legitimately do not carry its
+    # sections; a sent file is never edited, so they stay as they went out. This
+    # is a floor on the ROUND, deliberately not a new grandfather set — those may
+    # only shrink (`test_the_grandfather_sets_are_pinned_and_may_only_shrink`),
+    # and a `>=` on the round number cannot be quietly extended to excuse a new
+    # failure the way a hand-maintained exception list can.
+    first_round_held_to_the_spec = 4
+    checked = 0
+    problems: list[str] = []
+    for path in sorted(hs.OUTBOUND_DIR.glob("round-*.md")):
+        num = hs.round_number(path)
+        if num is None or num < first_round_held_to_the_spec:
+            continue
+        checked += 1
+        problems.extend(hs.check_outbound_paths(path))
+    assert checked >= 4, (
+        f"only {checked} outbound files from round {first_round_held_to_the_spec} "
+        "on were examined — rounds 4, 5, 6 and 7 each have one, so this test is "
+        "not seeing the record it claims to check"
+    )
+    assert not problems, "our own outbound files fail our own spec: " + str(problems)
+
+
+def test_the_outbound_checker_can_fail(hs: ModuleType, tmp_path: Path) -> None:
+    """The assertion that stops this being decoration.
+
+    A file with one section must be rejected, and the message must NAME the
+    missing sections — "invalid" without a subject is the generic-error-code
+    defect the seam rules call a defect in its own right.
+    """
+    directory = tmp_path / "outbound"
+    directory.mkdir()
+    thin = directory / "round-08-lap-99.md"
+    thin.write_text(
+        "HANDSHAKE-PROTOCOL: 2\nHANDSHAKE-ROUND: 8\nHANDSHAKE-LAP: 1\n"
+        "HANDSHAKE-FROM: platterpus\nHANDSHAKE-VERDICT: OPEN\n\n"
+        "# Round 8\n\n## Corrections\n\nnothing\n",
+        encoding="utf-8",
+    )
+    problems = hs.check_outbound_paths(thin)
+    assert problems, "an outbound file with one section was accepted"
+    joined = " ".join(problems).casefold()
+    for required in ("confirmations", "requirements", "behaviour asks"):
+        assert required in joined, (
+            f"the failure does not name the missing '{required}' section, so a "
+            f"reader cannot act on it: {problems}"
+        )
+
+
+def test_an_outbound_file_claiming_to_be_from_the_fork_is_rejected(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """Direction and sender must agree, or one of the two is a mistake."""
+    directory = tmp_path / "outbound"
+    directory.mkdir()
+    # Built from a real sent file rather than a hand-made one, so the ONLY thing
+    # wrong with it is the sender. A fixture that also happened to be missing a
+    # section would pass this test for the wrong reason.
+    openers = [
+        p
+        for p in sorted(hs.OUTBOUND_DIR.glob("round-*.md"))
+        if not hs.check_outbound_paths(p)
+    ]
+    assert openers, "no outbound file currently passes, so this test has no source"
+    real = openers[-1].read_text(encoding="utf-8")
+    impostor = directory / "round-08-lap-98.md"
+    impostor.write_text(
+        real.replace("HANDSHAKE-FROM: platterpus", "HANDSHAKE-FROM: cyanrip-fork"),
+        encoding="utf-8",
+    )
+    problems = hs.check_outbound_paths(impostor)
+    assert any("HANDSHAKE-FROM" in p for p in problems), (
+        f"an outbound file declaring the fork as its sender was accepted: {problems}"
+    )
+
+
+def test_a_verification_without_a_bolded_verdict_is_rejected(
+    hs: ModuleType, tmp_path: Path
+) -> None:
+    """A verification's whole job is the verdict, and a missing one fails closed.
+
+    The dangerous file is not the malformed one — it is the one that reads like a
+    close to a human and carries no verdict a gate can find.
+    """
+    directory = tmp_path / "verified"
+    directory.mkdir()
+    silent = directory / "round-08-lap-02.md"
+    silent.write_text(
+        "HANDSHAKE-PROTOCOL: 2\nHANDSHAKE-ROUND: 8\nHANDSHAKE-LAP: 2\n"
+        "HANDSHAKE-FROM: platterpus\nHANDSHAKE-VERDICT: GO\n\n"
+        "# Verification\n\nEverything looks fine to me.\n",
+        encoding="utf-8",
+    )
+    problems = hs.check_verification_paths(silent)
+    assert any("verdict" in p.casefold() for p in problems), (
+        f"a verification file with no bolded verdict was accepted: {problems}"
+    )

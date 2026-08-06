@@ -776,7 +776,12 @@ class SettingsDialog(CenteredDialog):
         virtual screen made two different defaults measure identically
         (`docs/testing.md` §5.v).
         """
-        content = self._form_scroll.widget().sizeHint()
+        # `QScrollArea.widget()` is typed `QWidget | None`. We set it in
+        # `__init__` so it is never None in practice — but a sizing routine
+        # that assumes that would crash the dialog open, so fall back to the
+        # dialog's own hint instead of asserting.
+        inner = self._form_scroll.widget()
+        content = inner.sizeHint() if inner is not None else self.sizeHint()
         chrome = self.sizeHint() - self._form_scroll.sizeHint()
         # A vertical scrollbar steals width from the viewport; reserving it up
         # front is what stops the *horizontal* bar appearing the moment the

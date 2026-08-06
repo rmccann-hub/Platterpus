@@ -2650,3 +2650,585 @@ def test_every_eta_branch_records_a_trace_sample(
     assert rereads and all(s["reread_pass"] >= 1 for s in rereads), (
         "a 'rereading' sample recorded reread_pass 0, so the two fields disagree"
     )
+
+
+# --- The post-rip auto-fix ("securing") pass -------------------------------
+#
+# THE FIELD BUG these cover, read off the 2026-08-05 rig rip's own `eta_trace`
+# (Police, "Every Breath You Take: The Classics", 14 tracks, app v0.6.4b11,
+# ripper cyanrip 0.9.4-rc1+platterpus.5-beta.5):
+#
+#   our_eta_seconds  = 2580 (43m), FROZEN across 47 consecutive samples
+#   actual_remaining = 4 seconds at the last of them
+#   overall_percent  = 35.45, having been 94.77 when the album pass ended
+#   activity         = "Ripping track 5 of 14... 99% - about 43m 0s left …"
+#   cyanrip_eta      = "3s"   (the ripper's own estimate — and it was right)
+#
+# The cause was not a bad formula. It was the ALBUM model being applied to a
+# pass that is not an album pass: a second cyanrip run, launched after all 14
+# tracks were already on disk, re-reading ONE track (`-l 5`) to secure it. The
+# fix is to make the worker *know* which kind of pass it is in — declared by the
+# call site, never inferred from the numbers — and give the securing pass its
+# own progress, wording and estimate.
+
+
+class _TickingHandle(_FakeHandle):
+    """A `_FakeHandle` whose output ADVANCES the fake clock as it is consumed.
+
+    Every rate measurement in the worker divides by wall-clock. A fake that
+    yields its whole script inside one microsecond makes every such division
+    degenerate, so a test built on it measures the harness, not the product —
+    and, worse, it is *safer* than the real thing, which is the gap
+    `docs/testing.md` warns stand-ins about. Ticking per line is what makes this
+    fake behave like a ripper that prints over minutes.
+    """
+
+    def __init__(self, lines: Iterable[str], clock: _Clock, step: float) -> None:
+        super().__init__(lines=lines, exit_code=0)
+        self._clock: _Clock = clock
+        self._step: float = step
+
+    def log_lines(self) -> Iterable[str]:
+        for line in self._lines:
+            self._clock.tick(self._step)
+            yield line
+
+
+def _cyanrip_read_lines(track: int, reads: int, *, step_pct: int = 4) -> list[str]:
+    """cyanrip's real progress-redraw shape for `reads` successive reads of one track.
+
+    Each read sweeps 0→100%, which is exactly what a `-Z` secure re-read looks
+    like on the wire (measured 2026-08-05: "progress - 100%" then "progress - 5%",
+    twice). The per-op ETA clause is included because it is part of the line the
+    ripper actually prints and one of the tests is about that field.
+    """
+    lines: list[str] = []
+    for _ in range(reads):
+        for pct in range(step_pct, 101, step_pct):
+            # A plausible per-op ETA: 2.5 s of work per remaining percentage point.
+            eta = max(1, int((100 - pct) * 2.5))
+            lines.append(f"Ripping track {track}, progress - {pct:.2f}%, ETA - {eta}s")
+    return lines
+
+
+def _police_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[RipWorker, _Clock, _FakeBackend, _Signals]:
+    """A worker on the Police disc with a driveable clock and captured signals."""
+    clock = _Clock()
+    monkeypatch.setattr(rip_worker_module.time, "monotonic", clock)
+    backend = _FakeBackend(handle=_FakeHandle(lines=[], exit_code=0))
+    worker = RipWorker(backend, _params_with_lengths(tmp_path, _police_lengths_ms()))
+    signals = _Signals()
+    signals.attach(worker)
+    return worker, clock, backend, signals
+
+
+def _run_pass(
+    worker: RipWorker,
+    backend: _FakeBackend,
+    clock: _Clock,
+    lines: list[str],
+    *,
+    pass_kind: str,
+    only_tracks: tuple[int, ...] = (),
+    output_dir: Path | None = None,
+    step: float = 5.0,
+) -> None:
+    """Drive one real `_rip_once` pass over `lines`, declaring what kind it is.
+
+    Deliberately the production entry point rather than poking `_pass_kind`
+    directly: the thing under test is that the declaration reaches the progress
+    model, the label and the ETA, and a test that sets the flag by hand would
+    pass even if `_rip_once` never wired it up.
+    """
+    backend.set_handle(_TickingHandle(lines, clock, step))
+    worker._rip_once(
+        read_speed=0,
+        secure_rerip_matches=10 if pass_kind == rip_worker_module._PASS_REFIX else 0,
+        output_dir=output_dir,
+        only_tracks=only_tracks,
+        pass_kind=pass_kind,
+    )
+
+
+def _album_tail_lines() -> list[str]:
+    """The last two tracks of the whole-disc pass, which take the album bar to 95%.
+
+    Enough to establish a believed album estimate and a high-water bar mark — the
+    two things the securing pass then has to not destroy.
+    """
+    lines: list[str] = ["Disc tracks:    14"]
+    for track in (13, 14):
+        for pct in range(5, 101, 5):
+            lines.append(f"Ripping track {track}, progress - {pct:.2f}%, ETA - 2m")
+        lines.append(f"Track {track} ripped and encoded successfully!")
+    return lines
+
+
+def test_the_auto_fix_rerip_is_declared_as_its_own_pass_not_inferred(
+    qapp: QApplication, tmp_path: Path
+) -> None:
+    """The mechanism, checked at the wiring rather than at the model.
+
+    `_auto_fix_tracks` must tell `_rip_once` that its invocation is a securing
+    pass. Everything else in this section keys off that declaration, so if the
+    call site stopped making it, every other test here would still be exercising
+    the flag it set by hand and would stay green while the product regressed.
+
+    The pass kind is sampled at the instant the backend is invoked — i.e. from
+    inside the pass — because that is when it has to be right.
+    """
+    backend = _FakeBackend(handle=_FakeHandle(lines=["ripping"], exit_code=0))
+    writer = _fake_rip_writer(_PASS1_UNSTABLE, _rerip_ok_log(), True)
+    seen: list[tuple[tuple[int, ...], str]] = []
+    worker = RipWorker(
+        backend,
+        _params(tmp_path, read_speed_mode="auto_ladder", secure_rerip_matches=2),
+    )
+
+    def _record(call: dict) -> None:
+        seen.append((tuple(call["only_tracks"]), worker._pass_kind))
+        writer(call)
+
+    backend.rip_side_effect = _record
+
+    worker.start_rip()
+
+    assert len(seen) == 2, (
+        f"expected a whole-disc pass and one securing re-rip, saw {seen} — this "
+        "test cannot say anything about how the two are distinguished if only one "
+        "of them ran"
+    )
+    assert seen[0] == ((), rip_worker_module._PASS_ALBUM), (
+        f"the whole-disc pass did not declare itself an album pass: {seen[0]}"
+    )
+    assert seen[1] == ((3,), rip_worker_module._PASS_REFIX), (
+        f"the auto-fix re-rip of track 3 did not declare itself a securing pass: "
+        f"{seen[1]} — without that declaration it inherits the album progress "
+        "model, which is the 94.77% -> 35.45% regression"
+    )
+
+
+def _securing_samples(worker: RipWorker) -> list[dict]:
+    return [
+        s
+        for s in worker.eta_trace
+        if s.get("pass_kind") == rip_worker_module._PASS_REFIX
+    ]
+
+
+def test_the_securing_pass_estimate_counts_down_instead_of_freezing(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The headline symptom: 43 minutes shown, frozen, with 4 seconds to go.
+
+    The album pass runs to its end, then a securing pass re-reads track 5 three
+    times. The estimate the user sees must track the work that is actually left —
+    which, in this phase, is the read that is running — and must therefore MOVE.
+    """
+    worker, clock, backend, signals = _police_worker(tmp_path, monkeypatch)
+    _run_pass(worker, backend, clock, _album_tail_lines(), pass_kind="album")
+    _run_pass(
+        worker,
+        backend,
+        clock,
+        ["Disc tracks:    14", *_cyanrip_read_lines(5, reads=3)],
+        pass_kind=rip_worker_module._PASS_REFIX,
+        only_tracks=(5,),
+        output_dir=tmp_path / "refix-tmp",
+    )
+
+    samples = _securing_samples(worker)
+    assert len(samples) >= 10, (
+        f"only {len(samples)} securing sample(s) were recorded, which is too few to "
+        "tell a moving estimate from a frozen one — the replay is not reaching the "
+        "code under test"
+    )
+    values = [s["our_eta_seconds"] for s in samples if s["our_eta_seconds"] is not None]
+    assert len(values) >= 10, "the securing pass produced almost no estimates at all"
+    # THE BUG, stated as an assertion: 47 samples all reading 2580 seconds.
+    assert len(set(values)) >= 4, (
+        f"the securing estimate took only {len(set(values))} distinct value(s) "
+        f"across {len(values)} samples ({sorted(set(values))}) — that is the frozen "
+        "reading the field trace showed, not an estimate"
+    )
+    assert max(values) < 2400, (
+        f"the securing pass still projects album-scale time ({max(values)}s): the "
+        "field freeze was 2580s for a four-second job"
+    )
+    # Within the FINAL read (nothing restarts after it) the estimate must fall.
+    last_read = max(s["reread_pass"] for s in samples)
+    tail = [
+        s["our_eta_seconds"]
+        for s in samples
+        if s["reread_pass"] == last_read and s["our_eta_seconds"] is not None
+    ]
+    assert len(tail) >= 4, (
+        f"only {len(tail)} sample(s) in the final read; a countdown cannot be "
+        "demonstrated from that few"
+    )
+    assert tail == sorted(tail, reverse=True), (
+        f"the estimate did not decrease as the read progressed: {tail}"
+    )
+    assert tail[-1] < tail[0] / 2, (
+        f"the estimate barely moved across the whole read ({tail[0]}s -> "
+        f"{tail[-1]}s) — it is being held, not measured"
+    )
+    # And the user-visible wording must scope the number to the read, never imply
+    # it knows how many more re-reads there will be (it cannot).
+    securing_status = [s for s in signals.statuses if "secure it" in s]
+    assert len(securing_status) >= 10, (
+        f"only {len(securing_status)} securing status line(s) were emitted"
+    )
+    with_eta = [s for s in securing_status if "left in" in s]
+    assert len(with_eta) >= 5, (
+        f"the securing phase almost never showed an estimate: {securing_status[:5]}"
+    )
+    for text in with_eta:
+        assert "left in this read" in text or "left in re-read" in text, (
+            f"the estimate is not scoped to the read it actually measures: {text!r}"
+        )
+
+
+def test_the_securing_pass_never_rewinds_the_album_bar_or_says_track_n_of_m(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Defects (2) and (3): the bar regressed 94.77% -> 35.45% and relabelled
+    itself "Ripping track 5 of 14…" after all 14 tracks were on disk — while the
+    same sentence carried a 99% track-local figure beside that 35.45% bar."""
+    worker, clock, backend, signals = _police_worker(tmp_path, monkeypatch)
+    _run_pass(worker, backend, clock, _album_tail_lines(), pass_kind="album")
+    album_peak = max(overall for overall, _ in signals.progress)
+    album_emissions = len(signals.progress)
+    assert album_peak > 90.0, (
+        f"the album pass only reached {album_peak:.2f}%, so a later 'did the bar "
+        "regress' assertion would have nothing meaningful to regress from"
+    )
+
+    _run_pass(
+        worker,
+        backend,
+        clock,
+        ["Disc tracks:    14", *_cyanrip_read_lines(5, reads=3)],
+        pass_kind=rip_worker_module._PASS_REFIX,
+        only_tracks=(5,),
+        output_dir=tmp_path / "refix-tmp",
+    )
+
+    securing_progress = signals.progress[album_emissions:]
+    assert len(securing_progress) >= 20, (
+        f"only {len(securing_progress)} progress emission(s) came from the securing "
+        "pass; there is not enough here to prove the bar behaved"
+    )
+    worst = min(overall for overall, _ in securing_progress)
+    assert worst >= album_peak, (
+        f"the album bar REGRESSED to {worst:.2f}% during the securing pass (it was "
+        f"{album_peak:.2f}% when the album finished) — the field symptom exactly"
+    )
+    overalls = [overall for overall, _ in signals.progress]
+    assert overalls == sorted(overalls), (
+        "the overall bar went backwards somewhere across the two passes"
+    )
+    assert max(overalls) < 100.0, (
+        "the securing pass drove the album bar to 100%, which claims the rip is "
+        "finished while a file may still be swapped in"
+    )
+    # The task bar is where the phase's motion lives, so it must still be moving.
+    tasks = [task for _, task in securing_progress]
+    assert len(set(tasks)) >= 10, (
+        "the task bar barely moved during the securing pass, so the user has no "
+        "live signal at all while the album bar deliberately holds"
+    )
+
+    # The album leg only ever touched tracks 13 and 14, so every status naming
+    # track 5 came from the securing pass — no index arithmetic needed, and the
+    # selector cannot silently pick up an album line if the fixture changes.
+    about_track_5 = [s for s in signals.statuses if "track 5" in s]
+    assert len(about_track_5) >= 10, (
+        f"only {len(about_track_5)} status line(s) mentioned track 5; the securing "
+        "pass is not reaching the status label"
+    )
+    for text in about_track_5:
+        assert "of 14" not in text, (
+            f"the securing pass still describes itself in album terms: {text!r} — "
+            "there is no 'track 5 of 14' left to do, all 14 are already on disk"
+        )
+    # The label answers "did it stop saying the wrong thing"; this answers "did it
+    # say the right thing". A check that only requires an absence passes when the
+    # label disappears entirely.
+    assert any("Re-ripping track 5 to secure it" in s for s in about_track_5), (
+        f"the securing phase never names what it is doing: {about_track_5[:3]}"
+    )
+
+
+def test_the_same_lines_are_modelled_differently_by_pass_kind(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The declaration is what does the work — proved by holding the input fixed.
+
+    Byte-identical cyanrip output is fed to two workers; the only difference is
+    what the call site said the pass was. The album-declared run reproduces the
+    field behaviour (a ~35% bar for track 5 of 14); the securing-declared run does
+    not. If the distinguishing mechanism were a heuristic over the numbers, both
+    runs would have to behave the same, because the numbers are the same.
+    """
+    lines = ["Disc tracks:    14", *_cyanrip_read_lines(5, reads=2)]
+
+    as_album, clock_a, backend_a, sig_a = _police_worker(tmp_path, monkeypatch)
+    _run_pass(as_album, backend_a, clock_a, lines, pass_kind="album")
+
+    as_refix, clock_b, backend_b, sig_b = _police_worker(tmp_path, monkeypatch)
+    _run_pass(
+        as_refix,
+        backend_b,
+        clock_b,
+        lines,
+        pass_kind=rip_worker_module._PASS_REFIX,
+        only_tracks=(5,),
+        output_dir=tmp_path / "refix-tmp",
+    )
+
+    album_peak = max(overall for overall, _ in sig_a.progress)
+    refix_peak = max(overall for overall, _ in sig_b.progress)
+    assert album_peak < 45.0, (
+        f"the album-declared run reached {album_peak:.2f}%, so it is NOT reproducing "
+        "the album mapping (track 5 of 14 lands near 35%) and this comparison "
+        "proves nothing"
+    )
+    assert refix_peak > 90.0, (
+        f"the securing-declared run put the bar at {refix_peak:.2f}%; the securing "
+        "pass must hold in the reserved post-rip band, not rewind into the read band"
+    )
+    assert any("of 14" in s for s in sig_a.statuses), (
+        "the album-declared run did not produce the 'of 14' wording, so the "
+        "contrast below is not measuring the label"
+    )
+    assert not any("of 14" in s for s in sig_b.statuses), (
+        "the securing-declared run still labels itself in album terms"
+    )
+
+
+def test_the_secure_reread_hold_inside_the_album_pass_is_unchanged(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Case (i) must be untouched. A `-Z` re-read INSIDE the whole-disc pass is a
+    different situation from the post-rip securing pass: there the album's
+    remaining work genuinely has not changed, so holding the album estimate is the
+    honest answer, and recomputing it from the pinned fraction is the b8 explosion
+    (54m -> 5h40m in 70 seconds).
+
+    Written as the converse of the change above, because "give the securing pass
+    its own model" is one careless generalisation away from "stop holding during
+    every re-read", which would silently restore that explosion.
+    """
+    worker, clock = _rip_lines_worker(tmp_path, monkeypatch)
+    _feed_lines(worker, clock, 3, [float(p) for p in range(10, 101, 5)], 10.0)
+    baseline = worker._smoothed_remaining_s
+    assert baseline is not None, (
+        "no album estimate was established, so 'it was held' would be vacuous"
+    )
+    assert worker._pass_kind == rip_worker_module._PASS_ALBUM, (
+        "the fixture is not in an album pass; this test would then be checking the "
+        "securing path and calling it the album path"
+    )
+    shown = _feed_lines(worker, clock, 3, [5.0, 9.0, 13.0, 17.0, 21.0, 25.0], 10.0)
+    assert worker._reread_pass == 1, "no re-read was detected; nothing was held"
+    assert worker._smoothed_remaining_s == baseline, (
+        "the album estimate moved while the album bar was pinned by an in-pass "
+        "re-read — the b8 hold has been lost"
+    )
+    assert len(shown) >= 5
+    for text in shown:
+        assert "verifying track 3" in text, (
+            f"the in-pass re-read stopped explaining itself: {text!r}"
+        )
+        assert "left" in text, f"the held estimate vanished: {text!r}"
+        # The securing wording must not leak into the album pass: it would tell a
+        # user mid-album that the disc was finished and being checked.
+        assert "left in this read" not in text and "left in re-read" not in text, (
+            f"the securing pass's per-read wording leaked into an album pass: {text!r}"
+        )
+    states = [s.get("state") for s in worker.eta_trace]
+    assert "rereading" in states, f"the in-pass hold stopped being traced: {states}"
+    assert not [s for s in states if str(s).startswith("securing")], (
+        f"an album pass recorded a securing state: {states}"
+    )
+
+
+def test_the_securing_pass_borrows_the_rippers_eta_only_where_we_have_none(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """cyanrip's own per-op ETA is a SECOND signal here, not a replacement.
+
+    CLAUDE.md: "the fix for a signal going quiet is a second signal, not an
+    exemption". Our own measurement does not exist for the first tick of a read
+    (there is no window yet) — and that is the only place the ripper's number is
+    used. Once we can measure, ours wins, and every borrowed sample is labelled so
+    the trace never passes the dependency's claim off as our measurement.
+
+    On the field rip the ripper said "3s" and was right while our album model said
+    43 minutes; that is why it is worth having, and its history of printing "822h"
+    at 0.01% is why it is not promoted.
+    """
+    worker, clock, backend, _signals = _police_worker(tmp_path, monkeypatch)
+    _run_pass(
+        worker,
+        backend,
+        clock,
+        [
+            # One read: the first line has no window behind it, the rest do.
+            "Ripping track 5, progress - 4.00%, ETA - 40s",
+            *[
+                f"Ripping track 5, progress - {pct:.2f}%, ETA - 40s"
+                for pct in range(8, 101, 4)
+            ],
+        ],
+        pass_kind=rip_worker_module._PASS_REFIX,
+        only_tracks=(5,),
+        output_dir=tmp_path / "refix-tmp",
+    )
+    samples = _securing_samples(worker)
+    assert len(samples) >= 5, f"too few securing samples to judge: {len(samples)}"
+    borrowed = [s for s in samples if s["state"] == "securing_from_ripper"]
+    measured = [s for s in samples if s["state"] == "securing"]
+    assert len(borrowed) == 1, (
+        f"expected exactly one borrowed sample (the first tick of the read, before "
+        f"a rate window exists); got {len(borrowed)}: "
+        f"{[s['state'] for s in samples]}"
+    )
+    assert borrowed[0]["our_eta_seconds"] == 40, (
+        f"the borrowed value is not the ripper's own number: {borrowed[0]}"
+    )
+    assert len(measured) >= 4, (
+        f"only {len(measured)} sample(s) came from our own measurement — the "
+        "ripper's estimate has become the primary source, which it must not be"
+    )
+    # Ours diverges from the ripper's constant 40s, which is the proof that the
+    # later samples are measurements and not the borrowed number carried forward.
+    assert any(s["our_eta_seconds"] != 40 for s in measured), (
+        "every 'measured' sample equals the ripper's own figure, so nothing here "
+        "distinguishes a measurement from a passthrough"
+    )
+
+
+_PROVIDER_CONTRACT = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "handshake"
+    / "inbound"
+    / "artifacts"
+    / "round-07-lap-25-provider-contract-g9048082.md"
+)
+
+
+def test_cyanrip_eta_parser_covers_every_shape_the_provider_contract_publishes(
+    qapp: QApplication,
+) -> None:
+    """Read the shapes out of the FORK'S OWN published contract, not out of memory.
+
+    CLAUDE.md: when a committed artifact can settle the question, the test should
+    read the artifact — anything else pins a belief about it. §P2a of the round-7
+    provider contract lists cyanrip's ETA segment formats; each is turned into a
+    concrete string here and put through the real parser.
+    """
+    assert _PROVIDER_CONTRACT.is_file(), (
+        f"the provider contract is missing at {_PROVIDER_CONTRACT}; this test "
+        "cannot verify against an artifact that is not there"
+    )
+    text = _PROVIDER_CONTRACT.read_text(encoding="utf-8")
+    formats = re.findall(
+        r"^\|\s*\d+\s*\|\s*`,\s*ETA\s*-\s*([^`]+)`\s*\|\s*$", text, re.M
+    )
+    assert len(formats) >= 3, (
+        f"found {len(formats)} ETA format row(s) in the provider contract "
+        f"({formats}); the parser's coverage claim cannot be checked against fewer "
+        "than the three shapes it is written for"
+    )
+    checked = 0
+    for fmt in formats:
+        # printf → a concrete sample. `%ih %im` → "7h 7m", `%llds` → "42s".
+        sample = fmt.replace("%lld", "42").replace("%i", "7").strip()
+        parsed = rip_worker_module._cyanrip_eta_seconds(sample)
+        assert parsed is not None and parsed > 0, (
+            f"the parser could not read {sample!r}, built from the contract's own "
+            f"format {fmt!r} — a shape cyanrip is documented to print"
+        )
+        checked += 1
+    assert checked >= 3, "fewer shapes were actually exercised than were found"
+    # The exact values, so "it returned a number" is not mistaken for "it returned
+    # the right number".
+    assert rip_worker_module._cyanrip_eta_seconds("1h 5m") == 3900
+    assert rip_worker_module._cyanrip_eta_seconds("3m") == 180
+    assert rip_worker_module._cyanrip_eta_seconds("3s") == 3
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        None,
+        "",
+        "   ",
+        "soon",
+        "-3s",
+        "3 seconds",
+        "99999999999999999999h",
+        "ETA - 3s",
+        "3s3s3s",
+        "\x00s",
+        "m",
+    ],
+)
+def test_cyanrip_eta_parser_refuses_junk_without_raising(
+    qapp: QApplication, raw: str | None
+) -> None:
+    """It parses EXTERNAL text on the rip's read loop, where an exception ends the
+    rip — so it must never raise, and it must not answer confidently about input it
+    does not understand. The empty/whitespace cases are the specific trap: every
+    group in the pattern is optional, so a naive version matches "" and reports a
+    confident zero seconds remaining."""
+    assert rip_worker_module._cyanrip_eta_seconds(raw) is None
+
+
+def test_the_trace_says_which_kind_of_pass_each_sample_came_from(
+    qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Why the field trace was hard to read: 47 samples said "Ripping track 5 of
+    14" at 35.45% and nothing in the record said they came from a separate
+    one-track re-rip that ran after the album finished. Two samples with the same
+    `overall_percent` mean different things depending on the pass, so the pass has
+    to be in the sample."""
+    worker, clock, backend, _signals = _police_worker(tmp_path, monkeypatch)
+    _run_pass(worker, backend, clock, _album_tail_lines(), pass_kind="album")
+    _run_pass(
+        worker,
+        backend,
+        clock,
+        ["Disc tracks:    14", *_cyanrip_read_lines(5, reads=2)],
+        pass_kind=rip_worker_module._PASS_REFIX,
+        only_tracks=(5,),
+        output_dir=tmp_path / "refix-tmp",
+    )
+    trace = worker.eta_trace
+    assert len(trace) >= 15, f"only {len(trace)} trace sample(s) recorded"
+    assert all("pass_kind" in s for s in trace), (
+        "a sample carries no pass kind, so it cannot be attributed to a pass"
+    )
+    kinds = {s["pass_kind"] for s in trace}
+    assert kinds == {rip_worker_module._PASS_ALBUM, rip_worker_module._PASS_REFIX}, (
+        f"the trace does not distinguish the two passes it recorded: {kinds}"
+    )
+    album = [s for s in trace if s["pass_kind"] == rip_worker_module._PASS_ALBUM]
+    refix = [s for s in trace if s["pass_kind"] == rip_worker_module._PASS_REFIX]
+    assert len(album) >= 5 and len(refix) >= 5, (
+        f"one side is nearly empty (album={len(album)}, refix={len(refix)}), so the "
+        "state assertions below would be near-vacuous"
+    )
+    assert all(str(s["state"]).startswith("securing") for s in refix), (
+        f"a securing sample was labelled with an album branch: "
+        f"{sorted({str(s['state']) for s in refix})}"
+    )
+    assert not any(str(s["state"]).startswith("securing") for s in album), (
+        f"an album sample was labelled with a securing branch: "
+        f"{sorted({str(s['state']) for s in album})}"
+    )

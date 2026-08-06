@@ -295,4 +295,4 @@ that is Critical rule #8 and it has no exceptions, including temporary ones.
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b12.*

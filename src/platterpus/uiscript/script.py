@@ -210,10 +210,13 @@ def sanitise_cyanrip_args(args: list[str]) -> str | None:
     3. **Bounded count and length**, so a paste accident cannot build a
        multi-megabyte command line.
     """
-    from platterpus.adapters.cyanrip_backend import (
-        RipError,
-        assert_metadata_lookup_disabled,
-    )
+    # `RipError` comes from `rip_backend` (the ABC that defines it), not from
+    # `cyanrip_backend` which merely re-exports it. Importing it from the
+    # re-exporter is what mypy's no-implicit-reexport flags, and it is right to:
+    # the chokepoint is a cyanrip concern, the exception type is the backend
+    # contract, and taking each from its own home keeps that distinction visible.
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+    from platterpus.adapters.rip_backend import RipError
     from platterpus.uiscript.verbs import PROBE_FLAGS
 
     if len(args) > 64:

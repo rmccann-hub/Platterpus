@@ -428,6 +428,91 @@ def check_outbound(text: str) -> list[str]:
     return problems
 
 
+#: Which checker a file belongs to, decided by the directory it lives in.
+#: Direction is a property of *where the file is*, not of what it says, because
+#: the wire header is exactly the thing a malformed file gets wrong — routing on
+#: `HANDSHAKE-FROM` would send a file with a mistyped header to the checker that
+#: cannot see the mistake. The header is still checked, just not trusted to route.
+_DIRECTION_BY_DIR: Final[dict[str, str]] = {
+    "outbound": "outbound",
+    "inbound": "inbound",
+    "verified": "verified",
+}
+
+
+def direction_of(path: Path) -> str:
+    """Whether ``path`` is a file we sent, one we received, or a verification.
+
+    Falls back to ``HANDSHAKE-FROM`` only when the file is not in one of the three
+    known directories — someone checking a draft in a scratch folder should still
+    get the right spec rather than a confusing wall of inbound-only complaints.
+    """
+    by_dir = _DIRECTION_BY_DIR.get(path.parent.name)
+    if by_dir is not None:
+        return by_dir
+    sender = wire_fields(_safe_read(path)).get("HANDSHAKE-FROM", "").strip()
+    return "inbound" if sender == "cyanrip-fork" else "outbound"
+
+
+def check_outbound_paths(*paths: Path) -> list[str]:
+    """Validate files **we** are about to send, against the outbound spec.
+
+    This exists because :func:`check_outbound` had no caller. It was written,
+    tested as a function, and never wired to the command line, so ``--check`` ran
+    the *inbound* spec against everything — and an outbound file checked that way
+    reports six sections "missing" that the outbound spec never asks for, plus a
+    wrong-sender complaint. A reviewer seeing seven problems on a correct file
+    learns to distrust the checker, which is worse than having no checker.
+
+    The same shape as the ``RipHandle.cancel`` that was fully implemented and
+    called from nowhere: grep for a call site before believing a capability is
+    reachable.
+    """
+    problems: list[str] = []
+    if not paths:
+        return ["no outbound file given"]
+    for path in paths:
+        num = round_number(path)
+        # Rounds 1-6 predate the shared wire header; requiring it of them would
+        # fail files that were correct when sent.
+        if num is not None and num not in OUR_PRE_HEADER_ROUNDS:
+            problems.extend(check_wire_header(path, expect_from="platterpus"))
+        text = _safe_read(path)
+        if not text.strip():
+            problems.append(f"{path} is empty")
+            continue
+        problems.extend(check_outbound(text))
+    return problems
+
+
+def check_verification_paths(*paths: Path) -> list[str]:
+    """Validate a verification file — the one that actually closes a round.
+
+    A verification's job is narrower than a round file's: declare a verdict, and
+    declare it in the bolded form the gate reads. The failure this catches is the
+    one the protocol calls out as worse than a missing section — a file that reads
+    like a close to a human and carries no verdict a gate can find.
+    """
+    problems: list[str] = []
+    if not paths:
+        return ["no verification file given"]
+    for path in paths:
+        num = round_number(path)
+        if num is not None and num not in OUR_PRE_HEADER_ROUNDS:
+            problems.extend(check_wire_header(path, expect_from="platterpus"))
+        text = _safe_read(path)
+        if not text.strip():
+            problems.append(f"{path} is empty")
+            continue
+        if verification_verdict(text) is None:
+            problems.append(
+                f"{path.name}: no verdict — a verification file must state a "
+                "bolded '**GO on <pin>' or '**HOLD on <pin>' at a line start. "
+                "A missing verdict fails closed and leaves the round OPEN."
+            )
+    return problems
+
+
 def _inbound_spec_markdown() -> str:
     """The inbound spec as a table, for pasting into the outbound file.
 
@@ -1499,7 +1584,25 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     label = " + ".join(str(p) for p in args.check)
-    problems = check_inbound(*args.check)
+    # ROUTE BY DIRECTION. Before this, `--check` ran the *inbound* spec against
+    # every file it was given, so checking one of our own outbound files reported
+    # six sections "missing" that the outbound spec never asks for. Seven bogus
+    # problems on a correct file is how a checker gets switched off.
+    #
+    # Files are grouped rather than checked one at a time because `check_inbound`
+    # deliberately treats several inbound paths as ONE round delivered in parts
+    # (round 6 was exactly that), and splitting them would reintroduce the
+    # over-strictness its docstring warns about.
+    grouped: dict[str, list[Path]] = {"outbound": [], "inbound": [], "verified": []}
+    for path in args.check:
+        grouped[direction_of(path)].append(path)
+    problems = []
+    if grouped["inbound"]:
+        problems.extend(check_inbound(*grouped["inbound"]))
+    if grouped["outbound"]:
+        problems.extend(check_outbound_paths(*grouped["outbound"]))
+    if grouped["verified"]:
+        problems.extend(check_verification_paths(*grouped["verified"]))
     if not problems:
         sys.stdout.write(f"{label}: satisfies the protocol (all sections present)\n")
         return 0
