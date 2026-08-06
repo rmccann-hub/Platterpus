@@ -11,6 +11,27 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Added
+- **In-app UI scripting (in progress) — the pure layer.** A closed-vocabulary batch language
+  so hardware tests can run unattended: paste a script, run it, paste the transcript back.
+  Landed so far: the vocabulary (`uiscript/verbs.py`), the parser (`uiscript/script.py`) and
+  the transcript (`uiscript/report.py`), with 29 tests. The runner and console follow.
+
+  Design commitments, each protecting against something specific: the vocabulary is **closed**
+  (no "click any widget", no destructive verbs — an unattended `eject` or `uninstall` has an
+  unbounded failure mode); the escape hatch the maintainer asked for exists as exactly two
+  verbs (`eval`, `call`) behind a **separate** opt-in, and a run that used them says so at the
+  top of its own transcript; and **a failing step never stops the batch**, the same rule as
+  `scripts/rig_session.sh` — a failing step is data, and an unattended run that halts on its
+  first surprise wastes the session.
+
+  The parser never raises, because a script is external input and a traceback on line 12 of a
+  60-line batch destroys the other 59 results. Its sharpest edge is already pinned: a `#`
+  inside a quoted value is **not** a comment, because album titles contain one and setting
+  album titles is precisely what this language is for — a naive split would truncate the value
+  silently and the transcript would agree with itself.
+
+
 ### Fixed
 - **The Settings dialog could not be made short enough to fit the screen, so OK and Cancel
   fell off the bottom.** Its `minimumSizeHint` was **739 × 971** — a `QFormLayout`'s minimum

@@ -1,0 +1,161 @@
+"""The transcript: what the run did, rendered for a human to paste back.
+
+Two consumers, one source. The console shows this live, and the same records are
+folded into the rip's JSON report so that **one file carries the whole session** —
+the maintainer's standing preference: *"if there is a way to amalgamate logs or
+anything into the json file this is the preferance, it must be below 25
+megabytes."*
+
+Every record carries its outcome, its elapsed time and its detail, and a run that
+ended early says why. A transcript that stops without a verdict reads exactly
+like a transcript of a run that passed, which is the failure this project keeps
+paying for.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from enum import StrEnum
+
+
+class Outcome(StrEnum):
+    """What happened to one step.
+
+    A ``StrEnum`` so it serialises into the JSON report without a converter, and
+    so a transcript read by eye shows the word rather than an integer.
+    """
+
+    PASS = "pass"
+    FAIL = "fail"  # an assertion did not hold — the script's finding
+    ERROR = "error"  # the step could not run — our problem, not the script's
+    SKIPPED = "skipped"  # never reached (the batch aborted before it)
+    BLOCKED = "blocked"  # refused: needs the escape hatch the user has not enabled
+
+
+#: Outcomes that mean the step ran and did what it said.
+GOOD: frozenset[Outcome] = frozenset({Outcome.PASS})
+
+
+@dataclass
+class StepRecord:
+    """One executed step and its outcome."""
+
+    line_no: int
+    source: str
+    outcome: Outcome
+    detail: str = ""
+    elapsed_s: float = 0.0
+    #: Absolute path of anything the step produced (a screenshot). Recorded even
+    #: when the file is later embedded elsewhere, because a reader needs to know
+    #: it existed on disk.
+    artifact: str = ""
+
+    def as_dict(self) -> dict:
+        data = asdict(self)
+        data["outcome"] = self.outcome.value
+        return data
+
+
+@dataclass
+class RunReport:
+    """A whole run.
+
+    ``ended_reason`` is empty for a run that reached the last step. Anything else
+    is a real answer — "aborted at line 12", "stopped by the user", "the window
+    closed" — and must survive into the JSON, because *why a batch stopped* is
+    usually the finding.
+    """
+
+    started_at: str
+    app_version: str
+    steps: list[StepRecord] = field(default_factory=list)
+    ended_reason: str = ""
+    used_unsafe: bool = False
+    #: Directory holding this run's screenshots, if any were taken.
+    artifact_dir: str = ""
+
+    def counts(self) -> dict[str, int]:
+        """Outcome tallies, every category present even at zero.
+
+        Zeros are written out on purpose: "0 failures" is a measurement, and an
+        absent key reads as "not checked" (`docs/testing.md` — record the
+        denominator, don't recompute it).
+        """
+        tally = {outcome.value: 0 for outcome in Outcome}
+        for step in self.steps:
+            tally[step.outcome.value] += 1
+        return tally
+
+    @property
+    def ok(self) -> bool:
+        """True only when every step that ran passed and nothing was skipped."""
+        return (
+            all(step.outcome in GOOD for step in self.steps) and not self.ended_reason
+        )
+
+    def as_dict(self) -> dict:
+        """The shape embedded in the rip report's ``ui_script`` block."""
+        return {
+            "started_at": self.started_at,
+            "app_version": self.app_version,
+            "ended_reason": self.ended_reason or None,
+            "used_unsafe_verbs": self.used_unsafe,
+            "artifact_dir": self.artifact_dir or None,
+            "counts": self.counts(),
+            "ok": self.ok,
+            "steps": [step.as_dict() for step in self.steps],
+        }
+
+
+def render(report: RunReport) -> str:
+    """The transcript as plain text — what the console shows and the user pastes.
+
+    Deliberately plain: it gets copied into a chat window, a GitHub issue and a
+    JSON string, and anything relying on colour or terminal width would survive
+    none of those.
+    """
+    tally = report.counts()
+    head = [
+        "=" * 64,
+        f"Platterpus UI script run — {report.started_at}",
+        f"app: {report.app_version}",
+    ]
+    if report.used_unsafe:
+        # Loud, and at the top. A transcript produced with arbitrary code in play
+        # is not the same evidence as one produced by the closed vocabulary, and
+        # a reader must not have to scroll to find that out.
+        head.append("*** THIS RUN USED UNSAFE VERBS (eval/call) ***")
+    if report.artifact_dir:
+        head.append(f"screenshots: {report.artifact_dir}")
+    head.append("=" * 64)
+
+    body: list[str] = []
+    for step in report.steps:
+        mark = {
+            Outcome.PASS: "  ok  ",
+            Outcome.FAIL: " FAIL ",
+            Outcome.ERROR: "ERROR ",
+            Outcome.SKIPPED: " skip ",
+            Outcome.BLOCKED: "BLOCK ",
+        }[step.outcome]
+        line = f"[{mark}] L{step.line_no:<4} {step.source}"
+        if step.elapsed_s >= 0.05:
+            line += f"   ({step.elapsed_s:.1f}s)"
+        body.append(line)
+        if step.detail:
+            for detail_line in step.detail.splitlines():
+                body.append(f"           {detail_line}")
+        if step.artifact:
+            body.append(f"           -> {step.artifact}")
+
+    tail = [
+        "=" * 64,
+        "  ".join(f"{name}={count}" for name, count in tally.items()),
+    ]
+    if report.ended_reason:
+        tail.append(f"ENDED EARLY: {report.ended_reason}")
+    tail.append(
+        "RESULT: " + ("all checks passed" if report.ok else "see failures above")
+    )
+    tail.append("=" * 64)
+    return "\n".join(head + body + tail)
