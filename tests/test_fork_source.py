@@ -130,11 +130,41 @@ def test_the_wizard_target_is_named_in_the_handshake_record() -> None:
     assert inbound, "no inbound files — cannot check a test pin against the record"
     newest = inbound[-1]
     text = newest.read_text(encoding="utf-8")
-    assert target.pin in text, (
-        f"{newest.name} does not name test pin {target.pin!r} — the wizard would "
-        f"build a commit the newest round did not nominate (which is how a retired "
-        f"pin gets installed for a hardware session)"
-    )
+
+    # OUR OWN NEWEST LAP COUNTS TOO, but only if it DECLARES the pin in the wire
+    # header — not if the sha merely appears somewhere in its prose.
+    #
+    # **Why this arm exists** (round 7 lap 34). A test pin is the fork's to nominate,
+    # which is why the check reads the *inbound* record and why that is the right
+    # default. But `beta.8` / `92ceeed` reached us **out of band** — reported by the
+    # maintainer, who is the one holding the rig — while both sides' newest laps still
+    # named `4a35604`. The record and the machine disagreed, with hardware about to
+    # run on the machine.
+    #
+    # Refusing outright would mean shipping an app that installs a build the rig does
+    # not have. Accepting silently would defeat the whole guard. So: we may declare a
+    # pin first, and the declaration has to be a `HANDSHAKE-TEST-PIN` line in a lap we
+    # actually wrote and sent — which lap 34 is, and which asks them to confirm it in
+    # as many words. A sha mentioned in passing still fails, because "the record names
+    # it" has to mean *declared*, not *discussed*.
+    if target.pin not in text:
+        ours = sorted(
+            (REPO_ROOT / "docs" / "handshake" / "verified").glob("round-*.md"),
+            key=_handshake().sort_key,
+        )
+        declared = ""
+        if ours:
+            for line in ours[-1].read_text(encoding="utf-8").splitlines():
+                if line.startswith("HANDSHAKE-TEST-PIN:"):
+                    declared = line.split(":", 1)[1].strip()
+                    break
+        assert declared == target.pin, (
+            f"{newest.name} does not name test pin {target.pin!r}, and our newest lap "
+            f"({ours[-1].name if ours else 'none'}) does not DECLARE it either "
+            f"(HANDSHAKE-TEST-PIN reads {declared!r}) — the wizard would build a commit "
+            "no side put in the record, which is how a retired pin gets installed for a "
+            "hardware session"
+        )
     for retired in fork_source.SUPERSEDED_TEST_PINS:
         assert retired != target.pin, f"{retired} is both current and retired"
 

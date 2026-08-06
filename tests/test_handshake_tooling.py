@@ -17,6 +17,7 @@ shape of decoration that gets trusted for a year before anyone tests it.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import re
 import sys
@@ -1373,3 +1374,95 @@ def test_a_verification_without_a_bolded_verdict_is_rejected(
     assert any("verdict" in p.casefold() for p in problems), (
         f"a verification file with no bolded verdict was accepted: {problems}"
     )
+
+
+# --- The shared files carry no per-project stamp (round 7 lap 33) --------------
+
+
+#: Logical name → our path for each file that is byte-identical in both repos.
+#: The logical names are the fork's (lap 32 §F/J2): the two projects put these at
+#: *different* paths, so a path-keyed comparison would never match and would read
+#: as drift every round.
+_SHARED_FILE_PATHS: dict[str, str] = {
+    "protocol": "docs/handshake-protocol.md",
+    "seam-rules": "docs/seam-rules.md",
+    "seam-commands": "docs/seam-commands.md",
+}
+
+
+def _latest_lap_with_shared_hashes() -> tuple[Path, dict[str, str]] | None:
+    """Our newest verification file that declares `HANDSHAKE-SHARED-HASHES`."""
+    for path in sorted(
+        (_REPO_ROOT / "docs" / "handshake" / "verified").glob("round-*.md"),
+        reverse=True,
+    ):
+        match = re.search(
+            r"^HANDSHAKE-SHARED-HASHES: (.+)$", path.read_text(encoding="utf-8"), re.M
+        )
+        if match:
+            pairs = dict(
+                part.split("=", 1) for part in match.group(1).split() if "=" in part
+            )
+            return path, pairs
+    return None
+
+
+def test_no_shared_file_carries_a_platterpus_version_stamp() -> None:
+    """A per-project release stamp inside a byte-identical file is drift.
+
+    **The fork found this, and our own test already contained the argument.**
+    `tests/test_doc_version_stamps.py` exempted the protocol spec from the stamp
+    requirement with the reasoning *"stamping it with our version would fork the
+    one file whose entire purpose is not being forked"* — and then enumerated one
+    file while the reasoning covered three. Their evidence (lap 32 §H1) was the
+    clean kind: the two shared files carrying our footer were exactly the two that
+    drifted, and the footerless one matched byte-for-byte first try. Every
+    Platterpus beta broke the other two by construction.
+
+    Same lesson as `docs/testing.md` §5.o — a rule enforced at the place it was
+    learned is not enforced — so this checks all of them.
+    """
+    offenders = []
+    for name, rel in _SHARED_FILE_PATHS.items():
+        path = _REPO_ROOT / rel
+        assert path.is_file(), f"{name} ({rel}) is missing from the tree"
+        if "Last updated for Platterpus" in path.read_text(encoding="utf-8"):
+            offenders.append(rel)
+    assert not offenders, (
+        "shared file(s) carry a Platterpus-only version stamp, which breaks the "
+        f"byte-identity they exist to have: {', '.join(offenders)}"
+    )
+
+
+def test_the_declared_shared_hashes_match_the_files_on_disk() -> None:
+    """A declared hash nobody recomputes is a second description of a fact.
+
+    The set of shared files is **derived from the newest lap's
+    `HANDSHAKE-SHARED-HASHES` declaration**, not from a list in this file — so a
+    fourth shared file added to the protocol is covered the round it appears, and
+    a name we stop declaring fails here rather than going quiet.
+
+    We have told the fork we do not yet compare their hashes against ours (lap 33
+    §F/J3, round-8 work). This is the half we *can* do unilaterally: our own
+    declaration must be true of our own tree.
+    """
+    found = _latest_lap_with_shared_hashes()
+    assert found is not None, (
+        "no verification file declares HANDSHAKE-SHARED-HASHES — the field was "
+        "adopted in round 7 lap 33 and every lap from then on should carry it"
+    )
+    lap, declared = found
+    # Floor: a declaration parsed down to nothing would make this pass by finding
+    # nothing, which is the shape this whole suite exists to refuse.
+    assert len(declared) >= 3, f"{lap.name} declares only {len(declared)} hash(es)"
+    for name, claimed in declared.items():
+        rel = _SHARED_FILE_PATHS.get(name)
+        assert rel is not None, (
+            f"{lap.name} declares a hash for unknown shared file {name!r}; add it to "
+            "_SHARED_FILE_PATHS or fix the declaration"
+        )
+        actual = hashlib.sha256((_REPO_ROOT / rel).read_bytes()).hexdigest()
+        assert actual == claimed, (
+            f"{lap.name} declares {name}={claimed} but {rel} hashes to {actual} — a "
+            "declared hash that does not match the file is worse than none"
+        )
