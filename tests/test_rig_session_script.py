@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""Smoke test for `scripts/rig_session.sh`, the unattended half of a rig session.
+"""Smoke test for the shipped `rig_session.sh`, the unattended half of a rig session.
 
 **WHY THIS FILE EXISTS.** The v0.6.4b6 changelog said the script was *"smoke-tested
 with every binary absent: exits 0, all ten artifacts present, six failures recorded
@@ -31,7 +31,11 @@ from pathlib import Path
 import pytest
 
 _REPO = Path(__file__).resolve().parent.parent
-_SCRIPT = _REPO / "scripts" / "rig_session.sh"
+# Inside the package, not `scripts/`: the harness ships in the wheel so
+# `--rig-session` reaches it from an AppImage, where a hardware session
+# actually happens. Resolved through the app's own accessor rather than a
+# second copy of the path, so a move breaks one place instead of two.
+_SCRIPT = _REPO / "src" / "platterpus" / "rig_session.sh"
 
 
 def _run(tmp_path: Path) -> tuple[int, Path, str]:

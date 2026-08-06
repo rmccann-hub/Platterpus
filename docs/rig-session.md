@@ -1,68 +1,93 @@
 # Rig session — the current sheet
 
 ```
-Platterpus  v0.6.4b13      GitHub PRE-RELEASE
-cyanrip     9048082        0.9.4-rc1+platterpus.5-beta.5   (platterpus-fork-g9048082)  <- installed
-cyanrip     4a35604        0.9.4-rc1+platterpus.5-beta.7   TEST PIN, not yet installed
-cyanrip     dc21958        beta.6 — WITHDRAWN, do not rip on it (see below)
+Platterpus  v0.6.4b15      GitHub PRE-RELEASE
+cyanrip     104f6d4        0.9.4-rc1+platterpus.5-beta.8   (platterpus-fork-g104f6d4)  <- TEST PIN
+cyanrip     9048082        0.9.4-rc1+platterpus.5-beta.5   production pin, unchanged
 drive       Pioneer BDR-209D 1.51, read offset +667
 round 7     OPEN — HOLD on both sides. Nothing here is a verified pair.
 ```
 
-**This is the one rig sheet.** It replaces the four build-specific sheets that had
-accumulated (`b9`, `b10`, `c5fb909`, `f5e11ba`); those are in
-[`docs/archive/`](archive/) with their audit trail intact. The header above names the pair
-this sheet is written for — when the pair moves, this file is rewritten rather than a fifth
-one added.
+**This is the one rig sheet.** It is rewritten in place when the pairing moves, never
+joined by a sibling — the header above names the pair it is written for. Superseded
+originals are in [`docs/archive/`](archive/) with their audit trail intact.
 
 **Where the AppImage lives.** You accepted the first-run "add to menu" offer, so the app
-**moved itself** to `~/Applications/platterpus-x86_64.AppImage`. Nothing is left in
-`~/Downloads`, and a `./platterpus-x86_64.AppImage …` command run from there says
-*No such file or directory* — that is the app behaving correctly and my earlier instruction
-being wrong. Launch from the applications menu; for a terminal command use the full path.
-
-**The ripper is already right.** Your log shows `9048082` built by the b10 wizard on its
-own — no `--install-ripper` needed, and none needed now:
-
-```
-19:38:36  cyanrip 0.9.4-rc1+platterpus.5-beta.5 (platterpus-fork-g9048082)
-```
+**moved itself** to `~/Applications/platterpus-x86_64.AppImage`. A `./platterpus-x86_64.AppImage …`
+command run from `~/Downloads` says *No such file or directory* — that is the app behaving
+correctly. Launch from the applications menu; for a terminal command use the full path.
 
 ---
 
-## beta.6 is withdrawn — use beta.7 (`4a35604`)
+## Read this first: `-Z` is ON, and it is not doing what "on" sounds like
 
-**Do not run the rip on beta.6.** The fork withdrew it in round 7 lap 32 after
-reproducing a defect we had only read about: a `-t` argument with no `=` made
-cyanrip read *past the end of the string* and then **publish what it read**. They
-measured an environment variable landing in a FLAC tag, in the log, and in the
-cue — at exit 0, with nothing printed.
+**You asked the right question — *"the app builds the argv, so `-j` and `-Z` are its call;
+worth checking they're on before you start rather than discovering afterwards."*** Here is
+the answer, measured from the code rather than remembered:
 
-It cannot happen on a Platterpus rip (our argv builder never emits a bare `-t N`,
-and refuses one at the chokepoint if a future caller tries), so this is not a
-warning about the app. It is about the *artifact*: a rip made on a build with a
-known path from adjacent memory into the archival record is evidence we would
-then have to argue about, and the point of the rip is to settle things.
+| flag | what a default rip actually does |
+|---|---|
+| **`-Z` (secure re-read)** | **On at 2 — but in DYNAMIC mode.** Pass 1 reads the whole disc **without `-Z`** at speed. Only tracks that then *miss* AccurateRip are re-read with `-Z 2`. On a disc that fully matches AccurateRip, **`-Z` is never applied at all.** |
+| **`-j` (diagnostics record)** | **Never sent.** It is not in our argv surface — 16 flags, and `-j` is not one of them. The rig harness runs it directly against the binary (step 5b), which is the only way that record exists. |
+| **`-N`** | Always sent, unconditionally, and asserted at the argv chokepoint. |
 
-beta.7 fixes it, plus four segfaults their probe found while generalising the
-same report. Both builds satisfy all four criteria below, so nothing is lost by
-waiting for beta.7.
+**Neither is a bug**, and both are now stated *before* the rip rather than discoverable
+afterwards: b15 prints a **`[plan]`** block into the log and the on-screen live log as the
+very first thing a rip does, naming every flag it is about to use. Read it; it takes ten
+seconds and it is the whole point of this change.
 
-## The next rip's acceptance criteria — round 7 lap 31
+### What I want you to change for THIS rip, and why
+
+**Turn ON: Settings → "Verify every track with a second read (EAC-style Test & Copy)".**
+
+That flips `-Z` from dynamic to **uniform** — every track read at least twice, on every
+pass, until the reads agree.
+
+**Why it matters for round 7 specifically.** The fork's round-5 note said their per-track
+paranoia counters "sum exactly to the disc totals", and we verified it — on an artifact
+ripped **without** `-Z`, where that sum is *arithmetically forced*. That is a claim checked
+under the one condition that guarantees it. Under `-Z` the per-track figure is the **last
+pass** and the disc total is **every** pass, so the real ratio is the re-read count. If the
+J1 rip is also a no-`-Z` rip, we will have verified it twice under conditions where it
+could not fail, and a consumer rendering the disc-level tally as a count of distinct events
+would still be over-reporting by that factor with nobody the wiser.
+
+**The cost, stated honestly:** roughly double the rip time. ~50–70 minutes becomes ~100–140.
+Nothing else changes; no acceptance criterion below depends on it either way.
+
+**If you would rather not spend the time**, say so and rip with the default — the four
+criteria below still hold and the round can still close. What we lose is the chance to
+settle the paranoia-counter question on this disc, and it goes back on the list.
+
+**Check the plan block agrees with you before the disc starts spinning.** With the setting
+on, the log must say:
+
+```
+[plan]   Secure re-read (-Z): ON at 2 matching reads, in UNIFORM mode — every track on every pass…
+```
+
+If it says `DYNAMIC` there, the setting did not take, and that is worth stopping for.
+
+---
+
+## The next rip's acceptance criteria — round 7 laps 31/33
 
 **Read this before the rip, not after.** Four checks, and each one has a *"and nowhere
-else"* half or a negative control, because a count alone passes on the wrong set. The
-first three are the fork's own J1 wording (lap 30); the fourth is ours.
+else"* half or a negative control, because a count alone passes on the wrong set. The first
+three are the fork's own J1 wording (lap 30); the fourth is ours.
 
-Requires the **test pin** `dc21958` (beta.6) — see `--install-ripper` below. The three
-changes it carries have been near no drive, which is exactly why this list exists.
+Requires the **test pin** `104f6d4` (beta.8). `beta.6` was withdrawn by the fork (a `-t`
+with no `=` read past the end of the string and published what it read); `beta.7` fixed it
+plus four segfaults, and **beta.8 is beta.7's ripping code with different packaging** —
+`git diff 4a35604..104f6d4 -- 'src/*.c' 'src/*.h'` is empty, and their source anchor is
+unchanged across the pair.
 
 | # | check | pass | why it can pass for the wrong reason |
 |---|---|---|---|
 | 1 | **ISRCs in the cue** | **all 14**, one per track | "more than before" is not the criterion. beta.1 wrote **1**, beta.5 wrote **5**. A partial improvement looks like success. |
 | 2 | **`INDEX 00` markers** | on exactly **2, 4, 5, 7, 8, 9, 10, 13, 14** — and **nowhere else** | beta.1 wrote **13** markers, four of them (**3, 6, 11, 12**) for pre-gaps its *own log* measured at **0 frames**. A count of 9 with the wrong set passes a count check. |
 | 3 | **the `Offset:` line** | **unchanged** from the b12 rip | the negative control for their new `-s` bound. If this moved, the bound changed behaviour on a value we send. |
-| 4 | **the real colon** *(ours)* | the cue's album `TITLE` **and** the log's `album:` field both read `Every Breath You Take: The Classics` | beta.6 + app 0.6.4b13 is the first pair where this can be observed. If either shows `∶` or a truncated title, the `\:` escape did **not** survive and lap 31 §C's verdict is wrong. |
+| 4 | **the real colon** *(ours)* | the cue's album `TITLE` **and** the log's `album:` field both read `Every Breath You Take: The Classics` | this is the first pair where it can be observed. If either shows `∶` or a truncated title, the `\:` escape did **not** survive and lap 31 §C's verdict is wrong. |
 
 Commands, run in the rip folder afterwards:
 
@@ -88,134 +113,65 @@ which build did what.
 
 ---
 
-## Step 0 — Update to b11 (2 minutes, no disc)
+## Step 0 — Update, and confirm both halves
 
-**Help → Check for updates** → accept → restart. Beta updates are already enabled from last
-time.
+**Help → Check for updates** → accept → restart. Beta updates are already enabled.
 
-Then **Help → About** must read **0.6.4b11**. If it still says b10 the update did not take —
-tell me rather than working around it.
+Then:
+
+- **Help → About** must read **0.6.4b15**.
+- **Tools → Check dependencies** — the cyanrip row must read
+  `cyanrip 0.9.4-rc1+platterpus.5-beta.8 (the Platterpus fork; build tag "platterpus-fork-g104f6d4")`.
+
+If the ripper still says beta.5/`9048082`, install the test pin — no source checkout needed:
+
+```sh
+~/Applications/platterpus-x86_64.AppImage --install-ripper 104f6d4
+```
 
 ---
 
-## What b11 changed, and how you would notice
+## Step 1 — Settings
 
-Everything in this table came out of *your* b10 walkthrough. Six things you raised; two of
-them turned out not to be what they looked like, and that is written down honestly at the
-end rather than quietly dropped.
+1. **Turn ON** "Verify every track with a second read (EAC-style Test & Copy)" (see the
+   section above — this is the one deliberate change for this rip).
+2. Leave everything else as it is.
+3. **OK**, then reopen Settings and confirm it stuck.
 
-| you said | what b11 does |
-|---|---|
-| *"These settings should be called something like Flack - Lossless Archival Master [Debugging] … and other settings should reflect similar naming syntax"* | **Every option in every Settings dropdown** now reads `Name — Descriptor In Title Case [Qualifier]`. Five combos, 20 options, one syntax — and a test sweeps the real dialog, so a dropdown added later can't reintroduce a sixth phrasing |
-| *"some of these screens are very vague on the version number and type also"* | The dependency list now reads `cyanrip 0.9.4-rc1+platterpus.5-beta.5 (the Platterpus fork; build tag "platterpus-fork-g9048082")` instead of `cyanrip 0.9.4 (the Platterpus fork)`. The wizard's fork row names the commit |
-| *"it stopped when I closed platterpus because it looked hung, might be wrong"* | You were **not** wrong — the app was waiting on the release picker and the log said nothing at all for 96 seconds. Every dialog now logs that it was put on screen and how it closed; the picker also logs the candidate count and the words **"this is not a hang"** |
-| *"the layout had 6 tracks … the title is the widest row"* | **Already confirmed fixed on your hardware.** Nothing to re-check |
-
-Plus three you would not see on any screen, all in the CHANGELOG: a defect I found while
-checking your naming ask (a rip's JSON could name a Goal its own settings never matched),
-one the project's own regex guard caught in my *new* code, and one the new dialog sweep
-caught — `DiagnosticsDialog` was the single dialog that opted out of the base class, so the
-**diagnostics** window was the one that left no trace of having been opened.
+Note that the **Goal** will flip to `Custom — Hand-Tuned Below`. That is correct: you have
+hand-tuned a field the preset owns.
 
 ---
 
-## Step 1 — Read the Settings dialog (2 minutes, no disc)
+## Step 2 — The picker
 
-This is the change you asked for, and it is entirely an eyes-on check.
-
-**Tools → Settings.** Open each of the five dropdowns:
-
-| dropdown | should now read |
-|---|---|
-| **Goal** | `Fast Verified — Lossless, Fully Verified (AccurateRip + CTDB) [Recommended]`<br>`Archival Exact — Fully Verified, Smallest Lossless Files`<br>`Portable — MP3 Derived From a Fully Verified Master`<br>`Custom — Hand-Tuned Below` |
-| **Naming scheme** | `Artist / Album / 01 - Title — Simple, No Year Clutter [Recommended]`<br>`Artist / Album / 01 Title — Same Layout, No Dash`<br>`Artist / Album (Year) / 01 - Title — Plex and Jellyfin Style`<br>`Artist / Year - Album / 01 - Title — Chronological, foobar2000 Style`<br>`Artist / Album / 01 - Track Artist - Title — Compilations, Various Artists`<br>`Custom — Hand-Tuned Below` |
-| **Output format** | `FLAC — Lossless Archival Master [Recommended]`<br>`WavPack (.wv) — Lossless, Keeps Tags and Cover Art`<br>`MP3 — Lossy, Best-Quality VBR, Keeps Tags and Cover Art`<br>`WAV — Raw PCM, No Tags or Cover Art` |
-| **Cover art** | `Don't Fetch — No Cover Art at All`<br>`Embed in FLAC — Art Inside Each Track`<br>`Save as File — Art Beside the Tracks`<br>`Embed and Save File — Both [Recommended]` |
-| **Read speed** | `Adaptive Ladder — Fast, Slower Only if a Disc Needs It [Recommended]`<br>`Fixed Speed — Always the Speed Set Below [Advanced]` |
-
-**What I need from you here is a judgement, not a pass/fail.** The syntax is now uniform;
-whether the *words* are the right ones is your call. If any label is too long for the
-dropdown at your font size, or says the wrong thing, name it and I will change that one —
-the convention is enforced by a checker, so a reword costs nothing and can't drift.
-
-**Then check the auto-Custom half of your ask, which already worked before b11** and I want
-confirmed on real hardware rather than only in a test:
-
-1. Note what **Goal** says (probably `Archival Exact …`).
-2. Change **Read speed** to `Fixed Speed — Always the Speed Set Below [Advanced]`.
-3. **Goal must flip to `Custom — Hand-Tuned Below` immediately**, before you click anything.
-4. Click **OK**, reopen Settings → it must still say Custom.
-5. Set Read speed back to `Adaptive Ladder …`, OK, reopen → back to `Archival Exact …`.
-
-> **Why your screenshot showed `Archival exact` with debug logging on, and that was correct.**
-> Debug logging is not one of the six settings a Goal covers, so turning it on does not make
-> the configuration "custom". That is why your ask is a *design* question and not a bug: you
-> want a label that mentions state the preset does not own. If you want that — a
-> `[Debugging]` suffix on the Goal row when debug logging is on — say so and I will add it;
-> I have deliberately not guessed, because it means deciding which fields a label may speak
-> for.
-
----
-
-## Step 2 — Read the two "which build?" screens (1 minute, no disc)
-
-**Tools → Check dependencies.** In the *Installed* list, the cyanrip row must now name the
-pre-release **and** the commit:
-
-```
-cyanrip 0.9.4-rc1+platterpus.5-beta.5 (the Platterpus fork; build tag "platterpus-fork-g9048082")
-```
-
-If it still says `cyanrip 0.9.4 (the Platterpus fork)`, the fix did not ship — that is a
-finding.
-
-**Tools → Set up Platterpus…** (it is safe to open and cancel; nothing runs until you
-confirm). The fork row must now read:
-
-```
-✓ Platterpus fork of cyanrip (build + export) — commit 9048082
-    already present — the installed banner names commit 9048082
-```
-
-**Cancel out.** Both of these are read-only checks.
-
----
-
-## Step 3 — The picker, and the silence you reported (5 minutes)
-
-Insert the Police disc. MusicBrainz reports **4 matches** for it, so a modal
-**"Pick a MusicBrainz release"** window opens and the app waits for you. **That is what
-happened last time**, and closing the app was a reasonable response to a window that says
-nothing.
-
-**What is different now.** The log gets these, in order:
+Insert the Police disc. MusicBrainz reports **4 matches**, so a modal **"Pick a MusicBrainz
+release"** window opens and the app waits for you. **Leave it ~30 seconds without answering**
+— that reproduces the silence you reported, and it should now be a *documented* silence:
 
 ```
 MusicBrainz returned 4 candidates for disc '…' — opening the release picker;
   the app will WAIT here until the user chooses (this is not a hang)
 dialog presented: ReleasePickerDialog ('Pick a MusicBrainz release') — the app now waits for the user
-dialog closed: ReleasePickerDialog ('Pick a MusicBrainz release') — accepted
-release picker: user chose <mbid> after 12.4s
 ```
 
-**What I want you to do:**
-
-1. When the picker appears, **leave it for ~30 seconds without answering.** (This is
-   deliberate: it produces the exact silence you saw, and now it should be a *documented*
-   silence.)
-2. **If no picker window appears anywhere** — check other virtual desktops and behind the
-   main window — **that is the real finding.** The log will now settle it: a
-   `dialog presented:` line means Qt really put it on screen and something is covering it; no
-   such line means it was created and never shown. I could not answer that from the b10 log
-   at all, which is why this step exists.
-3. Pick the release that matches the disc and continue.
+**If no picker window appears anywhere** — check other virtual desktops and behind the main
+window — **that is the real finding.** A `dialog presented:` line means Qt really put it on
+screen and something is covering it; no such line means it was created and never shown.
 
 ---
 
-## Step 4 — The rip, watching two things with your eyes (~50–70 min)
+## Step 3 — The rip (~100–140 min with Test & Copy on)
 
-Start the rip. **Watch the status line during tracks 3 and 5** — the two that have needed
-secure re-reads in every previous session.
+**Before the disc spins, read the `[plan]` block** in the live log pane (or
+`~/.local/share/platterpus/log.txt`). Confirm:
+
+- `Secure re-read (-Z): ON at 2 … UNIFORM`
+- `Read offset (-s): +667 samples`
+- `Tracks (-l): whole disc (14 on the TOC)`
+- `MusicBrainz lookup (-N): ALWAYS disabled`
+
+**Then watch two things with your eyes.**
 
 **Should appear:**
 
@@ -226,24 +182,16 @@ Ripping track 3 of 14… 14%  ·  verifying track 3 (re-read 2)  ·  about 54m l
 **Should NOT appear:**
 
 - `stalled 3m 0s — the drive is stuck on a hard-to-read spot (a scratch or smudge)`
-  **while cyanrip's own percentage is still climbing.** On b8 this fired twice per disc on a
-  perfectly healthy disc.
+  **while cyanrip's own percentage is still climbing.**
 - the estimate climbing while the overall bar is frozen. It may **hold** at one number for
   several minutes — that is correct and deliberate.
 
-**Also:** the track grid should sit perfectly still as tracks complete. No column should
-change width mid-rip.
-
-If the stall warning appears anyway, note roughly when. Both signals are in the log so I can
-settle it from the artifacts — but knowing what you *saw* tells me which of the two
-misfired.
+The track grid should sit perfectly still as tracks complete; no column should change width
+mid-rip.
 
 ---
 
-## Step 5 — The cue sheet (2 minutes — this is what closes the handshake round)
-
-The cue fix is **the only change in the fork's pin that no drive has ever run.** One look
-settles it:
+## Step 4 — The cue sheet (2 minutes — this is what closes the round)
 
 ```sh
 cd ~/Music/rips/The\ Police/Every*
@@ -256,23 +204,28 @@ grep -n "INDEX 00" *.cue
 | 2, 4, 5, 7, 8, 9, 10, 13, 14 | `INDEX 00` still present |
 
 **If a pre-gap you expected has gone missing, that is a finding and their fix goes back** —
-their words. Send the cue either way: a correct result closes the round, a wrong one is worth
-more.
+their words. Send the cue either way: a correct result closes the round, a wrong one is
+worth more.
 
 ---
 
-## Step 6 — One command, unattended
+## Step 5 — One command, unattended
+
+**This no longer needs a source checkout.** It used to say
+`bash ~/path/to/Platterpus/scripts/rig_session.sh …` — a placeholder path to a file that
+only exists in the git repository, which you do not have on the rig. The harness now ships
+*inside* the app:
 
 ```sh
-bash ~/path/to/Platterpus/scripts/rig_session.sh ~/rig-b11
+~/Applications/platterpus-x86_64.AppImage --rig-session ~/rig-b15
 ```
 
-14 steps, one artifact each, **never stops on a failure** — a failing step is data, and every
-exit code is recorded including the successes. It covers `--version` for both binaries, the
-`-dirty`/`-grelease` banner check, `--doctor`, **the fork's `-x` and `-j`** (which our own
-argv surface never sends, so you would otherwise have to run them by hand), pre-gap source
-counts, a log snapshot taken *before* rotation eats it, `--audit-rips`, an ETA sweep, log
-sizes, a fresh cyanrip clone + build, handshake status and preflight.
+Fourteen steps, one artifact each, **never stops on a failure** — a failing step is data, and
+every exit code is recorded including the successes. It covers `--version` for both binaries,
+the `-dirty`/`-grelease` banner check, `--doctor`, **the fork's `-x` and `-j`** (which our
+own argv surface never sends, so this is the only place those records come from), pre-gap
+source counts, a log snapshot taken *before* rotation eats it, `--audit-rips`, an ETA sweep,
+log sizes, a fresh cyanrip clone + build, handshake status and preflight.
 
 **It must end with a `COMPLETE` banner.** If it does not, send what it produced anyway —
 where it stopped is the finding. A step timing out on `-x` is the wedge case the fork has
@@ -280,22 +233,38 @@ been asking about for four laps; send that too.
 
 ---
 
-## Step 7 — The cancel case (5 minutes)
+## Step 6 — The cancel case (5 minutes)
 
 1. Start a rip. **Let it get past the last track** — watch for the AccurateRip summary or the
-   securing pass starting. (Last time you cancelled 7 seconds in, during `Tracks:`, which is
-   a different case: nothing had been written yet.)
+   securing pass starting.
 2. Cancel.
 3. In the `_EACcompatible.log`:
    - **`RIP STOPPED (cancelled)`** — *not* `INCOMPLETE RIP (cancelled) — this log covers 14
-     of 14 disc tracks`, which is the self-contradiction b9 fixed
+     of 14 disc tracks`
    - if a securing pass had started: **`INTERRUPTED (you cancelled the rip)`**
 4. In the JSON: `outcome.status` must be `"cancelled"`, not `"success"`.
 
 **Expected and not a defect:** cancelling early logs
 `ripper.log_verify_failed: No FUN512 checksum found` — cyanrip had not written its checksum
-footer yet, so its own verifier correctly rejects a partial log. Your 19:40 run showed
-exactly this. It is the diagnostic working.
+footer yet, so its own verifier correctly rejects a partial log. That is the diagnostic
+working.
+
+---
+
+## Step 7 — Optional: the in-app test console
+
+New in b15, and the reason it is worth two minutes of your time: the scripting subsystem
+you asked for (*"a debug testing option where i can copy and paste command code into it so i
+dont need to be present"*) had been **built and left unreachable** — no menu item, no
+dialog, no flag. It is now **Tools → Run test script…**.
+
+Open it and press **Run** on the starter script it comes with. It should open Settings,
+screenshot it, close it, and print a transcript ending in a verdict. That is the smallest
+possible proof the wiring works.
+
+Settings also has a **Test script** field (a file it loads by default) and **Run it
+automatically when Platterpus starts** — both off unless you set them, and both needed for
+an unattended launch to run a batch.
 
 ---
 
@@ -315,44 +284,38 @@ Plus:
 
 ```
 ~/.local/share/platterpus/log.txt          (and log.txt.1 … if present)
-~/rig-b11/                                 (the whole folder from step 6)
+~/rig-b15/                                 (the whole folder from step 5)
 ```
 
 **No FLACs.** The repo is public and the logs + CRCs prove everything the audio would —
-that is Critical rule #8 and it has no exceptions, including temporary ones.
+Critical rule #8, no exceptions including temporary ones.
 
-### The three things I will open first
+### The four things I will open first
 
-1. **`eta_trace.samples[].state` in the JSON.** The b8 trace had two holes totalling ~16
-   minutes, landing exactly on the minutes the estimate was wrong, because a held estimate
-   recorded nothing. **If b11's trace still has a gap during the re-reads, the fix is
-   incomplete and I will know immediately.**
-2. **`settings.rip_goal` — and whether `settings.rip_goal_stored` is there beside it.** New
-   in schema v23. Its presence means your `config.toml`'s goal label disagreed with its own
-   fields, which is worth knowing; its absence means they agreed.
-3. **The picker lines in `log.txt`.** Step 3's whole point.
+1. **The `[plan]` block in `log.txt`** — confirming the rip ran with the flags you set,
+   checked against the ripper's own `Invoked as:` line. Two independent records of the same
+   decision; if they disagree, that is a finding worth more than the rip.
+2. **The per-track paranoia counters under `-Z`** — the round-5 claim, finally checked where
+   it could have failed.
+3. **`eta_trace.samples[].state` in the JSON.** The b8 trace had two holes totalling ~16
+   minutes, landing exactly on the minutes the estimate was wrong.
+4. **The picker lines in `log.txt`.** Step 2's whole point.
 
 ---
 
 ## What is still not fixed, honestly
 
-- **Your naming ask is done for the *options*; the `[Debugging]`-on-the-Goal-row half is
-  not, and needs your decision** (Step 1's note). It is a design question, not an oversight.
 - **The ETA still under-estimates** — median −23 minutes on b8, deliberately untouched. A
-  stable-but-low number is a far smaller problem than one that triples in a minute, and the
-  b9/b10/b11 traces are the data to fix it properly rather than by guessing.
+  stable-but-low number is a far smaller problem than one that triples in a minute.
+- **The `[Debugging]`-on-the-Goal-row half of your naming ask is not done, and needs your
+  decision.** It is a design question (which fields a label may speak for), not an oversight.
 - **The +450 AccurateRip question is open on the fork's side.** Our half is ruled out.
-  Nothing for you to do.
-- **Round 7 is still OPEN and both sides are on HOLD**, so `v0.6.4b11` is a pre-release and
-  not a claim that the pair is verified. Every rip it makes says so in its own report. Step 5
-  is what unblocks it.
-- **Two of the five things your screenshots suggested turned out not to be true, and I am
-  saying so rather than shipping a fix for them.** (1) The auto-Custom behaviour already
-  worked — verified by driving the real dialog, not by reading the wiring. (2) The mechanism I
-  first suspected for the picker (a modal swallowing it) is *impossible*: MusicBrainz results
-  arrive as a queued cross-thread signal and a nested Qt event loop still delivers those. The
-  honest finding was smaller and worse — the log could not answer the question at all.
+- **Round 7 is still OPEN and both sides are on HOLD**, so `v0.6.4b15` is a pre-release and
+  not a claim that the pair is verified. Every rip it makes says so in its own report.
+- **The `-j` record still comes only from the harness**, not from a rip. We do not send it
+  and are not proposing to: adding a flag to every rip's argv to satisfy one round's evidence
+  need is the wrong trade. Step 5 produces the record.
 
 ---
 
-*Last updated for Platterpus v0.6.4b14.*
+*Last updated for Platterpus v0.6.4b15.*

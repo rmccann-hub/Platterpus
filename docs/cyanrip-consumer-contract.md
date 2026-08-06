@@ -22,7 +22,7 @@ Every row in this document is derived from the Platterpus source at the
 version named below, and describes what **that** app version parses and
 sends. It is not a claim about any other version of either side.
 
-- **Platterpus:** `0.6.4b14` — the build that
+- **Platterpus:** `0.6.4b15` — the build that
   generated this file. A row can only have changed with our code, so this
   version *is* the range on our half.
 - **Verified against ripper build:** `cyanrip 0.9.4-rc1 (platterpus-fork-g2f950c8)` — the build a

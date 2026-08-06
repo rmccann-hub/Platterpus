@@ -27,6 +27,7 @@ from platterpus.adapters.rip_backend import (
     RipMetadata,
     TrackTag,
 )
+from platterpus.rip_plan import PLAN_PREFIX
 from platterpus.workers import rip_worker as rip_worker_module
 from platterpus.workers.rip_worker import (
     RipParameters,
@@ -191,6 +192,18 @@ def _params(tmp_path: Path, **overrides: object) -> RipParameters:
 # --- Signal-collector helper ----------------------------------------------
 
 
+def _ripper_lines(lines: list[str]) -> list[str]:
+    """The log lines that came from the RIPPER, with our own plan removed.
+
+    Every rip now opens by stating what it is about to do — the pre-rip plan, so
+    a flag that is off is discovered before a 70-minute read rather than after
+    it. Those lines share a prefix precisely so a consumer (a test, or the eye)
+    can tell them from the ripper's own output. Filtering here keeps each test
+    asserting its own subject rather than re-listing the plan.
+    """
+    return [line for line in lines if not line.startswith(PLAN_PREFIX)]
+
+
 class _Signals:
     """Accumulates signal emissions for assertion."""
 
@@ -227,7 +240,14 @@ def test_emits_log_lines_in_order(qapp: QApplication, tmp_path: Path) -> None:
 
     worker.start_rip()
 
-    assert sigs.log_lines == ["one", "two", "three"]
+    # The rip now opens with its own PLAN (rip_plan.describe_rip_plan) — what it
+    # is about to do, before anything spawns. Those lines are ours, not the
+    # ripper's, and they are all prefixed; strip them here so this test keeps
+    # asserting the thing it is about, which is the ORDER of the ripper's output.
+    assert _ripper_lines(sigs.log_lines) == ["one", "two", "three"]
+    # …and the plan really did precede them, rather than being filtered into
+    # nothing by a prefix that no longer matches.
+    assert sigs.log_lines[0].startswith(PLAN_PREFIX)
     assert sigs.finished == [(True, "")]
     assert sigs.errors == []
 
@@ -1394,7 +1414,7 @@ def test_non_progress_lines_are_never_throttled(
 
     worker.start_rip()
 
-    assert sigs.log_lines == ["one", "two", "three", "four"]
+    assert _ripper_lines(sigs.log_lines) == ["one", "two", "three", "four"]
 
 
 def test_cyanrip_progress_without_disc_total_keeps_task_bar_moving(

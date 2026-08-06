@@ -36,12 +36,21 @@ from platterpus.ui.main_window_shared import MainWindowShared
 
 if TYPE_CHECKING:  # import only for type hints — runtime import stays lazy
     from platterpus.deps.host_setup import HostSetup
+    from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
 
 log = logging.getLogger(__name__)
 
 
 class ProvisioningMixin(MainWindowShared):
     """First-run offers, AppImage menu integration, host-setup, and uninstall."""
+
+    #: The modeless test-script console, once opened. Held so the dialog (and the
+    #: ``QTimer`` its runner lives on) is not garbage-collected the moment
+    #: ``open_script_console`` returns, and so re-opening raises the existing one.
+    #: The type is a forward reference: importing the dialog at module scope
+    #: would pull the whole scripting package into every main-window import for
+    #: a feature most sessions never open.
+    _script_console: ScriptConsoleDialog | None = None
 
     def _maybe_offer_first_run_setup(self) -> None:
         """First-run offers, in dependency order.
@@ -256,6 +265,45 @@ class ProvisioningMixin(MainWindowShared):
         dialog = HostSetupDialog(self, host_setup=self._build_host_setup())
         dialog.setup_finished.connect(self._on_host_setup_finished)
         dialog.exec()
+
+    def open_script_console(self, *, autorun: bool = False) -> ScriptConsoleDialog:
+        """Open Tools → Run test script…, the unattended-batch console.
+
+        **Modeless and kept alive by a reference on the window.** A script drives
+        *this* window and opens other dialogs, so an ``exec()`` here would sit in
+        front of the thing under test. ``show()`` alone would let the dialog be
+        garbage-collected the moment this method returns, taking its runner's
+        ``QTimer`` with it — so the window holds the reference, and re-opening
+        raises the existing console rather than stacking a second one (two
+        consoles driving one window is a race with no useful outcome).
+
+        ``autorun`` starts the loaded script immediately. That is how
+        ``--run-script`` and the config's ``test_script_autorun`` reach the batch:
+        through this one method, not through a second copy of the start logic.
+
+        Returns the console so the CLI path can observe it; the menu ignores it.
+        """
+        from platterpus.config import load as load_config
+        from platterpus.ui.dialogs.script_console import ScriptConsoleDialog
+
+        existing = self._script_console
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            if autorun:
+                existing.run_now()
+            return existing
+        cfg = getattr(self, "_config", None) or load_config()
+        console = ScriptConsoleDialog(
+            self,
+            script_path=cfg.test_script_path,
+            allow_unsafe=cfg.test_script_allow_unsafe,
+        )
+        self._script_console = console
+        console.show()
+        if autorun:
+            console.run_now()
+        return console
 
     def open_uninstall_dialog(self) -> None:
         """Open the in-app Uninstaller (Tools → Uninstall Platterpus…)."""

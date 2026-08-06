@@ -299,6 +299,12 @@ _BAD_VALUES: dict[str, object] = {
     "recompress_flac_after_rip": "yes",
     "write_eac_log_after_rip": "yes",
     "save_additional_art": "yes",
+    # A path that does not exist. The field is OPTIONAL (empty = the feature is
+    # off), so the bad value has to be a *set* path — an empty one is valid and
+    # would make this row test nothing.
+    "test_script_path": "/nowhere/at/all/batch.pscript",
+    "test_script_autorun": "yes",
+    "test_script_allow_unsafe": "yes",
 }
 
 

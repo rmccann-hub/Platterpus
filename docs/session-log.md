@@ -11,6 +11,27 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+- **Asked "is `-Z` on before the rip?", the honest answer was "yes, and that is not what it means" (2026-08-06).** The maintainer, before a hardware rip that closes a handshake round: *"If Platterpus drives the rip, the app builds the argv, so `-j` and `-Z` are its call — worth checking they're on before you start rather than discovering afterwards."* Measured rather than recalled:
+
+  - **`-j`: never sent.** One hit in the whole source tree, in a *set of no-rip verbs*. Not in the argv builder at all. The rig harness invokes it directly against the binary, which is the only place that record comes from.
+  - **`-Z`: on by default at 2 — in DYNAMIC mode.** Pass 1 reads the whole disc with **no `-Z`**; only tracks that then miss AccurateRip get re-read with it. On a disc that fully matches AccurateRip, `-Z` is never applied. Settings said "on". Both facts were only observable *afterwards*, in two different files (`Invoked as:` in cyanrip's log, `ripper_argv` in our JSON).
+
+  The consequence for round 7 is the part worth keeping. CLAUDE.md already asks *"did I verify this where it could have failed?"* — and names the fork's round-5 paranoia-counter claim as the instance, verified on an artifact ripped without `-Z`, where the sum is arithmetically forced. **A default-settings J1 rip would have been the second such artifact**, and we would have "confirmed" it twice under the one condition that guarantees it. The rig sheet now asks for Test & Copy on, with the cost (roughly double the rip time) stated and the option to decline stated too.
+
+  Graduated as a *pattern*, not a fix: **say what you are about to do, not only what you did** (`architecture.md` §3.11). `rip_plan.py` emits a `[plan]` block before anything spawns, naming every flag the settings become and — where a setting hides two modes inside one on/off — which mode. Deliberately **not** a second argv builder: it describes the builder's inputs, so the plan and the log's `Invoked as:` are two independent records of one decision and a disagreement is a finding. It also states `-j` and `-x` positively as *never sent*, because "absent from the plan" and "we never send it" look identical to a reader.
+
+- **A subsystem built to specification, with tests, that nothing in the app could open (2026-08-06).** The same message asked to *"make sure this test can run, maybe you need to add a testing script field where a user can introduce a custom script that will run tests automatically."* The field was the ask; the finding was underneath it.
+
+  `src/platterpus/uiscript/` — parser, closed vocabulary, `QTimer` runner, transcript renderer, 59 passing tests, built to the maintainer's own words about pasting command code so tests run in his absence — had **no menu item, no dialog and no CLI flag**. `grep -rn 'uiscript' src/ --exclude-dir=uiscript` returned nothing. Its tests were green because a subsystem's own tests import it directly; the changelog had announced it, so every later reader had a written statement that it existed.
+
+  The same sweep found the second one immediately: `rig_session.sh` lived in `scripts/`, which ships in the git repository and nothing else, while the person who runs it has an AppImage — and the rig sheet's instruction was literally `bash ~/path/to/Platterpus/scripts/rig_session.sh ~/rig-b11`. It had a smoke test of its *content* and nothing asserting a built Platterpus could find it.
+
+  Both fixed as surfaces, not behaviour: **Tools → Run test script…**, a Settings *Test script* path plus *run at launch*, `--run-script`, and `--rig-session` with the harness moved inside the package. Graduated to `docs/testing.md` §5.ag — §5.p said *a documented capability is not a capability*; this is the step before it, and the assertion has to be about **reachability**: an import from outside the package, a row in `[tool.setuptools.package-data]` (read out of `pyproject.toml`, because a file present in a checkout and absent from the wheel is precisely the failure a filesystem check cannot see), a line in `--help`.
+
+- **A five-minute GUI freeze that had been argued for in its own docstring (2026-08-06).** Wiring the console meant reading the runner, and its `cyanrip` verb ran `run_capture` inline on the GUI thread with a 300-second timeout — with a docstring paragraph explaining that blocking was acceptable *"here specifically and nowhere else in this file"*, because the alternative would be a parallel implementation of the thing being tested. That is the shape CLAUDE.md refuses, stated in the file that commits it: the same script's own header cites `rig_session.sh` refusing to drop `set -e` for exactly this reason.
+
+  It is the same call with the same arguments, now on a daemon thread the tick polls. New state, so new tests: an in-flight job across `stop()` (kill the child, record the open step — a cancel that only forgets is the false promise), a child that cannot be reaped (report `exit: null`, never `0`, and continue), and a second run inheriting the first's pending job. **Proven by revert**, with the revert asserted to have landed: two of the nine tests fail against the inline version, and the run *hung* while doing it, which was itself the measurement.
+
 - **Adding the axis the fork suggested found three defects in my own probe before it found none in the argv (2026-08-06).** Their lap 32 answered a question we had asked and asked one back: *does your probe classify by exit code, and if so does it check the sign?* Theirs had mapped every non-zero exit to "refused", and Python reports death-by-signal as **negative**, so `-11` was filed as a successful refusal — their gate printed `0 silently ignored` and exited 0 while the binary segfaulted in the same run.
 
   Ours never spawns a process, so that specific bug cannot occur. Stopping there would have been answering a question about *their* defect. The transferable half was their sentence: **a grid that only feeds well-formed values has the same blind spot as a type signature** — and ours varied numeric values on four flags and nothing else.
@@ -1187,4 +1208,4 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-*Last updated for Platterpus v0.6.4b14.*
+*Last updated for Platterpus v0.6.4b15.*
