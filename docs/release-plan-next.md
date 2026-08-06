@@ -43,6 +43,54 @@ it:
 
 ## 3. The queue, sorted by whether his data can invalidate it
 
+### 3a-0. THE FIRST DELIVERABLE, and what it forces
+
+His directive: *"the first test should be giving copying and pasting in a script
+that tests every paramter/arguement, and give back a result. then we should be
+able to determine if all is reaching platterpus and cyanrip, then we can go from
+there."*
+
+**Right instinct — plumbing before behaviour.** Before asking whether a setting
+*works*, ask whether the script can *reach* it at all. A reachability sweep is
+the cheapest possible first test and it fails loudly rather than subtly.
+
+**But it cannot be written today, and the reason is my own defect:** `set` and
+`expect` — the two verbs a "test every parameter" script is made of — are among
+the **13 of 25 that are advertised and unimplemented**. Handing him that script
+now would hand him a batch that fails on every line. So §3a.1 and §3a.2 are not
+merely "safe to do now", they are **prerequisites of the first deliverable**, and
+the order is forced:
+
+> `set`/`expect` on Config field names → the remaining verbs → **generate** the
+> coverage script → he pastes it → we read the result.
+
+**The design decision that matters: the script is GENERATED, not hand-written.**
+A hand-written "tests every parameter" script is wrong the day a field is added,
+and wrong *silently* — it would still pass, just over a smaller surface, which is
+the completeness-decay shape `docs/testing.md` §5.af describes. So a
+`scripts/emit_uiscript_coverage.py` derives it from the **`Config` dataclass
+fields** plus the **verb table**, exactly as `scripts/emit_dependency_contract.py`
+already derives our half of the cyanrip contract. Then:
+
+- every parameter is covered **by construction**, not by my diligence;
+- a new `Config` field appears in the next generated script automatically;
+- and a **completeness test** asserts the generated script names every editable
+  field, so the claim "tests every parameter" is checked rather than asserted.
+
+**What the result must distinguish**, because "it reached Platterpus" and "it
+reached cyanrip" are different claims and the script has to separate them:
+
+| outcome | means |
+|---|---|
+| `set` FAILs | the field is not addressable — a **Platterpus** plumbing gap |
+| `set` passes, `expect` FAILs | it was accepted and did not stick — a Platterpus **state** bug |
+| both pass, argv lacks the flag | reached Platterpus, **not** cyanrip — the interesting one |
+| both pass, argv carries it | full path confirmed end to end |
+
+That last pair is why the script pairs every `set` with a `cyanrip`-side check
+rather than stopping at the GUI: **reaching the app is not reaching the ripper**,
+and only the argv proves the second.
+
 ### 3a. Safe to do now — his data cannot change these
 
 1. **The 13 unimplemented verbs.** `verbs.py` advertises 25, `runner.py`
