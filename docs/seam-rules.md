@@ -18,7 +18,7 @@ it is free.
 | **`[PLATTERPUS]`** | the GUI only | cyanrip, so they know what we promise |
 | **`[CYANRIP]`** | the ripper only | Platterpus, so we know what to expect |
 
-Format version: **2** (`SEAM-RULES-VERSION: 2`). Cite it when you claim
+Format version: **4** (`SEAM-RULES-VERSION: 4`). Cite it when you claim
 conformance.
 
 ---
@@ -130,6 +130,71 @@ for a full round while every version probe we shipped sent `-V`, and a rejected
 flag exits non-zero, which every probe reads as *"the tool is not installed"*.
 **The document was right. Nobody looked at it against the code.**
 
+### `[BOTH]` S-11 — Every row is a test, and every defect found becomes a regression test
+
+A documented limit that nothing asserts is a **comment**, and this protocol's
+whole history is comments that were true when written and silently stopped being
+true. So:
+
+**Each row in the command table is backed by a test in its owner's suite**, named
+so the row can cite it. The row says `-t` accepts `1..<track count>`; a test
+asserts the boundary and one past it. If no test exists, the row's status is
+**`documented-untested`** — which is honest, and which the audit counts
+separately from `verified`, because *"we wrote it down"* and *"we checked it"*
+are different claims and this protocol has confused them before.
+
+**Every defect found at this seam gets a regression test in the same change as
+the fix.** Not the next release, not a follow-up issue — the same change. Both
+projects already hold this rule internally; S-11 makes it a *seam* obligation, so
+a fix on one side is verifiable from the other side's file rather than taken on
+trust.
+
+**The regression test names the round that found it.** A future reader tracing
+why an assertion exists lands on the correspondence rather than on a commit
+message, and the finding keeps its provenance. `-V` would today be
+`test_cyanrip_version_flag` citing round 7; the `-t 17=` rip-killer would cite
+its own.
+
+**What each side reports every round:** how many rows are `verified`, how many
+`documented-untested`, how many `not-probed`, and **which regression tests were
+added since the last round**. Three numbers and a list. A round where all three
+numbers are unchanged and the list is empty is a round where nothing was checked,
+and it should be visible as that rather than as silence.
+
+### `[BOTH]` S-12 — An error code that does not distinguish anything is a defect, not a datum
+
+Recording an exit code satisfies S-7. It does **not** make the code *useful*, and
+those are different bars. **A code that is the same for every failure carries
+almost no information** — knowing "it exited 1" tells a caller that something went
+wrong, which it already knew from the fact that nothing was produced. The
+maintainer's framing, and it is the right one: *an error code that means nothing
+is only ten percent valuable.*
+
+So every row's `on a bad value` cell is graded, not merely filled:
+
+| grade | means |
+|---|---|
+| **usable** | the code, or the code plus a machine-matchable message, identifies **which** failure this is, distinctly from the others |
+| **generic** | the code is shared with unrelated failures. **Flag it as something to fix** — this is a defect row, not a documented behaviour |
+| **absent** | no code at all, or a code contradicted by the message |
+
+**A `generic` grade is an action item on the side that owns the binary**, and it
+stays visible in the table until it is fixed or explicitly accepted with a reason.
+It does not quietly become "documented".
+
+**Why this is at the seam and not internal to each project.** A caller cannot
+recover differently from failures it cannot tell apart. Every automatic
+behaviour a consumer might want — retry this but not that, re-read at a lower
+speed, surface *this* sentence to the user, fail the rip versus drop one flag —
+requires distinguishing the cause, and a shared exit code forecloses all of them.
+The `-V` case is the sharpest version: a rejected flag exits non-zero, and every
+probe read non-zero as *"the tool is not installed"*, because nothing in the code
+said which of the two it was.
+
+**Where a message is the distinguishing part rather than the code**, that is fine
+and it is recorded as such — but the message then becomes contract surface, and
+S-11's test asserts on it, so it cannot be reworded freely.
+
 ---
 
 ## 2. Rules binding Platterpus only
@@ -226,11 +291,11 @@ last read it. Every row names a direction, a type, and what must be checked.
 State the version and which tags you implement:
 
 ```
-SEAM-RULES-VERSION: 2
+SEAM-RULES-VERSION: 4
 IMPLEMENTS: BOTH(S-1..S-7) PLATTERPUS(P-1..P-3)
 ```
 
-A side claiming `BOTH` claims all ten. Partial conformance names the gaps
+A side claiming `BOTH` claims all twelve. Partial conformance names the gaps
 explicitly — **a rule you have not implemented is not a rule you may cite.**
 
 ---

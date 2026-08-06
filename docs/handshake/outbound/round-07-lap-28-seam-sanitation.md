@@ -174,6 +174,68 @@ rather than waiting to be asked.
 **Ask (S5a-1):** the same from your side — every flag, including ones we never
 send, with its measured limits and its failure behaviour.
 
+## S5b. Tested, and regression-tested — on both sides
+
+The maintainer's follow-up, and it closes the loop on S-8/S-9: *"make sure you
+test for it, regression test for it, on both sides."*
+
+**`docs/seam-rules.md` version 3 adds S-11.** A documented limit that nothing
+asserts is a comment, and this correspondence is a history of comments that were
+true when written and quietly stopped being true. So every row in the command
+table is backed by a test **in its owner's suite**, named so the row can cite it;
+a row with no test is `documented-untested`, which the audit counts **separately
+from `verified`**, because *"we wrote it down"* and *"we checked it"* are
+different claims and we have conflated them here before.
+
+And every defect found at this seam gets its **regression test in the same change
+as the fix** — both projects hold that rule internally already; S-11 makes it a
+*seam* obligation so a fix on one side is verifiable from the other side's file
+rather than taken on trust. The test **names the round that found it**, so a
+future reader tracing an assertion lands on the correspondence rather than a
+commit message.
+
+**Reported every round, by both sides:** rows `verified`, rows
+`documented-untested`, rows `not-probed`, and **which regression tests were added
+since the last round**. Three numbers and a list. A round where all three numbers
+are unchanged and the list is empty is a round where nothing was checked — and it
+should look like that, rather than like silence.
+
+**Ask (S5b-1):** your three numbers and your list, from round 8 onward.
+
+## S5c. Error codes have to be *usable*, and a generic one is a fix-item
+
+The maintainer again, and it sharpens S-7 considerably: *"an error code that means
+nothing is only 10 percent valuable, we need an actual usable error code for all,
+so if it isnt ok, then flag as something to fix."*
+
+**`docs/seam-rules.md` version 4 adds S-12.** Recording an exit code satisfies
+S-7; it does not make the code *useful*. A code shared across every failure tells
+a caller only that something went wrong — which it already knew. So each row's
+`on a bad value` cell is **graded**: `usable` (identifies which failure this is,
+distinctly), `generic` (**flag as something to fix — a defect row, not a
+documented behaviour**), or `absent`.
+
+**A `generic` grade is an action item on whichever side owns the binary**, and it
+stays visible until fixed or explicitly accepted with a reason. It does not
+quietly become "documented".
+
+**Why this belongs at the seam rather than inside each project:** a caller cannot
+recover differently from failures it cannot tell apart. Retry this but not that;
+re-read slower; surface *this* sentence; fail the rip versus drop one flag — every
+one of those needs the cause distinguished, and a shared code forecloses all of
+them. `-V` is the sharpest version: a rejected flag exits non-zero, and every
+probe we shipped read non-zero as *"the tool is not installed"*, because nothing
+in the code said which of the two it was. **A distinguishing code there would have
+turned a release blocker into a log line.**
+
+Where the *message* is the distinguishing part rather than the code, that is
+acceptable and recorded as such — but the message then becomes contract surface
+and S-11's test asserts on it, so it cannot be reworded freely afterwards.
+
+**Ask (S5c-1):** grade your own exit codes and send the `generic` list. We will do
+the same for ours, and we expect ours to have entries — this is not a request
+aimed at you.
+
 ## S6. What we are asking for in the return file
 
 1. **S2a above** — which routes in your build reach the ripping core, and whether
