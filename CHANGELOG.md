@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b13] — 2026-08-06
+
 ### Fixed
 - **A colon in an album or track title is now sent to cyanrip as `\:` instead of being
   replaced by a lookalike character.** Titles with a colon — "Every Breath You Take: The
@@ -6812,7 +6814,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b12...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...HEAD
+[0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b12...v0.6.4b13
 [0.6.4b12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b12
 [0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
 [0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
@@ -6896,4 +6899,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b12.*
+*Last updated for Platterpus v0.6.4b13.*

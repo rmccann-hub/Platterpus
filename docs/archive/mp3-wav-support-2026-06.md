@@ -385,4 +385,4 @@ register through the subsystem, deferred until it can be hardware-validated.
 
 ---
 
-*Last updated for Platterpus v0.6.4b12.*
+*Last updated for Platterpus v0.6.4b13.*
