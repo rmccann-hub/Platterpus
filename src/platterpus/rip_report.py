@@ -215,7 +215,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     separate claims and only the first was recorded. The comparison is what makes
 #     either number more than a record — it also checks `-N` really suppressed the
 #     ripper's own lookup (Critical rule #5) at the artifact instead of on trust.
-REPORT_SCHEMA_VERSION: int = 23
+REPORT_SCHEMA_VERSION: int = 24
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -268,6 +268,7 @@ def build_report(
     secure_rerip: dict | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
+    audio_md5: dict | None = None,
     generated_at: str = "",
     timing: dict | None = None,
     debug_log: dict | None = None,
@@ -319,6 +320,7 @@ def build_report(
             derived_verify_result,
             read_speed,
             eta_trace,
+            audio_md5=audio_md5,
             recompress_result=recompress_result,
             cover_art_result=cover_art_result,
             tagging_result=tagging_result,
@@ -844,6 +846,11 @@ def _build(
     read_speed: dict | None = None,
     eta_trace: list | None = None,
     *,
+    # KEYWORD-ONLY DELIBERATELY. `build_report` calls this positionally up to
+    # `eta_trace`, so a new parameter inserted among those silently re-binds every
+    # argument after it — `derived_verify_result` would have arrived as `audio_md5`.
+    # Past the `*` that cannot happen.
+    audio_md5: dict | None = None,
     recompress_result: object | None = None,
     cover_art_result: object | None = None,
     tagging_result: object | None = None,
@@ -1079,6 +1086,11 @@ def _build(
         # Per-file SHA256 for long-term integrity checking (bit-rot). Embedded
         # here rather than a separate checksums.sha256 sidecar — one debug file.
         "checksums": (dict(checksums) if checksums else None),
+        # The retag-surviving audio identity (schema v24). Kept as its own key
+        # rather than folded into `checksums` because the two answer different
+        # questions and a reader must not mistake one for the other: a SHA256
+        # mismatch after a retag is expected, an audio-MD5 mismatch never is.
+        "audio_md5": (dict(audio_md5) if audio_md5 else None),
         # Bulky, so it sits last: the embedded session log that makes this
         # report a self-contained debug record (None when not captured), and
         # the verbatim text of the companion files written beside it (None when
@@ -2068,6 +2080,7 @@ def write_report(
     secure_rerip: dict | None = None,
     eta_trace: list | None = None,
     checksums: dict | None = None,
+    audio_md5: dict | None = None,
     generated_at: str = "",
     timing: dict | None = None,
     debug_log: dict | None = None,

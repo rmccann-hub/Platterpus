@@ -2995,6 +2995,7 @@ class RipMixin(MainWindowShared):
             secure_rerip=getattr(self, "_last_secure_rerip", None),
             eta_trace=getattr(self, "_last_eta_trace", None) or None,
             checksums=getattr(self, "_last_checksums", None),
+            audio_md5=getattr(self, "_last_audio_md5", None),
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
             debug_log=self._build_rip_debug_log(),
@@ -3318,7 +3319,15 @@ class RipMixin(MainWindowShared):
                         _CHECKSUM_SETTLE_TIMEOUT_S,
                     )
                     return None
-            return checksums.compute_digests(rip_dir)
+            # BOTH digests, in one pass off the GUI thread. The SHA256 answers
+            # "has this file changed on disk"; the FLAC's own unencoded-audio MD5
+            # answers "is this the same audio", and only the second survives a
+            # legitimate retag. Recording just the first meant a retagged album
+            # looked as suspect as a corrupted one.
+            return {
+                "sha256": checksums.compute_digests(rip_dir),
+                "audio_md5": checksums.unencoded_audio_digests(rip_dir),
+            }
 
         log.info("computing SHA256 digests for %s", rip_dir)
         self._launch_post_rip_daemon(
@@ -3328,11 +3337,27 @@ class RipMixin(MainWindowShared):
         )
 
     def _on_checksums_done(self, digests: object) -> None:
-        """Digests computed — record + re-write the report (on the GUI thread)."""
+        """Digests computed — record + re-write the report (on the GUI thread).
+
+        Accepts the two-map form and, for safety, the bare ``{path: sha256}`` map
+        an older worker would have sent: this slot is reached by a queued signal,
+        so during an in-place upgrade a payload built by the previous shape can
+        still arrive. Recording nothing would silently drop a rip's integrity
+        record, which is worse than the branch.
+        """
         if not isinstance(digests, dict):
             return
-        self._last_checksums = digests
-        log.info("SHA256 digests: %d file(s) hashed", len(digests))
+        if "sha256" in digests and isinstance(digests.get("sha256"), dict):
+            self._last_checksums = digests["sha256"]
+            self._last_audio_md5 = digests.get("audio_md5") or {}
+        else:
+            self._last_checksums = digests
+            self._last_audio_md5 = {}
+        log.info(
+            "digests: %d file(s) hashed (SHA256), %d FLAC audio MD5(s) read",
+            len(self._last_checksums),
+            len(self._last_audio_md5),
+        )
         self._schedule_rip_report_write()
 
     # --- Post-rip FLAC encode-verify (opt-in, default on) -------------------

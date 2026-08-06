@@ -68,6 +68,24 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   controls. Lap 27's stale HOLD is withdrawn separately — its stated reason, the missing flag
   table, is satisfied.
 
+- **Every rip now records a retag-surviving audio identity** (`audio_md5`, schema v24).
+  The existing `checksums` map digests the **container**, so writing a tag rewrites the file
+  and invalidates the SHA-256 while the audio is untouched — a retagged album looked exactly
+  as suspect as a corrupted one. Every FLAC already carries an MD5 of its decoded samples in
+  `STREAMINFO`; we simply were not reading it, and EAC records nothing comparable.
+
+  Parsed in pure Python (42 header bytes per file) rather than shelling out to
+  `metaflac --show-md5sum`, so the field cannot go missing because a tool is absent.
+  Verified against the rig's own `metaflac` output on the reference disc — same value,
+  byte for byte. Tri-state: a non-FLAC, a truncated file, or the spec's all-zero
+  "not computed" value yields **no key**, never a fabricated digest that every silent
+  file would match.
+
+  Kept as its own key rather than folded into `checksums`, because a SHA-256 mismatch
+  after a retag is *expected* while an audio-MD5 mismatch never is, and the two must not
+  be confusable. This is also what removes the need for the hand-collected rig-evidence
+  sidecar: the report now carries what that file was carrying.
+
 - **Out-of-range values could reach the ripper, and a black-box self-probe found it.**
   `docs/seam-rules.md` S-9 asks each side to establish its own limits by *probing its own
   surface*, so `scripts/probe_argv_surface.py` now does that for the argv builder and the
