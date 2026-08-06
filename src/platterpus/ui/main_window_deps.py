@@ -503,6 +503,10 @@ class DependencyMixin(MainWindowShared):
         The popup format:
             "<ok_count> ok, <n> missing/needs-attention."
             "Installed: <name> <version> (<build note>), …"  ← when any are OK
+                    where a dep WITH a build note reports the tool's own version
+                    string and build tag rather than the parsed int-triple:
+                    cyanrip 0.9.4-rc1+platterpus.5-beta.5 (the Platterpus fork;
+                    build tag "platterpus-fork-g9048082")
             "Optional (not installed): <names>"   ← only when present
             (blank line)
             "Wrong build:"                ← only when a build note says so
