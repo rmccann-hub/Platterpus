@@ -32,6 +32,13 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
   the summary **reconciles**, naming any rows the classes do not account for. Our own line read
   "12 probes, 4 round-tripped, 0 mangled, 0 wrongly refused. Findings: 0" and 4+0+0 ≠ 12.
 
+- **A generated section of a shared file was stale, and nothing checked it.** `docs/seam-commands.md`
+  §1a carries `<!-- GENERATED … do not hand-edit -->` and is produced by the argv probe — so when
+  the probe grew the shape axis, the committed table still claimed `26 probes` while the probe
+  emitted 38. A do-not-hand-edit marker is a request; a regeneration diff is a check. Regenerated,
+  and a test now regenerates and compares. It matters more than an ordinary stale doc because this
+  file is shared with the cyanrip fork, so our stale claim was sitting in their tree too.
+
 - **The shared seam files no longer carry a Platterpus version stamp.** `*Last updated for
   Platterpus vX*` inside a document whose entire purpose is being byte-identical in two
   repositories broke the hash on every beta, by construction. Our own stamp-exemption test

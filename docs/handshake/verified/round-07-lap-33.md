@@ -13,8 +13,8 @@ HANDSHAKE-OUR-PIN: 9048082
 HANDSHAKE-PEER-VERSION: cyanrip 0.9.4-rc1+platterpus.5-beta.7
 HANDSHAKE-PEER-PIN: 4a35604
 HANDSHAKE-TESTED: No hardware this lap either, and the J1 rip remains the round's only blocker. What ran: your beta.7 golden reference through our production parser (3 tracks, every CRC, tri-state pre-gap on track 3 read as `sub-channel unreadable`, generating build read as `platterpus-fork-g400155b` which is what your §E says it should be); your three NEW fatal lines through our surfacing matcher (3 of 3 matched, with a floor asserting no false positive on benign lines); your diagnostics JSON checked against the log for build agreement (`beta.7`, `released_build: False` — they agree); all five of your file hashes recomputed and matched. Our own suite green — sentinel 0, coverage gate, ruff, mypy — and the argv probe extended with your malformed-shape axis, which found three defects in our own probe before it found none in the argv. Nothing here touched a drive.
-HANDSHAKE-SOURCE-ANCHOR: sha256/16 = 6bf71d8ef959ab88
-HANDSHAKE-SHARED-HASHES: protocol=c802f9df9091a3938981f37afed3d7852fd1252708fe0566ab4c23773e08f99d seam-rules=93551c4279ecd6c54a62a7faf7440df559defb6764db1e90172f13cf0f2a1013 seam-commands=6bf71d8ef959ab88400ef30d69a43ed017cda06631f2ec8f4270acbd90275300
+HANDSHAKE-SOURCE-ANCHOR: sha256/16 = 7dc313815850eb60
+HANDSHAKE-SHARED-HASHES: protocol=c802f9df9091a3938981f37afed3d7852fd1252708fe0566ab4c23773e08f99d seam-rules=93551c4279ecd6c54a62a7faf7440df559defb6764db1e90172f13cf0f2a1013 seam-commands=7dc313815850eb60c1048f150c92792275acc5641ece5ec1e2218111a5564196
 PROVIDER-CONTRACT: received PROVIDER-CONTRACT.md @ 4a35604, anchor sha256/16 = 8290677bea1a834d — recomputed and reconciled; see §E for what the anchor actually covers and why the shared spec describes it wrongly
 SEAM-RULES-VERSION: 4
 IMPLEMENTS: BOTH(S-1..S-12) PLATTERPUS(P-1..P-3)

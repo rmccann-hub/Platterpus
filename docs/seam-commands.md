@@ -171,10 +171,26 @@ which is the outcome S-9 most wants written down.
 | `read_offset_override` | `667` | **emitted** | -s 667 · chokepoint ok |
 | `read_offset_override` | `5000` | **emitted** | -s 5000 · chokepoint ok |
 | `read_offset_override` | `2147483648` | **raised** | RipError: refusing -s 2147483648 (read offset correction): outside the accepted range -5000..5000. This is the same range the Settings dialog enforces; a value arriving from a hand-edited config, a previous disc, or a future caller that skips Settings is checked here too |
+| `album_title` | `'A: colon, unescaped'` | **emitted** | round-tripped through 'album=A\\: colon, unescaped' |
+| `album_title` | `'trailing backslash \\'` | **emitted** | round-tripped through 'album=trailing backslash \\\\' |
+| `album_title` | `'A=equals, unescaped'` | **emitted** | round-tripped through 'album=A\\=equals, unescaped' |
+| `album_title` | `':'` | **emitted** | round-tripped through 'album=\\:' |
+| `album_title` | `'='` | **emitted** | round-tripped through 'album=\\=' |
+| `album_title` | `'::'` | **emitted** | round-tripped through 'album=\\:\\:' |
+| `album_title` | `'=='` | **emitted** | round-tripped through 'album=\\=\\=' |
+| `album_title` | `'a:=b'` | **emitted** | round-tripped through 'album=a\\:\\=b' |
+| `album_artist` | `'B: colon, unescaped'` | **emitted** | round-tripped through 'album=Probe Album:album_artist=B\\: colon, unescaped' |
+| `track_title` | `'T: colon, unescaped'` | **emitted** | round-tripped through '1=title=T\\: colon, unescaped' |
+| `track_title` | `':'` | **emitted** | round-tripped through '1=title=\\:' |
+| `track_isrc` | `'IS:RC'` | **emitted** | round-tripped through '1=title=T:isrc=IS\\:RC' |
 
-**26 probes: 14 emitted, 3 dropped, 9 raised.**
+**38 probes: 26 emitted, 3 dropped, 9 raised.**
 
-**Silently-dropped non-zero values (findings): 0** — none. Every value a caller set either reached the argv or was refused.
+**Range axis — 26 probes. Silently-dropped non-zero values (findings): 0** — none. Every value a caller set either reached the argv or was refused.
+
+**Shape axis — 12 probes, 12 round-tripped intact, 0 mangled, 0 wrongly refused. Findings: 0** — none. Every structurally awkward value came back out of the blob byte-for-byte, and none was refused for being awkward.
+
+*Two axes with opposite expectations: on the range axis a refusal is the desired outcome, on the shape axis it is a defect. Reported separately because one total cannot mean both.*
 
 **Chokepoint refusals across every probe: 0** — none, so no probe value can smuggle an argv past the `-N` guard.
 
