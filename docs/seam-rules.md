@@ -292,7 +292,7 @@ State the version and which tags you implement:
 
 ```
 SEAM-RULES-VERSION: 4
-IMPLEMENTS: BOTH(S-1..S-7) PLATTERPUS(P-1..P-3)
+IMPLEMENTS: BOTH(S-1..S-12) PLATTERPUS(P-1..P-3)
 ```
 
 A side claiming `BOTH` claims all twelve. Partial conformance names the gaps

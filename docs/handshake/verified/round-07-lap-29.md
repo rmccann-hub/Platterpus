@@ -423,7 +423,7 @@ S6's test asserts on it, so it cannot be reworded freely afterwards.
 
 Three attachments to this round, all of which want to land in your tree:
 
-**1. `docs/seam-rules.md` — version 5.** Byte-identical in both repos, owned by
+**1. `docs/seam-rules.md` — version 4** (`SEAM-RULES-VERSION: 4`, twelve `[BOTH]` rules)**.** Byte-identical in both repos, owned by
 neither, same mechanism as `docs/handshake-protocol.md`. Every rule tagged `[BOTH]`,
 `[PLATTERPUS]` or `[CYANRIP]` so each side knows what binds it *and* what the other
 has promised. §4 tables every value crossing the seam with its type. Take it as a
