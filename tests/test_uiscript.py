@@ -364,3 +364,47 @@ def test_a_well_formed_rip_argv_is_allowed() -> None:
     assert (
         script_mod.sanitise_cyanrip_args(["-N", "-d", "/dev/sr0", "-o", "flac"]) is None
     )
+
+
+def test_the_verb_table_and_the_runner_agree_about_what_works() -> None:
+    """The sweep that would have caught the gap the moment it opened.
+
+    The table advertises 25 verbs; the runner implemented 12, and the other 13
+    parsed, arity-checked, passed the unsafe gate and then failed at RUN time.
+    That is `docs/testing.md` §5.p — *a documented capability is not a
+    capability* — and for an unattended batch it means dying mid-run against a
+    reference that promised the command would work.
+
+    Asserted in BOTH directions: a verb flagged implemented must have a handler,
+    and a handler must not exist for a verb flagged otherwise. One direction
+    alone would let the flag rot into permanent pessimism once the verbs land.
+    """
+    from platterpus.uiscript.runner import ScriptRunner
+
+    def has_handler(name: str) -> bool:
+        return hasattr(ScriptRunner, f"_do_{name.replace('-', '_')}")
+
+    wrong = [
+        f"{name}: table says implemented={verb.implemented}, "
+        f"handler {'exists' if has_handler(name) else 'missing'}"
+        for name, verb in verbs_mod.VERBS.items()
+        if verb.implemented != has_handler(name)
+    ]
+    assert not wrong, "the verb table and the runner disagree:\n  " + "\n  ".join(wrong)
+
+
+def test_the_reference_marks_unimplemented_verbs_in_capitals() -> None:
+    """A user reads this while choosing what to put in an unattended batch."""
+    text = verbs_mod.verb_reference()
+    unimplemented = [n for n, v in verbs_mod.VERBS.items() if not v.implemented]
+    if not unimplemented:  # the happy future; the assertion below still holds
+        return
+    assert "NOT YET IMPLEMENTED" in text
+    for name in unimplemented:
+        # `name + " "`, not `name` — otherwise `expect` matches the
+        # `expect-cyanrip` line, which IS implemented, and the assertion passes
+        # against the wrong row. Exactly the substring collision the surface
+        # audit flagged for the label resolver, walked into here in the test
+        # written to guard against sloppiness.
+        line = next(ln for ln in text.splitlines() if ln.strip().startswith(name + " "))
+        assert "NOT YET IMPLEMENTED" in line, f"{name} is advertised as working"

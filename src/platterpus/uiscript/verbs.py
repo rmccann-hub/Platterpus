@@ -57,6 +57,14 @@ class Verb:
     max_args: int | None
     help: str
     unsafe: bool = False
+    #: False while the runner has no handler for this verb yet. The table is what
+    #: the console's reference renders, so an advertised verb with no
+    #: implementation would offer a user a command that fails at RUN time —
+    #: `docs/testing.md` §5.p, *a documented capability is not a capability*, and
+    #: for an unattended batch it means dying mid-run. `tests/test_uiscript.py`
+    #: sweeps this against the runner's real handlers, so it cannot go stale in
+    #: either direction.
+    implemented: bool = True
 
     def arity_problem(self, count: int) -> str | None:
         """Human-readable arity complaint, or ``None`` when the count is fine."""
@@ -118,52 +126,64 @@ _VERB_LIST: tuple[Verb, ...] = (
         2,
         None,
         "set <field> <value> — set a Settings field by its row label",
+        implemented=False,
     ),
     Verb(
         "expect",
         2,
         None,
         "expect <field> <value> — assert a Settings field equals a value",
+        implemented=False,
     ),
     Verb(
         "expect-contains",
         2,
         None,
         "expect-contains <field> <text> — assert a field's value contains text",
+        implemented=False,
     ),
     # --- Disc and rip --------------------------------------------------------
-    Verb("rescan", 0, 0, "rescan — re-read the disc in the drive"),
+    Verb("rescan", 0, 0, "rescan — re-read the disc in the drive", implemented=False),
     Verb(
         "album",
         1,
         None,
         "album <title> — set the album title, so repeat rips land in separate folders",
+        implemented=False,
     ),
     Verb(
         "album-artist",
         1,
         None,
         "album-artist <name> — set the album artist for this rip",
+        implemented=False,
     ),
-    Verb("rip", 0, 0, "rip — start the rip (needs an identified disc)"),
+    Verb(
+        "rip", 0, 0, "rip — start the rip (needs an identified disc)", implemented=False
+    ),
     Verb(
         "wait-for-rip",
         1,
         1,
         "wait-for-rip <seconds> — wait for the rip to finish, up to a timeout",
+        implemented=False,
     ),
-    Verb("cancel-rip", 0, 0, "cancel-rip — cancel a rip in progress"),
+    Verb(
+        "cancel-rip", 0, 0, "cancel-rip — cancel a rip in progress", implemented=False
+    ),
     Verb(
         "expect-status",
         1,
         None,
         "expect-status <text> — assert the status line contains text",
+        implemented=False,
     ),
     Verb(
         "expect-tracks",
         1,
         1,
         "expect-tracks <count> — assert how many track rows are loaded",
+        implemented=False,
     ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(
@@ -192,6 +212,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "eval <python> — evaluate an expression against the window (UNSAFE)",
         unsafe=True,
+        implemented=False,
     ),
     Verb(
         "call",
@@ -199,6 +220,7 @@ _VERB_LIST: tuple[Verb, ...] = (
         None,
         "call <method> [args] — call a window method by name (UNSAFE)",
         unsafe=True,
+        implemented=False,
     ),
 )
 
@@ -237,7 +259,14 @@ def verb_reference() -> str:
     """
     lines = ["Commands (one per line; # starts a comment):", ""]
     for verb in _VERB_LIST:
-        mark = "  [needs the unsafe opt-in]" if verb.unsafe else ""
+        marks = []
+        if not verb.implemented:
+            # First, and in capitals. A user scanning this reference is choosing
+            # what to put in a batch that will run while they are not watching.
+            marks.append("NOT YET IMPLEMENTED")
+        if verb.unsafe:
+            marks.append("needs the unsafe opt-in")
+        mark = f"  [{'; '.join(marks)}]" if marks else ""
         lines.append(f"  {verb.help}{mark}")
     lines.append("")
     lines.append(f"Dialogs `open` accepts: {', '.join(sorted(OPENABLE))}")

@@ -97,6 +97,33 @@ it:
 - Every P0 in `TASKS.md` either fixed or explicitly deferred **in writing**.
 - The batch script exercised against the real vocabulary, not against the table.
 
+## 4a. The maintainer's stated intent for the release
+
+His heads-up, verbatim: *"after i upload all the new logs and documents, plan to
+take those and what we have here, and make a new beta version we can do another
+round of handshakes with the cyanrip app, so we can try again."*
+
+That settles the version question §3c left open, and it settles it **downward**:
+the next release is a **beta**, deliberately, because its job is to be the
+artifact a *new handshake round* is run against. A stable v0.6.4 would be the
+wrong shape for that even if round 7 closed — you cannot open a round on a build
+whose purpose is to be final.
+
+So the sequence is: **package → findings → beta → round 8**, and the beta is
+named in the round-8 outbound file as the app version the round approves against
+(Critical rule #12: a round approves a pin *for a named app version*, and two
+artifacts from one ripper under different app versions are not interchangeable
+evidence).
+
+Two consequences worth stating now:
+
+- **Round 7 gets closed or explicitly carried, not left ambiguous.** Lap 28 is
+  still owed regardless — our sent lap 27 declares a HOLD whose stated reason has
+  evaporated and recommends a pin our own `fork_source.py` lists as superseded.
+  Opening round 8 on top of an un-corrected round 7 would compound that.
+- **`docs/seam-rules.md` ships with the beta**, so round 8 can cite
+  `SEAM-RULES-VERSION: 1` rather than re-argue it.
+
 ## 5. What could change this plan
 
 Stated so that a later reader can tell a revised plan from a forgotten one:
