@@ -428,6 +428,91 @@ def check_outbound(text: str) -> list[str]:
     return problems
 
 
+#: Which checker a file belongs to, decided by the directory it lives in.
+#: Direction is a property of *where the file is*, not of what it says, because
+#: the wire header is exactly the thing a malformed file gets wrong — routing on
+#: `HANDSHAKE-FROM` would send a file with a mistyped header to the checker that
+#: cannot see the mistake. The header is still checked, just not trusted to route.
+_DIRECTION_BY_DIR: Final[dict[str, str]] = {
+    "outbound": "outbound",
+    "inbound": "inbound",
+    "verified": "verified",
+}
+
+
+def direction_of(path: Path) -> str:
+    """Whether ``path`` is a file we sent, one we received, or a verification.
+
+    Falls back to ``HANDSHAKE-FROM`` only when the file is not in one of the three
+    known directories — someone checking a draft in a scratch folder should still
+    get the right spec rather than a confusing wall of inbound-only complaints.
+    """
+    by_dir = _DIRECTION_BY_DIR.get(path.parent.name)
+    if by_dir is not None:
+        return by_dir
+    sender = wire_fields(_safe_read(path)).get("HANDSHAKE-FROM", "").strip()
+    return "inbound" if sender == "cyanrip-fork" else "outbound"
+
+
+def check_outbound_paths(*paths: Path) -> list[str]:
+    """Validate files **we** are about to send, against the outbound spec.
+
+    This exists because :func:`check_outbound` had no caller. It was written,
+    tested as a function, and never wired to the command line, so ``--check`` ran
+    the *inbound* spec against everything — and an outbound file checked that way
+    reports six sections "missing" that the outbound spec never asks for, plus a
+    wrong-sender complaint. A reviewer seeing seven problems on a correct file
+    learns to distrust the checker, which is worse than having no checker.
+
+    The same shape as the ``RipHandle.cancel`` that was fully implemented and
+    called from nowhere: grep for a call site before believing a capability is
+    reachable.
+    """
+    problems: list[str] = []
+    if not paths:
+        return ["no outbound file given"]
+    for path in paths:
+        num = round_number(path)
+        # Rounds 1-6 predate the shared wire header; requiring it of them would
+        # fail files that were correct when sent.
+        if num is not None and num not in OUR_PRE_HEADER_ROUNDS:
+            problems.extend(check_wire_header(path, expect_from="platterpus"))
+        text = _safe_read(path)
+        if not text.strip():
+            problems.append(f"{path} is empty")
+            continue
+        problems.extend(check_outbound(text))
+    return problems
+
+
+def check_verification_paths(*paths: Path) -> list[str]:
+    """Validate a verification file — the one that actually closes a round.
+
+    A verification's job is narrower than a round file's: declare a verdict, and
+    declare it in the bolded form the gate reads. The failure this catches is the
+    one the protocol calls out as worse than a missing section — a file that reads
+    like a close to a human and carries no verdict a gate can find.
+    """
+    problems: list[str] = []
+    if not paths:
+        return ["no verification file given"]
+    for path in paths:
+        num = round_number(path)
+        if num is not None and num not in OUR_PRE_HEADER_ROUNDS:
+            problems.extend(check_wire_header(path, expect_from="platterpus"))
+        text = _safe_read(path)
+        if not text.strip():
+            problems.append(f"{path} is empty")
+            continue
+        if verification_verdict(text) is None:
+            problems.append(
+                f"{path.name}: no verdict — a verification file must state a "
+                "bolded '**GO on <pin>' or '**HOLD on <pin>' at a line start. "
+                "A missing verdict fails closed and leaves the round OPEN."
+            )
+    return problems
+
+
 def _inbound_spec_markdown() -> str:
     """The inbound spec as a table, for pasting into the outbound file.
 
@@ -701,6 +786,22 @@ REQUIRED_CLOSE_FIELDS: tuple[str, ...] = (
     "HANDSHAKE-TESTED",
 )
 
+#: The optional field that names a build designated to *gather* the evidence a
+#: close needs (§6a). It is **not** a pin agreement and must never be read as one.
+#:
+#: Why the protocol needed it: our own rules deadlocked. A close requires
+#: `HANDSHAKE-TESTED`; hardware evidence only comes from the rig; the rig installs
+#: the pinned build; neither side may move the pin while a round is open — so the
+#: rig always runs the build *without* the changes under review, and the round can
+#: never close. Every step is a rule both projects hold and together they are
+#: unsatisfiable. The fix is to stop conflating "the build we agreed on" with "the
+#: build we are testing".
+#:
+#: Consequence for this gate, and the whole reason the constant exists here rather
+#: than being ignored as an unknown field: a file carrying a test pin must be no
+#: closer to closing a round than the same file without one (rows C17/C18).
+TEST_PIN_FIELD: str = "HANDSHAKE-TEST-PIN"
+
 #: Rounds recorded before the header existed, exempted **by number** — never by a
 #: rule like "a missing verdict is fine for old rounds", which is the fallback that
 #: lets any new round close by omission. Both sets may shrink, never grow.
@@ -848,6 +949,24 @@ def close_blockers(text: str, round_hint: int | None = None) -> list[str]:
         # "They did not object" is never "they agreed" — and the peer verdict is
         # TRANSCRIBED, not judged, so a peer HOLD written down honestly must block.
         blockers.append(f"peer verdict is {peer!r}, not GO (§5)")
+    # A TEST PIN IS NOT A PIN AGREEMENT (§6a, row C18). A test pin may accompany a
+    # valid close — that is the normal sequence, since the evidence a close cites
+    # was gathered on it — but it must never *substitute* for `HANDSHAKE-PIN`. The
+    # failure this refuses is a file that names only the build it tested and closes
+    # the round on it, moving the production pin to something never agreed.
+    #
+    # Deliberately checked here rather than left to the required-field sweep above:
+    # that sweep is round-gated by the grandfather clause, and a test pin is a v2
+    # addition that can only appear on files written after it existed.
+    test_pin = fields.get(TEST_PIN_FIELD)
+    if test_pin is not None and test_pin != AMBIGUOUS:
+        agreed = fields.get("HANDSHAKE-PIN")
+        if agreed is None or agreed == AMBIGUOUS:
+            blockers.append(
+                f"{TEST_PIN_FIELD} is declared but HANDSHAKE-PIN is not (§6a) — a "
+                "test pin names the build that gathered the evidence, never the "
+                "build being agreed to, and it must not be read as one"
+            )
     return blockers
 
 
@@ -1499,7 +1618,25 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     label = " + ".join(str(p) for p in args.check)
-    problems = check_inbound(*args.check)
+    # ROUTE BY DIRECTION. Before this, `--check` ran the *inbound* spec against
+    # every file it was given, so checking one of our own outbound files reported
+    # six sections "missing" that the outbound spec never asks for. Seven bogus
+    # problems on a correct file is how a checker gets switched off.
+    #
+    # Files are grouped rather than checked one at a time because `check_inbound`
+    # deliberately treats several inbound paths as ONE round delivered in parts
+    # (round 6 was exactly that), and splitting them would reintroduce the
+    # over-strictness its docstring warns about.
+    grouped: dict[str, list[Path]] = {"outbound": [], "inbound": [], "verified": []}
+    for path in args.check:
+        grouped[direction_of(path)].append(path)
+    problems = []
+    if grouped["inbound"]:
+        problems.extend(check_inbound(*grouped["inbound"]))
+    if grouped["outbound"]:
+        problems.extend(check_outbound_paths(*grouped["outbound"]))
+    if grouped["verified"]:
+        problems.extend(check_verification_paths(*grouped["verified"]))
     if not problems:
         sys.stdout.write(f"{label}: satisfies the protocol (all sections present)\n")
         return 0

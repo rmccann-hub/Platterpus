@@ -11,6 +11,41 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+- **The colon, measured rather than argued — and the measurement found two defects reading could not (2026-08-06).** The cyanrip fork's lap 30 said the thing we least expected: `-a`/`-t` *"have had a backslash escape all along, inherited from FFmpeg and never documented by anyone"*, and asked us to confirm it ourselves rather than take their word — *"S-9 cuts both ways."*
+
+  The tempting route was to read their source and ship. What actually settled it was compiling `append_missing_keys()` **verbatim out of the pinned tree** against the real libavutil and driving it with the exact blobs our argv builder emits. Two things came out of that which no amount of reading would have:
+
+  1. **An unescaped `:` in a value does not fail — it silently truncates.** `album=Every Breath You Take: The Classics` parses to `Every Breath You Take`, exit 0, nothing logged. Our escape was applied correctly at all twelve pair-building sites, which is a rule kept by everyone remembering it; the blob's *structure* is now refused at the one argv chokepoint.
+  2. **Deleting the escape branches reproduced a real user's 2026-06-27 folder bug character for character** — `Every Breath You Take∶album_artist= The Classics`. So the workaround being retired was *correct when written*, and the escape is load-bearing rather than cosmetic. Reproduced, not explained.
+
+  **And the defect the change created in its own commit, which is the entry's real lesson.** The escape shipped on the *write* side while the *read* side — the code that parses `-a`/`-t` back out of a saved report — still split naively on `:`, with a comment justifying it: *"a real colon can never appear in one of these blobs."* True when written; false the moment the same change landed upstream of it. The album title read back as `Every Breath You Take\`, and because that value feeds an expectation, a **new** cue-title check would have accused *every correct rip of the reference disc*. A validator worse than nothing, in the same commit as the fix it was meant to protect.
+
+  Graduated: **a seam has two halves inside one project too.** We have been careful about their-side-versus-our-side for seven rounds and much less careful about write-versus-read within our own tree. One implementation now, in `cyanrip_cli.py`, the module already declared as the home for facts both layers need.
+
+  Also graduated, from the same sweep: the cue's colon check could **only pass by finding nothing**, and was structurally blind to the truncation above (a truncated cue contains no U+2236 at all). It compares titles against the text we sent now, tri-state, with a `"`-in-title case reported *not determined* rather than accused — we have no measured case for how cyanrip writes a quote into a cue, and missing one is cheaper than a false accusation on a good rip.
+
+  **Stated honestly rather than implied:** we proved we *emit* `\:` and that the function which used to break on it no longer does. Whether it survives into cyanrip's written tags, its cue `TITLE` and its log's `album:` field needs a rip. So the post-rip repair pass stays armed as a net with a comment naming what would retire it — shipping the escape *and* removing the net in one unverified release is the "each fix introduces the next" pattern this project has paid for three times.
+
+- **Our copy of a file neither project owns had never been edited (2026-08-06).** Their lap 30 §H2 reported that the two copies of `handshake-protocol.md` had drifted and, instead of arguing, proposed the cheap test: *"whoever's copy is older should take the other's."*
+
+  Ours, definitively — `git log` shows exactly one commit touching it, the day we adopted it in lap 4. The part that stings: the diff contains **§6b, the pre-release carve-out, which their own text credits to "Platterpus in round 7 lap 7."** We proposed a rule, they wrote it into the shared document, and we never took it back. Our gate had implemented `--prerelease` since lap 7 against a spec that did not mention it.
+
+  Adopted verbatim, and the two things it added that needed code: `HANDSHAKE-TEST-PIN` (which breaks a genuine deadlock — a close needs evidence obtainable only by installing the build under review, but neither side may move the pin while a round is open, so the rig forever runs the build *without* the changes) and stable conformance row IDs `C1`–`C20`.
+
+  **The row IDs fixed a defect of ours that the old numbering hid.** Our coverage check looped `range(1, 17)` and skipped two entries with a comment about index mismatch — which is how we ended up with *two different tests both named `test_row9_`*, one for an unrecognised verdict and one for the round-8 identity fields. Either could have been deleted with the check still green. The expected ID set is now **parsed out of the shared table**, with a floor and a converse test.
+
+  **And removing our own annotation from the shared file exposed a check passing for the wrong reason.** `test_the_shared_spec_is_present_and_not_paraphrased` asserted that *the shared spec* says it is shared; what it had been matching was **our own HTML comment** at the top of the file. The spec's own sentence wraps across a newline and never matched — the test would have passed with that sentence deleted from the shared file entirely. Graduated: **a local annotation inside a file whose entire purpose is byte-identity is itself the drift that file exists to prevent.** The note lives in `docs/README.md` now.
+
+  Raised with them rather than fixed unilaterally: **neither side bumped `HANDSHAKE-PROTOCOL`** for a change to what a conforming gate must *refuse*. A normative requirement moved inside version 2 on both sides, which is exactly the drift the version field exists to make visible.
+
+- **Two claims corrected before they were sent, both from reasoning past the evidence (2026-08-06).** Worth recording because neither reached the fork.
+
+  The first: searching their history for when the escape-aware pre-splitter landed produced "2026-07-15, commit `f7a341e`" — and `f7a341e` is merely the **graft boundary of a shallow clone**, where every file appears new. The date was an artefact of the clone, not a fact about their repo. What could be verified, and was, is the operative thing: escape-awareness is present at `9048082` (the build on the rig), at `dc21958`, and at upstream `master`. That distinction decided whether the change needed gating on a build tag.
+
+  The second: a first grep for the escape returned "NO" for all three commits and looked like a finding — it was shell backslash-quoting eating the pattern. A tooling artefact that reads as a measurement is the same failure shape as the graft boundary, twice in one hour, and both were caught only by checking a result that *surprised* me rather than one that confirmed me.
+
+- **A first pass at restamping docs edited eleven already-sent handshake files (2026-08-06).** The release checklist says restamp the docs the cycle touched; a script derived its population from `git diff` and swept up `docs/handshake/verified/round-07-lap-{09..29}.md`. The protocol's own words: *"Each lap is a new file. Never edit a file already sent."* The stamp gate had always exempted them — the offender list it printed contained no handshake file — so the over-reach was mine and not the gate's. Reverted. The rule for anything touching that directory: the correspondence is **append-only**, and a bulk edit derived from a diff has no idea what a record is.
+
 - **Five dropdowns, five phrasings — and the fix is a checker, not a style note (2026-08-06).** The maintainer read the Settings dialog on the rig and asked for one naming syntax, giving it by example: *"Flack - Lossless Archival Master [Debugging] or similar, and other settings should reflect similar naming syntax."* A follow-up narrowed it — *"only options"* — with a screenshot of the Output-format dropdown, which is what settled the scope: the *option* labels, not the field labels.
 
   **What he was looking at:** an em dash here, a lowercase parenthetical there, a bare `Embed in FLAC` with no descriptor at all, `WavPack (.wv)` and `Fixed speed (advanced)` using the same round bracket for two different jobs, and two of the naming presets separating with **two spaces**. Nothing wrong with any single label; five combos in one dialog reading five ways.
@@ -1132,4 +1167,4 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b13.*

@@ -11,6 +11,287 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b13] — 2026-08-06
+
+### Changed
+- **The rig sheet carries the next rip's acceptance criteria, before the rip rather than after.** Four
+  checks with a copy-pasteable command each: 14 ISRCs in the cue, `INDEX 00` on exactly
+  2/4/5/7/8/9/10/13/14 **and nowhere else**, the `Offset:` line unchanged as the negative control for
+  the fork's new argument bound, and the album title carrying a real colon in both the cue and the
+  ripper's log. Each row states how it could pass for the wrong reason — a marker *count* of nine
+  passes on the wrong nine, and beta.1 wrote thirteen markers of which four were for pre-gaps its own
+  log measured at zero. The commands were verified against the committed reference cue, which
+  reproduces beta.1's numbers exactly.
+
+  Written because lap 31 told the fork these were already in our hardware sheet and they were not —
+  the sheet held the beta.5 *analysis*, not the beta.6 *criteria*. Caught by re-reading our own sent
+  claim rather than by anyone asking.
+
+- **Round 7 lap 31 filed, and the fork's lap 30 correction accepted into the record.** Our
+  lap 29 blamed the cue's ISRC regression on the fork; the branch is **upstream's**, and what
+  the fork changed is only its *reachability*. Verified in their repository rather than taken
+  on trust — a finding that arrives as "you got this wrong" is not pre-verified, and this
+  project's own rule says a correction should not get *less* scrutiny than a claim. It is the
+  third time a seam failure has turned out to be upstream's inherited by the fork, and the
+  rule warning about exactly that was already written down here from the previous two.
+- **The shared handshake protocol is back in sync with the cyanrip fork, and our copy was
+  the stale one.** `docs/handshake-protocol.md` is a document *neither project owns* — the
+  same file in both repositories — and ours had not been edited since the day it was adopted
+  (round 7 lap 4), while theirs had absorbed three later laps. Established from evidence, not
+  from argument: `git log` shows exactly one commit touching our copy, and the diff against
+  theirs contains **§6b, a mechanism Platterpus itself proposed in lap 7** and never wrote
+  into the shared file. Adopted verbatim, byte-identical.
+
+  It brings three things: the round-8 requirement that every file name its own pair (on a
+  mid-round `HOLD` too — a measurement without provenance is what the fields exist to
+  prevent), the optional `HANDSHAKE-TEST-PIN`, and a conformance table with **stable row IDs
+  `C1`–`C20`** so a disagreement can cite a row rather than a paraphrase.
+
+  `HANDSHAKE-TEST-PIN` resolves a real deadlock: closing a round requires evidence that can
+  only be gathered by installing the build under review, but neither side may move the pin
+  while a round is open — so the test rig forever runs the build *without* the changes, and
+  the round can never close. Our gate now enforces that a test pin is inert on a `HOLD` and
+  can never stand in for the agreed pin.
+
+  Our conformance suite is one test per row ID, with the **expected ID set parsed out of the
+  shared table** rather than hardcoded. The version it replaced looped over a number range
+  and skipped two entries, which had let two different tests both be named for "row 9" —
+  either could have been deleted with the coverage check still green.
+
+  One finding worth stating because it cuts against us: removing our local annotation from
+  the top of the shared file broke a test that claimed to assert the *shared spec* says it is
+  shared. It had been matching **our own comment** — the spec's own sentence is wrapped
+  across a newline and never matched. A Platterpus-only comment inside a file whose entire
+  purpose is byte-identity was itself the drift that file exists to prevent.
+
+### Fixed
+- **A colon in an album or track title is now sent to cyanrip as `\:` instead of being
+  replaced by a lookalike character.** Titles with a colon — "Every Breath You Take: The
+  Classics" — reached cyanrip's `-a`/`-t` arguments as U+2236 RATIO, a visually identical
+  stand-in, because that parser could not then be trusted with an escaped colon. We repaired
+  the FLAC tags and our own log afterwards, but **two artifacts we do not write kept the
+  wrong character forever**: cyanrip's `.cue` `TITLE` line and its own log's `album:` field.
+  Now the real colon goes in and comes back out, and nothing needs repairing. Folder names
+  are unchanged — cyanrip still substitutes the lookalike when sanitising a *path*, which is
+  where the character came from in the first place.
+
+  What changed is cyanrip's code, not our opinion of it, and we verified that instead of
+  taking the fork's word for it: its pre-splitter is now escape-aware **in both the fork and
+  upstream**, present at the build installed on the test rig. Measured end-to-end where we
+  could — the real function compiled out of the pinned tree against the real FFmpeg library —
+  which also surfaced the finding below. Full confirmation that the escape survives into
+  cyanrip's own written tags needs a rip on real hardware, so the post-rip repair pass stays
+  armed as a safety net until then rather than being removed in the same release.
+
+- **An unescaped separator in a tag value is refused at the argv chokepoint.** Measured
+  against cyanrip's real parser, an unescaped `:` in a value does not fail — it **silently
+  truncates**: `album=Every Breath You Take: The Classics` parses to `Every Breath You Take`,
+  exit code 0, nothing in any log. The escape was correct at all twelve places that build a
+  tag pair, but that is a rule enforced by everyone remembering it, and a thirteenth would
+  have lost the user's text with no diagnostic. The blob's structure is now validated where
+  every route to the ripper already passes.
+
+- **The cue's titles are compared against the text we sent, not merely scanned for the old
+  workaround.** The check that read the shipped `.cue` could previously only *pass by finding
+  nothing* — and it was blind to the truncation above, which leaves no trace in the file.
+  It now compares each title against the argv, so substitution, truncation and any other
+  mangling are caught by one assertion, and reports **not determined** when there is nothing
+  to compare against. A title containing a character a cue cannot quote is likewise not
+  determined rather than accused.
+
+- **The argv writer and the report reader can no longer disagree about the escaping.** They
+  did, for the length of one change: the escape shipped on the write side while the read side
+  still split naively, which turned the album title back into `Every Breath You Take\` and
+  would have made the new title check accuse **every correct rip** of a disc whose title
+  contains a colon. Both sides now share one implementation of cyanrip's blob syntax.
+
+## [0.6.4b12] — 2026-08-06
+
+### Added
+- **The `.cue` cyanrip writes is now validated before we ship it** (`cue_validate.py`,
+  a new `cue_integrity` self-check). The cue was **external input nobody read** — the
+  2026-08-05 rig rip handed the user a cue missing **9 of its 14 ISRCs** and carrying a
+  U+2236 escaping artefact in the album title, and *both were derivable from facts already
+  in the report*. The validator judges the cue against what we know **independently** of it:
+  the ISRCs and titles from the argv we sent, the pre-gap frame counts from the ripper's own
+  log. Checking an artifact against itself is consistent, not verified.
+
+  Every check is tri-state — an absent, empty or truncated cue is *not determined*, never a
+  pass — and the one false positive that would make the validator worse than nothing is
+  explicitly excluded: a U+2236 inside a `FILE` line is **correct** and never flagged, because
+  that character really is in the filename on disk.
+
+### Changed
+- **Documentation consolidated: 27 top-level docs → 22, and a rule so it stops growing.**
+  The maintainer's instruction was blunt — *"make sure you are not making and adding md files
+  just for the sake of it … amalgamate as much as you can into the fewest files possible
+  without losing info and context"* — and it was earned: **four** new docs appeared inside
+  **71 minutes** on 2026-08-06, one of which lived **43 minutes** before being deleted, and
+  five separate rig sheets accumulated in three days for one recurring activity.
+
+  Merged: the release plan into `TASKS.md` (which is the declared home for a task queue), the
+  error-reporting design into `docs/architecture.md` beside the error-handling rules it
+  restated, AppImage testing and the release-signing ritual into that file's packaging
+  section, and the shipped multi-format design-of-record into `docs/archive/` — with its one
+  still-open item graduated to `TASKS.md` first, because archiving a doc with a live item
+  loses it.
+
+  **Critical rule #7 gained a fourth obligation:** a durable lesson graduates into an
+  *existing* home; a **new** document requires that no existing home fits, and the commit must
+  name the homes considered and why each failed. A recurring activity's sheet is **rewritten**
+  when it goes stale, never joined by a sibling.
+
+  Two carve-outs, because they cut the other way: the handshake correspondence is
+  **append-only** (a merged round file is a falsified record), and the EAC-compatible log
+  stays as close to EAC's original as it can get without forging — consolidation applies to
+  *documentation*, never to *evidence*.
+
+- **A doc CLAUDE.md merely mentions can no longer vanish unnoticed.** `CLAUDE.md` names some
+  docs in plain backticks rather than as links, and the companion-list check filtered its
+  candidates to files that *still exist* — so deleting a doc CLAUDE.md mentions left a stale
+  reference no test could see. Now every `docs/<name>.md` string anywhere in `CLAUDE.md` must
+  resolve, with a floor so the check cannot pass by finding nothing.
+
+- **Handshake round 7 lap 29 sent, with a HOLD on pin `9048082`.** Verified from the rig
+  artifacts: the fork's `INDEX 00` pre-gap markers are **correct on all nine tracks** — the
+  same nine EAC marks on this disc, and each resolving to the sector against the pre-gap start
+  LSN in the ripper's own log. Held anyway, because the commit that added them stopped writing
+  `ISRC`: the cue carries 5 of 14, and the missing nine are *exactly* the nine with a marker.
+  Proven across two fork builds by a relation that holds in both (surviving ISRCs = 14 −
+  marker count), with stock cyanrip (14 ISRCs, 0 markers) and EAC (14 and 9 together) as
+  controls. Lap 27's stale HOLD is withdrawn separately — its stated reason, the missing flag
+  table, is satisfied.
+
+- **The auto-fix supersede can now also be rebuilt from the JSON report**, so a folder
+  whose sidecar is missing — one written by an older build, or one where the write failed —
+  still resolves a re-ripped track to the values actually on disk instead of the discarded
+  pass's.
+
+  **The sidecar file itself stays**, and the attempt to retire it is worth recording
+  because it failed for a reason a file count does not outweigh: the post-rip finish
+  handler re-parses the ripper's log *before* `write_report` runs, so at that moment there
+  is no report to read and removing the file made that re-parse return the **discarded**
+  CRC — reintroducing the precise defect the addendum exists to prevent. An existing test
+  caught it. The per-rip folder therefore still carries the sidecar, and only when a track
+  was genuinely swapped.
+
+- **Every rip now records a retag-surviving audio identity** (`audio_md5`, schema v24).
+  The existing `checksums` map digests the **container**, so writing a tag rewrites the file
+  and invalidates the SHA-256 while the audio is untouched — a retagged album looked exactly
+  as suspect as a corrupted one. Every FLAC already carries an MD5 of its decoded samples in
+  `STREAMINFO`; we simply were not reading it, and EAC records nothing comparable.
+
+  Parsed in pure Python (42 header bytes per file) rather than shelling out to
+  `metaflac --show-md5sum`, so the field cannot go missing because a tool is absent.
+  Verified against the rig's own `metaflac` output on the reference disc — same value,
+  byte for byte. Tri-state: a non-FLAC, a truncated file, or the spec's all-zero
+  "not computed" value yields **no key**, never a fabricated digest that every silent
+  file would match.
+
+  Kept as its own key rather than folded into `checksums`, because a SHA-256 mismatch
+  after a retag is *expected* while an audio-MD5 mismatch never is, and the two must not
+  be confusable. This is also what removes the need for the hand-collected rig-evidence
+  sidecar: the report now carries what that file was carrying.
+
+- **Out-of-range values could reach the ripper, and a black-box self-probe found it.**
+  `docs/seam-rules.md` S-9 asks each side to establish its own limits by *probing its own
+  surface*, so `scripts/probe_argv_surface.py` now does that for the argv builder and the
+  chokepoint — both pure functions, so the whole grid (below-min / min / typical / max /
+  one-past) runs with no drive and no disc.
+
+  On its first run it measured **six unvalidated values reaching the argv**: `-r -1`,
+  `-r 2147483648`, `-S 999`, `-S 2147483648`, `-s 2147483648` and `-Z 1000`. Every one was
+  outside the range the Settings dialog already enforces, and every one was reachable
+  **because the range was checked at the Settings boundary and nowhere else** — so a
+  hand-edited `config.toml`, or any caller that skips Settings, handed it straight to a C
+  program. CLAUDE.md says range "must be enforced by code at the argv chokepoint — not
+  merely stated here"; it was stated and not enforced.
+
+  All six are refused now, at the chokepoint, reusing the *same* constants
+  `settings_validation` defines so the dialog and the argv cannot disagree about what is
+  acceptable. Each refusal names the flag, the value and the range — `usable` under S-12,
+  not the `generic` grade the rules call a defect in its own right.
+
+  Two more were **silently dropped**: `-S -1` and `-Z -1` emitted no flag and no complaint,
+  because `0` means "auto" and a negative fell through the same branch. A caller that
+  computed a negative got a default that looked deliberate. Also refused now.
+
+  The probe is a **gate, not a report**: one test fails if any non-zero value a caller set
+  vanishes without a refusal, and a second fails if *nothing* is ever refused — which would
+  mean the guard had been removed and the first test would still pass.
+
+- **`docs/seam-commands.md` gained a return-path section.** The table had an outbound half
+  and no inbound half, which is precisely why the cue was ungoverned. Every artifact the
+  ripper hands back now has a row with its type, what it must satisfy, and the test that
+  asserts it.
+
+### Fixed
+- **The rip ETA froze instead of exploding.** During the post-rip auto-fix pass the estimate
+  sat at **2580 s for 47 consecutive samples**, and the last one read *"about 43m 0s left"*
+  with **four seconds** to go — while cyanrip's own estimate said `3s` and was right. The b8
+  fix for an ETA *explosion* had created a *freeze*: it held the stale **album** estimate
+  through a phase that is one track long.
+
+  The two cases are now distinguished **structurally**, not heuristically — the auto-fix pass
+  is a separate invocation with `-l <track>`, so the worker is told which kind of pass it is
+  rather than inferring it from a clock going backwards. A securing pass gets its own rate
+  window, its own estimate scoped to the read it is actually measuring, and wording that
+  never implies it knows how many more re-reads there will be. The album-pass re-read hold —
+  the b8 fix — is unchanged and separately pinned, because removing it would restore the
+  explosion.
+
+- **The album progress bar ran backwards.** The same pass rewound it from **94.77% → 35.45%**
+  and relabelled itself *"Ripping track 5 of 14…"* after all 14 tracks were already on disk,
+  with a 99% track-local figure in the same sentence as the 35.45% bar.
+
+- **`scripts/handshake.py --check` never validated our own outbound files.**
+  `check_outbound` existed, was correct, and **had no caller** — the CLI ran the *inbound*
+  spec against everything, so checking one of our own round files reported six sections
+  "missing" that the outbound spec never asks for, plus a wrong-sender complaint. Seven bogus
+  problems on a correct file is how a checker gets switched off. `--check` now routes by
+  direction (outbound / inbound / verification), and each checker has a test proving it can
+  **fail**. Same shape as the `RipHandle.cancel` that was fully implemented and called from
+  nowhere: grep for a call site before believing a capability is reachable.
+
+
+### Added
+- **In-app UI scripting (in progress) — the pure layer.** A closed-vocabulary batch language
+  so hardware tests can run unattended: paste a script, run it, paste the transcript back.
+  Landed so far: the vocabulary (`uiscript/verbs.py`), the parser (`uiscript/script.py`) and
+  the transcript (`uiscript/report.py`), with 29 tests. The runner and console follow.
+
+  Design commitments, each protecting against something specific: the vocabulary is **closed**
+  (no "click any widget", no destructive verbs — an unattended `eject` or `uninstall` has an
+  unbounded failure mode); the escape hatch the maintainer asked for exists as exactly two
+  verbs (`eval`, `call`) behind a **separate** opt-in, and a run that used them says so at the
+  top of its own transcript; and **a failing step never stops the batch**, the same rule as
+  `scripts/rig_session.sh` — a failing step is data, and an unattended run that halts on its
+  first surprise wastes the session.
+
+  The parser never raises, because a script is external input and a traceback on line 12 of a
+  60-line batch destroys the other 59 results. Its sharpest edge is already pinned: a `#`
+  inside a quoted value is **not** a comment, because album titles contain one and setting
+  album titles is precisely what this language is for — a naive split would truncate the value
+  silently and the transcript would agree with itself.
+
+
+### Fixed
+- **The Settings dialog could not be made short enough to fit the screen, so OK and Cancel
+  fell off the bottom.** Its `minimumSizeHint` was **739 × 971** — a `QFormLayout`'s minimum
+  is the sum of its 35 rows, so *no* resize could help, and the b11 labels widened it enough
+  to start clipping horizontally too. `CenteredDialog` could not rescue it: it clamps a
+  dialog's *position* onto the screen and deliberately never resizes it. The form now lives in
+  a `QScrollArea`, which drops the floor to **146 px**; the validation banner, *Check
+  dependencies* and OK/Cancel stay **outside** it, because an error message or an OK button
+  that can scroll out of view is the same bug one level down. The dialog also opens clamped to
+  the usable screen instead of to its own size hint.
+
+  The trap this set, pinned by its own test: a `QScrollArea` reports a small arbitrary hint
+  *by design*, so sizing the dialog from `self.sizeHint()` opened it at 526 × 414 showing a
+  third of the form — the complaint inverted rather than fixed. The opening size is measured
+  off the inner form plus the chrome deliberately kept outside it.
+
+
 ## [0.6.4b11] — 2026-08-06
 
 ### Changed
@@ -4342,7 +4623,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b1.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b12.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -6584,7 +6865,9 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...HEAD
+[0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b12...v0.6.4b13
+[0.6.4b12]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b12
 [0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
 [0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
 [0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
@@ -6667,4 +6950,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b13.*

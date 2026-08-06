@@ -444,12 +444,18 @@ _UNMEASURED = "  ?"
 def _real_colons(text: str) -> str:
     """Undo cyanrip's U+2236 stand-in for ':' in displayed text.
 
-    cyanrip substitutes the RATIO lookalike when sanitising tag values (its
-    colon-parsing bug — see docs/cyanrip-fork.md), so a title like
-    "Every Breath You Take: The Classics" reaches us as "…∶ The Classics". That
-    is an artefact of the workaround, not a fact about the disc, and a real EAC
-    log shows the true colon — so the EAC-layout export shows it too. Only the
-    *rendering* is corrected; on-disk filenames keep whatever cyanrip wrote.
+    **Whose substitution this was.** Ours, not cyanrip's — worth stating precisely
+    because the original wording here blamed the ripper. Until round 7 lap 31 we
+    fed the RATIO lookalike in place of a colon, because cyanrip's ``-a``/``-t``
+    pre-splitter could not then be trusted with an escaped one; so a title like
+    "Every Breath You Take: The Classics" came back as "…∶ The Classics". A real
+    EAC log shows the true colon, so the EAC-layout export shows it too.
+
+    Still applied, for two reasons that outlive the workaround: older rips'
+    reports and logs carry the substitute and are still rendered, and cyanrip
+    *does* substitute U+2236 itself when sanitising a **path**, which is where the
+    character came from in the first place. Only the *rendering* is corrected;
+    on-disk filenames keep whatever cyanrip wrote.
     """
     return text.replace("\u2236", ":")
 

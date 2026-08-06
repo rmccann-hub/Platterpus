@@ -1,0 +1,21 @@
+========================================================================
+[Platterpus auto-fix addendum]
+========================================================================
+This file accompanies the ripper's whole-disc log in this folder and
+supersedes part of it. The ripper's log is left BYTE-EXACT so that
+`cyanrip --verify-log` still verifies it; that is why this is a separate
+file rather than text appended to it.
+
+The track(s) below did not match AccurateRip on the first pass and were re-ripped to secure them; the improved
+read was swapped in. Every value below describes the file ACTUALLY ON DISK
+and supersedes the value recorded for that track in the log beside it —
+including the AccurateRip results and the secure-re-read verdict, which
+the log records for the read that was discarded.
+
+  Track 5 (The Police/Every Breath You Take∶ The Classics/05 - Don’t Stand So Close to Me.flac): CRC 6902BCF0
+      AccurateRip v1:       7CE3F6E7 — not found, either a new pressing, or bad rip
+      AccurateRip v2:       268CCD94 — not found, either a new pressing, or bad rip
+      AccurateRip +450:     4CCBCF89 — matches Accurip DB, confidence 200, track is partially accurately ripped — confidence 200
+      Secure re-read:       converged after 3 reads
+
+========================================================================

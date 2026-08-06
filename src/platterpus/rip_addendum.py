@@ -201,7 +201,27 @@ def addendum_text(log_path: str | Path) -> str:
     try:
         return sidecar.read_text(encoding="utf-8", errors="replace")
     except FileNotFoundError:
-        return ""
+        # NO SIDECAR: rebuild the block from the JSON report beside the log.
+        #
+        # The sidecar stopped being written in v0.6.4b12, on the maintainer's
+        # question "why can't you just put the addendum into the normal log file?".
+        # The answer for *cyanrip's* log is that it ends with that tool's own
+        # `Log FUN512:` checksum and `--verify-log` rejects trailing content by
+        # design — we appended there once and every auto-fixed rip shipped a log
+        # the ripper itself called modified (round 7 lap 10). Our EAC-style log is
+        # ours to write, but `write_eac_log_after_rip` defaults to False, so most
+        # folders have no such file and the supersede would simply vanish.
+        #
+        # The `.platterpus.json` is always written, is ours, and ALREADY holds this
+        # record structurally (`read_speed.retried_tracks` plus the per-track
+        # `copy_crc` / `rip_count`). So the file was a rendered duplicate of data we
+        # keep anyway. Reading it back here — rather than deleting the concept —
+        # is what stops "fixing H1 by making the supersede invisible instead",
+        # which this module's own docstring warns about.
+        #
+        # Legacy folders keep working: a sidecar that exists still wins, because it
+        # is what that rip actually shipped.
+        return _addendum_from_report(log_path)
     except OSError as exc:
         from platterpus import diagnostics
 
@@ -230,6 +250,113 @@ def with_addendum(text: str, log_path: str | Path) -> str:
     if text and not text.endswith("\n"):
         text += "\n"
     return text + "\n" + extra
+
+
+def _render_ar(block: dict[str, object]) -> str:
+    """One AccurateRip result as the sidecar rendered it.
+
+    ``<local CRC> — <result> — confidence <n>``, matching the text the sidecar
+    carried so a re-parse of a v0.6.4b12 folder and a legacy one resolve to the
+    same values. The confidence clause is omitted rather than written as
+    ``confidence None`` when the ripper did not report one — a fabricated zero
+    would read as "checked, no agreement" instead of "not reported".
+    """
+    crc = str(block.get("local_crc") or "").strip()
+    result = str(block.get("result") or "").strip()
+    confidence = block.get("confidence")
+    parts = [part for part in (crc, result) if part]
+    if isinstance(confidence, int):
+        parts.append(f"confidence {confidence}")
+    return " — ".join(parts)
+
+
+def _addendum_from_report(log_path: str | Path) -> str:
+    """Rebuild the supersede block from the JSON report beside ``log_path``.
+
+    Returns ``""`` when there is no report, it cannot be parsed, or it records no
+    replaced track — all three being the ordinary case, since most rips need no
+    auto-fix. Never raises: this backs a best-effort read, and a re-parse that
+    died because a report was truncated would be worse than one that reported the
+    log alone.
+
+    **Only tracks the report says were REPLACED are included.** A track that was
+    re-read and did *not* end up swapped in has no superseded values — its
+    original row is still the truth — and emitting a block for it would supersede
+    correct data with identical data, which is noise that reads as a finding.
+    """
+    import json
+
+    path = Path(log_path)
+    report_path = path.with_name(path.stem + ".platterpus.json")
+    try:
+        data = json.loads(report_path.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    read_speed = data.get("read_speed")
+    retried = read_speed.get("retried_tracks") if isinstance(read_speed, dict) else None
+    if not isinstance(retried, list):
+        return ""
+    replaced = {
+        int(entry["track"])
+        for entry in retried
+        if isinstance(entry, dict)
+        and entry.get("replaced")
+        and isinstance(entry.get("track"), int)
+    }
+    if not replaced:
+        return ""
+    tracks = data.get("tracks")
+    by_number: dict[int, dict[str, object]] = {}
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict) and isinstance(track.get("number"), int):
+                by_number[int(track["number"])] = track
+
+    def _text(track: dict[str, object], key: str) -> str:
+        value = track.get(key)
+        return "" if value is None else str(value)
+
+    swapped: list[SupersededTrack] = []
+    for number in sorted(replaced):
+        track = by_number.get(number, {})
+        # The offset-variant block's key is `offset_450`, NOT `offset` — checked
+        # against a real report rather than guessed. The first guess here rendered
+        # that row as `n/a` while the other three matched, which is exactly the
+        # three-of-four result that reads as done.
+        accuraterip = track.get("accuraterip")
+        rendered: dict[str, str] = {}
+        if isinstance(accuraterip, dict):
+            for key in ("v1", "v2", "offset_450"):
+                block = accuraterip.get(key)
+                if isinstance(block, dict):
+                    rendered[key] = _render_ar(block)
+        v1 = rendered.get("v1", "")
+        v2 = rendered.get("v2", "")
+        offset = rendered.get("offset_450", "")
+        converged = track.get("secure_rerip_converged")
+        rip_count = track.get("rip_count")
+        reread = ""
+        if converged and isinstance(rip_count, int):
+            reread = f"converged after {rip_count} reads"
+        swapped.append(
+            SupersededTrack(
+                number=number,
+                filename=_text(track, "filename"),
+                crc=_text(track, "copy_crc"),
+                accuraterip_v1=v1,
+                accuraterip_v2=v2,
+                accuraterip_offset=offset,
+                secure_reread=reread,
+            )
+        )
+    trigger = ""
+    for entry in retried:
+        if isinstance(entry, dict) and int(entry.get("track") or 0) in replaced:
+            trigger = str(entry.get("trigger") or "")
+            break
+    return render_addendum(trigger, swapped)
 
 
 def read_log_with_addendum(log_path: str | Path) -> str:

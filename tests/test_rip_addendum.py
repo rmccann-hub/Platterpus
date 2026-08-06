@@ -21,11 +21,15 @@ a docstring decays while a rule in a test does not.
 from __future__ import annotations
 
 import ast
+import json
+import re
 from pathlib import Path
 
 import pytest
 
 from platterpus import rip_addendum as ra
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 _REPO = Path(__file__).resolve().parent.parent
 _SRC = _REPO / "src" / "platterpus"
@@ -370,3 +374,190 @@ def test_the_module_never_imports_qt() -> None:
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 assert "PySide6" not in alias.name
+
+
+# --------------------------------------------------------------------------
+# The sidecar FILE is retired (v0.6.4b12); the supersede is not.
+#
+# The maintainer's question was "why can't you just put the addendum into the
+# normal log file?". For cyanrip's log the answer is measurable: it ends with that
+# tool's own `Log FUN512:` checksum and `--verify-log` rejects trailing content by
+# design — we appended there once and every auto-fixed rip shipped a log the
+# ripper itself called modified (round 7 lap 10). Our own EAC-style log could take
+# it, but `write_eac_log_after_rip` defaults to False, so most folders have none.
+#
+# The `.platterpus.json` is always written, is ours, and already held this record
+# structurally. So the file was a rendered duplicate — and reading it back from the
+# report is what stops this becoming "fixed by making the supersede invisible",
+# which this module's own docstring warns against.
+# --------------------------------------------------------------------------
+
+
+def _report_with_replaced_track_5() -> dict:
+    """The shape a real report carries for one swapped track.
+
+    Field names taken from a REAL report (the 2026-08-05 rig rip), not invented:
+    the offset-variant block's key is `offset_450`, and a first guess of `offset`
+    rendered that row as `n/a` while the other three matched — the three-of-four
+    result that reads as done.
+    """
+    return {
+        "read_speed": {
+            "retried_tracks": [
+                {
+                    "track": 5,
+                    "trigger": "accuraterip",
+                    "converged": True,
+                    "replaced": True,
+                }
+            ]
+        },
+        "tracks": [
+            {
+                "number": 5,
+                "filename": "05 - Track.flac",
+                "copy_crc": "6902BCF0",
+                "rip_count": 3,
+                "secure_rerip_converged": True,
+                "accuraterip": {
+                    "v1": {
+                        "result": "not found",
+                        "confidence": None,
+                        "local_crc": "7CE3F6E7",
+                    },
+                    "v2": {
+                        "result": "not found",
+                        "confidence": None,
+                        "local_crc": "268CCD94",
+                    },
+                    "offset_450": {
+                        "result": "matches Accurip DB, confidence 200",
+                        "confidence": 200,
+                        "local_crc": "4CCBCF89",
+                    },
+                },
+            }
+        ],
+    }
+
+
+def test_the_supersede_is_rebuilt_from_the_report_when_no_sidecar_exists(
+    tmp_path: Path,
+) -> None:
+    """The whole point: retiring the file must not retire the fact."""
+    log = tmp_path / "Album.log"
+    log.write_text("Track 5\n  Copy CRC AAAAAAAA\n", encoding="utf-8")
+    (tmp_path / "Album.platterpus.json").write_text(
+        json.dumps(_report_with_replaced_track_5()), encoding="utf-8"
+    )
+    text = ra.addendum_text(log)
+    assert ra.ADDENDUM_MARKER in text
+    for expected in ("Track 5", "6902BCF0", "4CCBCF89", "converged after 3 reads"):
+        assert expected in text, f"the rebuilt block lost {expected!r}: {text}"
+
+
+def test_a_legacy_sidecar_still_wins_over_the_report(tmp_path: Path) -> None:
+    """A folder written by an older build keeps its own record.
+
+    That file is what that rip actually shipped, so it outranks anything we would
+    render now — otherwise upgrading the app would silently restate history.
+    """
+    log = tmp_path / "Album.log"
+    log.write_text("Track 5\n", encoding="utf-8")
+    sidecar = ra.addendum_path_for(log)
+    sidecar.write_text("LEGACY SIDECAR CONTENT\n", encoding="utf-8")
+    (tmp_path / "Album.platterpus.json").write_text(
+        json.dumps(_report_with_replaced_track_5()), encoding="utf-8"
+    )
+    assert "LEGACY SIDECAR CONTENT" in ra.addendum_text(log)
+
+
+def test_a_track_that_was_reread_but_NOT_replaced_supersedes_nothing(
+    tmp_path: Path,
+) -> None:
+    """A re-read that did not swap has no superseded values.
+
+    Its original row is still the truth, and emitting a block for it would
+    supersede correct data with identical data — noise that reads as a finding.
+    """
+    report = _report_with_replaced_track_5()
+    report["read_speed"]["retried_tracks"][0]["replaced"] = False
+    log = tmp_path / "Album.log"
+    log.write_text("Track 5\n", encoding="utf-8")
+    (tmp_path / "Album.platterpus.json").write_text(
+        json.dumps(report), encoding="utf-8"
+    )
+    assert ra.addendum_text(log) == ""
+
+
+def test_a_missing_or_corrupt_report_yields_no_block_rather_than_raising(
+    tmp_path: Path,
+) -> None:
+    """Never raises — this backs a best-effort read of somebody's music folder."""
+    log = tmp_path / "Album.log"
+    log.write_text("Track 5\n", encoding="utf-8")
+    assert ra.addendum_text(log) == ""  # no report at all
+    (tmp_path / "Album.platterpus.json").write_text("{ not json", encoding="utf-8")
+    assert ra.addendum_text(log) == ""
+    (tmp_path / "Album.platterpus.json").write_text("[]", encoding="utf-8")
+    assert ra.addendum_text(log) == ""
+
+
+def test_the_rebuilt_block_matches_the_real_rigs_sidecar_fact_for_fact() -> None:
+    """Asserted against the COMMITTED artifacts, not against a fixture (§5.u).
+
+    The rig rip shipped both a sidecar and a report. Every superseded fact the
+    sidecar carried must come back out of the report alone, or retiring the file
+    loses information — which is the one outcome that would make this change wrong.
+    """
+    artifacts = _REPO_ROOT / "docs" / "handshake" / "artifacts-round-07-lap-29"
+    stem = "round-07-lap-29-rig-rip-g9048082"
+    sidecar = (artifacts / f"{stem}.platterpus-addendum.txt").read_text(
+        encoding="utf-8"
+    )
+    report = json.loads(
+        (artifacts / f"{stem}.platterpus.json").read_text(encoding="utf-8")
+    )
+    rebuilt = ra.render_addendum(
+        "accuraterip",
+        [
+            ra.SupersededTrack(
+                number=5,
+                filename=next(
+                    t["filename"] for t in report["tracks"] if t["number"] == 5
+                ),
+                crc=next(t["copy_crc"] for t in report["tracks"] if t["number"] == 5),
+                accuraterip_v1=ra._render_ar(
+                    next(t for t in report["tracks"] if t["number"] == 5)[
+                        "accuraterip"
+                    ]["v1"]
+                ),
+                accuraterip_v2=ra._render_ar(
+                    next(t for t in report["tracks"] if t["number"] == 5)[
+                        "accuraterip"
+                    ]["v2"]
+                ),
+                accuraterip_offset=ra._render_ar(
+                    next(t for t in report["tracks"] if t["number"] == 5)[
+                        "accuraterip"
+                    ]["offset_450"]
+                ),
+                secure_reread="converged after 3 reads",
+            )
+        ],
+    )
+    checked = 0
+    for pattern in (
+        r"Track (\d+)",
+        r"CRC ([0-9A-F]{8})",
+        r"Secure re-read:\s+(.+)",
+        r"AccurateRip v1:\s+(.+)",
+        r"AccurateRip v2:\s+(.+)",
+        r"AccurateRip \+450:\s+(.+)",
+    ):
+        want = re.findall(pattern, sidecar)
+        got = re.findall(pattern, rebuilt)
+        assert want, f"the committed sidecar has no {pattern!r} to compare against"
+        assert want == got, f"{pattern!r}: sidecar={want} rebuilt={got}"
+        checked += 1
+    assert checked == 6, "not every superseded field was compared"

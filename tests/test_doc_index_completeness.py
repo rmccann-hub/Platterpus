@@ -178,6 +178,91 @@ def test_claude_mds_companion_list_agrees_with_the_index() -> None:
     )
 
 
+#: Any `docs/…​.md` path written anywhere in a document — as a markdown link
+#: target, inside backticks, or in bare prose. Subdirectory paths
+#: (`docs/archive/foo.md`) are included, because a reader follows those too.
+#: Bounded quantifiers per the project rule; no `)` or backtick can be part of a
+#: path segment, so the pattern stops cleanly at either delimiter.
+_DOCS_PATH_ANYWHERE = re.compile(
+    r"docs/(?P<rel>[A-Za-z0-9._-]{1,80}(?:/[A-Za-z0-9._-]{1,80}){0,3}\.md)"
+)
+
+
+def _docs_paths_named_in(text: str) -> list[str]:
+    """Every ``docs/…`` path the text names, in order, duplicates kept.
+
+    Kept as a list rather than a set so the floor below counts *references*
+    examined, not distinct filenames — the question this gate asks is "does
+    every pointer land", and ten pointers at one file is ten chances to be
+    wrong about that file.
+    """
+    return [m.group("rel") for m in _DOCS_PATH_ANYWHERE.finditer(text)]
+
+
+def test_every_docs_path_named_in_claude_md_resolves() -> None:
+    """A doc `CLAUDE.md` merely *mentions* must still exist.
+
+    **The gap this closes, and why neither existing gate could see it.**
+    `CLAUDE.md` names documents two ways: as markdown links
+    (`[docs/testing.md](docs/testing.md)`) and, more often, in **plain
+    backticks** — the CI/release section named the AppImage-testing doc that way,
+    and a whole prose list of "everything else under `docs/`" sits beside the
+    companion list.
+
+    * `tests/test_doc_links.py` only sees `[text](target)` — a backticked path is
+      not a link, so it is invisible there.
+    * `test_claude_mds_companion_list_agrees_with_the_index` above *does* read
+      every `docs/…md` string in `CLAUDE.md`, and then filters the set with
+      ``if (_DOCS / n).exists()``. That filter is the hole: it is there so
+      archive/handshake examples don't have to be indexed, but it means a
+      document that has been **deleted or moved** silently drops out of the set
+      instead of failing. Deleting a doc `CLAUDE.md` mentions therefore left a
+      stale reference that *no* test could see.
+
+    So this asserts the plainest possible thing about the one file every session
+    is guaranteed to read: **every path it names is a path that is there.** It
+    caught the four docs consolidated away on 2026-08-06 (the merge left
+    `CLAUDE.md` still pointing at `docs/appimage-testing.md`).
+    """
+    claude = _CLAUDE_MD.read_text(encoding="utf-8")
+    named = _docs_paths_named_in(claude)
+
+    dangling = sorted({rel for rel in named if not (_DOCS / rel).is_file()})
+    assert not dangling, (
+        "CLAUDE.md names these docs/ paths but the files do not exist — a "
+        "session reading the one always-loaded file is sent to nothing. Merge "
+        "or delete a doc and its CLAUDE.md references go with it: "
+        + ", ".join(dangling)
+    )
+    # FLOOR. Without it this passes on a CLAUDE.md whose reference style
+    # changed under the regex — a gate satisfied by finding nothing.
+    assert len(named) >= 10, (
+        f"only {len(named)} docs/ paths found in CLAUDE.md — the reference "
+        "style has changed and this gate is passing by finding nothing"
+    )
+
+
+def test_the_docs_path_sweep_catches_a_vanished_file() -> None:
+    """Proven against constructed text, not by reasoning about the regex.
+
+    A detector that cannot fail is decoration. This pins the three shapes the
+    sweep above must handle — a markdown link, a backticked path, and a
+    subdirectory path — and pins the one it must *not* fire on: a bare
+    directory mention (`docs/archive/`) is not a document reference.
+    """
+    sample = (
+        "See [the guide](docs/testing.md) and `docs/gone.md` for detail.\n"
+        "The graduation map lives in docs/archive/README.md; dated files are\n"
+        "under docs/archive/ generally.\n"
+    )
+    found = _docs_paths_named_in(sample)
+    assert found == ["testing.md", "gone.md", "archive/README.md"], found
+
+    # And the real predicate separates present from absent, on real files.
+    assert (_DOCS / "testing.md").is_file()
+    assert not (_DOCS / "gone.md").is_file()
+
+
 def test_the_index_routes_to_the_subdirectory_indexes() -> None:
     """Subdirectories are out of scope here *because* they self-index.
 

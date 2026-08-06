@@ -530,6 +530,13 @@ class RipReport(TypedDict):
     cover_art: CoverArtBlock | None
     issues: list[IssueBlock]
     checksums: dict[str, str] | None
+    #: relpath -> MD5 of the DECODED audio, read from each FLAC's own
+    #: STREAMINFO (schema v24). Distinct from `checksums`, which digests the
+    #: container and is therefore invalidated by a legitimate retag. Absent
+    #: for non-FLAC outputs and for a file whose value is the spec's all-zero
+    #: "not computed" — a missing key means *not determined*, never a
+    #: mismatch.
+    audio_md5: dict[str, str] | None
     debug: DebugBlock | None
     #: The verdict's DENOMINATOR as a number (schema v12) and the verbatim text of
     #: the companion files written beside the report. Both shipped four schema

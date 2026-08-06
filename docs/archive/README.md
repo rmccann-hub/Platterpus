@@ -11,6 +11,7 @@ those first; these are the dated narrative behind them.
 | [`upstream-modification-investigation.md`](upstream-modification-investigation.md) — EAC-parity "modify upstream?" audit; the **CTDB Phase-1 wire-format/CRC spec**; the `ctdb-cli`-is-.NET correction; the "do not revisit" non-feasible list | **PLANNING.md KDD-14 / KDD-16** point here for the original CTDB Phase-1 wire-format/CRC spec (since built as `src/platterpus/ctdb/`, GUI-wired 2026-06-17, and hardware-validated 2026-07-07 — KDD-16); the non-feasible list overlaps the brief's *Out of scope* |
 | [`audit-2026-07-02.md`](audit-2026-07-02.md) — the 13-agent full-audit report that drove the 0.4.13–0.4.16 fix batch | Fixes shipped as v0.4.13–v0.4.16 (CHANGELOG); §E's deferred remainders graduated to the **TASKS.md Documentation backlog** (hardware checkboxes, property surfaces, Phase-7/TD-1 items) |
 | [`trust-audit-2026-07-08.md`](trust-audit-2026-07-08.md) — the seven-category trust & supply-chain audit behind the v0.4.22 hardening | In-release fixes shipped in v0.4.22/v0.4.23 (CHANGELOG); deferred items graduated to the **TASKS.md trust-hardening section** (release signing + hash-pinning still open there) |
+| [`mp3-wav-support-2026-06.md`](mp3-wav-support-2026-06.md) — the multi-format (FLAC · WavPack · MP3 · WAV) research + design-of-record; **shipped 2026-06-26**, archived 2026-08-06 (was the top-level `mp3-wav-support.md`) | The product decisions are **CLAUDE.md Critical rule #4** (FLAC is the archival master, everything else derived) and **PLANNING.md KDD-22**; the encoder arguments *as actually sent* are `docs/dependency-contracts.md` + `adapters/transcode.py`; the extension recipe is `docs/architecture.md` → *Add an output format*. Its one still-**open** item — embedding cover art inside a `.wv`, which needs the standalone `wavpack` tool because ffmpeg's muxer is audio-only — was graduated to **TASKS.md P2** in the same change, because an open item inside an archived doc is an item nobody reads again |
 
 These files are not maintained going forward. If a conclusion here ever
 conflicts with a living doc, the living doc wins.
@@ -42,4 +43,4 @@ to mine, not as authority over the living docs.
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b13.*

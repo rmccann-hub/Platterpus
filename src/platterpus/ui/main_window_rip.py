@@ -205,9 +205,10 @@ def _rip_master_paths(rip_dir: Path, rip_log: object | None) -> list[Path]:
 def _metadata_contains_colon(metadata: RipMetadata | None, release_id: str) -> bool:
     """Whether any tag value handed to cyanrip carries a literal ``:``.
 
-    Drives the post-rip colon-restore (KDD-22): cyanrip can't take a ``:`` in a
-    tag arg, so each such value is fed as the U+2236 lookalike and must be
-    restored in the written tags afterward. This must cover EVERY field the
+    Drives the post-rip colon-restore (KDD-22). Since round 7 lap 31 such a value
+    is fed **backslash-escaped** rather than substituted, so what this arms is a
+    net rather than a repair — see :meth:`_metadata_has_colon` for why it is still
+    armed and what would retire it. This must cover EVERY field the
     backend's ``_escape_meta_value`` touches — album artist/title, year, genre,
     the ``musicbrainz_albumid`` (``release_id``), and each track's title, artist,
     and ISRC. It previously checked only album/track title+artist, so a colon in
@@ -1936,8 +1937,18 @@ class RipMixin(MainWindowShared):
     def _metadata_has_colon(self) -> bool:
         """True if any metadata value fed to cyanrip contains a ``:``.
 
-        Drives the cyanrip colon-restore (KDD-22): only worth a post-rip metaflac
-        pass when a colon was actually substituted with the U+2236 lookalike. We
+        Drives the cyanrip colon-restore (KDD-22). **Since round 7 lap 31 this
+        gates a safety net rather than a repair**: values now go out
+        backslash-escaped (``\\:``) instead of substituted, so in a correct build
+        there is no U+2236 left in the tags and the pass finds nothing to fix.
+
+        It is deliberately still armed. Our side can prove we *emit* the escape
+        and that both cyanrip source trees parse it; only a real rip can prove it
+        survives all the way into the written tags. Dropping the escape and the
+        net in one unverified release is the "each fix introduces the next"
+        pattern this project has paid for three times — so the net stays until a
+        rig rip says otherwise, at which point this becomes dead code and should
+        go. We
         check the assembled ``RipMetadata`` that was actually sent (album fields,
         year, genre, the release id, and every track's title/artist/isrc) rather
         than re-deriving from the track table — the table exposes only
@@ -2026,9 +2037,12 @@ class RipMixin(MainWindowShared):
         gen = self._rip_generation  # drop the transcode result if a newer rip starts
 
         def work() -> None:
-            # 0) Restore the real ':' in cyanrip's tags (it was fed the ∶
-            #    lookalike because its parser can't take a literal colon). Runs
-            #    FIRST so cover-art and the transcode see the corrected tags.
+            # 0) Safety net: restore the real ':' in cyanrip's tags if any ∶
+            #    lookalike is still there. Since lap 31 we escape the colon
+            #    instead of substituting it, so this should now find nothing —
+            #    it is kept armed until a rig rip confirms the escape survives
+            #    into the written tags (see `_metadata_has_colon`). Runs FIRST so
+            #    cover-art and the transcode see corrected tags either way.
             #    Never raises; a no-op for colon-free albums.
             if restore_colons:
                 from platterpus.adapters.cyanrip_backend import (
@@ -2995,6 +3009,7 @@ class RipMixin(MainWindowShared):
             secure_rerip=getattr(self, "_last_secure_rerip", None),
             eta_trace=getattr(self, "_last_eta_trace", None) or None,
             checksums=getattr(self, "_last_checksums", None),
+            audio_md5=getattr(self, "_last_audio_md5", None),
             generated_at=datetime.now().astimezone().isoformat(timespec="seconds"),
             timing=self._last_rip_timing,
             debug_log=self._build_rip_debug_log(),
@@ -3318,7 +3333,15 @@ class RipMixin(MainWindowShared):
                         _CHECKSUM_SETTLE_TIMEOUT_S,
                     )
                     return None
-            return checksums.compute_digests(rip_dir)
+            # BOTH digests, in one pass off the GUI thread. The SHA256 answers
+            # "has this file changed on disk"; the FLAC's own unencoded-audio MD5
+            # answers "is this the same audio", and only the second survives a
+            # legitimate retag. Recording just the first meant a retagged album
+            # looked as suspect as a corrupted one.
+            return {
+                "sha256": checksums.compute_digests(rip_dir),
+                "audio_md5": checksums.unencoded_audio_digests(rip_dir),
+            }
 
         log.info("computing SHA256 digests for %s", rip_dir)
         self._launch_post_rip_daemon(
@@ -3328,11 +3351,27 @@ class RipMixin(MainWindowShared):
         )
 
     def _on_checksums_done(self, digests: object) -> None:
-        """Digests computed — record + re-write the report (on the GUI thread)."""
+        """Digests computed — record + re-write the report (on the GUI thread).
+
+        Accepts the two-map form and, for safety, the bare ``{path: sha256}`` map
+        an older worker would have sent: this slot is reached by a queued signal,
+        so during an in-place upgrade a payload built by the previous shape can
+        still arrive. Recording nothing would silently drop a rip's integrity
+        record, which is worse than the branch.
+        """
         if not isinstance(digests, dict):
             return
-        self._last_checksums = digests
-        log.info("SHA256 digests: %d file(s) hashed", len(digests))
+        if "sha256" in digests and isinstance(digests.get("sha256"), dict):
+            self._last_checksums = digests["sha256"]
+            self._last_audio_md5 = digests.get("audio_md5") or {}
+        else:
+            self._last_checksums = digests
+            self._last_audio_md5 = {}
+        log.info(
+            "digests: %d file(s) hashed (SHA256), %d FLAC audio MD5(s) read",
+            len(self._last_checksums),
+            len(self._last_audio_md5),
+        )
         self._schedule_rip_report_write()
 
     # --- Post-rip FLAC encode-verify (opt-in, default on) -------------------

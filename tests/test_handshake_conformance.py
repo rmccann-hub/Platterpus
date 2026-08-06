@@ -23,6 +23,7 @@ weakened — a skipped conformance row is a divergence nobody can see.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -78,7 +79,7 @@ def _header(**overrides: str | None) -> str:
 # --- row 14 first, because every other row passes on a gate that always refuses --
 
 
-def test_row14_a_complete_two_sided_tested_round_is_ALLOWED(hs: ModuleType) -> None:
+def test_C16_a_complete_two_sided_tested_round_is_ALLOWED(hs: ModuleType) -> None:
     """*"complete two-sided tested round → allow — a gate that can never say yes
     is a wall, not a gate."*
 
@@ -93,14 +94,14 @@ def test_row14_a_complete_two_sided_tested_round_is_ALLOWED(hs: ModuleType) -> N
 # --- rows 1-13, the refusals, in the table's order ----------------------------
 
 
-def test_row1_our_go_with_no_peer_verdict_refuses_naming_it(hs: ModuleType) -> None:
+def test_C1_our_go_with_no_peer_verdict_refuses_naming_it(hs: ModuleType) -> None:
     """*"our `GO`, no peer verdict → refuse, naming the missing peer verdict."*"""
     blockers = hs.close_blockers(_header(**{"HANDSHAKE-PEER-VERDICT": None}))
     assert blockers, "a GO with no peer verdict closed the round"
     assert any("HANDSHAKE-PEER-VERDICT" in b for b in blockers), blockers
 
 
-def test_row2_our_go_with_peer_hold_refuses_naming_the_peer_verdict(
+def test_C2_our_go_with_peer_hold_refuses_naming_the_peer_verdict(
     hs: ModuleType,
 ) -> None:
     """*"our `GO`, peer `HOLD` → refuse, naming the peer verdict."*
@@ -120,7 +121,7 @@ def test_row2_our_go_with_peer_hold_refuses_naming_the_peer_verdict(
         "HANDSHAKE-PEER-PIN",
     ],
 )
-def test_row3_both_go_any_identity_field_missing_refuses_naming_it(
+def test_C3_both_go_any_close_field_missing_refuses_naming_it(
     hs: ModuleType, field: str
 ) -> None:
     """*"both `GO`, any identity field missing → refuse, naming the field."*
@@ -132,7 +133,7 @@ def test_row3_both_go_any_identity_field_missing_refuses_naming_it(
     assert any(field in b for b in blockers), blockers
 
 
-def test_row4_both_go_without_tested_refuses(hs: ModuleType) -> None:
+def test_C4_both_go_without_tested_refuses(hs: ModuleType) -> None:
     """*"both `GO`, no `HANDSHAKE-TESTED` → refuse."*
 
     The maintainer's *"proper testing is needed"*, as a field: a round that closed
@@ -142,14 +143,14 @@ def test_row4_both_go_without_tested_refuses(hs: ModuleType) -> None:
     assert any("HANDSHAKE-TESTED" in b for b in blockers), blockers
 
 
-def test_row5_a_verdict_field_absent_entirely_refuses(hs: ModuleType) -> None:
+def test_C5_a_verdict_field_absent_entirely_refuses(hs: ModuleType) -> None:
     """*"verdict field absent entirely → refuse."* Fails closed, never permissive."""
     text = _header(**{"HANDSHAKE-VERDICT": None})
     assert hs.wire_verdict(text) is None
     assert hs.close_blockers(text), "an absent verdict closed the round"
 
 
-def test_row6_a_verdict_declared_twice_refuses_as_ambiguous(hs: ModuleType) -> None:
+def test_C6_a_verdict_declared_twice_refuses_as_ambiguous(hs: ModuleType) -> None:
     """*"verdict declared twice → refuse as ambiguous."*
 
     Not the first, not the last. Both values are present and the file's author
@@ -165,14 +166,14 @@ def test_row6_a_verdict_declared_twice_refuses_as_ambiguous(hs: ModuleType) -> N
     assert hs.wire_verdict(reversed_text) != "GO"
 
 
-def test_row7_an_indented_or_prose_verdict_does_not_match(hs: ModuleType) -> None:
+def test_C7_an_indented_or_prose_verdict_does_not_match(hs: ModuleType) -> None:
     """*"verdict indented / inside prose → refuse; the declaration did not match."*"""
     assert hs.wire_verdict("  HANDSHAKE-VERDICT: GO\n") is None
     assert hs.wire_verdict("> HANDSHAKE-VERDICT: GO\n") is None
     assert hs.wire_verdict("this is not a closing GO, we are holding\n") is None
 
 
-def test_row8_a_close_illustrated_inside_a_fence_is_not_a_close(hs: ModuleType) -> None:
+def test_C8_a_close_illustrated_inside_a_fence_is_not_a_close(hs: ModuleType) -> None:
     """*"a complete close illustrated inside a ``` block → refuse, and do not adopt
     any of the illustrated values."*
 
@@ -207,7 +208,7 @@ def test_row8_a_close_illustrated_inside_a_fence_is_not_a_close(hs: ModuleType) 
     assert "HANDSHAKE-TESTED" not in hs.wire_fields("```md\n" + _header() + "```\n")
 
 
-def test_row9_an_unrecognised_verdict_refuses(hs: ModuleType) -> None:
+def test_C11_an_unrecognised_verdict_refuses(hs: ModuleType) -> None:
     """*"unrecognised verdict → refuse."* Not agreement, and not an error to skip."""
     for value in ("MAYBE", "APPROVED", "yes", "Go", ""):
         text = _header(**{"HANDSHAKE-VERDICT": value or "  "})
@@ -215,7 +216,7 @@ def test_row9_an_unrecognised_verdict_refuses(hs: ModuleType) -> None:
         assert hs.close_blockers(text), value
 
 
-def test_row10_a_declared_round_that_differs_from_its_file_refuses(
+def test_C12_a_declared_round_that_differs_from_its_file_refuses(
     hs: ModuleType, tmp_path: Path
 ) -> None:
     """*"declared round ≠ the round it is filed under → refuse."*"""
@@ -225,7 +226,7 @@ def test_row10_a_declared_round_that_differs_from_its_file_refuses(
     assert any("HANDSHAKE-ROUND: 8" in p and "round 9" in p for p in problems), problems
 
 
-def test_row11_a_later_lap_declaring_hold_after_a_go_reopens_the_round(
+def test_C13_a_later_lap_declaring_hold_after_a_go_reopens_the_round(
     hs: ModuleType, tmp_path: Path
 ) -> None:
     """*"a later lap declaring `HOLD` after an earlier `GO` → refuse — a round can
@@ -254,7 +255,7 @@ def test_row11_a_later_lap_declaring_hold_after_a_go_reopens_the_round(
     assert reopened.endswith("OPEN"), reopened
 
 
-def test_row12_no_round_files_at_all_refuses(hs: ModuleType, tmp_path: Path) -> None:
+def test_C14_no_round_files_at_all_refuses(hs: ModuleType, tmp_path: Path) -> None:
     """*"no round files at all → refuse; an empty record is not agreement."*"""
     lines = hs.round_status(tmp_path)
     assert lines and "no handshake rounds" in lines[0], lines
@@ -269,7 +270,7 @@ def test_row12_no_round_files_at_all_refuses(hs: ModuleType, tmp_path: Path) -> 
         monkey.undo()
 
 
-def test_row13_a_higher_protocol_version_refuses_rather_than_guessing(
+def test_C15_a_higher_protocol_version_refuses_rather_than_guessing(
     hs: ModuleType,
 ) -> None:
     """*"`HANDSHAKE-PROTOCOL` higher than implemented → refuse rather than guess."*
@@ -307,7 +308,7 @@ def test_row13_a_higher_protocol_version_refuses_rather_than_guessing(
         "HANDSHAKE-PIN",
     ],
 )
-def test_row9_a_round_8_file_missing_an_identity_field_refuses(
+def test_C9_a_round_8_file_missing_an_identity_field_refuses(
     hs: ModuleType, field: str
 ) -> None:
     """C9 — *"a round ≥ 8 file missing any of the four → refuse, naming the field."*
@@ -321,7 +322,7 @@ def test_row9_a_round_8_file_missing_an_identity_field_refuses(
     )
 
 
-def test_row9_applies_on_a_mid_round_hold_too(hs: ModuleType) -> None:
+def test_C9_applies_on_a_mid_round_hold_too(hs: ModuleType) -> None:
     """C9's second half, which their wording is explicit about.
 
     A `HOLD` lap must still declare who wrote it and which pair produced its
@@ -344,7 +345,7 @@ def test_row9_applies_on_a_mid_round_hold_too(hs: ModuleType) -> None:
     )
 
 
-def test_row10_a_pre_header_round_missing_them_is_allowed(
+def test_C10_a_pre_header_round_missing_them_is_allowed(
     hs: ModuleType, tmp_path: Path
 ) -> None:
     """C10 — *"a round ≤ 7 file missing them → allow; exemption by pinned number."*
@@ -376,23 +377,174 @@ def test_row10_a_pre_header_round_missing_them_is_allowed(
 # --- the table itself must not shrink -----------------------------------------
 
 
+# --- C17 / C18: a test pin is not a pin agreement (§6a) ------------------------
+#
+# The field exists because our own rules deadlocked: a close needs
+# `HANDSHAKE-TESTED`, that evidence only comes from the rig, the rig installs the
+# pinned build, and neither side may move the pin while a round is open — so the
+# rig forever runs the build *without* the changes under review. Every step is a
+# rule both projects hold and together they are unsatisfiable. Splitting "the
+# build we agreed on" from "the build we are testing" is the way out.
+
+
+def test_C17_a_hold_carrying_a_test_pin_is_still_not_a_close(hs: ModuleType) -> None:
+    """C17 — *"a file declaring `HANDSHAKE-TEST-PIN` and otherwise complete, but
+    verdict `HOLD` → refuse; a test pin is not a release."*
+
+    The floor that makes this mean something: the **same file with the test pin
+    removed** must be refused for the same reason. Otherwise this test would pass
+    against a gate that refuses every file, and would also pass against one that
+    refuses files *because* they carry a test pin — the opposite of §6a, which
+    requires a test pin to be permitted alongside a real close.
+    """
+    with_pin = _header(**{"HANDSHAKE-VERDICT": "HOLD", "HANDSHAKE-TEST-PIN": "dc21958"})
+    without = _header(**{"HANDSHAKE-VERDICT": "HOLD"})
+    assert hs.close_blockers(with_pin), "a HOLD with a test pin closed the round"
+    # Same reason, not a new one: the verdict is what blocks, not the test pin.
+    assert hs.close_blockers(with_pin) == hs.close_blockers(without), (
+        "the test pin changed why the file was refused — it must be inert on a "
+        f"HOLD: {hs.close_blockers(with_pin)} vs {hs.close_blockers(without)}"
+    )
+
+
+def test_C18_a_valid_close_may_carry_a_test_pin_and_is_still_allowed(
+    hs: ModuleType,
+) -> None:
+    """C18 — *"`HANDSHAKE-TEST-PIN` present alongside a valid close → allow, and the
+    test pin must not be mistaken for `HANDSHAKE-PIN`."*
+
+    This is the **normal** sequence, not an edge case: the evidence a close cites
+    was gathered on the test pin, so a closing file will usually name both. A gate
+    that refuses it re-creates the deadlock §6a exists to break.
+    """
+    text = _header(**{"HANDSHAKE-TEST-PIN": "dc21958"})
+    assert hs.close_blockers(text) == [], hs.close_blockers(text)
+    # And the two pins stay distinguishable — reading the test pin as the agreement
+    # would move the production pin to a build nobody approved.
+    fields = hs.wire_fields(text)
+    assert fields[hs.TEST_PIN_FIELD] == "dc21958"
+    assert fields["HANDSHAKE-PIN"] == "5bc654d"
+    assert fields[hs.TEST_PIN_FIELD] != fields["HANDSHAKE-PIN"]
+
+
+def test_C18_a_test_pin_with_no_agreed_pin_at_all_is_refused(hs: ModuleType) -> None:
+    """The half of C18 that is a refusal, and the reason `TEST_PIN_FIELD` is not
+    simply ignored as an unknown field.
+
+    A closing file naming *only* the build it tested would move the production pin
+    to something never agreed to. Unknown-field tolerance (§3) is what lets a
+    proposal ship before the other side implements it; it is not licence to treat a
+    field with a stated meaning as noise once you know the meaning.
+    """
+    text = _header(**{"HANDSHAKE-PIN": None, "HANDSHAKE-TEST-PIN": "dc21958"})
+    blockers = hs.close_blockers(text)
+    assert any(hs.TEST_PIN_FIELD in b and "HANDSHAKE-PIN" in b for b in blockers), (
+        blockers
+    )
+
+
+# --- C19 / C20: what a release CLAIMS, not whether one happens -----------------
+
+
+def test_C19_a_stable_release_is_refused_while_any_round_is_open(
+    hs: ModuleType,
+) -> None:
+    """C19 — *"a stable release requested with any round open → refuse."*
+
+    Run against the **real record**, not a fixture: round 7 is open with a
+    bilateral HOLD as this is written, so the gate has something to refuse. The
+    floor below keeps that from becoming a silent skip if the record ever changes.
+    """
+    open_rounds = [ln for ln in hs.round_status() if ln.endswith("OPEN")]
+    assert open_rounds, (
+        "no round is open in the real record, so this row is asserting a property "
+        "of an empty set — re-point it at a fixture if the record has closed"
+    )
+    assert hs.main(["--release-gate"]) == 1, "a stable release passed with a round open"
+
+
+def test_C20_a_prerelease_is_allowed_and_prints_every_open_round(
+    hs: ModuleType, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """C20 — *"a pre-release requested with a round open → allow, and print every
+    open round first."*
+
+    Both halves matter and only the first is obvious. **Permitting a beta quietly
+    would be worse than refusing it**: the whole justification is that a beta
+    claims no joint verification, and a claim nobody is shown is not a claim. So
+    the gate must both return success *and* name what is open.
+    """
+    assert hs.main(["--release-gate", "--prerelease"]) == 0
+    # **stderr, deliberately.** The gate's warnings go to stderr so that piping its
+    # stdout into a release script cannot swallow them, and so they still reach a
+    # log when stdout is captured. Asserted on the stream it actually uses rather
+    # than changing the gate to suit the test.
+    captured = capsys.readouterr()
+    printed = captured.err
+    for line in [ln for ln in hs.round_status() if ln.endswith("OPEN")]:
+        round_name = line.split(":")[0]
+        assert round_name in printed, (
+            f"{round_name} is open and the pre-release gate did not name it: {printed}"
+        )
+    # And it must still say plainly that a STABLE release remains blocked, or the
+    # output reads as approval.
+    assert "STABLE" in printed and "blocked" in printed, printed
+
+
+# --- the table itself must not shrink -----------------------------------------
+
+
+def _conformance_row_ids() -> list[str]:
+    """The row IDs, read out of the shared protocol file.
+
+    **Derived, not hardcoded.** The previous version of this check looped over
+    `range(1, 17)` and skipped two numbers with a comment explaining that the
+    fork's indices differed from ours — so it could neither notice a new row nor
+    tell which row a given test covered. Stable IDs exist precisely to end that,
+    and a coverage check that restates the expected set defeats them again on the
+    first row either side adds.
+    """
+    text = (_REPO_ROOT / "docs" / "handshake-protocol.md").read_text(encoding="utf-8")
+    return re.findall(r"^\|\s*(C\d+)\s*\|", text, re.MULTILINE)
+
+
 def test_every_conformance_row_has_a_test_here() -> None:
     """A floor on the suite, not on the gate.
 
-    A skipped conformance row is a divergence nobody can see. If the protocol
+    A skipped conformance row is a divergence nobody can see. If the shared table
     grows a row, this fails until a test for it exists — which is the only way a
     shared table stays shared.
     """
+    ids = _conformance_row_ids()
+    # Floor: a table that parsed to nothing would make this pass by finding nothing,
+    # which is the failure mode this whole file is about.
+    assert len(ids) >= 20, (
+        f"only {len(ids)} conformance row ID(s) parsed out of the protocol file — "
+        "the table's shape changed and this check is no longer reading it"
+    )
+    assert len(ids) == len(set(ids)), f"duplicate row IDs in the table: {ids}"
     source = Path(__file__).read_text(encoding="utf-8")
-    # 16 rows since the fork's lap 4. Ours had 14 and the two missing were the two
-    # that found a real gap — in their gate and, as it turned out, in ours.
-    for row in range(1, 17):
-        if row in (15, 16):
-            # C15/C16 are their numbering for our rows 13/14 (protocol version,
-            # complete-round-allowed) — same cases, different index. Named here so
-            # the mapping is recorded rather than inferred.
-            continue
-        assert f"def test_row{row}_" in source, (
-            f"PROTOCOL.md §8 row {row} has no test in this file — a conformance "
-            "row without a test is a divergence nobody can see"
-        )
+    missing = [i for i in ids if f"def test_{i}_" not in source]
+    assert not missing, (
+        f"shared protocol §8 rows {', '.join(missing)} have no test in this file — "
+        "a conformance row without a test is a divergence nobody can see"
+    )
+
+
+def test_no_test_here_claims_a_row_the_table_does_not_have() -> None:
+    """The converse, which the old check had no way to state.
+
+    A test named for a row that no longer exists is a coverage claim about
+    nothing — and it is how our own file ended up with two different tests both
+    called `test_row9_`, one for "unrecognised verdict" and one for the round-8
+    identity fields. Either could have been deleted and the coverage check would
+    have stayed green.
+    """
+    ids = set(_conformance_row_ids())
+    source = Path(__file__).read_text(encoding="utf-8")
+    claimed = set(re.findall(r"^def test_(C\d+)_", source, re.MULTILINE))
+    unknown = sorted(claimed - ids)
+    assert not unknown, (
+        f"test(s) here claim row(s) {', '.join(unknown)}, which the shared table "
+        "does not define"
+    )
