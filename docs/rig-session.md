@@ -65,7 +65,7 @@ This is the change you asked for, and it is entirely an eyes-on check.
 | dropdown | should now read |
 |---|---|
 | **Goal** | `Fast Verified — Lossless, Fully Verified (AccurateRip + CTDB) [Recommended]`<br>`Archival Exact — Fully Verified, Smallest Lossless Files`<br>`Portable — MP3 Derived From a Fully Verified Master`<br>`Custom — Hand-Tuned Below` |
-| **Naming scheme** | `Artist / Album / 01 - Title — Simple, No Year Clutter [Recommended]`<br>…and four more, each with a descriptor after the em dash |
+| **Naming scheme** | `Artist / Album / 01 - Title — Simple, No Year Clutter [Recommended]`<br>`Artist / Album / 01 Title — Same Layout, No Dash`<br>`Artist / Album (Year) / 01 - Title — Plex and Jellyfin Style`<br>`Artist / Year - Album / 01 - Title — Chronological, foobar2000 Style`<br>`Artist / Album / 01 - Track Artist - Title — Compilations, Various Artists`<br>`Custom — Hand-Tuned Below` |
 | **Output format** | `FLAC — Lossless Archival Master [Recommended]`<br>`WavPack (.wv) — Lossless, Keeps Tags and Cover Art`<br>`MP3 — Lossy, Best-Quality VBR, Keeps Tags and Cover Art`<br>`WAV — Raw PCM, No Tags or Cover Art` |
 | **Cover art** | `Don't Fetch — No Cover Art at All`<br>`Embed in FLAC — Art Inside Each Track`<br>`Save as File — Art Beside the Tracks`<br>`Embed and Save File — Both [Recommended]` |
 | **Read speed** | `Adaptive Ladder — Fast, Slower Only if a Disc Needs It [Recommended]`<br>`Fixed Speed — Always the Speed Set Below [Advanced]` |
