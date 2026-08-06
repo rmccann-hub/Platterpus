@@ -83,6 +83,26 @@ looked at.
 
 ## S4. The clause we propose for both repos
 
+**Delivered as a file, not as prose to copy.** `docs/seam-rules.md` in our tree is
+written to be **byte-identical in both repos** — same mechanism as
+`docs/handshake-protocol.md`, which neither of us owns. Take it as-is; if you want
+a word changed, that is a version bump we both ship, not a local edit.
+
+Its shape answers the thing our maintainer asked for directly: **every rule is
+tagged `[BOTH]`, `[PLATTERPUS]` or `[CYANRIP]`**, and both sides read all of them.
+A consumer who does not know what the provider guarantees re-derives it wrongly; a
+provider who does not know what the consumer parses changes a line thinking it is
+free. Seven universal rules, three binding only us, three binding only you — and
+**§4 tables every value that crosses the seam with its type**, in both directions
+plus the values that are neither side's (album and track titles arrive from
+MusicBrainz as arbitrary Unicode and may carry `<`, `&`, newlines; each side must
+survive them independently).
+
+Conformance is stated, not assumed: `SEAM-RULES-VERSION: 1` plus which tags you
+implement, and **a rule you have not implemented is not a rule you may cite.**
+
+The clause in prose, for the record:
+
 > **Both directions of the seam are sanitised and error-checked, at the boundary,
 > by code.** The seam has an *outbound* half (the argv and environment we hand
 > the other side) and an *inbound* half (the log and output we take back and show
