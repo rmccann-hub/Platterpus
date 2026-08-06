@@ -11,6 +11,23 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+### Fixed
+- **The Settings dialog could not be made short enough to fit the screen, so OK and Cancel
+  fell off the bottom.** Its `minimumSizeHint` was **739 × 971** — a `QFormLayout`'s minimum
+  is the sum of its 35 rows, so *no* resize could help, and the b11 labels widened it enough
+  to start clipping horizontally too. `CenteredDialog` could not rescue it: it clamps a
+  dialog's *position* onto the screen and deliberately never resizes it. The form now lives in
+  a `QScrollArea`, which drops the floor to **146 px**; the validation banner, *Check
+  dependencies* and OK/Cancel stay **outside** it, because an error message or an OK button
+  that can scroll out of view is the same bug one level down. The dialog also opens clamped to
+  the usable screen instead of to its own size hint.
+
+  The trap this set, pinned by its own test: a `QScrollArea` reports a small arbitrary hint
+  *by design*, so sizing the dialog from `self.sizeHint()` opened it at 526 × 414 showing a
+  third of the form — the complaint inverted rather than fixed. The opening size is measured
+  off the inner form plus the chrome deliberately kept outside it.
+
+
 ## [0.6.4b11] — 2026-08-06
 
 ### Changed

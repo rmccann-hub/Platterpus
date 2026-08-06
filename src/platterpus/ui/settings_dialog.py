@@ -12,17 +12,21 @@ signal; the caller wires it to the DependencyManager.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Signal
+from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -637,7 +641,46 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("EAC-style log:", self._eac_log_check)
 
-        root.addLayout(form)
+        # --- The form scrolls; the actions never do --------------------------
+        # Measured, not guessed (2026-08-06, real hardware): this form is 35 rows
+        # and its `minimumSizeHint` was **739 × 971** — meaning the dialog could
+        # not be made shorter than 971 px *by any means*, because a QFormLayout's
+        # minimum is the sum of its rows. On a 1080p desktop with a panel, that
+        # does not fit, so Qt placed the dialog with **OK and Cancel below the
+        # bottom of the screen** and there was no way to reach them. The
+        # `CenteredDialog` base clamps a dialog's *position* onto the screen but
+        # deliberately never resizes it (`centering._clamp_to`: "slide `frame`
+        # (never resize it)"), so it could not rescue this.
+        #
+        # Putting the form inside a scroll area collapses that floor: the dialog's
+        # minimum height becomes the scroll viewport's minimum plus the two action
+        # rows, so it fits any screen and the content scrolls instead.
+        #
+        # **What is deliberately OUTSIDE the scroll area, and why:** the validation
+        # banner, "Check dependencies", and OK/Cancel. A validation error that
+        # scrolled out of view would defeat the rule it exists to serve
+        # (CLAUDE.md — a visible, specific error), and an OK button that can scroll
+        # away is the bug this whole change is fixing, one level down.
+        #
+        # New state this creates (CLAUDE.md's "what does the fix itself break?"):
+        # the form's widgets are now nested inside a viewport rather than being
+        # direct children of the dialog. Every one is still reachable as
+        # `dialog._x` — which the tests and the Qt signal wiring depend on — and
+        # `tests/test_ui_settings_dialog.py` asserts exactly that alongside the
+        # constrained-size checks, because "it still looks right at its natural
+        # size" is not a test of a scroll area (docs/testing.md §5.v).
+        form_host = QWidget(self)
+        form_host.setLayout(form)
+        self._form_scroll: QScrollArea = QScrollArea(self)
+        self._form_scroll.setWidget(form_host)
+        # Without this the inner widget keeps its own size and the scroll area
+        # shows it at a fixed width, which reintroduces horizontal clipping.
+        self._form_scroll.setWidgetResizable(True)
+        # No sunken border: a framed box inside a dialog reads as a nested panel,
+        # and this is meant to be invisible when everything fits.
+        self._form_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._form_scroll.setAccessibleName("Settings")
+        root.addWidget(self._form_scroll, stretch=1)
 
         # --- Live input validation (visible errors during the change) ---
         # A banner that lists what's wrong with the current inputs and marks the
@@ -700,6 +743,84 @@ class SettingsDialog(CenteredDialog):
         # Validate the incoming config once so a hand-edited/invalid config.toml
         # surfaces its errors the moment Settings opens, not only on save.
         self._revalidate()
+
+        # Open at the size the content wants, but never larger than the screen.
+        # The scroll area above makes a *smaller* dialog possible; this is what
+        # makes it actually happen, because Qt's default is the size hint and the
+        # size hint is still the full 35-row form.
+        self.resize(self._opening_size())
+
+    # --- Sizing --------------------------------------------------------------
+
+    #: Kept clear of the panel/taskbar and the window frame. `availableGeometry`
+    #: already excludes reserved struts on most desktops, but not the frame Qt
+    #: adds around the dialog itself, and a dialog whose OK button sits exactly on
+    #: the screen edge is the same defect in a milder form.
+    _SCREEN_MARGIN_PX: int = 64
+
+    def _opening_size(self) -> QSize:
+        """The content's preferred size, clamped to the usable screen.
+
+        **Measured off the form, not off `self.sizeHint()`** — and that is the
+        whole subtlety of adding a scroll area. A `QScrollArea` reports a small,
+        arbitrary hint of its own (526 × 414 here) because it is *designed* to be
+        smaller than its content, so a dialog sized from `self.sizeHint()` opened
+        showing about a third of the form: fewer options visible, not more, which
+        is the complaint inverted rather than fixed. The preferred size is the
+        inner form's hint plus the chrome we deliberately kept outside it.
+
+        Pure enough to test: it reads the screen through
+        :meth:`available_screen_size`, which a test overrides. Returning a size
+        rather than calling ``resize`` keeps the arithmetic assertable without a
+        display — the lesson from the window-default fix, where CI's 800 × 800
+        virtual screen made two different defaults measure identically
+        (`docs/testing.md` §5.v).
+        """
+        content = self._form_scroll.widget().sizeHint()
+        chrome = self.sizeHint() - self._form_scroll.sizeHint()
+        # A vertical scrollbar steals width from the viewport; reserving it up
+        # front is what stops the *horizontal* bar appearing the moment the
+        # dialog is one pixel too short.
+        bar = self._form_scroll.verticalScrollBar()
+        wanted = QSize(
+            content.width() + chrome.width() + bar.sizeHint().width(),
+            content.height() + chrome.height(),
+        )
+        avail = self.available_screen_size()
+        return QSize(
+            min(wanted.width(), max(avail.width() - self._SCREEN_MARGIN_PX, 320)),
+            min(wanted.height(), max(avail.height() - self._SCREEN_MARGIN_PX, 240)),
+        )
+
+    def available_screen_size(self) -> QSize:
+        """Usable screen area, or a conservative fallback when there is none.
+
+        Split out so a test can constrain it. The fallback is deliberately small
+        rather than large: guessing *big* on a headless or odd-screen host would
+        reproduce the very bug this fixes, and a dialog that opens smaller than it
+        needed to is merely scrollable.
+        """
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return QSize(1024, 720)
+        return screen.availableGeometry().size()
+
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 — Qt override
+        """Re-clamp on show, because the screen is not knowable in ``__init__``.
+
+        A dialog constructed before it has been assigned to a screen reports the
+        primary screen's geometry; on a multi-monitor desktop the parent window
+        may be on a *different*, smaller one, and the base class moves us there
+        during this same event. Clamping again here — and only ever shrinking —
+        means the size matches the screen we actually land on.
+        """
+        super().showEvent(event)
+        clamped = self._opening_size()
+        if clamped.width() < self.width() or clamped.height() < self.height():
+            self.resize(
+                min(self.width(), clamped.width()),
+                min(self.height(), clamped.height()),
+            )
 
     # --- Public surface -----------------------------------------------------
 
