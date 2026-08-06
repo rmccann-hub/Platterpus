@@ -179,3 +179,60 @@ def uses_unsafe(steps: list[Step]) -> bool:
     that dies two-thirds through is worse than one that never started.
     """
     return any(step.unsafe for step in steps)
+
+
+def sanitise_cyanrip_args(args: list[str]) -> str | None:
+    """Refuse a scripted cyanrip argv that would be unsafe or unattended-hostile.
+
+    Returns a human-readable reason, or ``None`` when the argv may run.
+
+    **Why this exists at all.** The application's own rip argv passes through
+    :func:`platterpus.adapters.cyanrip_backend.assert_metadata_lookup_disabled` —
+    one chokepoint, which refuses any argv lacking ``-N``. A scripted
+    ``cyanrip …`` verb is a **straight passthrough that bypasses it**, so the
+    protection has to be re-established here or the script surface is a hole in a
+    rule the rest of the codebase enforces. (Found by the maintainer asking the
+    right architectural question: *"does all pass through platterpus to cyanrip
+    (filtered), or do any do a straight pass to cyanrip bypassing platterpus?"*
+    The answer was the second one, and the verb as first written was a bug.)
+
+    Three checks, each for a named failure:
+
+    1. **A rip invocation must carry ``-N``**, delegating the judgement to the
+       real chokepoint rather than restating its rule — a second copy of a
+       safety check is a second thing to drift. Probe invocations
+       (:data:`~platterpus.uiscript.verbs.PROBE_FLAGS`) are exempt because they
+       never reach the metadata path.
+    2. **No argument may contain a newline or a NUL.** We never use a shell, so
+       this is not injection — it is *log forgery*: cyanrip writes its argv into
+       an archival log, and a newline could fabricate a second line in a document
+       whose whole purpose is being trustworthy evidence.
+    3. **Bounded count and length**, so a paste accident cannot build a
+       multi-megabyte command line.
+    """
+    from platterpus.adapters.cyanrip_backend import (
+        RipError,
+        assert_metadata_lookup_disabled,
+    )
+    from platterpus.uiscript.verbs import PROBE_FLAGS
+
+    if len(args) > 64:
+        return f"{len(args)} arguments is not a command line; the limit is 64"
+    for arg in args:
+        if len(arg) > 4000:
+            return f"an argument is {len(arg)} characters; the limit is 4000"
+        if "\n" in arg or "\r" in arg or "\x00" in arg:
+            return (
+                f"refusing an argument containing a newline or NUL: {arg!r} — "
+                "cyanrip writes its argv into an archival log, and a newline "
+                "could forge a second line in it"
+            )
+
+    if any(arg in PROBE_FLAGS for arg in args):
+        return None  # a probe: prints and exits, never looks up metadata
+
+    try:
+        assert_metadata_lookup_disabled(["cyanrip", *args])
+    except RipError as exc:
+        return str(exc)
+    return None

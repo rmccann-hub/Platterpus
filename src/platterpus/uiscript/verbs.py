@@ -242,3 +242,19 @@ def verb_reference() -> str:
     lines.append("")
     lines.append(f"Dialogs `open` accepts: {', '.join(sorted(OPENABLE))}")
     return "\n".join(lines)
+
+
+#: Flags that make a cyanrip invocation a *probe* rather than a rip — it prints
+#: something and exits without touching metadata or the drive's audio.
+#:
+#: This distinction is the whole reason scripted invocations need their own
+#: sanitiser rather than the rip path's. `assert_metadata_lookup_disabled`
+#: requires `-N` on every argv, and it is right to: without it cyanrip runs its
+#: own MusicBrainz lookup, which **can block on an interactive prompt with no
+#: terminal attached** — an unattended batch would hang forever, which is the
+#: exact failure this whole feature exists to prevent. But `cyanrip --version`
+#: and the fork's `-x` cache probe neither look up metadata nor rip, so demanding
+#: `-N` of them would forbid the most useful scripted calls.
+PROBE_FLAGS: frozenset[str] = frozenset(
+    {"--version", "-v", "--help", "-h", "-x", "--cache-probe", "-j"}
+)

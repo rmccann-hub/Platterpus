@@ -38,7 +38,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from platterpus import __version__
 from platterpus.uiscript.report import Outcome, RunReport, StepRecord
-from platterpus.uiscript.script import Step
+from platterpus.uiscript.script import Step, sanitise_cyanrip_args
 from platterpus.uiscript.verbs import OPENABLE
 
 log = logging.getLogger(__name__)
@@ -446,6 +446,17 @@ class ScriptRunner(QObject):
         from platterpus.paths import CYANRIP_BINARY_DEFAULT
 
         args = list(step.args)
+        # SANITISE FIRST. This verb is a straight passthrough that bypasses
+        # `assert_metadata_lookup_disabled`, the one chokepoint every rip argv
+        # the application builds must pass. Re-establishing the guard here is
+        # not belt-and-braces: without `-N` cyanrip runs its own MusicBrainz
+        # lookup, which can block on an interactive prompt with no terminal
+        # attached — an unattended batch would hang forever, which is precisely
+        # the failure this whole feature exists to prevent.
+        refusal = sanitise_cyanrip_args(args)
+        if refusal is not None:
+            self._record(step, Outcome.FAIL, refusal)
+            return
         argv = [str(CYANRIP_BINARY_DEFAULT), *args]
         self._last_cyanrip_argv = argv
         started = time.monotonic()

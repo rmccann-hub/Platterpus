@@ -280,3 +280,87 @@ def test_every_openable_dialog_names_a_real_method(qapp) -> None:
         if not hasattr(MainWindow, method)
     ]
     assert not missing, f"OPENABLE names methods MainWindow does not have: {missing}"
+
+
+# --- The straight passthrough is filtered ---------------------------------
+#
+# The maintainer's question, which found a bug: "does all pass through platterpus
+# to cyanrip (filtered), or do any do a straight pass to cyanrip bypassing
+# platterpus? ... if there is a straight pass through there should likely be a
+# sanitation check for the values."
+#
+# The answer was the second. The app's own rip argv goes through
+# `assert_metadata_lookup_disabled` at cyanrip_backend.py:279 -- ONE chokepoint --
+# and the `cyanrip` script verb bypassed it entirely as first written.
+
+
+def test_a_scripted_rip_without_dash_N_is_refused() -> None:
+    """The failure this prevents is a hang, not a wrong result.
+
+    Without `-N`, cyanrip runs its own MusicBrainz lookup, which can block on an
+    interactive prompt with no terminal attached. An unattended batch would hang
+    forever — the exact thing this feature exists to prevent.
+    """
+    refusal = script_mod.sanitise_cyanrip_args(["-d", "/dev/sr0", "-o", "flac"])
+    assert refusal is not None
+    assert "-N" in refusal
+
+
+def test_the_guard_is_delegated_not_restated() -> None:
+    """The refusal text comes from the real chokepoint, not a copy of its rule.
+
+    A second implementation of a safety check is a second thing to drift; if the
+    chokepoint's wording or logic changes, this follows automatically.
+    """
+    from platterpus.adapters.cyanrip_backend import (
+        RipError,
+        assert_metadata_lookup_disabled,
+    )
+
+    try:
+        assert_metadata_lookup_disabled(["cyanrip", "-o", "flac"])
+        raise AssertionError("the chokepoint should have refused this")
+    except RipError as exc:
+        canonical = str(exc)
+    assert script_mod.sanitise_cyanrip_args(["-o", "flac"]) == canonical
+
+
+def test_probe_invocations_are_exempt_because_they_never_look_up_metadata() -> None:
+    """Otherwise the most useful scripted calls would be forbidden.
+
+    `--version` and the fork's `-x` cache probe print and exit; demanding `-N` of
+    them would be a rule applied past its own reason.
+    """
+    for probe in (["--version"], ["-x", "-D", "/tmp/scratch"], ["--help"]):
+        assert script_mod.sanitise_cyanrip_args(probe) is None, probe
+
+
+def test_a_newline_in_an_argument_is_refused_as_log_forgery() -> None:
+    """Not shell injection — we never use a shell. Log forgery.
+
+    cyanrip writes its argv into an archival log, and a newline could fabricate a
+    second line in a document whose entire purpose is being trustworthy evidence.
+    """
+    refusal = script_mod.sanitise_cyanrip_args(
+        ["-N", "-a", "album=x\nInvoked as: lies"]
+    )
+    assert refusal is not None
+    assert "newline" in refusal
+
+
+def test_a_malformed_consumer_tag_is_refused_by_the_same_delegation() -> None:
+    refusal = script_mod.sanitise_cyanrip_args(["-N", "--consumer", "bad tag"])
+    assert refusal is not None
+    assert "whitespace" in refusal
+
+
+def test_absurd_argv_is_bounded() -> None:
+    assert script_mod.sanitise_cyanrip_args(["-N"] + ["-x"] * 100) is not None
+    assert script_mod.sanitise_cyanrip_args(["-N", "x" * 5000]) is not None
+
+
+def test_a_well_formed_rip_argv_is_allowed() -> None:
+    """The floor: a sanitiser that refused everything would pass every test above."""
+    assert (
+        script_mod.sanitise_cyanrip_args(["-N", "-d", "/dev/sr0", "-o", "flac"]) is None
+    )
