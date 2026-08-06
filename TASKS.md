@@ -481,6 +481,22 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 - **[x] Declined dependencies should not cascade to the next tier.** Done (verified 2026-06-02) — see the identical item under P1.1 above. `resolve_missing` skips cascade for `user_declined`; three tests cover it.
 - **[x] Picard auto-install failure mode — resolved.** Both halves are done: (1) **root cause** — the registry now installs Picard via the **`.flatpakref` URL** (`https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref`) instead of `flathub <ref>`; the `.flatpakref` carries the remote URL so flatpak adds flathub at *user* level on first install, fixing the Bazzite "No remote refs found for 'flathub'" error (Atomic distros configure flathub as a *system* remote). See `deps/registry.py`. (2) **diagnostics** — `AutoInstaller` captures the failed command's last stderr/stdout line into `InstallResult.message`, and `_show_dep_summary` surfaces it in an "Install failures:" block (no longer debug-only). Picard is also `optional=True`, so a failure doesn't nag.
 
+### P0 — The RETURN path from cyanrip is unsanitised, and Qt's default renders it as HTML (found 2026-08-06)
+
+The maintainer asked the mirror of the argv question: *"do all logs and commands pass back to platterpus from cyanrip before user facing? same deal, they probably should and get sanitized and checked ... this should be a check in both directions, and full."*
+
+**Measured answer: the output half has no sanitiser at all.** Two greps settle it:
+- `grep -rn "setTextFormat|Qt.RichText|Qt.PlainText" src/platterpus/ui/` → **zero hits.** No widget anywhere pins its text format.
+- No sanitiser function exists on the return path (`ripper_messages.py`'s `re.escape` calls are regex construction, not output cleaning).
+
+**Why that is a live defect, not a theoretical one.** Qt's default is `Qt::AutoText`, which **auto-detects HTML and renders it as rich text**. cyanrip's `captured_stdout` and `failure_hint` reach user-facing surfaces (`main_window_rip.py:1368`, `:1456`). So any captured line that *looks* like markup is interpreted rather than shown.
+
+**The realistic failure is silent text loss, not an exploit.** cyanrip is a local trusted binary — but the *content* it echoes is not ours: album and track titles come from **MusicBrainz**, i.e. from outside. A title containing `<` — `Track <Remix>`, `A > B`, `<untitled>` — is swallowed as an unknown tag in a user-facing error dialog, and **the user never learns text went missing**. That is exactly CLAUDE.md's *validate every dependency output* category and exactly the silent-truncation shape the diagnostic-completeness rule exists to forbid.
+
+- **[ ] Pin every user-facing widget that can carry dependency output to `PlainText`**, and add a sweep test asserting no `QLabel`/`QMessageBox` receiving tool output is left on `AutoText`. The sweep matters more than the individual fixes — this is a rule to enforce across the codebase, not at the one place it was found (`docs/testing.md` §5.o).
+- **[ ] Add the return-path sanitiser as the mirror of `sanitise_cyanrip_args`**: strip/flag control characters and NULs, bound absurd line lengths (a 10 MB single line will freeze the GUI thread rendering it), and preserve everything else verbatim. It must **never silently drop** — an elision is counted and marked, same rule as the argv side.
+- **[ ] Make it a two-way contract test.** The input half is `tests/test_argv_surface_agreement.py`. The output half has parser tests but nothing asserting *what reaches the user* is what cyanrip said. That asymmetry is the same one that let the `-V` blocker ship for a full round.
+
 ### P0 — Handshake lap 28: our sent verdict is wrong on both halves (verified 2026-08-06)
 
 **Our lap 27 is sitting in the fork's inbox making two false statements**, both verified against committed artifacts rather than remembered:
