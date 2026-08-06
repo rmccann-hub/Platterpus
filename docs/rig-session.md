@@ -51,8 +51,11 @@ end rather than quietly dropped.
 | *"it stopped when I closed platterpus because it looked hung, might be wrong"* | You were **not** wrong — the app was waiting on the release picker and the log said nothing at all for 96 seconds. Every dialog now logs that it was put on screen and how it closed; the picker also logs the candidate count and the words **"this is not a hang"** |
 | *"the layout had 6 tracks … the title is the widest row"* | **Already confirmed fixed on your hardware.** Nothing to re-check |
 
-Plus one defect I found while checking your naming ask, and one the project's own guards
-caught in my new code — both in the CHANGELOG, neither visible on screen.
+Plus three you would not see on any screen, all in the CHANGELOG: a defect I found while
+checking your naming ask (a rip's JSON could name a Goal its own settings never matched),
+one the project's own regex guard caught in my *new* code, and one the new dialog sweep
+caught — `DiagnosticsDialog` was the single dialog that opted out of the base class, so the
+**diagnostics** window was the one that left no trace of having been opened.
 
 ---
 
