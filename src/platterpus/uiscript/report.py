@@ -68,6 +68,11 @@ class RunReport:
 
     started_at: str
     app_version: str
+    #: The script EXACTLY as pasted, kept verbatim. A transcript that says which
+    #: step failed but not what was asked of it is not reproducible, and this
+    #: whole feature exists to produce evidence somebody else can act on. Bounded
+    #: head-and-tail on the way into the JSON, never silently.
+    script_source: str = ""
     steps: list[StepRecord] = field(default_factory=list)
     ended_reason: str = ""
     used_unsafe: bool = False
@@ -98,6 +103,11 @@ class RunReport:
         return {
             "started_at": self.started_at,
             "app_version": self.app_version,
+            # The input, beside the outcome. The maintainer's instruction:
+            # "you need to make sure errors and error logs record anything we
+            # are inputting as well." A failure whose input is not recorded
+            # cannot be reproduced by the person reading the report.
+            "script_source": _bounded(self.script_source),
             "ended_reason": self.ended_reason or None,
             "used_unsafe_verbs": self.used_unsafe,
             "artifact_dir": self.artifact_dir or None,
@@ -105,6 +115,27 @@ class RunReport:
             "ok": self.ok,
             "steps": [step.as_dict() for step in self.steps],
         }
+
+
+#: Cap on the script text carried into the JSON. The report is already the one
+#: per-album debug artifact and must stay under the maintainer's 25 MB ceiling; a
+#: pasted script is a few KB, so this only ever fires on an accident.
+MAX_SOURCE_CHARS: int = 20_000
+
+
+def _bounded(text: str) -> str:
+    """Head and tail, with the elision counted — never a silent truncation.
+
+    Head *and* tail because the interesting part of an over-long paste is as
+    likely to be at the end as the start, and a head-only cap drops exactly the
+    line that explains it (`CLAUDE.md` — a silent truncation reads as
+    completeness).
+    """
+    if len(text) <= MAX_SOURCE_CHARS:
+        return text
+    half = MAX_SOURCE_CHARS // 2
+    dropped = len(text) - 2 * half
+    return f"{text[:half]}\n… [{dropped} characters omitted] …\n{text[-half:]}"
 
 
 def render(report: RunReport) -> str:
