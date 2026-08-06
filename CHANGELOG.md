@@ -11,6 +11,93 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.4b11] — 2026-08-06
+
+### Changed
+- **Every option in every Settings dropdown now follows one naming convention** —
+  `Name — Descriptor In Title Case [Qualifier]` — instead of the five different
+  phrasings that had accumulated across five combos in one dialog (an em dash here, a
+  lowercase parenthetical there, a bare `Embed in FLAC` with no description at all, and
+  two labels using the same round bracket for two different jobs). The maintainer read
+  that dialog on the rig and asked for it, giving the syntax by example:
+  *"Flack - Lossless Archival Master [Debugging] or similar, and other settings should
+  reflect similar naming syntax."* So `FLAC — Lossless Archival Master [Recommended]`,
+  `Adaptive Ladder — Fast, Slower Only if a Disc Needs It [Recommended]`,
+  `Embed and Save File — Both [Recommended]`, `Custom — Hand-Tuned Below`.
+
+  The convention lives in one new module (`option_labels.py`) **with a checker**, not as a
+  style note: `check_option_label()` is pure, and the test sweeps *every item of every
+  combo in the constructed dialog* rather than a table of the labels we happen to know
+  about — so a dropdown added next year is covered without anyone remembering the rule.
+  This project's own lesson, twice recorded: *a comment where a check belongs is not a
+  fix*, and *enforce a rule across the codebase, not at the place it was learned*. The
+  checker is pinned non-vacuous by a test asserting all **19** pre-rename labels fail it,
+  and a second test asserting every combo still carries the same item **data**, because a
+  relabel that quietly reordered a value would change behaviour while reading as a copy
+  edit. `naming.CUSTOM_LABEL` is now one shared constant instead of a literal duplicated
+  four hundred lines away in the same dialog.
+
+### Fixed
+- **The dependency dialog said `cyanrip 0.9.4 (the Platterpus fork)` for a binary whose own
+  banner reads `cyanrip 0.9.4-rc1+platterpus.5-beta.5 (platterpus-fork-g9048082)`** — every
+  word accurate, the message wrong, and the *captured-and-discarded* kind: both the full
+  banner and the build tag were already in the object that dialog receives. Two independent
+  losses met there: `parse_version` reduces a version to an int triple, so
+  `-rc1+platterpus.5-beta.5` is structurally unrepresentable, and the build was collapsed to
+  a four-word phrase. `BuildNote` now carries the tool's own version string and its build
+  tag, and the row reads
+  `cyanrip 0.9.4-rc1+platterpus.5-beta.5 (the Platterpus fork; build tag "platterpus-fork-g9048082")`.
+  This is Critical rule #12's *say which build* obligation, previously met in the log, the
+  JSON and `--doctor` but **not** on the one surface a user reads at launch.
+- **The setup wizard's fork row named no commit either** — `✓ Platterpus fork of cyanrip
+  (build + export) — already present`, while the probe deciding "already present" reads the
+  target pin two lines above its own comparison. The row now reads
+  `… — commit 9048082` with `already present — the installed banner names commit 9048082`,
+  worded to match what the probe actually checked rather than claiming an equality nobody
+  tested.
+- **A modal dialog left no trace in the log, so "waiting for a human" and "wedged" were the
+  same silence.** The maintainer closed the app mid-session because it *"looked hung"*; it
+  was waiting on the MusicBrainz release picker with four candidates, and the log has a
+  **96-second gap** because that path logged nothing on any branch — not opened, not
+  waiting, not accepted, not cancelled. Every dialog now logs that it was *presented*
+  (from `showEvent`, so the line is evidence Qt actually mapped the window, not merely that
+  we asked) and how it closed, on the shared `CenteredDialog` base rather than only at the
+  call site that was found wanting. The picker additionally logs the candidate count and
+  says **"this is not a hang"** in words, plus how long the wait lasted and what came out of
+  it. The mechanism first suspected — a modal swallowing the picker — is impossible and is
+  recorded as refuted: MB results arrive as a queued cross-thread signal, which a nested Qt
+  event loop still delivers.
+- **A rip's permanent record could name a goal its own settings never matched.**
+  `settings.rip_goal` was read back from `config.rip_goal`, which is only a *label* for a
+  bundle of six fields with nothing keeping the two in step — a hand-edited `config.toml`, a
+  field changed outside `apply_preset`, or a config written before the field existed all
+  leave a stale label behind. The Settings dialog had always re-derived (so the screen was
+  right, which is why this hid); the report now derives it the same way, via the same
+  function, and keeps the stored value as `settings.rip_goal_stored` **only when the two
+  disagree** — the disagreement is itself a finding, and discarding it silently would be the
+  same bug in a smaller place. Report schema **v22 → v23**.
+- **`DiagnosticsDialog` was the one dialog that subclassed `QDialog` directly**, so it
+  inherited neither the centring nor the new lifecycle lines — a *diagnostics* window that
+  left no trace of having been opened. Found by a sweep (`test_every_dialog_in_the_app_inherits_the_logging_base`,
+  derived from the source with a floor of 15 scanned modules), not by memory, and the sweep
+  is what stops the next one.
+- **An unbounded `\s*` in the new label checker** backtracked super-linearly (16× the time
+  for 4× the input, on a run of tabs). Found by `test_regex_bounded_time.py`, not by care —
+  which is the point of having it.
+
+### Documentation
+- **The four superseded rig-session sheets are archived and replaced by one
+  `docs/rig-session.md`.** Five near-duplicate sheets had accumulated, each written for one
+  app-build/ripper-pin pairing, and the maintainer had already asked for the pile to be
+  combined. One current sheet that names its pair in its header does the job; the dated ones
+  move to `docs/archive/` where their audit trail is still readable.
+- **`README.md` now says where the AppImage actually is** before handing out
+  `./platterpus-x86_64.AppImage …` commands. Accepting the first-run "add to menu" offer
+  **moves** the file to `~/Applications/`, so a `./`-relative command run from the download
+  folder afterwards reports *No such file or directory* — correct behaviour that was already
+  mistaken once for a bug, because the instruction was wrong and not the app. The same note
+  is in `docs/test-plan.md` and `docs/hardware-test-checklist.md`.
+
 ## [0.6.4b10] — 2026-08-05
 
 ### Changed
@@ -6497,7 +6584,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...HEAD
+[0.6.4b11]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b10...v0.6.4b11
 [0.6.4b10]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b9...v0.6.4b10
 [0.6.4b9]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b8...v0.6.4b9
 [0.6.4b8]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b7...v0.6.4b8
@@ -6579,4 +6667,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b10.*
+*Last updated for Platterpus v0.6.4b11.*

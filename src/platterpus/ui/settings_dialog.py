@@ -28,7 +28,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from platterpus import goal_presets, naming, offset_config, settings_validation
+from platterpus import (
+    goal_presets,
+    naming,
+    offset_config,
+    option_labels,
+    settings_validation,
+)
 from platterpus.config import Config
 from platterpus.paths import LOG_PATH
 from platterpus.settings_validation import ValidationIssue
@@ -67,7 +73,10 @@ class SettingsDialog(CenteredDialog):
         self._goal_combo: QComboBox = QComboBox(self)
         for key, label in goal_presets.GOAL_LABELS:
             self._goal_combo.addItem(label, key)
-        self._goal_combo.addItem("Custom (hand-tuned below)", goal_presets.GOAL_CUSTOM)
+        # One shared constant, not a second literal: the naming-scheme combo
+        # four hundred lines below needs the same row, and the two spellings
+        # used to sit far enough apart to drift unnoticed.
+        self._goal_combo.addItem(option_labels.CUSTOM_LABEL, goal_presets.GOAL_CUSTOM)
         self._goal_combo.setToolTip(
             "Pick what you want this rip to be and the format, verification, and "
             "quality options below snap to good values for it. You can still "
@@ -259,10 +268,10 @@ class SettingsDialog(CenteredDialog):
         # Item data is the raw config value.
         self._format_combo: QComboBox = QComboBox(self)
         for label, value in (
-            ("FLAC — lossless archival master (recommended)", "flac"),
-            ("WavPack (.wv) — lossless, with tags", "wavpack"),
-            ("MP3 — lossy, best-quality VBR, with tags + cover", "mp3"),
-            ("WAV — raw PCM, no tags or cover art", "wav"),
+            ("FLAC — Lossless Archival Master [Recommended]", "flac"),
+            ("WavPack (.wv) — Lossless, Keeps Tags and Cover Art", "wavpack"),
+            ("MP3 — Lossy, Best-Quality VBR, Keeps Tags and Cover Art", "mp3"),
+            ("WAV — Raw PCM, No Tags or Cover Art", "wav"),
         ):
             self._format_combo.addItem(label, value)
         format_index = self._format_combo.findData(config.output_format)
@@ -392,10 +401,10 @@ class SettingsDialog(CenteredDialog):
         # cover from the Cover Art Archive after the rip and embeds it.
         self._cover_art_combo: QComboBox = QComboBox(self)
         for label, value in (
-            ("Don't fetch", ""),
-            ("Embed in FLAC", "embed"),
-            ("Save as file", "file"),
-            ("Embed and save file", "complete"),
+            ("Don't Fetch — No Cover Art at All", ""),
+            ("Embed in FLAC — Art Inside Each Track", "embed"),
+            ("Save as File — Art Beside the Tracks", "file"),
+            ("Embed and Save File — Both [Recommended]", "complete"),
         ):
             self._cover_art_combo.addItem(label, value)
         cover_index = self._cover_art_combo.findData(config.cover_art)
@@ -520,9 +529,12 @@ class SettingsDialog(CenteredDialog):
         # spinner is enabled only in Fixed mode.
         self._read_speed_mode_combo: QComboBox = QComboBox(self)
         self._read_speed_mode_combo.addItem(
-            "Adaptive ladder — fast, slower only if a disc needs it", "auto_ladder"
+            "Adaptive Ladder — Fast, Slower Only if a Disc Needs It [Recommended]",
+            "auto_ladder",
         )
-        self._read_speed_mode_combo.addItem("Fixed speed (advanced)", "fixed")
+        self._read_speed_mode_combo.addItem(
+            "Fixed Speed — Always the Speed Set Below [Advanced]", "fixed"
+        )
         self._read_speed_mode_combo.setAccessibleName("Read speed mode")
         mode_index = self._read_speed_mode_combo.findData(config.read_speed_mode)
         self._read_speed_mode_combo.setCurrentIndex(
@@ -923,7 +935,7 @@ class SettingsDialog(CenteredDialog):
             self._ctdb_verify_check.setChecked(preset.ctdb_verify_after_rip)
             # `verify_flac_after_rip` is one of the SIX fields a preset defines
             # and `goal_presets.detect_goal` compares — but it was the one this
-            # handler never set. Picking "Archival exact" therefore left it
+            # handler never set. Picking "Archival Exact" therefore left it
             # untouched, and the next time Settings opened, detect_goal saw a
             # config that didn't match any preset and silently reported
             # "Custom" (audit, 2026-07-28). The list here must stay in step with

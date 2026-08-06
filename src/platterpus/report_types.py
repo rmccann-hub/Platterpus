@@ -139,7 +139,14 @@ class SettingsBlock(TypedDict):
     ctdb_verify_after_rip: bool | None
     verify_flac_after_rip: bool | None
     recompress_flac_after_rip: bool | None
+    #: DERIVED from the six preset fields by `goal_presets.detect_goal`, not read
+    #: back from `config.rip_goal` — the stored label is only a name for those
+    #: fields and nothing kept the two in step (schema v23).
     rip_goal: str | None
+    #: The stored `config.rip_goal`, present ONLY when it disagreed with the
+    #: derived value above. Its absence means the config file's label was
+    #: truthful about its own settings; its presence is a finding.
+    rip_goal_stored: NotRequired[str]
     read_offset: ReadOffsetBlock
     # Written only when output_format == "mp3".
     mp3_vbr_quality: NotRequired[int | None]
