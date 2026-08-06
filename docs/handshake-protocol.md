@@ -1,10 +1,3 @@
-<!-- ADOPTED VERBATIM from the cyanrip fork, round 7 lap 4. THIS FILE IS SHARED:
-     it is the same document in both repositories, and neither project owns it.
-     Do not edit it unilaterally — a change here is a protocol version bump, which
-     both sides must ship before the next close (§10). Our gate that implements it
-     is `scripts/handshake.py`; our conformance tests are
-     `tests/test_handshake_conformance.py`, one per §8 row. -->
-
 # Handshake protocol v2
 
 **This file is the shared language. Both projects implement it; neither owns
@@ -90,6 +83,13 @@ HANDSHAKE-PIN: <sha>
 | `HANDSHAKE-RIPPER-VERSION` | `cyanrip <version> (<build tag>)` | the ripper banner, **verbatim**, that produced them. |
 | `HANDSHAKE-PIN` | short SHA | the commit this file concerns. |
 
+**Required from round 8 on.** Rounds up to and including 7 are exempt, because
+neither project could comply with a spec written during round 7. A gate must pin
+that boundary as a constant and assert it in a test, so widening the exemption is
+a visible edit rather than a side effect. **These four are required on *every*
+file, including a mid-round `HOLD`** — a lap reporting a measurement must say
+which pair produced it; the §5 fields say only who agreed.
+
 **The two version fields are load-bearing, not bookkeeping.** A round that
 approves a pin approves it *for a named consumer version*. Two artifacts from the
 same ripper under different app versions are not interchangeable evidence, and a
@@ -147,17 +147,88 @@ Write down what they declared. If they said `HOLD`, record `HOLD` — do not
 translate an encouraging paragraph into a `GO`. If their file is ambiguous, that
 is a lap, not a close.
 
-## 6. Optional but recommended
+## 6. Optional fields
 
 ```
 PROVIDER-CONTRACT: PROVIDER-CONTRACT.md @ <sha>
 HANDSHAKE-SOURCE-ANCHOR: sha256/16 = <hex>
+HANDSHAKE-TEST-PIN: <sha>
 ```
 
-A resolvable pointer to the generated interface contract at a specific commit,
-so a consumer's machine-readable check has something to resolve rather than
-parsing prose. **Do not write "unchanged" unless you have compared** — that
-sentence has already been proposed once when the contract had in fact moved.
+`PROVIDER-CONTRACT` is a resolvable pointer to the generated interface contract
+at a specific commit, so a consumer's machine-readable check has something to
+resolve rather than parsing prose. **Do not write "unchanged" unless you have
+compared** — that sentence has already been proposed once when the contract had
+in fact moved.
+
+`HANDSHAKE-SOURCE-ANCHOR` pins that contract by **content** rather than by
+pointer, so it stays checkable if the file is ever moved or renamed.
+
+### 6a. `HANDSHAKE-TEST-PIN` — and the deadlock it exists to break
+
+**A round cannot close without evidence that can only be gathered by installing
+the build the round is reviewing.** Written out, our own rules deadlock:
+
+1. A close requires `HANDSHAKE-TESTED`, naming what ran on which pair.
+2. Hardware evidence can only be gathered on the rig.
+3. The rig installs the pinned build.
+4. Neither project may switch the pin while a round is open.
+5. So the rig runs the *previous* release — the one without any of the changes
+   under review.
+6. So `HANDSHAKE-TESTED` can never describe the build being reviewed.
+7. So the round never closes.
+
+Every step is a rule both projects hold, and together they are unsatisfiable.
+The fault is conflating two different pins:
+
+| | what it is | who installs it | closes a round? |
+|---|---|---|---|
+| **production pin** (`HANDSHAKE-PIN`) | the agreed build | everything | it *is* the agreement |
+| **test pin** (`HANDSHAKE-TEST-PIN`) | a build designated to gather the evidence a close needs | the rig, deliberately, for a session | **never** |
+
+**A test pin is not a release and must never be treated as one.** Declaring it
+does not close a round, does not move `HANDSHAKE-PIN`, and does not permit a
+release. A gate must assert that a file declaring only a test pin still refuses.
+
+Both sides declare the same test pin, in writing, before the session. Logs it
+produces say `NOT a released build`, which is correct and is the point — the
+artifact records that it came from a build under review rather than an agreed
+one. Those logs are what `HANDSHAKE-TESTED` then cites.
+
+**Sequence:** agree the test pin → both install it → run the session → both file
+the results → *then* the round can close on that evidence, moving
+`HANDSHAKE-PIN` to what was tested.
+
+### 6b. Pre-releases, for projects whose artifact is a release
+
+A test pin works when the other side builds from a tree. When a project's
+artifact is something a user *installs* — an AppImage, a package — the test pin
+has to be a published pre-release, and a gate that refuses all releases refuses
+that too.
+
+So the gate distinguishes what a release *claims* rather than whether one
+happens:
+
+| | permitted with a round open? |
+|---|---|
+| **stable release** | **no** — it claims the pair was jointly verified |
+| **pre-release / beta** | **yes**, after printing every open round |
+
+A beta claims no joint verification: it ships saying so, and every rip it makes
+records that in its own artifact. **Refusing it would not protect a user; it
+would guarantee the round can never close**, because the evidence a close
+requires can only come from running the thing.
+
+Proposed by Platterpus in round 7 lap 7, adopted by cyanrip in lap 8. Both gates
+take a `--prerelease` flag which prints the open rounds first, so permitting a
+beta is never quiet.
+
+Proposed by cyanrip in round 7 lap 6. Carried as an **optional** field on
+purpose: v2 gates ignore unknown fields, so it costs the other side nothing
+before they implement it. **`HANDSHAKE-PROTOCOL` is deliberately not bumped for
+this** — a bump would make every v2 gate refuse the file that proposes it, which
+is the opposite of what a proposal needs. It becomes v3 only once both sides
+implement it.
 
 ## 7. Rip-time verification
 
@@ -197,22 +268,34 @@ A gate implementing this spec must refuse a release in every one of these cases.
 Both projects should have a test per row; cyanrip's are in
 `tests/release_gate.py`.
 
-| case | expected |
-|---|---|
-| our `GO`, no peer verdict | refuse, naming the missing peer verdict |
-| our `GO`, peer `HOLD` | refuse, naming the peer verdict |
-| both `GO`, any identity field missing | refuse, naming the field |
-| both `GO`, no `HANDSHAKE-TESTED` | refuse |
-| verdict field absent entirely | refuse |
-| verdict declared twice | refuse as ambiguous |
-| verdict indented / inside prose | refuse; the declaration did not match |
-| a complete close **illustrated inside a ``` block** | refuse, and do not adopt any of the illustrated values |
-| unrecognised verdict | refuse |
-| declared round ≠ the round it is filed under | refuse |
-| a later lap declaring `HOLD` after an earlier `GO` | refuse — a round can reopen |
-| no round files at all | refuse; an empty record is not agreement |
-| `HANDSHAKE-PROTOCOL` higher than implemented | refuse rather than guess |
-| complete two-sided tested round | **allow** — a gate that can never say yes is a wall, not a gate |
+**Each row has a stable ID.** Cite them when reporting a disagreement, so the two
+projects are provably talking about the same row rather than the same paraphrase.
+cyanrip's `tests/release_gate.py` declares which rows each test covers and asserts
+every ID here is covered by at least one — a coverage claim that is derived from
+this table rather than asserted alongside it.
+
+| ID | case | expected |
+|---|---|---|
+| C1 | our `GO`, no peer verdict | refuse, naming the missing peer verdict |
+| C2 | our `GO`, peer `HOLD` | refuse, naming the peer verdict |
+| C3 | both `GO`, any identity field missing | refuse, naming the field |
+| C4 | both `GO`, no `HANDSHAKE-TESTED` | refuse |
+| C5 | verdict field absent entirely | refuse |
+| C6 | verdict declared twice | refuse as ambiguous |
+| C7 | verdict indented / inside prose | refuse; the declaration did not match |
+| C8 | a complete close **illustrated inside a ``` block** | refuse, and do not adopt any of the illustrated values |
+| C9 | a round ≥ 8 file missing any of `FROM` / `APP-VERSION` / `RIPPER-VERSION` / `PIN` | refuse, naming the field — including on a mid-round `HOLD` |
+| C10 | a round ≤ 7 file missing them | **allow**; the exemption is by pinned number |
+| C11 | unrecognised verdict | refuse |
+| C12 | declared round ≠ the round it is filed under | refuse |
+| C13 | a later lap declaring `HOLD` after an earlier `GO` | refuse — a round can reopen |
+| C14 | no round files at all | refuse; an empty record is not agreement |
+| C15 | `HANDSHAKE-PROTOCOL` higher than implemented | refuse rather than guess |
+| C16 | complete two-sided tested round | **allow** — a gate that can never say yes is a wall, not a gate |
+| C17 | a file declaring `HANDSHAKE-TEST-PIN` and otherwise complete, but verdict `HOLD` | refuse; a test pin is not a release |
+| C18 | `HANDSHAKE-TEST-PIN` present alongside a valid close | **allow**, and the test pin must not be mistaken for `HANDSHAKE-PIN` |
+| C19 | a **stable** release requested with any round open | refuse |
+| C20 | a **pre-release** requested with a round open | **allow**, and print every open round first — a beta claims no joint verification, and refusing it guarantees the round can never close |
 
 That last row matters as much as the others. Assert it, or a gate that refuses
 everything passes every other test in the table.

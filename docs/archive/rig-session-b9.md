@@ -242,4 +242,4 @@ This exercises the two banner fixes, and only a real cancel produces the shape.
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b13.*

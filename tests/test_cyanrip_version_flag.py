@@ -29,6 +29,7 @@ exercised, because the point is not "the fork works now".
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -398,3 +399,94 @@ def test_the_flag_list_is_ordered_and_non_empty() -> None:
     assert VERSION_FLAGS[0] == "-V"
     assert "--version" in VERSION_FLAGS
     assert sys.version_info >= (3, 11)  # tuple ordering is load-bearing, not a set
+
+
+# --- The -a / -t blob syntax (round 7 lap 31) ---------------------------------
+#
+# These live beside the version-flag tests because both pin `cyanrip_cli.py`: the
+# facts about cyanrip's command line that more than one layer needs. The escape
+# is written by `adapters/cyanrip_backend.py` and read back by `cue_validate.py`,
+# and the whole point of one shared implementation is that those two cannot
+# disagree — so the round trip is asserted here, once, rather than on each side.
+
+
+def test_the_escape_and_its_inverse_round_trip_every_awkward_value() -> None:
+    """escape → split → unescape must return exactly what went in.
+
+    Not a tautology: the two functions live in different modules (the escaper in
+    the backend, the splitter here) precisely so the write side and the read side
+    share no code, and this is the assertion that keeps them inverses. The
+    U+2236 case is deliberate — a historical argv from before the escape shipped
+    must still read back correctly, because the report reader is pointed at
+    committed artifacts from those rips.
+    """
+    from platterpus.adapters.cyanrip_backend import _escape_meta_value
+    from platterpus.cyanrip_cli import split_meta_blob
+
+    values = [
+        "Every Breath You Take: The Classics",  # the reference disc
+        "Every Breath You Take∶ The Classics",  # the retired workaround
+        "a:b:c",
+        "a=b",
+        "back\\slash",
+        "It's",
+        "ends with a colon:",
+        ":starts with one",
+        "::",
+        "\\",
+        "plain",
+        "Cause 4 Concern: Part 1=2",
+    ]
+    for value in values:
+        blob = f"album={_escape_meta_value(value)}:album_artist=The Police"
+        pairs = split_meta_blob(blob)
+        assert pairs.get("album") == value, (
+            f"{value!r} did not survive the round trip: got {pairs.get('album')!r} "
+            f"from blob {blob!r}"
+        )
+        # The second pair must still be there — the failure mode is that an
+        # unescaped separator swallows it, which a one-key assertion cannot see.
+        assert pairs.get("album_artist") == "The Police", blob
+
+
+def test_a_naive_split_loses_text_that_the_escape_aware_one_keeps() -> None:
+    """The non-triviality floor for the test above.
+
+    A round-trip test passes just as happily against a naive splitter *if* the
+    escaper is also naive, so it cannot on its own show the escape-aware walk is
+    doing anything. This pins the difference: on the real reference title, the
+    naive split silently drops " The Classics" and leaves a stray backslash.
+    That is what shipped for the length of one change, and it is what would have
+    made the title-fidelity check accuse every correct rip of this disc.
+    """
+    from platterpus.cyanrip_cli import split_meta_blob
+
+    blob = "album=Every Breath You Take\\: The Classics:album_artist=The Police"
+
+    naive: dict[str, str] = {}
+    for chunk in blob.split(":"):
+        if "=" in chunk:
+            key, _, value = chunk.partition("=")
+            naive[key.strip().lower()] = re.sub(r"\\(.)", r"\1", value)
+
+    assert naive["album"] == "Every Breath You Take\\"  # the text is gone
+    assert split_meta_blob(blob)["album"] == "Every Breath You Take: The Classics"
+
+
+def test_split_on_unescaped_keeps_the_backslash_it_split_around() -> None:
+    """Structure, not text — the two questions must stay separate.
+
+    A splitter that also unescaped would make it impossible to tell an escaped
+    separator from a structural one on a second pass, which is exactly what the
+    argv-shape guard needs to do.
+    """
+    from platterpus.cyanrip_cli import split_on_unescaped
+
+    assert split_on_unescaped("a:b", ":") == ["a", "b"]
+    assert split_on_unescaped("a\\:b", ":") == ["a\\:b"]
+    assert split_on_unescaped("a\\\\:b", ":") == ["a\\\\", "b"]
+    assert split_on_unescaped("", ":") == [""]
+    assert split_on_unescaped("album=A\\:B\\:C:album_artist=X", ":") == [
+        "album=A\\:B\\:C",
+        "album_artist=X",
+    ]

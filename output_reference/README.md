@@ -98,7 +98,7 @@ consistent pressing quirk.
 
 **Why it is still valuable:** it documents EAC's own MP3 settings — encoder
 `lame3.100.1`, options **`-V 0`** (VBR, ~245 kbps), ID3 tags on. That *confirms
-our design* (`docs/mp3-wav-support.md` §3): our FLAC→MP3 transcode
+our design* (`docs/archive/mp3-wav-support-2026-06.md` §3): our FLAC→MP3 transcode
 (`adapters/transcode.py`, `ffmpeg -q:a 0`, equivalent to lame `-V0`) matches what
 EAC does.
 
@@ -194,4 +194,4 @@ That commit is the durable evidence the backend is bit-perfect against EAC.
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b13.*

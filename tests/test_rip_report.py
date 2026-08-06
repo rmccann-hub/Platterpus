@@ -1030,7 +1030,7 @@ def test_cli_refuses_an_eac_log(tmp_path: Path, capsys) -> None:
 # --- v9 (0.4.24): disc IDs, secure_rerip_converged, heavy_reread issue -------
 
 
-def test_schema_version_is_23() -> None:
+def test_schema_version_is_24() -> None:
     # v23 made `settings.rip_goal` DERIVED from the six preset fields instead of read
     # back from `config.rip_goal`, and added `settings.rip_goal_stored`, present only
     # when the stored label disagreed. `rip_goal` is a label for a bundle of fields and
@@ -1092,7 +1092,15 @@ def test_schema_version_is_23() -> None:
     # track), so our sentence is derived from the per-track results and this field keeps
     # what the binary actually printed — two logs of one disc from two builds are not
     # comparable without it.
-    assert REPORT_SCHEMA_VERSION == 23
+    #
+    # v24 added `audio_md5`: relpath -> MD5 of the DECODED audio, read from each
+    # FLAC's own STREAMINFO. Distinct from `checksums`, which digests the
+    # container and is therefore invalidated by a legitimate retag — so a
+    # retagged album used to look as suspect as a corrupted one. Its own key
+    # rather than folded into `checksums`, because a SHA256 mismatch after a
+    # retag is expected while an audio-MD5 mismatch never is, and a reader must
+    # not be able to confuse the two.
+    assert REPORT_SCHEMA_VERSION == 24
 
 
 def _issue_codes(report: dict) -> set[str]:

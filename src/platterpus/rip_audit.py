@@ -521,6 +521,124 @@ def _audit_ripper_log_integrity(report: dict[str, Any], album: AlbumAudit) -> No
     )
 
 
+def _audit_cue_integrity(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Is the ``.cue`` we shipped actually right? It is external input.
+
+    **Why this check exists.** The cue is written by cyanrip, copied into the
+    album folder by us, and handed to the user as part of the archival record —
+    and until v0.6.4 nothing in Platterpus had read a line of it. The rig rip of
+    2026-08-05 proved two separate things wrong in one cue and neither was
+    noticed: 9 of 14 ``ISRC`` lines missing (exactly the tracks carrying an
+    ``INDEX 00`` marker), and the album ``TITLE`` still carrying the U+2236
+    escaping artefact we already undo in the FLAC tags and the EAC-style log.
+    Both were detectable from facts already in this report.
+
+    The judging is in :mod:`platterpus.cue_validate` — pure, no I/O — so it can
+    be tested against real committed cues and cannot freeze a GUI slot. This
+    function's whole job is to assemble what we know **independently of the
+    cue**: the ISRCs and titles out of the argv we sent, the pre-gap lengths out
+    of the ripper's own log rows. Checking the cue against itself would be
+    consistent rather than verified.
+
+    Tri-state throughout: an absent, empty or truncated cue is *not determined*,
+    never a pass.
+    """
+    from platterpus.cue_validate import (
+        COLON_SUBSTITUTE,
+        ExpectedCue,
+        sent_album_metadata,
+        sent_track_metadata,
+        sent_track_selection,
+        validate_cue,
+    )
+
+    entry = (report.get("artifacts") or {}).get("cue") or {}
+    text = entry.get("text")
+    if not text:
+        album.add(
+            LEVEL_NOTE,
+            "cue sheet — not determined: no .cue is embedded in this report, so "
+            "its contents could not be checked (a rip that ended before the "
+            "ripper wrote one, or a report from before cues were embedded)",
+        )
+        return
+    if entry.get("truncated"):
+        # A truncated copy is missing its tail, and every check here reports
+        # *absence* — a missing ISRC, a missing INDEX 00. Judging a cut-off copy
+        # would manufacture findings against a file that is intact on disk.
+        album.add(
+            LEVEL_NOTE,
+            "cue sheet — not determined: the embedded copy is truncated, so a "
+            "missing line cannot be told from a cut-off one (the file on disk is "
+            "unaffected)",
+        )
+        return
+
+    # What we SENT. The first pass, for the same reason `_audit_argv_agreement`
+    # uses it: on a rip where the auto-fix fired, the last argv describes a
+    # two-track re-rip and would claim the cue is missing twelve tracks' ISRCs.
+    outcome = report.get("outcome") or {}
+    argv = outcome.get("ripper_argv_first_pass") or outcome.get("ripper_argv") or []
+    sent_tracks = sent_track_metadata([str(part) for part in argv])
+    sent_album = sent_album_metadata([str(part) for part in argv])
+
+    def real_colons(value: str) -> str:
+        """The true text, with our U+2236 workaround undone."""
+        return value.replace(COLON_SUBSTITUTE, ":")
+
+    isrcs = {
+        number: pairs["isrc"]
+        for number, pairs in sent_tracks.items()
+        if pairs.get("isrc")
+    }
+    titles = {
+        number: real_colons(pairs["title"])
+        for number, pairs in sent_tracks.items()
+        if pairs.get("title")
+    }
+
+    # What the RIPPER measured. Only pre-gaps whose state is "known": an unknown
+    # pre-gap must not become an accusation in either direction (a missing marker
+    # we cannot justify, or a spurious one we cannot rule out).
+    tracks = [t for t in (report.get("tracks") or []) if isinstance(t, dict)]
+    pregaps: dict[int, int] = {}
+    for track in tracks:
+        number = track.get("number")
+        frames = track.get("pregap_length_frames")
+        if (
+            isinstance(number, int)
+            and isinstance(frames, int)
+            and track.get("pregap_state") == "known"
+        ):
+            pregaps[number] = frames
+
+    # Only claim a track count when the rip actually finished. A cancelled rip
+    # legitimately leaves a shorter cue, and accusing it of one would train the
+    # reader to ignore this check.
+    completed = (report.get("rip") or {}).get("rip_completed")
+    track_count = len(tracks) if completed is True and tracks else None
+
+    # Which tracks the ripper was told to rip. Read from the SAME (first-pass)
+    # argv as the ISRCs above, which is what makes the pair like-for-like: the
+    # user's per-track selection lives in the first pass's `-l`, while the
+    # auto-fix re-rip's `-l` is in the *last* pass and must not be mistaken for
+    # it. `-t` tag arguments are built from the metadata and ignore the
+    # selection, so without this a two-track rip expects fourteen ISRCs in a
+    # two-track cue and warns about twelve of them.
+    expected = ExpectedCue(
+        isrcs=isrcs,
+        pregap_frames=pregaps,
+        track_titles=titles,
+        album_title=real_colons(sent_album["album"])
+        if sent_album.get("album")
+        else None,
+        track_count=track_count,
+        ripped_tracks=sent_track_selection([str(part) for part in argv]),
+    )
+    for finding in validate_cue(str(text), expected=expected):
+        album.add(finding.level, finding.text)
+
+
 def _audit_disc_identity(report: dict[str, Any], album: AlbumAudit) -> None:
     """Record the TOC-derived disc identity, so two rips can be compared.
 
@@ -607,6 +725,15 @@ CHECKS: tuple[Check, ...] = (
         "Does the RIPPER accept the log it wrote?",
         False,
         _audit_ripper_log_integrity,
+    ),
+    Check(
+        # Added v0.6.4b12. The cue is the one artifact we ship that nothing had
+        # ever read — see `_audit_cue_integrity`. `needs_files=False`: the cue's
+        # text is embedded in the report, so this runs on a report read anywhere.
+        "cue_integrity",
+        "Is the .cue we shipped consistent with what we sent and measured?",
+        False,
+        _audit_cue_integrity,
     ),
     Check(
         "disc_identity",

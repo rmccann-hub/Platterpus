@@ -1,5 +1,17 @@
 # Multi-format output (FLAC · WavPack · MP3 · WAV) — research + design (P1)
 
+> **ARCHIVED 2026-08-06** (was the top-level `mp3-wav-support.md`). The feature shipped
+> 2026-06-26 and its durable conclusions have graduated: the product decisions are
+> **CLAUDE.md Critical rule #4** and **PLANNING.md KDD-22**, the encoder arguments
+> as actually sent are `docs/dependency-contracts.md` + `adapters/transcode.py`,
+> and the extension recipe is `docs/architecture.md` → *Add an output format*.
+> The one item that was still **open** — embedding cover art *inside* a `.wv`,
+> which needs the standalone `wavpack` tool because ffmpeg's WavPack muxer is
+> audio-only — was graduated to `TASKS.md` (P2) in the same change that archived
+> this file, so archiving could not lose it. This file is the dated narrative
+> behind those decisions and is not maintained going forward; where it conflicts
+> with a living doc, the living doc wins.
+
 **Status:** **shipped (2026-06-26, maintainer sign-off).** The **product decisions are
 locked** (§5); the **encoder facts and args are verified current** against the upstream
 docs (§3); the **feature is built, wired, and tested** (§6). This flipped the original
@@ -373,4 +385,4 @@ register through the subsystem, deferred until it can be hardware-validated.
 
 ---
 
-*Last updated for Platterpus v0.5.0.*
+*Last updated for Platterpus v0.6.4b13.*

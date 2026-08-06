@@ -267,6 +267,13 @@ _PARSER_MODULES: tuple[str, ...] = (
     # corrupt line ended the rip**. It was invisible to this sweep for exactly one
     # reason: this roster is hand-maintained, and nobody added it.
     "workers/rip_worker.py",
+    # Added 2026-08-06 with the `cue_integrity` check. The `.cue` is written by
+    # cyanrip and read back by us, so it is external output like any other — and
+    # this roster is the *scope* of the never-raises sweep, not a record of what
+    # has broken. Adding the module at the same time as the module is the whole
+    # lesson of the `workers/rip_worker.py` entry above: the sweep is only as
+    # wide as somebody remembered to make it.
+    "cue_validate.py",
 )
 
 # Exceptions that make an `int()` call safe to leave bare inside a `try`.

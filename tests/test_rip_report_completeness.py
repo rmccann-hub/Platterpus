@@ -56,6 +56,7 @@ _EXPECTED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
         "cover_art",
         "issues",
         "checksums",
+        "audio_md5",  # v24 — decoded-audio MD5; survives a retag, unlike checksums
         "debug",
         # v12: the verdict's denominator as a number, and the verbatim text of
         # the three companion files — so the one file the maintainer uploads is

@@ -69,17 +69,71 @@ def _healthy(**over: object) -> dict:
             "rip_completed_total": 2,
             # The fork echoes the command line it received; the argv check
             # compares it against what we recorded sending.
-            "invoked_as": "/usr/local/bin/cyanrip -d /dev/sr0 -N",
+            #
+            # It must echo `-t` and `-a` too, now that `ripper_argv` below sends
+            # them for `cue_integrity`: `_audit_argv_agreement` diffs the two as
+            # **sets of option tokens**, so a flag present in one and absent from
+            # the other reads as "something between us altered the command line"
+            # — a WARN, and a fixture-only one. One occurrence of each is enough
+            # precisely because the comparison is set-based.
+            "invoked_as": (
+                "/usr/local/bin/cyanrip -d /dev/sr0 -N "
+                "-t 1=title=One:isrc=GBAAM0000001 "
+                "-t 2=title=Two:isrc=GBAAM0000002 -a album=Healthy"
+            ),
         },
         "outcome": {
             "status": "success",
-            "ripper_argv": ["/home/u/.local/bin/cyanrip", "-d", "/dev/sr0", "-N"],
+            # Carries the `-t` tag blobs too, because `cue_integrity` checks the
+            # cue's ISRCs against THE ONES WE SENT. An argv without them would
+            # make that check report "not determined" — and this fixture's
+            # contract (above) is that every registered check can reach a
+            # POSITIVE verdict from it.
+            "ripper_argv": [
+                "/home/u/.local/bin/cyanrip",
+                "-d",
+                "/dev/sr0",
+                "-N",
+                "-t",
+                "1=title=One:isrc=GBAAM0000001",
+                "-t",
+                "2=title=Two:isrc=GBAAM0000002",
+                "-a",
+                "album=Healthy",
+            ],
         },
         "disc": {"medium_basis": "disc-id"},
         # The TOC-derived pressing identity, so the disc-identity check has
         # something to confirm rather than something to miss.
-        "tracks": [{"pregap_source": "TOC"}],
-        "artifacts": {"eac_log": {"text": _stamped_eac_log()}},
+        # `pregap_state: "known"` is not decoration — it is the tri-state the
+        # cue check filters on. A length without a state could be a *guess*
+        # ("unknown", where the fork tried and failed), and turning a guess into
+        # an INDEX 00 accusation is the exact "not determined reported as
+        # negative" failure this codebase keeps finding. So `cue_integrity`
+        # accepts only measured pre-gaps, and a fixture that omits the state
+        # leaves that check saying "not determined" — which drops `worst` to
+        # `note` and fails every all-OK test below.
+        "tracks": [
+            {
+                "pregap_source": "TOC",
+                "number": 1,
+                "pregap_state": "known",
+                "pregap_length_frames": 150,
+            },
+            {
+                "pregap_source": "TOC",
+                "number": 2,
+                "pregap_state": "known",
+                "pregap_length_frames": 0,
+            },
+        ],
+        "artifacts": {
+            "eac_log": {"text": _stamped_eac_log()},
+            # A cue that is actually CORRECT — both ISRCs present, no INDEX 00
+            # (track 2 has a measured zero pre-gap; track 1's lead-in gap is
+            # never appended to a previous track), a real colon in the title.
+            "cue": {"text": _healthy_cue(), "exists": True, "truncated": False},
+        },
         # The RIPPER's verdict on its OWN log (schema v18). Present because the
         # `ripper_log_integrity` check reads it, and this fixture's whole contract
         # is that every registered check can reach a POSITIVE verdict from it —
@@ -103,6 +157,30 @@ def _healthy(**over: object) -> dict:
     base["rip"].setdefault("cddb_id", "E20DFE0E")
     base.update(over)  # type: ignore[arg-type]
     return base
+
+
+def _healthy_cue() -> str:
+    """A two-track cue with nothing wrong with it.
+
+    Deliberately matches `_report`'s argv track-for-track: same ISRCs, same
+    title, same track count. If this drifts from the argv the `cue_integrity`
+    check will report a real disagreement, which is the point — the fixture is
+    not allowed to be vaguer than the product.
+    """
+    return (
+        'REM DISCID "E20DFE0E"\n'
+        'TITLE "Healthy"\n'
+        'FILE "01 - One.flac" WAVE\n'
+        "  TRACK 01 AUDIO\n"
+        '    TITLE "One"\n'
+        "    ISRC GBAAM0000001\n"
+        "    INDEX 01 00:00:00\n"
+        'FILE "02 - Two.flac" WAVE\n'
+        "  TRACK 02 AUDIO\n"
+        '    TITLE "Two"\n'
+        "    ISRC GBAAM0000002\n"
+        "    INDEX 01 00:00:00\n"
+    )
 
 
 def _stamped_eac_log(body: str = "Track  1\n     Copy OK\n") -> str:

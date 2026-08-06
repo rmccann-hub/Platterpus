@@ -1,0 +1,76 @@
+=== cyanrip identity (exact banner) ===
+cyanrip 0.9.4-rc1+platterpus.5-beta.5 (platterpus-fork-g9048082)
+
+=== flac / metaflac versions ===
+flac 1.5.0
+metaflac 1.5.0
+
+=== per-track unencoded audio MD5 (durable proof; survives deleting the FLACs) ===
+a459a2f19a890ec0b210e7e2272a6710  01 - Roxanne.flac
+63f8d40c12fc5a5c2ae1cdeb291f92ad  02 - Can’t Stand Losing You.flac
+44665c307e3b1ad02968a04a21773c28  03 - Message in a Bottle.flac
+4e3a001d60f1ec4abf5c63ae6ec6a985  04 - Walking on the Moon.flac
+4063ec8a62f416389e74b3b4903eabe9  05 - Don’t Stand So Close to Me.flac
+e9e6d87ccbcd60709b6d291f258cbe1c  06 - De Do Do Do, De Da Da Da.flac
+7973ce83825ac02cf186933d8186cc9d  07 - Every Little Thing She Does Is Magic.flac
+d3216367ca58dbd40316afe239924d91  08 - Invisible Sun.flac
+5fac1f72f83ce35b1c16142ea229d53d  09 - Spirits in the Material World.flac
+06e77c370a5a4ecad34ca8031120e63b  10 - Every Breath You Take.flac
+a6736e506759de5c48efb1d21d2cf1fe  11 - King of Pain.flac
+68671a2b63ec340fc355a2fa6be93ec1  12 - Wrapped Around Your Finger.flac
+ebc418c11b73c6c8c933dfb6dc775ae6  13 - Don’t Stand So Close to Me ’86.flac
+4c27a69cc1a2405c5f0d552419618e41  14 - Message in a Bottle (new classic rock mix).flac
+
+=== album + ISRC tag on every track (did the retag reach all 14?) ===
+01 - Roxanne.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201086
+02 - Can’t Stand Losing You.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201089
+03 - Message in a Bottle.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201170
+04 - Walking on the Moon.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201175
+05 - Don’t Stand So Close to Me.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201148
+06 - De Do Do Do, De Da Da Da.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201154
+07 - Every Little Thing She Does Is Magic.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201127
+08 - Invisible Sun.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201128
+09 - Spirits in the Material World.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201126
+10 - Every Breath You Take.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201110
+11 - King of Pain.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201111
+12 - Wrapped Around Your Finger.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201112
+13 - Don’t Stand So Close to Me ’86.flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201252
+14 - Message in a Bottle (new classic rock mix).flac | album=Every Breath You Take: The Classics | isrc=GBAAM0201253
+
+=== config as it actually was ===
+output_dir = "/home/rmccann/Music/rips"
+working_dir = "/home/rmccann/.cache/platterpus"
+track_template = "%A/%d/%t - %n"
+disc_template = "%A/%d/%d"
+track_template_unknown = "Unknown Artist/Unknown Album/%t - Track %t"
+disc_template_unknown = "Unknown Artist/Unknown Album/Unknown Album"
+metaflac_path = "metaflac"
+read_offset = 667
+override_read_offset = true
+auto_launch_picard = true
+auto_eject_after_rip = false
+notify_on_completion = true
+drive_setup_prompted = true
+host_setup_prompted = false
+appimage_integration_prompted = true
+integration_declined_path = ""
+library_dir = ""
+debug_logging = true
+cover_art = "complete"
+save_additional_art = true
+max_retries = 5
+force_overread = false
+secure_rerip_matches = 2
+secure_rerip_dynamic = true
+rerip_offset_variant = true
+read_speed_mode = "auto_ladder"
+read_speed = 0
+ctdb_verify_after_rip = true
+verify_flac_after_rip = true
+recompress_flac_after_rip = true
+write_eac_log_after_rip = true
+output_format = "flac"
+mp3_vbr_quality = 0
+rip_goal = "archival"
+update_channel = "beta"
+schema_version = 8

@@ -88,3 +88,84 @@ def compute_digests(rip_dir: Path) -> dict[str, str]:
         except OSError as exc:
             digests[rel] = f"unreadable: {exc}"
     return digests
+
+
+#: A FLAC ``STREAMINFO`` block is always the first metadata block, is exactly 34
+#: bytes of payload, and its last 16 bytes are the MD5 of the **unencoded** audio.
+#: An all-zero value is the spec's "not computed", which is a real answer and must
+#: never be reported as a digest.
+_FLAC_MAGIC: bytes = b"fLaC"
+_STREAMINFO_PAYLOAD_BYTES: int = 34
+_ZERO_MD5: str = "0" * 32
+
+
+def flac_unencoded_md5(path: Path) -> str | None:
+    """The MD5 of a FLAC's decoded audio, read from its own ``STREAMINFO``.
+
+    **Why this exists alongside :func:`sha256_file`.** That function digests the
+    *container*, which is the right tool for "has this file changed on disk" and
+    the wrong one for "is this the same audio": writing a tag rewrites the
+    container and invalidates the SHA256 while the audio is untouched. Every FLAC
+    already carries an MD5 of its decoded samples, computed by the encoder — so a
+    **retag-surviving audio identity** is available for free and we were not
+    recording it. EAC records nothing comparable.
+
+    Parsed here rather than shelled out to ``metaflac --show-md5sum`` on purpose:
+    it is 20 lines of header reading, it cannot fail because a tool is missing,
+    and it keeps this module dependency-free so the report can always carry the
+    field.
+
+    Returns ``None`` — never a guess — when the file is not a FLAC, is truncated,
+    or records the all-zero "not computed" value. ``None`` means *not determined*,
+    which is a different fact from a digest that failed to match.
+    """
+    try:
+        with path.open("rb") as handle:
+            if handle.read(4) != _FLAC_MAGIC:
+                return None
+            header = handle.read(4)
+            if len(header) < 4:
+                return None
+            # Bits 1-7 of the first header byte are the block type; STREAMINFO is
+            # 0 and the spec requires it first, so anything else means this is not
+            # a FLAC stream we understand rather than a FLAC with an odd layout.
+            if header[0] & 0x7F != 0:
+                return None
+            if int.from_bytes(header[1:4], "big") != _STREAMINFO_PAYLOAD_BYTES:
+                return None
+            payload = handle.read(_STREAMINFO_PAYLOAD_BYTES)
+            if len(payload) < _STREAMINFO_PAYLOAD_BYTES:
+                return None
+    except OSError:
+        # Same contract as the rest of this module: a best-effort report section
+        # never raises, and an unreadable file is "not determined".
+        return None
+    digest = payload[18:34].hex()
+    return None if digest == _ZERO_MD5 else digest
+
+
+def unencoded_audio_digests(rip_dir: Path) -> dict[str, str]:
+    """Map each FLAC this rip produced to its decoded-audio MD5.
+
+    Same scoping as :func:`compute_digests` — the files THIS rip wrote — so the
+    two maps can be read side by side. Non-FLAC outputs (MP3, WAV, WavPack) are
+    absent rather than present-and-empty: a key whose value is a placeholder is
+    the silent-truncation shape, and the caller can tell "no entry" from
+    "entry we could not compute" because the latter never appears.
+
+    Cheap by comparison with the SHA256 pass — it reads 42 bytes per file rather
+    than streaming the whole thing — but it is still disk I/O and belongs off the
+    GUI thread with its sibling.
+    """
+    digests: dict[str, str] = {}
+    for path in audio_files(rip_dir):
+        if path.suffix.lower() != ".flac":
+            continue
+        digest = flac_unencoded_md5(path)
+        if digest is not None:
+            try:
+                key = path.relative_to(rip_dir).as_posix()
+            except ValueError:
+                key = path.name
+            digests[key] = digest
+    return digests

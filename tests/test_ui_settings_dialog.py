@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
 from platterpus import naming, settings_validation
@@ -804,3 +805,149 @@ def test_rerip_offset_variant_round_trips(qapp: QApplication) -> None:
 
     dialog2 = SettingsDialog(Config(rerip_offset_variant=True))
     assert dialog2._rerip_offset_variant_check.isChecked() is True
+
+
+# --- The form scrolls; the actions never do ------------------------------
+#
+# Real hardware, 2026-08-06: "i cant see more options now, go wider or scroll."
+# The b11 labels widened the form, and the dialog's `minimumSizeHint` was
+# **739 x 971** -- a QFormLayout's minimum is the sum of its 35 rows, so the
+# dialog could not be made shorter by ANY means. On a 1080p desktop with a panel
+# that does not fit, and Qt placed OK/Cancel below the bottom of the screen.
+# `CenteredDialog` could not rescue it: it clamps a dialog's POSITION and
+# deliberately never resizes ("slide `frame` (never resize it)").
+
+
+def test_the_dialog_can_be_made_far_shorter_than_its_content(
+    qapp: QApplication,
+) -> None:
+    """The measurement that IS the fix, and the one that fails on a revert.
+
+    Before the scroll area this was 971 px — taller than the usable height of a
+    1080p screen with a panel. The number matters more than the mechanism: any
+    change that reintroduces a hard floor here puts the buttons off-screen again.
+    """
+    dialog = SettingsDialog(Config())
+    floor = dialog.minimumSizeHint().height()
+    assert floor <= 400, (
+        f"the dialog cannot be shrunk below {floor} px tall; it must fit a "
+        "laptop screen with the OK button reachable"
+    )
+    # Non-triviality: the CONTENT is still large. A collapsed floor achieved by
+    # losing the form would pass the assertion above and be a much worse bug.
+    content = dialog._form_scroll.widget().sizeHint().height()
+    assert content >= 800, f"the form is only {content} px tall — did rows vanish?"
+
+
+def test_ok_and_cancel_stay_on_screen_when_the_dialog_is_constrained(
+    qapp: QApplication,
+) -> None:
+    """Constrained, because an unconstrained layout tests nothing (§5.v).
+
+    700x400 is smaller than any real screen would force, deliberately: if the
+    actions survive that, they survive a netbook.
+    """
+    dialog = SettingsDialog(Config())
+    dialog.resize(700, 400)
+    dialog.show()
+    qapp.processEvents()
+    try:
+        box = dialog.findChild(QDialogButtonBox)
+        assert box is not None
+        assert box.geometry().bottom() <= dialog.height(), (
+            f"the OK/Cancel row ends at y={box.geometry().bottom()} in a "
+            f"{dialog.height()} px dialog — it is off the bottom"
+        )
+        assert dialog._check_deps_button.geometry().bottom() <= dialog.height()
+        # And the form really did scroll rather than being clipped away.
+        assert dialog._form_scroll.verticalScrollBar().maximum() > 0, (
+            "nothing scrolls, so the rows below the fold are simply unreachable"
+        )
+    finally:
+        dialog.close()
+
+
+def test_the_actions_are_outside_the_scroll_area(qapp: QApplication) -> None:
+    """Placement, not just current geometry — geometry is a consequence.
+
+    A validation error that scrolled out of view would defeat the rule it exists
+    to serve, and an OK button that scrolls away is this bug one level down.
+    """
+    dialog = SettingsDialog(Config())
+    scroll = dialog._form_scroll
+    box = dialog.findChild(QDialogButtonBox)
+    assert box is not None
+    assert not scroll.isAncestorOf(box)
+    assert not scroll.isAncestorOf(dialog._check_deps_button)
+    assert not scroll.isAncestorOf(dialog._validation_label)
+    # ...while the form itself IS inside it (otherwise nothing was achieved).
+    assert scroll.isAncestorOf(dialog._goal_combo)
+
+
+def test_nesting_the_form_did_not_break_the_attribute_api(
+    qapp: QApplication,
+) -> None:
+    """The new state this fix creates: every widget gained a parent.
+
+    Tests and Qt signal wiring both reach these as `window._x` / `dialog._x`
+    (CLAUDE.md's mixin rule exists for the same reason), so a reparent that broke
+    the names would break far more than the layout.
+    """
+    dialog = SettingsDialog(Config())
+    for name in (
+        "_goal_combo",
+        "_naming_combo",
+        "_format_combo",
+        "_cover_art_combo",
+        "_read_speed_mode_combo",
+        "_output_dir_edit",
+        "_working_dir_edit",
+        "_ctdb_verify_check",
+        "_secure_rerip_spin",
+        "_naming_preview",
+    ):
+        widget = getattr(dialog, name, None)
+        assert widget is not None, f"{name} is gone"
+        assert dialog._form_scroll.isAncestorOf(widget), f"{name} left the form"
+    # The round-trip still works, which is what the dialog is actually for.
+    assert dialog.to_config().output_format == "flac"
+
+
+def test_the_opening_size_never_exceeds_the_screen(qapp: QApplication) -> None:
+    """Pure arithmetic, so CI's virtual screen cannot make it vacuous.
+
+    The window-default fix was measured on an 800x800 virtual screen where two
+    different defaults clamped identically and a revert therefore PASSED
+    (docs/testing.md §5.v). Overriding the screen size is how this one avoids
+    that: the assertion is about the clamp, not about whatever CI happens to have.
+    """
+    dialog = SettingsDialog(Config())
+    for width, height in ((1920, 1035), (1366, 768), (1280, 720), (1024, 600)):
+        dialog.available_screen_size = lambda w=width, h=height: QSize(w, h)  # type: ignore[method-assign]  # test seam
+        size = dialog._opening_size()
+        assert size.width() <= width, f"{size.width()} > screen width {width}"
+        assert size.height() <= height, f"{size.height()} > screen height {height}"
+        # Floor: a clamp that returned 1x1 would satisfy the two lines above.
+        assert size.width() >= 320 and size.height() >= 240
+
+
+def test_the_opening_size_is_the_form_not_the_scroll_areas_own_hint(
+    qapp: QApplication,
+) -> None:
+    """The trap a scroll area sets, pinned.
+
+    `QScrollArea.sizeHint()` is small and arbitrary *by design* — it is meant to
+    be smaller than its content. Sizing the dialog from `self.sizeHint()` opened
+    it at 526x414 showing about a third of the form: the original complaint
+    inverted, not fixed. On a screen with room, the dialog must open at the
+    form's size.
+    """
+    dialog = SettingsDialog(Config())
+    dialog.available_screen_size = lambda: QSize(3840, 2160)  # type: ignore[method-assign]  # test seam
+    opened = dialog._opening_size()
+    content = dialog._form_scroll.widget().sizeHint()
+    assert opened.height() >= content.height(), (
+        f"opens {opened.height()} px tall for {content.height()} px of form — "
+        "it would scroll on a screen with plenty of room"
+    )
+    assert opened.width() >= content.width()

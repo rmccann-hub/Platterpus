@@ -482,6 +482,97 @@ _TASK_LIVENESS_MIN_PCT: float = 1.0
 # so it cannot be tripped by jitter and cannot miss a restart.
 _REREAD_TASK_DROP_PCT: float = 20.0
 
+# --- WHAT KIND of cyanrip invocation a pass is ------------------------------
+#
+# A rip can spawn cyanrip more than once, and the invocations are NOT the same
+# kind of thing. Which kind we are in is decided STRUCTURALLY — from the
+# arguments this app itself chose when it launched the pass (see
+# ``RipWorker._rip_once``, the single writer) — never by watching the numbers
+# and guessing. A "did the progress bar go backwards?" heuristic would read our
+# own output as its input, which is exactly the trap CLAUDE.md names as *"what
+# pins my input?"*; it also cannot tell the two cases below apart, because both
+# of them make the bar stop advancing.
+#
+#   * ALBUM — a whole-disc pass, or a read-speed-ladder retry of one. The album
+#     progress bar and the album ETA mean what they say: N tracks to read, this
+#     fraction of them done.
+#   * REFIX — the post-rip auto-fix ("securing") pass. It is a SECOND cyanrip
+#     run, started AFTER every track has already been ripped, re-reading a
+#     SUBSET of tracks (cyanrip ``-l 5``) into a throwaway temp dir so the
+#     album's own log/cue stay intact. Here the album model is a *category
+#     error*: there is no "track 5 of 14" left to do, there is one track being
+#     re-verified, and the album's remaining read work is zero.
+#
+# MEASURED COST of not distinguishing them — 2026-08-05 rig rip (Police, "Every
+# Breath You Take: The Classics", 14 tracks, app v0.6.4b11), read straight off
+# that rip's own `eta_trace`: during track 5's auto-fix re-rip the app showed,
+# for 47 consecutive samples, a FROZEN "about 43m 0s left" while the true
+# remaining time was FOUR SECONDS; the album bar REGRESSED 94.77% -> 35.45% and
+# relabelled itself "Ripping track 5 of 14…" after all 14 tracks were already on
+# disk; and one sentence carried two contradictory percentages (a 99% track-local
+# figure beside a 35.45% album bar). cyanrip's own per-op ETA read "3s" — and it
+# was right.
+_PASS_ALBUM: str = "album"
+_PASS_REFIX: str = "refix"
+
+# Where the overall bar's reserved post-rip band begins (see `_progress_for`'s
+# docstring: 0-5% disc scan, 5-95% per-track read, 95-100% post-rip work). The
+# securing pass is post-rip work by definition, so this is the floor the bar is
+# lifted to when that pass starts — a step FORWARD, never a rewind.
+_POST_RIP_BAND_START: float = 95.0
+
+# --- The securing pass's own estimate model ---------------------------------
+#
+# WHAT CAN HONESTLY BE ESTIMATED HERE, and what deliberately is not.
+#
+# A `-Z N` re-rip reads one track over and over until N reads agree. **How many
+# more reads that will take is unknowable** — that is the whole point of the
+# b8 lesson (`_album_eta_text`): "the extra time the re-read costs is unknowable
+# until it converges". So we do NOT invent a total for the securing pass.
+#
+# What IS measurable, every second, is the time left in the read that is running
+# right now: cyanrip's per-operation percentage climbs steadily from 0 to 100
+# for each read, and we can measure its rate ourselves. So the securing phase
+# estimates *this read* and says so in words ("about 20s left in re-read 3").
+# That number genuinely counts down instead of freezing, and it never implies
+# knowledge of how many reads remain.
+#
+# The windows are much shorter than the album model's because the thing being
+# measured is much shorter: a single track read is seconds to minutes, where an
+# album pass is an hour. A 90-second window and an alpha-0.15 filter would still
+# be catching up when the read ended.
+_REFIX_MIN_ELAPSED_FOR_ETA_S: float = 3.0
+_REFIX_ETA_WINDOW_S: float = 20.0
+# Minimum movement (percentage points of the CURRENT READ) across that window
+# before its rate is believed. Same shape, and the same reason, as
+# `_ETA_MIN_WINDOW_DFRAC`: below this we have no rate measurement at all, and
+# dividing by a rounding-level delta is how the 62-hour bug happened.
+_REFIX_ETA_MIN_WINDOW_DPCT: float = 0.5
+_REFIX_ETA_SMOOTHING_ALPHA: float = 0.4
+# Sanity ceiling for a SINGLE read of a SINGLE track. Red Book caps one track at
+# ~80 minutes of audio, so even a 0.25x crawl finishes inside ~5.5 hours; 6 hours
+# can therefore never fire on a real read, while still refusing the kind of
+# nonsense cyanrip's own estimator has been seen to print (it said "822h" at
+# 0.01%). Above it we show nothing rather than a number the user cannot tell
+# from a bug.
+_REFIX_ETA_MAX_S: float = 6 * 60 * 60
+
+# cyanrip's own per-operation ETA, as a value we can compare against ours.
+#
+# The three shapes come from the FORK'S PUBLISHED PROVIDER CONTRACT, not from
+# guesswork — `docs/handshake/inbound/artifacts/round-07-lap-25-provider-contract-g9048082.md`
+# §P2a, `cyanrip_main.c:868`, lists the ETA segment as exactly one of
+# `, ETA - %ih %im` / `, ETA - %im` / `, ETA - %llds`. Deriving the parser from
+# the dependency's own format strings rather than from a hand-kept list of
+# examples is the same discipline `ripper_messages.py` follows.
+#
+# Bounded quantifiers throughout (never-unbounded rule), and every group is
+# optional so a shape we have not seen degrades to "unparseable" rather than to
+# a wrong number.
+_CYANRIP_ETA_VALUE = re.compile(
+    r"^(?:(?P<h>\d{1,4})\s*h)?\s*(?:(?P<m>\d{1,4})\s*m)?\s*(?:(?P<s>\d{1,7})\s*s)?$"
+)
+
 # cyanrip appends its OWN per-op ETA to each progress redraw
 # ("…, progress - 42%, ETA - 3m"). We distrust it (it printed "822h" at 0.01%)
 # and show our own smoothed album ETA instead — so strip cyanrip's trailing
@@ -522,6 +613,50 @@ def _coarsen_eta_seconds(seconds: float) -> int:
     # the guard is the cheap way to keep that promise unconditional.
     rounded = int_or_none(round(seconds / step) * step, field="rounded ETA seconds")
     return rounded if rounded is not None else 0
+
+
+def _cyanrip_eta_seconds(raw: str | None) -> int | None:
+    """cyanrip's own per-operation ETA string as whole seconds, or ``None``.
+
+    Parses the three shapes the fork's provider contract publishes — ``"1h 5m"``,
+    ``"3m"``, ``"3s"`` — and returns ``None`` for anything else, including the
+    empty string. **Never raises**: this is external text, and the read loop that
+    ultimately reaches it terminates the rip on an exception.
+
+    WHY WE PARSE A NUMBER WE DO NOT TRUST. cyanrip's estimate is *not* promoted
+    to the primary source anywhere — it resets every phase and has printed "822h"
+    at 0.01% done, which is why the app strips it from the forwarded log lines and
+    shows its own instead. But during the securing pass it is a **second,
+    independent witness of exactly the quantity we are estimating** (the current
+    read), and on the 2026-08-05 rig rip it read "3s" while our album model read
+    43 minutes. CLAUDE.md's lesson is *"the fix for a signal going quiet is a
+    second signal, not an exemption"*, so it is used in the one place our own
+    measurement genuinely does not exist yet — the first seconds after a read
+    restarts, before a rate window has formed — and never to override a
+    measurement we do have. Every sample that came from it is labelled as such in
+    the trace (``state="securing_from_ripper"``), so a borrowed number can never
+    be mistaken for one we measured.
+    """
+    if not raw:
+        return None
+    match = _CYANRIP_ETA_VALUE.match(raw.strip())
+    if match is None:
+        return None
+    hours, minutes, seconds = match.group("h"), match.group("m"), match.group("s")
+    # All three groups are optional, so the pattern also matches the empty string
+    # and any run of whitespace. Requiring at least one unit is what stops that
+    # from being reported as a confident "0 seconds remaining".
+    if hours is None and minutes is None and seconds is None:
+        return None
+    total = 0
+    for value, scale in ((hours, 3600), (minutes, 60), (seconds, 1)):
+        if value is None:
+            continue
+        parsed = int_or_none(value, field="cyanrip ETA field")
+        if parsed is None:  # pragma: no cover — the pattern already bounds these
+            return None
+        total += parsed * scale
+    return total
 
 
 def _percent_or_none(raw: str) -> float | None:
@@ -743,6 +878,22 @@ class RipWorker(QObject):
         self._reread_track: int | None = None
         self._reread_pass: int = 0
         self._task_pct_seen: float | None = None
+        # WHICH KIND OF PASS is running, and which tracks it was asked for. See
+        # `_PASS_ALBUM` / `_PASS_REFIX` for what turns on this and why it is
+        # declared rather than inferred. `_rip_once` is the ONLY writer — it sets
+        # both from its own arguments on every invocation, so the pair can never
+        # be stale for the pass that is actually running.
+        self._pass_kind: str = _PASS_ALBUM
+        self._pass_tracks: tuple[int, ...] = ()
+        # The securing pass's own rate window and smoothed estimate, measured on
+        # the CURRENT READ's percentage rather than on the album fraction. Kept
+        # separate from `_eta_rate_window` / `_smoothed_remaining_s` on purpose:
+        # the two are measurements of different things on different scales, and
+        # mixing them is the defect this state exists to prevent. Emptied whenever
+        # a read restarts (`_note_task_progress`) so no window ever spans two
+        # different reads.
+        self._refix_rate_window: list[tuple[float, float]] = []
+        self._refix_smoothed_s: float | None = None
         # True once we've LOGGED that this pass is stalled, so the warning is
         # written to the record (log.txt + the report's embedded debug log) exactly
         # once per stall — on entry — not on every progress tick while it's stuck.
@@ -809,7 +960,7 @@ class RipWorker(QObject):
         self._disc_in_accuraterip: bool | None = None
         self._secure_rerip_skipped_reason: str | None = None
 
-    def _album_eta_text(self, overall_pct: float) -> str:
+    def _album_eta_text(self, overall_pct: float, task_pct: float | None = None) -> str:
         """A smoothed, self-correcting album ETA suffix (" · about 25m left").
 
         Computed from actual elapsed and the album fraction done — so it absorbs
@@ -822,6 +973,14 @@ class RipWorker(QObject):
         this number. Returns "" during the ≤5% disc scan, before a few seconds
         have elapsed (any projection is noise then), and once effectively done.
         Never raises.
+
+        ``task_pct`` is the CURRENT OPERATION's own percentage from the same
+        progress line (``_progress_for``'s second return value). It is only used
+        by the securing pass, whose estimate is scoped to the read that is running
+        rather than to the album; passing it explicitly keeps that input pinned to
+        the tick it belongs to instead of to whatever bookkeeping happens to hold
+        last. Falls back to the bookkeeping (``_task_pct_seen``) when a caller
+        does not supply it.
         """
         from platterpus.rip_timing import format_duration
 
@@ -832,12 +991,26 @@ class RipWorker(QObject):
         if started is None:
             return ""
         frac = overall_pct / 100.0
-        # Skip the disc-scan band (0-5%) and the very end; both give noise.
-        if frac <= 0.05 or frac >= 0.999:
+        # WHICH KIND OF PASS is this? Declared by `_rip_once`, never inferred —
+        # see `_PASS_ALBUM` / `_PASS_REFIX`. Everything below that reads the ALBUM
+        # fraction is meaningless during a securing pass, because the album's read
+        # work is already finished.
+        securing = self._pass_kind == _PASS_REFIX
+        # Skip the disc-scan band (0-5%) and the very end; both give noise. These
+        # are guards on the ALBUM fraction, so they do not apply to the securing
+        # pass — there the album bar is deliberately parked at the top of its
+        # range (`_POST_RIP_BAND_START`), which would trip the "effectively done"
+        # test on every single tick and silence the phase's own estimate.
+        if not securing and (frac <= 0.05 or frac >= 0.999):
             return ""
         now = time.monotonic()
         elapsed = now - started
-        if elapsed < _MIN_ELAPSED_FOR_ETA_S:
+        # A securing pass warms up faster because it is measuring a much shorter
+        # thing: 8 seconds of silence out of a 30-second re-read is most of it.
+        min_elapsed = (
+            _REFIX_MIN_ELAPSED_FOR_ETA_S if securing else _MIN_ELAPSED_FOR_ETA_S
+        )
+        if elapsed < min_elapsed:
             return ""
         # Stall detection FIRST — before any projection. Track when the drive last
         # proved itself alive; if it hasn't for the threshold, it's stuck on a
@@ -900,6 +1073,14 @@ class RipWorker(QObject):
                 f" · stalled {format_duration(stalled_for)} — the drive is stuck "
                 "on a hard-to-read spot (a scratch or smudge)"
             )
+        # THE SECURING PASS GETS ITS OWN MODEL, because the album model has nothing
+        # left to describe: every track is already on disk, so "remaining album
+        # work" is zero and the album fraction is a constant. Note this branch is
+        # AFTER the stall check on purpose — a drive that wedges during a re-rip is
+        # still a wedged drive, and the two-signal stall detector is the only thing
+        # that reports it. See `_securing_eta_text`.
+        if securing:
+            return self._securing_eta_text(now, elapsed, overall_pct, task_pct)
         # A SECURE RE-READ IS RUNNING, so the album fraction is pinned and there is
         # nothing here to project from: `_overall_from_track` maps this track's
         # progress into a span of the album the bar has already covered, and
@@ -1030,6 +1211,134 @@ class RipWorker(QObject):
         self._record_eta_sample(overall_pct, elapsed, display)
         return f" · about {format_duration(display)} left"
 
+    def _securing_label(self) -> str:
+        """The " · re-read 3" / "" tail that names which read is running.
+
+        Kept separate so every return path of :meth:`_securing_eta_text` — the one
+        with an estimate and the several without — carries the same phase wording.
+        A phase that names itself only when it also has a number is a phase the
+        user cannot recognise on the ticks where the number is missing.
+        """
+        if self._reread_pass > 0:
+            # +1 because `_reread_pass` counts RESTARTS: the first restart is the
+            # second read of that track.
+            return f" · re-read {self._reread_pass + 1}"
+        return ""
+
+    def _securing_eta_text(
+        self,
+        now: float,
+        elapsed: float,
+        overall_pct: float,
+        task_pct: float | None,
+    ) -> str:
+        """The status-line suffix during a securing (auto-fix) re-rip. Never raises.
+
+        **What this estimates, and what it refuses to.** It estimates the time left
+        in the read that is running right now, measured from that read's own
+        percentage over a short trailing window. It does NOT estimate the securing
+        pass as a whole, because a ``-Z N`` re-rip runs until N reads agree and the
+        number of reads that will take is genuinely unknowable — inventing a total
+        for it is the same class of mistake as the album estimate this replaces,
+        just with a smaller denominator. So the wording is scoped too: "about 20s
+        left in re-read 3", never "about 20s left".
+
+        **Why not simply hold the album estimate here (the b8 behaviour)?** Because
+        the two cases the hold conflates are different. Holding is honest for a
+        secure re-read *inside* the whole-disc pass: the album's remaining work
+        really has not changed, so the last album estimate is still the best answer.
+        It is dishonest here: the album has no remaining work at all, and the number
+        being held is a projection of album-scale work that no longer exists. On the
+        rig it held "43m" with four seconds to go.
+
+        Falls back to cyanrip's own per-op ETA only where we have no measurement
+        yet, and labels those samples so the trace never passes a dependency's
+        claim off as ours — see :func:`_cyanrip_eta_seconds` for that reasoning.
+        """
+        from platterpus.rip_timing import format_duration
+
+        label = self._securing_label()
+        pct = task_pct if task_pct is not None else self._task_pct_seen
+        if pct is None:
+            # No per-operation percentage has arrived yet (e.g. cyanrip is still
+            # printing its start report). Say what is happening; claim no number.
+            self._record_eta_sample(overall_pct, elapsed, None, state="securing_held")
+            return label
+
+        # Measure THIS read's rate over a short trailing window. The window is
+        # emptied whenever a read restarts (`_note_task_progress`), so it can never
+        # span two reads — the same rule the album window learned the hard way.
+        self._refix_rate_window.append((now, pct))
+        cutoff = now - _REFIX_ETA_WINDOW_S
+        self._refix_rate_window = [p for p in self._refix_rate_window if p[0] >= cutoff]
+        base_at, base_pct = self._refix_rate_window[0]
+        window_dt = now - base_at
+        window_dpct = pct - base_pct
+
+        raw_remaining: float | None = None
+        state = "securing"
+        if window_dt > 0 and window_dpct >= _REFIX_ETA_MIN_WINDOW_DPCT:
+            # remaining = percentage left ÷ recent rate (percentage points/second).
+            raw_remaining = (100.0 - pct) * window_dt / window_dpct
+        else:
+            # No rate of our own yet. This is the one hole a second signal is for
+            # (CLAUDE.md: "the fix for a signal going quiet is a second signal, not
+            # an exemption"), and cyanrip's per-op ETA measures exactly the thing we
+            # are missing. Borrowed, bounded, and LABELLED — never promoted.
+            borrowed = _cyanrip_eta_seconds(self._last_cyanrip_eta)
+            if borrowed is not None:
+                raw_remaining = float(borrowed)
+                state = "securing_from_ripper"
+
+        if (
+            raw_remaining is None
+            or not math.isfinite(raw_remaining)
+            or raw_remaining < 0.0
+            or raw_remaining > _REFIX_ETA_MAX_S
+        ):
+            # Nothing believable to show. Unlike the album path there is no held
+            # value worth re-showing: a stale per-read estimate describes a read
+            # that may already have finished and restarted. Name the phase and stop.
+            if raw_remaining is not None:
+                log.warning(
+                    "securing pass: computed %.0fs remaining for the current read, "
+                    "outside the 0-%.0fs sanity range — showing no estimate rather "
+                    "than a number the user cannot tell from a bug (read at %.2f%%, "
+                    "window dt=%.1fs dpct=%.2f)",
+                    raw_remaining,
+                    _REFIX_ETA_MAX_S,
+                    pct,
+                    window_dt,
+                    window_dpct,
+                )
+            self._record_eta_sample(overall_pct, elapsed, None, state="securing_held")
+            return label
+
+        # Light EMA. Lighter than the album's alpha (0.15) because a read lasts
+        # seconds to minutes: a heavy filter would still be catching up when the
+        # read ended, which would make the number look frozen — the exact symptom
+        # this whole change exists to remove. A borrowed value replaces the state
+        # outright rather than being blended, because it is a different kind of
+        # measurement and averaging the two would produce a third thing that is
+        # neither.
+        if self._refix_smoothed_s is None or state == "securing_from_ripper":
+            self._refix_smoothed_s = raw_remaining
+        else:
+            self._refix_smoothed_s = (
+                _REFIX_ETA_SMOOTHING_ALPHA * raw_remaining
+                + (1.0 - _REFIX_ETA_SMOOTHING_ALPHA) * self._refix_smoothed_s
+            )
+        display = _coarsen_eta_seconds(self._refix_smoothed_s)
+        self._record_eta_sample(overall_pct, elapsed, display, state=state)
+        if display < 1:
+            # Under the display floor: the read is about to finish. The phase label
+            # still goes out so the line does not silently lose its context.
+            return label
+        where = (
+            f"re-read {self._reread_pass + 1}" if self._reread_pass > 0 else "this read"
+        )
+        return f" · about {format_duration(display)} left in {where}"
+
     def _eta_hold_text(self) -> str:
         """The last believed estimate, re-rendered — or nothing if there is none.
 
@@ -1070,8 +1379,18 @@ class RipWorker(QObject):
         ``held_no_rate`` / ``held_over_ceiling`` (the previous estimate re-shown
         because the window had no usable rate, or the computed value failed the
         sanity ceiling), ``rereading`` (a secure re-read has the album bar pinned),
-        ``stalled`` (neither liveness signal moved). ``our_eta_seconds`` is None
+        ``stalled`` (neither liveness signal moved), and — during the post-rip
+        securing pass, which estimates the CURRENT READ rather than the album —
+        ``securing`` (measured by us), ``securing_from_ripper`` (borrowed from
+        cyanrip's own per-op ETA because we had no measurement yet) and
+        ``securing_held`` (nothing believable to show). ``our_eta_seconds`` is None
         where there was no estimate to show.
+
+        ``pass_kind`` records WHICH KIND of cyanrip invocation the sample came
+        from (``album`` / ``refix``). Its absence is why the 2026-08-05 trace could
+        not be read at a glance: 47 samples labelled "Ripping track 5 of 14" with a
+        frozen 43-minute estimate were, in fact, a separate one-track re-rip that
+        ran after the album finished, and nothing in the record said so.
 
         **EVERY branch records.** The first version recorded only ``computed``,
         with a comment arguing that "holding is the absence of a computation" — and
@@ -1108,6 +1427,12 @@ class RipWorker(QObject):
                     # — read the two together or a held value reads as a fresh one.
                     "our_eta_seconds": our_eta_s,
                     "state": state,
+                    # Which KIND of cyanrip invocation produced this sample:
+                    # "album" (a whole-disc pass or a ladder retry) or "refix"
+                    # (the post-rip securing re-rip of a track subset). Two
+                    # samples with the same `overall_percent` mean entirely
+                    # different things depending on this field.
+                    "pass_kind": self._pass_kind,
                     # How many times the current track's read has restarted (0 =
                     # first read). Non-zero means the album bar is pinned by a
                     # secure re-read, which is why `state` is "rereading".
@@ -1272,13 +1597,15 @@ class RipWorker(QObject):
         attempt = 0
         while True:
             attempt += 1
-            self._reset_pass_progress()
             # Remember this pass's speed so ETA samples are tagged with it.
+            # (`_rip_once` resets the per-pass progress state itself — it is the
+            # single writer of the pass phase; see its docstring.)
             self._current_read_speed = speed
             outcome = self._rip_once(
                 read_speed=speed,
                 secure_rerip_matches=secure_rerip,
                 only_tracks=self._params.only_tracks,
+                pass_kind=_PASS_ALBUM,
             )
             if outcome is None:
                 # A hard start/stream error already emitted `error`; stop here.
@@ -1492,6 +1819,7 @@ class RipWorker(QObject):
         secure_rerip_matches: int,
         output_dir: Path | None = None,
         only_tracks: tuple[int, ...] = (),
+        pass_kind: str = _PASS_ALBUM,
     ) -> tuple[bool, str] | None:
         """Run ONE rip pass at the given speed/``-Z``; stream its output.
 
@@ -1504,7 +1832,22 @@ class RipWorker(QObject):
         dir); ``only_tracks`` re-rips just those tracks (cyanrip ``-l``). Both are
         used by the per-track auto-fix, which re-rips an unstable track into a
         temp dir so the album's whole-disc log/cue are left intact.
+
+        ``pass_kind`` is the caller DECLARING what this invocation is —
+        ``_PASS_ALBUM`` for a whole-disc pass (or a ladder retry of one),
+        ``_PASS_REFIX`` for the post-rip securing re-rip. The progress bar, the
+        status wording and the ETA model all key off it, and it is a parameter
+        rather than something inferred from the numbers for the reason spelled out
+        at ``_PASS_ALBUM``: every heuristic that could tell the two apart is
+        downstream of the very display we are trying to fix.
+
+        **This method is the single writer of the pass-phase state.** It resets the
+        per-pass progress bookkeeping itself (callers used to do it just before
+        calling in), so a new call site cannot start a pass that never declared
+        what kind it is — it would simply inherit the previous pass's model, which
+        is precisely the bug.
         """
+        self._reset_pass_progress(kind=pass_kind, tracks=tuple(only_tracks))
         out_dir = output_dir or self._params.output_dir
         # Only the MAIN rip passes snapshot an incremental report — never the
         # throwaway auto-fix temp rip (output_dir set). See _write_incremental_report.
@@ -1706,12 +2049,20 @@ class RipWorker(QObject):
                 # label is right from the very first progress line) and fall back
                 # to the count parsed from cyanrip's disc banner.
                 desc = _describe_activity(
-                    line, len(self._track_ms) or self._total_tracks
+                    line,
+                    len(self._track_ms) or self._total_tracks,
+                    # The pass DECLARED its kind when it started (`_rip_once`), so
+                    # the label follows from the invocation rather than from a
+                    # guess about what the numbers mean.
+                    securing=self._pass_kind == _PASS_REFIX,
                 )
-                # Append our own smoothed album ETA to a progress phase (never
-                # cyanrip's per-op ETA — see _album_eta_text / _describe_activity).
+                # Append our own estimate to a progress phase (never cyanrip's
+                # per-op ETA as the headline figure — see _album_eta_text /
+                # _describe_activity). `prog[1]` is the CURRENT OPERATION's own
+                # percentage, which is what the securing pass estimates from;
+                # handing it over explicitly keeps that input pinned to this tick.
                 if desc is not None and prog is not None:
-                    desc += self._album_eta_text(prog[0])
+                    desc += self._album_eta_text(prog[0], prog[1])
                 if desc is not None and desc != self._last_status:
                     self._last_status = desc
                     self.status.emit(desc)
@@ -1906,10 +2257,27 @@ class RipWorker(QObject):
         except Exception:  # noqa: BLE001 — a partial snapshot must never crash a rip
             log.exception("incremental report snapshot failed; continuing rip")
 
-    def _reset_pass_progress(self) -> None:
+    def _reset_pass_progress(
+        self, *, kind: str = _PASS_ALBUM, tracks: tuple[int, ...] = ()
+    ) -> None:
         """Reset the per-pass progress state before a (re-)rip pass, so a re-rip's
-        bar sweeps fresh from 0 instead of inheriting the previous pass's value."""
-        self._overall = 0.0
+        bar sweeps fresh from 0 instead of inheriting the previous pass's value.
+
+        ``kind`` / ``tracks`` declare what the pass about to run *is* — see
+        ``_PASS_ALBUM`` / ``_PASS_REFIX``. Called only by :meth:`_rip_once`, which
+        passes its own arguments straight through; the default keeps a direct call
+        (tests) behaving as it always did.
+        """
+        self._pass_kind = kind
+        self._pass_tracks = tracks
+        # THE OVERALL BAR IS NOT REWOUND FOR A SECURING PASS. A whole-disc pass
+        # legitimately sweeps from zero again — it is re-reading the whole disc. A
+        # securing pass is not: every track is already ripped, so zeroing the album
+        # bar would be claiming the album got un-ripped. On the rig it did exactly
+        # that, 94.77% -> 35.45%, and a progress bar that goes backwards is read as
+        # "something went wrong" by every user who has ever seen one.
+        if kind != _PASS_REFIX:
+            self._overall = 0.0
         self._current_track = 0
         self._emitted_track = 0
         self._last_status = ""
@@ -1935,6 +2303,11 @@ class RipWorker(QObject):
         self._reread_track = None
         self._reread_pass = 0
         self._task_pct_seen = None
+        # The securing pass's per-read estimate state. Cleared unconditionally:
+        # it is scoped to one read of one track, and nothing about it survives a
+        # pass boundary in either direction.
+        self._refix_rate_window = []
+        self._refix_smoothed_s = None
 
     def _auto_fix_tracks(
         self,
@@ -1982,7 +2355,6 @@ class RipWorker(QObject):
             if trigger == "accuraterip"
             else "didn't read consistently"
         )
-        self._reset_pass_progress()
         self.status.emit(f"Re-ripping track(s) {listed} ({why}) to secure them…")
         self.log_line.emit(
             f"[auto-fix] re-ripping track(s) {listed} at -Z {rerip_z} — they "
@@ -2000,6 +2372,11 @@ class RipWorker(QObject):
                 secure_rerip_matches=rerip_z,
                 output_dir=tmp_root,
                 only_tracks=tuple(tracks),
+                # THE DECLARATION. This is the one call site that runs after the
+                # album is already on disk, and saying so here is what stops the
+                # album progress model — bar, label and ETA — from being applied
+                # to a one-track re-read. See `_PASS_REFIX`.
+                pass_kind=_PASS_REFIX,
             )
             if outcome is None:
                 return  # re-rip failed to start/stream — originals untouched
@@ -2120,6 +2497,23 @@ class RipWorker(QObject):
         """
         if not album_log_path or not swapped:
             return
+        # THE SIDECAR STAYS, and the reason is an ORDERING one that a file count
+        # does not outweigh. `main_window_rip`'s post-rip finish handler re-parses
+        # this log through `read_log_with_addendum` BEFORE `write_report` has run,
+        # so at that moment the `.platterpus.json` does not exist yet. Retiring the
+        # file made that re-parse read the DISCARDED pass's CRC — reintroducing the
+        # exact defect the addendum was created to prevent (#19), and the trap this
+        # module's docstring names: fixing one problem by making the supersede
+        # invisible.
+        #
+        # `rip_addendum.addendum_text` now ALSO rebuilds the block from the report
+        # when no sidecar is present, which covers a folder written by an older
+        # build and any offline re-parse of a folder whose sidecar was lost. That is
+        # added robustness, not a replacement.
+        #
+        # Still never appended to the ripper's own log: it ends with cyanrip's
+        # `Log FUN512:` checksum and `--verify-log` rejects trailing content by
+        # design (round 7 lap 10).
         written = write_addendum(album_log_path, trigger, swapped)
         if written is not None:
             self.log_line.emit(
@@ -2357,9 +2751,7 @@ class RipWorker(QObject):
             if task is None:
                 return None
             self._note_task_progress(self._current_track, task)
-            return self._bump_overall(
-                self._overall_from_track(self._current_track, task)
-            ), task
+            return self._overall_for_pass(self._current_track, task), task
 
         match = _LENGTH_PHASE_PATTERN.search(line)
         if match:
@@ -2391,9 +2783,7 @@ class RipWorker(QObject):
             if task is None:
                 return None
             self._note_task_progress(self._current_track, task)
-            return self._bump_overall(
-                self._overall_from_track(self._current_track, task)
-            ), task
+            return self._overall_for_pass(self._current_track, task), task
 
         match = _CYANRIP_TRACK_DONE.search(line)
         if match:
@@ -2401,9 +2791,46 @@ class RipWorker(QObject):
             if done is None:
                 return None
             # task=100 → the end of this track's slice (its full length consumed).
-            return self._bump_overall(self._overall_from_track(done, 100.0)), 100.0
+            return self._overall_for_pass(done, 100.0), 100.0
 
         return None
+
+    def _overall_for_pass(self, current_track: int, task_pct: float) -> float:
+        """The overall bar's value for this progress line, for the pass we are in.
+
+        ALBUM pass → the usual "(track, within-track %) mapped into the 5-95% read
+        band" model, monotonic via :meth:`_bump_overall`.
+
+        SECURING pass → **the bar does not move.** It is lifted once to the floor of
+        the reserved post-rip band (``_POST_RIP_BAND_START``) — a step forward that
+        marks "the reading you asked for is finished, this is the checking phase" —
+        and then holds there for the whole pass. Three alternatives were considered
+        and rejected, and the reasoning is recorded because a frozen bar looks like
+        an oversight to the next reader:
+
+        * **Recomputing the album position from the re-ripped track** is what shipped
+          and is the bug: track 5 of 14 maps to ~35%, so the bar rewound 94.77% ->
+          35.45% and told the user the album had un-ripped itself.
+        * **Advancing it to 100%** would claim the rip is finished while a file may
+          still be swapped in — and the last thing this phase can do is decide the
+          original was better and change nothing.
+        * **Sweeping it through the 95-100% band with the securing pass's own
+          progress** was the tempting one. It fails on the common case: the pass
+          usually re-rips ONE track, so its first read alone fills the whole band,
+          the bar sits at ~100% for every subsequent re-read, and the `>= 99.9%`
+          "effectively done" guard silences the estimate. A bar that reaches the end
+          and then waits is a worse lie than one that visibly holds.
+
+        The phase's real motion lives where it is measurable and honest instead: the
+        **task** bar (the current read's own 0-100%, still returned unchanged beside
+        this value) and the **status line**, which names the track, the re-read
+        number, and a countdown scoped to the read that is running. A dedicated
+        third bar would be the nicest answer and is a GUI change, not a worker one —
+        recorded here as the extension point rather than half-built.
+        """
+        if self._pass_kind == _PASS_REFIX:
+            return self._bump_overall(_POST_RIP_BAND_START)
+        return self._bump_overall(self._overall_from_track(current_track, task_pct))
 
     def _note_task_progress(self, track: int, task_pct: float) -> None:
         """Follow the CURRENT OPERATION's own percentage, to tell a secure re-read
@@ -2449,6 +2876,11 @@ class RipWorker(QObject):
             self._task_pct_seen = task_pct
             self._task_forward_pct = task_pct
             self._task_forward_at = now
+            # A different track is a different read, so the securing pass's
+            # per-read estimate starts over. Keeping the old window would measure
+            # the new track's rate against the previous track's percentages.
+            self._refix_rate_window = []
+            self._refix_smoothed_s = None
             return
         previous = self._task_pct_seen
         if previous is not None and task_pct < previous - _REREAD_TASK_DROP_PCT:
@@ -2468,6 +2900,14 @@ class RipWorker(QObject):
             # (measured: 0.22pp of pre-freeze movement still in a 90 s window,
             # yielding 498 minutes). Drop them; the hold path takes over.
             self._eta_rate_window = []
+            # Same rule for the securing pass's per-read window, for the same
+            # reason one level down: its points describe the read that just ended,
+            # and a window spanning the restart measures a rate no drive achieved.
+            # The smoothed value goes too — a read that has just restarted has ALL
+            # of its time ahead of it, and an EMA seeded with "nearly finished"
+            # would spend the next several seconds insisting so.
+            self._refix_rate_window = []
+            self._refix_smoothed_s = None
             self._task_forward_pct = task_pct
             self._task_forward_at = now
         elif (
@@ -2556,7 +2996,9 @@ class RipWorker(QObject):
         return scored[0][1]
 
 
-def _describe_activity(line: str, total_tracks: int = 0) -> str | None:
+def _describe_activity(
+    line: str, total_tracks: int = 0, *, securing: bool = False
+) -> str | None:
     """Return a short human status for a ripper progress line, or None.
 
     Matches cyanrip's progress lines (and the inert whipper-format seam). Used
@@ -2569,6 +3011,13 @@ def _describe_activity(line: str, total_tracks: int = 0) -> str | None:
     MusicBrainz metadata). When it's > 0 the cyanrip progress line reads
     "Ripping track N of M…" so the user can see position at a glance; when it's
     still unknown (0) we omit "of M" rather than show a wrong total.
+
+    `securing` says this line came from the POST-RIP auto-fix pass — a second
+    cyanrip run re-reading a couple of tracks after the album is already on disk
+    (see `_PASS_REFIX`). There, "of M" is not merely unhelpful but false: the disc
+    has 14 tracks and this pass is not working through them, so "Ripping track 5
+    of 14…" told a user with a finished album that ten tracks were still to come.
+    The securing wording names what is actually happening instead.
     """
     match = _DISC_SCAN_PATTERN.search(line)
     if match:
@@ -2601,6 +3050,11 @@ def _describe_activity(line: str, total_tracks: int = 0) -> str | None:
         # lines. cyanrip's own per-op ETA is still dropped here (it resets every
         # phase and is wildly wrong early — it once printed "822h"); the run loop
         # appends our own smoothed album ETA instead.
+        if securing:
+            # No "of M": this pass is re-reading a track, not working through the
+            # disc. The verb says WHY the drive is still spinning after the album
+            # finished, which is the question a user actually has at that moment.
+            return f"Re-ripping track {match.group('track')} to secure it… {pct:.0f}%"
         # "of M" appears once we know the disc's track count (see the docstring);
         # it turns "Ripping track 12…" into "Ripping track 12 of 17…".
         of_total = f" of {total_tracks}" if total_tracks > 0 else ""
@@ -2609,6 +3063,8 @@ def _describe_activity(line: str, total_tracks: int = 0) -> str | None:
     match = _CYANRIP_TRACK_DONE.search(line)
     if match:
         outcome = "✓" if match.group("how") == "successfully" else "with errors"
+        if securing:
+            return f"Track {match.group('track')} re-ripped {outcome}"
         return f"Track {match.group('track')} done {outcome}"
 
     for phrase, friendly in _NAMED_PHASES.items():

@@ -6,6 +6,7 @@ construction and the sysfs-based drive scan with injected paths.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +20,10 @@ from platterpus.adapters.cyanrip_backend import (
     scheme_from_template,
 )
 from platterpus.adapters.rip_backend import RipError, RipMetadata, TrackTag
+
+#: Repo root, for loading `scripts/` helpers that are part of the contract
+#: surface these tests assert on.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class _FakeMetaflac:
@@ -313,17 +318,33 @@ def test_rip_argv_no_metadata_omits_tag_flags() -> None:
 
 
 def test_meta_value_escaping_makes_separators_safe() -> None:
-    # A colon CANNOT be backslash-escaped for cyanrip: its append_missing_keys()
-    # preprocessor splits on ':' naively (ignoring '\') and injects spurious
-    # keys, which corrupted "Every Breath You Take: The Classics" into a folder
-    # named "...∶album_artist= The Classics" (real-user bug, 2026-06-27). So the
-    # colon is substituted with the U+2236 lookalike (the real ':' is restored
-    # in the FLAC tags post-rip). No backslash, no spurious split.
-    assert _escape_meta_value("Live: At The Met") == "Live∶ At The Met"
-    assert "\\" not in _escape_meta_value("Every Breath You Take: The Classics")
-    assert ":" not in _escape_meta_value("a:b:c")  # every colon substituted
-    # The other tokenizer-special chars still get a backslash (av_get_token
-    # honors them; append_missing_keys never splits on them).
+    r"""A colon is backslash-escaped now, NOT substituted (round 7 lap 31).
+
+    **This assertion was the opposite way round until 2026-08-06, and the old
+    version was correct when it was written** — which is why the reason is here
+    rather than in a commit message. cyanrip's `append_missing_keys()` runs before
+    `av_dict_parse_string()` and used to split on ':' naively, ignoring '\', so a
+    backslash-escaped colon did not survive it: a real user's album became the
+    folder "Every Breath You Take∶album_artist= The Classics" (2026-06-27). We
+    substituted U+2236 RATIO instead.
+
+    **Their code changed, and we verified that rather than taking the claim.** The
+    fork told us in lap 30 that `\:` works. Our own docstring said otherwise, so
+    we read both trees: `append_missing_keys` is now escape-aware ("minding
+    \: and \= escapes"), and it is escape-aware **on upstream `master` too** —
+    so this is safe on stock as well as the fork, which is what allowed the change
+    to be unconditional instead of gated on a build tag.
+
+    What it buys: cyanrip's `.cue` TITLE and its log's `album:` field carried the
+    substitute and were the two artifacts we could never repair. Now the real
+    colon goes in and comes back out. The folder name is unchanged — cyanrip
+    still sanitises ':' out of paths itself, which is where U+2236 came from.
+    """
+    assert _escape_meta_value("Live: At The Met") == "Live\\: At The Met"
+    assert "∶" not in _escape_meta_value("Every Breath You Take: The Classics")
+    # Every colon is escaped, and none is replaced.
+    assert _escape_meta_value("a:b:c") == "a\\:b\\:c"
+    # The other tokenizer-special chars are unchanged in treatment.
     assert _escape_meta_value("a=b") == "a\\=b"
     assert _escape_meta_value("back\\slash") == "back\\\\slash"
     assert _escape_meta_value("It's") == "It\\'s"
@@ -1009,3 +1030,296 @@ def test_rip_actually_sends_consumer_to_a_build_that_accepts_it(
     assert "--consumer" not in unknown, (
         f"--consumer was sent to an unrecognised build: {unknown}"
     )
+
+
+# --------------------------------------------------------------------------
+# RANGE at the argv chokepoint, not only at the Settings boundary.
+#
+# Found 2026-08-06 by `scripts/probe_argv_surface.py` — the black-box self-probe
+# `docs/seam-rules.md` S-9 asks each side to run against its OWN surface. It
+# measured six out-of-range values reaching the argv, every one of them outside
+# the range the Settings dialog enforces, and every one reachable because the
+# range was checked at the Settings boundary and NOWHERE ELSE. A hand-edited
+# `config.toml` skips Settings entirely.
+#
+# CLAUDE.md states it directly: range "must be enforced by code at the argv
+# chokepoint — not merely stated here", and "a GUI widget's own constraint (a
+# QSpinBox range) is a *convenience*, not the validation".
+# --------------------------------------------------------------------------
+
+
+def test_the_chokepoint_refuses_an_out_of_range_numeric_argument() -> None:
+    """Each refusal must NAME the flag, the value and the range (S-12).
+
+    A message that says only "invalid argument" is the `generic` grade the seam
+    rules call a defect in its own right: a caller cannot recover differently from
+    failures it cannot tell apart.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_numeric_args_in_range
+
+    cases = [
+        (["cyanrip", "-N", "-r", "10000"], "-r", "0..100"),
+        (["cyanrip", "-N", "-S", "999"], "-S", "0..72"),
+        (["cyanrip", "-N", "-Z", "1000"], "-Z", "0..10"),
+        (["cyanrip", "-N", "-s", "99999"], "-s", "-5000..5000"),
+    ]
+    for argv, flag, expected_range in cases:
+        with pytest.raises(RipError) as excinfo:
+            assert_numeric_args_in_range(argv)
+        message = str(excinfo.value)
+        assert flag in message, f"the refusal does not name the flag: {message}"
+        assert expected_range in message, (
+            f"the refusal does not state the range, so a user cannot tell what "
+            f"would be acceptable: {message}"
+        )
+
+
+def test_every_in_range_value_is_accepted() -> None:
+    """The floor. A guard that refuses everything is not a range check.
+
+    Without this, tightening a bound to a single value would still pass the test
+    above — and the rip would be unrunnable.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_numeric_args_in_range
+
+    accepted = 0
+    for argv in (
+        ["cyanrip", "-N", "-r", "0"],
+        ["cyanrip", "-N", "-r", "100"],
+        ["cyanrip", "-N", "-S", "0"],
+        ["cyanrip", "-N", "-S", "72"],
+        ["cyanrip", "-N", "-Z", "10"],
+        ["cyanrip", "-N", "-s", "-5000"],
+        ["cyanrip", "-N", "-s", "5000"],
+        ["cyanrip", "-N", "-s", "667"],
+    ):
+        assert_numeric_args_in_range(argv)  # must not raise
+        accepted += 1
+    assert accepted == 8, "the accept-side cases did not all run"
+
+
+def test_a_non_integer_argument_is_refused_rather_than_forwarded() -> None:
+    """`-r abc` must not become the C program's problem."""
+    from platterpus.adapters.cyanrip_backend import assert_numeric_args_in_range
+
+    with pytest.raises(RipError, match="not an integer"):
+        assert_numeric_args_in_range(["cyanrip", "-N", "-r", "abc"])
+
+
+def test_the_range_map_reuses_the_settings_bounds_rather_than_copying_them() -> None:
+    """One source of truth, or the dialog and the argv can disagree.
+
+    Asserts the *values* agree, so a future edit to either side that forgets the
+    other fails here rather than shipping two different definitions of acceptable.
+    """
+    from platterpus import settings_validation as sv
+    from platterpus.adapters.cyanrip_backend import _load_arg_ranges
+
+    ranges = _load_arg_ranges()
+    assert ranges["-r"][:2] == (sv.MAX_RETRIES_MIN, sv.MAX_RETRIES_MAX)
+    assert ranges["-S"][:2] == (sv.READ_SPEED_MIN, sv.READ_SPEED_MAX)
+    assert ranges["-Z"][:2] == (sv.SECURE_REREP_MIN, sv.SECURE_REREP_MAX)
+    assert ranges["-s"][:2] == (sv.OFFSET_MIN, sv.OFFSET_MAX)
+    assert len(ranges) >= 4, "the range map is smaller than the flags it must cover"
+
+
+def test_a_negative_is_refused_rather_than_silently_treated_as_auto() -> None:
+    """`0` means auto; a negative meant nothing and emitted no flag at all.
+
+    The silent drop is the defect: a caller that computed a negative got a default
+    that looked deliberate and never learned otherwise.
+    """
+    for kwargs in ({"read_speed": -1}, {"secure_rerip_matches": -1}):
+        with pytest.raises(RipError, match="not 'auto'"):
+            _impl()._build_rip_argv(
+                "/dev/sr0",
+                unknown=False,
+                cover_art="",
+                max_retries=5,
+                read_offset_override=667,
+                track_template="%d/%t - %n",
+                metadata=RipMetadata(album_title="X"),
+                **kwargs,  # type: ignore[arg-type]
+            )
+
+
+def test_the_self_probe_reports_no_silently_dropped_values() -> None:
+    """The black-box probe is a GATE, not a report someone might read.
+
+    S-11: every row in the seam table is backed by a test in its owner's suite.
+    This runs the real probe and fails if any non-zero value a caller set vanishes
+    without a refusal — which is the exact finding that produced this whole batch.
+    """
+    import importlib.util
+
+    script = _REPO_ROOT / "scripts" / "probe_argv_surface.py"
+    spec = importlib.util.spec_from_file_location("probe_argv_surface", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    probes = module.probe_all()
+    assert len(probes) >= 20, (
+        f"only {len(probes)} probes ran; the grid is not exercising the surface"
+    )
+    findings = [p for p in probes if p.is_finding]
+    assert not findings, "values silently dropped from the argv: " + ", ".join(
+        f"{p.parameter}={p.value}" for p in findings
+    )
+    # A probe run where NOTHING is ever refused would mean the range guard is gone.
+    refused = [p for p in probes if p.outcome == "raised"]
+    assert len(refused) >= 4, (
+        f"only {len(refused)} probe(s) were refused — the range guard at the argv "
+        "chokepoint is not firing, so out-of-range values reach the ripper again"
+    )
+
+
+# --- The -a / -t blob shape guard --------------------------------------------
+#
+# These pin the OUTBOUND half of the seam. The numbers in the docstrings below
+# are measured, not reasoned: `scratchpad/escape-harness/harness.c` compiles the
+# real `append_missing_keys()` out of cyanrip @ 9048082 (the pin installed on the
+# rig) against the real libavutil 58.29.100 and prints what each blob parses to.
+# That is why the expectations here are stated as facts about cyanrip rather than
+# as our opinion of a format.
+
+
+def test_the_metadata_blob_we_build_for_a_colon_title_is_accepted() -> None:
+    """The real reference disc's title passes the chokepoint.
+
+    This is the case the whole escape change exists for: "Every Breath You Take:
+    The Classics". Measured through cyanrip's own parser it comes out as the real
+    colon, and it must not be refused here.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    args = _metadata_args(
+        RipMetadata(
+            album_title="Every Breath You Take: The Classics",
+            album_artist="The Police",
+            tracks=[TrackTag(number=1, title="Roxanne", artist="The Police")],
+        ),
+        release_id="",
+    )
+    assert "-a" in args and "-t" in args
+    blob = args[args.index("-a") + 1]
+    # The escape is present and the substitute is not.
+    assert "Take\\: The" in blob
+    assert "∶" not in blob
+    assert_meta_args_are_parseable(["cyanrip", "-N", *args])  # must not raise
+
+
+def test_an_unescaped_colon_in_a_value_is_refused_it_truncates() -> None:
+    """A raw ':' does not fail in cyanrip — it drops the rest of the value.
+
+    Measured against the pinned parser:
+
+        album=Every Breath You Take: The Classics:album_artist=The Police
+          -> [album] = [Every Breath You Take]
+
+    " The Classics" is gone, exit code 0, nothing in the log. Silent loss is the
+    failure this guard exists to make loud, so the refusal must fire even though
+    the blob is, syntactically, something cyanrip will happily accept.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    argv = [
+        "cyanrip",
+        "-N",
+        "-a",
+        "album=Every Breath You Take: The Classics:album_artist=The Police",
+    ]
+    with pytest.raises(RipError) as excinfo:
+        assert_meta_args_are_parseable(argv)
+    # The message must name the mechanism, not just say "invalid".
+    assert "truncates" in str(excinfo.value)
+
+
+def test_a_dangling_backslash_is_refused_it_eats_the_separator() -> None:
+    """A value ending in one backslash escapes whatever follows it.
+
+    Writing this test corrected my own model of the failure, so the distinction is
+    recorded rather than smoothed over: a dangling escape **mid-blob** does not
+    surface as a dangling escape at all. It eats the ``:`` and welds two tags into
+    one field, which the unescaped-``=`` count catches first — so both refusals
+    are asserted here, each with the message that actually fires. A guard whose
+    error text you have to guess at is a guard nobody will trust in a bug report.
+
+    The parity count matters because ``a\\\\`` (an escaped backslash) is a
+    perfectly good value and ``a\\`` is not — ``endswith("\\\\")`` cannot tell
+    them apart.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    # Mid-blob: the escape consumes the ':' and the two tags merge, so this is
+    # reported as a field with two unescaped '='.
+    with pytest.raises(RipError, match="unescaped '='"):
+        assert_meta_args_are_parseable(
+            ["cyanrip", "-N", "-a", "album=Trailing\\:album_artist=X"]
+        )
+    # End of blob: nothing left to weld to, so the dangling escape is what is seen.
+    with pytest.raises(RipError, match="lone backslash"):
+        assert_meta_args_are_parseable(
+            ["cyanrip", "-N", "-a", "album_artist=X:album=Trailing\\"]
+        )
+    # Escaped backslash: two of them, structurally fine, in both positions.
+    assert_meta_args_are_parseable(
+        ["cyanrip", "-N", "-a", "album=Trailing\\\\:album_artist=X"]
+    )
+    assert_meta_args_are_parseable(
+        ["cyanrip", "-N", "-a", "album_artist=X:album=Trailing\\\\"]
+    )
+
+
+def test_a_track_arg_without_the_leading_number_equals_is_refused() -> None:
+    """cyanrip steps over the '=' of `-t N=` without checking one is there.
+
+    `strtol()` then `end += 1` — so `-t 12` moves its pointer one past the NUL
+    and parses whatever follows in memory. We can never emit that, and that is
+    exactly why it is worth a guard: the cost of being wrong is not a bad tag.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_meta_args_are_parseable
+
+    for bad in ("12", "title=Roxanne", ""):
+        with pytest.raises(RipError, match="track number"):
+            assert_meta_args_are_parseable(["cyanrip", "-N", "-t", bad])
+    # The shape we do emit is accepted.
+    assert_meta_args_are_parseable(["cyanrip", "-N", "-t", "12=title=Roxanne"])
+
+
+def test_the_blob_guard_runs_from_the_chokepoint_not_just_directly() -> None:
+    """Reachability, not presence.
+
+    CLAUDE.md's own history has a fully-implemented guard called from nowhere
+    (`RipHandle.cancel`). This asserts the new check is wired into
+    `assert_metadata_lookup_disabled`, which is the one function every route to
+    the ripper passes through — including the scripted verb, which delegates here
+    rather than restating the rule.
+    """
+    from platterpus.adapters.cyanrip_backend import assert_metadata_lookup_disabled
+
+    with pytest.raises(RipError, match="truncates"):
+        assert_metadata_lookup_disabled(
+            ["cyanrip", "-N", "-a", "album=A: B:album_artist=C"]
+        )
+
+
+def test_split_on_unescaped_matches_how_cyanrips_parser_walks_the_blob() -> None:
+    """The splitter is the thing the guard's correctness rests on, so pin it.
+
+    Cases 1 and 5 of the measured harness, plus the degenerate ones. Note the
+    escaping backslash is RETAINED: this function answers "where are the
+    structural separators", not "what is the final text" — conflating those is
+    how a validator ends up rejecting a legitimate value.
+    """
+    from platterpus.adapters.cyanrip_backend import split_on_unescaped
+
+    assert split_on_unescaped("a:b", ":") == ["a", "b"]
+    assert split_on_unescaped("a\\:b", ":") == ["a\\:b"]
+    assert split_on_unescaped("a\\\\:b", ":") == ["a\\\\", "b"]
+    assert split_on_unescaped("", ":") == [""]
+    assert split_on_unescaped("album=A\\:B\\:C:album_artist=X", ":") == [
+        "album=A\\:B\\:C",
+        "album_artist=X",
+    ]

@@ -20,6 +20,245 @@ When a task changes status, update it here in the same commit as the code change
 
 ---
 
+## Next release — gated on the rig package
+
+*(Absorbed the former `release-plan-next.md` on 2026-08-06. It was a separate
+file for one day. A release plan **is** a task queue with an ordering constraint,
+so its home was always here — keeping it outside meant a START-HERE reader saw the
+backlog and not the thing gating it. CLAUDE.md Critical rule #7's fourth
+obligation is what this merge implements.)*
+
+**Status: waiting on the maintainer's rig package.** He is ripping now and will
+send logs, cue sheets and the JSON report. Nothing releases until that lands and
+its findings are folded in — his instruction, and the right call: *"you dont need
+to release anything now, but plan to do this all to a new, at least beta, but
+maybe more release, as soon as you have the full package. feel free to start now,
+but you make more work."*
+
+That last clause is the governing constraint. Work that his data could
+**invalidate** waits. Work his data **cannot touch** can proceed. *The queue,
+sorted by whether his data can invalidate it* below sorts on exactly that line.
+
+### What is already on the branch
+
+Pushed to `claude/session-omka9f`, all green (37 uiscript tests + the full suite,
+lint and format clean):
+
+| landed | what it was |
+|---|---|
+| **v0.6.4b11** | published pre-release: option-label convention, three screens that name the build, the derived `rip_goal`, dialog lifecycle logging |
+| Settings scroll fix | `minimumSizeHint` was **739 × 971** — the dialog could not be shrunk *at all*, so OK/Cancel sat below the screen edge. Now 146 px, form scrolls, actions never do |
+| uiscript pure layer | vocabulary, parser (never raises, fuzzed), transcript |
+| uiscript runner | QTimer state machine; screenshot **plus a window manifest**, because `grab()` returns a valid pixmap for a dialog that was never shown |
+| cyanrip passthrough | routed through `run_capture` — the app's own seam — and **sanitised**, after the maintainer's question found it bypassed the argv chokepoint |
+| Critical rule #12 extension | bidirectional seam sanitation, institutionalised in `CLAUDE.md` and drafted for the fork |
+
+### What the rig package unblocks
+
+Each of these is **blocked on his data** and cannot be honestly finished without
+it:
+
+| needs the package | why |
+|---|---|
+| **The b11 verdict** | did the stall warning stay quiet on a healthy re-read? Did the ETA hold? Only the rip says. |
+| **`eta_trace.samples[].state`** | b8 had two holes totalling ~16 min landing exactly on the wrong minutes. A gap in b11's trace means the fix is incomplete — this is the first field to open. |
+| **`settings.rip_goal_stored`** | new in schema v23. Present ⇒ his `config.toml`'s label disagreed with its own fields. |
+| **The picker question** | `dialog presented: ReleasePickerDialog` in `log.txt`, or its absence. The one thing b10's log could not answer. |
+| **Handshake round 7 close** | the cue-sheet pre-gap check on tracks 3/6/11/12 is the only change in the fork's pin no drive has run. |
+| **Whether the ETA needs work at all** | median −23 min on b8, deliberately untouched pending this trace. |
+
+### The queue, sorted by whether his data can invalidate it
+
+#### THE FIRST DELIVERABLE, and what it forces
+
+His directive: *"the first test should be giving copying and pasting in a script
+that tests every paramter/arguement, and give back a result. then we should be
+able to determine if all is reaching platterpus and cyanrip, then we can go from
+there."*
+
+**Right instinct — plumbing before behaviour.** Before asking whether a setting
+*works*, ask whether the script can *reach* it at all. A reachability sweep is
+the cheapest possible first test and it fails loudly rather than subtly.
+
+**But it cannot be written today, and the reason is our own defect:** `set` and
+`expect` — the two verbs a "test every parameter" script is made of — are among
+the **13 of 25 that are advertised and unimplemented**. Handing him that script
+now would hand him a batch that fails on every line. So the two "safe to do now"
+items below are not merely safe, they are **prerequisites of the first
+deliverable**, and the order is forced:
+
+> `set`/`expect` on Config field names → the remaining verbs → **generate** the
+> coverage script → he pastes it → we read the result.
+
+**The design decision that matters: the script is GENERATED, not hand-written.**
+A hand-written "tests every parameter" script is wrong the day a field is added,
+and wrong *silently* — it would still pass, just over a smaller surface, which is
+the completeness-decay shape `docs/testing.md` §5.af describes. So a
+`scripts/emit_uiscript_coverage.py` derives it from the **`Config` dataclass
+fields** plus the **verb table**, exactly as `scripts/emit_dependency_contract.py`
+already derives our half of the cyanrip contract. Then:
+
+- every parameter is covered **by construction**, not by anyone's diligence;
+- a new `Config` field appears in the next generated script automatically;
+- and a **completeness test** asserts the generated script names every editable
+  field, so the claim "tests every parameter" is checked rather than asserted.
+
+**What the result must distinguish**, because "it reached Platterpus" and "it
+reached cyanrip" are different claims and the script has to separate them:
+
+| outcome | means |
+|---|---|
+| `set` FAILs | the field is not addressable — a **Platterpus** plumbing gap |
+| `set` passes, `expect` FAILs | it was accepted and did not stick — a Platterpus **state** bug |
+| both pass, argv lacks the flag | reached Platterpus, **not** cyanrip — the interesting one |
+| both pass, argv carries it | full path confirmed end to end |
+
+That last pair is why the script pairs every `set` with a `cyanrip`-side check
+rather than stopping at the GUI: **reaching the app is not reaching the ripper**,
+and only the argv proves the second.
+
+#### Safe to do now — his data cannot change these
+
+1. **[ ] The 13 unimplemented verbs.** `verbs.py` advertises 25, `runner.py`
+   implements 12. This is `docs/testing.md` §5.p committed by the hand that wrote
+   the rule. **Plus the one-line sweep** asserting the two sets agree, which is
+   what stops the next one.
+2. **[ ] `set`/`expect` keyed on `Config` field names, not row labels.** Seven form
+   rows have the label `""`, five of them interactive — a label namespace cannot
+   reach five real switches. Generalise `settings_dialog.py:700`'s existing
+   `_validated_widgets` registry so the resolver, the validation renderer and the
+   completeness test share one source. Traps recorded below in *P0 — `set`/`expect`
+   must key on Config field names*: `secure_rerip_dynamic` **inverted**,
+   `update_channel` a bool view of a string, U+00D7 and U+2026 in labels, three
+   substring collisions, disabled widgets must fail **loudly** rather than no-op.
+3. **[ ] The return-path sanitiser and the plain-text sweep.** `setTextFormat` has
+   **zero** hits across the UI package, so every widget is on `Qt::AutoText`,
+   which auto-detects HTML. A MusicBrainz title containing `<` is swallowed in an
+   error dialog and the user never learns text went missing. Sweep, don't
+   spot-fix.
+4. **[ ] The console dialog**, gated behind two separate Settings toggles (show the
+   console; allow unsafe verbs), plus the Tools menu entry.
+5. **[ ] Handshake lap 28.** Independent of the rip *except* for the pin verdict —
+   draft everything else now: withdraw the stale HOLD (their flag table arrived;
+   `_MAX_TABLE_LAG` is 0), correct the recommendation of a pin our own
+   `fork_source.py` lists as superseded, raise the three-sends-under-one-lap-number
+   protocol breach, and attach the §S seam-sanitation clause already drafted.
+
+#### Wait for the package
+
+6. **[ ]** Read the artifacts; fold every finding into the queue before cutting anything.
+7. **[ ]** The `ui_script` block in the rip JSON, **under the 25 MB ceiling** — his
+   package tells us how much headroom a real report actually leaves.
+8. **[ ]** The pin verdict in lap 28, and whether round 7 can close.
+9. **[ ]** Whatever the rip itself surfaces.
+
+#### Last
+
+10. **[ ] One release.** Version decided by what lands: another beta if the package
+    raises anything unsettled, or the **stable v0.6.4** if round 7 closes on a
+    bilateral GO. `scripts/handshake.py --release-gate` decides that, not a
+    preference — a stable release is blocked while a round is open, and that is
+    the deviation policy.
+11. **[ ] The single batch script**, written against a vocabulary where every verb
+    works. Writing it before item 1 would hand him a script that fails on him.
+
+### The release gate — what must be true
+
+- Full suite green with the sentinel at `0`; coverage ≥ 91 %; ruff + mypy clean.
+- `pytest tests/test_no_stale_version_claims.py` and `tests/test_doc_version_stamps.py`.
+- `scripts/handshake.py --release-gate` — `--prerelease` permits a beta with the
+  round open; **stable requires bilateral GO**.
+- Every P0 in this file either fixed or explicitly deferred **in writing**.
+- The batch script exercised against the real vocabulary, not against the table.
+
+### The maintainer's stated intent for the release
+
+His heads-up, verbatim: *"after i upload all the new logs and documents, plan to
+take those and what we have here, and make a new beta version we can do another
+round of handshakes with the cyanrip app, so we can try again."*
+
+That settles the version question *Last* left open, and it settles it
+**downward**: the next release is a **beta**, deliberately, because its job is to
+be the artifact a *new handshake round* is run against. A stable v0.6.4 would be
+the wrong shape for that even if round 7 closed — you cannot open a round on a
+build whose purpose is to be final.
+
+So the sequence is: **package → findings → beta → round 8**, and the beta is
+named in the round-8 outbound file as the app version the round approves against
+(Critical rule #12: a round approves a pin *for a named app version*, and two
+artifacts from one ripper under different app versions are not interchangeable
+evidence).
+
+Two consequences worth stating now:
+
+- **Round 7 gets closed or explicitly carried, not left ambiguous.** Lap 28 is
+  still owed regardless — our sent lap 27 declares a HOLD whose stated reason has
+  evaporated and recommends a pin our own `fork_source.py` lists as superseded.
+  Opening round 8 on top of an un-corrected round 7 would compound that.
+- **`docs/seam-rules.md` ships with the beta**, so round 8 can cite
+  `SEAM-RULES-VERSION: 1` rather than re-argue it.
+
+### Round 8 — what goes to the fork, and what the maintainer uploads
+
+His instruction: *"give a new handshake file for cyanrip include all wel've said
+and learned. make sure they are informed to follow our new formats and standards,
+and give them any new information they need to improve or fix based on what we
+learned/have seen. and make sure they update their stuff and give us back
+something similar."*
+
+**The round-8 outbound package is five things, sent together:**
+
+| # | what | why it must be in the same round |
+|---|---|---|
+| 1 | **`docs/seam-rules.md` v4** | the twelve tagged rules. Adopted as a file, not paraphrased — a restatement is a second spec that can drift |
+| 2 | **`docs/seam-commands.md`** | the one table. Our column filled, theirs `?`. Their half is the ask |
+| 3 | **The round-8 verification file** | withdraws lap 27's stale HOLD, corrects our recommendation of a superseded pin, raises the three-sends-under-one-lap-number breach, and carries §S/§S5a/§S5b/§S5c |
+| 4 | **The rip artifacts** | evidence *about their binary*, which is the only thing that can settle the cue fix and close round 7 |
+| 5 | **Our own defect list** | what we found in ourselves this cycle. A contract argued from a hole you just found in yourself carries more weight than one argued from a clean position |
+
+**What we ask back, explicitly**: their half of the command table, their exit-code
+grading with the `generic` list, their three S-11 numbers and their regression-test
+list, and confirmation the rules landed in their `CLAUDE.md` — so round 9 can
+*cite* rather than re-argue.
+
+#### The upload order, and why it is not "whenever"
+
+The maintainer offered: *"i can also upload all the log and other files there if
+helpful, just let me know what to do when you are ready."* The answer is **yes,
+but after we have read them, not before**, and the reason is specific:
+
+1. **We read the artifacts first.** They may change what the round-8 file says —
+   a wrong pre-gap result sends their cue fix back and the file's verdict inverts.
+   A file written before we looked would need retracting, and this protocol has
+   already spent a round on a retraction.
+2. **Then everything goes at once.** Analysis and evidence arriving together
+   means they can check our reading against the same bytes. Evidence without the
+   reading invites them to re-derive it; the reading without the evidence asks
+   them to take it on trust. Both have failed here before.
+3. **The artifacts are named in the file's header**, so a later reader can tell
+   which log settled which claim — the *answer it from the artifact, and name
+   which artifact* rule.
+
+So: **send nothing to the fork yet.** When the package is read and round 8 is
+written, the upload is one action with a stated manifest.
+
+### What could change this plan
+
+Stated so that a later reader can tell a revised plan from a forgotten one — this
+is the framing that makes the block above a *plan* rather than a pile of
+backlog rows, so it stays a named subsection wherever this content lives:
+
+- **A gap in `eta_trace` during the re-reads** promotes the ETA from "deliberately
+  untouched" to a release blocker.
+- **A missing `dialog presented:` line** means the picker was created and never
+  shown — a different and more serious bug than the logging gap already fixed.
+- **A wrong pre-gap result** sends the fork's cue fix back and round 7 stays open,
+  which forces a beta rather than a stable.
+- **A report near 25 MB** changes the `ui_script` embedding from "include the
+  transcript" to "reference it and embed a digest".
+
+---
+
 ## P0 — v1 release
 
 ### ⭐ First-rip proof — raised by the maintainer 2026-07-30, needs a decision before work starts
@@ -271,7 +510,7 @@ The sub-sections below are ordered by current priority for picking up work:
 
 The live, ordered work queue — what to pick up next. Difficulty: **S** = a focused session, **M** = 1–2 sessions (may need upstream-source research), **L** = multi-session. **HW** = hardware-gated (needs the user's machine/drive/disc — code-side prep can still be done first). Each entry is deliberately just the queue line; the linked section carries the full context. *(Originally set 2026-06-09; re-ranked 2026-07-21 per the docs-audit consolidation plan, because 11 of the original 15 items were ✅ and the genuinely live workstreams sat in later sections a START-HERE reader never reached. The original numbered list — still cited elsewhere as "current-plan item N" — is preserved with its numbering as ranked history just below.)*
 
-1. **🟡 Trust & supply-chain hardening — open audit follow-ups (M; maintainer-gated in part).** The **verify** half of update authenticity **shipped 2026-07-21** (KDD-26): the `cryptography` dep was approved and is a hard runtime requirement, `update_signing.py` exists, and `update_install.py` is wired fail-closed — dormant until a key exists. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release (see [docs/release-signing.md](docs/release-signing.md)). Separately, full-AppImage byte-reproducibility still needs validating on a real release build. See *P1 — Trust & supply-chain hardening* below.
+1. **🟡 Trust & supply-chain hardening — open audit follow-ups (M; maintainer-gated in part).** The **verify** half of update authenticity **shipped 2026-07-21** (KDD-26): the `cryptography` dep was approved and is a hard runtime requirement, `update_signing.py` exists, and `update_install.py` is wired fail-closed — dormant until a key exists. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release (see [docs/architecture.md §6.2](docs/architecture.md)). Separately, full-AppImage byte-reproducibility still needs validating on a real release build. See *P1 — Trust & supply-chain hardening* below.
 2. **🟡 cyanrip soft-fork upstream PRs — prepared, env-gated (M).** Both contributions (the `-a`/`-t` colon-parsing fix; full libavcodec encoder args) are researched, patched, and paste-ready in `scripts/cyanrip/` + [docs/cyanrip-fork.md](docs/cyanrip-fork.md); execution (fork → build in the container → issue → PR) needs an environment with cyanrip repo access (local, or a cyanrip-seeded session — this cloud session is scoped to Platterpus only). See the *cyanrip upstream contributions* block below.
 3. **⬜ Hardware-gated proof queue — HW (user), S each.** Everything only the Bazzite + BDR-209D rig can prove, consolidated. **The run sheet is [`docs/hardware-test-checklist.md`](docs/hardware-test-checklist.md)** — as of 2026-07-30 it is *consolidated*: it carries **every** outstanding hardware test rather than only the newest release's, grouped by why each is still open, with stable test IDs that are retired once they pass. Work that sheet first; it, not this bullet, is the live list. **First run done 2026-07-26 (partial):** the log checksum verified end-to-end (test 3 ✅, recomputed independently from the real artifact + tamper detected), force-stop/post-cancel recovery held (test 15 ✅), the wizard's `dnf install /usr/bin/cd-paranoia` provides-install + export **succeeded on a real Fedora container** (previously flagged unverified — now proven), and the real `cd-paranoia -A` output was captured and committed as a fixture (the KDD-29 gate is CLOSED). That run also surfaced **five defects, all fixed** (see CHANGELOG `[Unreleased]`): the 90 s probe timeout, the undiagnosable unknown verdict, "Finished with issues." on a successful cache-only run, the EAC log calling offset-variant tracks absent from AccurateRip, and overread rendering "(unknown)". **Second run done 2026-07-26 (v0.5.9, Overread OFF — a complete 14-track rip):** all eight v0.5.9 fixes confirmed on the rig — the cache probe finishes and reaches both the panel and the log as a measured `Yes`, the wizard reports "Done.", the offset trust line reached **"confirmed — two independent sources agree"** (KDD-31 earned on hardware), overread renders `No`, and offset-variant tracks are described correctly — so **tests 2, 5, 14 are ✅**. **⭐ Test 17 is ANSWERED:** the `.cue` carried 14 × `INDEX 01`, no `PREGAP` — the pre-gap gap is real on the deployed cyanrip 0.9.3, so KDD-32's build-cyanrip-from-source step is now **required** and is the run sheet's final part. That run also surfaced **two new honesty defects, both fixed in v0.5.10**: a re-read track's Test & Copy proof never reached the log, and a track whose re-reads *disagreed* rendered as clean. **Third run done 2026-07-26 (v0.5.10, step 1 only):** the Test & Copy rendering fired but paired the convergence proof with the **first pass's** CRC on both swapped tracks (log `52DFDF7D`/`6902BCF0`; files `3D8FCF0C`/`E0036697`) — the swapped-in read's own record now replaces the first pass's (fixed in v0.5.11, regression-pinned). Both problem tracks converged for the first time (`unresolved: false`). **Still open** — the run sheet's own §A–§E are authoritative and the old flat test numbers below were superseded by them on 2026-07-30; everything *not* on the sheet: the `-Z` convergence re-rip (history item 14); the from-scratch wizard/`setup-host.sh` run + drive-setup success screens + README screenshots + Picard UX (history item 10; test-plan Tests 3/5/6); cyanrip WAV parity (proof matrix below); the new test-plan Tests 12–14; a real in-app uninstall run (history item 4); UX gap #3 (timestamp-localized anomalies — needs real anomaly-bearing output); and a live screen-reader (e.g. Orca) session over the announced surfaces (UX gap #4's last fraction, 2026-07-21). *(The EAC gap-handling check was removed from this queue 2026-07-21 — closed as already-satisfied; cyanrip's default matches EAC, verified upstream, no hardware run needed.)*
 4. **🟡 Documentation backlog — the 2026-07-21 docs-audit consolidation plan (S–M).** In execution; per-item status under *P1 — Documentation backlog* below.
@@ -350,7 +589,7 @@ High-level feature backlog (not bucketed into a sub-section because each is smal
 - **[x]** ~~udev-driven auto-detect on disc insert~~ — **closed as satisfied 2026-07-21 (audited):** the outcome (a freshly-inserted disc is picked up with no manual Rescan) has been delivered since 0.4.x by `drive_media.MediaWatcher` — a 2.5s `CDROM_DRIVE_STATUS` poll (never spins the disc) + a transition-detecting state machine that auto-rescans while idle. A udev/DBus listener would only shave the ≤2.5s poll latency at the cost of a new integration surface; not worth it unless a real case surfaces that polling misses. (Live-hardware confirmation of the watcher itself is already tracked in the test plan.)
 - **[x]** ~~ReplayGain calculation~~ — **closed as satisfied 2026-07-21 (audited against upstream master):** cyanrip computes EBU R128 loudness on every rip and writes the full tag set by default (`REPLAYGAIN_TRACK_GAIN/RANGE/PEAK`, `REPLAYGAIN_ALBUM_GAIN/RANGE/PEAK`, `R128_TRACK_GAIN`, `R128_ALBUM_GAIN`, reference loudness — gated only by `-K`, which Platterpus never passes), and the results-pane/JSON already surface album loudness. Derived MP3/WavPack copies carry the tags via the transcode's `-map_metadata 0` (WAV can't hold tags — already warned in Settings); that carriage is worth an eyeball on the next hardware session, but nothing needs building.
 - **[x]** Auto-move completed rips to a library folder — **DONE 2026-07-21:** Settings → "Move finished rips to" (`Config.library_dir`, empty = off). The album folder moves only after **every** post-rip worker settles (tag/cover/transcode, the verification suite, checksums, the comparison scan, the debounced report write) — a 500ms settlement poll gates it, the rip generation abandons a superseded move, and the actual move runs on the shared generation-guarded daemon (`library_move.move_album_folder`: never overwrites — collisions get a "(N)" sibling; refuses self-nesting/workspace-root moves). The post-rip buttons repoint to the new home; the re-rip comparison now also scans the library (`find_prior_report` extra_roots).
-- **[x] Additional encoding outputs: WavPack, MP3, and WAV — SHIPPED 2026-06-26** (maintainer sign-off; flipped Critical Rule #4 to "FLAC is the default/master, others derived"). **Design → [docs/mp3-wav-support.md](docs/mp3-wav-support.md).** Built: `adapters/transcode.py` now does FLAC→**WavPack** (`-c:a wavpack`, lossless, APEv2 tags) in addition to MP3 (`-q:a 0` VBR + ID3/APIC cover) and WAV (`pcm_s16le`); the **Settings → Output format** selector (FLAC/WavPack/MP3/WAV) + a live WAV no-tags/art warning; the transcode folded into the post-rip daemon thread (after tag→cover→re-compress, reading the final FLACs) via a `transcode_done` signal; `to_config()` now round-trips `output_format` (+ preserves `mp3_vbr_quality`, which had been silently reset). **Transcode-always model** (§4(b)): both backends rip FLAC, then derive — so MP3 is best-practice VBR on *both* (cyanrip's native MP3 is only CBR) and the FLAC master always exists. `ffmpeg` is the single encoder dep (already registered in the subsystem — no bespoke install code, Critical Rule #6). +11 tests. **Known limitation:** embedding cover art *inside* `.wv` needs the standalone `wavpack` tool (ffmpeg's muxer is audio-only) — deferred; the folder `cover.<ext>` is the universal image. **Backend rip parity proofs (P2 below) stay open** — those await real-hardware rips, not code.
+- **[x] Additional encoding outputs: WavPack, MP3, and WAV — SHIPPED 2026-06-26** (maintainer sign-off; flipped Critical Rule #4 to "FLAC is the default/master, others derived"). **Design → [docs/archive/mp3-wav-support-2026-06.md](docs/archive/mp3-wav-support-2026-06.md) (archived 2026-08-06).** Built: `adapters/transcode.py` now does FLAC→**WavPack** (`-c:a wavpack`, lossless, APEv2 tags) in addition to MP3 (`-q:a 0` VBR + ID3/APIC cover) and WAV (`pcm_s16le`); the **Settings → Output format** selector (FLAC/WavPack/MP3/WAV) + a live WAV no-tags/art warning; the transcode folded into the post-rip daemon thread (after tag→cover→re-compress, reading the final FLACs) via a `transcode_done` signal; `to_config()` now round-trips `output_format` (+ preserves `mp3_vbr_quality`, which had been silently reset). **Transcode-always model** (§4(b)): both backends rip FLAC, then derive — so MP3 is best-practice VBR on *both* (cyanrip's native MP3 is only CBR) and the FLAC master always exists. `ffmpeg` is the single encoder dep (already registered in the subsystem — no bespoke install code, Critical Rule #6). +11 tests. **Known limitation:** embedding cover art *inside* `.wv` needs the standalone `wavpack` tool (ffmpeg's muxer is audio-only) — deferred; the folder `cover.<ext>` is the universal image. **Backend rip parity proofs (P2 below) stay open** — those await real-hardware rips, not code.
   - **Verified findings (2026-06-23, replacing the earlier "verify-before-relying" bank):**
     - **whipper is FLAC-only** (profiles removed in v0.5.0) → MP3/WAV for the whipper path is a **post-rip re-encode**, not native. **cyanrip is natively multi-format** via `-o` (incl. `wav`, `mp3`; lossy bitrate `-b`, default 256).
     - **MP3/LAME `noise_shaping_amp` bug (#516)** is real + still open (LAME 3.100.1 is the last release) **but CBR/ABR-only — NOT VBR.** Use **VBR `-V0`**, joint-stereo ON; the `-q 4` workaround only matters if we ever ship CBR. Via FFmpeg/libmp3lame (cyanrip + a whipper re-encode) `-q:a 0` = `-V0`; the standalone-`-q` bug is a different code path → non-issue for VBR.
@@ -388,7 +627,7 @@ repo + copyright; the CRCs are the proof). Ordered by format priority:
 Done so far: **[x]** EAC baseline committed; **[x]** parity checker + tests
 (`scripts/eac_parity.py`, `parsers/eac_log.py`, `platterpus.parity`); **[x]**
 WAV/MP3 parity *semantics* pinned (WAV reuses the FLAC baseline; MP3 = extraction
-CRC only) — `tests/test_parity.py`, [docs/mp3-wav-support.md](docs/mp3-wav-support.md) §1;
+CRC only) — `tests/test_parity.py`, [docs/archive/mp3-wav-support-2026-06.md](docs/archive/mp3-wav-support-2026-06.md) §1;
 **[x]** checker reads EAC's native UTF-16 logs (was UTF-8-only → false 0/N).
 So the one open row (cyanrip WAV) only awaits a real rip — the checker is ready.
 
@@ -481,6 +720,139 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 - **[x] Declined dependencies should not cascade to the next tier.** Done (verified 2026-06-02) — see the identical item under P1.1 above. `resolve_missing` skips cascade for `user_declined`; three tests cover it.
 - **[x] Picard auto-install failure mode — resolved.** Both halves are done: (1) **root cause** — the registry now installs Picard via the **`.flatpakref` URL** (`https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref`) instead of `flathub <ref>`; the `.flatpakref` carries the remote URL so flatpak adds flathub at *user* level on first install, fixing the Bazzite "No remote refs found for 'flathub'" error (Atomic distros configure flathub as a *system* remote). See `deps/registry.py`. (2) **diagnostics** — `AutoInstaller` captures the failed command's last stderr/stdout line into `InstallResult.message`, and `_show_dep_summary` surfaces it in an "Install failures:" block (no longer debug-only). Picard is also `optional=True`, so a failure doesn't nag.
 
+### P0 — Exhaustive argument documentation + black-box limit testing, our half (2026-08-06)
+
+Maintainer, and it is now `docs/seam-rules.md` **S-8/S-9/S-10** (version 2): *"i want it exhaustive on you side and on thiers. even if you dont use the argument or variabe or setting, i want i documented and with the limits and errors. we may have to use or fix in the future."* Plus the division of labour: *"i dont expect you to test cyanrip, its on them, just like its on you."*
+
+**What we owe, and it is a real body of work:**
+
+- **[ ] Rows for all 41 of their flags, not our 17.** For every flag we do not send, the row must say `NO: <reason>` or `?`. Today nothing distinguishes *"we decline it"* from *"we never noticed it"* — and those are different facts about the same blank cell.
+- **[ ] Black-box limit probes for every argument we DO send**, run against the real binary rather than read out of the builder: the **real** accepted min/max (the declared type is not the range — `int` says nothing about whether `-1` is taken); behaviour at min, at max and **one past each**; and on a bad value the exit code, the message, and **whether the operation dies or the flag is silently ignored**. That last distinction is the difference between a bad tag and a lost rip: `-t 17=` on a 16-track disc killed a rip in two seconds and the *type* was fine.
+- **[ ] The same for our own surface** — every `Config` field and every CLI flag, including ones the GUI cannot set. Same columns, same rule.
+- **[ ] `not-probed: <reason>` where hardware or a specific disc is required.** A recorded finding. **A blank reads as "tested and fine"**, which is the failure the file exists to prevent.
+- **[ ] Interactions**: `-I` must never appear with `-J` in our builder and **neither of us has recorded why**; `-F` is in the builder with no recorded reason at all. Probe both, document both, or delete them — carrying a flag we cannot explain is worse than not having it.
+- **[ ] Generate, do not transcribe.** The type/range columns in `docs/seam-commands.md` are currently hand-written and carry a provenance warning saying so. `emit_dependency_contract.py` must emit them from the builder's signatures and range checks, and the probe results must land beside them mechanically.
+
+The limit probes are a natural fit for the in-app script runner once `cyanrip`/`expect-exit` are joined by the rest of the vocabulary — a generated batch that walks every argument to its boundary and records the exit code is exactly the artifact S-9 asks for.
+
+### P0 — The command table must be AUDITED every round, and the gate change is bilateral (2026-08-06)
+
+The maintainer: *"it needs to be looked at, checked, and verified, every time there is a handshake, its most of the entire point."*
+
+Correct, and a shared table nobody re-reads is the same artifact as no table — this protocol has already paid for exactly that once: their flag table said `-v`/`--version` with **no `-V`** for a full round while every version probe we shipped sent `-V`, and a rejected flag exits non-zero, which every probe reads as *"the tool is not installed"*. **The document was right; nobody looked at it against our code.**
+
+**The mechanism is designed, prototyped and measured — and then deliberately reverted**, because landing it unilaterally would have been wrong:
+
+Add `SEAM-COMMANDS` to `REQUIRED_CLOSE_FIELDS` in `scripts/handshake.py`, with a **value** check, not just presence:
+
+| declared | result | why |
+|---|---|---|
+| `SEAM-COMMANDS: audited @ 1` | closes | the round names the table version it audited |
+| `SEAM-COMMANDS: not-audited` | **blocks** | an honest answer, and it must stop a close — *"we did not look"* has to stay distinguishable from *"we looked and it was fine"* |
+| `SEAM-COMMANDS: looked at it` | **blocks** | an unrecognised value is treated as not-audited, never waved through — a check that passes on a value it does not understand is satisfied by the wrong thing |
+| *(absent)* | **blocks** | a missing field cannot express an audit |
+
+All four verified against the real `close_blockers` before the revert.
+
+**Why it was reverted rather than shipped:** `tests/test_handshake_tooling.py::test_the_required_field_set_matches_the_published_spec` failed with *"SEAM-COMMANDS is required by our gate and absent from the shared docs/handshake-protocol.md — one of the two has drifted."* **That test is doing its job.** `handshake-protocol.md` is the file *neither project owns*, and rule #12 is explicit: editing it is a version bump **both sides must ship before the next close**. A gate demanding a field the shared spec does not define would reject the fork's conforming files — we would have broken their side to tighten ours.
+
+- **[ ] Propose the protocol version bump in round 8**, with the four-row table above as the specified behaviour, and land the gate change **in the round where both sides adopt it** — not before.
+
+### P0 — There is no single shared command/type/meaning table, and ours has no types at all (2026-08-06)
+
+The maintainer: *"do you and cyanrip both have a singurlar table for both of your commands, type, arguements, and meanings? because you should and it should be a file both have and check every time via the handshake. and it should be audited by both sides every time completely."*
+
+**Answer: no, and checking made it worse than expected.**
+
+What exists today is **two half-contracts plus a hand-written gloss**:
+
+| artifact | who generates it | what it carries |
+|---|---|---|
+| `docs/cyanrip-consumer-contract.md` §3 | us, from a real call to the argv builder | **18 bare flag names.** No types, no arguments, no meanings |
+| their `PROVIDER-CONTRACT.md` §P1 | them, from the binary's own `--help` | 41 flags, 82 spellings |
+| `docs/dependency-contracts.md` | **a human, by hand** | the per-flag semantics our §3 explicitly punts to |
+| `tests/test_argv_surface_agreement.py` | — | compares flag *names* only, one direction |
+
+Three defects fall out, and the third is the one that matters:
+
+1. **Our half carries no types.** §3 is a flag list that says *"Per-flag semantics and the exact contract for each are in `docs/dependency-contracts.md`"* — i.e. it delegates the substance to a **hand-maintained** file, which is the exact artifact class this project keeps finding stale (`docs/testing.md` §5.af). A generated contract that punts its semantics to a hand-written one is generated in name only.
+2. **41 versus 18.** They document 41 flags; we send 18. Nothing states, per flag, whether we deliberately do not use it, cannot use it, or have not noticed it. "We send these 18" and "these are the 18 worth sending" are different claims and only the first is recorded.
+3. **The comparison is one-directional and name-only.** Our test diffs our names against their table. Nothing diffs *their* table against *our* needs, and nothing compares **types or argument shapes at all** — so a flag whose argument changed from an int to a string would pass the existing check silently.
+
+**The design, and it must not be hand-authored.** One shared table, `docs/seam-commands.md`, at the same path in both repos — but **merged by a tool from both generated halves**, never written by a person. That keeps the property rule #12 exists for (*a description derived from the behaviour cannot describe behaviour we do not have*) while giving the single artifact he is asking for. One row per flag:
+
+`flag | spellings | argument type | value range | meaning | we send it? | they accept it? | last agreed round`
+
+- Generated by extending `scripts/emit_dependency_contract.py` to emit **types and ranges** (it already calls the real argv builder — the types are in the builder's signature and the range checks are already in the code), then joining against their published table.
+- **Every row gets a status from each side**, so `we-send / they-accept` disagreements are visible as rows rather than discovered as a broken release. `-V` is the worked example: their table said no `-V` for a full round while every probe we shipped sent it, and only a human reading both files caught it.
+- **Audited by both sides every round**, completely — the handshake gate fails when a row's status is `not-audited-this-round`, so "we did not look" is distinguishable from "we looked and it was fine".
+- **`docs/dependency-contracts.md` gets absorbed or demoted.** It cannot remain the authority for semantics while a generated file exists; two descriptions of one thing is the drift this fixes.
+
+- **[ ] Extend the emitter to carry types + ranges; build the merge; add the both-sides-audited gate; propose the shared file in the round-8 outbound alongside `docs/seam-rules.md`.**
+
+### P0 — The script vocabulary advertises 13 verbs the runner does not implement (found 2026-08-06)
+
+**Verified by running it, not by reading it:** `verbs.py` advertises **25** verbs; `runner.py` implements **12**. The other **13** parse cleanly, pass the arity check, pass the unsafe gate, and then fail at *run* time with `'<verb>' is not implemented yet` — `set`, `expect`, `expect-contains`, `album`, `album-artist`, `rescan`, `rip`, `wait-for-rip`, `cancel-rip`, `expect-status`, `expect-tracks`, `eval`, `call`.
+
+**This is `docs/testing.md` §5.p — "a documented capability is not a capability" — committed by the person who wrote that rule down.** The built-in reference renders from the verb table, so the console would show a user thirteen commands that cannot run. A batch pasted against that reference dies mid-run, unattended, which is the precise failure the whole feature exists to prevent.
+
+- **[ ] Either implement the thirteen or mark them unavailable in the table**, and add the sweep that makes the two halves agree — `set(VERBS) == {handlers on ScriptRunner}` is a one-line assertion and it would have failed the moment the gap opened.
+
+### P0 — `set`/`expect` must key on Config field names, NOT row labels (audit, 2026-08-06)
+
+`verbs.py` currently says *"set `<field>` `<value>` — set a Settings field by its row label."* **That is the wrong design and the audit gives three in-repo proofs:**
+
+1. **Seven form rows have the label `""`, five of them interactive** — `override_read_offset`, `notify_on_completion`, `save_additional_art`, `rerip_offset_variant`, `secure_rerip_dynamic`. There is no label to address them by, so a label-keyed namespace cannot reach five real switches.
+2. **Labels are prose and they get renamed.** `option_labels.py` exists *because* every option string was renamed in b11 — a script pinned to `"Fixed speed (advanced)"` broke silently at that commit.
+3. **A registry already exists, half-built:** `settings_dialog.py:700`'s `_validated_widgets: dict[str, QWidget]` already maps **config field name → widget**, for 8 of them. Generalising it gives `set`, `expect`, the validation renderer and the completeness test **one** source.
+
+So: **canonical key = the `Config` field name; row label = an alias**, matched by equality after normalisation (never `startswith`/`in`), with ambiguous or empty aliases **refused at parse time** rather than guessed.
+
+- **[ ] Traps the audit found that any resolver must handle**, each of which would otherwise be a silent wrong answer:
+  - `secure_rerip_dynamic` is **INVERTED** relative to its checkbox; `update_channel` is a **bool view of a string**.
+  - `Read offset (samples):` names **two** widgets (the spin box and `Re-&detect…`) — the input must win or the resolver must refuse.
+  - Substring collisions: `Track template:` ⊂ `Track template (unknown):`; `Verify FLACs:` and `Re-compress FLACs:` share `FLACs:`.
+  - Unicode that will not survive a copy-paste: `×` is **U+00D7** (not ASCII `x`) in `Fixed speed (×):`; `…` is **U+2026**.
+  - Mnemonic ampersands survive `.text()` — `Chec&k dependencies`, and `&&` renders as one `&`.
+  - `metaflac path:` is the only lowercase-initial label; an over-eager `.title()` normaliser eats it.
+  - `recompress_flac_after_rip` is **permanently disabled**; `mp3_vbr_quality` and `read_speed` are **gated** — setting a disabled widget must FAIL loudly, not no-op silently.
+- **[ ] The completeness test:** derive the editable set from the dialog and assert every one is addressable, so this audit cannot silently expire.
+
+### P0 — The RETURN path from cyanrip is unsanitised, and Qt's default renders it as HTML (found 2026-08-06)
+
+The maintainer asked the mirror of the argv question: *"do all logs and commands pass back to platterpus from cyanrip before user facing? same deal, they probably should and get sanitized and checked ... this should be a check in both directions, and full."*
+
+**Measured answer: the output half has no sanitiser at all.** Two greps settle it:
+- `grep -rn "setTextFormat|Qt.RichText|Qt.PlainText" src/platterpus/ui/` → **zero hits.** No widget anywhere pins its text format.
+- No sanitiser function exists on the return path (`ripper_messages.py`'s `re.escape` calls are regex construction, not output cleaning).
+
+**Why that is a live defect, not a theoretical one.** Qt's default is `Qt::AutoText`, which **auto-detects HTML and renders it as rich text**. cyanrip's `captured_stdout` and `failure_hint` reach user-facing surfaces (`main_window_rip.py:1368`, `:1456`). So any captured line that *looks* like markup is interpreted rather than shown.
+
+**The realistic failure is silent text loss, not an exploit.** cyanrip is a local trusted binary — but the *content* it echoes is not ours: album and track titles come from **MusicBrainz**, i.e. from outside. A title containing `<` — `Track <Remix>`, `A > B`, `<untitled>` — is swallowed as an unknown tag in a user-facing error dialog, and **the user never learns text went missing**. That is exactly CLAUDE.md's *validate every dependency output* category and exactly the silent-truncation shape the diagnostic-completeness rule exists to forbid.
+
+- **[ ] Pin every user-facing widget that can carry dependency output to `PlainText`**, and add a sweep test asserting no `QLabel`/`QMessageBox` receiving tool output is left on `AutoText`. The sweep matters more than the individual fixes — this is a rule to enforce across the codebase, not at the one place it was found (`docs/testing.md` §5.o).
+- **[ ] Add the return-path sanitiser as the mirror of `sanitise_cyanrip_args`**: strip/flag control characters and NULs, bound absurd line lengths (a 10 MB single line will freeze the GUI thread rendering it), and preserve everything else verbatim. It must **never silently drop** — an elision is counted and marked, same rule as the argv side.
+- **[x] Institutionalised in both repos.** The clause is now a bullet of Critical rule #12 in `CLAUDE.md` (which is the bidirectional-seam rule and already carries the "this rule lives in both repos" obligation), and the fork's half is drafted ready to send as [`docs/handshake/verified/round-07-lap-29.md`](docs/handshake/verified/round-07-lap-29.md) §S. That file describes **our own two defects** rather than proposing a clause from a clean position, asks which of their routes reach the ripping core, and asks for confirmation the clause landed on their side so the next round can cite it instead of re-arguing it.
+- **[ ] Make it a two-way contract test.** The input half is `tests/test_argv_surface_agreement.py`. The output half has parser tests but nothing asserting *what reaches the user* is what cyanrip said. That asymmetry is the same one that let the `-V` blocker ship for a full round.
+
+### P0 — Handshake lap 28: our sent verdict is wrong on both halves (verified 2026-08-06)
+
+**Our lap 27 is sitting in the fork's inbox making two false statements**, both verified against committed artifacts rather than remembered:
+
+- **[ ] The HOLD's only stated reason has evaporated.** Lap 27 line 20 declares `**HOLD on f5e11ba**` because *"the P1 flag table still has not arrived"*, and line 297 says our argv check is *"diffing our argv against **round 6b's** table"*. Both false today: `docs/handshake/inbound/artifacts/round-07-lap-25-provider-contract-g9048082.md` exists (738 lines, 45 KB, 2026-08-05 18:51), and `tests/test_argv_surface_agreement.py` has `_MAX_TABLE_LAG = 0` and passes — it reads round 7's own table.
+
+- **[ ] Lap 27 recommends a pin our own product has retired.** Line 285: *"**No pin change requested.** `f5e11ba` remains our test pin and our recommendation."* Meanwhile `deps/fork_source.py:200` has `FORK_TEST_PIN = "9048082"` and line 252 lists `"f5e11ba"` in `SUPERSEDED_TEST_PINS`. The wizard installs `9048082`; the handshake file recommends `f5e11ba`. **The code and the contract disagree about which binary we want**, which is exactly the class of drift rule #12 exists to prevent.
+
+- **[ ] Root cause, and it is theirs: lap 25 was sent THREE times under one lap number.** Protocol §2 is unambiguous — *"Each lap is a new file. Never edit a file already sent."* On disk: `superseded/round-07-lap-25-as-first-sent.md` and `…-as-second-sent.md` both carry `HANDSHAKE-TEST-PIN: f5e11ba`; the live `inbound/round-07-lap-25.md` carries `HANDSHAKE-TEST-PIN: 9048082` and attaches the contract. **Our lap 27 was written against the second send.** So it is a faithful reading of a document that was replaced under the same name — which is the precise failure §2 forbids, and it needs raising as an ask, not as a complaint.
+
+- **[ ] Second-order finding worth more than the first:** the table arrived and *our own check still could not see it* for a further lap, because `_group_by_round` globbed only lap files and the shared round parser returns `None` for an artifact filename (fixed in `8a045ab`). **A contract sitting in a directory nothing reads is not a contract received.** Already graduated; restate in lap 28 because it is the transferable half.
+
+- **[ ] Also stale in lap 27, by construction:** `HANDSHAKE-APP-VERSION: platterpus 0.6.4b8` (now b11), and §F cross-references §G ("Revert-proof") for the flag-table blocker that actually lives in §K — a reader following the pointer lands in the wrong section.
+
+**Still true in lap 27 and to be re-asserted rather than re-derived:** the consumer-contract counts (55 parsed / 17 ignored / 18 flags) survive regeneration at b11; the drive-proven A1/A2/`--verify-log` rows stay citable *scoped to `f5e11ba` + b6/b7/b8*; and the standing caveat that nothing here exercises a *stock* cyanrip.
+
+**Lap 28 must not claim** anything needing rig data we do not hold — in particular it cannot approve `9048082` on evidence, because no disc has been ripped on it yet. Their own §E1 says they are not asking us to approve it untested.
+
 ### P1 — Rig-session findings, 2026-08-05 (b10 + cyanrip `9048082`) — SHIPPED in v0.6.4b11
 
 Raised by the maintainer while walking through the b10 build on the Bazzite rig, recorded first and acted on after his go-ahead (*"only options, roll a new version if needed after ingesting all this data"*). Every claim below was verified against the code *before* being written down, because two of the five turned out not to be what the screenshots suggested — and those two are marked as **refuted**, not fixed.
@@ -509,7 +881,7 @@ Raised by the maintainer while walking through the b10 build on the Bazzite rig,
 
 From the trust/quality deep audit — see [docs/archive/trust-audit-2026-07-08.md](docs/archive/trust-audit-2026-07-08.md). Confirmed-but-deferred items (the audit's in-release fixes shipped in v0.4.22):
 
-- **[~] ⭐ Update authenticity (trust-critical).** **Build-provenance attestation DONE** — `release.yml` runs `actions/attest-build-provenance` over the released AppImage (SLSA, GitHub OIDC + Sigstore, no key/secret; verify with `gh attestation verify … --repo rmccann-hub/Platterpus`), and PyPI wheels are attested via Trusted Publishing. **The verify side DONE 2026-07-21 (KDD-26):** the must-ask was answered and `cryptography>=50.0.0,<51` is a declared runtime dep ([DEPENDENCIES.md](DEPENDENCIES.md)); `src/platterpus/update_signing.py` (`verify_minisign`, `verify_minisign_file`, `signing_configured`) is wired into `update_install.py` **fail-closed** on a present-but-invalid signature, with tests. It is dormant because `update_signing.PUBLIC_KEY_B64` is empty — today's gate is SHA-256 only, which `SECURITY.md` documents honestly. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release — the ritual is in [docs/release-signing.md](docs/release-signing.md).
+- **[~] ⭐ Update authenticity (trust-critical).** **Build-provenance attestation DONE** — `release.yml` runs `actions/attest-build-provenance` over the released AppImage (SLSA, GitHub OIDC + Sigstore, no key/secret; verify with `gh attestation verify … --repo rmccann-hub/Platterpus`), and PyPI wheels are attested via Trusted Publishing. **The verify side DONE 2026-07-21 (KDD-26):** the must-ask was answered and `cryptography>=50.0.0,<51` is a declared runtime dep ([DEPENDENCIES.md](DEPENDENCIES.md)); `src/platterpus/update_signing.py` (`verify_minisign`, `verify_minisign_file`, `signing_configured`) is wired into `update_install.py` **fail-closed** on a present-but-invalid signature, with tests. It is dormant because `update_signing.PUBLIC_KEY_B64` is empty — today's gate is SHA-256 only, which `SECURITY.md` documents honestly. **Remaining, maintainer-only:** generate the keypair, bake in the public key, sign the first release — the ritual is in [docs/architecture.md §6.2](docs/architecture.md).
 - **[x] Pin GitHub Actions to commit SHAs** — DONE (round 2, 2026-07-08): every `uses:` across `ci.yml`/`release.yml`/`publish-pypi.yml`/`appimage.yml`/`mutation.yml` pins a full commit SHA (`# vN` comment). Dependabot (`github-actions`) drives the bumps.
 - **[~] Reproducible AppImage build.** **`SOURCE_DATE_EPOCH` — DONE (2026-07-08):** `build_appimage.sh` pins every embedded timestamp to the HEAD commit time; verified the *wheel* is byte-identical across rebuilds (same sha256). **`pip --require-hashes` dependency byte-pinning — PLUMBING SHIPPED (2026-07-21, Option A, maintainer-chosen):** the python-appimage-compatible design is a **hash-verified wheelhouse** — `build/lock-requirements.sh` resolves the third-party closure and writes a hash-pinned `requirements.lock` (run in the release env when a dep changes); `build_appimage.sh`, *when the lock exists*, `pip download --require-hashes`-es the closure into a local wheelhouse (aborts on any byte mismatch) and installs python-appimage's per-line deps **offline** from it, with the local `platterpus` wheel served alongside. It's **opt-in and additive** — no lock ⇒ the previous version-pinned online install, unchanged. Parsing logic unit-verified; scripts `bash -n`-clean. **Still gated on a real build (only place it can be validated):** generate the lock in CI/the release env, commit it, and confirm the *full* AppImage is byte-identical across rebuilds (the sandbox can only verify the wheel half).
 - **[x] Static type-checking in CI — DONE (whole package strict, 2026-07-20).** `mypy` in the `dev` extra + a gating CI `typecheck` job. Ratcheted up in stages: non-UI package (2026-07-09), standalone UI widget/dialog modules (2026-07-10), then the final six `main_window*` god-object modules (2026-07-20). `disallow_untyped_defs` + `disallow_incomplete_defs` are now enforced across the **entire package with no `ignore_errors` exclusions left**. The last step needed a **shared typing seam** (`ui/main_window_shared.py::MainWindowShared`): the mixins' `self` is the concrete window at runtime but the bare mixin to mypy, so cross-mixin `self._x` couldn't resolve (the bulk of the 317 errors were `attr-defined`). The seam is a type-only declaration of the window's shared surface (attrs/signals/cross-mixin methods) that every mixin inherits; it's runtime-neutral (bare annotations + `TYPE_CHECKING` method stubs + a `TYPE_CHECKING`-conditional `QWidget`/`object` base — see docs/architecture.md §3.6). Along the way, ~10 residual real type-gaps were fixed properly (retyped `object|None` workers to concrete classes; `_build_gui_dependency_manager -> DependencyManager`; typed the unknown-post-processing album/track params; widened two `list[object]` helpers to `Sequence[object]`). Full suite green; MRO/metaclass verified unchanged at runtime.
@@ -764,7 +1136,7 @@ reconstructed from memory under time pressure:
       while its prose quietly expires. **Two different things, two different checks.**
 4. **[ ] `pytest tests/test_doc_version_stamps.py`** — restamp every Markdown doc the
       cycle touched. As of this writing that is `PLANNING.md`, `TASKS.md`,
-      `docs/README.md`, `docs/error-reporting.md` and the round-7 files, all already at
+      `docs/README.md`, the error-reporting design of record (now `docs/architecture.md` §3.7a) and the round-7 files, all already at
       `v0.6.4b3` and therefore all needing one more move.
 5. **[ ] `python3 scripts/emit_dependency_contract.py`** — the generated consumer
       contract now names the app version in its §0, so a version bump *changes it*.
@@ -1269,6 +1641,10 @@ Items that are technically achievable but represent significant effort, double t
 - **[ ] Embed the cuesheet in FLAC metadata.** whipper writes a sidecar `.cue`; FLAC can hold the cuesheet in a metadata block (`--cuesheet`). Nice-to-have for single-image rips.
 - **[ ] WavPack hybrid (.wv/.wvc) output — evaluate only.** A lossy base + exact correction file is a clever archival/portability split, but it's orthogonal to the FLAC-primary thesis and neither whipper nor cyanrip targets it as cleanly. Note as an idea; likely **don't pursue**.
 
+**Graduated out of the multi-format design-of-record when it was archived (2026-08-06):**
+
+- **[ ] Embed the cover art *inside* the `.wv` (the one open item from the WavPack ship).** WavPack carries art as a **binary APEv2 tag** (`Cover Art (Front)`), and **ffmpeg's WavPack muxer accepts only a single audio stream**, so the shipped transcode path physically cannot embed it. Today's behaviour is a deliberate, working fallback, not a silent gap: whenever a non-embedding format is selected, art is wanted and the disc was identified, the GUI **force-writes the front cover to the album folder as `cover.<ext>`** — even in the default "embed" cover-art mode, which normally embeds in the FLAC and deletes the folder copy. So a WavPack rip *always* has a visible cover; it is folder-level, not embedded. Closing it means registering the standalone **`wavpack`** encoder through the dependency subsystem (Critical rule #6 — no bespoke install code) and routing `.wv` through it instead of ffmpeg, which also needs hardware validation that the resulting `.wv` shows its art in real players. **Deferred, not lost** — this row exists because [`docs/archive/mp3-wav-support-2026-06.md`](docs/archive/mp3-wav-support-2026-06.md) was archived and an open item inside an archived doc is an item nobody will read again. WAV is *not* part of this: RIFF cannot hold art at all, and the UI warns rather than pretending.
+
 ---
 
 ## Out of scope (not in P0, P1, or P2)
@@ -1287,4 +1663,4 @@ Listed here for clarity so they don't sneak in:
 
 ---
 
-*Last updated for Platterpus v0.6.4b11.*
+*Last updated for Platterpus v0.6.4b13.*

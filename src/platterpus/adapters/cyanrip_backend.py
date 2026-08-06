@@ -32,6 +32,7 @@ offset finder — we never use it.)
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -44,7 +45,7 @@ from platterpus.adapters.rip_backend import (
     run_capture,
 )
 from platterpus.adapters.ripper_log_verify import LogVerification, verify_rip_log
-from platterpus.cyanrip_cli import VERSION_FLAGS
+from platterpus.cyanrip_cli import VERSION_FLAGS, split_on_unescaped
 from platterpus.parsers.cd_info import DiscInfo
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.drive_list import DriveDescriptor
@@ -189,6 +190,22 @@ class CyanripImpl(RipBackend):
         # marginal/damaged discs (EAC-parity item 1; see config.py). Only
         # passed when the user enabled it (> 0) — on a clean disc it just
         # burns time, so the default rip omits it entirely.
+        # A NEGATIVE IS A CALLER ERROR, NOT "AUTO". `0` means auto and is a
+        # documented convention; `-1` meant nothing, emitted no flag, and produced
+        # no complaint — so a caller that computed a negative got a silent default
+        # and never learned. Found by `scripts/probe_argv_surface.py`.
+        if secure_rerip_matches < 0:
+            raise RipError(
+                f"refusing secure_rerip_matches={secure_rerip_matches}: a negative "
+                "is not 'auto' (0 is). Dropping the flag silently would hide a "
+                "caller bug behind a default that looks deliberate"
+            )
+        if read_speed < 0:
+            raise RipError(
+                f"refusing read_speed={read_speed}: a negative is not 'auto' "
+                "(0 means drive maximum). Dropping the flag silently would hide a "
+                "caller bug behind a default that looks deliberate"
+            )
         if secure_rerip_matches > 0:
             argv += ["-Z", str(secure_rerip_matches)]
         # `-O`: read into the disc's lead-in/lead-out instead of zero-padding
@@ -568,30 +585,49 @@ _COLON_SUBSTITUTE: str = "∶"  # ∶
 def _escape_meta_value(value: str) -> str:
     """Make a tag value safe for cyanrip's ``key=value:key=value`` strings.
 
-    The real parser is FFmpeg's ``av_dict_parse_string(.., "=", ":")`` (which
-    honors ``\\`` and ``'``), BUT cyanrip first runs the string through
-    ``append_missing_keys()``, which splits on ``:`` with ``av_strtok`` —
-    **naively, ignoring backslash and quotes** — and *injects* a spurious key
-    (``album=``/``album_artist=``/``title=``/``artist=``) in front of any ``:``
-    that lands inside a value. So a backslash-escaped colon does NOT survive:
-    "Every Breath You Take: The Classics" came out as the folder
-    "Every Breath You Take∶album_artist= The Classics" (real-user bug,
-    2026-06-27, confirmed against cyanrip's source).
+    **A literal ``:`` is escaped as ``\\:`` — it is NOT replaced any more.**
+    (Changed round 7 lap 31, after the fork measured the escape and we verified
+    why our old reason for distrusting it had expired.)
 
-    Because a literal ``:`` can't be passed safely at all, substitute the
-    visually-identical U+2236 (the same character cyanrip uses when sanitizing a
-    colon for a path) — folders and the cyanrip-written tag stay clean, and the
-    parser can't choke. The GUI restores the real ``:`` in the FLAC tags in a
-    post-rip metaflac pass. Other tokenizer-special chars (``\\ = '``) still get
-    a backslash, which av_get_token honors and ``append_missing_keys`` ignores
-    (it only ever splits on ``:``).
+    The history matters, because the workaround this replaces was correct when it
+    was written. cyanrip runs the blob through ``append_missing_keys()`` *before*
+    ``av_dict_parse_string()``, and that pre-splitter **used to split on ``:``
+    naively** — so a backslash-escaped colon did not survive it, and a real user's
+    album came out as the folder ``Every Breath You Take∶album_artist= The
+    Classics`` (2026-06-27). We substituted U+2236 RATIO instead and repaired the
+    real colon afterwards in a post-rip ``metaflac`` pass.
+
+    **What changed is their code, not our opinion of it.** ``append_missing_keys``
+    is now escape-aware, in *both* trees — verified by reading them, not by taking
+    the claim:
+
+        /* ... minding "\\:" and "\\=" escapes, which the dictionary parser
+         * will consume later */
+        if (esc) { esc = 0; }
+        else if (c == '\\') { esc = 1; }
+
+    That appears in ``src/naming.c`` on the fork **and on upstream ``master``**,
+    and ``av_dict_parse_string(&ctx->meta, copy, "=", ":", 0)`` — whose backslash
+    handling is FFmpeg's, via ``av_get_token`` — is identical in both. So the
+    escape is not a fork feature and this is safe across the whole cyanrip line,
+    which is the fact that decided it: a capability only the fork had would have
+    needed gating on the build tag.
+
+    **What this fixes.** The substitute leaked into two artifacts we do not write:
+    cyanrip's ``.cue`` ``TITLE`` and its log's ``album:`` field both carried
+    ``∶`` where the real title has ``:``. We repaired the FLAC tags and our own
+    EAC-style log and could never repair those two. Now nothing needs repairing —
+    the real colon goes in and comes back out.
+
+    **The folder name does not change**, because cyanrip still sanitises ``:`` out
+    of *paths* itself, which is where U+2236 came from in the first place.
+
+    Other tokenizer-special characters (``\\ = '``) keep their backslash, which
+    ``av_get_token`` honours and the pre-splitter now also respects.
     """
     out: list[str] = []
     for ch in value:
-        if ch == ":":
-            out.append(_COLON_SUBSTITUTE)
-            continue
-        if ch in "\\='":
+        if ch in "\\='" or ch == ":":
             out.append("\\")
         out.append(ch)
     return "".join(out)
@@ -834,6 +870,84 @@ _TOKEN_MAP: dict[str, str] = {
 }
 
 
+#: The numeric flags whose ARGUMENT has a real range, and where that range lives.
+#: Imported from `settings_validation` rather than restated, because a second copy
+#: of a bound is a second thing to drift — and the Settings dialog and the argv
+#: must not be able to disagree about what is acceptable.
+#:
+#: Found 2026-08-06 by `scripts/probe_argv_surface.py`, the black-box self-probe
+#: S-9 asks each side to run on its own surface. It measured six unvalidated
+#: values reaching the argv: `-r -1`, `-r 2147483648`, `-S 999`, `-S 2147483648`,
+#: `-s 2147483648` and `-Z 1000`. Every one is out of the range the Settings
+#: dialog enforces, and every one was reachable because **the range was checked at
+#: the Settings boundary and nowhere else** — so a hand-edited `config.toml`, a
+#: value carried over from a previous disc, or any future caller bypassing Settings
+#: sent it straight to a C program. CLAUDE.md says this in as many words: range
+#: "must be enforced by code at the argv chokepoint — not merely stated here".
+_ARG_RANGES: dict[str, tuple[int, int, str]] = {}
+
+
+def _load_arg_ranges() -> dict[str, tuple[int, int, str]]:
+    """Build the flag→range map lazily, to avoid an import cycle at module load."""
+    if not _ARG_RANGES:
+        from platterpus.settings_validation import (
+            MAX_RETRIES_MAX,
+            MAX_RETRIES_MIN,
+            OFFSET_MAX,
+            OFFSET_MIN,
+            READ_SPEED_MAX,
+            READ_SPEED_MIN,
+            SECURE_REREP_MAX,
+            SECURE_REREP_MIN,
+        )
+
+        _ARG_RANGES.update(
+            {
+                "-r": (MAX_RETRIES_MIN, MAX_RETRIES_MAX, "per-track retries"),
+                "-S": (READ_SPEED_MIN, READ_SPEED_MAX, "fixed read speed"),
+                "-Z": (SECURE_REREP_MIN, SECURE_REREP_MAX, "secure re-read matches"),
+                "-s": (OFFSET_MIN, OFFSET_MAX, "read offset correction"),
+            }
+        )
+    return _ARG_RANGES
+
+
+def assert_numeric_args_in_range(argv: list[str]) -> None:
+    """Refuse an argv whose numeric arguments are outside their real range.
+
+    Separate from :func:`assert_metadata_lookup_disabled` so each failure names
+    one cause — S-12: a code or message that does not distinguish *which* thing
+    was wrong tells a caller only that something was, which it already knew.
+
+    A non-numeric value is refused too. `-r abc` would otherwise be handed to a C
+    program to interpret, and "whatever the other side does with it" is not a
+    contract.
+    """
+    ranges = _load_arg_ranges()
+    for flag, (low, high, what) in ranges.items():
+        if flag not in argv:
+            continue
+        index = argv.index(flag)
+        if index + 1 >= len(argv):
+            raise RipError(f"{flag} ({what}) was passed with no value")
+        raw = argv[index + 1]
+        try:
+            value = int(raw)
+        except ValueError:
+            raise RipError(
+                f"refusing {flag} {raw!r} ({what}): not an integer. Every value we "
+                "hand the ripper is validated here, at the argv chokepoint, because "
+                "a widget's own limit is a convenience and not the validation"
+            ) from None
+        if not low <= value <= high:
+            raise RipError(
+                f"refusing {flag} {value} ({what}): outside the accepted range "
+                f"{low}..{high}. This is the same range the Settings dialog "
+                "enforces; a value arriving from a hand-edited config, a previous "
+                "disc, or a future caller that skips Settings is checked here too"
+            )
+
+
 def assert_metadata_lookup_disabled(argv: list[str]) -> None:
     """Refuse an argv that would let cyanrip do its own MusicBrainz lookup.
 
@@ -870,6 +984,120 @@ def assert_metadata_lookup_disabled(argv: list[str]) -> None:
             "source (Critical rule #5), and cyanrip's own lookup can block on an "
             "interactive prompt with no terminal attached"
         )
+
+    # RANGE, not just syntax. Delegated rather than inlined so there is exactly one
+    # implementation, and called from HERE so every existing route to the ripper
+    # picks it up without a second thing for a caller to remember — the same reason
+    # the scripted `cyanrip` verb delegates to this function instead of restating it.
+    assert_numeric_args_in_range(argv)
+
+    # And the SHAPE of the metadata blobs, for the same reason: `_escape_meta_value`
+    # is applied at a dozen call sites, and a thirteenth that forgets it loses the
+    # user's text *silently* (measured — see the docstring below).
+    assert_meta_args_are_parseable(argv)
+
+
+# --- Metadata blob shape (the outbound half of the -a / -t seam) -------------
+
+
+#: A tag key cyanrip will accept on the left of an ``=``. Deliberately narrow:
+#: we only ever emit keys from our own fixed list, so anything else in this
+#: position means the blob has been mis-assembled, not that a new key appeared.
+_META_KEY_RE: re.Pattern[str] = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _ends_in_a_dangling_escape(blob: str) -> bool:
+    """Does ``blob`` end with a backslash that has nothing left to escape?
+
+    A trailing lone backslash would consume the separator cyanrip's own splitter
+    puts after it, welding two tags together. Counted rather than checked with
+    ``endswith`` because ``"a\\\\"`` (an escaped backslash) is fine and
+    ``"a\\"`` is not.
+    """
+    trailing = len(blob) - len(blob.rstrip("\\"))
+    return trailing % 2 == 1
+
+
+def assert_meta_args_are_parseable(argv: list[str]) -> None:
+    """Refuse a ``-a``/``-t`` blob cyanrip would parse into the wrong thing.
+
+    **Why this is a guard and not a comment.** cyanrip parses a metadata blob in
+    two stages — ``append_missing_keys()``, then FFmpeg's
+    ``av_dict_parse_string(..., "=", ":", 0)`` — and an unescaped ``:`` inside a
+    *value* does not fail. It **silently truncates the user's text.** Measured
+    against the real functions compiled out of the pinned tree
+    (``9048082``) and the real libavutil:
+
+        album=Every Breath You Take: The Classics:album_artist=The Police
+          -> [album] = [Every Breath You Take]          <-- " The Classics" gone
+          -> [album_artist] = [The Police]
+
+    versus the escaped form we now emit:
+
+        album=Every Breath You Take\\: The Classics:album_artist=The Police
+          -> [album] = [Every Breath You Take: The Classics]
+
+    Silent loss is the failure mode this project treats as worst, because the rip
+    succeeds and the library entry is quietly wrong — nothing in the log, nothing
+    in the report, and the user finds out months later.
+
+    **Why at the chokepoint.** `_escape_meta_value` is correct and is applied at
+    every one of the twelve places that build a pair today. That is exactly the
+    shape CLAUDE.md warns about: a rule enforced by everyone remembering it. One
+    new tag field appended without the call, and the value is truncated with no
+    diagnostic. Here it cannot be forgotten, because every route to the ripper
+    passes through :func:`assert_metadata_lookup_disabled`.
+
+    What is checked, per blob:
+
+    * ``-t`` carries a leading ``<number>=`` — cyanrip does ``strtol`` then
+      ``end += 1`` to step over the ``=``, **without checking one is there**, so
+      a bare ``-t 12`` walks its parser past the end of the string.
+    * every field splits into exactly one ``key`` and one ``value`` on an
+      unescaped ``=``;
+    * the key is a plain identifier;
+    * no field ends in a dangling backslash, which would eat the next separator.
+
+    Values themselves are not inspected beyond that: a value may legitimately
+    contain any character, escaped. This validates *structure*, which is the part
+    a caller can get wrong without noticing.
+    """
+    for index, token in enumerate(argv):
+        if token not in ("-a", "-t") or index + 1 >= len(argv):
+            continue
+        flag = token
+        blob = argv[index + 1]
+        if flag == "-t":
+            number, _, rest = blob.partition("=")
+            if not number.isdigit() or not _:
+                raise RipError(
+                    f"refusing to run cyanrip: the {flag} argument {blob!r} is not "
+                    "'<track number>=<tags>'. cyanrip steps over the '=' without "
+                    "checking it is there, so this reads past the end of the string"
+                )
+            blob = rest
+        for field in split_on_unescaped(blob, ":"):
+            if _ends_in_a_dangling_escape(field):
+                raise RipError(
+                    f"refusing to run cyanrip: the {flag} field {field!r} ends in a "
+                    "lone backslash, which would escape the ':' separating it from "
+                    "the next tag and weld the two together"
+                )
+            halves = split_on_unescaped(field, "=")
+            if len(halves) != 2:
+                raise RipError(
+                    f"refusing to run cyanrip: the {flag} field {field!r} has "
+                    f"{len(halves) - 1} unescaped '=' where exactly one is expected. "
+                    "An unescaped separator inside a tag value does not fail — it "
+                    "silently truncates the value (see assert_meta_args_are_parseable)"
+                )
+            key, _value = halves
+            if not _META_KEY_RE.match(key):
+                raise RipError(
+                    f"refusing to run cyanrip: {key!r} is not a usable tag key in the "
+                    f"{flag} field {field!r}. This normally means an unescaped ':' in "
+                    "an earlier value split the blob in the wrong place"
+                )
 
 
 #: What we call ourselves to cyanrip. One place, so the log, the contract and
