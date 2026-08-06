@@ -481,6 +481,29 @@ Items that surfaced when an actual user walked through the GUI on Bazzite. Each 
 - **[x] Declined dependencies should not cascade to the next tier.** Done (verified 2026-06-02) — see the identical item under P1.1 above. `resolve_missing` skips cascade for `user_declined`; three tests cover it.
 - **[x] Picard auto-install failure mode — resolved.** Both halves are done: (1) **root cause** — the registry now installs Picard via the **`.flatpakref` URL** (`https://dl.flathub.org/repo/appstream/org.musicbrainz.Picard.flatpakref`) instead of `flathub <ref>`; the `.flatpakref` carries the remote URL so flatpak adds flathub at *user* level on first install, fixing the Bazzite "No remote refs found for 'flathub'" error (Atomic distros configure flathub as a *system* remote). See `deps/registry.py`. (2) **diagnostics** — `AutoInstaller` captures the failed command's last stderr/stdout line into `InstallResult.message`, and `_show_dep_summary` surfaces it in an "Install failures:" block (no longer debug-only). Picard is also `optional=True`, so a failure doesn't nag.
 
+### P0 — The command table must be AUDITED every round, and the gate change is bilateral (2026-08-06)
+
+The maintainer: *"it needs to be looked at, checked, and verified, every time there is a handshake, its most of the entire point."*
+
+Correct, and a shared table nobody re-reads is the same artifact as no table — this protocol has already paid for exactly that once: their flag table said `-v`/`--version` with **no `-V`** for a full round while every version probe we shipped sent `-V`, and a rejected flag exits non-zero, which every probe reads as *"the tool is not installed"*. **The document was right; nobody looked at it against our code.**
+
+**The mechanism is designed, prototyped and measured — and then deliberately reverted**, because landing it unilaterally would have been wrong:
+
+Add `SEAM-COMMANDS` to `REQUIRED_CLOSE_FIELDS` in `scripts/handshake.py`, with a **value** check, not just presence:
+
+| declared | result | why |
+|---|---|---|
+| `SEAM-COMMANDS: audited @ 1` | closes | the round names the table version it audited |
+| `SEAM-COMMANDS: not-audited` | **blocks** | an honest answer, and it must stop a close — *"we did not look"* has to stay distinguishable from *"we looked and it was fine"* |
+| `SEAM-COMMANDS: looked at it` | **blocks** | an unrecognised value is treated as not-audited, never waved through — a check that passes on a value it does not understand is satisfied by the wrong thing |
+| *(absent)* | **blocks** | a missing field cannot express an audit |
+
+All four verified against the real `close_blockers` before the revert.
+
+**Why it was reverted rather than shipped:** `tests/test_handshake_tooling.py::test_the_required_field_set_matches_the_published_spec` failed with *"SEAM-COMMANDS is required by our gate and absent from the shared docs/handshake-protocol.md — one of the two has drifted."* **That test is doing its job.** `handshake-protocol.md` is the file *neither project owns*, and rule #12 is explicit: editing it is a version bump **both sides must ship before the next close**. A gate demanding a field the shared spec does not define would reject the fork's conforming files — we would have broken their side to tighten ours.
+
+- **[ ] Propose the protocol version bump in round 8**, with the four-row table above as the specified behaviour, and land the gate change **in the round where both sides adopt it** — not before.
+
 ### P0 — There is no single shared command/type/meaning table, and ours has no types at all (2026-08-06)
 
 The maintainer: *"do you and cyanrip both have a singurlar table for both of your commands, type, arguements, and meanings? because you should and it should be a file both have and check every time via the handshake. and it should be audited by both sides every time completely."*
