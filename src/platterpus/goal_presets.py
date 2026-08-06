@@ -50,8 +50,8 @@ class GoalPreset:
 # maintainer's bar is "verification is paramount for every format" (the FLAC
 # master is always kept; MP3/WavPack/WAV are derived from it afterward). The
 # presets differ only in OUTPUT and effort, not in how hard they check:
-#   * Fast verified — lossless FLAC, full verification, no max-compression pass.
-#   * Archival exact — same, plus a max-compression re-encode (smallest files).
+#   * Fast Verified — lossless FLAC, full verification, no max-compression pass.
+#   * Archival Exact — same, plus a max-compression re-encode (smallest files).
 #   * Portable — MP3 derived from the (fully verified) FLAC master.
 PRESETS: dict[str, GoalPreset] = {
     GOAL_FAST: GoalPreset(
@@ -81,11 +81,20 @@ PRESETS: dict[str, GoalPreset] = {
 }
 
 # (key, human label) in display order — the Settings combo reads this. "Custom"
-# is appended by the dialog; it's not a real preset.
+# is appended by the dialog (from `option_labels.CUSTOM_LABEL`, shared with the
+# naming-scheme combo); it's not a real preset.
+#
+# Every label follows the one Settings-option convention documented in
+# `option_labels.py` — `Name — Descriptor In Title Case [Qualifier]` — and
+# `tests/test_option_labels.py` sweeps these through its checker, so a new
+# preset added here cannot quietly introduce a sixth phrasing.
 GOAL_LABELS: list[tuple[str, str]] = [
-    (GOAL_FAST, "Fast verified — lossless, fully verified (AccurateRip + CTDB)"),
-    (GOAL_ARCHIVAL, "Archival exact — fully verified + smallest lossless files"),
-    (GOAL_PORTABLE, "Portable — MP3 from a fully verified master"),
+    (
+        GOAL_FAST,
+        "Fast Verified — Lossless, Fully Verified (AccurateRip + CTDB) [Recommended]",
+    ),
+    (GOAL_ARCHIVAL, "Archival Exact — Fully Verified, Smallest Lossless Files"),
+    (GOAL_PORTABLE, "Portable — MP3 Derived From a Fully Verified Master"),
 ]
 
 

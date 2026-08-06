@@ -112,6 +112,14 @@ wget https://github.com/rmccann-hub/Platterpus/releases/latest/download/platterp
 chmod +x platterpus-x86_64.AppImage
 ./platterpus-x86_64.AppImage
 ```
+
+> **After you accept the "add to menu" offer the file MOVES** to
+> `~/Applications/platterpus-x86_64.AppImage` (`appimage_integration.relocate_to_applications`;
+> the app names the new path in the follow-up dialog). Every later
+> `./platterpus-x86_64.AppImage …` in this document is then
+> `~/Applications/platterpus-x86_64.AppImage …` — a `./` command run from
+> `~/Downloads` afterwards reports *No such file or directory*, which is correct
+> behaviour and has already been mistaken once for a bug (rig session, 2026-08-05).
 *Expected:* the window appears **immediately** and **stays responsive** — no
 "Not Responding" even while the container is cold (the launch probes run off the
 GUI thread). On a FUSE-less host, run with `APPIMAGE_EXTRACT_AND_RUN=1`.
@@ -722,7 +730,7 @@ presets (0.4.0).
    `<Album> (EAC-compatible).log` appears beside the rip, renders EAC's layout,
    is **plainly attributed to Platterpus and carries no checksum signature**,
    and `scripts/eac_parity.py` reads it interchangeably with cyanrip's own log.
-2. Settings → **Goal → Archival exact / Fast verified / Portable** — confirm
+2. Settings → **Goal → Archival Exact / Fast Verified / Portable** — confirm
    each preset snaps the format/verification controls as documented, and that
    editing any snapped control flips the goal to *Custom*.
 
@@ -755,4 +763,4 @@ issue per distinct failure.
 
 ---
 
-*Last updated for Platterpus v0.5.8.*
+*Last updated for Platterpus v0.6.4b11.*

@@ -39,7 +39,6 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtWidgets import (
-    QDialog,
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
@@ -51,6 +50,7 @@ from PySide6.QtWidgets import (
 
 from platterpus import __version__, build_info, diagnostics, handshake_approval
 from platterpus.paths import LOG_PATH
+from platterpus.ui.dialogs.centering import CenteredDialog
 
 log = logging.getLogger(__name__)
 
@@ -188,8 +188,16 @@ def build_diagnostics_text() -> str:
     return text
 
 
-class DiagnosticsDialog(QDialog):
-    """A read-only, selectable, copyable diagnostics report."""
+class DiagnosticsDialog(CenteredDialog):
+    """A read-only, selectable, copyable diagnostics report.
+
+    Inherits :class:`~platterpus.ui.dialogs.centering.CenteredDialog` like every
+    other dialog in the app — which is not decoration here of all places: it is
+    what gives this dialog the "presented"/"closed" log lines, and a *diagnostics*
+    window that leaves no trace of having been opened is the joke telling itself.
+    It was the one straight ``QDialog`` subclass left, found by a sweep rather than
+    by memory; ``tests/test_dialog_lifecycle_logging.py`` now keeps it that way.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)

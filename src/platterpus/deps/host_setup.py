@@ -489,7 +489,7 @@ class HostSetup:
 
         stop = False
         for step_id in self.STEP_IDS:
-            title = self._TITLES[step_id]
+            title = self._title_for(step_id)
             if stop:
                 record(StepResult(step_id, title, StepStatus.CANCELLED))
                 continue
@@ -511,7 +511,11 @@ class HostSetup:
                     )
                 )
             if self._is_done(step_id):
-                record(StepResult(step_id, title, StepStatus.DONE, "already present"))
+                record(
+                    StepResult(
+                        step_id, title, StepStatus.DONE, self._done_detail(step_id)
+                    )
+                )
                 continue
             commands = [c for c in self._commands_for(step_id) if c]
             if not commands:
@@ -543,7 +547,14 @@ class HostSetup:
             )
             ok, detail = self._run_commands(commands)
             if ok:
-                record(StepResult(step_id, title, StepStatus.RAN, detail))
+                record(
+                    StepResult(
+                        step_id,
+                        title,
+                        StepStatus.RAN,
+                        self._ran_detail(step_id, detail),
+                    )
+                )
             else:
                 record(StepResult(step_id, title, StepStatus.FAILED, detail))
                 # Also record it as a DIAGNOSTIC, so a setup failure is findable
@@ -559,6 +570,47 @@ class HostSetup:
                 )
                 stop = True
         return results
+
+    # --- Row text ----------------------------------------------------------
+    # Three small helpers rather than three inline conditionals, because they all
+    # answer one question the wizard used to leave unanswered: WHICH BUILD?
+    #
+    # The fork row rendered exactly `✓ Platterpus fork of cyanrip (build + export)
+    # — already present`, naming no commit — while the probe deciding "already
+    # present" reads `self._target.pin` two lines above the comparison
+    # (`_fork_installed`). Same captured-and-discarded shape as the dependency
+    # dialog's truncated version, and the same rule unmet (CLAUDE.md #12: *say
+    # which build*, on the surfaces a user reads). The pin is a fact we already
+    # have; showing it costs nothing and it is the difference between "the wizard
+    # says the fork is there" and "the wizard says commit 9048082 is there".
+
+    def _title_for(self, step_id: str) -> str:
+        """The step's title, naming the target commit where a build is chosen."""
+        title = self._TITLES[step_id]
+        if step_id == "cyanrip_fork":
+            return f"{title} — commit {self._target.pin}"
+        return title
+
+    def _done_detail(self, step_id: str) -> str:
+        """Detail for a step that was already satisfied.
+
+        Worded to match what the probe actually checked: `_fork_installed` asks
+        whether the *installed* banner's build tag CONTAINS the target pin, so the
+        honest sentence is "the banner names this commit" — not "the banner is
+        `<expected build tag>`", which would claim an equality nobody tested.
+        """
+        if step_id == "cyanrip_fork":
+            return (
+                f"already present — the installed banner names commit "
+                f"{self._target.pin}"
+            )
+        return "already present"
+
+    def _ran_detail(self, step_id: str, detail: str) -> str:
+        """Detail for a step that just ran. Names what was built, not just "installed"."""
+        if step_id == "cyanrip_fork" and detail == "installed":
+            return f"installed — built from commit {self._target.pin}"
+        return detail
 
     @staticmethod
     def _running_hint(step_id: str) -> str:

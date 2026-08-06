@@ -20,7 +20,7 @@ import pytest
 # The one canonical window teardown (see its docstring — a second copy of it
 # is how CI segfaulted on 2026-07-28).
 from conftest import HardExitCalled, stop_window_threads
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from platterpus import rip_report
 from platterpus.adapters.ctdb_client import CTDBClient, CtdbLookupResult
@@ -49,6 +49,7 @@ from platterpus.parsers.rip_log import AccurateRipResult, RipLog, TrackResult
 from platterpus.paths import LOG_PATH
 from platterpus.ui.main_window import MainWindow, _fidelity_summary
 from platterpus.ui.main_window_rip import TaggingResult
+from platterpus.ui.release_picker import ReleasePickerDialog
 
 # --- Fakes ---------------------------------------------------------------
 
@@ -8341,3 +8342,99 @@ def test_the_taller_default_is_what_buys_the_extra_rows(qapp: QApplication) -> N
         assert now >= 6, f"only {now} of 14 rows at the preferred size"
     finally:
         window.close()
+
+
+# --- Release picker: the wait must be visible in the log -------------------
+#
+# The maintainer closed the app on 2026-08-05 because it "looked hung" while the
+# release picker was open: a 96-second silence in the log, and this path logged
+# NOTHING on any branch -- not opened, not waiting, not accepted, not cancelled.
+# A user reading a prompt and an app genuinely wedged produced byte-identical
+# logs. The dialog-lifecycle half (presented / closed, on the shared
+# `CenteredDialog` base) is pinned in `tests/test_dialog_lifecycle_logging.py`.
+
+
+def _releases(count: int) -> list[ReleaseSummary]:
+    return [
+        ReleaseSummary(mbid=f"mbid-{i}", title=f"Album {i}", artist_credit="Artist")
+        for i in range(count)
+    ]
+
+
+def test_multiple_candidates_log_the_wait_before_it_starts(
+    teardown_threads, caplog: pytest.LogCaptureFixture, monkeypatch
+) -> None:
+    """The line that would have told the maintainer the app was not hung.
+
+    It has to be emitted *before* `exec()` blocks — a line written afterwards is
+    exactly as absent as no line at all for the whole time it matters.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    # Cancel the picker the instant it opens, so the test never blocks.
+    monkeypatch.setattr(
+        ReleasePickerDialog, "exec", lambda self: QDialog.DialogCode.Rejected
+    )
+    with caplog.at_level(logging.INFO):
+        window._on_mb_releases("disc-A", _releases(4))
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "4 candidates" in text, "the count is what makes the wait explicable"
+    assert "not a hang" in text, (
+        "the line must say so in words: the reader is a user deciding whether to "
+        "kill the app"
+    )
+    assert "cancelled after" in text, "the outcome branch logged nothing"
+
+
+def test_choosing_a_release_logs_which_one(
+    teardown_threads, caplog: pytest.LogCaptureFixture, monkeypatch
+) -> None:
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    monkeypatch.setattr(
+        ReleasePickerDialog, "exec", lambda self: QDialog.DialogCode.Accepted
+    )
+    monkeypatch.setattr(ReleasePickerDialog, "selected_mbid", lambda self: "mbid-2")
+    with caplog.at_level(logging.INFO):
+        window._on_mb_releases("disc-A", _releases(4))
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "user chose mbid-2" in text
+
+
+def test_accepted_with_no_selection_is_a_warning_not_a_silent_return(
+    teardown_threads, caplog: pytest.LogCaptureFixture, monkeypatch
+) -> None:
+    """The branch that shouldn't happen still has to be distinguishable.
+
+    A silent return here reads exactly like a cancel, and "the OK button was
+    somehow enabled with nothing selected" is a bug worth a line.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    monkeypatch.setattr(
+        ReleasePickerDialog, "exec", lambda self: QDialog.DialogCode.Accepted
+    )
+    monkeypatch.setattr(ReleasePickerDialog, "selected_mbid", lambda self: "")
+    with caplog.at_level(logging.INFO):
+        window._on_mb_releases("disc-A", _releases(4))
+    warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert warnings, "the impossible branch logged nothing"
+    assert "no selected release" in warnings[0].getMessage()
+
+
+def test_a_single_candidate_does_not_claim_a_picker_was_opened(
+    teardown_threads, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Floor against the opposite failure: a log line that is always emitted.
+
+    One match goes straight to the fetch with no dialog, so none of the picker
+    lines may appear — otherwise the lines above would be satisfied by a
+    `log.info` at the top of the method, which proves nothing.
+    """
+    window = teardown_threads()
+    window._current_disc_id = "disc-A"
+    with caplog.at_level(logging.INFO):
+        window._on_mb_releases("disc-A", _releases(1))
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "release picker" not in text
+    assert "candidates" not in text

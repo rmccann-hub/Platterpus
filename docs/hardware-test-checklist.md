@@ -892,7 +892,9 @@ mv ~/.local/bin/cd-paranoia ~/.local/bin/cd-paranoia.bak
 2. Rip a CD → works. **Cache defeat** keeps saying **Yes** because your drive's verdict is
    saved *per drive* and isn't re-probed — correct, it really was measured. What must never
    happen is a `Yes` on a drive that was never probed.
-3. `./platterpus-x86_64.AppImage --doctor` → **WARN**, not FAIL.
+3. `~/Applications/platterpus-x86_64.AppImage --doctor` → **WARN**, not FAIL.
+   (`~/Applications/` because accepting the first-run menu offer **moves** the file there;
+   use `./platterpus-x86_64.AppImage` only if you declined it.)
 4. Restore: `mv ~/.local/bin/cd-paranoia.bak ~/.local/bin/cd-paranoia`
 
 **Result:** ☐ PASS ☐ FAIL — message said: ____________
@@ -1191,4 +1193,4 @@ with `rip stream error:`** — that is the v0.5.20 fix's signature and I want th
 
 ---
 
-*Last updated for Platterpus v0.6.4b1.*
+*Last updated for Platterpus v0.6.4b11.*

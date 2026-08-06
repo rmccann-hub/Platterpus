@@ -167,8 +167,8 @@ named from the album artist/title you type.
 ## Settings (Tools → Settings)
 
 - **Goal** — pick what you want the rip to be and the format/verification/quality
-  options snap to good values for it: *Fast verified* (lossless, fully verified
-  — the recommended default), *Archival exact* (the same checks, plus the
+  options snap to good values for it: *Fast Verified* (lossless, fully verified
+  — the recommended default), *Archival Exact* (the same checks, plus the
   smallest lossless files), or *Portable* (an MP3 copy for phones). You can still
   tweak any individual option below — that switches the Goal to *Custom*.
 - **Output format** — *FLAC* (the lossless archival master, always produced),
@@ -197,7 +197,7 @@ named from the album artist/title you type.
   the Cover Art Archive holds for the release and save it beside the album.
 - **Max retries** — how many times the ripper retries a troublesome track
   before giving up.
-- **Read speed** — how fast to read the disc. *Adaptive ladder* (the default)
+- **Read speed** — how fast to read the disc. *Adaptive Ladder* (the default)
   reads at full speed and only slows down for a disc that needs it; you can
   instead set a **Fixed speed** cap. A slower read sometimes helps a scratched
   disc, at the cost of time. (Some drives — including the Pioneer BDR-209D —

@@ -15,9 +15,13 @@ and a no-op in headless tests that construct a dialog but never show it.
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
+
+log = logging.getLogger(__name__)
 
 
 def _clamp_to(frame: QRect, avail: QRect) -> QRect:
@@ -96,8 +100,43 @@ def center_on_anchor(widget: QWidget) -> None:
         pass
 
 
+def _result_word(result: int) -> str:
+    """``"accepted"`` / ``"rejected or closed"`` / the raw code.
+
+    Qt maps a window-manager close and ``Esc`` onto ``Rejected``, so those two are
+    genuinely indistinguishable at this level and the wording says so instead of
+    picking one. A custom ``done(N)`` code is reported verbatim rather than
+    bucketed into "rejected", which would be a claim we do not have.
+    """
+    if result == QDialog.DialogCode.Accepted:
+        return "accepted"
+    if result == QDialog.DialogCode.Rejected:
+        return "rejected or closed"
+    return f"result={result}"
+
+
 class CenteredDialog(QDialog):
-    """``QDialog`` that moves itself over its parent window on first show."""
+    """``QDialog`` that moves itself over its parent window on first show.
+
+    It also **logs its own lifecycle** — presented, and closed with which result.
+    That is not decoration. A modal dialog stops the whole application until the
+    user answers it, so from a log's point of view "waiting for a human" and
+    "wedged" are the same silence — and the maintainer closed the app during one
+    of those silences (96 seconds, 2026-08-05) because it *"looked hung"*. The
+    release picker's call site logged nothing on any branch: not opened, not
+    waiting, not accepted, not cancelled. So the artifact could not answer even
+    the first question, whether the dialog had been put on screen at all.
+
+    The lines live **here**, on the shared base, rather than at the one call site
+    that was found wanting — ``docs/testing.md`` §5.o, *enforce a rule across the
+    codebase, not at the place it was learned*. Every dialog in the app inherits
+    from this class, so every one of them now leaves a trace, and a future modal
+    cannot reintroduce the hole by forgetting.
+
+    ``showEvent`` fires when Qt actually maps the window, which makes its line
+    *evidence the dialog was presented* — a stronger claim than a log line before
+    ``exec()``, which only proves we asked.
+    """
 
     _centered_once: bool = False
 
@@ -106,4 +145,27 @@ class CenteredDialog(QDialog):
         if self._centered_once:
             return
         self._centered_once = True
+        # INFO, not DEBUG: this must be in a default-level log, because the user
+        # who needs it is the one who could not tell a prompt from a freeze.
+        log.info(
+            "dialog presented: %s (%r) — the app now waits for the user",
+            type(self).__name__,
+            self.windowTitle(),
+        )
         center_on_anchor(self)
+
+    def done(self, result: int) -> None:
+        """Log how the dialog closed, then close it.
+
+        ``done`` is the single funnel Qt routes ``accept()``, ``reject()``, the
+        window-manager close button and ``Esc`` through, so one override here
+        covers every exit — which a pair of ``accepted``/``rejected`` connections
+        would not.
+        """
+        log.info(
+            "dialog closed: %s (%r) — %s",
+            type(self).__name__,
+            self.windowTitle(),
+            _result_word(result),
+        )
+        super().done(result)

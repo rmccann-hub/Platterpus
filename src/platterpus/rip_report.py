@@ -197,6 +197,15 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     collapsing it to `false` would assert an unmodified upstream build we have
 #     no evidence for — the exact shape of bug this project has now shipped three
 #     times (`Accurip: disabled`, the all-zero CRC, `Pregap LSN: unknown`).
+# v23: `settings.rip_goal` becomes DERIVED from the six preset fields instead of
+#     read back from `config.rip_goal`, and `settings.rip_goal_stored` appears only
+#     when the stored label disagreed. `rip_goal` is a *label for a bundle of
+#     fields* and nothing kept the two in step — a hand-edited config.toml, a field
+#     changed outside `apply_preset`, or a config written before the field existed
+#     all leave a stale label. The Settings dialog had always re-derived (so the
+#     screen was right); the report wrote the stored string, so a rip's permanent
+#     record could name a goal its own settings never matched. Both values are now
+#     present when they differ, because the disagreement is itself the finding.
 # v22: `rip.ripper_release_id` — the MusicBrainz release id the ripper RESOLVED AND
 #     USED, off its own header, plus the `issues` comparison against the id we sent.
 #     Previously in the ignored table with a recorded reason ("our own input reflected;
@@ -206,7 +215,7 @@ def _atomic_write_text(target: Path, text: str) -> None:
 #     separate claims and only the first was recorded. The comparison is what makes
 #     either number more than a record — it also checks `-N` really suppressed the
 #     ripper's own lookup (Critical rule #5) at the artifact instead of on trust.
-REPORT_SCHEMA_VERSION: int = 22
+REPORT_SCHEMA_VERSION: int = 23
 
 # Cap on how many session-log lines the report embeds. The JSON is now the SINGLE
 # per-album debug artifact (no `.platterpus.log` sidecar), so it should hold
@@ -573,6 +582,53 @@ def build_outcome(
     }
 
 
+def _derived_rip_goal(config: object) -> str | None:
+    """The goal the config's *fields* describe, not the label stored beside them.
+
+    ``goal_presets.detect_goal`` reads the six preset fields directly, so it
+    needs a real :class:`~platterpus.config.Config`-shaped object; this module is
+    handed duck-typed stand-ins by tests and by the minimal-failure path, and it
+    must never raise. On anything it cannot classify we fall back to the stored
+    label rather than to ``None``, because a possibly-stale label still carries
+    more than a blank.
+
+    Imported inside the function on purpose: :mod:`platterpus.goal_presets`
+    imports :class:`Config`, and pulling it in at module scope here drags the
+    settings-preset layer into the report writer's import graph for one lookup.
+    """
+    from platterpus import goal_presets
+
+    try:
+        return goal_presets.detect_goal(config)  # type: ignore[arg-type]  # duck-typed
+    except (AttributeError, TypeError):
+        stored = getattr(config, "rip_goal", None)
+        return stored if isinstance(stored, str) else None
+
+
+def _stale_rip_goal(config: object) -> dict[str, str]:
+    """``{"rip_goal_stored": <label>}`` when the stored label disagrees, else ``{}``.
+
+    A disagreement means the config file's label is wrong about its own settings.
+    That is worth recording (and logging) rather than quietly overwriting: it is
+    the only evidence that the user's ``config.toml`` says one thing and does
+    another, and the report is where a support reader would look.
+    """
+    stored = getattr(config, "rip_goal", None)
+    if not isinstance(stored, str) or not stored:
+        return {}
+    derived = _derived_rip_goal(config)
+    if derived is None or derived == stored:
+        return {}
+    log.warning(
+        "config.rip_goal is %r but the settings actually describe %r; "
+        "recording the derived goal and keeping the stored one as "
+        "settings.rip_goal_stored",
+        stored,
+        derived,
+    )
+    return {"rip_goal_stored": stored}
+
+
 def build_settings(config: object, *, read_offset_effective: int | None = None) -> dict:
     """Build the ``settings`` block: what the GUI *asked the ripper for*.
 
@@ -600,7 +656,25 @@ def build_settings(config: object, *, read_offset_effective: int | None = None) 
         "ctdb_verify_after_rip": getattr(config, "ctdb_verify_after_rip", None),
         "verify_flac_after_rip": getattr(config, "verify_flac_after_rip", None),
         "recompress_flac_after_rip": getattr(config, "recompress_flac_after_rip", None),
-        "rip_goal": getattr(config, "rip_goal", None),
+        # DERIVED, not read back. `rip_goal` in the config file is a label for a
+        # bundle of the six fields above it, and nothing keeps the two in step:
+        # a hand-edited config.toml, a field changed by any path that does not go
+        # through `apply_preset`, or a config written before the field existed all
+        # leave a stale label behind. The Settings dialog already ignores it and
+        # re-derives (which is why the maintainer's `Archival exact` display was
+        # correct while `Debug logging` was on) — but the REPORT was writing the
+        # stored string, so a rip's permanent record could name a goal the
+        # settings it ran under never matched. Found while checking the rig
+        # findings of 2026-08-05.
+        #
+        # The fields are authoritative; the label is a view of them. `detect_goal`
+        # is the same function the dialog uses, so the record and the screen
+        # cannot disagree.
+        "rip_goal": _derived_rip_goal(config),
+        # And we do not DISCARD the stored value: if it disagreed, that fact is
+        # part of the diagnosis (CLAUDE.md — capture everything, never silently).
+        # Absent when it agrees, so a normal report is not noisier for it.
+        **_stale_rip_goal(config),
         "read_offset": {
             "configured": configured_offset,
             "applied": applied,
