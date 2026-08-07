@@ -5,16 +5,48 @@ argv the app builds, the same ripper binary. There is no simulation layer, which
 is deliberate — a harness that is safer or simpler than the product makes the
 product's gap invisible.
 
-## The three-step shape of a session
+## The normal path: rip by hand, then run one command
 
-| step | what runs it | what it produces |
-|---|---|---|
-| **1. before** the disc goes in | `platterpus --rig-session <dir>` | versions, `--doctor`, `-x`, `-j`, pre-gap screening, handshake status, preflight — one artifact per step |
-| **2. with** the disc in | `Tools → Run test script…` with a script from this folder | the rip itself, plus a transcript, screenshots and state snapshots |
-| **3. after** | `platterpus --audit-rips <music folder>` | the artifact checks, per album, graded |
+**This is what almost everyone should do**, and it needs no script and no
+editing:
 
-Step 1 and step 3 are already automated and ship inside the AppImage. This
-folder is step 2 — the part that needs the disc in the drive **and** a rip.
+```sh
+# 1. Rip the disc normally, in the GUI. Nothing special.
+# 2. Leave the disc in the drive.
+# 3. Run this. No arguments.
+./platterpus-x86_64.AppImage --rig-session
+```
+
+That one command does everything mechanical: app and ripper versions, `--doctor`,
+the ripper's own `-x` cache probe and `-j` diagnostics record (neither of which a
+rip ever sends), pre-gap screening, a clean clone of the fork, handshake status,
+preflight — **then it finds the rip you just made**, audits it, collects its text
+artifacts, and packs the lot into a single `.tar.gz` to send.
+
+Nothing is named and nothing is typed. The output directory defaults to a
+timestamped one under `$HOME`, so re-running never overwrites the previous
+session; the rip is **discovered** rather than named, because a folder you have to
+type is a folder you can mistype — and auditing the *wrong* album still produces a
+clean-looking report.
+
+**No audio is ever copied.** The bundle carries logs, cue sheets and JSON reports
+only. The CRCs inside them prove bit-perfection without the audio, and Critical
+rule #8 forbids the rest.
+
+If no rip is found, it says so and marks the step as not-a-pass rather than going
+quiet — a silent skip and a clean audit look identical in a summary.
+
+## The scripted path, for when the rip itself should be automated
+
+Scripts in this folder drive the **real** GUI: the same slots a click reaches, the
+same argv the app builds, the same ripper binary. There is no simulation layer,
+which is deliberate — a harness that is safer or simpler than the product makes
+the product's gap invisible.
+
+Reach for this when you want a rip run **the same way twice** — a permutation
+sweep, a cancel-path test, a re-rip of specific tracks — not for an ordinary
+session. It needs a display (the window is real and on screen) and it needs the
+two lines below edited for your disc.
 
 ## Running `police-rerip.txt`
 
@@ -117,3 +149,5 @@ hazard rather than a documentation nit.
 **As of 2026-08-07 `-x` has never executed on a real drive, by anyone.** Whatever
 it prints is the first data point in existence — including an absurd number,
 which is a finding and a good outcome.
+
+*Last updated for Platterpus v0.6.6.*
