@@ -1769,8 +1769,29 @@ class RipWorker(QObject):
                 trigger = ""
                 rerip_z = 0
             if to_fix:
+                # The FIRST pass's CRC per track, captured before any swap, so the
+                # addendum can say whether a re-read confirmed the original audio
+                # or replaced it. Without this it could only assert "the improved
+                # read was swapped in" — which on the J1 rip was false: track 5
+                # came back with the CRC the album log already held (round 7).
+                first_pass_crcs = {
+                    number: crc
+                    for track in getattr(parsed_log, "tracks", ()) or ()
+                    if (number := getattr(track, "number", None)) is not None
+                    and (
+                        crc := str(
+                            getattr(track, "copy_crc", "")
+                            or getattr(track, "test_crc", "")
+                            or ""
+                        )
+                    )
+                }
                 self._auto_fix_tracks(
-                    to_fix, rerip_z, trigger, album_log_path=log_path_str
+                    to_fix,
+                    rerip_z,
+                    trigger,
+                    album_log_path=log_path_str,
+                    first_pass_crcs=first_pass_crcs,
                 )
 
         # Ask the RIPPER whether the log it wrote still matches its own checksum.
@@ -2342,6 +2363,7 @@ class RipWorker(QObject):
         rerip_z: int,
         trigger: str,
         album_log_path: str = "",
+        first_pass_crcs: dict[int, str] | None = None,
     ) -> None:
         """Re-rip the given track(s) ALONE with ``-Z rerip_z``, keeping a re-read
         only if it now reads consistently (converges).
@@ -2456,7 +2478,11 @@ class RipWorker(QObject):
                         # lap 10 H5: the CRC-only addendum left the archived
                         # AccurateRip v1/v2 and the "not attempted" re-read verdict
                         # describing bytes we had deleted.
-                        swapped.append(self._superseded_record(track))
+                        swapped.append(
+                            self._superseded_record(
+                                track, (first_pass_crcs or {}).get(number, "")
+                            )
+                        )
                         # Keep the re-rip's parsed record: it is the SHIPPED file's
                         # read, so it — not the first pass — is what the report and
                         # the EAC-layout log must describe.
@@ -2549,13 +2575,19 @@ class RipWorker(QObject):
             )
 
     @staticmethod
-    def _superseded_record(track: object) -> SupersededTrack:
+    def _superseded_record(track: object, previous_crc: str = "") -> SupersededTrack:
         """Build the sidecar's row for one swapped track, from the re-rip's log.
 
         Every value comes from the **re-rip's** parsed record, which is the read
         that shipped. Reaching for the first pass here is the H5 bug: the archived
         block's AccurateRip v1/v2 and its ``not attempted`` re-read verdict belong
         to bytes we deleted.
+
+        ``previous_crc`` is the one deliberate exception, and it is a *comparison*
+        rather than a description: it is the first pass's CRC, carried so the
+        addendum can state whether the re-read **confirmed** that read or
+        **replaced** it. Empty means not determined, which is a real answer and is
+        rendered as one.
         """
 
         def _ar(name: str) -> str:
@@ -2594,6 +2626,7 @@ class RipWorker(QObject):
             accuraterip_v2=_ar("accuraterip_v2"),
             accuraterip_offset=_ar("accuraterip_offset"),
             secure_reread=reread,
+            previous_crc=previous_crc,
         )
 
     def _swap_in_reripped_track(self, track: object, tmp_root: Path) -> bool:

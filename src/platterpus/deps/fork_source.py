@@ -90,7 +90,25 @@ FORK_BRANCH: Final[str] = "platterpus-fork"
 #: remote (the git proxy refuses tag pushes; they re-probed it in round 7). So the
 #: commit SHA is the only resolvable release identifier, and the pin is an
 #: *identification* choice as much as a code one.
-FORK_PIN: Final[str] = "2f950c8"
+#: **Moved to the round-7 release on 2026-08-07, when round 7 closed** (both
+#: verdicts GO, laps 38/40). It names the *released* commit `422d12a`, not the
+#: approved pin `104f6d4`, and that distinction is deliberate and recorded in our
+#: lap 40 §A rather than left in a constant:
+#:
+#: * `104f6d4` is what the round approved, and `HANDSHAKE-PIN` still says so on
+#:   both sides.
+#: * `422d12a` is the release built from that code — `git diff 104f6d4 422d12a --
+#:   src/` is empty on their side, and we verified the consequence rather than the
+#:   claim: all twelve `EAC CRC32`/`Accurip` lines of their regenerated golden
+#:   reference are byte-identical to the `104f6d4` one we hold.
+#:
+#: **Why not simply install the approved pin.** cyanrip bakes its handshake state
+#: in at build time. `104f6d4` was built while round 7 was open, so every log it
+#: writes says `round 7 lap 33 OPEN, verdict HOLD -- NOT a released build` — we
+#: have one, from the J1 rip. That was true when it compiled and is false now.
+#: Shipping a stable Platterpus whose every archival record carries that sentence
+#: is the worse of the two errors.
+FORK_PIN: Final[str] = "422d12a"
 
 #: What the built binary must print. cyanrip's banner is
 #: ``cyanrip <version> (<PROJECT_FORK_ID>-g<short sha>)`` (fork
@@ -123,7 +141,8 @@ FORK_EXPECTED_BUILD_TAG: Final[str] = f"{FORK_BRANCH}-g{FORK_PIN}"
 #: passing against r3 while asserting a string the real binary no longer prints — a
 #: harness staler than the product, which is the failure mode CLAUDE.md's "what does
 #: my stand-in do that the real thing does not" question exists to catch.
-FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc1"
+#: Round 7's release drops the `-beta.N` suffix: `0.9.4-rc1+platterpus.5`.
+FORK_EXPECTED_VERSION: Final[str] = "0.9.4-rc1+platterpus.5"
 
 #: The exact first line the pinned build prints, assembled from the two above.
 FORK_EXPECTED_BANNER: Final[str] = (
@@ -334,10 +353,23 @@ SUPERSEDED_TEST_PINS: Final[tuple[str, ...]] = (
 #: A set rather than a version comparison on purpose: the fork's version string is
 #: deliberately upstream's plus build metadata, so it cannot be ordered, and
 #: `0.9.4-rc1` is answered by stock upstream too.
+#:
+#: **:data:`FORK_EXPECTED_BUILD_TAG` joined this set when round 7 closed, and
+#: leaving it out would have been a silent regression.** The sentence above was
+#: written when ``FORK_PIN`` was the r2 build, which predates the flag — so the
+#: rule *"the pinned build must never be sent it"* was correct then and became
+#: false the moment the pin moved to the round-7 release, which accepts it (its
+#: own golden reference is invoked with ``-u platterpus/0.6.4b12``). Nothing would
+#: have crashed; every rip on the new pin would simply have stopped recording who
+#: drove it, which is the provenance line the whole seam exists to carry.
+#:
+#: The former production pin ``2f950c8`` is deliberately **absent**: it is r2, it
+#: does not accept the flag, and a rig still running it must not be sent one.
 BUILD_TAGS_ACCEPTING_CONSUMER_FLAG: Final[frozenset[str]] = frozenset(
     {
+        FORK_EXPECTED_BUILD_TAG,  # the round-7 release, the current pin
         f"{FORK_BRANCH}-g{NEXT_PIN_UNDER_REVIEW}",  # r4
-        FORK_TEST_BUILD_TAG,  # the round-7 test pin (currently the beta)
+        FORK_TEST_BUILD_TAG,  # the round-7 test pin, still on the rig
         *(f"{FORK_BRANCH}-g{pin}" for pin in SUPERSEDED_TEST_PINS),
     }
 )
@@ -479,7 +511,11 @@ class ForkTarget:
 PRODUCTION_TARGET: Final[ForkTarget] = ForkTarget(
     pin=FORK_PIN,
     version=FORK_EXPECTED_VERSION,
-    why=f"the build handshake round 6 approved for Platterpus {FORK_EXPECTED_VERSION}",
+    why=(
+        "the round-7 release, built from the code round 7 approved at 104f6d4 "
+        f"(Platterpus {FORK_EXPECTED_VERSION}) — see docs/handshake/verified/"
+        "round-07-lap-40.md §A for why the released commit and not the pin"
+    ),
 )
 
 #: The build nominated to gather the hardware evidence an OPEN round needs.
@@ -507,7 +543,10 @@ TEST_TARGET: Final[ForkTarget] = ForkTarget(
 #: separate knob from ``FORK_PIN``: the deviation policy forbids moving the pin while
 #: a round is open, and conflating "what we install for a test" with "what a closed
 #: round approved" is how a test build becomes the production record by accident.
-WIZARD_TARGET: Final[ForkTarget] = TEST_TARGET
+#: **Flipped back to PRODUCTION_TARGET on 2026-08-07**, which is the one line the
+#: note above says it would be. Round 7 closed with GO on both sides, so the test
+#: pin has done its job and the wizard builds the release again.
+WIZARD_TARGET: Final[ForkTarget] = PRODUCTION_TARGET
 
 
 def target_for_commit(pin: str) -> ForkTarget:

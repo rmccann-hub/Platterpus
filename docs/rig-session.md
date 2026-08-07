@@ -36,37 +36,30 @@ afterwards: b15 prints a **`[plan]`** block into the log and the on-screen live 
 very first thing a rip does, naming every flag it is about to use. Read it; it takes ten
 seconds and it is the whole point of this change.
 
-### What I want you to change for THIS rip, and why
+### The `-Z`-on-every-track rip: **do not run it.** The question is already answered.
 
-**Turn ON: Settings → "Verify every track with a second read (EAC-style Test & Copy)".**
+The earlier version of this sheet asked for one Test & Copy rip (roughly double
+the time) to check the fork's claim that per-track paranoia counters sum to the
+disc totals — because both previous checks had been made on rips *without* `-Z`,
+where the sum is arithmetically forced.
 
-That flips `-Z` from dynamic to **uniform** — every track read at least twice, on every
-pass, until the reads agree.
+**The J1 rip already contained both cases**, in two separate invocations, and it
+settles it:
 
-**Why it matters for round 7 specifically.** The fork's round-5 note said their per-track
-paranoia counters "sum exactly to the disc totals", and we verified it — on an artifact
-ripped **without** `-Z`, where that sum is *arithmetically forced*. That is a claim checked
-under the one condition that guarantees it. Under `-Z` the per-track figure is the **last
-pass** and the disc total is **every** pass, so the real ratio is the re-read count. If the
-J1 rip is also a no-`-Z` rip, we will have verified it twice under conditions where it
-could not fail, and a consumer rendering the disc-level tally as a count of distinct events
-would still be over-reporting by that factor with nobody the wiser.
+| pass | argv | tracks | per-track sum | disc total | |
+|---|---|---|---|---|---|
+| album | no `-Z` | 14 | READ **21972** | READ **21972** | equal, all four counters |
+| refix | `-Z 2 -l 5` | **1** | READ **1538** | READ **7738** | **not equal** |
 
-**The cost, stated honestly:** roughly double the rip time. ~50–70 minutes becomes ~100–140.
-Nothing else changes; no acceptance criterion below depends on it either way.
+One track in the refix pass, so there is no summation ambiguity: the per-track
+figure *is* the sum. Track 5 converged after 5 reads; 7738 / 1538 = 5.03.
 
-**If you would rather not spend the time**, say so and rip with the default — the four
-criteria below still hold and the round can still close. What we lose is the chance to
-settle the paranoia-counter question on this disc, and it goes back on the list.
+**The invariant does not hold under `-Z`.** Under it, the per-track number is the
+*last* pass and the disc total is *every* pass. The consequence is a rendering
+caveat for whoever displays disc-level tallies, not a defect in the ripper — and
+it cost no rig time, because the evidence was in the artifact you already sent.
 
-**Check the plan block agrees with you before the disc starts spinning.** With the setting
-on, the log must say:
-
-```
-[plan]   Secure re-read (-Z): ON at 2 matching reads, in UNIFORM mode — every track on every pass…
-```
-
-If it says `DYNAMIC` there, the setting did not take, and that is worth stopping for.
+So: **rip with your normal settings.** Nothing on this sheet needs Test & Copy.
 
 ---
 
@@ -318,4 +311,4 @@ Critical rule #8, no exceptions including temporary ones.
 
 ---
 
-*Last updated for Platterpus v0.6.4b15.*
+*Last updated for Platterpus v0.6.4.*

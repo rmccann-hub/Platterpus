@@ -12,6 +12,96 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 
+## [0.6.4] — 2026-08-07
+
+**Round 7 of the cyanrip handshake closed** — the first jointly-verified pair this project
+has ever shipped, and the first release the handshake gate has ever allowed. The cyanrip pin
+moves to the round-7 release `422d12a` (`0.9.4-rc1+platterpus.5`), and the `bN` suffix is
+gone.
+
+### Changed
+- **The cyanrip pin moves to `422d12a`, the round-7 release** — not to `104f6d4`, the commit
+  the round approved, and the difference is deliberate and recorded in
+  `docs/handshake/verified/round-07-lap-40.md` §A. cyanrip bakes its handshake state in at
+  build time, and `104f6d4` was built while the round was open, so every log it writes says
+  `round 7 lap 33 OPEN, verdict HOLD -- NOT a released build` — we have one, from the J1 rip.
+  That was true when it compiled and is false now; shipping a stable Platterpus whose every
+  archival record carried it would be the worse of the two errors. Verified rather than
+  inferred before taking it: their release golden reference parses clean through our
+  production parser, and **all twelve `EAC CRC32`/`Accurip` lines are byte-identical** to the
+  `104f6d4` reference we already hold.
+- **The setup wizard builds the release again** (`WIZARD_TARGET` back to `PRODUCTION_TARGET`).
+  It had pointed at the round-7 test pin since the beta line began.
+
+### Fixed
+- **The new pin was not in the `--consumer` accept-list, and nothing would have crashed.**
+  `BUILD_TAGS_ACCEPTING_CONSUMER_FLAG` deliberately excluded `FORK_PIN`, with a comment
+  explaining that the pinned r2 build predates the flag. That was correct and became false
+  the instant the pin moved to a build which does accept it. Every rip on the new pin would
+  simply have stopped recording who drove it — the provenance line the whole seam exists to
+  carry — with no error anywhere. Caught by moving the pin and reading what the constant said
+  rather than trusting that it still applied.
+- **Two conformance rows were asserting a property of the empty set.** C19 and C20 ran against
+  the *real* record to check that a stable release is refused while a round is open. Round 7
+  closing left them with nothing open to refuse. They now run against a fixture — which is
+  exactly what the previous author left in the failure message for this moment: *"re-point it
+  at a fixture if the record has closed."* A companion row asserts the other half against the
+  real record: the gate says **yes**, which is a fact about the project and not about a
+  fixture. `scripts/handshake.py` grew `--handshake-dir` to make that testable, exposing a
+  root `round_status()` already accepted.
+
+### Fixed
+- **The auto-fix addendum claimed a re-read "improved" the audio when it had confirmed it.**
+  One unconditional sentence — *"the improved read was swapped in"* — in an archival record.
+  On the J1 rip it was false: track 5 was re-ripped at `-Z 2`, converged after 5 reads, and
+  came back with CRC32 `6902BCF0` — the value the album log already held at line 396. Nothing
+  improved; the re-read **reproduced** the first pass, which is a better result and a
+  different claim. Found by the cyanrip fork, confirmed here against the artifact rather than
+  accepted on their word.
+
+  Each track now carries its own **tri-state** outcome, derived from the two CRCs:
+  `CONFIRMED`, `REPLACED` (naming the superseded CRC, so the claim is checkable), or
+  `NOT DETERMINED` when either value is missing — never rounded to a positive answer. The
+  text also says plainly that a confirmed read is a *good* outcome, because "not improved"
+  reads as a failure to anyone who does not already know.
+- **`HANDSHAKE-SOURCE-ANCHOR` was a copy of our own `seam-commands` hash.** Every lap that
+  declared it carried `sha256/16 = 7dc313815850eb60`, which is character-for-character the
+  first 16 hex of the `seam-commands` hash printed two lines below it in the same header. The
+  field's entire purpose is to pin **our** source by content; it pinned a file **neither
+  project owns**, so a `file:line` citation from any of our laps was checkable against
+  nothing.
+
+  Fixed at the mechanism, not the value: it is computed now
+  (`scripts/handshake.py::source_anchor`, hashing `path\0content\0` across the seven files
+  our half of the seam is made of, so a rename counts as a change), and a test refuses any
+  lap whose declared anchor equals **any** shared file's prefix — not just that one, which
+  would pass again the moment the shared file changed. The lesson is general: *a field whose
+  value is typed by hand next to a similar-looking value will eventually be the other one.*
+
+### Changed
+- **Adopted the cyanrip fork's convergence rules (S-13 … S-16 + pre-commit) into `CLAUDE.md`.**
+  Round 7 took 37 laps, 10 test pins and 8 pre-releases to produce 0 releases; rounds 5 and 6
+  took one lap each. None of round 7's findings made the reviewed pin unsafe, and every one
+  of them blocked it, because nothing ever asked whether it should. The rules fix the four
+  mechanisms: close conditions are fixed at lap 1 (S-13); a finding defaults to the next round
+  unless it names what it breaks in the artifact under review (S-14); an agreed test pin does
+  not move (S-15); questions carry `BLOCKING`/`NEXT-ROUND` and a questions section may be
+  empty (S-16); and a lap may pre-commit its next verdict. *Release-grade rigour was being
+  applied to the round rather than to the release.*
+- **The rig sheet no longer asks for a `-Z`-on-every-track rip.** It was going to cost ~80
+  minutes to test whether per-track paranoia counters sum to the disc totals under `-Z`. The
+  J1 rip already answered it: the album pass (no `-Z`, 14 tracks) sums exactly — READ
+  21972 = 21972, all four counters — and the refix pass (`-Z 2 -l 5`, **one** track, so no
+  summation ambiguity) does not: per-track READ **1538** against a disc total of **7738**,
+  a ratio of 5.03 against a track that converged after 5 reads. **The invariant does not hold
+  under `-Z`**, and a disc-level tally rendered as a count of distinct events over-reports by
+  roughly the re-read count.
+
+  Recorded as a correction in both directions: the fork asked us not to spend the session
+  because the test *"cannot fail"*. Same action, opposite reason — it already had, in the
+  artifact they were holding.
+
+
 ## [0.6.4b15] — 2026-08-06
 
 ### Added
@@ -4810,7 +4900,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4b12.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7052,7 +7142,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
 [0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
 [0.6.4b14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...v0.6.4b14
 [0.6.4b13]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b11...v0.6.4b13
@@ -7138,4 +7229,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4b15.*
+*Last updated for Platterpus v0.6.4.*
