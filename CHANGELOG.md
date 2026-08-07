@@ -11,6 +11,8 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.6] — 2026-08-07
+
 ### Fixed
 - **Every rip since v0.6.4 stamped the wrong handshake round into its archival record.**
   When round 7 closed, `FORK_PIN` moved to the round-7 release and a test derived from
@@ -5009,7 +5011,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.5.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.6.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7251,7 +7253,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
 [0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
@@ -7339,4 +7342,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.5.*
+*Last updated for Platterpus v0.6.6.*

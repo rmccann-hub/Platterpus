@@ -270,11 +270,129 @@ else
   echo "skipped: not in a checkout" >"$OUT/14-preflight.txt"
 fi
 
+# ------------------------------------------------- the rip that just happened --
+#
+# WHY THIS IS HERE RATHER THAN IN A CHECKLIST (maintainer, 2026-08-07: *"these
+# types of things are for the testing script to automate and manage"*). The rip
+# itself is done by a person in the GUI — that part is genuinely manual. But
+# everything *after* it is mechanical: find the rip, audit it, collect the text
+# artifacts, bundle them. Handing that back as a list of commands to type is
+# exactly the work this script exists to absorb.
+#
+# NOTHING HERE NEEDS AN ARGUMENT. The newest rip is discovered, not named: a
+# folder the operator has to type is a folder they can mistype, and the mistake
+# is silent because auditing the *wrong* album still produces a clean-looking
+# report.
+
+say "15  the most recent rip, found rather than named"
+
+# Where rips land. Read from the user's own config when it is there, so this
+# follows a changed output folder instead of assuming the default. `grep` on one
+# TOML line rather than a parser: the value is a quoted string on its own line,
+# and a missing/odd config falls through to the defaults below.
+CONFIG="$HOME/.config/platterpus/config.toml"
+SEARCH_DIRS=()
+if [ -f "$CONFIG" ]; then
+  CONFIGURED="$(sed -n 's/^[[:space:]]*output_dir[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$CONFIG" | head -n 1)"
+  [ -n "${CONFIGURED:-}" ] && [ -d "$CONFIGURED" ] && SEARCH_DIRS+=("$CONFIGURED")
+  LIBRARY="$(sed -n 's/^[[:space:]]*library_dir[[:space:]]*=[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$CONFIG" | head -n 1)"
+  [ -n "${LIBRARY:-}" ] && [ -d "$LIBRARY" ] && SEARCH_DIRS+=("$LIBRARY")
+fi
+[ -d "$HOME/Music" ] && SEARCH_DIRS+=("$HOME/Music")
+note "searching: ${SEARCH_DIRS[*]:-<none>}"
+
+NEWEST_REPORT=""
+if [ ${#SEARCH_DIRS[@]} -gt 0 ]; then
+  # Newest by mtime. `-print0` + `sort -z` so a path with spaces or a newline in
+  # an album title cannot split a filename in half — album titles are user data
+  # and this project has already been bitten by a colon in one.
+  NEWEST_REPORT="$(find "${SEARCH_DIRS[@]}" -name '*.platterpus.json' -type f -printf '%T@\t%p\0' 2>/dev/null \
+    | sort -z -rn | head -z -n 1 | tr -d '\0' | cut -f2-)"
+fi
+
+if [ -z "${NEWEST_REPORT:-}" ]; then
+  # A REAL RESULT, not a skip. If this script runs before any rip exists, saying
+  # so is the honest answer; going quiet would look identical to a clean audit.
+  note "!! no .platterpus.json found — either no rip has happened yet, or rips"
+  note "   land somewhere none of the searched directories cover. NOT a pass."
+  echo "no rip report found under: ${SEARCH_DIRS[*]:-<none>}" >"$OUT/15-newest-rip.txt"
+  echo "skipped: no rip to audit" >"$OUT/16-audit.txt"
+else
+  ALBUM_DIR="$(dirname "$NEWEST_REPORT")"
+  note "newest rip: $ALBUM_DIR"
+  {
+    echo "report:      $NEWEST_REPORT"
+    echo "album dir:   $ALBUM_DIR"
+    echo "modified:    $(date -u -r "$NEWEST_REPORT" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)"
+    echo
+    echo "--- directory listing (audio sizes only; no audio is copied) ---"
+    ls -la "$ALBUM_DIR"
+  } >"$OUT/15-newest-rip.txt" 2>&1
+
+  # The graded artifact checks — including the two the cyanrip fork asked for
+  # (`handshake_note`, `checksum_inventory`). Runs through the app so an AppImage
+  # user needs no checkout.
+  if [ -x "$APP" ]; then
+    run "    audit the rip" "16-audit.txt" "$APP" --audit-rips "$ALBUM_DIR"
+  elif [ -f pyproject.toml ]; then
+    run "    audit the rip" "16-audit.txt" python3 -m platterpus --audit-rips "$ALBUM_DIR"
+  else
+    note "!! no way to run the audit — neither the AppImage nor a checkout"
+    echo "skipped: no runnable Platterpus" >"$OUT/16-audit.txt"
+  fi
+
+  # ---- collect the TEXT artifacts, and only the text artifacts --------------
+  #
+  # CRITICAL RULE #8: no copyrighted media, ever, not even temporarily. The
+  # evidence we need is entirely textual — the logs, the cue, the JSON reports —
+  # and the CRCs inside them prove bit-perfection without the audio. The
+  # extension list below is an ALLOW-list for exactly that reason: a deny-list of
+  # audio extensions would silently start copying the first format we forgot.
+  say "17  collect the rip's text artifacts (never the audio)"
+  COLLECT="$OUT/rip-artifacts"
+  mkdir -p "$COLLECT"
+  COPIED=0
+  while IFS= read -r -d '' f; do
+    cp -- "$f" "$COLLECT/" 2>/dev/null && COPIED=$((COPIED + 1))
+  done < <(find "$ALBUM_DIR" -maxdepth 1 -type f \
+             \( -name '*.log' -o -name '*.cue' -o -name '*.txt' -o -name '*.json' \
+                -o -name '*.md5' -o -name '*.sha256' \) -print0 2>/dev/null)
+  note "copied $COPIED text artifact(s) — audio deliberately excluded"
+  ls -1 "$COLLECT" 2>/dev/null | sed 's/^/      /' | tee -a "$SUMMARY" || true
+  if [ "$COPIED" -eq 0 ]; then
+    note "!! zero artifacts copied from a rip folder that exists — that is a finding"
+  fi
+fi
+
 # ------------------------------------------------------------------- done ----
 say "COMPLETE"
 note "artifacts:"
 ls -1 "$OUT" | sed 's/^/      /' | tee -a "$SUMMARY" || true
 note ""
-note "Send the whole directory. Every file matters, including the empty ones —"
-note "an artifact that exists and is empty is a measurement; a missing artifact"
-note "is a step that did not run, and only one of those is a result."
+note "Every file matters, including the empty ones — an artifact that exists and"
+note "is empty is a measurement; a missing artifact is a step that did not run,"
+note "and only one of those is a result."
+
+# ---- one file to send ------------------------------------------------------
+#
+# The last manual step this script can remove. "Send the whole directory" means
+# the operator selects, compresses and uploads N files, and a directory upload
+# that silently drops one is indistinguishable from a step that never ran. One
+# archive, named for itself, is one thing to attach.
+#
+# `tar` failing is not fatal: the directory is still there and still complete, so
+# the fallback is to say so rather than to lose the session.
+ARCHIVE="$OUT.tar.gz"
+if command -v tar >/dev/null 2>&1; then
+  if tar -czf "$ARCHIVE" -C "$(dirname "$OUT")" "$(basename "$OUT")" 2>/dev/null; then
+    note ""
+    note "SEND THIS ONE FILE:"
+    note "    $ARCHIVE   ($(wc -c <"$ARCHIVE") bytes)"
+    note ""
+    note "It contains no audio — only logs, cue sheets and JSON reports."
+  else
+    note "!! could not build the archive; send the directory instead: $OUT"
+  fi
+else
+  note "tar is absent; send the directory instead: $OUT"
+fi
