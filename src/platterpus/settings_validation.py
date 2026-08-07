@@ -44,6 +44,7 @@ from pathlib import Path
 
 from platterpus import goal_presets
 from platterpus.config import Config
+from platterpus.deps.ripper_manifest import CHANNELS as RIPPER_CHANNELS
 from platterpus.update_check import CHANNELS
 
 log = logging.getLogger(__name__)
@@ -97,6 +98,10 @@ _ALLOWED_READ_SPEED_MODES: frozenset[str] = frozenset({"auto_ladder", "fixed"})
 # Derived from update_check.CHANNELS rather than restated, so adding a channel
 # there cannot leave a value the validator rejects (or worse, silently allows).
 _ALLOWED_UPDATE_CHANNELS: frozenset[str] = frozenset(CHANNELS)
+# Likewise derived from the ripper manifest's own vocabulary rather than restated.
+# `tests/test_ripper_manifest.py` asserts the two channel tuples agree, so one
+# Settings vocabulary covers both and neither can grow a value the other rejects.
+_ALLOWED_RIPPER_CHANNELS: frozenset[str] = frozenset(RIPPER_CHANNELS)
 
 
 @dataclass(frozen=True)
@@ -210,6 +215,7 @@ def validate_config(config: Config) -> list[ValidationIssue]:
         ("read_speed_mode", _ALLOWED_READ_SPEED_MODES, "Read speed mode"),
         ("rip_goal", _allowed_goals(), "Goal"),
         ("update_channel", _ALLOWED_UPDATE_CHANNELS, "Update channel"),
+        ("ripper_channel", _ALLOWED_RIPPER_CHANNELS, "cyanrip update channel"),
     ):
         run(
             field_name,
@@ -354,6 +360,7 @@ def validated_field_names() -> frozenset[str]:
             "read_speed_mode",
             "rip_goal",
             "update_channel",
+            "ripper_channel",
             "integration_declined_path",
             "library_dir",
             "schema_version",

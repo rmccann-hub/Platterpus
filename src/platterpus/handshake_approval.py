@@ -48,10 +48,36 @@ from platterpus.deps import fork_source
 #: it stays put while the app version moves on. When they differ, a rip is running
 #: an approved *ripper* under an app the round never saw — worth saying, not worth
 #: refusing, because our own changes are ours to make between rounds.
-APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.3"
+#:
+#: **Derived from the record, and now gated against it.** Read off the
+#: ``HANDSHAKE-APP-VERSION`` of the newest **closed** round's verification file that
+#: names :data:`~platterpus.deps.fork_source.FORK_PIN` — today
+#: ``docs/handshake/verified/round-07-lap-41.md``, which declares ``platterpus
+#: 0.6.5`` against pin ``ddf7ac3``.
+APPROVED_FOR_PLATTERPUS_VERSION: Final[str] = "0.6.5"
 
 #: The handshake round whose **bilateral** GO approved the current pin.
-APPROVED_BY_ROUND: Final[int] = 6
+#:
+#: **This pair went stale for two releases and nothing caught it** (found
+#: 2026-08-07). When round 7 closed, ``FORK_PIN`` moved to the round-7 release and a
+#: test derived from the handshake record confirmed it — but these two constants sat
+#: beside it untouched since v0.6.4b4, so v0.6.4 and v0.6.5 both stamped *"handshake
+#: round 6 approved, for Platterpus 0.6.3"* into every rip report and every EAC-
+#: compatible log, about a pin round **7** approved. Round 6 approved ``2f950c8``, a
+#: different commit entirely.
+#:
+#: The reason it survived is the one `CLAUDE.md` names: **a list checked against
+#: itself is consistent, not verified.** Both tests that touched these values
+#: asserted ``str(APPROVED_BY_ROUND) in approval.detail`` — that the constant we
+#: printed is the constant we hold. That is true for every possible value, including
+#: a wrong one. Nothing compared either constant to the *record*, even though the
+#: constant one line away in ``fork_source`` had exactly such a check and it was that
+#: check which moved the pin correctly.
+#:
+#: ``tests/test_fork_source.py::test_the_approval_round_and_app_version_match_the_record``
+#: now derives both from ``docs/handshake/`` the same way the pin is derived, so the
+#: three values move together or the suite fails.
+APPROVED_BY_ROUND: Final[int] = 7
 
 #: Verdict values. Strings rather than an enum so they cross the JSON boundary
 #: unchanged and read the same in the log, the report and a bug report.

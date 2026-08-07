@@ -114,6 +114,7 @@ if TYPE_CHECKING:
     from platterpus.workers.drive_list_worker import DriveListWorker
     from platterpus.workers.mb_worker import MusicBrainzWorker
     from platterpus.workers.rip_worker import RipParameters, RipWorker
+    from platterpus.workers.ripper_update_worker import RipperUpdateWorker
     from platterpus.workers.update_worker import (
         UpdateCheckWorker,
         UpdateInstallWorker,
@@ -157,6 +158,12 @@ class MainWindowShared(_SeamBase):
     # Update check + install workers/threads and the install progress dialog.
     _update_worker: UpdateCheckWorker | None
     _update_thread: QThread | None
+    # The *ripper* update check (Help → Check for cyanrip updates…). A separate
+    # slot from the app's own check on purpose: they are different subjects with
+    # different consequences — taking a newer app is routine, taking a newer ripper
+    # changes what every subsequent rip can claim about itself.
+    _ripper_update_worker: RipperUpdateWorker | None
+    _ripper_update_thread: QThread | None
     _install_worker: UpdateInstallWorker | None
     _install_thread: QThread | None
     _install_dialog: QProgressDialog | None

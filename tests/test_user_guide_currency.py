@@ -48,6 +48,7 @@ _GUIDE_KEYWORDS: dict[str, str] = {
     "library_dir": "Move finished rips to",
     "debug_logging": "Debug logging",
     "update_channel": "Offer beta (pre-release) updates",
+    "ripper_channel": "cyanrip update channel",
     "cover_art": "Cover art",
     "save_additional_art": "back cover and booklet",
     "max_retries": "Max retries",

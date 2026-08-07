@@ -123,6 +123,161 @@ def _audit_ripper(report: dict[str, Any], album: AlbumAudit) -> None:
         album.add(LEVEL_NOTE, f"ripper build not determined ({build})")
 
 
+def _audit_handshake_note(report: dict[str, Any], album: AlbumAudit) -> None:
+    """Do the ripper's **own** statement and *our* verdict agree about the round?
+
+    **Two independent witnesses to one fact, which is why this is its own check.**
+    ``ripper_handshake_approval`` is *our* verdict, computed by comparing the banner
+    against the pin our record says a closed round approved.
+    ``ripper_handshake_note`` is the *binary's own compiled-in sentence* about the
+    round it was built from. Neither is derived from the other, so a disagreement is
+    information that no amount of re-reading either one alone can produce.
+
+    **The transition this exists to catch** (cyanrip fork's release-test request,
+    2026-08-07): every rip ever made until the round-7 release carried
+
+        Handshake:  round 7 lap 33 OPEN, verdict HOLD -- NOT a released build
+
+    and the released build is the first to carry the closed/GO shape. Everything
+    downstream of that line has only ever seen the "NOT a released build" form, and
+    **the transition has never been exercised by anything**. A check that only ever
+    saw one of two states has not been tested.
+
+    Tri-state throughout: a build that emits no note at all is *not determined* (stock
+    upstream has no such line), never a failure.
+    """
+    rip = report.get("rip") or {}
+    note = str(rip.get("ripper_handshake_note") or "").strip()
+    verdict = str(rip.get("ripper_handshake_approval") or "").strip()
+
+    if not note:
+        # Fork-only line. Absent means stock upstream, or a build predating it.
+        album.add(
+            LEVEL_NOTE,
+            "the ripper stated no handshake note — that is stock upstream or a "
+            "build older than the note, not evidence of an unreleased build",
+        )
+        return
+
+    # Read off the note's own words. `closed` and `OPEN` are the two shapes the fork
+    # emits; anything else is a third state we decline to interpret.
+    lowered = note.casefold()
+    says_open = "open" in lowered or "not a released build" in lowered
+    says_closed = "closed" in lowered
+
+    if says_open and not says_closed:
+        album.add(
+            LEVEL_WARN,
+            f"the ripper says it was built from an OPEN round: {note!r} — rips from "
+            f"this build carry that sentence permanently in their log",
+        )
+    elif says_closed and not says_open:
+        album.add(LEVEL_OK, f"ripper built from a closed round: {note!r}")
+    else:
+        album.add(LEVEL_NOTE, f"handshake note not in a shape we recognise: {note!r}")
+
+    # The cross-check, which is the actual point. Our verdict and their sentence are
+    # about the same binary; if they disagree, one of the two is wrong and the
+    # disagreement IS the bug report.
+    if verdict == "approved" and says_open and not says_closed:
+        album.add(
+            LEVEL_WARN,
+            "DISAGREEMENT: we score this ripper 'approved' while the binary itself "
+            "says it was built from an open round. Our pin and their compiled-in "
+            "note describe the same build and cannot both be right",
+        )
+    elif verdict == "unapproved" and says_closed and not says_open:
+        album.add(
+            LEVEL_NOTE,
+            "the binary says it was built from a closed round, but it is not the "
+            "build OUR record approved — expected when their release is ahead of "
+            "our verification, and the reason the two witnesses are kept separate",
+        )
+
+
+def _audit_checksum_inventory(report: dict[str, Any], album: AlbumAudit) -> None:
+    """**Count the checksum lines before comparing them.**
+
+    The fork's own lesson, sent to us after we caught it (release-test request §2.1):
+    their comparison used a pattern that returned **4** where the real inventory was
+    **12**, because the per-track lines are spelled ``Accurip``, not ``AccurateRip``.
+    Every one of the four it found matched, so the comparison passed — truthfully,
+    about a third of the evidence. *A pattern returning a plausible number is worse
+    than one returning nothing*, because a plausible number gets cited.
+
+    So this check counts, states the denominator, and **has a floor**: it asserts an
+    expected count derived from the track count rather than reporting whatever it
+    happened to find. A check that can be satisfied by finding nothing is decoration
+    (`CLAUDE.md`), and "all the CRCs I found agreed" is exactly that check.
+    """
+    tracks = report.get("tracks")
+    if not isinstance(tracks, list) or not tracks:
+        album.add(
+            LEVEL_NOTE,
+            "no track list in the report — checksum inventory not determined",
+        )
+        return
+
+    ripped = [t for t in tracks if isinstance(t, dict)]
+    expected = len(ripped)
+    if expected == 0:
+        album.add(LEVEL_NOTE, "no track entries — checksum inventory not determined")
+        return
+
+    with_copy = sum(1 for t in ripped if str(t.get("copy_crc") or "").strip())
+    accurip_kinds = ("v1", "v2", "offset_450")
+    accurip_present = 0
+    for track in ripped:
+        ar = track.get("accuraterip")
+        if not isinstance(ar, dict):
+            continue
+        accurip_present += sum(
+            1 for kind in accurip_kinds if isinstance(ar.get(kind), dict)
+        )
+
+    # The copy CRC is the one every ripped track must have; a gap here is a real
+    # hole in the evidence rather than a database miss.
+    if with_copy == expected:
+        album.add(
+            LEVEL_OK,
+            f"checksum inventory: {with_copy}/{expected} tracks carry a copy CRC",
+        )
+    else:
+        album.add(
+            LEVEL_WARN,
+            f"checksum inventory INCOMPLETE: only {with_copy} of {expected} tracks "
+            f"carry a copy CRC — {expected - with_copy} track(s) have no checksum, "
+            f"so any 'all CRCs matched' claim covers less than the whole disc",
+        )
+
+    # AccurateRip has three variants per track. A shortfall is normal (the disc may
+    # simply not be in the database) — what matters is that the number is STATED with
+    # its denominator, so nobody later reports a subset as if it were the inventory.
+    #
+    # GRADED, not hard-coded to `note`. A full inventory is a clean result and must
+    # say so: an informational check pinned at note level makes an otherwise perfect
+    # rip un-gradeable, which is the defect
+    # `test_a_complete_rip_with_real_files_is_clean` was written for after it shipped
+    # once already. A grade that can never be clean tells the user nothing.
+    possible = expected * len(accurip_kinds)
+    variants = ", ".join(accurip_kinds)
+    if accurip_present >= possible:
+        album.add(
+            LEVEL_OK,
+            f"AccurateRip inventory complete: {accurip_present}/{possible} "
+            f"({expected} tracks × {len(accurip_kinds)} variants: {variants})",
+        )
+    else:
+        album.add(
+            LEVEL_NOTE,
+            f"AccurateRip results present: {accurip_present} of a possible "
+            f"{possible} ({expected} tracks × {len(accurip_kinds)} variants: "
+            f"{variants}). A shortfall means the disc or those variants are absent "
+            f"from the database, not that the rip is worse — but the denominator is "
+            f"what makes the number readable",
+        )
+
+
 def _audit_completion(report: dict[str, Any], album: AlbumAudit) -> None:
     """Did the ripper say it finished, and does our own count agree?"""
     rip = report.get("rip") or {}
@@ -695,6 +850,23 @@ class Check:
 CHECKS: tuple[Check, ...] = (
     Check("ripper_build", "Which cyanrip built this rip?", False, _audit_ripper),
     Check("completion", "Did the ripper say it finished?", False, _audit_completion),
+    Check(
+        # Added 2026-08-07 for the first rip on the round-7 RELEASE. The binary's
+        # own compiled-in handshake sentence changes shape for the first time with
+        # that build, and nothing had ever seen the second shape.
+        "handshake_note",
+        "Do the ripper's own handshake note and our verdict agree?",
+        False,
+        _audit_handshake_note,
+    ),
+    Check(
+        # Added 2026-08-07. Counts the evidence and states the denominator, because
+        # a checksum comparison over a silently-partial inventory passes.
+        "checksum_inventory",
+        "How many of the disc's checksums do we actually hold?",
+        False,
+        _audit_checksum_inventory,
+    ),
     Check("medium", "Which disc of a multi-disc release?", False, _audit_medium),
     Check("pregap", "What pre-gap provenance was observed?", False, _audit_pregaps),
     Check(

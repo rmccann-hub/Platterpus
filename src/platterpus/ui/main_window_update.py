@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import Qt, QThread
 from PySide6.QtWidgets import QMessageBox
 
 from platterpus import hard_exit
@@ -144,6 +144,99 @@ class UpdateMixin(MainWindowShared):
         start_worker_thread(
             self._update_worker, self._update_thread, self._update_worker.run
         )
+
+    # --- The RIPPER's updates, which are a different question ----------------
+    #
+    # The app's own update is routine: take it, restart, carry on. A newer *ripper*
+    # is not, and that asymmetry is why this is a separate action rather than a
+    # second line in the dialog above. Installing a fork build our handshake record
+    # has not approved makes every subsequent rip report its ripper as `unapproved`
+    # — correctly — so this flow's job is to say what is available and what taking
+    # it costs, and then stop. It installs nothing. See `deps/ripper_offer.py`.
+
+    def _on_check_ripper_updates(self) -> None:
+        """Help → Check for cyanrip updates: ask the fork's release manifest.
+
+        Off-thread for the same reason every other network call here is: a stalled
+        connection must not freeze the window for the whole timeout.
+        """
+        if self._ripper_update_thread is not None:  # a check is already running
+            return
+        from platterpus.workers import start_worker_thread
+        from platterpus.workers.ripper_update_worker import RipperUpdateWorker
+
+        # Both values are read HERE, on the GUI thread, and handed over as plain
+        # data — the worker must not touch the config or probe a binary off-thread.
+        self._ripper_update_worker = RipperUpdateWorker(
+            channel=self._ripper_channel(),
+            installed_commit=self._installed_ripper_commit(),
+        )
+        self._ripper_update_thread = QThread(self)
+        self._ripper_update_worker.finished.connect(self._on_ripper_update_result)
+        start_worker_thread(
+            self._ripper_update_worker,
+            self._ripper_update_thread,
+            self._ripper_update_worker.run,
+        )
+
+    def _ripper_channel(self) -> str:
+        """The user's *ripper* update channel, defensively.
+
+        Read off the live config rather than cached at construction, so flipping the
+        setting takes effect on the next check without a restart. A value the
+        validator would reject falls back to ``stable`` — widening what a user is
+        offered is not a safe direction to fail in.
+        """
+        from platterpus.deps.ripper_manifest import CHANNEL_STABLE, CHANNELS
+
+        channel = str(getattr(self._config, "ripper_channel", CHANNEL_STABLE) or "")
+        return channel if channel in CHANNELS else CHANNEL_STABLE
+
+    def _installed_ripper_commit(self) -> str | None:
+        """The fork commit actually installed, read off the banner we last observed.
+
+        ``None`` when we have not seen a banner, or when it carries no fork build
+        tag — the offer then falls back to the commit this build *pins*, which is
+        what a user who has never run ``--install-ripper`` has. Deliberately
+        best-effort and never raising: this is a convenience input to a check whose
+        every failure mode is already "not determined".
+        """
+        banner = str(getattr(self, "_observed_ripper_banner", "") or "")
+        if "(" not in banner or ")" not in banner:
+            return None
+        tag = banner[banner.index("(") + 1 : banner.rindex(")")].strip()
+        prefix = "platterpus-fork-g"
+        if not tag.casefold().startswith(prefix):
+            return None
+        return tag[len(prefix) :].strip() or None
+
+    def _on_ripper_update_result(self, offer: object) -> None:
+        """Show the verdict. Never installs — see the section comment above."""
+        from platterpus.deps.ripper_offer import OFFER_AVAILABLE
+
+        self._ripper_update_worker = None
+        self._ripper_update_thread = None
+
+        detail = str(
+            getattr(offer, "detail", "") or "Couldn't check for a newer ripper."
+        )
+        verdict = str(getattr(offer, "verdict", "") or "")
+        box = QMessageBox(self)
+        box.setWindowTitle("Check for cyanrip updates")
+        box.setText(detail)
+        # PlainText, not Qt's default AutoText: this paragraph carries a version
+        # string and a commit from a *network document*, and Qt auto-detects HTML —
+        # a value containing `<` would be swallowed as an unknown tag and the user
+        # would never learn text went missing. Same sweep as every other widget
+        # carrying dependency output (CLAUDE.md rule 12, inbound seam).
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        box.setIcon(
+            QMessageBox.Icon.Information
+            if verdict == OFFER_AVAILABLE
+            else QMessageBox.Icon.NoIcon
+        )
+        box.exec()
 
     def _update_channel(self) -> str:
         """The user's update channel, defensively.

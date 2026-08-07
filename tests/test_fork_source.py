@@ -106,6 +106,111 @@ def test_the_pin_is_the_one_the_newest_closed_handshake_round_verified() -> None
     )
 
 
+def _newest_closed_round_verification() -> tuple[int, Path]:
+    """``(round number, verification file)`` for the newest CLOSED round, naming the pin.
+
+    Shared by the pin check's siblings below. Picks the **last** lap of that round
+    that mentions :data:`fork_source.FORK_PIN`, because a round can be re-declared
+    across laps — round 7 named ``422d12a`` in lap 40 and corrected it to ``ddf7ac3``
+    in lap 41, and the correction is the one that describes what we install.
+    """
+    handshake = _handshake()
+    verified_dir = REPO_ROOT / "docs" / "handshake" / "verified"
+    verified = sorted(verified_dir.glob("round-*.md"), key=handshake.sort_key)
+    closed_rounds = {
+        int(match.group(1))
+        for line in handshake.round_status()
+        if (match := re.match(r"round-(\d+):.*-> CLOSED", line))
+    }
+    assert closed_rounds, "no closed handshake round"
+    newest_closed = max(closed_rounds)
+    naming_the_pin = [
+        path
+        for path in verified
+        if handshake.sort_key(path)[0] == newest_closed
+        and fork_source.FORK_PIN in path.read_text(encoding="utf-8")
+    ]
+    assert naming_the_pin, (
+        f"round {newest_closed} is CLOSED but no verification file of it names pin "
+        f"{fork_source.FORK_PIN!r}"
+    )
+    return newest_closed, naming_the_pin[-1]
+
+
+def test_the_approval_round_and_app_version_match_the_record() -> None:
+    """``handshake_approval``'s two constants, derived from the record like the pin.
+
+    **This is a regression test for a defect that shipped in two releases**
+    (2026-08-07). ``FORK_PIN`` moved to the round-7 release when round 7 closed, and
+    the test above confirmed it against the record — while ``APPROVED_BY_ROUND`` and
+    ``APPROVED_FOR_PLATTERPUS_VERSION``, one import away, stayed at ``6`` and
+    ``"0.6.3"``. So v0.6.4 and v0.6.5 stamped *"handshake round 6 approved, for
+    Platterpus 0.6.3"* into every rip report and every EAC-compatible log, about a
+    pin that round **7** approved — round 6 approved a different commit entirely.
+
+    **Why the existing tests could not see it.** They asserted
+    ``str(APPROVED_BY_ROUND) in approval.detail`` — that the number we print is the
+    number we hold. That passes for *every* value, including a wrong one: a list
+    checked against itself is consistent, not verified (`CLAUDE.md`). The fix is to
+    check against the artifact, which is what the pin beside it already did.
+
+    Both values are read out of the newest closed round's own verification file, so
+    the round number, the app version and the pin move together or this fails.
+    """
+    import platterpus.handshake_approval as ha
+
+    newest_closed, verification = _newest_closed_round_verification()
+
+    assert ha.APPROVED_BY_ROUND == newest_closed, (
+        f"handshake_approval.APPROVED_BY_ROUND is {ha.APPROVED_BY_ROUND} but the "
+        f"newest CLOSED round is {newest_closed} ({verification.name}). Every rip "
+        f"report would credit the wrong round for approving pin {fork_source.FORK_PIN}."
+    )
+
+    # `HANDSHAKE-APP-VERSION: platterpus 0.6.5` → "0.6.5". Read off the file rather
+    # than compared to `__version__`: the field names the version the pairing was
+    # declared at, which deliberately stays put as the app version moves on.
+    header = re.search(
+        r"^HANDSHAKE-APP-VERSION:\s*platterpus\s+(?P<version>\S+)",
+        verification.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    assert header is not None, (
+        f"{verification.name} has no HANDSHAKE-APP-VERSION line — the protocol "
+        f"requires one, so the app version this pin was approved for is not derivable"
+    )
+    declared = header.group("version")
+    assert ha.APPROVED_FOR_PLATTERPUS_VERSION == declared, (
+        f"handshake_approval.APPROVED_FOR_PLATTERPUS_VERSION is "
+        f"{ha.APPROVED_FOR_PLATTERPUS_VERSION!r} but {verification.name} — the newest "
+        f"closed round's verification naming pin {fork_source.FORK_PIN} — declares "
+        f"{declared!r}"
+    )
+
+
+def test_the_approval_constants_check_is_not_vacuous() -> None:
+    """The floor for the test above: it must be comparing to something real.
+
+    A check that reads a file and finds nothing passes just as quietly as one that
+    finds agreement. Assert the subject exists and is non-trivial — a closed round
+    numbered at least 1, a file that actually names the pin, and a declared app
+    version that looks like a version rather than an empty match.
+    """
+    newest_closed, verification = _newest_closed_round_verification()
+    assert newest_closed >= 1
+    text = verification.read_text(encoding="utf-8")
+    assert fork_source.FORK_PIN in text
+    header = re.search(
+        r"^HANDSHAKE-APP-VERSION:\s*platterpus\s+(?P<version>\d+\.\d+\S*)",
+        text,
+        re.MULTILINE,
+    )
+    assert header is not None, (
+        f"{verification.name} declares no parseable app version — the sibling test "
+        f"would then be asserting against whatever the regex happened to catch"
+    )
+
+
 def test_the_pin_check_reads_a_closed_round_not_whatever_sorts_last() -> None:
     """The non-triviality floor for the test above.
 

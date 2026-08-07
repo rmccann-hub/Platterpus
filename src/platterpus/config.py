@@ -342,6 +342,18 @@ class Config:
     # pre-release names it as one (ui/main_window_update.py).
     update_channel: str = "stable"
 
+    # Which cyanrip fork builds "Check for cyanrip updates" will offer: "stable"
+    # (default) or "beta". Separate from `update_channel` above because they are
+    # separate decisions with different consequences — a user can reasonably want
+    # app betas and a released ripper, or the reverse during a hardware session.
+    #
+    # NOTHING IS EVER INSTALLED FROM THIS SETTING. It only decides which row of the
+    # fork's release manifest a check reads. Taking a newer ripper is a handshake
+    # event (CLAUDE.md deviation policy) and makes every subsequent rip report its
+    # ripper as `unapproved` until a round verifies it, so the offer states that and
+    # a person decides. See `deps/ripper_offer.py`.
+    ripper_channel: str = "stable"
+
     # --- Unattended testing (Tools → Run test script…) ---
     # Path to a Platterpus UI script (`docs/architecture.md` §3.9) that Tools →
     # Run test script… loads by default, and that `--run-script` runs headlessly.

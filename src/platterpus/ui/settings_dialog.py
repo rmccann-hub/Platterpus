@@ -382,6 +382,29 @@ class SettingsDialog(CenteredDialog):
         )
         form.addRow("Updates:", self._beta_channel_check)
 
+        # The RIPPER's channel — a separate decision from the app's own, and kept
+        # as a separate control for that reason. A user can reasonably want app
+        # betas and a released ripper, or the reverse during a hardware session.
+        #
+        # Same two-value view of a channel string as above, for the same reason.
+        # Nothing is ever installed from this setting: it only decides which row of
+        # the fork's release manifest a check reads, and taking a newer ripper is a
+        # handshake event a person has to make deliberately.
+        self._ripper_beta_check: QCheckBox = QCheckBox(
+            "Offer beta (pre-release) cyanrip builds", self
+        )
+        self._ripper_beta_check.setChecked(config.ripper_channel == CHANNEL_BETA)
+        self._ripper_beta_check.setToolTip(
+            "Which cyanrip builds 'Check for cyanrip updates' will tell you "
+            "about.\n\nThis never installs anything — it only reports what the "
+            "fork has published, and says what taking a build would cost. A "
+            "ripper no handshake round has verified makes every rip afterwards "
+            "report its ripper as 'unapproved': the audio is unaffected, but the "
+            "record can no longer say the ripper was jointly verified.\n\nLeave "
+            "this off unless you are testing."
+        )
+        form.addRow("cyanrip update channel:", self._ripper_beta_check)
+
         # Debug logging — verbose log file for bug reports. Off by default;
         # testers turn it on, reproduce the issue, then attach the log.
         self._debug_logging_check: QCheckBox = QCheckBox(
@@ -898,6 +921,9 @@ class SettingsDialog(CenteredDialog):
             notify_on_completion=self._notify_check.isChecked(),
             update_channel=(
                 CHANNEL_BETA if self._beta_channel_check.isChecked() else CHANNEL_STABLE
+            ),
+            ripper_channel=(
+                CHANNEL_BETA if self._ripper_beta_check.isChecked() else CHANNEL_STABLE
             ),
             debug_logging=self._debug_logging_check.isChecked(),
             cover_art=self._cover_art_combo.currentData(),

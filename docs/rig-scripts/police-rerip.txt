@@ -1,0 +1,97 @@
+# Platterpus UI script — the Police re-rip on the round-7 RELEASE build.
+#
+# Run it with:  Tools → Run test script…  → Load → Run
+#          or:  ./platterpus-x86_64.AppImage --run-script docs/rig-scripts/police-rerip.txt
+#
+# WHAT THIS COVERS AND WHAT IT DOES NOT
+# ------------------------------------
+# Everything cyanrip asked for in their release-test request, plus our own side.
+# The two flags they most want (-x and -j) are run BEFORE the rip, because both
+# need the disc in the drive and neither is ever sent by a rip.
+#
+# It does NOT eject, delete, install or uninstall anything — no verb in the
+# vocabulary can. If a step fails the batch keeps going and records the failure;
+# only `abort` stops it. Read the transcript afterwards, not the screen.
+#
+# ONE THING TO DO BY HAND FIRST: put the disc in, wait for the drive to settle,
+# and confirm Platterpus has identified the album. Everything after that is here.
+
+log ===== Round-7 release verification — Police re-rip =====
+
+# --- 0. Identity, before anything can depend on it -------------------------
+# Two facts every later claim rests on, and both have been left blank on a
+# returned sheet before.
+
+log --- 0. identity ---
+cyanrip --version
+expect-exit 0
+# The build tag is the load-bearing string: it is the only one of the three
+# records that can tell two binaries at the same path apart. If this fails, STOP
+# — the wrong ripper is installed and the string is permanent in every log.
+expect-cyanrip platterpus-fork-gddf7ac3
+expect-cyanrip 0.9.4-rc1+platterpus.5
+
+# --- 1. The two flags a rip never sends ------------------------------------
+
+log --- 1a. -x, the drive cache probe ---
+# NEVER EXECUTED ON A REAL DRIVE BY ANYONE, on any build, ever. It refuses on
+# disc images, so no fixture can retire it and a physical disc is the only way.
+# WHATEVER IT PRINTS IS THE FIRST DATA POINT IN EXISTENCE — a number, a refusal,
+# or an absurd number. An absurd number is a finding and a good outcome.
+#
+# NOTE: -x here is the FORK's --cache-probe. It is NOT overread. Overread is -O,
+# and -O is the flag confirmed to hang this drive for ~23 minutes. Do not
+# substitute one for the other.
+cyanrip -x -N
+expect-cyanrip Cache probe:
+
+log --- 1b. -j, the machine-readable diagnostics record ---
+# Written from atexit, so it exists even for runs that open no logfile. Not
+# passed on either J1 pass, so no diagnostics record of theirs exists yet.
+cyanrip -j /tmp/platterpus-rig/diag-prerip.json -N
+
+# --- 2. Settings, stated rather than assumed -------------------------------
+# The rip's own flags are the app's call, so pin them here instead of trusting
+# whatever the config happened to hold. `expect` asserts, `set` changes.
+
+log --- 2. rip settings ---
+expect output_format flac
+expect secure_rerip_matches 2
+# Overread MUST stay off on the BDR-209D. This is the ~23-minute hang.
+set force_overread off
+expect force_overread off
+
+# --- 3. The disc ------------------------------------------------------------
+
+log --- 3. disc ---
+rescan
+wait 20
+# THE FLOOR. Without this a zero-track "success" reads exactly like a real rip.
+# The Police album is 14 tracks — change this number if you use another disc,
+# and do not delete it.
+expect-tracks 14
+select-tracks all
+
+# A distinct title so this rip lands in its own folder and cannot overwrite the
+# J1 evidence. Change the suffix each time you re-run.
+album Synchronicity (rig ddf7ac3 pass 1)
+
+screenshot 01-before-rip
+snapshot 02-state-before-rip
+
+# --- 4. The rip -------------------------------------------------------------
+
+log --- 4. rip ---
+rip
+# Generous but bounded. A full disc is ~50-70 minutes on this hardware; if this
+# times out the transcript says so rather than hanging the batch.
+wait-for-rip 5400
+screenshot 03-after-rip
+snapshot 04-state-after-rip
+
+# --- 5. Post-rip diagnostics ------------------------------------------------
+
+log --- 5. post-rip ---
+cyanrip -j /tmp/platterpus-rig/diag-postrip.json -N
+
+log ===== done — now run the artifact checks (see docs/rig-scripts/README.md) =====
