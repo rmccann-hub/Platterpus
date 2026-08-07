@@ -11,6 +11,87 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 
 ## [Unreleased]
 
+## [0.6.6] — 2026-08-07
+
+### Fixed
+- **Every rip since v0.6.4 stamped the wrong handshake round into its archival record.**
+  When round 7 closed, `FORK_PIN` moved to the round-7 release and a test derived from
+  `docs/handshake/` confirmed it — while `handshake_approval.APPROVED_BY_ROUND` and
+  `APPROVED_FOR_PLATTERPUS_VERSION`, one import away, stayed at `6` and `"0.6.3"`
+  (untouched since v0.6.4b4). So v0.6.4 and v0.6.5 both wrote *"handshake round 6
+  approved, verified by both projects, for Platterpus 0.6.3"* into every rip report, log
+  and EAC-compatible export — about a pin that round **7** approved. Round 6 approved
+  `2f950c8`, a different commit entirely.
+
+  **Why nothing caught it:** both tests touching those values asserted
+  `str(APPROVED_BY_ROUND) in approval.detail` — that the number printed is the number
+  held. That passes for every possible value, including a wrong one. *A list checked
+  against itself is consistent, not verified.* The constant one line away in
+  `fork_source` had a real check against the record, and it was that check which moved
+  the pin correctly. `test_the_approval_round_and_app_version_match_the_record` now
+  derives both values from the newest **closed** round's own verification file, so the
+  round, the app version and the pin move together or the suite fails.
+- **`docs/dependency-contracts.md` said `-x` does not exist in cyanrip.** True when
+  measured (2026-07-21, against 0.9.3.1 and upstream master) and false two weeks later:
+  the fork added `-x` / `--cache-probe` in round 7 lap 1, at our own round-5 request. The
+  correction is a block quote rather than an edit in place because confusing it with `-O`
+  is a **hardware hazard**, not a documentation nit — `-O` is overread, and overread is
+  the flag confirmed to hang the Pioneer BDR-209D for ~23 minutes. `CLAUDE.md`'s *state
+  the range a contract claim covers, not the snapshot*, caught in our own document.
+
+### Added
+- **The test-script language can now drive a rip.** Eleven verbs that were listed in the
+  vocabulary as *NOT YET IMPLEMENTED* are implemented: `rescan`, `album`, `album-artist`,
+  `select-tracks`, `rip`, `wait-for-rip`, `cancel-rip`, `expect-tracks`, `set`, `expect`,
+  `expect-contains`. Until now the surface could open dialogs and probe the ripper but
+  could not start a rip — so the one thing a rig session exists to do still needed a
+  person. Every verb reaches the **same slot a click reaches** rather than building its
+  own version of the action, for the same reason the `cyanrip` verb is a real passthrough:
+  a harness that is simpler than the product makes the product's gap invisible.
+  - `set`/`expect` are keyed on the **`config.toml` field name**, not the dialog's row
+    label — a row label is display text, and a script keyed on it breaks for reasons
+    unrelated to the setting. Every `set` is checked by the same pure validator the
+    Settings dialog uses, so a script can never persist a value the dialog would refuse.
+  - `select-tracks all|none|1,3,5-7` is the per-track half (cyanrip's `-l`), with ranges,
+    because a re-rip of "the tracks that failed last time" is the real use and spelling
+    out 1-14 by hand is where a transcription error enters.
+  - `wait-for-rip` is non-blocking — it arms the runner's deadline with a predicate, so a
+    50-minute rip proceeds with the event loop running. A `sleep` there would freeze the
+    window for the whole rip and break the thing being measured.
+- **`docs/script-language.md` — the generated language reference.** The dictionary, the
+  ruleset and the worked examples in one place: every verb with its arity and safety
+  class, every dialog, every numeric limit, every settable field, the passthrough rules,
+  eight rules for writing a script worth running, an annotated example, a recipe table,
+  how to add a verb, and what each outcome means. **Both audiences in one file** — prose
+  for a person and the same facts as JSON for a machine, emitted from one pass so they
+  cannot disagree. Generated from the vocabulary table, the runner's live constants and
+  `Config`'s own fields, and it carries the app version in both the footer stamp and a
+  machine-readable field, so it is *truthful for the build it ships with*. Staleness is a
+  test failure, not a review item.
+- **`docs/rig-scripts/` — runnable hardware-session scripts**, starting with
+  `police-rerip.txt` for the first rip on the round-7 release. Its shipped example is
+  parsed by the **real** parser in CI and asserted to keep its floor (`expect-tracks`
+  before `rip`), because the example teaches by being copied and a script without a floor
+  rips whatever happened to be loaded — including nothing — and reports success.
+- **Two audit checks the cyanrip fork asked for**, as rows in the existing `--audit-rips`
+  registry rather than a new script: `handshake_note` cross-checks the ripper's **own**
+  compiled-in round statement against *our* verdict on the same binary (two independent
+  witnesses, and the released build is the first ever to emit the closed/GO shape — a
+  transition nothing had exercised); `checksum_inventory` **counts** the checksums and
+  states the denominator, after the fork's own comparison returned 4 where the real
+  inventory was 12 and passed truthfully about a third of the evidence.
+- **Help → Check for cyanrip updates**, and a `stable`/`beta` ripper channel in Settings.
+  Reads the fork's published `release-manifest.json` and reports whether a newer fork
+  build exists. **It never installs anything** — taking a ripper no closed round has
+  verified makes every subsequent rip report `unapproved`, so the offer states the cost
+  and a person decides. Ordering is by the fork's monotonic `release_seq`, never by the
+  version string (theirs is upstream's plus SemVer *build metadata*, which the spec says
+  must be ignored for precedence — a version comparison would see equality forever and
+  never offer an upgrade); the channel is read from the manifest, never sniffed from the
+  string (we spell a pre-release `b1`, they spell it `-beta.1`); and an unimplemented
+  `schema` is refused rather than guessed at. The `commit` field is an **argv chokepoint**,
+  not merely parsed data — it becomes a `git checkout` argument inside the container, so
+  anything that is not a bare lowercase hex sha is refused.
 
 ## [0.6.5] — 2026-08-07
 
@@ -4930,7 +5011,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.5.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.6.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7172,7 +7253,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
 [0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
@@ -7260,4 +7342,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.5.*
+*Last updated for Platterpus v0.6.6.*

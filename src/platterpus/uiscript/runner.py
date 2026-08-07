@@ -74,6 +74,109 @@ MAX_TOOL_OUTPUT_CHARS: int = 8000
 CYANRIP_VERB_GRACE_S: float = 20.0
 
 
+def _coerce_setting(current: object, raw: str) -> tuple[object, str]:
+    """Turn a script's string into the type the config field already holds.
+
+    Returns ``(value, "")`` or ``(None, reason)``. The *existing* value decides the
+    type rather than a table of field names, so a new setting needs no entry here —
+    the same reason the verb takes a config field name at all.
+
+    ``bool`` is checked before ``int`` because ``bool`` is an ``int`` subclass, and a
+    field holding ``False`` would otherwise be parsed as a number and set to ``0`` —
+    equal to ``False`` today and a different thing the moment anything compares
+    identity or writes it back to TOML.
+    """
+    text = raw.strip()
+    if isinstance(current, bool):
+        lowered = text.casefold()
+        if lowered in {"on", "true", "yes", "1"}:
+            return True, ""
+        if lowered in {"off", "false", "no", "0"}:
+            return False, ""
+        return None, f"{text!r} is not on/off (accepted: on, off, true, false, yes, no)"
+    if isinstance(current, int):
+        try:
+            return int(text), ""
+        except ValueError:
+            return None, f"{text!r} is not a whole number"
+    if isinstance(current, float):
+        try:
+            return float(text), ""
+        except ValueError:
+            return None, f"{text!r} is not a number"
+    if isinstance(current, str):
+        return text, ""
+    return None, f"settings of type {type(current).__name__} cannot be set by script"
+
+
+def _validation_error_for(candidate: object, field: str) -> str:
+    """The validator's own complaint about ``field``, or ``""`` if it has none.
+
+    Delegates to `settings_validation` rather than re-checking anything: a second
+    copy of a safety check is a second thing to drift, and this one already exists,
+    is pure, and is what the Settings dialog is held to.
+    """
+    try:
+        from platterpus.settings_validation import validate_config
+
+        issues = validate_config(candidate)  # type: ignore[arg-type]  # a Config
+    except Exception:  # noqa: BLE001 — a validator fault must not become a silent set
+        log.exception("settings validation raised while checking %s", field)
+        return "the settings validator could not evaluate this value"
+    for issue in issues:
+        if getattr(issue, "field", "") != field:
+            continue
+        # Only a hard error blocks. A warning is advice — the Settings dialog shows
+        # it and still lets a person proceed, so a script must not be stricter than
+        # the UI it is standing in for.
+        #
+        # `is_error` is a METHOD, not a property, and it has to be CALLED. Reading it
+        # as an attribute yields a bound method, which is always truthy — so every
+        # warning would have been reported as a rejection and the verb would refuse
+        # values the dialog accepts. Exactly the shape of the "check that can be
+        # satisfied by the wrong thing" this project keeps finding, and
+        # `test_uiscript_settings.py` pins it with a warning-level field.
+        if issue.is_error():
+            return str(getattr(issue, "message", "rejected"))
+    return ""
+
+
+def _parse_track_spec(spec: str) -> tuple[list[int], str]:
+    """``"1,3,5-7"`` → ``[1, 3, 5, 6, 7]``. Returns ``(numbers, "")`` or ``([], why)``.
+
+    Bounded deliberately: a range is capped so a typo like ``1-999999`` is refused
+    rather than materialised into a list that stalls the GUI thread building it.
+    """
+    numbers: set[int] = set()
+    for chunk in spec.replace(" ", "").split(","):
+        if not chunk:
+            continue
+        if "-" in chunk.lstrip("-"):
+            low_text, _, high_text = chunk.partition("-")
+            try:
+                low, high = int(low_text), int(high_text)
+            except ValueError:
+                return [], f"{chunk!r} is not a track range like 5-7"
+            if low > high:
+                return [], f"{chunk!r} counts backwards"
+            if high - low > _MAX_TRACK_RANGE:
+                return [], f"{chunk!r} spans more than {_MAX_TRACK_RANGE} tracks"
+            numbers.update(range(low, high + 1))
+            continue
+        try:
+            numbers.add(int(chunk))
+        except ValueError:
+            return [], f"{chunk!r} is not a track number"
+    if not numbers:
+        return [], f"{spec!r} named no tracks"
+    return sorted(numbers), ""
+
+
+#: Widest range a single `select-tracks` chunk may expand to. A CD holds 99 tracks;
+#: this is generous and still refuses a pasted typo.
+_MAX_TRACK_RANGE: int = 200
+
+
 @dataclass
 class _CyanripJob:
     """A `cyanrip` verb running on a helper thread, watched by the tick.
@@ -656,6 +759,335 @@ class ScriptRunner(QObject):
                 f"expected exit {wanted}, got {self._last_cyanrip_exit} from "
                 f"{' '.join(self._last_cyanrip_argv)}",
             )
+
+    # --- Verbs: the disc and the rip -----------------------------------------
+    #
+    # **These drive the REAL widgets, not a parallel path.** Every verb below
+    # reaches the same method a human's click reaches — `_on_drive_changed` for
+    # Rescan, `RipControls._on_start` for Start, `_on_rip_cancel` for Cancel — so a
+    # scripted run exercises the product rather than a simulation of it. That is the
+    # same reasoning the `cyanrip` verb is a real passthrough for: a test harness
+    # that is safer or simpler than the product makes the product's gap invisible
+    # (`CLAUDE.md`, *what does my stand-in do that the real thing does not?*).
+    #
+    # They are also the verbs that make an unattended hardware session possible at
+    # all. Until now the vocabulary could open dialogs and probe the ripper but could
+    # not start a rip, so the one thing a rig session exists to do needed a person.
+
+    def _do_rescan(self, step: Step) -> None:
+        """Re-run the whole disc pipeline (disc info → MusicBrainz) for the drive.
+
+        Goes through the window's own `_on_drive_changed`, which is exactly what the
+        Rescan button's `drive_changed` signal triggers — rather than poking the
+        probe directly, which would skip the wiring the button depends on.
+        """
+        picker = getattr(self._window, "_drive_picker", None)
+        device = picker.current_device() if picker is not None else None
+        if not device:
+            self._record(
+                step,
+                Outcome.FAIL,
+                "no drive is selected, so there is nothing to rescan",
+            )
+            return
+        handler = getattr(self._window, "_on_drive_changed", None)
+        if handler is None:
+            self._record(step, Outcome.ERROR, "the window has no _on_drive_changed()")
+            return
+        self._record(step, Outcome.PASS, f"rescanning {device}")
+        # Deferred like `open`: the scan spawns workers, and returning to the event
+        # loop first keeps the runner's own tick responsive.
+        QTimer.singleShot(0, lambda: handler(device))
+
+    def _do_album(self, step: Step) -> None:
+        """Set the album title.
+
+        The point for a repeat rip: the title decides the output folder, so giving
+        each pass its own title is what stops the second rip landing on top of the
+        first. A hardware session that overwrites its own evidence has destroyed the
+        thing it was run to produce.
+        """
+        self._set_album_field(step, "_album_title_edit", "album title")
+
+    def _do_album_artist(self, step: Step) -> None:
+        """Set the album artist (and propagate it to the per-track artist column)."""
+        self._set_album_field(step, "_album_artist_edit", "album artist")
+
+    def _set_album_field(self, step: Step, widget_name: str, label: str) -> None:
+        table = getattr(self._window, "_track_table", None)
+        edit = getattr(table, widget_name, None) if table is not None else None
+        if edit is None:
+            self._record(step, Outcome.ERROR, f"no {label} field on the window")
+            return
+        value = step.joined()
+        edit.setText(value)
+        # `editingFinished` is what propagates the artist down the track rows; a
+        # bare setText does not emit it, so a scripted edit would behave differently
+        # from a typed one. Emit it explicitly rather than leaving that difference.
+        try:
+            edit.editingFinished.emit()
+        except (AttributeError, RuntimeError):  # not a QLineEdit, or already gone
+            log.debug("could not emit editingFinished for %s", label, exc_info=True)
+        self._record(step, Outcome.PASS, f"{label} set to {value!r}")
+
+    def _do_expect_tracks(self, step: Step) -> None:
+        """Assert how many track rows are loaded.
+
+        The **floor** for everything after it: a script that rips without checking
+        this can rip a disc it never identified, and a zero-track "success" reads
+        the same as a real one in a transcript.
+        """
+        try:
+            wanted = int(step.args[0])
+        except ValueError:
+            self._record(step, Outcome.ERROR, f"{step.args[0]!r} is not a count")
+            return
+        table = getattr(self._window, "_track_table", None)
+        if table is None:
+            self._record(step, Outcome.ERROR, "no track table on the window")
+            return
+        actual = len(table.tracks())
+        if actual == wanted:
+            self._record(step, Outcome.PASS, f"{actual} track rows, as expected")
+        else:
+            self._record(
+                step, Outcome.FAIL, f"expected {wanted} track rows, found {actual}"
+            )
+
+    def _do_rip(self, step: Step) -> None:
+        """Press Start.
+
+        Routed through `RipControls._on_start`, which is the slot the button is
+        connected to: it builds the real `RipParameters` from the real UI state and
+        emits `rip_requested`. Constructing parameters here instead would be a second
+        description of what a rip *is*, and it would drift the first time a control
+        was added.
+
+        Refuses when the controls themselves say they cannot start, and says which —
+        an unstarted rip that reports PASS is the worst outcome available here.
+        """
+        controls = getattr(self._window, "_rip_controls", None)
+        if controls is None:
+            self._record(step, Outcome.ERROR, "no rip controls on the window")
+            return
+        if getattr(self._window, "_rip_worker", None) is not None:
+            self._record(step, Outcome.FAIL, "a rip is already running")
+            return
+        can_start = getattr(controls, "can_start", None)
+        if callable(can_start) and not can_start():
+            self._record(
+                step,
+                Outcome.FAIL,
+                "the Start button is not enabled — no disc identified, no drive "
+                "selected, or a rip/scan is already active",
+            )
+            return
+        start = getattr(controls, "_on_start", None)
+        if start is None:
+            self._record(step, Outcome.ERROR, "the rip controls have no _on_start()")
+            return
+        self._record(step, Outcome.PASS, "start requested")
+        QTimer.singleShot(0, start)
+
+    def _do_wait_for_rip(self, step: Step) -> None:
+        """Wait for the rip to finish, up to a timeout.
+
+        Non-blocking: it arms the runner's own deadline with a predicate, so the GUI
+        thread keeps running its event loop while a rip that takes 25 minutes
+        proceeds. A `time.sleep` here would freeze the window for the whole rip and
+        break the very thing being measured.
+
+        The predicate is "the window no longer holds a rip worker", which is what
+        `_on_rip_finished` clears — the same fact the UI uses to re-enable its
+        controls, rather than a second notion of doneness that could disagree.
+        """
+        try:
+            seconds = float(step.args[0])
+        except ValueError:
+            self._record(step, Outcome.ERROR, f"{step.args[0]!r} is not a number")
+            return
+        if seconds <= 0:
+            self._record(step, Outcome.ERROR, "a rip needs a positive timeout")
+            return
+        capped = min(seconds, MAX_RIP_WAIT_S)
+        if capped < seconds:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"asked to wait {seconds:.0f}s; the cap is {MAX_RIP_WAIT_S:.0f}s",
+            )
+            return
+        window = self._window
+        self._arm_deadline(
+            step, capped, lambda: getattr(window, "_rip_worker", None) is None
+        )
+
+    def _do_cancel_rip(self, step: Step) -> None:
+        """Cancel a rip in progress, through the window's own Cancel handler."""
+        if getattr(self._window, "_rip_worker", None) is None:
+            self._record(step, Outcome.FAIL, "no rip is running")
+            return
+        handler = getattr(self._window, "_on_rip_cancel", None)
+        if handler is None:
+            self._record(step, Outcome.ERROR, "the window has no _on_rip_cancel()")
+            return
+        self._record(step, Outcome.PASS, "cancel requested")
+        QTimer.singleShot(0, handler)
+
+    # --- Verbs: Settings, by config field name --------------------------------
+    #
+    # **Field names, not row labels**, and that is a deliberate change from the
+    # vocabulary's first draft. A row label is display text: it is translated,
+    # re-worded, and re-ordered, so a script keyed on it breaks for reasons that have
+    # nothing to do with the setting. The `Config` field name is the same string the
+    # TOML file uses, the validator names in its errors, and a bug report quotes —
+    # one identifier all the way down.
+    #
+    # **Every scripted set goes through the real validator.** `settings_validation`
+    # is the source of truth for what a field may hold (`CLAUDE.md`: validation lives
+    # in a pure, testable function, and the widget's own range is a convenience, not
+    # the check). A script bypassing it could persist a value the dialog would have
+    # refused, and the next launch would silently reset it — a config file that
+    # disagrees with the run that wrote it.
+
+    def _do_set(self, step: Step) -> None:
+        """``set <config-field> <value>`` — change a setting and persist it."""
+        field = step.args[0]
+        raw = " ".join(step.args[1:])
+        current = getattr(self._window, "_config", None)
+        if current is None:
+            self._record(step, Outcome.ERROR, "the window has no config")
+            return
+        if not hasattr(current, field):
+            self._record(
+                step,
+                Outcome.ERROR,
+                f"no setting called {field!r} — use the config.toml field name",
+            )
+            return
+
+        coerced, problem = _coerce_setting(getattr(current, field), raw)
+        if problem:
+            self._record(step, Outcome.ERROR, f"{field}: {problem}")
+            return
+
+        import dataclasses
+
+        candidate = dataclasses.replace(current, **{field: coerced})
+        rejection = _validation_error_for(candidate, field)
+        if rejection:
+            # Refused, and the validator's own sentence is what the transcript
+            # carries — a script must not be able to write a value the dialog
+            # would have rejected.
+            self._record(step, Outcome.FAIL, f"{field} rejected: {rejection}")
+            return
+
+        # `setattr` rather than a direct assignment, and NOT a `# type: ignore`.
+        # The runner's window is typed `QWidget` on purpose — it is the widest thing
+        # this module needs and it keeps `uiscript` from importing `MainWindow` (an
+        # import cycle, since the window constructs the runner). Every other window
+        # access here already goes through `getattr` with a None fallback for the
+        # same reason; the assignment was the one place that reached for a concrete
+        # attribute and it is what mypy flagged. Silencing the checker would have
+        # hidden a real inconsistency rather than resolved it.
+        setattr(self._window, "_config", candidate)  # noqa: B010 — see above
+        controls = getattr(self._window, "_rip_controls", None)
+        if controls is not None:
+            # The same push the Settings dialog does on Accept, so the next rip
+            # reflects the edit instead of the config the controls were built with.
+            controls.set_config(candidate)
+        saver = getattr(self._window, "_save_config", None)
+        saved = ""
+        if saver is not None:
+            try:
+                saver(candidate)
+            except OSError as exc:
+                saved = f" (in effect for this session; not saved to disk: {exc})"
+        self._record(step, Outcome.PASS, f"{field} = {coerced!r}{saved}")
+
+    def _do_expect(self, step: Step) -> None:
+        """``expect <config-field> <value>`` — assert a setting equals a value."""
+        self._compare_setting(step, contains=False)
+
+    def _do_expect_contains(self, step: Step) -> None:
+        """``expect-contains <config-field> <text>`` — assert a setting contains text."""
+        self._compare_setting(step, contains=True)
+
+    def _compare_setting(self, step: Step, *, contains: bool) -> None:
+        field = step.args[0]
+        wanted = " ".join(step.args[1:])
+        config = getattr(self._window, "_config", None)
+        if config is None or not hasattr(config, field):
+            self._record(step, Outcome.ERROR, f"no setting called {field!r}")
+            return
+        actual = getattr(config, field)
+        if contains:
+            if wanted in str(actual):
+                self._record(step, Outcome.PASS, f"{field} contains {wanted!r}")
+            else:
+                self._record(
+                    step, Outcome.FAIL, f"{field} is {actual!r}, which lacks {wanted!r}"
+                )
+            return
+        coerced, problem = _coerce_setting(actual, wanted)
+        if problem:
+            self._record(step, Outcome.ERROR, f"{field}: {problem}")
+            return
+        if actual == coerced:
+            self._record(step, Outcome.PASS, f"{field} is {actual!r}")
+        else:
+            self._record(
+                step, Outcome.FAIL, f"expected {field} == {coerced!r}, got {actual!r}"
+            )
+
+    def _do_select_tracks(self, step: Step) -> None:
+        """``select-tracks <all|none|1,3,5-7>`` — choose which tracks the rip covers.
+
+        The per-track half of the surface, and the one a person cannot do
+        reproducibly: this is what reaches cyanrip's ``-l``. Ranges are accepted
+        because a re-rip of "the tracks that failed last time" is the actual use, and
+        spelling out 1-14 by hand is where a transcription error enters.
+
+        Refuses a track number the disc does not have rather than silently ignoring
+        it — a selection that quietly drops a number rips a different disc than the
+        script says it does.
+        """
+        table = getattr(self._window, "_track_table", None)
+        if table is None:
+            self._record(step, Outcome.ERROR, "no track table on the window")
+            return
+        available = [t.number for t in table.tracks()]
+        if not available:
+            self._record(step, Outcome.FAIL, "no tracks are loaded to select from")
+            return
+
+        spec = step.args[0].strip().lower()
+        if spec == "all":
+            table.set_all_selected(True)
+            self._record(step, Outcome.PASS, f"all {len(available)} tracks selected")
+            return
+        if spec == "none":
+            table.set_all_selected(False)
+            self._record(step, Outcome.PASS, "no tracks selected")
+            return
+
+        wanted, problem = _parse_track_spec(spec)
+        if problem:
+            self._record(step, Outcome.ERROR, problem)
+            return
+        missing = sorted(set(wanted) - set(available))
+        if missing:
+            self._record(
+                step,
+                Outcome.FAIL,
+                f"the disc has no track(s) {missing} — it has "
+                f"{min(available)}-{max(available)}",
+            )
+            return
+        table.set_only_selected(wanted)
+        self._record(
+            step, Outcome.PASS, f"selected {len(wanted)} track(s): {sorted(wanted)}"
+        )
 
     def _ensure_artifact_dir(self) -> Path | None:
         if self._artifact_dir is not None:

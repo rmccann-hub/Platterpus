@@ -295,6 +295,12 @@ class MainWindow(
         # assignment here so there's one source of truth for the type.
         self._update_worker = None
         self._update_thread: QThread | None = None
+        # The RIPPER update check (Help → Check for cyanrip updates…). Its own
+        # slot rather than sharing the one above: the two checks answer different
+        # questions and a user can plausibly run both, so sharing would make the
+        # second silently no-op while the first was in flight.
+        self._ripper_update_worker = None
+        self._ripper_update_thread: QThread | None = None
         # In-flight update INSTALL (download+verify+swap); cancelled+joined
         # in closeEvent so a half-downloaded update can't outlive the window.
         self._install_worker = None  # type on MainWindowShared
@@ -731,6 +737,12 @@ class MainWindow(
         self._pending_library_move = None
         stop_thread(self._mb_thread, deadline=deadline)  # idle loop quits fast
         stop_thread(self._update_thread, deadline=deadline)  # short HTTP check
+        # One bounded HTTPS GET — but the WORKER is passed, not just the thread:
+        # its `cancel()` closes the socket, which is the only thing that can break a
+        # thread blocked in `read()`. Omitting it would make that cancel dead code.
+        stop_thread(
+            self._ripper_update_thread, self._ripper_update_worker, deadline=deadline
+        )
         # In-flight update download: cancel polls between 1 MiB chunks.
         stop_thread(self._install_thread, self._install_worker, deadline=deadline)
         # Both of these block in a CONTAINER EXEC (60 s / 120 s ceilings) that
@@ -844,6 +856,11 @@ class MainWindow(
         guide_action.triggered.connect(self._on_show_help)
         update_action = help_menu.addAction("Check for &updates…")
         update_action.triggered.connect(self._on_check_updates)
+        # A SEPARATE entry, not a line in the dialog above. Updating the app is
+        # routine; taking a newer ripper changes what every subsequent rip can
+        # claim about itself, so the two decisions are kept apart on purpose.
+        ripper_update_action = help_menu.addAction("Check for &cyanrip updates…")
+        ripper_update_action.triggered.connect(self._on_check_ripper_updates)
 
         # Actions that would conflict with an in-flight rip (change settings,
         # spin the drive, install/uninstall, swap the AppImage out from under a
@@ -859,6 +876,7 @@ class MainWindow(
             diagnose_action,
             uninstall_action,
             update_action,
+            ripper_update_action,
         ]
         logs_action = help_menu.addAction("Open &logs folder…")
         logs_action.triggered.connect(self._on_open_logs_folder)

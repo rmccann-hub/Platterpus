@@ -19,6 +19,7 @@ Order:
 from __future__ import annotations
 
 import argparse
+import datetime
 import logging
 import os
 import signal
@@ -393,8 +394,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--rig-session",
+        nargs="?",
+        const="",
         metavar="OUTPUT-DIR",
-        type=Path,
         default=None,
         help="run the unattended rig-session harness into OUTPUT-DIR and exit: "
         "app and ripper versions, --doctor, the ripper's own -x and -j (which a "
@@ -587,7 +589,17 @@ def main(argv: list[str] | None = None) -> int:
     # and the rig sheet told him to run `bash ~/path/to/Platterpus/scripts/…`.
     # A test nobody can start is not a test.
     if args.rig_session is not None:
-        return _run_rig_session(args.rig_session)
+        # OUTPUT-DIR is optional. Requiring it made the one command a person runs
+        # after a rip into a command they have to *compose*, and a directory they
+        # invent per session is one they can collide with a previous one. The
+        # default is timestamped, so re-running never overwrites the last session's
+        # evidence — the same reasoning as giving each rip pass its own album title.
+        chosen = str(args.rig_session or "")
+        if not chosen:
+            stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+            chosen = str(Path.home() / f"platterpus-rig-{stamp}")
+            print(f"no output directory given — using {chosen}")
+        return _run_rig_session(Path(chosen))
 
     # CTDB calibrate mode: a no-GUI, no-disc CTDB verify + CRC-trim sweep over an
     # already-ripped folder (KDD-16 hardware validation from the AppImage). Like

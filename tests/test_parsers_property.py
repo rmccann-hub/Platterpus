@@ -34,10 +34,14 @@ Hypothesis docs: https://hypothesis.readthedocs.io/
 
 from __future__ import annotations
 
+import json
+import re
+
 import pytest
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+from platterpus.deps.ripper_manifest import parse_manifest
 from platterpus.parsers.cd_info import DiscInfo, parse_cd_info
 from platterpus.parsers.cyanrip_info import parse_cyanrip_info
 from platterpus.parsers.cyanrip_log import looks_like_cyanrip_log, parse_cyanrip_log
@@ -324,3 +328,78 @@ def test_an_absurdly_long_number_never_raises(line: str) -> None:
         ]
     )
     parse_cyanrip_log(text)  # must not raise
+
+
+# --- The cyanrip fork's release manifest -------------------------------------
+#
+# Same contract as every other parser of external output: a best-effort answer or
+# None, never an exception. This one is worth the property test twice over, because
+# its `commit` field becomes an argument to `git checkout` inside the container — so
+# "it did not raise" is the weaker half of what is being asserted here, and "it never
+# emitted a commit we would not hand to a shell" is the stronger half.
+
+
+@given(st.text(max_size=4000))
+@settings(max_examples=300, suppress_health_check=[HealthCheck.too_slow])
+def test_manifest_parse_never_raises_on_arbitrary_text(text: str) -> None:
+    parse_manifest(text)  # must not raise
+
+
+@given(
+    st.recursive(
+        st.none()
+        | st.booleans()
+        | st.integers()
+        | st.floats(allow_nan=False, allow_infinity=False)
+        | st.text(max_size=80),
+        lambda children: (
+            st.lists(children, max_size=6)
+            | st.dictionaries(st.text(max_size=24), children, max_size=6)
+        ),
+        max_leaves=25,
+    )
+)
+@settings(max_examples=300, suppress_health_check=[HealthCheck.too_slow])
+def test_manifest_parse_never_raises_on_arbitrary_json(document: object) -> None:
+    """Well-formed JSON of an arbitrary *shape* — the case plain text never reaches.
+
+    Random text is almost never valid JSON, so it exercises the `json.loads` guard
+    and little else. Generating structures instead is what actually reaches the
+    field-by-field validation, which is where a wrong `isinstance` would live.
+    """
+    parse_manifest(json.dumps(document))
+
+
+@given(st.text(max_size=200))
+@settings(max_examples=300, suppress_health_check=[HealthCheck.too_slow])
+def test_a_parsed_commit_is_always_shell_safe(commit: str) -> None:
+    """**The property that matters, stated over all inputs rather than a fixture list.**
+
+    Whatever the manifest says, anything that survives into a `RipperRelease` must be
+    a bare lowercase hex sha of 7–40 characters. A table of hand-picked nasty strings
+    proves the ones someone thought of; this proves the shape.
+    """
+    document = {
+        "schema": 1,
+        "project": "cyanrip-fork",
+        "default_channel": "stable",
+        "channels": {
+            "stable": {
+                "version": "0.9.4-rc1+platterpus.5",
+                "commit": commit,
+                "release_seq": 11,
+                "handshake_round": 7,
+                "round_closed": True,
+                "install": "https://github.com/rmccann-hub/cyanrip/archive/x.tar.gz",
+            }
+        },
+    }
+    parsed = parse_manifest(json.dumps(document))
+    if parsed is None:
+        return
+    row = parsed.channel("stable")
+    if row is None:
+        return
+    assert re.fullmatch(r"[0-9a-f]{7,40}", row.commit), (
+        f"a commit that reaches the build step must be a bare hex sha, got {row.commit!r}"
+    )
