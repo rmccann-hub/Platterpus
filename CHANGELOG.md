@@ -12,6 +12,36 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 
+## [0.6.5] — 2026-08-07
+
+### Fixed
+- **The setup wizard built a cyanrip commit that fails 2 of its own 33 tests.** `v0.6.4`
+  shipped hours earlier pinned to `422d12a`; the fork withdrew it as the build to fetch and
+  we confirmed why in their repository rather than accepting it. That commit bumps the
+  version to `+platterpus.5` while its **in-tree golden reference and provider contract still
+  describe `beta.8`** — the reference banner reads
+  `cyanrip 0.9.4-rc1+platterpus.5-beta.8 (platterpus-fork-g92ceeed)` against a
+  `+platterpus.5` build. Two of their gates exist for exactly that and both fired.
+
+  **The binary was never the problem.** `422d12a` produces a correct program with the right
+  version and the right `Handshake: round 7 lap 38 closed, verdict GO`; no rip made with it is
+  suspect and nothing needs re-ripping. The failure is visible only to someone who *builds
+  from source and runs the suite* — which, because our wizard builds from source, is every one
+  of our users. That is why it is a release and not a footnote.
+
+  The pin is now `ddf7ac3`, the first commit whose version and derived artifacts agree.
+  `git diff 104f6d4 ddf7ac3 -- 'src/*.c' 'src/*.h'` is empty, so this is the same approved
+  code and `HANDSHAKE-PIN` does **not** move — it is still `104f6d4` on both sides. `422d12a`
+  joins the superseded list so a rig that already built it keeps receiving `--consumer`.
+
+  **The rule both projects took from it:** choose the released commit *after* the derived
+  artifacts agree, never at the version bump. Bump-then-regenerate guarantees one commit
+  exists whose own suite fails, and regenerating in the same commit does not fix it — a
+  generated artifact cannot contain the hash of the build that produced it. The remedy is
+  *when* the release is announced, not how it is built.
+
+
+
 ## [0.6.4] — 2026-08-07
 
 **Round 7 of the cyanrip handshake closed** — the first jointly-verified pair this project
@@ -4900,7 +4930,7 @@ honestly labelled as Platterpus's own — never forged to look like EAC.*
 ## [0.4.20] — 2026-07-07
 
 ### Documentation
-- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.4.*`
+- **Every Markdown doc now carries a `*Last updated for Platterpus v0.6.5.*`
   footer** — the release its content was last revised for, so a reader can judge
   currency at a glance. Seeded from git history; bump it when you change a doc
   (documentation-currency convention, see `docs/README.md`).
@@ -7142,7 +7172,8 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
   hardware-bootstrap path has had limited real-world runs.
 - Linux x86-64 only.
 
-[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b15...v0.6.4
 [0.6.4b15]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b14...v0.6.4b15
 [0.6.4b14]: https://github.com/rmccann-hub/Platterpus/compare/v0.6.4b13...v0.6.4b14
@@ -7229,4 +7260,4 @@ track's Test CRC matching its Copy CRC and "no errors occurred".
 
 ---
 
-*Last updated for Platterpus v0.6.4.*
+*Last updated for Platterpus v0.6.5.*
