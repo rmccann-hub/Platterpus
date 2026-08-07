@@ -12,6 +12,60 @@ entries move under a dated `## [X.Y.Z]` heading. (Design decisions live in
 ## [Unreleased]
 
 
+## [Unreleased]
+
+### Fixed
+- **The auto-fix addendum claimed a re-read "improved" the audio when it had confirmed it.**
+  One unconditional sentence — *"the improved read was swapped in"* — in an archival record.
+  On the J1 rip it was false: track 5 was re-ripped at `-Z 2`, converged after 5 reads, and
+  came back with CRC32 `6902BCF0` — the value the album log already held at line 396. Nothing
+  improved; the re-read **reproduced** the first pass, which is a better result and a
+  different claim. Found by the cyanrip fork, confirmed here against the artifact rather than
+  accepted on their word.
+
+  Each track now carries its own **tri-state** outcome, derived from the two CRCs:
+  `CONFIRMED`, `REPLACED` (naming the superseded CRC, so the claim is checkable), or
+  `NOT DETERMINED` when either value is missing — never rounded to a positive answer. The
+  text also says plainly that a confirmed read is a *good* outcome, because "not improved"
+  reads as a failure to anyone who does not already know.
+- **`HANDSHAKE-SOURCE-ANCHOR` was a copy of our own `seam-commands` hash.** Every lap that
+  declared it carried `sha256/16 = 7dc313815850eb60`, which is character-for-character the
+  first 16 hex of the `seam-commands` hash printed two lines below it in the same header. The
+  field's entire purpose is to pin **our** source by content; it pinned a file **neither
+  project owns**, so a `file:line` citation from any of our laps was checkable against
+  nothing.
+
+  Fixed at the mechanism, not the value: it is computed now
+  (`scripts/handshake.py::source_anchor`, hashing `path\0content\0` across the seven files
+  our half of the seam is made of, so a rename counts as a change), and a test refuses any
+  lap whose declared anchor equals **any** shared file's prefix — not just that one, which
+  would pass again the moment the shared file changed. The lesson is general: *a field whose
+  value is typed by hand next to a similar-looking value will eventually be the other one.*
+
+### Changed
+- **Adopted the cyanrip fork's convergence rules (S-13 … S-16 + pre-commit) into `CLAUDE.md`.**
+  Round 7 took 37 laps, 10 test pins and 8 pre-releases to produce 0 releases; rounds 5 and 6
+  took one lap each. None of round 7's findings made the reviewed pin unsafe, and every one
+  of them blocked it, because nothing ever asked whether it should. The rules fix the four
+  mechanisms: close conditions are fixed at lap 1 (S-13); a finding defaults to the next round
+  unless it names what it breaks in the artifact under review (S-14); an agreed test pin does
+  not move (S-15); questions carry `BLOCKING`/`NEXT-ROUND` and a questions section may be
+  empty (S-16); and a lap may pre-commit its next verdict. *Release-grade rigour was being
+  applied to the round rather than to the release.*
+- **The rig sheet no longer asks for a `-Z`-on-every-track rip.** It was going to cost ~80
+  minutes to test whether per-track paranoia counters sum to the disc totals under `-Z`. The
+  J1 rip already answered it: the album pass (no `-Z`, 14 tracks) sums exactly — READ
+  21972 = 21972, all four counters — and the refix pass (`-Z 2 -l 5`, **one** track, so no
+  summation ambiguity) does not: per-track READ **1538** against a disc total of **7738**,
+  a ratio of 5.03 against a track that converged after 5 reads. **The invariant does not hold
+  under `-Z`**, and a disc-level tally rendered as a count of distinct events over-reports by
+  roughly the re-read count.
+
+  Recorded as a correction in both directions: the fork asked us not to spend the session
+  because the test *"cannot fail"*. Same action, opposite reason — it already had, in the
+  artifact they were holding.
+
+
 ## [0.6.4b15] — 2026-08-06
 
 ### Added

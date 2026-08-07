@@ -71,6 +71,30 @@ ADDENDUM_MARKER: Final[str] = "[Platterpus auto-fix addendum]"
 
 _RULE: Final[str] = "=" * 72
 
+#: What a re-read did to a track's audio, as three mutually exclusive answers.
+#: Tri-state on purpose (`CLAUDE.md`): "we could not tell" is a real answer and
+#: must never be rendered as either of the other two.
+OUTCOME_CONFIRMED: Final[str] = "confirmed"
+OUTCOME_REPLACED: Final[str] = "replaced"
+OUTCOME_UNDETERMINED: Final[str] = "not determined"
+
+#: One sentence per outcome, for the per-track row. Kept beside the constants so
+#: a new outcome cannot be added without a sentence to render it with.
+_OUTCOME_SENTENCE: Final[dict[str, str]] = {
+    OUTCOME_CONFIRMED: (
+        "the re-read reproduced the first pass byte for byte (same CRC32) — the "
+        "original read is CONFIRMED, not improved"
+    ),
+    OUTCOME_REPLACED: (
+        "the re-read produced different audio and REPLACED the first pass, whose "
+        "CRC32 was {previous}"
+    ),
+    OUTCOME_UNDETERMINED: (
+        "whether the re-read changed the audio is NOT DETERMINED — one of the two "
+        "CRC32 values was unavailable"
+    ),
+}
+
 
 @dataclass(frozen=True)
 class SupersededTrack:
@@ -95,6 +119,32 @@ class SupersededTrack:
     #: reads". The archived first-pass block says "not attempted", which is true
     #: of the read it describes and false of the file on disk.
     secure_reread: str = ""
+    #: The FIRST pass's CRC32 for this track — what the ripper's own log records,
+    #: i.e. the read this addendum supersedes. Empty means "not determined".
+    #:
+    #: **Why it exists.** Without it the addendum could only assert that the
+    #: *"improved read was swapped in"*, unconditionally — and on the J1 rip that
+    #: was false: track 5's re-read produced CRC `6902BCF0`, the same value the
+    #: album log already recorded. Nothing improved; the read was **confirmed**,
+    #: which is a different and rather better fact. The fork caught it
+    #: (round 7). An archival record that says "improved" where it means
+    #: "reproduced" is an over-claim of exactly the kind this project treats as
+    #: serious, so the outcome is now derived per track from the two CRCs and is
+    #: **tri-state**: confirmed, replaced, or not determined.
+    previous_crc: str = ""
+
+    @property
+    def outcome(self) -> str:
+        """What the re-read actually did to this track's audio. Tri-state.
+
+        Never guesses: an absent CRC on either side is *not determined*, and must
+        never be reported as either of the two positive answers.
+        """
+        if not self.crc or not self.previous_crc:
+            return OUTCOME_UNDETERMINED
+        if self.crc.strip().upper() == self.previous_crc.strip().upper():
+            return OUTCOME_CONFIRMED
+        return OUTCOME_REPLACED
 
 
 def addendum_path_for(log_path: str | Path) -> Path:
@@ -135,11 +185,21 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         "`cyanrip --verify-log` still verifies it; that is why this is a separate",
         "file rather than text appended to it.",
         "",
-        f"The track(s) below {why} and were re-ripped to secure them; the improved",
-        "read was swapped in. Every value below describes the file ACTUALLY ON DISK",
-        "and supersedes the value recorded for that track in the log beside it —",
-        "including the AccurateRip results and the secure-re-read verdict, which",
-        "the log records for the read that was discarded.",
+        f"The track(s) below {why} and were re-ripped to secure them. Every value",
+        "below describes the file ACTUALLY ON DISK and supersedes the value recorded",
+        "for that track in the log beside it — including the AccurateRip results and",
+        "the secure-re-read verdict, which the log records for the read that was",
+        "superseded.",
+        "",
+        # NOT "the improved read was swapped in". That sentence was here,
+        # unconditional, and on the J1 rip it was FALSE: track 5's re-read came
+        # back with the same CRC32 the album log already held, so nothing was
+        # improved — the read was reproduced, which is a *better* result and a
+        # different claim. Each track now states its own outcome below.
+        "A re-read does not necessarily change the audio. Each track says which",
+        "happened: the first read CONFIRMED, REPLACED, or — when a CRC was",
+        "unavailable — NOT DETERMINED. A confirmed read is a good outcome: it means",
+        "the disc reproduced.",
         "",
     ]
     for entry in swapped:
@@ -148,6 +208,14 @@ def render_addendum(trigger: str, swapped: list[SupersededTrack]) -> str:
         # appended version used, because our parser matches on it and a real
         # rig log in output_reference/ still carries it inline.
         lines.append(f"  Track {entry.number} ({shown}): CRC {entry.crc or 'n/a'}")
+        lines.append(
+            _row(
+                "Re-read outcome:",
+                _OUTCOME_SENTENCE[entry.outcome].format(
+                    previous=entry.previous_crc or "n/a"
+                ),
+            )
+        )
         lines.append(_row("AccurateRip v1:", entry.accuraterip_v1))
         lines.append(_row("AccurateRip v2:", entry.accuraterip_v2))
         lines.append(_row("AccurateRip +450:", entry.accuraterip_offset))

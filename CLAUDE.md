@@ -100,6 +100,14 @@ The GUI runs on the host. It calls the host-exported ripper binary in `~/.local/
       - **Nothing crosses the seam unchecked in either direction, and neither half is evidence for the other.** The input half had a contract test and the output half did not; that asymmetry is what let the `-V` blocker sit in a committed file for a full round. Both halves are checked mechanically, every commit.
       - **The fork does the same, as a double check.** Two independent validators at one boundary are worth more than one careful one, because a value either side waves through still meets a guard. They validate what they receive from us and what they emit to us; we do the same. Neither side treats the other's checking as a reason to skip its own.
 
+    - **A round must be able to end. Round 7 took 37 laps, 10 test pins and 8 pre-releases to produce 0 releases; rounds 5 and 6 took one lap each.** Counted, not felt — the fork tabled it and we had the same numbers and had not looked. *Nothing in round 7 was bad work*: it found a memory disclosure into an archival record, four segfaults, a gate that graded a crash as a clean refusal, a subsystem with no way to open it. **The round failed anyway, because it had no closing condition that could not be extended** — the properties that make the work good are exactly the ones that keep it open. Four mechanisms, each with a rule, all adopted from the fork's round-7 convergence proposal and binding on both sides:
+      - **S-13 — a round's close conditions are fixed in its lap 1 and cannot grow.** A criterion discovered later belongs to the *next* round, unless it is a regression in the pin under review. (Round 7 opened with three acceptance criteria; the fourth arrived at lap 31 — correct, and it moved the finish line 30 laps in.)
+      - **S-14 — a finding defaults to the next round.** Promoting one to blocking requires naming **what it breaks in the artifact under review**. *"It is a real defect"* is an argument for fixing it, never on its own for holding a release. Not one of round 7's findings made the reviewed pin unsafe; every one of them blocked it anyway, because nothing ever asked the question.
+      - **S-15 — an agreed test pin does not move for the rest of the round**, unless it is found unsafe. Fixes queue for the next one. Ten pins meant the hardware evidence was always about a build nobody was reviewing any more.
+      - **S-16 — questions carry a target, `BLOCKING` or `NEXT-ROUND`**, and `BLOCKING` must satisfy S-14. **A questions section may be empty**; "no questions" is a complete section and is written out. A spec that *requires* questions makes inventing work mandatory, and a round cannot converge faster than it invents work.
+      - **Pre-commit, and it is the one that actually ends rounds.** A lap may declare *"our next lap is GO unless X"*, naming X, and it binds. Both sides did this in round 7 laps 36–37.
+      - **The failure in one sentence: release-grade rigour was being applied to the *round* rather than to the *release*.** The rigour is right. Attaching it to a process that must terminate is what produced 37 laps and no release.
+
     - **This rule lives in both repos.** When it changes here, send the change to the fork in the same round so their `CLAUDE.md` (or equivalent) matches. Two projects with different copies of the protocol is the failure this rule exists to prevent.
 
 ## How to stop shipping the next one (read before calling a fix done)
@@ -296,4 +304,4 @@ Chronological session notes — what was built, decided, and learned each sessio
 
 ---
 
-*Last updated for Platterpus v0.6.4b13.*
+*Last updated for Platterpus v0.6.4b15.*
