@@ -756,6 +756,7 @@ def test_every_documented_setting_has_a_tooltip(qapp: QApplication) -> None:
         "library_dir": "_library_dir_edit",
         "debug_logging": "_debug_logging_check",
         "update_channel": "_beta_channel_check",
+        "ripper_channel": "_ripper_beta_check",
         "cover_art": "_cover_art_combo",
         "save_additional_art": "_additional_art_check",
         "max_retries": "_max_retries_spin",

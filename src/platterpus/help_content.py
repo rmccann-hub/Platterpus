@@ -293,6 +293,35 @@ during testing, not a fault). You can return to a stable release at any
 time by downloading it from the releases page. Leave the box off unless you
 are testing.
 
+## Ripper updates (Help → Check for cyanrip updates)
+
+Separate from the app's own update check, because it is a different
+decision. Platterpus rips with a **pinned build** of the Platterpus fork of
+cyanrip, and which build that is matters: every rip checks the ripper it
+actually ran against the build the cyanrip handshake approved, and says so
+in the rip report, the log and the EAC-compatible export.
+
+This check asks the fork which builds it has published and tells you
+whether a newer one exists. **It never installs anything**, and that is
+deliberate rather than unfinished. Taking a newer ripper before a handshake
+round has verified it means every rip you make afterwards reports its
+ripper as *unapproved* — the audio is unaffected and still bit-perfect if
+its own checks pass, but the record can no longer say the ripper was
+jointly verified. That is your call to make, not the app's, so the offer
+spells out the consequence and stops there. If you want the build it names,
+it gives you the exact command to install it.
+
+**cyanrip update channel** — Settings has a **stable** / **beta** choice,
+stable by default. Stable builds come from a closed handshake round; beta
+builds are published by the fork for testing and are expected to change
+again. Ordering is by the fork's own release counter rather than by version
+number, because the fork's version string deliberately tracks upstream's
+and cannot be compared.
+
+If you are running a mid-round test build rather than a release, the check
+says so and reports "not determined" instead of guessing — an unnumbered
+build cannot be ordered against numbered ones.
+
 ## Uninstalling (Tools → Uninstall Platterpus)
 
 Removes everything the app installed: shortcuts, the cyanrip/metaflac/flac

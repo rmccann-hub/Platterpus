@@ -121,57 +121,68 @@ _VERB_LIST: tuple[Verb, ...] = (
         "expect-dialog <title-or-none> — assert which dialog is on screen",
     ),
     # --- Settings ------------------------------------------------------------
+    # Keyed on the **config.toml field name**, not the dialog's row label. A row
+    # label is display text — translated, re-worded, re-ordered — so a script keyed
+    # on it breaks for reasons unrelated to the setting. The field name is the same
+    # identifier the TOML file, the validator's error messages and a bug report all
+    # use. Every `set` is checked by the real validator before it is applied, so a
+    # script can never persist a value the Settings dialog would have refused.
     Verb(
         "set",
         2,
         None,
-        "set <field> <value> — set a Settings field by its row label",
-        implemented=False,
+        "set <config-field> <value> — change a setting (validated, then saved); "
+        "booleans take on/off",
     ),
     Verb(
         "expect",
         2,
         None,
-        "expect <field> <value> — assert a Settings field equals a value",
-        implemented=False,
+        "expect <config-field> <value> — assert a setting equals a value",
     ),
     Verb(
         "expect-contains",
         2,
         None,
-        "expect-contains <field> <text> — assert a field's value contains text",
-        implemented=False,
+        "expect-contains <config-field> <text> — assert a setting contains text",
     ),
     # --- Disc and rip --------------------------------------------------------
-    Verb("rescan", 0, 0, "rescan — re-read the disc in the drive", implemented=False),
+    Verb("rescan", 0, 0, "rescan — re-read the disc in the drive"),
     Verb(
         "album",
         1,
         None,
         "album <title> — set the album title, so repeat rips land in separate folders",
-        implemented=False,
     ),
     Verb(
         "album-artist",
         1,
         None,
         "album-artist <name> — set the album artist for this rip",
-        implemented=False,
     ),
     Verb(
-        "rip", 0, 0, "rip — start the rip (needs an identified disc)", implemented=False
+        "select-tracks",
+        1,
+        1,
+        "select-tracks <all|none|1,3,5-7> — choose which tracks the rip covers "
+        "(this is cyanrip's -l)",
     ),
+    Verb("rip", 0, 0, "rip — start the rip (needs an identified disc)"),
     Verb(
         "wait-for-rip",
         1,
         1,
         "wait-for-rip <seconds> — wait for the rip to finish, up to a timeout",
-        implemented=False,
     ),
+    Verb("cancel-rip", 0, 0, "cancel-rip — cancel a rip in progress"),
     Verb(
-        "cancel-rip", 0, 0, "cancel-rip — cancel a rip in progress", implemented=False
-    ),
-    Verb(
+        # Deliberately still unimplemented, and the reference says so rather than
+        # quietly omitting it. There is no single "status line" widget to assert
+        # against — progress lives in the rip-progress pane and identification in
+        # the disc panel — so a `expect-status` would have to pick one surface and
+        # silently mean only that. `expect-dialog` and `expect-tracks` cover the
+        # cases it was drafted for; this row stays as a marker that the gap is
+        # known, not forgotten.
         "expect-status",
         1,
         None,
@@ -183,7 +194,6 @@ _VERB_LIST: tuple[Verb, ...] = (
         1,
         1,
         "expect-tracks <count> — assert how many track rows are loaded",
-        implemented=False,
     ),
     # --- cyanrip, passed through for real ------------------------------------
     Verb(

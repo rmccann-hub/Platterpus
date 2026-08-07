@@ -11,6 +11,74 @@ Chronological record of what each Claude Code session built, decided, and learne
 
 ---
 
+## 2026-08-07 (later) — the script surface learns to rip; two stale records found
+
+**Shipped v0.6.5** (the `ddf7ac3` wizard correction) and merged PR #136 before
+starting, so the urgent half was out while the rest was built.
+
+**Two stale records, both found by asking "is this true, or was it true?"**
+
+1. **`handshake_approval.APPROVED_BY_ROUND` was `6` while round 7 approved the
+   pin.** Every rip since v0.6.4 stamped *"handshake round 6 approved … for
+   Platterpus 0.6.3"* into its report, log and EAC export, about a commit round 6
+   never saw. The instructive part is why it survived: both tests touching those
+   constants asserted `str(APPROVED_BY_ROUND) in approval.detail` — that the
+   number printed is the number held, which is true for every possible value. The
+   constant one import away in `fork_source` had a real check against
+   `docs/handshake/`, and that check moved the pin correctly. **Graduated:**
+   already covered by `CLAUDE.md`'s *a list checked against itself is consistent,
+   not verified*; the new gate derives both values from the newest closed round's
+   own verification file, so round, app version and pin move together.
+2. **`docs/dependency-contracts.md` said `-x` does not exist in cyanrip.** True
+   when measured (2026-07-21, 0.9.3.1 + upstream master), false two weeks later
+   when the fork added `-x`/`--cache-probe` at our own round-5 request. Left
+   uncorrected it is a **hardware hazard**, because the flag a reader would reach
+   for instead is `-O` — overread — which hung the BDR-209D for ~23 minutes.
+   **Graduated:** an instance of `CLAUDE.md`'s *state the range a contract claim
+   covers, not the snapshot*, now found in our own document rather than theirs.
+
+**The script surface can now drive a rip.** Eleven verbs listed as *NOT YET
+IMPLEMENTED* became real (`rescan`, `album`, `album-artist`, `select-tracks`,
+`rip`, `wait-for-rip`, `cancel-rip`, `expect-tracks`, `set`, `expect`,
+`expect-contains`). Before this the vocabulary could open dialogs and probe the
+ripper but not start a rip — so the one thing a rig session exists to do still
+needed a person. Each handler reaches the same slot a click reaches.
+
+Two decisions worth keeping:
+
+- **`set`/`expect` key on the `config.toml` field name, not the dialog row
+  label.** A row label is display text; a script keyed on it breaks for reasons
+  that have nothing to do with the setting. And every scripted `set` runs through
+  the *real* validator, so a script cannot persist what the dialog would refuse.
+- **A bug in my own guard, worth recording because it is the house failure mode
+  arriving from a new direction:** `_validation_error_for` read
+  `getattr(issue, "is_error", True)`. `is_error` is a **method**, so that yields a
+  bound method — always truthy — and every *warning* would have been reported as a
+  rejection. Found by writing the test that looks for a real warning-severity
+  issue from the live validator rather than a constructed one.
+
+**`docs/script-language.md` is generated, and version-stamped.** The maintainer's
+requirement was that it be *"everything — a dictionary, a ruleset"*, the place a
+new person or an LLM learns to build a test, and **truthful for whatever version
+it is packaged with**. A hand-written page cannot promise the last part, so it is
+emitted from the vocabulary table, the runner's live constants and `Config`'s own
+fields, carrying the app version in both the footer stamp and a machine-readable
+field. Prose and JSON in one file, from one pass, so the two audiences cannot be
+given different answers. `tests/test_script_language_emitted.py` regenerates and
+diffs, and asserts the shipped example still parses with the **real** parser and
+still keeps its floor (`expect-tracks` before `rip`) — the example teaches by
+being copied.
+
+**Ripper update checking, deliberately as notice-and-offer.** The fork published
+a `release-manifest.json`, which is what made the maintainer's "look for the most
+recent version automatically, with a release/beta choice" buildable. Ordering is
+by their monotonic `release_seq` and never by the version string — theirs is
+upstream's plus SemVer *build metadata*, which the spec says must be ignored for
+precedence, so a version comparison sees equality forever. Nothing installs:
+taking a build no closed round has verified makes every subsequent rip report
+`unapproved`, and an updater doing that silently would convert a library of
+jointly-verified records into unverified ones.
+
 - **Round 7 closed after 38 laps, and the mechanism that closed it was a pre-commitment (2026-08-07).** Bilateral GO. The fork's lap 38 honoured *"our lap 38 is a GO unless your lap 37 shows a regression in `104f6d4` itself"*; our lap 37 had made the reciprocal commitment. Lap 37 **did** find something real — the paranoia invariant fails under `-Z` — and it was not a regression in the pin, so under S-14 it went to round 8 and the round closed. Without the pre-commitment it would have been lap 39 of a HOLD.
 
   Counted, because the fork counted it and we had the same numbers and had not looked: **38 laps, 10 test pins, 8 pre-releases, 0 releases**, against 1/1/0 for each of rounds 5 and 6. Nothing in round 7 was bad work — it found a memory disclosure into an archival record, four segfaults, a gate that graded a crash as a clean refusal, and a subsystem with no way to open it. **The round failed anyway because it had no closing condition that could not be extended.** S-13…S-17 and pre-commit now live in `CLAUDE.md`; S-17 (*a round names its artifact before it opens*) was ours and they adopted it as better than their own S-13.
